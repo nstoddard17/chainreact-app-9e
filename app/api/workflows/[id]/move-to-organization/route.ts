@@ -17,7 +17,7 @@ export async function PUT(
     }
 
     const supabase = createSupabaseRouteHandlerClient()
-    
+
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -37,8 +37,8 @@ export async function PUT(
     }
 
     // Check if workflow is already in an organization
-    if (workflow.organization_id) {
-      return errorResponse("Workflow is already associated with an organization" , 400)
+    if (workflow.workspace_type === 'organization' && workflow.workspace_id === organizationId) {
+      return errorResponse("Workflow is already associated with this organization" , 400)
     }
 
     // Verify user is a member of the target organization with appropriate permissions
@@ -62,7 +62,8 @@ export async function PUT(
     const { data: existingWorkflow, error: checkError } = await supabase
       .from("workflows")
       .select("id")
-      .eq("organization_id", organizationId)
+      .eq("workspace_type", "organization")
+      .eq("workspace_id", organizationId)
       .eq("name", workflow.name)
       .single()
 
@@ -81,7 +82,8 @@ export async function PUT(
     const { data: updatedWorkflow, error: updateError } = await supabase
       .from("workflows")
       .update({
-        organization_id: organizationId,
+        workspace_type: 'organization',
+        workspace_id: organizationId,
         billing_scope_type: 'organization',
         billing_scope_id: organizationId,
       })
@@ -100,4 +102,4 @@ export async function PUT(
     logger.error("Error in move-to-organization:", error)
     return errorResponse("Internal server error" , 500)
   }
-} 
+}
