@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { usePathname } from "next/navigation"
 import { AuthReadyGuard } from "@/components/common/AuthReadyGuard"
 import { GlobalKeyboardShortcuts } from "@/components/common/GlobalKeyboardShortcuts"
 import { UnifiedSidebar } from "./UnifiedSidebar"
@@ -25,10 +26,24 @@ export function AppShell({
   noPadding = false,
 }: AppShellProps) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const pathname = usePathname()
 
   const handleOpenCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true)
   }, [])
+
+  // Workflow builder has its own chrome — render fullscreen without sidebar/topbar
+  const isFullscreenPage = pathname?.startsWith("/workflows/builder")
+
+  if (isFullscreenPage) {
+    return (
+      <AuthReadyGuard loadingMessage={loadingMessage}>
+        <div className="h-screen w-screen overflow-hidden bg-white dark:bg-gray-950">
+          {children}
+        </div>
+      </AuthReadyGuard>
+    )
+  }
 
   return (
     <AuthReadyGuard loadingMessage={loadingMessage}>
