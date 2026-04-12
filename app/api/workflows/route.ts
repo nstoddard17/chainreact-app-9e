@@ -400,9 +400,8 @@ export async function POST(request: Request) {
     }
 
     logger.info('[API /api/workflows] Workflow created', {
-      id: workflow?.id,
+      id: workflow.id,
       workspace_type,
-      workflowKeys: workflow ? Object.keys(workflow) : 'null',
     })
 
     return successResponse({ workflow })
