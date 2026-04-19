@@ -132,7 +132,7 @@ export class WorkflowService {
     }
 
     const data = await response.json()
-    const workflow = data.data?.workflow
+    const workflow = data.workflow ?? data.data?.workflow
 
     if (!workflow) {
       throw new Error('No workflow returned from API')

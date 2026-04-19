@@ -8,7 +8,6 @@ const ALLOWED_WORKFLOW_KEYS = new Set([
   'name',
   'description',
   'user_id',
-  'organization_id',
   'folder_id',
   'nodes',
   'connections',
