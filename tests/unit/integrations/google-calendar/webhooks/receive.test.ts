@@ -9,7 +9,7 @@ jest.mock("@/repositories/triggerResources", () => ({
   listByConfigContains: (...args: unknown[]) => mockListByConfigContains(...args),
 }));
 
-jest.mock("@/integrations/google-calendar/utils/channelToken", () => ({
+jest.mock("@/integrations/_shared/google/channelToken", () => ({
   verifyChannelToken: (...args: unknown[]) => mockVerifyChannelToken(...args),
 }));
 

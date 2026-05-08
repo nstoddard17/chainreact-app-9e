@@ -22,7 +22,7 @@ jest.mock("@/integrations/google-calendar/api/channelsStop", () => ({
   channelsStop: (...args: unknown[]) => mockChannelsStop(...args),
 }));
 
-jest.mock("@/integrations/google-calendar/utils/channelToken", () => ({
+jest.mock("@/integrations/_shared/google/channelToken", () => ({
   buildChannelToken: (...args: unknown[]) => mockBuildChannelToken(...args),
 }));
 

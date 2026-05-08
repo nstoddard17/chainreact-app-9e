@@ -4,7 +4,7 @@
 import {
   buildChannelToken,
   verifyChannelToken,
-} from "@/integrations/google-calendar/utils/channelToken";
+} from "@/integrations/_shared/google/channelToken";
 
 beforeEach(() => {
   process.env.WATCH_CHANNEL_SECRET = "test-watch-channel-secret-32bytes";

@@ -1,23 +1,32 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
- * Channel token sign + verify.
+ * Channel token sign + verify — shared across every Google watch provider.
  *
- * Replaces V1's "store JSON metadata in the token field" approach. V2's
- * channel token is an HMAC-SHA256 of the channelId, keyed on
- * `WATCH_CHANNEL_SECRET`. The receive route verifies the HMAC against
- * the channelId from the inbound `X-Goog-Channel-Id` header — any
- * tampering (different channelId, forged token) fails the constant-time
- * compare and the route returns 401.
+ * Replaces V1's "store JSON metadata in the watch token field" approach.
+ * V2's channel token is an HMAC-SHA256 of the channelId, keyed on
+ * `WATCH_CHANNEL_SECRET`. The receive route verifies the HMAC against the
+ * channelId from the inbound `X-Goog-Channel-Id` header — any tampering
+ * (different channelId, forged token) fails the constant-time compare and
+ * the route returns 401.
  *
  * Why HMAC over the channelId alone: an attacker who learns a real
  * channelId (it's not secret — Google echoes it back to the receive
  * endpoint) can forge a notification only if they ALSO know the secret.
  * The secret never leaves V2.
  *
- * Channel metadata (workflowId, nodeId, calendarId, syncToken) is
- * recovered from the trigger_resources row keyed by channelId — the
+ * Channel metadata (workflowId, nodeId, calendarId/fileId, syncToken/pageToken)
+ * is recovered from the trigger_resources row keyed by channelId — the
  * token doesn't need to carry it.
+ *
+ * Used by every Google provider that registers a push trigger:
+ *   - Calendar (`integrations/google-calendar/triggers/eventChanged/`)
+ *   - Drive (`integrations/google-drive/triggers/fileChanged/`)
+ *   - Future: Docs/Sheets if/when they ride the Drive watch infrastructure.
+ *
+ * Lives in `integrations/_shared/google/` because it's pure, env-only, and
+ * has no provider-specific state. The shared OAuth helper at
+ * `integrations/_shared/google/oauth.ts` set the precedent.
  */
 
 function getSecret(): string {

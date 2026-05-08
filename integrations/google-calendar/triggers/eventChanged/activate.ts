@@ -3,7 +3,7 @@ import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActivationFn } from "@/services/triggers/activationRegistry";
 import { eventsList } from "../../api/eventsList";
 import { eventsWatch } from "../../api/eventsWatch";
-import { buildChannelToken } from "../../utils/channelToken";
+import { buildChannelToken } from "@/integrations/_shared/google/channelToken";
 
 /**
  * Google Calendar event_changed activation hook.

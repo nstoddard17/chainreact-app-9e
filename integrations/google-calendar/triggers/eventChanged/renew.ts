@@ -6,7 +6,7 @@ import type { SubscriptionHandler } from "@/services/triggers/subscriptionRegist
 import { channelsStop } from "../../api/channelsStop";
 import { NotFoundError } from "../../api/errors";
 import { eventsWatch } from "../../api/eventsWatch";
-import { buildChannelToken } from "../../utils/channelToken";
+import { buildChannelToken } from "@/integrations/_shared/google/channelToken";
 
 /**
  * Google Calendar event_changed renewal handler.

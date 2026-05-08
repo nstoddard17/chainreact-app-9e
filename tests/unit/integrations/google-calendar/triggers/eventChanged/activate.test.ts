@@ -20,7 +20,7 @@ jest.mock("@/integrations/google-calendar/api/eventsWatch", () => ({
   eventsWatch: (...args: unknown[]) => mockEventsWatch(...args),
 }));
 
-jest.mock("@/integrations/google-calendar/utils/channelToken", () => ({
+jest.mock("@/integrations/_shared/google/channelToken", () => ({
   buildChannelToken: (...args: unknown[]) => mockBuildChannelToken(...args),
 }));
 

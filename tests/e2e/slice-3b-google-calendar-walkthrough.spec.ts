@@ -1,6 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { buildChannelToken } from "@/integrations/google-calendar/utils/channelToken";
+import { buildChannelToken } from "@/integrations/_shared/google/channelToken";
 import {
   createTestUser,
   deleteTestUser,

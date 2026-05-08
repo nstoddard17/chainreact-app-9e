@@ -2,7 +2,7 @@ import type { TriggerEvent } from "@/contracts/triggerEvent";
 import { InvalidSignatureError } from "@/core/triggers/errors";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { pull } from "../triggers/eventChanged/pull";
-import { verifyChannelToken } from "../utils/channelToken";
+import { verifyChannelToken } from "@/integrations/_shared/google/channelToken";
 
 /**
  * Verify and parse an inbound Google Calendar push notification.
