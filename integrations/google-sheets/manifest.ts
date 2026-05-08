@@ -61,9 +61,13 @@ export const googleSheetsManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // Flips true in Commit 4 once the watch-based row_changed trigger is
-      // registered via integrations/google-sheets/triggers/rowChanged/.
-      webhookTrigger: false,
+      // True: the watch-based row_changed trigger is registered via
+      // integrations/google-sheets/triggers/rowChanged/index.ts (it
+      // wires activation, deactivation, and subscription-renewal hooks).
+      // The trigger uses Drive's files.watch transport because Sheets
+      // has no native push notifications — see
+      // docs/slices/slice-5-google-sheets.md for the design rationale.
+      webhookTrigger: true,
       pollingTrigger: false,
       // True: 5 action handlers (read_rows, append_row, update_row,
       // clear_range, get_sheet_metadata) are registered in

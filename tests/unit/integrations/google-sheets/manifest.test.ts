@@ -33,21 +33,20 @@ describe("google-sheets manifest", () => {
     expect(googleSheetsManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 5 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 5 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Commit 2 landed manifest + OAuth + dispatcher registration. Commit 3
-    // (this) lands the 5 action handlers and flips `actions: true`. The
-    // watch-based trigger (Commit 4) will flip `webhookTrigger: true`.
-    // Honest-state convention — capability != true unless the corresponding
-    // handler/trigger is registered.
+    // landed actions + flipped `actions: true`. Commit 4 (this) lands the
+    // row_changed watch trigger + flips `webhookTrigger: true`. Slice 5
+    // Batch 1 is now feature-complete by manifest.
     expect(googleSheetsManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("google-sheets", "oauth")).toBe(true);
     expect(providerSupports("google-sheets", "actions")).toBe(true);
-    expect(providerSupports("google-sheets", "webhookTrigger")).toBe(false);
+    expect(providerSupports("google-sheets", "webhookTrigger")).toBe(true);
     expect(providerSupports("google-sheets", "pollingTrigger")).toBe(false);
   });
 

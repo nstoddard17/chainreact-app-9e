@@ -15,6 +15,7 @@ import { slackManifest } from "./slack/manifest";
 import "./gmail/triggers/newEmail";
 import "./google-calendar/triggers/eventChanged";
 import "./google-drive/triggers/fileChanged";
+import "./google-sheets/triggers/rowChanged";
 
 /**
  * Aggregated provider registry.
