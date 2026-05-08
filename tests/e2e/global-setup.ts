@@ -9,6 +9,10 @@ import {
   startMockGoogleServer,
   type MockGoogleHandle,
 } from "./helpers/mockGoogleServer";
+import {
+  startMockMicrosoftServer,
+  type MockMicrosoftHandle,
+} from "./helpers/mockMicrosoftServer";
 
 /**
  * Playwright global setup.
@@ -31,11 +35,16 @@ import {
 
 let slackHandle: MockSlackHandle | null = null;
 let googleHandle: MockGoogleHandle | null = null;
+let microsoftHandle: MockMicrosoftHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
   __dirname,
   ".state/mock-google.json",
+);
+export const MICROSOFT_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-microsoft.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -44,6 +53,10 @@ export function getMockHandle(): MockSlackHandle | null {
 
 export function getGoogleMockHandle(): MockGoogleHandle | null {
   return googleHandle;
+}
+
+export function getMicrosoftMockHandle(): MockMicrosoftHandle | null {
+  return microsoftHandle;
 }
 
 /**
@@ -153,6 +166,27 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock Google listening at ${googleHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 6: mock Microsoft (Azure AD + Graph) for the Outlook mail
+  // walkthrough. Different port (9878) so Slack + Google + Microsoft
+  // can all run simultaneously under one global-setup.
+  const microsoftPort = Number(process.env.MICROSOFT_MOCK_PORT ?? "9878");
+  microsoftHandle = await startMockMicrosoftServer({
+    appBaseUrl,
+    port: microsoftPort,
+  });
+  await writeFile(
+    MICROSOFT_STATE_FILE,
+    JSON.stringify({
+      port: microsoftPort,
+      baseUrl: microsoftHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock Microsoft listening at ${microsoftHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -180,6 +214,19 @@ export async function readGoogleMockState(): Promise<{
   appBaseUrl: string;
 }> {
   const raw = await readFile(GOOGLE_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+  };
+}
+
+export async function readMicrosoftMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(MICROSOFT_STATE_FILE, "utf8");
   return JSON.parse(raw) as {
     port: number;
     baseUrl: string;

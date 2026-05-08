@@ -23,6 +23,16 @@ const GMAIL_MOCK_PORT = Number(process.env.GMAIL_MOCK_PORT ?? "9877");
 const GOOGLE_MOCK_BASE = `http://127.0.0.1:${GMAIL_MOCK_PORT}`;
 
 /**
+ * Microsoft mock server runs on this port (started by global-setup.ts). The
+ * dev server inherits MICROSOFT_AUTHORIZE_BASE / MICROSOFT_TOKEN_BASE /
+ * MICROSOFT_GRAPH_API_BASE pointing here for the Slice 6 Outlook
+ * walkthrough — OAuth callback token exchange + Graph /me + sendMail +
+ * getMessage + subscriptions create/renew/delete.
+ */
+const MICROSOFT_MOCK_PORT = Number(process.env.MICROSOFT_MOCK_PORT ?? "9878");
+const MICROSOFT_MOCK_BASE = `http://127.0.0.1:${MICROSOFT_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -93,6 +103,23 @@ export default defineConfig({
       // for its watch transport — those calls are already mocked under
       // the Drive routes (no extra env var needed).
       GOOGLE_SHEETS_API_BASE: GOOGLE_MOCK_BASE,
+      // Slice 6: route Microsoft Outlook OAuth + Graph calls through the
+      // mock. integrations/microsoft-outlook/oauth.ts honors AUTHORIZE
+      // and TOKEN bases; api/_base.ts honors GRAPH_API_BASE. The mock
+      // owns /common/oauth2/v2.0/{authorize,token}, /v1.0/me,
+      // /v1.0/me/sendMail, /v1.0/me/messages/{id}, and
+      // /v1.0/subscriptions{,/id}.
+      MICROSOFT_AUTHORIZE_BASE: MICROSOFT_MOCK_BASE,
+      MICROSOFT_TOKEN_BASE: MICROSOFT_MOCK_BASE,
+      MICROSOFT_GRAPH_API_BASE: MICROSOFT_MOCK_BASE,
+      // Slice 6: e2e Microsoft client id/secret. Production uses Azure
+      // AD app values; the e2e value is throwaway. The mock doesn't
+      // validate them, but oauth.ts's `getClientId()` / `getClientSecret()`
+      // throw when these env vars are unset — so we set them here.
+      MICROSOFT_CLIENT_ID:
+        process.env.MICROSOFT_CLIENT_ID ?? "e2e-microsoft-client-id",
+      MICROSOFT_CLIENT_SECRET:
+        process.env.MICROSOFT_CLIENT_SECRET ?? "e2e-microsoft-client-secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to
