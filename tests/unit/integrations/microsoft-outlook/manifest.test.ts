@@ -8,6 +8,7 @@
  */
 import { microsoftOutlookManifest } from "@/integrations/microsoft-outlook/manifest";
 import { getProvider, providerSupports } from "@/integrations/_registry";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("microsoft-outlook manifest", () => {
   it("is registered in the provider registry under id 'microsoft-outlook'", () => {
@@ -52,21 +53,31 @@ describe("microsoft-outlook manifest", () => {
     expect(microsoftOutlookManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 6 Commit 2 (oauth-only)", () => {
-    // Slice 6 Commit 2 lands manifest + OAuth + dispatcher. send_email
-    // (actions: true) lands in Commit 3; new_email subscription
-    // (webhookTrigger: true) lands in Commit 4. Honest-state convention
-    // means flags flip in lockstep with the registrations they describe.
+  it("declares honest capabilities for Slice 6 Commit 3 (oauth + actions)", () => {
+    // Slice 6 Commit 2 landed manifest + OAuth + dispatcher. Commit 3
+    // (this) lands send_email + flips actions: true. Commit 4 will land
+    // the new_email subscription trigger + flip webhookTrigger: true.
+    // Honest-state convention means flags flip in lockstep with the
+    // registrations they describe.
     expect(microsoftOutlookManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("microsoft-outlook", "oauth")).toBe(true);
-    expect(providerSupports("microsoft-outlook", "actions")).toBe(false);
+    expect(providerSupports("microsoft-outlook", "actions")).toBe(true);
     expect(providerSupports("microsoft-outlook", "webhookTrigger")).toBe(false);
     expect(providerSupports("microsoft-outlook", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains send_email", () => {
+    if (microsoftOutlookManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "microsoft-outlook",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual(["send_email"]);
+    }
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

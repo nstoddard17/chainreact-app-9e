@@ -76,9 +76,9 @@ export const microsoftOutlookManifest: ProviderManifest =
       // subscription trigger + webhook receiver land.
       webhookTrigger: false,
       pollingTrigger: false,
-      // Flipped to true in Slice 6 Commit 3 when send_email registers
-      // in services/execution/handlers/_registry.ts.
-      actions: false,
+      // True: send_email handler is registered in
+      // services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000, // 6h
     refreshable: true,

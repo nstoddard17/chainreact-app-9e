@@ -14,6 +14,7 @@ import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
 import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
 import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
+import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandler } from "./types";
 
@@ -50,6 +51,7 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-sheets", type: "update_row", handler: updateRow },
   { provider: "google-sheets", type: "clear_range", handler: clearRange },
   { provider: "google-sheets", type: "get_sheet_metadata", handler: getSheetMetadata },
+  { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
