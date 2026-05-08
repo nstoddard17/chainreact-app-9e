@@ -33,21 +33,20 @@ describe("google-drive manifest", () => {
     expect(googleDriveManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 4 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 4 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Commit 2 landed manifest + OAuth + dispatcher registration. Commit 3
-    // (this) lands the 5 action handlers and flips `actions: true`. The
-    // watch-based trigger (Commit 4) will flip `webhookTrigger: true`.
-    // Honest-state convention — capability != true unless the corresponding
-    // handler/trigger is registered.
+    // landed actions + flipped `actions: true`. Commit 4 (this) lands the
+    // file_changed watch trigger + flips `webhookTrigger: true`. Slice 4
+    // Batch 1 is now feature-complete by manifest.
     expect(googleDriveManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("google-drive", "oauth")).toBe(true);
     expect(providerSupports("google-drive", "actions")).toBe(true);
-    expect(providerSupports("google-drive", "webhookTrigger")).toBe(false);
+    expect(providerSupports("google-drive", "webhookTrigger")).toBe(true);
     expect(providerSupports("google-drive", "pollingTrigger")).toBe(false);
   });
 

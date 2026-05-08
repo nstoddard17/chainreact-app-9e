@@ -54,9 +54,10 @@ export const googleDriveManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // Flips true in Commit 4 once the watch-based file_changed trigger
-      // is registered via integrations/google-drive/triggers/fileChanged/.
-      webhookTrigger: false,
+      // True: the watch-based file_changed trigger is registered via
+      // integrations/google-drive/triggers/fileChanged/index.ts (it
+      // wires activation, deactivation, and subscription-renewal hooks).
+      webhookTrigger: true,
       pollingTrigger: false,
       // True: 5 action handlers (upload_file, create_folder, list_files,
       // move_file, delete_file) are registered in

@@ -13,6 +13,7 @@ import { slackManifest } from "./slack/manifest";
 // Adding a new trigger provider means adding its registration import here.
 import "./gmail/triggers/newEmail";
 import "./google-calendar/triggers/eventChanged";
+import "./google-drive/triggers/fileChanged";
 
 /**
  * Aggregated provider registry.
