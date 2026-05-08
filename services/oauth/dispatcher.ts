@@ -4,6 +4,7 @@ import { gmailOAuth } from "@/integrations/gmail/oauth";
 import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
 import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
 import { googleSheetsOAuth } from "@/integrations/google-sheets/oauth";
+import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import {
@@ -30,6 +31,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   "google-calendar": googleCalendarOAuth,
   "google-drive": googleDriveOAuth,
   "google-sheets": googleSheetsOAuth,
+  "microsoft-outlook": microsoftOutlookOAuth,
 });
 
 export interface ConnectInput {

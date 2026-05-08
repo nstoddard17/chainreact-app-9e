@@ -7,6 +7,7 @@ import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
 import { googleSheetsManifest } from "./google-sheets/manifest";
+import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { slackManifest } from "./slack/manifest";
 
 // Side-effect imports: each provider's trigger/handler modules self-register
@@ -34,6 +35,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   googleCalendarManifest,
   googleDriveManifest,
   googleSheetsManifest,
+  microsoftOutlookManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws
