@@ -72,9 +72,13 @@ export const microsoftOutlookManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // Flipped to true in Slice 6 Commit 4 when the new_email
-      // subscription trigger + webhook receiver land.
-      webhookTrigger: false,
+      // True: the new_email subscription-watch trigger is registered via
+      // integrations/microsoft-outlook/triggers/newEmail/index.ts (it
+      // wires activation, deactivation, and subscription-renewal hooks).
+      // The trigger uses Microsoft Graph subscriptions on /me/messages
+      // with a 70.5h expiration and 1h renewal threshold — see
+      // docs/slices/slice-6-outlook-mail.md for the design rationale.
+      webhookTrigger: true,
       pollingTrigger: false,
       // True: send_email handler is registered in
       // services/execution/handlers/_registry.ts.

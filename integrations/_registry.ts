@@ -17,6 +17,7 @@ import "./gmail/triggers/newEmail";
 import "./google-calendar/triggers/eventChanged";
 import "./google-drive/triggers/fileChanged";
 import "./google-sheets/triggers/rowChanged";
+import "./microsoft-outlook/triggers/newEmail";
 
 /**
  * Aggregated provider registry.

@@ -53,21 +53,20 @@ describe("microsoft-outlook manifest", () => {
     expect(microsoftOutlookManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 6 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 6 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 6 Commit 2 landed manifest + OAuth + dispatcher. Commit 3
-    // (this) lands send_email + flips actions: true. Commit 4 will land
-    // the new_email subscription trigger + flip webhookTrigger: true.
-    // Honest-state convention means flags flip in lockstep with the
-    // registrations they describe.
+    // landed send_email + flipped actions: true. Commit 4 (this) lands
+    // the new_email subscription trigger + flips webhookTrigger: true.
+    // Slice 6 is now feature-complete by manifest.
     expect(microsoftOutlookManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("microsoft-outlook", "oauth")).toBe(true);
     expect(providerSupports("microsoft-outlook", "actions")).toBe(true);
-    expect(providerSupports("microsoft-outlook", "webhookTrigger")).toBe(false);
+    expect(providerSupports("microsoft-outlook", "webhookTrigger")).toBe(true);
     expect(providerSupports("microsoft-outlook", "pollingTrigger")).toBe(false);
   });
 
