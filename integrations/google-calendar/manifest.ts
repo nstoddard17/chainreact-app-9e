@@ -52,12 +52,13 @@ export const googleCalendarManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // Flips true when the watch-based event_changed trigger registers
-      // (later commit in this same batch).
-      webhookTrigger: false,
+      // True: the watch-based event_changed trigger is registered via
+      // integrations/google-calendar/triggers/eventChanged/index.ts (it
+      // wires activation, deactivation, and subscription-renewal hooks).
+      webhookTrigger: true,
       pollingTrigger: false,
-      // True now: 5 action handlers (create_event, list_events,
-      // update_event, delete_event, add_attendees) are registered in
+      // True: 5 action handlers (create_event, list_events, update_event,
+      // delete_event, add_attendees) are registered in
       // services/execution/handlers/_registry.ts.
       actions: true,
     },

@@ -58,19 +58,20 @@ describe("Google Calendar manifest registration", () => {
     expect(googleCalendarManifest.scopes.deprecated).toEqual([]);
   });
 
-  it("has actions=true (handlers registered) and triggers still off (this batch)", () => {
+  it("has actions + webhookTrigger true (handlers + watch trigger registered)", () => {
     // Honest-state convention: capability flags reflect what's actually
-    // wired up. The 5 action handlers are registered in
-    // services/execution/handlers/_registry.ts as of the action-handlers
-    // commit; the watch trigger lands in a later batch.
+    // wired up. Both the 5 action handlers and the watch-based
+    // event_changed trigger are registered as of this batch; pollingTrigger
+    // stays false because Calendar uses push-watch, not polling.
     expect(googleCalendarManifest.capabilities.actions).toBe(true);
-    expect(googleCalendarManifest.capabilities.webhookTrigger).toBe(false);
+    expect(googleCalendarManifest.capabilities.webhookTrigger).toBe(true);
     expect(googleCalendarManifest.capabilities.pollingTrigger).toBe(false);
   });
 
-  it("reports oauth + actions capability via providerSupports", () => {
+  it("reports oauth + actions + webhookTrigger via providerSupports", () => {
     expect(providerSupports("google-calendar", "oauth")).toBe(true);
     expect(providerSupports("google-calendar", "actions")).toBe(true);
-    expect(providerSupports("google-calendar", "webhookTrigger")).toBe(false);
+    expect(providerSupports("google-calendar", "webhookTrigger")).toBe(true);
+    expect(providerSupports("google-calendar", "pollingTrigger")).toBe(false);
   });
 });

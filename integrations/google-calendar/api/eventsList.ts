@@ -1,6 +1,6 @@
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 import { calendarApiBase } from "./_base";
-import { NotFoundError } from "./errors";
+import { NotFoundError, SyncTokenExpiredError } from "./errors";
 import type { CalendarEventResource } from "./eventsInsert";
 
 /**
@@ -25,6 +25,16 @@ export interface EventsListInput {
   singleEvents?: boolean;
   showDeleted?: boolean;
   pageToken?: string;
+  /**
+   * Sync token from a prior `events.list` call. Mutually exclusive with
+   * `q`, `orderBy`, `timeMin`, `timeMax`, `updatedMin` per Google's API —
+   * passing them together returns HTTP 400. Used by the watch trigger's
+   * `pull` to fetch the delta since the last notification.
+   *
+   * Google returns HTTP 410 Gone when the syncToken has expired; callers
+   * (pull) detect this and re-baseline.
+   */
+  syncToken?: string;
 }
 
 export interface EventsListResult {
@@ -73,6 +83,7 @@ export async function eventsList(
     url.searchParams.set("showDeleted", String(input.showDeleted));
   }
   if (input.pageToken) url.searchParams.set("pageToken", input.pageToken);
+  if (input.syncToken) url.searchParams.set("syncToken", input.syncToken);
 
   const res = await fetch(url.toString(), {
     method: "GET",
@@ -89,6 +100,10 @@ export async function eventsList(
   if (res.status === 404) {
     const text = await res.text();
     throw new NotFoundError("calendar", surfaceErrorDetail(text, 404));
+  }
+  if (res.status === 410) {
+    // Sync token expired — caller re-baselines.
+    throw new SyncTokenExpiredError();
   }
   if (!res.ok) {
     const text = await res.text();

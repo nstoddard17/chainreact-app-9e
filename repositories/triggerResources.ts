@@ -187,6 +187,35 @@ export async function listForPolling(): Promise<
 }
 
 /**
+ * Generic JSONB-containment lookup.
+ *
+ * Used by:
+ *   - The renewal cron (`config @> { type: 'subscription-watch' }`).
+ *   - The Calendar webhook receiver (`config @> { channelId: '...' }`).
+ *
+ * Service-role only — system-level cron + webhook paths run with no user
+ * session. For the per-workflow lookup paths (lifecycle.ts), use
+ * `listByWorkflow` instead.
+ */
+export async function listByConfigContains(
+  contains: Record<string, unknown>,
+): Promise<readonly TriggerResourceRecord[]> {
+  const supabase = getServiceRoleClient(
+    `trigger_resources: listByConfigContains ${JSON.stringify(Object.keys(contains))}`,
+  );
+  const { data, error } = await supabase
+    .from("trigger_resources")
+    .select("*")
+    .contains("config", contains);
+  if (error) {
+    throw new Error(
+      `trigger_resources.listByConfigContains failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).map((r) => rowToRecord(r as TriggerResourcesRow));
+}
+
+/**
  * Polling-cron path: persist updated `config` JSONB back to a
  * trigger_resources row. Slice 2e uses this to advance the historyId
  * checkpoint and bump `polling.lastPolledAt` after each poll cycle.

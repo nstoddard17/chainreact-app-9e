@@ -25,3 +25,18 @@ export class NotFoundError extends Error {
     this.resource = resource;
   }
 }
+
+/**
+ * Thrown by `eventsList` when a passed `syncToken` has expired (HTTP 410
+ * Gone). Calendar's sync tokens are durable for a few weeks but expire
+ * eventually; the watch trigger's `pull` catches this and re-baselines
+ * via a fresh full list.
+ */
+export class SyncTokenExpiredError extends Error {
+  constructor() {
+    super(
+      "Google Calendar syncToken expired (HTTP 410 Gone). Re-baseline required.",
+    );
+    this.name = "SyncTokenExpiredError";
+  }
+}

@@ -2,6 +2,7 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import { findActivation } from "@/services/triggers/activationRegistry";
+import { findDeactivation } from "@/services/triggers/deactivationRegistry";
 // Side-effect import: forces provider activation/polling-handler
 // registrations at module load. Without this, an activate API request
 // that loads the orchestrator → lifecycle module graph in isolation
@@ -84,8 +85,40 @@ export async function registerWorkflowTriggers(
 export async function unregisterWorkflowTriggers(
   workflow: WorkflowRecord,
 ): Promise<void> {
-  // No provider-side API call required for Slack. Other providers (Microsoft
-  // Graph, etc.) will branch on node.provider and call provider-specific
-  // unsubscribe APIs before the row is removed.
+  // Run any provider-specific deactivation hooks BEFORE deleting rows so
+  // the provider stops sending events / cancels the subscription. Failures
+  // are best-effort logged — the trigger_resources row deletion still
+  // happens (the user's "disable" action is what they care about; cleaning
+  // up the provider-side subscription is housekeeping).
+  //
+  // Slack and polling-only providers (Gmail) don't register here, so this
+  // loop is a no-op for them and the existing behavior is preserved.
+  const triggers = await triggerResourcesRepo.listByWorkflow(workflow.id);
+  for (const trigger of triggers) {
+    const deactivation = findDeactivation(trigger.provider, trigger.eventType);
+    if (!deactivation) continue;
+
+    try {
+      const integration = await getActiveForExecution(
+        trigger.userId,
+        trigger.provider,
+        trigger.accountId ?? null,
+      );
+      if (!integration) continue;
+      await deactivation({ trigger, integration });
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          event: "trigger.deactivation.error",
+          workflowId: workflow.id,
+          provider: trigger.provider,
+          eventType: trigger.eventType,
+          nodeId: trigger.nodeId,
+          error: (err as Error).message,
+        }),
+      );
+    }
+  }
+
   await triggerResourcesRepo.deleteByWorkflow(workflow.id);
 }
