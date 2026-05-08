@@ -58,18 +58,19 @@ describe("Google Calendar manifest registration", () => {
     expect(googleCalendarManifest.scopes.deprecated).toEqual([]);
   });
 
-  it("starts with actions + triggers off (flips when handlers register later in batch)", () => {
+  it("has actions=true (handlers registered) and triggers still off (this batch)", () => {
     // Honest-state convention: capability flags reflect what's actually
-    // wired up. The 5 action handlers and the watch-based event_changed
-    // trigger flip these to true in subsequent commits in this batch.
-    expect(googleCalendarManifest.capabilities.actions).toBe(false);
+    // wired up. The 5 action handlers are registered in
+    // services/execution/handlers/_registry.ts as of the action-handlers
+    // commit; the watch trigger lands in a later batch.
+    expect(googleCalendarManifest.capabilities.actions).toBe(true);
     expect(googleCalendarManifest.capabilities.webhookTrigger).toBe(false);
     expect(googleCalendarManifest.capabilities.pollingTrigger).toBe(false);
   });
 
-  it("reports oauth capability via providerSupports", () => {
+  it("reports oauth + actions capability via providerSupports", () => {
     expect(providerSupports("google-calendar", "oauth")).toBe(true);
-    expect(providerSupports("google-calendar", "actions")).toBe(false);
+    expect(providerSupports("google-calendar", "actions")).toBe(true);
     expect(providerSupports("google-calendar", "webhookTrigger")).toBe(false);
   });
 });

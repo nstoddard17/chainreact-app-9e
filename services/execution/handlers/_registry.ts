@@ -1,4 +1,9 @@
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
+import { addAttendees } from "@/integrations/google-calendar/actions/addAttendees";
+import { createEvent } from "@/integrations/google-calendar/actions/createEvent";
+import { deleteEvent } from "@/integrations/google-calendar/actions/deleteEvent";
+import { listEvents } from "@/integrations/google-calendar/actions/listEvents";
+import { updateEvent } from "@/integrations/google-calendar/actions/updateEvent";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandler } from "./types";
 
@@ -20,6 +25,11 @@ interface HandlerEntry {
 const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "send_channel_message", handler: sendChannelMessage },
   { provider: "gmail", type: "send_email", handler: sendEmail },
+  { provider: "google-calendar", type: "create_event", handler: createEvent },
+  { provider: "google-calendar", type: "list_events", handler: listEvents },
+  { provider: "google-calendar", type: "update_event", handler: updateEvent },
+  { provider: "google-calendar", type: "delete_event", handler: deleteEvent },
+  { provider: "google-calendar", type: "add_attendees", handler: addAttendees },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

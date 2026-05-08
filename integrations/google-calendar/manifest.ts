@@ -56,9 +56,10 @@ export const googleCalendarManifest: ProviderManifest =
       // (later commit in this same batch).
       webhookTrigger: false,
       pollingTrigger: false,
-      // Flips true when the 5 action handlers register (later commit in
-      // this same batch).
-      actions: false,
+      // True now: 5 action handlers (create_event, list_events,
+      // update_event, delete_event, add_attendees) are registered in
+      // services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000, // 6h
     refreshable: true,
