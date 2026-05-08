@@ -87,6 +87,12 @@ export default defineConfig({
       // walkthrough (which uses create_folder for its action proof).
       GOOGLE_DRIVE_API_BASE: GOOGLE_MOCK_BASE,
       GOOGLE_DRIVE_UPLOAD_BASE: GOOGLE_MOCK_BASE,
+      // Slice 5b: route Sheets API calls through the same mock server.
+      // integrations/google-sheets/api/_base.ts honors GOOGLE_SHEETS_API_BASE.
+      // Sheets ALSO uses Drive's files.watch + changes.getStartPageToken
+      // for its watch transport — those calls are already mocked under
+      // the Drive routes (no extra env var needed).
+      GOOGLE_SHEETS_API_BASE: GOOGLE_MOCK_BASE,
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

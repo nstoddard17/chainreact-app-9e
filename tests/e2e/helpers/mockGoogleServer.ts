@@ -4,7 +4,8 @@ import { Buffer } from "node:buffer";
 
 /**
  * Standalone mock Google server for the Gmail (Slice 2f), Google Calendar
- * (Slice 3b), and Google Drive (Slice 4b) e2e walkthroughs.
+ * (Slice 3b), Google Drive (Slice 4b), and Google Sheets (Slice 5b) e2e
+ * walkthroughs.
  *
  * Routes (sized to V2's actual call patterns — nothing more):
  *   GET  /o/oauth2/v2/auth                       → 302 to the redirect_uri
@@ -89,6 +90,35 @@ import { Buffer } from "node:buffer";
  *                                                  request body and returns a
  *                                                  canned file/folder resource.
  *
+ *   Sheets-specific:
+ *   GET  /v4/spreadsheets/{id}                   → spreadsheets.get. Returns
+ *                                                  canned spreadsheet metadata
+ *                                                  with the test sheet's
+ *                                                  current row count.
+ *   GET  /v4/spreadsheets/{id}/values/{range}    → values.get. Returns
+ *                                                  currentSheetsRows for the
+ *                                                  test spreadsheet (the test
+ *                                                  controls row count via
+ *                                                  __injectSheetRow). Range
+ *                                                  filtering is intentionally
+ *                                                  loose — Sheets API in
+ *                                                  reality slices to the
+ *                                                  exact range, but the spec
+ *                                                  always requests A:Z so the
+ *                                                  mock returns all rows.
+ *   POST /v4/spreadsheets/{id}/values/{range}:append
+ *                                                → values.append. Records
+ *                                                  request body, returns
+ *                                                  canned updates response.
+ *                                                  Does NOT auto-extend the
+ *                                                  mock's row store (no
+ *                                                  webhook cascades — the
+ *                                                  spec drives all state
+ *                                                  changes explicitly).
+ *   PUT  /v4/spreadsheets/{id}/values/{range}    → values.update. Records.
+ *   POST /v4/spreadsheets/{id}/values/{range}:clear
+ *                                                → values.clear. Records.
+ *
  * Control plane (test-only):
  *   POST /__injectEmail   — inject an email into the mock store and bump
  *                           historyId; the next history.list returns it.
@@ -117,8 +147,20 @@ import { Buffer } from "node:buffer";
  *                           the cursor. Drive's analog of __replayLastEmail —
  *                           proves dedup catches the same Drive change on a
  *                           second push notification.
- *   POST /__reset         — clear ALL state (Gmail + Calendar + Drive) and
- *                           reset all cursors.
+ *   POST /__injectSheetRow
+ *                         — append a row to the test spreadsheet's row store.
+ *                           Body: `{ values: any[] }`. The next values.get
+ *                           call surfaces this row.
+ *   POST /__replayLastSheetRow
+ *                         — re-append the most recently injected row, bumping
+ *                           the row count by one more. Sheets' "dedup" works
+ *                           via the row-count baseline V2 maintains, NOT via
+ *                           webhook_event_dedup at the dispatcher (the spec
+ *                           comments explain this; this knob is provided for
+ *                           symmetry with Drive/Calendar but the Sheets spec
+ *                           uses the simpler "POST webhook twice" approach).
+ *   POST /__reset         — clear ALL state (Gmail + Calendar + Drive +
+ *                           Sheets) and reset all cursors.
  *   GET  /__inspect       — dump calls + store state; cross-process seam.
  *
  * Listens on a fixed port (default 9877, override via GMAIL_MOCK_PORT).
@@ -268,6 +310,45 @@ export interface InjectedDriveChange {
   change: Record<string, unknown>;
 }
 
+export interface RecordedSheetsSpreadsheetsGet {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+}
+
+export interface RecordedSheetsValuesGet {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+  range: string;
+  responseRowCount: number;
+}
+
+export interface RecordedSheetsValuesAppend {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+  range: string;
+  body: Record<string, unknown>;
+  valueInputOption: string | null;
+}
+
+export interface RecordedSheetsValuesUpdate {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+  range: string;
+  body: Record<string, unknown>;
+  valueInputOption: string | null;
+}
+
+export interface RecordedSheetsValuesClear {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+  range: string;
+}
+
 /**
  * Minimal RFC 5322 parse — splits headers / body on the first blank line,
  * extracts header name/value pairs case-insensitively, and pulls the
@@ -312,6 +393,11 @@ export interface MockGoogleHandle {
     driveChangesGetStartPageToken: RecordedDriveChangesGetStartPageToken[];
     driveChangesList: RecordedDriveChangesList[];
     driveFilesCreate: RecordedDriveFilesCreate[];
+    sheetsSpreadsheetsGet: RecordedSheetsSpreadsheetsGet[];
+    sheetsValuesGet: RecordedSheetsValuesGet[];
+    sheetsValuesAppend: RecordedSheetsValuesAppend[];
+    sheetsValuesUpdate: RecordedSheetsValuesUpdate[];
+    sheetsValuesClear: RecordedSheetsValuesClear[];
   };
   /** Map of injected emails by id. */
   emails: Map<string, InjectedEmail>;
@@ -351,6 +437,20 @@ export interface MockGoogleHandle {
   driveChanges: Map<string, InjectedDriveChange>;
   /** Drive — most recently injected change's fileId (for replay). */
   lastInjectedDriveFileId: string | null;
+  /**
+   * Sheets — current rows of the test spreadsheet. The first dimension
+   * is rows; each row is an array of cell values. Default empty;
+   * __injectSheetRow appends. `valuesGet` returns this array verbatim
+   * (range filtering is intentionally loose — the spec always asks for
+   * A:Z so the entire array is the right answer).
+   */
+  currentSheetsRows: Array<ReadonlyArray<unknown>>;
+  /**
+   * Sheets — most recently injected row's values, for __replayLastSheetRow.
+   * Distinct from `currentSheetsRows.at(-1)` only in that the replay
+   * reuses the captured snapshot even after currentSheetsRows is reset.
+   */
+  lastInjectedSheetsRow: ReadonlyArray<unknown> | null;
   /**
    * Scope string from the most recent authorize call. Cached here so the
    * next /token response can echo whatever set the user "consented" to,
@@ -431,6 +531,12 @@ export async function startMockGoogleServer(opts: {
     get lastInjectedDriveFileId() {
       return state.lastInjectedDriveFileId;
     },
+    get currentSheetsRows() {
+      return state.currentSheetsRows;
+    },
+    get lastInjectedSheetsRow() {
+      return state.lastInjectedSheetsRow;
+    },
     get lastAuthorizeScope() {
       return state.lastAuthorizeScope;
     },
@@ -457,6 +563,8 @@ type MutableState = Pick<
   | "pendingDriveChanges"
   | "driveChanges"
   | "lastInjectedDriveFileId"
+  | "currentSheetsRows"
+  | "lastInjectedSheetsRow"
   | "lastAuthorizeScope"
 >;
 
@@ -477,6 +585,11 @@ function freshState(): MutableState {
       driveChangesGetStartPageToken: [],
       driveChangesList: [],
       driveFilesCreate: [],
+      sheetsSpreadsheetsGet: [],
+      sheetsValuesGet: [],
+      sheetsValuesAppend: [],
+      sheetsValuesUpdate: [],
+      sheetsValuesClear: [],
     },
     emails: new Map(),
     pendingHistoryEntries: [],
@@ -490,6 +603,8 @@ function freshState(): MutableState {
     pendingDriveChanges: [],
     driveChanges: new Map(),
     lastInjectedDriveFileId: null,
+    currentSheetsRows: [],
+    lastInjectedSheetsRow: null,
     lastAuthorizeScope: null,
   };
 }
@@ -715,6 +830,200 @@ async function handleRequest(
         attendees: parsed.attendees ?? [],
       }),
     );
+    return;
+  }
+
+  // ── Sheets spreadsheets.get ──
+  // Path: /v4/spreadsheets/{id}
+  // Used by Slice 5's get_sheet_metadata action. The action's e2e doesn't
+  // assert on the metadata content; we return a minimal canned shape.
+  const sheetsSpreadsheetsGetMatch = url.pathname.match(
+    /^\/v4\/spreadsheets\/([^/]+)$/,
+  );
+  if (req.method === "GET" && sheetsSpreadsheetsGetMatch) {
+    const spreadsheetId = decodeURIComponent(sheetsSpreadsheetsGetMatch[1]!);
+    state.calls.sheetsSpreadsheetsGet.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        spreadsheetId,
+        properties: {
+          title: "E2E Test Spreadsheet",
+          locale: "en_US",
+          timeZone: "America/Los_Angeles",
+        },
+        sheets: [
+          {
+            properties: {
+              sheetId: 0,
+              title: "Sheet1",
+              index: 0,
+              sheetType: "GRID",
+              gridProperties: {
+                rowCount: state.currentSheetsRows.length,
+                columnCount: 26,
+              },
+            },
+          },
+        ],
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets values.get ──
+  // Path: /v4/spreadsheets/{id}/values/{range}
+  // GET only. POST against the same path-with-:append/:clear suffix is
+  // matched separately further down.
+  const sheetsValuesPathMatch = url.pathname.match(
+    /^\/v4\/spreadsheets\/([^/]+)\/values\/(.+?)(:append|:clear)?$/,
+  );
+  if (
+    req.method === "GET" &&
+    sheetsValuesPathMatch &&
+    !sheetsValuesPathMatch[3]
+  ) {
+    const spreadsheetId = decodeURIComponent(sheetsValuesPathMatch[1]!);
+    const range = decodeURIComponent(sheetsValuesPathMatch[2]!);
+    state.calls.sheetsValuesGet.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+      range,
+      responseRowCount: state.currentSheetsRows.length,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        range,
+        majorDimension: url.searchParams.get("majorDimension") ?? "ROWS",
+        // Spec always asks for A:Z; mock returns the entire row store.
+        // Real Sheets would slice to the exact range, but the spec
+        // doesn't depend on slice behavior.
+        values: state.currentSheetsRows,
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets values.append ──
+  // Path: /v4/spreadsheets/{id}/values/{range}:append
+  // Records the call. Does NOT extend currentSheetsRows — the spec
+  // controls all row-state changes via __injectSheetRow to avoid
+  // accidental webhook cascades.
+  if (
+    req.method === "POST" &&
+    sheetsValuesPathMatch &&
+    sheetsValuesPathMatch[3] === ":append"
+  ) {
+    const spreadsheetId = decodeURIComponent(sheetsValuesPathMatch[1]!);
+    const range = decodeURIComponent(sheetsValuesPathMatch[2]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    state.calls.sheetsValuesAppend.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+      range,
+      body: parsed,
+      valueInputOption: url.searchParams.get("valueInputOption"),
+    });
+    const appendedRows = ((parsed.values as unknown[][]) ?? []).length;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        spreadsheetId,
+        tableRange: range,
+        updates: {
+          spreadsheetId,
+          updatedRange: `${range.split("!")[0]}!A${state.currentSheetsRows.length + 1}`,
+          updatedRows: appendedRows,
+          updatedColumns: Math.max(
+            ...((parsed.values as unknown[][]) ?? [[]]).map(
+              (r) => (r ?? []).length,
+            ),
+            1,
+          ),
+          updatedCells: appendedRows,
+        },
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets values.update ──
+  // PUT against /v4/spreadsheets/{id}/values/{range} (no :append/:clear suffix).
+  if (
+    req.method === "PUT" &&
+    sheetsValuesPathMatch &&
+    !sheetsValuesPathMatch[3]
+  ) {
+    const spreadsheetId = decodeURIComponent(sheetsValuesPathMatch[1]!);
+    const range = decodeURIComponent(sheetsValuesPathMatch[2]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    state.calls.sheetsValuesUpdate.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+      range,
+      body: parsed,
+      valueInputOption: url.searchParams.get("valueInputOption"),
+    });
+    const updatedRows = ((parsed.values as unknown[][]) ?? []).length;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        spreadsheetId,
+        updatedRange: range,
+        updatedRows,
+        updatedColumns: Math.max(
+          ...((parsed.values as unknown[][]) ?? [[]]).map(
+            (r) => (r ?? []).length,
+          ),
+          1,
+        ),
+        updatedCells: updatedRows,
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets values.clear ──
+  // Path: /v4/spreadsheets/{id}/values/{range}:clear
+  if (
+    req.method === "POST" &&
+    sheetsValuesPathMatch &&
+    sheetsValuesPathMatch[3] === ":clear"
+  ) {
+    const spreadsheetId = decodeURIComponent(sheetsValuesPathMatch[1]!);
+    const range = decodeURIComponent(sheetsValuesPathMatch[2]!);
+    state.calls.sheetsValuesClear.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+      range,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ spreadsheetId, clearedRange: range }));
     return;
   }
 
@@ -1219,6 +1528,64 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/__injectSheetRow") {
+    const body = await readBody(req);
+    let parsed: { values?: ReadonlyArray<unknown> };
+    try {
+      parsed = JSON.parse(body) as { values?: ReadonlyArray<unknown> };
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (!Array.isArray(parsed.values)) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("missing values array");
+      return;
+    }
+    const row = parsed.values;
+    state.currentSheetsRows = [...state.currentSheetsRows, row];
+    state.lastInjectedSheetsRow = row;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        rowCount: state.currentSheetsRows.length,
+        rowIndex: state.currentSheetsRows.length, // 1-indexed spreadsheet row
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__replayLastSheetRow") {
+    if (!state.lastInjectedSheetsRow) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("no sheet row to replay");
+      return;
+    }
+    // Re-append the same values, bumping rowCount by one. Note: Sheets'
+    // dedup naturally happens at V2's row-count baseline (lastRowCount in
+    // trigger_resources.config), NOT at the dispatcher's
+    // webhook_event_dedup table. Re-appending here causes pull to emit a
+    // NEW event with a NEW rowIndex (different eventId). The Sheets spec
+    // doesn't actually use this knob — it tests dedup the simpler way
+    // (POST same webhook twice; pull's row-count baseline returns zero
+    // events on the second pull). The knob exists for symmetry with
+    // Drive/Calendar specs.
+    state.currentSheetsRows = [
+      ...state.currentSheetsRows,
+      state.lastInjectedSheetsRow,
+    ];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        rowCount: state.currentSheetsRows.length,
+      }),
+    );
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/__replayLastEmail") {
     if (!state.lastInjectedMessageId) {
       res.writeHead(400, { "content-type": "text/plain" });
@@ -1268,6 +1635,9 @@ async function handleRequest(
         pendingDriveChanges: state.pendingDriveChanges,
         driveChangeCount: state.driveChanges.size,
         lastInjectedDriveFileId: state.lastInjectedDriveFileId,
+        currentSheetsRows: state.currentSheetsRows,
+        currentSheetsRowCount: state.currentSheetsRows.length,
+        lastInjectedSheetsRow: state.lastInjectedSheetsRow,
       }),
     );
     return;
