@@ -8,6 +8,7 @@
  */
 import { googleSheetsManifest } from "@/integrations/google-sheets/manifest";
 import { getProvider, providerSupports } from "@/integrations/_registry";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("google-sheets manifest", () => {
   it("is registered in the provider registry under id 'google-sheets'", () => {
@@ -32,22 +33,37 @@ describe("google-sheets manifest", () => {
     expect(googleSheetsManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 5 Commit 2 (oauth only)", () => {
-    // Commit 2 lands manifest + OAuth + dispatcher registration. Action
-    // handlers (Commit 3) flip `actions: true`; the watch-based trigger
-    // (Commit 4) flips `webhookTrigger: true`. Until then the flags MUST
-    // stay false per the honest-state convention — capability != true
-    // unless the corresponding handler/trigger is registered.
+  it("declares honest capabilities for Slice 5 Commit 3 (oauth + actions)", () => {
+    // Commit 2 landed manifest + OAuth + dispatcher registration. Commit 3
+    // (this) lands the 5 action handlers and flips `actions: true`. The
+    // watch-based trigger (Commit 4) will flip `webhookTrigger: true`.
+    // Honest-state convention — capability != true unless the corresponding
+    // handler/trigger is registered.
     expect(googleSheetsManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("google-sheets", "oauth")).toBe(true);
-    expect(providerSupports("google-sheets", "actions")).toBe(false);
+    expect(providerSupports("google-sheets", "actions")).toBe(true);
     expect(providerSupports("google-sheets", "webhookTrigger")).toBe(false);
     expect(providerSupports("google-sheets", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 5 Sheets actions", () => {
+    if (googleSheetsManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "google-sheets",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "append_row",
+        "clear_range",
+        "get_sheet_metadata",
+        "read_rows",
+        "update_row",
+      ]);
+    }
   });
 
   it("uses 6h health-check interval matching V1 Google cadence", () => {

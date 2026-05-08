@@ -9,6 +9,11 @@ import { deleteFile } from "@/integrations/google-drive/actions/deleteFile";
 import { listFiles } from "@/integrations/google-drive/actions/listFiles";
 import { moveFile } from "@/integrations/google-drive/actions/moveFile";
 import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
+import { appendRow } from "@/integrations/google-sheets/actions/appendRow";
+import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
+import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
+import { readRows } from "@/integrations/google-sheets/actions/readRows";
+import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandler } from "./types";
 
@@ -40,6 +45,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-drive", type: "list_files", handler: listFiles },
   { provider: "google-drive", type: "move_file", handler: moveFile },
   { provider: "google-drive", type: "delete_file", handler: deleteFile },
+  { provider: "google-sheets", type: "read_rows", handler: readRows },
+  { provider: "google-sheets", type: "append_row", handler: appendRow },
+  { provider: "google-sheets", type: "update_row", handler: updateRow },
+  { provider: "google-sheets", type: "clear_range", handler: clearRange },
+  { provider: "google-sheets", type: "get_sheet_metadata", handler: getSheetMetadata },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

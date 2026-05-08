@@ -65,10 +65,10 @@ export const googleSheetsManifest: ProviderManifest =
       // registered via integrations/google-sheets/triggers/rowChanged/.
       webhookTrigger: false,
       pollingTrigger: false,
-      // Flips true in Commit 3 once the 5 action handlers (read_rows,
-      // append_row, update_row, clear_range, get_sheet_metadata) register
-      // in services/execution/handlers/_registry.ts.
-      actions: false,
+      // True: 5 action handlers (read_rows, append_row, update_row,
+      // clear_range, get_sheet_metadata) are registered in
+      // services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000, // 6h
     refreshable: true,
