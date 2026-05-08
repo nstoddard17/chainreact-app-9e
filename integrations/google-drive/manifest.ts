@@ -58,10 +58,10 @@ export const googleDriveManifest: ProviderManifest =
       // is registered via integrations/google-drive/triggers/fileChanged/.
       webhookTrigger: false,
       pollingTrigger: false,
-      // Flips true in Commit 3 once the 5 action handlers (upload_file,
-      // create_folder, list_files, move_file, delete_file) register in
+      // True: 5 action handlers (upload_file, create_folder, list_files,
+      // move_file, delete_file) are registered in
       // services/execution/handlers/_registry.ts.
-      actions: false,
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000, // 6h
     refreshable: true,

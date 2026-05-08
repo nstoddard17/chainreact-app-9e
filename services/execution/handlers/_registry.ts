@@ -4,6 +4,11 @@ import { createEvent } from "@/integrations/google-calendar/actions/createEvent"
 import { deleteEvent } from "@/integrations/google-calendar/actions/deleteEvent";
 import { listEvents } from "@/integrations/google-calendar/actions/listEvents";
 import { updateEvent } from "@/integrations/google-calendar/actions/updateEvent";
+import { createFolder } from "@/integrations/google-drive/actions/createFolder";
+import { deleteFile } from "@/integrations/google-drive/actions/deleteFile";
+import { listFiles } from "@/integrations/google-drive/actions/listFiles";
+import { moveFile } from "@/integrations/google-drive/actions/moveFile";
+import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandler } from "./types";
 
@@ -30,6 +35,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-calendar", type: "update_event", handler: updateEvent },
   { provider: "google-calendar", type: "delete_event", handler: deleteEvent },
   { provider: "google-calendar", type: "add_attendees", handler: addAttendees },
+  { provider: "google-drive", type: "upload_file", handler: uploadFile },
+  { provider: "google-drive", type: "create_folder", handler: createFolder },
+  { provider: "google-drive", type: "list_files", handler: listFiles },
+  { provider: "google-drive", type: "move_file", handler: moveFile },
+  { provider: "google-drive", type: "delete_file", handler: deleteFile },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
