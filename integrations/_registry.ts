@@ -4,6 +4,7 @@ import {
   ProviderManifestSchema,
 } from "@/contracts/integration";
 import { gmailManifest } from "./gmail/manifest";
+import { googleCalendarManifest } from "./google-calendar/manifest";
 import { slackManifest } from "./slack/manifest";
 
 // Side-effect imports: each provider's trigger/handler modules self-register
@@ -22,7 +23,11 @@ import "./gmail/triggers/newEmail";
  *   - The exported PROVIDERS object is frozen — no runtime mutation.
  */
 
-const ALL_MANIFESTS: readonly ProviderManifest[] = [slackManifest, gmailManifest];
+const ALL_MANIFESTS: readonly ProviderManifest[] = [
+  slackManifest,
+  gmailManifest,
+  googleCalendarManifest,
+];
 
 // Validate every manifest against the schema at module load. parse() throws
 // on any malformed manifest; loading any importer of this module fails the

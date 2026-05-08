@@ -1,6 +1,7 @@
 import { type ProviderOAuth } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
+import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import {
@@ -24,6 +25,7 @@ import { createState, consumeState, InvalidStateError } from "./state";
 const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze({
   slack: slackOAuth,
   gmail: gmailOAuth,
+  "google-calendar": googleCalendarOAuth,
 });
 
 export interface ConnectInput {
