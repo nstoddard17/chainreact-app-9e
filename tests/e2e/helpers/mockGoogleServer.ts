@@ -3,16 +3,36 @@ import { URL } from "node:url";
 import { Buffer } from "node:buffer";
 
 /**
- * Standalone mock Google server for the Slice 2f Gmail e2e walkthrough.
+ * Standalone mock Google server for the Gmail (Slice 2f) and Google Calendar
+ * (Slice 3b) e2e walkthroughs.
  *
  * Routes (sized to V2's actual call patterns — nothing more):
- *   GET  /o/oauth2/v2/auth                       → 302 to V2's
- *                                                  /api/integrations/oauth/gmail/callback
- *                                                  with the preserved state +
- *                                                  a synthetic code.
+ *   GET  /o/oauth2/v2/auth                       → 302 to the redirect_uri
+ *                                                  query param (V2's per-provider
+ *                                                  callback) with the preserved
+ *                                                  state + a synthetic code.
+ *                                                  Honoring redirect_uri lets
+ *                                                  Gmail AND Calendar share this
+ *                                                  route without provider-aware
+ *                                                  branching.
  *   POST /token                                  → canned token-exchange
  *                                                  response with a recognizable
- *                                                  access + refresh token.
+ *                                                  access + refresh token. Scope
+ *                                                  in the response echoes back
+ *                                                  whatever the spec needs to
+ *                                                  cover both providers' scope
+ *                                                  manifests; the access token
+ *                                                  doesn't carry scope claims so
+ *                                                  one canned token works.
+ *   GET  /v1/userinfo                            → OIDC userinfo response with
+ *                                                  email + sub. Calendar's OAuth
+ *                                                  callback uses this for the
+ *                                                  accountId lookup (the
+ *                                                  calendar.events scope alone
+ *                                                  doesn't grant a getProfile
+ *                                                  endpoint that returns email).
+ *
+ *   Gmail-specific:
  *   GET  /gmail/v1/users/me/profile              → emailAddress + currentHistoryId.
  *                                                  Used by Slice 2c's OAuth
  *                                                  callback for accountId AND
@@ -28,6 +48,26 @@ import { Buffer } from "node:buffer";
  *                                                  body parts; returns a fake
  *                                                  send id.
  *
+ *   Calendar-specific:
+ *   GET  /calendar/v3/calendars/{cid}/events     → events.list. With no syncToken
+ *                                                  query: initial baseline used
+ *                                                  by Slice 3 activate hook —
+ *                                                  returns empty items + current
+ *                                                  nextSyncToken. With
+ *                                                  syncToken=X: drains pending
+ *                                                  delta entries injected at
+ *                                                  syncTokenAtInsert >= X and
+ *                                                  returns them.
+ *   POST /calendar/v3/calendars/{cid}/events/watch
+ *                                                → events.watch. Returns canned
+ *                                                  { id, resourceId, expiration }
+ *                                                  where expiration is now+7d
+ *                                                  in milliseconds-as-string
+ *                                                  (Calendar's max TTL).
+ *   POST /calendar/v3/calendars/{cid}/events     → events.insert. Records the
+ *                                                  request body and returns a
+ *                                                  canned event resource.
+ *
  * Control plane (test-only):
  *   POST /__injectEmail   — inject an email into the mock store and bump
  *                           historyId; the next history.list returns it.
@@ -35,7 +75,19 @@ import { Buffer } from "node:buffer";
  *                           WITHOUT bumping historyId. Used by the dedup
  *                           probe so the spec proves the same Gmail message
  *                           id seen twice does not produce two runs.
- *   POST /__reset         — clear calls + email store + reset historyId.
+ *   POST /__injectCalendarEvent
+ *                         — bump currentSyncToken by 1, queue a Calendar event
+ *                           resource for the next events.list?syncToken=… call.
+ *                           Body is the full CalendarEventResource shape; the
+ *                           spec hand-crafts it with status/created/updated/etc.
+ *   POST /__replayLastCalendarEvent
+ *                         — re-queue the most recently injected calendar event
+ *                           at its ORIGINAL syncTokenAtInsert WITHOUT bumping
+ *                           the cursor. Calendar's analog of __replayLastEmail
+ *                           — proves dedup catches the same Calendar event id
+ *                           on a second push notification.
+ *   POST /__reset         — clear ALL state (Gmail + Calendar) and reset both
+ *                           cursors.
  *   GET  /__inspect       — dump calls + store state; cross-process seam.
  *
  * Listens on a fixed port (default 9877, override via GMAIL_MOCK_PORT).
@@ -50,11 +102,16 @@ import { Buffer } from "node:buffer";
  */
 
 const SEED_HISTORY_ID = "100000";
+const SEED_CALENDAR_SYNC_TOKEN = "sync-100000";
+/** ms — Calendar watches expire after 7 days; mock returns now+7d on watch. */
+const CALENDAR_WATCH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface RecordedAuthorize {
   state: string;
   scope: string;
   codeChallenge: string | null;
+  /** redirect_uri the dispatcher passed — the mock 302s back to this. */
+  redirectUri: string | null;
 }
 
 export interface RecordedTokenExchange {
@@ -88,6 +145,50 @@ export interface RecordedMessagesSend {
   raw: string;
   decoded: string;
   parsed: ParsedRfc5322;
+}
+
+export interface RecordedUserinfo {
+  authorization: string | undefined;
+}
+
+export interface RecordedCalendarEventsList {
+  authorization: string | undefined;
+  url: string;
+  calendarId: string;
+  syncToken: string | null;
+  pageToken: string | null;
+  /** How many delta items the response carried. */
+  responseItems: number;
+  /** Whether the response included a fresh nextSyncToken. */
+  responseSyncToken: string | null;
+}
+
+export interface RecordedCalendarEventsWatch {
+  authorization: string | undefined;
+  calendarId: string;
+  body: Record<string, unknown>;
+  responseChannelId: string;
+  responseResourceId: string;
+}
+
+export interface RecordedCalendarEventsInsert {
+  authorization: string | undefined;
+  calendarId: string;
+  url: string;
+  /** Parsed JSON body sent to events.insert. */
+  body: Record<string, unknown>;
+}
+
+/**
+ * Calendar event resource queued by __injectCalendarEvent for delivery on the
+ * next events.list?syncToken=… call. Stored alongside the syncToken that was
+ * current AT INSERT TIME so the inject-vs-replay distinction is precise.
+ */
+export interface InjectedCalendarEvent {
+  /** Sync token current at the moment this was injected. */
+  syncTokenAtInsert: string;
+  /** Full event resource — the spec hand-crafts a realistic shape. */
+  resource: Record<string, unknown>;
 }
 
 /**
@@ -126,6 +227,10 @@ export interface MockGoogleHandle {
     historyList: RecordedHistoryList[];
     messagesGet: RecordedMessagesGet[];
     send: RecordedMessagesSend[];
+    userinfo: RecordedUserinfo[];
+    calendarEventsList: RecordedCalendarEventsList[];
+    calendarEventsWatch: RecordedCalendarEventsWatch[];
+    calendarEventsInsert: RecordedCalendarEventsInsert[];
   };
   /** Map of injected emails by id. */
   emails: Map<string, InjectedEmail>;
@@ -139,6 +244,25 @@ export interface MockGoogleHandle {
   currentHistoryId: string;
   /** Most recently injected message id (for replay). */
   lastInjectedMessageId: string | null;
+  /** Calendar — current syncToken returned by events.list responses. */
+  currentCalendarSyncToken: string;
+  /** Calendar — events queued for the next events.list?syncToken=… delta. */
+  pendingCalendarEvents: InjectedCalendarEvent[];
+  /**
+   * Calendar — durable backing store of all injected events by id. The
+   * pending queue is consumed (drained) by events.list calls; this map
+   * survives so __replayLastCalendarEvent can re-push the same resource at
+   * its original syncTokenAtInsert without the spec re-supplying it.
+   */
+  calendarEvents: Map<string, InjectedCalendarEvent>;
+  /** Calendar — most recently injected event id (for replay). */
+  lastInjectedCalendarEventId: string | null;
+  /**
+   * Scope string from the most recent authorize call. Cached here so the
+   * next /token response can echo whatever set the user "consented" to,
+   * without per-provider branching on the token route.
+   */
+  lastAuthorizeScope: string | null;
   reset(): void;
   stop(): Promise<void>;
 }
@@ -151,10 +275,7 @@ export async function startMockGoogleServer(opts: {
 }): Promise<MockGoogleHandle> {
   const port = opts.port ?? DEFAULT_PORT;
 
-  const state: Pick<
-    MockGoogleHandle,
-    "calls" | "emails" | "pendingHistoryEntries" | "currentHistoryId" | "lastInjectedMessageId"
-  > = freshState();
+  const state: MutableState = freshState();
 
   const server: Server = createServer((req, res) => {
     handleRequest(req, res, opts.appBaseUrl, state).catch((err) => {
@@ -192,6 +313,21 @@ export async function startMockGoogleServer(opts: {
     get lastInjectedMessageId() {
       return state.lastInjectedMessageId;
     },
+    get currentCalendarSyncToken() {
+      return state.currentCalendarSyncToken;
+    },
+    get pendingCalendarEvents() {
+      return state.pendingCalendarEvents;
+    },
+    get calendarEvents() {
+      return state.calendarEvents;
+    },
+    get lastInjectedCalendarEventId() {
+      return state.lastInjectedCalendarEventId;
+    },
+    get lastAuthorizeScope() {
+      return state.lastAuthorizeScope;
+    },
     reset: () => Object.assign(state, freshState()),
     stop: () =>
       new Promise<void>((resolve, reject) => {
@@ -200,10 +336,21 @@ export async function startMockGoogleServer(opts: {
   };
 }
 
-function freshState(): Pick<
+type MutableState = Pick<
   MockGoogleHandle,
-  "calls" | "emails" | "pendingHistoryEntries" | "currentHistoryId" | "lastInjectedMessageId"
-> {
+  | "calls"
+  | "emails"
+  | "pendingHistoryEntries"
+  | "currentHistoryId"
+  | "lastInjectedMessageId"
+  | "currentCalendarSyncToken"
+  | "pendingCalendarEvents"
+  | "calendarEvents"
+  | "lastInjectedCalendarEventId"
+  | "lastAuthorizeScope"
+>;
+
+function freshState(): MutableState {
   return {
     calls: {
       authorize: [],
@@ -212,11 +359,20 @@ function freshState(): Pick<
       historyList: [],
       messagesGet: [],
       send: [],
+      userinfo: [],
+      calendarEventsList: [],
+      calendarEventsWatch: [],
+      calendarEventsInsert: [],
     },
     emails: new Map(),
     pendingHistoryEntries: [],
     currentHistoryId: SEED_HISTORY_ID,
     lastInjectedMessageId: null,
+    currentCalendarSyncToken: SEED_CALENDAR_SYNC_TOKEN,
+    pendingCalendarEvents: [],
+    calendarEvents: new Map(),
+    lastInjectedCalendarEventId: null,
+    lastAuthorizeScope: null,
   };
 }
 
@@ -224,10 +380,7 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   appBaseUrl: string,
-  state: Pick<
-    MockGoogleHandle,
-    "calls" | "emails" | "pendingHistoryEntries" | "currentHistoryId" | "lastInjectedMessageId"
-  >,
+  state: MutableState,
 ): Promise<void> {
   const url = new URL(req.url ?? "/", "http://placeholder");
 
@@ -236,16 +389,30 @@ async function handleRequest(
     const stateParam = url.searchParams.get("state");
     const scope = url.searchParams.get("scope") ?? "";
     const codeChallenge = url.searchParams.get("code_challenge");
+    const redirectUri = url.searchParams.get("redirect_uri");
     if (!stateParam) {
       res.writeHead(400, { "content-type": "text/plain" });
       res.end("missing state");
       return;
     }
-    state.calls.authorize.push({ state: stateParam, scope, codeChallenge });
-    const callback = new URL(
-      "/api/integrations/oauth/gmail/callback",
-      appBaseUrl,
-    );
+    state.calls.authorize.push({
+      state: stateParam,
+      scope,
+      codeChallenge,
+      redirectUri,
+    });
+    // Track the most recent scope so the next token exchange echoes it back.
+    // Real Google grants whatever the user consented to from the authorize
+    // request; the mock approximates that by passing the scope through.
+    state.lastAuthorizeScope = scope;
+    // Honor the dispatcher's redirect_uri so this single route works for both
+    // gmail and google-calendar callbacks. Real Google validates redirect_uri
+    // against registered URIs; the mock just trusts what V2 sent. Falling back
+    // to the gmail callback keeps the route usable if a future caller forgets
+    // to pass redirect_uri.
+    const callback = redirectUri
+      ? new URL(redirectUri)
+      : new URL("/api/integrations/oauth/gmail/callback", appBaseUrl);
     callback.searchParams.set("code", `mock-google-code-${Date.now()}`);
     callback.searchParams.set("state", stateParam);
     res.writeHead(302, { location: callback.toString() });
@@ -261,14 +428,173 @@ async function handleRequest(
     for (const [k, v] of params.entries()) parsed[k] = v;
     state.calls.tokenExchange.push({ body, parsedBody: parsed });
     res.writeHead(200, { "content-type": "application/json" });
+    // Echo whichever scope was on the most recent authorize call so Gmail
+    // and Calendar walkthroughs both end up with their manifest's scope set
+    // persisted on the integration row. Falls back to Gmail's pair to keep
+    // pre-Slice-3b behavior intact when the mock somehow received a token
+    // exchange without a prior authorize (impossible via the real flow).
+    const grantedScope =
+      state.lastAuthorizeScope ??
+      "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send";
     res.end(
       JSON.stringify({
         access_token: "ya29.mock-e2e-access",
         refresh_token: "1//mock-e2e-refresh",
         expires_in: 3600,
-        scope:
-          "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send",
+        scope: grantedScope,
         token_type: "Bearer",
+      }),
+    );
+    return;
+  }
+
+  // ── OIDC userinfo (Calendar OAuth callback's accountId lookup) ──
+  if (req.method === "GET" && url.pathname === "/v1/userinfo") {
+    state.calls.userinfo.push({ authorization: req.headers.authorization });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        email: "alice@e2e.test",
+        email_verified: true,
+        sub: "user-sub-e2e",
+      }),
+    );
+    return;
+  }
+
+  // ── Calendar events.list ──
+  // Path: /calendar/v3/calendars/{cid}/events
+  // Two cases:
+  //   - No syncToken query param: initial baseline (Slice 3 activate hook).
+  //     Return empty items + currentCalendarSyncToken as nextSyncToken.
+  //   - syncToken=X: drain any pending entries whose syncTokenAtInsert >= X
+  //     and return them. Always return currentCalendarSyncToken so the
+  //     caller persists the new cursor.
+  const calendarEventsListMatch = url.pathname.match(
+    /^\/calendar\/v3\/calendars\/([^/]+)\/events$/,
+  );
+  if (req.method === "GET" && calendarEventsListMatch) {
+    const calendarId = decodeURIComponent(calendarEventsListMatch[1]!);
+    const syncToken = url.searchParams.get("syncToken");
+    const pageToken = url.searchParams.get("pageToken");
+
+    let items: Array<Record<string, unknown>> = [];
+    if (syncToken) {
+      // Delta call. Drain entries with syncTokenAtInsert >= syncToken.
+      // String compare works because mock issues lexically-ordered tokens
+      // ("sync-100000" < "sync-100001" < …).
+      const remaining: InjectedCalendarEvent[] = [];
+      for (const entry of state.pendingCalendarEvents) {
+        if (entry.syncTokenAtInsert >= syncToken) {
+          items.push(entry.resource);
+          // Drained — spec re-queues explicitly via /__replayLastCalendarEvent
+          // when it wants a replay.
+          continue;
+        }
+        remaining.push(entry);
+      }
+      state.pendingCalendarEvents = remaining;
+    }
+
+    state.calls.calendarEventsList.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      calendarId,
+      syncToken,
+      pageToken,
+      responseItems: items.length,
+      responseSyncToken: state.currentCalendarSyncToken,
+    });
+
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "calendar#events",
+        summary: calendarId,
+        timeZone: "UTC",
+        items,
+        nextSyncToken: state.currentCalendarSyncToken,
+      }),
+    );
+    return;
+  }
+
+  // ── Calendar events.watch ──
+  // Path: /calendar/v3/calendars/{cid}/events/watch
+  const calendarEventsWatchMatch = url.pathname.match(
+    /^\/calendar\/v3\/calendars\/([^/]+)\/events\/watch$/,
+  );
+  if (req.method === "POST" && calendarEventsWatchMatch) {
+    const calendarId = decodeURIComponent(calendarEventsWatchMatch[1]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    const channelId = (parsed.id as string) ?? "";
+    // Resource id Google would generate on its end. Echoing a deterministic
+    // string keeps assertions simple.
+    const resourceId = `mock-resource-${channelId}`;
+    const expiration = String(Date.now() + CALENDAR_WATCH_TTL_MS);
+    state.calls.calendarEventsWatch.push({
+      authorization: req.headers.authorization,
+      calendarId,
+      body: parsed,
+      responseChannelId: channelId,
+      responseResourceId: resourceId,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "api#channel",
+        id: channelId,
+        resourceId,
+        resourceUri: `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?alt=json`,
+        expiration,
+      }),
+    );
+    return;
+  }
+
+  // ── Calendar events.insert ──
+  // Path: /calendar/v3/calendars/{cid}/events
+  // POST (the GET branch above handles list).
+  if (req.method === "POST" && calendarEventsListMatch) {
+    const calendarId = decodeURIComponent(calendarEventsListMatch[1]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    state.calls.calendarEventsInsert.push({
+      authorization: req.headers.authorization,
+      calendarId,
+      url: req.url ?? "",
+      body: parsed,
+    });
+    const id = `mock-evt-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "calendar#event",
+        id,
+        status: "confirmed",
+        htmlLink: `https://calendar.google.com/event?eid=${id}`,
+        created: nowIso,
+        updated: nowIso,
+        summary: parsed.summary,
+        start: parsed.start,
+        end: parsed.end,
+        attendees: parsed.attendees ?? [],
       }),
     );
     return;
@@ -485,6 +811,80 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/__injectCalendarEvent") {
+    const body = await readBody(req);
+    let resource: Record<string, unknown>;
+    try {
+      resource = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (!resource.id) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("missing event id");
+      return;
+    }
+    // Bump the sync token by 1. Token format `sync-<bigint>` so we can
+    // increment via parse + format.
+    const m = state.currentCalendarSyncToken.match(/^sync-(\d+)$/);
+    if (!m) {
+      res.writeHead(500, { "content-type": "text/plain" });
+      res.end("unrecoverable sync token format");
+      return;
+    }
+    const next = (BigInt(m[1]!) + 1n).toString();
+    state.currentCalendarSyncToken = `sync-${next}`;
+    const entry: InjectedCalendarEvent = {
+      syncTokenAtInsert: state.currentCalendarSyncToken,
+      resource,
+    };
+    state.pendingCalendarEvents.push(entry);
+    state.calendarEvents.set(resource.id as string, entry);
+    state.lastInjectedCalendarEventId = resource.id as string;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        currentSyncToken: state.currentCalendarSyncToken,
+        eventId: resource.id,
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__replayLastCalendarEvent") {
+    if (!state.lastInjectedCalendarEventId) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("no calendar event to replay");
+      return;
+    }
+    // Look up the backing store. Pending was drained on the previous
+    // events.list; the durable map keeps the resource around so replay
+    // doesn't need spec input. Re-push at the ORIGINAL syncTokenAtInsert
+    // so the next events.list?syncToken=… surfaces it again WITHOUT bumping
+    // the cursor — exact analog of __replayLastEmail's historyId behavior.
+    const entry = state.calendarEvents.get(state.lastInjectedCalendarEventId);
+    if (!entry) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("last injected event not found in backing store");
+      return;
+    }
+    state.pendingCalendarEvents.push({
+      syncTokenAtInsert: entry.syncTokenAtInsert,
+      resource: entry.resource,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        replayedEventId: state.lastInjectedCalendarEventId,
+      }),
+    );
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/__replayLastEmail") {
     if (!state.lastInjectedMessageId) {
       res.writeHead(400, { "content-type": "text/plain" });
@@ -526,6 +926,10 @@ async function handleRequest(
         emailCount: state.emails.size,
         pendingHistoryEntries: state.pendingHistoryEntries,
         lastInjectedMessageId: state.lastInjectedMessageId,
+        currentCalendarSyncToken: state.currentCalendarSyncToken,
+        pendingCalendarEvents: state.pendingCalendarEvents,
+        calendarEventCount: state.calendarEvents.size,
+        lastInjectedCalendarEventId: state.lastInjectedCalendarEventId,
       }),
     );
     return;

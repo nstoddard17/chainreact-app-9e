@@ -76,6 +76,13 @@ const SPEC_PROCESS_ENV_KEYS = [
   // CRON_SECRET from .env.local automatically; the spec process needs
   // it lifted explicitly.
   "CRON_SECRET",
+  // Slice 3b: the Calendar walkthrough hand-crafts the inbound webhook
+  // POST to /api/webhooks/google-calendar with an X-Goog-Channel-Token
+  // computed via buildChannelToken (HMAC-SHA256 over channelId, keyed
+  // on WATCH_CHANNEL_SECRET). The dev server has it from .env.local;
+  // the spec needs the same secret to produce a token the receive
+  // route's verifyChannelToken accepts.
+  "WATCH_CHANNEL_SECRET",
 ];
 
 function loadDotEnvLocal(): void {
@@ -101,6 +108,13 @@ function loadDotEnvLocal(): void {
 
 export default async function globalSetup(): Promise<void> {
   loadDotEnvLocal();
+  // Slice 3b: if neither process.env nor .env.local set WATCH_CHANNEL_SECRET,
+  // fall back to the fixed test value the playwright.config.ts webServer.env
+  // also defaults to. Keeps the spec process and the dev server in sync
+  // without forcing the user to edit .env.local.
+  if (!process.env.WATCH_CHANNEL_SECRET) {
+    process.env.WATCH_CHANNEL_SECRET = "e2e-watch-channel-secret";
+  }
   // Mock callbacks land on the e2e dev server, not the dev/manual server.
   // Match playwright.config.ts E2E_PORT default.
   const e2ePort = Number(process.env.E2E_PORT ?? "3001");

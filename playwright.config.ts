@@ -74,6 +74,18 @@ export default defineConfig({
       GMAIL_API_BASE: GOOGLE_MOCK_BASE,
       GOOGLE_AUTHORIZE_BASE: GOOGLE_MOCK_BASE,
       GOOGLE_TOKEN_BASE: GOOGLE_MOCK_BASE,
+      // Slice 3b: route Calendar API calls + the OIDC userinfo lookup
+      // through the same mock server. The mock owns the Calendar v3 paths
+      // and the /v1/userinfo path alongside the Gmail paths.
+      GOOGLE_CALENDAR_API_BASE: GOOGLE_MOCK_BASE,
+      GOOGLE_USERINFO_BASE: GOOGLE_MOCK_BASE,
+      // Slice 3b: fixed test value so the spec process and the dev server
+      // produce/verify the same channel token. Production sets the real
+      // secret via Vercel; the e2e value is throwaway. Falling back to
+      // .env.local would require the user to set this manually — overriding
+      // here keeps the e2e self-contained.
+      WATCH_CHANNEL_SECRET:
+        process.env.WATCH_CHANNEL_SECRET ?? "e2e-watch-channel-secret",
       // Force the dev server to use the e2e port as its public URL even
       // when .env.local sets NEXT_PUBLIC_APP_URL to something else (e.g.
       // an ngrok tunnel for manual testing). The OAuth dispatcher reads
