@@ -3,8 +3,8 @@ import { URL } from "node:url";
 import { Buffer } from "node:buffer";
 
 /**
- * Standalone mock Google server for the Gmail (Slice 2f) and Google Calendar
- * (Slice 3b) e2e walkthroughs.
+ * Standalone mock Google server for the Gmail (Slice 2f), Google Calendar
+ * (Slice 3b), and Google Drive (Slice 4b) e2e walkthroughs.
  *
  * Routes (sized to V2's actual call patterns — nothing more):
  *   GET  /o/oauth2/v2/auth                       → 302 to the redirect_uri
@@ -68,6 +68,27 @@ import { Buffer } from "node:buffer";
  *                                                  request body and returns a
  *                                                  canned event resource.
  *
+ *   Drive-specific:
+ *   POST /drive/v3/files/{fileId}/watch          → files.watch. Returns canned
+ *                                                  { id, resourceId, expiration }
+ *                                                  where expiration is now+7d
+ *                                                  in milliseconds-as-string.
+ *   GET  /drive/v3/changes/startPageToken        → returns current Drive
+ *                                                  pageToken cursor (used by
+ *                                                  Slice 4 activate hook AND
+ *                                                  by pull's 410-recovery path).
+ *   GET  /drive/v3/changes                       → changes.list. With
+ *                                                  pageToken=X: drains pending
+ *                                                  change entries injected at
+ *                                                  pageTokenAtInsert >= X and
+ *                                                  returns them. Always returns
+ *                                                  newStartPageToken so the
+ *                                                  caller persists the new
+ *                                                  cursor.
+ *   POST /drive/v3/files                         → files.create. Records the
+ *                                                  request body and returns a
+ *                                                  canned file/folder resource.
+ *
  * Control plane (test-only):
  *   POST /__injectEmail   — inject an email into the mock store and bump
  *                           historyId; the next history.list returns it.
@@ -86,8 +107,18 @@ import { Buffer } from "node:buffer";
  *                           the cursor. Calendar's analog of __replayLastEmail
  *                           — proves dedup catches the same Calendar event id
  *                           on a second push notification.
- *   POST /__reset         — clear ALL state (Gmail + Calendar) and reset both
- *                           cursors.
+ *   POST /__injectDriveChange
+ *                         — bump currentDrivePageToken by 1, queue a Drive
+ *                           change entry for the next changes.list?pageToken=…
+ *                           call. Body is the full DriveChangeEntry shape.
+ *   POST /__replayLastDriveChange
+ *                         — re-queue the most recently injected drive change
+ *                           at its ORIGINAL pageTokenAtInsert WITHOUT bumping
+ *                           the cursor. Drive's analog of __replayLastEmail —
+ *                           proves dedup catches the same Drive change on a
+ *                           second push notification.
+ *   POST /__reset         — clear ALL state (Gmail + Calendar + Drive) and
+ *                           reset all cursors.
  *   GET  /__inspect       — dump calls + store state; cross-process seam.
  *
  * Listens on a fixed port (default 9877, override via GMAIL_MOCK_PORT).
@@ -103,8 +134,11 @@ import { Buffer } from "node:buffer";
 
 const SEED_HISTORY_ID = "100000";
 const SEED_CALENDAR_SYNC_TOKEN = "sync-100000";
+const SEED_DRIVE_PAGE_TOKEN = "page-100000";
 /** ms — Calendar watches expire after 7 days; mock returns now+7d on watch. */
 const CALENDAR_WATCH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** ms — Drive watches: per V1, treat as 7d for renewal-cron purposes. */
+const DRIVE_WATCH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface RecordedAuthorize {
   state: string;
@@ -191,6 +225,49 @@ export interface InjectedCalendarEvent {
   resource: Record<string, unknown>;
 }
 
+export interface RecordedDriveFilesWatch {
+  authorization: string | undefined;
+  fileId: string;
+  body: Record<string, unknown>;
+  responseChannelId: string;
+  responseResourceId: string;
+}
+
+export interface RecordedDriveChangesGetStartPageToken {
+  authorization: string | undefined;
+  responseStartPageToken: string;
+}
+
+export interface RecordedDriveChangesList {
+  authorization: string | undefined;
+  url: string;
+  pageToken: string | null;
+  /** How many delta items the response carried. */
+  responseChanges: number;
+  /** Whether the response included a fresh newStartPageToken (terminal page). */
+  responseNewStartPageToken: string | null;
+  /** nextPageToken value when response was paginated mid-stream. */
+  responseNextPageToken: string | null;
+}
+
+export interface RecordedDriveFilesCreate {
+  authorization: string | undefined;
+  url: string;
+  body: Record<string, unknown>;
+}
+
+/**
+ * Drive change entry queued by __injectDriveChange for delivery on the next
+ * changes.list?pageToken=… call. Stored alongside the pageToken that was
+ * current AT INSERT TIME so the inject-vs-replay distinction is precise.
+ */
+export interface InjectedDriveChange {
+  /** Page token current at the moment this was injected. */
+  pageTokenAtInsert: string;
+  /** Full Drive change entry — the spec hand-crafts a realistic shape. */
+  change: Record<string, unknown>;
+}
+
 /**
  * Minimal RFC 5322 parse — splits headers / body on the first blank line,
  * extracts header name/value pairs case-insensitively, and pulls the
@@ -231,6 +308,10 @@ export interface MockGoogleHandle {
     calendarEventsList: RecordedCalendarEventsList[];
     calendarEventsWatch: RecordedCalendarEventsWatch[];
     calendarEventsInsert: RecordedCalendarEventsInsert[];
+    driveFilesWatch: RecordedDriveFilesWatch[];
+    driveChangesGetStartPageToken: RecordedDriveChangesGetStartPageToken[];
+    driveChangesList: RecordedDriveChangesList[];
+    driveFilesCreate: RecordedDriveFilesCreate[];
   };
   /** Map of injected emails by id. */
   emails: Map<string, InjectedEmail>;
@@ -257,6 +338,19 @@ export interface MockGoogleHandle {
   calendarEvents: Map<string, InjectedCalendarEvent>;
   /** Calendar — most recently injected event id (for replay). */
   lastInjectedCalendarEventId: string | null;
+  /** Drive — current pageToken returned by changes.list / startPageToken responses. */
+  currentDrivePageToken: string;
+  /** Drive — changes queued for the next changes.list?pageToken=… delta. */
+  pendingDriveChanges: InjectedDriveChange[];
+  /**
+   * Drive — durable backing store of all injected changes by fileId. The
+   * pending queue is consumed (drained) by changes.list calls; this map
+   * survives so __replayLastDriveChange can re-push the same change at its
+   * original pageTokenAtInsert without the spec re-supplying it.
+   */
+  driveChanges: Map<string, InjectedDriveChange>;
+  /** Drive — most recently injected change's fileId (for replay). */
+  lastInjectedDriveFileId: string | null;
   /**
    * Scope string from the most recent authorize call. Cached here so the
    * next /token response can echo whatever set the user "consented" to,
@@ -325,6 +419,18 @@ export async function startMockGoogleServer(opts: {
     get lastInjectedCalendarEventId() {
       return state.lastInjectedCalendarEventId;
     },
+    get currentDrivePageToken() {
+      return state.currentDrivePageToken;
+    },
+    get pendingDriveChanges() {
+      return state.pendingDriveChanges;
+    },
+    get driveChanges() {
+      return state.driveChanges;
+    },
+    get lastInjectedDriveFileId() {
+      return state.lastInjectedDriveFileId;
+    },
     get lastAuthorizeScope() {
       return state.lastAuthorizeScope;
     },
@@ -347,6 +453,10 @@ type MutableState = Pick<
   | "pendingCalendarEvents"
   | "calendarEvents"
   | "lastInjectedCalendarEventId"
+  | "currentDrivePageToken"
+  | "pendingDriveChanges"
+  | "driveChanges"
+  | "lastInjectedDriveFileId"
   | "lastAuthorizeScope"
 >;
 
@@ -363,6 +473,10 @@ function freshState(): MutableState {
       calendarEventsList: [],
       calendarEventsWatch: [],
       calendarEventsInsert: [],
+      driveFilesWatch: [],
+      driveChangesGetStartPageToken: [],
+      driveChangesList: [],
+      driveFilesCreate: [],
     },
     emails: new Map(),
     pendingHistoryEntries: [],
@@ -372,6 +486,10 @@ function freshState(): MutableState {
     pendingCalendarEvents: [],
     calendarEvents: new Map(),
     lastInjectedCalendarEventId: null,
+    currentDrivePageToken: SEED_DRIVE_PAGE_TOKEN,
+    pendingDriveChanges: [],
+    driveChanges: new Map(),
+    lastInjectedDriveFileId: null,
     lastAuthorizeScope: null,
   };
 }
@@ -595,6 +713,148 @@ async function handleRequest(
         start: parsed.start,
         end: parsed.end,
         attendees: parsed.attendees ?? [],
+      }),
+    );
+    return;
+  }
+
+  // ── Drive files.watch ──
+  // Path: /drive/v3/files/{fileId}/watch
+  // Used by Slice 4 activate. Body: { id, type: "web_hook", address, token,
+  // params?: { ttl } }. Returns canned { id, resourceId, expiration }.
+  const driveFilesWatchMatch = url.pathname.match(
+    /^\/drive\/v3\/files\/([^/]+)\/watch$/,
+  );
+  if (req.method === "POST" && driveFilesWatchMatch) {
+    const fileId = decodeURIComponent(driveFilesWatchMatch[1]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    const channelId = (parsed.id as string) ?? "";
+    const resourceId = `mock-drive-resource-${channelId}`;
+    const expiration = String(Date.now() + DRIVE_WATCH_TTL_MS);
+    state.calls.driveFilesWatch.push({
+      authorization: req.headers.authorization,
+      fileId,
+      body: parsed,
+      responseChannelId: channelId,
+      responseResourceId: resourceId,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "api#channel",
+        id: channelId,
+        resourceId,
+        resourceUri: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=json`,
+        expiration,
+      }),
+    );
+    return;
+  }
+
+  // ── Drive changes.getStartPageToken ──
+  if (
+    req.method === "GET" &&
+    url.pathname === "/drive/v3/changes/startPageToken"
+  ) {
+    state.calls.driveChangesGetStartPageToken.push({
+      authorization: req.headers.authorization,
+      responseStartPageToken: state.currentDrivePageToken,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "drive#startPageToken",
+        startPageToken: state.currentDrivePageToken,
+      }),
+    );
+    return;
+  }
+
+  // ── Drive changes.list ──
+  // Path: /drive/v3/changes
+  // pageToken=X drains pending entries with pageTokenAtInsert >= X.
+  // newStartPageToken = current cursor (signals terminal page).
+  if (req.method === "GET" && url.pathname === "/drive/v3/changes") {
+    const pageToken = url.searchParams.get("pageToken");
+    let changes: Array<Record<string, unknown>> = [];
+    if (pageToken) {
+      // String compare works because mock issues lexically-ordered tokens
+      // ("page-100000" < "page-100001" < …). Drains entries whose
+      // pageTokenAtInsert >= request pageToken — the >= (not >) handles
+      // the replay case where re-queue sits at the same token V2 stored.
+      const remaining: InjectedDriveChange[] = [];
+      for (const entry of state.pendingDriveChanges) {
+        if (entry.pageTokenAtInsert >= pageToken) {
+          changes.push(entry.change);
+          // Drained — spec re-queues explicitly via /__replayLastDriveChange
+          // when it wants a replay.
+          continue;
+        }
+        remaining.push(entry);
+      }
+      state.pendingDriveChanges = remaining;
+    }
+
+    state.calls.driveChangesList.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      pageToken,
+      responseChanges: changes.length,
+      responseNewStartPageToken: state.currentDrivePageToken,
+      responseNextPageToken: null,
+    });
+
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "drive#changeList",
+        changes,
+        newStartPageToken: state.currentDrivePageToken,
+      }),
+    );
+    return;
+  }
+
+  // ── Drive files.create (folder + metadata-only) ──
+  // Path: /drive/v3/files (POST). Slice 4 Batch 2 only exercises the
+  // create_folder path; uploadFile uses /upload/drive/v3/files which is a
+  // different host root and isn't needed for this walkthrough.
+  if (req.method === "POST" && url.pathname === "/drive/v3/files") {
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    state.calls.driveFilesCreate.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      body: parsed,
+    });
+    const id = `mock-drv-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        kind: "drive#file",
+        id,
+        name: parsed.name,
+        mimeType: parsed.mimeType,
+        parents: parsed.parents ?? [],
+        webViewLink: `https://drive.google.com/drive/folders/${id}`,
+        createdTime: nowIso,
+        modifiedTime: nowIso,
       }),
     );
     return;
@@ -885,6 +1145,80 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/__injectDriveChange") {
+    const body = await readBody(req);
+    let change: Record<string, unknown>;
+    try {
+      change = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    const fileId = change.fileId as string | undefined;
+    if (!fileId) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("missing fileId on change");
+      return;
+    }
+    // Bump page token by 1. Token format `page-<bigint>` so we can
+    // increment via parse + format (lex order matches numeric order).
+    const m = state.currentDrivePageToken.match(/^page-(\d+)$/);
+    if (!m) {
+      res.writeHead(500, { "content-type": "text/plain" });
+      res.end("unrecoverable page token format");
+      return;
+    }
+    const next = (BigInt(m[1]!) + 1n).toString();
+    state.currentDrivePageToken = `page-${next}`;
+    const entry: InjectedDriveChange = {
+      pageTokenAtInsert: state.currentDrivePageToken,
+      change,
+    };
+    state.pendingDriveChanges.push(entry);
+    state.driveChanges.set(fileId, entry);
+    state.lastInjectedDriveFileId = fileId;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        currentPageToken: state.currentDrivePageToken,
+        fileId,
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__replayLastDriveChange") {
+    if (!state.lastInjectedDriveFileId) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("no drive change to replay");
+      return;
+    }
+    const entry = state.driveChanges.get(state.lastInjectedDriveFileId);
+    if (!entry) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("last injected drive change not found in backing store");
+      return;
+    }
+    // Re-push at the ORIGINAL pageTokenAtInsert. The cursor is NOT bumped,
+    // so a subsequent changes.list?pageToken=<that-token> surfaces the same
+    // change again. Workflow dispatch must dedup via webhook_event_dedup
+    // keyed on (google-drive, "{fileId}:{change.time}").
+    state.pendingDriveChanges.push({
+      pageTokenAtInsert: entry.pageTokenAtInsert,
+      change: entry.change,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        replayedFileId: state.lastInjectedDriveFileId,
+      }),
+    );
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/__replayLastEmail") {
     if (!state.lastInjectedMessageId) {
       res.writeHead(400, { "content-type": "text/plain" });
@@ -930,6 +1264,10 @@ async function handleRequest(
         pendingCalendarEvents: state.pendingCalendarEvents,
         calendarEventCount: state.calendarEvents.size,
         lastInjectedCalendarEventId: state.lastInjectedCalendarEventId,
+        currentDrivePageToken: state.currentDrivePageToken,
+        pendingDriveChanges: state.pendingDriveChanges,
+        driveChangeCount: state.driveChanges.size,
+        lastInjectedDriveFileId: state.lastInjectedDriveFileId,
       }),
     );
     return;

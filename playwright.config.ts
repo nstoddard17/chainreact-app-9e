@@ -79,6 +79,14 @@ export default defineConfig({
       // and the /v1/userinfo path alongside the Gmail paths.
       GOOGLE_CALENDAR_API_BASE: GOOGLE_MOCK_BASE,
       GOOGLE_USERINFO_BASE: GOOGLE_MOCK_BASE,
+      // Slice 4b: route Drive metadata + upload calls through the same
+      // mock server. integrations/google-drive/api/_base.ts honors both
+      // GOOGLE_DRIVE_API_BASE (drive/v3 paths) and GOOGLE_DRIVE_UPLOAD_BASE
+      // (upload/drive/v3). Both point to the same mock; the multipart
+      // upload path is exercised in unit tests, not in the Slice 4b
+      // walkthrough (which uses create_folder for its action proof).
+      GOOGLE_DRIVE_API_BASE: GOOGLE_MOCK_BASE,
+      GOOGLE_DRIVE_UPLOAD_BASE: GOOGLE_MOCK_BASE,
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to
