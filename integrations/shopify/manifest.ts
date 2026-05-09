@@ -106,10 +106,18 @@ export const shopifyManifest: ProviderManifest = ProviderManifestSchema.parse({
     // `webhook_received` trigger + `X-Shopify-Hmac-SHA256` verification.
     webhookTrigger: false,
     pollingTrigger: false,
-    // False until Slice 12 Commit 3 lands the 10 typed action handlers
-    // (orders / products / customers / fulfillments / inventory) +
-    // REST wrappers + per-shop API base routing.
-    actions: false,
+    // True: 10 action handlers (create_order, update_order_status,
+    // add_order_note, create_fulfillment, create_product,
+    // update_product, create_product_variant, create_customer,
+    // update_customer, update_inventory) registered in
+    // services/execution/handlers/_registry.ts as of Slice 12
+    // Commit 3. REST-only via _shared/shopify/api wrappers; per-shop
+    // base URL routing sourced from the integration row's
+    // providerAccountId (= shopDomain). All actions wrap their
+    // principal call in refreshAndRetry; 401s surface as
+    // IntegrationActionRequiredError(reason: "refresh_not_supported")
+    // since Shopify is non-refreshable.
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
   refreshable: false,

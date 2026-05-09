@@ -20,12 +20,12 @@ describe("shopifyManifest", () => {
     expect(shopifyManifest.isEnabled).toBe(true);
   });
 
-  it("declares oauth capability ONLY for Commit 2 (actions + webhookTrigger flipped in later commits)", () => {
+  it("declares oauth + actions capability for Commit 3 (webhookTrigger flipped in Commit 4)", () => {
     expect(shopifyManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
   });
 

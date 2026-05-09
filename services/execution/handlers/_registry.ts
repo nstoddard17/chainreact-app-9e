@@ -42,6 +42,16 @@ import { getPage as notionGetPage } from "@/integrations/notion/actions/getPage"
 import { queryDatabase as notionQueryDatabase } from "@/integrations/notion/actions/queryDatabase";
 import { search as notionSearch } from "@/integrations/notion/actions/search";
 import { updatePage as notionUpdatePage } from "@/integrations/notion/actions/updatePage";
+import { addOrderNote as shopifyAddOrderNote } from "@/integrations/shopify/actions/addOrderNote";
+import { createCustomer as shopifyCreateCustomer } from "@/integrations/shopify/actions/createCustomer";
+import { createFulfillment as shopifyCreateFulfillment } from "@/integrations/shopify/actions/createFulfillment";
+import { createOrder as shopifyCreateOrder } from "@/integrations/shopify/actions/createOrder";
+import { createProduct as shopifyCreateProduct } from "@/integrations/shopify/actions/createProduct";
+import { createProductVariant as shopifyCreateProductVariant } from "@/integrations/shopify/actions/createProductVariant";
+import { updateCustomer as shopifyUpdateCustomer } from "@/integrations/shopify/actions/updateCustomer";
+import { updateInventory as shopifyUpdateInventory } from "@/integrations/shopify/actions/updateInventory";
+import { updateOrderStatus as shopifyUpdateOrderStatus } from "@/integrations/shopify/actions/updateOrderStatus";
+import { updateProduct as shopifyUpdateProduct } from "@/integrations/shopify/actions/updateProduct";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
 import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
@@ -126,6 +136,16 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "stripe", type: "create_subscription", handler: stripeCreateSubscription },
   { provider: "stripe", type: "update_subscription", handler: stripeUpdateSubscription },
   { provider: "stripe", type: "cancel_subscription", handler: stripeCancelSubscription },
+  { provider: "shopify", type: "create_order", handler: shopifyCreateOrder },
+  { provider: "shopify", type: "update_order_status", handler: shopifyUpdateOrderStatus },
+  { provider: "shopify", type: "add_order_note", handler: shopifyAddOrderNote },
+  { provider: "shopify", type: "create_fulfillment", handler: shopifyCreateFulfillment },
+  { provider: "shopify", type: "create_product", handler: shopifyCreateProduct },
+  { provider: "shopify", type: "update_product", handler: shopifyUpdateProduct },
+  { provider: "shopify", type: "create_product_variant", handler: shopifyCreateProductVariant },
+  { provider: "shopify", type: "create_customer", handler: shopifyCreateCustomer },
+  { provider: "shopify", type: "update_customer", handler: shopifyUpdateCustomer },
+  { provider: "shopify", type: "update_inventory", handler: shopifyUpdateInventory },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

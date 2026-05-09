@@ -43,4 +43,30 @@ describe("action handler registry", () => {
     expect(getActionHandler("gmail", "send_channel_message")).toBeUndefined();
     expect(getActionHandler("slack", "send_email")).toBeUndefined();
   });
+
+  it("registers all 10 Shopify actions (Slice 12 Commit 3)", () => {
+    const expected = [
+      "create_order",
+      "update_order_status",
+      "add_order_note",
+      "create_fulfillment",
+      "create_product",
+      "update_product",
+      "create_product_variant",
+      "create_customer",
+      "update_customer",
+      "update_inventory",
+    ];
+    for (const type of expected) {
+      expect(getActionHandler("shopify", type)).toBeDefined();
+    }
+    const shopifyEntries = listRegisteredHandlers().filter(
+      (e) => e.provider === "shopify",
+    );
+    expect(shopifyEntries.map((e) => e.type).sort()).toEqual([...expected].sort());
+  });
+
+  it("does NOT register Shopify actions deferred from Batch 1 (e.g. update_product_variant)", () => {
+    expect(getActionHandler("shopify", "update_product_variant")).toBeUndefined();
+  });
 });
