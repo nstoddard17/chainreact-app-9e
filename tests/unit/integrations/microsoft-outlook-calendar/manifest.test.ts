@@ -8,6 +8,7 @@
  */
 import { microsoftOutlookCalendarManifest } from "@/integrations/microsoft-outlook-calendar/manifest";
 import { getProvider, providerSupports } from "@/integrations/_registry";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("microsoft-outlook-calendar manifest", () => {
   it("is registered in the provider registry under id 'microsoft-outlook-calendar'", () => {
@@ -52,21 +53,21 @@ describe("microsoft-outlook-calendar manifest", () => {
     expect(microsoftOutlookCalendarManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 7 Commit 2 (oauth-only)", () => {
-    // Slice 7 Commit 2 lands manifest + OAuth + dispatcher. Calendar
-    // actions land in Commit 3 (flips actions: true); event_changed
-    // trigger lands in Commit 4 (flips webhookTrigger: true). Honest-
-    // state convention means flags flip in lockstep with the
-    // registrations they describe.
+  it("declares honest capabilities for Slice 7 Commit 3 (oauth + actions)", () => {
+    // Slice 7 Commit 2 landed manifest + OAuth + dispatcher. Commit 3
+    // (this) lands the 5 calendar actions + flips actions: true.
+    // Commit 4 will land event_changed subscription trigger + flip
+    // webhookTrigger: true. Honest-state convention means flags flip
+    // in lockstep with the registrations they describe.
     expect(microsoftOutlookCalendarManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("microsoft-outlook-calendar", "oauth")).toBe(true);
     expect(providerSupports("microsoft-outlook-calendar", "actions")).toBe(
-      false,
+      true,
     );
     expect(
       providerSupports("microsoft-outlook-calendar", "webhookTrigger"),
@@ -74,6 +75,21 @@ describe("microsoft-outlook-calendar manifest", () => {
     expect(
       providerSupports("microsoft-outlook-calendar", "pollingTrigger"),
     ).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 5 calendar actions", () => {
+    if (microsoftOutlookCalendarManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "microsoft-outlook-calendar",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "add_attendees",
+        "create_event",
+        "delete_event",
+        "list_events",
+        "update_event",
+      ]);
+    }
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

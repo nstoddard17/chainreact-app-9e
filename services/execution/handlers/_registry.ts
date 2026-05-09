@@ -15,6 +15,11 @@ import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetM
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
 import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
 import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
+import { addAttendees as addOutlookCalendarAttendees } from "@/integrations/microsoft-outlook-calendar/actions/addAttendees";
+import { createEvent as createOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/createEvent";
+import { deleteEvent as deleteOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/deleteEvent";
+import { listEvents as listOutlookCalendarEvents } from "@/integrations/microsoft-outlook-calendar/actions/listEvents";
+import { updateEvent as updateOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/updateEvent";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandler } from "./types";
 
@@ -52,6 +57,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-sheets", type: "clear_range", handler: clearRange },
   { provider: "google-sheets", type: "get_sheet_metadata", handler: getSheetMetadata },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
+  { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
+  { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
+  { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
+  { provider: "microsoft-outlook-calendar", type: "delete_event", handler: deleteOutlookCalendarEvent },
+  { provider: "microsoft-outlook-calendar", type: "add_attendees", handler: addOutlookCalendarAttendees },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

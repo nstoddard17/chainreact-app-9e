@@ -84,9 +84,10 @@ export const microsoftOutlookCalendarManifest: ProviderManifest =
       // subscription trigger + webhook receiver land.
       webhookTrigger: false,
       pollingTrigger: false,
-      // Flipped to true in Slice 7 Commit 3 when the 5 calendar
-      // actions register in services/execution/handlers/_registry.ts.
-      actions: false,
+      // True: 5 action handlers (create_event, list_events,
+      // update_event, delete_event, add_attendees) are registered in
+      // services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000, // 6h
     refreshable: true,
