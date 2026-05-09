@@ -21,6 +21,7 @@ import "./google-drive/triggers/fileChanged";
 import "./google-sheets/triggers/rowChanged";
 import "./microsoft-outlook/triggers/newEmail";
 import "./microsoft-outlook-calendar/triggers/eventChanged";
+import "./microsoft-onedrive/triggers/fileChanged";
 
 /**
  * Aggregated provider registry.

@@ -85,9 +85,10 @@ export const microsoftOneDriveManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // Flipped to true in Slice 8 Commit 4 when the file_changed
-      // subscription trigger + webhook receiver land.
-      webhookTrigger: false,
+      // True: `file_changed` subscription trigger registered in
+      // integrations/microsoft-onedrive/triggers/fileChanged. Webhook
+      // route lives at /api/webhooks/microsoft-onedrive.
+      webhookTrigger: true,
       pollingTrigger: false,
       // True: 7 action handlers (upload_file, get_file, create_folder,
       // delete_item, move_item, copy_item, list_items) are registered

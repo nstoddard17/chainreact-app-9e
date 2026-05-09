@@ -70,22 +70,22 @@ describe("microsoft-onedrive manifest", () => {
     expect(microsoftOneDriveManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 8 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 8 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 8 Commit 2 landed manifest + OAuth + dispatcher. Commit 3
-    // (this) lands the 7 OneDrive actions + flips actions: true.
-    // Commit 4 will land file_changed subscription trigger + flip
+    // landed the 7 OneDrive actions + flipped actions: true. Commit 4
+    // (this) lands file_changed subscription trigger + flips
     // webhookTrigger: true. Honest-state convention means flags flip
     // in lockstep with the registrations they describe.
     expect(microsoftOneDriveManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("microsoft-onedrive", "oauth")).toBe(true);
     expect(providerSupports("microsoft-onedrive", "actions")).toBe(true);
     expect(providerSupports("microsoft-onedrive", "webhookTrigger")).toBe(
-      false,
+      true,
     );
     expect(providerSupports("microsoft-onedrive", "pollingTrigger")).toBe(
       false,
