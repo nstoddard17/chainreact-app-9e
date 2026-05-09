@@ -8,6 +8,7 @@
  */
 import { microsoftOneDriveManifest } from "@/integrations/microsoft-onedrive/manifest";
 import { getProvider, providerSupports } from "@/integrations/_registry";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("microsoft-onedrive manifest", () => {
   it("is registered in the provider registry under id 'microsoft-onedrive'", () => {
@@ -69,9 +70,9 @@ describe("microsoft-onedrive manifest", () => {
     expect(microsoftOneDriveManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 8 Commit 2 (oauth only)", () => {
-    // Slice 8 Commit 2 (this) lands manifest + OAuth + dispatcher.
-    // Commit 3 will land the 7 OneDrive actions + flip actions: true.
+  it("declares honest capabilities for Slice 8 Commit 3 (oauth + actions)", () => {
+    // Slice 8 Commit 2 landed manifest + OAuth + dispatcher. Commit 3
+    // (this) lands the 7 OneDrive actions + flips actions: true.
     // Commit 4 will land file_changed subscription trigger + flip
     // webhookTrigger: true. Honest-state convention means flags flip
     // in lockstep with the registrations they describe.
@@ -79,16 +80,33 @@ describe("microsoft-onedrive manifest", () => {
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("microsoft-onedrive", "oauth")).toBe(true);
-    expect(providerSupports("microsoft-onedrive", "actions")).toBe(false);
+    expect(providerSupports("microsoft-onedrive", "actions")).toBe(true);
     expect(providerSupports("microsoft-onedrive", "webhookTrigger")).toBe(
       false,
     );
     expect(providerSupports("microsoft-onedrive", "pollingTrigger")).toBe(
       false,
     );
+  });
+
+  it("when actions: true, the action-handler registry contains all 7 OneDrive actions", () => {
+    if (microsoftOneDriveManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "microsoft-onedrive",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "copy_item",
+        "create_folder",
+        "delete_item",
+        "get_file",
+        "list_items",
+        "move_item",
+        "upload_file",
+      ]);
+    }
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

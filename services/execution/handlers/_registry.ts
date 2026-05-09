@@ -14,6 +14,13 @@ import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
 import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
 import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
+import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
+import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
+import { deleteItem as deleteOneDriveItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
+import { getFile as getOneDriveFile } from "@/integrations/microsoft-onedrive/actions/getFile";
+import { listItems as listOneDriveItems } from "@/integrations/microsoft-onedrive/actions/listItems";
+import { moveItem as moveOneDriveItem } from "@/integrations/microsoft-onedrive/actions/moveItem";
+import { uploadFile as uploadOneDriveFile } from "@/integrations/microsoft-onedrive/actions/uploadFile";
 import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
 import { addAttendees as addOutlookCalendarAttendees } from "@/integrations/microsoft-outlook-calendar/actions/addAttendees";
 import { createEvent as createOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/createEvent";
@@ -62,6 +69,13 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "delete_event", handler: deleteOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "add_attendees", handler: addOutlookCalendarAttendees },
+  { provider: "microsoft-onedrive", type: "upload_file", handler: uploadOneDriveFile },
+  { provider: "microsoft-onedrive", type: "get_file", handler: getOneDriveFile },
+  { provider: "microsoft-onedrive", type: "create_folder", handler: createOneDriveFolder },
+  { provider: "microsoft-onedrive", type: "delete_item", handler: deleteOneDriveItem },
+  { provider: "microsoft-onedrive", type: "move_item", handler: moveOneDriveItem },
+  { provider: "microsoft-onedrive", type: "copy_item", handler: copyOneDriveItem },
+  { provider: "microsoft-onedrive", type: "list_items", handler: listOneDriveItems },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

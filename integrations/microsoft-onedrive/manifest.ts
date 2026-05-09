@@ -89,11 +89,10 @@ export const microsoftOneDriveManifest: ProviderManifest =
       // subscription trigger + webhook receiver land.
       webhookTrigger: false,
       pollingTrigger: false,
-      // Flipped to true in Slice 8 Commit 3 when the 7 action handlers
-      // (upload_file, get_file, create_folder, delete_item, move_item,
-      // copy_item, list_items) are registered in
-      // services/execution/handlers/_registry.ts.
-      actions: false,
+      // True: 7 action handlers (upload_file, get_file, create_folder,
+      // delete_item, move_item, copy_item, list_items) are registered
+      // in services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000, // 6h
     refreshable: true,
