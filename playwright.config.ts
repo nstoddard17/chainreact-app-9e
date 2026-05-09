@@ -53,6 +53,17 @@ const AIRTABLE_MOCK_PORT = Number(process.env.AIRTABLE_MOCK_PORT ?? "9880");
 const AIRTABLE_MOCK_BASE = `http://127.0.0.1:${AIRTABLE_MOCK_PORT}`;
 
 /**
+ * Stripe mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits STRIPE_AUTHORIZE_BASE / STRIPE_TOKEN_BASE /
+ * STRIPE_API_BASE pointing here for the Slice 11 walkthrough — Stripe
+ * Connect OAuth (body-auth, no PKCE) + REST customers + webhook
+ * endpoint lifecycle + signed-event delivery for the event_received
+ * trigger.
+ */
+const STRIPE_MOCK_PORT = Number(process.env.STRIPE_MOCK_PORT ?? "9881");
+const STRIPE_MOCK_BASE = `http://127.0.0.1:${STRIPE_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -173,6 +184,28 @@ export default defineConfig({
         process.env.AIRTABLE_CLIENT_ID ?? "e2e-airtable-client-id",
       AIRTABLE_CLIENT_SECRET:
         process.env.AIRTABLE_CLIENT_SECRET ?? "e2e-airtable-client-secret",
+      // Slice 11: route Stripe Connect OAuth + REST + webhook endpoint
+      // management through the mock. integrations/stripe/oauth.ts
+      // honors STRIPE_AUTHORIZE_BASE and STRIPE_TOKEN_BASE;
+      // _shared/stripe/api/_base.ts honors STRIPE_API_BASE (used by
+      // both the action wrappers and the webhook_endpoints API
+      // wrapper). The mock owns /oauth/{authorize,token},
+      // /v1/customers, /v1/webhook_endpoints{,/id}.
+      STRIPE_AUTHORIZE_BASE: STRIPE_MOCK_BASE,
+      STRIPE_TOKEN_BASE: STRIPE_MOCK_BASE,
+      STRIPE_API_BASE: STRIPE_MOCK_BASE,
+      // Slice 11: e2e Stripe Connect platform credentials. Production
+      // uses a `ca_xxx` client id + `sk_xxx` secret from the Stripe
+      // dashboard; the e2e values are throwaway. The mock validates
+      // body-auth (client_secret in body, no Basic auth header) but
+      // doesn't check the credential values themselves. The same
+      // STRIPE_CLIENT_SECRET is used for OAuth body-auth AND webhook
+      // endpoint management on the platform account — Stripe
+      // Connect's model.
+      STRIPE_CLIENT_ID:
+        process.env.STRIPE_CLIENT_ID ?? "ca_e2e_stripe_client_id",
+      STRIPE_CLIENT_SECRET:
+        process.env.STRIPE_CLIENT_SECRET ?? "sk_e2e_stripe_client_secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

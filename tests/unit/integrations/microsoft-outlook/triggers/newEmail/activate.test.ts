@@ -69,6 +69,7 @@ describe("Outlook new_email activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(mockCreateSubscription).toHaveBeenCalledTimes(1);
@@ -110,6 +111,7 @@ describe("Outlook new_email activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(result.clientState).toMatch(/^[0-9a-f]{64}$/);
@@ -133,6 +135,7 @@ describe("Outlook new_email activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(result.expiresAt).toBe("2026-05-10T23:59:59.000Z");
@@ -147,8 +150,8 @@ describe("Outlook new_email activate", () => {
       expirationDateTime: "x",
     });
 
-    const r1 = await activate({ node: baseNode, integration: baseIntegration });
-    const r2 = await activate({ node: baseNode, integration: baseIntegration });
+    const r1 = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
+    const r2 = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(r1.clientState).not.toBe(r2.clientState);
   });
@@ -162,7 +165,7 @@ describe("Outlook new_email activate", () => {
       expirationDateTime: "x",
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -187,7 +190,7 @@ describe("Outlook new_email activate", () => {
       expirationDateTime: "x",
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     const call = mockCreateSubscription.mock.calls[0]![0];
     expect(call.notificationUrl).toBe(
@@ -204,7 +207,7 @@ describe("Outlook new_email activate", () => {
     );
 
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/validation request failed/);
   });
 });

@@ -30,6 +30,18 @@ export interface ActivationContext {
   node: WorkflowNode;
   /** The user's active integration for this provider. */
   integration: IntegrationRecord;
+  /**
+   * The workflow id this trigger registration belongs to. Threaded by
+   * the lifecycle orchestrator. Slice 11 (Stripe) needs the real id at
+   * activation time to embed in the webhook notification URL —
+   * Stripe events carry no provider-issued endpoint identifier in the
+   * inbound body, so the receive route's strict-direct-lookup uses
+   * `?workflowId=X&nodeId=Y` query params from the URL. Other webhook
+   * providers (Airtable / Microsoft / Google) use a provider-issued
+   * id and don't depend on this field, but they still receive it
+   * uniformly for diagnostic logging.
+   */
+  workflowId: string;
 }
 
 /**

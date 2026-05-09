@@ -92,7 +92,7 @@ describe("Sheets row_changed activate", () => {
       expiration: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     // values.get called against the configured sheet's A:Z range.
     expect(mockValuesGet).toHaveBeenCalledTimes(1);
@@ -135,7 +135,7 @@ describe("Sheets row_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(result.lastRowCount).toBe(0);
   });
@@ -154,6 +154,7 @@ describe("Sheets row_changed activate", () => {
     const result = await activate({
       node: { ...baseNode, config: { ...baseNode.config, headerRow: true } },
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(result.headerRow).toBe(true);
@@ -172,7 +173,7 @@ describe("Sheets row_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockFilesWatch.mock.calls[0]![0].channelToken).toBe("the-real-hmac");
   });
@@ -188,7 +189,7 @@ describe("Sheets row_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockFilesWatch.mock.calls[0]![0].webhookAddress).toBe(
       "https://app.example.test/api/webhooks/google-sheets",
@@ -200,6 +201,7 @@ describe("Sheets row_changed activate", () => {
       activate({
         node: { ...baseNode, config: { sheetName: "Sheet1" } },
         integration: baseIntegration,
+        workflowId: "wf-test",
       }),
     ).rejects.toThrow(/spreadsheetId/);
   });
@@ -209,6 +211,7 @@ describe("Sheets row_changed activate", () => {
       activate({
         node: { ...baseNode, config: { spreadsheetId: "ss-1" } },
         integration: baseIntegration,
+        workflowId: "wf-test",
       }),
     ).rejects.toThrow(/sheetName/);
   });
@@ -219,7 +222,7 @@ describe("Sheets row_changed activate", () => {
       startPageToken: "",
     });
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/no startPageToken/);
   });
 });

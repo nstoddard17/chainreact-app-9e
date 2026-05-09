@@ -21,6 +21,10 @@ import {
   startMockAirtableServer,
   type MockAirtableHandle,
 } from "./helpers/mockAirtableServer";
+import {
+  startMockStripeServer,
+  type MockStripeHandle,
+} from "./helpers/mockStripeServer";
 
 /**
  * Playwright global setup.
@@ -46,6 +50,7 @@ let googleHandle: MockGoogleHandle | null = null;
 let microsoftHandle: MockMicrosoftHandle | null = null;
 let notionHandle: MockNotionHandle | null = null;
 let airtableHandle: MockAirtableHandle | null = null;
+let stripeHandle: MockStripeHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -63,6 +68,10 @@ export const NOTION_STATE_FILE = resolve(
 export const AIRTABLE_STATE_FILE = resolve(
   __dirname,
   ".state/mock-airtable.json",
+);
+export const STRIPE_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-stripe.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -83,6 +92,10 @@ export function getNotionMockHandle(): MockNotionHandle | null {
 
 export function getAirtableMockHandle(): MockAirtableHandle | null {
   return airtableHandle;
+}
+
+export function getStripeMockHandle(): MockStripeHandle | null {
+  return stripeHandle;
 }
 
 /**
@@ -253,6 +266,27 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock Airtable listening at ${airtableHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 11: mock Stripe for the Stripe Connect walkthrough.
+  // Different port (9881) so all six mock servers can run
+  // simultaneously.
+  const stripePort = Number(process.env.STRIPE_MOCK_PORT ?? "9881");
+  stripeHandle = await startMockStripeServer({
+    appBaseUrl,
+    port: stripePort,
+  });
+  await writeFile(
+    STRIPE_STATE_FILE,
+    JSON.stringify({
+      port: stripePort,
+      baseUrl: stripeHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock Stripe listening at ${stripeHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -319,6 +353,19 @@ export async function readAirtableMockState(): Promise<{
   appBaseUrl: string;
 }> {
   const raw = await readFile(AIRTABLE_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+  };
+}
+
+export async function readStripeMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(STRIPE_STATE_FILE, "utf8");
   return JSON.parse(raw) as {
     port: number;
     baseUrl: string;

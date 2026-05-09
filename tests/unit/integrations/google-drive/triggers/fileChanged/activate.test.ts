@@ -79,7 +79,7 @@ describe("Drive file_changed activate", () => {
       expiration: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockChangesGetStartPageToken).toHaveBeenCalledTimes(1);
     expect(mockFilesWatch).toHaveBeenCalledTimes(1);
@@ -109,6 +109,7 @@ describe("Drive file_changed activate", () => {
     const result = await activate({
       node: { ...baseNode, config: { fileId: "fld-A" } },
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(result.fileId).toBe("fld-A");
@@ -125,7 +126,7 @@ describe("Drive file_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(result.fileId).toBe("root");
     expect(mockFilesWatch.mock.calls[0]![0].fileId).toBe("root");
@@ -144,6 +145,7 @@ describe("Drive file_changed activate", () => {
     const result = await activate({
       node: { ...baseNode, config: { fileId: "   " } },
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(result.fileId).toBe("root");
@@ -160,7 +162,7 @@ describe("Drive file_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockFilesWatch.mock.calls[0]![0].channelToken).toBe("the-real-hmac");
   });
@@ -170,7 +172,7 @@ describe("Drive file_changed activate", () => {
       startPageToken: "",
     });
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/no startPageToken/);
   });
 
@@ -184,7 +186,7 @@ describe("Drive file_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockFilesWatch.mock.calls[0]![0].webhookAddress).toBe(
       "https://app.example.test/api/webhooks/google-drive",

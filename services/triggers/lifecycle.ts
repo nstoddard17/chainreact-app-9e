@@ -64,7 +64,11 @@ export async function registerWorkflowTriggers(
           `registerWorkflowTriggers: no active ${node.provider} integration for user ${workflow.userId}.`,
         );
       }
-      const patch = await activation({ node, integration });
+      const patch = await activation({
+        node,
+        integration,
+        workflowId: workflow.id,
+      });
       mergedConfig = { ...mergedConfig, ...patch };
     }
 

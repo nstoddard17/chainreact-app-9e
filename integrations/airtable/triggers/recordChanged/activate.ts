@@ -56,7 +56,11 @@ function notificationUrl(workflowId: string, nodeId: string): string {
   return `${webhookBaseUrl()}/api/webhooks/airtable?${params.toString()}`;
 }
 
-export const activate: ActivationFn = async ({ node, integration }) => {
+export const activate: ActivationFn = async ({
+  node,
+  integration,
+  workflowId,
+}) => {
   const baseId = (node.config?.baseId as string | undefined)?.trim();
   if (!baseId) {
     throw new Error(
@@ -66,14 +70,14 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const tableIdOrName =
     (node.config?.tableIdOrName as string | undefined)?.trim() || undefined;
 
-  // Slice 10 Commit 4: workflowId is read off the node-shape carried
-  // by ActivationContext via lifecycle. The orchestrator threads
-  // workflow.id when invoking activations; the URL just needs to be
-  // stable per (workflow, node) so logs are diagnosable.
-  const url = notificationUrl(
-    (node as { workflowId?: string }).workflowId ?? "unknown",
-    node.id,
-  );
+  // Slice 11 Commit 5: workflowId is now a typed field on
+  // ActivationContext (was previously read off a `node.workflowId`
+  // cast that was never populated — silently fell back to `"unknown"`
+  // in the URL). Airtable's receive lookup goes via webhookId so
+  // this URL component was diagnostic-only here, but Stripe's
+  // strict-direct-lookup depends on it. The lifecycle now threads
+  // the real id uniformly.
+  const url = notificationUrl(workflowId, node.id);
 
   const webhook = await refreshAndRetry({
     userId: integration.userId,

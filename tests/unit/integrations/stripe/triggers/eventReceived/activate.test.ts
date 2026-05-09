@@ -72,6 +72,7 @@ describe("Stripe event_received activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -95,8 +96,9 @@ describe("Stripe event_received activate", () => {
     mockCreate.mockResolvedValueOnce(createResponse());
 
     await activate({
-      node: { ...baseNode, ...({ workflowId: "wf-XYZ" } as object) },
+      node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-XYZ",
     });
 
     const callArg = mockCreate.mock.calls[0]![0];
@@ -113,6 +115,7 @@ describe("Stripe event_received activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
     expect(result.notificationUrl).toMatch(
       /^http:\/\/localhost:9881\/api\/webhooks\/stripe\?/,
@@ -121,7 +124,7 @@ describe("Stripe event_received activate", () => {
 
   it("threads the platform secret (NOT the merchant access token)", async () => {
     mockCreate.mockResolvedValueOnce(createResponse());
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
     const callArg = mockCreate.mock.calls[0]![0];
     // STRIPE_CLIENT_SECRET, not the merchant access token from
     // baseIntegration.accessTokenEncrypted.
@@ -133,6 +136,7 @@ describe("Stripe event_received activate", () => {
       activate({
         node: { ...baseNode, config: {} },
         integration: baseIntegration,
+        workflowId: "wf-test",
       }),
     ).rejects.toThrow(/enabledEvents is required/);
     expect(mockCreate).not.toHaveBeenCalled();
@@ -143,6 +147,7 @@ describe("Stripe event_received activate", () => {
       activate({
         node: { ...baseNode, config: { enabledEvents: [] } },
         integration: baseIntegration,
+        workflowId: "wf-test",
       }),
     ).rejects.toThrow(/enabledEvents is required/);
     expect(mockCreate).not.toHaveBeenCalled();
@@ -161,6 +166,7 @@ describe("Stripe event_received activate", () => {
           },
         },
         integration: baseIntegration,
+        workflowId: "wf-test",
       }),
     ).rejects.toThrow(/payment_intent.canceled.*allowlist/);
     expect(mockCreate).not.toHaveBeenCalled();
@@ -169,7 +175,7 @@ describe("Stripe event_received activate", () => {
   it("rejects when STRIPE_CLIENT_SECRET env is not set", async () => {
     delete process.env.STRIPE_CLIENT_SECRET;
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/STRIPE_CLIENT_SECRET/);
     expect(mockCreate).not.toHaveBeenCalled();
   });
@@ -179,7 +185,7 @@ describe("Stripe event_received activate", () => {
       createResponse({ secret: undefined }),
     );
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/missing 'secret'/);
   });
 });

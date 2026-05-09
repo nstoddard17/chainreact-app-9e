@@ -78,7 +78,7 @@ describe("Calendar event_changed activate", () => {
       expiration: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockEventsList).toHaveBeenCalledTimes(2);
     // Second call should pass the page token from the first response.
@@ -106,7 +106,7 @@ describe("Calendar event_changed activate", () => {
       expiration: "1",
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockBuildChannelToken).toHaveBeenCalledTimes(1);
     expect(mockEventsWatch.mock.calls[0]![0].channelToken).toBe("hmac-token");
@@ -120,7 +120,7 @@ describe("Calendar event_changed activate", () => {
       expiration: "1",
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockEventsWatch.mock.calls[0]![0].webhookAddress).toBe(
       "https://app.example.test/api/webhooks/google-calendar",
@@ -136,7 +136,7 @@ describe("Calendar event_changed activate", () => {
     });
 
     const node = { ...baseNode, config: {} };
-    const result = await activate({ node, integration: baseIntegration });
+    const result = await activate({ node, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockEventsList.mock.calls[0]![0].calendarId).toBe("primary");
     expect(result.calendarId).toBe("primary");
@@ -149,7 +149,7 @@ describe("Calendar event_changed activate", () => {
     });
 
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/neither nextPageToken nor nextSyncToken/);
     expect(mockEventsWatch).not.toHaveBeenCalled();
   });

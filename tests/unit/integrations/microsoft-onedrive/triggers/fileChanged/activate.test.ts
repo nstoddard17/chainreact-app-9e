@@ -79,6 +79,7 @@ describe("OneDrive file_changed activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     // Delta call ordering: must come BEFORE subscription create.
@@ -108,6 +109,7 @@ describe("OneDrive file_changed activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(mockCreateSubscription).toHaveBeenCalledTimes(1);
@@ -152,6 +154,7 @@ describe("OneDrive file_changed activate", () => {
     const result = await activate({
       node: baseNode,
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
 
     expect(result.clientState).toMatch(/^[0-9a-f]{64}$/);
@@ -173,7 +176,7 @@ describe("OneDrive file_changed activate", () => {
       expirationDateTime: "x",
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     // Both refreshAndRetry calls must use the OneDrive provider id.
     for (const call of mockRefreshAndRetry.mock.calls) {
@@ -203,7 +206,7 @@ describe("OneDrive file_changed activate", () => {
       expirationDateTime: "x",
     });
 
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     const call = mockCreateSubscription.mock.calls[0]![0];
     expect(call.notificationUrl).toBe(
@@ -233,7 +236,7 @@ describe("OneDrive file_changed activate", () => {
         notificationUrl: "x",
         expirationDateTime: "x",
       });
-      await activate({ node: baseNode, integration: baseIntegration });
+      await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
       const call = mockCreateSubscription.mock.calls.at(-1)![0];
       expect(call.notificationUrl).toBe(
         "https://tunnel.example.test/api/webhooks/microsoft-onedrive",
@@ -251,7 +254,7 @@ describe("OneDrive file_changed activate", () => {
     );
 
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/validation request failed/);
   });
 
@@ -261,7 +264,7 @@ describe("OneDrive file_changed activate", () => {
     );
 
     await expect(
-      activate({ node: baseNode, integration: baseIntegration }),
+      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/HTTP 503/);
     // Subscription must NOT have been attempted.
     expect(mockCreateSubscription).not.toHaveBeenCalled();

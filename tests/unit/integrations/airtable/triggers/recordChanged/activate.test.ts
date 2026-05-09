@@ -66,7 +66,7 @@ describe("Airtable record_changed activate", () => {
       expirationTime: "2026-05-16T00:00:00.000Z",
     });
 
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockWebhooksCreate).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
@@ -95,6 +95,7 @@ describe("Airtable record_changed activate", () => {
     await activate({
       node: { ...baseNode, config: { baseId: "appBASE", tableIdOrName: "tblTASKS" } },
       integration: baseIntegration,
+      workflowId: "wf-test",
     });
     const callArg = mockWebhooksCreate.mock.calls[0]![0];
     expect(callArg.specification).toEqual({
@@ -109,7 +110,7 @@ describe("Airtable record_changed activate", () => {
       macSecretBase64: "s",
       expirationTime: "x",
     });
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
     const callArg = mockWebhooksCreate.mock.calls[0]![0];
     expect(callArg.specification).toEqual({ dataTypes: ["tableData"] });
   });
@@ -119,6 +120,7 @@ describe("Airtable record_changed activate", () => {
       activate({
         node: { ...baseNode, config: {} },
         integration: baseIntegration,
+        workflowId: "wf-test",
       }),
     ).rejects.toThrow(/baseId is required/);
     expect(mockWebhooksCreate).not.toHaveBeenCalled();
@@ -131,7 +133,7 @@ describe("Airtable record_changed activate", () => {
       macSecretBase64: "s",
       expirationTime: "x",
     });
-    const result = await activate({ node: baseNode, integration: baseIntegration });
+    const result = await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
     expect(result.notificationUrl).toMatch(
       /^http:\/\/localhost:9880\/api\/webhooks\/airtable\?/,
     );
@@ -143,7 +145,7 @@ describe("Airtable record_changed activate", () => {
       macSecretBase64: "s",
       expirationTime: "x",
     });
-    await activate({ node: baseNode, integration: baseIntegration });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
     expect(mockRefreshAndRetry.mock.calls[0]![0].userId).toBe("user-1");
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe("airtable");
     expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe("usrXXX");

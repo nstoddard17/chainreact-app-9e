@@ -70,7 +70,7 @@ function getPlatformSecret(): string {
   return secret;
 }
 
-export const activate: ActivationFn = async ({ node }) => {
+export const activate: ActivationFn = async ({ node, workflowId }) => {
   // Validate enabledEvents shape and contents at the schema layer
   // (Q11 — fail loud at design time). The orchestrator runs this
   // BEFORE any Stripe round trip, so misconfigurations don't leak
@@ -91,7 +91,6 @@ export const activate: ActivationFn = async ({ node }) => {
     enabledEvents.push(v);
   }
 
-  const workflowId = (node as { workflowId?: string }).workflowId ?? "unknown";
   const url = notificationUrl(workflowId, node.id);
 
   const description = `ChainReact workflow ${workflowId} node ${node.id}`;
