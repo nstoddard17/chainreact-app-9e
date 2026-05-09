@@ -12,6 +12,7 @@ import {
   providerSupports,
 } from "@/integrations/_registry";
 import { ProviderManifestSchema } from "@/contracts/integration";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("stripe manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -54,22 +55,42 @@ describe("stripe manifest", () => {
     expect(stripeManifest.accountIdField).toBe("stripeUserId");
   });
 
-  it("declares honest capabilities for Slice 11 Commit 2 (oauth-only; actions + webhookTrigger DEFERRED)", () => {
-    // Slice 11 Commit 2 (this commit) lands manifest + OAuth +
-    // dispatcher registration. Commit 3 will flip `actions: true`;
-    // Commit 4 will flip `webhookTrigger: true`. Honest-state
-    // convention: flags flip in lockstep with the registrations they
-    // describe.
+  it("declares honest capabilities for Slice 11 Commit 3 (oauth + actions; webhookTrigger DEFERRED)", () => {
+    // Slice 11 Commit 2 landed manifest + OAuth + dispatcher
+    // registration. Commit 3 (this) lands 10 action handlers and
+    // flips `actions: true`. Commit 4 will flip `webhookTrigger:
+    // true`. Honest-state convention: flags flip in lockstep with
+    // the registrations they describe.
     expect(stripeManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("stripe", "oauth")).toBe(true);
-    expect(providerSupports("stripe", "actions")).toBe(false);
+    expect(providerSupports("stripe", "actions")).toBe(true);
     expect(providerSupports("stripe", "webhookTrigger")).toBe(false);
     expect(providerSupports("stripe", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 10 Stripe actions", () => {
+    if (stripeManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "stripe",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "cancel_subscription",
+        "capture_payment_intent",
+        "confirm_payment_intent",
+        "create_customer",
+        "create_payment_intent",
+        "create_refund",
+        "create_subscription",
+        "find_customer",
+        "update_customer",
+        "update_subscription",
+      ]);
+    }
   });
 
   it("declares apiVersion '2025-05-28.basil' (matches V1's lib/stripe/client.ts pin for cutover wire-format parity)", () => {

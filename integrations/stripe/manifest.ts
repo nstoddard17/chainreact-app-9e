@@ -97,9 +97,13 @@ export const stripeManifest: ProviderManifest = ProviderManifestSchema.parse({
     // webhook trigger + Stripe-Signature verification land.
     webhookTrigger: false,
     pollingTrigger: false,
-    // Flips true in Slice 11 Commit 3 once the 10 typed action
-    // handlers + flattenForStripe + Stripe REST wrappers land.
-    actions: false,
+    // True: 10 action handlers (create_customer, update_customer,
+    // find_customer, create_payment_intent, confirm_payment_intent,
+    // capture_payment_intent, create_refund, create_subscription,
+    // update_subscription, cancel_subscription) registered in
+    // services/execution/handlers/_registry.ts as of Slice 11
+    // Commit 3.
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
   refreshable: true,

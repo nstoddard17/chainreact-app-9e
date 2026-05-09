@@ -43,6 +43,16 @@ import { queryDatabase as notionQueryDatabase } from "@/integrations/notion/acti
 import { search as notionSearch } from "@/integrations/notion/actions/search";
 import { updatePage as notionUpdatePage } from "@/integrations/notion/actions/updatePage";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
+import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
+import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
+import { confirmPaymentIntent as stripeConfirmPaymentIntent } from "@/integrations/stripe/actions/confirmPaymentIntent";
+import { createCustomer as stripeCreateCustomer } from "@/integrations/stripe/actions/createCustomer";
+import { createPaymentIntent as stripeCreatePaymentIntent } from "@/integrations/stripe/actions/createPaymentIntent";
+import { createRefund as stripeCreateRefund } from "@/integrations/stripe/actions/createRefund";
+import { createSubscription as stripeCreateSubscription } from "@/integrations/stripe/actions/createSubscription";
+import { findCustomer as stripeFindCustomer } from "@/integrations/stripe/actions/findCustomer";
+import { updateCustomer as stripeUpdateCustomer } from "@/integrations/stripe/actions/updateCustomer";
+import { updateSubscription as stripeUpdateSubscription } from "@/integrations/stripe/actions/updateSubscription";
 import type { ActionHandler } from "./types";
 
 /**
@@ -106,6 +116,16 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "airtable", type: "delete_record", handler: airtableDeleteRecord },
   { provider: "airtable", type: "get_base_schema", handler: airtableGetBaseSchema },
   { provider: "airtable", type: "get_table_schema", handler: airtableGetTableSchema },
+  { provider: "stripe", type: "create_customer", handler: stripeCreateCustomer },
+  { provider: "stripe", type: "update_customer", handler: stripeUpdateCustomer },
+  { provider: "stripe", type: "find_customer", handler: stripeFindCustomer },
+  { provider: "stripe", type: "create_payment_intent", handler: stripeCreatePaymentIntent },
+  { provider: "stripe", type: "confirm_payment_intent", handler: stripeConfirmPaymentIntent },
+  { provider: "stripe", type: "capture_payment_intent", handler: stripeCapturePaymentIntent },
+  { provider: "stripe", type: "create_refund", handler: stripeCreateRefund },
+  { provider: "stripe", type: "create_subscription", handler: stripeCreateSubscription },
+  { provider: "stripe", type: "update_subscription", handler: stripeUpdateSubscription },
+  { provider: "stripe", type: "cancel_subscription", handler: stripeCancelSubscription },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
