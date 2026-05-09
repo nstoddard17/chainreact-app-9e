@@ -1,3 +1,11 @@
+import { createRecord as airtableCreateRecord } from "@/integrations/airtable/actions/createRecord";
+import { deleteRecord as airtableDeleteRecord } from "@/integrations/airtable/actions/deleteRecord";
+import { findRecord as airtableFindRecord } from "@/integrations/airtable/actions/findRecord";
+import { getBaseSchema as airtableGetBaseSchema } from "@/integrations/airtable/actions/getBaseSchema";
+import { getRecord as airtableGetRecord } from "@/integrations/airtable/actions/getRecord";
+import { getTableSchema as airtableGetTableSchema } from "@/integrations/airtable/actions/getTableSchema";
+import { listRecords as airtableListRecords } from "@/integrations/airtable/actions/listRecords";
+import { updateRecord as airtableUpdateRecord } from "@/integrations/airtable/actions/updateRecord";
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
 import { addAttendees } from "@/integrations/google-calendar/actions/addAttendees";
 import { createEvent } from "@/integrations/google-calendar/actions/createEvent";
@@ -90,6 +98,14 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "notion", type: "append_block_children", handler: notionAppendBlockChildren },
   { provider: "notion", type: "get_page", handler: notionGetPage },
   { provider: "notion", type: "search", handler: notionSearch },
+  { provider: "airtable", type: "list_records", handler: airtableListRecords },
+  { provider: "airtable", type: "get_record", handler: airtableGetRecord },
+  { provider: "airtable", type: "find_record", handler: airtableFindRecord },
+  { provider: "airtable", type: "create_record", handler: airtableCreateRecord },
+  { provider: "airtable", type: "update_record", handler: airtableUpdateRecord },
+  { provider: "airtable", type: "delete_record", handler: airtableDeleteRecord },
+  { provider: "airtable", type: "get_base_schema", handler: airtableGetBaseSchema },
+  { provider: "airtable", type: "get_table_schema", handler: airtableGetTableSchema },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

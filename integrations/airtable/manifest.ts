@@ -90,8 +90,11 @@ export const airtableManifest: ProviderManifest = ProviderManifestSchema.parse({
     // Flips true in Commit 4 — record_changed subscription trigger.
     webhookTrigger: false,
     pollingTrigger: false,
-    // Flips true in Commit 3 — 8 Airtable action handlers.
-    actions: false,
+    // True: 8 action handlers (list_records, get_record, find_record,
+    // create_record, update_record, delete_record, get_base_schema,
+    // get_table_schema) registered in
+    // services/execution/handlers/_registry.ts as of Slice 10 Commit 3.
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
   refreshable: true,

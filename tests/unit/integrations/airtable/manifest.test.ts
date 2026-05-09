@@ -12,6 +12,7 @@ import {
   providerSupports,
 } from "@/integrations/_registry";
 import { ProviderManifestSchema } from "@/contracts/integration";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("airtable manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -64,22 +65,41 @@ describe("airtable manifest", () => {
     expect(airtableManifest.accountIdField).toBe("userId");
   });
 
-  it("declares honest capabilities for Slice 10 Commit 2 (oauth only; actions / triggers deferred to Commit 3+4)", () => {
-    // Slice 10 Commit 2 (this) lands manifest + OAuth + dispatcher
-    // registration. Commit 3 flips `actions: true` once the 8 action
-    // handlers land. Commit 4 flips `webhookTrigger: true` once
-    // record_changed lands. Honest-state convention: flags flip in
-    // lockstep with the registrations they describe.
+  it("declares honest capabilities for Slice 10 Commit 3 (oauth + actions; webhookTrigger deferred to Commit 4)", () => {
+    // Slice 10 Commit 2 landed manifest + OAuth + dispatcher
+    // registration. Commit 3 (this) lands the 8 action handlers and
+    // flips `actions: true`. Commit 4 will flip `webhookTrigger:
+    // true` once the record_changed subscription trigger lands.
+    // Honest-state convention: flags flip in lockstep with the
+    // registrations they describe.
     expect(airtableManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("airtable", "oauth")).toBe(true);
-    expect(providerSupports("airtable", "actions")).toBe(false);
+    expect(providerSupports("airtable", "actions")).toBe(true);
     expect(providerSupports("airtable", "webhookTrigger")).toBe(false);
     expect(providerSupports("airtable", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 8 Airtable actions", () => {
+    if (airtableManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "airtable",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "create_record",
+        "delete_record",
+        "find_record",
+        "get_base_schema",
+        "get_record",
+        "get_table_schema",
+        "list_records",
+        "update_record",
+      ]);
+    }
   });
 
   it("declares apiVersion 'v0' (Airtable REST API version)", () => {
