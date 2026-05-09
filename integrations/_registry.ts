@@ -13,6 +13,7 @@ import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
 import { notionManifest } from "./notion/manifest";
 import { slackManifest } from "./slack/manifest";
+import { stripeManifest } from "./stripe/manifest";
 
 // Side-effect imports: each provider's trigger/handler modules self-register
 // with the polling + activation + subscription registries at module load.
@@ -48,6 +49,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOneDriveManifest,
   notionManifest,
   airtableManifest,
+  stripeManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

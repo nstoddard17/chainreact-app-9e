@@ -11,6 +11,7 @@ import { microsoftOutlookCalendarOAuth } from "@/integrations/microsoft-outlook-
 import { notionOAuth } from "@/integrations/notion/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
+import { stripeOAuth } from "@/integrations/stripe/oauth";
 import {
   getActiveForExecution,
   updateTokens,
@@ -40,6 +41,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   "microsoft-onedrive": microsoftOneDriveOAuth,
   notion: notionOAuth,
   airtable: airtableOAuth,
+  stripe: stripeOAuth,
 });
 
 export interface ConnectInput {
