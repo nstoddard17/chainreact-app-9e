@@ -7,6 +7,7 @@ import { googleSheetsOAuth } from "@/integrations/google-sheets/oauth";
 import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth";
 import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
 import { microsoftOutlookCalendarOAuth } from "@/integrations/microsoft-outlook-calendar/oauth";
+import { notionOAuth } from "@/integrations/notion/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import {
@@ -36,6 +37,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   "microsoft-outlook": microsoftOutlookOAuth,
   "microsoft-outlook-calendar": microsoftOutlookCalendarOAuth,
   "microsoft-onedrive": microsoftOneDriveOAuth,
+  notion: notionOAuth,
 });
 
 export interface ConnectInput {

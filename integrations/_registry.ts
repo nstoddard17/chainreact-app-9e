@@ -10,6 +10,7 @@ import { googleSheetsManifest } from "./google-sheets/manifest";
 import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
+import { notionManifest } from "./notion/manifest";
 import { slackManifest } from "./slack/manifest";
 
 // Side-effect imports: each provider's trigger/handler modules self-register
@@ -43,6 +44,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOutlookManifest,
   microsoftOutlookCalendarManifest,
   microsoftOneDriveManifest,
+  notionManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws
