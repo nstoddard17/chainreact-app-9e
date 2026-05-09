@@ -28,6 +28,7 @@ import "./microsoft-outlook-calendar/triggers/eventChanged";
 import "./microsoft-onedrive/triggers/fileChanged";
 import "./airtable/triggers/recordChanged";
 import "./stripe/triggers/eventReceived";
+import "./shopify/triggers/webhookReceived";
 
 /**
  * Aggregated provider registry.

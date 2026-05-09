@@ -102,9 +102,14 @@ export const shopifyManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    // False until Slice 12 Commit 4 lands the consolidated
-    // `webhook_received` trigger + `X-Shopify-Hmac-SHA256` verification.
-    webhookTrigger: false,
+    // True: consolidated `webhook_received` trigger registered via
+    // integrations/shopify/triggers/webhookReceived. Webhook route
+    // lives at /api/webhooks/shopify. NO renewal handler — Shopify
+    // webhook subscriptions don't expire (the `runRenewals` cron
+    // filters on `config.type === "subscription-watch"` and the
+    // activate hook intentionally omits the marker — same permanent-
+    // endpoint pattern Slice 11 / Stripe established).
+    webhookTrigger: true,
     pollingTrigger: false,
     // True: 10 action handlers (create_order, update_order_status,
     // add_order_note, create_fulfillment, create_product,
