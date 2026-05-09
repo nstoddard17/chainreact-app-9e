@@ -3,6 +3,7 @@ import {
   type ProviderManifest,
   ProviderManifestSchema,
 } from "@/contracts/integration";
+import { airtableManifest } from "./airtable/manifest";
 import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
@@ -45,6 +46,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOutlookCalendarManifest,
   microsoftOneDriveManifest,
   notionManifest,
+  airtableManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws
