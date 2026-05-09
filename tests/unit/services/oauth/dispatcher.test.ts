@@ -130,3 +130,120 @@ describe("dispatcher.connect — PKCE flow (Slice 2c)", () => {
     expect(aVerifier).not.toBe(bVerifier);
   });
 });
+
+/**
+ * Slice 12: dispatcher routes per-tenant `providerHint` to providers
+ * that declare `validateProviderHint`. Existing providers (Slack here)
+ * have no hook → passing a hint is a typed error AND the state row /
+ * provider OAuth are never touched.
+ */
+describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
+  beforeEach(() => {
+    process.env.SHOPIFY_CLIENT_ID = "test-shopify-client-id";
+    process.env.SHOPIFY_CLIENT_SECRET = "test-shopify-client-secret";
+  });
+  afterEach(() => {
+    delete process.env.SHOPIFY_CLIENT_ID;
+    delete process.env.SHOPIFY_CLIENT_SECRET;
+  });
+
+  it("validates AND binds providerHint into the state JWT for per-tenant providers (Shopify)", async () => {
+    const { redirectUrl } = await connect({
+      userId: "user-shop",
+      provider: "shopify",
+      providerHint: { shop: "mystore.myshopify.com" },
+    });
+    const u = new URL(redirectUrl);
+    // Shopify's per-shop authorize URL: the validated shop becomes the
+    // hostname.
+    expect(u.host).toBe("mystore.myshopify.com");
+    expect(u.pathname).toBe("/admin/oauth/authorize");
+    const state = u.searchParams.get("state");
+    expect(state).toBeTruthy();
+    const payload = verifyState(state!);
+    // The validated shop is bound to the JWT payload — recovered at
+    // callback time so the token-exchange URL doesn't depend on the
+    // (untrusted) callback URL's `?shop=` param.
+    expect(payload.providerHint).toEqual({ shop: "mystore.myshopify.com" });
+  });
+
+  it("normalizes a bare subdomain to .myshopify.com before binding (Shopify)", async () => {
+    const { redirectUrl } = await connect({
+      userId: "u",
+      provider: "shopify",
+      providerHint: { shop: "mystore" },
+    });
+    const u = new URL(redirectUrl);
+    expect(u.host).toBe("mystore.myshopify.com");
+    const state = u.searchParams.get("state")!;
+    const payload = verifyState(state);
+    // Slice 12 plan §"Open questions" decision — the dispatcher binds
+    // the original-input value to the JWT. The provider's
+    // buildAuthUrl re-normalizes to derive the hostname, so the
+    // authorize URL is always strictly-formatted regardless of the
+    // user's input shape. The JWT carries the user-input form because
+    // the providerHint round-trip is symmetric: handleCallback
+    // normalizes again to recover the same shop.
+    expect(payload.providerHint).toEqual({ shop: "mystore" });
+  });
+
+  it("rejects malformed shop input BEFORE creating state (Shopify)", async () => {
+    await expect(
+      connect({
+        userId: "u",
+        provider: "shopify",
+        providerHint: { shop: "evil.attacker.com" },
+      }),
+    ).rejects.toThrow(/Invalid Shopify shop domain/);
+    // Bad input fails at the start of the flow — no state row written.
+    expect(mockOAuthStatesCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects providerHint passed to a provider WITHOUT validateProviderHint (Slack)", async () => {
+    await expect(
+      connect({
+        userId: "u",
+        provider: "slack",
+        providerHint: { shop: "anything.myshopify.com" },
+      }),
+    ).rejects.toThrow(/does not accept providerHint/);
+    expect(mockOAuthStatesCreate).not.toHaveBeenCalled();
+  });
+
+  it("does NOT bind providerHint when none is supplied (Shopify connect with absent hint fails AT the provider level — buildAuthUrl requires shop)", async () => {
+    // The dispatcher does NOT inject a providerHint default — Shopify's
+    // buildAuthUrl throws because its readShopFromHint helper requires
+    // providerHint.shop. This is the right place to fail: a connect
+    // call that didn't supply a shop is a programming error in the
+    // route, surfaced as the build-auth-url throw.
+    await expect(
+      connect({ userId: "u", provider: "shopify" }),
+    ).rejects.toThrow(/providerHint\.shop is required/);
+  });
+
+  it("does NOT include providerHint on the oauth_states DB row even when set (JWT-only)", async () => {
+    await connect({
+      userId: "u",
+      provider: "shopify",
+      providerHint: { shop: "mystore.myshopify.com" },
+    });
+    expect(mockOAuthStatesCreate).toHaveBeenCalledTimes(1);
+    const created = mockOAuthStatesCreate.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >;
+    expect(created).not.toHaveProperty("providerHint");
+  });
+
+  it("preserves backward-compat: connect for non-tenant providers without providerHint works unchanged", async () => {
+    const { redirectUrl } = await connect({ userId: "u", provider: "slack" });
+    expect(new URL(redirectUrl).origin + new URL(redirectUrl).pathname).toBe(
+      "https://slack.com/oauth/v2/authorize",
+    );
+    const created = mockOAuthStatesCreate.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >;
+    expect(created).not.toHaveProperty("providerHint");
+  });
+});

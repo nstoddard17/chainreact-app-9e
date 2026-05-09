@@ -1,4 +1,4 @@
-import { type ProviderOAuth } from "@/contracts/integration";
+import { type ProviderHint, type ProviderOAuth } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
@@ -9,6 +9,7 @@ import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth"
 import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
 import { microsoftOutlookCalendarOAuth } from "@/integrations/microsoft-outlook-calendar/oauth";
 import { notionOAuth } from "@/integrations/notion/oauth";
+import { shopifyOAuth } from "@/integrations/shopify/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import { stripeOAuth } from "@/integrations/stripe/oauth";
@@ -42,11 +43,23 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   notion: notionOAuth,
   airtable: airtableOAuth,
   stripe: stripeOAuth,
+  shopify: shopifyOAuth,
 });
 
 export interface ConnectInput {
   userId: string;
   provider: string;
+  /**
+   * Optional per-tenant provider hint (Slice 12). Set by the connect
+   * route from the request body for providers whose OAuth URL depends
+   * on user input (Shopify shop subdomain). The dispatcher validates
+   * the hint via the per-provider `validateProviderHint` hook BEFORE
+   * creating state, then binds it into the JWT payload AND forwards it
+   * to `buildAuthUrl`. Non-tenant providers omit the field; passing a
+   * hint to a provider that didn't declare `validateProviderHint`
+   * raises a typed error.
+   */
+  providerHint?: ProviderHint;
 }
 
 export interface ConnectOutput {
@@ -69,6 +82,21 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     );
   }
 
+  // Slice 12: per-tenant providerHint validation. Runs BEFORE state
+  // creation so format errors fail at the start of the flow rather
+  // than at the callback (where the user has already authorized on
+  // the provider's UI). A providerHint passed to a provider without a
+  // `validateProviderHint` hook is a programming error — the only
+  // providers expecting hints are the ones that declared the hook.
+  if (input.providerHint !== undefined) {
+    if (!oauth.validateProviderHint) {
+      throw new Error(
+        `Provider '${input.provider}' does not accept providerHint inputs.`,
+      );
+    }
+    oauth.validateProviderHint(input.providerHint);
+  }
+
   const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
 
   // Provider-owned PKCE. Providers that need PKCE implement generatePkce
@@ -89,6 +117,9 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
           },
         }
       : {}),
+    ...(input.providerHint !== undefined
+      ? { providerHint: input.providerHint }
+      : {}),
   });
   const redirectUrl = oauth.buildAuthUrl(
     state,
@@ -96,6 +127,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     pkceGen !== undefined
       ? { codeChallenge: pkceGen.codeChallenge, codeChallengeMethod: pkceGen.codeChallengeMethod }
       : null,
+    input.providerHint ?? null,
   );
   return { redirectUrl };
 }
@@ -126,7 +158,9 @@ export async function handleCallback(
   //
   // pkce is non-null only for providers whose connect path issued a PKCE
   // challenge (Gmail and future PKCE providers). Slack default v2 → null.
-  const { payload, pkce } = await consumeState(input.state);
+  // providerHint is non-null only for per-tenant providers (Slice 12 —
+  // Shopify) whose connect path supplied a hint. Other providers → null.
+  const { payload, pkce, providerHint } = await consumeState(input.state);
   if (payload.provider !== input.provider) {
     throw new InvalidStateError("provider mismatch between state and route");
   }
@@ -138,7 +172,12 @@ export async function handleCallback(
     );
   }
 
-  const { tokens, account } = await oauth.handleCallback(input.code, input.state, pkce);
+  const { tokens, account } = await oauth.handleCallback(
+    input.code,
+    input.state,
+    pkce,
+    providerHint,
+  );
 
   const integration = await upsertActive({
     userId: payload.userId,

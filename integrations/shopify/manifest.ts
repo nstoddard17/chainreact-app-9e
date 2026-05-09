@@ -1,0 +1,116 @@
+import {
+  ProviderManifestSchema,
+  type ProviderManifest,
+} from "@/contracts/integration";
+
+/**
+ * Shopify provider manifest.
+ *
+ * Slice 12 — V2's first per-shop multi-tenant OAuth provider. See
+ * `docs/slices/slice-12-shopify.md` §"OAuth model — per-shop validation"
+ * and §"Confirmed scope decisions".
+ *
+ * Capability flags follow V2's honest-state convention. Slice 12 Commit
+ * 2 (this) lands manifest + OAuth + dispatcher registration —
+ * `oauth: true`, the rest `false`. Subsequent commits flip `actions`
+ * (Commit 3) and `webhookTrigger` (Commit 4).
+ *
+ * Token model — non-refreshable offline access:
+ *   Shopify offline access tokens issued at install time don't expire
+ *   and don't have a refresh grant. The only end-state for an offline
+ *   token is merchant-side app uninstall (token revoked). On 401 the
+ *   per-provider `refreshToken()` throws `RefreshNotSupportedError`,
+ *   matching V2's Slack / Notion non-refreshable contract. V1's
+ *   [`authSchemes.ts:65-69`](c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/lib/integrations/authSchemes.ts#L65)
+ *   confirms `'non_refreshable'`.
+ *
+ * `tokenScope: "user"` — one Shopify integration per (user,
+ * `providerAccountId=shopDomain`). A user re-authorizing to a different
+ * shop creates a sibling integration row.
+ *
+ * `accountIdField: "shopDomain"` — the full `*.myshopify.com` domain
+ * resolved at OAuth callback time from the validated `providerHint.shop`
+ * value. Stable for the life of the merchant's Shopify account; uniquely
+ * identifies which shop the access token belongs to. V1 stored the same
+ * fact across `integrations.shop_domain` + `metadata.shop` — V2
+ * collapses to `providerAccountId`.
+ *
+ * `apiVersion: "2024-10"` — Shopify pins API versions per quarter; this
+ * matches V1's pinned version
+ * ([`ShopifyTriggerLifecycle.ts:97`](c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/lib/triggers/providers/ShopifyTriggerLifecycle.ts#L97))
+ * and stays valid for the Slice 12 implementation window. The const is
+ * mirrored in `_shared/shopify/api/_base.ts` (Commit 3) so the wire
+ * surface stays in lockstep.
+ *
+ * `healthCheckIntervalMs: 12h` — matches V2's "other providers" tier
+ * (Notion, Slack, Discord, Airtable, Stripe). Shopify's API is gentle
+ * on rate limits; a 12h `GET /admin/api/2024-10/shop.json` ping
+ * confirms the merchant token still works. Slice 12 doesn't ship the
+ * health-check route — manifest declares the cadence so the future
+ * health-engine cron picks it up.
+ *
+ * `scopes.required: 11 scopes` — covers every action and trigger in
+ * Slice 12 Batch 1. V1 audit lines up exactly: the trigger nodes
+ * declare `read_orders` / `read_checkouts` / `read_products` /
+ * `read_customers` / `read_inventory`; the action nodes declare
+ * `write_orders` / `write_products` / `write_customers` /
+ * `write_inventory` / `write_fulfillments`. `read_fulfillments` is
+ * implicitly required by `create_fulfillment` (Shopify's scope model
+ * requires both halves for fulfillment management).
+ *
+ * `oauthFlows: ["v2"]` — Shopify's current OAuth 2.0 flow. The
+ * "online vs offline" access-mode distinction (Shopify ships both)
+ * is irrelevant here — V2 always requests offline (the default for
+ * the authorize URL when `access_mode` query is omitted), which
+ * yields the long-lived non-refreshable token we want.
+ *
+ * No PKCE — Shopify's authorize endpoint at
+ * `https://{shop}.myshopify.com/admin/oauth/authorize` doesn't require
+ * or accept `code_challenge` / `code_challenge_method` parameters. The
+ * per-provider OAuth omits `generatePkce()`; the dispatcher passes
+ * `null` to `buildAuthUrl` and `handleCallback`.
+ *
+ * `refreshable: false` — the JWT-bound providerHint plumbing introduced
+ * in Slice 12 is orthogonal to refreshability. Shopify is the first
+ * V2 provider that's both `refreshable: false` AND uses providerHint;
+ * Mailchimp would be the second once it lands.
+ */
+export const shopifyManifest: ProviderManifest = ProviderManifestSchema.parse({
+  id: "shopify",
+  displayName: "Shopify",
+  isEnabled: true,
+  apiVersion: "2024-10",
+  tokenScope: "user",
+  oauthFlows: ["v2"],
+  accountIdField: "shopDomain",
+  scopes: {
+    required: [
+      "read_orders",
+      "write_orders",
+      "read_products",
+      "write_products",
+      "read_customers",
+      "write_customers",
+      "read_inventory",
+      "write_inventory",
+      "read_checkouts",
+      "read_fulfillments",
+      "write_fulfillments",
+    ],
+    optional: [],
+    deprecated: [],
+  },
+  capabilities: {
+    oauth: true,
+    // False until Slice 12 Commit 4 lands the consolidated
+    // `webhook_received` trigger + `X-Shopify-Hmac-SHA256` verification.
+    webhookTrigger: false,
+    pollingTrigger: false,
+    // False until Slice 12 Commit 3 lands the 10 typed action handlers
+    // (orders / products / customers / fulfillments / inventory) +
+    // REST wrappers + per-shop API base routing.
+    actions: false,
+  },
+  healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
+  refreshable: false,
+});

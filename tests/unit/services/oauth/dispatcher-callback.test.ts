@@ -120,7 +120,14 @@ describe("dispatcher.handleCallback", () => {
     const result = await handleCallback({ provider: "slack", code: "auth-code", state });
 
     expect(mockOAuthStatesConsume).toHaveBeenCalledTimes(1);
-    expect(mockSlackHandleCallback).toHaveBeenCalledWith("auth-code", state, null);
+    // Slice 12: dispatcher passes a 4th arg `providerHint` — null for
+    // non-tenant providers (Slack default v2).
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith(
+      "auth-code",
+      state,
+      null,
+      null,
+    );
     expect(mockUpsertActive).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-abc",
@@ -256,7 +263,7 @@ describe("dispatcher.handleCallback — PKCE plumbing (Slice 2a)", () => {
 
     await handleCallback({ provider: "slack", code: "c", state });
 
-    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", state, null);
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", state, null, null);
   });
 
   it("treats a half-populated PKCE row as null (defensive AND in consumeState)", async () => {
@@ -281,6 +288,96 @@ describe("dispatcher.handleCallback — PKCE plumbing (Slice 2a)", () => {
 
     await handleCallback({ provider: "slack", code: "c", state: token });
 
-    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null);
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null, null);
+  });
+});
+
+/**
+ * Slice 12: dispatcher recovers `providerHint` from the verified JWT
+ * payload and threads it to the per-provider `handleCallback`'s 4th
+ * argument. Verified using the Slack mock as a generic stand-in (same
+ * pattern as the PKCE plumbing tests above) — the assertion is on the
+ * dispatcher's wire-up, not on Slack's behavior.
+ */
+describe("dispatcher.handleCallback — providerHint plumbing (Slice 12)", () => {
+  function arrangeSuccessfulCallback(): void {
+    mockSlackHandleCallback.mockResolvedValueOnce({
+      tokens: {
+        accessTokenEncrypted: "ENC",
+        refreshTokenEncrypted: null,
+        accessTokenExpiresAt: null,
+        scopes: [],
+      },
+      account: {
+        providerAccountId: "mystore.myshopify.com",
+        displayName: "My Store",
+        metadata: {},
+      },
+    });
+    mockUpsertActive.mockResolvedValueOnce({
+      id: "int-1",
+      userId: "u",
+      provider: "slack", // routed via slack mock per the slack mock above
+      providerAccountId: "mystore.myshopify.com",
+      displayName: "My Store",
+      accessTokenEncrypted: "ENC",
+      refreshTokenEncrypted: null,
+      accessTokenExpiresAt: null,
+      scopes: [],
+      accountMetadata: {},
+      disconnectedAt: null,
+      createdAt: "2026-05-09T00:00:00Z",
+      updatedAt: "2026-05-09T00:00:00Z",
+    });
+  }
+
+  it("forwards the providerHint from the JWT payload to provider.handleCallback", async () => {
+    const { token, payload } = await createState({
+      userId: "u",
+      provider: "slack",
+      requestedScopes: [],
+      providerHint: { shop: "mystore.myshopify.com" },
+    });
+    mockOAuthStatesConsume.mockResolvedValueOnce({
+      nonce: payload.nonce,
+      userId: payload.userId,
+      provider: payload.provider,
+      expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
+      pkceCodeVerifier: null,
+      pkceCodeChallengeMethod: null,
+      createdAt: new Date().toISOString(),
+    });
+    arrangeSuccessfulCallback();
+
+    await handleCallback({ provider: "slack", code: "c", state: token });
+
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith(
+      "c",
+      token,
+      null, // pkce
+      { shop: "mystore.myshopify.com" }, // providerHint round-tripped from JWT
+    );
+  });
+
+  it("forwards null providerHint when the JWT payload didn't carry one", async () => {
+    const { token, payload } = await createState({
+      userId: "u",
+      provider: "slack",
+      requestedScopes: [],
+    });
+    mockOAuthStatesConsume.mockResolvedValueOnce({
+      nonce: payload.nonce,
+      userId: payload.userId,
+      provider: payload.provider,
+      expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
+      pkceCodeVerifier: null,
+      pkceCodeChallengeMethod: null,
+      createdAt: new Date().toISOString(),
+    });
+    arrangeSuccessfulCallback();
+
+    await handleCallback({ provider: "slack", code: "c", state: token });
+
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null, null);
   });
 });

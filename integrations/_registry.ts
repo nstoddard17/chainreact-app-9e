@@ -12,6 +12,7 @@ import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
 import { notionManifest } from "./notion/manifest";
+import { shopifyManifest } from "./shopify/manifest";
 import { slackManifest } from "./slack/manifest";
 import { stripeManifest } from "./stripe/manifest";
 
@@ -51,6 +52,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   notionManifest,
   airtableManifest,
   stripeManifest,
+  shopifyManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

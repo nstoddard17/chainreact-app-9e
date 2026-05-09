@@ -134,6 +134,33 @@ export interface PkceChallenge {
 export interface PkceGeneration extends PkceInputs, PkceChallenge {}
 
 /**
+ * Per-provider per-tenant input captured at connect time.
+ *
+ * Slice 12 introduces this shape for **per-tenant-subdomain providers**
+ * whose authorize / token URLs depend on user input (Shopify's
+ * `https://{shop}.myshopify.com/admin/oauth/...`). The connect endpoint
+ * accepts the hint as a JSON body field; the per-provider OAuth's
+ * `validateProviderHint` enforces format; the dispatcher binds the
+ * validated value into the signed OAuth state JWT so the callback can
+ * compare it against any provider-echoed parameter (defense against
+ * host-injection — see slice-12-shopify.md "OAuth model — per-shop
+ * validation").
+ *
+ * String-valued only — the JWT payload is signed JSON and Record<string,
+ * string> is the simplest shape that round-trips losslessly. Providers
+ * that need richer input (typed enums, structured objects) can layer
+ * parsers on top inside their own OAuth handlers.
+ *
+ * Non-tenant providers (every existing V2 provider as of Slice 12) ignore
+ * the hint and the dispatcher passes `null` to their `buildAuthUrl` /
+ * `handleCallback` 4th argument. Backward-compat is preserved because
+ * the 4th argument is optional — function implementations with three
+ * parameters satisfy the four-parameter interface via TypeScript's
+ * structural-typing rules.
+ */
+export type ProviderHint = Readonly<Record<string, string>>;
+
+/**
  * Per-provider OAuth implementation. Each provider in `integrations/<id>/oauth.ts`
  * exports an object that satisfies this shape. The generic dispatcher in
  * `services/oauth/dispatcher.ts` is the only caller.
@@ -148,25 +175,45 @@ export interface ProviderOAuth {
    */
   generatePkce?(): PkceGeneration;
   /**
+   * Optional. Providers that accept per-tenant inputs at connect time
+   * (Shopify shop subdomain, future Mailchimp `dc`, future per-cloud
+   * Atlassian flows) implement this to validate format BEFORE the state
+   * row is created — bad input fails at the start of the flow rather
+   * than at the callback. Throws on invalid input; the dispatcher
+   * surfaces the thrown error verbatim so the connect route can return
+   * a typed 400. Non-tenant providers omit this method; the dispatcher
+   * rejects connect attempts that pass `providerHint` to a provider
+   * without `validateProviderHint`.
+   */
+  validateProviderHint?(hint: ProviderHint): void;
+  /**
    * Builds the redirect URL the user is sent to. `state` is the signed
    * token from `createState()`. `pkce` is non-null only when the provider
    * declared `generatePkce` at connect time; non-PKCE providers receive
-   * `null` and ignore it.
+   * `null` and ignore it. `providerHint` is non-null only when the
+   * connect call supplied a hint AND the provider's
+   * `validateProviderHint` accepted it; other providers receive `null`
+   * and ignore it.
    */
   buildAuthUrl(
     state: string,
     scopes: readonly string[],
     pkce: PkceChallenge | null,
+    providerHint?: ProviderHint | null,
   ): string;
   /**
    * Exchanges the authorization code for tokens. `pkce` is non-null only for
    * providers that asked the dispatcher to issue a PKCE challenge at connect
    * time (manifest-driven). Non-PKCE providers receive `null` and ignore it.
+   * `providerHint` is the same value passed into `buildAuthUrl` at connect
+   * time, recovered from the signed state JWT — non-tenant providers
+   * receive `null`.
    */
   handleCallback(
     code: string,
     state: string,
     pkce: PkceInputs | null,
+    providerHint?: ProviderHint | null,
   ): Promise<{ tokens: EncryptedTokens; account: ProviderAccountInfo }>;
   /** Returns fresh tokens, or throws RefreshNotSupportedError on non-refreshable providers. */
   refreshToken(refreshToken: string): Promise<EncryptedTokens>;

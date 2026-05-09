@@ -249,6 +249,121 @@ describe("consumeState — verify-and-consume (replay protection)", () => {
   });
 });
 
+describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
+  it("returns providerHint when the JWT payload carries one", async () => {
+    const { token, payload } = await createState({
+      userId: "u-shop",
+      provider: "shopify",
+      requestedScopes: [],
+      providerHint: { shop: "mystore.myshopify.com" },
+    });
+    mockConsumeByNonce.mockResolvedValueOnce({
+      nonce: payload.nonce,
+      userId: payload.userId,
+      provider: payload.provider,
+      expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
+      pkceCodeVerifier: null,
+      pkceCodeChallengeMethod: null,
+      createdAt: new Date().toISOString(),
+    });
+    const result = await consumeState(token);
+    expect(result.providerHint).toEqual({ shop: "mystore.myshopify.com" });
+    // PKCE is independent — null when omitted.
+    expect(result.pkce).toBeNull();
+  });
+
+  it("returns providerHint: null when the payload carries no hint (default for non-tenant providers)", async () => {
+    const { token, payload } = await createState({
+      userId: "u",
+      provider: "slack",
+      requestedScopes: [],
+    });
+    mockConsumeByNonce.mockResolvedValueOnce({
+      nonce: payload.nonce,
+      userId: payload.userId,
+      provider: payload.provider,
+      expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
+      pkceCodeVerifier: null,
+      pkceCodeChallengeMethod: null,
+      createdAt: new Date().toISOString(),
+    });
+    const result = await consumeState(token);
+    expect(result.providerHint).toBeNull();
+  });
+
+  it("does NOT persist providerHint to the oauth_states DB row (JWT-only)", async () => {
+    await createState({
+      userId: "u",
+      provider: "shopify",
+      requestedScopes: [],
+      providerHint: { shop: "mystore.myshopify.com" },
+    });
+    const arg = mockCreate.mock.calls[0]![0] as Record<string, unknown>;
+    // Per Slice 12 plan §"OAuth model" — providerHint lives in the
+    // signed JWT payload only, never on the DB row. Guard against an
+    // accidental schema write by asserting no providerHint field on
+    // the create input.
+    expect(arg).not.toHaveProperty("providerHint");
+    // PKCE columns are also untouched (defense check).
+    expect(arg.pkceCodeVerifier).toBeUndefined();
+  });
+
+  it("isolates providerHint between concurrent createState calls (per-call object copy)", async () => {
+    const a = await createState({
+      userId: "u-a",
+      provider: "shopify",
+      requestedScopes: [],
+      providerHint: { shop: "shop-a.myshopify.com" },
+    });
+    const b = await createState({
+      userId: "u-b",
+      provider: "shopify",
+      requestedScopes: [],
+      providerHint: { shop: "shop-b.myshopify.com" },
+    });
+    expect(a.payload.providerHint).toEqual({ shop: "shop-a.myshopify.com" });
+    expect(b.payload.providerHint).toEqual({ shop: "shop-b.myshopify.com" });
+  });
+
+  it("rejects a verified token whose tampered payload sets providerHint to a non-record", async () => {
+    // Re-craft a payload with a real signature but providerHint as a
+    // string (rejected by isValidProviderHint).
+    const tamperedPayload = {
+      userId: "u",
+      provider: "shopify",
+      nonce: "x",
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
+      requestedScopes: [],
+      providerHint: "mystore.myshopify.com", // ← invalid shape
+    };
+    const data = Buffer.from(JSON.stringify(tamperedPayload)).toString(
+      "base64url",
+    );
+    const sig = createHmac("sha256", Buffer.from(TEST_KEY, "base64"))
+      .update(data)
+      .digest("base64url");
+    expect(() => verifyState(`${data}.${sig}`)).toThrow(/malformed providerHint/);
+  });
+
+  it("rejects a verified token whose providerHint contains a non-string value", async () => {
+    const tamperedPayload = {
+      userId: "u",
+      provider: "shopify",
+      nonce: "x",
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
+      requestedScopes: [],
+      providerHint: { shop: 42 }, // ← non-string value
+    };
+    const data = Buffer.from(JSON.stringify(tamperedPayload)).toString(
+      "base64url",
+    );
+    const sig = createHmac("sha256", Buffer.from(TEST_KEY, "base64"))
+      .update(data)
+      .digest("base64url");
+    expect(() => verifyState(`${data}.${sig}`)).toThrow(/malformed providerHint/);
+  });
+});
+
 describe("consumeState — PKCE round-trip (Slice 2a plumbing)", () => {
   it("returns pkce inputs when the row has both verifier + method", async () => {
     const { token, payload } = await createState({
