@@ -43,6 +43,16 @@ const NOTION_MOCK_PORT = Number(process.env.NOTION_MOCK_PORT ?? "9879");
 const NOTION_MOCK_BASE = `http://127.0.0.1:${NOTION_MOCK_PORT}`;
 
 /**
+ * Airtable mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits AIRTABLE_AUTHORIZE_BASE / AIRTABLE_TOKEN_BASE /
+ * AIRTABLE_API_BASE pointing here for the Slice 10 walkthrough — OAuth
+ * callback token exchange + /v0/meta/whoami + records CRUD + schema +
+ * webhook create/refresh/delete + payload listing.
+ */
+const AIRTABLE_MOCK_PORT = Number(process.env.AIRTABLE_MOCK_PORT ?? "9880");
+const AIRTABLE_MOCK_BASE = `http://127.0.0.1:${AIRTABLE_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -146,6 +156,23 @@ export default defineConfig({
         process.env.NOTION_CLIENT_ID ?? "e2e-notion-client-id",
       NOTION_CLIENT_SECRET:
         process.env.NOTION_CLIENT_SECRET ?? "e2e-notion-client-secret",
+      // Slice 10: route Airtable OAuth + REST + webhooks through the
+      // mock. integrations/airtable/oauth.ts honors AIRTABLE_AUTHORIZE_BASE,
+      // AIRTABLE_TOKEN_BASE, AIRTABLE_API_BASE; the API + webhook
+      // wrappers honor AIRTABLE_API_BASE. The mock owns
+      // /oauth2/v1/{authorize,token}, /v0/meta/whoami, /v0/meta/bases/.../tables,
+      // /v0/{baseId}/{table}{,/recordId}, /v0/bases/.../webhooks{,/refresh,/payloads}.
+      AIRTABLE_AUTHORIZE_BASE: AIRTABLE_MOCK_BASE,
+      AIRTABLE_TOKEN_BASE: AIRTABLE_MOCK_BASE,
+      AIRTABLE_API_BASE: AIRTABLE_MOCK_BASE,
+      // Slice 10: e2e Airtable client id/secret. Production uses values
+      // from the Airtable developer portal; the e2e value is throwaway.
+      // The mock validates Basic auth header presence + format but
+      // doesn't check the credential values.
+      AIRTABLE_CLIENT_ID:
+        process.env.AIRTABLE_CLIENT_ID ?? "e2e-airtable-client-id",
+      AIRTABLE_CLIENT_SECRET:
+        process.env.AIRTABLE_CLIENT_SECRET ?? "e2e-airtable-client-secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to
