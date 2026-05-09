@@ -10,7 +10,8 @@ import { URL } from "node:url";
  * Standalone mock Microsoft (Azure AD + Graph) server for the Slice 6
  * Outlook mail e2e walkthrough.
  *
- * Routes (sized to V2's actual call patterns — Outlook mail only):
+ * Routes (sized to V2's actual call patterns — Outlook mail + Slice 7
+ * Outlook Calendar):
  *   GET  /common/oauth2/v2.0/authorize    → 302 to redirect_uri with state
  *                                           + synthetic code. Honors
  *                                           redirect_uri so Slice 7+
@@ -27,6 +28,12 @@ import { URL } from "node:url";
  *                                           Used by oauth.ts handleCallback.
  *   POST /v1.0/me/sendMail                → 202 No body. Records request.
  *   GET  /v1.0/me/messages/{id}           → Returns injected message by id.
+ *   POST /v1.0/me/events                  → Slice 7. Records body, returns
+ *                                           a synthetic Graph event id.
+ *   GET  /v1.0/me/events/{id}             → Slice 7. Returns injected
+ *                                           event by id. 404 when the
+ *                                           event was never injected (or
+ *                                           was deleted via control plane).
  *   POST /v1.0/subscriptions              → SYNCHRONOUSLY validates by
  *                                           POSTing ?validationToken=...
  *                                           to the notificationUrl, then
@@ -40,13 +47,21 @@ import { URL } from "node:url";
  *   POST /__injectMessage  — inject a Graph message resource into the
  *                            mock store. Body: full GraphMessage shape.
  *                            The next /me/messages/{id} call returns it.
+ *   POST /__injectEvent    — Slice 7. Inject a Graph event resource.
+ *                            Body: full GraphEvent shape. The next
+ *                            /me/events/{id} call returns it.
  *   POST /__sendNotification
  *                          — POST a Graph notification envelope to the
  *                            REGISTERED notificationUrl of the most
- *                            recently created subscription. Body specifies
- *                            { messageId } — the mock handles
- *                            subscriptionId + clientState lookup. Returns
- *                            { status, body } from V2's webhook route.
+ *                            recently created subscription. Body shape:
+ *                              { messageId: string } — mail (default,
+ *                                back-compat with Slice 6).
+ *                              { eventId: string, kind?: "event",
+ *                                changeType?: "created"|"updated"|
+ *                                "deleted" } — Slice 7. The mock derives
+ *                                resource path + @odata.type for events.
+ *                            Returns { status, body } from V2's webhook
+ *                            route.
  *   POST /__reset          — clear all state.
  *   GET  /__inspect        — dump calls + store; cross-process seam.
  *
@@ -103,7 +118,31 @@ export interface RecordedSubscriptionsDelete {
   subscriptionId: string;
 }
 
+/**
+ * Slice 7: Outlook Calendar create_event records body + auth header so
+ * the spec can assert the action handler decrypted the access token and
+ * forwarded the workflow's resolved config.
+ */
+export interface RecordedEventsCreate {
+  authorization: string | undefined;
+  body: Record<string, unknown>;
+  responseEventId: string;
+}
+
+/** Slice 7: Outlook Calendar eventsGet hit log. */
+export interface RecordedEventsGet {
+  authorization: string | undefined;
+  url: string;
+  eventId: string;
+}
+
 export interface InjectedMessage {
+  id: string;
+  resource: Record<string, unknown>;
+}
+
+/** Slice 7: injected calendar event resource. */
+export interface InjectedEvent {
   id: string;
   resource: Record<string, unknown>;
 }
@@ -127,11 +166,14 @@ export interface MockMicrosoftHandle {
     me: RecordedMe[];
     sendMail: RecordedSendMail[];
     getMessage: RecordedGetMessage[];
+    eventsCreate: RecordedEventsCreate[];
+    eventsGet: RecordedEventsGet[];
     subscriptionsCreate: RecordedSubscriptionsCreate[];
     subscriptionsRenew: RecordedSubscriptionsRenew[];
     subscriptionsDelete: RecordedSubscriptionsDelete[];
   };
   messages: Map<string, InjectedMessage>;
+  events: Map<string, InjectedEvent>;
   subscriptions: Map<string, RegisteredSubscription>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
@@ -147,10 +189,12 @@ const MAX_EXPIRATION_MINUTES = 4230;
 interface MutableState {
   calls: MockMicrosoftHandle["calls"];
   messages: Map<string, InjectedMessage>;
+  events: Map<string, InjectedEvent>;
   subscriptions: Map<string, RegisteredSubscription>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   subscriptionCounter: number;
+  eventCounter: number;
 }
 
 function freshState(): MutableState {
@@ -161,15 +205,19 @@ function freshState(): MutableState {
       me: [],
       sendMail: [],
       getMessage: [],
+      eventsCreate: [],
+      eventsGet: [],
       subscriptionsCreate: [],
       subscriptionsRenew: [],
       subscriptionsDelete: [],
     },
     messages: new Map(),
+    events: new Map(),
     subscriptions: new Map(),
     lastAuthorizeScope: null,
     lastSubscriptionId: null,
     subscriptionCounter: 0,
+    eventCounter: 0,
   };
 }
 
@@ -206,6 +254,9 @@ export async function startMockMicrosoftServer(opts: {
     },
     get messages() {
       return state.messages;
+    },
+    get events() {
+      return state.events;
     },
     get subscriptions() {
       return state.subscriptions;
@@ -341,6 +392,70 @@ async function handleRequest(
       messageId,
     });
     const stored = state.messages.get(messageId);
+    if (!stored) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "ErrorItemNotFound",
+            message: "The specified object was not found.",
+          },
+        }),
+      );
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(stored.resource));
+    return;
+  }
+
+  // ── Slice 7: Graph /me/events (create) ──
+  if (req.method === "POST" && url.pathname === "/v1.0/me/events") {
+    const bodyText = await readBody(req);
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // ignore — record empty body for inspection
+    }
+    state.eventCounter += 1;
+    const eventId = `mock-event-${state.eventCounter}`;
+    state.calls.eventsCreate.push({
+      authorization: req.headers.authorization,
+      body: parsed,
+      responseEventId: eventId,
+    });
+    // Echo a Graph event response. Graph echoes the input + adds id +
+    // webLink + organizer + createdDateTime/lastModifiedDateTime.
+    const echoed: Record<string, unknown> = {
+      id: eventId,
+      ...parsed,
+      organizer: parsed.organizer ?? {
+        emailAddress: { name: "Alice E2E", address: "alice@e2e.test" },
+      },
+      webLink: `https://outlook.office.com/calendar/?ItemID=${eventId}`,
+      createdDateTime: new Date().toISOString(),
+      lastModifiedDateTime: new Date().toISOString(),
+    };
+    res.writeHead(201, { "content-type": "application/json" });
+    res.end(JSON.stringify(echoed));
+    return;
+  }
+
+  // ── Slice 7: Graph /me/events/{id} (get) ──
+  if (
+    req.method === "GET" &&
+    url.pathname.startsWith("/v1.0/me/events/")
+  ) {
+    const eventId = decodeURIComponent(
+      url.pathname.replace(/^\/v1\.0\/me\/events\//, ""),
+    );
+    state.calls.eventsGet.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      eventId,
+    });
+    const stored = state.events.get(eventId);
     if (!stored) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(
@@ -561,9 +676,42 @@ async function handleRequest(
     return;
   }
 
+  // ── Slice 7: __injectEvent control plane ──
+  if (req.method === "POST" && url.pathname === "/__injectEvent") {
+    const bodyText = await readBody(req);
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(bodyText) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const id = String(payload.id ?? "");
+    if (!id) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "id required" }));
+      return;
+    }
+    state.events.set(id, { id, resource: payload });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, id }));
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/__sendNotification") {
     const bodyText = await readBody(req);
-    let payload: { messageId?: string; subscriptionId?: string };
+    let payload: {
+      messageId?: string;
+      eventId?: string;
+      kind?: "message" | "event";
+      changeType?: string;
+      // Slice 7: lets the spec deliberately spoof a clientState to drive
+      // the "invalid clientState rejected" path without touching the
+      // registered subscription's stored value.
+      clientStateOverride?: string;
+      subscriptionId?: string;
+    };
     try {
       payload = JSON.parse(bodyText);
     } catch {
@@ -581,24 +729,46 @@ async function handleRequest(
       );
       return;
     }
-    if (!payload.messageId) {
+
+    // Resolve resource kind. Slice 7: kind="event" or eventId implies
+    // calendar; kind="message" or messageId implies mail (back-compat
+    // with Slice 6).
+    const isEvent =
+      payload.kind === "event" ||
+      (payload.kind === undefined && Boolean(payload.eventId));
+    const resourceId = isEvent ? payload.eventId : payload.messageId;
+    if (!resourceId) {
       res.writeHead(400, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "messageId required" }));
+      res.end(
+        JSON.stringify({
+          error: isEvent ? "eventId required" : "messageId required",
+        }),
+      );
       return;
     }
+
+    const changeType = payload.changeType ?? subscription.changeType;
+    const odataType = isEvent
+      ? "#Microsoft.Graph.Event"
+      : "#Microsoft.Graph.Message";
+    const resourcePath = isEvent
+      ? `users/alice@e2e.test/events/${resourceId}`
+      : `users/alice@e2e.test/messages/${resourceId}`;
+    const clientState =
+      payload.clientStateOverride ?? subscription.clientState;
 
     const envelope = {
       value: [
         {
           subscriptionId,
           subscriptionExpirationDateTime: subscription.expirationDateTime,
-          changeType: subscription.changeType,
-          resource: `users/alice@e2e.test/messages/${payload.messageId}`,
+          changeType,
+          resource: resourcePath,
           resourceData: {
-            "@odata.type": "#Microsoft.Graph.Message",
-            id: payload.messageId,
+            "@odata.type": odataType,
+            id: resourceId,
           },
-          clientState: subscription.clientState,
+          clientState,
           tenantId: "tenant-e2e",
         },
       ],
@@ -633,6 +803,7 @@ async function handleRequest(
         subscriptions: Array.from(state.subscriptions.values()),
         lastSubscriptionId: state.lastSubscriptionId,
         messageIds: Array.from(state.messages.keys()),
+        eventIds: Array.from(state.events.keys()),
       }),
     );
     return;
