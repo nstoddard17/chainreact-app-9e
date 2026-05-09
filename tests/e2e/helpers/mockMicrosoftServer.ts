@@ -8,15 +8,16 @@ import { URL } from "node:url";
 
 /**
  * Standalone mock Microsoft (Azure AD + Graph) server for the Slice 6
- * Outlook mail e2e walkthrough.
+ * Outlook mail / Slice 7 Outlook Calendar / Slice 8 OneDrive
+ * walkthroughs.
  *
  * Routes (sized to V2's actual call patterns — Outlook mail + Slice 7
- * Outlook Calendar):
+ * Outlook Calendar + Slice 8 OneDrive):
  *   GET  /common/oauth2/v2.0/authorize    → 302 to redirect_uri with state
  *                                           + synthetic code. Honors
  *                                           redirect_uri so Slice 7+
- *                                           providers (Calendar) can share
- *                                           this route.
+ *                                           providers (Calendar / OneDrive)
+ *                                           can share this route.
  *   POST /common/oauth2/v2.0/token        → access + refresh token; scope
  *                                           in response echoes the most
  *                                           recent authorize scope. Same
@@ -34,12 +35,31 @@ import { URL } from "node:url";
  *                                           event by id. 404 when the
  *                                           event was never injected (or
  *                                           was deleted via control plane).
+ *   GET  /v1.0/me/drive/items/{id}        → Slice 8. Returns injected
+ *                                           DriveItem by id. 404 when the
+ *                                           item was never injected.
+ *   GET  /v1.0/me/drive/root/delta        → Slice 8. Used by the
+ *                                           file_changed activate hook to
+ *                                           capture a baseline cursor +
+ *                                           by the delta-fallback receive
+ *                                           branch. Honors `$top=1` (the
+ *                                           wrapper's baseline mode) and
+ *                                           `?token=…` (incremental).
+ *                                           Always terminal — returns
+ *                                           `@odata.deltaLink` immediately
+ *                                           with no items in baseline mode.
+ *   POST /v1.0/me/drive/root/children     → Slice 8. Records body, echoes
+ *                                           a synthetic folder DriveItem.
+ *                                           Used by the create_folder
+ *                                           action when parentItemId is
+ *                                           omitted / "root".
  *   POST /v1.0/subscriptions              → SYNCHRONOUSLY validates by
  *                                           POSTing ?validationToken=...
  *                                           to the notificationUrl, then
  *                                           returns the subscription
  *                                           record. If validation fails,
- *                                           returns 400.
+ *                                           returns 400. Resource-agnostic
+ *                                           — Slice 6/7/8 share this path.
  *   PATCH /v1.0/subscriptions/{id}        → Updates expirationDateTime.
  *   DELETE /v1.0/subscriptions/{id}       → 204 No Content.
  *
@@ -50,6 +70,9 @@ import { URL } from "node:url";
  *   POST /__injectEvent    — Slice 7. Inject a Graph event resource.
  *                            Body: full GraphEvent shape. The next
  *                            /me/events/{id} call returns it.
+ *   POST /__injectDriveItem — Slice 8. Inject a Graph DriveItem resource.
+ *                            Body: full DriveItem shape. The next
+ *                            /me/drive/items/{id} call returns it.
  *   POST /__sendNotification
  *                          — POST a Graph notification envelope to the
  *                            REGISTERED notificationUrl of the most
@@ -60,6 +83,10 @@ import { URL } from "node:url";
  *                                changeType?: "created"|"updated"|
  *                                "deleted" } — Slice 7. The mock derives
  *                                resource path + @odata.type for events.
+ *                              { itemId: string, kind?: "driveItem",
+ *                                changeType?: "updated" } — Slice 8.
+ *                                Mock derives resource path +
+ *                                #Microsoft.Graph.DriveItem @odata.type.
  *                            Returns { status, body } from V2's webhook
  *                            route.
  *   POST /__reset          — clear all state.
@@ -136,6 +163,35 @@ export interface RecordedEventsGet {
   eventId: string;
 }
 
+/** Slice 8: OneDrive driveItemsGet hit log (id-fetch receive branch + get_file action). */
+export interface RecordedDriveItemsGet {
+  authorization: string | undefined;
+  url: string;
+  itemId: string;
+}
+
+/**
+ * Slice 8: OneDrive driveRootDelta hit log. `mode` distinguishes the
+ * activate hook's baseline walk from the receive path's delta-fallback
+ * incremental call so the spec can assert each branch independently.
+ */
+export interface RecordedDriveRootDelta {
+  authorization: string | undefined;
+  url: string;
+  mode: "baseline" | "incremental";
+}
+
+/**
+ * Slice 8: OneDrive create_folder action records body + auth header so
+ * the spec can assert the action handler decrypted the access token and
+ * forwarded the workflow's resolved config.
+ */
+export interface RecordedDriveRootChildrenCreate {
+  authorization: string | undefined;
+  body: Record<string, unknown>;
+  responseItemId: string;
+}
+
 export interface InjectedMessage {
   id: string;
   resource: Record<string, unknown>;
@@ -143,6 +199,12 @@ export interface InjectedMessage {
 
 /** Slice 7: injected calendar event resource. */
 export interface InjectedEvent {
+  id: string;
+  resource: Record<string, unknown>;
+}
+
+/** Slice 8: injected OneDrive DriveItem resource. */
+export interface InjectedDriveItem {
   id: string;
   resource: Record<string, unknown>;
 }
@@ -168,12 +230,16 @@ export interface MockMicrosoftHandle {
     getMessage: RecordedGetMessage[];
     eventsCreate: RecordedEventsCreate[];
     eventsGet: RecordedEventsGet[];
+    driveItemsGet: RecordedDriveItemsGet[];
+    driveRootDelta: RecordedDriveRootDelta[];
+    driveRootChildrenCreate: RecordedDriveRootChildrenCreate[];
     subscriptionsCreate: RecordedSubscriptionsCreate[];
     subscriptionsRenew: RecordedSubscriptionsRenew[];
     subscriptionsDelete: RecordedSubscriptionsDelete[];
   };
   messages: Map<string, InjectedMessage>;
   events: Map<string, InjectedEvent>;
+  driveItems: Map<string, InjectedDriveItem>;
   subscriptions: Map<string, RegisteredSubscription>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
@@ -190,11 +256,33 @@ interface MutableState {
   calls: MockMicrosoftHandle["calls"];
   messages: Map<string, InjectedMessage>;
   events: Map<string, InjectedEvent>;
+  driveItems: Map<string, InjectedDriveItem>;
   subscriptions: Map<string, RegisteredSubscription>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   subscriptionCounter: number;
   eventCounter: number;
+  /**
+   * Slice 8: monotonic counter so __sendNotification → driveItemsGet
+   * → normalize produces a stable but per-run-unique deltaLink and
+   * folder DriveItem id. Same pattern as eventCounter / subscriptionCounter.
+   */
+  driveItemCounter: number;
+  /**
+   * Slice 8: monotonic counter for the synthetic delta cursors the
+   * mock returns from /me/drive/root/delta. Both initial baseline +
+   * incremental responses bump this. Persisted-cursor uniqueness
+   * matters because the file_changed pull persists the new deltaLink
+   * and a stale value would replay the wrong delta on the next call.
+   */
+  driveDeltaCursor: number;
+  /**
+   * Slice 8: port the mock server is listening on. Threaded into state
+   * so the delta endpoint can build a self-pointing deltaLink (real
+   * Graph deltaLinks are absolute URLs; the wrapper passes them
+   * verbatim back to fetch). Set by startMockMicrosoftServer().
+   */
+  serverPort: number;
 }
 
 function freshState(): MutableState {
@@ -207,17 +295,25 @@ function freshState(): MutableState {
       getMessage: [],
       eventsCreate: [],
       eventsGet: [],
+      driveItemsGet: [],
+      driveRootDelta: [],
+      driveRootChildrenCreate: [],
       subscriptionsCreate: [],
       subscriptionsRenew: [],
       subscriptionsDelete: [],
     },
     messages: new Map(),
     events: new Map(),
+    driveItems: new Map(),
     subscriptions: new Map(),
     lastAuthorizeScope: null,
     lastSubscriptionId: null,
     subscriptionCounter: 0,
     eventCounter: 0,
+    driveItemCounter: 0,
+    driveDeltaCursor: 0,
+    // Set by startMockMicrosoftServer() once the listener has bound.
+    serverPort: 0,
   };
 }
 
@@ -227,6 +323,7 @@ export async function startMockMicrosoftServer(opts: {
 }): Promise<MockMicrosoftHandle> {
   const port = opts.port ?? DEFAULT_PORT;
   const state = freshState();
+  state.serverPort = port;
 
   const server: Server = createServer((req, res) => {
     handleRequest(req, res, opts.appBaseUrl, state).catch((err) => {
@@ -258,6 +355,9 @@ export async function startMockMicrosoftServer(opts: {
     get events() {
       return state.events;
     },
+    get driveItems() {
+      return state.driveItems;
+    },
     get subscriptions() {
       return state.subscriptions;
     },
@@ -267,7 +367,15 @@ export async function startMockMicrosoftServer(opts: {
     get lastSubscriptionId() {
       return state.lastSubscriptionId;
     },
-    reset: () => Object.assign(state, freshState()),
+    reset: () => {
+      // Preserve serverPort across reset — freshState() defaults it to 0
+      // because the listener-bound port is only known once the server
+      // has bound. Resetting to 0 would break the delta endpoint's
+      // self-pointing URL construction.
+      const preservedPort = state.serverPort;
+      Object.assign(state, freshState());
+      state.serverPort = preservedPort;
+    },
     stop: () =>
       new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
@@ -470,6 +578,131 @@ async function handleRequest(
     }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(stored.resource));
+    return;
+  }
+
+  // ── Slice 8: Graph /me/drive/root/delta (baseline + incremental) ──
+  // The wrapper hits /me/drive/root/delta?$top=1 for the activate hook's
+  // baseline cursor walk; on incremental it hits the deltaLink we
+  // returned previously (which we encode as ?token=…). Both modes
+  // terminate with @odata.deltaLink — the mock never returns
+  // @odata.nextLink (no pagination needed for the e2e). Baseline mode
+  // returns no items; incremental returns the items we've buffered (the
+  // e2e's id-fetch path doesn't exercise this so the array stays empty,
+  // but the route is correct for delta-fallback).
+  if (
+    req.method === "GET" &&
+    url.pathname === "/v1.0/me/drive/root/delta"
+  ) {
+    const incrementalToken = url.searchParams.get("token");
+    const isIncremental = Boolean(incrementalToken);
+    state.calls.driveRootDelta.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      mode: isIncremental ? "incremental" : "baseline",
+    });
+    state.driveDeltaCursor += 1;
+    const newCursor = `delta-cursor-${state.driveDeltaCursor}`;
+    const deltaLink = new URL(
+      "/v1.0/me/drive/root/delta",
+      `http://127.0.0.1:${state.serverPort}`,
+    );
+    deltaLink.searchParams.set("token", newCursor);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        // No items on either branch in the e2e — the spec exercises the
+        // id-fetch receive path; delta-fallback would return drive items
+        // here in a future test.
+        value: [],
+        "@odata.deltaLink": deltaLink.toString(),
+      }),
+    );
+    return;
+  }
+
+  // ── Slice 8: Graph /me/drive/items/{id} (get) ──
+  // Match the exact `/items/{id}` shape only — any further path segment
+  // (e.g. `/items/{id}/children`, `/items/{id}/copy`) belongs to a
+  // different Graph endpoint that Slice 8's e2e doesn't exercise.
+  // Without the no-slash guard, a future moveItem/copyItem/listItems
+  // call would accidentally route here and 404 with a confusing message.
+  if (
+    req.method === "GET" &&
+    url.pathname.startsWith("/v1.0/me/drive/items/") &&
+    !url.pathname.slice("/v1.0/me/drive/items/".length).includes("/")
+  ) {
+    const itemId = decodeURIComponent(
+      url.pathname.replace(/^\/v1\.0\/me\/drive\/items\//, ""),
+    );
+    state.calls.driveItemsGet.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      itemId,
+    });
+    const stored = state.driveItems.get(itemId);
+    if (!stored) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "itemNotFound",
+            message: "The resource could not be found.",
+          },
+        }),
+      );
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(stored.resource));
+    return;
+  }
+
+  // ── Slice 8: Graph /me/drive/root/children (POST — create folder at root) ──
+  // Slice 8's create_folder action with parentItemId omitted / "root"
+  // routes here (driveItemsCreateFolder.ts:50-52). The mock echoes a
+  // folder DriveItem so the action handler can read result.id, name,
+  // webUrl, parentReference, folder.childCount, createdDateTime,
+  // lastModifiedDateTime. Records body so the spec asserts the
+  // conflictBehavior=fail invariant (Slice 8 Q11) and the resolved name
+  // forwarded from the workflow's hardcoded config.
+  if (
+    req.method === "POST" &&
+    url.pathname === "/v1.0/me/drive/root/children"
+  ) {
+    const bodyText = await readBody(req);
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // ignore — record empty body for inspection
+    }
+    state.driveItemCounter += 1;
+    const itemId = `mock-driveitem-${state.driveItemCounter}`;
+    state.calls.driveRootChildrenCreate.push({
+      authorization: req.headers.authorization,
+      body: parsed,
+      responseItemId: itemId,
+    });
+    // Echo a Graph folder DriveItem response. The action handler reads
+    // id (required), name, webUrl, parentReference, folder.childCount,
+    // createdDateTime, lastModifiedDateTime.
+    const echoed = {
+      id: itemId,
+      name: parsed.name ?? "Untitled",
+      folder: { childCount: 0 },
+      webUrl: `https://onedrive.live.com/?id=${itemId}`,
+      parentReference: {
+        driveId: "mock-drive-id",
+        driveType: "personal",
+        id: "root",
+        path: "/drive/root:",
+      },
+      createdDateTime: new Date().toISOString(),
+      lastModifiedDateTime: new Date().toISOString(),
+    };
+    res.writeHead(201, { "content-type": "application/json" });
+    res.end(JSON.stringify(echoed));
     return;
   }
 
@@ -699,12 +932,36 @@ async function handleRequest(
     return;
   }
 
+  // ── Slice 8: __injectDriveItem control plane ──
+  if (req.method === "POST" && url.pathname === "/__injectDriveItem") {
+    const bodyText = await readBody(req);
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(bodyText) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const id = String(payload.id ?? "");
+    if (!id) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "id required" }));
+      return;
+    }
+    state.driveItems.set(id, { id, resource: payload });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, id }));
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/__sendNotification") {
     const bodyText = await readBody(req);
     let payload: {
       messageId?: string;
       eventId?: string;
-      kind?: "message" | "event";
+      itemId?: string;
+      kind?: "message" | "event" | "driveItem";
       changeType?: string;
       // Slice 7: lets the spec deliberately spoof a clientState to drive
       // the "invalid clientState rejected" path without touching the
@@ -732,28 +989,47 @@ async function handleRequest(
 
     // Resolve resource kind. Slice 7: kind="event" or eventId implies
     // calendar; kind="message" or messageId implies mail (back-compat
-    // with Slice 6).
+    // with Slice 6). Slice 8: kind="driveItem" or itemId implies
+    // OneDrive — derives the DriveItem @odata.type and the receive
+    // path's id-fetch branch picks up resourceData.id.
+    const isDriveItem =
+      payload.kind === "driveItem" ||
+      (payload.kind === undefined && Boolean(payload.itemId));
     const isEvent =
-      payload.kind === "event" ||
-      (payload.kind === undefined && Boolean(payload.eventId));
-    const resourceId = isEvent ? payload.eventId : payload.messageId;
+      !isDriveItem &&
+      (payload.kind === "event" ||
+        (payload.kind === undefined && Boolean(payload.eventId)));
+    let resourceId: string | undefined;
+    let resourceMissingError: string;
+    if (isDriveItem) {
+      resourceId = payload.itemId;
+      resourceMissingError = "itemId required";
+    } else if (isEvent) {
+      resourceId = payload.eventId;
+      resourceMissingError = "eventId required";
+    } else {
+      resourceId = payload.messageId;
+      resourceMissingError = "messageId required";
+    }
     if (!resourceId) {
       res.writeHead(400, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          error: isEvent ? "eventId required" : "messageId required",
-        }),
-      );
+      res.end(JSON.stringify({ error: resourceMissingError }));
       return;
     }
 
     const changeType = payload.changeType ?? subscription.changeType;
-    const odataType = isEvent
-      ? "#Microsoft.Graph.Event"
-      : "#Microsoft.Graph.Message";
-    const resourcePath = isEvent
-      ? `users/alice@e2e.test/events/${resourceId}`
-      : `users/alice@e2e.test/messages/${resourceId}`;
+    let odataType: string;
+    let resourcePath: string;
+    if (isDriveItem) {
+      odataType = "#Microsoft.Graph.DriveItem";
+      resourcePath = `users/alice@e2e.test/drive/items/${resourceId}`;
+    } else if (isEvent) {
+      odataType = "#Microsoft.Graph.Event";
+      resourcePath = `users/alice@e2e.test/events/${resourceId}`;
+    } else {
+      odataType = "#Microsoft.Graph.Message";
+      resourcePath = `users/alice@e2e.test/messages/${resourceId}`;
+    }
     const clientState =
       payload.clientStateOverride ?? subscription.clientState;
 
@@ -789,7 +1065,11 @@ async function handleRequest(
   }
 
   if (req.method === "POST" && url.pathname === "/__reset") {
+    // Preserve serverPort across reset — same reasoning as the
+    // process-side reset() handle.
+    const preservedPort = state.serverPort;
     Object.assign(state, freshState());
+    state.serverPort = preservedPort;
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -804,6 +1084,7 @@ async function handleRequest(
         lastSubscriptionId: state.lastSubscriptionId,
         messageIds: Array.from(state.messages.keys()),
         eventIds: Array.from(state.events.keys()),
+        driveItemIds: Array.from(state.driveItems.keys()),
       }),
     );
     return;
