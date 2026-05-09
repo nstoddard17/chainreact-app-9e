@@ -80,9 +80,10 @@ export const microsoftOutlookCalendarManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // Flipped to true in Slice 7 Commit 4 when the event_changed
-      // subscription trigger + webhook receiver land.
-      webhookTrigger: false,
+      // True: `event_changed` subscription trigger registered in
+      // integrations/microsoft-outlook-calendar/triggers/eventChanged.
+      // Webhook route lives at /api/webhooks/microsoft-outlook-calendar.
+      webhookTrigger: true,
       pollingTrigger: false,
       // True: 5 action handlers (create_event, list_events,
       // update_event, delete_event, add_attendees) are registered in

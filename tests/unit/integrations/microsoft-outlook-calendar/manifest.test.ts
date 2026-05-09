@@ -53,15 +53,15 @@ describe("microsoft-outlook-calendar manifest", () => {
     expect(microsoftOutlookCalendarManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 7 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 7 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 7 Commit 2 landed manifest + OAuth + dispatcher. Commit 3
-    // (this) lands the 5 calendar actions + flips actions: true.
-    // Commit 4 will land event_changed subscription trigger + flip
+    // landed the 5 calendar actions + flipped actions: true. Commit 4
+    // (this) lands event_changed subscription trigger + flips
     // webhookTrigger: true. Honest-state convention means flags flip
     // in lockstep with the registrations they describe.
     expect(microsoftOutlookCalendarManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
@@ -71,7 +71,7 @@ describe("microsoft-outlook-calendar manifest", () => {
     );
     expect(
       providerSupports("microsoft-outlook-calendar", "webhookTrigger"),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       providerSupports("microsoft-outlook-calendar", "pollingTrigger"),
     ).toBe(false);

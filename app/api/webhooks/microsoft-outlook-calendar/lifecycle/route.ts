@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+
+/**
+ * POST /api/webhooks/microsoft-outlook-calendar/lifecycle
+ *
+ * Microsoft Graph posts lifecycle events (`reauthorizationRequired`,
+ * `subscriptionRemoved`, `missed`) here when our subscription's
+ * `lifecycleNotificationUrl` is set. Required for any subscription with
+ * `expirationDateTime > 1h`.
+ *
+ * Slice 7 plan §"`event_changed` trigger algorithm" — Webhook receive
+ * (Lifecycle path):
+ *   > Stub, 200 + log. Slice 7 keeps the same Slice 6 stub treatment.
+ *
+ * Validation handshake support is identical to the main route — the
+ * URL has `?validationToken=...` and we echo as `text/plain`. Reuse
+ * the same 10s budget rule (no DB I/O).
+ *
+ * Lifecycle notifications also include a `?validationToken` on first
+ * registration; subsequent lifecycle events arrive as a regular POST
+ * body of `{ "value": [{...}] }` similar to notifications. Slice 7
+ * does not yet act on those — we acknowledge with 200 so Microsoft
+ * doesn't retry-storm.
+ */
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const validationToken =
+    url.searchParams.get("validationToken") ??
+    url.searchParams.get("validationtoken");
+  if (validationToken) {
+    return new NextResponse(validationToken, {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+
+  // Slice 7 stub: log + ack. Future slice may wire reauthorizationRequired
+  // → set integration.requires_user_action, subscriptionRemoved → mark
+  // trigger for re-registration, etc.
+  let body = "";
+  try {
+    body = await request.text();
+  } catch {
+    // ignore — can't be more useful than the log we still emit
+  }
+  console.info(
+    JSON.stringify({
+      event: "webhook.microsoft_outlook_calendar.lifecycle_received",
+      bodyPreview: body.slice(0, 256),
+    }),
+  );
+  return NextResponse.json({ ok: true });
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const validationToken =
+    url.searchParams.get("validationToken") ??
+    url.searchParams.get("validationtoken");
+  if (validationToken) {
+    return new NextResponse(validationToken, {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+  return NextResponse.json({
+    service: "microsoft-outlook-calendar webhook lifecycle",
+    description: "Stub — Slice 7 acknowledges + logs. Future slices may act.",
+  });
+}
