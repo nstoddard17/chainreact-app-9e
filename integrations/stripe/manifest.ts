@@ -93,9 +93,13 @@ export const stripeManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    // Flips true in Slice 11 Commit 4 once the event_received
-    // webhook trigger + Stripe-Signature verification land.
-    webhookTrigger: false,
+    // True: `event_received` webhook trigger registered in
+    // integrations/stripe/triggers/eventReceived. Webhook route
+    // lives at /api/webhooks/stripe. NO renewal handler — Stripe
+    // webhook endpoints don't expire (the `runRenewals` cron filters
+    // on `config.type === "subscription-watch"` and Stripe's
+    // activate hook intentionally omits the marker).
+    webhookTrigger: true,
     pollingTrigger: false,
     // True: 10 action handlers (create_customer, update_customer,
     // find_customer, create_payment_intent, confirm_payment_intent,

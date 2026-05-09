@@ -13,6 +13,8 @@ import {
 } from "@/integrations/_registry";
 import { ProviderManifestSchema } from "@/contracts/integration";
 import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
+import { findActivation } from "@/services/triggers/activationRegistry";
+import { findDeactivation } from "@/services/triggers/deactivationRegistry";
 
 describe("stripe manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -55,22 +57,30 @@ describe("stripe manifest", () => {
     expect(stripeManifest.accountIdField).toBe("stripeUserId");
   });
 
-  it("declares honest capabilities for Slice 11 Commit 3 (oauth + actions; webhookTrigger DEFERRED)", () => {
+  it("declares honest capabilities for Slice 11 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 11 Commit 2 landed manifest + OAuth + dispatcher
-    // registration. Commit 3 (this) lands 10 action handlers and
-    // flips `actions: true`. Commit 4 will flip `webhookTrigger:
-    // true`. Honest-state convention: flags flip in lockstep with
-    // the registrations they describe.
+    // registration. Commit 3 landed 10 action handlers + flipped
+    // `actions: true`. Commit 4 (this) lands the event_received
+    // webhook trigger + Stripe-Signature verification + flips
+    // `webhookTrigger: true`. Honest-state convention: flags flip
+    // in lockstep with the registrations they describe.
     expect(stripeManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("stripe", "oauth")).toBe(true);
     expect(providerSupports("stripe", "actions")).toBe(true);
-    expect(providerSupports("stripe", "webhookTrigger")).toBe(false);
+    expect(providerSupports("stripe", "webhookTrigger")).toBe(true);
     expect(providerSupports("stripe", "pollingTrigger")).toBe(false);
+  });
+
+  it("when webhookTrigger: true, event_received activation + deactivation hooks are registered", () => {
+    if (stripeManifest.capabilities.webhookTrigger) {
+      expect(findActivation("stripe", "event_received")).not.toBeNull();
+      expect(findDeactivation("stripe", "event_received")).not.toBeNull();
+    }
   });
 
   it("when actions: true, the action-handler registry contains all 10 Stripe actions", () => {

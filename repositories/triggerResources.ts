@@ -187,6 +187,42 @@ export async function listForPolling(): Promise<
 }
 
 /**
+ * Webhook-receive direct lookup: find the single trigger_resources row
+ * for a given (workflow, node) pair.
+ *
+ * Slice 11 (Stripe) introduces this helper for receive-routes that
+ * resolve the trigger via URL query params (`?workflowId=X&nodeId=Y`)
+ * rather than via a provider-echoed id in the body. Stripe events
+ * carry no endpoint identifier, so the URL is the only stable signal
+ * — strict-direct-lookup avoids V1's multi-secret fallback rot.
+ *
+ * Service-role only — webhook receive runs with no user session.
+ * Returns `null` when no row matches (the route maps to a 404 / quiet
+ * ack). The unique index on `(workflow_id, node_id)` guarantees
+ * single-row results.
+ */
+export async function findByWorkflowAndNode(
+  workflowId: string,
+  nodeId: string,
+): Promise<TriggerResourceRecord | null> {
+  const supabase = getServiceRoleClient(
+    `webhook receive: findByWorkflowAndNode ${workflowId}/${nodeId}`,
+  );
+  const { data, error } = await supabase
+    .from("trigger_resources")
+    .select("*")
+    .eq("workflow_id", workflowId)
+    .eq("node_id", nodeId)
+    .maybeSingle<TriggerResourcesRow>();
+  if (error) {
+    throw new Error(
+      `trigger_resources.findByWorkflowAndNode failed: ${error.message}`,
+    );
+  }
+  return data ? rowToRecord(data) : null;
+}
+
+/**
  * Generic JSONB-containment lookup.
  *
  * Used by:
