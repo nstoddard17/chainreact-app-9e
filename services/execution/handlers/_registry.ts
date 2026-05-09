@@ -27,6 +27,13 @@ import { createEvent as createOutlookCalendarEvent } from "@/integrations/micros
 import { deleteEvent as deleteOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/deleteEvent";
 import { listEvents as listOutlookCalendarEvents } from "@/integrations/microsoft-outlook-calendar/actions/listEvents";
 import { updateEvent as updateOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/updateEvent";
+import { appendBlockChildren as notionAppendBlockChildren } from "@/integrations/notion/actions/appendBlockChildren";
+import { createDatabaseEntry as notionCreateDatabaseEntry } from "@/integrations/notion/actions/createDatabaseEntry";
+import { createPage as notionCreatePage } from "@/integrations/notion/actions/createPage";
+import { getPage as notionGetPage } from "@/integrations/notion/actions/getPage";
+import { queryDatabase as notionQueryDatabase } from "@/integrations/notion/actions/queryDatabase";
+import { search as notionSearch } from "@/integrations/notion/actions/search";
+import { updatePage as notionUpdatePage } from "@/integrations/notion/actions/updatePage";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandler } from "./types";
 
@@ -76,6 +83,13 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-onedrive", type: "move_item", handler: moveOneDriveItem },
   { provider: "microsoft-onedrive", type: "copy_item", handler: copyOneDriveItem },
   { provider: "microsoft-onedrive", type: "list_items", handler: listOneDriveItems },
+  { provider: "notion", type: "create_page", handler: notionCreatePage },
+  { provider: "notion", type: "update_page", handler: notionUpdatePage },
+  { provider: "notion", type: "query_database", handler: notionQueryDatabase },
+  { provider: "notion", type: "create_database_entry", handler: notionCreateDatabaseEntry },
+  { provider: "notion", type: "append_block_children", handler: notionAppendBlockChildren },
+  { provider: "notion", type: "get_page", handler: notionGetPage },
+  { provider: "notion", type: "search", handler: notionSearch },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

@@ -10,13 +10,16 @@ import {
  * `docs/slices/slice-9-notion.md` §"Why Notion next".
  *
  * Capability flags follow the V2 honest-state convention — they flip
- * true only when a real handler/trigger lands. As of this commit
- * (Slice 9 Commit 2 — manifest + OAuth + dispatcher registration),
- * `oauth` is true and the rest are false. Commit 3 flips `actions`.
- * `webhookTrigger` is INTENTIONALLY DEFERRED — Notion does not expose a
- * programmatic webhook subscription API; webhooks must be configured
- * manually through the Notion integration UI. Slice 9 ships actions-only
- * per the Commit 1 plan §"Critical constraint: webhooks are manual-only".
+ * true only when a real handler/trigger lands. As of Slice 9 Commit 3
+ * (actions + property polymorphism + Notion API wrappers), `oauth` and
+ * `actions` are true. The 7 actions registered in
+ * `services/execution/handlers/_registry.ts` are: create_page,
+ * update_page, query_database, create_database_entry,
+ * append_block_children, get_page, search. `webhookTrigger` is
+ * INTENTIONALLY DEFERRED — Notion does not expose a programmatic
+ * webhook subscription API; webhooks must be configured manually
+ * through the Notion integration UI. Slice 9 ships actions-only per the
+ * Commit 1 plan §"Critical constraint: webhooks are manual-only".
  *
  * Token model — long-lived access token, no refresh in V2:
  *   Notion's OAuth flow does issue a `refresh_token` in the token
@@ -87,7 +90,7 @@ export const notionManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    actions: false,
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
   refreshable: false,

@@ -6,10 +6,11 @@ describe("Notion manifest", () => {
     expect(() => ProviderManifestSchema.parse(notionManifest)).not.toThrow();
   });
 
-  it("declares Slice 9 Commit 2 capabilities (oauth only; actions deferred to Commit 3, webhookTrigger / pollingTrigger deferred indefinitely)", () => {
+  it("declares Slice 9 Commit 3 capabilities (oauth + actions; webhookTrigger / pollingTrigger deferred indefinitely)", () => {
     expect(notionManifest.capabilities.oauth).toBe(true);
-    // Honest-state — actions flip to true in Commit 3.
-    expect(notionManifest.capabilities.actions).toBe(false);
+    // Flipped from false in Commit 2 → true in Commit 3 once the 7
+    // action handlers landed.
+    expect(notionManifest.capabilities.actions).toBe(true);
     // webhookTrigger is INTENTIONALLY DEFERRED — Notion does not expose
     // a programmatic webhook subscription API; manual setup only.
     // See docs/slices/slice-9-notion.md §"Critical constraint".
