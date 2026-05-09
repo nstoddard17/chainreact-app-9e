@@ -33,6 +33,16 @@ const MICROSOFT_MOCK_PORT = Number(process.env.MICROSOFT_MOCK_PORT ?? "9878");
 const MICROSOFT_MOCK_BASE = `http://127.0.0.1:${MICROSOFT_MOCK_PORT}`;
 
 /**
+ * Notion mock server runs on this port (started by global-setup.ts). The
+ * dev server inherits NOTION_AUTHORIZE_BASE / NOTION_API_BASE pointing
+ * here for the Slice 9 Notion walkthrough — OAuth callback token
+ * exchange + /v1/users/me + /v1/pages CRUD + databases query + blocks
+ * append + search.
+ */
+const NOTION_MOCK_PORT = Number(process.env.NOTION_MOCK_PORT ?? "9879");
+const NOTION_MOCK_BASE = `http://127.0.0.1:${NOTION_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -120,6 +130,22 @@ export default defineConfig({
         process.env.MICROSOFT_CLIENT_ID ?? "e2e-microsoft-client-id",
       MICROSOFT_CLIENT_SECRET:
         process.env.MICROSOFT_CLIENT_SECRET ?? "e2e-microsoft-client-secret",
+      // Slice 9: route Notion OAuth + REST API calls through the mock.
+      // integrations/notion/oauth.ts honors NOTION_AUTHORIZE_BASE and
+      // NOTION_API_BASE; integrations/_shared/notion/api/_base.ts honors
+      // NOTION_API_BASE. The mock owns /v1/oauth/{authorize,token},
+      // /v1/pages (POST/GET/PATCH), /v1/databases/{id}/query,
+      // /v1/blocks/{id}/children, /v1/search.
+      NOTION_AUTHORIZE_BASE: NOTION_MOCK_BASE,
+      NOTION_API_BASE: NOTION_MOCK_BASE,
+      // Slice 9: e2e Notion client id/secret. Production uses values
+      // from notion.so/my-integrations; the e2e value is throwaway.
+      // The mock validates Basic auth header presence/format but doesn't
+      // check the credential values themselves.
+      NOTION_CLIENT_ID:
+        process.env.NOTION_CLIENT_ID ?? "e2e-notion-client-id",
+      NOTION_CLIENT_SECRET:
+        process.env.NOTION_CLIENT_SECRET ?? "e2e-notion-client-secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

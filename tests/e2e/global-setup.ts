@@ -13,6 +13,10 @@ import {
   startMockMicrosoftServer,
   type MockMicrosoftHandle,
 } from "./helpers/mockMicrosoftServer";
+import {
+  startMockNotionServer,
+  type MockNotionHandle,
+} from "./helpers/mockNotionServer";
 
 /**
  * Playwright global setup.
@@ -36,6 +40,7 @@ import {
 let slackHandle: MockSlackHandle | null = null;
 let googleHandle: MockGoogleHandle | null = null;
 let microsoftHandle: MockMicrosoftHandle | null = null;
+let notionHandle: MockNotionHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -45,6 +50,10 @@ export const GOOGLE_STATE_FILE = resolve(
 export const MICROSOFT_STATE_FILE = resolve(
   __dirname,
   ".state/mock-microsoft.json",
+);
+export const NOTION_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-notion.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -57,6 +66,10 @@ export function getGoogleMockHandle(): MockGoogleHandle | null {
 
 export function getMicrosoftMockHandle(): MockMicrosoftHandle | null {
   return microsoftHandle;
+}
+
+export function getNotionMockHandle(): MockNotionHandle | null {
+  return notionHandle;
 }
 
 /**
@@ -187,6 +200,26 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock Microsoft listening at ${microsoftHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 9: mock Notion for the Notion walkthrough. Different port
+  // (9879) so all four mock servers can run simultaneously.
+  const notionPort = Number(process.env.NOTION_MOCK_PORT ?? "9879");
+  notionHandle = await startMockNotionServer({
+    appBaseUrl,
+    port: notionPort,
+  });
+  await writeFile(
+    NOTION_STATE_FILE,
+    JSON.stringify({
+      port: notionPort,
+      baseUrl: notionHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock Notion listening at ${notionHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -227,6 +260,19 @@ export async function readMicrosoftMockState(): Promise<{
   appBaseUrl: string;
 }> {
   const raw = await readFile(MICROSOFT_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+  };
+}
+
+export async function readNotionMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(NOTION_STATE_FILE, "utf8");
   return JSON.parse(raw) as {
     port: number;
     baseUrl: string;
