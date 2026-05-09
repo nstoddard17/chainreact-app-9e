@@ -7,6 +7,7 @@ import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
 import { googleSheetsManifest } from "./google-sheets/manifest";
+import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
 import { slackManifest } from "./slack/manifest";
@@ -40,6 +41,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   googleSheetsManifest,
   microsoftOutlookManifest,
   microsoftOutlookCalendarManifest,
+  microsoftOneDriveManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws
