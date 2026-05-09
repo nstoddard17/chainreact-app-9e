@@ -7,7 +7,7 @@
  * api/ folder ships in one piece.
  */
 import { getMessage } from "@/integrations/microsoft-outlook/api/getMessage";
-import { NotFoundError } from "@/integrations/microsoft-outlook/api/errors";
+import { NotFoundError } from "@/integrations/_shared/microsoft/api/errors";
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 
 beforeEach(() => {

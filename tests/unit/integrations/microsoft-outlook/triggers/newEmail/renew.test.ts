@@ -12,7 +12,7 @@ jest.mock("@/services/oauth/refreshAndRetry", () => ({
   IntegrationActionRequiredError: class extends Error {},
 }));
 
-jest.mock("@/integrations/microsoft-outlook/api/renewSubscription", () => ({
+jest.mock("@/integrations/_shared/microsoft/api/subscriptions", () => ({
   renewSubscription: (...args: unknown[]) => mockRenewSubscription(...args),
 }));
 

@@ -1,6 +1,9 @@
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
-import { graphApiBase } from "./_base";
-import { NotFoundError, surfaceGraphError } from "./errors";
+import { graphApiBase } from "@/integrations/_shared/microsoft/api/_base";
+import {
+  NotFoundError,
+  surfaceGraphError,
+} from "@/integrations/_shared/microsoft/api/errors";
 
 /**
  * Wrapper for Microsoft Graph `me/messages/{id}`.

@@ -2,7 +2,7 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { SubscriptionHandler } from "@/services/triggers/subscriptionRegistry";
-import { renewSubscription } from "../../api/renewSubscription";
+import { renewSubscription } from "@/integrations/_shared/microsoft/api/subscriptions";
 
 /**
  * Microsoft Outlook new_email renewal handler.

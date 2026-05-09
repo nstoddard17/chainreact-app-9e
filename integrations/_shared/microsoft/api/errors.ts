@@ -1,18 +1,23 @@
 /**
- * Microsoft Graph-specific typed errors thrown by API wrappers.
+ * Microsoft Graph-specific typed errors thrown by API wrappers — shared
+ * across every Microsoft provider.
  *
  * `Unauthorized401Error` (for the refreshAndRetry contract) lives in
  * `services/oauth/refreshAndRetry.ts` — wrappers import that one directly.
  * This file holds Graph-shape-specific errors that handlers (not the
  * refresh wrapper) catch.
+ *
+ * Slice 7: extracted from `integrations/microsoft-outlook/api/errors.ts`
+ * so Outlook Calendar + Outlook Mail share one source of truth. Mirrors
+ * the `_shared/google/` minimal-extraction principle.
  */
 
 /**
- * Thrown by `getMessage` (and future `getEvent` / similar fetchers) on
- * HTTP 404 — the resource doesn't exist or the user lacks access. Graph
- * commonly returns 404 to avoid leaking existence; both cases surface as
- * NotFoundError so handlers can give the same "we couldn't find that"
- * UX regardless of which sub-cause fired.
+ * Thrown by `getMessage` / `getEvent` / `deleteSubscription` (and future
+ * resource-getters) on HTTP 404 — the resource doesn't exist or the user
+ * lacks access. Graph commonly returns 404 to avoid leaking existence;
+ * both cases surface as NotFoundError so handlers can give the same
+ * "we couldn't find that" UX regardless of which sub-cause fired.
  *
  * Mirror shape of Sheets / Drive / Calendar NotFoundError so cross-
  * provider error handling stays consistent.

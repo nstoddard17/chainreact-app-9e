@@ -1,6 +1,6 @@
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
-import { graphApiBase } from "./_base";
-import { surfaceGraphError } from "./errors";
+import { graphApiBase } from "@/integrations/_shared/microsoft/api/_base";
+import { surfaceGraphError } from "@/integrations/_shared/microsoft/api/errors";
 
 /**
  * Wrapper for Microsoft Graph `me/sendMail`.

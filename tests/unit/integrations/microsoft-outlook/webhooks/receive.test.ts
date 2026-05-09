@@ -27,7 +27,7 @@ jest.mock("@/integrations/microsoft-outlook/api/getMessage", () => ({
 }));
 
 import { InvalidSignatureError } from "@/core/triggers/errors";
-import { NotFoundError } from "@/integrations/microsoft-outlook/api/errors";
+import { NotFoundError } from "@/integrations/_shared/microsoft/api/errors";
 import { receiveOutlookWebhook } from "@/integrations/microsoft-outlook/webhooks/receive";
 
 beforeEach(() => {

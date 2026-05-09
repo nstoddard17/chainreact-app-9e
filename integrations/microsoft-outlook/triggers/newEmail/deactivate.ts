@@ -1,5 +1,5 @@
-import { deleteSubscription } from "../../api/deleteSubscription";
-import { NotFoundError } from "../../api/errors";
+import { deleteSubscription } from "@/integrations/_shared/microsoft/api/subscriptions";
+import { NotFoundError } from "@/integrations/_shared/microsoft/api/errors";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { DeactivationFn } from "@/services/triggers/deactivationRegistry";
 

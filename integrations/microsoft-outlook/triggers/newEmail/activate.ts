@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActivationFn } from "@/services/triggers/activationRegistry";
-import { createSubscription } from "../../api/createSubscription";
+import { createSubscription } from "@/integrations/_shared/microsoft/api/subscriptions";
 
 /**
  * Microsoft Outlook new_email activation hook.

@@ -1,10 +1,11 @@
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import { InvalidSignatureError } from "@/core/triggers/errors";
+import { NotFoundError } from "@/integrations/_shared/microsoft/api/errors";
+import { checkValidationHandshake } from "@/integrations/_shared/microsoft/webhooks/validation";
 import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { getMessage } from "../api/getMessage";
-import { NotFoundError } from "../api/errors";
 import { normalize } from "../triggers/newEmail/normalize";
 
 /**
@@ -60,23 +61,14 @@ interface NotificationEnvelope {
 export async function receiveOutlookWebhook(
   request: Request,
 ): Promise<ReceiveResult> {
-  const url = new URL(request.url);
-  const validationToken =
-    url.searchParams.get("validationToken") ??
-    url.searchParams.get("validationtoken");
-
-  if (validationToken) {
+  // Validation handshake (query token OR text/plain body) is shared
+  // across every Microsoft webhook route. The helper consumes the body
+  // ONCE — we use the returned bodyText for downstream JSON parsing.
+  const { validationToken, bodyText } = await checkValidationHandshake(
+    request,
+  );
+  if (validationToken !== null) {
     return { kind: "validation", token: validationToken };
-  }
-
-  // Microsoft sometimes posts the validation token as the body with
-  // Content-Type: text/plain (per V1's webhook route handling). This
-  // branch is harmless when a notification body is JSON — it only
-  // applies when the content-type signals plain text.
-  const contentType = request.headers.get("content-type") ?? "";
-  const bodyText = await request.text();
-  if (contentType.toLowerCase().includes("text/plain") && bodyText.trim()) {
-    return { kind: "validation", token: bodyText };
   }
 
   // Notification path. Parse body as JSON; malformed body → spoof signal.

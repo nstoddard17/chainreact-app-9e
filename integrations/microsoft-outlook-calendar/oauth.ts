@@ -9,51 +9,47 @@ import {
 } from "@/integrations/_shared/microsoft/oauth";
 
 /**
- * Microsoft Outlook (mail) OAuth implementation.
+ * Microsoft Outlook Calendar OAuth implementation.
  *
- * Shares all Microsoft OAuth wire-format with future Microsoft providers
- * (Outlook Calendar, Teams, OneDrive, …) via
- * `integrations/_shared/microsoft/oauth.ts`:
+ * Sibling to `microsoft-outlook` (Slice 6 mail). Shares all Microsoft
+ * OAuth wire-format via `integrations/_shared/microsoft/oauth.ts`:
  *   - PKCE S256.
  *   - Multi-tenant `/common/` authorize + token endpoints.
  *   - Token exchange and refresh against
  *     `${MICROSOFT_TOKEN_BASE}/common/oauth2/v2.0/token`.
  *   - Refresh-token rotation/preserve-old policy.
  *
- * What's Outlook-mail-specific:
- *   - Redirect URL: /api/integrations/oauth/microsoft-outlook/callback.
- *   - accountId resolution: Graph /me lookup (extracted to
- *     `_shared/microsoft/api/me.ts`); the `mail ?? userPrincipalName`
+ * What's Outlook-Calendar-specific:
+ *   - Redirect URL:
+ *     /api/integrations/oauth/microsoft-outlook-calendar/callback.
+ *   - accountId resolution: Graph /me lookup via
+ *     `_shared/microsoft/api/me.ts`; the `mail ?? userPrincipalName`
  *     fallback policy lives here so per-provider tests can assert it.
  *
  * Env vars read:
  *   - NEXT_PUBLIC_APP_URL (for the redirect URL).
  *   - MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET (read inside the
- *     shared helper).
+ *     shared helper). Same Azure AD app id + secret as
+ *     `microsoft-outlook`.
  *   - MICROSOFT_AUTHORIZE_BASE / MICROSOFT_TOKEN_BASE /
  *     MICROSOFT_GRAPH_API_BASE (e2e overrides, shared).
  *
  * `revoke()` is a stub deferred to the disconnect-UX slice (matches
- * Gmail / Calendar / Drive / Sheets / Slack patterns).
- *
- * Slice 7: refactored from a self-contained module to delegate to
- * `_shared/microsoft/`. Behavior is preserved verbatim — same error
- * messages, same token-shape, same metadata shape on the integration
- * row. Slice 6 unit tests + e2e remain green.
+ * Gmail / Calendar / Drive / Sheets / Slack / Slice 6 mail patterns).
  */
 
 function getRedirectUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  return `${baseUrl}/api/integrations/oauth/microsoft-outlook/callback`;
+  return `${baseUrl}/api/integrations/oauth/microsoft-outlook-calendar/callback`;
 }
 
-export const microsoftOutlookOAuth: ProviderOAuth = {
+export const microsoftOutlookCalendarOAuth: ProviderOAuth = {
   generatePkce: generateMicrosoftPkce,
 
   buildAuthUrl(state, scopes, pkce) {
     if (pkce === null) {
       throw new Error(
-        "microsoftOutlookOAuth.buildAuthUrl: PKCE challenge is required for Microsoft Outlook. The dispatcher should have generated one via generatePkce().",
+        "microsoftOutlookCalendarOAuth.buildAuthUrl: PKCE challenge is required for Microsoft Outlook Calendar. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildMicrosoftAuthUrl({
@@ -67,7 +63,7 @@ export const microsoftOutlookOAuth: ProviderOAuth = {
   async handleCallback(code, _state, pkce) {
     if (pkce === null || !pkce.codeVerifier) {
       throw new Error(
-        "microsoftOutlookOAuth.handleCallback: PKCE code_verifier is required for Microsoft Outlook; the consumed oauth_states row had none.",
+        "microsoftOutlookCalendarOAuth.handleCallback: PKCE code_verifier is required for Microsoft Outlook Calendar; the consumed oauth_states row had none.",
       );
     }
 
@@ -115,8 +111,6 @@ export const microsoftOutlookOAuth: ProviderOAuth = {
 
   async revoke(_token: string): Promise<void> {
     // Deferred to disconnect-UX slice (matches Gmail / Calendar / Drive /
-    // Sheets / Slack patterns). Microsoft does expose
-    // /common/oauth2/v2.0/logout for refresh-token revocation; wire-up
-    // belongs with the cross-provider disconnect handler.
+    // Sheets / Slack / Slice 6 mail patterns).
   },
 };

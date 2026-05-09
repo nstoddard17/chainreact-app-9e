@@ -10,12 +10,12 @@ jest.mock("@/services/oauth/refreshAndRetry", () => ({
   IntegrationActionRequiredError: class extends Error {},
 }));
 
-jest.mock("@/integrations/microsoft-outlook/api/deleteSubscription", () => ({
+jest.mock("@/integrations/_shared/microsoft/api/subscriptions", () => ({
   deleteSubscription: (...args: unknown[]) => mockDeleteSubscription(...args),
 }));
 
 import { deactivate } from "@/integrations/microsoft-outlook/triggers/newEmail/deactivate";
-import { NotFoundError } from "@/integrations/microsoft-outlook/api/errors";
+import { NotFoundError } from "@/integrations/_shared/microsoft/api/errors";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
