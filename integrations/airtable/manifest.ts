@@ -87,8 +87,12 @@ export const airtableManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    // Flips true in Commit 4 — record_changed subscription trigger.
-    webhookTrigger: false,
+    // True: `record_changed` subscription-watch trigger registered in
+    // integrations/airtable/triggers/recordChanged. Webhook route
+    // lives at /api/webhooks/airtable. Renewal handler registered
+    // with subscriptionRegistry (6-day threshold against Airtable's
+    // 7-day TTL).
+    webhookTrigger: true,
     pollingTrigger: false,
     // True: 8 action handlers (list_records, get_record, find_record,
     // create_record, update_record, delete_record, get_base_schema,

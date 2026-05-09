@@ -13,6 +13,8 @@ import {
 } from "@/integrations/_registry";
 import { ProviderManifestSchema } from "@/contracts/integration";
 import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
+import { findActivation } from "@/services/triggers/activationRegistry";
+import { findDeactivation } from "@/services/triggers/deactivationRegistry";
 
 describe("airtable manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -65,23 +67,30 @@ describe("airtable manifest", () => {
     expect(airtableManifest.accountIdField).toBe("userId");
   });
 
-  it("declares honest capabilities for Slice 10 Commit 3 (oauth + actions; webhookTrigger deferred to Commit 4)", () => {
+  it("declares honest capabilities for Slice 10 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 10 Commit 2 landed manifest + OAuth + dispatcher
-    // registration. Commit 3 (this) lands the 8 action handlers and
-    // flips `actions: true`. Commit 4 will flip `webhookTrigger:
-    // true` once the record_changed subscription trigger lands.
+    // registration. Commit 3 landed 8 action handlers + flipped
+    // `actions: true`. Commit 4 (this) lands the record_changed
+    // subscription trigger + flips `webhookTrigger: true`.
     // Honest-state convention: flags flip in lockstep with the
     // registrations they describe.
     expect(airtableManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("airtable", "oauth")).toBe(true);
     expect(providerSupports("airtable", "actions")).toBe(true);
-    expect(providerSupports("airtable", "webhookTrigger")).toBe(false);
+    expect(providerSupports("airtable", "webhookTrigger")).toBe(true);
     expect(providerSupports("airtable", "pollingTrigger")).toBe(false);
+  });
+
+  it("when webhookTrigger: true, record_changed activation + deactivation hooks are registered", () => {
+    if (airtableManifest.capabilities.webhookTrigger) {
+      expect(findActivation("airtable", "record_changed")).not.toBeNull();
+      expect(findDeactivation("airtable", "record_changed")).not.toBeNull();
+    }
   });
 
   it("when actions: true, the action-handler registry contains all 8 Airtable actions", () => {
