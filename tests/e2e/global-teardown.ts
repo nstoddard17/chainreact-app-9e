@@ -5,6 +5,7 @@ import {
   getGitHubMockHandle,
   getGoogleMockHandle,
   getHubSpotMockHandle,
+  getMailchimpMockHandle,
   getMicrosoftMockHandle,
   getMockHandle,
   getNotionMockHandle,
@@ -58,6 +59,11 @@ export default async function globalTeardown(): Promise<void> {
   if (githubHandle) {
     await githubHandle.stop();
     console.log("[e2e] mock GitHub stopped");
+  }
+  const mailchimpHandle = getMailchimpMockHandle();
+  if (mailchimpHandle) {
+    await mailchimpHandle.stop();
+    console.log("[e2e] mock Mailchimp stopped");
   }
   // Clean up the state directory. All state files live under the same
   // .state/ folder, so removing the parent dir cleans them all.

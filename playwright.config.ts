@@ -101,6 +101,21 @@ const GITHUB_MOCK_PORT = Number(process.env.GITHUB_MOCK_PORT ?? "9884");
 const GITHUB_MOCK_BASE = `http://127.0.0.1:${GITHUB_MOCK_PORT}`;
 
 /**
+ * Mailchimp mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits MAILCHIMP_LOGIN_BASE (OAuth + metadata) and
+ * MAILCHIMP_API_BASE_OVERRIDE (per-dc REST collapsed to one origin)
+ * pointing here for the Slice 14 walkthrough — OAuth (body-auth, no
+ * PKCE, no scope param) + dc-routed REST member upsert + per-audience
+ * webhook lifecycle + form-encoded webhook delivery for the
+ * `audience_event` trigger + polling campaigns/reports for the
+ * `email_opened` polling trigger.
+ *
+ * Different port from every other mock (9876-9884).
+ */
+const MAILCHIMP_MOCK_PORT = Number(process.env.MAILCHIMP_MOCK_PORT ?? "9885");
+const MAILCHIMP_MOCK_BASE = `http://127.0.0.1:${MAILCHIMP_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -328,6 +343,30 @@ export default defineConfig({
       // GitHub. Pointing at the e2e dev server keeps deliveries on
       // localhost.
       GITHUB_WEBHOOK_URL: E2E_BASE_URL,
+      // Slice 14: route Mailchimp OAuth + REST through the mock.
+      // integrations/mailchimp/oauth.ts honors MAILCHIMP_LOGIN_BASE for
+      // the /oauth2/authorize, /oauth2/token, /oauth2/metadata calls;
+      // integrations/_shared/mailchimp/api/_base.ts honors
+      // MAILCHIMP_API_BASE_OVERRIDE which collapses the per-dc
+      // `https://${dc}.api.mailchimp.com` host to one mock origin (the
+      // mock parses `/3.0/...` paths). The activation hook + receive
+      // route read MAILCHIMP_WEBHOOK_URL (or fall back to
+      // NEXT_PUBLIC_APP_URL) for the callback URL embedded in the
+      // webhook `url` field.
+      MAILCHIMP_LOGIN_BASE: MAILCHIMP_MOCK_BASE,
+      MAILCHIMP_API_BASE_OVERRIDE: MAILCHIMP_MOCK_BASE,
+      MAILCHIMP_WEBHOOK_URL: E2E_BASE_URL,
+      // Slice 14: e2e Mailchimp client id/secret. Production uses values
+      // from login.mailchimp.com/account/oauth2/client/list; the e2e
+      // values are throwaway. The mock validates body-auth (client_secret
+      // in body, no Basic header) but doesn't check the credential
+      // values. Mailchimp's OAuth flow grants account-wide access — no
+      // scope enforcement; the manifest's synthetic ["account_access"]
+      // is documentation-only and never sent to the mock.
+      MAILCHIMP_CLIENT_ID:
+        process.env.MAILCHIMP_CLIENT_ID ?? "e2e-mailchimp-client-id",
+      MAILCHIMP_CLIENT_SECRET:
+        process.env.MAILCHIMP_CLIENT_SECRET ?? "e2e-mailchimp-client-secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

@@ -37,6 +37,10 @@ import {
   startMockGitHubServer,
   type MockGitHubHandle,
 } from "./helpers/mockGitHubServer";
+import {
+  startMockMailchimpServer,
+  type MockMailchimpHandle,
+} from "./helpers/mockMailchimpServer";
 
 /**
  * Playwright global setup.
@@ -66,6 +70,7 @@ let stripeHandle: MockStripeHandle | null = null;
 let shopifyHandle: MockShopifyHandle | null = null;
 let hubspotHandle: MockHubSpotHandle | null = null;
 let githubHandle: MockGitHubHandle | null = null;
+let mailchimpHandle: MockMailchimpHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -99,6 +104,10 @@ export const HUBSPOT_STATE_FILE = resolve(
 export const GITHUB_STATE_FILE = resolve(
   __dirname,
   ".state/mock-github.json",
+);
+export const MAILCHIMP_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-mailchimp.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -135,6 +144,10 @@ export function getHubSpotMockHandle(): MockHubSpotHandle | null {
 
 export function getGitHubMockHandle(): MockGitHubHandle | null {
   return githubHandle;
+}
+
+export function getMailchimpMockHandle(): MockMailchimpHandle | null {
+  return mailchimpHandle;
 }
 
 /**
@@ -438,6 +451,28 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock GitHub listening at ${githubHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 14: mock Mailchimp for the OAuth + dc-routed REST + per-audience
+  // webhook + polling walkthrough. Different port (9885) so all ten mock
+  // servers can run simultaneously. Mailchimp doesn't sign webhooks —
+  // no shared signing key plumbing needed.
+  const mailchimpPort = Number(process.env.MAILCHIMP_MOCK_PORT ?? "9885");
+  mailchimpHandle = await startMockMailchimpServer({
+    appBaseUrl,
+    port: mailchimpPort,
+  });
+  await writeFile(
+    MAILCHIMP_STATE_FILE,
+    JSON.stringify({
+      port: mailchimpPort,
+      baseUrl: mailchimpHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock Mailchimp listening at ${mailchimpHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -558,6 +593,19 @@ export async function readGitHubMockState(): Promise<{
   appBaseUrl: string;
 }> {
   const raw = await readFile(GITHUB_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+  };
+}
+
+export async function readMailchimpMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(MAILCHIMP_STATE_FILE, "utf8");
   return JSON.parse(raw) as {
     port: number;
     baseUrl: string;
