@@ -13,6 +13,7 @@ import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
 import { hubspotManifest } from "./hubspot/manifest";
+import { mailchimpManifest } from "./mailchimp/manifest";
 import { notionManifest } from "./notion/manifest";
 import { shopifyManifest } from "./shopify/manifest";
 import { slackManifest } from "./slack/manifest";
@@ -59,6 +60,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   shopifyManifest,
   hubspotManifest,
   githubManifest,
+  mailchimpManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

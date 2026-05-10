@@ -7,6 +7,7 @@ import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
 import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
 import { googleSheetsOAuth } from "@/integrations/google-sheets/oauth";
 import { hubspotOAuth } from "@/integrations/hubspot/oauth";
+import { mailchimpOAuth } from "@/integrations/mailchimp/oauth";
 import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth";
 import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
 import { microsoftOutlookCalendarOAuth } from "@/integrations/microsoft-outlook-calendar/oauth";
@@ -48,6 +49,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   shopify: shopifyOAuth,
   hubspot: hubspotOAuth,
   github: githubOAuth,
+  mailchimp: mailchimpOAuth,
 });
 
 export interface ConnectInput {
