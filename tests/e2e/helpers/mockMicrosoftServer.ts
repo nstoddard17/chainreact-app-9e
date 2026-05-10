@@ -192,6 +192,42 @@ export interface RecordedDriveRootChildrenCreate {
   responseItemId: string;
 }
 
+/**
+ * Slice 15: Excel worksheet usedRange GET hit log. Captures the workbook
+ * + worksheet so the spec can assert per-tick poll behavior + action
+ * pre-write tail calculation independently.
+ */
+export interface RecordedWorksheetUsedRange {
+  authorization: string | undefined;
+  url: string;
+  workbookId: string;
+  worksheetName: string;
+}
+
+/**
+ * Slice 15: Excel worksheet range PATCH hit log. Records the resolved
+ * A1 address + values body so the spec can verify add_row's column
+ * alignment + tail-row math.
+ */
+export interface RecordedWorksheetRangePatch {
+  authorization: string | undefined;
+  workbookId: string;
+  worksheetName: string;
+  address: string;
+  values: ReadonlyArray<ReadonlyArray<unknown>>;
+}
+
+/**
+ * Slice 15: tracked worksheet state in the mock. Workbook → worksheet
+ * name → 2D values array. The mock's __injectExcelWorksheet sets a
+ * baseline; __appendExcelRow pushes one row onto the end (simulates a
+ * user editing the workbook between activation and poll). The
+ * usedRange route reads this; the range PATCH route writes back.
+ */
+export interface ExcelWorksheetState {
+  values: unknown[][];
+}
+
 export interface InjectedMessage {
   id: string;
   resource: Record<string, unknown>;
@@ -233,6 +269,8 @@ export interface MockMicrosoftHandle {
     driveItemsGet: RecordedDriveItemsGet[];
     driveRootDelta: RecordedDriveRootDelta[];
     driveRootChildrenCreate: RecordedDriveRootChildrenCreate[];
+    excelUsedRange: RecordedWorksheetUsedRange[];
+    excelRangePatch: RecordedWorksheetRangePatch[];
     subscriptionsCreate: RecordedSubscriptionsCreate[];
     subscriptionsRenew: RecordedSubscriptionsRenew[];
     subscriptionsDelete: RecordedSubscriptionsDelete[];
@@ -241,6 +279,12 @@ export interface MockMicrosoftHandle {
   events: Map<string, InjectedEvent>;
   driveItems: Map<string, InjectedDriveItem>;
   subscriptions: Map<string, RegisteredSubscription>;
+  /**
+   * Slice 15: workbook id → worksheet name → state. Outer keys are the
+   * driveItem id of the workbook; inner keys are the worksheet name
+   * passed by the polling trigger / action handler.
+   */
+  excelWorksheets: Map<string, Map<string, ExcelWorksheetState>>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   reset(): void;
@@ -258,6 +302,7 @@ interface MutableState {
   events: Map<string, InjectedEvent>;
   driveItems: Map<string, InjectedDriveItem>;
   subscriptions: Map<string, RegisteredSubscription>;
+  excelWorksheets: Map<string, Map<string, ExcelWorksheetState>>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   subscriptionCounter: number;
@@ -298,6 +343,8 @@ function freshState(): MutableState {
       driveItemsGet: [],
       driveRootDelta: [],
       driveRootChildrenCreate: [],
+      excelUsedRange: [],
+      excelRangePatch: [],
       subscriptionsCreate: [],
       subscriptionsRenew: [],
       subscriptionsDelete: [],
@@ -306,6 +353,7 @@ function freshState(): MutableState {
     events: new Map(),
     driveItems: new Map(),
     subscriptions: new Map(),
+    excelWorksheets: new Map(),
     lastAuthorizeScope: null,
     lastSubscriptionId: null,
     subscriptionCounter: 0,
@@ -360,6 +408,9 @@ export async function startMockMicrosoftServer(opts: {
     },
     get subscriptions() {
       return state.subscriptions;
+    },
+    get excelWorksheets() {
+      return state.excelWorksheets;
     },
     get lastAuthorizeScope() {
       return state.lastAuthorizeScope;
@@ -706,6 +757,129 @@ async function handleRequest(
     return;
   }
 
+  // ── Slice 15: Excel workbook worksheets GET (list) ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/worksheets exactly (no
+  // sub-path) so it doesn't shadow the usedRange / range routes below.
+  const worksheetsListMatch = url.pathname.match(
+    /^\/v1\.0\/me\/drive\/items\/([^/]+)\/workbook\/worksheets$/,
+  );
+  if (req.method === "GET" && worksheetsListMatch) {
+    const workbookId = decodeURIComponent(worksheetsListMatch[1]!);
+    const wb = state.excelWorksheets.get(workbookId);
+    const names = wb ? Array.from(wb.keys()) : [];
+    const out = names.map((name, i) => ({
+      id: `ws-${workbookId}-${i}`,
+      name,
+      position: i,
+      visibility: "Visible",
+    }));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ value: out }));
+    return;
+  }
+
+  // ── Slice 15: Excel worksheet usedRange GET ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/worksheets('{name}')/usedRange...
+  // The worksheet name is encoded inside single quotes; the route's
+  // suffix may include `(valuesOnly=true)` which the wrapper appends.
+  const usedRangeMatch = url.pathname.match(
+    /^\/v1\.0\/me\/drive\/items\/([^/]+)\/workbook\/worksheets\('([^']+)'\)\/usedRange/,
+  );
+  if (req.method === "GET" && usedRangeMatch) {
+    const workbookId = decodeURIComponent(usedRangeMatch[1]!);
+    const worksheetName = decodeURIComponent(usedRangeMatch[2]!);
+    state.calls.excelUsedRange.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      workbookId,
+      worksheetName,
+    });
+    const wb = state.excelWorksheets.get(workbookId);
+    const sheet = wb?.get(worksheetName);
+    // Graph's usedRange for an empty worksheet returns a 1×1 range with
+    // a single null cell. Mirror that so the activate hook + add_row
+    // "empty-sheet" heuristics exercise the same envelope they would
+    // see in production.
+    if (!sheet || sheet.values.length === 0) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          address: `${worksheetName}!A1`,
+          rowCount: 1,
+          columnCount: 1,
+          values: [[null]],
+        }),
+      );
+      return;
+    }
+    const rowCount = sheet.values.length;
+    const columnCount =
+      sheet.values[0]?.length ?? 0;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        address: `${worksheetName}!A1:${columnLetter(columnCount)}${rowCount}`,
+        rowCount,
+        columnCount,
+        values: sheet.values,
+      }),
+    );
+    return;
+  }
+
+  // ── Slice 15: Excel worksheet range PATCH (write row values) ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/worksheets('{name}')/range(address='...')
+  const rangePatchMatch = url.pathname.match(
+    /^\/v1\.0\/me\/drive\/items\/([^/]+)\/workbook\/worksheets\('([^']+)'\)\/range\(address='([^']+)'\)$/,
+  );
+  if (req.method === "PATCH" && rangePatchMatch) {
+    const workbookId = decodeURIComponent(rangePatchMatch[1]!);
+    const worksheetName = decodeURIComponent(rangePatchMatch[2]!);
+    const address = decodeURIComponent(rangePatchMatch[3]!);
+    const bodyText = await readBody(req);
+    let parsed: { values?: unknown[][] } = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // ignore — recorded as empty
+    }
+    const values = (parsed.values ?? []) as unknown[][];
+    state.calls.excelRangePatch.push({
+      authorization: req.headers.authorization,
+      workbookId,
+      worksheetName,
+      address,
+      values,
+    });
+    // Persist into the worksheet store so a subsequent usedRange GET
+    // observes the new tail row.
+    let wb = state.excelWorksheets.get(workbookId);
+    if (!wb) {
+      wb = new Map();
+      state.excelWorksheets.set(workbookId, wb);
+    }
+    let sheet = wb.get(worksheetName);
+    if (!sheet) {
+      sheet = { values: [] };
+      wb.set(worksheetName, sheet);
+    }
+    // Decode the target row from the address (A1:Cn → row n).
+    const rowMatch = address.match(/[A-Z]+(\d+):/);
+    const targetRow = rowMatch ? Number(rowMatch[1]) : sheet.values.length + 1;
+    while (sheet.values.length < targetRow) sheet.values.push([]);
+    sheet.values[targetRow - 1] = values[0] ?? [];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        address,
+        rowCount: values.length,
+        columnCount: values[0]?.length ?? 0,
+        values,
+      }),
+    );
+    return;
+  }
+
   // ── Graph /v1.0/subscriptions (collection) ──
   if (req.method === "POST" && url.pathname === "/v1.0/subscriptions") {
     const bodyText = await readBody(req);
@@ -932,6 +1106,91 @@ async function handleRequest(
     return;
   }
 
+  // ── Slice 15: __injectExcelWorksheet control plane ──
+  // Sets the entire worksheet's value matrix. Body shape:
+  //   { workbookId: "wb-1", worksheetName: "Sheet1",
+  //     values: [["name","age"], ["alice", 30]] }
+  // The activation hook's usedRange call observes these values
+  // verbatim, so the snapshot baseline matches exactly.
+  if (req.method === "POST" && url.pathname === "/__injectExcelWorksheet") {
+    const bodyText = await readBody(req);
+    let payload: {
+      workbookId?: string;
+      worksheetName?: string;
+      values?: unknown[][];
+    };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const workbookId = payload.workbookId ?? "";
+    const worksheetName = payload.worksheetName ?? "";
+    if (!workbookId || !worksheetName) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "workbookId + worksheetName required" }));
+      return;
+    }
+    let wb = state.excelWorksheets.get(workbookId);
+    if (!wb) {
+      wb = new Map();
+      state.excelWorksheets.set(workbookId, wb);
+    }
+    wb.set(worksheetName, { values: (payload.values ?? []) as unknown[][] });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, workbookId, worksheetName }));
+    return;
+  }
+
+  // ── Slice 15: __appendExcelRow control plane ──
+  // Appends one row to the tail of a worksheet. Simulates a user
+  // editing the workbook between activation and a poll tick, so the
+  // poll detects a new row and fires.
+  if (req.method === "POST" && url.pathname === "/__appendExcelRow") {
+    const bodyText = await readBody(req);
+    let payload: {
+      workbookId?: string;
+      worksheetName?: string;
+      row?: unknown[];
+    };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const workbookId = payload.workbookId ?? "";
+    const worksheetName = payload.worksheetName ?? "";
+    if (!workbookId || !worksheetName || !Array.isArray(payload.row)) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "workbookId + worksheetName + row[] required",
+        }),
+      );
+      return;
+    }
+    let wb = state.excelWorksheets.get(workbookId);
+    if (!wb) {
+      wb = new Map();
+      state.excelWorksheets.set(workbookId, wb);
+    }
+    let sheet = wb.get(worksheetName);
+    if (!sheet) {
+      sheet = { values: [] };
+      wb.set(worksheetName, sheet);
+    }
+    sheet.values.push(payload.row as unknown[]);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ ok: true, rowIndex: sheet.values.length }),
+    );
+    return;
+  }
+
   // ── Slice 8: __injectDriveItem control plane ──
   if (req.method === "POST" && url.pathname === "/__injectDriveItem") {
     const bodyText = await readBody(req);
@@ -1076,6 +1335,13 @@ async function handleRequest(
   }
 
   if (req.method === "GET" && url.pathname === "/__inspect") {
+    const excelDump: Record<string, Record<string, unknown[][]>> = {};
+    for (const [wbId, wb] of state.excelWorksheets) {
+      excelDump[wbId] = {};
+      for (const [name, sheet] of wb) {
+        excelDump[wbId][name] = sheet.values;
+      }
+    }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -1085,6 +1351,7 @@ async function handleRequest(
         messageIds: Array.from(state.messages.keys()),
         eventIds: Array.from(state.events.keys()),
         driveItemIds: Array.from(state.driveItems.keys()),
+        excelWorksheets: excelDump,
       }),
     );
     return;
@@ -1097,6 +1364,23 @@ async function handleRequest(
   // inevitable "unused variable" lint when MAX_EXPIRATION_MINUTES is
   // pulled in by future Slice 7 changes (Calendar uses the same max).
   void MAX_EXPIRATION_MINUTES;
+}
+
+/**
+ * Slice 15: shared A1 column-letter helper. Mirrors the production
+ * helper inside addRow.ts so the mock's used-range address envelope
+ * (e.g. "Sheet1!A1:C3") matches what production wrappers compute.
+ */
+function columnLetter(n: number): string {
+  if (n < 1) return "A";
+  let result = "";
+  let remaining = n;
+  while (remaining > 0) {
+    const rem = (remaining - 1) % 26;
+    result = String.fromCharCode(65 + rem) + result;
+    remaining = Math.floor((remaining - 1) / 26);
+  }
+  return result;
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
