@@ -9,6 +9,7 @@ import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
 import { googleSheetsManifest } from "./google-sheets/manifest";
+import { microsoftExcelManifest } from "./microsoft-excel/manifest";
 import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
@@ -56,6 +57,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOutlookManifest,
   microsoftOutlookCalendarManifest,
   microsoftOneDriveManifest,
+  microsoftExcelManifest,
   notionManifest,
   airtableManifest,
   stripeManifest,
