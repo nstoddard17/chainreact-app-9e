@@ -13,6 +13,7 @@ import { microsoftExcelManifest } from "./microsoft-excel/manifest";
 import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
+import { microsoftTeamsManifest } from "./microsoft-teams/manifest";
 import { hubspotManifest } from "./hubspot/manifest";
 import { mailchimpManifest } from "./mailchimp/manifest";
 import { notionManifest } from "./notion/manifest";
@@ -63,6 +64,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOutlookCalendarManifest,
   microsoftOneDriveManifest,
   microsoftExcelManifest,
+  microsoftTeamsManifest,
   notionManifest,
   airtableManifest,
   stripeManifest,

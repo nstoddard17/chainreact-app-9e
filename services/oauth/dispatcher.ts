@@ -12,6 +12,7 @@ import { microsoftExcelOAuth } from "@/integrations/microsoft-excel/oauth";
 import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth";
 import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
 import { microsoftOutlookCalendarOAuth } from "@/integrations/microsoft-outlook-calendar/oauth";
+import { microsoftTeamsOAuth } from "@/integrations/microsoft-teams/oauth";
 import { notionOAuth } from "@/integrations/notion/oauth";
 import { shopifyOAuth } from "@/integrations/shopify/oauth";
 import { getProvider } from "@/integrations/_registry";
@@ -45,6 +46,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   "microsoft-outlook-calendar": microsoftOutlookCalendarOAuth,
   "microsoft-onedrive": microsoftOneDriveOAuth,
   "microsoft-excel": microsoftExcelOAuth,
+  "microsoft-teams": microsoftTeamsOAuth,
   notion: notionOAuth,
   airtable: airtableOAuth,
   stripe: stripeOAuth,
