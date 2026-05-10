@@ -77,6 +77,17 @@ const SHOPIFY_MOCK_PORT = Number(process.env.SHOPIFY_MOCK_PORT ?? "9882");
 const SHOPIFY_MOCK_BASE = `http://127.0.0.1:${SHOPIFY_MOCK_PORT}`;
 
 /**
+ * HubSpot mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits HUBSPOT_AUTHORIZE_BASE / HUBSPOT_TOKEN_BASE /
+ * HUBSPOT_API_BASE pointing here for the Slice 13 walkthrough — OAuth
+ * (body-auth, no PKCE) + CRM v3 contacts + webhook subscription v3
+ * lifecycle + signed-event delivery for the consolidated
+ * `webhook_received` trigger backed by shared-subscription tables.
+ */
+const HUBSPOT_MOCK_PORT = Number(process.env.HUBSPOT_MOCK_PORT ?? "9883");
+const HUBSPOT_MOCK_BASE = `http://127.0.0.1:${HUBSPOT_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -245,6 +256,37 @@ export default defineConfig({
         process.env.SHOPIFY_CLIENT_ID ?? "e2e-shopify-client-id",
       SHOPIFY_CLIENT_SECRET:
         process.env.SHOPIFY_CLIENT_SECRET ?? "e2e-shopify-client-secret",
+      // Slice 13: route HubSpot OAuth + CRM v3 REST + webhooks v3
+      // through the mock. integrations/hubspot/oauth.ts honors
+      // HUBSPOT_AUTHORIZE_BASE + HUBSPOT_TOKEN_BASE;
+      // integrations/_shared/hubspot/api/_base.ts honors HUBSPOT_API_BASE
+      // (used by CRM wrappers, the account-info dual-endpoint helper,
+      // and the webhook subscription wrappers). The mock owns
+      // /oauth/{authorize,v1/token}, /oauth/v1/access-tokens/{token},
+      // /integrations/v1/me, /crm/v3/objects/contacts, /webhooks/v3/{appId}/subscriptions{,/id}.
+      HUBSPOT_AUTHORIZE_BASE: HUBSPOT_MOCK_BASE,
+      HUBSPOT_TOKEN_BASE: HUBSPOT_MOCK_BASE,
+      HUBSPOT_API_BASE: HUBSPOT_MOCK_BASE,
+      // Slice 13: e2e HubSpot Public App credentials. Production uses
+      // values from the HubSpot developer-portal app settings; the
+      // e2e values are throwaway. HUBSPOT_CLIENT_SECRET ALSO doubles
+      // as the global webhook signing key — HubSpot's design (one
+      // app secret, both purposes). The mock signs deliveries with
+      // this exact value so V2's verifyHubSpotSignature accepts them.
+      HUBSPOT_CLIENT_ID:
+        process.env.HUBSPOT_CLIENT_ID ?? "e2e-hubspot-client-id",
+      HUBSPOT_CLIENT_SECRET:
+        process.env.HUBSPOT_CLIENT_SECRET ?? "e2e-hubspot-client-secret",
+      // Slice 13: the activate hook reads HUBSPOT_APP_ID for the
+      // /webhooks/v3/{appId}/subscriptions URL. The receive route uses
+      // it to look up `hubspot_app_subscriptions` rows by app id. The
+      // e2e value is throwaway.
+      HUBSPOT_APP_ID: process.env.HUBSPOT_APP_ID ?? "11223344",
+      // Slice 13: the receive route uses this exact URL inside the
+      // canonical signing string. The mock POSTs signed events to this
+      // URL and the dev server's verifier reads this env. Both must
+      // agree on the value.
+      HUBSPOT_WEBHOOK_URL: `${E2E_BASE_URL}/api/webhooks/hubspot`,
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import {
   getAirtableMockHandle,
   getGoogleMockHandle,
+  getHubSpotMockHandle,
   getMicrosoftMockHandle,
   getMockHandle,
   getNotionMockHandle,
@@ -46,6 +47,11 @@ export default async function globalTeardown(): Promise<void> {
   if (shopifyHandle) {
     await shopifyHandle.stop();
     console.log("[e2e] mock Shopify stopped");
+  }
+  const hubspotHandle = getHubSpotMockHandle();
+  if (hubspotHandle) {
+    await hubspotHandle.stop();
+    console.log("[e2e] mock HubSpot stopped");
   }
   // Clean up the state directory. All state files live under the same
   // .state/ folder, so removing the parent dir cleans them all.

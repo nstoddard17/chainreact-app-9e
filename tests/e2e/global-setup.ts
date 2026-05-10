@@ -29,6 +29,10 @@ import {
   startMockShopifyServer,
   type MockShopifyHandle,
 } from "./helpers/mockShopifyServer";
+import {
+  startMockHubSpotServer,
+  type MockHubSpotHandle,
+} from "./helpers/mockHubSpotServer";
 
 /**
  * Playwright global setup.
@@ -56,6 +60,7 @@ let notionHandle: MockNotionHandle | null = null;
 let airtableHandle: MockAirtableHandle | null = null;
 let stripeHandle: MockStripeHandle | null = null;
 let shopifyHandle: MockShopifyHandle | null = null;
+let hubspotHandle: MockHubSpotHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -81,6 +86,10 @@ export const STRIPE_STATE_FILE = resolve(
 export const SHOPIFY_STATE_FILE = resolve(
   __dirname,
   ".state/mock-shopify.json",
+);
+export const HUBSPOT_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-hubspot.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -109,6 +118,10 @@ export function getStripeMockHandle(): MockStripeHandle | null {
 
 export function getShopifyMockHandle(): MockShopifyHandle | null {
   return shopifyHandle;
+}
+
+export function getHubSpotMockHandle(): MockHubSpotHandle | null {
+  return hubspotHandle;
 }
 
 /**
@@ -160,6 +173,17 @@ const SPEC_PROCESS_ENV_KEYS = [
  * the matching secret.
  */
 const SHOPIFY_E2E_CLIENT_SECRET_DEFAULT = "e2e-shopify-client-secret";
+
+/**
+ * Slice 13: HubSpot webhook signing key. The mock server signs webhook
+ * deliveries with this exact secret so V2's `verifyHubSpotSignature` (which
+ * reads `HUBSPOT_CLIENT_SECRET` from the dev server env) accepts them.
+ * Spec process and dev server must agree on the value — playwright.config.ts
+ * sets the same default for the webServer when the env is unset, and we
+ * mirror that fallback here so the spec process always boots the mock with
+ * the matching secret.
+ */
+const HUBSPOT_E2E_CLIENT_SECRET_DEFAULT = "e2e-hubspot-client-secret";
 
 function loadDotEnvLocal(): void {
   const envPath = resolve(__dirname, "../../.env.local");
@@ -336,6 +360,36 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock Shopify listening at ${shopifyHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 13: mock HubSpot for the CRM + shared-subscription webhook
+  // walkthrough. Different port (9883) so all eight mock servers can
+  // run simultaneously. The mock signs webhook deliveries with
+  // HUBSPOT_CLIENT_SECRET — must match what the dev server reads. The
+  // webhook URL embedded in the canonical signing string must match
+  // HUBSPOT_WEBHOOK_URL on the dev server.
+  const hubspotPort = Number(process.env.HUBSPOT_MOCK_PORT ?? "9883");
+  const hubspotSecret =
+    process.env.HUBSPOT_CLIENT_SECRET ?? HUBSPOT_E2E_CLIENT_SECRET_DEFAULT;
+  const hubspotWebhookUrl = `${appBaseUrl}/api/webhooks/hubspot`;
+  hubspotHandle = await startMockHubSpotServer({
+    appBaseUrl,
+    appSecret: hubspotSecret,
+    webhookUrl: hubspotWebhookUrl,
+    port: hubspotPort,
+  });
+  await writeFile(
+    HUBSPOT_STATE_FILE,
+    JSON.stringify({
+      port: hubspotPort,
+      baseUrl: hubspotHandle.baseUrl,
+      appBaseUrl,
+      webhookUrl: hubspotWebhookUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock HubSpot listening at ${hubspotHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -432,5 +486,20 @@ export async function readShopifyMockState(): Promise<{
     port: number;
     baseUrl: string;
     appBaseUrl: string;
+  };
+}
+
+export async function readHubSpotMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+  webhookUrl: string;
+}> {
+  const raw = await readFile(HUBSPOT_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+    webhookUrl: string;
   };
 }

@@ -180,6 +180,72 @@ export async function rewindTriggerPollingTimestamp(
 }
 
 /**
+ * Slice 13: read `hubspot_app_subscriptions` rows for a given app id.
+ * Used to assert the shared-subscription invariant: one row per
+ * (app_id, event_type, property_name) across all workflows.
+ */
+export async function getHubSpotAppSubscriptions(
+  appId: string,
+): Promise<readonly Record<string, unknown>[]> {
+  const { data, error } = await adminClient()
+    .from("hubspot_app_subscriptions")
+    .select("*")
+    .eq("app_id", appId);
+  if (error) throw new Error(`getHubSpotAppSubscriptions: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Slice 13: read `hubspot_subscription_refs` rows for a given user.
+ * Each row binds one workflow node to the app-level subscription via
+ * `app_subscription_id`. Multi-workflow activations against the same
+ * subscription type produce multiple ref rows pointing at the same
+ * `app_subscription_id`.
+ */
+export async function getHubSpotSubscriptionRefs(
+  userId: string,
+): Promise<readonly Record<string, unknown>[]> {
+  const { data, error } = await adminClient()
+    .from("hubspot_subscription_refs")
+    .select("*")
+    .eq("user_id", userId);
+  if (error) throw new Error(`getHubSpotSubscriptionRefs: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Slice 13: cleanup helper for the HubSpot shared-subscription tables.
+ *
+ * `hubspot_app_subscriptions` is a **system table** — rows are not scoped
+ * to a user. When `deleteTestUser` cascades the integration + workflows
+ * + refs, the parent `hubspot_app_subscriptions` row survives (no FK to
+ * user). Subsequent test runs against the same `app_id` then short-
+ * circuit on `findOrCreate` without calling HubSpot, breaking the mock-
+ * call count assertion in the activate path.
+ *
+ * Production cleanup of orphan rows belongs in a future reconciler cron
+ * (see slice-13-hubspot.md). E2e teardown wipes them by app_id so each
+ * test starts from a clean state.
+ *
+ * ON DELETE CASCADE on `hubspot_subscription_refs.app_subscription_id`
+ * cleans up any straggler refs automatically.
+ */
+export async function deleteHubSpotAppSubscriptionsForApp(
+  appId: string,
+): Promise<void> {
+  const { error } = await adminClient()
+    .from("hubspot_app_subscriptions")
+    .delete()
+    .eq("app_id", appId);
+  if (error) {
+    // Don't throw — teardown is best-effort. Log so the test runner shows it.
+    console.warn(
+      `[e2e cleanup] deleteHubSpotAppSubscriptionsForApp ${appId} failed: ${error.message}`,
+    );
+  }
+}
+
+/**
  * Poll until the predicate returns truthy or timeout. The execution engine
  * runs in a fire-and-forget Promise after the webhook returns 200, so the
  * test must wait for the workflow_runs row to appear.
