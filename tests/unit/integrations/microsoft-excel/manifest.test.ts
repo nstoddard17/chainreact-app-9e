@@ -65,20 +65,21 @@ describe("microsoft-excel manifest", () => {
     expect(microsoftExcelManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 15 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 15 Commit 4 (oauth + actions + pollingTrigger)", () => {
     // Slice 15 Commit 2 landed manifest + OAuth + dispatcher (oauth only).
-    // Commit 3 (this) lands 6 actions + flips actions: true. Commit 4
-    // will flip pollingTrigger: true. Honest-state convention.
+    // Commit 3 landed 6 actions + flipped actions: true. Commit 4 (this)
+    // lands 2 polling triggers + flips pollingTrigger: true.
+    // Honest-state convention.
     expect(microsoftExcelManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
-      pollingTrigger: false,
+      pollingTrigger: true,
       actions: true,
     });
     expect(providerSupports("microsoft-excel", "oauth")).toBe(true);
     expect(providerSupports("microsoft-excel", "actions")).toBe(true);
     expect(providerSupports("microsoft-excel", "webhookTrigger")).toBe(false);
-    expect(providerSupports("microsoft-excel", "pollingTrigger")).toBe(false);
+    expect(providerSupports("microsoft-excel", "pollingTrigger")).toBe(true);
   });
 
   it("when actions: true, the action-handler registry contains all 6 Excel actions", () => {

@@ -30,6 +30,8 @@ import "./google-sheets/triggers/rowChanged";
 import "./microsoft-outlook/triggers/newEmail";
 import "./microsoft-outlook-calendar/triggers/eventChanged";
 import "./microsoft-onedrive/triggers/fileChanged";
+import "./microsoft-excel/triggers/newRow";
+import "./microsoft-excel/triggers/newTableRow";
 import "./airtable/triggers/recordChanged";
 import "./stripe/triggers/eventReceived";
 import "./shopify/triggers/webhookReceived";

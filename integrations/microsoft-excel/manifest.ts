@@ -68,7 +68,12 @@ export const microsoftExcelManifest: ProviderManifest =
     capabilities: {
       oauth: true,
       webhookTrigger: false,
-      pollingTrigger: false,
+      // True: 2 polling triggers (new_row + new_table_row) registered
+      // in integrations/microsoft-excel/triggers/{newRow,newTableRow}.
+      // Single shared PollingHandler covers both event types via
+      // canHandle predicate. Snapshot baseline seeded at activation
+      // time (closes V1's first-poll-miss bug).
+      pollingTrigger: true,
       // True: 6 action handlers (add_row, add_table_row,
       // create_worksheet, export_sheet, get_workbooks, get_worksheets)
       // are registered in services/execution/handlers/_registry.ts.
