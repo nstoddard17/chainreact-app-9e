@@ -33,6 +33,10 @@ import {
   startMockHubSpotServer,
   type MockHubSpotHandle,
 } from "./helpers/mockHubSpotServer";
+import {
+  startMockGitHubServer,
+  type MockGitHubHandle,
+} from "./helpers/mockGitHubServer";
 
 /**
  * Playwright global setup.
@@ -61,6 +65,7 @@ let airtableHandle: MockAirtableHandle | null = null;
 let stripeHandle: MockStripeHandle | null = null;
 let shopifyHandle: MockShopifyHandle | null = null;
 let hubspotHandle: MockHubSpotHandle | null = null;
+let githubHandle: MockGitHubHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -90,6 +95,10 @@ export const SHOPIFY_STATE_FILE = resolve(
 export const HUBSPOT_STATE_FILE = resolve(
   __dirname,
   ".state/mock-hubspot.json",
+);
+export const GITHUB_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-github.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -122,6 +131,10 @@ export function getShopifyMockHandle(): MockShopifyHandle | null {
 
 export function getHubSpotMockHandle(): MockHubSpotHandle | null {
   return hubspotHandle;
+}
+
+export function getGitHubMockHandle(): MockGitHubHandle | null {
+  return githubHandle;
 }
 
 /**
@@ -184,6 +197,16 @@ const SHOPIFY_E2E_CLIENT_SECRET_DEFAULT = "e2e-shopify-client-secret";
  * the matching secret.
  */
 const HUBSPOT_E2E_CLIENT_SECRET_DEFAULT = "e2e-hubspot-client-secret";
+
+/**
+ * Slice 14b: GitHub webhook signing key. The mock signs deliveries
+ * with this exact secret so V2's `verifyGitHubSignature` (which reads
+ * `GITHUB_WEBHOOK_SECRET` from the dev server env) accepts them.
+ * Distinct from `GITHUB_CLIENT_SECRET` per Slice 14b plan §"V1 bugs
+ * to fix" #3 — V1 silently fell back to the OAuth client secret;
+ * V2 requires a dedicated webhook secret.
+ */
+const GITHUB_E2E_WEBHOOK_SECRET_DEFAULT = "e2e-github-webhook-secret";
 
 function loadDotEnvLocal(): void {
   const envPath = resolve(__dirname, "../../.env.local");
@@ -390,6 +413,31 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock HubSpot listening at ${hubspotHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 14b: mock GitHub for the OAuth + REST + per-repo webhook
+  // walkthrough. Different port (9884) so all nine mock servers can
+  // run simultaneously. The mock signs webhook deliveries with
+  // GITHUB_WEBHOOK_SECRET — must match what the dev server reads.
+  const githubPort = Number(process.env.GITHUB_MOCK_PORT ?? "9884");
+  const githubSecret =
+    process.env.GITHUB_WEBHOOK_SECRET ?? GITHUB_E2E_WEBHOOK_SECRET_DEFAULT;
+  githubHandle = await startMockGitHubServer({
+    appBaseUrl,
+    webhookSecret: githubSecret,
+    port: githubPort,
+  });
+  await writeFile(
+    GITHUB_STATE_FILE,
+    JSON.stringify({
+      port: githubPort,
+      baseUrl: githubHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock GitHub listening at ${githubHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -501,5 +549,18 @@ export async function readHubSpotMockState(): Promise<{
     baseUrl: string;
     appBaseUrl: string;
     webhookUrl: string;
+  };
+}
+
+export async function readGitHubMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(GITHUB_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
   };
 }

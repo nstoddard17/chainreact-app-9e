@@ -88,6 +88,19 @@ const HUBSPOT_MOCK_PORT = Number(process.env.HUBSPOT_MOCK_PORT ?? "9883");
 const HUBSPOT_MOCK_BASE = `http://127.0.0.1:${HUBSPOT_MOCK_PORT}`;
 
 /**
+ * GitHub mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits GITHUB_AUTHORIZE_BASE / GITHUB_API_BASE
+ * pointing here for the Slice 14b walkthrough — GitHub OAuth App
+ * (body-auth, no PKCE) + REST issues/repos/PRs/branches/gists/comments +
+ * per-repo webhook lifecycle + signed-push delivery for the
+ * `new_commit` trigger.
+ *
+ * Different port from every other mock (9876-9883).
+ */
+const GITHUB_MOCK_PORT = Number(process.env.GITHUB_MOCK_PORT ?? "9884");
+const GITHUB_MOCK_BASE = `http://127.0.0.1:${GITHUB_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -287,6 +300,34 @@ export default defineConfig({
       // URL and the dev server's verifier reads this env. Both must
       // agree on the value.
       HUBSPOT_WEBHOOK_URL: `${E2E_BASE_URL}/api/webhooks/hubspot`,
+      // Slice 14b: route GitHub OAuth + REST + webhook lifecycle through
+      // the mock. integrations/_shared/github/api/_base.ts honors
+      // GITHUB_AUTHORIZE_BASE (OAuth) + GITHUB_API_BASE (REST). The mock
+      // owns /login/oauth/{authorize,access_token}, /user, /repos/...,
+      // /gists, /user/repos, repo hooks lifecycle.
+      GITHUB_AUTHORIZE_BASE: GITHUB_MOCK_BASE,
+      GITHUB_API_BASE: GITHUB_MOCK_BASE,
+      // Slice 14b: e2e GitHub OAuth App credentials. Production uses
+      // values from github.com/settings/developers; the e2e values are
+      // throwaway. The mock validates form-urlencoded body-auth
+      // (client_secret in body, no Basic auth header) but doesn't check
+      // the credential values.
+      GITHUB_CLIENT_ID:
+        process.env.GITHUB_CLIENT_ID ?? "Iv1.e2e_github_client_id",
+      GITHUB_CLIENT_SECRET:
+        process.env.GITHUB_CLIENT_SECRET ?? "e2e-github-client-secret",
+      // Slice 14b: distinct from GITHUB_CLIENT_SECRET (V2 plan §"V1 bugs
+      // to fix" #3 — V1 silently fell back to GITHUB_CLIENT_SECRET). The
+      // mock signs webhook deliveries with this exact secret so V2's
+      // verifyGitHubSignature accepts them. Spec process and dev server
+      // must agree on the value.
+      GITHUB_WEBHOOK_SECRET:
+        process.env.GITHUB_WEBHOOK_SECRET ?? "e2e-github-webhook-secret",
+      // Slice 14b: the activate hook reads GITHUB_WEBHOOK_URL (or falls
+      // back to NEXT_PUBLIC_APP_URL) for the notification URL it sends
+      // GitHub. Pointing at the e2e dev server keeps deliveries on
+      // localhost.
+      GITHUB_WEBHOOK_URL: E2E_BASE_URL,
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

@@ -2,6 +2,7 @@ import { rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   getAirtableMockHandle,
+  getGitHubMockHandle,
   getGoogleMockHandle,
   getHubSpotMockHandle,
   getMicrosoftMockHandle,
@@ -52,6 +53,11 @@ export default async function globalTeardown(): Promise<void> {
   if (hubspotHandle) {
     await hubspotHandle.stop();
     console.log("[e2e] mock HubSpot stopped");
+  }
+  const githubHandle = getGitHubMockHandle();
+  if (githubHandle) {
+    await githubHandle.stop();
+    console.log("[e2e] mock GitHub stopped");
   }
   // Clean up the state directory. All state files live under the same
   // .state/ folder, so removing the parent dir cleans them all.
