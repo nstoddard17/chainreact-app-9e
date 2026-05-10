@@ -5,6 +5,7 @@ import {
   type ProviderOAuth,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
+import { shopifyOriginFor } from "@/integrations/_shared/shopify/api/_base";
 
 /**
  * Shopify OAuth implementation.
@@ -244,7 +245,7 @@ export const shopifyOAuth: ProviderOAuth = {
       redirect_uri: getRedirectUrl(),
       state,
     });
-    return `https://${shop}/admin/oauth/authorize?${params.toString()}`;
+    return `${shopifyOriginFor(shop)}/admin/oauth/authorize?${params.toString()}`;
   },
 
   async handleCallback(code, _state, _pkce, providerHint) {
@@ -258,7 +259,7 @@ export const shopifyOAuth: ProviderOAuth = {
 
     // Token exchange — JSON body (NOT form-urlencoded — distinguishing
     // wire-format feature for Shopify).
-    const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    const tokenRes = await fetch(`${shopifyOriginFor(shop)}/admin/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -286,7 +287,7 @@ export const shopifyOAuth: ProviderOAuth = {
     let shopInfo: ShopifyShopInfo = {};
     try {
       const shopRes = await fetch(
-        `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/shop.json`,
+        `${shopifyOriginFor(shop)}/admin/api/${SHOPIFY_API_VERSION}/shop.json`,
         {
           headers: { "X-Shopify-Access-Token": tokenJson.access_token },
         },

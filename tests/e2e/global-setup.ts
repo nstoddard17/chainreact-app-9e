@@ -25,6 +25,10 @@ import {
   startMockStripeServer,
   type MockStripeHandle,
 } from "./helpers/mockStripeServer";
+import {
+  startMockShopifyServer,
+  type MockShopifyHandle,
+} from "./helpers/mockShopifyServer";
 
 /**
  * Playwright global setup.
@@ -51,6 +55,7 @@ let microsoftHandle: MockMicrosoftHandle | null = null;
 let notionHandle: MockNotionHandle | null = null;
 let airtableHandle: MockAirtableHandle | null = null;
 let stripeHandle: MockStripeHandle | null = null;
+let shopifyHandle: MockShopifyHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -72,6 +77,10 @@ export const AIRTABLE_STATE_FILE = resolve(
 export const STRIPE_STATE_FILE = resolve(
   __dirname,
   ".state/mock-stripe.json",
+);
+export const SHOPIFY_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-shopify.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -96,6 +105,10 @@ export function getAirtableMockHandle(): MockAirtableHandle | null {
 
 export function getStripeMockHandle(): MockStripeHandle | null {
   return stripeHandle;
+}
+
+export function getShopifyMockHandle(): MockShopifyHandle | null {
+  return shopifyHandle;
 }
 
 /**
@@ -136,6 +149,17 @@ const SPEC_PROCESS_ENV_KEYS = [
   // route's verifyChannelToken accepts.
   "WATCH_CHANNEL_SECRET",
 ];
+
+/**
+ * Slice 12: Shopify webhook signing key. The mock server signs webhook
+ * deliveries with this exact secret so V2's `verifyShopifySignature` (which
+ * reads `SHOPIFY_CLIENT_SECRET` from the dev server env) accepts them.
+ * Spec process and dev server must agree on the value — playwright.config.ts
+ * sets the same default for the webServer when the env is unset, and we
+ * mirror that fallback here so the spec process always boots the mock with
+ * the matching secret.
+ */
+const SHOPIFY_E2E_CLIENT_SECRET_DEFAULT = "e2e-shopify-client-secret";
 
 function loadDotEnvLocal(): void {
   const envPath = resolve(__dirname, "../../.env.local");
@@ -287,6 +311,31 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock Stripe listening at ${stripeHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 12: mock Shopify for the per-shop OAuth + webhook walkthrough.
+  // Different port (9882) so all seven mock servers can run
+  // simultaneously. The mock signs webhook deliveries with
+  // SHOPIFY_CLIENT_SECRET — must match what the dev server reads.
+  const shopifyPort = Number(process.env.SHOPIFY_MOCK_PORT ?? "9882");
+  const shopifySecret =
+    process.env.SHOPIFY_CLIENT_SECRET ?? SHOPIFY_E2E_CLIENT_SECRET_DEFAULT;
+  shopifyHandle = await startMockShopifyServer({
+    appBaseUrl,
+    appSecret: shopifySecret,
+    port: shopifyPort,
+  });
+  await writeFile(
+    SHOPIFY_STATE_FILE,
+    JSON.stringify({
+      port: shopifyPort,
+      baseUrl: shopifyHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock Shopify listening at ${shopifyHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -366,6 +415,19 @@ export async function readStripeMockState(): Promise<{
   appBaseUrl: string;
 }> {
   const raw = await readFile(STRIPE_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+  };
+}
+
+export async function readShopifyMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(SHOPIFY_STATE_FILE, "utf8");
   return JSON.parse(raw) as {
     port: number;
     baseUrl: string;

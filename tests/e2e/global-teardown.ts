@@ -6,6 +6,7 @@ import {
   getMicrosoftMockHandle,
   getMockHandle,
   getNotionMockHandle,
+  getShopifyMockHandle,
   getStripeMockHandle,
   STATE_FILE,
 } from "./global-setup";
@@ -40,6 +41,11 @@ export default async function globalTeardown(): Promise<void> {
   if (stripeHandle) {
     await stripeHandle.stop();
     console.log("[e2e] mock Stripe stopped");
+  }
+  const shopifyHandle = getShopifyMockHandle();
+  if (shopifyHandle) {
+    await shopifyHandle.stop();
+    console.log("[e2e] mock Shopify stopped");
   }
   // Clean up the state directory. All state files live under the same
   // .state/ folder, so removing the parent dir cleans them all.

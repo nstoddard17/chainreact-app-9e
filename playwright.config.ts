@@ -64,6 +64,19 @@ const STRIPE_MOCK_PORT = Number(process.env.STRIPE_MOCK_PORT ?? "9881");
 const STRIPE_MOCK_BASE = `http://127.0.0.1:${STRIPE_MOCK_PORT}`;
 
 /**
+ * Shopify mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits SHOPIFY_API_BASE_OVERRIDE pointing here for
+ * the Slice 12 walkthrough — Shopify's per-shop OAuth (JSON body, no
+ * PKCE) + Admin REST customers + webhook lifecycle + signed-event
+ * delivery for the webhook_received trigger. Unlike every other V2
+ * provider, Shopify URLs are per-shop (`https://{shop}/...`) — the
+ * override prepends a single mock origin so the mock can extract the
+ * shop from the path's first segment.
+ */
+const SHOPIFY_MOCK_PORT = Number(process.env.SHOPIFY_MOCK_PORT ?? "9882");
+const SHOPIFY_MOCK_BASE = `http://127.0.0.1:${SHOPIFY_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -206,6 +219,32 @@ export default defineConfig({
         process.env.STRIPE_CLIENT_ID ?? "ca_e2e_stripe_client_id",
       STRIPE_CLIENT_SECRET:
         process.env.STRIPE_CLIENT_SECRET ?? "sk_e2e_stripe_client_secret",
+      // Slice 12: route Shopify per-shop OAuth + Admin REST + webhook
+      // lifecycle through the mock. integrations/_shared/shopify/api/
+      // _base.ts honors SHOPIFY_API_BASE_OVERRIDE — when set, every
+      // `https://{shop}/...` URL becomes `${override}/{shop}/...` (oauth
+      // authorize, oauth token, /admin/api/2024-10/* — same override for
+      // every per-shop call site). The mock parses the shop from the
+      // first path segment and routes accordingly.
+      //
+      // SHOPIFY_WEBHOOK_URL is set to the e2e dev server (the activate
+      // hook reads it for the notification URL it sends Shopify). The
+      // notification URL points at /api/webhooks/shopify on the V2 dev
+      // server; the mock POSTs signed events to that URL.
+      SHOPIFY_API_BASE_OVERRIDE: SHOPIFY_MOCK_BASE,
+      SHOPIFY_WEBHOOK_URL: E2E_BASE_URL,
+      // Slice 12: e2e Shopify Custom App credentials. Production uses
+      // values from the Shopify Partner dashboard; the e2e values are
+      // throwaway. The mock validates Content-Type (JSON body) and that
+      // client_secret is present in the body but doesn't check the
+      // credential values. SHOPIFY_CLIENT_SECRET ALSO doubles as the
+      // single global webhook signing key — Shopify's design (one app
+      // secret, two purposes). The mock signs deliveries with this
+      // exact value so V2's verifyShopifySignature accepts them.
+      SHOPIFY_CLIENT_ID:
+        process.env.SHOPIFY_CLIENT_ID ?? "e2e-shopify-client-id",
+      SHOPIFY_CLIENT_SECRET:
+        process.env.SHOPIFY_CLIENT_SECRET ?? "e2e-shopify-client-secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to

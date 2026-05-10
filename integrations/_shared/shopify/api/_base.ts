@@ -18,6 +18,26 @@
 export const SHOPIFY_API_VERSION = "2024-10";
 
 /**
+ * Resolve the per-shop origin Shopify Admin calls should target.
+ *
+ * Production: `https://{shop}` — the merchant's own *.myshopify.com host.
+ *
+ * Test override: when `SHOPIFY_API_BASE_OVERRIDE` is set (e2e dev server
+ * via `playwright.config.ts`), returns `${override}/{shop}`. The shop
+ * domain stays embedded in the URL path so the mock can route by
+ * extracting the first segment — preserves V2's per-shop routing
+ * contract end-to-end while letting all `https://{shop}/...` calls land
+ * on a single localhost mock. Slice 12 Commit 5.
+ */
+export function shopifyOriginFor(shopDomain: string): string {
+  const override = process.env.SHOPIFY_API_BASE_OVERRIDE?.trim();
+  if (override) {
+    return `${override.replace(/\/$/, "")}/${shopDomain}`;
+  }
+  return `https://${shopDomain}`;
+}
+
+/**
  * Build the API base URL for a specific shop.
  *
  * @param shopDomain Full `*.myshopify.com` host, exactly as stored on
@@ -28,5 +48,5 @@ export const SHOPIFY_API_VERSION = "2024-10";
  *   user-supplied action config.
  */
 export function shopifyApiBase(shopDomain: string): string {
-  return `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}`;
+  return `${shopifyOriginFor(shopDomain)}/admin/api/${SHOPIFY_API_VERSION}`;
 }
