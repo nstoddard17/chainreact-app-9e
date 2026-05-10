@@ -8,6 +8,7 @@
  */
 import { microsoftExcelManifest } from "@/integrations/microsoft-excel/manifest";
 import { getProvider, providerSupports } from "@/integrations/_registry";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("microsoft-excel manifest", () => {
   it("is registered in the provider registry under id 'microsoft-excel'", () => {
@@ -64,20 +65,36 @@ describe("microsoft-excel manifest", () => {
     expect(microsoftExcelManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 15 Commit 2 (oauth only)", () => {
-    // Slice 15 Commit 2 (this) lands manifest + OAuth + dispatcher.
-    // Commit 3 will flip actions: true. Commit 4 will flip
-    // pollingTrigger: true. Honest-state convention.
+  it("declares honest capabilities for Slice 15 Commit 3 (oauth + actions)", () => {
+    // Slice 15 Commit 2 landed manifest + OAuth + dispatcher (oauth only).
+    // Commit 3 (this) lands 6 actions + flips actions: true. Commit 4
+    // will flip pollingTrigger: true. Honest-state convention.
     expect(microsoftExcelManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("microsoft-excel", "oauth")).toBe(true);
-    expect(providerSupports("microsoft-excel", "actions")).toBe(false);
+    expect(providerSupports("microsoft-excel", "actions")).toBe(true);
     expect(providerSupports("microsoft-excel", "webhookTrigger")).toBe(false);
     expect(providerSupports("microsoft-excel", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 6 Excel actions", () => {
+    if (microsoftExcelManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "microsoft-excel",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "add_row",
+        "add_table_row",
+        "create_worksheet",
+        "export_sheet",
+        "get_workbooks",
+        "get_worksheets",
+      ]);
+    }
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

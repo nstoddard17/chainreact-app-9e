@@ -60,6 +60,12 @@ import { getSubscriber as mailchimpGetSubscriber } from "@/integrations/mailchim
 import { removeSubscriber as mailchimpRemoveSubscriber } from "@/integrations/mailchimp/actions/removeSubscriber";
 import { removeTag as mailchimpRemoveTag } from "@/integrations/mailchimp/actions/removeTag";
 import { updateSubscriber as mailchimpUpdateSubscriber } from "@/integrations/mailchimp/actions/updateSubscriber";
+import { addRow as excelAddRow } from "@/integrations/microsoft-excel/actions/addRow";
+import { addTableRow as excelAddTableRow } from "@/integrations/microsoft-excel/actions/addTableRow";
+import { createWorksheet as excelCreateWorksheet } from "@/integrations/microsoft-excel/actions/createWorksheet";
+import { exportSheet as excelExportSheet } from "@/integrations/microsoft-excel/actions/exportSheet";
+import { getWorkbooks as excelGetWorkbooks } from "@/integrations/microsoft-excel/actions/getWorkbooks";
+import { getWorksheets as excelGetWorksheets } from "@/integrations/microsoft-excel/actions/getWorksheets";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
 import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
 import { deleteItem as deleteOneDriveItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
@@ -142,6 +148,12 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "delete_event", handler: deleteOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "add_attendees", handler: addOutlookCalendarAttendees },
+  { provider: "microsoft-excel", type: "add_row", handler: excelAddRow },
+  { provider: "microsoft-excel", type: "add_table_row", handler: excelAddTableRow },
+  { provider: "microsoft-excel", type: "create_worksheet", handler: excelCreateWorksheet },
+  { provider: "microsoft-excel", type: "export_sheet", handler: excelExportSheet },
+  { provider: "microsoft-excel", type: "get_workbooks", handler: excelGetWorkbooks },
+  { provider: "microsoft-excel", type: "get_worksheets", handler: excelGetWorksheets },
   { provider: "microsoft-onedrive", type: "upload_file", handler: uploadOneDriveFile },
   { provider: "microsoft-onedrive", type: "get_file", handler: getOneDriveFile },
   { provider: "microsoft-onedrive", type: "create_folder", handler: createOneDriveFolder },

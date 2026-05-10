@@ -69,7 +69,10 @@ export const microsoftExcelManifest: ProviderManifest =
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      // True: 6 action handlers (add_row, add_table_row,
+      // create_worksheet, export_sheet, get_workbooks, get_worksheets)
+      // are registered in services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000,
     refreshable: true,
