@@ -12,6 +12,7 @@ import {
   providerSupports,
 } from "@/integrations/_registry";
 import { ProviderManifestSchema } from "@/contracts/integration";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("hubspot manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -77,20 +78,41 @@ describe("hubspot manifest", () => {
     expect(hubspotManifest.accountIdField).toBe("hubId");
   });
 
-  it("declares honest capabilities for Slice 13 Commit 2 (oauth only)", () => {
-    // Honest-state convention: Commit 2 lands manifest + OAuth +
-    // dispatcher registration. `actions` flips in Commits 3 + 4;
-    // `webhookTrigger` flips in Commit 5.
+  it("declares honest capabilities for Slice 13 Commit 3 (oauth + actions)", () => {
+    // Honest-state convention: Commit 2 landed oauth-only. Commit 3
+    // flips `actions: true` after registering 10 Batch 1 handlers.
+    // Commit 4 keeps the flag flipped while adding Batch 2. Commit 5
+    // flips `webhookTrigger: true`.
     expect(hubspotManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("hubspot", "oauth")).toBe(true);
-    expect(providerSupports("hubspot", "actions")).toBe(false);
+    expect(providerSupports("hubspot", "actions")).toBe(true);
     expect(providerSupports("hubspot", "webhookTrigger")).toBe(false);
     expect(providerSupports("hubspot", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 10 Batch 1 actions", () => {
+    if (hubspotManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "hubspot",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "add_contact_to_list",
+        "create_company",
+        "create_contact",
+        "create_deal",
+        "get_companies",
+        "get_contacts",
+        "get_deals",
+        "update_company",
+        "update_contact",
+        "update_deal",
+      ]);
+    }
   });
 
   it("declares apiVersion 'v3' (HubSpot CRM REST + Webhooks API version)", () => {

@@ -22,6 +22,16 @@ import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
 import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
 import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
+import { addContactToList as hubspotAddContactToList } from "@/integrations/hubspot/actions/addContactToList";
+import { createCompany as hubspotCreateCompany } from "@/integrations/hubspot/actions/createCompany";
+import { createContact as hubspotCreateContact } from "@/integrations/hubspot/actions/createContact";
+import { createDeal as hubspotCreateDeal } from "@/integrations/hubspot/actions/createDeal";
+import { getCompanies as hubspotGetCompanies } from "@/integrations/hubspot/actions/getCompanies";
+import { getContacts as hubspotGetContacts } from "@/integrations/hubspot/actions/getContacts";
+import { getDeals as hubspotGetDeals } from "@/integrations/hubspot/actions/getDeals";
+import { updateCompany as hubspotUpdateCompany } from "@/integrations/hubspot/actions/updateCompany";
+import { updateContact as hubspotUpdateContact } from "@/integrations/hubspot/actions/updateContact";
+import { updateDeal as hubspotUpdateDeal } from "@/integrations/hubspot/actions/updateDeal";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
 import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
 import { deleteItem as deleteOneDriveItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
@@ -146,6 +156,16 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "shopify", type: "create_customer", handler: shopifyCreateCustomer },
   { provider: "shopify", type: "update_customer", handler: shopifyUpdateCustomer },
   { provider: "shopify", type: "update_inventory", handler: shopifyUpdateInventory },
+  { provider: "hubspot", type: "create_contact", handler: hubspotCreateContact },
+  { provider: "hubspot", type: "update_contact", handler: hubspotUpdateContact },
+  { provider: "hubspot", type: "get_contacts", handler: hubspotGetContacts },
+  { provider: "hubspot", type: "create_company", handler: hubspotCreateCompany },
+  { provider: "hubspot", type: "update_company", handler: hubspotUpdateCompany },
+  { provider: "hubspot", type: "get_companies", handler: hubspotGetCompanies },
+  { provider: "hubspot", type: "create_deal", handler: hubspotCreateDeal },
+  { provider: "hubspot", type: "update_deal", handler: hubspotUpdateDeal },
+  { provider: "hubspot", type: "get_deals", handler: hubspotGetDeals },
+  { provider: "hubspot", type: "add_contact_to_list", handler: hubspotAddContactToList },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

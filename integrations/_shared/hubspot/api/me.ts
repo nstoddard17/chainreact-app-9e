@@ -27,12 +27,15 @@
  *     no per-tenant routing.
  */
 
+import { hubspotApiBase } from "./_base";
+
 const ACCESS_TOKEN_INFO_PATH = "/oauth/v1/access-tokens";
 const INTEGRATIONS_ME_PATH = "/integrations/v1/me";
 
-export function hubspotApiBase(): string {
-  return process.env.HUBSPOT_API_BASE ?? "https://api.hubapi.com";
-}
+// Re-export so existing callers / tests can keep importing from this
+// module. Slice 13 Commit 3 lifted the helper into `_base.ts` so the
+// CRM request layer + the account resolver share one source of truth.
+export { hubspotApiBase };
 
 interface AccessTokenInfo {
   user?: string;

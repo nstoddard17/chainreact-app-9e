@@ -128,11 +128,17 @@ export const hubspotManifest: ProviderManifest = ProviderManifestSchema.parse({
     // hubspot_app_subscriptions + hubspot_subscription_refs tables.
     webhookTrigger: false,
     pollingTrigger: false,
-    // False until Slice 13 Commits 3 + 4: 22 action handlers across
-    // contacts / companies / deals / lists (Batch 1, ~10 actions) and
-    // tickets / engagements / line items / products / owners (Batch 2,
-    // ~12 actions).
-    actions: false,
+    // True: 10 action handlers registered in services/execution/handlers/
+    // _registry.ts as of Slice 13 Commit 3 — CRM core (contacts +
+    // companies + deals + add-to-list):
+    //   create_contact, update_contact, get_contacts,
+    //   create_company, update_company, get_companies,
+    //   create_deal,    update_deal,    get_deals,
+    //   add_contact_to_list
+    //
+    // Commit 4 will add Batch 2 (~12 actions across tickets +
+    // engagements + line items + products + owners).
+    actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000, // 4h
   refreshable: true,
