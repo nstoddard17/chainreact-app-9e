@@ -157,20 +157,31 @@ E2E tests should use real V2 internals and mock only the external provider bound
 
 ## Current Local Development State
 
-As of the latest local work:
+As of 2026-05-10, **Phase 1 (Provider foundation) is substantially complete locally** with 16 providers ported. See [`docs/roadmap/chainreact-v2-roadmap.md`](./docs/roadmap/chainreact-v2-roadmap.md) for the authoritative roadmap covering Phases 1–8.
 
-**Completed locally:**
-- Slack
-- Gmail
-- Google Calendar
-- Google Drive
-- Google Sheets
-- Microsoft Outlook Mail
-- Microsoft Outlook Calendar
+**Completed locally (Phase 1):**
+- Slack (slice 1)
+- Gmail (slice 2)
+- Google Calendar (slice 3)
+- Google Drive (slice 4)
+- Google Sheets (slice 5)
+- Microsoft Outlook Mail (slice 6)
+- Microsoft Outlook Calendar (slice 7)
+- Microsoft OneDrive (slice 8)
+- Notion (slice 9)
+- Airtable (slice 10)
+- Stripe (slice 11)
+- Shopify (slice 12)
+- HubSpot (slice 13)
+- Mailchimp (slice 14)
+- GitHub (slice 14b)
+- Microsoft Excel (slice 15)
 
-**Active local branch:** `slice-7-outlook-calendar`
+**Active local branch:** `v2-provider-port-local`
 
-**Important:** Local provider branches are not pushed. Do not assume any remote branch has the latest local provider work. Ask Marcus before pushing.
+**Important:** Local provider work is not pushed. Do not assume any remote branch has the latest. Ask Marcus before pushing.
+
+**Phase 1 → Phase 2 transition rule:** Do not add net-new providers without an audit doc and an entry in the roadmap. After Phase 1 the priority is provider parity (Phase 2) and UI/teams/AI/engine/billing/ops (Phases 3–8), in that order. See the roadmap for the gate rules.
 
 ---
 
