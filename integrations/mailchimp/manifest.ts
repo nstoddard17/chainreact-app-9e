@@ -131,15 +131,21 @@ export const mailchimpManifest: ProviderManifest = ProviderManifestSchema.parse(
     // services/oauth/dispatcher.ts and manifest registered in
     // integrations/_registry.ts as of Slice 14 Commit 2.
     oauth: true,
-    // Flips true in Slice 14 Commit 4 — consolidated `audience_event`
-    // trigger with eventTypes: string[] multi-select discriminator
-    // (subscribe, unsubscribe, profile, upemail, cleaned, campaign).
-    // Per-audience webhook lifecycle. Webhook route at
+    // True: consolidated `audience_event` trigger registered in
+    // integrations/_registry.ts as of Slice 14 Commit 4. Workflows
+    // pick a subset of event types from a curated allowlist (6 Batch
+    // 1 entries — see allowedEventTypes.ts: subscribe, unsubscribe,
+    // profile, upemail, cleaned, campaign). Per-audience webhook
+    // lifecycle (POST/DELETE /lists/{id}/webhooks). Webhook route at
     // /api/webhooks/mailchimp with workflowId/nodeId URL routing +
     // audienceId match + eventType allowlist + sha256(rawBody) dedup.
     // Mailchimp doesn't sign webhooks — see plan doc §"Webhook
-    // signature decision".
-    webhookTrigger: false,
+    // signature decision" and `_shared/mailchimp/webhooks/signature.ts`.
+    // NO renewal handler — Mailchimp webhooks don't expire (matches
+    // Stripe / Shopify / HubSpot / GitHub permanent-endpoint pattern).
+    // Duplicate-URL recovery via webhooksCreateOrAdopt (mirrors V1
+    // MailchimpTriggerLifecycle.ts:218-302).
+    webhookTrigger: true,
     // Flips true in Slice 14 Commit 5 — three polling triggers:
     // email_opened, link_clicked, campaign_created. Snapshot-baseline
     // on activate to prevent first-poll-miss / first-poll-storm.

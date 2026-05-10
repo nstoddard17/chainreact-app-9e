@@ -34,6 +34,7 @@ import "./stripe/triggers/eventReceived";
 import "./shopify/triggers/webhookReceived";
 import "./hubspot/triggers/webhookReceived";
 import "./github/triggers/newCommit";
+import "./mailchimp/triggers/audienceEvent";
 
 /**
  * Aggregated provider registry.

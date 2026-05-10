@@ -60,23 +60,24 @@ describe("mailchimp manifest", () => {
     expect(mailchimpManifest.accountIdField).toBe("mailchimpAccountId");
   });
 
-  it("declares honest capabilities for Slice 14 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 14 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 14 Commit 2 landed manifest + OAuth + dispatcher
-    // registration + dc-routing foundation. Slice 14 Commit 3 (now)
-    // lands 10 action handlers and flips `actions: true`. Commit 4
-    // lands the consolidated `audience_event` trigger + flips
-    // `webhookTrigger: true`. Commit 5 lands three polling triggers
-    // + flips `pollingTrigger: true`. Honest-state convention:
-    // flags flip in lockstep with the registrations they describe.
+    // registration + dc-routing foundation. Slice 14 Commit 3 landed
+    // 10 action handlers and flipped `actions: true`. Slice 14
+    // Commit 4 (now) lands the consolidated `audience_event` trigger
+    // and flips `webhookTrigger: true`. Commit 5 lands three polling
+    // triggers + flips `pollingTrigger: true`. Honest-state
+    // convention: flags flip in lockstep with the registrations they
+    // describe.
     expect(mailchimpManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("mailchimp", "oauth")).toBe(true);
     expect(providerSupports("mailchimp", "actions")).toBe(true);
-    expect(providerSupports("mailchimp", "webhookTrigger")).toBe(false);
+    expect(providerSupports("mailchimp", "webhookTrigger")).toBe(true);
     expect(providerSupports("mailchimp", "pollingTrigger")).toBe(false);
   });
 
