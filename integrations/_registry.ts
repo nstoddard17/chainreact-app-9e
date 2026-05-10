@@ -36,6 +36,9 @@ import "./shopify/triggers/webhookReceived";
 import "./hubspot/triggers/webhookReceived";
 import "./github/triggers/newCommit";
 import "./mailchimp/triggers/audienceEvent";
+import "./mailchimp/triggers/campaignCreated";
+import "./mailchimp/triggers/emailOpened";
+import "./mailchimp/triggers/linkClicked";
 
 /**
  * Aggregated provider registry.

@@ -146,11 +146,20 @@ export const mailchimpManifest: ProviderManifest = ProviderManifestSchema.parse(
     // Duplicate-URL recovery via webhooksCreateOrAdopt (mirrors V1
     // MailchimpTriggerLifecycle.ts:218-302).
     webhookTrigger: true,
-    // Flips true in Slice 14 Commit 5 — three polling triggers:
-    // email_opened, link_clicked, campaign_created. Snapshot-baseline
-    // on activate to prevent first-poll-miss / first-poll-storm.
-    // 5-minute cadence.
-    pollingTrigger: false,
+    // True: three polling triggers registered in
+    // integrations/_registry.ts as of Slice 14 Commit 5 —
+    //   campaign_created, email_opened, link_clicked.
+    // Snapshot-baseline on activate to prevent first-poll-miss /
+    // first-poll-storm. Polling cron picks up rows via
+    // config.pollingEnabled: true. 5-minute cadence (V2 default
+    // from services/cron/pollingIntervals.ts).
+    // Per-event dedup keyed on opaque Mailchimp identifiers
+    // (campaign id / `${campaignId}:${email}` /
+    // `${campaignId}:${urlId}:${email}`) via the generic
+    // webhook_event_dedup table — DB-backed, cross-tick stable.
+    // No subscription renewal handler — polling cron picks up rows
+    // directly via config.pollingEnabled.
+    pollingTrigger: true,
     // True: 10 action handlers registered in
     // services/execution/handlers/_registry.ts as of Slice 14
     // Commit 3 — subscriber/audience surface:

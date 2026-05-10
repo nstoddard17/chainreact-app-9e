@@ -41,8 +41,10 @@ describe("Mailchimp audience_event trigger registry coverage", () => {
     expect(typeof fn).toBe("function");
   });
 
-  it("manifest still declares pollingTrigger: false (flips in Commit 5)", () => {
-    // Anti-test for the "we flipped too early" case.
-    expect(mailchimpManifest.capabilities.pollingTrigger).toBe(false);
+  it("manifest declares pollingTrigger: true (flipped in Commit 5)", () => {
+    // Commit 5 flipped this to true after registering the three
+    // polling triggers (campaign_created, email_opened,
+    // link_clicked). Updated post-Commit-5 to match.
+    expect(mailchimpManifest.capabilities.pollingTrigger).toBe(true);
   });
 });

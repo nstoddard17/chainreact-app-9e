@@ -60,25 +60,25 @@ describe("mailchimp manifest", () => {
     expect(mailchimpManifest.accountIdField).toBe("mailchimpAccountId");
   });
 
-  it("declares honest capabilities for Slice 14 Commit 4 (oauth + actions + webhookTrigger)", () => {
+  it("declares honest capabilities for Slice 14 Commit 5 (all 4 caps true)", () => {
     // Slice 14 Commit 2 landed manifest + OAuth + dispatcher
     // registration + dc-routing foundation. Slice 14 Commit 3 landed
     // 10 action handlers and flipped `actions: true`. Slice 14
-    // Commit 4 (now) lands the consolidated `audience_event` trigger
-    // and flips `webhookTrigger: true`. Commit 5 lands three polling
-    // triggers + flips `pollingTrigger: true`. Honest-state
-    // convention: flags flip in lockstep with the registrations they
-    // describe.
+    // Commit 4 landed the consolidated `audience_event` webhook
+    // trigger and flipped `webhookTrigger: true`. Slice 14 Commit 5
+    // (now) lands three polling triggers (campaign_created,
+    // email_opened, link_clicked) and flips `pollingTrigger: true`.
+    // Slice 14 complete: every capability is honest.
     expect(mailchimpManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: true,
-      pollingTrigger: false,
+      pollingTrigger: true,
       actions: true,
     });
     expect(providerSupports("mailchimp", "oauth")).toBe(true);
     expect(providerSupports("mailchimp", "actions")).toBe(true);
     expect(providerSupports("mailchimp", "webhookTrigger")).toBe(true);
-    expect(providerSupports("mailchimp", "pollingTrigger")).toBe(false);
+    expect(providerSupports("mailchimp", "pollingTrigger")).toBe(true);
   });
 
   it("declares apiVersion '3.0' (matches _shared/mailchimp/api/_base.ts MAILCHIMP_API_VERSION)", () => {
