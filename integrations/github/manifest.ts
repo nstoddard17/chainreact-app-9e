@@ -104,11 +104,15 @@ export const githubManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    // Flips true in Slice 14b Commit 4 — single `new_commit` trigger
-    // for `push` events with per-repository webhook lifecycle. Webhook
-    // route at /api/webhooks/github. NO renewal handler — GitHub repo
-    // webhooks don't expire.
-    webhookTrigger: false,
+    // True (Slice 14b Commit 4): single `new_commit` trigger
+    // registered in integrations/github/triggers/newCommit. Listens
+    // for GitHub `push` events on a per-repository webhook. Webhook
+    // route at /api/webhooks/github with X-Hub-Signature-256 HMAC
+    // verification and X-GitHub-Delivery dedup. NO renewal handler —
+    // GitHub repo webhooks don't expire (the `runRenewals` cron
+    // filters on `config.type === "subscription-watch"` and the
+    // activate hook intentionally omits the marker).
+    webhookTrigger: true,
     pollingTrigger: false,
     // True (Slice 14b Commit 3): 6 action handlers registered —
     // create_issue, create_repository, create_pull_request,

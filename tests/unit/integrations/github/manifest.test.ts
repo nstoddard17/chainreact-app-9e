@@ -14,6 +14,8 @@ import { ProviderManifestSchema } from "@/contracts/integration";
 import { getProvider, providerSupports } from "@/integrations/_registry";
 import { githubManifest } from "@/integrations/github/manifest";
 import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
+import { findActivation } from "@/services/triggers/activationRegistry";
+import { findDeactivation } from "@/services/triggers/deactivationRegistry";
 
 describe("github manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -78,22 +80,22 @@ describe("github manifest", () => {
     expect(githubManifest.accountIdField).toBe("login");
   });
 
-  it("declares honest capabilities for Slice 14b Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 14b Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 14b Commit 2 landed manifest + OAuth + dispatcher
-    // registration. Commit 3 (this) lands 6 action handlers + flips
-    // `actions: true`. Commit 4 will land the `new_commit` webhook
-    // trigger + X-Hub-Signature-256 verification + flip
+    // registration. Commit 3 landed 6 action handlers + flipped
+    // `actions: true`. Commit 4 (this) lands the `new_commit` webhook
+    // trigger + X-Hub-Signature-256 verification + flips
     // `webhookTrigger: true`. Honest-state convention: flags flip in
     // lockstep with the registrations they describe.
     expect(githubManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("github", "oauth")).toBe(true);
     expect(providerSupports("github", "actions")).toBe(true);
-    expect(providerSupports("github", "webhookTrigger")).toBe(false);
+    expect(providerSupports("github", "webhookTrigger")).toBe(true);
     expect(providerSupports("github", "pollingTrigger")).toBe(false);
   });
 
@@ -110,6 +112,13 @@ describe("github manifest", () => {
         "create_pull_request",
         "create_repository",
       ]);
+    }
+  });
+
+  it("when webhookTrigger: true, new_commit activation + deactivation hooks are registered", () => {
+    if (githubManifest.capabilities.webhookTrigger) {
+      expect(findActivation("github", "new_commit")).not.toBeNull();
+      expect(findDeactivation("github", "new_commit")).not.toBeNull();
     }
   });
 

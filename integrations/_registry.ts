@@ -33,6 +33,7 @@ import "./airtable/triggers/recordChanged";
 import "./stripe/triggers/eventReceived";
 import "./shopify/triggers/webhookReceived";
 import "./hubspot/triggers/webhookReceived";
+import "./github/triggers/newCommit";
 
 /**
  * Aggregated provider registry.
