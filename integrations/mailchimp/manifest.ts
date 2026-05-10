@@ -145,16 +145,22 @@ export const mailchimpManifest: ProviderManifest = ProviderManifestSchema.parse(
     // on activate to prevent first-poll-miss / first-poll-storm.
     // 5-minute cadence.
     pollingTrigger: false,
-    // Flips true in Slice 14 Commit 3 — 10 action handlers
-    // (add_subscriber, update_subscriber, remove_subscriber, add_tag,
-    // remove_tag, get_subscriber, create_segment, create_audience,
-    // create_custom_event, add_note). REST-only via
-    // _shared/mailchimp/api wrappers; per-integration base URL
-    // routing sourced from the integration row's accountMetadata.dc.
-    // All actions wrap their principal call in refreshAndRetry; 401s
-    // surface as IntegrationActionRequiredError(reason:
-    // "refresh_not_supported") since Mailchimp is non-refreshable.
-    actions: false,
+    // True: 10 action handlers registered in
+    // services/execution/handlers/_registry.ts as of Slice 14
+    // Commit 3 — subscriber/audience surface:
+    //   add_subscriber, update_subscriber, remove_subscriber,
+    //   add_tag, remove_tag, get_subscriber,
+    //   create_segment, create_audience, create_custom_event,
+    //   add_note.
+    // REST-only via _shared/mailchimp/api wrappers; per-integration
+    // base URL routing sourced from the integration row's
+    // accountMetadata.dc (resolved at action time via
+    // integrations/mailchimp/actions/_resolveDc.ts). All actions wrap
+    // their principal call in refreshAndRetry; 401s surface as
+    // IntegrationActionRequiredError(reason: "refresh_not_supported")
+    // since Mailchimp is non-refreshable (matches Slack / Notion /
+    // Shopify / GitHub).
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
   refreshable: false,

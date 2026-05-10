@@ -50,6 +50,16 @@ import { updateDeal as hubspotUpdateDeal } from "@/integrations/hubspot/actions/
 import { updateLineItem as hubspotUpdateLineItem } from "@/integrations/hubspot/actions/updateLineItem";
 import { updateProduct as hubspotUpdateProduct } from "@/integrations/hubspot/actions/updateProduct";
 import { updateTicket as hubspotUpdateTicket } from "@/integrations/hubspot/actions/updateTicket";
+import { addNote as mailchimpAddNote } from "@/integrations/mailchimp/actions/addNote";
+import { addSubscriber as mailchimpAddSubscriber } from "@/integrations/mailchimp/actions/addSubscriber";
+import { addTag as mailchimpAddTag } from "@/integrations/mailchimp/actions/addTag";
+import { createAudience as mailchimpCreateAudience } from "@/integrations/mailchimp/actions/createAudience";
+import { createCustomEvent as mailchimpCreateCustomEvent } from "@/integrations/mailchimp/actions/createCustomEvent";
+import { createSegment as mailchimpCreateSegment } from "@/integrations/mailchimp/actions/createSegment";
+import { getSubscriber as mailchimpGetSubscriber } from "@/integrations/mailchimp/actions/getSubscriber";
+import { removeSubscriber as mailchimpRemoveSubscriber } from "@/integrations/mailchimp/actions/removeSubscriber";
+import { removeTag as mailchimpRemoveTag } from "@/integrations/mailchimp/actions/removeTag";
+import { updateSubscriber as mailchimpUpdateSubscriber } from "@/integrations/mailchimp/actions/updateSubscriber";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
 import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
 import { deleteItem as deleteOneDriveItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
@@ -202,6 +212,16 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "github", type: "create_branch", handler: githubCreateBranch },
   { provider: "github", type: "create_gist", handler: githubCreateGist },
   { provider: "github", type: "add_comment", handler: githubAddComment },
+  { provider: "mailchimp", type: "add_subscriber", handler: mailchimpAddSubscriber },
+  { provider: "mailchimp", type: "update_subscriber", handler: mailchimpUpdateSubscriber },
+  { provider: "mailchimp", type: "remove_subscriber", handler: mailchimpRemoveSubscriber },
+  { provider: "mailchimp", type: "add_tag", handler: mailchimpAddTag },
+  { provider: "mailchimp", type: "remove_tag", handler: mailchimpRemoveTag },
+  { provider: "mailchimp", type: "get_subscriber", handler: mailchimpGetSubscriber },
+  { provider: "mailchimp", type: "create_segment", handler: mailchimpCreateSegment },
+  { provider: "mailchimp", type: "create_audience", handler: mailchimpCreateAudience },
+  { provider: "mailchimp", type: "create_custom_event", handler: mailchimpCreateCustomEvent },
+  { provider: "mailchimp", type: "add_note", handler: mailchimpAddNote },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

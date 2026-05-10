@@ -60,11 +60,11 @@ describe("mailchimp manifest", () => {
     expect(mailchimpManifest.accountIdField).toBe("mailchimpAccountId");
   });
 
-  it("declares honest capabilities for Slice 14 Commit 2 (oauth-only)", () => {
-    // Slice 14 Commit 2 (this) lands manifest + OAuth + dispatcher
-    // registration + dc-routing foundation. Commit 3 lands 10 action
-    // handlers + flips `actions: true`. Commit 4 lands the
-    // consolidated `audience_event` trigger + flips
+  it("declares honest capabilities for Slice 14 Commit 3 (oauth + actions)", () => {
+    // Slice 14 Commit 2 landed manifest + OAuth + dispatcher
+    // registration + dc-routing foundation. Slice 14 Commit 3 (now)
+    // lands 10 action handlers and flips `actions: true`. Commit 4
+    // lands the consolidated `audience_event` trigger + flips
     // `webhookTrigger: true`. Commit 5 lands three polling triggers
     // + flips `pollingTrigger: true`. Honest-state convention:
     // flags flip in lockstep with the registrations they describe.
@@ -72,10 +72,10 @@ describe("mailchimp manifest", () => {
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("mailchimp", "oauth")).toBe(true);
-    expect(providerSupports("mailchimp", "actions")).toBe(false);
+    expect(providerSupports("mailchimp", "actions")).toBe(true);
     expect(providerSupports("mailchimp", "webhookTrigger")).toBe(false);
     expect(providerSupports("mailchimp", "pollingTrigger")).toBe(false);
   });
