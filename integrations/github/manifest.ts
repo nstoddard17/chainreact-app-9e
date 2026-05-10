@@ -110,16 +110,18 @@ export const githubManifest: ProviderManifest = ProviderManifestSchema.parse({
     // webhooks don't expire.
     webhookTrigger: false,
     pollingTrigger: false,
-    // Flips true in Slice 14b Commit 3 — 6 action handlers
-    // (create_issue, create_repository, create_pull_request,
-    // create_branch, create_gist, add_comment) registered in
+    // True (Slice 14b Commit 3): 6 action handlers registered —
+    // create_issue, create_repository, create_pull_request,
+    // create_branch, create_gist, add_comment — in
     // services/execution/handlers/_registry.ts. REST-only via
     // _shared/github/api wrappers; principal calls wrapped in
     // refreshAndRetry. Because GitHub is non-refreshable, 401s
     // surface as IntegrationActionRequiredError(reason:
     // "refresh_not_supported") with no refresh attempt — same shape
-    // as Slack / Notion / Shopify.
-    actions: false,
+    // as Slack / Notion / Shopify. PR-G6 default-branch auto-detect
+    // applies to BOTH create_pull_request (V1 had it) and
+    // create_branch (V2 fix — V1 hard-defaulted to literal `'main'`).
+    actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000, // 4h
   refreshable: false,

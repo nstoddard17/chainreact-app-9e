@@ -6,6 +6,12 @@ import { getRecord as airtableGetRecord } from "@/integrations/airtable/actions/
 import { getTableSchema as airtableGetTableSchema } from "@/integrations/airtable/actions/getTableSchema";
 import { listRecords as airtableListRecords } from "@/integrations/airtable/actions/listRecords";
 import { updateRecord as airtableUpdateRecord } from "@/integrations/airtable/actions/updateRecord";
+import { addComment as githubAddComment } from "@/integrations/github/actions/addComment";
+import { createBranch as githubCreateBranch } from "@/integrations/github/actions/createBranch";
+import { createGist as githubCreateGist } from "@/integrations/github/actions/createGist";
+import { createIssue as githubCreateIssue } from "@/integrations/github/actions/createIssue";
+import { createPullRequest as githubCreatePullRequest } from "@/integrations/github/actions/createPullRequest";
+import { createRepository as githubCreateRepository } from "@/integrations/github/actions/createRepository";
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
 import { addAttendees } from "@/integrations/google-calendar/actions/addAttendees";
 import { createEvent } from "@/integrations/google-calendar/actions/createEvent";
@@ -190,6 +196,12 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "hubspot", type: "create_product", handler: hubspotCreateProduct },
   { provider: "hubspot", type: "update_product", handler: hubspotUpdateProduct },
   { provider: "hubspot", type: "get_owners", handler: hubspotGetOwners },
+  { provider: "github", type: "create_issue", handler: githubCreateIssue },
+  { provider: "github", type: "create_repository", handler: githubCreateRepository },
+  { provider: "github", type: "create_pull_request", handler: githubCreatePullRequest },
+  { provider: "github", type: "create_branch", handler: githubCreateBranch },
+  { provider: "github", type: "create_gist", handler: githubCreateGist },
+  { provider: "github", type: "add_comment", handler: githubAddComment },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

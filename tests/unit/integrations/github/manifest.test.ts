@@ -13,6 +13,7 @@
 import { ProviderManifestSchema } from "@/contracts/integration";
 import { getProvider, providerSupports } from "@/integrations/_registry";
 import { githubManifest } from "@/integrations/github/manifest";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("github manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -77,23 +78,39 @@ describe("github manifest", () => {
     expect(githubManifest.accountIdField).toBe("login");
   });
 
-  it("declares honest capabilities for Slice 14b Commit 2 (oauth-only)", () => {
-    // Slice 14b Commit 2 (this) lands manifest + OAuth + dispatcher
-    // registration. Commit 3 lands 6 action handlers + flips
-    // `actions: true`. Commit 4 lands the `new_commit` webhook
-    // trigger + X-Hub-Signature-256 verification + flips
+  it("declares honest capabilities for Slice 14b Commit 3 (oauth + actions)", () => {
+    // Slice 14b Commit 2 landed manifest + OAuth + dispatcher
+    // registration. Commit 3 (this) lands 6 action handlers + flips
+    // `actions: true`. Commit 4 will land the `new_commit` webhook
+    // trigger + X-Hub-Signature-256 verification + flip
     // `webhookTrigger: true`. Honest-state convention: flags flip in
     // lockstep with the registrations they describe.
     expect(githubManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      actions: true,
     });
     expect(providerSupports("github", "oauth")).toBe(true);
-    expect(providerSupports("github", "actions")).toBe(false);
+    expect(providerSupports("github", "actions")).toBe(true);
     expect(providerSupports("github", "webhookTrigger")).toBe(false);
     expect(providerSupports("github", "pollingTrigger")).toBe(false);
+  });
+
+  it("when actions: true, the action-handler registry contains all 6 GitHub actions", () => {
+    if (githubManifest.capabilities.actions) {
+      const registered = listRegisteredHandlers().filter(
+        (h) => h.provider === "github",
+      );
+      expect(registered.map((r) => r.type).sort()).toEqual([
+        "add_comment",
+        "create_branch",
+        "create_gist",
+        "create_issue",
+        "create_pull_request",
+        "create_repository",
+      ]);
+    }
   });
 
   it("declares apiVersion '2022-11-28' (matches V1 lifecycle + actions pin)", () => {
