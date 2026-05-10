@@ -78,20 +78,22 @@ describe("hubspot manifest", () => {
     expect(hubspotManifest.accountIdField).toBe("hubId");
   });
 
-  it("declares honest capabilities for Slice 13 Commit 4 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 13 Commit 5 (oauth + actions + webhookTrigger)", () => {
     // Honest-state convention: Commit 2 landed oauth-only; Commit 3
     // flipped `actions: true` after registering 10 Batch 1 handlers;
-    // Commit 4 keeps the flag flipped while adding the 12 Batch 2
-    // handlers. Commit 5 will flip `webhookTrigger: true`.
+    // Commit 4 kept actions flipped while adding 12 Batch 2 handlers;
+    // Commit 5 flips `webhookTrigger: true` after registering the
+    // consolidated `webhook_received` trigger + V3 signature
+    // verification + shared-subscription lifecycle.
     expect(hubspotManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("hubspot", "oauth")).toBe(true);
     expect(providerSupports("hubspot", "actions")).toBe(true);
-    expect(providerSupports("hubspot", "webhookTrigger")).toBe(false);
+    expect(providerSupports("hubspot", "webhookTrigger")).toBe(true);
     expect(providerSupports("hubspot", "pollingTrigger")).toBe(false);
   });
 

@@ -30,6 +30,7 @@ import "./microsoft-onedrive/triggers/fileChanged";
 import "./airtable/triggers/recordChanged";
 import "./stripe/triggers/eventReceived";
 import "./shopify/triggers/webhookReceived";
+import "./hubspot/triggers/webhookReceived";
 
 /**
  * Aggregated provider registry.

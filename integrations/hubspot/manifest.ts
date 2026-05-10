@@ -122,11 +122,14 @@ export const hubspotManifest: ProviderManifest = ProviderManifestSchema.parse({
     // and manifest registered in integrations/_registry.ts as of Slice 13
     // Commit 2.
     oauth: true,
-    // False until Slice 13 Commit 5: consolidated `webhook_received`
-    // trigger with subscriptionType discriminator. App-level shared
+    // True: consolidated `webhook_received` trigger registered in
+    // integrations/_registry.ts as of Slice 13 Commit 5. Workflows
+    // pick subscription types from a curated allowlist (10 Batch 1
+    // entries — see allowedSubscriptionTypes.ts). App-level shared
     // subscriptions with portal-scoped reference counting via
     // hubspot_app_subscriptions + hubspot_subscription_refs tables.
-    webhookTrigger: false,
+    // X-HubSpot-Signature-V3 verified with 5-minute replay tolerance.
+    webhookTrigger: true,
     pollingTrigger: false,
     // True: 10 action handlers registered in services/execution/handlers/
     // _registry.ts as of Slice 13 Commit 3 — CRM core (contacts +
