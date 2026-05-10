@@ -23,15 +23,27 @@ import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetM
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
 import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
 import { addContactToList as hubspotAddContactToList } from "@/integrations/hubspot/actions/addContactToList";
+import { createCall as hubspotCreateCall } from "@/integrations/hubspot/actions/createCall";
 import { createCompany as hubspotCreateCompany } from "@/integrations/hubspot/actions/createCompany";
 import { createContact as hubspotCreateContact } from "@/integrations/hubspot/actions/createContact";
 import { createDeal as hubspotCreateDeal } from "@/integrations/hubspot/actions/createDeal";
+import { createLineItem as hubspotCreateLineItem } from "@/integrations/hubspot/actions/createLineItem";
+import { createMeeting as hubspotCreateMeeting } from "@/integrations/hubspot/actions/createMeeting";
+import { createNote as hubspotCreateNote } from "@/integrations/hubspot/actions/createNote";
+import { createProduct as hubspotCreateProduct } from "@/integrations/hubspot/actions/createProduct";
+import { createTask as hubspotCreateTask } from "@/integrations/hubspot/actions/createTask";
+import { createTicket as hubspotCreateTicket } from "@/integrations/hubspot/actions/createTicket";
 import { getCompanies as hubspotGetCompanies } from "@/integrations/hubspot/actions/getCompanies";
 import { getContacts as hubspotGetContacts } from "@/integrations/hubspot/actions/getContacts";
 import { getDeals as hubspotGetDeals } from "@/integrations/hubspot/actions/getDeals";
+import { getOwners as hubspotGetOwners } from "@/integrations/hubspot/actions/getOwners";
+import { getTickets as hubspotGetTickets } from "@/integrations/hubspot/actions/getTickets";
 import { updateCompany as hubspotUpdateCompany } from "@/integrations/hubspot/actions/updateCompany";
 import { updateContact as hubspotUpdateContact } from "@/integrations/hubspot/actions/updateContact";
 import { updateDeal as hubspotUpdateDeal } from "@/integrations/hubspot/actions/updateDeal";
+import { updateLineItem as hubspotUpdateLineItem } from "@/integrations/hubspot/actions/updateLineItem";
+import { updateProduct as hubspotUpdateProduct } from "@/integrations/hubspot/actions/updateProduct";
+import { updateTicket as hubspotUpdateTicket } from "@/integrations/hubspot/actions/updateTicket";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
 import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
 import { deleteItem as deleteOneDriveItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
@@ -166,6 +178,18 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "hubspot", type: "update_deal", handler: hubspotUpdateDeal },
   { provider: "hubspot", type: "get_deals", handler: hubspotGetDeals },
   { provider: "hubspot", type: "add_contact_to_list", handler: hubspotAddContactToList },
+  { provider: "hubspot", type: "create_ticket", handler: hubspotCreateTicket },
+  { provider: "hubspot", type: "update_ticket", handler: hubspotUpdateTicket },
+  { provider: "hubspot", type: "get_tickets", handler: hubspotGetTickets },
+  { provider: "hubspot", type: "create_note", handler: hubspotCreateNote },
+  { provider: "hubspot", type: "create_task", handler: hubspotCreateTask },
+  { provider: "hubspot", type: "create_call", handler: hubspotCreateCall },
+  { provider: "hubspot", type: "create_meeting", handler: hubspotCreateMeeting },
+  { provider: "hubspot", type: "create_line_item", handler: hubspotCreateLineItem },
+  { provider: "hubspot", type: "update_line_item", handler: hubspotUpdateLineItem },
+  { provider: "hubspot", type: "create_product", handler: hubspotCreateProduct },
+  { provider: "hubspot", type: "update_product", handler: hubspotUpdateProduct },
+  { provider: "hubspot", type: "get_owners", handler: hubspotGetOwners },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {

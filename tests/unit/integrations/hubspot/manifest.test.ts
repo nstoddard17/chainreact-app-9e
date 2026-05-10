@@ -78,11 +78,11 @@ describe("hubspot manifest", () => {
     expect(hubspotManifest.accountIdField).toBe("hubId");
   });
 
-  it("declares honest capabilities for Slice 13 Commit 3 (oauth + actions)", () => {
-    // Honest-state convention: Commit 2 landed oauth-only. Commit 3
-    // flips `actions: true` after registering 10 Batch 1 handlers.
-    // Commit 4 keeps the flag flipped while adding Batch 2. Commit 5
-    // flips `webhookTrigger: true`.
+  it("declares honest capabilities for Slice 13 Commit 4 (oauth + actions)", () => {
+    // Honest-state convention: Commit 2 landed oauth-only; Commit 3
+    // flipped `actions: true` after registering 10 Batch 1 handlers;
+    // Commit 4 keeps the flag flipped while adding the 12 Batch 2
+    // handlers. Commit 5 will flip `webhookTrigger: true`.
     expect(hubspotManifest.capabilities).toEqual({
       oauth: true,
       webhookTrigger: false,
@@ -95,23 +95,37 @@ describe("hubspot manifest", () => {
     expect(providerSupports("hubspot", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 10 Batch 1 actions", () => {
+  it("when actions: true, the action-handler registry contains all 22 Batch 1 + Batch 2 actions", () => {
     if (hubspotManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "hubspot",
       );
       expect(registered.map((r) => r.type).sort()).toEqual([
+        // Sorted alphabetically — covers Batch 1 (10) + Batch 2 (12).
         "add_contact_to_list",
+        "create_call",
         "create_company",
         "create_contact",
         "create_deal",
+        "create_line_item",
+        "create_meeting",
+        "create_note",
+        "create_product",
+        "create_task",
+        "create_ticket",
         "get_companies",
         "get_contacts",
         "get_deals",
+        "get_owners",
+        "get_tickets",
         "update_company",
         "update_contact",
         "update_deal",
+        "update_line_item",
+        "update_product",
+        "update_ticket",
       ]);
+      expect(registered).toHaveLength(22);
     }
   });
 
