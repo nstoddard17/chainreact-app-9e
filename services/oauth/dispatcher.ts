@@ -1,6 +1,7 @@
 import { type ProviderHint, type ProviderOAuth } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
+import { githubOAuth } from "@/integrations/github/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
 import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
 import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
@@ -46,6 +47,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   stripe: stripeOAuth,
   shopify: shopifyOAuth,
   hubspot: hubspotOAuth,
+  github: githubOAuth,
 });
 
 export interface ConnectInput {

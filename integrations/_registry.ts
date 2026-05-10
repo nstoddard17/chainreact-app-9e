@@ -4,6 +4,7 @@ import {
   ProviderManifestSchema,
 } from "@/contracts/integration";
 import { airtableManifest } from "./airtable/manifest";
+import { githubManifest } from "./github/manifest";
 import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
@@ -57,6 +58,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   stripeManifest,
   shopifyManifest,
   hubspotManifest,
+  githubManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws
