@@ -228,6 +228,44 @@ export interface ExcelWorksheetState {
   values: unknown[][];
 }
 
+/**
+ * Slice 16: Teams channel-message send POST hit log. Records the
+ * (teamId, channelId) plus body so the spec can assert action calls
+ * decrypted the access token + forwarded the resolved config.
+ */
+export interface RecordedTeamsChannelMessageSend {
+  authorization: string | undefined;
+  teamId: string;
+  channelId: string;
+  body: Record<string, unknown>;
+  responseMessageId: string;
+}
+
+/**
+ * Slice 16: Teams channel-message GET (id-fetch hydration on the
+ * receive path).
+ */
+export interface RecordedTeamsChannelMessageGet {
+  authorization: string | undefined;
+  url: string;
+  teamId: string;
+  channelId: string;
+  messageId: string;
+}
+
+/**
+ * Slice 16: injected Teams chatMessage resource. The mock's
+ * __injectTeamsMessage seeds these; the
+ * `/v1.0/teams/{teamId}/channels/{channelId}/messages/{messageId}` GET
+ * route returns the stored resource (404 when absent).
+ */
+export interface InjectedTeamsMessage {
+  id: string;
+  teamId: string;
+  channelId: string;
+  resource: Record<string, unknown>;
+}
+
 export interface InjectedMessage {
   id: string;
   resource: Record<string, unknown>;
@@ -271,6 +309,8 @@ export interface MockMicrosoftHandle {
     driveRootChildrenCreate: RecordedDriveRootChildrenCreate[];
     excelUsedRange: RecordedWorksheetUsedRange[];
     excelRangePatch: RecordedWorksheetRangePatch[];
+    teamsChannelMessageSend: RecordedTeamsChannelMessageSend[];
+    teamsChannelMessageGet: RecordedTeamsChannelMessageGet[];
     subscriptionsCreate: RecordedSubscriptionsCreate[];
     subscriptionsRenew: RecordedSubscriptionsRenew[];
     subscriptionsDelete: RecordedSubscriptionsDelete[];
@@ -278,6 +318,7 @@ export interface MockMicrosoftHandle {
   messages: Map<string, InjectedMessage>;
   events: Map<string, InjectedEvent>;
   driveItems: Map<string, InjectedDriveItem>;
+  teamsMessages: Map<string, InjectedTeamsMessage>;
   subscriptions: Map<string, RegisteredSubscription>;
   /**
    * Slice 15: workbook id → worksheet name → state. Outer keys are the
@@ -301,12 +342,18 @@ interface MutableState {
   messages: Map<string, InjectedMessage>;
   events: Map<string, InjectedEvent>;
   driveItems: Map<string, InjectedDriveItem>;
+  teamsMessages: Map<string, InjectedTeamsMessage>;
   subscriptions: Map<string, RegisteredSubscription>;
   excelWorksheets: Map<string, Map<string, ExcelWorksheetState>>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   subscriptionCounter: number;
   eventCounter: number;
+  /**
+   * Slice 16: monotonic counter so each POST to a channel-messages
+   * endpoint returns a stable, distinct message id (`mock-teams-msg-N`).
+   */
+  teamsMessageCounter: number;
   /**
    * Slice 8: monotonic counter so __sendNotification → driveItemsGet
    * → normalize produces a stable but per-run-unique deltaLink and
@@ -345,6 +392,8 @@ function freshState(): MutableState {
       driveRootChildrenCreate: [],
       excelUsedRange: [],
       excelRangePatch: [],
+      teamsChannelMessageSend: [],
+      teamsChannelMessageGet: [],
       subscriptionsCreate: [],
       subscriptionsRenew: [],
       subscriptionsDelete: [],
@@ -352,12 +401,14 @@ function freshState(): MutableState {
     messages: new Map(),
     events: new Map(),
     driveItems: new Map(),
+    teamsMessages: new Map(),
     subscriptions: new Map(),
     excelWorksheets: new Map(),
     lastAuthorizeScope: null,
     lastSubscriptionId: null,
     subscriptionCounter: 0,
     eventCounter: 0,
+    teamsMessageCounter: 0,
     driveItemCounter: 0,
     driveDeltaCursor: 0,
     // Set by startMockMicrosoftServer() once the listener has bound.
@@ -408,6 +459,9 @@ export async function startMockMicrosoftServer(opts: {
     },
     get subscriptions() {
       return state.subscriptions;
+    },
+    get teamsMessages() {
+      return state.teamsMessages;
     },
     get excelWorksheets() {
       return state.excelWorksheets;
@@ -880,6 +934,94 @@ async function handleRequest(
     return;
   }
 
+  // ── Slice 16: Teams channel message GET (receive-path hydration) ──
+  // Matches /v1.0/teams/{teamId}/channels/{channelId}/messages/{messageId}
+  // exactly (no trailing path segment). Used by the new_channel_message
+  // trigger's pull.ts when `includeResourceData: false` (always, in
+  // Batch 1) — the notification only carries the message id and we
+  // fetch the body here.
+  const teamsChannelMessageGetMatch = url.pathname.match(
+    /^\/v1\.0\/teams\/([^/]+)\/channels\/([^/]+)\/messages\/([^/]+)$/,
+  );
+  if (req.method === "GET" && teamsChannelMessageGetMatch) {
+    const teamId = decodeURIComponent(teamsChannelMessageGetMatch[1]!);
+    const channelId = decodeURIComponent(teamsChannelMessageGetMatch[2]!);
+    const messageId = decodeURIComponent(teamsChannelMessageGetMatch[3]!);
+    state.calls.teamsChannelMessageGet.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      teamId,
+      channelId,
+      messageId,
+    });
+    const stored = state.teamsMessages.get(messageId);
+    if (!stored) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "NotFound",
+            message: "The specified chatMessage was not found.",
+          },
+        }),
+      );
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(stored.resource));
+    return;
+  }
+
+  // ── Slice 16: Teams channel message POST (send_channel_message action) ──
+  // Matches /v1.0/teams/{teamId}/channels/{channelId}/messages exactly
+  // (no further segments — the replies endpoint adds /messages/{id}/replies
+  // which would NOT match this regex). Echoes a chatMessage with a
+  // synthetic id; records the body so the spec can assert the action
+  // forwarded the resolved config through refreshAndRetry.
+  const teamsChannelMessageSendMatch = url.pathname.match(
+    /^\/v1\.0\/teams\/([^/]+)\/channels\/([^/]+)\/messages$/,
+  );
+  if (req.method === "POST" && teamsChannelMessageSendMatch) {
+    const teamId = decodeURIComponent(teamsChannelMessageSendMatch[1]!);
+    const channelId = decodeURIComponent(teamsChannelMessageSendMatch[2]!);
+    const bodyText = await readBody(req);
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // record empty body if invalid
+    }
+    state.teamsMessageCounter += 1;
+    const messageId = `mock-teams-msg-${state.teamsMessageCounter}`;
+    state.calls.teamsChannelMessageSend.push({
+      authorization: req.headers.authorization,
+      teamId,
+      channelId,
+      body: parsed,
+      responseMessageId: messageId,
+    });
+    const echoed = {
+      id: messageId,
+      replyToId: null,
+      body: parsed.body ?? null,
+      createdDateTime: new Date().toISOString(),
+      lastModifiedDateTime: new Date().toISOString(),
+      messageType: "message",
+      importance: "normal",
+      from: {
+        user: {
+          id: "ms-graph-uid-e2e",
+          displayName: "Alice E2E",
+          userIdentityType: "aadUser",
+        },
+      },
+      webUrl: `https://teams.microsoft.com/l/message/${channelId}/${messageId}`,
+    };
+    res.writeHead(201, { "content-type": "application/json" });
+    res.end(JSON.stringify(echoed));
+    return;
+  }
+
   // ── Graph /v1.0/subscriptions (collection) ──
   if (req.method === "POST" && url.pathname === "/v1.0/subscriptions") {
     const bodyText = await readBody(req);
@@ -1191,6 +1333,44 @@ async function handleRequest(
     return;
   }
 
+  // ── Slice 16: __injectTeamsMessage control plane ──
+  // Seeds a Graph chatMessage resource for the
+  // /v1.0/teams/{teamId}/channels/{channelId}/messages/{messageId} GET
+  // route (receive-path hydration). Body shape:
+  //   { id, teamId, channelId, ...graphMessageFields }
+  // Only `id`, `teamId`, `channelId` are required; the rest of the
+  // payload is echoed verbatim as the resource body.
+  if (req.method === "POST" && url.pathname === "/__injectTeamsMessage") {
+    const bodyText = await readBody(req);
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(bodyText) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const id = String(payload.id ?? "");
+    const teamId = String(payload.teamId ?? "");
+    const channelId = String(payload.channelId ?? "");
+    if (!id || !teamId || !channelId) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({ error: "id + teamId + channelId required" }),
+      );
+      return;
+    }
+    state.teamsMessages.set(id, {
+      id,
+      teamId,
+      channelId,
+      resource: payload,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, id }));
+    return;
+  }
+
   // ── Slice 8: __injectDriveItem control plane ──
   if (req.method === "POST" && url.pathname === "/__injectDriveItem") {
     const bodyText = await readBody(req);
@@ -1220,7 +1400,13 @@ async function handleRequest(
       messageId?: string;
       eventId?: string;
       itemId?: string;
-      kind?: "message" | "event" | "driveItem";
+      // Slice 16: chatMessageId + teamId + channelId pinpoint a Teams
+      // chatMessage. Kept distinct from `messageId` (mail) to avoid the
+      // semantic collision between the two Graph resource families.
+      chatMessageId?: string;
+      teamId?: string;
+      channelId?: string;
+      kind?: "message" | "event" | "driveItem" | "chatMessage";
       changeType?: string;
       // Slice 7: lets the spec deliberately spoof a clientState to drive
       // the "invalid clientState rejected" path without touching the
@@ -1249,18 +1435,27 @@ async function handleRequest(
     // Resolve resource kind. Slice 7: kind="event" or eventId implies
     // calendar; kind="message" or messageId implies mail (back-compat
     // with Slice 6). Slice 8: kind="driveItem" or itemId implies
-    // OneDrive — derives the DriveItem @odata.type and the receive
-    // path's id-fetch branch picks up resourceData.id.
+    // OneDrive. Slice 16: kind="chatMessage" or chatMessageId implies
+    // Teams channel message — also requires teamId + channelId for
+    // the resource path.
+    const isChatMessage =
+      payload.kind === "chatMessage" ||
+      (payload.kind === undefined && Boolean(payload.chatMessageId));
     const isDriveItem =
-      payload.kind === "driveItem" ||
-      (payload.kind === undefined && Boolean(payload.itemId));
+      !isChatMessage &&
+      (payload.kind === "driveItem" ||
+        (payload.kind === undefined && Boolean(payload.itemId)));
     const isEvent =
+      !isChatMessage &&
       !isDriveItem &&
       (payload.kind === "event" ||
         (payload.kind === undefined && Boolean(payload.eventId)));
     let resourceId: string | undefined;
     let resourceMissingError: string;
-    if (isDriveItem) {
+    if (isChatMessage) {
+      resourceId = payload.chatMessageId;
+      resourceMissingError = "chatMessageId required";
+    } else if (isDriveItem) {
       resourceId = payload.itemId;
       resourceMissingError = "itemId required";
     } else if (isEvent) {
@@ -1275,11 +1470,23 @@ async function handleRequest(
       res.end(JSON.stringify({ error: resourceMissingError }));
       return;
     }
+    if (isChatMessage && (!payload.teamId || !payload.channelId)) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "chatMessage notifications require teamId + channelId",
+        }),
+      );
+      return;
+    }
 
     const changeType = payload.changeType ?? subscription.changeType;
     let odataType: string;
     let resourcePath: string;
-    if (isDriveItem) {
+    if (isChatMessage) {
+      odataType = "#Microsoft.Graph.chatMessage";
+      resourcePath = `teams('${payload.teamId}')/channels('${payload.channelId}')/messages('${resourceId}')`;
+    } else if (isDriveItem) {
       odataType = "#Microsoft.Graph.DriveItem";
       resourcePath = `users/alice@e2e.test/drive/items/${resourceId}`;
     } else if (isEvent) {
@@ -1351,6 +1558,7 @@ async function handleRequest(
         messageIds: Array.from(state.messages.keys()),
         eventIds: Array.from(state.events.keys()),
         driveItemIds: Array.from(state.driveItems.keys()),
+        teamsMessageIds: Array.from(state.teamsMessages.keys()),
         excelWorksheets: excelDump,
       }),
     );
