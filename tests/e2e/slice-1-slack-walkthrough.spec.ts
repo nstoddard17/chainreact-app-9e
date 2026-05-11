@@ -138,7 +138,10 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
           id: "trigger-node",
           kind: "trigger" as const,
           provider: "slack",
-          type: "message",
+          // Canonical eventType per Slack 2.1 P-S2 contract — matches what
+          // the normalizer emits for a `message` event in a public channel.
+          // See docs/slices/slack-2-1-messaging-reactions-plan.md §3.
+          type: "slack.message.channel",
           config: {},
           position: { x: 0, y: 0 },
         },
