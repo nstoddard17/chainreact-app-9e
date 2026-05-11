@@ -73,6 +73,11 @@ import { getFile as getOneDriveFile } from "@/integrations/microsoft-onedrive/ac
 import { listItems as listOneDriveItems } from "@/integrations/microsoft-onedrive/actions/listItems";
 import { moveItem as moveOneDriveItem } from "@/integrations/microsoft-onedrive/actions/moveItem";
 import { uploadFile as uploadOneDriveFile } from "@/integrations/microsoft-onedrive/actions/uploadFile";
+import { getChannelDetails as teamsGetChannelDetails } from "@/integrations/microsoft-teams/actions/getChannelDetails";
+import { getTeamMembers as teamsGetTeamMembers } from "@/integrations/microsoft-teams/actions/getTeamMembers";
+import { replyToChannelMessage as teamsReplyToChannelMessage } from "@/integrations/microsoft-teams/actions/replyToChannelMessage";
+import { sendChannelMessage as teamsSendChannelMessage } from "@/integrations/microsoft-teams/actions/sendChannelMessage";
+import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsoft-teams/actions/sendChatMessage";
 import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
 import { addAttendees as addOutlookCalendarAttendees } from "@/integrations/microsoft-outlook-calendar/actions/addAttendees";
 import { createEvent as createOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/createEvent";
@@ -161,6 +166,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-onedrive", type: "move_item", handler: moveOneDriveItem },
   { provider: "microsoft-onedrive", type: "copy_item", handler: copyOneDriveItem },
   { provider: "microsoft-onedrive", type: "list_items", handler: listOneDriveItems },
+  { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
+  { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
+  { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },
+  { provider: "microsoft-teams", type: "get_channel_details", handler: teamsGetChannelDetails },
+  { provider: "microsoft-teams", type: "get_team_members", handler: teamsGetTeamMembers },
   { provider: "notion", type: "create_page", handler: notionCreatePage },
   { provider: "notion", type: "update_page", handler: notionUpdatePage },
   { provider: "notion", type: "query_database", handler: notionQueryDatabase },

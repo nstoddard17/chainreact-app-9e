@@ -97,7 +97,11 @@ export const microsoftTeamsManifest: ProviderManifest =
       oauth: true,
       webhookTrigger: false,
       pollingTrigger: false,
-      actions: false,
+      // True: 5 delegated-user action handlers (send_channel_message,
+      // send_chat_message, reply_to_channel_message, get_channel_details,
+      // get_team_members) registered in
+      // services/execution/handlers/_registry.ts.
+      actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000,
     refreshable: true,
