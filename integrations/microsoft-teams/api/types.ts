@@ -28,10 +28,10 @@
  * and defaulting to `'html'` in every write path (documented choice;
  * matches V1's two sends + the Teams UI default).
  */
-export type ExcelChatMessageContentType = "text" | "html";
+export type TeamsChatMessageContentType = "text" | "html";
 
 export interface ChatMessageBody {
-  contentType: ExcelChatMessageContentType;
+  contentType: TeamsChatMessageContentType;
   content: string;
 }
 
@@ -57,6 +57,19 @@ export interface ChatMessageResource {
    * Subject (channel messages only — chats don't carry a subject).
    */
   subject?: string | null;
+  /**
+   * Plain-text summary Graph returns alongside `body` on some channel
+   * messages. Not always present — surfaced in trigger output as
+   * `bodyPreview`.
+   */
+  summary?: string | null;
+  /**
+   * Message importance — `normal | high | urgent`. Graph defaults to
+   * `normal` when the sender doesn't specify.
+   */
+  importance?: string | null;
+  /** `message | chatEvent | typing | unknownFutureValue`. */
+  messageType?: string | null;
   body?: ChatMessageBody;
   from?: {
     user?: {

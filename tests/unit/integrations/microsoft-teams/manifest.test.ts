@@ -86,20 +86,22 @@ describe("microsoft-teams manifest", () => {
     expect(microsoftTeamsManifest.accountIdField).toBe("email");
   });
 
-  it("declares honest capabilities for Slice 16 Commit 3 (oauth + actions)", () => {
+  it("declares honest capabilities for Slice 16 Commit 4 (oauth + actions + webhookTrigger)", () => {
     // Slice 16 Commit 2 landed manifest + OAuth + dispatcher (oauth only).
-    // Commit 3 (this) lands 5 delegated-user actions + flips
-    // actions: true. Commit 4 will flip webhookTrigger: true.
-    // Honest-state convention.
+    // Commit 3 landed 5 delegated-user actions + flipped actions: true.
+    // Commit 4 (this) lands the new_channel_message Graph subscription
+    // trigger + flips webhookTrigger: true. pollingTrigger stays false
+    // — Teams uses Graph subscriptions, not polling. Honest-state
+    // convention.
     expect(microsoftTeamsManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("microsoft-teams", "oauth")).toBe(true);
     expect(providerSupports("microsoft-teams", "actions")).toBe(true);
-    expect(providerSupports("microsoft-teams", "webhookTrigger")).toBe(false);
+    expect(providerSupports("microsoft-teams", "webhookTrigger")).toBe(true);
     expect(providerSupports("microsoft-teams", "pollingTrigger")).toBe(false);
   });
 

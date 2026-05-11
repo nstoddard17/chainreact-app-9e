@@ -95,7 +95,13 @@ export const microsoftTeamsManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      webhookTrigger: false,
+      // True: `new_channel_message` Graph subscription trigger
+      // registered in
+      // integrations/microsoft-teams/triggers/newChannelMessage.
+      // Webhook receive route lives at /api/webhooks/microsoft-teams.
+      // Subscription created with `includeResourceData: false`;
+      // receive route hydrates via channelMessageGet.
+      webhookTrigger: true,
       pollingTrigger: false,
       // True: 5 delegated-user action handlers (send_channel_message,
       // send_chat_message, reply_to_channel_message, get_channel_details,

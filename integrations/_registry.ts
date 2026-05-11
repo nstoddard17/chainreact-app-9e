@@ -33,6 +33,7 @@ import "./microsoft-outlook-calendar/triggers/eventChanged";
 import "./microsoft-onedrive/triggers/fileChanged";
 import "./microsoft-excel/triggers/newRow";
 import "./microsoft-excel/triggers/newTableRow";
+import "./microsoft-teams/triggers/newChannelMessage";
 import "./airtable/triggers/recordChanged";
 import "./stripe/triggers/eventReceived";
 import "./shopify/triggers/webhookReceived";
