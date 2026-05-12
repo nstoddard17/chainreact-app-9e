@@ -32,8 +32,22 @@ export interface ChatPostMessageInput {
   botToken: string;
   /** Channel id (`C…`), DM id (`D…`), or `#name`. */
   channel: string;
-  /** Message text. Slack supports up to 40k chars; we don't truncate. */
-  text: string;
+  /**
+   * Message text. Optional when `blocks` is provided (then `text` serves
+   * as the notification preview / accessibility fallback). When neither
+   * `text` nor `blocks` is provided, the wrapper throws before calling
+   * Slack — never silently send an empty message. Slack supports up to
+   * 40k chars; we don't truncate.
+   */
+  text?: string;
+  /**
+   * Optional Block Kit blocks payload. Slack 2.1 Commit 7
+   * (post_interactive_blocks) consumes this for rich message rendering.
+   * Each block must have at least a string `type` (validated at the
+   * handler / schema layer; the wrapper passes the array through
+   * verbatim).
+   */
+  blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
   /**
    * Optional. Post as a thread reply to the message with this Slack
    * timestamp. Slack ignores the parent message's channel — `channel`
@@ -63,14 +77,30 @@ interface SlackResponseBody {
 export async function chatPostMessage(
   input: ChatPostMessageInput,
 ): Promise<ChatPostMessageResult> {
-  // Build the body conditionally — Slack rejects { thread_ts: undefined } as
-  // an explicit null in some payload paths; keeping the key absent is safer
-  // than passing undefined through JSON.stringify (which would drop it
-  // anyway, but the explicit shape makes intent obvious).
+  // Defense-in-depth: Slack rejects messages with neither text nor blocks
+  // with a logical error. Throw locally with a clearer message so the
+  // engine surfaces it as a config-shape problem, not as a Slack API
+  // failure that looks like the bot misbehaved. Empty `blocks` array
+  // also counts as absent.
+  const hasText = input.text !== undefined && input.text.length > 0;
+  const hasBlocks = input.blocks !== undefined && input.blocks.length > 0;
+  if (!hasText && !hasBlocks) {
+    throw new SlackApiError("missing_text_or_blocks");
+  }
+
+  // Build the body conditionally — keeping unset keys out of the body
+  // makes the intent obvious and avoids accidentally sending
+  // `{ text: undefined }` which JSON.stringify drops but reads
+  // ambiguously.
   const body: Record<string, unknown> = {
     channel: input.channel,
-    text: input.text,
   };
+  if (input.text !== undefined) {
+    body.text = input.text;
+  }
+  if (input.blocks !== undefined) {
+    body.blocks = input.blocks;
+  }
   if (input.threadTs !== undefined) {
     body.thread_ts = input.threadTs;
   }

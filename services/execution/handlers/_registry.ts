@@ -108,6 +108,7 @@ import { getMessages as slackGetMessages } from "@/integrations/slack/actions/ge
 import { getThreadMessages as slackGetThreadMessages } from "@/integrations/slack/actions/getThreadMessages";
 import { listScheduledMessages as slackListScheduledMessages } from "@/integrations/slack/actions/listScheduledMessages";
 import { pinMessage as slackPinMessage } from "@/integrations/slack/actions/pinMessage";
+import { postInteractiveBlocks as slackPostInteractiveBlocks } from "@/integrations/slack/actions/postInteractiveBlocks";
 import { removeReaction as slackRemoveReaction } from "@/integrations/slack/actions/removeReaction";
 import { scheduleMessage as slackScheduleMessage } from "@/integrations/slack/actions/scheduleMessage";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
@@ -155,6 +156,7 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "remove_reaction", handler: slackRemoveReaction },
   { provider: "slack", type: "pin_message", handler: slackPinMessage },
   { provider: "slack", type: "unpin_message", handler: slackUnpinMessage },
+  { provider: "slack", type: "post_interactive_blocks", handler: slackPostInteractiveBlocks },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },

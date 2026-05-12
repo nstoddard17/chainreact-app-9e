@@ -195,4 +195,79 @@ describe("chatPostMessage", () => {
     expect(body).toEqual({ channel: "C1", text: "hi" });
     expect("thread_ts" in body).toBe(false);
   });
+
+  it("forwards blocks to Slack when provided (Slack 2.1 Commit 7 — Block Kit)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          ts: "1.0",
+          channel: "C1",
+          message: { blocks: [{ type: "section", text: { type: "mrkdwn", text: "hi" } }] },
+        }),
+        { status: 200 },
+      ),
+    );
+    const blocks = [{ type: "section", text: { type: "mrkdwn", text: "hi" } }];
+    await chatPostMessage({
+      botToken: "xoxb",
+      channel: "C1",
+      blocks,
+      text: "fallback for notifications",
+    });
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const body = JSON.parse((init as { body: string }).body);
+    expect(body).toEqual({
+      channel: "C1",
+      text: "fallback for notifications",
+      blocks,
+    });
+  });
+
+  it("omits text when only blocks is provided (Block Kit without notification fallback)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          ts: "1.0",
+          channel: "C1",
+          message: { blocks: [{ type: "divider" }] },
+        }),
+        { status: 200 },
+      ),
+    );
+    const blocks = [{ type: "divider" }];
+    await chatPostMessage({ botToken: "xoxb", channel: "C1", blocks });
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const body = JSON.parse((init as { body: string }).body);
+    expect(body).toEqual({ channel: "C1", blocks });
+    expect("text" in body).toBe(false);
+  });
+
+  it("throws SlackApiError 'missing_text_or_blocks' when neither text nor blocks is provided (defense-in-depth)", async () => {
+    // Slack would also reject this server-side, but we throw locally
+    // with a clearer code so the engine surfaces it as a config-shape
+    // problem instead of as a Slack API failure.
+    await expect(
+      chatPostMessage({ botToken: "xoxb", channel: "C1" }),
+    ).rejects.toMatchObject({ slackErrorCode: "missing_text_or_blocks" });
+  });
+
+  it("throws 'missing_text_or_blocks' when text is empty string AND blocks is empty array", async () => {
+    await expect(
+      chatPostMessage({ botToken: "xoxb", channel: "C1", text: "", blocks: [] }),
+    ).rejects.toMatchObject({ slackErrorCode: "missing_text_or_blocks" });
+  });
+
+  it("does NOT throw missing_text_or_blocks when blocks is non-empty even if text is absent", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ ok: true, ts: "1.0", channel: "C1", message: { blocks: [{ type: "divider" }] } }),
+        { status: 200 },
+      ),
+    );
+    await expect(
+      chatPostMessage({ botToken: "xoxb", channel: "C1", blocks: [{ type: "divider" }] }),
+    ).resolves.toBeDefined();
+  });
 });
