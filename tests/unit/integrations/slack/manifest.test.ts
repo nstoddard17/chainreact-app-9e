@@ -91,6 +91,33 @@ describe("Slack manifest", () => {
     );
   });
 
+  it("includes channels:manage in required scopes (Slack 2.3 Commit 3 — public channel lifecycle / membership / metadata admin)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["channels:manage"]),
+    );
+  });
+
+  it("includes channels:join in required scopes (Slack 2.3 Commit 3 — bot self-join for public channels)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["channels:join"]),
+    );
+  });
+
+  it("includes groups:write in required scopes (Slack 2.3 Commit 3 — full admin for private channels)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["groups:write"]),
+    );
+  });
+
+  it("still does NOT add users:read.email — deferred indefinitely (PII; Slack 2.3 plan §6 #3)", () => {
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["users:read.email"]),
+    );
+    expect(slackManifest.scopes.optional).not.toEqual(
+      expect.arrayContaining(["users:read.email"]),
+    );
+  });
+
   it("does NOT yet add file scopes (deferred to Slack 2.3)", () => {
     expect(slackManifest.scopes.required).not.toEqual(
       expect.arrayContaining(["files:read"]),

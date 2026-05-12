@@ -1,7 +1,7 @@
 import { decryptToken } from "@/core/encryption/tokens";
 import { getActiveForExecution } from "@/repositories/integrations";
 import type { ActionHandler } from "@/services/execution/handlers/types";
-import { conversationsInfo } from "../api/conversationsInfo";
+import { conversationsInfo } from "../../api/conversationsInfo";
 import { GetChannelInfoConfigSchema } from "./getChannelInfo.schema";
 
 /**

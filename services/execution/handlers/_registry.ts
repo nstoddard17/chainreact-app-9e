@@ -102,19 +102,29 @@ import { updateInventory as shopifyUpdateInventory } from "@/integrations/shopif
 import { updateOrderStatus as shopifyUpdateOrderStatus } from "@/integrations/shopify/actions/updateOrderStatus";
 import { updateProduct as shopifyUpdateProduct } from "@/integrations/shopify/actions/updateProduct";
 import { addReaction as slackAddReaction } from "@/integrations/slack/actions/addReaction";
+import { archiveChannel as slackArchiveChannel } from "@/integrations/slack/actions/channels/archiveChannel";
 import { cancelScheduledMessage as slackCancelScheduledMessage } from "@/integrations/slack/actions/cancelScheduledMessage";
+import { createChannel as slackCreateChannel } from "@/integrations/slack/actions/channels/createChannel";
 import { deleteMessage as slackDeleteMessage } from "@/integrations/slack/actions/deleteMessage";
-import { getChannelInfo as slackGetChannelInfo } from "@/integrations/slack/actions/getChannelInfo";
+import { getChannelInfo as slackGetChannelInfo } from "@/integrations/slack/actions/channels/getChannelInfo";
 import { getMessages as slackGetMessages } from "@/integrations/slack/actions/getMessages";
 import { getThreadMessages as slackGetThreadMessages } from "@/integrations/slack/actions/getThreadMessages";
-import { listChannels as slackListChannels } from "@/integrations/slack/actions/listChannels";
+import { inviteUsersToChannel as slackInviteUsersToChannel } from "@/integrations/slack/actions/channels/inviteUsersToChannel";
+import { joinChannel as slackJoinChannel } from "@/integrations/slack/actions/channels/joinChannel";
+import { leaveChannel as slackLeaveChannel } from "@/integrations/slack/actions/channels/leaveChannel";
+import { listChannels as slackListChannels } from "@/integrations/slack/actions/channels/listChannels";
 import { listScheduledMessages as slackListScheduledMessages } from "@/integrations/slack/actions/listScheduledMessages";
 import { pinMessage as slackPinMessage } from "@/integrations/slack/actions/pinMessage";
 import { postInteractiveBlocks as slackPostInteractiveBlocks } from "@/integrations/slack/actions/postInteractiveBlocks";
 import { removeReaction as slackRemoveReaction } from "@/integrations/slack/actions/removeReaction";
+import { removeUserFromChannel as slackRemoveUserFromChannel } from "@/integrations/slack/actions/channels/removeUserFromChannel";
+import { renameChannel as slackRenameChannel } from "@/integrations/slack/actions/channels/renameChannel";
 import { scheduleMessage as slackScheduleMessage } from "@/integrations/slack/actions/scheduleMessage";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import { sendDirectMessage as slackSendDirectMessage } from "@/integrations/slack/actions/sendDirectMessage";
+import { setChannelPurpose as slackSetChannelPurpose } from "@/integrations/slack/actions/channels/setChannelPurpose";
+import { setChannelTopic as slackSetChannelTopic } from "@/integrations/slack/actions/channels/setChannelTopic";
+import { unarchiveChannel as slackUnarchiveChannel } from "@/integrations/slack/actions/channels/unarchiveChannel";
 import { unpinMessage as slackUnpinMessage } from "@/integrations/slack/actions/unpinMessage";
 import { updateMessage as slackUpdateMessage } from "@/integrations/slack/actions/updateMessage";
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
@@ -161,6 +171,16 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "post_interactive_blocks", handler: slackPostInteractiveBlocks },
   { provider: "slack", type: "list_channels", handler: slackListChannels },
   { provider: "slack", type: "get_channel_info", handler: slackGetChannelInfo },
+  { provider: "slack", type: "create_channel", handler: slackCreateChannel },
+  { provider: "slack", type: "archive_channel", handler: slackArchiveChannel },
+  { provider: "slack", type: "unarchive_channel", handler: slackUnarchiveChannel },
+  { provider: "slack", type: "rename_channel", handler: slackRenameChannel },
+  { provider: "slack", type: "join_channel", handler: slackJoinChannel },
+  { provider: "slack", type: "leave_channel", handler: slackLeaveChannel },
+  { provider: "slack", type: "invite_users_to_channel", handler: slackInviteUsersToChannel },
+  { provider: "slack", type: "remove_user_from_channel", handler: slackRemoveUserFromChannel },
+  { provider: "slack", type: "set_channel_topic", handler: slackSetChannelTopic },
+  { provider: "slack", type: "set_channel_purpose", handler: slackSetChannelPurpose },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },

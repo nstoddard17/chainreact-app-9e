@@ -19,7 +19,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
-import { getChannelInfo } from "@/integrations/slack/actions/getChannelInfo";
+import { getChannelInfo } from "@/integrations/slack/actions/channels/getChannelInfo";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 

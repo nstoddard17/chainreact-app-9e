@@ -1,0 +1,33 @@
+import { decryptToken } from "@/core/encryption/tokens";
+import { getActiveForExecution } from "@/repositories/integrations";
+import type { ActionHandler } from "@/services/execution/handlers/types";
+import { conversationsArchive } from "../../api/conversationsArchive";
+import { ArchiveChannelConfigSchema } from "./archiveChannel.schema";
+
+/**
+ * Slack `archive_channel` action handler (Slack 2.3 Commit 3).
+ *
+ * Output:
+ *   - `channel` — the archived channel id (echoed; Slack returns no body).
+ */
+export const archiveChannel: ActionHandler = async (input) => {
+  const config = ArchiveChannelConfigSchema.parse(input.config);
+
+  const accountId =
+    input.triggerEvent.provider === "slack"
+      ? input.triggerEvent.accountId
+      : null;
+  const integration = await getActiveForExecution(input.userId, "slack", accountId);
+  if (!integration) {
+    throw new Error(
+      accountId
+        ? `No active Slack integration found for workspace ${accountId}.`
+        : "No active Slack integration found for this user.",
+    );
+  }
+  const botToken = decryptToken(integration.accessTokenEncrypted);
+
+  await conversationsArchive({ botToken, channel: config.channel });
+
+  return { output: { channel: config.channel } };
+};

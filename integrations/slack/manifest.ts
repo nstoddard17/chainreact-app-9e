@@ -52,6 +52,20 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       // channels the bot has visibility into. Public channels are
       // already covered by channels:read above.
       "groups:read",
+      // Slack 2.3 Commit 3 — public channel lifecycle / membership /
+      // metadata admin (conversations.create / .archive / .unarchive /
+      // .rename / .invite / .kick / .setTopic / .setPurpose for public
+      // channels).
+      "channels:manage",
+      // Slack 2.3 Commit 3 — bot joins a public channel via
+      // conversations.join. Separate from channels:manage by Slack's
+      // scope model; required defensively per Slack 2.3 plan §6 #7.
+      "channels:join",
+      // Slack 2.3 Commit 3 — full admin for private channels:
+      // create / archive / unarchive / rename / join / leave / invite /
+      // kick / setTopic / setPurpose all dispatch through groups:write
+      // when channel_type is "group".
+      "groups:write",
     ],
     optional: [
       "users:read",
