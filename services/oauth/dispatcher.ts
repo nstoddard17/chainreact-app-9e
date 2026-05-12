@@ -23,6 +23,7 @@ import { shopifyOAuth } from "@/integrations/shopify/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import { stripeOAuth } from "@/integrations/stripe/oauth";
+import { trelloAuth } from "@/integrations/trello/auth";
 import {
   getActiveForExecution,
   updateTokens,
@@ -69,7 +70,9 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
  * on `manifest.authFlow` to decide which registry to consult.
  */
 const TOKEN_INGEST_BY_PROVIDER: Readonly<Record<string, ProviderTokenIngestAuth>> =
-  Object.freeze({});
+  Object.freeze({
+    trello: trelloAuth,
+  });
 
 export interface ConnectInput {
   userId: string;

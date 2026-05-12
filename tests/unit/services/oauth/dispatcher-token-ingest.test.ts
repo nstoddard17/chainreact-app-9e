@@ -51,8 +51,8 @@ afterEach(() => {
 });
 
 const TOKEN_INGEST_MANIFEST = {
-  id: "trello",
-  displayName: "Trello",
+  id: "fake-ingest-provider",
+  displayName: "Fake Ingest Provider",
   isEnabled: true,
   isExperimental: false,
   tokenScope: "user",
@@ -79,7 +79,7 @@ describe("dispatcher.connect (token_ingest branch)", () => {
     mockGetProvider.mockReturnValue(TOKEN_INGEST_MANIFEST);
     const { connect } = await import("@/services/oauth/dispatcher");
     await expect(
-      connect({ userId: "user-1", provider: "trello" }),
+      connect({ userId: "user-1", provider: "fake-ingest-provider" }),
     ).rejects.toThrow(/No token-ingest implementation registered/);
     // Still wrote the state row? No — the registry check runs BEFORE
     // createState. We don't want a half-baked state row left behind.
@@ -92,7 +92,7 @@ describe("dispatcher.connect (token_ingest branch)", () => {
     await expect(
       connect({
         userId: "user-1",
-        provider: "trello",
+        provider: "fake-ingest-provider",
         providerHint: { shop: "x" },
       }),
     ).rejects.toThrow(/does not accept providerHint/);
@@ -107,7 +107,7 @@ describe("dispatcher.handleTokenIngest (rejection paths — no impl required)", 
     await expect(
       handleTokenIngest({
         userId: "user-1",
-        provider: "trello",
+        provider: "fake-ingest-provider",
         state: "",
         token: "abc",
       }),
@@ -121,7 +121,7 @@ describe("dispatcher.handleTokenIngest (rejection paths — no impl required)", 
     await expect(
       handleTokenIngest({
         userId: "user-1",
-        provider: "trello",
+        provider: "fake-ingest-provider",
         state: "some-state",
         token: "",
       }),
@@ -134,7 +134,7 @@ describe("dispatcher.handleTokenIngest (rejection paths — no impl required)", 
     await expect(
       handleTokenIngest({
         userId: "",
-        provider: "trello",
+        provider: "fake-ingest-provider",
         state: "x",
         token: "y",
       }),
@@ -147,7 +147,7 @@ describe("dispatcher.handleTokenIngest (rejection paths — no impl required)", 
     await expect(
       handleTokenIngest({
         userId: "user-1",
-        provider: "trello",
+        provider: "fake-ingest-provider",
         state: "x",
         token: "y",
       }),
@@ -214,7 +214,7 @@ describe("dispatcher.handleTokenIngest (full path with injected provider)", () =
     await expect(
       handleTokenIngest({
         userId: "user-1",
-        provider: "trello",
+        provider: "fake-ingest-provider",
         state: "x",
         token: "y",
       }),
@@ -238,13 +238,13 @@ describe("dispatcher.connect (existing OAuth providers unaffected)", () => {
   it("does NOT enter the token_ingest branch for code_callback providers", async () => {
     mockGetProvider.mockReturnValue(CODE_CALLBACK_MANIFEST);
     const { connect } = await import("@/services/oauth/dispatcher");
-    // The dispatcher's OAuth path will reject because `trello` is not
+    // The dispatcher's OAuth path will reject because `fake-ingest-provider` is not
     // in OAUTH_BY_PROVIDER. The rejection message specifically points
     // to the OAuth registry — proving the dispatcher took the OAuth
     // branch, NOT the token-ingest branch (which would have rejected
     // with "No token-ingest implementation registered").
     await expect(
-      connect({ userId: "user-1", provider: "trello" }),
+      connect({ userId: "user-1", provider: "fake-ingest-provider" }),
     ).rejects.toThrow(/No OAuth implementation registered/);
   });
 });

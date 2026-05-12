@@ -20,6 +20,7 @@ import { notionManifest } from "./notion/manifest";
 import { shopifyManifest } from "./shopify/manifest";
 import { slackManifest } from "./slack/manifest";
 import { stripeManifest } from "./stripe/manifest";
+import { trelloManifest } from "./trello/manifest";
 
 // Side-effect imports: each provider's trigger/handler modules self-register
 // with the polling + activation + subscription registries at module load.
@@ -76,6 +77,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   hubspotManifest,
   githubManifest,
   mailchimpManifest,
+  trelloManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws
