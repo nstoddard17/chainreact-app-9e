@@ -1,10 +1,23 @@
 # Parity audit — Gmail
 
-**Status:** Audit / not yet accepted. **Doc-only commit.**
+**Status:** **ACCEPTED 2026-05-12.** Implementation cleared to begin at Gmail 2.1.
 **V1 source:** `c:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e`
 **V2 baseline:** [`integrations/gmail/`](../../integrations/gmail/) (slice 2a–2e)
 **Phase 1 surface shipped:** 1 action (`sendEmail`, minimal field set), 1 polling trigger (`new_email`, historyId cursor + client-side filters)
 **Master plan:** [`docs/slices/phase-2-plan.md`](phase-2-plan.md). Audit follows the 14-section template defined there.
+
+## Accepted decisions (2026-05-12)
+
+Recorded verbatim from Marcus's acceptance. These resolve every NPD / open-question row in §6, §7, and §14:
+
+1. **`advancedSearch`:** SKIP — FOLD into `searchEmails` as a query/filter mode (per §7 recommendation).
+2. **`deleteEmail`:** Port with `requireExplicitField` on a `deleteMode: "trash" | "permanent"` enum. **No silent default.** Two-separate-actions split is acceptable alternative if it falls out cleaner during implementation.
+3. **`newStarredEmail` trigger:** **DEFER.** Do not port in Gmail 2.1 or 2.2. When revisited later, drop the V1 hidden 2-day heuristic — make the window configurable or skip the trigger entirely.
+4. **`new_email` AI content filter:** **DEFER to Phase 5 / AI-agent work.** Do not restore during Gmail parity.
+5. **sendEmail dropped fields:** Drop `scheduleSend`, `trackOpens`, `trackClicks` at port time. No silent-no-op fields ship into V2 (G-R5 closed).
+6. **Gmail scope expansion (P-G1):** Add `gmail.modify` + `gmail.compose` when Gmail 2.1 begins. Manifest is the single source of truth.
+7. **P-G2 `parseRecipients`:** Verify the helper already exists in V2. Reuse if present; port from V1 if missing.
+8. **Sequencing:** Start Gmail 2.1 immediately. No wait on Slack parity slices.
 
 **Recommendation up front.** V1 registers **15 Gmail actions** (+ 2 implemented-but-unregistered orphans) and **4 trigger schemas**; V2 ships **1 action** (partial — missing attachments + 8 advanced send fields) and **1 polling trigger** (`new_email`). Audit recommends **9 actions PORT now** (createDraft / createDraftReply / replyToEmail / addLabel / removeLabel / createLabel / archiveEmail / deleteEmail / searchEmails), **3 actions PORT–EXPAND existing handler** (sendEmail attachments + advanced fields, markAsRead/markAsUnread as new handlers), **2 actions PORT after P-S3** (getAttachment / downloadAttachment), **1 action SKIP** (advancedSearch — fold into searchEmails query-builder), **2 orphans SKIP** (fetchMessage / updateSignature — never registered in V1). Triggers: **2 PORT** (newAttachment, newLabeledEmail) as additional polling handlers reusing the historyId cursor, **1 NEEDS PRODUCT DECISION** (newStarredEmail — V1's "2-day window" UX is a heuristic, not provider-native semantics), **1 FOLLOW-UP** (restore AI content filter on `new_email` — deferred per Slice 2e). Three required platform gaps: **P-S3** (file output contract — gates 2 actions + 1 trigger payload), **P-G1** (Gmail-specific scope expansion: `gmail.modify` / `gmail.labels` / `gmail.compose` — current manifest is `readonly + send` only), **P-G2** (multi-recipient parsing for V2 sendEmail's `to`/`cc`/`bcc` — V1 used `parseRecipients` per Q7; V2 currently passes raw strings verbatim into the RFC 5322 header). Recommended split: **3 parity slices** (compose + drafts / labels + lifecycle / triggers + attachments) totaling ~12 commits across the slices. Gmail is the highest-leverage parity port after Slack and the first to require attachment-flow design.
 
@@ -210,8 +223,8 @@ V2 ships 1 of V1's 4 triggers. Missing 3, plus a deferred follow-up on the one V
 |---|---|---|---|---|
 | 1 | `newAttachment` | Same historyId cursor as `new_email`; extra hydration step (need `format=full` or follow-up `attachments.get` to get filenames + sizes) | `fileType` (preset 9 categories) / `from` / `minSize` MB | V2's `new_email` poll uses `format=metadata` which omits `payload.parts` — attachment-aware trigger requires either `format=full` per message OR a two-call pattern (metadata first, parts pull only when attachments suspected via top-level `multipart/mixed`). Plus the trigger event payload must carry attachment metadata — gates on P-S3 if the trigger consumer needs the file content downstream, but the trigger itself can ship without P-S3 carrying just metadata + attachmentId references. |
 | 2 | `newLabeledEmail` | Same historyId cursor; consume `labelsAdded` records from `users.history.list` (already emitted alongside `messagesAdded` — V2's `extractMessageIds` flattens both into a single id list, which collapses the per-event distinction needed for "label was just added") | `labelId` (single, required) / `from` / `includeReplies` (default true) | V2 poll currently treats `messageAdded` and `labelAdded` identically — it can't distinguish "new email" from "label added to existing email". Per-trigger requires extracting the label-add event separately and matching against the configured `labelId`. **Requires changes to `extractMessageIds` + history-walk to keep event-type tags through the pipeline.** |
-| 3 | `newStarredEmail` | Same historyId cursor; consume `labelsAdded` records where `labelIds` contains `STARRED` | `from` / `subject` (substring) | **V1's description "(within 2 days of receiving it)" is enforced as a post-history-walk filter** — the trigger only fires when star event happens within 48h of the message's `internalDate`. This is a heuristic, not a provider-native semantic. Needs product decision (see §7). |
-| — | (follow-up) | `new_email` AI content filter | (none — restore V1's `aiContentFilter` + `aiFilterConfidence` + `aiFailClosed` + `aiUseEmbeddingPrefilter`) | Per V2's [`schema.ts:8-13`](c:/Users/marcu/source/repos/ChainReactV2/integrations/gmail/triggers/newEmail/schema.ts#L8) comment: deferred at slice 2e port time. Adds `@anthropic-ai/sdk` dep + the "fails open" semantic where AI errors bypass user filters silently (Q11-adjacent — fail-open is the wrong default; V1's `aiFailClosed` flag was opt-in). Restore-or-skip decision rides on AI-platform readiness in V2. |
+| 3 | `newStarredEmail` | Same historyId cursor; consume `labelsAdded` records where `labelIds` contains `STARRED` | `from` / `subject` (substring) | **DEFERRED (decision 3).** Not in Gmail 2.1 / 2.2. When revisited: drop V1's hidden 2-day heuristic — either make the window a configurable field or skip the trigger entirely. |
+| — | (follow-up) | `new_email` AI content filter | (none — restore V1's `aiContentFilter` + `aiFilterConfidence` + `aiFailClosed` + `aiUseEmbeddingPrefilter`) | **DEFERRED to Phase 5 / AI-agent work (decision 4).** Not part of Gmail parity. |
 
 **Plus dead-code emit to NOT port:** V1's `gmail-processor.ts` emits canonical event types for `label.removed`, `attachment.added`, `message.modified`, `message.deleted` — no schemas in V1 for those. Skip.
 
@@ -235,7 +248,7 @@ Decisions per item from §5 + §6. Reasoning cites master-plan rot IDs (R1..R14)
 | `markAsRead` | action | **port** | `users.messages.modify` removing `UNREAD`. Bot-account scope is fine (`gmail.modify`). |
 | `markAsUnread` | action | **port** | Pairs with `markAsRead`. |
 | `archiveEmail` | action | **port** | `users.messages.modify` removing `INBOX`. |
-| `deleteEmail` | action | **needs product decision** | V1 schema has a "deleteOption" toggle: permanent (`users.messages.delete`) OR trash (`users.messages.trash`). **Q11 risk:** if V1 silently defaulted to one of these, port should require explicit choice. Verify default at port time; if no default → safe port; if silent default → port with `requireExplicitField` per Q11. |
+| `deleteEmail` | action | **port — `requireExplicitField` (decision 2)** | Port with a required `deleteMode: "trash" \| "permanent"` enum routed through `requireExplicitField` per Q11. No silent default. Two-separate-actions split (`trashEmail` + `permanentlyDeleteEmail`) is an acceptable alternative if it falls out cleaner at implementation time. |
 | `searchEmails` | action | **port** | `users.messages.list` + per-message hydration; lift V1's rate-limiting helper as a V2 utility. |
 | `advancedSearch` | action | **skip — fold into searchEmails** | V1's `advancedSearch` is **a query-builder UI overlay** on top of the same `users.messages.list` endpoint. The 354-line handler does field-to-q-syntax mapping in TypeScript; this belongs in the V2 schema (Zod `transform` or a small helper in `searchEmails`) — not as a separate action. Fold the query-builder fields into `searchEmails`'s schema with a `searchMode: "filters" | "query"` discriminator. **Saves one action surface; same provider call.** |
 | `getAttachment` | action | **port (gated by P-S3)** | Returns attachment metadata + optional inline base64 content. The "optional inline content" path needs the V2 file-output contract — `saveToVariable: true` produces an `output.file` carrying the attachment. Port lands when P-S3 is consumable; metadata-only port can ship first. |
@@ -243,7 +256,7 @@ Decisions per item from §5 + §6. Reasoning cites master-plan rot IDs (R1..R14)
 | `fetchMessage` | orphan | **skip** | R5 — orphan handler in V1 (implemented, not registered). If "get email by id" is needed, build V2-native using the existing `usersMessagesGet` API wrapper. |
 | `updateSignature` | orphan | **skip** | R5 — orphan handler. Needs `gmail.settings.basic` scope which neither V1's main scope list nor V2's manifest carries — confirms the feature was never end-to-end. |
 
-**Action totals: 9 PORT, 1 PORT–EXPAND (sendEmail), 1 SKIP (advancedSearch — fold), 2 PORT (gated by P-S3), 1 NEEDS PRODUCT DECISION (deleteEmail default), 2 SKIP (orphans).**
+**Action totals: 10 PORT (incl. deleteEmail w/ `requireExplicitField`), 1 PORT–EXPAND (sendEmail), 1 SKIP–FOLD (advancedSearch → searchEmails query mode), 2 PORT (gated by P-S3), 2 SKIP (orphans).**
 
 ### Triggers
 
@@ -251,21 +264,20 @@ Decisions per item from §5 + §6. Reasoning cites master-plan rot IDs (R1..R14)
 |---|---|---|---|
 | `newAttachment` | trigger | **port (metadata only first; payload-with-content gated by P-S3)** | Reuses historyId cursor + dedup + filters infra from `new_email`. Adds a `mimeType + size` heuristic step; the attachment array in the trigger payload carries `{attachmentId, filename, mimeType, size}` references. Downstream actions use `getAttachment` to actually pull bytes. Independent of P-S3 for the trigger itself. |
 | `newLabeledEmail` | trigger | **port** | Requires extending V2's `extractMessageIds` to keep `labelsAdded` events distinct from `messagesAdded` (currently flattened together). Each `labelsAdded` record from `users.history.list` already carries the `labelIds` array — match against the configured `labelId`. **No new platform gap** — just a localized poll-handler change. |
-| `newStarredEmail` | trigger | **needs product decision** | V1's "2-day window" UX is a heuristic, not provider-native. Three options: (a) port the heuristic verbatim; (b) drop the window — fires for any star event, with a config flag `onlyRecent: boolean`; (c) skip entirely (low-frequency trigger). Decision affects whether the trigger schema carries a "look-back window" config field. |
-| `new_email` AI filter | follow-up | **defer (skipped in slice 2e; restore after AI platform decision)** | V1 had AI content filter as a config field; V2 dropped it intentionally per slice 2e's comment. Restoration requires (i) Anthropic SDK dep wiring + (ii) explicit `aiFailClosed` default per Q11 (V1 default was `false` = fail-open, which silently bypasses user filters on AI errors — wrong default). Decoupled from this audit's parity batches; ship when V2 AI platform path is decided (Phase 5 territory). |
+| `newStarredEmail` | trigger | **defer (decision 3)** | Not in Gmail 2.1 / 2.2. When revisited: drop V1's hidden 2-day heuristic — either make the window configurable or skip the trigger. |
+| `new_email` AI filter | follow-up | **defer to Phase 5 (decision 4)** | Not part of Gmail parity. Restoration owned by Phase 5 / AI-agent work. |
 
-**Trigger totals: 2 PORT, 1 NEEDS PRODUCT DECISION, 1 FOLLOW-UP (deferred).**
+**Trigger totals: 2 PORT (newAttachment, newLabeledEmail), 1 DEFER (newStarredEmail — decision 3), 1 DEFER to Phase 5 (new_email AI filter — decision 4).**
 
 ### Summary counts (per master plan §1)
 
-- **Port:** 9 actions + 2 triggers = **11**
+- **Port:** 10 actions + 2 triggers = **12**
 - **Port — expand existing:** 1 action (`sendEmail`)
 - **Port — gated by P-S3:** 2 actions (`getAttachment`, `downloadAttachment`)
 - **Port — redesign:** 1 action (`downloadAttachment` — drop multi-storage dispatch)
 - **Skip — fold:** 1 action (`advancedSearch` → `searchEmails` query mode)
 - **Skip — orphan:** 2 actions (`fetchMessage`, `updateSignature`)
-- **Needs product decision:** 1 action (`deleteEmail` default), 1 trigger (`newStarredEmail` window)
-- **Follow-up (deferred):** 1 trigger feature (`new_email` AI content filter restore)
+- **Defer:** 1 trigger (`newStarredEmail` — decision 3) + 1 trigger feature (`new_email` AI content filter — decision 4, Phase 5).
 
 ---
 
@@ -454,18 +466,15 @@ Sequence of slices and the order they ship in. Each slice is its own audit-accep
 
 This audit is complete when Marcus has:
 
-- [ ] Read sections 1–13.
-- [ ] Confirmed the action port/skip/defer table (§7) — especially the **SKIP — fold** decision (`advancedSearch` → `searchEmails` query mode) and the **NEEDS PRODUCT DECISION** items (`deleteEmail` default, `newStarredEmail` 2-day window).
-- [ ] Confirmed the trigger port/skip/defer table (§7) — especially the deferred `new_email` AI content filter restore.
-- [ ] Confirmed the 3 platform gaps (§10) are filed as separate slice candidates: **P-S3** file output contract (already in flight; shared with Slack 2.3), **P-G1** Gmail scope expansion (manifest-only — can bundle into 2.1 commit 1), **P-G2** multi-recipient parsing (Q7 — likely already in V2 via Slack's port; verify before 2.1 commit 1).
-- [ ] Confirmed the recommended split into **3 parity slices** (§11) with an estimated **~11 commits total**.
-- [ ] Decided whether to:
-  - **(a)** start Gmail 2.1 immediately after acceptance (since it has no external dependencies); OR
-  - **(b)** delay Gmail 2.1 until Slack 2.1 ships (Slack is priority 1 per the master plan); OR
-  - **(c)** ship Gmail 2.1 + 2.2 in parallel with Slack 2.1 (they touch no shared files).
-- [ ] Decided on the `deleteEmail` default (§7 row, G-R5-adjacent): port with `requireExplicitField` no-default, OR port with `trash` as the soft default, OR split into two actions (`trashEmail` + `permanentlyDeleteEmail`).
-- [ ] Decided on the `newStarredEmail` 2-day window (§6 row 3): port heuristic verbatim / drop window with config flag / skip trigger entirely.
-- [ ] Decided on the dropped send-email fields (G-R5): confirm `scheduleSend` / `trackOpens` / `trackClicks` are removed at port time and document the rationale in the V2 sendEmail expand commit.
-- [ ] Confirmed `gmail.modify` + `gmail.compose` scope expansion is acceptable (re-consent required for existing users at next connect).
+- [x] Read sections 1–13.
+- [x] Confirmed the action port/skip/defer table (§7) — `advancedSearch` SKIP–FOLD accepted (decision 1); `deleteEmail` port with `requireExplicitField` on `deleteMode` enum (decision 2).
+- [x] Confirmed the trigger port/skip/defer table (§7) — `newStarredEmail` DEFERRED (decision 3); `new_email` AI content filter DEFERRED to Phase 5 (decision 4).
+- [x] Confirmed the 3 platform gaps (§10) are filed as separate slice candidates: **P-S3** file output contract (already in flight; shared with Slack 2.3), **P-G1** Gmail scope expansion (manifest-only — bundles into 2.1 commit 1; decision 6 accepted), **P-G2** multi-recipient parsing (decision 7: verify, reuse if present, port if missing).
+- [x] Confirmed the recommended split into **3 parity slices** (§11) with an estimated **~11 commits total**.
+- [x] Sequencing decided (decision 8): **start Gmail 2.1 immediately** — option (a). No wait on Slack parity slices.
+- [x] `deleteEmail` decided (decision 2): port with `requireExplicitField` + `deleteMode: "trash" | "permanent"`. No silent default. Two-separate-actions split acceptable if it falls out cleaner at port time.
+- [x] `newStarredEmail` decided (decision 3): DEFER. When revisited later, drop the V1 hidden 2-day heuristic — configurable window OR skip trigger.
+- [x] Dropped send-email fields confirmed (decision 5): `scheduleSend`, `trackOpens`, `trackClicks` removed at port time. Rationale documented in the V2 sendEmail expand commit.
+- [x] `gmail.modify` + `gmail.compose` scope expansion confirmed (decision 6): manifest is the single source of truth.
 
-**Implementation does NOT begin before Marcus checks every box above.**
+**Audit accepted 2026-05-12. Implementation begins at Gmail 2.1.**
