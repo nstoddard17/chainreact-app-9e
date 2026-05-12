@@ -30,8 +30,11 @@ describe("trelloManifest", () => {
     expect(trelloManifest.capabilities.oauth).toBe(true);
   });
 
-  it("does not yet declare actions or webhook capability", () => {
-    expect(trelloManifest.capabilities.actions).toBe(false);
+  it("declares actions capability after Commit 4 (8 handlers registered)", () => {
+    expect(trelloManifest.capabilities.actions).toBe(true);
+  });
+
+  it("does not yet declare webhook or polling capability (later commit)", () => {
     expect(trelloManifest.capabilities.webhookTrigger).toBe(false);
     expect(trelloManifest.capabilities.pollingTrigger).toBe(false);
   });

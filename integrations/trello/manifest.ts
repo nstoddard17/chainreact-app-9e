@@ -44,7 +44,7 @@ export const trelloManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    actions: false,
+    actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000,
   refreshable: false,

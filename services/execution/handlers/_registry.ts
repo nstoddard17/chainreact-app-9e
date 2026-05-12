@@ -7,6 +7,14 @@ import { getTableSchema as airtableGetTableSchema } from "@/integrations/airtabl
 import { listRecords as airtableListRecords } from "@/integrations/airtable/actions/listRecords";
 import { updateRecord as airtableUpdateRecord } from "@/integrations/airtable/actions/updateRecord";
 import { addComment as githubAddComment } from "@/integrations/github/actions/addComment";
+import { addComment as trelloAddComment } from "@/integrations/trello/actions/addComment";
+import { addLabelToCard as trelloAddLabelToCard } from "@/integrations/trello/actions/addLabelToCard";
+import { archiveCard as trelloArchiveCard } from "@/integrations/trello/actions/archiveCard";
+import { createBoard as trelloCreateBoard } from "@/integrations/trello/actions/createBoard";
+import { createCard as trelloCreateCard } from "@/integrations/trello/actions/createCard";
+import { createList as trelloCreateList } from "@/integrations/trello/actions/createList";
+import { moveCard as trelloMoveCard } from "@/integrations/trello/actions/moveCard";
+import { updateCard as trelloUpdateCard } from "@/integrations/trello/actions/updateCard";
 import { createBranch as githubCreateBranch } from "@/integrations/github/actions/createBranch";
 import { createGist as githubCreateGist } from "@/integrations/github/actions/createGist";
 import { createIssue as githubCreateIssue } from "@/integrations/github/actions/createIssue";
@@ -298,6 +306,14 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "mailchimp", type: "create_audience", handler: mailchimpCreateAudience },
   { provider: "mailchimp", type: "create_custom_event", handler: mailchimpCreateCustomEvent },
   { provider: "mailchimp", type: "add_note", handler: mailchimpAddNote },
+  { provider: "trello", type: "create_card", handler: trelloCreateCard },
+  { provider: "trello", type: "update_card", handler: trelloUpdateCard },
+  { provider: "trello", type: "move_card", handler: trelloMoveCard },
+  { provider: "trello", type: "archive_card", handler: trelloArchiveCard },
+  { provider: "trello", type: "add_comment", handler: trelloAddComment },
+  { provider: "trello", type: "add_label_to_card", handler: trelloAddLabelToCard },
+  { provider: "trello", type: "create_list", handler: trelloCreateList },
+  { provider: "trello", type: "create_board", handler: trelloCreateBoard },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
