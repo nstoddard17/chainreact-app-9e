@@ -1,8 +1,10 @@
 /**
  * @jest-environment node
  *
- * Tests that integrations/slack/triggers/index.ts registers all five
- * Slack 2.1 filter implementations into the P-S2 filter registry.
+ * Tests that integrations/slack/triggers/index.ts registers all
+ * shipped Slack filter implementations into the P-S2 filter registry.
+ * Slack 2.1 shipped 5; Slack 2.2 Commit 2 adds slack.message.group;
+ * Slack 2.2 Commit 3 adds 3 lifecycle filters.
  *
  * Pattern note: filterRegistry is module-level state. Within a single
  * Jest test file the registry survives across tests; importing
@@ -18,8 +20,8 @@ import {
 
 beforeAll(() => {
   __resetTriggerFilterRegistryForTests();
-  // Side-effect import — this is the only thing the test does to set
-  // up. Importing the trigger index registers the five filters.
+  // Side-effect import — importing the trigger index registers every
+  // filter declared in integrations/slack/triggers/index.ts.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("@/integrations/slack/triggers");
 });
@@ -40,6 +42,10 @@ describe("integrations/slack/triggers — P-S2 filter registration", () => {
     expect(getTriggerFilter("slack", "slack.message.mpim")).not.toBeNull();
   });
 
+  it("registers slack/slack.message.group (Slack 2.2 Commit 2 — private channel messages)", () => {
+    expect(getTriggerFilter("slack", "slack.message.group")).not.toBeNull();
+  });
+
   it("registers slack/slack.reaction_added", () => {
     expect(getTriggerFilter("slack", "slack.reaction_added")).not.toBeNull();
   });
@@ -48,10 +54,7 @@ describe("integrations/slack/triggers — P-S2 filter registration", () => {
     expect(getTriggerFilter("slack", "slack.reaction_removed")).not.toBeNull();
   });
 
-  it("does NOT register filters for Slack 2.2 / 2.3 event types yet (channel_created, member_joined_channel, file_shared, team_join)", () => {
-    expect(getTriggerFilter("slack", "slack.channel_created")).toBeNull();
-    expect(getTriggerFilter("slack", "slack.member_joined_channel")).toBeNull();
-    expect(getTriggerFilter("slack", "slack.member_left_channel")).toBeNull();
+  it("does NOT yet register filters for Slack 2.3 event types (file_shared, team_join)", () => {
     expect(getTriggerFilter("slack", "slack.file_shared")).toBeNull();
     expect(getTriggerFilter("slack", "slack.team_join")).toBeNull();
   });

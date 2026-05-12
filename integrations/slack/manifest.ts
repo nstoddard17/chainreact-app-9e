@@ -41,6 +41,11 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       "mpim:history",
       // Slack 2.1 Commit 8 — reaction_added / reaction_removed triggers.
       "reactions:read",
+      // Slack 2.2 Commit 2 — slack_new_message_private_channel trigger
+      // needs groups:history to receive `message` events whose
+      // channel_type === "group". Also unlocks get_messages /
+      // get_thread_messages against private channels.
+      "groups:history",
     ],
     optional: [
       "users:read",

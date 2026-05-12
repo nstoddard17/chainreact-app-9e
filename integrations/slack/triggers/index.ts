@@ -2,14 +2,15 @@ import { registerTriggerFilter } from "@/core/triggers/filterRegistry";
 import { newMessageChannelFilter } from "./newMessageChannel/filter";
 import { newDirectMessageFilter } from "./newDirectMessage/filter";
 import { newGroupDirectMessageFilter } from "./newGroupDirectMessage/filter";
+import { newMessagePrivateChannelFilter } from "./newMessagePrivateChannel/filter";
 import { reactionAddedFilter } from "./reactionAdded/filter";
 import { reactionRemovedFilter } from "./reactionRemoved/filter";
 
 /**
- * Slack trigger filter registrations (Slack 2.1 Commit 8).
+ * Slack trigger filter registrations (Slack 2.1 Commit 8 + Slack 2.2 Commit 2).
  *
- * Importing this module registers all 5 Slack message + reaction
- * filter implementations with the P-S2 trigger filter registry
+ * Importing this module registers all Slack message + reaction filter
+ * implementations with the P-S2 trigger filter registry
  * (`core/triggers/filterRegistry.ts`). Registration is a side
  * effect — the module exports nothing additional callers need.
  *
@@ -30,6 +31,7 @@ import { reactionRemovedFilter } from "./reactionRemoved/filter";
 registerTriggerFilter(newMessageChannelFilter);
 registerTriggerFilter(newDirectMessageFilter);
 registerTriggerFilter(newGroupDirectMessageFilter);
+registerTriggerFilter(newMessagePrivateChannelFilter);
 registerTriggerFilter(reactionAddedFilter);
 registerTriggerFilter(reactionRemovedFilter);
 
@@ -37,6 +39,7 @@ export {
   newMessageChannelFilter,
   newDirectMessageFilter,
   newGroupDirectMessageFilter,
+  newMessagePrivateChannelFilter,
   reactionAddedFilter,
   reactionRemovedFilter,
 };

@@ -79,11 +79,8 @@ describe("Slack manifest", () => {
     );
   });
 
-  it("does NOT yet add groups:history — deferred to Slack 2.2 (private channels)", () => {
-    expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["groups:history"]),
-    );
-    expect(slackManifest.scopes.optional).not.toEqual(
+  it("includes groups:history in required scopes (Slack 2.2 Commit 2 — slack.message.group trigger + private-channel reads)", () => {
+    expect(slackManifest.scopes.required).toEqual(
       expect.arrayContaining(["groups:history"]),
     );
   });
