@@ -22,10 +22,12 @@ import {
  *     ...
  *   }
  *
- * Canonical eventType naming (P-S2 / Slack 2.1, see
- * docs/slices/slack-2-1-messaging-reactions-plan.md §3):
+ * Canonical eventType naming (P-S2 / Slack 2.1 + Slack 2.2, see
+ * docs/slices/slack-2-1-messaging-reactions-plan.md §3 and the Slack 2.2
+ * follow-up for private channels):
  *
- *   message   → slack.message.channel | slack.message.im | slack.message.mpim
+ *   message   → slack.message.channel | slack.message.group |
+ *               slack.message.im | slack.message.mpim
  *   reaction_added   → slack.reaction_added
  *   reaction_removed → slack.reaction_removed
  *   <other>          → slack.<event.type>            (forward-compatible
@@ -33,10 +35,13 @@ import {
  *                                                     registered → dispatcher
  *                                                     drops with matched=0)
  *
- * For `message`, the channel kind is derived from `event.channel_type` when
- * present (Slack-authoritative) and from the channel-id prefix as fallback.
- * Mirrors V1 normalizer logic at
- *   c:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\lib\webhooks\normalizer.ts:170-189
+ * For `message`, the channel kind is derived from `event.channel_type` —
+ * Slack's authoritative signal. The `C…` (public) and `D…` (DM) channel-id
+ * prefixes serve as a fallback when `channel_type` is absent. The legacy
+ * `G…` prefix is intentionally NOT mapped: it can be a legacy private
+ * channel OR a group DM and the two cannot be disambiguated from the id
+ * alone. Such payloads emit generic `slack.message` (dispatcher drops with
+ * matched=0). Slack 2.2 tightening — see Deep Gotchas in CLAUDE.md.
  *
  * The inner Slack `event` object is passed through verbatim as `payload`.
  * Filters and action handlers index into it directly
@@ -90,20 +95,29 @@ function deriveCanonicalEventType(event: SlackEventCallbackPayload["event"]): st
 }
 
 /**
- * Resolve the message's channel kind: "channel" (public), "im" (DM),
- * or "mpim" (group DM). Returns null only when neither `channel_type`
- * nor a recognizable channel-id prefix is present — caller emits a
- * generic `slack.message` (no filter registered → dispatcher drops).
+ * Resolve the message's channel kind: "channel" (public), "group"
+ * (private channel), "im" (DM), or "mpim" (group DM). Returns null
+ * when the kind cannot be determined — caller emits a generic
+ * `slack.message` (no filter registered → dispatcher drops).
  *
- * Slack's `channel_type` is authoritative when present. The id-prefix
+ * Slack's `channel_type` is the authoritative signal. The id-prefix
  * fallback exists because some message subtypes (`message_changed`,
  * `bot_message`) and older payload shapes omit `channel_type`.
+ *
+ * Slack 2.2 tightening: `G…`-prefixed channel ids are ambiguous —
+ * legacy private channels share the prefix with group DMs and the
+ * two cannot be disambiguated from the id alone. We therefore only
+ * fall back on `C` (public) and `D` (DM); a `G` payload with no
+ * `channel_type` falls through to generic `slack.message`. Modern
+ * private channels carry `channel_type: "group"` (often with a
+ * `C…` id) — that path resolves cleanly via the authoritative branch.
  */
 function inferMessageChannelKind(
   event: SlackEventCallbackPayload["event"],
-): "channel" | "im" | "mpim" | null {
+): "channel" | "group" | "im" | "mpim" | null {
   const channelType = event.channel_type;
   if (channelType === "channel") return "channel";
+  if (channelType === "group") return "group";
   if (channelType === "im") return "im";
   if (channelType === "mpim") return "mpim";
 
@@ -111,7 +125,6 @@ function inferMessageChannelKind(
   if (typeof channel === "string") {
     if (channel.startsWith("C")) return "channel";
     if (channel.startsWith("D")) return "im";
-    if (channel.startsWith("G")) return "mpim";
   }
 
   return null;

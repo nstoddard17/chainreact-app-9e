@@ -83,6 +83,26 @@ describe("normalizeSlackEvent — message channel-kind resolution (P-S2 canonica
     expect(normalizeSlackEvent(evt).eventType).toBe("slack.message.mpim");
   });
 
+  it("emits slack.message.group when channel_type='group' (private channel — Slack 2.2)", () => {
+    // Modern private channels carry channel_type='group' (Slack's own
+    // taxonomy). The channel id is commonly C-prefixed in current
+    // workspaces; channel_type is authoritative so the id prefix
+    // doesn't override.
+    const evt = {
+      ...baseSlackPayload,
+      event: { type: "message", channel: "C9", channel_type: "group", user: "U1", text: "hi" },
+    };
+    expect(normalizeSlackEvent(evt).eventType).toBe("slack.message.group");
+  });
+
+  it("emits slack.message.group when channel_type='group' even with a G-prefixed id (legacy private channel — Slack 2.2)", () => {
+    const evt = {
+      ...baseSlackPayload,
+      event: { type: "message", channel: "GLEGACY1", channel_type: "group", user: "U1", text: "hi" },
+    };
+    expect(normalizeSlackEvent(evt).eventType).toBe("slack.message.group");
+  });
+
   it("falls back to channel-id prefix when channel_type is missing — C → channel", () => {
     const evt = {
       ...baseSlackPayload,
@@ -99,12 +119,17 @@ describe("normalizeSlackEvent — message channel-kind resolution (P-S2 canonica
     expect(normalizeSlackEvent(evt).eventType).toBe("slack.message.im");
   });
 
-  it("falls back to channel-id prefix when channel_type is missing — G → mpim", () => {
+  it("does NOT map a G-prefixed id to mpim when channel_type is missing (Slack 2.2 tightening — ambiguous between legacy private channel and group DM)", () => {
+    // Slack 2.2 contract change: V1 + Slack 2.1 mapped G→mpim by prefix.
+    // The prefix is ambiguous (legacy private channels share it with
+    // group DMs), so we drop the heuristic and emit generic `slack.message`
+    // when channel_type is absent. No filter is registered for that
+    // canonical type → dispatcher drops with matched=0 (fail-safe).
     const evt = {
       ...baseSlackPayload,
       event: { type: "message", channel: "G-no-type", user: "U1", text: "hi" },
     };
-    expect(normalizeSlackEvent(evt).eventType).toBe("slack.message.mpim");
+    expect(normalizeSlackEvent(evt).eventType).toBe("slack.message");
   });
 
   it("channel_type takes precedence over channel-id prefix (e.g. mismatched test fixture)", () => {
