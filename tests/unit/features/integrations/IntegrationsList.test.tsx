@@ -16,6 +16,7 @@ const slackManifest: ProviderManifest = {
   capabilities: { oauth: true, webhookTrigger: true, pollingTrigger: false, actions: true },
   healthCheckIntervalMs: 60_000,
   refreshable: false,
+  authFlow: "code_callback",
 };
 
 const slackConnection: IntegrationRecord = {

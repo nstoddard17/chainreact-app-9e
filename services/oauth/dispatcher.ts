@@ -1,4 +1,9 @@
-import { type ProviderHint, type ProviderOAuth } from "@/contracts/integration";
+import {
+  type ProviderHint,
+  type ProviderOAuth,
+  type ProviderTokenIngestAuth,
+  TokenIngestVerificationError,
+} from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
 import { githubOAuth } from "@/integrations/github/oauth";
@@ -56,6 +61,16 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   mailchimp: mailchimpOAuth,
 });
 
+/**
+ * Per-provider token-ingest registry. Empty at contract-introduction
+ * time; populated as each token-ingest provider lands (Trello first).
+ *
+ * Parallel to `OAUTH_BY_PROVIDER` — the dispatcher's `connect()` branches
+ * on `manifest.authFlow` to decide which registry to consult.
+ */
+const TOKEN_INGEST_BY_PROVIDER: Readonly<Record<string, ProviderTokenIngestAuth>> =
+  Object.freeze({});
+
 export interface ConnectInput {
   userId: string;
   provider: string;
@@ -83,6 +98,35 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   if (!manifest.isEnabled) throw new Error(`Provider '${input.provider}' is disabled.`);
   if (!manifest.capabilities.oauth) {
     throw new Error(`Provider '${input.provider}' does not support OAuth.`);
+  }
+
+  // Token-ingest providers (Slice 17+) take a parallel path. They receive
+  // the token from the browser via URL fragment + client POST, not via a
+  // server callback with `code` + `state`. The dispatcher still owns
+  // state issuance — only the wire transport differs.
+  if (manifest.authFlow === "token_ingest") {
+    // Input validation (providerHint) FIRST — fails fast on bad input
+    // regardless of server-side registry config. A misconfigured server
+    // shouldn't mask a malformed client request.
+    if (input.providerHint !== undefined) {
+      throw new Error(
+        `Provider '${input.provider}' (token_ingest) does not accept providerHint.`,
+      );
+    }
+    const ingestAuth = TOKEN_INGEST_BY_PROVIDER[input.provider];
+    if (!ingestAuth) {
+      throw new Error(
+        `No token-ingest implementation registered for provider '${input.provider}'. Update services/oauth/dispatcher.ts.`,
+      );
+    }
+    const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
+    const { token: state } = await createState({
+      userId: input.userId,
+      provider: input.provider,
+      requestedScopes,
+    });
+    const redirectUrl = ingestAuth.buildAuthUrl(state, requestedScopes);
+    return { redirectUrl };
   }
 
   const oauth = OAUTH_BY_PROVIDER[input.provider];
@@ -188,6 +232,84 @@ export async function handleCallback(
     pkce,
     providerHint,
   );
+
+  const integration = await upsertActive({
+    userId: payload.userId,
+    provider: input.provider,
+    providerAccountId: account.providerAccountId,
+    displayName: account.displayName,
+    tokens,
+    accountMetadata: account.metadata,
+  });
+
+  return { integration };
+}
+
+/**
+ * Input for `handleTokenIngest` — the dispatcher operation that receives
+ * a token captured by the V2 client ingest page (Slice 17 onwards).
+ */
+export interface HandleTokenIngestInput {
+  userId: string;
+  provider: string;
+  state: string;
+  token: string;
+}
+
+/**
+ * Verify + persist a token-ingest provider's user token.
+ *
+ * Flow:
+ *   1. Validate inputs.
+ *   2. Look up the manifest; require `authFlow === "token_ingest"`.
+ *   3. Look up the provider's ingest implementation.
+ *   4. `consumeState(state)` — atomic JWT verify + DB delete-if-fresh.
+ *      State is consumed BEFORE the verify call so a failed verify
+ *      cannot leave a replayable state row behind.
+ *   5. Cross-check the JWT payload's provider AND userId against the
+ *      route-supplied values.
+ *   6. Provider's `verifyAndIngestToken` — calls the provider API to
+ *      confirm the token is valid AND fetches account info.
+ *   7. `upsertActive` — same persistence path OAuth callbacks use.
+ *
+ * NEVER logs the `token` value at any point.
+ */
+export async function handleTokenIngest(
+  input: HandleTokenIngestInput,
+): Promise<HandleCallbackOutput> {
+  if (!input.userId) throw new Error("handleTokenIngest: userId is required.");
+  if (!input.state) throw new InvalidStateError("missing state");
+  if (!input.token) {
+    throw new TokenIngestVerificationError(input.provider, "missing token");
+  }
+
+  const manifest = getProvider(input.provider);
+  if (!manifest) throw new Error(`Unknown provider: ${input.provider}`);
+  if (manifest.authFlow !== "token_ingest") {
+    throw new Error(
+      `Provider '${input.provider}' does not use token_ingest auth.`,
+    );
+  }
+
+  const ingestAuth = TOKEN_INGEST_BY_PROVIDER[input.provider];
+  if (!ingestAuth) {
+    throw new Error(
+      `No token-ingest implementation registered for provider '${input.provider}'.`,
+    );
+  }
+
+  const { payload } = await consumeState(input.state);
+  if (payload.provider !== input.provider) {
+    throw new InvalidStateError("provider mismatch between state and route");
+  }
+  if (payload.userId !== input.userId) {
+    throw new InvalidStateError("session/state user mismatch");
+  }
+
+  const { tokens, account } = await ingestAuth.verifyAndIngestToken({
+    token: input.token,
+    state: input.state,
+  });
 
   const integration = await upsertActive({
     userId: payload.userId,

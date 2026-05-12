@@ -27,6 +27,24 @@ export type ProviderCapability = z.infer<typeof ProviderCapabilitySchema>;
 export const TokenScopeSchema = z.enum(["user", "workspace"]);
 export type TokenScope = z.infer<typeof TokenScopeSchema>;
 
+/**
+ * Wire transport for the auth dance.
+ *
+ *   - `code_callback`: standard OAuth 2.0. Provider redirects to a V2
+ *     server-side callback with `?code=…&state=…`. The dispatcher's
+ *     `handleCallback` exchanges the code for tokens. Every existing V2
+ *     provider through Slice 16 uses this.
+ *
+ *   - `token_ingest`: provider returns the token directly to the browser
+ *     in the URL fragment (Trello's "client authorization" flow, and the
+ *     shape used by various API-token providers). A V2 client page reads
+ *     the fragment and POSTs the token + state to a server ingest
+ *     endpoint, which calls the dispatcher's `handleTokenIngest`. The
+ *     token never transits a provider-controlled server callback.
+ */
+export const AuthFlowSchema = z.enum(["code_callback", "token_ingest"]);
+export type AuthFlow = z.infer<typeof AuthFlowSchema>;
+
 export const ProviderManifestSchema = z
   .object({
     /** Stable id; matches the integrations/<id>/ folder name. */
@@ -65,6 +83,13 @@ export const ProviderManifestSchema = z
      * Required for tokenScope='workspace'.
      */
     accountIdField: z.string().optional(),
+    /**
+     * Wire transport used by the dispatcher's connect dance. Defaults to
+     * `code_callback` (every existing V2 provider through Slice 16) so
+     * Slice-17-era additions don't need to touch existing manifests.
+     * Token-ingest providers (Trello) declare `token_ingest`.
+     */
+    authFlow: AuthFlowSchema.default("code_callback"),
   })
   .superRefine((m, ctx) => {
     if (m.tokenScope === "workspace" && !m.accountIdField) {
@@ -79,6 +104,13 @@ export const ProviderManifestSchema = z
         code: z.ZodIssueCode.custom,
         path: ["scopes", "required"],
         message: "OAuth providers must declare at least one required scope.",
+      });
+    }
+    if (m.authFlow === "token_ingest" && m.refreshable) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["refreshable"],
+        message: "authFlow='token_ingest' providers cannot be refreshable.",
       });
     }
   });
@@ -219,6 +251,49 @@ export interface ProviderOAuth {
   refreshToken(refreshToken: string): Promise<EncryptedTokens>;
   /** Best-effort token revocation at the provider; safe to call on disconnect. */
   revoke(token: string): Promise<void>;
+}
+
+/**
+ * Per-provider token-ingest implementation. Used by manifests that declare
+ * `authFlow: "token_ingest"`. Each provider in `integrations/<id>/auth.ts`
+ * exports an object that satisfies this shape. The generic dispatcher in
+ * `services/oauth/dispatcher.ts` is the only caller.
+ *
+ * Distinct from `ProviderOAuth` because the wire shape differs:
+ *   - No `code` to exchange — the token arrives via the client ingest POST.
+ *   - No `refreshToken` — these providers don't issue refresh tokens.
+ *   - No `generatePkce` — PKCE protects a server-side code exchange that
+ *     doesn't happen in this flow.
+ *   - No `validateProviderHint` — token-ingest providers don't take
+ *     per-tenant inputs; future hybrid providers would need a separate
+ *     contract extension.
+ *
+ * Both `ProviderOAuth` and `ProviderTokenIngestAuth` providers continue to
+ * write through `repositories/integrations.upsertActive` — every
+ * persistence path remains dispatcher-canonical.
+ */
+export interface ProviderTokenIngestAuth {
+  buildAuthUrl(state: string, scopes: readonly string[]): string;
+  verifyAndIngestToken(input: {
+    token: string;
+    state: string;
+  }): Promise<{ tokens: EncryptedTokens; account: ProviderAccountInfo }>;
+  revoke(token: string): Promise<void>;
+}
+
+/**
+ * Thrown by `verifyAndIngestToken()` when the provider rejects the
+ * ingested token. Distinct from generic errors so the dispatcher and
+ * route can map it to a typed 400 response. Message intentionally omits
+ * the token value.
+ */
+export class TokenIngestVerificationError extends Error {
+  readonly reason: string;
+  constructor(provider: string, reason: string) {
+    super(`Token ingest verification failed for '${provider}': ${reason}`);
+    this.name = "TokenIngestVerificationError";
+    this.reason = reason;
+  }
 }
 
 /** Thrown by refreshToken() on providers whose flow does not return refresh tokens. */
