@@ -101,7 +101,12 @@ import { updateCustomer as shopifyUpdateCustomer } from "@/integrations/shopify/
 import { updateInventory as shopifyUpdateInventory } from "@/integrations/shopify/actions/updateInventory";
 import { updateOrderStatus as shopifyUpdateOrderStatus } from "@/integrations/shopify/actions/updateOrderStatus";
 import { updateProduct as shopifyUpdateProduct } from "@/integrations/shopify/actions/updateProduct";
+import { deleteMessage as slackDeleteMessage } from "@/integrations/slack/actions/deleteMessage";
+import { getMessages as slackGetMessages } from "@/integrations/slack/actions/getMessages";
+import { getThreadMessages as slackGetThreadMessages } from "@/integrations/slack/actions/getThreadMessages";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
+import { sendDirectMessage as slackSendDirectMessage } from "@/integrations/slack/actions/sendDirectMessage";
+import { updateMessage as slackUpdateMessage } from "@/integrations/slack/actions/updateMessage";
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
 import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
 import { confirmPaymentIntent as stripeConfirmPaymentIntent } from "@/integrations/stripe/actions/confirmPaymentIntent";
@@ -131,6 +136,11 @@ interface HandlerEntry {
 
 const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "send_channel_message", handler: sendChannelMessage },
+  { provider: "slack", type: "send_direct_message", handler: slackSendDirectMessage },
+  { provider: "slack", type: "update_message", handler: slackUpdateMessage },
+  { provider: "slack", type: "delete_message", handler: slackDeleteMessage },
+  { provider: "slack", type: "get_messages", handler: slackGetMessages },
+  { provider: "slack", type: "get_thread_messages", handler: slackGetThreadMessages },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },

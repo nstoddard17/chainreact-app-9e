@@ -150,4 +150,49 @@ describe("chatPostMessage", () => {
       expect.any(Object),
     );
   });
+
+  it("forwards thread_ts to Slack when provided (Slack 2.1 expansion)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          ts: "2.0",
+          channel: "C1",
+          message: { text: "reply", thread_ts: "1.0" },
+        }),
+        { status: 200 },
+      ),
+    );
+    await chatPostMessage({
+      botToken: "xoxb",
+      channel: "C1",
+      text: "reply",
+      threadTs: "1.0",
+    });
+    const [, init] = fetchSpy.mock.calls[0]!;
+    expect(JSON.parse((init as { body: string }).body)).toEqual({
+      channel: "C1",
+      text: "reply",
+      thread_ts: "1.0",
+    });
+  });
+
+  it("omits the thread_ts key entirely when threadTs is undefined (no parent-message side effects)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          ts: "1.0",
+          channel: "C1",
+          message: { text: "hi" },
+        }),
+        { status: 200 },
+      ),
+    );
+    await chatPostMessage({ botToken: "x", channel: "C1", text: "hi" });
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const body = JSON.parse((init as { body: string }).body);
+    expect(body).toEqual({ channel: "C1", text: "hi" });
+    expect("thread_ts" in body).toBe(false);
+  });
 });

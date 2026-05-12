@@ -69,4 +69,29 @@ describe("action handler registry", () => {
   it("does NOT register Shopify actions deferred from Batch 1 (e.g. update_product_variant)", () => {
     expect(getActionHandler("shopify", "update_product_variant")).toBeUndefined();
   });
+
+  it("registers the 5 Slack 2.1 Commit 4 message lifecycle actions", () => {
+    const expected = [
+      "send_channel_message", // existing (slice 1L); included for completeness
+      "send_direct_message",
+      "update_message",
+      "delete_message",
+      "get_messages",
+      "get_thread_messages",
+    ];
+    for (const type of expected) {
+      expect(getActionHandler("slack", type)).toBeDefined();
+    }
+  });
+
+  it("does NOT yet register Slack actions deferred to later 2.1 commits (reactions, pins, post_interactive_blocks, scheduled message ops)", () => {
+    expect(getActionHandler("slack", "add_reaction")).toBeUndefined();
+    expect(getActionHandler("slack", "remove_reaction")).toBeUndefined();
+    expect(getActionHandler("slack", "pin_message")).toBeUndefined();
+    expect(getActionHandler("slack", "unpin_message")).toBeUndefined();
+    expect(getActionHandler("slack", "schedule_message")).toBeUndefined();
+    expect(getActionHandler("slack", "cancel_scheduled_message")).toBeUndefined();
+    expect(getActionHandler("slack", "list_scheduled_messages")).toBeUndefined();
+    expect(getActionHandler("slack", "post_interactive_blocks")).toBeUndefined();
+  });
 });

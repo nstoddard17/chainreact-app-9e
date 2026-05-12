@@ -27,4 +27,34 @@ describe("Slack manifest", () => {
       expect.arrayContaining(["channels:history", "channels:read", "chat:write"]),
     );
   });
+
+  it("includes im:write in required scopes (Slack 2.1 Commit 4 — send_direct_message)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["im:write"]),
+    );
+  });
+
+  it("does NOT yet add Slack 2.1 scopes deferred to later commits (im:history, mpim:history, reactions:*, pins:write, chat:write.public)", () => {
+    // These land in Commit 6 (reactions/pins) and Commit 8 (trigger filters
+    // + chat:write.public optional). Keeping the manifest narrow per-commit
+    // makes regressions in scope creep obvious.
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["im:history"]),
+    );
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["mpim:history"]),
+    );
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["reactions:read"]),
+    );
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["reactions:write"]),
+    );
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["pins:write"]),
+    );
+    expect(slackManifest.scopes.optional).not.toEqual(
+      expect.arrayContaining(["chat:write.public"]),
+    );
+  });
 });

@@ -26,6 +26,10 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       "channels:history",
       "channels:read",
       "chat:write",
+      // Slack 2.1 Commit 4 — send_direct_message opens a DM via
+      // conversations.open then posts via chat.postMessage. `im:write`
+      // covers the open call; `chat:write` covers the post.
+      "im:write",
     ],
     optional: ["users:read"],
     deprecated: [],
