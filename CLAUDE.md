@@ -183,6 +183,36 @@ As of 2026-05-10, **Phase 1 (Provider foundation) is substantially complete loca
 
 **Phase 1 → Phase 2 transition rule:** Do not add net-new providers without an audit doc and an entry in the roadmap. After Phase 1 the priority is provider parity (Phase 2) and UI/teams/AI/engine/billing/ops (Phases 3–8), in that order. See the roadmap for the gate rules.
 
+**Phase 2 progress (Slack):**
+- Slack 2.1 (messaging + reactions) — shipped locally. See [`docs/slices/slack-2-1-messaging-reactions-plan.md`](./docs/slices/slack-2-1-messaging-reactions-plan.md).
+- Slack 2.2 (private channels + channel lifecycle triggers) — shipped locally. See [`docs/slices/slack-2-2-private-channels-and-lifecycle.md`](./docs/slices/slack-2-2-private-channels-and-lifecycle.md).
+
+---
+
+## Deep Gotchas
+
+### Slack message canonical eventType: `channel_type` is authoritative; `G…`-prefix fallback is intentionally dropped
+
+`integrations/slack/webhooks/normalize.ts` derives one of four canonical
+eventTypes for Slack `message` events: `slack.message.channel`,
+`slack.message.group`, `slack.message.im`, `slack.message.mpim`. The
+inner event's `channel_type` field is Slack's authoritative signal and
+is checked first.
+
+When `channel_type` is absent (legacy payloads, certain subtypes) the
+normalizer falls back to channel-id prefix — but **only** for `C…`
+(public channel) and `D…` (DM). The historical `G…`-prefix branch that
+used to map to `mpim` was **removed in Slack 2.2** because the `G`
+prefix is ambiguous: legacy private channels share it with group DMs
+and the two cannot be disambiguated from the id alone. Such payloads
+now emit generic `slack.message`, which has no registered filter — the
+dispatcher drops with `matched=0`.
+
+If you ever feel tempted to re-add a `G→mpim` (or any kind) fallback,
+re-read the slice 2.2 retro doc first. Modern private channels carry
+`channel_type === "group"` (often with a `C…` id); the authoritative
+path resolves them cleanly.
+
 ---
 
 ## Living Documentation Rule
