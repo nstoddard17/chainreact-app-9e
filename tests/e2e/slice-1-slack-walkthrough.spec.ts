@@ -231,7 +231,299 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
     await page.goto("/notifications");
     await expect(page.getByText(/no notifications yet/i)).toBeVisible();
   });
+
+  test("multi-workflow trigger filters: 5 workflows, channel + reaction filters, dedup before filter (Slack 2.1 P-S2)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Slack (same as the base walkthrough) ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+    const integrations = await getIntegrationsForUser(user.id, "slack");
+    expect(integrations).toHaveLength(1);
+
+    // ── 2. Create 5 workflows via API ──
+    // Three share eventType slack.message.channel with different filter
+    // configs; two share slack.reaction_added. The shared event type is
+    // the whole point — proves the dispatcher fans out then filters.
+    const channelEventType = "slack.message.channel";
+    const reactionEventType = "slack.reaction_added";
+
+    const workflowSpecs: ReadonlyArray<{
+      key: string;
+      name: string;
+      triggerType: string;
+      triggerConfig: Record<string, unknown>;
+      actionChannel: string;
+      actionText: string;
+    }> = [
+      {
+        key: "wf-channel-match",
+        name: "WF channel match (C-MATCH)",
+        triggerType: channelEventType,
+        triggerConfig: { channelId: "C0CHANNELMATCH" },
+        actionChannel: "C-ACTION-A",
+        actionText: "fired from WF-A",
+      },
+      {
+        key: "wf-channel-other",
+        name: "WF channel other (C-OTHER)",
+        triggerType: channelEventType,
+        triggerConfig: { channelId: "C0CHANNELOTHER" },
+        actionChannel: "C-ACTION-B",
+        actionText: "fired from WF-B",
+      },
+      {
+        key: "wf-channel-anywhere",
+        name: "WF channel anywhere (no filter)",
+        triggerType: channelEventType,
+        triggerConfig: {},
+        actionChannel: "C-ACTION-C",
+        actionText: "fired from WF-C",
+      },
+      {
+        key: "wf-reaction-match",
+        name: "WF thumbsup in C-REACT-MATCH",
+        triggerType: reactionEventType,
+        triggerConfig: {
+          reactionEmoji: "thumbsup",
+          channelId: "C0REACTIONMATCH",
+        },
+        actionChannel: "C-ACTION-D",
+        actionText: "fired from WF-D",
+      },
+      {
+        key: "wf-reaction-other",
+        name: "WF tada anywhere",
+        triggerType: reactionEventType,
+        triggerConfig: { reactionEmoji: "tada" },
+        actionChannel: "C-ACTION-E",
+        actionText: "fired from WF-E",
+      },
+    ];
+
+    interface CreatedWorkflow {
+      id: string;
+      key: string;
+      actionChannel: string;
+    }
+    const createdWorkflows: CreatedWorkflow[] = [];
+
+    for (const spec of workflowSpecs) {
+      // Create
+      const createResp = await page.request.post("/api/workflows", {
+        data: { name: spec.name },
+      });
+      expect(createResp.status(), await createResp.text()).toBe(201);
+      const created = (await createResp.json()) as { id: string };
+      const wfId = created.id;
+
+      // Patch draft with trigger + action.
+      const draftDefinition = {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "slack",
+            type: spec.triggerType,
+            config: spec.triggerConfig,
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "slack",
+            type: "send_channel_message",
+            config: { channel: spec.actionChannel, text: spec.actionText },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      };
+      const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+        data: { draftDefinition },
+      });
+      expect(patch.status(), await patch.text()).toBe(200);
+
+      // Activate.
+      const activate = await page.request.post(
+        `/api/workflows/${wfId}/activate`,
+      );
+      expect(activate.status(), await activate.text()).toBe(200);
+
+      createdWorkflows.push({
+        id: wfId,
+        key: spec.key,
+        actionChannel: spec.actionChannel,
+      });
+    }
+    expect(createdWorkflows).toHaveLength(5);
+
+    // Reset mock counter so the chat.postMessage assertions count only
+    // calls produced by the webhook phases below — not anything from
+    // activation paths (none today, but defensive against future side
+    // effects).
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 3. Phase A — POST a message event for C0CHANNELMATCH ──
+    // Expected: WF-A (channelId match) + WF-C (no filter) fire.
+    //           WF-B (different channelId) is silently skipped by the
+    //           dispatcher's filter step. WF-D + WF-E ignore the event
+    //           entirely (different eventType).
+    const phaseAEventId = `Ev-channel-${Date.now()}`;
+    const phaseAResp = await postSlackEvent(request, {
+      eventId: phaseAEventId,
+      event: {
+        type: "message",
+        channel: "C0CHANNELMATCH",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "hello",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseAResp.status(), await phaseAResp.text()).toBe(200);
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length >= 2 ? rows : null;
+      },
+      {
+        description:
+          "phase A: 2 workflow_runs to appear (WF-A + WF-C)",
+        timeoutMs: 15_000,
+      },
+    );
+    // No additional runs should appear after a brief settle wait — proves
+    // WF-B was silently dropped by the filter.
+    await page.waitForTimeout(1_000);
+    const phaseAFinal = await getWorkflowRunsForUser(user.id);
+    expect(phaseAFinal).toHaveLength(2);
+
+    const phaseAWorkflowIds = new Set(
+      phaseAFinal.map((r) => r.workflow_id),
+    );
+    const wfA = createdWorkflows.find((w) => w.key === "wf-channel-match")!;
+    const wfB = createdWorkflows.find((w) => w.key === "wf-channel-other")!;
+    const wfC = createdWorkflows.find(
+      (w) => w.key === "wf-channel-anywhere",
+    )!;
+    expect(phaseAWorkflowIds.has(wfA.id)).toBe(true);
+    expect(phaseAWorkflowIds.has(wfC.id)).toBe(true);
+    expect(phaseAWorkflowIds.has(wfB.id)).toBe(false);
+    for (const run of phaseAFinal) {
+      expect(run.status).toBe("succeeded");
+    }
+    // Mock should have seen exactly two chat.postMessage calls — one per
+    // matching workflow's action. Channels are A + C (order unspecified
+    // because the dispatcher enqueues in trigger_resources iteration
+    // order which isn't a contract).
+    const phaseACalls = await fetchMockCalls(request, mock.baseUrl);
+    expect(phaseACalls.chatPostMessage).toHaveLength(2);
+    const phaseAChannels = new Set(
+      phaseACalls.chatPostMessage.map((c) => c.body.channel),
+    );
+    expect(phaseAChannels).toEqual(new Set(["C-ACTION-A", "C-ACTION-C"]));
+    expect(phaseAChannels.has("C-ACTION-B")).toBe(false);
+
+    // ── 4. Phase B — POST the SAME event id (dedup short-circuit) ──
+    // The dispatcher dedups on (provider, eventId) BEFORE evaluating
+    // filters. A duplicate delivery must NOT enqueue any additional
+    // runs — even though the matching workflows are still active and
+    // would otherwise re-fire.
+    const phaseBResp = await postSlackEvent(request, {
+      eventId: phaseAEventId, // same id on purpose
+      event: {
+        type: "message",
+        channel: "C0CHANNELMATCH",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "hello (retry)",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseBResp.status(), await phaseBResp.text()).toBe(200);
+
+    // Brief settle then assert no new runs / no new mock calls.
+    await page.waitForTimeout(2_000);
+    const phaseBRuns = await getWorkflowRunsForUser(user.id);
+    expect(phaseBRuns).toHaveLength(2); // still the same 2 from phase A
+    const phaseBCalls = await fetchMockCalls(request, mock.baseUrl);
+    expect(phaseBCalls.chatPostMessage).toHaveLength(2); // still 2
+
+    // ── 5. Phase C — reaction_added event with item.channel filter ──
+    // Reaction events carry the channel at payload.item.channel (NOT
+    // payload.channel). The reaction filter must read that field.
+    // Event: reaction=thumbsup, item.channel=C0REACTIONMATCH
+    // Expected: WF-D fires (matches BOTH reaction + channel axes).
+    //           WF-E does NOT (its reactionEmoji filter is "tada").
+    const phaseCEventId = `Ev-reaction-${Date.now()}`;
+    const phaseCResp = await postSlackEvent(request, {
+      eventId: phaseCEventId,
+      event: {
+        type: "reaction_added",
+        user: "U-REACTOR",
+        reaction: "thumbsup",
+        item: {
+          type: "message",
+          channel: "C0REACTIONMATCH",
+          ts: `${Date.now() / 1000}`,
+        },
+        item_user: "U-AUTHOR",
+        event_ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseCResp.status(), await phaseCResp.text()).toBe(200);
+
+    const wfD = createdWorkflows.find((w) => w.key === "wf-reaction-match")!;
+    const wfE = createdWorkflows.find((w) => w.key === "wf-reaction-other")!;
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        const reactionRuns = rows.filter((r) => r.workflow_id === wfD.id);
+        return reactionRuns.length > 0 ? reactionRuns : null;
+      },
+      {
+        description: "phase C: WF-D run to appear",
+        timeoutMs: 15_000,
+      },
+    );
+
+    // Settle, then re-fetch all runs.
+    await page.waitForTimeout(1_000);
+    const phaseCAllRuns = await getWorkflowRunsForUser(user.id);
+    // Total = phase A's 2 + phase C's 1 (only WF-D, not WF-E).
+    expect(phaseCAllRuns).toHaveLength(3);
+
+    const phaseCWorkflowIds = new Set(phaseCAllRuns.map((r) => r.workflow_id));
+    expect(phaseCWorkflowIds.has(wfD.id)).toBe(true);
+    expect(phaseCWorkflowIds.has(wfE.id)).toBe(false);
+
+    // Mock should have seen exactly 3 total chat.postMessage calls now
+    // — 2 from phase A, 1 from WF-D's action in phase C.
+    const phaseCCalls = await fetchMockCalls(request, mock.baseUrl);
+    expect(phaseCCalls.chatPostMessage).toHaveLength(3);
+    const phaseCChannels = new Set(
+      phaseCCalls.chatPostMessage.map((c) => c.body.channel),
+    );
+    expect(phaseCChannels).toEqual(
+      new Set(["C-ACTION-A", "C-ACTION-C", "C-ACTION-D"]),
+    );
+    expect(phaseCChannels.has("C-ACTION-E")).toBe(false);
+  });
 });
+
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -294,4 +586,37 @@ function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`e2e: ${name} env var is required`);
   return v;
+}
+
+/**
+ * Build + sign + POST a Slack event_callback envelope to V2's
+ * webhook receive route. Used by the multi-workflow filter test
+ * to fire arbitrary inner event shapes (message / reaction_added)
+ * with caller-controlled eventIds (so dedup behavior is testable).
+ */
+async function postSlackEvent(
+  request: APIRequestContext,
+  opts: { eventId: string; event: Record<string, unknown> },
+): Promise<Awaited<ReturnType<APIRequestContext["post"]>>> {
+  const body = JSON.stringify({
+    type: "event_callback",
+    team_id: "T-MOCK-TEAM",
+    event_id: opts.eventId,
+    event_time: Math.floor(Date.now() / 1000),
+    event: opts.event,
+  });
+  const ts = Math.floor(Date.now() / 1000).toString();
+  const signature = signSlackWebhook(
+    ts,
+    body,
+    requireEnv("SLACK_SIGNING_SECRET"),
+  );
+  return request.post("/api/webhooks/slack", {
+    headers: {
+      "x-slack-request-timestamp": ts,
+      "x-slack-signature": signature,
+      "content-type": "application/json",
+    },
+    data: body,
+  });
 }
