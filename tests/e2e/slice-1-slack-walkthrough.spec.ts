@@ -819,6 +819,284 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
     );
     expect(phaseEChannels.has("C-ACTION-I")).toBe(false);
   });
+
+  test("channels + users: full Slack 2.3 surface — 14 workflows, one event, 14 distinct endpoints (Slack 2.3 Commit 5)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Slack ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+    const integrations = await getIntegrationsForUser(user.id, "slack");
+    expect(integrations).toHaveLength(1);
+
+    // ── 2. Create 14 workflows — one per Slack 2.3 action ──
+    // All share the same trigger (slack.message.channel with
+    // channelId=C0SHARED) so a single Slack message event fans out
+    // through all 14 workflows in one shot. Each workflow's action
+    // exercises a distinct Slack endpoint on the mock server.
+    interface ActionNode {
+      provider: "slack";
+      type: string;
+      config: Record<string, unknown>;
+    }
+    const actionSpecs: ReadonlyArray<{
+      key: string;
+      action: ActionNode;
+    }> = [
+      {
+        key: "list_channels",
+        action: { provider: "slack", type: "list_channels", config: {} },
+      },
+      {
+        key: "get_channel_info",
+        action: {
+          provider: "slack",
+          type: "get_channel_info",
+          config: { channel: "C0PUBLIC1" },
+        },
+      },
+      {
+        key: "create_channel",
+        action: {
+          provider: "slack",
+          type: "create_channel",
+          config: { name: "new-room", isPrivate: false },
+        },
+      },
+      {
+        key: "archive_channel",
+        action: {
+          provider: "slack",
+          type: "archive_channel",
+          config: { channel: "C0PUBLIC1" },
+        },
+      },
+      {
+        key: "unarchive_channel",
+        action: {
+          provider: "slack",
+          type: "unarchive_channel",
+          config: { channel: "C0PUBLIC1" },
+        },
+      },
+      {
+        key: "rename_channel",
+        action: {
+          provider: "slack",
+          type: "rename_channel",
+          config: { channel: "C0PUBLIC1", name: "renamed-room" },
+        },
+      },
+      {
+        key: "join_channel",
+        action: {
+          provider: "slack",
+          type: "join_channel",
+          config: { channel: "C0PUBLIC1" },
+        },
+      },
+      {
+        key: "leave_channel",
+        action: {
+          provider: "slack",
+          type: "leave_channel",
+          config: { channel: "C0PUBLIC1" },
+        },
+      },
+      {
+        key: "invite_users_to_channel",
+        action: {
+          provider: "slack",
+          type: "invite_users_to_channel",
+          config: {
+            channel: "C0PUBLIC1",
+            users: ["U0ALICE", "U0BOB"],
+            sendInviteNotification: true,
+          },
+        },
+      },
+      {
+        key: "remove_user_from_channel",
+        action: {
+          provider: "slack",
+          type: "remove_user_from_channel",
+          config: { channel: "C0PUBLIC1", user: "U0BOB" },
+        },
+      },
+      {
+        key: "set_channel_topic",
+        action: {
+          provider: "slack",
+          type: "set_channel_topic",
+          config: { channel: "C0PUBLIC1", topic: "New topic from e2e" },
+        },
+      },
+      {
+        key: "set_channel_purpose",
+        action: {
+          provider: "slack",
+          type: "set_channel_purpose",
+          config: { channel: "C0PUBLIC1", purpose: "New purpose from e2e" },
+        },
+      },
+      {
+        key: "get_user_info",
+        action: {
+          provider: "slack",
+          type: "get_user_info",
+          config: { user: "U0ALICE" },
+        },
+      },
+      {
+        key: "list_users",
+        action: { provider: "slack", type: "list_users", config: {} },
+      },
+    ];
+    expect(actionSpecs).toHaveLength(14);
+
+    interface CreatedWorkflow {
+      id: string;
+      key: string;
+    }
+    const createdWorkflows: CreatedWorkflow[] = [];
+    for (const spec of actionSpecs) {
+      const createResp = await page.request.post("/api/workflows", {
+        data: { name: `WF ${spec.key}` },
+      });
+      expect(createResp.status(), await createResp.text()).toBe(201);
+      const created = (await createResp.json()) as { id: string };
+      const wfId = created.id;
+
+      const draftDefinition = {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "slack",
+            type: "slack.message.channel",
+            config: { channelId: "C0SHARED" },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: spec.action.provider,
+            type: spec.action.type,
+            config: spec.action.config,
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      };
+      const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+        data: { draftDefinition },
+      });
+      expect(patch.status(), await patch.text()).toBe(200);
+
+      const activate = await page.request.post(
+        `/api/workflows/${wfId}/activate`,
+      );
+      expect(activate.status(), await activate.text()).toBe(200);
+      createdWorkflows.push({ id: wfId, key: spec.key });
+    }
+    expect(createdWorkflows).toHaveLength(14);
+
+    // Reset mock counters so action-side assertions count only the
+    // single trigger fan-out below.
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 3. POST one message event matching every workflow's filter ──
+    const phaseEventId = `Ev-2-3-${Date.now()}`;
+    const resp = await postSlackEvent(request, {
+      eventId: phaseEventId,
+      event: {
+        type: "message",
+        channel: "C0SHARED",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "fan out 2.3 surface",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(resp.status(), await resp.text()).toBe(200);
+
+    // Wait for all 14 workflow_runs rows to appear.
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length >= 14 ? rows : null;
+      },
+      {
+        description:
+          "Slack 2.3: 14 workflow_runs to appear (one per Commit 5 workflow)",
+        timeoutMs: 30_000,
+      },
+    );
+    // Settle then assert no additional runs.
+    await page.waitForTimeout(1_500);
+    const runs = await getWorkflowRunsForUser(user.id);
+    expect(runs).toHaveLength(14);
+    for (const run of runs) {
+      expect(run.status).toBe("succeeded");
+    }
+    // Every workflow that we created ran.
+    const ranWorkflowIds = new Set(runs.map((r) => r.workflow_id));
+    for (const wf of createdWorkflows) {
+      expect(ranWorkflowIds.has(wf.id)).toBe(true);
+    }
+
+    // ── 4. Mock-side assertions: each Slack endpoint received exactly 1 call ──
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.conversationsList).toHaveLength(1);
+    expect(calls.conversationsInfo).toHaveLength(1);
+    expect(calls.conversationsCreate).toHaveLength(1);
+    expect(calls.conversationsArchive).toHaveLength(1);
+    expect(calls.conversationsUnarchive).toHaveLength(1);
+    expect(calls.conversationsRename).toHaveLength(1);
+    expect(calls.conversationsJoin).toHaveLength(1);
+    expect(calls.conversationsLeave).toHaveLength(1);
+    expect(calls.conversationsInvite).toHaveLength(1);
+    expect(calls.conversationsKick).toHaveLength(1);
+    expect(calls.conversationsSetTopic).toHaveLength(1);
+    expect(calls.conversationsSetPurpose).toHaveLength(1);
+    expect(calls.usersInfo).toHaveLength(1);
+    expect(calls.usersList).toHaveLength(1);
+    // chat.postMessage MUST NOT have been called — none of the 14
+    // actions write a Slack message.
+    expect(calls.chatPostMessage).toHaveLength(0);
+
+    // Body-shape sanity for the two actions with the most interesting
+    // wire shape: invite (CSV-joined users) + create (snake_case
+    // is_private). These prove the wrappers serialize correctly
+    // end-to-end (not just in their unit tests).
+    expect(calls.conversationsInvite[0]!.body).toMatchObject({
+      channel: "C0PUBLIC1",
+      users: "U0ALICE,U0BOB",
+    });
+    expect(calls.conversationsCreate[0]!.body).toMatchObject({
+      name: "new-room",
+      is_private: false,
+    });
+    // Topic + purpose: the handler forwarded the caller's string.
+    expect(calls.conversationsSetTopic[0]!.body).toMatchObject({
+      channel: "C0PUBLIC1",
+      topic: "New topic from e2e",
+    });
+    expect(calls.conversationsSetPurpose[0]!.body).toMatchObject({
+      channel: "C0PUBLIC1",
+      purpose: "New purpose from e2e",
+    });
+  });
 });
 
 
@@ -836,6 +1114,11 @@ async function signIn(page: Page, user: TestUser): Promise<void> {
   ]);
 }
 
+interface RecordedSlackApiCall {
+  authorization: string | undefined;
+  body: Record<string, unknown>;
+}
+
 interface MockCalls {
   authorize: number;
   tokenExchange: { body: string; parsedBody: Record<string, string> }[];
@@ -843,6 +1126,22 @@ interface MockCalls {
     authorization: string | undefined;
     body: { channel: string; text: string };
   }[];
+  // Slack 2.3 — channel admin
+  conversationsList: RecordedSlackApiCall[];
+  conversationsInfo: RecordedSlackApiCall[];
+  conversationsCreate: RecordedSlackApiCall[];
+  conversationsArchive: RecordedSlackApiCall[];
+  conversationsUnarchive: RecordedSlackApiCall[];
+  conversationsRename: RecordedSlackApiCall[];
+  conversationsJoin: RecordedSlackApiCall[];
+  conversationsLeave: RecordedSlackApiCall[];
+  conversationsInvite: RecordedSlackApiCall[];
+  conversationsKick: RecordedSlackApiCall[];
+  conversationsSetTopic: RecordedSlackApiCall[];
+  conversationsSetPurpose: RecordedSlackApiCall[];
+  // Slack 2.3 — user lookups
+  usersInfo: RecordedSlackApiCall[];
+  usersList: RecordedSlackApiCall[];
 }
 
 async function fetchMockCalls(

@@ -32,6 +32,15 @@ export interface RecordedChatPostMessage {
   body: { channel: string; text: string };
 }
 
+/**
+ * Generic recorder shape used for the Slack 2.3 endpoints (channel
+ * admin + user lookups). Body is the parsed JSON the handler received.
+ */
+export interface RecordedSlackApiCall {
+  authorization: string | undefined;
+  body: Record<string, unknown>;
+}
+
 export interface MockSlackHandle {
   port: number;
   baseUrl: string;
@@ -40,6 +49,22 @@ export interface MockSlackHandle {
     authorize: number;
     tokenExchange: RecordedTokenExchange[];
     chatPostMessage: RecordedChatPostMessage[];
+    // Slack 2.3 — channel admin
+    conversationsList: RecordedSlackApiCall[];
+    conversationsInfo: RecordedSlackApiCall[];
+    conversationsCreate: RecordedSlackApiCall[];
+    conversationsArchive: RecordedSlackApiCall[];
+    conversationsUnarchive: RecordedSlackApiCall[];
+    conversationsRename: RecordedSlackApiCall[];
+    conversationsJoin: RecordedSlackApiCall[];
+    conversationsLeave: RecordedSlackApiCall[];
+    conversationsInvite: RecordedSlackApiCall[];
+    conversationsKick: RecordedSlackApiCall[];
+    conversationsSetTopic: RecordedSlackApiCall[];
+    conversationsSetPurpose: RecordedSlackApiCall[];
+    // Slack 2.3 — user lookups
+    usersInfo: RecordedSlackApiCall[];
+    usersList: RecordedSlackApiCall[];
   };
   reset(): void;
   stop(): Promise<void>;
@@ -61,6 +86,20 @@ export async function startMockSlackServer(opts: {
     authorize: 0,
     tokenExchange: [],
     chatPostMessage: [],
+    conversationsList: [],
+    conversationsInfo: [],
+    conversationsCreate: [],
+    conversationsArchive: [],
+    conversationsUnarchive: [],
+    conversationsRename: [],
+    conversationsJoin: [],
+    conversationsLeave: [],
+    conversationsInvite: [],
+    conversationsKick: [],
+    conversationsSetTopic: [],
+    conversationsSetPurpose: [],
+    usersInfo: [],
+    usersList: [],
   };
 
   const server: Server = createServer((req, res) => {
@@ -89,6 +128,20 @@ export async function startMockSlackServer(opts: {
       calls.authorize = 0;
       calls.tokenExchange.length = 0;
       calls.chatPostMessage.length = 0;
+      calls.conversationsList.length = 0;
+      calls.conversationsInfo.length = 0;
+      calls.conversationsCreate.length = 0;
+      calls.conversationsArchive.length = 0;
+      calls.conversationsUnarchive.length = 0;
+      calls.conversationsRename.length = 0;
+      calls.conversationsJoin.length = 0;
+      calls.conversationsLeave.length = 0;
+      calls.conversationsInvite.length = 0;
+      calls.conversationsKick.length = 0;
+      calls.conversationsSetTopic.length = 0;
+      calls.conversationsSetPurpose.length = 0;
+      calls.usersInfo.length = 0;
+      calls.usersList.length = 0;
     },
     stop: () =>
       new Promise<void>((resolve, reject) => {
@@ -161,6 +214,20 @@ async function handleRequest(
     calls.authorize = 0;
     calls.tokenExchange.length = 0;
     calls.chatPostMessage.length = 0;
+    calls.conversationsList.length = 0;
+    calls.conversationsInfo.length = 0;
+    calls.conversationsCreate.length = 0;
+    calls.conversationsArchive.length = 0;
+    calls.conversationsUnarchive.length = 0;
+    calls.conversationsRename.length = 0;
+    calls.conversationsJoin.length = 0;
+    calls.conversationsLeave.length = 0;
+    calls.conversationsInvite.length = 0;
+    calls.conversationsKick.length = 0;
+    calls.conversationsSetTopic.length = 0;
+    calls.conversationsSetPurpose.length = 0;
+    calls.usersInfo.length = 0;
+    calls.usersList.length = 0;
     res.writeHead(204);
     res.end();
     return;
@@ -192,9 +259,274 @@ async function handleRequest(
     return;
   }
 
+  // Slack 2.3 — channel admin endpoints.
+  if (req.method === "POST" && url.pathname === "/api/conversations.list") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsList.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channels: [
+          { id: "C0PUBLIC1", name: "general", is_private: false, is_archived: false },
+          { id: "CPRIV001", name: "secret-room", is_private: true, is_archived: false },
+        ],
+        // No next_cursor → wrapper resolves nextCursor=null, hasMore=false.
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.info") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsInfo.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    const channelId = String(parsedBody.channel ?? "C0PUBLIC1");
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: channelId,
+          name: "general",
+          is_private: false,
+          is_archived: false,
+          num_members: 42,
+          topic: { value: "Topic" },
+          purpose: { value: "Purpose" },
+          created: 1730000000,
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.create") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsCreate.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: "C0NEWCHANNEL",
+          name: String(parsedBody.name ?? "new-channel"),
+          is_private: Boolean(parsedBody.is_private ?? false),
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.archive") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsArchive.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.unarchive") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsUnarchive.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.rename") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsRename.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: String(parsedBody.channel ?? "C0PUBLIC1"),
+          name: String(parsedBody.name ?? "renamed"),
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.join") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsJoin.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: String(parsedBody.channel ?? "C0PUBLIC1"),
+          name: "general",
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.leave") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsLeave.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.invite") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsInvite.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: String(parsedBody.channel ?? "C0PUBLIC1"),
+          name: "general",
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.kick") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsKick.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.setTopic") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsSetTopic.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: String(parsedBody.channel ?? "C0PUBLIC1"),
+          topic: { value: String(parsedBody.topic ?? "") },
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/conversations.setPurpose") {
+    const parsedBody = await readJsonBody(req);
+    calls.conversationsSetPurpose.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        channel: {
+          id: String(parsedBody.channel ?? "C0PUBLIC1"),
+          purpose: { value: String(parsedBody.purpose ?? "") },
+        },
+      }),
+    );
+    return;
+  }
+
+  // Slack 2.3 — user lookups.
+  if (req.method === "POST" && url.pathname === "/api/users.info") {
+    const parsedBody = await readJsonBody(req);
+    calls.usersInfo.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    const userId = String(parsedBody.user ?? "U0ALICE");
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        user: {
+          id: userId,
+          name: "alice",
+          real_name: "Alice Anderson",
+          is_admin: false,
+          is_owner: false,
+          is_bot: false,
+          tz: "America/Los_Angeles",
+          profile: {
+            display_name: "Alice",
+            image_192: "https://example.com/avatar.png",
+          },
+        },
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/users.list") {
+    const parsedBody = await readJsonBody(req);
+    calls.usersList.push({
+      authorization: req.headers.authorization,
+      body: parsedBody,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        members: [
+          { id: "U0ALICE", name: "alice", real_name: "Alice" },
+          { id: "U0BOB", name: "bob", real_name: "Bob" },
+        ],
+      }),
+    );
+    return;
+  }
+
   // Anything else is unexpected — fail loud so the test surfaces it.
   res.writeHead(404, { "content-type": "text/plain" });
   res.end(`mock-slack: no route for ${req.method} ${url.pathname}`);
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const body = await readBody(req);
+  if (!body) return {};
+  try {
+    return JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
