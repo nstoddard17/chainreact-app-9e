@@ -218,6 +218,130 @@ describe("sendEmail — output shape (Decision 2d-4)", () => {
   });
 });
 
+describe("sendEmail — Q7 parseRecipients normalization (P-G2)", () => {
+  beforeEach(() => {
+    mockRefreshAndRetry.mockImplementation(async (input: { apiCall: (t: string) => Promise<unknown> }) => {
+      return await input.apiCall("token");
+    });
+    mockUsersMessagesSend.mockResolvedValue({ id: "m", threadId: "t" });
+  });
+
+  it("splits a CSV string in `to` and joins as a single RFC 5322 header", async () => {
+    await sendEmail(
+      baseHandlerInput({
+        config: {
+          to: "alice@example.com,bob@example.com , carol@example.com",
+          subject: "S",
+          textBody: "B",
+        },
+      }),
+    );
+
+    const decoded = Buffer.from(
+      mockUsersMessagesSend.mock.calls[0]![0].rawMessage,
+      "base64url",
+    ).toString("utf8");
+    expect(decoded).toContain(
+      "To: alice@example.com, bob@example.com, carol@example.com\r\n",
+    );
+  });
+
+  it("accepts a string array in `to` and joins for the header", async () => {
+    await sendEmail(
+      baseHandlerInput({
+        config: {
+          to: ["alice@example.com", "bob@example.com"],
+          subject: "S",
+          textBody: "B",
+        },
+      }),
+    );
+
+    const decoded = Buffer.from(
+      mockUsersMessagesSend.mock.calls[0]![0].rawMessage,
+      "base64url",
+    ).toString("utf8");
+    expect(decoded).toContain("To: alice@example.com, bob@example.com\r\n");
+  });
+
+  it("flattens mixed CSV-in-array shapes", async () => {
+    await sendEmail(
+      baseHandlerInput({
+        config: {
+          to: ["alice@example.com,bob@example.com", "carol@example.com"],
+          subject: "S",
+          textBody: "B",
+        },
+      }),
+    );
+
+    const decoded = Buffer.from(
+      mockUsersMessagesSend.mock.calls[0]![0].rawMessage,
+      "base64url",
+    ).toString("utf8");
+    expect(decoded).toContain(
+      "To: alice@example.com, bob@example.com, carol@example.com\r\n",
+    );
+  });
+
+  it("normalizes cc and bcc CSV strings the same way", async () => {
+    await sendEmail(
+      baseHandlerInput({
+        config: {
+          to: "alice@example.com",
+          subject: "S",
+          textBody: "B",
+          cc: "c1@example.com, c2@example.com",
+          bcc: ["b1@example.com", "b2@example.com"],
+        },
+      }),
+    );
+
+    const decoded = Buffer.from(
+      mockUsersMessagesSend.mock.calls[0]![0].rawMessage,
+      "base64url",
+    ).toString("utf8");
+    expect(decoded).toContain("Cc: c1@example.com, c2@example.com\r\n");
+    expect(decoded).toContain("Bcc: b1@example.com, b2@example.com\r\n");
+  });
+
+  it("omits the Cc header when cc parses to []", async () => {
+    await sendEmail(
+      baseHandlerInput({
+        config: {
+          to: "alice@example.com",
+          subject: "S",
+          textBody: "B",
+          cc: "   ,  , ", // whitespace-only CSV → []
+        },
+      }),
+    );
+
+    const decoded = Buffer.from(
+      mockUsersMessagesSend.mock.calls[0]![0].rawMessage,
+      "base64url",
+    ).toString("utf8");
+    expect(decoded).not.toContain("Cc:");
+  });
+
+  it("throws when `to` is a whitespace-only CSV (post-parse empty)", async () => {
+    await expect(
+      sendEmail(
+        baseHandlerInput({
+          config: {
+            to: "   ,  , ",
+            subject: "S",
+            textBody: "B",
+          },
+        }),
+      ),
+    ).rejects.toThrow(/at least one address in `to` is required/);
+
+    // refreshAndRetry never invoked when post-parse to[] is empty.
+    expect(mockRefreshAndRetry).not.toHaveBeenCalled();
+  });
+});
+
 describe("sendEmail — error propagation", () => {
   it("throws ZodError when the config is invalid (no body)", async () => {
     await expect(

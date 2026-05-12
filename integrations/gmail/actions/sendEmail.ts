@@ -1,3 +1,4 @@
+import { parseRecipients } from "@/core/integrations/parseRecipients";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { usersMessagesSend } from "../api/usersMessagesSend";
@@ -19,13 +20,32 @@ import { SendEmailConfigSchema } from "./sendEmail.schema";
  * provider) accountId is `null`, which lets `refreshAndRetry` pick the
  * single active Gmail integration for the user.
  *
+ * Recipients — Gmail 2.1 / P-G2 (Q7): `to` / `cc` / `bcc` route through
+ * `parseRecipients`, which splits CSVs, flattens arrays, trims, and
+ * drops empties. Post-parse the handler re-checks that `to` is
+ * non-empty (the schema's min(1) catches "" and []; whitespace-only
+ * CSVs like "   ,  ," only fail after the trim step here).
+ *
  * Output shape (Decision 2d-4 Option B): `{ id, threadId, to, subject }`.
- * Downstream nodes reference `{{<nodeId>.id}}` for the message id (e.g.,
- * a future label-modify action), `{{<nodeId>.threadId}}` for reply
- * threading, and the echoed `to`/`subject` for follow-up reply nodes.
+ * `to` is echoed as the original caller-supplied value (string or
+ * array) so existing downstream variable references stay stable. A
+ * future Commit 3 expansion can switch to the parsed array if needed.
  */
 export const sendEmail: ActionHandler = async (input) => {
   const config = SendEmailConfigSchema.parse(input.config);
+
+  // Q7 — normalize CSV strings + arrays into a flat trimmed list. The
+  // schema's min(1) on `to` rejects "" and [], but a whitespace-only
+  // CSV ("   ,  ,") still parses to []; re-check after parsing.
+  const toAddresses = parseRecipients(config.to);
+  const ccAddresses = parseRecipients(config.cc);
+  const bccAddresses = parseRecipients(config.bcc);
+
+  if (toAddresses.length === 0) {
+    throw new Error(
+      "send_email: at least one address in `to` is required (after parsing CSV / array).",
+    );
+  }
 
   const accountId =
     input.triggerEvent.provider === "gmail"
@@ -38,12 +58,12 @@ export const sendEmail: ActionHandler = async (input) => {
     accountId,
     apiCall: async (accessToken) => {
       const rfc5322 = buildRfc5322Message({
-        to: config.to,
+        to: toAddresses.join(", "),
         subject: config.subject,
         textBody: config.textBody,
         htmlBody: config.htmlBody,
-        cc: config.cc,
-        bcc: config.bcc,
+        cc: ccAddresses.length > 0 ? ccAddresses.join(", ") : undefined,
+        bcc: bccAddresses.length > 0 ? bccAddresses.join(", ") : undefined,
       });
       const rawMessage = encodeBase64Url(rfc5322);
       return usersMessagesSend({ accessToken, rawMessage });

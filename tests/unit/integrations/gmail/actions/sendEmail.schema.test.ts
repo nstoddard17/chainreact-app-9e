@@ -108,4 +108,37 @@ describe("SendEmailConfigSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  // Gmail 2.1 / P-G2 — recipient fields accept either CSV strings or
+  // string arrays. Both shapes route through `parseRecipients` in the
+  // handler.
+
+  it("accepts `to` as a string array (P-G2)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: ["alice@example.com", "bob@example.com"],
+      subject: "Hi",
+      textBody: "x",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts `cc` and `bcc` as string arrays (P-G2)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      cc: ["carbon1@example.com", "carbon2@example.com"],
+      bcc: ["blind@example.com"],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects `to` as an empty array (P-G2 — min(1) on array)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: [],
+      subject: "Hi",
+      textBody: "x",
+    });
+    expect(r.success).toBe(false);
+  });
 });
