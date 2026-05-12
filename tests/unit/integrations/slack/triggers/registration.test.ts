@@ -54,6 +54,18 @@ describe("integrations/slack/triggers — P-S2 filter registration", () => {
     expect(getTriggerFilter("slack", "slack.reaction_removed")).not.toBeNull();
   });
 
+  it("registers slack/slack.channel_created (Slack 2.2 Commit 3 — lifecycle)", () => {
+    expect(getTriggerFilter("slack", "slack.channel_created")).not.toBeNull();
+  });
+
+  it("registers slack/slack.member_joined_channel (Slack 2.2 Commit 3 — lifecycle)", () => {
+    expect(getTriggerFilter("slack", "slack.member_joined_channel")).not.toBeNull();
+  });
+
+  it("registers slack/slack.member_left_channel (Slack 2.2 Commit 3 — lifecycle)", () => {
+    expect(getTriggerFilter("slack", "slack.member_left_channel")).not.toBeNull();
+  });
+
   it("does NOT yet register filters for Slack 2.3 event types (file_shared, team_join)", () => {
     expect(getTriggerFilter("slack", "slack.file_shared")).toBeNull();
     expect(getTriggerFilter("slack", "slack.team_join")).toBeNull();

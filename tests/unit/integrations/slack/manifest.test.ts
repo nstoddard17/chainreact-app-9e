@@ -85,6 +85,12 @@ describe("Slack manifest", () => {
     );
   });
 
+  it("includes groups:read in required scopes (Slack 2.2 Commit 3 — channel lifecycle triggers for private channels)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["groups:read"]),
+    );
+  });
+
   it("does NOT yet add file scopes (deferred to Slack 2.3)", () => {
     expect(slackManifest.scopes.required).not.toEqual(
       expect.arrayContaining(["files:read"]),

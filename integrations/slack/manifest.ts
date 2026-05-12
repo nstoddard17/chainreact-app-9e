@@ -46,6 +46,12 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       // channel_type === "group". Also unlocks get_messages /
       // get_thread_messages against private channels.
       "groups:history",
+      // Slack 2.2 Commit 3 — channel lifecycle triggers
+      // (channel_created, member_joined_channel, member_left_channel)
+      // need groups:read so Slack delivers events for private
+      // channels the bot has visibility into. Public channels are
+      // already covered by channels:read above.
+      "groups:read",
     ],
     optional: [
       "users:read",

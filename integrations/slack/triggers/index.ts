@@ -5,6 +5,9 @@ import { newGroupDirectMessageFilter } from "./newGroupDirectMessage/filter";
 import { newMessagePrivateChannelFilter } from "./newMessagePrivateChannel/filter";
 import { reactionAddedFilter } from "./reactionAdded/filter";
 import { reactionRemovedFilter } from "./reactionRemoved/filter";
+import { channelCreatedFilter } from "./channelCreated/filter";
+import { memberJoinedChannelFilter } from "./memberJoinedChannel/filter";
+import { memberLeftChannelFilter } from "./memberLeftChannel/filter";
 
 /**
  * Slack trigger filter registrations (Slack 2.1 Commit 8 + Slack 2.2 Commit 2).
@@ -34,6 +37,9 @@ registerTriggerFilter(newGroupDirectMessageFilter);
 registerTriggerFilter(newMessagePrivateChannelFilter);
 registerTriggerFilter(reactionAddedFilter);
 registerTriggerFilter(reactionRemovedFilter);
+registerTriggerFilter(channelCreatedFilter);
+registerTriggerFilter(memberJoinedChannelFilter);
+registerTriggerFilter(memberLeftChannelFilter);
 
 export {
   newMessageChannelFilter,
@@ -42,4 +48,7 @@ export {
   newMessagePrivateChannelFilter,
   reactionAddedFilter,
   reactionRemovedFilter,
+  channelCreatedFilter,
+  memberJoinedChannelFilter,
+  memberLeftChannelFilter,
 };
