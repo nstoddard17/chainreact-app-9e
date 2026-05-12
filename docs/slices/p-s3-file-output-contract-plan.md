@@ -1,6 +1,6 @@
 # P-S3 — File output contract plan
 
-**Status:** Plan / not yet accepted. **Doc-only commit.** No implementation begins until Marcus accepts.
+**Status:** Plan accepted with all 8 §11 decisions locked. **Doc-only commit.** Implementation paused awaiting a clean full-gate baseline (Trello WIP resolution upstream). On resume, P-S3 Commit 2 starts per §10.
 **Branch:** `v2-provider-port-local` (local-only).
 **Master plan:** [`docs/slices/phase-2-plan.md`](phase-2-plan.md).
 **Direct consumer:** Slack 2.4 (file actions) — blocked on this contract.
@@ -591,35 +591,38 @@ No commit in this slice modifies an existing handler. All P-S3 surface is additi
 
 ---
 
-## 11. Open decisions for Marcus
+## 11. Accepted decisions
 
-Real decisions, not rhetorical questions:
+All 8 decisions are locked. Implementation MUST follow these answers.
 
-| # | Decision | Recommendation | Alternative |
-|---|---|---|---|
-| 1 | Should V2 stage downloaded provider files in Supabase storage by default (`kind=v2_storage`)? | **Yes — for download actions.** Durability across workflow delays + cross-provider chains is the main value of staging. | Default to `kind=provider_url` and let the consumer stage. Costs the consumer a fetch + a stage; risks expiry between producer and consumer. |
-| 2 | Allow inline file content (`kind=inline_text` / `kind=inline_bytes`)? | **No — out of P-S3.** The contract is the wall against runs-table bloat. If a use case proves staging round-trip is too expensive, add `kind=inline_text` (text only, ≤ 64 KB) in a follow-up. | Add `inline_text` now for ergonomics; risks the same V1 antipattern surface. |
-| 3 | Default retention for staged files? | **24h** — matches V1; reasonable for "use a file in the next workflow step that runs within minutes/hours". | 7 days — more lenient; bigger storage footprint; needs quota work earlier. |
-| 4 | Phase classification of file actions: parity (Phase 2) or hardening (Phase 7)? | **Phase 2.** P-S3 contract + minimal storage stack ships in Phase 2 to unblock Slack 2.4; per-provider quota / virus scan / streaming move to Phase 7. | Defer all file work to Phase 7. Costs the rest of Phase 2 the "Gmail → Drive chain" use case + Slack 2.4 indefinitely. |
-| 5 | Bucket name + path scheme? | **`workflow-files` bucket + `<userId>/<workflowId>/<runId>/<nodeId>/<filename>`.** Same bucket name as V1 (familiarity), but per-run scoping for cleanup-by-prefix. | V1's flat `temp-attachments/<userId>/<filename>` — simpler but harder to clean up partial runs. |
-| 6 | Update existing Drive + OneDrive `upload_file` to also accept `FileRef`? | **Follow-up after P-S3 ships** — not in P-S3 scope, but worth doing in the same Phase 2 stretch so cross-provider chains work uniformly. Could be one PR per provider after P-S3 lands. | Bundle into P-S3 itself — broadens the slice and delays Slack 2.4. |
-| 7 | Whether to introduce a `kind=signed_url` arm at all in P-S3? | **Yes** — OneDrive's `@microsoft.graph.downloadUrl` is auth-free for ~1h and is the simplest path for OneDrive `get_file` to expose what it already returns. Removing the arm forces an extra stage round-trip every OneDrive read. | Drop it; everything routes through `provider_url` or `v2_storage`. Slightly cleaner spec; loses an existing capability. |
-| 8 | Where does the lint rule against bytes-in-outputs live (or do we even need one)? | **Defer to a follow-up commit.** Soft guidance + handler convention is enough at P-S3 land; a lint rule only matters once we have a regression. | Add the lint rule in Commit 2 alongside the contract — wider scope; risk of false positives on unrelated keys. |
+| # | Decision | Accepted answer |
+|---|---|---|
+| 1 | Should V2 stage downloaded provider files in Supabase storage by default (`kind=v2_storage`)? | **Yes.** Download handlers stage bytes server-side and emit `FileRef(kind=v2_storage)`. Durability across workflow delays + cross-provider chains is the main value. |
+| 2 | Allow inline file content (`kind=inline_text` / `kind=inline_bytes`)? | **No for P-S3.** The contract is the wall against runs-table bloat. No inline arm in `FileRefKind`. A future convenience helper that converts inline text into a staged `FileRef` may be added later — but not as a `kind` value. |
+| 3 | Default retention for staged files? | **24 hours.** Matches V1 baseline. Per-`FileRef.expiresAt` overrides. End-of-run cleanup + nightly reconciler both honor this. |
+| 4 | Phase classification of file actions? | **Phase 2 for the minimal FileRef contract + storage path** needed by provider parity (unblocks Slack 2.4 + Gmail/Outlook attachments). **Phase 7 for quotas, billing, virus scanning, and deeper storage hardening.** |
+| 5 | Bucket name + path scheme? | **Bucket: `workflow-files`. Path: `<userId>/<workflowId>/<runId>/<nodeId>/<filename>`.** Locked once Commit 3's migration ships. Per-run scoping enables clean-by-prefix. |
+| 6 | Update existing Drive + OneDrive `upload_file` to also accept `FileRef`? | **Yes, but as follow-up provider-parity work AFTER P-S3 is stable. NOT inside the initial P-S3 implementation.** One PR per provider after P-S3 lands. |
+| 7 | Whether to introduce a `kind=signed_url` arm at all in P-S3? | **Yes.** OneDrive's `@microsoft.graph.downloadUrl` is auth-free for ~1h; the arm preserves that capability without forcing an extra stage round-trip. |
+| 8 | Lint rule against bytes-in-outputs? | **Defer.** Soft guidance + the schema's absence-of-bytes-kind suffices at land. Revisit only if a regression appears. |
 
 ---
 
 ## 12. Exit checklist
 
-This plan is accepted (and P-S3 implementation can begin) when Marcus has:
+All boxes are checked. P-S3 implementation is approved to start once the
+repository has a clean full-gate baseline (Trello WIP resolution upstream).
 
-- [ ] Read sections 1–11.
-- [ ] Confirmed the **FileRef shape** (§4) — `kind` discriminator with three arms; no inline bytes.
-- [ ] Confirmed the **storage strategy** (§5) — Supabase `workflow-files` bucket + `workflow_files` table + 24h default; no inline path.
-- [ ] Confirmed the **security model** (§6) — no public URLs by default; provider URLs not logged at user-facing levels; virus scan deferred to Phase 7.
-- [ ] Confirmed the **file map** (§7) — `contracts/file.ts`, `core/files/`, `services/files/`, `repositories/workflowFiles.ts`, single migration.
-- [ ] Confirmed the **Slack 2.4 dependency map** (§8) — `upload_file` accepts FileRef; `download_file` returns `kind=v2_storage`; `get_file_info` returns `kind=provider_url`.
-- [ ] Confirmed the **exclusions** (§9) — no Gmail/Outlook attachments, no UI work, no virus scan, no streaming.
-- [ ] Confirmed the **6-commit batch plan** (§10).
-- [ ] Made the **8 open decisions** (§11) — at minimum #1, #2, #3, #5, #7.
+- [x] Read sections 1–11.
+- [x] Confirmed the **FileRef shape** (§4) — `kind` discriminator with three arms; no inline bytes.
+- [x] Confirmed the **storage strategy** (§5) — Supabase `workflow-files` bucket + `workflow_files` table + 24h default; no inline path.
+- [x] Confirmed the **security model** (§6) — no public URLs by default; provider URLs not logged at user-facing levels; virus scan deferred to Phase 7.
+- [x] Confirmed the **file map** (§7) — `contracts/file.ts`, `core/files/`, `services/files/`, `repositories/workflowFiles.ts`, single migration.
+- [x] Confirmed the **Slack 2.4 dependency map** (§8) — `upload_file` accepts FileRef; `download_file` returns `kind=v2_storage`; `get_file_info` returns `kind=provider_url`.
+- [x] Confirmed the **exclusions** (§9) — no Gmail/Outlook attachments, no UI work, no virus scan, no streaming.
+- [x] Confirmed the **6-commit batch plan** (§10).
+- [x] Made the **8 open decisions** (§11) — all 8 locked.
 
-**Implementation does NOT begin before Marcus checks every box above.**
+**Resume trigger:** clean `tsc --noEmit` + `npm test` baseline (Trello WIP
+resolved). On resume, Commit 2 begins per §10. No commits, no edits, no
+implementation until then.
