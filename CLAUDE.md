@@ -157,7 +157,7 @@ E2E tests should use real V2 internals and mock only the external provider bound
 
 ## Current Local Development State
 
-As of 2026-05-10, **Phase 1 (Provider foundation) is substantially complete locally** with 16 providers ported. See [`docs/roadmap/chainreact-v2-roadmap.md`](./docs/roadmap/chainreact-v2-roadmap.md) for the authoritative roadmap covering Phases 1–8.
+As of 2026-05-12, **Phase 1 (Provider foundation) is substantially complete locally** with 17 providers ported. See [`docs/roadmap/chainreact-v2-roadmap.md`](./docs/roadmap/chainreact-v2-roadmap.md) for the authoritative roadmap covering Phases 1–8.
 
 **Completed locally (Phase 1):**
 - Slack (slice 1)
@@ -176,6 +176,7 @@ As of 2026-05-10, **Phase 1 (Provider foundation) is substantially complete loca
 - Mailchimp (slice 14)
 - GitHub (slice 14b)
 - Microsoft Excel (slice 15)
+- Trello (slice 17) — V2's first **token-ingest** provider. Plan: [`docs/slices/slice-17-trello.md`](./docs/slices/slice-17-trello.md). Contract: [`docs/slices/trello-token-ingest-contract-plan.md`](./docs/slices/trello-token-ingest-contract-plan.md). Outcomes: [`docs/slices/trello-token-ingest-outcomes.md`](./docs/slices/trello-token-ingest-outcomes.md).
 
 **Active local branch:** `v2-provider-port-local`
 
@@ -253,6 +254,31 @@ New Slack actions land in the domain subfolder that matches their Slack
 API namespace. New domains (e.g. `files/` for Slack 2.4) get their own
 subfolder. Import paths in `services/execution/handlers/_registry.ts`
 and test files must follow the same convention.
+
+### Token-ingest auth contract (Slice 17 — Trello pattern)
+
+V2 ships **two** auth contracts side by side, discriminated by `ProviderManifest.authFlow`:
+
+- `"code_callback"` (DEFAULT) — standard OAuth 2.0 code/state through `ProviderOAuth`. Every provider through Slice 16 uses this.
+- `"token_ingest"` — provider returns token in URL fragment; V2 client page POSTs it to `/api/integrations/oauth/[provider]/ingest` → `dispatcher.handleTokenIngest` → server-side verify + persist. **Trello is the inaugural production consumer.**
+
+Reach for `ProviderTokenIngestAuth` ONLY when the provider's auth flow does not surface a `code` to a server callback. If a provider has any working OAuth 2.0 code/state flow, use `ProviderOAuth` — do not "future-proof" by adopting token-ingest where it's not required. Schema invariant: `authFlow: "token_ingest"` AND `refreshable: true` is rejected at manifest load (token-ingest providers do not refresh).
+
+Token-ingest dispatcher checks are stricter than OAuth callback in one place: **session user MUST equal state JWT's userId.** Both server hops (connect + ingest) share a browser session, so a state token POSTed by a different signed-in user is unambiguously a hijack attempt and rejected with `InvalidStateError("session/state user mismatch")`.
+
+Full design + 12 numbered security rules: [`docs/slices/trello-token-ingest-outcomes.md`](./docs/slices/trello-token-ingest-outcomes.md) §3.
+
+### `TriggerEvent.eventType` MUST match `trigger_resources.event_type` short form
+
+**Pinned by a Slice 17 Commit 5 → Commit 6 bug.** Webhook normalizers emit a canonical `TriggerEvent`; `dispatchTriggerEvent` looks up matching workflows via `listForDispatch(provider, eventType)`. If the normalizer puts a provider-classified namespaced form (e.g. `"trello.card.created"`) into `eventType` while `trigger_resources.event_type` stores the short form (`"new_card"`, from `registerActivation("trello", "new_card", …)`), the lookup matches zero rows and workflow_runs are never created.
+
+**Rule for every provider with a webhook trigger:**
+
+> `TriggerEvent.eventType` MUST match the short form passed to `registerActivation(provider, eventType, …)` — the same value stored in `trigger_resources.event_type`. The provider's namespaced / classified subtype belongs in `payload.classifiedType` (or another payload field) for advanced workflow refs, NOT in the canonical `eventType` field that drives dispatch lookup.
+
+Trello's `_shared/normalize.ts` separates the two: `triggerEventType: TrelloTriggerEventName` (short form, emitted as `TriggerEvent.eventType`) and `classifiedType: TrelloEventType` (namespaced, emitted on `payload.classifiedType`). Every other provider's normalizer should be sanity-checked against this rule when reviewed.
+
+**Companion rule for action handlers consuming `triggerEvent.accountId`:** the `accountId` field is the **event scope** (Trello = board id; Slack = team id; etc.), NOT necessarily the integration discriminator. For `tokenScope: "user"` providers like Trello, action handlers MUST pass `accountId: null` to `refreshAndRetry` so `getActiveForExecution` returns the first active row for the user. Passing `triggerEvent.accountId` blindly will fail integration lookup when event-scope and integration-scope disagree. Slice 17 Commit 6 fixed this across all 8 Trello action handlers after the e2e exposed it.
 
 ---
 
