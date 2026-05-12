@@ -30,6 +30,10 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       // conversations.open then posts via chat.postMessage. `im:write`
       // covers the open call; `chat:write` covers the post.
       "im:write",
+      // Slack 2.1 Commit 6 — reactions.add / reactions.remove.
+      "reactions:write",
+      // Slack 2.1 Commit 6 — pins.add / pins.remove.
+      "pins:write",
     ],
     optional: ["users:read"],
     deprecated: [],

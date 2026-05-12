@@ -101,14 +101,18 @@ import { updateCustomer as shopifyUpdateCustomer } from "@/integrations/shopify/
 import { updateInventory as shopifyUpdateInventory } from "@/integrations/shopify/actions/updateInventory";
 import { updateOrderStatus as shopifyUpdateOrderStatus } from "@/integrations/shopify/actions/updateOrderStatus";
 import { updateProduct as shopifyUpdateProduct } from "@/integrations/shopify/actions/updateProduct";
+import { addReaction as slackAddReaction } from "@/integrations/slack/actions/addReaction";
 import { cancelScheduledMessage as slackCancelScheduledMessage } from "@/integrations/slack/actions/cancelScheduledMessage";
 import { deleteMessage as slackDeleteMessage } from "@/integrations/slack/actions/deleteMessage";
 import { getMessages as slackGetMessages } from "@/integrations/slack/actions/getMessages";
 import { getThreadMessages as slackGetThreadMessages } from "@/integrations/slack/actions/getThreadMessages";
 import { listScheduledMessages as slackListScheduledMessages } from "@/integrations/slack/actions/listScheduledMessages";
+import { pinMessage as slackPinMessage } from "@/integrations/slack/actions/pinMessage";
+import { removeReaction as slackRemoveReaction } from "@/integrations/slack/actions/removeReaction";
 import { scheduleMessage as slackScheduleMessage } from "@/integrations/slack/actions/scheduleMessage";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import { sendDirectMessage as slackSendDirectMessage } from "@/integrations/slack/actions/sendDirectMessage";
+import { unpinMessage as slackUnpinMessage } from "@/integrations/slack/actions/unpinMessage";
 import { updateMessage as slackUpdateMessage } from "@/integrations/slack/actions/updateMessage";
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
 import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
@@ -147,6 +151,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "schedule_message", handler: slackScheduleMessage },
   { provider: "slack", type: "cancel_scheduled_message", handler: slackCancelScheduledMessage },
   { provider: "slack", type: "list_scheduled_messages", handler: slackListScheduledMessages },
+  { provider: "slack", type: "add_reaction", handler: slackAddReaction },
+  { provider: "slack", type: "remove_reaction", handler: slackRemoveReaction },
+  { provider: "slack", type: "pin_message", handler: slackPinMessage },
+  { provider: "slack", type: "unpin_message", handler: slackUnpinMessage },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },

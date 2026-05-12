@@ -34,24 +34,37 @@ describe("Slack manifest", () => {
     );
   });
 
-  it("does NOT yet add Slack 2.1 scopes deferred to later commits (im:history, mpim:history, reactions:*, pins:write, chat:write.public)", () => {
-    // These land in Commit 6 (reactions/pins) and Commit 8 (trigger filters
-    // + chat:write.public optional). Keeping the manifest narrow per-commit
-    // makes regressions in scope creep obvious.
+  it("includes reactions:write in required scopes (Slack 2.1 Commit 6 — add/remove_reaction)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["reactions:write"]),
+    );
+  });
+
+  it("includes pins:write in required scopes (Slack 2.1 Commit 6 — pin/unpin_message)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["pins:write"]),
+    );
+  });
+
+  it("does NOT yet add reactions:read — deferred to trigger filters (Commit 8)", () => {
+    // reactions:read is needed for the reaction_added / reaction_removed
+    // triggers, not for the write actions. Keeping it deferred until the
+    // trigger filter commit makes scope creep obvious if regressed.
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["reactions:read"]),
+    );
+    expect(slackManifest.scopes.optional).not.toEqual(
+      expect.arrayContaining(["reactions:read"]),
+    );
+  });
+
+  it("does NOT yet add Slack 2.1 scopes deferred to later commits (im:history, mpim:history, chat:write.public)", () => {
+    // These land in Commit 8 (trigger filters + chat:write.public optional).
     expect(slackManifest.scopes.required).not.toEqual(
       expect.arrayContaining(["im:history"]),
     );
     expect(slackManifest.scopes.required).not.toEqual(
       expect.arrayContaining(["mpim:history"]),
-    );
-    expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["reactions:read"]),
-    );
-    expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["reactions:write"]),
-    );
-    expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["pins:write"]),
     );
     expect(slackManifest.scopes.optional).not.toEqual(
       expect.arrayContaining(["chat:write.public"]),

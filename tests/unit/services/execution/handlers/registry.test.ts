@@ -90,11 +90,14 @@ describe("action handler registry", () => {
     expect(getActionHandler("slack", "list_scheduled_messages")).toBeDefined();
   });
 
-  it("does NOT yet register Slack actions deferred to later 2.1 commits (reactions, pins, post_interactive_blocks)", () => {
-    expect(getActionHandler("slack", "add_reaction")).toBeUndefined();
-    expect(getActionHandler("slack", "remove_reaction")).toBeUndefined();
-    expect(getActionHandler("slack", "pin_message")).toBeUndefined();
-    expect(getActionHandler("slack", "unpin_message")).toBeUndefined();
+  it("registers the 4 Slack 2.1 Commit 6 reactions + pins actions", () => {
+    expect(getActionHandler("slack", "add_reaction")).toBeDefined();
+    expect(getActionHandler("slack", "remove_reaction")).toBeDefined();
+    expect(getActionHandler("slack", "pin_message")).toBeDefined();
+    expect(getActionHandler("slack", "unpin_message")).toBeDefined();
+  });
+
+  it("does NOT yet register Slack actions deferred to later 2.1 commits (post_interactive_blocks)", () => {
     expect(getActionHandler("slack", "post_interactive_blocks")).toBeUndefined();
   });
 });
