@@ -42,7 +42,7 @@ export const trelloManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    webhookTrigger: false,
+    webhookTrigger: true,
     pollingTrigger: false,
     actions: true,
   },

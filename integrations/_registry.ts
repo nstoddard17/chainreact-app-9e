@@ -47,6 +47,14 @@ import "./mailchimp/triggers/linkClicked";
 // Slack 2.1 Commit 8 — 5 message + reaction trigger filters register
 // with the P-S2 filter registry at module load.
 import "./slack/triggers";
+// Slice 17 Commit 5 — 6 Trello board-webhook triggers register their
+// activation + deactivation hooks at module load.
+import "./trello/triggers/newCard";
+import "./trello/triggers/cardUpdated";
+import "./trello/triggers/cardMoved";
+import "./trello/triggers/commentAdded";
+import "./trello/triggers/memberChanged";
+import "./trello/triggers/cardArchived";
 
 /**
  * Aggregated provider registry.
