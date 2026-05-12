@@ -186,6 +186,7 @@ As of 2026-05-10, **Phase 1 (Provider foundation) is substantially complete loca
 **Phase 2 progress (Slack):**
 - Slack 2.1 (messaging + reactions) — shipped locally. See [`docs/slices/slack-2-1-messaging-reactions-plan.md`](./docs/slices/slack-2-1-messaging-reactions-plan.md).
 - Slack 2.2 (private channels + channel lifecycle triggers) — shipped locally. See [`docs/slices/slack-2-2-private-channels-and-lifecycle.md`](./docs/slices/slack-2-2-private-channels-and-lifecycle.md).
+- Slack 2.3 (channel + user actions; 14 actions) — shipped locally. Plan: [`docs/slices/slack-2-3-channels-users-plan.md`](./docs/slices/slack-2-3-channels-users-plan.md). Outcomes: [`docs/slices/slack-2-3-outcomes.md`](./docs/slices/slack-2-3-outcomes.md).
 
 ---
 
@@ -212,6 +213,46 @@ If you ever feel tempted to re-add a `G→mpim` (or any kind) fallback,
 re-read the slice 2.2 retro doc first. Modern private channels carry
 `channel_type === "group"` (often with a `C…` id); the authoritative
 path resolves them cleanly.
+
+### Slack action contract: id-only, no silent name resolution; `users:read.email` stays out by default
+
+Every Slack action handler under [`integrations/slack/actions/`](./integrations/slack/actions/) accepts channel and user ids only:
+- `channel` must match `^[CG][A-Z0-9]+$` (or `^[CDG][A-Z0-9]+$` for `get_channel_info`, which also resolves DMs).
+- `user` must match `^U[A-Z0-9]+$`.
+
+Handlers do NOT call `conversations.list` or `users.list` internally to
+translate names → ids. Workflow authors that have only a name compose
+`list_channels` / `list_users` upstream and select the id. V1 quietly
+accepted a string-or-object union with name fallback; that path is
+intentionally not ported (avoids hidden round-trips, eliminates
+ambiguity when a name matches both a public and a private channel).
+
+**`users:read.email` is permanently excluded from the Slack manifest.**
+`users.info` and `users.list` work on plain `users:read`; Slack returns
+`profile.email` as `null` / absent. Handlers do NOT project `email` to
+top-level output — the raw `user` object is preserved so workspaces
+that grant the scope externally can read `{{nodeId.user.profile.email}}`.
+The V1 `findUser` (`users.lookupByEmail`) action is permanently skipped
+(orphan + PII). If a workflow truly needs email-by-user-id, that's a
+product decision that re-opens the scope question, not a quick port.
+
+If you're adding a new Slack action, mirror this pattern: strict id
+regex in the Zod schema, no name resolution side-effects in the
+handler, no scope additions beyond what Slack's docs require for the
+specific endpoint.
+
+### Slack action folder grouping
+
+[`integrations/slack/actions/`](./integrations/slack/actions/) is
+domain-grouped to stay under the 50-file leaf-folder limit:
+- `actions/channels/` — channel reads + lifecycle / admin / membership / metadata (12 actions).
+- `actions/users/` — user lookups (2 actions).
+- `actions/` parent — messaging, scheduling, reactions+pins, Block Kit, helpers.
+
+New Slack actions land in the domain subfolder that matches their Slack
+API namespace. New domains (e.g. `files/` for Slack 2.4) get their own
+subfolder. Import paths in `services/execution/handlers/_registry.ts`
+and test files must follow the same convention.
 
 ---
 
