@@ -34,8 +34,24 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       "reactions:write",
       // Slack 2.1 Commit 6 — pins.add / pins.remove.
       "pins:write",
+      // Slack 2.1 Commit 8 — slack_new_direct_message trigger needs
+      // im:history to receive DM message events.
+      "im:history",
+      // Slack 2.1 Commit 8 — slack_new_group_direct_message trigger.
+      "mpim:history",
+      // Slack 2.1 Commit 8 — reaction_added / reaction_removed triggers.
+      "reactions:read",
     ],
-    optional: ["users:read"],
+    optional: [
+      "users:read",
+      // Slack 2.1 Commit 8 — optional permission to post to public
+      // channels the bot has NOT joined. Documented trade-off:
+      // workspaces that grant it let the bot reach any public channel
+      // without an explicit invite, which is more permissive but
+      // avoids the "invite the bot first" UX wall. Default not
+      // requested (per Marcus's slack-2-1 plan §7 decision).
+      "chat:write.public",
+    ],
     deprecated: [],
   },
   capabilities: {

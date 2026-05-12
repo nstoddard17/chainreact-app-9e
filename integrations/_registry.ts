@@ -43,6 +43,9 @@ import "./mailchimp/triggers/audienceEvent";
 import "./mailchimp/triggers/campaignCreated";
 import "./mailchimp/triggers/emailOpened";
 import "./mailchimp/triggers/linkClicked";
+// Slack 2.1 Commit 8 — 5 message + reaction trigger filters register
+// with the P-S2 filter registry at module load.
+import "./slack/triggers";
 
 /**
  * Aggregated provider registry.

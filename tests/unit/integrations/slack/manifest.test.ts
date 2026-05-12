@@ -46,28 +46,71 @@ describe("Slack manifest", () => {
     );
   });
 
-  it("does NOT yet add reactions:read — deferred to trigger filters (Commit 8)", () => {
-    // reactions:read is needed for the reaction_added / reaction_removed
-    // triggers, not for the write actions. Keeping it deferred until the
-    // trigger filter commit makes scope creep obvious if regressed.
-    expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["reactions:read"]),
+  it("includes im:history in required scopes (Slack 2.1 Commit 8 — slack.message.im trigger)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["im:history"]),
     );
-    expect(slackManifest.scopes.optional).not.toEqual(
+  });
+
+  it("includes mpim:history in required scopes (Slack 2.1 Commit 8 — slack.message.mpim trigger)", () => {
+    expect(slackManifest.scopes.required).toEqual(
+      expect.arrayContaining(["mpim:history"]),
+    );
+  });
+
+  it("includes reactions:read in required scopes (Slack 2.1 Commit 8 — reaction_added / _removed triggers)", () => {
+    expect(slackManifest.scopes.required).toEqual(
       expect.arrayContaining(["reactions:read"]),
     );
   });
 
-  it("does NOT yet add Slack 2.1 scopes deferred to later commits (im:history, mpim:history, chat:write.public)", () => {
-    // These land in Commit 8 (trigger filters + chat:write.public optional).
-    expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["im:history"]),
+  it("includes chat:write.public in optional scopes (Slack 2.1 Commit 8 — post to public channels without join)", () => {
+    expect(slackManifest.scopes.optional).toEqual(
+      expect.arrayContaining(["chat:write.public"]),
+    );
+  });
+
+  it("keeps users:read OPTIONAL (NOT promoted to required) — userJoinedWorkspace trigger deferred", () => {
+    expect(slackManifest.scopes.optional).toEqual(
+      expect.arrayContaining(["users:read"]),
     );
     expect(slackManifest.scopes.required).not.toEqual(
-      expect.arrayContaining(["mpim:history"]),
+      expect.arrayContaining(["users:read"]),
+    );
+  });
+
+  it("does NOT yet add groups:history — deferred to Slack 2.2 (private channels)", () => {
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["groups:history"]),
     );
     expect(slackManifest.scopes.optional).not.toEqual(
-      expect.arrayContaining(["chat:write.public"]),
+      expect.arrayContaining(["groups:history"]),
+    );
+  });
+
+  it("does NOT yet add file scopes (deferred to Slack 2.3)", () => {
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["files:read"]),
+    );
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["files:write"]),
+    );
+    expect(slackManifest.scopes.optional).not.toEqual(
+      expect.arrayContaining(["files:read"]),
+    );
+    expect(slackManifest.scopes.optional).not.toEqual(
+      expect.arrayContaining(["files:write"]),
+    );
+  });
+
+  it("does NOT yet add user-token scopes (deferred behind P-S1)", () => {
+    // V1 had users:write / users.profile:write for updateUserStatus +
+    // setUserPresence. Those land after P-S1 user-token storage.
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["users:write"]),
+    );
+    expect(slackManifest.scopes.required).not.toEqual(
+      expect.arrayContaining(["users.profile:write"]),
     );
   });
 });
