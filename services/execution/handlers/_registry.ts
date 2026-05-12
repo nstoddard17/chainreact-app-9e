@@ -104,8 +104,10 @@ import { updateProduct as shopifyUpdateProduct } from "@/integrations/shopify/ac
 import { addReaction as slackAddReaction } from "@/integrations/slack/actions/addReaction";
 import { cancelScheduledMessage as slackCancelScheduledMessage } from "@/integrations/slack/actions/cancelScheduledMessage";
 import { deleteMessage as slackDeleteMessage } from "@/integrations/slack/actions/deleteMessage";
+import { getChannelInfo as slackGetChannelInfo } from "@/integrations/slack/actions/getChannelInfo";
 import { getMessages as slackGetMessages } from "@/integrations/slack/actions/getMessages";
 import { getThreadMessages as slackGetThreadMessages } from "@/integrations/slack/actions/getThreadMessages";
+import { listChannels as slackListChannels } from "@/integrations/slack/actions/listChannels";
 import { listScheduledMessages as slackListScheduledMessages } from "@/integrations/slack/actions/listScheduledMessages";
 import { pinMessage as slackPinMessage } from "@/integrations/slack/actions/pinMessage";
 import { postInteractiveBlocks as slackPostInteractiveBlocks } from "@/integrations/slack/actions/postInteractiveBlocks";
@@ -157,6 +159,8 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "pin_message", handler: slackPinMessage },
   { provider: "slack", type: "unpin_message", handler: slackUnpinMessage },
   { provider: "slack", type: "post_interactive_blocks", handler: slackPostInteractiveBlocks },
+  { provider: "slack", type: "list_channels", handler: slackListChannels },
+  { provider: "slack", type: "get_channel_info", handler: slackGetChannelInfo },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },

@@ -23,6 +23,10 @@ describe("action handler registry", () => {
   });
 
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
+    // create_channel lands in Slack 2.3 Commit 3; list_channels +
+    // get_channel_info already landed in Slack 2.3 Commit 2 (see test
+    // below). create_channel remains undefined here as a forward-looking
+    // negative assertion.
     expect(getActionHandler("slack", "create_channel")).toBeUndefined();
     expect(getActionHandler("gmail", "create_draft")).toBeUndefined();
   });
@@ -101,20 +105,31 @@ describe("action handler registry", () => {
     expect(getActionHandler("slack", "post_interactive_blocks")).toBeDefined();
   });
 
-  it("does NOT yet register Slack actions deferred to Slack 2.2 / 2.3 (file actions + user-token actions + channel CRUD)", () => {
-    // File actions land in Slack 2.3 + P-S3 file output contract.
+  it("registers the 2 Slack 2.3 Commit 2 channel read actions", () => {
+    expect(getActionHandler("slack", "list_channels")).toBeDefined();
+    expect(getActionHandler("slack", "get_channel_info")).toBeDefined();
+  });
+
+  it("does NOT yet register Slack actions deferred to later slices (file actions + user-token actions + channel lifecycle/admin + user reads)", () => {
+    // File actions land in Slack 2.4 + P-S3 file output contract.
     expect(getActionHandler("slack", "upload_file")).toBeUndefined();
     expect(getActionHandler("slack", "download_file")).toBeUndefined();
     expect(getActionHandler("slack", "get_file_info")).toBeUndefined();
     // User-token actions land after P-S1 user-token storage.
     expect(getActionHandler("slack", "update_user_status")).toBeUndefined();
     expect(getActionHandler("slack", "set_user_presence")).toBeUndefined();
-    // Channel CRUD / membership / metadata land in Slack 2.2.
+    // Channel lifecycle / membership / metadata land in Slack 2.3 Commit 3.
     expect(getActionHandler("slack", "create_channel")).toBeUndefined();
     expect(getActionHandler("slack", "archive_channel")).toBeUndefined();
-    expect(getActionHandler("slack", "list_channels")).toBeUndefined();
+    expect(getActionHandler("slack", "unarchive_channel")).toBeUndefined();
+    expect(getActionHandler("slack", "rename_channel")).toBeUndefined();
+    expect(getActionHandler("slack", "join_channel")).toBeUndefined();
+    expect(getActionHandler("slack", "leave_channel")).toBeUndefined();
     expect(getActionHandler("slack", "invite_users_to_channel")).toBeUndefined();
-    // User reads land in Slack 2.2.
+    expect(getActionHandler("slack", "remove_user_from_channel")).toBeUndefined();
+    expect(getActionHandler("slack", "set_channel_topic")).toBeUndefined();
+    expect(getActionHandler("slack", "set_channel_purpose")).toBeUndefined();
+    // User reads land in Slack 2.3 Commit 4.
     expect(getActionHandler("slack", "get_user_info")).toBeUndefined();
     expect(getActionHandler("slack", "list_users")).toBeUndefined();
   });
