@@ -522,6 +522,303 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
     );
     expect(phaseCChannels.has("C-ACTION-E")).toBe(false);
   });
+
+  test("private channels + channel lifecycle: 5 workflows, slack.message.group + channel_created + member_joined/left + G-prefix tightening (Slack 2.2)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Slack ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+    const integrations = await getIntegrationsForUser(user.id, "slack");
+    expect(integrations).toHaveLength(1);
+
+    // ── 2. Create 5 workflows via API covering Slack 2.2 trigger surface ──
+    // WF-F: slack.message.group, channelId=CPRIV001  — private channel msg
+    // WF-G: slack.channel_created, no config         — match-all lifecycle
+    // WF-H: slack.member_joined_channel, channelId=CJOINED001
+    // WF-I: slack.member_joined_channel, channelId=CJOINEDOTHER (no match)
+    // WF-J: slack.member_left_channel, channelId=CLEFT001
+    const workflowSpecs: ReadonlyArray<{
+      key: string;
+      name: string;
+      triggerType: string;
+      triggerConfig: Record<string, unknown>;
+      actionChannel: string;
+      actionText: string;
+    }> = [
+      {
+        key: "wf-priv-msg",
+        name: "WF private channel message (CPRIV001)",
+        triggerType: "slack.message.group",
+        triggerConfig: { channelId: "CPRIV001" },
+        actionChannel: "C-ACTION-F",
+        actionText: "fired from WF-F",
+      },
+      {
+        key: "wf-channel-created",
+        name: "WF channel created (match-all)",
+        triggerType: "slack.channel_created",
+        triggerConfig: {},
+        actionChannel: "C-ACTION-G",
+        actionText: "fired from WF-G",
+      },
+      {
+        key: "wf-joined-match",
+        name: "WF member joined CJOINED001",
+        triggerType: "slack.member_joined_channel",
+        triggerConfig: { channelId: "CJOINED001" },
+        actionChannel: "C-ACTION-H",
+        actionText: "fired from WF-H",
+      },
+      {
+        key: "wf-joined-other",
+        name: "WF member joined CJOINEDOTHER",
+        triggerType: "slack.member_joined_channel",
+        triggerConfig: { channelId: "CJOINEDOTHER" },
+        actionChannel: "C-ACTION-I",
+        actionText: "fired from WF-I",
+      },
+      {
+        key: "wf-left",
+        name: "WF member left CLEFT001",
+        triggerType: "slack.member_left_channel",
+        triggerConfig: { channelId: "CLEFT001" },
+        actionChannel: "C-ACTION-J",
+        actionText: "fired from WF-J",
+      },
+    ];
+
+    interface CreatedWorkflow {
+      id: string;
+      key: string;
+      actionChannel: string;
+    }
+    const createdWorkflows: CreatedWorkflow[] = [];
+    for (const spec of workflowSpecs) {
+      const createResp = await page.request.post("/api/workflows", {
+        data: { name: spec.name },
+      });
+      expect(createResp.status(), await createResp.text()).toBe(201);
+      const created = (await createResp.json()) as { id: string };
+      const wfId = created.id;
+
+      const draftDefinition = {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "slack",
+            type: spec.triggerType,
+            config: spec.triggerConfig,
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "slack",
+            type: "send_channel_message",
+            config: { channel: spec.actionChannel, text: spec.actionText },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      };
+      const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+        data: { draftDefinition },
+      });
+      expect(patch.status(), await patch.text()).toBe(200);
+      const activate = await page.request.post(
+        `/api/workflows/${wfId}/activate`,
+      );
+      expect(activate.status(), await activate.text()).toBe(200);
+      createdWorkflows.push({
+        id: wfId,
+        key: spec.key,
+        actionChannel: spec.actionChannel,
+      });
+    }
+    expect(createdWorkflows).toHaveLength(5);
+
+    const wfF = createdWorkflows.find((w) => w.key === "wf-priv-msg")!;
+    const wfG = createdWorkflows.find((w) => w.key === "wf-channel-created")!;
+    const wfH = createdWorkflows.find((w) => w.key === "wf-joined-match")!;
+    const wfI = createdWorkflows.find((w) => w.key === "wf-joined-other")!;
+    const wfJ = createdWorkflows.find((w) => w.key === "wf-left")!;
+
+    // Reset mock counters so action-side assertions are scoped to the
+    // event-firing phases below.
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 3. Phase A — private channel message (channel_type='group') ──
+    // Expected: WF-F fires (channelId match). No other workflow fires.
+    const phaseAResp = await postSlackEvent(request, {
+      eventId: `Ev-priv-${Date.now()}`,
+      event: {
+        type: "message",
+        channel: "CPRIV001",
+        channel_type: "group",
+        user: "U-SENDER",
+        text: "secret",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseAResp.status(), await phaseAResp.text()).toBe(200);
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length >= 1 ? rows : null;
+      },
+      {
+        description: "phase A (Slack 2.2): WF-F run to appear",
+        timeoutMs: 15_000,
+      },
+    );
+    await page.waitForTimeout(1_000);
+    const phaseARuns = await getWorkflowRunsForUser(user.id);
+    expect(phaseARuns).toHaveLength(1);
+    expect(phaseARuns[0].workflow_id).toBe(wfF.id);
+    expect(phaseARuns[0].status).toBe("succeeded");
+
+    // ── 4. Phase B — channel_created event ──
+    // Expected: WF-G fires (match-all). Lifecycle filters for member
+    // events (WF-H, WF-I, WF-J) do NOT fire on a different event type.
+    const phaseBResp = await postSlackEvent(request, {
+      eventId: `Ev-channelcreated-${Date.now()}`,
+      event: {
+        type: "channel_created",
+        channel: {
+          id: "C0NEWROOM",
+          name: "new-room",
+          is_private: false,
+          created: Math.floor(Date.now() / 1000),
+        },
+        event_ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseBResp.status(), await phaseBResp.text()).toBe(200);
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.some((r) => r.workflow_id === wfG.id) ? rows : null;
+      },
+      {
+        description: "phase B (Slack 2.2): WF-G run to appear",
+        timeoutMs: 15_000,
+      },
+    );
+    await page.waitForTimeout(1_000);
+    const phaseBRuns = await getWorkflowRunsForUser(user.id);
+    expect(phaseBRuns).toHaveLength(2); // A's WF-F + B's WF-G
+
+    // ── 5. Phase C — member_joined_channel for CJOINED001 ──
+    // Expected: WF-H fires (channelId match). WF-I (different channelId)
+    // is silently skipped by the dispatcher's filter step.
+    const phaseCResp = await postSlackEvent(request, {
+      eventId: `Ev-joined-${Date.now()}`,
+      event: {
+        type: "member_joined_channel",
+        user: "U-NEW-MEMBER",
+        channel: "CJOINED001",
+        channel_type: "C",
+        team: "T-MOCK-TEAM",
+        event_ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseCResp.status(), await phaseCResp.text()).toBe(200);
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.some((r) => r.workflow_id === wfH.id) ? rows : null;
+      },
+      {
+        description: "phase C (Slack 2.2): WF-H run to appear",
+        timeoutMs: 15_000,
+      },
+    );
+    await page.waitForTimeout(1_000);
+    const phaseCRuns = await getWorkflowRunsForUser(user.id);
+    expect(phaseCRuns).toHaveLength(3); // A + B + C's WF-H
+    const phaseCIds = new Set(phaseCRuns.map((r) => r.workflow_id));
+    expect(phaseCIds.has(wfH.id)).toBe(true);
+    expect(phaseCIds.has(wfI.id)).toBe(false); // WF-I silently dropped
+
+    // ── 6. Phase D — member_left_channel for CLEFT001 ──
+    // Expected: WF-J fires (channelId match).
+    const phaseDResp = await postSlackEvent(request, {
+      eventId: `Ev-left-${Date.now()}`,
+      event: {
+        type: "member_left_channel",
+        user: "U-DEPARTING",
+        channel: "CLEFT001",
+        team: "T-MOCK-TEAM",
+        event_ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseDResp.status(), await phaseDResp.text()).toBe(200);
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.some((r) => r.workflow_id === wfJ.id) ? rows : null;
+      },
+      {
+        description: "phase D (Slack 2.2): WF-J run to appear",
+        timeoutMs: 15_000,
+      },
+    );
+    await page.waitForTimeout(1_000);
+    const phaseDRuns = await getWorkflowRunsForUser(user.id);
+    expect(phaseDRuns).toHaveLength(4); // A + B + C + D
+
+    // ── 7. Phase E — G-prefix message with NO channel_type (Slack 2.2 tightening) ──
+    // Pre-2.2 contract mapped this to slack.message.mpim by prefix; the
+    // 2.2 tightening drops the heuristic (G is ambiguous between legacy
+    // private channels and group DMs). The normalizer now emits generic
+    // slack.message → no filter registered → dispatcher matched=0.
+    // Expected: NO new workflow_runs row appears.
+    const phaseEResp = await postSlackEvent(request, {
+      eventId: `Ev-ambiguous-${Date.now()}`,
+      event: {
+        type: "message",
+        // G-prefix with no channel_type — formerly mapped to mpim.
+        channel: "G-AMBIGUOUS-1",
+        user: "U-SENDER",
+        text: "ambiguous",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(phaseEResp.status(), await phaseEResp.text()).toBe(200);
+
+    // Settle and assert no additional runs were created.
+    await page.waitForTimeout(2_000);
+    const phaseERuns = await getWorkflowRunsForUser(user.id);
+    expect(phaseERuns).toHaveLength(4); // unchanged from phase D
+
+    // Mock action surface: exactly 4 chat.postMessage calls across all
+    // four matched phases. Phase E produced zero.
+    const phaseECalls = await fetchMockCalls(request, mock.baseUrl);
+    expect(phaseECalls.chatPostMessage).toHaveLength(4);
+    const phaseEChannels = new Set(
+      phaseECalls.chatPostMessage.map((c) => c.body.channel),
+    );
+    expect(phaseEChannels).toEqual(
+      new Set(["C-ACTION-F", "C-ACTION-G", "C-ACTION-H", "C-ACTION-J"]),
+    );
+    expect(phaseEChannels.has("C-ACTION-I")).toBe(false);
+  });
 });
 
 
