@@ -21,15 +21,15 @@ import { CreateCardConfigSchema } from "./createCard.schema";
 export const createCard: ActionHandler = async (input) => {
   const config = CreateCardConfigSchema.parse(input.config);
 
-  const accountId =
-    input.triggerEvent.provider === "trello"
-      ? input.triggerEvent.accountId
-      : null;
-
+  // Trello integrations are tokenScope: "user" — one row per
+  // (userId, member id). The TriggerEvent.accountId carries the
+  // *board* id (event scope) for downstream variable resolution, NOT
+  // the integration account id. Pass null so getActiveForExecution
+  // returns the first active Trello row for this user.
   const card = await refreshAndRetry({
     userId: input.userId,
     provider: "trello",
-    accountId,
+    accountId: null,
     apiCall: (accessToken) =>
       cardsCreate({
         accessToken,

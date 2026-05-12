@@ -122,7 +122,8 @@ describe("classifyTrelloAction", () => {
 describe("normalizeTrelloEvent — common fields", () => {
   it("uses action.id as eventId and action.date as occurredAt", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.created",
+      triggerEventType: "new_card",
+      classifiedType: "trello.card.created",
       body: {
         action: {
           id: "act-uuid",
@@ -139,13 +140,18 @@ describe("normalizeTrelloEvent — common fields", () => {
     expect(event.eventId).toBe("act-uuid");
     expect(event.occurredAt).toBe("2026-05-11T12:00:00.000Z");
     expect(event.provider).toBe("trello");
-    expect(event.eventType).toBe("trello.card.created");
+    // V2 trigger eventType (short form) so dispatch (provider, eventType)
+    // lookup against trigger_resources works. The classified namespaced
+    // form is on payload.classifiedType.
+    expect(event.eventType).toBe("new_card");
+    expect(event.payload.classifiedType).toBe("trello.card.created");
     expect(event.accountId).toBe("b1");
   });
 
   it("falls back to a derived eventId when action.id is missing", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.created",
+      triggerEventType: "new_card",
+      classifiedType: "trello.card.created",
       body: {
         action: {
           type: "createCard",
@@ -161,7 +167,8 @@ describe("normalizeTrelloEvent — common fields", () => {
 describe("normalizeTrelloEvent — per-eventType payload", () => {
   it("createCard payload includes cardId, name, listId, boardId, cardUrl", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.created",
+      triggerEventType: "new_card",
+      classifiedType: "trello.card.created",
       body: {
         action: {
           id: "act-1",
@@ -187,7 +194,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
 
   it("updateCard payload includes changedFields + oldValues", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.updated",
+      triggerEventType: "card_updated",
+      classifiedType: "trello.card.updated",
       body: {
         action: {
           id: "act-1",
@@ -207,7 +215,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
 
   it("card_moved payload includes fromList + toList", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.moved",
+      triggerEventType: "card_moved",
+      classifiedType: "trello.card.moved",
       body: {
         action: {
           id: "act-1",
@@ -230,7 +239,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
 
   it("comment payload includes commentText + memberCreator info", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.comment.added",
+      triggerEventType: "comment_added",
+      classifiedType: "trello.comment.added",
       body: {
         action: {
           id: "act-1",
@@ -253,7 +263,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
 
   it("member_changed payload distinguishes 'added' vs 'removed'", () => {
     const added = normalizeTrelloEvent({
-      eventType: "trello.member.changed",
+      triggerEventType: "member_changed",
+      classifiedType: "trello.member.changed",
       body: {
         action: {
           id: "act-1",
@@ -269,7 +280,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
       },
     });
     const removed = normalizeTrelloEvent({
-      eventType: "trello.member.changed",
+      triggerEventType: "member_changed",
+      classifiedType: "trello.member.changed",
       body: {
         action: {
           id: "act-2",
@@ -291,7 +303,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
 
   it("archived payload includes closed boolean and changedFields", () => {
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.archived",
+      triggerEventType: "card_archived",
+      classifiedType: "trello.card.archived",
       body: {
         action: {
           id: "act-1",
@@ -319,7 +332,8 @@ describe("normalizeTrelloEvent — per-eventType payload", () => {
       },
     };
     const event = normalizeTrelloEvent({
-      eventType: "trello.card.created",
+      triggerEventType: "new_card",
+      classifiedType: "trello.card.created",
       body,
     });
     expect(event.payload.body).toEqual(body);

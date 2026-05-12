@@ -17,15 +17,11 @@ import { CreateBoardConfigSchema } from "./createBoard.schema";
 export const createBoard: ActionHandler = async (input) => {
   const config = CreateBoardConfigSchema.parse(input.config);
 
-  const accountId =
-    input.triggerEvent.provider === "trello"
-      ? input.triggerEvent.accountId
-      : null;
-
+  // Trello integrations are tokenScope: "user". See createCard.ts.
   const board = await refreshAndRetry({
     userId: input.userId,
     provider: "trello",
-    accountId,
+    accountId: null,
     apiCall: (accessToken) =>
       boardsCreate({
         accessToken,

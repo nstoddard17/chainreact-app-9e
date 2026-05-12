@@ -17,15 +17,11 @@ import { AddLabelToCardConfigSchema } from "./addLabelToCard.schema";
 export const addLabelToCard: ActionHandler = async (input) => {
   const config = AddLabelToCardConfigSchema.parse(input.config);
 
-  const accountId =
-    input.triggerEvent.provider === "trello"
-      ? input.triggerEvent.accountId
-      : null;
-
+  // Trello integrations are tokenScope: "user". See createCard.ts.
   const idLabels = await refreshAndRetry({
     userId: input.userId,
     provider: "trello",
-    accountId,
+    accountId: null,
     apiCall: (accessToken) =>
       cardsAddLabel({
         accessToken,

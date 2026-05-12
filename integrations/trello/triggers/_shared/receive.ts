@@ -7,6 +7,7 @@ import {
   classifyTrelloAction,
   normalizeTrelloEvent,
   type TrelloEventType,
+  type TrelloTriggerEventName,
 } from "./normalize";
 
 /**
@@ -201,10 +202,15 @@ export async function receiveTrelloWebhook(
     };
   }
 
-  // 8. Normalize to canonical TriggerEvent.
+  // 8. Normalize to canonical TriggerEvent. Pass the V2 trigger
+  //    eventType (short form like "new_card") so dispatch's
+  //    (provider, eventType) lookup against trigger_resources works.
+  //    The classified namespaced form goes into payload for advanced
+  //    workflow refs.
   const normalized = normalizeTrelloEvent({
     body: parsedBody,
-    eventType: inboundEventType,
+    triggerEventType: triggerConfig.eventType as TrelloTriggerEventName,
+    classifiedType: inboundEventType,
   });
   return { kind: "events", events: [normalized] };
 }

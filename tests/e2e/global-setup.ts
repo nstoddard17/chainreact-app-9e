@@ -41,6 +41,10 @@ import {
   startMockMailchimpServer,
   type MockMailchimpHandle,
 } from "./helpers/mockMailchimpServer";
+import {
+  startMockTrelloServer,
+  type MockTrelloHandle,
+} from "./helpers/mockTrelloServer";
 
 /**
  * Playwright global setup.
@@ -71,6 +75,7 @@ let shopifyHandle: MockShopifyHandle | null = null;
 let hubspotHandle: MockHubSpotHandle | null = null;
 let githubHandle: MockGitHubHandle | null = null;
 let mailchimpHandle: MockMailchimpHandle | null = null;
+let trelloHandle: MockTrelloHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -108,6 +113,10 @@ export const GITHUB_STATE_FILE = resolve(
 export const MAILCHIMP_STATE_FILE = resolve(
   __dirname,
   ".state/mock-mailchimp.json",
+);
+export const TRELLO_STATE_FILE = resolve(
+  __dirname,
+  ".state/mock-trello.json",
 );
 
 export function getMockHandle(): MockSlackHandle | null {
@@ -148,6 +157,10 @@ export function getGitHubMockHandle(): MockGitHubHandle | null {
 
 export function getMailchimpMockHandle(): MockMailchimpHandle | null {
   return mailchimpHandle;
+}
+
+export function getTrelloMockHandle(): MockTrelloHandle | null {
+  return trelloHandle;
 }
 
 /**
@@ -220,6 +233,15 @@ const HUBSPOT_E2E_CLIENT_SECRET_DEFAULT = "e2e-hubspot-client-secret";
  * V2 requires a dedicated webhook secret.
  */
 const GITHUB_E2E_WEBHOOK_SECRET_DEFAULT = "e2e-github-webhook-secret";
+
+/**
+ * Slice 17 Commit 6: Trello OAuth client secret. Same secret doubles
+ * as the webhook HMAC key — Trello signs webhooks with the OAuth
+ * client secret (the global app secret, not the user token). The mock
+ * must use the same value the dev server's `verifyTrelloSignature`
+ * reads.
+ */
+const TRELLO_E2E_CLIENT_SECRET_DEFAULT = "e2e-trello-client-secret";
 
 function loadDotEnvLocal(): void {
   const envPath = resolve(__dirname, "../../.env.local");
@@ -473,6 +495,32 @@ export default async function globalSetup(): Promise<void> {
   console.log(
     `[e2e] mock Mailchimp listening at ${mailchimpHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
   );
+
+  // Slice 17 Commit 6: mock Trello for the token-ingest + per-board
+  // webhook walkthrough. Different port (9886) so all eleven mock
+  // servers can run simultaneously. The mock signs webhook deliveries
+  // with TRELLO_CLIENT_SECRET — must match what the dev server reads
+  // (Trello reuses the OAuth client secret as the webhook signing key).
+  const trelloPort = Number(process.env.TRELLO_MOCK_PORT ?? "9886");
+  const trelloSecret =
+    process.env.TRELLO_CLIENT_SECRET ?? TRELLO_E2E_CLIENT_SECRET_DEFAULT;
+  trelloHandle = await startMockTrelloServer({
+    appBaseUrl,
+    appSecret: trelloSecret,
+    port: trelloPort,
+  });
+  await writeFile(
+    TRELLO_STATE_FILE,
+    JSON.stringify({
+      port: trelloPort,
+      baseUrl: trelloHandle.baseUrl,
+      appBaseUrl,
+    }),
+    "utf8",
+  );
+  console.log(
+    `[e2e] mock Trello listening at ${trelloHandle.baseUrl} (V2 callbacks land on ${appBaseUrl})`,
+  );
 }
 
 /**
@@ -606,6 +654,19 @@ export async function readMailchimpMockState(): Promise<{
   appBaseUrl: string;
 }> {
   const raw = await readFile(MAILCHIMP_STATE_FILE, "utf8");
+  return JSON.parse(raw) as {
+    port: number;
+    baseUrl: string;
+    appBaseUrl: string;
+  };
+}
+
+export async function readTrelloMockState(): Promise<{
+  port: number;
+  baseUrl: string;
+  appBaseUrl: string;
+}> {
+  const raw = await readFile(TRELLO_STATE_FILE, "utf8");
   return JSON.parse(raw) as {
     port: number;
     baseUrl: string;

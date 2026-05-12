@@ -14,15 +14,11 @@ import { CreateListConfigSchema } from "./createList.schema";
 export const createList: ActionHandler = async (input) => {
   const config = CreateListConfigSchema.parse(input.config);
 
-  const accountId =
-    input.triggerEvent.provider === "trello"
-      ? input.triggerEvent.accountId
-      : null;
-
+  // Trello integrations are tokenScope: "user". See createCard.ts.
   const list = await refreshAndRetry({
     userId: input.userId,
     provider: "trello",
-    accountId,
+    accountId: null,
     apiCall: (accessToken) =>
       listsCreate({
         accessToken,

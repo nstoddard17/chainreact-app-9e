@@ -16,15 +16,12 @@ import { UpdateCardConfigSchema } from "./updateCard.schema";
 export const updateCard: ActionHandler = async (input) => {
   const config = UpdateCardConfigSchema.parse(input.config);
 
-  const accountId =
-    input.triggerEvent.provider === "trello"
-      ? input.triggerEvent.accountId
-      : null;
-
+  // Trello integrations are tokenScope: "user". Pass accountId: null
+  // — see createCard.ts for rationale.
   const card = await refreshAndRetry({
     userId: input.userId,
     provider: "trello",
-    accountId,
+    accountId: null,
     apiCall: (accessToken) =>
       cardsUpdate({
         accessToken,

@@ -11,6 +11,7 @@ import {
   getNotionMockHandle,
   getShopifyMockHandle,
   getStripeMockHandle,
+  getTrelloMockHandle,
   STATE_FILE,
 } from "./global-setup";
 
@@ -64,6 +65,11 @@ export default async function globalTeardown(): Promise<void> {
   if (mailchimpHandle) {
     await mailchimpHandle.stop();
     console.log("[e2e] mock Mailchimp stopped");
+  }
+  const trelloHandle = getTrelloMockHandle();
+  if (trelloHandle) {
+    await trelloHandle.stop();
+    console.log("[e2e] mock Trello stopped");
   }
   // Clean up the state directory. All state files live under the same
   // .state/ folder, so removing the parent dir cleans them all.

@@ -195,7 +195,13 @@ describe("receiveTrelloWebhook — happy path", () => {
     expect(result.kind).toBe("events");
     if (result.kind === "events") {
       expect(result.events).toHaveLength(1);
-      expect(result.events[0]!.eventType).toBe("trello.card.created");
+      // V2 trigger eventType (short form) — matches what dispatch
+      // looks up against trigger_resources.event_type. The
+      // namespaced classified form is on payload.classifiedType.
+      expect(result.events[0]!.eventType).toBe("new_card");
+      expect(result.events[0]!.payload.classifiedType).toBe(
+        "trello.card.created",
+      );
       expect(result.events[0]!.eventId).toBe("act-1");
     }
   });

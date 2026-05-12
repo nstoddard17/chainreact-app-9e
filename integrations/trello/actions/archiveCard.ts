@@ -16,15 +16,11 @@ import { ArchiveCardConfigSchema } from "./archiveCard.schema";
 export const archiveCard: ActionHandler = async (input) => {
   const config = ArchiveCardConfigSchema.parse(input.config);
 
-  const accountId =
-    input.triggerEvent.provider === "trello"
-      ? input.triggerEvent.accountId
-      : null;
-
+  // Trello integrations are tokenScope: "user". See createCard.ts.
   const card = await refreshAndRetry({
     userId: input.userId,
     provider: "trello",
-    accountId,
+    accountId: null,
     apiCall: (accessToken) =>
       cardsUpdate({
         accessToken,

@@ -138,10 +138,39 @@ export function classifyTrelloAction(
   }
 }
 
+/**
+ * V2 trigger eventType names — the short form stored in
+ * `trigger_resources.event_type` and consumed by
+ * `dispatchTriggerEvent`'s `listForDispatch(provider, eventType)`
+ * lookup. The classifier emits the namespaced form
+ * (`trello.card.created`); the receive helper translates via
+ * `TRIGGER_EVENT_TO_NORMALIZED` before calling `normalizeTrelloEvent`
+ * so the emitted `TriggerEvent.eventType` matches what dispatch
+ * looks up.
+ */
+export type TrelloTriggerEventName =
+  | "new_card"
+  | "card_updated"
+  | "card_moved"
+  | "comment_added"
+  | "member_changed"
+  | "card_archived";
+
 export interface NormalizeTrelloEventInput {
   body: TrelloActionPayload;
-  /** Pre-classified event type from `classifyTrelloAction`. */
-  eventType: TrelloEventType;
+  /**
+   * V2 trigger eventType for the row that will receive this event —
+   * stored as `TriggerEvent.eventType` so `dispatchTriggerEvent`'s
+   * `(provider, eventType)` lookup against `trigger_resources` works.
+   */
+  triggerEventType: TrelloTriggerEventName;
+  /**
+   * Classified namespaced form — surfaced in payload for advanced
+   * workflow refs (`{{nodeId.payload.classifiedType}}`). Kept distinct
+   * from the canonical `TriggerEvent.eventType` so the two never
+   * fight on dispatch lookup.
+   */
+  classifiedType: TrelloEventType;
 }
 
 interface TrelloCardPayload {
@@ -177,7 +206,7 @@ function getCardUrl(card: TrelloCardPayload | undefined): string | null {
 export function normalizeTrelloEvent(
   input: NormalizeTrelloEventInput,
 ): TriggerEvent {
-  const { body, eventType } = input;
+  const { body, triggerEventType, classifiedType } = input;
   const action = body.action ?? {};
   const data = action.data ?? {};
   const card = data.card ?? undefined;
@@ -205,6 +234,7 @@ export function normalizeTrelloEvent(
   const payload: Record<string, unknown> = {
     actionId: action.id ?? null,
     actionType: action.type ?? null,
+    classifiedType,
     boardId: board?.id ?? null,
     boardName: board?.name ?? null,
     cardId: card?.id ?? null,
@@ -240,7 +270,7 @@ export function normalizeTrelloEvent(
 
   return {
     provider: "trello",
-    eventType,
+    eventType: triggerEventType,
     eventId,
     occurredAt,
     accountId,

@@ -116,6 +116,19 @@ const MAILCHIMP_MOCK_PORT = Number(process.env.MAILCHIMP_MOCK_PORT ?? "9885");
 const MAILCHIMP_MOCK_BASE = `http://127.0.0.1:${MAILCHIMP_MOCK_PORT}`;
 
 /**
+ * Trello mock server runs on this port (started by global-setup.ts).
+ * The dev server inherits TRELLO_AUTHORIZE_BASE / TRELLO_API_BASE
+ * pointing here for the Slice 17 walkthrough — token-ingest authorize
+ * flow (302-with-fragment redirect) + GET /1/members/me + cards / lists /
+ * boards REST + per-board webhook lifecycle + signed delivery for the
+ * 6 board-webhook triggers.
+ *
+ * Different port from every other mock (9876-9885).
+ */
+const TRELLO_MOCK_PORT = Number(process.env.TRELLO_MOCK_PORT ?? "9886");
+const TRELLO_MOCK_BASE = `http://127.0.0.1:${TRELLO_MOCK_PORT}`;
+
+/**
  * E2e dev server port. Default 3001 — separate from the typical dev port
  * (3000) so a developer keeping a dev server running for manual testing
  * doesn't collide with the e2e dev server, and so the e2e dev server
@@ -367,6 +380,30 @@ export default defineConfig({
         process.env.MAILCHIMP_CLIENT_ID ?? "e2e-mailchimp-client-id",
       MAILCHIMP_CLIENT_SECRET:
         process.env.MAILCHIMP_CLIENT_SECRET ?? "e2e-mailchimp-client-secret",
+      // Slice 17 Commit 6: route Trello authorize + REST + webhook
+      // lifecycle through the mock. integrations/trello/auth.ts honors
+      // TRELLO_AUTHORIZE_BASE (the authorize page) and TRELLO_API_BASE
+      // (GET /1/members/me + REST + webhooks). The mock owns
+      // /1/authorize, /1/members/me, /1/cards{,/id}, /1/lists,
+      // /1/boards, /1/webhooks{,/id}.
+      //
+      // TRELLO_WEBHOOK_URL points at the e2e dev server (the activate
+      // hook reads it for the callbackURL it sends Trello). The
+      // notification URL points at /api/webhooks/trello on the V2 dev
+      // server; the mock POSTs signed events to that URL.
+      TRELLO_AUTHORIZE_BASE: TRELLO_MOCK_BASE,
+      TRELLO_API_BASE: TRELLO_MOCK_BASE,
+      TRELLO_WEBHOOK_URL: E2E_BASE_URL,
+      // Slice 17 Commit 6: e2e Trello app credentials. Production
+      // values come from trello.com/app-key. The e2e values are
+      // throwaway. TRELLO_CLIENT_SECRET ALSO doubles as the webhook
+      // signing key — Trello's design (one app secret, both
+      // purposes). The mock signs deliveries with this exact secret
+      // so V2's verifyTrelloSignature accepts them.
+      TRELLO_CLIENT_ID:
+        process.env.TRELLO_CLIENT_ID ?? "e2e-trello-client-id",
+      TRELLO_CLIENT_SECRET:
+        process.env.TRELLO_CLIENT_SECRET ?? "e2e-trello-client-secret",
       // Slice 3b: fixed test value so the spec process and the dev server
       // produce/verify the same channel token. Production sets the real
       // secret via Vercel; the e2e value is throwaway. Falling back to
