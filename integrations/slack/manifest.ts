@@ -66,9 +66,17 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       // kick / setTopic / setPurpose all dispatch through groups:write
       // when channel_type is "group".
       "groups:write",
+      // Slack 2.3 Commit 4 — get_user_info + list_users actions need
+      // users:read. Promoted from optional in Slack 2.1 to required
+      // here. Existing workspaces with the optional grant will be
+      // prompted to re-OAuth before user-lookup actions resolve.
+      // NOTE: V2 intentionally does NOT also request `users:read.email`
+      // — bot user objects will have `profile.email` set to null /
+      // absent. Workflow authors that need email must add the scope
+      // explicitly (PII surface; Slack 2.3 plan §6 decision 3).
+      "users:read",
     ],
     optional: [
-      "users:read",
       // Slack 2.1 Commit 8 — optional permission to post to public
       // channels the bot has NOT joined. Documented trade-off:
       // workspaces that grant it let the bot reach any public channel

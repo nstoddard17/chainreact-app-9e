@@ -23,9 +23,10 @@ describe("action handler registry", () => {
   });
 
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
-    // Slack 2.3 Commit 4 will register get_user_info + list_users.
-    // gmail:create_draft has no current slice owner.
-    expect(getActionHandler("slack", "get_user_info")).toBeUndefined();
+    // find_user_by_email is permanently skipped per Slack 2.3 plan
+    // §6 decision 3 (PII scope; V1 orphan). gmail:create_draft has no
+    // current slice owner.
+    expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
     expect(getActionHandler("gmail", "create_draft")).toBeUndefined();
   });
 
@@ -126,7 +127,12 @@ describe("action handler registry", () => {
     }
   });
 
-  it("does NOT yet register Slack actions deferred to later slices (file actions + user-token actions + user reads)", () => {
+  it("registers the 2 Slack 2.3 Commit 4 user lookup actions", () => {
+    expect(getActionHandler("slack", "get_user_info")).toBeDefined();
+    expect(getActionHandler("slack", "list_users")).toBeDefined();
+  });
+
+  it("does NOT yet register Slack actions deferred to later slices (file actions + user-token actions) and permanently skipped (find_user_by_email)", () => {
     // File actions land in Slack 2.4 + P-S3 file output contract.
     expect(getActionHandler("slack", "upload_file")).toBeUndefined();
     expect(getActionHandler("slack", "download_file")).toBeUndefined();
@@ -134,10 +140,8 @@ describe("action handler registry", () => {
     // User-token actions land after P-S1 user-token storage.
     expect(getActionHandler("slack", "update_user_status")).toBeUndefined();
     expect(getActionHandler("slack", "set_user_presence")).toBeUndefined();
-    // User reads land in Slack 2.3 Commit 4.
-    expect(getActionHandler("slack", "get_user_info")).toBeUndefined();
-    expect(getActionHandler("slack", "list_users")).toBeUndefined();
-    // find_user_by_email skipped per Slack 2.3 plan (S-R1 orphan / PII).
+    // find_user_by_email permanently skipped per Slack 2.3 plan
+    // §6 decision 3 (V1 orphan + PII scope).
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
   });
 });

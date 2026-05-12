@@ -70,11 +70,11 @@ describe("Slack manifest", () => {
     );
   });
 
-  it("keeps users:read OPTIONAL (NOT promoted to required) — userJoinedWorkspace trigger deferred", () => {
-    expect(slackManifest.scopes.optional).toEqual(
+  it("promotes users:read to required (Slack 2.3 Commit 4 — get_user_info + list_users actions)", () => {
+    expect(slackManifest.scopes.required).toEqual(
       expect.arrayContaining(["users:read"]),
     );
-    expect(slackManifest.scopes.required).not.toEqual(
+    expect(slackManifest.scopes.optional).not.toEqual(
       expect.arrayContaining(["users:read"]),
     );
   });

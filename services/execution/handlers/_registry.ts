@@ -109,11 +109,13 @@ import { deleteMessage as slackDeleteMessage } from "@/integrations/slack/action
 import { getChannelInfo as slackGetChannelInfo } from "@/integrations/slack/actions/channels/getChannelInfo";
 import { getMessages as slackGetMessages } from "@/integrations/slack/actions/getMessages";
 import { getThreadMessages as slackGetThreadMessages } from "@/integrations/slack/actions/getThreadMessages";
+import { getUserInfo as slackGetUserInfo } from "@/integrations/slack/actions/users/getUserInfo";
 import { inviteUsersToChannel as slackInviteUsersToChannel } from "@/integrations/slack/actions/channels/inviteUsersToChannel";
 import { joinChannel as slackJoinChannel } from "@/integrations/slack/actions/channels/joinChannel";
 import { leaveChannel as slackLeaveChannel } from "@/integrations/slack/actions/channels/leaveChannel";
 import { listChannels as slackListChannels } from "@/integrations/slack/actions/channels/listChannels";
 import { listScheduledMessages as slackListScheduledMessages } from "@/integrations/slack/actions/listScheduledMessages";
+import { listUsers as slackListUsers } from "@/integrations/slack/actions/users/listUsers";
 import { pinMessage as slackPinMessage } from "@/integrations/slack/actions/pinMessage";
 import { postInteractiveBlocks as slackPostInteractiveBlocks } from "@/integrations/slack/actions/postInteractiveBlocks";
 import { removeReaction as slackRemoveReaction } from "@/integrations/slack/actions/removeReaction";
@@ -181,6 +183,8 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "remove_user_from_channel", handler: slackRemoveUserFromChannel },
   { provider: "slack", type: "set_channel_topic", handler: slackSetChannelTopic },
   { provider: "slack", type: "set_channel_purpose", handler: slackSetChannelPurpose },
+  { provider: "slack", type: "get_user_info", handler: slackGetUserInfo },
+  { provider: "slack", type: "list_users", handler: slackListUsers },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
