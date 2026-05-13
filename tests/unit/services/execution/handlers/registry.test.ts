@@ -54,12 +54,36 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 4 Gmail 2.2 Commit 2 email lifecycle handlers", () => {
+    expect(getActionHandler("gmail", "mark_as_read")).toBeDefined();
+    expect(getActionHandler("gmail", "mark_as_unread")).toBeDefined();
+    expect(getActionHandler("gmail", "archive_email")).toBeDefined();
+    expect(getActionHandler("gmail", "delete_email")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "mark_as_read",
+    });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "mark_as_unread",
+    });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "archive_email",
+    });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "delete_email",
+    });
+  });
+
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
     // find_user_by_email is permanently skipped per Slack 2.3 plan
-    // §6 decision 3 (PII scope; V1 orphan). gmail:mark_as_read is
-    // Gmail 2.2 Commit 2 — not yet registered.
+    // §6 decision 3 (PII scope; V1 orphan). gmail:search_emails is
+    // Gmail 2.2 Commit 3 — not yet registered.
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
-    expect(getActionHandler("gmail", "mark_as_read")).toBeUndefined();
+    expect(getActionHandler("gmail", "search_emails")).toBeUndefined();
   });
 
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {

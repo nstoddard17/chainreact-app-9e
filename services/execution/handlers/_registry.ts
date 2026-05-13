@@ -21,9 +21,13 @@ import { createIssue as githubCreateIssue } from "@/integrations/github/actions/
 import { createPullRequest as githubCreatePullRequest } from "@/integrations/github/actions/createPullRequest";
 import { createRepository as githubCreateRepository } from "@/integrations/github/actions/createRepository";
 import { addLabel as gmailAddLabel } from "@/integrations/gmail/actions/addLabel";
+import { archiveEmail as gmailArchiveEmail } from "@/integrations/gmail/actions/archiveEmail";
 import { createDraft as gmailCreateDraft } from "@/integrations/gmail/actions/createDraft";
 import { createDraftReply as gmailCreateDraftReply } from "@/integrations/gmail/actions/createDraftReply";
 import { createLabel as gmailCreateLabel } from "@/integrations/gmail/actions/createLabel";
+import { deleteEmail as gmailDeleteEmail } from "@/integrations/gmail/actions/deleteEmail";
+import { markAsRead as gmailMarkAsRead } from "@/integrations/gmail/actions/markAsRead";
+import { markAsUnread as gmailMarkAsUnread } from "@/integrations/gmail/actions/markAsUnread";
 import { removeLabel as gmailRemoveLabel } from "@/integrations/gmail/actions/removeLabel";
 import { replyToEmail as gmailReplyToEmail } from "@/integrations/gmail/actions/replyToEmail";
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
@@ -217,6 +221,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "gmail", type: "add_label", handler: gmailAddLabel },
   { provider: "gmail", type: "remove_label", handler: gmailRemoveLabel },
   { provider: "gmail", type: "create_label", handler: gmailCreateLabel },
+  // Gmail 2.2 Commit 2 — email lifecycle actions.
+  { provider: "gmail", type: "mark_as_read", handler: gmailMarkAsRead },
+  { provider: "gmail", type: "mark_as_unread", handler: gmailMarkAsUnread },
+  { provider: "gmail", type: "archive_email", handler: gmailArchiveEmail },
+  { provider: "gmail", type: "delete_email", handler: gmailDeleteEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
   { provider: "google-calendar", type: "update_event", handler: updateEvent },
