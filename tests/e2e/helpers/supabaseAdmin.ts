@@ -270,3 +270,193 @@ export async function waitFor<T>(
     }; last value: ${JSON.stringify(last)}`,
   );
 }
+
+// ── Slack 2.4 / P-S3 — workflow_files + storage helpers ────────────────
+//
+// The `workflow-files` bucket is normally created out-of-band per the
+// P-S3 migration header. For e2e we ensure it exists idempotently —
+// `createBucket` returns a `Bucket already exists` error we treat as
+// success. Seeded files use the canonical
+// `<userId>/<workflowId>/<runId>/<nodeId>/<filename>` path scheme so
+// the upload action's FileRef.storagePath round-trips cleanly.
+
+export const WORKFLOW_FILES_BUCKET = "workflow-files";
+
+/**
+ * Idempotently ensure the `workflow-files` bucket exists. Safe to call
+ * from every test setup. Reports the outcome so the spec can assert
+ * the bucket was usable.
+ */
+export async function ensureWorkflowFilesBucket(): Promise<void> {
+  const client = adminClient();
+  const { error } = await client.storage.createBucket(WORKFLOW_FILES_BUCKET, {
+    public: false,
+  });
+  if (!error) return;
+  // Supabase returns a structured error when the bucket exists; the
+  // exact message has shifted across versions. Treat any
+  // "already exists" / "duplicate"-style message as success.
+  const msg = error.message?.toLowerCase() ?? "";
+  if (
+    msg.includes("already exists") ||
+    msg.includes("duplicate") ||
+    msg.includes("conflict")
+  ) {
+    return;
+  }
+  throw new Error(
+    `ensureWorkflowFilesBucket: createBucket failed: ${error.message}`,
+  );
+}
+
+export interface SeededWorkflowFile {
+  /** Inserted `workflow_files` row id. */
+  id: string;
+  /** Canonical storage path within the workflow-files bucket. */
+  storagePath: string;
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}
+
+/**
+ * Upload bytes to the workflow-files bucket AND insert the matching
+ * metadata row. Used to seed a `FileRef(kind=v2_storage)` consumed by
+ * `slack:upload_file` in the e2e.
+ *
+ * The runId can be synthetic (no matching `workflow_runs` row exists)
+ * — `workflow_files.run_id` has no FK by P-S3 design.
+ */
+export async function seedWorkflowFile(input: {
+  userId: string;
+  workflowId: string;
+  runId: string;
+  nodeId: string;
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}): Promise<SeededWorkflowFile> {
+  await ensureWorkflowFilesBucket();
+  const storagePath = `${input.userId}/${input.workflowId}/${input.runId}/${input.nodeId}/${input.fileName}`;
+  const client = adminClient();
+
+  const { error: uploadErr } = await client.storage
+    .from(WORKFLOW_FILES_BUCKET)
+    .upload(storagePath, input.bytes, {
+      contentType: input.mimeType,
+      upsert: true,
+    });
+  if (uploadErr) {
+    throw new Error(
+      `seedWorkflowFile: storage upload failed: ${uploadErr.message}`,
+    );
+  }
+
+  const { data, error } = await client
+    .from("workflow_files")
+    .insert({
+      user_id: input.userId,
+      workflow_id: input.workflowId,
+      run_id: input.runId,
+      node_id: input.nodeId,
+      storage_path: storagePath,
+      file_name: input.fileName,
+      mime_type: input.mimeType,
+      size_bytes: input.bytes.byteLength,
+      metadata: { seedBy: "e2e" },
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) {
+    throw new Error(
+      `seedWorkflowFile: workflow_files insert failed: ${error?.message ?? "no row"}`,
+    );
+  }
+  return {
+    id: data.id,
+    storagePath,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    bytes: input.bytes,
+  };
+}
+
+/**
+ * Read every `workflow_files` row belonging to a user, ordered by
+ * created_at ASC so the test can pick the most-recently-staged file
+ * deterministically with `.at(-1)`.
+ */
+export async function getWorkflowFilesForUser(
+  userId: string,
+): Promise<readonly Record<string, unknown>[]> {
+  const { data, error } = await adminClient()
+    .from("workflow_files")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`getWorkflowFilesForUser: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Download a storage object as a Uint8Array. Used by tests that want
+ * to assert the staged bytes match what the mock served.
+ */
+export async function readWorkflowFileObject(
+  storagePath: string,
+): Promise<Uint8Array> {
+  const client = adminClient();
+  const { data, error } = await client.storage
+    .from(WORKFLOW_FILES_BUCKET)
+    .download(storagePath);
+  if (error || !data) {
+    throw new Error(
+      `readWorkflowFileObject: ${error?.message ?? "no data"} (path=${storagePath})`,
+    );
+  }
+  const buf = await data.arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+/**
+ * Best-effort cleanup of staged files between tests so the storage
+ * bucket doesn't accumulate per-test debris. Removes both the
+ * storage objects and the metadata rows. Per-user scoped.
+ */
+export async function cleanupWorkflowFilesForUser(
+  userId: string,
+): Promise<void> {
+  const client = adminClient();
+  const { data, error } = await client
+    .from("workflow_files")
+    .select("storage_path")
+    .eq("user_id", userId);
+  if (error) {
+    console.warn(
+      `[e2e cleanup] cleanupWorkflowFilesForUser select failed: ${error.message}`,
+    );
+    return;
+  }
+  const paths = (data ?? [])
+    .map((row) => (row as { storage_path?: string }).storage_path)
+    .filter((p): p is string => typeof p === "string" && p.length > 0);
+  if (paths.length > 0) {
+    const { error: rmErr } = await client.storage
+      .from(WORKFLOW_FILES_BUCKET)
+      .remove(paths);
+    if (rmErr) {
+      console.warn(
+        `[e2e cleanup] storage.remove failed: ${rmErr.message}`,
+      );
+    }
+  }
+  const { error: delErr } = await client
+    .from("workflow_files")
+    .delete()
+    .eq("user_id", userId);
+  if (delErr) {
+    console.warn(
+      `[e2e cleanup] workflow_files delete failed: ${delErr.message}`,
+    );
+  }
+}

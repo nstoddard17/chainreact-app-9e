@@ -1,11 +1,16 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { createHmac } from "node:crypto";
 import {
+  cleanupWorkflowFilesForUser,
   createTestUser,
   deleteTestUser,
+  ensureWorkflowFilesBucket,
   getIntegrationsForUser,
   getNotificationsForUser,
+  getWorkflowFilesForUser,
   getWorkflowRunsForUser,
+  readWorkflowFileObject,
+  seedWorkflowFile,
   waitFor,
   type TestUser,
 } from "./helpers/supabaseAdmin";
@@ -1099,6 +1104,601 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
   });
 });
 
+/**
+ * Slack 2.4 — file actions e2e block.
+ *
+ * Proves the FileRef contract end-to-end across all three Slack file
+ * actions plus the provider_url rejection path. Per Slack 2.4 plan
+ * §9 + accepted scope:
+ *   - upload_file from a seeded `FileRef(kind=v2_storage)` →
+ *     mock Slack's 3-step upload → output `FileRef(kind=provider_url)`.
+ *   - download_file fetches Slack-served bytes with the bot bearer
+ *     → stageFileToStorage writes to the workflow-files bucket →
+ *     output `FileRef(kind=v2_storage)`. Asserts the metadata row
+ *     + storage object both exist with the canonical path.
+ *   - get_file_info → output `FileRef(kind=provider_url)` + flat
+ *     metadata; no bytes/content/base64 in output.
+ *   - upload_file rejects `FileRef(kind=provider_url)` BEFORE any
+ *     Slack API call. (Per SlackUploadConfigError contract.)
+ *
+ * Real surfaces:
+ *   - Supabase storage bucket (`workflow-files`) + `workflow_files`
+ *     table (P-S3 Commit 3 stack).
+ *   - Slack two-step upload flow (Commit 2 wrappers).
+ *   - download_file (Commit 4) + get_file_info (Commit 4) handlers.
+ *   - The engine's HANDLER_FAILED mapping for the rejection test.
+ *
+ * Mocked surfaces:
+ *   - Slack file Web API endpoints (files.getUploadURLExternal,
+ *     files.completeUploadExternal, files.info, /upload/<token>, and
+ *     the `url_private_download` GET) on the mock Slack server.
+ */
+test.describe("Slice 2.4 — Slack file actions e2e", () => {
+  let fileTestUser: TestUser | null = null;
+
+  test.beforeEach(async () => {
+    fileTestUser = await createTestUser();
+    await ensureWorkflowFilesBucket();
+  });
+
+  test.afterEach(async () => {
+    if (fileTestUser) {
+      await cleanupWorkflowFilesForUser(fileTestUser.id);
+      await deleteTestUser(fileTestUser.id);
+      fileTestUser = null;
+    }
+  });
+
+  test("upload_file from FileRef(v2_storage): Slack 3-step upload + FileRef(provider_url) output (no bytes/base64 in output)", async ({
+    page,
+    request,
+  }) => {
+    if (!fileTestUser) throw new Error("test user setup failed");
+    const user = fileTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // 1) Sign in + connect Slack.
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+    const integrations = await getIntegrationsForUser(user.id, "slack");
+    expect(integrations).toHaveLength(1);
+
+    // 2) Create the workflow shell so we know the workflowId for the
+    //    seeded FileRef's storage path. The seed runs BEFORE activation
+    //    so the bytes exist when the workflow fires.
+    const createResp = await page.request.post("/api/workflows", {
+      data: { name: "WF upload_file from v2_storage" },
+    });
+    expect(createResp.status(), await createResp.text()).toBe(201);
+    const wfId = ((await createResp.json()) as { id: string }).id;
+
+    // 3) Seed bytes + workflow_files row for the upload input.
+    //    run_id MUST be a uuid (workflow_files schema) — synthesize one
+    //    here; no real workflow_runs row exists for this seed (the
+    //    workflow_files.run_id column intentionally has no FK).
+    const seedBytes = new Uint8Array([
+      0xca, 0xfe, 0xba, 0xbe,
+      ...Buffer.from("E2E_UPLOAD_PAYLOAD", "ascii"),
+    ]);
+    const seeded = await seedWorkflowFile({
+      userId: user.id,
+      workflowId: wfId,
+      runId: crypto.randomUUID(),
+      nodeId: "seed-node-upload",
+      fileName: "e2e-upload.bin",
+      mimeType: "application/octet-stream",
+      bytes: seedBytes,
+    });
+
+    // 4) Patch the workflow draft with a slack.message.channel trigger
+    //    and an upload_file action consuming the seeded FileRef.
+    const fileRefInput = {
+      kind: "v2_storage",
+      name: seeded.fileName,
+      mimeType: seeded.mimeType,
+      sizeBytes: seeded.bytes.byteLength,
+      storagePath: seeded.storagePath,
+      provider: "slack",
+    };
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "slack.message.channel",
+          config: { channelId: "C0UPLOADTRIG" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "slack",
+          type: "upload_file",
+          config: {
+            channel: "C0UPLOADDEST",
+            file: fileRefInput,
+            title: "E2E upload title",
+            initialComment: "E2E upload comment",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    const activate = await page.request.post(
+      `/api/workflows/${wfId}/activate`,
+    );
+    expect(activate.status(), await activate.text()).toBe(200);
+
+    // 5) Fire the Slack trigger.
+    const resp = await postSlackEvent(request, {
+      eventId: `Ev-2.4-upload-${Date.now()}`,
+      event: {
+        type: "message",
+        channel: "C0UPLOADTRIG",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "fire upload_file",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(resp.status(), await resp.text()).toBe(200);
+
+    // 6) Wait for the workflow_runs row.
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row for upload_file", timeoutMs: 20_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("succeeded");
+
+    // 7) Mock-side assertions: each step of Slack's 3-step upload fired
+    //    exactly once and received what we expected.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.filesGetUploadURLExternal).toHaveLength(1);
+    expect(calls.filesGetUploadURLExternal[0]!.body).toMatchObject({
+      filename: seeded.fileName,
+      length: String(seeded.bytes.byteLength),
+    });
+
+    expect(calls.filesUpload).toHaveLength(1);
+    expect(calls.filesUpload[0]!.contentType).toBe("application/octet-stream");
+    expect(calls.filesUpload[0]!.byteLength).toBe(seeded.bytes.byteLength);
+    // Bytes match the seeded payload exactly.
+    expect(calls.filesUpload[0]!.bytesBase64).toBe(
+      Buffer.from(seedBytes).toString("base64"),
+    );
+    // The Slack-issued upload URL is one-shot pre-signed — no Bearer
+    // header should be attached.
+    expect(calls.filesUpload[0]!.authorization).toBeUndefined();
+
+    expect(calls.filesCompleteUploadExternal).toHaveLength(1);
+    expect(calls.filesCompleteUploadExternal[0]!.body).toMatchObject({
+      files: [{ id: "F-MOCK-NEW", title: "E2E upload title" }],
+      channel_id: "C0UPLOADDEST",
+      initial_comment: "E2E upload comment",
+    });
+
+    // 8) Output assertions.
+    const actionStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as
+      | { output?: Record<string, unknown>; status?: string }
+      | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    const file = output.file as Record<string, unknown> | undefined;
+    expect(file?.kind).toBe("provider_url");
+    expect(file?.provider).toBe("slack");
+    expect(file?.providerFileId).toBe("F-MOCK-NEW");
+    expect(output.fileId).toBe("F-MOCK-NEW");
+    expect(output.channelIds).toEqual(["C0UPLOADDEST"]);
+    // CLAUDE.md rule #1: outputs MUST NOT carry bytes / base64 / content / data.
+    const outKeys = Object.keys(output);
+    expect(outKeys).not.toContain("content");
+    expect(outKeys).not.toContain("bytes");
+    expect(outKeys).not.toContain("base64");
+    expect(outKeys).not.toContain("data");
+  });
+
+  test("download_file: Slack url_private_download → workflow-files staging + FileRef(v2_storage) output", async ({
+    page,
+    request,
+  }) => {
+    if (!fileTestUser) throw new Error("test user setup failed");
+    const user = fileTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+
+    const createResp = await page.request.post("/api/workflows", {
+      data: { name: "WF download_file stages bytes" },
+    });
+    expect(createResp.status(), await createResp.text()).toBe(201);
+    const wfId = ((await createResp.json()) as { id: string }).id;
+
+    const targetFileId = "FDLE2E001";
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "slack.message.channel",
+          config: { channelId: "C0DOWNLOADTRIG" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "slack",
+          type: "download_file",
+          config: { fileId: targetFileId },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    const activate = await page.request.post(
+      `/api/workflows/${wfId}/activate`,
+    );
+    expect(activate.status(), await activate.text()).toBe(200);
+
+    const resp = await postSlackEvent(request, {
+      eventId: `Ev-2.4-download-${Date.now()}`,
+      event: {
+        type: "message",
+        channel: "C0DOWNLOADTRIG",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "fire download_file",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(resp.status(), await resp.text()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      {
+        description: "workflow_runs row for download_file",
+        timeoutMs: 20_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("succeeded");
+
+    // Mock-side assertions.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.filesInfo).toHaveLength(1);
+    expect(calls.filesInfo[0]!.body).toMatchObject({ file: targetFileId });
+    expect(calls.urlPrivateDownload).toHaveLength(1);
+    expect(calls.urlPrivateDownload[0]!.authorization).toMatch(/^Bearer /i);
+    // No upload paths fired — download is read-only on Slack's side.
+    expect(calls.filesGetUploadURLExternal).toHaveLength(0);
+    expect(calls.filesUpload).toHaveLength(0);
+    expect(calls.filesCompleteUploadExternal).toHaveLength(0);
+
+    // DB-side assertion: workflow_files row exists for the staged bytes.
+    const stagedRows = await getWorkflowFilesForUser(user.id);
+    // Filter to rows owned by this run's workflow (cleanup leaves the
+    // seed-row pattern unused in this test, but be defensive).
+    const stagedForWorkflow = stagedRows.filter(
+      (r) => (r as { workflow_id?: string }).workflow_id === wfId,
+    );
+    expect(stagedForWorkflow).toHaveLength(1);
+    const stagedRow = stagedForWorkflow[0]! as {
+      storage_path: string;
+      file_name: string;
+      mime_type: string;
+      size_bytes: number | null;
+      metadata: Record<string, unknown>;
+    };
+    expect(stagedRow.file_name).toMatch(/FDLE2E001/);
+    expect(stagedRow.mime_type).toBe("application/octet-stream");
+    const runId = (run as unknown as { id: string }).id;
+    expect(stagedRow.storage_path).toBe(
+      `${user.id}/${wfId}/${runId}/action-node/${stagedRow.file_name}`,
+    );
+    expect(stagedRow.metadata.permalink).toMatch(/acme\.slack\.com/);
+
+    // Storage object exists with the bytes the mock served.
+    const stagedBytes = await readWorkflowFileObject(stagedRow.storage_path);
+    expect(stagedBytes.byteLength).toBeGreaterThan(0);
+    // Sentinel match — mock serves the same bytes for every fileId.
+    const sentinel = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
+    expect(Buffer.from(stagedBytes.slice(0, 4))).toEqual(sentinel);
+
+    // Output FileRef is kind=v2_storage with provider="slack" diagnostic.
+    const actionStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as
+      | { output?: Record<string, unknown>; status?: string }
+      | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    const file = output.file as Record<string, unknown> | undefined;
+    expect(file?.kind).toBe("v2_storage");
+    expect(file?.provider).toBe("slack");
+    expect(file?.storagePath).toBe(stagedRow.storage_path);
+    expect(output.fileId).toBe(targetFileId);
+    expect(output.mimeType).toBe("application/octet-stream");
+    expect(output.sizeBytes).toBe(stagedBytes.byteLength);
+    const outKeys = Object.keys(output);
+    expect(outKeys).not.toContain("content");
+    expect(outKeys).not.toContain("bytes");
+    expect(outKeys).not.toContain("base64");
+    expect(outKeys).not.toContain("data");
+  });
+
+  test("get_file_info: Slack files.info → FileRef(provider_url) output + flat metadata (no bytes in output)", async ({
+    page,
+    request,
+  }) => {
+    if (!fileTestUser) throw new Error("test user setup failed");
+    const user = fileTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+
+    const createResp = await page.request.post("/api/workflows", {
+      data: { name: "WF get_file_info" },
+    });
+    expect(createResp.status(), await createResp.text()).toBe(201);
+    const wfId = ((await createResp.json()) as { id: string }).id;
+
+    const targetFileId = "FINFOE2E001";
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "slack.message.channel",
+          config: { channelId: "C0INFOTRIG" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "slack",
+          type: "get_file_info",
+          config: { fileId: targetFileId, includeComments: false },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    const activate = await page.request.post(
+      `/api/workflows/${wfId}/activate`,
+    );
+    expect(activate.status(), await activate.text()).toBe(200);
+
+    const resp = await postSlackEvent(request, {
+      eventId: `Ev-2.4-info-${Date.now()}`,
+      event: {
+        type: "message",
+        channel: "C0INFOTRIG",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "fire get_file_info",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(resp.status(), await resp.text()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row for get_file_info", timeoutMs: 20_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.filesInfo).toHaveLength(1);
+    expect(calls.filesInfo[0]!.body).toMatchObject({ file: targetFileId });
+    // get_file_info is metadata-only — bytes endpoint is NOT touched.
+    expect(calls.urlPrivateDownload).toHaveLength(0);
+
+    const actionStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as
+      | { output?: Record<string, unknown>; status?: string }
+      | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    const file = output.file as Record<string, unknown> | undefined;
+    expect(file?.kind).toBe("provider_url");
+    expect(file?.provider).toBe("slack");
+    expect(file?.providerFileId).toBe(targetFileId);
+    // Flat metadata projected alongside the FileRef.
+    expect(output.fileId).toBe(targetFileId);
+    expect(output.title).toBe(`Title for ${targetFileId}`);
+    expect(output.fileType).toBe("binary");
+    expect(output.mimeType).toBe("application/octet-stream");
+    expect(typeof output.sizeBytes).toBe("number");
+    expect(output.permalink).toMatch(/acme\.slack\.com/);
+    expect(output.permalinkPublic).toMatch(/slack-files\.com/);
+    expect(output.uploaderId).toBe("U0ALICE");
+    expect(output.channels).toEqual(["C0SHARED", "C0PUBLIC1"]);
+    expect(output.isPublic).toBe(false);
+    expect(output.isExternal).toBe(false);
+    expect(typeof output.createdAt).toBe("string");
+    expect(output.commentsCount).toBe(0);
+    expect(output.comments).toEqual([]);
+    // No bytes.
+    const outKeys = Object.keys(output);
+    expect(outKeys).not.toContain("content");
+    expect(outKeys).not.toContain("bytes");
+    expect(outKeys).not.toContain("base64");
+    expect(outKeys).not.toContain("data");
+  });
+
+  test("upload_file rejects FileRef(kind=provider_url) — workflow run fails with provider_url message, no Slack file API calls", async ({
+    page,
+    request,
+  }) => {
+    if (!fileTestUser) throw new Error("test user setup failed");
+    const user = fileTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+
+    const createResp = await page.request.post("/api/workflows", {
+      data: { name: "WF upload_file rejects provider_url" },
+    });
+    expect(createResp.status(), await createResp.text()).toBe(201);
+    const wfId = ((await createResp.json()) as { id: string }).id;
+
+    const providerUrlRef = {
+      kind: "provider_url",
+      name: "shared.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 1024,
+      url: "https://files.slack.com/files-pri/T1-F1/shared.pdf",
+      provider: "slack",
+      providerFileId: "FPROVIDEREXISTING",
+    };
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "slack.message.channel",
+          config: { channelId: "C0REJECTTRIG" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "slack",
+          type: "upload_file",
+          config: {
+            channel: "C0REJECTDEST",
+            file: providerUrlRef,
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    const activate = await page.request.post(
+      `/api/workflows/${wfId}/activate`,
+    );
+    expect(activate.status(), await activate.text()).toBe(200);
+
+    const resp = await postSlackEvent(request, {
+      eventId: `Ev-2.4-reject-${Date.now()}`,
+      event: {
+        type: "message",
+        channel: "C0REJECTTRIG",
+        channel_type: "channel",
+        user: "U-SENDER",
+        text: "fire upload_file with provider_url",
+        ts: `${Date.now() / 1000}`,
+      },
+    });
+    expect(resp.status(), await resp.text()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      {
+        description: "workflow_runs row for provider_url rejection",
+        timeoutMs: 20_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("failed");
+
+    // The action step's error carries the SlackUploadConfigError
+    // message — engine maps it to HANDLER_FAILED.
+    const actionStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as
+      | { error?: { code?: string; message?: string }; status?: string }
+      | undefined;
+    expect(actionStep?.status).toBe("failed");
+    expect(actionStep?.error?.code).toBe("HANDLER_FAILED");
+    expect(actionStep?.error?.message).toMatch(/provider_url/);
+
+    // Slack file endpoints NEVER touched.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.filesGetUploadURLExternal).toHaveLength(0);
+    expect(calls.filesUpload).toHaveLength(0);
+    expect(calls.filesCompleteUploadExternal).toHaveLength(0);
+    expect(calls.filesInfo).toHaveLength(0);
+    expect(calls.urlPrivateDownload).toHaveLength(0);
+  });
+});
+
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -1117,6 +1717,19 @@ async function signIn(page: Page, user: TestUser): Promise<void> {
 interface RecordedSlackApiCall {
   authorization: string | undefined;
   body: Record<string, unknown>;
+}
+
+interface RecordedRawUpload {
+  uploadToken: string;
+  authorization: string | undefined;
+  contentType: string | undefined;
+  byteLength: number;
+  bytesBase64: string;
+}
+
+interface RecordedFileDownload {
+  path: string;
+  authorization: string | undefined;
 }
 
 interface MockCalls {
@@ -1142,6 +1755,12 @@ interface MockCalls {
   // Slack 2.3 — user lookups
   usersInfo: RecordedSlackApiCall[];
   usersList: RecordedSlackApiCall[];
+  // Slack 2.4 — file actions
+  filesGetUploadURLExternal: RecordedSlackApiCall[];
+  filesUpload: RecordedRawUpload[];
+  filesCompleteUploadExternal: RecordedSlackApiCall[];
+  filesInfo: RecordedSlackApiCall[];
+  urlPrivateDownload: RecordedFileDownload[];
 }
 
 async function fetchMockCalls(
