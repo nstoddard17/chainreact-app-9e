@@ -21,7 +21,7 @@ function mockFetchOnce(response: { ok: boolean; status?: number; body?: string; 
   // The Response constructor rejects non-null bodies for 204 / 205 /
   // 304 (null-body statuses per fetch spec). Force null body for those.
   const isNullBodyStatus = status === 204 || status === 205 || status === 304;
-  const body: BodyInit | null = isNullBodyStatus
+  const body: string | null = isNullBodyStatus
     ? null
     : response.body !== undefined
       ? response.body

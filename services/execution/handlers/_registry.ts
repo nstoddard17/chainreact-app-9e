@@ -30,6 +30,7 @@ import { markAsRead as gmailMarkAsRead } from "@/integrations/gmail/actions/mark
 import { markAsUnread as gmailMarkAsUnread } from "@/integrations/gmail/actions/markAsUnread";
 import { removeLabel as gmailRemoveLabel } from "@/integrations/gmail/actions/removeLabel";
 import { replyToEmail as gmailReplyToEmail } from "@/integrations/gmail/actions/replyToEmail";
+import { searchEmails as gmailSearchEmails } from "@/integrations/gmail/actions/searchEmails";
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
 import { addAttendees } from "@/integrations/google-calendar/actions/addAttendees";
 import { createEvent } from "@/integrations/google-calendar/actions/createEvent";
@@ -226,6 +227,8 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "gmail", type: "mark_as_unread", handler: gmailMarkAsUnread },
   { provider: "gmail", type: "archive_email", handler: gmailArchiveEmail },
   { provider: "gmail", type: "delete_email", handler: gmailDeleteEmail },
+  // Gmail 2.2 Commit 3 — search_emails (advancedSearch folded as searchMode).
+  { provider: "gmail", type: "search_emails", handler: gmailSearchEmails },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
   { provider: "google-calendar", type: "update_event", handler: updateEvent },

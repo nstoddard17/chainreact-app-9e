@@ -78,12 +78,28 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers search_emails (Gmail 2.2 Commit 3 — advancedSearch folded as searchMode)", () => {
+    expect(getActionHandler("gmail", "search_emails")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "gmail",
+      type: "search_emails",
+    });
+  });
+
+  it("does NOT register a separate gmail:advanced_search action (folded into search_emails per parity decision 1)", () => {
+    expect(getActionHandler("gmail", "advanced_search")).toBeUndefined();
+    expect(listRegisteredHandlers()).not.toContainEqual({
+      provider: "gmail",
+      type: "advanced_search",
+    });
+  });
+
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
     // find_user_by_email is permanently skipped per Slack 2.3 plan
-    // §6 decision 3 (PII scope; V1 orphan). gmail:search_emails is
-    // Gmail 2.2 Commit 3 — not yet registered.
+    // §6 decision 3 (PII scope; V1 orphan). gmail:get_attachment is
+    // Gmail 2.3 — not yet registered (gated on P-S3).
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
-    expect(getActionHandler("gmail", "search_emails")).toBeUndefined();
+    expect(getActionHandler("gmail", "get_attachment")).toBeUndefined();
   });
 
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
