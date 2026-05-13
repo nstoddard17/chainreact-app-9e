@@ -20,6 +20,9 @@ import { createGist as githubCreateGist } from "@/integrations/github/actions/cr
 import { createIssue as githubCreateIssue } from "@/integrations/github/actions/createIssue";
 import { createPullRequest as githubCreatePullRequest } from "@/integrations/github/actions/createPullRequest";
 import { createRepository as githubCreateRepository } from "@/integrations/github/actions/createRepository";
+import { createDraft as gmailCreateDraft } from "@/integrations/gmail/actions/createDraft";
+import { createDraftReply as gmailCreateDraftReply } from "@/integrations/gmail/actions/createDraftReply";
+import { replyToEmail as gmailReplyToEmail } from "@/integrations/gmail/actions/replyToEmail";
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
 import { addAttendees } from "@/integrations/google-calendar/actions/addAttendees";
 import { createEvent } from "@/integrations/google-calendar/actions/createEvent";
@@ -137,6 +140,8 @@ import { setChannelTopic as slackSetChannelTopic } from "@/integrations/slack/ac
 import { unarchiveChannel as slackUnarchiveChannel } from "@/integrations/slack/actions/channels/unarchiveChannel";
 import { unpinMessage as slackUnpinMessage } from "@/integrations/slack/actions/unpinMessage";
 import { updateMessage as slackUpdateMessage } from "@/integrations/slack/actions/updateMessage";
+import { downloadFile as slackDownloadFile } from "@/integrations/slack/actions/files/downloadFile";
+import { getFileInfo as slackGetFileInfo } from "@/integrations/slack/actions/files/getFileInfo";
 import { uploadFile as slackUploadFile } from "@/integrations/slack/actions/files/uploadFile";
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
 import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
@@ -196,7 +201,15 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "list_users", handler: slackListUsers },
   // Slack 2.4 Commit 3 — file upload via P-S3 FileRef contract.
   { provider: "slack", type: "upload_file", handler: slackUploadFile },
+  // Slack 2.4 Commit 4 — file download (stages bytes to v2_storage)
+  // and metadata-only get_file_info (emits provider_url FileRef).
+  { provider: "slack", type: "download_file", handler: slackDownloadFile },
+  { provider: "slack", type: "get_file_info", handler: slackGetFileInfo },
   { provider: "gmail", type: "send_email", handler: sendEmail },
+  // Gmail 2.1 Commit 3 — drafts + reply ports.
+  { provider: "gmail", type: "create_draft", handler: gmailCreateDraft },
+  { provider: "gmail", type: "create_draft_reply", handler: gmailCreateDraftReply },
+  { provider: "gmail", type: "reply_to_email", handler: gmailReplyToEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
   { provider: "google-calendar", type: "update_event", handler: updateEvent },

@@ -22,12 +22,28 @@ describe("action handler registry", () => {
     expect(getActionHandler("gmail", "send_email")).toBeDefined();
   });
 
+  it("registers the 3 Gmail 2.1 Commit 3 draft + reply handlers", () => {
+    expect(getActionHandler("gmail", "create_draft")).toBeDefined();
+    expect(getActionHandler("gmail", "create_draft_reply")).toBeDefined();
+    expect(getActionHandler("gmail", "reply_to_email")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({ provider: "gmail", type: "create_draft" });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "create_draft_reply",
+    });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "reply_to_email",
+    });
+  });
+
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
     // find_user_by_email is permanently skipped per Slack 2.3 plan
-    // §6 decision 3 (PII scope; V1 orphan). gmail:create_draft has no
-    // current slice owner.
+    // §6 decision 3 (PII scope; V1 orphan). gmail:add_label is a
+    // Gmail 2.2 owner — not yet registered.
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
-    expect(getActionHandler("gmail", "create_draft")).toBeUndefined();
+    expect(getActionHandler("gmail", "add_label")).toBeUndefined();
   });
 
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
@@ -140,9 +156,18 @@ describe("action handler registry", () => {
     });
   });
 
-  it("does NOT yet register Slack file actions deferred to Slack 2.4 Commit 4 (download_file + get_file_info)", () => {
-    expect(getActionHandler("slack", "download_file")).toBeUndefined();
-    expect(getActionHandler("slack", "get_file_info")).toBeUndefined();
+  it("registers download_file + get_file_info (Slack 2.4 Commit 4 — P-S3 stage + provider_url FileRef)", () => {
+    expect(getActionHandler("slack", "download_file")).toBeDefined();
+    expect(getActionHandler("slack", "get_file_info")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "slack",
+      type: "download_file",
+    });
+    expect(registered).toContainEqual({
+      provider: "slack",
+      type: "get_file_info",
+    });
   });
 
   it("does NOT yet register the deferred Slack 2.5 file trigger (file_uploaded)", () => {
