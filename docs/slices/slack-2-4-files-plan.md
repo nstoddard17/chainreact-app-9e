@@ -1,6 +1,6 @@
 # Slack 2.4 — File actions plan
 
-**Status:** Plan / not yet accepted. **Doc-only commit.** No implementation begins until Marcus accepts.
+**Status:** Plan accepted with all §10 decisions locked. **Implementation in progress on `v2-provider-port-local`.** Commit 2 (API wrappers) executes per §10 batch plan.
 **Branch:** `v2-provider-port-local` (local-only).
 **Master plan:** [`docs/slices/phase-2-plan.md`](phase-2-plan.md).
 **Direct platform dependency:** P-S3 file output contract — shipped. Plan: [`docs/slices/p-s3-file-output-contract-plan.md`](p-s3-file-output-contract-plan.md). Outcomes: [`docs/slices/p-s3-file-output-contract-outcomes.md`](p-s3-file-output-contract-outcomes.md).
@@ -409,15 +409,17 @@ Extend the Slack walkthrough harness (existing pattern in [`tests/e2e/`](../../t
 
 ---
 
-## 10. Open decisions for Marcus
+## 10. Accepted decisions
 
-Three real decisions. Two have recommendations; the third is informational.
+All decisions are locked. Implementation MUST follow these answers.
 
-| # | Decision | Recommendation | Alternative |
-|---|---|---|---|
-| 1 | Should `upload_file` accept `provider_url` FileRefs in Slack 2.4, or only `v2_storage` + `signed_url`? | **`v2_storage` + `signed_url` only.** `provider_url` rejected at handler entry with a clear hint pointing to `download_file`. Matches CLAUDE.md durable rule #5; keeps Slack 2.4 from prejudging the cross-provider fetcher API. See §5. | Option B in §5 — implement a Slack-specific `providerFetcher` adapter and extend `fetchFileBytes`. Unblocks `slack:get_file_info → slack:upload_file` in a single chain. Risks settling the cross-provider helper API inside a provider slice instead of a platform slice. |
-| 2 | Should `slack_trigger_file_uploaded` ship in Slack 2.4, or defer to 2.5? | **Defer to 2.5.** Trigger requires a separate filter file, registration plumbing, and an extra e2e scenario; deferring keeps Slack 2.4 to the three actions + their tests + one e2e. The trigger has no dependency on the action surface (independent slice). | Bundle into 2.4 — adds commit 6 (trigger filter) + e2e scenario 6. Adds ~3 days of work; reduces Slack 2.4 churn count if Marcus prefers fewer slices. |
-| 3 | Should `upload_file` accept inline text via a `fileRefFromInlineText` helper, or defer that convenience? | **Defer.** The P-S3 plan §8 listed this as a stretch goal; it requires a new builder that does a one-step storage write (because no inline arm exists by design). Not blocking Slack 2.4; can land as a P-S4 / future-Phase-7 convenience commit if a workflow pattern actually demands it. | Bundle `fileRefFromInlineText` into Slack 2.4 commit 2 alongside the API wrappers. Adds a builder + a few tests; keeps the convenience local to the Slack chain. Risk: ships a builder that may need to move to `core/files/createFileRef.ts` once Gmail / Drive want it, which is fine but more churn. |
+| # | Decision | Accepted answer |
+|---|---|---|
+| 1 | Should `upload_file` accept `provider_url` FileRefs in Slack 2.4, or only `v2_storage` + `signed_url`? | **`v2_storage` + `signed_url` only.** `provider_url` rejected at handler entry with a clear error/hint pointing to a download/staging action. No Slack-specific `providerFetcher` adapter in 2.4. No extension of generic `fetchFileBytes` for `provider_url` in this slice. |
+| 2 | Should `slack_trigger_file_uploaded` ship in Slack 2.4, or defer to 2.5? | **Defer to 2.5.** No trigger filter, no lifecycle wiring, no `file_shared` normalizer changes in Slack 2.4. |
+| 3 | Should `upload_file` accept inline text via a `fileRefFromInlineText` helper, or defer that convenience? | **Defer.** No `fileRefFromInlineText` in Slack 2.4. No raw `content` / `base64` / URL config arms. `upload_file`'s only file source is the validated FileRef input. |
+| 4 | Manifest scopes | **Add `files:read` + `files:write` only.** No user-token (`xoxp-…`) scopes. No unrelated `chat:*` / `channels:*` / `users:*` additions. |
+| 5 | V1 rot fixes | **All 10 patterns from §7 not ported.** No base64 output, no inline content/base64 input, no `asUser` toggle, no `workspace` selector, no raw URL config arm, no logging of `url_private_download` or bytes. FileRef is the file contract end-to-end. |
 
 ### Non-blockers (informational, no decision needed)
 
@@ -428,16 +430,16 @@ Three real decisions. Two have recommendations; the third is informational.
 
 ## 11. Exit checklist
 
-This plan is accepted (and Slack 2.4 implementation can begin) when Marcus has:
+All boxes are checked. Slack 2.4 implementation is approved to proceed
+per the §8 batch plan, starting with Commit 2 (API wrappers + manifest
+scope add).
 
-- [ ] Read sections 1–10.
-- [ ] Confirmed the **action surface** (§1 / §4) — three actions, no inline content arms, no `asUser`, no workspace selector.
-- [ ] Confirmed the **trigger decision** (§10 #2) — defer to 2.5 or bundle now.
-- [ ] Confirmed the **provider_url decision** (§5 / §10 #1) — reject at upload, or implement Slack-specific fetcher.
-- [ ] Confirmed the **inline-text decision** (§10 #3) — defer the convenience helper, or bundle now.
-- [ ] Confirmed the **scopes** (§6) — `files:read` + `files:write` added; nothing else.
-- [ ] Confirmed the **V1 rot list** (§7) — 10 patterns explicitly not ported.
-- [ ] Confirmed the **batch plan** (§8) — 5 commits (or 6 if trigger included, 7 if outcomes commit lands).
-- [ ] Confirmed the **e2e scope** (§9) — 5 scenarios (6 with trigger).
-
-**Implementation does NOT begin before Marcus checks every applicable box above.**
+- [x] Read sections 1–10.
+- [x] Confirmed the **action surface** (§1 / §4) — three actions: `upload_file`, `download_file`, `get_file_info`. No inline content arms. No `asUser`. No workspace selector.
+- [x] Confirmed the **trigger decision** (§10 #2) — **defer `slack_trigger_file_uploaded` to Slack 2.5.**
+- [x] Confirmed the **provider_url decision** (§5 / §10 #1) — **reject `provider_url` at upload_file** with a clear hint. No Slack-specific `providerFetcher`. No extension of `fetchFileBytes`.
+- [x] Confirmed the **inline-text decision** (§10 #3) — **defer `fileRefFromInlineText`.** No inline text / base64 / URL arms.
+- [x] Confirmed the **scopes** (§6) — **`files:read` + `files:write` added; nothing else.** No user-token scopes.
+- [x] Confirmed the **V1 rot list** (§7) — 10 patterns explicitly not ported.
+- [x] Confirmed the **batch plan** (§8) — 5 implementation commits (Commit 1 doc shipped at `eaaa3e257`; Commit 2 wrappers next). Trigger commit (6) skipped per decision #2. Outcomes commit (7) lands after feature-complete.
+- [x] Confirmed the **e2e scope** (§9) — 5 scenarios (scenario 6 / trigger dispatch deferred to Slack 2.5).

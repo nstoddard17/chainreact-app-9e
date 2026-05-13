@@ -75,6 +75,18 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       // absent. Workflow authors that need email must add the scope
       // explicitly (PII surface; Slack 2.3 plan §6 decision 3).
       "users:read",
+      // Slack 2.4 Commit 2 — file API wrappers + actions
+      // (upload_file / download_file / get_file_info). `files:read`
+      // covers `files.info` + URL-private GETs for download paths
+      // and unlocks `file_shared` event delivery for the Slack 2.5
+      // file_uploaded trigger. Per Slack 2.4 plan §6: bot-token only;
+      // no user-token (xoxp-) variant, no unrelated chat/channel/user
+      // scope additions. Existing workspaces re-OAuth on first file
+      // action resolution (same UX as Slack 2.3's users:read promotion).
+      "files:read",
+      // Slack 2.4 Commit 2 — `files.getUploadURLExternal` +
+      // `files.completeUploadExternal` for the upload_file action.
+      "files:write",
     ],
     optional: [
       // Slack 2.1 Commit 8 — optional permission to post to public

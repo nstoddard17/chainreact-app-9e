@@ -118,19 +118,27 @@ describe("Slack manifest", () => {
     );
   });
 
-  it("does NOT yet add file scopes (deferred to Slack 2.3)", () => {
-    expect(slackManifest.scopes.required).not.toEqual(
+  it("includes files:read in required scopes (Slack 2.4 Commit 2 — files.info + url_private GET; file_shared event delivery)", () => {
+    expect(slackManifest.scopes.required).toEqual(
       expect.arrayContaining(["files:read"]),
     );
-    expect(slackManifest.scopes.required).not.toEqual(
+  });
+
+  it("includes files:write in required scopes (Slack 2.4 Commit 2 — files.getUploadURLExternal + files.completeUploadExternal)", () => {
+    expect(slackManifest.scopes.required).toEqual(
       expect.arrayContaining(["files:write"]),
     );
-    expect(slackManifest.scopes.optional).not.toEqual(
-      expect.arrayContaining(["files:read"]),
-    );
-    expect(slackManifest.scopes.optional).not.toEqual(
-      expect.arrayContaining(["files:write"]),
-    );
+  });
+
+  it("does NOT add user-token (xoxp-…) variants of file scopes (Slack 2.4 plan §6 — bot-token only)", () => {
+    for (const scope of ["files:read.user", "files:write.user"]) {
+      expect(slackManifest.scopes.required).not.toEqual(
+        expect.arrayContaining([scope]),
+      );
+      expect(slackManifest.scopes.optional).not.toEqual(
+        expect.arrayContaining([scope]),
+      );
+    }
   });
 
   it("does NOT yet add user-token scopes (deferred behind P-S1)", () => {
