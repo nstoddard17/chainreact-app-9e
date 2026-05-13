@@ -132,11 +132,27 @@ describe("action handler registry", () => {
     expect(getActionHandler("slack", "list_users")).toBeDefined();
   });
 
-  it("does NOT yet register Slack actions deferred to later slices (file actions + user-token actions) and permanently skipped (find_user_by_email)", () => {
-    // File actions land in Slack 2.4 + P-S3 file output contract.
-    expect(getActionHandler("slack", "upload_file")).toBeUndefined();
+  it("registers upload_file (Slack 2.4 Commit 3 — P-S3 FileRef contract)", () => {
+    expect(getActionHandler("slack", "upload_file")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "slack",
+      type: "upload_file",
+    });
+  });
+
+  it("does NOT yet register Slack file actions deferred to Slack 2.4 Commit 4 (download_file + get_file_info)", () => {
     expect(getActionHandler("slack", "download_file")).toBeUndefined();
     expect(getActionHandler("slack", "get_file_info")).toBeUndefined();
+  });
+
+  it("does NOT yet register the deferred Slack 2.5 file trigger (file_uploaded)", () => {
+    // Trigger registration happens via filterRegistry, not this
+    // action registry — but a defensive assertion against accidental
+    // action-side registration of trigger-only types stays cheap.
+    expect(getActionHandler("slack", "file_uploaded")).toBeUndefined();
+  });
+
+  it("does NOT yet register Slack actions deferred to later slices (user-token actions) and permanently skipped (find_user_by_email)", () => {
     // User-token actions land after P-S1 user-token storage.
     expect(getActionHandler("slack", "update_user_status")).toBeUndefined();
     expect(getActionHandler("slack", "set_user_presence")).toBeUndefined();

@@ -137,6 +137,7 @@ import { setChannelTopic as slackSetChannelTopic } from "@/integrations/slack/ac
 import { unarchiveChannel as slackUnarchiveChannel } from "@/integrations/slack/actions/channels/unarchiveChannel";
 import { unpinMessage as slackUnpinMessage } from "@/integrations/slack/actions/unpinMessage";
 import { updateMessage as slackUpdateMessage } from "@/integrations/slack/actions/updateMessage";
+import { uploadFile as slackUploadFile } from "@/integrations/slack/actions/files/uploadFile";
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
 import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
 import { confirmPaymentIntent as stripeConfirmPaymentIntent } from "@/integrations/stripe/actions/confirmPaymentIntent";
@@ -193,6 +194,8 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "slack", type: "set_channel_purpose", handler: slackSetChannelPurpose },
   { provider: "slack", type: "get_user_info", handler: slackGetUserInfo },
   { provider: "slack", type: "list_users", handler: slackListUsers },
+  // Slack 2.4 Commit 3 — file upload via P-S3 FileRef contract.
+  { provider: "slack", type: "upload_file", handler: slackUploadFile },
   { provider: "gmail", type: "send_email", handler: sendEmail },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
