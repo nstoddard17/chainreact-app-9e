@@ -188,6 +188,7 @@ As of 2026-05-12, **Phase 1 (Provider foundation) is substantially complete loca
 - Slack 2.1 (messaging + reactions) — shipped locally. See [`docs/slices/slack-2-1-messaging-reactions-plan.md`](./docs/slices/slack-2-1-messaging-reactions-plan.md).
 - Slack 2.2 (private channels + channel lifecycle triggers) — shipped locally. See [`docs/slices/slack-2-2-private-channels-and-lifecycle.md`](./docs/slices/slack-2-2-private-channels-and-lifecycle.md).
 - Slack 2.3 (channel + user actions; 14 actions) — shipped locally. Plan: [`docs/slices/slack-2-3-channels-users-plan.md`](./docs/slices/slack-2-3-channels-users-plan.md). Outcomes: [`docs/slices/slack-2-3-outcomes.md`](./docs/slices/slack-2-3-outcomes.md).
+- Slack 2.4 (file actions; 3 actions: `upload_file`, `download_file`, `get_file_info`) — shipped locally. First V2 consumer of the P-S3 contract. Plan: [`docs/slices/slack-2-4-files-plan.md`](./docs/slices/slack-2-4-files-plan.md). Outcomes: [`docs/slices/slack-2-4-outcomes.md`](./docs/slices/slack-2-4-outcomes.md). `file_uploaded` trigger deferred to Slack 2.5.
 
 **Phase 2 platform (file output contract):**
 - P-S3 (FileRef + Supabase storage stack) — shipped locally. Plan: [`docs/slices/p-s3-file-output-contract-plan.md`](./docs/slices/p-s3-file-output-contract-plan.md). Outcomes: [`docs/slices/p-s3-file-output-contract-outcomes.md`](./docs/slices/p-s3-file-output-contract-outcomes.md). Unblocks Slack 2.4 file actions and any future provider chains that move bytes (Gmail/Drive/Outlook attachments).
@@ -251,12 +252,25 @@ specific endpoint.
 domain-grouped to stay under the 50-file leaf-folder limit:
 - `actions/channels/` — channel reads + lifecycle / admin / membership / metadata (12 actions).
 - `actions/users/` — user lookups (2 actions).
+- `actions/files/` — `upload_file`, `download_file`, `get_file_info` (3 actions; Slack 2.4).
 - `actions/` parent — messaging, scheduling, reactions+pins, Block Kit, helpers.
 
 New Slack actions land in the domain subfolder that matches their Slack
-API namespace. New domains (e.g. `files/` for Slack 2.4) get their own
-subfolder. Import paths in `services/execution/handlers/_registry.ts`
+API namespace. Import paths in `services/execution/handlers/_registry.ts`
 and test files must follow the same convention.
+
+### Slack file actions: P-S3 enforcement specifics (Slack 2.4)
+
+Every Slack file handler under [`integrations/slack/actions/files/`](./integrations/slack/actions/files/) consumes / produces `FileRef` exclusively. The 10 V1 rot patterns from the Slack 2.4 plan §7 (inline `content` / `base64Data` config arms, `fileSource` discriminator, `asUser` toggle, `workspace` selector, raw URL config arm, base64 outputs, logging `url_private_download`) are not ported and must not be reintroduced.
+
+Two Slack-specific applications of the P-S3 gotcha (below) worth pinning:
+
+- **`upload_file` rejects `FileRef(kind=provider_url)` at handler entry.** Slack 2.4 does NOT introduce a Slack-specific `providerFetcher` and does NOT extend `core/files/fetchFileBytes.ts`. Workflow authors composing `<any>:get_file_info → slack:upload_file` must materialize durable bytes first (`<any>:download_file` → `FileRef(v2_storage)` → `slack:upload_file`). A cross-provider `provider_url` fetch adapter is future platform work, not Slack 2.4 scope. Per P-S3 durable rule #5.
+- **`download_file` is bot-token only.** `url_private_download` GETs attach `Authorization: Bearer ${botToken}` and nothing else. No user-token (`xoxp-…`) file scopes are in the manifest. V1's `asUser: true` toggle is not ported.
+
+### Slack file actions e2e: workflow_files migration + `--workers=1`
+
+Running [`tests/e2e/slice-1-slack-walkthrough.spec.ts`](./tests/e2e/slice-1-slack-walkthrough.spec.ts) against a fresh Supabase project requires `npm run db:push` first — the Slack 2.4 download/upload scenarios depend on the `workflow_files` table (and on Supabase storage being reachable). Slack walkthrough specs also share the mock-Slack `__inspect` counter; local runs MUST pass `--workers=1`. CI is already pinned to workers=1 in `playwright.config.ts`. Test fixtures must use Slack-format ids (no hyphens: `^[CG][A-Z0-9]+$` for channels, `^F[A-Z0-9]+$` for files, `^U[A-Z0-9]+$` for users), and `workflow_files.run_id` requires UUID-shaped values.
 
 ### Token-ingest auth contract (Slice 17 — Trello pattern)
 
