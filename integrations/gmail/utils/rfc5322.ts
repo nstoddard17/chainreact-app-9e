@@ -35,6 +35,12 @@ export interface BuildRfc5322Input {
   cc?: string;
   bcc?: string;
   /**
+   * Optional `Reply-To:` header value. Gmail 2.1 Commit 2 expansion.
+   * Bare email or display-name form ("Name <a@b.com>") both pass
+   * through verbatim. Empty string or undefined → header omitted.
+   */
+  replyTo?: string;
+  /**
    * Override boundary for tests. Production callers omit and the builder
    * generates a fresh random boundary.
    */
@@ -86,6 +92,9 @@ export function buildRfc5322Message(input: BuildRfc5322Input): string {
   }
   if (input.bcc !== undefined && input.bcc.length > 0) {
     headers.push(`Bcc: ${input.bcc}`);
+  }
+  if (input.replyTo !== undefined && input.replyTo.length > 0) {
+    headers.push(`Reply-To: ${input.replyTo}`);
   }
   headers.push(`Subject: ${encodeRfc2047HeaderValue(input.subject)}`);
   headers.push("MIME-Version: 1.0");

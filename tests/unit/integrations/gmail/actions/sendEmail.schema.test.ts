@@ -104,7 +104,9 @@ describe("SendEmailConfigSchema", () => {
       to: "alice@example.com",
       subject: "Hi",
       textBody: "x",
-      replyTo: "noreply@example.com", // not in the schema
+      // Pick a name that's not in the schema and not in any Q11-rejected
+      // set so this test stays focused on strict-mode itself.
+      xCustomHeader: "value",
     });
     expect(r.success).toBe(false);
   });
@@ -138,6 +140,129 @@ describe("SendEmailConfigSchema", () => {
       to: [],
       subject: "Hi",
       textBody: "x",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  // Gmail 2.1 Commit 2 — expansion: replyTo / signature / labels[]
+
+  it("accepts replyTo (Gmail 2.1 Commit 2)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      replyTo: "noreply@example.com",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects empty-string replyTo (min(1) on optional string)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      replyTo: "",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts signature (Gmail 2.1 Commit 2)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      signature: "— Sent via ChainReact",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects empty-string signature (min(1))", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      signature: "",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts labels as an array of non-empty label IDs (Gmail 2.1 Commit 2)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      labels: ["Label_123", "INBOX"],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts labels as an empty array (no-op at handler — skips modify call)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      labels: [],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects labels containing an empty-string id (Zod min(1))", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      labels: ["INBOX", ""],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  // Q11 — dropped fields must not be accepted (strict mode rejects unknown).
+
+  it("rejects scheduleSend (Q11 — silent no-op field dropped)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      scheduleSend: "2026-06-01T12:00:00Z",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects trackOpens (Q11 — silent no-op field dropped)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      trackOpens: true,
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects trackClicks (Q11 — silent no-op field dropped)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      trackClicks: true,
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects attachments (DEFERRED — gated on P-S3 contract)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      textBody: "x",
+      attachments: [{ filename: "x.pdf", content: "..." }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a V1-style single `body` field (no auto-detect — keep textBody/htmlBody explicit)", () => {
+    const r = SendEmailConfigSchema.safeParse({
+      to: "alice@example.com",
+      subject: "Hi",
+      body: "<p>HTML?</p>",
     });
     expect(r.success).toBe(false);
   });

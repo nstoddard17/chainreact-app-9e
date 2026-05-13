@@ -65,6 +65,46 @@ describe("buildRfc5322Message — text/plain only", () => {
     expect(msgEmpty).not.toContain("Cc:");
   });
 
+  // Gmail 2.1 Commit 2 — Reply-To header
+
+  it("includes Reply-To when provided (Gmail 2.1 Commit 2)", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      replyTo: "noreply@example.com",
+    });
+    expect(msg).toContain("\r\nReply-To: noreply@example.com\r\n");
+  });
+
+  it("accepts a display-name-form Reply-To verbatim", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      replyTo: "Support <support@example.com>",
+    });
+    expect(msg).toContain(
+      "\r\nReply-To: Support <support@example.com>\r\n",
+    );
+  });
+
+  it("omits Reply-To when undefined or empty", () => {
+    const msgUndef = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+    });
+    const msgEmpty = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      replyTo: "",
+    });
+    expect(msgUndef).not.toContain("Reply-To:");
+    expect(msgEmpty).not.toContain("Reply-To:");
+  });
+
   it("preserves CSV recipients verbatim into the To: line", () => {
     const msg = buildRfc5322Message({
       to: "alice@x.com, bob@x.com, carol@x.com",
