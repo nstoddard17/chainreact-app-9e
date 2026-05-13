@@ -3,6 +3,7 @@ import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { usersMessagesModify } from "../api/usersMessagesModify";
 import { usersMessagesSend } from "../api/usersMessagesSend";
+import { applySignature } from "../utils/applySignature";
 import { buildRfc5322Message, encodeBase64Url } from "../utils/rfc5322";
 import { SendEmailConfigSchema } from "./sendEmail.schema";
 
@@ -69,17 +70,6 @@ class GmailLabelsOnSendError extends Error {
     this.threadId = input.threadId;
     this.underlying = input.underlying;
   }
-}
-
-function applySignature(
-  body: string | undefined,
-  signature: string | undefined,
-  isHtml: boolean,
-): string | undefined {
-  if (body === undefined) return undefined;
-  if (signature === undefined || signature.length === 0) return body;
-  const separator = isHtml ? "<br><br>" : "\n\n";
-  return `${body}${separator}${signature}`;
 }
 
 export const sendEmail: ActionHandler = async (input) => {
