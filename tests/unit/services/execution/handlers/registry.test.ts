@@ -38,12 +38,28 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 3 Gmail 2.2 Commit 1 label handlers", () => {
+    expect(getActionHandler("gmail", "add_label")).toBeDefined();
+    expect(getActionHandler("gmail", "remove_label")).toBeDefined();
+    expect(getActionHandler("gmail", "create_label")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({ provider: "gmail", type: "add_label" });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "remove_label",
+    });
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "create_label",
+    });
+  });
+
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
     // find_user_by_email is permanently skipped per Slack 2.3 plan
-    // §6 decision 3 (PII scope; V1 orphan). gmail:add_label is a
-    // Gmail 2.2 owner — not yet registered.
+    // §6 decision 3 (PII scope; V1 orphan). gmail:mark_as_read is
+    // Gmail 2.2 Commit 2 — not yet registered.
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
-    expect(getActionHandler("gmail", "add_label")).toBeUndefined();
+    expect(getActionHandler("gmail", "mark_as_read")).toBeUndefined();
   });
 
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {

@@ -20,8 +20,11 @@ import { createGist as githubCreateGist } from "@/integrations/github/actions/cr
 import { createIssue as githubCreateIssue } from "@/integrations/github/actions/createIssue";
 import { createPullRequest as githubCreatePullRequest } from "@/integrations/github/actions/createPullRequest";
 import { createRepository as githubCreateRepository } from "@/integrations/github/actions/createRepository";
+import { addLabel as gmailAddLabel } from "@/integrations/gmail/actions/addLabel";
 import { createDraft as gmailCreateDraft } from "@/integrations/gmail/actions/createDraft";
 import { createDraftReply as gmailCreateDraftReply } from "@/integrations/gmail/actions/createDraftReply";
+import { createLabel as gmailCreateLabel } from "@/integrations/gmail/actions/createLabel";
+import { removeLabel as gmailRemoveLabel } from "@/integrations/gmail/actions/removeLabel";
 import { replyToEmail as gmailReplyToEmail } from "@/integrations/gmail/actions/replyToEmail";
 import { sendEmail } from "@/integrations/gmail/actions/sendEmail";
 import { addAttendees } from "@/integrations/google-calendar/actions/addAttendees";
@@ -210,6 +213,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "gmail", type: "create_draft", handler: gmailCreateDraft },
   { provider: "gmail", type: "create_draft_reply", handler: gmailCreateDraftReply },
   { provider: "gmail", type: "reply_to_email", handler: gmailReplyToEmail },
+  // Gmail 2.2 Commit 1 — label actions (message-level only).
+  { provider: "gmail", type: "add_label", handler: gmailAddLabel },
+  { provider: "gmail", type: "remove_label", handler: gmailRemoveLabel },
+  { provider: "gmail", type: "create_label", handler: gmailCreateLabel },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
   { provider: "google-calendar", type: "update_event", handler: updateEvent },
