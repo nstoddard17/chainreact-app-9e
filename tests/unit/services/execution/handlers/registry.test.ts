@@ -96,10 +96,24 @@ describe("action handler registry", () => {
 
   it("returns undefined for (provider, type) pairs that no slice has registered yet", () => {
     // find_user_by_email is permanently skipped per Slack 2.3 plan
-    // §6 decision 3 (PII scope; V1 orphan). gmail:get_attachment is
-    // Gmail 2.3 — not yet registered (gated on P-S3).
+    // §6 decision 3 (PII scope; V1 orphan).
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
-    expect(getActionHandler("gmail", "get_attachment")).toBeUndefined();
+  });
+
+  it("registers get_attachment (Gmail 2.3 Commit 5 — P-S3 FileRef output)", () => {
+    expect(getActionHandler("gmail", "get_attachment")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "gmail",
+      type: "get_attachment",
+    });
+  });
+
+  it("does NOT register a separate gmail:download_attachment action (folded into get_attachment per Gmail 2.3 plan §8 decision 13.1)", () => {
+    expect(getActionHandler("gmail", "download_attachment")).toBeUndefined();
+    expect(listRegisteredHandlers()).not.toContainEqual({
+      provider: "gmail",
+      type: "download_attachment",
+    });
   });
 
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {

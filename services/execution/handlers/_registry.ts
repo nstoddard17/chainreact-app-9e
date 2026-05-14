@@ -26,6 +26,7 @@ import { createDraft as gmailCreateDraft } from "@/integrations/gmail/actions/cr
 import { createDraftReply as gmailCreateDraftReply } from "@/integrations/gmail/actions/createDraftReply";
 import { createLabel as gmailCreateLabel } from "@/integrations/gmail/actions/createLabel";
 import { deleteEmail as gmailDeleteEmail } from "@/integrations/gmail/actions/deleteEmail";
+import { getAttachment as gmailGetAttachment } from "@/integrations/gmail/actions/getAttachment";
 import { markAsRead as gmailMarkAsRead } from "@/integrations/gmail/actions/markAsRead";
 import { markAsUnread as gmailMarkAsUnread } from "@/integrations/gmail/actions/markAsUnread";
 import { removeLabel as gmailRemoveLabel } from "@/integrations/gmail/actions/removeLabel";
@@ -229,6 +230,9 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "gmail", type: "delete_email", handler: gmailDeleteEmail },
   // Gmail 2.2 Commit 3 — search_emails (advancedSearch folded as searchMode).
   { provider: "gmail", type: "search_emails", handler: gmailSearchEmails },
+  // Gmail 2.3 Commit 5 — get_attachment (download_attachment folded
+  // into get_attachment per Gmail 2.3 plan §8 decision 13.1).
+  { provider: "gmail", type: "get_attachment", handler: gmailGetAttachment },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
   { provider: "google-calendar", type: "update_event", handler: updateEvent },
