@@ -26,6 +26,8 @@ import { trelloManifest } from "./trello/manifest";
 // with the polling + activation + subscription registries at module load.
 // Adding a new trigger provider means adding its registration import here.
 import "./gmail/triggers/newEmail";
+// Gmail 2.3 Commit 3 — new_labeled_email polling trigger.
+import "./gmail/triggers/newLabeledEmail";
 import "./google-calendar/triggers/eventChanged";
 import "./google-drive/triggers/fileChanged";
 import "./google-sheets/triggers/rowChanged";
