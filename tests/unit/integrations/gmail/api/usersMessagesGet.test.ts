@@ -101,6 +101,135 @@ describe("usersMessagesGet — request shape", () => {
   });
 });
 
+describe("usersMessagesGet — format option (Gmail 2.3 Commit 4)", () => {
+  it("omitted format remains metadata (backwards-compatible)", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: {
+        id: "m1",
+        threadId: "t1",
+        labelIds: [],
+        snippet: "",
+        internalDate: "0",
+        sizeEstimate: 0,
+        payload: { mimeType: "x", headers: [] },
+      },
+    });
+
+    await usersMessagesGet({ accessToken: "x", messageId: "m1" });
+
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain("format=metadata");
+    expect(url).not.toContain("format=full");
+  });
+
+  it("explicit format='metadata' behaves identically to the default", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: {
+        id: "m1",
+        threadId: "t1",
+        labelIds: [],
+        snippet: "",
+        internalDate: "0",
+        sizeEstimate: 0,
+        payload: { mimeType: "x", headers: [] },
+      },
+    });
+
+    await usersMessagesGet({
+      accessToken: "x",
+      messageId: "m1",
+      format: "metadata",
+    });
+
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain("format=metadata");
+    // Default metadata headers must still be threaded.
+    for (const h of ["From", "To", "Subject"]) {
+      expect(url).toContain(`metadataHeaders=${encodeURIComponent(h)}`);
+    }
+  });
+
+  it("format='full' sets format=full on the URL", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: {
+        id: "m1",
+        threadId: "t1",
+        labelIds: [],
+        snippet: "",
+        internalDate: "0",
+        sizeEstimate: 0,
+        payload: { mimeType: "multipart/mixed", headers: [], parts: [] },
+      },
+    });
+
+    await usersMessagesGet({
+      accessToken: "x",
+      messageId: "m1",
+      format: "full",
+    });
+
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain("format=full");
+    expect(url).not.toContain("format=metadata");
+  });
+
+  it("format='full' does NOT send metadataHeaders (Gmail honors it only with format=metadata)", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: {
+        id: "m1",
+        threadId: "t1",
+        labelIds: [],
+        snippet: "",
+        internalDate: "0",
+        sizeEstimate: 0,
+        payload: { mimeType: "multipart/mixed", headers: [], parts: [] },
+      },
+    });
+
+    await usersMessagesGet({
+      accessToken: "x",
+      messageId: "m1",
+      format: "full",
+      // Even when caller provides metadataHeaders explicitly, they
+      // are dropped for format=full per API semantics.
+      metadataHeaders: ["From", "Subject"],
+    });
+
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).not.toContain("metadataHeaders=");
+  });
+
+  it("metadataHeaders behavior unchanged for format=metadata", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: {
+        id: "m1",
+        threadId: "t1",
+        labelIds: [],
+        snippet: "",
+        internalDate: "0",
+        sizeEstimate: 0,
+        payload: { mimeType: "x", headers: [] },
+      },
+    });
+
+    await usersMessagesGet({
+      accessToken: "x",
+      messageId: "m1",
+      format: "metadata",
+      metadataHeaders: ["Subject"],
+    });
+
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain("metadataHeaders=Subject");
+    expect(url).not.toContain("metadataHeaders=From");
+  });
+});
+
 describe("usersMessagesGet — error handling", () => {
   it("throws Unauthorized401Error on 401", async () => {
     mockFetchOnce({ ok: false, status: 401, json: { error: { code: 401 } } });

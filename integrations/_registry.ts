@@ -28,6 +28,8 @@ import { trelloManifest } from "./trello/manifest";
 import "./gmail/triggers/newEmail";
 // Gmail 2.3 Commit 3 — new_labeled_email polling trigger.
 import "./gmail/triggers/newLabeledEmail";
+// Gmail 2.3 Commit 4 — new_attachment polling trigger.
+import "./gmail/triggers/newAttachment";
 import "./google-calendar/triggers/eventChanged";
 import "./google-drive/triggers/fileChanged";
 import "./google-sheets/triggers/rowChanged";
