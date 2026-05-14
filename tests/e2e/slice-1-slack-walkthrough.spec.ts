@@ -1699,6 +1699,558 @@ test.describe("Slice 2.4 — Slack file actions e2e", () => {
   });
 });
 
+/**
+ * Slack 2.5 — file_shared trigger e2e block.
+ *
+ * Proves the slack.file_shared trigger filter (Slack 2.5 Commit 2) end
+ * to end against a real signed Slack webhook delivery + dispatcher +
+ * filter registry + engine + action handler dispatch. Per Slack 2.5
+ * plan §8 and the accepted Commit 3 scope (decisions A1 / B1 / C1):
+ *
+ *   1. match-all dispatch — one workflow with no channelId fires on
+ *      any file_shared event; trigger payload preserves the raw Slack
+ *      inner event fields (file_id / user_id / channel_id / event_ts /
+ *      file:{id}) verbatim; no FileRef appears on the payload; no
+ *      camelCase aliases injected.
+ *   2. channelId match + no-match parity — two workflows differing
+ *      only on `channelId` config; firing one file_shared event for
+ *      the matching channel fires exactly the matching workflow,
+ *      proving the filter reads `payload.channel_id` and not bare
+ *      `payload.channel`.
+ *   3. file_shared → slack:get_file_info composition — proves the
+ *      trigger payload's file_id can feed a downstream
+ *      slack:get_file_info action via the engine's `{{trigger.payload.file_id}}`
+ *      template; mock `files.info` is called with that id; action
+ *      output emits a populated FileRef(kind=provider_url) with the
+ *      correct providerFileId; no bytes / base64 / content in output.
+ *
+ * Mocked surfaces: Slack file Web API endpoints on mockSlackServer
+ * (files.info reuses the Slack 2.4 mock — no additions required).
+ * Real surfaces: webhook HMAC verify, normalizer (auto-derives
+ * `slack.file_shared`), filter registry (Slack 2.5 fileUploadedFilter),
+ * dispatcher, engine, action handler (get_file_info for scenario 3),
+ * variable resolution (`{{trigger.payload.file_id}}`), workflow_runs
+ * persistence.
+ *
+ * No new manifest scopes (files:read already granted in Slack 2.4).
+ * No new runtime code expected — the filter was added in Slack 2.5
+ * Commit 2 (a11355e9e). If any e2e scenario surfaces a real bug, it
+ * is fixed inline per the accepted scope; otherwise this block is
+ * purely additive.
+ *
+ * Run discipline: serial (--workers=1) per the existing Slack
+ * walkthrough convention (mockSlackServer __inspect counters are
+ * process-shared).
+ */
+test.describe("Slice 2.5 — Slack file_shared trigger e2e", () => {
+  let fileSharedTestUser: TestUser | null = null;
+
+  test.beforeEach(async () => {
+    fileSharedTestUser = await createTestUser();
+  });
+
+  test.afterEach(async () => {
+    if (fileSharedTestUser) {
+      await deleteTestUser(fileSharedTestUser.id);
+      fileSharedTestUser = null;
+    }
+  });
+
+  test("file_shared match-all dispatch: trigger payload preserves raw Slack fields, no FileRef/aliases", async ({
+    page,
+    request,
+  }) => {
+    if (!fileSharedTestUser) throw new Error("test user setup failed");
+    const user = fileSharedTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Slack ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+    const integrations = await getIntegrationsForUser(user.id, "slack");
+    expect(integrations).toHaveLength(1);
+
+    // ── 2. Create workflow: slack.file_shared (no channelId) +
+    //     send_channel_message action so the run succeeds without
+    //     depending on a file API mock. The point of this scenario
+    //     is proving dispatch + payload preservation, not file I/O.
+    const createResp = await page.request.post("/api/workflows", {
+      data: { name: "WF file_shared match-all" },
+    });
+    expect(createResp.status(), await createResp.text()).toBe(201);
+    const wfId = ((await createResp.json()) as { id: string }).id;
+
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "slack.file_shared",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "slack",
+          type: "send_channel_message",
+          config: {
+            channel: "C0FSHAREDACK",
+            text: "file_shared trigger fired (match-all)",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    const activate = await page.request.post(
+      `/api/workflows/${wfId}/activate`,
+    );
+    expect(activate.status(), await activate.text()).toBe(200);
+
+    // Reset mock counters so the action assertion is scoped to this run.
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 3. POST a file_shared event_callback envelope ──
+    //
+    // Mirrors the V1 fixture
+    // (lib/workflows/testing/fixtures/webhooks/slack/file-shared.json):
+    // Slack's raw inner event carries ONLY file_id / user_id /
+    // channel_id / event_ts / partial file:{id}. No name, no mimetype,
+    // no size, no url. The trigger must not synthesize anything richer.
+    const eventTs = `${Date.now() / 1000}`;
+    const triggerEventId = `Ev-2.5-match-all-${Date.now()}`;
+    const phaseResp = await postSlackEvent(request, {
+      eventId: triggerEventId,
+      event: {
+        type: "file_shared",
+        file_id: "F0FSHARED001",
+        user_id: "U0FSHAREDUPLOADER",
+        channel_id: "C0FSHAREDSOURCE",
+        event_ts: eventTs,
+        file: { id: "F0FSHARED001" },
+      },
+    });
+    expect(phaseResp.status(), await phaseResp.text()).toBe(200);
+
+    // ── 4. Wait for workflow_runs row ──
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      {
+        description: "workflow_runs row for file_shared match-all",
+        timeoutMs: 20_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      workflow_id: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.workflow_id).toBe(wfId);
+    expect(run.status).toBe("succeeded");
+
+    // ── 5. Trigger payload assertions ──
+    const triggerStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "trigger-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(triggerStep?.status).toBe("succeeded");
+    const triggerEvent = (triggerStep?.output as { event?: Record<string, unknown> })
+      ?.event;
+    expect(triggerEvent).toBeDefined();
+    expect(triggerEvent?.provider).toBe("slack");
+    expect(triggerEvent?.eventType).toBe("slack.file_shared");
+    expect(triggerEvent?.eventId).toBe(triggerEventId);
+    expect(triggerEvent?.accountId).toBe("T-MOCK-TEAM");
+
+    // Payload is the inner Slack `event` object verbatim — raw passthrough,
+    // no aliases. Per Slack 2.5 decision A1.
+    const payload = triggerEvent?.payload as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload?.type).toBe("file_shared");
+    expect(payload?.file_id).toBe("F0FSHARED001");
+    expect(payload?.user_id).toBe("U0FSHAREDUPLOADER");
+    expect(payload?.channel_id).toBe("C0FSHAREDSOURCE");
+    expect(payload?.event_ts).toBe(eventTs);
+    // Partial `file: { id }` stub Slack ships — id only, no FileRef
+    // shape.
+    expect(payload?.file).toEqual({ id: "F0FSHARED001" });
+
+    // ── 6. No camelCase aliases (decision A1 — raw passthrough only) ──
+    const payloadKeys = Object.keys(payload ?? {});
+    expect(payloadKeys).not.toContain("fileId");
+    expect(payloadKeys).not.toContain("userId");
+    expect(payloadKeys).not.toContain("channelId");
+    const eventKeys = Object.keys(triggerEvent ?? {});
+    expect(eventKeys).not.toContain("fileId");
+    expect(eventKeys).not.toContain("userId");
+    expect(eventKeys).not.toContain("channelId");
+
+    // ── 7. No FileRef on trigger payload (decision §5 — Slack's raw
+    //      event has no name/mime/size/url, so a FileRef cannot honestly
+    //      be constructed; workflows compose slack:get_file_info
+    //      downstream for that). The partial `file: { id }` stub is NOT
+    //      a FileRef.
+    const fileObj = payload?.file as Record<string, unknown> | undefined;
+    expect(fileObj).toBeDefined();
+    // FileRef discriminator fields MUST be absent.
+    expect(fileObj?.kind).toBeUndefined();
+    expect(fileObj?.provider).toBeUndefined();
+    expect(fileObj?.providerFileId).toBeUndefined();
+    expect(fileObj?.storagePath).toBeUndefined();
+    expect(fileObj?.url).toBeUndefined();
+    expect(fileObj?.mimeType).toBeUndefined();
+    expect(fileObj?.sizeBytes).toBeUndefined();
+    // Only `id` is present.
+    expect(Object.keys(fileObj ?? {})).toEqual(["id"]);
+
+    // ── 8. No bytes/base64/content/data anywhere on trigger payload ──
+    expect(payloadKeys).not.toContain("content");
+    expect(payloadKeys).not.toContain("bytes");
+    expect(payloadKeys).not.toContain("base64");
+    expect(payloadKeys).not.toContain("data");
+
+    // ── 9. send_channel_message ran exactly once with the configured text ──
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.chatPostMessage).toHaveLength(1);
+    expect(calls.chatPostMessage[0]!.body).toEqual({
+      channel: "C0FSHAREDACK",
+      text: "file_shared trigger fired (match-all)",
+    });
+    // Slack file API endpoints NEVER touched (this scenario doesn't
+    // exercise file I/O).
+    expect(calls.filesInfo).toHaveLength(0);
+    expect(calls.filesGetUploadURLExternal).toHaveLength(0);
+    expect(calls.filesUpload).toHaveLength(0);
+    expect(calls.filesCompleteUploadExternal).toHaveLength(0);
+    expect(calls.urlPrivateDownload).toHaveLength(0);
+  });
+
+  test("channelId match + no-match: filter reads payload.channel_id (not payload.channel); only matching workflow runs", async ({
+    page,
+    request,
+  }) => {
+    if (!fileSharedTestUser) throw new Error("test user setup failed");
+    const user = fileSharedTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Slack ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+
+    // ── 2. Create two workflows differing only on channelId config ──
+    //   WF-MATCH:    channelId="C0FSHAREDMATCH"
+    //   WF-MISMATCH: channelId="C0FSHAREDOTHER"
+    const workflowSpecs: ReadonlyArray<{
+      key: string;
+      name: string;
+      channelId: string;
+      actionChannel: string;
+      actionText: string;
+    }> = [
+      {
+        key: "wf-match",
+        name: "WF file_shared channelId match (C0FSHAREDMATCH)",
+        channelId: "C0FSHAREDMATCH",
+        actionChannel: "C0FSHAREDACKMATCH",
+        actionText: "fired from WF-match",
+      },
+      {
+        key: "wf-mismatch",
+        name: "WF file_shared channelId mismatch (C0FSHAREDOTHER)",
+        channelId: "C0FSHAREDOTHER",
+        actionChannel: "C0FSHAREDACKMISMATCH",
+        actionText: "fired from WF-mismatch",
+      },
+    ];
+
+    interface CreatedWorkflow {
+      id: string;
+      key: string;
+    }
+    const createdWorkflows: CreatedWorkflow[] = [];
+    for (const spec of workflowSpecs) {
+      const createResp = await page.request.post("/api/workflows", {
+        data: { name: spec.name },
+      });
+      expect(createResp.status(), await createResp.text()).toBe(201);
+      const wfId = ((await createResp.json()) as { id: string }).id;
+
+      const draftDefinition = {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "slack",
+            type: "slack.file_shared",
+            config: { channelId: spec.channelId },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "slack",
+            type: "send_channel_message",
+            config: { channel: spec.actionChannel, text: spec.actionText },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      };
+      const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+        data: { draftDefinition },
+      });
+      expect(patch.status(), await patch.text()).toBe(200);
+      const activate = await page.request.post(
+        `/api/workflows/${wfId}/activate`,
+      );
+      expect(activate.status(), await activate.text()).toBe(200);
+
+      createdWorkflows.push({ id: wfId, key: spec.key });
+    }
+    expect(createdWorkflows).toHaveLength(2);
+    const wfMatch = createdWorkflows.find((w) => w.key === "wf-match")!;
+    const wfMismatch = createdWorkflows.find((w) => w.key === "wf-mismatch")!;
+
+    // Reset mock counters so chat.postMessage assertion is scoped to
+    // this firing phase only.
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 3. Fire one file_shared event with channel_id="C0FSHAREDMATCH" ──
+    //
+    // Regression guard: the event ALSO carries `channel: "C0FSHAREDOTHER"`
+    // (bare, the way `message` events shape it). If the filter mistakenly
+    // read `payload.channel`, WF-mismatch would fire instead of WF-match
+    // — that's the bug the unit test pins, and this e2e reaffirms.
+    const eventTs = `${Date.now() / 1000}`;
+    const phaseResp = await postSlackEvent(request, {
+      eventId: `Ev-2.5-channelid-${Date.now()}`,
+      event: {
+        type: "file_shared",
+        file_id: "F0FSHAREDFILTER001",
+        user_id: "U0FSHAREDUPLOADER",
+        channel_id: "C0FSHAREDMATCH",
+        channel: "C0FSHAREDOTHER", // <-- intentional decoy; filter must IGNORE this
+        event_ts: eventTs,
+        file: { id: "F0FSHAREDFILTER001" },
+      },
+    });
+    expect(phaseResp.status(), await phaseResp.text()).toBe(200);
+
+    // ── 4. Wait for the matching workflow's run; settle to ensure the
+    //      mismatched workflow does NOT enqueue a run.
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.some((r) => r.workflow_id === wfMatch.id) ? rows : null;
+      },
+      {
+        description: "phase: WF-match run to appear",
+        timeoutMs: 15_000,
+      },
+    );
+    // Settle to confirm no second run sneaks in.
+    await page.waitForTimeout(1_500);
+    const phaseFinal = await getWorkflowRunsForUser(user.id);
+    expect(phaseFinal).toHaveLength(1);
+    expect(phaseFinal[0]!.workflow_id).toBe(wfMatch.id);
+    expect(phaseFinal[0]!.status).toBe("succeeded");
+
+    // Defensive: explicitly assert WF-mismatch did NOT enqueue a run.
+    const mismatchRuns = phaseFinal.filter(
+      (r) => r.workflow_id === wfMismatch.id,
+    );
+    expect(mismatchRuns).toHaveLength(0);
+
+    // ── 5. Action-mock assertion: chat.postMessage fired EXACTLY once
+    //      with WF-match's channel + text. WF-mismatch's action MUST
+    //      NOT have fired.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.chatPostMessage).toHaveLength(1);
+    expect(calls.chatPostMessage[0]!.body).toEqual({
+      channel: "C0FSHAREDACKMATCH",
+      text: "fired from WF-match",
+    });
+
+    // ── 6. Reaffirm the regression guard: payload.channel was
+    //      "C0FSHAREDOTHER" (WF-mismatch's filter target) but the
+    //      filter correctly read payload.channel_id ("C0FSHAREDMATCH")
+    //      and matched WF-match. The fact that WF-mismatch did NOT
+    //      fire proves payload.channel was NOT used. Documented inline.
+  });
+
+  test("file_shared → slack:get_file_info composition: trigger payload.file_id resolves into action, FileRef(provider_url) emitted", async ({
+    page,
+    request,
+  }) => {
+    if (!fileSharedTestUser) throw new Error("test user setup failed");
+    const user = fileSharedTestUser;
+    const mock = await readMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Slack ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=slack/),
+      page.getByRole("button", { name: "Connect Slack" }).click(),
+    ]);
+
+    // ── 2. Create workflow: file_shared trigger → get_file_info action.
+    //      The action's fileId is templated from the trigger payload via
+    //      `{{trigger.payload.file_id}}`. The engine's strict resolver
+    //      resolves this BEFORE dispatching to the handler.
+    const createResp = await page.request.post("/api/workflows", {
+      data: { name: "WF file_shared → get_file_info composition" },
+    });
+    expect(createResp.status(), await createResp.text()).toBe(201);
+    const wfId = ((await createResp.json()) as { id: string }).id;
+
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "slack.file_shared",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "slack",
+          type: "get_file_info",
+          config: {
+            fileId: "{{trigger.payload.file_id}}",
+            includeComments: false,
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    const activate = await page.request.post(
+      `/api/workflows/${wfId}/activate`,
+    );
+    expect(activate.status(), await activate.text()).toBe(200);
+
+    // Reset counters so the files.info assertion is scoped to this run.
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 3. Fire file_shared event with a specific file_id ──
+    const composedFileId = "F0FCOMPOSE001";
+    const eventTs = `${Date.now() / 1000}`;
+    const phaseResp = await postSlackEvent(request, {
+      eventId: `Ev-2.5-compose-${Date.now()}`,
+      event: {
+        type: "file_shared",
+        file_id: composedFileId,
+        user_id: "U0FSHAREDUPLOADER",
+        channel_id: "C0FSHAREDCOMPOSE",
+        event_ts: eventTs,
+        file: { id: composedFileId },
+      },
+    });
+    expect(phaseResp.status(), await phaseResp.text()).toBe(200);
+
+    // ── 4. Wait for the run ──
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      {
+        description: "workflow_runs row for composition scenario",
+        timeoutMs: 20_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      workflow_id: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.workflow_id).toBe(wfId);
+    expect(run.status).toBe("succeeded");
+
+    // ── 5. Mock-side: files.info called exactly once with the resolved
+    //      file id from the trigger payload. The byte download endpoint
+    //      MUST NOT be touched (get_file_info is metadata-only).
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.filesInfo).toHaveLength(1);
+    expect(calls.filesInfo[0]!.body).toMatchObject({ file: composedFileId });
+    expect(calls.urlPrivateDownload).toHaveLength(0);
+    expect(calls.filesGetUploadURLExternal).toHaveLength(0);
+    expect(calls.filesUpload).toHaveLength(0);
+    expect(calls.filesCompleteUploadExternal).toHaveLength(0);
+
+    // ── 6. Action output assertions ──
+    const actionStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    const file = output.file as Record<string, unknown> | undefined;
+    expect(file?.kind).toBe("provider_url");
+    expect(file?.provider).toBe("slack");
+    expect(file?.providerFileId).toBe(composedFileId);
+    // Flat metadata projected by get_file_info — mirrors Slack 2.4's
+    // get_file_info scenario shape.
+    expect(output.fileId).toBe(composedFileId);
+    expect(output.mimeType).toBe("application/octet-stream");
+    expect(output.uploaderId).toBe("U0ALICE"); // mock files.info returns canned uploader
+
+    // ── 7. No bytes / base64 / content / data anywhere in the action
+    //      output (P-S3 durable rule #1). Reaffirms the composition
+    //      path doesn't introduce byte leakage.
+    const outKeys = Object.keys(output);
+    expect(outKeys).not.toContain("content");
+    expect(outKeys).not.toContain("bytes");
+    expect(outKeys).not.toContain("base64");
+    expect(outKeys).not.toContain("data");
+
+    // ── 8. Trigger payload assertion (reaffirms scenario 1's invariants
+    //      in the composition context — raw passthrough, no FileRef on
+    //      payload, no aliases). Lighter-weight than scenario 1 since
+    //      scenario 1 owns the deep coverage.
+    const triggerStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "trigger-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(triggerStep?.status).toBe("succeeded");
+    const triggerEvent = (triggerStep?.output as { event?: Record<string, unknown> })
+      ?.event;
+    const payload = triggerEvent?.payload as Record<string, unknown> | undefined;
+    expect(payload?.file_id).toBe(composedFileId);
+    expect(payload?.channel_id).toBe("C0FSHAREDCOMPOSE");
+    // No FileRef on trigger payload's file stub.
+    const fileObj = payload?.file as Record<string, unknown> | undefined;
+    expect(Object.keys(fileObj ?? {})).toEqual(["id"]);
+  });
+});
+
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
