@@ -4,7 +4,8 @@
  * Tests that integrations/slack/triggers/index.ts registers all
  * shipped Slack filter implementations into the P-S2 filter registry.
  * Slack 2.1 shipped 5; Slack 2.2 Commit 2 adds slack.message.group;
- * Slack 2.2 Commit 3 adds 3 lifecycle filters.
+ * Slack 2.2 Commit 3 adds 3 lifecycle filters; Slack 2.5 Commit 2
+ * adds slack.file_shared.
  *
  * Pattern note: filterRegistry is module-level state. Within a single
  * Jest test file the registry survives across tests; importing
@@ -66,8 +67,14 @@ describe("integrations/slack/triggers — P-S2 filter registration", () => {
     expect(getTriggerFilter("slack", "slack.member_left_channel")).not.toBeNull();
   });
 
-  it("does NOT yet register filters for Slack 2.3 event types (file_shared, team_join)", () => {
-    expect(getTriggerFilter("slack", "slack.file_shared")).toBeNull();
+  it("registers slack/slack.file_shared (Slack 2.5 Commit 2 — file uploaded trigger)", () => {
+    const filter = getTriggerFilter("slack", "slack.file_shared");
+    expect(filter).not.toBeNull();
+    expect(filter?.provider).toBe("slack");
+    expect(filter?.eventType).toBe("slack.file_shared");
+  });
+
+  it("does NOT yet register filters for remaining Slack event types (team_join)", () => {
     expect(getTriggerFilter("slack", "slack.team_join")).toBeNull();
   });
 

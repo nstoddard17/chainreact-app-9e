@@ -8,12 +8,14 @@ import { reactionRemovedFilter } from "./reactionRemoved/filter";
 import { channelCreatedFilter } from "./channelCreated/filter";
 import { memberJoinedChannelFilter } from "./memberJoinedChannel/filter";
 import { memberLeftChannelFilter } from "./memberLeftChannel/filter";
+import { fileUploadedFilter } from "./fileUploaded/filter";
 
 /**
- * Slack trigger filter registrations (Slack 2.1 Commit 8 + Slack 2.2 Commit 2).
+ * Slack trigger filter registrations (Slack 2.1 Commit 8 + Slack 2.2
+ * Commit 2 + Slack 2.5 Commit 2).
  *
- * Importing this module registers all Slack message + reaction filter
- * implementations with the P-S2 trigger filter registry
+ * Importing this module registers all Slack message + reaction + file
+ * filter implementations with the P-S2 trigger filter registry
  * (`core/triggers/filterRegistry.ts`). Registration is a side
  * effect — the module exports nothing additional callers need.
  *
@@ -40,6 +42,7 @@ registerTriggerFilter(reactionRemovedFilter);
 registerTriggerFilter(channelCreatedFilter);
 registerTriggerFilter(memberJoinedChannelFilter);
 registerTriggerFilter(memberLeftChannelFilter);
+registerTriggerFilter(fileUploadedFilter);
 
 export {
   newMessageChannelFilter,
@@ -51,4 +54,5 @@ export {
   channelCreatedFilter,
   memberJoinedChannelFilter,
   memberLeftChannelFilter,
+  fileUploadedFilter,
 };
