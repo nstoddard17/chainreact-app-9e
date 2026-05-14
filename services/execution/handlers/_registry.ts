@@ -105,10 +105,12 @@ import { deleteEvent as deleteOutlookCalendarEvent } from "@/integrations/micros
 import { listEvents as listOutlookCalendarEvents } from "@/integrations/microsoft-outlook-calendar/actions/listEvents";
 import { updateEvent as updateOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/updateEvent";
 import { appendBlockChildren as notionAppendBlockChildren } from "@/integrations/notion/actions/appendBlockChildren";
+import { archivePage as notionArchivePage } from "@/integrations/notion/actions/archivePage";
 import { createDatabaseEntry as notionCreateDatabaseEntry } from "@/integrations/notion/actions/createDatabaseEntry";
 import { createPage as notionCreatePage } from "@/integrations/notion/actions/createPage";
 import { getPage as notionGetPage } from "@/integrations/notion/actions/getPage";
 import { queryDatabase as notionQueryDatabase } from "@/integrations/notion/actions/queryDatabase";
+import { restorePage as notionRestorePage } from "@/integrations/notion/actions/restorePage";
 import { search as notionSearch } from "@/integrations/notion/actions/search";
 import { updatePage as notionUpdatePage } from "@/integrations/notion/actions/updatePage";
 import { addOrderNote as shopifyAddOrderNote } from "@/integrations/shopify/actions/addOrderNote";
@@ -279,6 +281,9 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "notion", type: "append_block_children", handler: notionAppendBlockChildren },
   { provider: "notion", type: "get_page", handler: notionGetPage },
   { provider: "notion", type: "search", handler: notionSearch },
+  // Notion 2.1 Commit 1 — page lifecycle.
+  { provider: "notion", type: "archive_page", handler: notionArchivePage },
+  { provider: "notion", type: "restore_page", handler: notionRestorePage },
   { provider: "airtable", type: "list_records", handler: airtableListRecords },
   { provider: "airtable", type: "get_record", handler: airtableGetRecord },
   { provider: "airtable", type: "find_record", handler: airtableFindRecord },

@@ -116,6 +116,20 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 2 Notion 2.1 Commit 1 page lifecycle handlers (archive_page, restore_page)", () => {
+    expect(getActionHandler("notion", "archive_page")).toBeDefined();
+    expect(getActionHandler("notion", "restore_page")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "archive_page",
+    });
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "restore_page",
+    });
+  });
+
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
     const registered = listRegisteredHandlers();
     expect(registered).toContainEqual({
