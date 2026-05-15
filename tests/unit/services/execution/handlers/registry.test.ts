@@ -318,7 +318,7 @@ describe("action handler registry", () => {
     expect(getActionHandler("slack", "send_email")).toBeUndefined();
   });
 
-  it("registers all 10 Shopify actions (Slice 12 Commit 3)", () => {
+  it("registers all 11 Shopify actions (Slice 12 Commit 3 + Shopify 2.1 Commit 1)", () => {
     const expected = [
       "create_order",
       "update_order_status",
@@ -327,6 +327,7 @@ describe("action handler registry", () => {
       "create_product",
       "update_product",
       "create_product_variant",
+      "update_product_variant",
       "create_customer",
       "update_customer",
       "update_inventory",
@@ -340,8 +341,12 @@ describe("action handler registry", () => {
     expect(shopifyEntries.map((e) => e.type).sort()).toEqual([...expected].sort());
   });
 
-  it("does NOT register Shopify actions deferred from Batch 1 (e.g. update_product_variant)", () => {
-    expect(getActionHandler("shopify", "update_product_variant")).toBeUndefined();
+  it("registers update_product_variant (Shopify 2.1 Commit 1 — closes the parity-shopify §5 gap)", () => {
+    expect(getActionHandler("shopify", "update_product_variant")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "shopify",
+      type: "update_product_variant",
+    });
   });
 
   it("registers the 5 Slack 2.1 Commit 4 message lifecycle actions", () => {

@@ -144,6 +144,7 @@ import { updateCustomer as shopifyUpdateCustomer } from "@/integrations/shopify/
 import { updateInventory as shopifyUpdateInventory } from "@/integrations/shopify/actions/updateInventory";
 import { updateOrderStatus as shopifyUpdateOrderStatus } from "@/integrations/shopify/actions/updateOrderStatus";
 import { updateProduct as shopifyUpdateProduct } from "@/integrations/shopify/actions/updateProduct";
+import { updateProductVariant as shopifyUpdateProductVariant } from "@/integrations/shopify/actions/updateProductVariant";
 import { addReaction as slackAddReaction } from "@/integrations/slack/actions/addReaction";
 import { archiveChannel as slackArchiveChannel } from "@/integrations/slack/actions/channels/archiveChannel";
 import { cancelScheduledMessage as slackCancelScheduledMessage } from "@/integrations/slack/actions/cancelScheduledMessage";
@@ -403,6 +404,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "shopify", type: "create_product", handler: shopifyCreateProduct },
   { provider: "shopify", type: "update_product", handler: shopifyUpdateProduct },
   { provider: "shopify", type: "create_product_variant", handler: shopifyCreateProductVariant },
+  // Shopify 2.1 Commit 1 — REST PUT /variants/{id}.json. The only
+  // net-new action gap surfaced by parity-shopify §5. Inventory
+  // updates intentionally out of scope; workflow authors compose
+  // update_inventory downstream (matches V1's documented boundary).
+  { provider: "shopify", type: "update_product_variant", handler: shopifyUpdateProductVariant },
   { provider: "shopify", type: "create_customer", handler: shopifyCreateCustomer },
   { provider: "shopify", type: "update_customer", handler: shopifyUpdateCustomer },
   { provider: "shopify", type: "update_inventory", handler: shopifyUpdateInventory },
