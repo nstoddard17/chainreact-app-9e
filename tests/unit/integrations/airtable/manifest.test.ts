@@ -93,7 +93,7 @@ describe("airtable manifest", () => {
     }
   });
 
-  it("when actions: true, the action-handler registry contains all 10 Airtable actions", () => {
+  it("when actions: true, the action-handler registry contains all 11 Airtable actions", () => {
     if (airtableManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "airtable",
@@ -108,6 +108,7 @@ describe("airtable manifest", () => {
         "get_record",
         "get_table_schema",
         "list_records",
+        "update_multiple_records",
         "update_record",
       ]);
     }

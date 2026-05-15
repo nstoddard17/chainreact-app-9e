@@ -281,6 +281,26 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers create_multiple_records (Airtable 2.1 Commit 3 — true batch create)", () => {
+    expect(
+      getActionHandler("airtable", "create_multiple_records"),
+    ).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "airtable",
+      type: "create_multiple_records",
+    });
+  });
+
+  it("registers update_multiple_records (Airtable 2.1 Commit 4 — true batch update)", () => {
+    expect(
+      getActionHandler("airtable", "update_multiple_records"),
+    ).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "airtable",
+      type: "update_multiple_records",
+    });
+  });
+
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
     const registered = listRegisteredHandlers();
     expect(registered).toContainEqual({

@@ -242,6 +242,65 @@ export async function recordsUpdate(
   });
 }
 
+// ─── recordsBatchUpdate (Airtable 2.1 Commit 4) ────────────────────────────
+
+export interface RecordsBatchUpdateInput {
+  accessToken: string;
+  baseId: string;
+  tableIdOrName: string;
+  /**
+   * 1..10 records. Each entry's `fields` is wire-format — already
+   * coerced via `formatFields`. Airtable enforces the max-10 server-side
+   * (returns 422); the action schema enforces it client-side too so
+   * workflow authors fail loud at parse time.
+   *
+   * Each record requires an explicit `id` — there's no upsert path here.
+   * PATCH semantics: only the fields explicitly present on each entry
+   * are updated; others on that record are preserved (mirrors
+   * `recordsUpdate`'s single-record PATCH).
+   */
+  records: ReadonlyArray<{
+    id: string;
+    fields: Readonly<Record<string, unknown>>;
+  }>;
+  /** Same semantics as `recordsUpdate.typecast` — Q11 explicit. */
+  typecast: boolean;
+}
+
+export interface RecordsBatchUpdateResponse {
+  records: AirtableRecord[];
+}
+
+/**
+ * Airtable batch update — PATCH `/v0/{baseId}/{tableIdOrName}` with
+ * `body.records = [{id, fields}]`. All-or-nothing: Airtable returns 422
+ * if ANY record fails validation (or one of the ids doesn't exist); no
+ * partial-success semantics. The `airtableRequest` helper surfaces 422
+ * as a tagged error which the caller's `refreshAndRetry` lets propagate.
+ *
+ * Defensive field selection: only `id` + `fields` survive from each
+ * caller-supplied entry — extras cannot smuggle into the wire request
+ * (matches `recordsBatchCreate`'s shape).
+ *
+ * V1 had an `updateMultipleRecords.ts` action that did a sequential
+ * single-record loop (parity-airtable §8 A-R11). V2 uses the real batch
+ * wire-format — exactly ONE HTTP request per call.
+ */
+export async function recordsBatchUpdate(
+  input: RecordsBatchUpdateInput,
+): Promise<RecordsBatchUpdateResponse> {
+  return airtableRequest<RecordsBatchUpdateResponse>({
+    accessToken: input.accessToken,
+    method: "PATCH",
+    path: `/v0/${input.baseId}/${encodeTableSegment(input.tableIdOrName)}`,
+    body: {
+      records: input.records.map((r) => ({ id: r.id, fields: r.fields })),
+      typecast: input.typecast,
+    },
+    resourceForNotFound: `table ${input.baseId}/${input.tableIdOrName}`,
+  });
+}
+
 // ─── recordsDelete ─────────────────────────────────────────────────────────
 
 export interface RecordsDeleteInput {

@@ -3,6 +3,7 @@
  */
 import {
   recordsBatchCreate,
+  recordsBatchUpdate,
   recordsCreate,
   recordsDelete,
   recordsGet,
@@ -359,6 +360,155 @@ describe("recordsBatchCreate (Airtable 2.1 Commit 3)", () => {
       baseId: BASE,
       tableIdOrName: "My Table",
       records: [{ fields: { Name: "Alice" } }],
+      typecast: false,
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toContain("/My%20Table");
+  });
+});
+
+describe("recordsBatchUpdate (Airtable 2.1 Commit 4)", () => {
+  it("PATCHes the table endpoint with { records: [{id, fields}], typecast } body", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [
+              { id: "rec1", fields: { Name: "Alice" }, createdTime: "t" },
+              { id: "rec2", fields: { Name: "Bob" }, createdTime: "t" },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    const result = await recordsBatchUpdate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [
+        { id: "rec1", fields: { Name: "Alice" } },
+        { id: "rec2", fields: { Name: "Bob" } },
+      ],
+      typecast: false,
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toBe(
+      `https://api.airtable.com/v0/${BASE}/${TABLE}`,
+    );
+    const init = fetchSpy.mock.calls[0]![1]!;
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      records: [
+        { id: "rec1", fields: { Name: "Alice" } },
+        { id: "rec2", fields: { Name: "Bob" } },
+      ],
+      typecast: false,
+    });
+    expect(result.records).toHaveLength(2);
+    expect(result.records[0]!.id).toBe("rec1");
+    expect(result.records[1]!.id).toBe("rec2");
+  });
+
+  it("threads typecast: true through to the body", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    await recordsBatchUpdate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [{ id: "rec1", fields: { Name: "Alice" } }],
+      typecast: true,
+    });
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0]![1]!).body as string,
+    );
+    expect(body.typecast).toBe(true);
+  });
+
+  it("sends each record as exactly { id, fields } (no extras smuggled through)", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    await recordsBatchUpdate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [
+        {
+          id: "rec1",
+          fields: { Name: "Alice" },
+          // @ts-expect-error — wrapper-level defensive selection guard.
+          extra: "smuggled",
+        },
+      ],
+      typecast: false,
+    });
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0]![1]!).body as string,
+    );
+    expect(body.records).toEqual([{ id: "rec1", fields: { Name: "Alice" } }]);
+    expect(body.records[0]).not.toHaveProperty("extra");
+  });
+
+  it("propagates Airtable 422 errors via airtableRequest", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              type: "INVALID_VALUE_FOR_COLUMN",
+              message: "Invalid value for field 'Tags'",
+            },
+          }),
+          { status: 422 },
+        ),
+      );
+    await expect(
+      recordsBatchUpdate({
+        accessToken: "tok",
+        baseId: BASE,
+        tableIdOrName: TABLE,
+        records: [{ id: "rec1", fields: { Name: "Alice" } }],
+        typecast: false,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("sends the Authorization: Bearer header", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    await recordsBatchUpdate({
+      accessToken: "tok-abc",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [{ id: "rec1", fields: { Name: "Alice" } }],
+      typecast: false,
+    });
+    const init = fetchSpy.mock.calls[0]![1]!;
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer tok-abc");
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("URL-encodes the table segment", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    await recordsBatchUpdate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: "My Table",
+      records: [{ id: "rec1", fields: { Name: "Alice" } }],
       typecast: false,
     });
     expect(fetchSpy.mock.calls[0]![0]).toContain("/My%20Table");

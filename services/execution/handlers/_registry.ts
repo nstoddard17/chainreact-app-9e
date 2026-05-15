@@ -7,6 +7,7 @@ import { getBaseSchema as airtableGetBaseSchema } from "@/integrations/airtable/
 import { getRecord as airtableGetRecord } from "@/integrations/airtable/actions/getRecord";
 import { getTableSchema as airtableGetTableSchema } from "@/integrations/airtable/actions/getTableSchema";
 import { listRecords as airtableListRecords } from "@/integrations/airtable/actions/listRecords";
+import { updateMultipleRecords as airtableUpdateMultipleRecords } from "@/integrations/airtable/actions/updateMultipleRecords";
 import { updateRecord as airtableUpdateRecord } from "@/integrations/airtable/actions/updateRecord";
 import { addComment as githubAddComment } from "@/integrations/github/actions/addComment";
 import { addComment as trelloAddComment } from "@/integrations/trello/actions/addComment";
@@ -372,6 +373,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Airtable 2.1 Commit 3 — true batch create (max 10 records,
   // all-or-nothing per NPD-A1). Single POST per call.
   { provider: "airtable", type: "create_multiple_records", handler: airtableCreateMultipleRecords },
+  // Airtable 2.1 Commit 4 — true batch update (max 10 records,
+  // all-or-nothing per NPD-A1). Single PATCH per call. PATCH semantics
+  // per record: only the fields present on each entry are updated.
+  { provider: "airtable", type: "update_multiple_records", handler: airtableUpdateMultipleRecords },
   { provider: "stripe", type: "create_customer", handler: stripeCreateCustomer },
   { provider: "stripe", type: "update_customer", handler: stripeUpdateCustomer },
   { provider: "stripe", type: "find_customer", handler: stripeFindCustomer },
