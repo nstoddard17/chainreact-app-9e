@@ -445,4 +445,38 @@ describe("action handler registry", () => {
     // §6 decision 3 (V1 orphan + PII scope).
     expect(getActionHandler("slack", "find_user_by_email")).toBeUndefined();
   });
+
+  it("registers the 4 HubSpot 2.1 parity-slice handlers (remove_line_item, get_line_items, remove_from_list, get_products)", () => {
+    expect(getActionHandler("hubspot", "remove_line_item")).toBeDefined();
+    expect(getActionHandler("hubspot", "get_line_items")).toBeDefined();
+    expect(getActionHandler("hubspot", "remove_from_list")).toBeDefined();
+    expect(getActionHandler("hubspot", "get_products")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "hubspot",
+      type: "remove_line_item",
+    });
+    expect(registered).toContainEqual({
+      provider: "hubspot",
+      type: "get_line_items",
+    });
+    expect(registered).toContainEqual({
+      provider: "hubspot",
+      type: "remove_from_list",
+    });
+    expect(registered).toContainEqual({
+      provider: "hubspot",
+      type: "get_products",
+    });
+  });
+
+  it("does NOT register HubSpot SKIP-set actions (D-HS1: add_to_workflow + remove_from_workflow; deferred get_forms / get_deal_pipelines)", () => {
+    // D-HS1 accepted SKIP — legacy automation/v2 workflow enrollment.
+    expect(getActionHandler("hubspot", "add_to_workflow")).toBeUndefined();
+    expect(getActionHandler("hubspot", "remove_from_workflow")).toBeUndefined();
+    // Audit DEFER set — builder-UI dropdown loader shape; not runtime
+    // actions today.
+    expect(getActionHandler("hubspot", "get_forms")).toBeUndefined();
+    expect(getActionHandler("hubspot", "get_deal_pipelines")).toBeUndefined();
+  });
 });

@@ -55,3 +55,47 @@ export async function addListMembershipByEmail(
     resourceForNotFound: `list ${input.listId}`,
   });
 }
+
+// ─── removeListMembershipByEmail (HubSpot 2.1) ─────────────────────────────
+
+export interface RemoveListMembershipByEmailInput {
+  accessToken: string;
+  listId: string;
+  email: string;
+}
+
+export interface ListMembershipRemoveResponse {
+  recordIdsRemoved?: string[];
+  /** HubSpot returns this when the email is not on the list (silent skip,
+   *  no error). Workflow authors that want strict-presence semantics
+   *  branch on `recordIdsRemoved.length === 0`. */
+  recordIdsDiscarded?: string[];
+}
+
+/**
+ * Remove a contact from a manual list by email — HubSpot 2.1.
+ *
+ * Symmetric with `addListMembershipByEmail` — uses the same v3
+ * lists API (`POST /crm/v3/lists/{listId}/memberships/remove`). V1's
+ * legacy `/contacts/v1/lists/{listId}/remove` endpoint is NOT used;
+ * the v3 path keeps the wrapper consistent with the add path V2
+ * already ships and avoids reintroducing the V1 two-step
+ * contact-search-then-remove flow.
+ *
+ * DYNAMIC-list constraint: HubSpot rejects manual-remove attempts
+ * against dynamic lists with a 400 `VALIDATION_ERROR`. The wrapper
+ * surfaces the error verbatim via `hubspotRequest`.
+ */
+export async function removeListMembershipByEmail(
+  input: RemoveListMembershipByEmailInput,
+): Promise<ListMembershipRemoveResponse> {
+  return hubspotRequest<ListMembershipRemoveResponse>({
+    accessToken: input.accessToken,
+    method: "POST",
+    path: crmPath(
+      `lists/${encodeURIComponent(input.listId)}/memberships/remove`,
+    ),
+    body: { recordIdOrEmails: [input.email] },
+    resourceForNotFound: `list ${input.listId}`,
+  });
+}

@@ -1,7 +1,7 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import { attachAssociations } from "../../_shared/hubspot/api/associations";
-import { lineItemsCreate } from "../../_shared/hubspot/api/lineItems";
+import { attachAssociations } from "../../../_shared/hubspot/api/associations";
+import { lineItemsCreate } from "../../../_shared/hubspot/api/lineItems";
 import { CreateLineItemConfigSchema } from "./createLineItem.schema";
 
 /**

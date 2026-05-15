@@ -63,7 +63,7 @@ import { createCall as hubspotCreateCall } from "@/integrations/hubspot/actions/
 import { createCompany as hubspotCreateCompany } from "@/integrations/hubspot/actions/createCompany";
 import { createContact as hubspotCreateContact } from "@/integrations/hubspot/actions/createContact";
 import { createDeal as hubspotCreateDeal } from "@/integrations/hubspot/actions/createDeal";
-import { createLineItem as hubspotCreateLineItem } from "@/integrations/hubspot/actions/createLineItem";
+import { createLineItem as hubspotCreateLineItem } from "@/integrations/hubspot/actions/line_items/createLineItem";
 import { createMeeting as hubspotCreateMeeting } from "@/integrations/hubspot/actions/createMeeting";
 import { createNote as hubspotCreateNote } from "@/integrations/hubspot/actions/createNote";
 import { createProduct as hubspotCreateProduct } from "@/integrations/hubspot/actions/createProduct";
@@ -72,12 +72,16 @@ import { createTicket as hubspotCreateTicket } from "@/integrations/hubspot/acti
 import { getCompanies as hubspotGetCompanies } from "@/integrations/hubspot/actions/getCompanies";
 import { getContacts as hubspotGetContacts } from "@/integrations/hubspot/actions/getContacts";
 import { getDeals as hubspotGetDeals } from "@/integrations/hubspot/actions/getDeals";
+import { getLineItems as hubspotGetLineItems } from "@/integrations/hubspot/actions/line_items/getLineItems";
 import { getOwners as hubspotGetOwners } from "@/integrations/hubspot/actions/getOwners";
+import { getProducts as hubspotGetProducts } from "@/integrations/hubspot/actions/getProducts";
 import { getTickets as hubspotGetTickets } from "@/integrations/hubspot/actions/getTickets";
+import { removeFromList as hubspotRemoveFromList } from "@/integrations/hubspot/actions/removeFromList";
+import { removeLineItem as hubspotRemoveLineItem } from "@/integrations/hubspot/actions/line_items/removeLineItem";
 import { updateCompany as hubspotUpdateCompany } from "@/integrations/hubspot/actions/updateCompany";
 import { updateContact as hubspotUpdateContact } from "@/integrations/hubspot/actions/updateContact";
 import { updateDeal as hubspotUpdateDeal } from "@/integrations/hubspot/actions/updateDeal";
-import { updateLineItem as hubspotUpdateLineItem } from "@/integrations/hubspot/actions/updateLineItem";
+import { updateLineItem as hubspotUpdateLineItem } from "@/integrations/hubspot/actions/line_items/updateLineItem";
 import { updateProduct as hubspotUpdateProduct } from "@/integrations/hubspot/actions/updateProduct";
 import { updateTicket as hubspotUpdateTicket } from "@/integrations/hubspot/actions/updateTicket";
 import { addNote as mailchimpAddNote } from "@/integrations/mailchimp/actions/addNote";
@@ -434,6 +438,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "hubspot", type: "create_product", handler: hubspotCreateProduct },
   { provider: "hubspot", type: "update_product", handler: hubspotUpdateProduct },
   { provider: "hubspot", type: "get_owners", handler: hubspotGetOwners },
+  // HubSpot 2.1 — 4 net-new actions (audit accepted PORT set).
+  { provider: "hubspot", type: "remove_line_item", handler: hubspotRemoveLineItem },
+  { provider: "hubspot", type: "get_line_items", handler: hubspotGetLineItems },
+  { provider: "hubspot", type: "remove_from_list", handler: hubspotRemoveFromList },
+  { provider: "hubspot", type: "get_products", handler: hubspotGetProducts },
   { provider: "github", type: "create_issue", handler: githubCreateIssue },
   { provider: "github", type: "create_repository", handler: githubCreateRepository },
   { provider: "github", type: "create_pull_request", handler: githubCreatePullRequest },

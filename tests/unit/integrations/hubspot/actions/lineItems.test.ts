@@ -21,8 +21,8 @@ jest.mock("@/integrations/_shared/hubspot/api/associations", () => ({
   attachAssociations: (...a: unknown[]) => mockAttachAssociations(...a),
 }));
 
-import { createLineItem } from "@/integrations/hubspot/actions/createLineItem";
-import { updateLineItem } from "@/integrations/hubspot/actions/updateLineItem";
+import { createLineItem } from "@/integrations/hubspot/actions/line_items/createLineItem";
+import { updateLineItem } from "@/integrations/hubspot/actions/line_items/updateLineItem";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

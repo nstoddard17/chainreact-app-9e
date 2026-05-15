@@ -1,6 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import { lineItemsUpdate } from "../../_shared/hubspot/api/lineItems";
+import { lineItemsUpdate } from "../../../_shared/hubspot/api/lineItems";
 import { UpdateLineItemConfigSchema } from "./updateLineItem.schema";
 
 const UPDATABLE_FIELDS = ["name", "quantity", "price", "discount"] as const;
