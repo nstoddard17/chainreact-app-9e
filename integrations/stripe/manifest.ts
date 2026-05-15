@@ -101,12 +101,13 @@ export const stripeManifest: ProviderManifest = ProviderManifestSchema.parse({
     // activate hook intentionally omits the marker).
     webhookTrigger: true,
     pollingTrigger: false,
-    // True: 10 action handlers (create_customer, update_customer,
+    // True: 11 action handlers (create_customer, update_customer,
     // find_customer, create_payment_intent, confirm_payment_intent,
     // capture_payment_intent, create_refund, create_subscription,
-    // update_subscription, cancel_subscription) registered in
-    // services/execution/handlers/_registry.ts as of Slice 11
-    // Commit 3.
+    // update_subscription, cancel_subscription, create_checkout_session)
+    // registered in services/execution/handlers/_registry.ts. Slice 11
+    // Commit 3 shipped 10; Stripe 2.1 Commit 1 added
+    // create_checkout_session.
     actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h

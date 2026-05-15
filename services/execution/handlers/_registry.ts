@@ -173,6 +173,7 @@ import { uploadFile as slackUploadFile } from "@/integrations/slack/actions/file
 import { cancelSubscription as stripeCancelSubscription } from "@/integrations/stripe/actions/cancelSubscription";
 import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integrations/stripe/actions/capturePaymentIntent";
 import { confirmPaymentIntent as stripeConfirmPaymentIntent } from "@/integrations/stripe/actions/confirmPaymentIntent";
+import { createCheckoutSession as stripeCreateCheckoutSession } from "@/integrations/stripe/actions/createCheckoutSession";
 import { createCustomer as stripeCreateCustomer } from "@/integrations/stripe/actions/createCustomer";
 import { createPaymentIntent as stripeCreatePaymentIntent } from "@/integrations/stripe/actions/createPaymentIntent";
 import { createRefund as stripeCreateRefund } from "@/integrations/stripe/actions/createRefund";
@@ -352,6 +353,7 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "stripe", type: "create_subscription", handler: stripeCreateSubscription },
   { provider: "stripe", type: "update_subscription", handler: stripeUpdateSubscription },
   { provider: "stripe", type: "cancel_subscription", handler: stripeCancelSubscription },
+  { provider: "stripe", type: "create_checkout_session", handler: stripeCreateCheckoutSession },
   { provider: "shopify", type: "create_order", handler: shopifyCreateOrder },
   { provider: "shopify", type: "update_order_status", handler: shopifyUpdateOrderStatus },
   { provider: "shopify", type: "add_order_note", handler: shopifyAddOrderNote },
