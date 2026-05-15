@@ -1,14 +1,19 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { Buffer } from "node:buffer";
 import {
+  cleanupWorkflowFilesForUser,
   createTestUser,
   deleteTestUser,
+  ensureWorkflowFilesBucket,
   getDedupRow,
   getIntegrationsForUser,
   getNotificationsForUser,
   getOAuthStateRowCount,
   getTriggerResourcesForUser,
+  getWorkflowFilesForUser,
   getWorkflowRunsForUser,
+  readWorkflowFileObject,
   rewindTriggerPollingTimestamp,
   waitFor,
   type TestUser,
@@ -127,9 +132,14 @@ test.describe("Slice 2f — full Gmail walkthrough", () => {
     expect(integration.access_token_encrypted).not.toBe("ya29.mock-e2e-access");
     expect(integration.refresh_token_encrypted).toBeTruthy();
     expect(integration.refresh_token_encrypted).not.toBe("1//mock-e2e-refresh");
-    // Scopes: exactly the manifest's required pair.
+    // Scopes: exactly the manifest's required quad (Gmail 2.1 added
+    // gmail.modify + gmail.compose for label / draft / lifecycle
+    // actions — pre-Gmail-2.1 the manifest required only readonly +
+    // send).
     const scopes = integration.scopes as readonly string[];
     expect([...scopes].sort()).toEqual([
+      "https://www.googleapis.com/auth/gmail.compose",
+      "https://www.googleapis.com/auth/gmail.modify",
       "https://www.googleapis.com/auth/gmail.readonly",
       "https://www.googleapis.com/auth/gmail.send",
     ]);
@@ -422,6 +432,12 @@ interface MockInspect {
       messageId: string;
       format: string;
     }[];
+    messagesAttachmentsGet: {
+      authorization: string | undefined;
+      url: string;
+      messageId: string;
+      attachmentId: string;
+    }[];
     send: {
       authorization: string | undefined;
       raw: string;
@@ -452,3 +468,603 @@ function requireEnv(name: string): string {
   if (!v) throw new Error(`e2e: ${name} env var is required`);
   return v;
 }
+
+// ───────────────────────────────────────────────────────────────────────
+// Gmail 2.3 — triggers + attachments walkthrough extension
+//
+// Three triggers + one action added in Commits 3-5:
+//   - new_labeled_email (Commit 3): polling trigger that fires when a
+//     configured labelId is added to a message.
+//   - new_attachment    (Commit 4): polling trigger that fires when a
+//     message arrives with attachments; payload is metadata-only.
+//   - get_attachment    (Commit 5): action that fetches Gmail attachment
+//     bytes and stages them to the workflow-files bucket via P-S3.
+//
+// Mocked surfaces extended in this commit (Gmail 2.3 Commit 6):
+//   - users.history.list now emits labelsAdded entries (queued by the
+//     new /__injectLabelChange control-plane endpoint).
+//   - users.messages.get accepts `format=full` and returns
+//     `payload.parts` populated from the email's injected attachments.
+//   - users.messages.attachments.get returns `{data, size}` where data
+//     is the base64url-encoded fixture supplied at inject time.
+//
+// Workers note: all four scenarios use the shared Google mock server
+// (single shared process). The repo-wide playwright.config.ts already
+// runs e2e single-worker, so per-test cursor isolation comes from the
+// per-test fresh test user + the /__reset call at scenario start.
+// ───────────────────────────────────────────────────────────────────────
+
+interface PatchedDraftDefinition {
+  nodes: Array<{
+    id: string;
+    kind: "trigger" | "action";
+    provider: string;
+    type: string;
+    config: Record<string, unknown>;
+    position: { x: number; y: number };
+  }>;
+  edges: Array<{ id: string; from: string; to: string }>;
+}
+
+async function buildSignInAndConnectGmail(
+  page: Page,
+  user: TestUser,
+): Promise<void> {
+  await signIn(page, user);
+  await page.goto("/integrations");
+  await Promise.all([
+    page.waitForURL(/\/\?integration=connected&provider=gmail/),
+    page.getByRole("button", { name: "Connect Gmail" }).click(),
+  ]);
+}
+
+async function createAndActivateWorkflow(
+  page: Page,
+  draft: PatchedDraftDefinition,
+  workflowName: string,
+): Promise<string> {
+  const createResp = await page.request.post("/api/workflows", {
+    data: { name: workflowName },
+  });
+  expect(createResp.status(), await createResp.text()).toBe(201);
+  const wfId = ((await createResp.json()) as { id: string }).id;
+  const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+    data: { draftDefinition: draft },
+  });
+  expect(patch.status(), await patch.text()).toBe(200);
+  const activate = await page.request.post(
+    `/api/workflows/${wfId}/activate`,
+  );
+  expect(activate.status(), await activate.text()).toBe(200);
+  return wfId;
+}
+
+test.describe("Gmail 2.3 — triggers + get_attachment", () => {
+  let gmail23User: TestUser | null = null;
+
+  test.beforeEach(async () => {
+    gmail23User = await createTestUser();
+    await ensureWorkflowFilesBucket();
+  });
+
+  test.afterEach(async () => {
+    if (gmail23User) {
+      await cleanupWorkflowFilesForUser(gmail23User.id);
+      await deleteTestUser(gmail23User.id);
+      gmail23User = null;
+    }
+  });
+
+  test("new_labeled_email fires for the configured labelId; non-matching labelsAdded does NOT fire", async ({
+    page,
+    request,
+  }) => {
+    if (!gmail23User) throw new Error("test user setup failed");
+    const user = gmail23User;
+    const mock = await readGoogleMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+    const messageId = `msg-labeled-${randomUUID()}`;
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await buildSignInAndConnectGmail(page, user);
+
+    // Trigger needs no downstream action to assert payload — using a
+    // gmail send_email action as a deterministic sink for the
+    // workflow_run is the simplest way to read action input from the
+    // run.steps log. The action's `subject` echoes the labelAppliedId
+    // from the trigger payload via the resolver; if the trigger fires
+    // for the configured label, the send will record that string.
+    const wfId = await createAndActivateWorkflow(
+      page,
+      {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger",
+            provider: "gmail",
+            type: "new_labeled_email",
+            config: { labelId: "Label_WORK" },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action",
+            provider: "gmail",
+            type: "send_email",
+            config: {
+              to: "alice@e2e.test",
+              subject: "Labeled: {{trigger.payload.labelAppliedId}}",
+              textBody:
+                "Labels in event: {{trigger.payload.labelsAdded}}; subject: {{trigger.payload.subject}}",
+              htmlBody:
+                "<p>Labels in event: {{trigger.payload.labelsAdded}}</p>",
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+      "WF Gmail 2.3 new_labeled_email",
+    );
+
+    // 1) Inject an email with no labelsAdded yet — its arrival event is
+    //    a messagesAdded, which new_labeled_email MUST ignore (the
+    //    trigger filters source === "labelsAdded" first).
+    const injectResp = await page.request.post(
+      `${mock.baseUrl}/__injectEmail`,
+      {
+        data: {
+          id: messageId,
+          headers: {
+            From: "Bob <bob@e2e.test>",
+            To: "alice@e2e.test",
+            Subject: "Work email",
+            Date: new Date().toUTCString(),
+          },
+          snippet: "Pre-labeled work item",
+        },
+      },
+    );
+    expect(injectResp.status()).toBe(200);
+
+    // 2) Inject a labelsAdded for a DIFFERENT label first — must NOT fire.
+    const nonMatchingResp = await page.request.post(
+      `${mock.baseUrl}/__injectLabelChange`,
+      {
+        data: { messageId, addedLabelIds: ["Label_NOISE"] },
+      },
+    );
+    expect(nonMatchingResp.status()).toBe(200);
+
+    // 3) Inject a labelsAdded for the CONFIGURED label — MUST fire.
+    const matchingResp = await page.request.post(
+      `${mock.baseUrl}/__injectLabelChange`,
+      {
+        data: { messageId, addedLabelIds: ["Label_WORK", "IMPORTANT"] },
+      },
+    );
+    expect(matchingResp.status()).toBe(200);
+
+    // 4) Poll cycle.
+    const pollResp = await request.post("/api/cron/poll-triggers", {
+      headers: { authorization: `Bearer ${cronSecret}` },
+    });
+    expect(pollResp.status(), await pollResp.text()).toBe(200);
+
+    // 5) Exactly one run, succeeded. The trigger collapsed events to
+    //    the configured label only — even though the same message id
+    //    had two labelsAdded events queued.
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        const matchingRuns = rows.filter(
+          (r) => (r as { workflow_id?: string }).workflow_id === wfId,
+        );
+        return matchingRuns.length > 0 ? matchingRuns : null;
+      },
+      {
+        description: "workflow_runs row for new_labeled_email",
+        timeoutMs: 15_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("succeeded");
+
+    // 6) Mock-side: history.list called once for the polling tick;
+    //    messages.get hydrated the message ONCE (the trigger collapses
+    //    duplicate labelsAdded for the same messageId within a tick);
+    //    send fired exactly once with the resolved labelAppliedId.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.historyList).toHaveLength(1);
+    expect(calls.calls.messagesGet).toHaveLength(1);
+    expect(calls.calls.send).toHaveLength(1);
+    const send = calls.calls.send[0]!;
+    // Variable resolver substituted the labelAppliedId into the
+    // subject — proof the trigger payload carried the configured label.
+    expect(send.parsed.headers.subject).toBe("Labeled: Label_WORK");
+    // Body carries the labelsAdded list verbatim (rendered as a JSON
+    // stringification or comma-join depending on resolver — assert it
+    // contains both labels regardless of separator).
+    const textBody = send.parsed.partsByMimeType["text/plain"] ?? "";
+    expect(textBody).toContain("Label_WORK");
+    expect(textBody).toContain("IMPORTANT");
+    expect(textBody).toContain("Work email");
+
+    // 7) Dedup row uses the labeled:<messageId> prefix (Commit 3 contract).
+    const labeledDedup = await getDedupRow("gmail", `labeled:${messageId}`);
+    expect(labeledDedup).not.toBeNull();
+    // Cross-trigger isolation: no bare-key dedup row was written.
+    const bareDedup = await getDedupRow("gmail", messageId);
+    expect(bareDedup).toBeNull();
+  });
+
+  test("new_attachment fires only for messages with attachments; payload is metadata-only (no FileRef / bytes)", async ({
+    page,
+    request,
+  }) => {
+    if (!gmail23User) throw new Error("test user setup failed");
+    const user = gmail23User;
+    const mock = await readGoogleMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+    const withAttId = `msg-att-${randomUUID()}`;
+    const noAttId = `msg-noatt-${randomUUID()}`;
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await buildSignInAndConnectGmail(page, user);
+
+    // Action echoes the trigger's attachment-array length + filename
+    // into the send subject + body so the run.steps record carries the
+    // trigger payload fields. send_email is a deterministic sink that
+    // doesn't add network round-trips beyond /messages/send.
+    const wfId = await createAndActivateWorkflow(
+      page,
+      {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger",
+            provider: "gmail",
+            type: "new_attachment",
+            config: {},
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action",
+            provider: "gmail",
+            type: "send_email",
+            config: {
+              to: "alice@e2e.test",
+              subject: "Attached: {{trigger.payload.attachmentCount}}",
+              textBody:
+                "filename={{trigger.payload.attachments[0].filename}} mime={{trigger.payload.attachments[0].mimeType}} size={{trigger.payload.attachments[0].sizeBytes}}",
+              htmlBody:
+                "<p>fid={{trigger.payload.attachments[0].attachmentId}}</p>",
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+      "WF Gmail 2.3 new_attachment",
+    );
+
+    // 1) Inject an attachment-less email FIRST. messagesAdded but no
+    //    attachments — the trigger must NOT fire (extractAttachmentMetadata
+    //    returns []).
+    const noAttResp = await page.request.post(
+      `${mock.baseUrl}/__injectEmail`,
+      {
+        data: {
+          id: noAttId,
+          headers: {
+            From: "noatt@e2e.test",
+            To: "alice@e2e.test",
+            Subject: "No attachment",
+            Date: new Date().toUTCString(),
+          },
+        },
+      },
+    );
+    expect(noAttResp.status()).toBe(200);
+
+    // 2) Inject an email WITH a single attachment. base64url of "REPORT"
+    //    is "UkVQT1JU" — used by the get_attachment test below; here we
+    //    just need the part to be enumerable.
+    const attBytesB64 = Buffer.from("REPORT").toString("base64url");
+    const withAttResp = await page.request.post(
+      `${mock.baseUrl}/__injectEmail`,
+      {
+        data: {
+          id: withAttId,
+          headers: {
+            From: "att@e2e.test",
+            To: "alice@e2e.test",
+            Subject: "Has attachment",
+            Date: new Date().toUTCString(),
+          },
+          attachments: [
+            {
+              attachmentId: "att-meta-1",
+              filename: "report.pdf",
+              mimeType: "application/pdf",
+              sizeBytes: 6,
+              base64Data: attBytesB64,
+            },
+          ],
+        },
+      },
+    );
+    expect(withAttResp.status()).toBe(200);
+
+    // 3) Poll cycle.
+    const pollResp = await request.post("/api/cron/poll-triggers", {
+      headers: { authorization: `Bearer ${cronSecret}` },
+    });
+    expect(pollResp.status(), await pollResp.text()).toBe(200);
+
+    // 4) Exactly ONE run — only the attachment-bearing message fired.
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        const matchingRuns = rows.filter(
+          (r) => (r as { workflow_id?: string }).workflow_id === wfId,
+        );
+        return matchingRuns.length > 0 ? matchingRuns : null;
+      },
+      {
+        description: "workflow_runs row for new_attachment",
+        timeoutMs: 15_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("succeeded");
+
+    // 5) Mock-side: format=full was used for both messages (the trigger
+    //    hydrates every messagesAdded id with format=full). The
+    //    attachments endpoint was NOT hit — new_attachment trigger is
+    //    metadata-only per Gmail 2.3 plan §13.2.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    const fullFormatGets = calls.calls.messagesGet.filter(
+      (g) => g.format === "full",
+    );
+    expect(fullFormatGets.map((g) => g.messageId).sort()).toEqual(
+      [noAttId, withAttId].sort(),
+    );
+    expect(calls.calls.messagesAttachmentsGet).toHaveLength(0);
+    expect(calls.calls.send).toHaveLength(1);
+
+    // 6) Payload assertions — trigger payload carried the attachments
+    //    array + count + filename, and NO bytes/base64/content.
+    const send = calls.calls.send[0]!;
+    expect(send.parsed.headers.subject).toBe("Attached: 1");
+    const textBody = send.parsed.partsByMimeType["text/plain"] ?? "";
+    expect(textBody).toContain("filename=report.pdf");
+    expect(textBody).toContain("mime=application/pdf");
+    expect(textBody).toContain("size=6");
+    const htmlBody = send.parsed.partsByMimeType["text/html"] ?? "";
+    expect(htmlBody).toContain("fid=att-meta-1");
+
+    // 7) Dedup row uses attachment:<messageId>; bare key + labeled:
+    //    key are NOT written (cross-trigger isolation).
+    const attDedup = await getDedupRow("gmail", `attachment:${withAttId}`);
+    expect(attDedup).not.toBeNull();
+    const bareDedup = await getDedupRow("gmail", withAttId);
+    expect(bareDedup).toBeNull();
+    const labeledDedup = await getDedupRow("gmail", `labeled:${withAttId}`);
+    expect(labeledDedup).toBeNull();
+
+    // 8) Defense-in-depth: trigger payload reached the action with NO
+    //    inline byte keys (data / content / base64 / bytes / file /
+    //    fileRef). The action's resolved textBody / htmlBody / subject
+    //    were the only resolver outputs — the body itself contains no
+    //    base64url representation of "UkVQT1JU".
+    expect(textBody).not.toContain(attBytesB64);
+    expect(textBody).not.toContain("data");
+    expect(textBody).not.toContain("base64");
+    expect(textBody).not.toContain("fileRef");
+    expect(htmlBody).not.toContain(attBytesB64);
+  });
+
+  test("new_attachment → get_attachment composed flow: stages bytes to v2_storage, output FileRef carries no bytes", async ({
+    page,
+    request,
+  }) => {
+    if (!gmail23User) throw new Error("test user setup failed");
+    const user = gmail23User;
+    const mock = await readGoogleMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+    const messageId = `msg-fetch-${randomUUID()}`;
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await buildSignInAndConnectGmail(page, user);
+
+    // Sentinel bytes for round-trip assertion: 0xCA 0xFE 0xBA 0xBE +
+    // "GMAIL_2_3_E2E". base64url-encoded for the wire shape; the handler
+    // decodes back via decodeBase64Url before staging.
+    const sentinelBytes = new Uint8Array([
+      0xca,
+      0xfe,
+      0xba,
+      0xbe,
+      ...Buffer.from("GMAIL_2_3_E2E", "ascii"),
+    ]);
+    const sentinelB64 = Buffer.from(sentinelBytes).toString("base64url");
+
+    // Composed flow: trigger payload's messageId + attachments[0].attachmentId
+    // feed the get_attachment action's config via the resolver.
+    const wfId = await createAndActivateWorkflow(
+      page,
+      {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger",
+            provider: "gmail",
+            type: "new_attachment",
+            config: {},
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action",
+            provider: "gmail",
+            type: "get_attachment",
+            config: {
+              messageId: "{{trigger.payload.id}}",
+              attachmentId: "{{trigger.payload.attachments[0].attachmentId}}",
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+      "WF Gmail 2.3 composed get_attachment",
+    );
+
+    // Inject an attachment-bearing email. The handler will fetch the
+    // attachment bytes via attachments.get, decode base64url, then
+    // stageFileToStorage.
+    const injectResp = await page.request.post(
+      `${mock.baseUrl}/__injectEmail`,
+      {
+        data: {
+          id: messageId,
+          headers: {
+            From: "fetch@e2e.test",
+            To: "alice@e2e.test",
+            Subject: "Bytes please",
+            Date: new Date().toUTCString(),
+          },
+          attachments: [
+            {
+              attachmentId: "att-fetch-1",
+              filename: "compose.bin",
+              mimeType: "application/octet-stream",
+              sizeBytes: sentinelBytes.byteLength,
+              base64Data: sentinelB64,
+            },
+          ],
+        },
+      },
+    );
+    expect(injectResp.status()).toBe(200);
+
+    const pollResp = await request.post("/api/cron/poll-triggers", {
+      headers: { authorization: `Bearer ${cronSecret}` },
+    });
+    expect(pollResp.status(), await pollResp.text()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        const matchingRuns = rows.filter(
+          (r) => (r as { workflow_id?: string }).workflow_id === wfId,
+        );
+        return matchingRuns.length > 0 ? matchingRuns : null;
+      },
+      {
+        description: "workflow_runs row for get_attachment compose",
+        timeoutMs: 20_000,
+      },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as {
+      id: string;
+      status: string;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(run.status).toBe("succeeded");
+    const runId = run.id;
+
+    // Mock-side: get_attachment hydrated metadata with format=full AND
+    // hit attachments.get exactly once. (The trigger ALSO hydrates with
+    // format=full, so the spec accepts >=1 messagesGet entries with the
+    // composed message id at format=full.)
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    const fullMessageGets = calls.calls.messagesGet.filter(
+      (g) => g.format === "full" && g.messageId === messageId,
+    );
+    expect(fullMessageGets.length).toBeGreaterThanOrEqual(2); // trigger + action
+    expect(calls.calls.messagesAttachmentsGet).toHaveLength(1);
+    expect(calls.calls.messagesAttachmentsGet[0]).toMatchObject({
+      messageId,
+      attachmentId: "att-fetch-1",
+    });
+    // Authorization header on the attachments.get call — proves the
+    // refreshAndRetry encryption round-trip.
+    expect(calls.calls.messagesAttachmentsGet[0]!.authorization).toBe(
+      "Bearer ya29.mock-e2e-access",
+    );
+
+    // DB-side: a workflow_files row was created for the staged bytes.
+    const stagedRows = await getWorkflowFilesForUser(user.id);
+    const stagedForWorkflow = stagedRows.filter(
+      (r) => (r as { workflow_id?: string }).workflow_id === wfId,
+    );
+    expect(stagedForWorkflow).toHaveLength(1);
+    const stagedRow = stagedForWorkflow[0]! as {
+      storage_path: string;
+      file_name: string;
+      mime_type: string;
+      size_bytes: number | null;
+      metadata: Record<string, unknown>;
+    };
+    expect(stagedRow.file_name).toBe("compose.bin");
+    expect(stagedRow.mime_type).toBe("application/octet-stream");
+    expect(stagedRow.size_bytes).toBe(sentinelBytes.byteLength);
+    expect(stagedRow.storage_path).toBe(
+      `${user.id}/${wfId}/${runId}/action-node/${stagedRow.file_name}`,
+    );
+    // Metadata policy (Gmail 2.3 plan §9): ONLY messageId + attachmentId.
+    // No email headers, no subject, no addresses, no tokens, no snippets.
+    expect(stagedRow.metadata).toEqual({
+      messageId,
+      attachmentId: "att-fetch-1",
+    });
+
+    // Storage object exists; bytes round-trip the sentinel.
+    const stagedBytes = await readWorkflowFileObject(stagedRow.storage_path);
+    expect(Array.from(stagedBytes)).toEqual(Array.from(sentinelBytes));
+
+    // Action output: FileRef(kind=v2_storage, provider="gmail").
+    const actionStep = (run.steps ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as
+      | { output?: Record<string, unknown>; status?: string }
+      | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    const file = output.file as Record<string, unknown> | undefined;
+    expect(file?.kind).toBe("v2_storage");
+    expect(file?.provider).toBe("gmail");
+    expect(file?.storagePath).toBe(stagedRow.storage_path);
+    expect(file?.name).toBe("compose.bin");
+    expect(file?.mimeType).toBe("application/octet-stream");
+    expect(output.messageId).toBe(messageId);
+    expect(output.attachmentId).toBe("att-fetch-1");
+    expect(output.fileName).toBe("compose.bin");
+    expect(output.mimeType).toBe("application/octet-stream");
+    expect(output.sizeBytes).toBe(sentinelBytes.byteLength);
+
+    // CLAUDE.md / Gmail 2.3 plan §9 — no inline byte keys in output.
+    const outKeys = Object.keys(output);
+    expect(outKeys).not.toContain("data");
+    expect(outKeys).not.toContain("content");
+    expect(outKeys).not.toContain("base64");
+    expect(outKeys).not.toContain("bytes");
+    // And no base64 representation of the sentinel appears anywhere
+    // in the serialized output — defense in depth.
+    const serializedOutput = JSON.stringify(output);
+    expect(serializedOutput).not.toContain(sentinelB64);
+    expect(serializedOutput).not.toContain("UkFFRkVCQUJF");
+  });
+});

@@ -42,8 +42,21 @@ import { Buffer } from "node:buffer";
  *   GET  /gmail/v1/users/me/history              → history.list, returns one
  *                                                  messageAdded entry per email
  *                                                  injected since startHistoryId.
- *   GET  /gmail/v1/users/me/messages/{id}        → format=metadata response for
- *                                                  the injected email by id.
+ *   GET  /gmail/v1/users/me/messages/{id}        → format=metadata default;
+ *                                                  Gmail 2.3 Commit 6 adds
+ *                                                  format=full handling so the
+ *                                                  new_attachment trigger +
+ *                                                  get_attachment action can
+ *                                                  enumerate `payload.parts`
+ *                                                  for an injected email that
+ *                                                  carries attachments.
+ *   GET  /gmail/v1/users/me/messages/{id}/attachments/{attId}
+ *                                                → Gmail 2.3 Commit 6. Returns
+ *                                                  the wire shape
+ *                                                  `{ data: base64url, size }`
+ *                                                  for an attachment fixture
+ *                                                  attached to an injected
+ *                                                  email.
  *   POST /gmail/v1/users/me/messages/send        → records the base64url raw
  *                                                  body decoded into headers +
  *                                                  body parts; returns a fake
@@ -122,6 +135,19 @@ import { Buffer } from "node:buffer";
  * Control plane (test-only):
  *   POST /__injectEmail   — inject an email into the mock store and bump
  *                           historyId; the next history.list returns it.
+ *                           Gmail 2.3 Commit 6 — body accepts an optional
+ *                           `attachments: [{attachmentId, filename,
+ *                           mimeType, sizeBytes, base64Data}, …]` field.
+ *                           When provided, the email is multipart/mixed
+ *                           at top level and the attachments surface
+ *                           under `payload.parts` on format=full
+ *                           messages.get calls.
+ *   POST /__injectLabelChange
+ *                         — Gmail 2.3 Commit 6. Bumps historyId and queues
+ *                           a labelsAdded entry pointing at an already-
+ *                           injected email. Body: `{messageId, addedLabelIds}`.
+ *                           Used by the new_labeled_email e2e to fire the
+ *                           trigger for a configured labelId.
  *   POST /__replayLastEmail — re-queue the most recently injected email
  *                           WITHOUT bumping historyId. Used by the dedup
  *                           probe so the spec proves the same Gmail message
@@ -214,6 +240,18 @@ export interface RecordedMessagesGet {
   url: string;
   messageId: string;
   format: string;
+}
+
+/**
+ * Gmail 2.3 Commit 6 — `users.messages.attachments.get` recording for
+ * the new_attachment + get_attachment e2e scenarios. Mirrors the other
+ * Gmail recorders.
+ */
+export interface RecordedMessagesAttachmentsGet {
+  authorization: string | undefined;
+  url: string;
+  messageId: string;
+  attachmentId: string;
 }
 
 export interface RecordedMessagesSend {
@@ -361,6 +399,27 @@ export interface ParsedRfc5322 {
   partsByMimeType: Record<string, string>;
 }
 
+/**
+ * Per-attachment fixture stored on an injected email. Gmail 2.3 Commit 6.
+ *
+ * When the spec inject an email with `attachments: [...]`, each entry is
+ * stored verbatim here. `users.messages.get?format=full` reads these
+ * back as MIME parts; `users.messages.attachments.get` reads the
+ * `base64Data` field.
+ */
+export interface InjectedAttachment {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  /**
+   * Base64url-encoded bytes. Gmail's `users.messages.attachments.get`
+   * returns this verbatim — the handler / decodeBase64Url turn it into
+   * raw bytes for stageFileToStorage.
+   */
+  base64Data: string;
+}
+
 export interface InjectedEmail {
   id: string;
   threadId: string;
@@ -372,6 +431,24 @@ export interface InjectedEmail {
   headers: Array<{ name: string; value: string }>;
   /** historyId that was current when the email was injected. */
   historyIdAtInsert: string;
+  /**
+   * Gmail 2.3 Commit 6 — optional attachment fixtures. Empty array =
+   * no attachments. Surfaces under `payload.parts` when
+   * `users.messages.get?format=full` is requested.
+   */
+  attachments: readonly InjectedAttachment[];
+}
+
+/**
+ * Gmail 2.3 Commit 6 — labelsAdded history entries queued for the next
+ * `users.history.list` call. The new_labeled_email trigger filters
+ * `source === "labelsAdded"` and matches on `addedLabelIds`, so the
+ * mock must surface these distinct from messagesAdded entries.
+ */
+export interface PendingLabelChange {
+  historyId: string;
+  messageId: string;
+  addedLabelIds: readonly string[];
 }
 
 export interface MockGoogleHandle {
@@ -384,6 +461,7 @@ export interface MockGoogleHandle {
     profile: RecordedProfile[];
     historyList: RecordedHistoryList[];
     messagesGet: RecordedMessagesGet[];
+    messagesAttachmentsGet: RecordedMessagesAttachmentsGet[];
     send: RecordedMessagesSend[];
     userinfo: RecordedUserinfo[];
     calendarEventsList: RecordedCalendarEventsList[];
@@ -407,6 +485,12 @@ export interface MockGoogleHandle {
    * `replayLastEmail` re-pushes the most recent pending without bumping.
    */
   pendingHistoryEntries: Array<{ historyId: string; messageId: string }>;
+  /**
+   * Gmail 2.3 Commit 6 — labelsAdded entries pending delivery on the
+   * next history.list call. Distinct from messagesAdded so the
+   * new_labeled_email trigger gets the right history.record shape.
+   */
+  pendingLabelChanges: PendingLabelChange[];
   /** Current historyId — returned by getProfile + history.list. */
   currentHistoryId: string;
   /** Most recently injected message id (for replay). */
@@ -501,6 +585,9 @@ export async function startMockGoogleServer(opts: {
     get pendingHistoryEntries() {
       return state.pendingHistoryEntries;
     },
+    get pendingLabelChanges() {
+      return state.pendingLabelChanges;
+    },
     get currentHistoryId() {
       return state.currentHistoryId;
     },
@@ -553,6 +640,7 @@ type MutableState = Pick<
   | "calls"
   | "emails"
   | "pendingHistoryEntries"
+  | "pendingLabelChanges"
   | "currentHistoryId"
   | "lastInjectedMessageId"
   | "currentCalendarSyncToken"
@@ -576,6 +664,7 @@ function freshState(): MutableState {
       profile: [],
       historyList: [],
       messagesGet: [],
+      messagesAttachmentsGet: [],
       send: [],
       userinfo: [],
       calendarEventsList: [],
@@ -593,6 +682,7 @@ function freshState(): MutableState {
     },
     emails: new Map(),
     pendingHistoryEntries: [],
+    pendingLabelChanges: [],
     currentHistoryId: SEED_HISTORY_ID,
     lastInjectedMessageId: null,
     currentCalendarSyncToken: SEED_CALENDAR_SYNC_TOKEN,
@@ -1205,7 +1295,15 @@ async function handleRequest(
     // include entries with historyId >= startHistoryId when the
     // requested cursor matches the entry's historyId exactly — this
     // simulates "stored cursor was rewound and we walk forward again".
-    const out: Array<{ id: string; messagesAdded: Array<{ message: { id: string; threadId: string } }> }> = [];
+    interface HistoryEntry {
+      id: string;
+      messagesAdded?: Array<{ message: { id: string; threadId: string } }>;
+      labelsAdded?: Array<{
+        message: { id: string; threadId: string };
+        labelIds: readonly string[];
+      }>;
+    }
+    const out: HistoryEntry[] = [];
     const remaining: typeof state.pendingHistoryEntries = [];
     for (const entry of state.pendingHistoryEntries) {
       const entryBig = safeBigInt(entry.historyId);
@@ -1233,6 +1331,37 @@ async function handleRequest(
     }
     state.pendingHistoryEntries = remaining;
 
+    // Gmail 2.3 Commit 6 — drain pending labelsAdded entries on the
+    // same cursor rule. The trigger filters by source first then by
+    // addedLabelIds; emit them with the spec-supplied label-id list so
+    // the new_labeled_email trigger can match (or NOT match — the spec
+    // can inject a non-matching label change and assert no fire).
+    const remainingLabels: typeof state.pendingLabelChanges = [];
+    for (const change of state.pendingLabelChanges) {
+      const entryBig = safeBigInt(change.historyId);
+      if (startBig === null || entryBig === null) {
+        remainingLabels.push(change);
+        continue;
+      }
+      if (entryBig >= startBig) {
+        const email = state.emails.get(change.messageId);
+        if (email) {
+          out.push({
+            id: change.historyId,
+            labelsAdded: [
+              {
+                message: { id: email.id, threadId: email.threadId },
+                labelIds: change.addedLabelIds,
+              },
+            ],
+          });
+        }
+        continue;
+      }
+      remainingLabels.push(change);
+    }
+    state.pendingLabelChanges = remainingLabels;
+
     state.calls.historyList.push({
       authorization: req.headers.authorization,
       url: req.url ?? "",
@@ -1246,6 +1375,46 @@ async function handleRequest(
       JSON.stringify({
         history: out,
         historyId: state.currentHistoryId,
+      }),
+    );
+    return;
+  }
+
+  // ── users.messages.attachments.get ──
+  // Gmail 2.3 Commit 6. Path: /gmail/v1/users/me/messages/{messageId}/attachments/{attachmentId}
+  // MUST be matched before users.messages.get (which uses startsWith
+  // and would otherwise eat this path).
+  const attachmentsGetMatch = url.pathname.match(
+    /^\/gmail\/v1\/users\/me\/messages\/([^/]+)\/attachments\/([^/]+)$/,
+  );
+  if (req.method === "GET" && attachmentsGetMatch) {
+    const messageId = decodeURIComponent(attachmentsGetMatch[1]!);
+    const attachmentId = decodeURIComponent(attachmentsGetMatch[2]!);
+    state.calls.messagesAttachmentsGet.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      messageId,
+      attachmentId,
+    });
+    const email = state.emails.get(messageId);
+    const att = email?.attachments.find(
+      (a) => a.attachmentId === attachmentId,
+    );
+    if (!email || !att) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: { code: 404, message: "Attachment not found" },
+        }),
+      );
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        // Gmail's wire shape: base64url-encoded data + reported size.
+        data: att.base64Data,
+        size: att.sizeBytes,
       }),
     );
     return;
@@ -1272,6 +1441,32 @@ async function handleRequest(
       res.end(JSON.stringify({ error: { code: 404, message: "Not Found" } }));
       return;
     }
+    // Gmail 2.3 Commit 6 — format=full returns the full MIME tree with
+    // `parts`. format=metadata (and the legacy empty default) keeps the
+    // pre-Commit-6 shape so the existing slice-2f new_email walkthrough
+    // is byte-for-byte unchanged.
+    const payload: Record<string, unknown> = {
+      mimeType: email.mimeType,
+      headers: email.headers,
+    };
+    if (format === "full" && email.attachments.length > 0) {
+      // Single top-level part for body + one part per attachment is the
+      // typical multipart/mixed shape for emails with attachments. The
+      // extractAttachmentMetadata walk picks up the attachments via the
+      // filename + body.attachmentId predicate.
+      payload.parts = [
+        {
+          mimeType: "text/plain",
+          filename: "",
+          body: { size: email.sizeEstimate },
+        },
+        ...email.attachments.map((a) => ({
+          mimeType: a.mimeType,
+          filename: a.filename,
+          body: { attachmentId: a.attachmentId, size: a.sizeBytes },
+        })),
+      ];
+    }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -1281,10 +1476,7 @@ async function handleRequest(
         snippet: email.snippet,
         internalDate: email.internalDate,
         sizeEstimate: email.sizeEstimate,
-        payload: {
-          mimeType: email.mimeType,
-          headers: email.headers,
-        },
+        payload,
       }),
     );
     return;
@@ -1333,6 +1525,19 @@ async function handleRequest(
       headers: Record<string, string>;
       mimeType?: string;
       snippet?: string;
+      /**
+       * Gmail 2.3 Commit 6 — optional attachment fixtures. When
+       * provided, the next users.messages.get?format=full surfaces
+       * these as `payload.parts` and users.messages.attachments.get
+       * serves `base64Data` for each id.
+       */
+      attachments?: Array<{
+        attachmentId: string;
+        filename: string;
+        mimeType: string;
+        sizeBytes: number;
+        base64Data: string;
+      }>;
     };
     try {
       payload = JSON.parse(body) as typeof payload;
@@ -1349,6 +1554,21 @@ async function handleRequest(
     // Bump historyId by 1 to simulate "a new message arrived".
     const nextId = (safeBigInt(state.currentHistoryId) ?? 0n) + 1n;
     state.currentHistoryId = nextId.toString();
+    const attachments: readonly InjectedAttachment[] = (
+      payload.attachments ?? []
+    ).map((a) => ({
+      attachmentId: a.attachmentId,
+      filename: a.filename,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      base64Data: a.base64Data,
+    }));
+    // When attachments are present, the email is multipart/mixed at
+    // the top level (matches what real Gmail does and what
+    // new_email's hasAttachments heuristic looks for).
+    const defaultMime = attachments.length > 0
+      ? "multipart/mixed"
+      : "multipart/alternative";
     const email: InjectedEmail = {
       id: payload.id,
       threadId: `thr-${payload.id}`,
@@ -1356,12 +1576,13 @@ async function handleRequest(
       snippet: payload.snippet ?? "",
       internalDate: String(Date.now()),
       sizeEstimate: 1024,
-      mimeType: payload.mimeType ?? "multipart/alternative",
+      mimeType: payload.mimeType ?? defaultMime,
       headers: Object.entries(payload.headers).map(([name, value]) => ({
         name,
         value,
       })),
       historyIdAtInsert: state.currentHistoryId,
+      attachments,
     };
     state.emails.set(email.id, email);
     state.pendingHistoryEntries.push({
@@ -1375,6 +1596,59 @@ async function handleRequest(
         ok: true,
         currentHistoryId: state.currentHistoryId,
         messageId: email.id,
+        attachmentCount: attachments.length,
+      }),
+    );
+    return;
+  }
+
+  // ── Control plane — Gmail 2.3 Commit 6 ──
+  //
+  // __injectLabelChange: bumps historyId, queues a labelsAdded entry
+  // pointing at an already-injected email. The email must already exist
+  // (spec injects via __injectEmail first, or via the bundled
+  // /__injectEmail-then-/__injectLabelChange flow). `addedLabelIds` is
+  // the spec-supplied list — the new_labeled_email trigger matches
+  // strictly on this list.
+  if (req.method === "POST" && url.pathname === "/__injectLabelChange") {
+    const body = await readBody(req);
+    let payload: { messageId: string; addedLabelIds: string[] };
+    try {
+      payload = JSON.parse(body) as typeof payload;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (
+      !payload.messageId ||
+      !Array.isArray(payload.addedLabelIds) ||
+      payload.addedLabelIds.length === 0
+    ) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("missing messageId or addedLabelIds");
+      return;
+    }
+    if (!state.emails.has(payload.messageId)) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end(`messageId ${payload.messageId} not previously injected`);
+      return;
+    }
+    // Bump historyId to simulate "a label was applied".
+    const nextId = (safeBigInt(state.currentHistoryId) ?? 0n) + 1n;
+    state.currentHistoryId = nextId.toString();
+    state.pendingLabelChanges.push({
+      historyId: state.currentHistoryId,
+      messageId: payload.messageId,
+      addedLabelIds: payload.addedLabelIds,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        currentHistoryId: state.currentHistoryId,
+        messageId: payload.messageId,
+        addedLabelIds: payload.addedLabelIds,
       }),
     );
     return;
@@ -1626,6 +1900,7 @@ async function handleRequest(
         currentHistoryId: state.currentHistoryId,
         emailCount: state.emails.size,
         pendingHistoryEntries: state.pendingHistoryEntries,
+        pendingLabelChanges: state.pendingLabelChanges,
         lastInjectedMessageId: state.lastInjectedMessageId,
         currentCalendarSyncToken: state.currentCalendarSyncToken,
         pendingCalendarEvents: state.pendingCalendarEvents,
