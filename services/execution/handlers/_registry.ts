@@ -1,3 +1,4 @@
+import { addAttachment as airtableAddAttachment } from "@/integrations/airtable/actions/addAttachment";
 import { createRecord as airtableCreateRecord } from "@/integrations/airtable/actions/createRecord";
 import { deleteRecord as airtableDeleteRecord } from "@/integrations/airtable/actions/deleteRecord";
 import { findRecord as airtableFindRecord } from "@/integrations/airtable/actions/findRecord";
@@ -363,6 +364,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "airtable", type: "delete_record", handler: airtableDeleteRecord },
   { provider: "airtable", type: "get_base_schema", handler: airtableGetBaseSchema },
   { provider: "airtable", type: "get_table_schema", handler: airtableGetTableSchema },
+  // Airtable 2.1 Commit 2 — P-S3 FileRef consumer; writes a file into
+  // an Airtable attachment field. v2_storage → signed URL; signed_url
+  // passthrough; provider_url rejected with AirtableAddAttachmentConfigError.
+  { provider: "airtable", type: "add_attachment", handler: airtableAddAttachment },
   { provider: "stripe", type: "create_customer", handler: stripeCreateCustomer },
   { provider: "stripe", type: "update_customer", handler: stripeUpdateCustomer },
   { provider: "stripe", type: "find_customer", handler: stripeFindCustomer },
