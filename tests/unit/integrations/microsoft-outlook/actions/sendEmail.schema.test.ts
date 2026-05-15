@@ -115,4 +115,130 @@ describe("SendEmailConfigSchema", () => {
       }),
     ).toThrow();
   });
+
+  // ── Outlook Mail 2.1 Commit 4 — attachments field ─────────────────────
+
+  it("accepts a config with attachments absent", () => {
+    expect(() => SendEmailConfigSchema.parse(VALID_CONFIG)).not.toThrow();
+  });
+
+  it("accepts a config with an empty attachments array", () => {
+    expect(() =>
+      SendEmailConfigSchema.parse({ ...VALID_CONFIG, attachments: [] }),
+    ).not.toThrow();
+  });
+
+  it("accepts a valid v2_storage FileRef in attachments", () => {
+    expect(() =>
+      SendEmailConfigSchema.parse({
+        ...VALID_CONFIG,
+        attachments: [
+          {
+            kind: "v2_storage",
+            name: "invoice.pdf",
+            mimeType: "application/pdf",
+            sizeBytes: 12345,
+            storagePath: "u/wf/r/n/invoice.pdf",
+            provider: "slack",
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts a valid signed_url FileRef in attachments", () => {
+    expect(() =>
+      SendEmailConfigSchema.parse({
+        ...VALID_CONFIG,
+        attachments: [
+          {
+            kind: "signed_url",
+            name: "report.docx",
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            url: "https://example.test/signed-url-123",
+            expiresAt: "2026-05-15T12:00:00Z",
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts a valid provider_url FileRef at the schema layer (handler rejects)", () => {
+    // The schema layer can't reject provider_url — it's a valid FileRef
+    // shape. The handler rejects this kind with UnsupportedProviderFetchError
+    // before any Graph call. This is exercised in the handler tests.
+    expect(() =>
+      SendEmailConfigSchema.parse({
+        ...VALID_CONFIG,
+        attachments: [
+          {
+            kind: "provider_url",
+            name: "thing.png",
+            mimeType: "image/png",
+            url: "https://files.slack.com/x/y/z",
+            provider: "slack",
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects inline-bytes attachment shape (content / bytes / base64 / data)", () => {
+    // FileRefSchema's strict-arms reject any unknown field — confirms
+    // the contract enforces "no inline bytes in action inputs."
+    const inlineShapes = [
+      { content: "raw" },
+      { bytes: [1, 2, 3] },
+      { base64: "Zm9v" },
+      { data: "{...}" },
+    ];
+    for (const inline of inlineShapes) {
+      expect(() =>
+        SendEmailConfigSchema.parse({
+          ...VALID_CONFIG,
+          attachments: [
+            {
+              kind: "v2_storage",
+              name: "x.txt",
+              mimeType: "text/plain",
+              storagePath: "u/wf/r/n/x.txt",
+              ...inline,
+            },
+          ],
+        }),
+      ).toThrow();
+    }
+  });
+
+  it("rejects an attachment with an unknown kind", () => {
+    expect(() =>
+      SendEmailConfigSchema.parse({
+        ...VALID_CONFIG,
+        attachments: [
+          {
+            kind: "magical",
+            name: "x.txt",
+            mimeType: "text/plain",
+          } as unknown as Record<string, unknown>,
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an attachment missing required FileRef fields (name / mimeType / discriminator)", () => {
+    expect(() =>
+      SendEmailConfigSchema.parse({
+        ...VALID_CONFIG,
+        attachments: [
+          {
+            kind: "v2_storage",
+            // missing name
+            mimeType: "text/plain",
+            storagePath: "u/wf/r/n/x.txt",
+          } as unknown as Record<string, unknown>,
+        ],
+      }),
+    ).toThrow();
+  });
 });

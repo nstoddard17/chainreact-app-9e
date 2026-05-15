@@ -30,6 +30,27 @@ export interface GraphMessageBody {
   content: string;
 }
 
+/**
+ * Microsoft Graph `fileAttachment` envelope (Outlook Mail 2.1 Commit 4).
+ *
+ * Used as one element of `message.attachments[]` on the sendMail body.
+ * `contentBytes` is base64-encoded by the handler before reaching this
+ * wrapper — the wrapper never touches raw bytes / Buffer / streams.
+ *
+ * Graph supports `itemAttachment` and `referenceAttachment` as alternate
+ * `@odata.type` values; Outlook Mail 2.1 SKIPs both per the accepted
+ * P-O2 design — `send_email` only ships `fileAttachment` for now.
+ */
+export interface GraphFileAttachment {
+  "@odata.type": "#microsoft.graph.fileAttachment";
+  /** Display name including extension. Used by Outlook UI + recipient client. */
+  name: string;
+  /** RFC-1341 type. Falls back to "application/octet-stream" upstream. */
+  contentType: string;
+  /** Base64-encoded bytes. The handler owns the encoding step. */
+  contentBytes: string;
+}
+
 export interface SendMailInput {
   accessToken: string;
   message: {
@@ -39,6 +60,20 @@ export interface SendMailInput {
     ccRecipients?: GraphRecipient[];
     bccRecipients?: GraphRecipient[];
     importance: "low" | "normal" | "high";
+    /**
+     * Optional file attachments. When supplied as a non-empty array,
+     * the wrapper includes `attachments` in the Graph body and Graph
+     * dispatches a multipart-style email. Omitting / passing `[]`
+     * preserves the pre-2.1 behavior (no attachments) byte-for-byte.
+     *
+     * Size caps are handler-enforced (Outlook Mail 2.1: 3 MB per
+     * attachment, 25 MB total) — the wrapper does not validate the
+     * `contentBytes` byte length. Graph rejects payloads above ~35 MB
+     * with HTTP 413; below that and above our handler cap, Graph might
+     * accept the call but truncate or fail at delivery time, so the
+     * handler refuses to call the wrapper for oversized payloads.
+     */
+    attachments?: GraphFileAttachment[];
   };
   /**
    * When true, Graph saves the message to Sent Items. Defaults to true

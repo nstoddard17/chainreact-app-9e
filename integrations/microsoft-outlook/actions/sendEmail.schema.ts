@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { FileRefSchema } from "@/contracts/file";
 
 /**
  * Resolved-config schema for the Microsoft Outlook send_email action.
  *
  * The engine pre-resolves all `{{...}}` references via the variable
  * resolver before dispatching the handler, so by the time this schema
- * runs every value is already a concrete string / array.
+ * runs every value is already a concrete string / array / FileRef.
  *
  * Q11 — REQUIRED with no hidden defaults:
  *   - `isHtml`: V1 silently defaults to `false`. V2 forces explicit choice;
@@ -27,6 +28,18 @@ import { z } from "zod";
  *   - `to`, `cc`, `bcc` accept either a CSV string OR an array of
  *     strings. parseRecipients flattens both shapes into a flat list.
  *
+ * Attachments (Outlook Mail 2.1 Commit 4, P-O2):
+ *   - `attachments` is optional; absent or empty array preserves the
+ *     pre-2.1 no-attachment shape.
+ *   - Each entry MUST conform to `FileRefSchema`. Inline-bytes shapes
+ *     (`content`, `bytes`, `base64`, `data`) are rejected at parse time
+ *     by FileRefSchema's strict-arms — the schema layer guarantees no
+ *     raw bytes reach the handler. The handler resolves FileRefs to
+ *     bytes via `fetchFileBytes`, applies the 3 MB-per / 25 MB-total
+ *     hard caps, base64-encodes, and constructs the Graph
+ *     `fileAttachment` envelope. `provider_url` kind is rejected at the
+ *     handler layer with a clean error (P-S3 plan §10 #1).
+ *
  * Strict mode rejects unknown fields.
  */
 export const SendEmailConfigSchema = z
@@ -45,6 +58,13 @@ export const SendEmailConfigSchema = z
     isHtml: z.boolean(),
     /** Q11 required: no hidden default for importance. */
     importance: z.enum(["low", "normal", "high"]),
+    /**
+     * Optional file attachments. Strict FileRefSchema arms reject any
+     * inline-bytes shape (`content`, `bytes`, `base64`, `data`, …) at
+     * parse time. Handler enforces 3 MB per / 25 MB total caps + rejects
+     * `provider_url` kind with a clean error.
+     */
+    attachments: z.array(FileRefSchema).optional(),
   })
   .strict();
 

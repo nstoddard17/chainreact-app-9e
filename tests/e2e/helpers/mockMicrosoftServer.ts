@@ -699,6 +699,30 @@ async function handleRequest(
     return;
   }
 
+  // ── Outlook Mail 2.1 Commit 4: synthetic signed-URL file source ──
+  //
+  // Returns canned bytes for the attachment-flow e2e scenario. The
+  // workflow's send_email action is configured with a `signed_url`
+  // FileRef pointing at this endpoint; `fetchFileBytes` direct-fetches
+  // it (no auth header), base64-encodes the bytes, and constructs the
+  // Graph fileAttachment envelope. URL is keyed by the trailing
+  // filename so a test can verify the bytes were retrieved by name.
+  if (req.method === "GET" && url.pathname.startsWith("/__file/")) {
+    const name = url.pathname.replace(/^\/__file\//, "");
+    // Deterministic, non-empty content. Decoded length matters more
+    // than the exact bytes — the e2e asserts `contentBytes.length > 0`.
+    const bytes = Buffer.from(
+      `mock-outlook-attachment:${name}:`.repeat(8),
+      "utf8",
+    );
+    res.writeHead(200, {
+      "content-type": "application/octet-stream",
+      "content-length": String(bytes.length),
+    });
+    res.end(bytes);
+    return;
+  }
+
   // ── Graph /me/sendMail ──
   if (req.method === "POST" && url.pathname === "/v1.0/me/sendMail") {
     const bodyText = await readBody(req);

@@ -167,4 +167,66 @@ describe("sendMail wrapper", () => {
       "http://127.0.0.1:9876/v1.0/me/sendMail",
     );
   });
+
+  // ── Outlook Mail 2.1 Commit 4 — attachments passthrough ────────────────
+
+  it("includes message.attachments in the JSON body when supplied", async () => {
+    const fetchSpy = mockFetchOnce({ ok: true });
+    const attachment = {
+      "@odata.type": "#microsoft.graph.fileAttachment" as const,
+      name: "invoice.pdf",
+      contentType: "application/pdf",
+      contentBytes: "cGRmIGJ5dGVz", // base64("pdf bytes")
+    };
+
+    await sendMail({
+      accessToken: "t",
+      message: { ...SAMPLE_MESSAGE, attachments: [attachment] },
+      saveToSentItems: true,
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.message.attachments).toEqual([attachment]);
+  });
+
+  it("omits message.attachments from the JSON body when undefined", async () => {
+    const fetchSpy = mockFetchOnce({ ok: true });
+
+    await sendMail({
+      accessToken: "t",
+      message: SAMPLE_MESSAGE,
+      saveToSentItems: true,
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.message.attachments).toBeUndefined();
+    expect("attachments" in body.message).toBe(false);
+  });
+
+  it("passes through multiple attachments in order", async () => {
+    const fetchSpy = mockFetchOnce({ ok: true });
+    const attachments = [
+      {
+        "@odata.type": "#microsoft.graph.fileAttachment" as const,
+        name: "first.txt",
+        contentType: "text/plain",
+        contentBytes: "Zmlyc3Q=",
+      },
+      {
+        "@odata.type": "#microsoft.graph.fileAttachment" as const,
+        name: "second.txt",
+        contentType: "text/plain",
+        contentBytes: "c2Vjb25k",
+      },
+    ];
+
+    await sendMail({
+      accessToken: "t",
+      message: { ...SAMPLE_MESSAGE, attachments },
+      saveToSentItems: true,
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.message.attachments).toEqual(attachments);
+  });
 });

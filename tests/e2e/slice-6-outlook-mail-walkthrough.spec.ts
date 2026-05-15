@@ -694,6 +694,117 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     expect(calls.calls.forwardMessage).toHaveLength(0);
     expect(calls.calls.sendMail).toHaveLength(0);
   });
+
+  // ── Outlook Mail 2.1 Commit 4 — send_email + attachments ──────────────
+  test("new_email → send_email with a signed_url FileRef attachment reaches Graph as a fileAttachment", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-attach-${randomUUID()}`;
+    const attachmentName = `sample-${randomUUID().slice(0, 8)}.bin`;
+    // FileRef points at the mock's synthetic file endpoint. Handler
+    // resolves it via direct fetch (signed_url kind needs no auth
+    // header), base64-encodes the bytes, and constructs the Graph
+    // fileAttachment envelope.
+    const attachmentUrl = `${mock.baseUrl}/__file/${attachmentName}`;
+
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Send with Attachment",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "send_email",
+        config: {
+          to: "alice@example.test",
+          subject: "Email with attachment",
+          body: "See attached.",
+          isHtml: false,
+          importance: "normal",
+          attachments: [
+            {
+              kind: "signed_url",
+              name: attachmentName,
+              mimeType: "application/octet-stream",
+              url: attachmentUrl,
+            },
+          ],
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // sendMail invoked exactly once. The Graph body MUST carry the
+    // fileAttachment envelope with non-empty base64 contentBytes.
+    expect(calls.calls.sendMail).toHaveLength(1);
+    const sentMessage = calls.calls.sendMail[0]!.body.message as Record<
+      string,
+      unknown
+    >;
+    const attachments = sentMessage.attachments as Array<
+      Record<string, unknown>
+    >;
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0]!["@odata.type"]).toBe(
+      "#microsoft.graph.fileAttachment",
+    );
+    expect(attachments[0]!.name).toBe(attachmentName);
+    expect(attachments[0]!.contentType).toBe("application/octet-stream");
+    expect(typeof attachments[0]!.contentBytes).toBe("string");
+    expect((attachments[0]!.contentBytes as string).length).toBeGreaterThan(0);
+    // Sanity: base64 decodes to the same bytes the mock served.
+    const decoded = Buffer.from(
+      attachments[0]!.contentBytes as string,
+      "base64",
+    ).toString("utf8");
+    expect(decoded).toContain(`mock-outlook-attachment:${attachmentName}:`);
+
+    // Step output for send_email MUST NOT include attachments /
+    // contentBytes / base64 / bytes. CLAUDE.md rule #1 enforced
+    // end-to-end (unit tests cover handler-level; this is the
+    // workflow_runs.steps assertion).
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    expect(actionStep.status).toBe("succeeded");
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    expect(stepOutput).toEqual({
+      sent: true,
+      to: ["alice@example.test"],
+      cc: [],
+      bcc: [],
+      subject: "Email with attachment",
+      isHtml: false,
+      importance: "normal",
+    });
+    expect("attachments" in stepOutput).toBe(false);
+    expect("contentBytes" in stepOutput).toBe(false);
+    expect("base64" in stepOutput).toBe(false);
+    expect("bytes" in stepOutput).toBe(false);
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
