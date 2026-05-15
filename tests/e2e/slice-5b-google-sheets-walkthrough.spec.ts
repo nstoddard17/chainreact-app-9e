@@ -512,6 +512,44 @@ interface MockInspect {
       body: Record<string, unknown>;
       valueInputOption: string | null;
     }[];
+    // Sheets 2.1 — additional call recorders surfaced by the mock for
+    // the cell + row + spreadsheet lifecycle action set. Existing
+    // tests don't read these; the 2.1 test below does.
+    sheetsValuesUpdate?: {
+      authorization: string | undefined;
+      url: string;
+      spreadsheetId: string;
+      range: string;
+      body: Record<string, unknown>;
+      valueInputOption: string | null;
+    }[];
+    sheetsSpreadsheetsGet?: {
+      authorization: string | undefined;
+      url: string;
+      spreadsheetId: string;
+    }[];
+    sheetsSpreadsheetsCreate?: {
+      authorization: string | undefined;
+      url: string;
+      body: Record<string, unknown>;
+      title: string | null;
+      initialSheetCount: number;
+      firstInitialSheetTitle: string | null;
+      responseSpreadsheetId: string;
+    }[];
+    sheetsSpreadsheetsBatchUpdate?: {
+      authorization: string | undefined;
+      url: string;
+      spreadsheetId: string;
+      body: Record<string, unknown>;
+      requestCount: number;
+      firstDeleteDimensionRange: {
+        sheetId?: number;
+        dimension?: string;
+        startIndex?: number;
+        endIndex?: number;
+      } | null;
+    }[];
   };
   currentSheetsRowCount: number;
 }
@@ -523,3 +561,369 @@ async function fetchMockCalls(
   const resp = await request.get(`${mockBaseUrl}/__inspect`);
   return (await resp.json()) as MockInspect;
 }
+
+/**
+ * Sheets 2.1 — full action surface end-to-end.
+ *
+ * One workflow, one webhook fire, FIVE chained actions:
+ *   1. get_cell_value
+ *   2. update_cell
+ *   3. find_row
+ *   4. delete_row
+ *   5. create_spreadsheet
+ *
+ * The actions are linked by edges (linear chain) so the BFS engine runs
+ * them in sequence. Each action is independent — none consume upstream
+ * outputs — so a single trigger event drives the entire surface. This
+ * compresses what would otherwise be 5 separate sign-in / connect /
+ * activate cycles into one walkthrough.
+ *
+ * Mock state for find_row: we pre-populate the sheet with a header row +
+ * 2 data rows BEFORE activate. The activate snapshot stores
+ * `lastRowCount=3`. We then inject one more row to fire the trigger; pull
+ * sees 4 > 3 and emits exactly one event. find_row reads the full sheet
+ * via values.get and matches `alice` at row 2 (1-indexed including
+ * header).
+ *
+ * Mock state for delete_row: `spreadsheets.get` returns a sheet with
+ * `sheetId=0` for "Sheet1". delete_row's handler resolves the sheetName
+ * → sheetId via that call, then sends a batchUpdate with deleteDimension
+ * `{startIndex:2, endIndex:3}` to delete spreadsheet row 3 (bob). The
+ * mock records but does NOT mutate `currentSheetsRows` — that's
+ * deliberate: the chain's subsequent calls (none here) wouldn't see the
+ * effect anyway, and keeping the row store immutable across action
+ * dispatch makes the assertion math straightforward.
+ *
+ * Mock state for create_spreadsheet: synthetic `spreadsheetId =
+ * mock-ss-${Date.now()}` echoed back; the spec asserts the regex shape
+ * (not the exact id) to stay robust against re-runs.
+ *
+ * Mock state for update_cell: mock records the PUT but does NOT apply
+ * the value. get_cell_value runs BEFORE update_cell in the chain so it
+ * reads the original "Name" header from row 1 col 1 — proving the
+ * read-path plumbing without depending on the mock applying writes.
+ */
+test.describe("Sheets 2.1 — cell + row + spreadsheet lifecycle actions e2e", () => {
+  test.beforeEach(async () => {
+    testUser = await createTestUser();
+  });
+
+  test.afterEach(async () => {
+    if (testUser) {
+      await deleteTestUser(testUser.id);
+      testUser = null;
+    }
+  });
+
+  test("row_changed → get_cell_value → update_cell → find_row → delete_row → create_spreadsheet — 5 actions execute end-to-end", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readGoogleMockState();
+
+    // Reset mock so call counts are scoped to this run.
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // Pre-populate sheet: 1 header row + 2 data rows. Activate's snapshot
+    // captures lastRowCount=3 so the post-activate inject of 1 more row
+    // emits exactly ONE trigger event (not 4). find_row matches "alice"
+    // at row 2 (header at row 1).
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["Name", "Email"] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["alice", "alice@e.test"] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["bob", "bob@e.test"] },
+    });
+
+    // ── Sign in + Connect Sheets ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=google-sheets/),
+      page.getByRole("button", { name: "Connect Google Sheets" }).click(),
+    ]);
+
+    // ── Create workflow ──
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page.getByLabel(/workflow name/i).fill("E2E Sheets 2.1 — 5 Actions");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    // ── Patch the draft with the 5-action chain ──
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "google-sheets",
+          type: "row_changed",
+          config: {
+            spreadsheetId: "ss-2.1-e2e",
+            sheetName: "Sheet1",
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-get-cell",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "get_cell_value",
+          config: {
+            spreadsheetId: "ss-2.1-e2e",
+            sheetName: "Sheet1",
+            cell: "A1",
+          },
+          position: { x: 0, y: 100 },
+        },
+        {
+          id: "action-update-cell",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "update_cell",
+          config: {
+            spreadsheetId: "ss-2.1-e2e",
+            sheetName: "Sheet1",
+            cell: "A1",
+            value: "updated-by-e2e",
+            valueInputOption: "USER_ENTERED",
+          },
+          position: { x: 0, y: 200 },
+        },
+        {
+          id: "action-find-row",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "find_row",
+          config: {
+            spreadsheetId: "ss-2.1-e2e",
+            sheetName: "Sheet1",
+            column: "Name",
+            value: "alice",
+            operator: "equals",
+          },
+          position: { x: 0, y: 300 },
+        },
+        {
+          id: "action-delete-row",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "delete_row",
+          config: {
+            spreadsheetId: "ss-2.1-e2e",
+            sheetName: "Sheet1",
+            rowNumber: 3,
+          },
+          position: { x: 0, y: 400 },
+        },
+        {
+          id: "action-create-spreadsheet",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "create_spreadsheet",
+          config: {
+            title: "Created by 2.1 e2e",
+            initialSheetName: "Data",
+          },
+          position: { x: 0, y: 500 },
+        },
+      ],
+      edges: [
+        { id: "e1", from: "trigger-node", to: "action-get-cell" },
+        { id: "e2", from: "action-get-cell", to: "action-update-cell" },
+        { id: "e3", from: "action-update-cell", to: "action-find-row" },
+        { id: "e4", from: "action-find-row", to: "action-delete-row" },
+        { id: "e5", from: "action-delete-row", to: "action-create-spreadsheet" },
+      ],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    // ── Activate ──
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const triggerRowsAfterActivate = await getTriggerResourcesForUser(user.id);
+    expect(triggerRowsAfterActivate).toHaveLength(1);
+    const triggerAfterActivate = triggerRowsAfterActivate[0]! as Record<
+      string,
+      unknown
+    >;
+    const triggerConfig = triggerAfterActivate.config as {
+      channelId: string;
+      resourceId: string;
+      lastRowCount: number;
+    };
+    // Pre-populated 3 rows → snapshot captures lastRowCount=3 so the
+    // post-inject pull emits exactly one event for row 4.
+    expect(triggerConfig.lastRowCount).toBe(3);
+
+    // ── Inject the trigger row + POST the push notification ──
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["carol", "carol@e.test"] },
+    });
+    const channelToken = buildChannelToken({
+      channelId: triggerConfig.channelId,
+    });
+    const webhookResp = await request.post("/api/webhooks/google-sheets", {
+      headers: {
+        "x-goog-channel-id": triggerConfig.channelId,
+        "x-goog-channel-token": channelToken,
+        "x-goog-resource-id": triggerConfig.resourceId,
+        "x-goog-resource-state": "update",
+        "x-goog-message-number": "1",
+      },
+    });
+    expect(webhookResp.status(), await webhookResp.text()).toBe(200);
+
+    // ── Wait for the workflow_run row to appear with succeeded status ──
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+
+    // ── Per-step output assertions ──
+    const steps = run.steps as ReadonlyArray<{
+      nodeId: string;
+      status: string;
+      output?: Record<string, unknown>;
+    }>;
+    const stepBy = (id: string) => {
+      const step = steps.find((s) => s.nodeId === id);
+      if (!step) throw new Error(`step ${id} missing in run.steps`);
+      return step;
+    };
+
+    // 1. get_cell_value — reads row 1 col 1 ("Name" header).
+    const stepGet = stepBy("action-get-cell");
+    expect(stepGet.status).toBe("succeeded");
+    expect(stepGet.output).toEqual({
+      spreadsheetId: "ss-2.1-e2e",
+      sheetName: "Sheet1",
+      cell: "A1",
+      value: "Name",
+    });
+
+    // 2. update_cell — wrapper accepts; output mirrors mock response.
+    const stepUpdate = stepBy("action-update-cell");
+    expect(stepUpdate.status).toBe("succeeded");
+    expect(stepUpdate.output?.updated).toBe(true);
+    expect(stepUpdate.output?.cell).toBe("A1");
+    expect(stepUpdate.output?.sheetName).toBe("Sheet1");
+    expect(stepUpdate.output?.updatedRange).toBe("Sheet1!A1");
+
+    // 3. find_row — matches "alice" at sheet row 2.
+    const stepFind = stepBy("action-find-row");
+    expect(stepFind.status).toBe("succeeded");
+    expect(stepFind.output).toEqual({
+      spreadsheetId: "ss-2.1-e2e",
+      sheetName: "Sheet1",
+      column: "Name",
+      found: true,
+      firstMatch: {
+        rowNumber: 2,
+        rowData: { Name: "alice", Email: "alice@e.test" },
+      },
+      matches: [
+        {
+          rowNumber: 2,
+          rowData: { Name: "alice", Email: "alice@e.test" },
+        },
+      ],
+      count: 1,
+    });
+
+    // 4. delete_row — resolves sheetName → sheetId=0, sends deleteDimension.
+    const stepDelete = stepBy("action-delete-row");
+    expect(stepDelete.status).toBe("succeeded");
+    expect(stepDelete.output).toEqual({
+      spreadsheetId: "ss-2.1-e2e",
+      sheetName: "Sheet1",
+      sheetId: 0,
+      rowNumber: 3,
+      deleted: true,
+    });
+
+    // 5. create_spreadsheet — mock returns synthetic id matching the
+    // mock-ss-<timestamp> shape.
+    const stepCreate = stepBy("action-create-spreadsheet");
+    expect(stepCreate.status).toBe("succeeded");
+    expect(stepCreate.output?.spreadsheetId).toMatch(/^mock-ss-\d+$/);
+    expect(stepCreate.output?.title).toBe("Created by 2.1 e2e");
+    expect(stepCreate.output?.spreadsheetUrl).toMatch(
+      /^https:\/\/docs\.google\.com\/spreadsheets\/d\/mock-ss-\d+\/edit$/,
+    );
+    expect(stepCreate.output?.firstSheet).toEqual({
+      sheetId: 0,
+      title: "Data",
+    });
+
+    // ── Mock-call assertions ──
+    const inspect = await fetchMockCalls(request, mock.baseUrl);
+
+    // values.get calls: 1 activate snapshot + 1 webhook pull + 1
+    // get_cell_value (Sheet1!A1) + 1 find_row (Sheet1) = 4.
+    expect(inspect.calls.sheetsValuesGet).toHaveLength(4);
+    const valuesGetRanges = inspect.calls.sheetsValuesGet.map((c) => c.range);
+    expect(valuesGetRanges).toContain("Sheet1!A1");
+    expect(valuesGetRanges).toContain("Sheet1");
+
+    // values.update calls: 1 from update_cell (PUT Sheet1!A1).
+    expect(inspect.calls.sheetsValuesUpdate).toHaveLength(1);
+    const updateCall = inspect.calls.sheetsValuesUpdate![0]!;
+    expect(updateCall.spreadsheetId).toBe("ss-2.1-e2e");
+    expect(updateCall.range).toBe("Sheet1!A1");
+    expect(updateCall.valueInputOption).toBe("USER_ENTERED");
+    expect(updateCall.body.values).toEqual([["updated-by-e2e"]]);
+    expect(updateCall.authorization).toBe("Bearer ya29.mock-e2e-access");
+
+    // spreadsheets.create calls: 1 from create_spreadsheet.
+    expect(inspect.calls.sheetsSpreadsheetsCreate).toHaveLength(1);
+    const createCall = inspect.calls.sheetsSpreadsheetsCreate![0]!;
+    expect(createCall.title).toBe("Created by 2.1 e2e");
+    expect(createCall.initialSheetCount).toBe(1);
+    expect(createCall.firstInitialSheetTitle).toBe("Data");
+    expect(createCall.authorization).toBe("Bearer ya29.mock-e2e-access");
+
+    // spreadsheets.get calls: 1 from delete_row's sheetName → sheetId lookup.
+    expect(inspect.calls.sheetsSpreadsheetsGet).toHaveLength(1);
+    expect(inspect.calls.sheetsSpreadsheetsGet![0]!.spreadsheetId).toBe(
+      "ss-2.1-e2e",
+    );
+
+    // spreadsheets.batchUpdate calls: 1 from delete_row.
+    expect(inspect.calls.sheetsSpreadsheetsBatchUpdate).toHaveLength(1);
+    const batchCall = inspect.calls.sheetsSpreadsheetsBatchUpdate![0]!;
+    expect(batchCall.spreadsheetId).toBe("ss-2.1-e2e");
+    expect(batchCall.requestCount).toBe(1);
+    expect(batchCall.firstDeleteDimensionRange).toEqual({
+      sheetId: 0,
+      dimension: "ROWS",
+      startIndex: 2,
+      endIndex: 3,
+    });
+
+    // No values.append calls — the 2.1 surface has no append-shaped action.
+    expect(inspect.calls.sheetsValuesAppend).toHaveLength(0);
+  });
+});

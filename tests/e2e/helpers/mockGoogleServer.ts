@@ -388,6 +388,49 @@ export interface RecordedSheetsValuesClear {
 }
 
 /**
+ * Sheets 2.1 Commit 2 — create_spreadsheet action exercises the
+ * collection-root POST. Records the resolved title + sheets[] array so
+ * the spec can assert the bare-vs-initial-sheet-name body shapes the
+ * V2 wrapper sends.
+ */
+export interface RecordedSheetsSpreadsheetsCreate {
+  authorization: string | undefined;
+  url: string;
+  body: Record<string, unknown>;
+  /** `body.properties.title` extracted for readability in assertions. */
+  title: string | null;
+  /** `body.sheets[]` length — 0 when V2 sends a title-only body. */
+  initialSheetCount: number;
+  /** First initial sheet title (or null if no sheets[] field). */
+  firstInitialSheetTitle: string | null;
+  /** Echo of the synthetic id the mock returned in the response. */
+  responseSpreadsheetId: string;
+}
+
+/**
+ * Sheets 2.1 Commit 2 — delete_row action exercises
+ * spreadsheets.batchUpdate with a deleteDimension request. Records the
+ * resolved requests[] array so the spec can assert the half-open
+ * (startIndex, endIndex) range that V2's handler computes from the
+ * 1-indexed rowNumber input.
+ */
+export interface RecordedSheetsSpreadsheetsBatchUpdate {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+  body: Record<string, unknown>;
+  /** `body.requests[]` count; delete_row sends exactly 1. */
+  requestCount: number;
+  /** Convenience extraction: first deleteDimension request's range. */
+  firstDeleteDimensionRange: {
+    sheetId?: number;
+    dimension?: string;
+    startIndex?: number;
+    endIndex?: number;
+  } | null;
+}
+
+/**
  * Minimal RFC 5322 parse — splits headers / body on the first blank line,
  * extracts header name/value pairs case-insensitively, and pulls the
  * primary mimeType. For multipart/alternative we also bucket parts by
@@ -472,6 +515,8 @@ export interface MockGoogleHandle {
     driveChangesList: RecordedDriveChangesList[];
     driveFilesCreate: RecordedDriveFilesCreate[];
     sheetsSpreadsheetsGet: RecordedSheetsSpreadsheetsGet[];
+    sheetsSpreadsheetsCreate: RecordedSheetsSpreadsheetsCreate[];
+    sheetsSpreadsheetsBatchUpdate: RecordedSheetsSpreadsheetsBatchUpdate[];
     sheetsValuesGet: RecordedSheetsValuesGet[];
     sheetsValuesAppend: RecordedSheetsValuesAppend[];
     sheetsValuesUpdate: RecordedSheetsValuesUpdate[];
@@ -675,6 +720,8 @@ function freshState(): MutableState {
       driveChangesList: [],
       driveFilesCreate: [],
       sheetsSpreadsheetsGet: [],
+      sheetsSpreadsheetsCreate: [],
+      sheetsSpreadsheetsBatchUpdate: [],
       sheetsValuesGet: [],
       sheetsValuesAppend: [],
       sheetsValuesUpdate: [],
@@ -918,6 +965,161 @@ async function handleRequest(
         start: parsed.start,
         end: parsed.end,
         attendees: parsed.attendees ?? [],
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets spreadsheets.create ──
+  // Path: POST /v4/spreadsheets (collection root — no path id)
+  // Used by Sheets 2.1 create_spreadsheet action. Records the resolved
+  // title + initial sheet titles. Echoes a synthetic spreadsheetId +
+  // spreadsheetUrl back; the spec asserts the body shape and that the
+  // returned id flows into the workflow_run output.
+  if (req.method === "POST" && url.pathname === "/v4/spreadsheets") {
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    const properties = (parsed.properties ?? {}) as Record<string, unknown>;
+    const title = typeof properties.title === "string" ? properties.title : null;
+    const sheetsArr = Array.isArray(parsed.sheets)
+      ? (parsed.sheets as Array<Record<string, unknown>>)
+      : [];
+    // Echo back the user-supplied sheet titles, or default to a single
+    // "Sheet1" entry (mirrors Google's default when caller omits sheets[]).
+    const effectiveSheets =
+      sheetsArr.length > 0
+        ? sheetsArr.map((s, idx) => {
+            const props = (s.properties ?? {}) as Record<string, unknown>;
+            return {
+              properties: {
+                sheetId: idx,
+                title: (props.title as string) ?? `Sheet${idx + 1}`,
+                index: idx,
+                sheetType: "GRID",
+                gridProperties: { rowCount: 1000, columnCount: 26 },
+              },
+            };
+          })
+        : [
+            {
+              properties: {
+                sheetId: 0,
+                title: "Sheet1",
+                index: 0,
+                sheetType: "GRID",
+                gridProperties: { rowCount: 1000, columnCount: 26 },
+              },
+            },
+          ];
+    const responseSpreadsheetId = `mock-ss-${Date.now()}`;
+    const firstInitialSheetTitle =
+      sheetsArr.length > 0
+        ? (((sheetsArr[0]!.properties ?? {}) as Record<string, unknown>)
+            .title as string) ?? null
+        : null;
+    state.calls.sheetsSpreadsheetsCreate.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      body: parsed,
+      title,
+      initialSheetCount: sheetsArr.length,
+      firstInitialSheetTitle,
+      responseSpreadsheetId,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        spreadsheetId: responseSpreadsheetId,
+        spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${responseSpreadsheetId}/edit`,
+        properties: {
+          title: title ?? "Untitled",
+          locale: "en_US",
+          timeZone: "America/Los_Angeles",
+          autoRecalc: "ON_CHANGE",
+          defaultFormat: {},
+        },
+        sheets: effectiveSheets,
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets spreadsheets.batchUpdate ──
+  // Path: POST /v4/spreadsheets/{id}:batchUpdate
+  // Used by Sheets 2.1 delete_row action (deleteDimension request).
+  // Future: format_range (repeatCell). Records the request shape so the
+  // spec can assert the half-open (startIndex, endIndex) range V2's
+  // handler computes from the 1-indexed rowNumber input.
+  // MUST be matched before the spreadsheets.get GET handler (different
+  // method, but the path prefix would also match the GET regex without
+  // the colon).
+  const sheetsBatchUpdateMatch = url.pathname.match(
+    /^\/v4\/spreadsheets\/([^/]+):batchUpdate$/,
+  );
+  if (req.method === "POST" && sheetsBatchUpdateMatch) {
+    const spreadsheetId = decodeURIComponent(sheetsBatchUpdateMatch[1]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    const requestsArr = Array.isArray(parsed.requests)
+      ? (parsed.requests as Array<Record<string, unknown>>)
+      : [];
+    const firstDeleteReq = requestsArr.find(
+      (r) => r && typeof r === "object" && "deleteDimension" in r,
+    );
+    const firstDeleteRange =
+      firstDeleteReq && typeof firstDeleteReq.deleteDimension === "object"
+        ? (
+            (firstDeleteReq.deleteDimension as Record<string, unknown>)
+              .range as Record<string, unknown> | undefined
+          )
+        : undefined;
+    state.calls.sheetsSpreadsheetsBatchUpdate.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+      body: parsed,
+      requestCount: requestsArr.length,
+      firstDeleteDimensionRange: firstDeleteRange
+        ? {
+            sheetId:
+              typeof firstDeleteRange.sheetId === "number"
+                ? firstDeleteRange.sheetId
+                : undefined,
+            dimension:
+              typeof firstDeleteRange.dimension === "string"
+                ? firstDeleteRange.dimension
+                : undefined,
+            startIndex:
+              typeof firstDeleteRange.startIndex === "number"
+                ? firstDeleteRange.startIndex
+                : undefined,
+            endIndex:
+              typeof firstDeleteRange.endIndex === "number"
+                ? firstDeleteRange.endIndex
+                : undefined,
+          }
+        : null,
+    });
+    // Echo back a per-request reply array shaped like Google's response.
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        spreadsheetId,
+        replies: requestsArr.map(() => ({})),
       }),
     );
     return;
