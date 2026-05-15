@@ -20,8 +20,22 @@ import { mailchimpRequest } from "./_request";
  * surface — they're observation-only and idempotent.
  */
 
-// ─── reportSummary ──────────────────────────────────────────────────────────
+// ─── reportSummary / reportGet ──────────────────────────────────────────────
 
+/**
+ * Full Mailchimp report shape returned by `GET /reports/{campaignId}`.
+ * Extends the polling-trigger-oriented `MailchimpReportSummary` subset
+ * with the additional stats fields the `get_campaign_stats` action
+ * surfaces (Mailchimp 2.1 Commit 1):
+ *   - `send_time` — when the campaign was sent.
+ *   - `abuse_reports` — count of spam complaints.
+ *   - `unsubscribed` — count of unsubscribes attributed to this campaign.
+ *   - `forwards` — `forwards_count` + `forwards_opens` envelope.
+ *   - `industry_stats` — industry-benchmark deltas.
+ *
+ * Polling triggers continue to read the same wire response but project
+ * only the narrow `MailchimpReportSummary` subset.
+ */
 export interface MailchimpReportSummary {
   id: string;
   campaign_title?: string;
@@ -29,9 +43,24 @@ export interface MailchimpReportSummary {
   list_id?: string;
   list_name?: string;
   emails_sent?: number;
+  /** ISO-8601 send timestamp — populated once the campaign has been sent. */
+  send_time?: string;
+  abuse_reports?: number;
+  /** Count of unsubscribes attributed to this campaign. */
+  unsubscribed?: number;
   opens?: { opens_total?: number; unique_opens?: number };
   clicks?: { clicks_total?: number; unique_clicks?: number };
   bounces?: { hard_bounces?: number; soft_bounces?: number };
+  forwards?: { forwards_count?: number; forwards_opens?: number };
+  industry_stats?: {
+    type?: string;
+    open_rate?: number;
+    click_rate?: number;
+    bounce_rate?: number;
+    unopen_rate?: number;
+    unsub_rate?: number;
+    abuse_rate?: number;
+  };
 }
 
 export interface ReportSummaryInput {
@@ -51,6 +80,17 @@ export async function reportSummary(
     resourceForNotFound: `report for campaign ${input.campaignId}`,
   });
 }
+
+/**
+ * `reportGet` — Mailchimp 2.1 Commit 1 entry point for the
+ * `get_campaign_stats` action. Same endpoint as `reportSummary`,
+ * different caller intent: polling triggers want the narrow subset;
+ * the action wants the full bounded projection. Both honor the
+ * `MailchimpReportSummary` shape; the optional fields surface where
+ * present.
+ */
+export const reportGet = reportSummary;
+export type ReportGetInput = ReportSummaryInput;
 
 // ─── reportOpenDetails ──────────────────────────────────────────────────────
 

@@ -1,10 +1,14 @@
 /**
  * @jest-environment node
  *
- * Registry-coverage test — confirms that all 10 Mailchimp Commit 3
- * action handlers are registered in
+ * Registry-coverage test — confirms that all 13 currently-registered
+ * Mailchimp action handlers are wired in
  * services/execution/handlers/_registry.ts AND match the manifest's
  * declaration of `capabilities.actions: true`.
+ *
+ * Slice 14 Commit 3 landed the first 10 (subscriber/audience/segment/
+ * note/event surface). Mailchimp 2.1 Commit 1 adds 3 read-tier actions
+ * — get_subscribers, get_campaign, get_campaign_stats. Total 13.
  *
  * Anti-test: a forgotten registration would silently break workflows
  * (the engine looks up handlers via `getActionHandler`; a missing
@@ -17,6 +21,7 @@ import {
 } from "@/services/execution/handlers/_registry";
 
 const EXPECTED_ACTIONS = [
+  // Slice 14 Commit 3 — 10 actions.
   "add_subscriber",
   "update_subscriber",
   "remove_subscriber",
@@ -27,6 +32,10 @@ const EXPECTED_ACTIONS = [
   "create_audience",
   "create_custom_event",
   "add_note",
+  // Mailchimp 2.1 Commit 1 — 3 read-tier actions.
+  "get_subscribers",
+  "get_campaign",
+  "get_campaign_stats",
 ] as const;
 
 describe("Mailchimp action registry coverage", () => {
@@ -43,7 +52,7 @@ describe("Mailchimp action registry coverage", () => {
     },
   );
 
-  it("registers exactly the 10 Batch 1 Mailchimp actions", () => {
+  it("registers exactly the 13 currently-shipping Mailchimp actions", () => {
     const mcEntries = listRegisteredHandlers().filter(
       (e) => e.provider === "mailchimp",
     );
@@ -52,7 +61,7 @@ describe("Mailchimp action registry coverage", () => {
     );
   });
 
-  it("does not register Mailchimp action types outside the Batch 1 allowlist", () => {
+  it("does not register Mailchimp action types outside the allowlist", () => {
     // Anti-test: catches a typo'd registration like `add_subsriber`
     // (mis-spelled) that would otherwise sneak through.
     const mcTypes = listRegisteredHandlers()

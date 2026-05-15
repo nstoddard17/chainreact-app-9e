@@ -44,6 +44,12 @@ export interface MailchimpMember {
   id: string;
   email_address: string;
   unique_email_id?: string;
+  /**
+   * Mailchimp's `contact_id` field — a stable, opaque identifier for
+   * the contact (distinct from `id` which is the MD5 of the email).
+   * Surfaced in `get_subscriber` / `get_subscribers` projections.
+   */
+  contact_id?: string;
   status: string;
   list_id: string;
   merge_fields?: Record<string, unknown>;
@@ -51,6 +57,8 @@ export interface MailchimpMember {
   timestamp_signup?: string;
   timestamp_opt?: string;
   last_changed?: string;
+  email_type?: string;
+  vip?: boolean;
 }
 
 // ─── memberGet ──────────────────────────────────────────────────────────────
@@ -356,4 +364,104 @@ export async function memberAddEvent(
     body,
     resourceForNotFound: `subscriber event ${input.email}`,
   });
+}
+
+// ─── membersList (GET /lists/{id}/members) ──────────────────────────────────
+
+/**
+ * Mailchimp `/lists/{id}/members` response envelope. The wire surface
+ * exposes more fields than V2's bounded action projection consumes;
+ * the interface lists what `get_subscribers` actually maps over so
+ * the downstream output shape stays predictable.
+ */
+interface MailchimpMembersListResponse {
+  members?: MailchimpMember[];
+  total_items?: number;
+  list_id?: string;
+}
+
+/**
+ * Bounded result type returned by `membersList`. The wrapper preserves
+ * `total_items` so the action handler can derive `nextOffset` /
+ * "has more pages" hints without re-fetching.
+ */
+export interface MembersListResult {
+  members: readonly MailchimpMember[];
+  /** Mailchimp's count of *all* matching members, not just this page. */
+  totalItems: number;
+}
+
+export interface MembersListInput {
+  accessToken: string;
+  dc: string;
+  audienceId: string;
+  /**
+   * Filter by member status. Mailchimp's enum is
+   * `subscribed | unsubscribed | cleaned | pending | transactional |
+   * archived`. Omit to return all statuses.
+   */
+  status?:
+    | "subscribed"
+    | "unsubscribed"
+    | "cleaned"
+    | "pending"
+    | "transactional"
+    | "archived";
+  /** Page size — Mailchimp caps at 1000; V2 clamps at 100 per audit §12 R3. */
+  count?: number;
+  /** Pagination offset. */
+  offset?: number;
+  /**
+   * Mailchimp's `since_last_changed` query param — ISO-8601 timestamp.
+   * Returns only members updated after this time.
+   */
+  sinceLastChanged?: string;
+  /** Mailchimp's `before_last_changed` query param — ISO-8601 timestamp. */
+  beforeLastChanged?: string;
+  /**
+   * Sort field — Mailchimp documents `timestamp_opt`, `timestamp_signup`,
+   * `last_changed`. The action schema clamps to this allowlist; the
+   * wrapper passes through whatever string is supplied.
+   */
+  sortField?: string;
+  sortDir?: "ASC" | "DESC";
+}
+
+/**
+ * GET /lists/{audienceId}/members — single-page list-read.
+ *
+ * Single-page only by design: workflows compose their own pagination
+ * cursoring via the `offset` query param and the `totalItems` /
+ * `nextOffset` output fields on `get_subscribers`. No auto-pagination
+ * (per audit §11 + §12 R3).
+ */
+export async function membersList(
+  input: MembersListInput,
+): Promise<MembersListResult> {
+  const query = new URLSearchParams();
+  if (input.status) query.set("status", input.status);
+  query.set("count", String(Math.min(input.count ?? 50, 100)));
+  if (input.offset !== undefined) query.set("offset", String(input.offset));
+  if (input.sinceLastChanged) {
+    query.set("since_last_changed", input.sinceLastChanged);
+  }
+  if (input.beforeLastChanged) {
+    query.set("before_last_changed", input.beforeLastChanged);
+  }
+  if (input.sortField) query.set("sort_field", input.sortField);
+  if (input.sortDir) query.set("sort_dir", input.sortDir);
+
+  const response = await mailchimpRequest<MailchimpMembersListResponse>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: `/lists/${encodeURIComponent(input.audienceId)}/members`,
+    query,
+    resourceForNotFound: `audience members ${input.audienceId}`,
+  });
+
+  return {
+    members: response.members ?? [],
+    totalItems: response.total_items ?? 0,
+  };
 }

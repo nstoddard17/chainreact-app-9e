@@ -14,19 +14,26 @@
 import {
   reportClickDetailMembers,
   reportClickDetails,
+  reportGet,
   reportOpenDetails,
   reportSummary,
 } from "@/integrations/_shared/mailchimp/api/reports";
 
 afterEach(() => jest.restoreAllMocks());
 
-function mockFetchOnce(response: { ok: boolean; json?: unknown }) {
+function mockFetchOnce(response: {
+  ok: boolean;
+  json?: unknown;
+  status?: number;
+  text?: string;
+}) {
   const spy = jest.spyOn(globalThis, "fetch");
-  spy.mockResolvedValueOnce(
-    new Response(JSON.stringify(response.json ?? {}), {
-      status: response.ok ? 200 : 500,
-    }),
-  );
+  const status = response.status ?? (response.ok ? 200 : 500);
+  const body =
+    response.text !== undefined
+      ? response.text
+      : JSON.stringify(response.json ?? {});
+  spy.mockResolvedValueOnce(new Response(body, { status }));
   return spy;
 }
 
@@ -50,6 +57,55 @@ describe("reportSummary", () => {
     );
     expect(result.opens?.opens_total).toBe(42);
     expect(result.clicks?.clicks_total).toBe(7);
+  });
+});
+
+describe("reportGet (Mailchimp 2.1 — same endpoint, full projection)", () => {
+  it("GETs /reports/{campaignId} via the same wire path as reportSummary", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: {
+        id: "c1",
+        emails_sent: 1000,
+        send_time: "2026-02-01T12:00:00+00:00",
+        abuse_reports: 0,
+        unsubscribed: 3,
+        opens: { opens_total: 42, unique_opens: 30 },
+        clicks: { clicks_total: 7, unique_clicks: 5 },
+        bounces: { hard_bounces: 1, soft_bounces: 2 },
+        forwards: { forwards_count: 4, forwards_opens: 2 },
+        industry_stats: { type: "Tech", open_rate: 0.22 },
+      },
+    });
+    const result = await reportGet({
+      accessToken: "t",
+      dc: "us21",
+      campaignId: "c1",
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toBe(
+      "https://us21.api.mailchimp.com/3.0/reports/c1",
+    );
+    expect(result.emails_sent).toBe(1000);
+    expect(result.send_time).toBe("2026-02-01T12:00:00+00:00");
+    expect(result.abuse_reports).toBe(0);
+    expect(result.unsubscribed).toBe(3);
+    expect(result.forwards?.forwards_count).toBe(4);
+    expect(result.industry_stats?.open_rate).toBe(0.22);
+  });
+
+  it("routes through the per-dc origin", async () => {
+    const fetchSpy = mockFetchOnce({ ok: true, json: { id: "c1" } });
+    await reportGet({ accessToken: "t", dc: "eu1", campaignId: "c1" });
+    expect(fetchSpy.mock.calls[0]![0]).toBe(
+      "https://eu1.api.mailchimp.com/3.0/reports/c1",
+    );
+  });
+
+  it("propagates 404 as NotFoundError via the shared request helper", async () => {
+    mockFetchOnce({ ok: false, status: 404, text: '{"detail":"missing"}' });
+    await expect(
+      reportGet({ accessToken: "t", dc: "us21", campaignId: "missing" }),
+    ).rejects.toThrow();
   });
 });
 

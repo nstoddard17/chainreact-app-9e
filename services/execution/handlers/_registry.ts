@@ -90,7 +90,10 @@ import { addTag as mailchimpAddTag } from "@/integrations/mailchimp/actions/addT
 import { createAudience as mailchimpCreateAudience } from "@/integrations/mailchimp/actions/createAudience";
 import { createCustomEvent as mailchimpCreateCustomEvent } from "@/integrations/mailchimp/actions/createCustomEvent";
 import { createSegment as mailchimpCreateSegment } from "@/integrations/mailchimp/actions/createSegment";
+import { getCampaign as mailchimpGetCampaign } from "@/integrations/mailchimp/actions/getCampaign";
+import { getCampaignStats as mailchimpGetCampaignStats } from "@/integrations/mailchimp/actions/getCampaignStats";
 import { getSubscriber as mailchimpGetSubscriber } from "@/integrations/mailchimp/actions/getSubscriber";
+import { getSubscribers as mailchimpGetSubscribers } from "@/integrations/mailchimp/actions/getSubscribers";
 import { removeSubscriber as mailchimpRemoveSubscriber } from "@/integrations/mailchimp/actions/removeSubscriber";
 import { removeTag as mailchimpRemoveTag } from "@/integrations/mailchimp/actions/removeTag";
 import { updateSubscriber as mailchimpUpdateSubscriber } from "@/integrations/mailchimp/actions/updateSubscriber";
@@ -459,6 +462,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "mailchimp", type: "create_audience", handler: mailchimpCreateAudience },
   { provider: "mailchimp", type: "create_custom_event", handler: mailchimpCreateCustomEvent },
   { provider: "mailchimp", type: "add_note", handler: mailchimpAddNote },
+  // Mailchimp 2.1 Commit 1 — read-tier actions.
+  { provider: "mailchimp", type: "get_subscribers", handler: mailchimpGetSubscribers },
+  { provider: "mailchimp", type: "get_campaign", handler: mailchimpGetCampaign },
+  { provider: "mailchimp", type: "get_campaign_stats", handler: mailchimpGetCampaignStats },
   { provider: "trello", type: "create_card", handler: trelloCreateCard },
   { provider: "trello", type: "update_card", handler: trelloUpdateCard },
   { provider: "trello", type: "move_card", handler: trelloMoveCard },

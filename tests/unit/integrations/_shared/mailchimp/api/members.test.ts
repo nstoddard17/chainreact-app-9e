@@ -23,6 +23,7 @@ import {
   memberPatch,
   memberPut,
   memberSetTags,
+  membersList,
 } from "@/integrations/_shared/mailchimp/api/members";
 
 afterEach(() => {
@@ -385,5 +386,130 @@ describe("memberAddEvent", () => {
       amount: "99.99",
     });
     expect(body.occurred_at).toBe("2026-01-15T10:30:00Z");
+  });
+});
+
+// ─── membersList (Mailchimp 2.1 Commit 1) ───────────────────────────────────
+
+describe("membersList", () => {
+  it("GETs /lists/{id}/members with default count=50 clamp", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { members: [{ id: "abc" }], total_items: 1 },
+    });
+    await membersList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+    });
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain(
+      `https://us21.api.mailchimp.com/3.0/lists/${AUDIENCE_ID}/members?`,
+    );
+    const params = new URL(url).searchParams;
+    expect(params.get("count")).toBe("50");
+    // Default omits status / offset / sort fields.
+    expect(params.get("status")).toBeNull();
+    expect(params.get("offset")).toBeNull();
+    expect(params.get("sort_field")).toBeNull();
+  });
+
+  it("forwards all query params on the wire", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { members: [], total_items: 0 },
+    });
+    await membersList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+      status: "subscribed",
+      count: 25,
+      offset: 50,
+      sinceLastChanged: "2026-01-01T00:00:00Z",
+      beforeLastChanged: "2026-02-01T00:00:00Z",
+      sortField: "last_changed",
+      sortDir: "DESC",
+    });
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    const params = new URL(url).searchParams;
+    expect(params.get("status")).toBe("subscribed");
+    expect(params.get("count")).toBe("25");
+    expect(params.get("offset")).toBe("50");
+    expect(params.get("since_last_changed")).toBe("2026-01-01T00:00:00Z");
+    expect(params.get("before_last_changed")).toBe("2026-02-01T00:00:00Z");
+    expect(params.get("sort_field")).toBe("last_changed");
+    expect(params.get("sort_dir")).toBe("DESC");
+  });
+
+  it("clamps count at 100 even when caller requests more", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { members: [], total_items: 0 },
+    });
+    await membersList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+      count: 1000,
+    });
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(new URL(url).searchParams.get("count")).toBe("100");
+  });
+
+  it("returns { members: [], totalItems: 0 } when response array is absent", async () => {
+    mockFetchOnce({ ok: true, json: {} });
+    const result = await membersList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+    });
+    expect(result.members).toEqual([]);
+    expect(result.totalItems).toBe(0);
+  });
+
+  it("returns parsed members + totalItems on success", async () => {
+    mockFetchOnce({
+      ok: true,
+      json: {
+        members: [
+          { id: "abc", email_address: "a@x.com", status: "subscribed", list_id: AUDIENCE_ID },
+          { id: "def", email_address: "b@x.com", status: "unsubscribed", list_id: AUDIENCE_ID },
+        ],
+        total_items: 247,
+      },
+    });
+    const result = await membersList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+    });
+    expect(result.members.map((m) => m.id)).toEqual(["abc", "def"]);
+    expect(result.totalItems).toBe(247);
+  });
+
+  it("routes through the per-dc origin (us21 vs eu1)", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { members: [], total_items: 0 },
+    });
+    await membersList({
+      accessToken: "t",
+      dc: "eu1",
+      audienceId: AUDIENCE_ID,
+    });
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain("https://eu1.api.mailchimp.com/3.0/lists/");
+  });
+
+  it("propagates errors (5xx)", async () => {
+    mockFetchOnce({ ok: false, status: 500, text: '{"detail":"oops"}' });
+    await expect(
+      membersList({
+        accessToken: "t",
+        dc: "us21",
+        audienceId: AUDIENCE_ID,
+      }),
+    ).rejects.toThrow();
   });
 });
