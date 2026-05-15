@@ -49,6 +49,7 @@ import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
 import { createSpreadsheet as sheetsCreateSpreadsheet } from "@/integrations/google-sheets/actions/createSpreadsheet";
 import { deleteRow as sheetsDeleteRow } from "@/integrations/google-sheets/actions/deleteRow";
 import { findRow as sheetsFindRow } from "@/integrations/google-sheets/actions/findRow";
+import { formatRange as sheetsFormatRange } from "@/integrations/google-sheets/actions/formatRange";
 import { getCellValue } from "@/integrations/google-sheets/actions/getCellValue";
 import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
@@ -292,6 +293,13 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // requests[] passthrough all skipped per accepted plan §10
   // Decision 1).
   { provider: "google-sheets", type: "batch_update", handler: sheetsBatchUpdate },
+  // Google Sheets 2.2 Commit 3 — typed-subset cell formatting via
+  // spreadsheets.batchUpdate repeatCell request. Six accepted format
+  // options (backgroundColor, textColor, bold, italic,
+  // horizontalAlignment, numberFormat) per plan §10 Decision 2;
+  // borders / conditional formatting / data validation all deferred
+  // per Decision 3.
+  { provider: "google-sheets", type: "format_range", handler: sheetsFormatRange },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },

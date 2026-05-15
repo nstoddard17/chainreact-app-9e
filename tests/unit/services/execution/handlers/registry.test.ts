@@ -254,6 +254,14 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the Google Sheets 2.2 Commit 3 format range handler (format_range)", () => {
+    expect(getActionHandler("google-sheets", "format_range")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "google-sheets",
+      type: "format_range",
+    });
+  });
+
   it("registers the 3 Notion 2.1 Commit 4 handlers (create_database, get_block, get_block_children)", () => {
     expect(getActionHandler("notion", "create_database")).toBeDefined();
     expect(getActionHandler("notion", "get_block")).toBeDefined();
