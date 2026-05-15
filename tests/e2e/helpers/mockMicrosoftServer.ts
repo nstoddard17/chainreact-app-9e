@@ -229,6 +229,67 @@ export interface ExcelWorksheetState {
 }
 
 /**
+ * Excel parity Commit 5: range-delete hit log. POST to
+ * `/range(address='...')/delete` for `delete_row`. Records the shift
+ * direction so the spec can verify the handler issued "Up".
+ */
+export interface RecordedWorksheetRangeDelete {
+  authorization: string | undefined;
+  workbookId: string;
+  worksheetName: string;
+  address: string;
+  shift: string;
+}
+
+/**
+ * Excel parity Commit 5: worksheet PATCH hit log. PATCH to
+ * `/workbook/worksheets('{name}')` for `rename_worksheet`. Records the
+ * new name body so the spec can verify the resolved config flowed
+ * through refreshAndRetry.
+ */
+export interface RecordedWorksheetPatch {
+  authorization: string | undefined;
+  workbookId: string;
+  worksheetName: string;
+  newName: string;
+}
+
+/**
+ * Excel parity Commit 5: worksheet DELETE hit log. DELETE to
+ * `/workbook/worksheets('{name}')` for `delete_worksheet`.
+ */
+export interface RecordedWorksheetDelete {
+  authorization: string | undefined;
+  workbookId: string;
+  worksheetName: string;
+}
+
+/**
+ * Excel parity Commit 5: table rows GET hit log. GET to
+ * `/workbook/tables/{tableName}/rows` for the `new_table_row` and
+ * `updated_table_row` polling triggers.
+ */
+export interface RecordedTableRowsList {
+  authorization: string | undefined;
+  url: string;
+  workbookId: string;
+  tableName: string;
+}
+
+/**
+ * Excel parity Commit 5: table row state. Workbook → table name →
+ * ordered list of `{index, values}` records. `index` is Graph's stable
+ * row index (zero-based) and stays pinned across mid-table mutations.
+ * Used by `__injectExcelTable` + `__updateExcelTableRow` control plane
+ * endpoints to drive `new_table_row` / `updated_table_row` e2e
+ * scenarios.
+ */
+export interface ExcelTableRowState {
+  index: number;
+  values: unknown[];
+}
+
+/**
  * Slice 16: Teams channel-message send POST hit log. Records the
  * (teamId, channelId) plus body so the spec can assert action calls
  * decrypted the access token + forwarded the resolved config.
@@ -309,6 +370,10 @@ export interface MockMicrosoftHandle {
     driveRootChildrenCreate: RecordedDriveRootChildrenCreate[];
     excelUsedRange: RecordedWorksheetUsedRange[];
     excelRangePatch: RecordedWorksheetRangePatch[];
+    excelRangeDelete: RecordedWorksheetRangeDelete[];
+    excelWorksheetPatch: RecordedWorksheetPatch[];
+    excelWorksheetDelete: RecordedWorksheetDelete[];
+    excelTableRowsList: RecordedTableRowsList[];
     teamsChannelMessageSend: RecordedTeamsChannelMessageSend[];
     teamsChannelMessageGet: RecordedTeamsChannelMessageGet[];
     subscriptionsCreate: RecordedSubscriptionsCreate[];
@@ -326,6 +391,13 @@ export interface MockMicrosoftHandle {
    * passed by the polling trigger / action handler.
    */
   excelWorksheets: Map<string, Map<string, ExcelWorksheetState>>;
+  /**
+   * Excel parity Commit 5: workbook id → table name → ordered table
+   * rows. Drives `new_table_row` + `updated_table_row` polling tests.
+   * Empty inner map means "table exists but has no rows" — distinct
+   * from "table not found" which means the outer key is absent.
+   */
+  excelTables: Map<string, Map<string, ExcelTableRowState[]>>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   reset(): void;
@@ -345,6 +417,7 @@ interface MutableState {
   teamsMessages: Map<string, InjectedTeamsMessage>;
   subscriptions: Map<string, RegisteredSubscription>;
   excelWorksheets: Map<string, Map<string, ExcelWorksheetState>>;
+  excelTables: Map<string, Map<string, ExcelTableRowState[]>>;
   lastAuthorizeScope: string | null;
   lastSubscriptionId: string | null;
   subscriptionCounter: number;
@@ -392,6 +465,10 @@ function freshState(): MutableState {
       driveRootChildrenCreate: [],
       excelUsedRange: [],
       excelRangePatch: [],
+      excelRangeDelete: [],
+      excelWorksheetPatch: [],
+      excelWorksheetDelete: [],
+      excelTableRowsList: [],
       teamsChannelMessageSend: [],
       teamsChannelMessageGet: [],
       subscriptionsCreate: [],
@@ -404,6 +481,7 @@ function freshState(): MutableState {
     teamsMessages: new Map(),
     subscriptions: new Map(),
     excelWorksheets: new Map(),
+    excelTables: new Map(),
     lastAuthorizeScope: null,
     lastSubscriptionId: null,
     subscriptionCounter: 0,
@@ -465,6 +543,9 @@ export async function startMockMicrosoftServer(opts: {
     },
     get excelWorksheets() {
       return state.excelWorksheets;
+    },
+    get excelTables() {
+      return state.excelTables;
     },
     get lastAuthorizeScope() {
       return state.lastAuthorizeScope;
@@ -934,6 +1015,174 @@ async function handleRequest(
     return;
   }
 
+  // ── Excel parity Commit 5: range delete endpoint (delete_row) ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/worksheets('{name}')/range(address='{addr}')/delete
+  // Body shape `{ shift: "Up" | "Left" }`. The delete_row handler always
+  // sends shift="Up" and an address of the form "{N}:{N}".
+  const rangeDeleteMatch = url.pathname.match(
+    /^\/v1\.0\/me\/drive\/items\/([^/]+)\/workbook\/worksheets\('([^']+)'\)\/range\(address='([^']+)'\)\/delete$/,
+  );
+  if (req.method === "POST" && rangeDeleteMatch) {
+    const workbookId = decodeURIComponent(rangeDeleteMatch[1]!);
+    const worksheetName = decodeURIComponent(rangeDeleteMatch[2]!);
+    const address = decodeURIComponent(rangeDeleteMatch[3]!);
+    const bodyText = await readBody(req);
+    let parsed: { shift?: string } = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // record empty body if invalid
+    }
+    state.calls.excelRangeDelete.push({
+      authorization: req.headers.authorization,
+      workbookId,
+      worksheetName,
+      address,
+      shift: parsed.shift ?? "",
+    });
+    // Apply the deletion to the in-memory worksheet so a subsequent
+    // usedRange GET reflects the new state. Address form "{N}:{N}" =
+    // delete the 1-based row N.
+    const rowMatch = address.match(/^(\d+):(\d+)$/);
+    if (rowMatch && parsed.shift === "Up") {
+      const startRow = Number(rowMatch[1]);
+      const endRow = Number(rowMatch[2]);
+      const wb = state.excelWorksheets.get(workbookId);
+      const sheet = wb?.get(worksheetName);
+      if (sheet && startRow === endRow) {
+        sheet.values.splice(startRow - 1, 1);
+      }
+    }
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // ── Excel parity Commit 5: worksheet PATCH endpoint (rename_worksheet) ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/worksheets('{name}')
+  // exactly (no sub-path). Renames the worksheet in place, preserving
+  // its position in the workbook so id stays stable across calls.
+  const worksheetPatchMatch = url.pathname.match(
+    /^\/v1\.0\/me\/drive\/items\/([^/]+)\/workbook\/worksheets\('([^']+)'\)$/,
+  );
+  if (req.method === "PATCH" && worksheetPatchMatch) {
+    const workbookId = decodeURIComponent(worksheetPatchMatch[1]!);
+    const worksheetName = decodeURIComponent(worksheetPatchMatch[2]!);
+    const bodyText = await readBody(req);
+    let parsed: { name?: string } = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // record empty body if invalid
+    }
+    const newName = parsed.name ?? "";
+    state.calls.excelWorksheetPatch.push({
+      authorization: req.headers.authorization,
+      workbookId,
+      worksheetName,
+      newName,
+    });
+    const wb = state.excelWorksheets.get(workbookId);
+    if (!wb || !wb.has(worksheetName)) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "ItemNotFound",
+            message: `worksheet '${worksheetName}' not found`,
+          },
+        }),
+      );
+      return;
+    }
+    // Rebuild the map preserving insertion order so the renamed
+    // worksheet keeps the same position (and same derived id).
+    const ordered: Array<[string, ExcelWorksheetState]> = [];
+    let position = 0;
+    let resolvedPosition = 0;
+    for (const [name, sheet] of wb) {
+      if (name === worksheetName) {
+        ordered.push([newName, sheet]);
+        resolvedPosition = position;
+      } else {
+        ordered.push([name, sheet]);
+      }
+      position++;
+    }
+    wb.clear();
+    for (const [k, v] of ordered) wb.set(k, v);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        id: `ws-${workbookId}-${resolvedPosition}`,
+        name: newName,
+        position: resolvedPosition,
+        visibility: "Visible",
+      }),
+    );
+    return;
+  }
+
+  // ── Excel parity Commit 5: worksheet DELETE endpoint (delete_worksheet) ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/worksheets('{name}') with
+  // method DELETE. Mirrors Graph's 204-no-body success contract.
+  if (req.method === "DELETE" && worksheetPatchMatch) {
+    const workbookId = decodeURIComponent(worksheetPatchMatch[1]!);
+    const worksheetName = decodeURIComponent(worksheetPatchMatch[2]!);
+    state.calls.excelWorksheetDelete.push({
+      authorization: req.headers.authorization,
+      workbookId,
+      worksheetName,
+    });
+    const wb = state.excelWorksheets.get(workbookId);
+    if (!wb || !wb.has(worksheetName)) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "ItemNotFound",
+            message: `worksheet '${worksheetName}' not found`,
+          },
+        }),
+      );
+      return;
+    }
+    wb.delete(worksheetName);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // ── Excel parity Commit 5: table rows GET endpoint ──
+  // Matches /v1.0/me/drive/items/{wb}/workbook/tables/{tableName}/rows
+  // for the new_table_row + updated_table_row polling triggers.
+  // Returns Graph's stable `index` per row.
+  const tableRowsMatch = url.pathname.match(
+    /^\/v1\.0\/me\/drive\/items\/([^/]+)\/workbook\/tables\/([^/]+)\/rows$/,
+  );
+  if (req.method === "GET" && tableRowsMatch) {
+    const workbookId = decodeURIComponent(tableRowsMatch[1]!);
+    const tableName = decodeURIComponent(tableRowsMatch[2]!);
+    state.calls.excelTableRowsList.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      workbookId,
+      tableName,
+    });
+    const wb = state.excelTables.get(workbookId);
+    const rows = wb?.get(tableName) ?? [];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        value: rows.map((r) => ({
+          index: r.index,
+          values: [r.values],
+        })),
+      }),
+    );
+    return;
+  }
+
   // ── Slice 16: Teams channel message GET (receive-path hydration) ──
   // Matches /v1.0/teams/{teamId}/channels/{channelId}/messages/{messageId}
   // exactly (no trailing path segment). Used by the new_channel_message
@@ -1333,6 +1582,166 @@ async function handleRequest(
     return;
   }
 
+  // ── Excel parity Commit 5: __updateExcelRow control plane ──
+  // Mutates the values at a 1-based rowIndex in an existing worksheet.
+  // Simulates an in-place cell edit between activation and a poll tick
+  // so the `updated_row` trigger detects a hash diff and fires.
+  // Body shape:
+  //   { workbookId, worksheetName, rowIndex: 1-based, values: [...] }
+  if (req.method === "POST" && url.pathname === "/__updateExcelRow") {
+    const bodyText = await readBody(req);
+    let payload: {
+      workbookId?: string;
+      worksheetName?: string;
+      rowIndex?: number;
+      values?: unknown[];
+    };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const workbookId = payload.workbookId ?? "";
+    const worksheetName = payload.worksheetName ?? "";
+    const rowIndex = Number(payload.rowIndex ?? 0);
+    if (
+      !workbookId ||
+      !worksheetName ||
+      !Number.isInteger(rowIndex) ||
+      rowIndex < 1 ||
+      !Array.isArray(payload.values)
+    ) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error:
+            "workbookId + worksheetName + 1-based rowIndex + values[] required",
+        }),
+      );
+      return;
+    }
+    const wb = state.excelWorksheets.get(workbookId);
+    const sheet = wb?.get(worksheetName);
+    if (!sheet) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "worksheet not found" }));
+      return;
+    }
+    // Pad with empty rows if the caller is updating past the tail (no
+    // production path does this; the helper is defensive only).
+    while (sheet.values.length < rowIndex) sheet.values.push([]);
+    sheet.values[rowIndex - 1] = payload.values as unknown[];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, rowIndex }));
+    return;
+  }
+
+  // ── Excel parity Commit 5: __injectExcelTable control plane ──
+  // Seeds a table's rows for the `new_table_row` + `updated_table_row`
+  // trigger e2e scenarios. Body shape:
+  //   { workbookId, tableName, rows: [{ index, values }] }
+  if (req.method === "POST" && url.pathname === "/__injectExcelTable") {
+    const bodyText = await readBody(req);
+    let payload: {
+      workbookId?: string;
+      tableName?: string;
+      rows?: Array<{ index?: number; values?: unknown[] }>;
+    };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const workbookId = payload.workbookId ?? "";
+    const tableName = payload.tableName ?? "";
+    if (!workbookId || !tableName || !Array.isArray(payload.rows)) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "workbookId + tableName + rows[] required",
+        }),
+      );
+      return;
+    }
+    let wb = state.excelTables.get(workbookId);
+    if (!wb) {
+      wb = new Map();
+      state.excelTables.set(workbookId, wb);
+    }
+    wb.set(
+      tableName,
+      payload.rows.map((r) => ({
+        index: Number(r.index ?? 0),
+        values: Array.isArray(r.values) ? (r.values as unknown[]) : [],
+      })),
+    );
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, workbookId, tableName }));
+    return;
+  }
+
+  // ── Excel parity Commit 5: __updateExcelTableRow control plane ──
+  // Mutates a single table row's values at its stable Graph index.
+  // Index identity stays pinned, so the `updated_table_row` trigger
+  // sees a hash change at the same key (vs. a `new_row`-style key
+  // delta). Body shape:
+  //   { workbookId, tableName, index, values: [...] }
+  if (req.method === "POST" && url.pathname === "/__updateExcelTableRow") {
+    const bodyText = await readBody(req);
+    let payload: {
+      workbookId?: string;
+      tableName?: string;
+      index?: number;
+      values?: unknown[];
+    };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const workbookId = payload.workbookId ?? "";
+    const tableName = payload.tableName ?? "";
+    const index = Number(payload.index ?? -1);
+    if (
+      !workbookId ||
+      !tableName ||
+      !Number.isInteger(index) ||
+      index < 0 ||
+      !Array.isArray(payload.values)
+    ) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "workbookId + tableName + index + values[] required",
+        }),
+      );
+      return;
+    }
+    const wb = state.excelTables.get(workbookId);
+    const rows = wb?.get(tableName);
+    if (!rows) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "table not found" }));
+      return;
+    }
+    const row = rows.find((r) => r.index === index);
+    if (!row) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "row index not found" }));
+      return;
+    }
+    row.values = payload.values as unknown[];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, index }));
+    return;
+  }
+
   // ── Slice 16: __injectTeamsMessage control plane ──
   // Seeds a Graph chatMessage resource for the
   // /v1.0/teams/{teamId}/channels/{channelId}/messages/{messageId} GET
@@ -1549,6 +1958,19 @@ async function handleRequest(
         excelDump[wbId][name] = sheet.values;
       }
     }
+    const excelTableDump: Record<
+      string,
+      Record<string, Array<{ index: number; values: unknown[] }>>
+    > = {};
+    for (const [wbId, wb] of state.excelTables) {
+      excelTableDump[wbId] = {};
+      for (const [name, rows] of wb) {
+        excelTableDump[wbId][name] = rows.map((r) => ({
+          index: r.index,
+          values: r.values,
+        }));
+      }
+    }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -1560,6 +1982,7 @@ async function handleRequest(
         driveItemIds: Array.from(state.driveItems.keys()),
         teamsMessageIds: Array.from(state.teamsMessages.keys()),
         excelWorksheets: excelDump,
+        excelTables: excelTableDump,
       }),
     );
     return;

@@ -379,6 +379,927 @@ test.describe("Slice 15 — full Microsoft Excel walkthrough", () => {
     const runsAfterQuiet = await getWorkflowRunsForUser(user.id);
     expect(runsAfterQuiet).toHaveLength(1);
   });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Excel parity Commit 5 — coverage for the post-Slice-15 surface.
+  //
+  // Each test below reuses the OAuth + integration setup the originating
+  // happy-path test already proves and focuses on the parity-added
+  // surface: actions update_row / delete_row / rename_worksheet /
+  // delete_worksheet / add_row batch mode, plus the three new triggers
+  // new_worksheet / updated_row / updated_table_row.
+  //
+  // Pattern: a `new_row` trigger drives every action scenario (it
+  // already has e2e coverage above; here it serves only to fire the
+  // workflow). The action under test runs downstream and its
+  // assertions cover the per-action contract: Graph endpoint hit,
+  // request shape, action output, and run success.
+  // ────────────────────────────────────────────────────────────────────
+
+  test("update_row action — usedRange GET + range PATCH merges values, output shape (rowNumber, columnsUpdated, updatedColumns, address)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-update-row";
+    const worksheetName = "Data";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    // Seed two rows: a header row + one data row at row 2.
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName,
+        values: [
+          ["name", "age", "city"],
+          ["alice", 30, "Seattle"],
+        ],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    const workflowId = await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel update_row",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "new_row",
+            config: { workbookId, worksheetName },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "update_row",
+            config: {
+              workbookId,
+              worksheetName,
+              rowNumber: 2,
+              values: { age: 99, city: "Mars" },
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+    void workflowId;
+
+    await activateWorkflow(page);
+
+    // Fire the trigger by appending a fresh row to the same sheet —
+    // diff detects key "3" as new, fires once.
+    const appendResp = await page.request.post(
+      `${mock.baseUrl}/__appendExcelRow`,
+      {
+        data: { workbookId, worksheetName, row: ["bob", 25, "Portland"] },
+      },
+    );
+    expect(appendResp.status()).toBe(200);
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // usedRange called: activation seed (1) + trigger poll (1) + action
+    // pre-write header read (1) = 3.
+    expect(calls.calls.excelUsedRange).toHaveLength(3);
+    // Exactly one range PATCH: the merged full-row write from update_row.
+    expect(calls.calls.excelRangePatch).toHaveLength(1);
+    const patch = calls.calls.excelRangePatch[0]!;
+    expect(patch.workbookId).toBe(workbookId);
+    expect(patch.worksheetName).toBe(worksheetName);
+    expect(patch.address).toBe("A2:C2");
+    // Merged values preserve untouched `name` column and overwrite age + city.
+    expect(patch.values).toEqual([["alice", 99, "Mars"]]);
+
+    const actionStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    expect(output.rowNumber).toBe(2);
+    expect(output.columnsUpdated).toBe(2);
+    expect(output.updatedColumns).toEqual(["age", "city"]);
+    expect(output.address).toBe("A2:C2");
+    expect(output.workbookId).toBe(workbookId);
+    expect(output.worksheetName).toBe(worksheetName);
+  });
+
+  test("delete_row action — range delete with address '{N}:{N}' + shift Up, output deleted:true", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-delete-row";
+    const worksheetName = "Data";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName,
+        values: [
+          ["name", "age"],
+          ["alice", 30],
+        ],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel delete_row",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "new_row",
+            config: { workbookId, worksheetName },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "delete_row",
+            config: {
+              workbookId,
+              worksheetName,
+              rowNumber: 2,
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    await page.request.post(`${mock.baseUrl}/__appendExcelRow`, {
+      data: { workbookId, worksheetName, row: ["bob", 25] },
+    });
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.excelRangeDelete).toHaveLength(1);
+    const del = calls.calls.excelRangeDelete[0]!;
+    expect(del.workbookId).toBe(workbookId);
+    expect(del.worksheetName).toBe(worksheetName);
+    expect(del.address).toBe("2:2");
+    expect(del.shift).toBe("Up");
+    // No PATCH should have been issued by delete_row.
+    expect(calls.calls.excelRangePatch).toHaveLength(0);
+
+    const actionStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    expect(output.deleted).toBe(true);
+    expect(output.rowNumber).toBe(2);
+    expect(output.address).toBe("2:2");
+  });
+
+  test("rename_worksheet action — worksheet PATCH applies new name, output renamed:true + newWorksheetName", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-rename-ws";
+    const worksheetName = "OldName";
+    const newWorksheetName = "Q4-Sales";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName,
+        values: [
+          ["name", "age"],
+          ["alice", 30],
+        ],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel rename_worksheet",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "new_row",
+            config: { workbookId, worksheetName },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "rename_worksheet",
+            config: {
+              workbookId,
+              worksheetName,
+              newWorksheetName,
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    await page.request.post(`${mock.baseUrl}/__appendExcelRow`, {
+      data: { workbookId, worksheetName, row: ["bob", 25] },
+    });
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.excelWorksheetPatch).toHaveLength(1);
+    const patch = calls.calls.excelWorksheetPatch[0]!;
+    expect(patch.workbookId).toBe(workbookId);
+    expect(patch.worksheetName).toBe(worksheetName);
+    expect(patch.newName).toBe(newWorksheetName);
+
+    const actionStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    expect(output.renamed).toBe(true);
+    expect(output.newWorksheetName).toBe(newWorksheetName);
+    expect(output.oldWorksheetName).toBe(worksheetName);
+    expect(output.workbookId).toBe(workbookId);
+  });
+
+  test("delete_worksheet action — Graph DELETE removes the worksheet, output deleted:true", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-delete-ws";
+    const triggerSheet = "Trigger";
+    const targetSheet = "Scratch";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    // Two worksheets in the workbook — the trigger watches `triggerSheet`,
+    // the action deletes the unrelated `targetSheet`.
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName: triggerSheet,
+        values: [
+          ["name", "age"],
+          ["alice", 30],
+        ],
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName: targetSheet,
+        values: [["tmp"]],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel delete_worksheet",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "new_row",
+            config: { workbookId, worksheetName: triggerSheet },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "delete_worksheet",
+            config: {
+              workbookId,
+              worksheetName: targetSheet,
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    await page.request.post(`${mock.baseUrl}/__appendExcelRow`, {
+      data: { workbookId, worksheetName: triggerSheet, row: ["bob", 25] },
+    });
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.excelWorksheetDelete).toHaveLength(1);
+    const del = calls.calls.excelWorksheetDelete[0]!;
+    expect(del.workbookId).toBe(workbookId);
+    expect(del.worksheetName).toBe(targetSheet);
+
+    const actionStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    expect(output.deleted).toBe(true);
+    expect(output.worksheetName).toBe(targetSheet);
+    expect(output.workbookId).toBe(workbookId);
+  });
+
+  test("add_row batch mode — one usedRange GET + one range PATCH for the whole batch, no per-row loop, output (rowCount, rowsAdded, firstRowNumber, lastRowNumber, address)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-add-row-batch";
+    const triggerSheet = "Trigger";
+    const dataSheet = "Data";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName: triggerSheet,
+        values: [
+          ["name", "age"],
+          ["alice", 30],
+        ],
+      },
+    });
+    // Seed the data sheet with just headers — the batch append targets row 2..N.
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName: dataSheet,
+        values: [["Name", "Age", "City"]],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel add_row batch",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "new_row",
+            config: { workbookId, worksheetName: triggerSheet },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "add_row",
+            config: {
+              workbookId,
+              worksheetName: dataSheet,
+              rows: [
+                { Name: "carol", Age: 40, City: "Denver" },
+                { Name: "dave", Age: 22, City: "Austin" },
+                { Name: "eve", Age: 28, City: "Boston" },
+              ],
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    await page.request.post(`${mock.baseUrl}/__appendExcelRow`, {
+      data: { workbookId, worksheetName: triggerSheet, row: ["bob", 25] },
+    });
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // The action targets a DIFFERENT worksheet from the trigger.
+    // Filter to the data sheet to verify the batch GET + PATCH math
+    // without trigger-side noise.
+    const dataSheetUsedRangeCalls = calls.calls.excelUsedRange.filter(
+      (c) => c.worksheetName === dataSheet,
+    );
+    const dataSheetPatchCalls = calls.calls.excelRangePatch.filter(
+      (c) => c.worksheetName === dataSheet,
+    );
+    // Batch mode: exactly one GET + exactly one PATCH for the data sheet.
+    expect(dataSheetUsedRangeCalls).toHaveLength(1);
+    expect(dataSheetPatchCalls).toHaveLength(1);
+    const patch = dataSheetPatchCalls[0]!;
+    expect(patch.workbookId).toBe(workbookId);
+    // First batch row lands at row 2 (after the header), last at row 4.
+    expect(patch.address).toBe("A2:C4");
+    expect(patch.values).toEqual([
+      ["carol", 40, "Denver"],
+      ["dave", 22, "Austin"],
+      ["eve", 28, "Boston"],
+    ]);
+
+    const actionStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "action-node",
+    ) as { output?: Record<string, unknown>; status?: string } | undefined;
+    expect(actionStep?.status).toBe("succeeded");
+    const output = actionStep?.output ?? {};
+    expect(output.rowCount).toBe(3);
+    expect(output.rowsAdded).toBe(3);
+    expect(output.firstRowNumber).toBe(2);
+    expect(output.lastRowNumber).toBe(4);
+    expect(output.address).toBe("A2:C4");
+    expect(output.workbookId).toBe(workbookId);
+    expect(output.worksheetName).toBe(dataSheet);
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Excel parity Commit 4 triggers — e2e coverage.
+  //
+  // Each trigger test:
+  //   1. Activates the trigger → seeds the baseline snapshot.
+  //   2. Mutates mock state via control-plane to simulate the user's
+  //      intended edit (new sheet / row-value change / table-row-value
+  //      change).
+  //   3. Polls once and asserts exactly one workflow_run fires with
+  //      the right payload.
+  //   4. Asserts NO run on a quiet baseline (no mutation) by polling
+  //      again after rewinding the cursor.
+  // ────────────────────────────────────────────────────────────────────
+
+  test("new_worksheet trigger — fires once when a worksheet is added, payload includes worksheetName/worksheetId/position; quiet on baseline", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-new-worksheet";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    // Two baseline worksheets — these get captured by the activation snapshot
+    // and must NOT fire on poll.
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: { workbookId, worksheetName: "Sheet1", values: [["a"]] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: { workbookId, worksheetName: "Sheet2", values: [["b"]] },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel new_worksheet",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "new_worksheet",
+            config: { workbookId },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "get_worksheets",
+            config: { workbookId },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    // Snapshot baseline includes the two seeded sheets.
+    const triggerRowsAfterActivate = await getTriggerResourcesForUser(user.id);
+    expect(triggerRowsAfterActivate).toHaveLength(1);
+    const triggerRow = triggerRowsAfterActivate[0]! as Record<string, unknown>;
+    expect(triggerRow.event_type).toBe("new_worksheet");
+    const cfg = triggerRow.config as {
+      pollingEnabled?: boolean;
+      snapshot?: { names?: string[] };
+    };
+    expect(cfg.pollingEnabled).toBe(true);
+    expect(cfg.snapshot?.names).toEqual(["Sheet1", "Sheet2"]);
+
+    // Simulate user adding a new worksheet.
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: { workbookId, worksheetName: "Q4-Sales", values: [["x"]] },
+    });
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    // Trigger payload identifies the new worksheet. The engine records
+    // the trigger step's output as `{ event: TriggerEvent }`
+    // (services/execution/engine.ts:193).
+    const triggerStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "trigger-node",
+    ) as { output?: Record<string, unknown> } | undefined;
+    const triggerEvent = (triggerStep?.output?.event ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(triggerEvent.eventType).toBe("new_worksheet");
+    const payload = (triggerEvent.payload ?? {}) as Record<string, unknown>;
+    expect(payload.worksheetName).toBe("Q4-Sales");
+    expect(payload.workbookId).toBe(workbookId);
+    // worksheetId + position come from the mock's worksheets-list response.
+    expect(payload.worksheetId).toMatch(/^ws-/);
+    expect(payload.position).toBe(2);
+
+    // Quiet tick — rewind the polling cursor and re-poll; no further runs.
+    await rewindTriggerPollingTimestamp(triggerRow.id as string);
+    await pollOnce({ request, cronSecret });
+    await new Promise((r) => setTimeout(r, 1500));
+    const runsAfterQuiet = await getWorkflowRunsForUser(user.id);
+    expect(runsAfterQuiet).toHaveLength(1);
+  });
+
+  test("updated_row trigger — fires once when a worksheet row's values change, payload identifies rowNumber/rowIndex + current values; quiet on baseline", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-updated-row";
+    const worksheetName = "Data";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await page.request.post(`${mock.baseUrl}/__injectExcelWorksheet`, {
+      data: {
+        workbookId,
+        worksheetName,
+        values: [
+          ["name", "age"],
+          ["alice", 30],
+          ["bob", 25],
+        ],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel updated_row",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "updated_row",
+            config: { workbookId, worksheetName },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "get_worksheets",
+            config: { workbookId },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    const triggerRowsAfterActivate = await getTriggerResourcesForUser(user.id);
+    expect(triggerRowsAfterActivate).toHaveLength(1);
+    const triggerRow = triggerRowsAfterActivate[0]! as Record<string, unknown>;
+    expect(triggerRow.event_type).toBe("updated_row");
+    const cfg = triggerRow.config as {
+      snapshot?: { rowHashes?: Record<string, string>; rowCount?: number };
+    };
+    expect(cfg.snapshot?.rowCount).toBe(3);
+    expect(Object.keys(cfg.snapshot?.rowHashes ?? {}).sort()).toEqual([
+      "1",
+      "2",
+      "3",
+    ]);
+
+    // Mutate row 2 in place — alice's age changes from 30 → 31. The
+    // 1-based row index ("2") stays the same; only the hash changes,
+    // which is exactly what the updated_row trigger looks for.
+    //
+    // NOTE on positional shift noise: this test deliberately uses an
+    // in-place value change, not a mid-sheet row insert/delete, so the
+    // accepted positional limitation (rows shifting on neighbor
+    // insert/delete also flagged as updated) does NOT manifest here.
+    // That limitation is owned by the unit tests + the outcomes doc.
+    const updateResp = await page.request.post(
+      `${mock.baseUrl}/__updateExcelRow`,
+      {
+        data: {
+          workbookId,
+          worksheetName,
+          rowIndex: 2,
+          values: ["alice", 31],
+        },
+      },
+    );
+    expect(updateResp.status()).toBe(200);
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const triggerStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "trigger-node",
+    ) as { output?: Record<string, unknown> } | undefined;
+    const triggerEvent = (triggerStep?.output?.event ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(triggerEvent.eventType).toBe("updated_row");
+    const payload = (triggerEvent.payload ?? {}) as Record<string, unknown>;
+    expect(payload.workbookId).toBe(workbookId);
+    expect(payload.worksheetName).toBe(worksheetName);
+    expect(payload.rowIndex).toBe(2);
+    expect(payload.values).toEqual(["alice", 31]);
+
+    // Quiet tick — no further runs when nothing changed.
+    await rewindTriggerPollingTimestamp(triggerRow.id as string);
+    await pollOnce({ request, cronSecret });
+    await new Promise((r) => setTimeout(r, 1500));
+    const runsAfterQuiet = await getWorkflowRunsForUser(user.id);
+    expect(runsAfterQuiet).toHaveLength(1);
+  });
+
+  test("updated_table_row trigger — fires once when a table row's values change at its stable Graph index; identifies tableName + rowIndex; quiet on baseline", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+
+    const workbookId = "wb-e2e-updated-table-row";
+    const tableName = "MyTable";
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    // Seed a table with three rows at stable indices 0/1/2.
+    await page.request.post(`${mock.baseUrl}/__injectExcelTable`, {
+      data: {
+        workbookId,
+        tableName,
+        rows: [
+          { index: 0, values: ["alice", 30] },
+          { index: 1, values: ["bob", 25] },
+          { index: 2, values: ["carol", 40] },
+        ],
+      },
+    });
+
+    await signIn(page, user);
+    await connectExcel(page);
+
+    await createWorkflowAndConfigure({
+      page,
+      name: "E2E Excel updated_table_row",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "microsoft-excel",
+            type: "updated_table_row",
+            config: { workbookId, tableName },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "microsoft-excel",
+            type: "get_worksheets",
+            config: { workbookId },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+
+    await activateWorkflow(page);
+
+    const triggerRowsAfterActivate = await getTriggerResourcesForUser(user.id);
+    expect(triggerRowsAfterActivate).toHaveLength(1);
+    const triggerRow = triggerRowsAfterActivate[0]! as Record<string, unknown>;
+    expect(triggerRow.event_type).toBe("updated_table_row");
+    const cfg = triggerRow.config as {
+      snapshot?: { rowHashes?: Record<string, string>; rowCount?: number };
+    };
+    expect(cfg.snapshot?.rowCount).toBe(3);
+    expect(Object.keys(cfg.snapshot?.rowHashes ?? {}).sort()).toEqual([
+      "0",
+      "1",
+      "2",
+    ]);
+
+    // Mutate row at stable index 1 in place — bob's age changes.
+    // Stable-id semantics: the key remains "1" across the change, so
+    // the trigger sees a hash diff at the same key (vs. positional
+    // worksheet semantics where neighbor inserts/deletes also flag).
+    const updateResp = await page.request.post(
+      `${mock.baseUrl}/__updateExcelTableRow`,
+      {
+        data: {
+          workbookId,
+          tableName,
+          index: 1,
+          values: ["bob", 26],
+        },
+      },
+    );
+    expect(updateResp.status()).toBe(200);
+
+    await pollOnce({ request, cronSecret });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const triggerStep = ((run.steps as unknown[]) ?? []).find(
+      (s) => (s as { nodeId?: string }).nodeId === "trigger-node",
+    ) as { output?: Record<string, unknown> } | undefined;
+    const triggerEvent = (triggerStep?.output?.event ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(triggerEvent.eventType).toBe("updated_table_row");
+    const payload = (triggerEvent.payload ?? {}) as Record<string, unknown>;
+    expect(payload.workbookId).toBe(workbookId);
+    expect(payload.tableName).toBe(tableName);
+    expect(payload.rowIndex).toBe(1);
+    expect(payload.values).toEqual(["bob", 26]);
+
+    // Mock saw a tableRowsList GET at activation + at the poll tick.
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.excelTableRowsList.length).toBeGreaterThanOrEqual(2);
+    for (const c of calls.calls.excelTableRowsList) {
+      expect(c.workbookId).toBe(workbookId);
+      expect(c.tableName).toBe(tableName);
+    }
+
+    // Quiet tick — no further runs when nothing changed.
+    await rewindTriggerPollingTimestamp(triggerRow.id as string);
+    await pollOnce({ request, cronSecret });
+    await new Promise((r) => setTimeout(r, 1500));
+    const runsAfterQuiet = await getWorkflowRunsForUser(user.id);
+    expect(runsAfterQuiet).toHaveLength(1);
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -425,6 +1346,30 @@ interface MockInspect {
       address: string;
       values: ReadonlyArray<ReadonlyArray<unknown>>;
     }[];
+    excelRangeDelete: {
+      authorization: string | undefined;
+      workbookId: string;
+      worksheetName: string;
+      address: string;
+      shift: string;
+    }[];
+    excelWorksheetPatch: {
+      authorization: string | undefined;
+      workbookId: string;
+      worksheetName: string;
+      newName: string;
+    }[];
+    excelWorksheetDelete: {
+      authorization: string | undefined;
+      workbookId: string;
+      worksheetName: string;
+    }[];
+    excelTableRowsList: {
+      authorization: string | undefined;
+      url: string;
+      workbookId: string;
+      tableName: string;
+    }[];
   };
 }
 
@@ -440,4 +1385,78 @@ function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`e2e: ${name} env var is required`);
   return v;
+}
+
+/**
+ * Excel parity Commit 5 shared scenario helpers.
+ *
+ * Each new test in this describe needs the same boilerplate:
+ *   sign in → connect Excel → create workflow → patch nodes →
+ *   activate → poll. Factoring out the steps that DON'T change
+ *   between scenarios keeps each test focused on the assertions
+ *   unique to that scenario.
+ *
+ * The originating happy-path test inlines this boilerplate
+ * intentionally (it asserts the OAuth, scopes, encryption, and
+ * dispatcher details that the parity-coverage scenarios take as
+ * given). Don't migrate it.
+ */
+async function connectExcel(page: Page): Promise<void> {
+  await page.goto("/integrations");
+  await Promise.all([
+    page.waitForURL(/\/\?integration=connected&provider=microsoft-excel/),
+    page
+      .getByRole("button", {
+        name: "Connect Microsoft Excel",
+        exact: true,
+      })
+      .click(),
+  ]);
+}
+
+async function createWorkflowAndConfigure(input: {
+  page: Page;
+  name: string;
+  draftDefinition: unknown;
+}): Promise<string> {
+  const { page, name, draftDefinition } = input;
+  await page.goto("/workflows");
+  await page.getByRole("button", { name: "Create workflow" }).click();
+  await page.getByLabel(/workflow name/i).fill(name);
+  await Promise.all([
+    page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+    page.getByRole("button", { name: "Create", exact: true }).click(),
+  ]);
+  const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+  const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+    data: { draftDefinition },
+  });
+  if (patch.status() !== 200) {
+    throw new Error(
+      `workflow draft patch failed: ${patch.status()} ${await patch.text()}`,
+    );
+  }
+  await page.reload();
+  return workflowId;
+}
+
+async function activateWorkflow(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Activate" }).click();
+  await expect(page.locator("[data-status-kind=active]")).toBeVisible({
+    timeout: 10_000,
+  });
+}
+
+async function pollOnce(input: {
+  request: APIRequestContext;
+  cronSecret: string;
+}): Promise<void> {
+  const resp = await input.request.post("/api/cron/poll-triggers", {
+    headers: { authorization: `Bearer ${input.cronSecret}` },
+  });
+  if (resp.status() !== 200) {
+    throw new Error(
+      `poll-triggers cron failed: ${resp.status()} ${await resp.text()}`,
+    );
+  }
 }
