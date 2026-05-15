@@ -183,6 +183,8 @@ import { createPaymentLink as stripeCreatePaymentLink } from "@/integrations/str
 import { createRefund as stripeCreateRefund } from "@/integrations/stripe/actions/createRefund";
 import { createSubscription as stripeCreateSubscription } from "@/integrations/stripe/actions/createSubscription";
 import { findCustomer as stripeFindCustomer } from "@/integrations/stripe/actions/findCustomer";
+import { findPaymentIntent as stripeFindPaymentIntent } from "@/integrations/stripe/actions/findPaymentIntent";
+import { findSubscription as stripeFindSubscription } from "@/integrations/stripe/actions/findSubscription";
 import { getPayments as stripeGetPayments } from "@/integrations/stripe/actions/getPayments";
 import { updateCustomer as stripeUpdateCustomer } from "@/integrations/stripe/actions/updateCustomer";
 import { updateSubscription as stripeUpdateSubscription } from "@/integrations/stripe/actions/updateSubscription";
@@ -375,6 +377,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "stripe", type: "create_payment_link", handler: stripeCreatePaymentLink },
   { provider: "stripe", type: "create_invoice", handler: stripeCreateInvoice },
   { provider: "stripe", type: "get_payments", handler: stripeGetPayments },
+  // Stripe 2.1 Commit 5 — read-only finder actions.
+  // Direct id lookup only (parity-stripe M5/M6); no list/search fallback.
+  // 404 → { found: false, ... } per find-semantic; no Idempotency-Key on GET.
+  { provider: "stripe", type: "find_subscription", handler: stripeFindSubscription },
+  { provider: "stripe", type: "find_payment_intent", handler: stripeFindPaymentIntent },
   { provider: "shopify", type: "create_order", handler: shopifyCreateOrder },
   { provider: "shopify", type: "update_order_status", handler: shopifyUpdateOrderStatus },
   { provider: "shopify", type: "add_order_note", handler: shopifyAddOrderNote },

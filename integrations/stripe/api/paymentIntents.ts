@@ -25,6 +25,7 @@ export interface StripePaymentIntent {
   created: number;
   metadata: Record<string, string>;
   next_action: Record<string, unknown> | null;
+  latest_charge: string | null;
   payment_method: string | null;
   payment_method_types: string[];
   receipt_email: string | null;
@@ -63,6 +64,24 @@ export async function paymentIntentsCreate(
     body,
     idempotencyKey: input.idempotencyKey,
     resourceForNotFound: "payment_intent (create)",
+  });
+}
+
+// ─── paymentIntentsGet ──────────────────────────────────────────────────────
+
+export interface PaymentIntentsGetInput {
+  accessToken: string;
+  paymentIntentId: string;
+}
+
+export async function paymentIntentsGet(
+  input: PaymentIntentsGetInput,
+): Promise<StripePaymentIntent> {
+  return stripeRequest<StripePaymentIntent>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: `/v1/payment_intents/${encodeURIComponent(input.paymentIntentId)}`,
+    resourceForNotFound: `payment_intent ${input.paymentIntentId}`,
   });
 }
 

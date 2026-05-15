@@ -32,6 +32,10 @@ export interface StripeSubscription {
   ended_at: number | null;
   trial_start: number | null;
   trial_end: number | null;
+  collection_method: "charge_automatically" | "send_invoice" | null;
+  currency: string | null;
+  latest_invoice: string | null;
+  livemode: boolean;
   items: { object: "list"; data: StripeSubscriptionItem[] };
   metadata: Record<string, string>;
   created: number;
