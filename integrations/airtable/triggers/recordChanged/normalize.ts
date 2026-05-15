@@ -16,9 +16,10 @@ import type {
  *
  * One consolidated `record_changed` trigger per the plan; the eventType
  * discriminator inside `payload.eventType` distinguishes
- * `created` / `updated` / `deleted` / `unknown`. Workflows branch on
- * the discriminator; the dedup key includes it so successive
- * change-classes against the same record fire as distinct events.
+ * `created` / `updated` / `deleted` / `table_deleted` / `unknown`.
+ * Workflows branch on the discriminator; the dedup key includes it so
+ * successive change-classes against the same record fire as distinct
+ * events.
  *
  * Walks each payload's `changedTablesById`:
  *   - `createdRecordsById` → `eventType: "created"`, fields parsed
@@ -27,6 +28,15 @@ import type {
  *   - `changedRecordsById` → `eventType: "updated"`, fields parsed
  *     from `current.cellValuesByFieldId`.
  *   - `destroyedRecordIds` → `eventType: "deleted"`, fields = {} .
+ *
+ * Then walks the payload's root-level `destroyedTableIds` (Airtable 2.1
+ * Commit 5):
+ *   - one event per destroyed table → `eventType: "table_deleted"`,
+ *     payload carries `tableId` + `destroyedTableIds` (the full list
+ *     destroyed in this same payload, for fan-out diagnostics). No
+ *     recordId, no fields. Per V1's `airtable_trigger_table_deleted`
+ *     semantic — folded into the consolidated trigger so workflows
+ *     branch on `eventType` instead of a separate trigger type.
  *
  * Schema is OPTIONAL — when provided, `parseFieldsWithSchema` runs
  * each field through the typed parser; deferred-type fields land in
@@ -53,6 +63,7 @@ export type RecordChangedEventType =
   | "created"
   | "updated"
   | "deleted"
+  | "table_deleted"
   | "unknown";
 
 export interface NormalizeContext {
@@ -96,6 +107,24 @@ function buildEventId(
       : ctx.notificationOccurredAt;
   const tableSegment = tableId ?? "all";
   return `${ctx.webhookId}:${tableSegment}:${recordId}:${eventType}:${txDiscriminator}`;
+}
+
+/**
+ * Build the table_deleted dedup key. The subject is the destroyed
+ * tableId itself (no recordId applies). Slot the literal `_table_`
+ * into the recordId segment so the 5-segment shape stays consistent
+ * with record-level events; uniqueness is provided by tableId + txn.
+ */
+function buildTableDeletedEventId(
+  ctx: NormalizeContext,
+  tableId: string,
+  baseTransactionNumber: number | undefined,
+): string {
+  const txDiscriminator =
+    baseTransactionNumber !== undefined
+      ? String(baseTransactionNumber)
+      : ctx.notificationOccurredAt;
+  return `${ctx.webhookId}:${tableId}:_table_:table_deleted:${txDiscriminator}`;
 }
 
 function extractCellValues(record: WebhookPayloadRecord): Record<string, unknown> {
@@ -217,6 +246,36 @@ function tableSectionEvents(
 }
 
 /**
+ * Emit one `table_deleted` event per destroyed tableId in the payload's
+ * root-level `destroyedTableIds`. Per Airtable's webhook spec the field
+ * lives at the payload root (NOT inside `changedTablesById`, since the
+ * table no longer exists). Airtable 2.1 Commit 5.
+ */
+function tableDeletedEvents(
+  ctx: NormalizeContext,
+  destroyedTableIds: ReadonlyArray<string>,
+  payloadTimestamp: string | undefined,
+  baseTransactionNumber: number | undefined,
+): TriggerEvent[] {
+  const occurredAt = payloadTimestamp ?? ctx.notificationOccurredAt;
+  const snapshot = [...destroyedTableIds];
+  return destroyedTableIds.map((tableId) => ({
+    provider: "airtable",
+    eventType: "record_changed",
+    eventId: buildTableDeletedEventId(ctx, tableId, baseTransactionNumber),
+    occurredAt,
+    accountId: ctx.accountId,
+    payload: {
+      eventType: "table_deleted",
+      baseId: ctx.baseId,
+      tableId,
+      destroyedTableIds: snapshot,
+      baseTransactionNumber: baseTransactionNumber ?? null,
+    },
+  }));
+}
+
+/**
  * Walk a single Airtable payload and emit TriggerEvents. Returns zero
  * events when the payload has no record-level changes (e.g.,
  * `actionMetadata`-only payloads from schema operations).
@@ -233,6 +292,16 @@ export function normalizePayload(
         ctx,
         tableId,
         section,
+        payload.timestamp,
+        payload.baseTransactionNumber,
+      ),
+    );
+  }
+  if (payload.destroyedTableIds && payload.destroyedTableIds.length > 0) {
+    events.push(
+      ...tableDeletedEvents(
+        ctx,
+        payload.destroyedTableIds,
         payload.timestamp,
         payload.baseTransactionNumber,
       ),

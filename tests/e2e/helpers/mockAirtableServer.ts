@@ -34,8 +34,21 @@ import { createHmac, randomBytes } from "node:crypto";
  *                                maxRecords, etc. — mock keeps the
  *                                injected records and returns matches.
  *   GET  /v0/{baseId}/{table}/{id} → get single record.
- *   POST /v0/{baseId}/{table}  → create record. Echoes back with id.
- *   PATCH /v0/{baseId}/{table}/{id} → update record.
+ *   POST /v0/{baseId}/{table}  → create record (or BATCH create if body
+ *                                carries `records: [...]`). Single-record
+ *                                shape echoes one record; batch shape
+ *                                echoes `{records: [...]}` with one
+ *                                fresh id per entry (Airtable 2.1 Commit 3).
+ *   PATCH /v0/{baseId}/{table}/{id} → update record. Attachment fields
+ *                                (any `[{url, filename?}]` value) get
+ *                                rewritten to Airtable's own minted-URL
+ *                                shape `[{id, url, filename, type, size}]`
+ *                                — simulates real Airtable behavior so the
+ *                                signed URL we send NEVER appears in the
+ *                                response (used by `add_attachment` e2e).
+ *   PATCH /v0/{baseId}/{table}  → BATCH update (body `records:
+ *                                [{id, fields}]`). Echoes
+ *                                `{records: [...]}` (Airtable 2.1 Commit 4).
  *   DELETE /v0/{baseId}/{table}/{id} → delete record.
  *   POST /v0/bases/{baseId}/webhooks → create webhook. Returns synthetic
  *                                id + macSecretBase64 + expirationTime.
@@ -56,6 +69,12 @@ import { createHmac, randomBytes } from "node:crypto";
  *                                baseTransactionNumber. Returns the
  *                                assigned bTN + the cursor index (1-based)
  *                                of the new payload.
+ *   POST /__injectTableDeleted — enqueue a table_deleted payload against
+ *                                a webhook. Body: `{ destroyedTableIds:
+ *                                string[], webhookId? }`. The payload
+ *                                carries `destroyedTableIds` at the
+ *                                payload root (Airtable's wire shape).
+ *                                Airtable 2.1 Commit 5.
  *   POST /__sendWebhookPing    — send a signed `X-Airtable-Content-MAC`
  *                                ping to the webhook's notificationUrl.
  *                                Body: `{ webhookId? }` (defaults to most
@@ -206,6 +225,12 @@ interface MutableState {
   webhookCounter: number;
   recordCounter: number;
   baseTransactionCounter: number;
+  /**
+   * Per-mock-lifetime counter for minted attachment ids on PATCH writes.
+   * Airtable 2.1 Commit 5: simulates Airtable's own URL-minting so the
+   * caller-supplied signed URL NEVER appears in PATCH responses.
+   */
+  attachmentCounter: number;
   /** Schema returned by /v0/meta/bases/{baseId}/tables. */
   schemaTables: Array<Record<string, unknown>>;
   /** The last-sent ping body + signature, for replay. */
@@ -232,6 +257,7 @@ function freshState(): MutableState {
     webhookCounter: 0,
     recordCounter: 0,
     baseTransactionCounter: 0,
+    attachmentCounter: 0,
     schemaTables: defaultSchema(),
     lastPing: null,
   };
@@ -672,6 +698,36 @@ async function handleRequest(
       } catch {
         // ignore
       }
+      // Batch create (Airtable 2.1 Commit 3): body has `records: [{fields}]`.
+      // Single create: body has `fields`. Discriminate by which is present.
+      if (Array.isArray(parsed.records)) {
+        const incoming = parsed.records as Array<Record<string, unknown>>;
+        const created: MockRecord[] = [];
+        for (const entry of incoming) {
+          state.recordCounter += 1;
+          const recordId = `recMOCK${state.recordCounter}`;
+          const fields = (entry.fields ?? {}) as Record<string, unknown>;
+          const createdTime = new Date().toISOString();
+          const record: MockRecord = { id: recordId, fields, createdTime };
+          state.records.set(`${baseId}:${tableIdOrName}:${recordId}`, record);
+          created.push(record);
+        }
+        // ONE call recorded per batch — enables "exactly one POST batch
+        // request" e2e assertion.
+        state.calls.records.push({
+          method: "POST",
+          authorization: req.headers.authorization,
+          baseId,
+          tableIdOrName,
+          recordId: null,
+          url: req.url ?? "",
+          body: parsed,
+          responseRecordId: null,
+        });
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ records: created }));
+        return;
+      }
       state.recordCounter += 1;
       const recordId = `recMOCK${state.recordCounter}`;
       const fields = (parsed.fields ?? {}) as Record<string, unknown>;
@@ -690,6 +746,71 @@ async function handleRequest(
       });
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(record));
+      return;
+    }
+
+    // Batch update (Airtable 2.1 Commit 4):
+    // PATCH /v0/{baseId}/{tableIdOrName} with body `records: [{id, fields}]`.
+    if (req.method === "PATCH") {
+      const bodyText = await readBody(req);
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(bodyText);
+      } catch {
+        // ignore
+      }
+      if (!Array.isArray(parsed.records)) {
+        res.writeHead(422, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: {
+              type: "INVALID_REQUEST_UNKNOWN",
+              message: "PATCH on table endpoint requires records[] body.",
+            },
+          }),
+        );
+        return;
+      }
+      const incoming = parsed.records as Array<Record<string, unknown>>;
+      const updated: MockRecord[] = [];
+      for (const entry of incoming) {
+        const id = String(entry.id ?? "");
+        const incomingFields = (entry.fields ?? {}) as Record<string, unknown>;
+        const key = `${baseId}:${tableIdOrName}:${id}`;
+        const existing = state.records.get(key);
+        if (!existing) {
+          // Synthesize a fresh record so the response shape stays
+          // consistent — e2e doesn't pre-create rows for batch update.
+          const synth: MockRecord = {
+            id,
+            fields: { ...incomingFields },
+            createdTime: new Date().toISOString(),
+          };
+          state.records.set(key, synth);
+          updated.push(synth);
+          continue;
+        }
+        const merged: MockRecord = {
+          id,
+          fields: { ...existing.fields, ...incomingFields },
+          createdTime: existing.createdTime,
+        };
+        state.records.set(key, merged);
+        updated.push(merged);
+      }
+      // ONE call recorded per batch.
+      state.calls.records.push({
+        method: "PATCH",
+        authorization: req.headers.authorization,
+        baseId,
+        tableIdOrName,
+        recordId: null,
+        url: req.url ?? "",
+        body: parsed,
+        responseRecordId: null,
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ records: updated }));
       return;
     }
   }
@@ -736,22 +857,56 @@ async function handleRequest(
       }
       const existing = state.records.get(key);
       if (!existing) {
-        res.writeHead(404, { "content-type": "application/json" });
-        res.end(
-          JSON.stringify({
-            error: { type: "NOT_FOUND", message: "record not found" },
-          }),
-        );
-        return;
+        // Auto-create missing record for add_attachment e2e (avoids
+        // needing a separate POST step before the PATCH).
+        const synth: MockRecord = {
+          id: recordId,
+          fields: {},
+          createdTime: new Date().toISOString(),
+        };
+        state.records.set(key, synth);
       }
-      const newFields = {
-        ...existing.fields,
-        ...((parsed.fields ?? {}) as Record<string, unknown>),
-      };
+      const baseRecord = state.records.get(key)!;
+      // Merge incoming fields into existing record. Then walk all field
+      // values: if a value is an array of `{url, filename?}` objects,
+      // treat as an attachment write and mint Airtable-style metadata
+      // (id, type, size) + replace the input URL with Airtable's own
+      // — simulates real Airtable ingestion behavior. The signed URL
+      // we received NEVER appears in the response (add_attachment
+      // e2e assertion: "no signed URL leak").
+      const incoming = (parsed.fields ?? {}) as Record<string, unknown>;
+      const mergedFields: Record<string, unknown> = { ...baseRecord.fields };
+      for (const [fieldName, value] of Object.entries(incoming)) {
+        if (
+          Array.isArray(value) &&
+          value.every(
+            (v) => v && typeof v === "object" && typeof (v as { url?: unknown }).url === "string",
+          )
+        ) {
+          mergedFields[fieldName] = (value as Array<Record<string, unknown>>).map(
+            (entry, i) => {
+              state.attachmentCounter += 1;
+              const attId = `att${state.attachmentCounter}`;
+              return {
+                id: attId,
+                url: `https://airtable-mock.example/attachments/${attId}`,
+                filename:
+                  typeof entry.filename === "string"
+                    ? entry.filename
+                    : `attachment-${i}.bin`,
+                size: 1024,
+                type: "application/octet-stream",
+              };
+            },
+          );
+        } else {
+          mergedFields[fieldName] = value;
+        }
+      }
       const updated: MockRecord = {
         id: recordId,
-        fields: newFields,
-        createdTime: existing.createdTime,
+        fields: mergedFields,
+        createdTime: baseRecord.createdTime,
       };
       state.records.set(key, updated);
       state.calls.records.push({
@@ -864,6 +1019,57 @@ async function handleRequest(
         webhookId,
         baseTransactionNumber,
         payloadCount: wh.payloads.length,
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__injectTableDeleted") {
+    // Enqueue a `destroyedTableIds`-only payload against a webhook.
+    // Airtable 2.1 Commit 5 — table_deleted fold e2e support.
+    const bodyText = await readBody(req);
+    let payload: { webhookId?: string; destroyedTableIds?: ReadonlyArray<string> };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    const webhookId = payload.webhookId ?? state.lastWebhookId ?? "";
+    const wh = state.webhooks.get(webhookId);
+    if (!wh) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "webhook not found", webhookId }));
+      return;
+    }
+    if (
+      !Array.isArray(payload.destroyedTableIds) ||
+      payload.destroyedTableIds.length === 0
+    ) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({ error: "destroyedTableIds must be a non-empty array" }),
+      );
+      return;
+    }
+    state.baseTransactionCounter += 1;
+    const baseTransactionNumber = state.baseTransactionCounter;
+    const builtPayload: Record<string, unknown> = {
+      timestamp: new Date().toISOString(),
+      baseTransactionNumber,
+      payloadFormat: "v0",
+      destroyedTableIds: [...payload.destroyedTableIds],
+    };
+    wh.payloads.push(builtPayload);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        webhookId,
+        baseTransactionNumber,
+        payloadCount: wh.payloads.length,
+        destroyedTableIds: [...payload.destroyedTableIds],
       }),
     );
     return;

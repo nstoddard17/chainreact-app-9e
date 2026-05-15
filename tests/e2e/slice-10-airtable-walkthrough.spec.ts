@@ -481,7 +481,506 @@ test.describe("Slice 10 — full Airtable walkthrough", () => {
     );
     expect(recordPostsAfterReplay).toHaveLength(1);
   });
+
+  /**
+   * Airtable 2.1 Commit 5 — parity coverage e2e.
+   *
+   * Four scenarios exercised against the same connected Airtable
+   * integration (one OAuth dance, one mock server, four fresh
+   * workflows). Each scenario `/__reset`s the mock before activating
+   * its workflow so call counters scope to that scenario.
+   *
+   *   1. `create_multiple_records` — true batch POST (one HTTP request,
+   *      two records).
+   *   2. `update_multiple_records` — true batch PATCH on the table
+   *      endpoint (one HTTP request, two records).
+   *   3. `add_attachment` — signed_url FileRef → PATCH on the record
+   *      endpoint with `fields[Photo] = [{url, filename}]`. Mock mints
+   *      Airtable-style attachment URLs in the response so the e2e can
+   *      assert "no signed URL leak" in the action output.
+   *   4. `table_deleted` fold — `__injectTableDeleted` enqueues a
+   *      payload with `destroyedTableIds` at the payload root. The
+   *      existing `record_changed` trigger fires; the trigger event's
+   *      payload carries `eventType: "table_deleted"`. NO separate
+   *      `airtable:table_deleted` trigger is registered.
+   */
+  test("2.1 parity: add_attachment + create_multiple_records + update_multiple_records + table_deleted fold", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readAirtableMockState();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=airtable/),
+      page
+        .getByRole("button", { name: "Connect Airtable", exact: true })
+        .click(),
+    ]);
+
+    // NOTE: do NOT call `/__reset` between scenarios. Resetting the
+    // mock would zero the `webhookCounter`, so each activated workflow
+    // would receive the SAME `achMOCKWEBHOOK1` id but with a fresh MAC
+    // secret. Multiple `trigger_resources` rows would collide on
+    // webhookId, signature verification would mismatch, and downstream
+    // pings would 401 instead of dispatching. Take call-array snapshots
+    // before each scenario and diff against `calls.records.slice(snapshot)`.
+
+    // ── Scenario 1: create_multiple_records (true batch POST) ──────────
+    const recordsBefore1 = (await fetchAirtableCalls(request, mock.baseUrl))
+      .calls.records.length;
+    const wf1 = await buildAndActivate(page, "E2E Airtable batch create", {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "airtable",
+          type: "record_changed",
+          config: { baseId: "appBASE", tableIdOrName: "tblTASKS" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "airtable",
+          type: "create_multiple_records",
+          config: {
+            baseId: "appBASE",
+            tableIdOrName: "Logs",
+            typecast: false,
+            records: [
+              {
+                fields: {
+                  Message: { type: "singleLineText", value: "Alice" },
+                  Acknowledged: { type: "checkbox", value: false },
+                },
+              },
+              {
+                fields: {
+                  Message: { type: "singleLineText", value: "Bob" },
+                  Acknowledged: { type: "checkbox", value: true },
+                },
+              },
+            ],
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    });
+
+    const insp1 = await fetchAirtableCalls(request, mock.baseUrl);
+    const webhookId1 = insp1.calls.webhookCreate.at(-1)!.responseWebhookId;
+    const recordId1 = `recE2E-${randomUUID()}`;
+    await page.request.post(`${mock.baseUrl}/__injectRecordChange`, {
+      data: {
+        webhookId: webhookId1,
+        tableId: "tblTASKS",
+        recordId: recordId1,
+        eventType: "created",
+        fields: { fldNAME: "trigger seed" },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__sendWebhookPing`, {
+      data: { webhookId: webhookId1 },
+    });
+
+    const runs1 = await waitFor(
+      async () => {
+        const all = await getWorkflowRunsForUser(user.id);
+        const forWf = all.filter((r) => r.workflow_id === wf1);
+        return forWf.length > 0 ? forWf : null;
+      },
+      { description: "scenario 1 workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs1).toHaveLength(1);
+    expect((runs1[0]! as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls1 = await fetchAirtableCalls(request, mock.baseUrl);
+    const scenario1Records = calls1.calls.records.slice(recordsBefore1);
+    const posts1 = scenario1Records.filter(
+      (r) => r.method === "POST" && r.tableIdOrName === "Logs",
+    );
+    // Exactly ONE batch POST — no sequential single-record loop.
+    expect(posts1).toHaveLength(1);
+    const batchCreateCall = posts1[0]!;
+    // No recordId on the call entry because batch posts don't target
+    // a single recordId (mock distinguishes batch vs single).
+    expect(batchCreateCall.recordId).toBeNull();
+    const batchCreateBody = batchCreateCall.body as {
+      records: Array<{ fields: Record<string, unknown> }>;
+      typecast: boolean;
+    };
+    expect(batchCreateBody.records).toHaveLength(2);
+    expect(batchCreateBody.typecast).toBe(false);
+    // Typed fields formatted through wire shape (singleLineText →
+    // string, checkbox → boolean passthrough).
+    expect(batchCreateBody.records[0]!.fields).toEqual({
+      Message: "Alice",
+      Acknowledged: false,
+    });
+    expect(batchCreateBody.records[1]!.fields).toEqual({
+      Message: "Bob",
+      Acknowledged: true,
+    });
+
+    // Bounded output: createdCount + records[].id surfaced via run step.
+    const step1 = (
+      (runs1[0]! as Record<string, unknown>).steps as Array<{
+        nodeId: string;
+        output?: Record<string, unknown>;
+      }>
+    ).find((s) => s.nodeId === "action-node");
+    expect(step1).toBeTruthy();
+    expect(step1!.output!.createdCount).toBe(2);
+    const out1Records = step1!.output!.records as ReadonlyArray<
+      Record<string, unknown>
+    >;
+    expect(out1Records).toHaveLength(2);
+    for (const r of out1Records) {
+      expect(typeof r.id).toBe("string");
+      expect(String(r.id)).toMatch(/^recMOCK/);
+    }
+
+    // ── Scenario 2: update_multiple_records (true batch PATCH) ─────────
+    const recordsBefore2 = (await fetchAirtableCalls(request, mock.baseUrl))
+      .calls.records.length;
+    const wf2 = await buildAndActivate(page, "E2E Airtable batch update", {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "airtable",
+          type: "record_changed",
+          config: { baseId: "appBASE", tableIdOrName: "tblTASKS" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "airtable",
+          type: "update_multiple_records",
+          config: {
+            baseId: "appBASE",
+            tableIdOrName: "Logs",
+            typecast: false,
+            records: [
+              {
+                recordId: "recExistingA",
+                fields: {
+                  Acknowledged: { type: "checkbox", value: true },
+                },
+              },
+              {
+                recordId: "recExistingB",
+                fields: {
+                  Acknowledged: { type: "checkbox", value: true },
+                  Message: { type: "singleLineText", value: "patched" },
+                },
+              },
+            ],
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    });
+
+    const insp2 = await fetchAirtableCalls(request, mock.baseUrl);
+    const webhookId2 = insp2.calls.webhookCreate.at(-1)!.responseWebhookId;
+    const recordId2 = `recE2E-${randomUUID()}`;
+    await page.request.post(`${mock.baseUrl}/__injectRecordChange`, {
+      data: {
+        webhookId: webhookId2,
+        tableId: "tblTASKS",
+        recordId: recordId2,
+        eventType: "updated",
+        fields: { fldNAME: "trigger seed 2" },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__sendWebhookPing`, {
+      data: { webhookId: webhookId2 },
+    });
+
+    const runs2 = await waitFor(
+      async () => {
+        const all = await getWorkflowRunsForUser(user.id);
+        const forWf = all.filter((r) => r.workflow_id === wf2);
+        return forWf.length > 0 ? forWf : null;
+      },
+      { description: "scenario 2 workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs2).toHaveLength(1);
+    expect((runs2[0]! as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls2 = await fetchAirtableCalls(request, mock.baseUrl);
+    const scenario2Records = calls2.calls.records.slice(recordsBefore2);
+    const patches2 = scenario2Records.filter(
+      (r) => r.method === "PATCH" && r.tableIdOrName === "Logs",
+    );
+    // Exactly ONE batch PATCH — no sequential per-record updates.
+    expect(patches2).toHaveLength(1);
+    const batchUpdateCall = patches2[0]!;
+    // Batch PATCH targets the table endpoint — no recordId path segment.
+    expect(batchUpdateCall.recordId).toBeNull();
+    const batchUpdateBody = batchUpdateCall.body as {
+      records: Array<{ id: string; fields: Record<string, unknown> }>;
+      typecast: boolean;
+    };
+    expect(batchUpdateBody.records).toHaveLength(2);
+    expect(batchUpdateBody.records[0]).toEqual({
+      id: "recExistingA",
+      fields: { Acknowledged: true },
+    });
+    expect(batchUpdateBody.records[1]).toEqual({
+      id: "recExistingB",
+      fields: { Acknowledged: true, Message: "patched" },
+    });
+
+    // Bounded output: updatedCount + records[id, fields].
+    const step2 = (
+      (runs2[0]! as Record<string, unknown>).steps as Array<{
+        nodeId: string;
+        output?: Record<string, unknown>;
+      }>
+    ).find((s) => s.nodeId === "action-node");
+    expect(step2).toBeTruthy();
+    expect(step2!.output!.updatedCount).toBe(2);
+
+    // ── Scenario 3: add_attachment via signed_url FileRef ──────────────
+    const recordsBefore3 = (await fetchAirtableCalls(request, mock.baseUrl))
+      .calls.records.length;
+    const signedUrl =
+      "https://example.test/signed/cat.png?sig=NEVER_LEAK_THIS_TO_OUTPUT";
+    const wf3 = await buildAndActivate(page, "E2E Airtable add_attachment", {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "airtable",
+          type: "record_changed",
+          config: { baseId: "appBASE", tableIdOrName: "tblTASKS" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "airtable",
+          type: "add_attachment",
+          config: {
+            baseId: "appBASE",
+            tableIdOrName: "Logs",
+            recordId: "recAttachTarget",
+            fieldName: "Photo",
+            file: {
+              kind: "signed_url",
+              name: "cat.png",
+              mimeType: "image/png",
+              url: signedUrl,
+            },
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    });
+
+    const insp3 = await fetchAirtableCalls(request, mock.baseUrl);
+    const webhookId3 = insp3.calls.webhookCreate.at(-1)!.responseWebhookId;
+    const recordId3 = `recE2E-${randomUUID()}`;
+    await page.request.post(`${mock.baseUrl}/__injectRecordChange`, {
+      data: {
+        webhookId: webhookId3,
+        tableId: "tblTASKS",
+        recordId: recordId3,
+        eventType: "created",
+        fields: { fldNAME: "trigger seed 3" },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__sendWebhookPing`, {
+      data: { webhookId: webhookId3 },
+    });
+
+    const runs3 = await waitFor(
+      async () => {
+        const all = await getWorkflowRunsForUser(user.id);
+        const forWf = all.filter((r) => r.workflow_id === wf3);
+        return forWf.length > 0 ? forWf : null;
+      },
+      { description: "scenario 3 workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs3).toHaveLength(1);
+    expect((runs3[0]! as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls3 = await fetchAirtableCalls(request, mock.baseUrl);
+    const scenario3Records = calls3.calls.records.slice(recordsBefore3);
+    // add_attachment → single-record PATCH at /v0/appBASE/Logs/recAttachTarget.
+    const attachmentPatches = scenario3Records.filter(
+      (r) =>
+        r.method === "PATCH" &&
+        r.tableIdOrName === "Logs" &&
+        r.recordId === "recAttachTarget",
+    );
+    expect(attachmentPatches).toHaveLength(1);
+    const attachCall = attachmentPatches[0]!;
+    const attachBody = attachCall.body as {
+      fields: Record<string, unknown>;
+      typecast: boolean;
+    };
+    // Wire shape: fields[Photo] = [{url, filename}].
+    const sentPhoto = attachBody.fields.Photo as ReadonlyArray<
+      Record<string, unknown>
+    >;
+    expect(sentPhoto).toHaveLength(1);
+    expect(sentPhoto[0]!.url).toBe(signedUrl);
+    expect(sentPhoto[0]!.filename).toBe("cat.png");
+    // No GET-then-merge — only one records call in this scenario
+    // matched on (PATCH + Logs + recAttachTarget). There MUST be no
+    // preceding GET on the same target.
+    const allOnTarget = scenario3Records.filter(
+      (r) => r.tableIdOrName === "Logs" && r.recordId === "recAttachTarget",
+    );
+    expect(allOnTarget).toHaveLength(1);
+    expect(allOnTarget[0]!.method).toBe("PATCH");
+
+    // Bounded output: attachmentCount + attachments[] projection.
+    // CRITICAL: the signed URL we sent does NOT appear in the action
+    // output (Airtable would mint its own URLs in production; the mock
+    // simulates that by rewriting `[{url, filename}]` writes to
+    // `[{id, url: airtable-mock.example/..., filename, type, size}]`).
+    const step3 = (
+      (runs3[0]! as Record<string, unknown>).steps as Array<{
+        nodeId: string;
+        output?: Record<string, unknown>;
+      }>
+    ).find((s) => s.nodeId === "action-node");
+    expect(step3).toBeTruthy();
+    expect(step3!.output!.attachmentCount).toBe(1);
+    const outAttachments = step3!.output!.attachments as ReadonlyArray<
+      Record<string, unknown>
+    >;
+    expect(outAttachments).toHaveLength(1);
+    expect(outAttachments[0]!.filename).toBe("cat.png");
+    expect(String(outAttachments[0]!.url)).toMatch(
+      /^https:\/\/airtable-mock\.example\/attachments\/att/,
+    );
+    // The signed URL — bearer-equivalent — never leaks into output.
+    expect(String(outAttachments[0]!.url)).not.toContain("NEVER_LEAK_THIS");
+    expect(JSON.stringify(step3!.output)).not.toContain("NEVER_LEAK_THIS");
+
+    // ── Scenario 4: table_deleted fold ─────────────────────────────────
+    // Same record_changed trigger; new payload carries destroyedTableIds.
+    // Folded eventType discriminator means workflows branch on the
+    // payload, not a separate trigger type.
+    const wf4 = await buildAndActivate(page, "E2E Airtable table_deleted", {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "airtable",
+          type: "record_changed",
+          config: { baseId: "appBASE", tableIdOrName: "tblTASKS" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "airtable",
+          type: "create_record",
+          config: {
+            baseId: "appBASE",
+            tableIdOrName: "Logs",
+            typecast: false,
+            fields: {
+              Message: {
+                type: "singleLineText",
+                value: "table deletion acked",
+              },
+            },
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    });
+
+    const insp4 = await fetchAirtableCalls(request, mock.baseUrl);
+    const webhookId4 = insp4.calls.webhookCreate.at(-1)!.responseWebhookId;
+    const inject4 = await page.request.post(
+      `${mock.baseUrl}/__injectTableDeleted`,
+      {
+        data: {
+          webhookId: webhookId4,
+          destroyedTableIds: ["tblARCHIVED"],
+        },
+      },
+    );
+    expect(inject4.status()).toBe(200);
+    await page.request.post(`${mock.baseUrl}/__sendWebhookPing`, {
+      data: { webhookId: webhookId4 },
+    });
+
+    const runs4 = await waitFor(
+      async () => {
+        const all = await getWorkflowRunsForUser(user.id);
+        const forWf = all.filter((r) => r.workflow_id === wf4);
+        return forWf.length > 0 ? forWf : null;
+      },
+      { description: "scenario 4 workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs4).toHaveLength(1);
+    expect((runs4[0]! as Record<string, unknown>).status).toBe("succeeded");
+
+    // The trigger event recorded on the run carries the table_deleted
+    // classification — fold means the existing record_changed trigger
+    // type wraps it.
+    const run4 = runs4[0]! as Record<string, unknown>;
+    const triggerEvent = run4.trigger_event as {
+      provider: string;
+      eventType: string;
+      payload: Record<string, unknown>;
+    };
+    expect(triggerEvent.provider).toBe("airtable");
+    expect(triggerEvent.eventType).toBe("record_changed");
+    expect(triggerEvent.payload.eventType).toBe("table_deleted");
+    expect(triggerEvent.payload.baseId).toBe("appBASE");
+    expect(triggerEvent.payload.tableId).toBe("tblARCHIVED");
+    expect(triggerEvent.payload.destroyedTableIds).toEqual(["tblARCHIVED"]);
+  });
 });
+
+async function buildAndActivate(
+  page: Page,
+  name: string,
+  draftDefinition: object,
+): Promise<string> {
+  await page.goto("/workflows");
+  await page.getByRole("button", { name: "Create workflow" }).click();
+  await page.getByLabel(/workflow name/i).fill(name);
+  await Promise.all([
+    page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+    page.getByRole("button", { name: "Create", exact: true }).click(),
+  ]);
+  const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+  const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+    data: { draftDefinition },
+  });
+  if (patch.status() !== 200) {
+    throw new Error(
+      `buildAndActivate PATCH failed: ${patch.status()} ${await patch.text()}`,
+    );
+  }
+  await page.reload();
+  await page.getByRole("button", { name: "Activate" }).click();
+  await expect(page.locator("[data-status-kind=active]")).toBeVisible({
+    timeout: 10_000,
+  });
+  return workflowId;
+}
 
 // ── helpers ─────────────────────────────────────────────────────────────
 

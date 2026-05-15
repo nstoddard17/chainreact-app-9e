@@ -182,6 +182,98 @@ describe("normalizePayload — fallbacks", () => {
   });
 });
 
+describe("normalizePayload — table_deleted fold (Airtable 2.1 Commit 5)", () => {
+  it("emits one event per destroyed tableId in payload.destroyedTableIds", () => {
+    const payload: WebhookPayload = {
+      baseTransactionNumber: 42,
+      timestamp: "2026-05-09T11:55:00.000Z",
+      destroyedTableIds: ["tblOLD1", "tblOLD2"],
+    };
+    const { events } = normalizePayload(payload, ctx);
+    expect(events).toHaveLength(2);
+    for (const e of events) {
+      expect(e.provider).toBe("airtable");
+      expect(e.eventType).toBe("record_changed");
+      const p = e.payload as Record<string, unknown>;
+      expect(p.eventType).toBe("table_deleted");
+      expect(p.baseId).toBe(ctx.baseId);
+      // Both events carry the full snapshot of destroyed table ids.
+      expect(p.destroyedTableIds).toEqual(["tblOLD1", "tblOLD2"]);
+      expect(p.baseTransactionNumber).toBe(42);
+    }
+    expect((events[0]!.payload as { tableId: string }).tableId).toBe("tblOLD1");
+    expect((events[1]!.payload as { tableId: string }).tableId).toBe("tblOLD2");
+    expect(events[0]!.eventId).toBe(
+      "achWEBHOOK:tblOLD1:_table_:table_deleted:42",
+    );
+    expect(events[1]!.eventId).toBe(
+      "achWEBHOOK:tblOLD2:_table_:table_deleted:42",
+    );
+    expect(events[0]!.occurredAt).toBe("2026-05-09T11:55:00.000Z");
+  });
+
+  it("does NOT emit a separate record_changed type — eventType discriminator only (no airtable:table_deleted trigger)", () => {
+    const payload: WebhookPayload = {
+      baseTransactionNumber: 1,
+      destroyedTableIds: ["tblOLD"],
+    };
+    const { events } = normalizePayload(payload, ctx);
+    // Same canonical trigger event type as record-level events; the
+    // discriminator lives in payload.eventType.
+    expect(events[0]!.eventType).toBe("record_changed");
+    expect((events[0]!.payload as { eventType: string }).eventType).toBe(
+      "table_deleted",
+    );
+  });
+
+  it("emits both record-level + table_deleted events when a payload mixes both buckets", () => {
+    const payload: WebhookPayload = {
+      baseTransactionNumber: 7,
+      changedTablesById: {
+        tblTASKS: {
+          createdRecordsById: { rec1: { cellValuesByFieldId: { fld1: "Alice" } } },
+        },
+      },
+      destroyedTableIds: ["tblARCHIVED"],
+    };
+    const { events } = normalizePayload(payload, ctx);
+    expect(events).toHaveLength(2);
+    const kinds = events.map(
+      (e) => (e.payload as { eventType: string }).eventType,
+    );
+    expect(kinds).toEqual(expect.arrayContaining(["created", "table_deleted"]));
+  });
+
+  it("treats an empty destroyedTableIds array as a no-op (no table_deleted events)", () => {
+    const payload: WebhookPayload = {
+      baseTransactionNumber: 1,
+      destroyedTableIds: [],
+    };
+    const { events } = normalizePayload(payload, ctx);
+    expect(events).toEqual([]);
+  });
+
+  it("falls back to notificationOccurredAt in eventId when baseTransactionNumber is absent", () => {
+    const payload: WebhookPayload = {
+      destroyedTableIds: ["tblOLD"],
+    };
+    const { events } = normalizePayload(payload, ctx);
+    expect(events[0]!.eventId).toBe(
+      `achWEBHOOK:tblOLD:_table_:table_deleted:${ctx.notificationOccurredAt}`,
+    );
+  });
+
+  it("dedup key uniqueness — same destroyed tableId across two transactions → distinct eventIds", () => {
+    const payloads: WebhookPayload[] = [
+      { baseTransactionNumber: 1, destroyedTableIds: ["tblOLD"] },
+      { baseTransactionNumber: 2, destroyedTableIds: ["tblOLD"] },
+    ];
+    const { events } = normalizePayloads(payloads, ctx);
+    expect(events).toHaveLength(2);
+    expect(events[0]!.eventId).not.toBe(events[1]!.eventId);
+  });
+});
+
 describe("normalizePayload — schema-aware parsing", () => {
   it("emits parsedFields + skippedFields when a schema is provided for the table", () => {
     const schemaCtx: NormalizeContext = {

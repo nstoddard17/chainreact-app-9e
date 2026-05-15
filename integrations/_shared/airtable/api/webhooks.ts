@@ -180,6 +180,16 @@ export interface WebhookPayload {
   payloadFormat?: string;
   actionMetadata?: Record<string, unknown>;
   changedTablesById?: Record<string, WebhookPayloadTableSection>;
+  /**
+   * Table ids destroyed in this payload — emitted by Airtable when an
+   * entire table is removed from the watched base. Per current Airtable
+   * docs, the field is at the payload root (NOT inside
+   * `changedTablesById`, since the table itself no longer exists).
+   * Airtable 2.1 Commit 5: folded into the consolidated `record_changed`
+   * trigger via the `table_deleted` eventType discriminator. Optional —
+   * absent on record-level payloads.
+   */
+  destroyedTableIds?: ReadonlyArray<string>;
 }
 
 export interface WebhooksListPayloadsInput {
