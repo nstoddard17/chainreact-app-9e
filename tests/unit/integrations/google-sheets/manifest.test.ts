@@ -50,7 +50,7 @@ describe("google-sheets manifest", () => {
     expect(providerSupports("google-sheets", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 5 Sheets actions", () => {
+  it("when actions: true, the action-handler registry contains all 7 Sheets actions (Slice 5 + Sheets 2.1 Commit 1)", () => {
     if (googleSheetsManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "google-sheets",
@@ -58,8 +58,10 @@ describe("google-sheets manifest", () => {
       expect(registered.map((r) => r.type).sort()).toEqual([
         "append_row",
         "clear_range",
+        "get_cell_value",
         "get_sheet_metadata",
         "read_rows",
+        "update_cell",
         "update_row",
       ]);
     }

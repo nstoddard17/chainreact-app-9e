@@ -210,6 +210,20 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 2 Google Sheets 2.1 Commit 1 cell handlers (get_cell_value, update_cell)", () => {
+    expect(getActionHandler("google-sheets", "get_cell_value")).toBeDefined();
+    expect(getActionHandler("google-sheets", "update_cell")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "google-sheets",
+      type: "get_cell_value",
+    });
+    expect(registered).toContainEqual({
+      provider: "google-sheets",
+      type: "update_cell",
+    });
+  });
+
   it("registers the 3 Notion 2.1 Commit 4 handlers (create_database, get_block, get_block_children)", () => {
     expect(getActionHandler("notion", "create_database")).toBeDefined();
     expect(getActionHandler("notion", "get_block")).toBeDefined();

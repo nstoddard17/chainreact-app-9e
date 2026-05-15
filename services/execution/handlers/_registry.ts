@@ -45,8 +45,10 @@ import { moveFile } from "@/integrations/google-drive/actions/moveFile";
 import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
 import { appendRow } from "@/integrations/google-sheets/actions/appendRow";
 import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
+import { getCellValue } from "@/integrations/google-sheets/actions/getCellValue";
 import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
+import { updateCell } from "@/integrations/google-sheets/actions/updateCell";
 import { updateRow } from "@/integrations/google-sheets/actions/updateRow";
 import { addContactToList as hubspotAddContactToList } from "@/integrations/hubspot/actions/addContactToList";
 import { createCall as hubspotCreateCall } from "@/integrations/hubspot/actions/createCall";
@@ -261,6 +263,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-sheets", type: "update_row", handler: updateRow },
   { provider: "google-sheets", type: "clear_range", handler: clearRange },
   { provider: "google-sheets", type: "get_sheet_metadata", handler: getSheetMetadata },
+  // Google Sheets 2.1 Commit 1 — single-cell read + write actions
+  // (parity-google-sheets.md §7 + accepted audit decisions).
+  { provider: "google-sheets", type: "get_cell_value", handler: getCellValue },
+  { provider: "google-sheets", type: "update_cell", handler: updateCell },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
