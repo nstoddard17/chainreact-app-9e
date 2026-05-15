@@ -18,6 +18,13 @@ import { z } from "zod";
  * before dispatch — `Date` instances never survive the wire boundary
  * to a handler. (V1 accepts both; V2's pre-resolved config means
  * strings only at the schema layer.)
+ *
+ * `attachment` (Airtable 2.1 Commit 1) — typed `[{url, filename?}]`
+ * write shape. URL must be a valid URL; `filename`, when present, is
+ * a non-empty string. Empty array allowed and forwarded (Airtable
+ * clears the field — same semantic as `multipleSelects`). NPD-A2 /
+ * NPD-A3 (Airtable 2.1): no FileRef at this layer; FileRef-aware byte
+ * ingestion lives in the dedicated `add_attachment` action.
  */
 export const TypedFieldInputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("singleLineText"), value: z.string() }),
@@ -48,6 +55,17 @@ export const TypedFieldInputSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("multipleRecordLinks"),
     value: z.union([z.array(z.string()), z.string()]),
+  }),
+  z.object({
+    type: z.literal("attachment"),
+    value: z.array(
+      z
+        .object({
+          url: z.string().url("attachment url must be a valid URL"),
+          filename: z.string().min(1, "attachment filename cannot be empty").optional(),
+        })
+        .strict(),
+    ),
   }),
 ]);
 

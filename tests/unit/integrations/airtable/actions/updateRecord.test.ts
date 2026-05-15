@@ -140,4 +140,60 @@ describe("update_record action", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("accepts attachment fields with typed [{url, filename?}] shape (Airtable 2.1 Commit 1)", async () => {
+    mockUpdate.mockResolvedValueOnce({ id: "rec1", fields: {} });
+    await updateRecord({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        baseId: "appBASE",
+        tableIdOrName: "Tasks",
+        recordId: "rec1",
+        typecast: false,
+        fields: {
+          Photo: {
+            type: "attachment",
+            value: [
+              { url: "https://files.example/a.png", filename: "a.png" },
+              { url: "https://files.example/b.pdf" },
+            ],
+          },
+        },
+      },
+      triggerEvent: trigger(),
+    });
+    const callArg = mockUpdate.mock.calls[0]![0]!;
+    expect(callArg.fields.Photo).toEqual([
+      { url: "https://files.example/a.png", filename: "a.png" },
+      { url: "https://files.example/b.pdf" },
+    ]);
+  });
+
+  it("attachment field: invalid URL rejected at schema; no PATCH issued", async () => {
+    await expect(
+      updateRecord({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          baseId: "appBASE",
+          tableIdOrName: "Tasks",
+          recordId: "rec1",
+          typecast: false,
+          fields: {
+            Photo: {
+              type: "attachment",
+              value: [{ url: "not-a-url", filename: "x.jpg" }],
+            },
+          },
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
 });

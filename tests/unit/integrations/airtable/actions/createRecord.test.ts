@@ -162,10 +162,97 @@ describe("create_record action", () => {
     ).rejects.toThrow();
   });
 
-  it("rejects deferred field types at the schema layer (defense in depth #1)", async () => {
-    // The Zod discriminatedUnion rejects 'attachment' before the
-    // handler ever calls formatFields. The actual UnsupportedFieldTypeError
-    // throw path is tested separately against formatFieldValue directly.
+  it("accepts attachment fields with typed [{url, filename?}] shape (Airtable 2.1 Commit 1)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      id: "recATT",
+      fields: {
+        Photo: [
+          {
+            id: "att1",
+            url: "https://files.example/photo.jpg",
+            filename: "photo.jpg",
+            size: 1234,
+            type: "image/jpeg",
+          },
+        ],
+      },
+    });
+    await createRecord({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        baseId: "appBASE",
+        tableIdOrName: "tbl",
+        typecast: false,
+        fields: {
+          Photo: {
+            type: "attachment",
+            value: [
+              { url: "https://files.example/photo.jpg", filename: "photo.jpg" },
+            ],
+          },
+        },
+      },
+      triggerEvent: trigger(),
+    });
+    // Wire payload uses Airtable attachment format: [{url, filename?}].
+    const callArg = mockCreate.mock.calls[0]![0]!;
+    expect(callArg.fields.Photo).toEqual([
+      { url: "https://files.example/photo.jpg", filename: "photo.jpg" },
+    ]);
+  });
+
+  it("attachment field: filename optional — undefined filename is OMITTED from wire payload", async () => {
+    mockCreate.mockResolvedValueOnce({ id: "rec", fields: {} });
+    await createRecord({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        baseId: "appBASE",
+        tableIdOrName: "tbl",
+        typecast: false,
+        fields: {
+          Photo: {
+            type: "attachment",
+            value: [{ url: "https://files.example/photo.jpg" }],
+          },
+        },
+      },
+      triggerEvent: trigger(),
+    });
+    const callArg = mockCreate.mock.calls[0]![0]!;
+    expect(callArg.fields.Photo).toEqual([
+      { url: "https://files.example/photo.jpg" },
+    ]);
+    expect("filename" in callArg.fields.Photo[0]).toBe(false);
+  });
+
+  it("attachment field: empty array is forwarded (Airtable clears the field)", async () => {
+    mockCreate.mockResolvedValueOnce({ id: "rec", fields: {} });
+    await createRecord({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        baseId: "appBASE",
+        tableIdOrName: "tbl",
+        typecast: false,
+        fields: {
+          Photo: { type: "attachment", value: [] },
+        },
+      },
+      triggerEvent: trigger(),
+    });
+    const callArg = mockCreate.mock.calls[0]![0]!;
+    expect(callArg.fields.Photo).toEqual([]);
+  });
+
+  it("attachment field: invalid URL rejected at schema (Zod)", async () => {
     await expect(
       createRecord({
         workflowId: "wf",
@@ -177,7 +264,115 @@ describe("create_record action", () => {
           tableIdOrName: "tbl",
           typecast: false,
           fields: {
-            Photo: { type: "attachment", value: ["url"] },
+            Photo: {
+              type: "attachment",
+              value: [{ url: "not-a-url", filename: "x.jpg" }],
+            },
+          },
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("attachment field: empty filename rejected at schema (Zod)", async () => {
+    await expect(
+      createRecord({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          baseId: "appBASE",
+          tableIdOrName: "tbl",
+          typecast: false,
+          fields: {
+            Photo: {
+              type: "attachment",
+              value: [{ url: "https://x.example/a.png", filename: "" }],
+            },
+          },
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("attachment field: unknown attachment object fields rejected at schema (Zod .strict)", async () => {
+    await expect(
+      createRecord({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          baseId: "appBASE",
+          tableIdOrName: "tbl",
+          typecast: false,
+          fields: {
+            Photo: {
+              type: "attachment",
+              value: [
+                {
+                  url: "https://x.example/a.png",
+                  filename: "a.png",
+                  someExtra: "boom",
+                } as unknown as { url: string },
+              ],
+            },
+          },
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("attachment field: non-array value rejected at schema (Zod)", async () => {
+    await expect(
+      createRecord({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          baseId: "appBASE",
+          tableIdOrName: "tbl",
+          typecast: false,
+          fields: {
+            Photo: {
+              type: "attachment",
+              value: { url: "https://x.example/a.png" } as unknown as never,
+            },
+          },
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects deferred field types at the schema layer (defense in depth #1)", async () => {
+    // The Zod discriminatedUnion rejects 'rollup' (still deferred) before
+    // the handler ever calls formatFields. The actual
+    // UnsupportedFieldTypeError throw path is tested separately against
+    // formatFieldValue directly. (Was 'attachment' pre-Airtable-2.1 Commit
+    // 1; attachment is now SUPPORTED — see the attachment-accept tests
+    // above.)
+    await expect(
+      createRecord({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          baseId: "appBASE",
+          tableIdOrName: "tbl",
+          typecast: false,
+          fields: {
+            R: { type: "rollup", value: 1 } as unknown as never,
           },
         },
         triggerEvent: trigger(),
@@ -189,10 +384,11 @@ describe("create_record action", () => {
   it("UnsupportedFieldTypeError is thrown by the formatter when the schema is bypassed (defense in depth #2)", () => {
     // Sanity check that formatFieldValue itself fails loud — the
     // schema layer is one defense; the formatter is the second.
+    // Use 'rollup' (still deferred) since 'attachment' is now supported.
     const { formatFieldValue } = jest.requireActual(
       "@/integrations/_shared/airtable/fields",
     );
-    expect(() => formatFieldValue("attachment", null)).toThrow(
+    expect(() => formatFieldValue("rollup", null)).toThrow(
       UnsupportedFieldTypeError,
     );
   });
@@ -211,7 +407,7 @@ describe("create_record action", () => {
           tableIdOrName: "tbl",
           typecast: false,
           fields: {
-            R: { type: "rollup", value: 1 },
+            R: { type: "rollup", value: 1 } as unknown as never,
           },
         },
         triggerEvent: trigger(),

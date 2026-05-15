@@ -2,7 +2,8 @@
  * @jest-environment node
  *
  * Tests for the typed Airtable field polymorphism module.
- * Covers all 14 supported types + the 17 deferred types (the
+ * Covers all 15 supported types (14 Slice 10 + 1 Airtable 2.1
+ * Commit 1: `attachment`) + the 17 remaining deferred types (the
  * UnsupportedFieldTypeError loud-fail path).
  */
 import {
@@ -120,6 +121,45 @@ describe("formatFieldValue — outbound coercion", () => {
       formatFieldValue("multipleRecordLinks", "recABC::Alice"),
     ).toEqual(["recABC"]);
   });
+
+  // ─── attachment (Airtable 2.1 Commit 1) ───────────────────────────────────
+
+  it("attachment: single attachment with url + filename emits Airtable wire shape", () => {
+    expect(
+      formatFieldValue("attachment", [
+        { url: "https://files.example/photo.jpg", filename: "photo.jpg" },
+      ]),
+    ).toEqual([
+      { url: "https://files.example/photo.jpg", filename: "photo.jpg" },
+    ]);
+  });
+
+  it("attachment: multiple attachments preserve order", () => {
+    expect(
+      formatFieldValue("attachment", [
+        { url: "https://x.example/a.png", filename: "a.png" },
+        { url: "https://x.example/b.png", filename: "b.png" },
+        { url: "https://x.example/c.pdf" },
+      ]),
+    ).toEqual([
+      { url: "https://x.example/a.png", filename: "a.png" },
+      { url: "https://x.example/b.png", filename: "b.png" },
+      { url: "https://x.example/c.pdf" },
+    ]);
+  });
+
+  it("attachment: filename is OMITTED from the wire shape when undefined (NOT sent as null)", () => {
+    const out = formatFieldValue("attachment", [
+      { url: "https://x.example/a.png" },
+    ]) as Array<Record<string, unknown>>;
+    expect(out[0]).toEqual({ url: "https://x.example/a.png" });
+    expect(out[0]!.filename).toBeUndefined();
+    expect("filename" in out[0]!).toBe(false);
+  });
+
+  it("attachment: empty array is forwarded (Airtable clears the field — multipleSelects parity)", () => {
+    expect(formatFieldValue("attachment", [])).toEqual([]);
+  });
 });
 
 // ─── UnsupportedFieldTypeError ──────────────────────────────────────────────
@@ -136,11 +176,13 @@ describe("UnsupportedFieldTypeError — fail-loud on deferred types", () => {
 
   it("error message lists supported + deferred sets", () => {
     try {
-      formatFieldValue("attachment", null);
+      formatFieldValue("formula", null);
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(UnsupportedFieldTypeError);
       const message = (err as UnsupportedFieldTypeError).message;
+      // `attachment` is now in the SUPPORTED set (Airtable 2.1 Commit 1)
+      // — message includes it via SUPPORTED_FIELD_TYPES.join.
       expect(message).toContain("attachment");
       expect(message).toContain("singleLineText");
       expect(message).toContain("multipleRecordLinks");
@@ -168,15 +210,76 @@ describe("UnsupportedFieldTypeError — fail-loud on deferred types", () => {
   });
 
   it("parseFieldValue also throws on deferred + unknown types", () => {
-    expect(() => parseFieldValue("attachment", null)).toThrow(
-      UnsupportedFieldTypeError,
-    );
     expect(() => parseFieldValue("rollup", null)).toThrow(
       UnsupportedFieldTypeError,
     );
     expect(() => parseFieldValue("totallyUnknown", null)).toThrow(
       UnsupportedFieldTypeError,
     );
+  });
+
+  // ─── Airtable 2.1 Commit 1 regression guards ──────────────────────────────
+
+  it("attachment is NOT in DEFERRED_FIELD_TYPES (promoted in Airtable 2.1 Commit 1)", () => {
+    expect(DEFERRED_FIELD_TYPES).not.toContain("attachment");
+  });
+
+  it("attachment IS in SUPPORTED_FIELD_TYPES (promoted in Airtable 2.1 Commit 1)", () => {
+    expect(SUPPORTED_FIELD_TYPES).toContain("attachment");
+  });
+
+  it("SUPPORTED_FIELD_TYPES has 15 entries; DEFERRED_FIELD_TYPES has 17", () => {
+    expect(SUPPORTED_FIELD_TYPES).toHaveLength(15);
+    expect(DEFERRED_FIELD_TYPES).toHaveLength(17);
+  });
+
+  it("the 14 Slice 10 supported types are still supported (regression guard)", () => {
+    const slice10 = [
+      "singleLineText",
+      "longText",
+      "number",
+      "currency",
+      "percent",
+      "singleSelect",
+      "multipleSelects",
+      "checkbox",
+      "date",
+      "dateTime",
+      "email",
+      "url",
+      "phoneNumber",
+      "multipleRecordLinks",
+    ];
+    for (const t of slice10) {
+      expect(SUPPORTED_FIELD_TYPES).toContain(t);
+      expect(DEFERRED_FIELD_TYPES).not.toContain(t);
+    }
+  });
+
+  it("the 17 still-deferred types remain deferred (regression guard)", () => {
+    const stillDeferred = [
+      "formula",
+      "rollup",
+      "lookup",
+      "count",
+      "rating",
+      "duration",
+      "autoNumber",
+      "barcode",
+      "button",
+      "singleCollaborator",
+      "multipleCollaborators",
+      "createdBy",
+      "createdTime",
+      "lastModifiedBy",
+      "lastModifiedTime",
+      "externalSyncSource",
+      "aiText",
+    ];
+    for (const t of stillDeferred) {
+      expect(DEFERRED_FIELD_TYPES).toContain(t);
+      expect(SUPPORTED_FIELD_TYPES).not.toContain(t);
+    }
   });
 });
 
@@ -302,6 +405,104 @@ describe("parseFieldValue — inbound coercion", () => {
     expect(parseFieldValue("singleSelect", undefined)).toEqual({
       type: "singleSelect",
       value: null,
+    });
+  });
+
+  // ─── attachment (Airtable 2.1 Commit 1) ───────────────────────────────────
+
+  it("attachment: parses Airtable's read shape into the bounded 6-key projection", () => {
+    const raw = [
+      {
+        id: "att1",
+        url: "https://files.example/photo.jpg",
+        filename: "photo.jpg",
+        size: 1234,
+        type: "image/jpeg",
+        thumbnails: {
+          small: { url: "https://t.example/s.jpg", width: 36, height: 36 },
+          large: { url: "https://t.example/l.jpg", width: 512, height: 512 },
+        },
+        // Width / height / extras intentionally NOT projected.
+        width: 1024,
+        height: 768,
+      },
+    ];
+    const parsed = parseFieldValue("attachment", raw);
+    expect(parsed.type).toBe("attachment");
+    const value = parsed.value as unknown as ReadonlyArray<Record<string, unknown>>;
+    expect(value).toHaveLength(1);
+    expect(value[0]).toEqual({
+      id: "att1",
+      url: "https://files.example/photo.jpg",
+      filename: "photo.jpg",
+      size: 1234,
+      type: "image/jpeg",
+      thumbnails: {
+        small: { url: "https://t.example/s.jpg", width: 36, height: 36 },
+        large: { url: "https://t.example/l.jpg", width: 512, height: 512 },
+      },
+    });
+    // Width / height extras are NOT in the projection.
+    expect(value[0]).not.toHaveProperty("width");
+    expect(value[0]).not.toHaveProperty("height");
+  });
+
+  it("attachment: omits thumbnails when Airtable did not return them (non-image attachment)", () => {
+    const raw = [
+      {
+        id: "att2",
+        url: "https://files.example/doc.pdf",
+        filename: "doc.pdf",
+        size: 9876,
+        type: "application/pdf",
+      },
+    ];
+    const parsed = parseFieldValue("attachment", raw);
+    const value = parsed.value as unknown as ReadonlyArray<Record<string, unknown>>;
+    expect(value[0]).toEqual({
+      id: "att2",
+      url: "https://files.example/doc.pdf",
+      filename: "doc.pdf",
+      size: 9876,
+      type: "application/pdf",
+    });
+    expect("thumbnails" in value[0]!).toBe(false);
+  });
+
+  it("attachment: normalizes Airtable's omit-when-empty to [] (multipleSelects parity)", () => {
+    expect(parseFieldValue("attachment", undefined)).toEqual({
+      type: "attachment",
+      value: [],
+    });
+    expect(parseFieldValue("attachment", null)).toEqual({
+      type: "attachment",
+      value: [],
+    });
+  });
+
+  it("attachment: handles multiple attachments in one field", () => {
+    const raw = [
+      { id: "a", url: "https://x.example/1", filename: "1.png", size: 10, type: "image/png" },
+      { id: "b", url: "https://x.example/2", filename: "2.png", size: 20, type: "image/png" },
+    ];
+    const parsed = parseFieldValue("attachment", raw);
+    expect((parsed.value as unknown[]).length).toBe(2);
+  });
+
+  it("attachment: defensive defaults for malformed Airtable entries (empty string / 0)", () => {
+    // Defensive: Airtable always returns id/url/filename/size/type for
+    // successfully-uploaded attachments. If a wire response is broken
+    // (e.g. uploading attachment), the projection emits empty strings
+    // / 0 rather than throwing.
+    const raw = [{ id: "att3" }];
+    const parsed = parseFieldValue("attachment", raw);
+    const value = parsed.value as unknown as ReadonlyArray<Record<string, unknown>>;
+    expect(value[0]).toEqual({
+      id: "att3",
+      url: "",
+      filename: "",
+      size: 0,
+      type: "",
     });
   });
 });

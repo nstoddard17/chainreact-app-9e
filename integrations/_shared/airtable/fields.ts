@@ -1,26 +1,29 @@
 /**
- * Typed Airtable field polymorphism — Slice 10 Commit 3.
+ * Typed Airtable field polymorphism — Slice 10 Commit 3 + Airtable 2.1 Commit 1.
  *
- * Airtable's field type system has 30+ types; Slice 10 Batch 1 supports
- * 14 with both directions (outbound to wire / inbound from wire). V1
- * has the polymorphism but as inline switches duplicated across the
- * 924-LOC `createRecord.ts` and friends, including a
- * heuristic-by-field-name attachment detection ("if field name
- * contains 'photo' it's an attachment"). V2 centralizes both
- * directions in this single typed module + fails LOUD on deferred
- * types (no heuristic-based field detection).
+ * Airtable's field type system has 30+ types; Slice 10 Batch 1 supported
+ * 14 types with both directions (outbound to wire / inbound from wire).
+ * Airtable 2.1 Commit 1 promotes `attachment` to the supported set (15
+ * total) so dedicated `add_attachment` (Commit 2) AND inline
+ * `create_record` / `update_record` attachment writes can land. V1 has
+ * the polymorphism but as inline switches duplicated across the 924-LOC
+ * `createRecord.ts` and friends, including a heuristic-by-field-name
+ * attachment detection ("if field name contains 'photo' it's an
+ * attachment"). V2 centralizes both directions in this single typed
+ * module + fails LOUD on deferred types (no heuristic-based field
+ * detection).
  *
- * Slice 10 Batch 1 — 14 supported types (per
- * `docs/slices/slice-10-airtable.md` §"Field polymorphism strategy"):
+ * Supported types — 15 (Slice 10 Batch 1 + Airtable 2.1 Commit 1):
  *   singleLineText, longText, number, currency, percent, singleSelect,
  *   multipleSelects, checkbox, date, dateTime, email, url,
- *   phoneNumber, multipleRecordLinks.
+ *   phoneNumber, multipleRecordLinks, attachment.
  *
- * Deferred (17 types) — explicitly throw `UnsupportedFieldTypeError`:
- *   attachment, formula, rollup, lookup, count, rating, duration,
- *   autoNumber, barcode, button, singleCollaborator,
- *   multipleCollaborators, createdBy, createdTime, lastModifiedBy,
- *   lastModifiedTime, externalSyncSource, aiText.
+ * Deferred — 17 (was 18 before Airtable 2.1 Commit 1) — explicitly throw
+ * `UnsupportedFieldTypeError`:
+ *   formula, rollup, lookup, count, rating, duration, autoNumber,
+ *   barcode, button, singleCollaborator, multipleCollaborators,
+ *   createdBy, createdTime, lastModifiedBy, lastModifiedTime,
+ *   externalSyncSource, aiText.
  *
  * Two directions:
  *   - **`formatFieldValue`** — outbound. Used by create_record /
@@ -46,10 +49,10 @@
  */
 
 /**
- * The 14 field types Slice 10 Batch 1 supports. Future slices can
- * extend by adding to this union AND adding cases to formatFieldValue
- * / parseFieldValue. The exhaustiveness checks at the bottom of each
- * function will fail to compile if a case is missed.
+ * The 15 field types V2 supports (14 Slice 10 + 1 Airtable 2.1 Commit 1).
+ * Future slices can extend by adding to this union AND adding cases to
+ * formatFieldValue / parseFieldValue. The exhaustiveness checks at the
+ * bottom of each function will fail to compile if a case is missed.
  */
 export type SupportedFieldType =
   | "singleLineText"
@@ -65,7 +68,8 @@ export type SupportedFieldType =
   | "email"
   | "url"
   | "phoneNumber"
-  | "multipleRecordLinks";
+  | "multipleRecordLinks"
+  | "attachment";
 
 export const SUPPORTED_FIELD_TYPES: ReadonlyArray<SupportedFieldType> = [
   "singleLineText",
@@ -82,15 +86,16 @@ export const SUPPORTED_FIELD_TYPES: ReadonlyArray<SupportedFieldType> = [
   "url",
   "phoneNumber",
   "multipleRecordLinks",
+  "attachment",
 ];
 
 /**
- * The 17 field types Slice 10 Batch 1 explicitly defers. Listed in the
+ * The 17 field types V2 explicitly defers (was 18 before Airtable 2.1
+ * Commit 1 promoted `attachment`). Listed in the
  * UnsupportedFieldTypeError message so workflow authors know which
  * types are recognized-but-deferred versus unrecognized.
  */
 export const DEFERRED_FIELD_TYPES: ReadonlyArray<string> = [
-  "attachment",
   "formula",
   "rollup",
   "lookup",
@@ -116,10 +121,10 @@ function isSupported(type: string): type is SupportedFieldType {
 
 /**
  * Thrown by both `formatFieldValue` and `parseFieldValue` when called
- * with a field type outside Slice 10 Batch 1's supported set. The
- * error message lists the unsupported type, the supported set, and
- * the deferred set so workflow authors can fix their config without
- * hunting the source. Heuristic-based field detection (V1's
+ * with a field type outside V2's supported set. The error message
+ * lists the unsupported type, the supported set, and the deferred
+ * set so workflow authors can fix their config without hunting the
+ * source. Heuristic-based field detection (V1's
  * "if-name-contains-photo-it's-an-attachment") is rejected per the
  * Slice 10 plan; this is the explicit failure mode that replaces it.
  */
@@ -129,7 +134,7 @@ export class UnsupportedFieldTypeError extends Error {
   readonly deferredTypes: readonly string[];
   constructor(fieldType: string) {
     super(
-      `Airtable field type '${fieldType}' is not supported in Slice 10 Batch 1. Supported: ${SUPPORTED_FIELD_TYPES.join(", ")}. Deferred: ${DEFERRED_FIELD_TYPES.join(", ")}.`,
+      `Airtable field type '${fieldType}' is not supported by V2. Supported: ${SUPPORTED_FIELD_TYPES.join(", ")}. Deferred: ${DEFERRED_FIELD_TYPES.join(", ")}.`,
     );
     this.name = "UnsupportedFieldTypeError";
     this.fieldType = fieldType;
@@ -164,7 +169,29 @@ export type TypedFieldInput =
   | { type: "email"; value: string | null }
   | { type: "url"; value: string | null }
   | { type: "phoneNumber"; value: string | null }
-  | { type: "multipleRecordLinks"; value: ReadonlyArray<string> | string };
+  | { type: "multipleRecordLinks"; value: ReadonlyArray<string> | string }
+  | {
+      type: "attachment";
+      value: ReadonlyArray<AttachmentWriteInput>;
+    };
+
+/**
+ * Write-side attachment input. Airtable's wire shape for writes is
+ * `[{ url, filename? }]` — the server fetches the URL and ingests it
+ * as the record's attachment. `filename` is optional (Airtable derives
+ * one from the URL when omitted). NPD-A2 / NPD-A3 (Airtable 2.1) — no
+ * FileRef here; FileRef-aware byte ingestion belongs to the dedicated
+ * `add_attachment` action (Commit 2). `create_record` / `update_record`
+ * take a typed array of `{url, filename?}` pairs which are forwarded
+ * verbatim to the Airtable wire.
+ *
+ * Empty array allowed and forwarded — Airtable interprets it as "clear
+ * the attachment field." Same semantic as `multipleSelects`.
+ */
+export interface AttachmentWriteInput {
+  url: string;
+  filename?: string;
+}
 
 /**
  * V1's "recXXX::Display Name" cleanup — strips the trailing
@@ -259,6 +286,20 @@ export function formatFieldValue(
       const arr = Array.isArray(raw) ? raw : [raw];
       return arr.map((id) => cleanLinkedRecordId(id));
     }
+    case "attachment": {
+      // Wire shape: [{ url, filename? }]. Empty array allowed and
+      // forwarded — Airtable clears the field. Schema-level Zod
+      // validation (`actions/_fieldInput.schema.ts`) rejects bad URLs
+      // and empty filenames before the formatter sees the input; the
+      // formatter trusts those guarantees and just emits the wire
+      // shape (defensive copy + filename-omission preserved).
+      const arr = value as ReadonlyArray<AttachmentWriteInput>;
+      return arr.map((att) => {
+        const out: Record<string, unknown> = { url: att.url };
+        if (att.filename !== undefined) out.filename = att.filename;
+        return out;
+      });
+    }
     default: {
       // Exhaustiveness check — fails to compile if a case is missed
       // when SupportedFieldType is widened.
@@ -311,7 +352,33 @@ export type ParsedFieldValue =
   | { type: "email"; value: string | null }
   | { type: "url"; value: string | null }
   | { type: "phoneNumber"; value: string | null }
-  | { type: "multipleRecordLinks"; value: string[] };
+  | { type: "multipleRecordLinks"; value: string[] }
+  | { type: "attachment"; value: ParsedAttachment[] };
+
+/**
+ * Read-side bounded projection of Airtable's attachment object. Airtable
+ * returns a richer object on reads (`{id, url, filename, size, type,
+ * thumbnails?, width?, height?}`); the parser projects the six
+ * stable workflow-useful keys + `thumbnails` (optional — Airtable
+ * only ships it for image / pdf attachments). Width / height / extras
+ * are intentionally NOT projected — workflow authors who need them
+ * should compose a downstream read via `find_record` / `get_record`
+ * with `fields` honored.
+ *
+ * `id` / `url` are always strings. `filename`, `size`, `type` are
+ * preserved when Airtable returns them (Airtable always does for
+ * successfully-uploaded attachments). `thumbnails` is a passthrough
+ * object — Airtable's shape is `{small, large, full}` with each a
+ * `{url, width, height}` — preserved verbatim when present.
+ */
+export interface ParsedAttachment {
+  id: string;
+  url: string;
+  filename: string;
+  size: number;
+  type: string;
+  thumbnails?: Record<string, unknown>;
+}
 
 /**
  * Extract a typed value from an Airtable record's raw field value.
@@ -383,12 +450,48 @@ export function parseFieldValue(
         type: "multipleRecordLinks",
         value: Array.isArray(rawValue) ? (rawValue as string[]) : [],
       };
+    case "attachment":
+      // Airtable omits the attachment field when no attachments are
+      // present (consistent with multipleSelects / multipleRecordLinks).
+      // Parser normalizes to a definite empty array. Each entry is
+      // projected to the bounded 6-key shape; thumbnails preserved
+      // when present.
+      return {
+        type: "attachment",
+        value: Array.isArray(rawValue)
+          ? rawValue.map(projectAttachment)
+          : [],
+      };
     default: {
       const _exhaustive: never = fieldType;
       void _exhaustive;
       throw new UnsupportedFieldTypeError(fieldType);
     }
   }
+}
+
+/**
+ * Bounded-projection helper for one Airtable attachment object. Used
+ * by `parseFieldValue` on reads. Fields that Airtable doesn't return
+ * for a given attachment (e.g. `thumbnails` for non-image types) are
+ * omitted from the projection — `filename` / `size` / `type` default
+ * to empty string / 0 / empty string only when the wire response
+ * literally omits them (defensive — Airtable always returns them for
+ * successfully-uploaded attachments).
+ */
+function projectAttachment(raw: unknown): ParsedAttachment {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const out: ParsedAttachment = {
+    id: typeof r.id === "string" ? r.id : "",
+    url: typeof r.url === "string" ? r.url : "",
+    filename: typeof r.filename === "string" ? r.filename : "",
+    size: typeof r.size === "number" ? r.size : 0,
+    type: typeof r.type === "string" ? r.type : "",
+  };
+  if (r.thumbnails && typeof r.thumbnails === "object") {
+    out.thumbnails = r.thumbnails as Record<string, unknown>;
+  }
+  return out;
 }
 
 /**
