@@ -228,7 +228,12 @@ describe("receiveStripeWebhook", () => {
     const offAllowlistBody = JSON.stringify({
       id: "evt_skip",
       object: "event",
-      type: "invoice.created", // valid Stripe event type, NOT in Slice 11 allowlist
+      // valid Stripe event type, NOT in V2 allowlist.
+      // `invoice.created` was the original example here but was
+      // promoted to the allowlist in Stripe 2.1 Commit 3 alongside
+      // `create_invoice` — `invoice.finalized` keeps the same
+      // out-of-allowlist semantics for this test.
+      type: "invoice.finalized",
       created: t,
       livemode: false,
       data: { object: {} },
@@ -238,7 +243,7 @@ describe("receiveStripeWebhook", () => {
     );
     expect(result.kind).toBe("unsupported_event_type");
     if (result.kind === "unsupported_event_type") {
-      expect(result.stripeEventType).toBe("invoice.created");
+      expect(result.stripeEventType).toBe("invoice.finalized");
     }
   });
 

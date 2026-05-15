@@ -177,6 +177,7 @@ import { capturePaymentIntent as stripeCapturePaymentIntent } from "@/integratio
 import { confirmPaymentIntent as stripeConfirmPaymentIntent } from "@/integrations/stripe/actions/confirmPaymentIntent";
 import { createCheckoutSession as stripeCreateCheckoutSession } from "@/integrations/stripe/actions/createCheckoutSession";
 import { createCustomer as stripeCreateCustomer } from "@/integrations/stripe/actions/createCustomer";
+import { createInvoice as stripeCreateInvoice } from "@/integrations/stripe/actions/createInvoice";
 import { createPaymentIntent as stripeCreatePaymentIntent } from "@/integrations/stripe/actions/createPaymentIntent";
 import { createPaymentLink as stripeCreatePaymentLink } from "@/integrations/stripe/actions/createPaymentLink";
 import { createRefund as stripeCreateRefund } from "@/integrations/stripe/actions/createRefund";
@@ -371,6 +372,7 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "stripe", type: "cancel_subscription", handler: stripeCancelSubscription },
   { provider: "stripe", type: "create_checkout_session", handler: stripeCreateCheckoutSession },
   { provider: "stripe", type: "create_payment_link", handler: stripeCreatePaymentLink },
+  { provider: "stripe", type: "create_invoice", handler: stripeCreateInvoice },
   { provider: "shopify", type: "create_order", handler: shopifyCreateOrder },
   { provider: "shopify", type: "update_order_status", handler: shopifyUpdateOrderStatus },
   { provider: "shopify", type: "add_order_note", handler: shopifyAddOrderNote },
