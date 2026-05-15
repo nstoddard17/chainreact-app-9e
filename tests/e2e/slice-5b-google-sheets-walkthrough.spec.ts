@@ -772,8 +772,15 @@ test.describe("Sheets 2.1 — cell + row + spreadsheet lifecycle actions e2e", (
     expect(triggerConfig.lastRowCount).toBe(3);
 
     // ── Inject the trigger row + POST the push notification ──
+    // Per-run unique inject value so webhook_event_dedup (system-wide
+    // table, not cascaded by deleteTestUser) doesn't collide across
+    // consecutive runs. The trigger eventId hash includes JSON of the
+    // row values; without randomization the second run's eventId
+    // matches the first and the dispatcher drops the event as a
+    // duplicate. Same pattern Slice 5b's single-action test uses.
+    const carolLabel = `carol-${randomUUID()}`;
     await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
-      data: { values: ["carol", "carol@e.test"] },
+      data: { values: [carolLabel, "carol@e.test"] },
     });
     const channelToken = buildChannelToken({
       channelId: triggerConfig.channelId,
