@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   createServer,
   type Server,
@@ -159,6 +160,43 @@ export interface RecordedWebhookEvent {
   responseBody: string;
 }
 
+/**
+ * Mailchimp 2.1 Commit 4 — new recorded-call shapes for the
+ * read-tier actions + unsubscribe + parity polling triggers.
+ */
+export interface RecordedMembersList {
+  audienceId: string;
+  authorization: string | undefined;
+  query: Record<string, string>;
+}
+
+export interface RecordedMemberPatch {
+  audienceId: string;
+  subscriberHash: string;
+  authorization: string | undefined;
+  contentType: string | undefined;
+  body: string;
+  parsedBody: Record<string, unknown>;
+}
+
+export interface RecordedSegmentGet {
+  audienceId: string;
+  segmentId: string;
+  authorization: string | undefined;
+}
+
+export interface RecordedSegmentMembersList {
+  audienceId: string;
+  segmentId: string;
+  authorization: string | undefined;
+  query: Record<string, string>;
+}
+
+export interface RecordedListsList {
+  authorization: string | undefined;
+  query: Record<string, string>;
+}
+
 export interface MockMailchimpHandle {
   port: number;
   baseUrl: string;
@@ -168,6 +206,8 @@ export interface MockMailchimpHandle {
     metadata: RecordedMetadataCall[];
     apiRoot: RecordedApiRootCall[];
     memberPut: RecordedMemberPut[];
+    memberPatch: RecordedMemberPatch[];
+    membersList: RecordedMembersList[];
     tagsPost: RecordedTagsPost[];
     webhookCreate: RecordedWebhookCreate[];
     webhookDelete: RecordedWebhookDelete[];
@@ -176,6 +216,9 @@ export interface MockMailchimpHandle {
     campaignsList: RecordedCampaignsList[];
     campaignGet: RecordedCampaignGet[];
     reportSummary: RecordedReportSummary[];
+    segmentGet: RecordedSegmentGet[];
+    segmentMembersList: RecordedSegmentMembersList[];
+    listsList: RecordedListsList[];
     webhookEvent: RecordedWebhookEvent[];
   };
   reset(): void;
@@ -207,11 +250,59 @@ interface LastWebhookEvent {
   url: string;
 }
 
+/**
+ * Bounded member shape used by /lists/{id}/members and
+ * /lists/{id}/segments/{segId}/members. Mirrors the subset of
+ * Mailchimp fields the V2 wrappers consume.
+ */
+interface MockMember {
+  id: string;
+  email_address: string;
+  unique_email_id?: string;
+  contact_id?: string;
+  status: string;
+  list_id: string;
+  merge_fields?: Record<string, unknown>;
+  tags?: Array<{ id: number; name: string }>;
+  timestamp_signup?: string;
+  last_changed?: string;
+  email_type?: string;
+  vip?: boolean;
+}
+
+interface MockSegment {
+  id: number;
+  name: string;
+  member_count: number;
+  type: string;
+  list_id: string;
+  created_at: string;
+  updated_at: string;
+  /** Members of this segment, keyed by hash. */
+  members: Map<string, MockMember>;
+}
+
+interface MockList {
+  id: string;
+  web_id?: number;
+  name: string;
+  date_created?: string;
+  contact?: { company?: string };
+  permission_reminder?: string;
+  stats?: { member_count?: number };
+  /** Members of this audience, keyed by hash. Used by GET /lists/{id}/members. */
+  members: Map<string, MockMember>;
+}
+
 interface MutableState {
   calls: MockMailchimpHandle["calls"];
   webhooks: Map<string, { id: string; audienceId: string; url: string; events: Record<string, boolean>; sources: Record<string, boolean> }>;
   webhookCounter: number;
   campaigns: Map<string, MockCampaign>;
+  /** Mailchimp 2.1 — seeded by __seedList. */
+  lists: Map<string, MockList>;
+  /** Mailchimp 2.1 — keyed by `${audienceId}:${segmentId}`. */
+  segments: Map<string, MockSegment>;
   lastWebhookEvent: LastWebhookEvent | null;
   // Fixture identifiers reused across tests.
   account: {
@@ -230,6 +321,8 @@ function freshState(): MutableState {
       metadata: [],
       apiRoot: [],
       memberPut: [],
+      memberPatch: [],
+      membersList: [],
       tagsPost: [],
       webhookCreate: [],
       webhookDelete: [],
@@ -238,11 +331,16 @@ function freshState(): MutableState {
       campaignsList: [],
       campaignGet: [],
       reportSummary: [],
+      segmentGet: [],
+      segmentMembersList: [],
+      listsList: [],
       webhookEvent: [],
     },
     webhooks: new Map(),
     webhookCounter: 0,
     campaigns: new Map(),
+    lists: new Map(),
+    segments: new Map(),
     lastWebhookEvent: null,
     account: {
       accountId: "8d3a3db4d97663a9074efcc16",
@@ -320,12 +418,70 @@ async function handleRequest(
     return handleApiRoot(req, res, state);
   }
 
+  // GET /3.0/lists  (must match BEFORE the more-specific
+  // /lists/{audienceId}/... routes — Node's path matcher is
+  // length-ordered by us, not the framework).
+  if (req.method === "GET" && url.pathname === "/3.0/lists") {
+    return handleListsList(req, res, state, url);
+  }
+
+  // GET /3.0/lists/{audienceId}/members (members list — Mailchimp 2.1
+  // get_subscribers + segment-member fallback callers).
+  const membersListMatch = url.pathname.match(
+    /^\/3\.0\/lists\/([^/]+)\/members$/,
+  );
+  if (req.method === "GET" && membersListMatch) {
+    return handleMembersList(req, res, state, membersListMatch[1]!, url);
+  }
+
+  // GET /3.0/lists/{audienceId}/segments/{segmentId}/members  (must
+  // match BEFORE the segments/{id} route so the regex is checked first).
+  const segmentMembersMatch = url.pathname.match(
+    /^\/3\.0\/lists\/([^/]+)\/segments\/([^/]+)\/members$/,
+  );
+  if (req.method === "GET" && segmentMembersMatch) {
+    return handleSegmentMembersList(
+      req,
+      res,
+      state,
+      segmentMembersMatch[1]!,
+      segmentMembersMatch[2]!,
+      url,
+    );
+  }
+
+  // GET /3.0/lists/{audienceId}/segments/{segmentId}
+  const segmentGetMatch = url.pathname.match(
+    /^\/3\.0\/lists\/([^/]+)\/segments\/([^/]+)$/,
+  );
+  if (req.method === "GET" && segmentGetMatch) {
+    return handleSegmentGet(
+      req,
+      res,
+      state,
+      segmentGetMatch[1]!,
+      segmentGetMatch[2]!,
+    );
+  }
+
   // PUT /3.0/lists/{audienceId}/members/{subscriberHash}
   const memberPutMatch = url.pathname.match(
     /^\/3\.0\/lists\/([^/]+)\/members\/([^/]+)$/,
   );
   if (req.method === "PUT" && memberPutMatch) {
     return handleMemberPut(req, res, state, memberPutMatch[1]!, memberPutMatch[2]!);
+  }
+
+  // PATCH /3.0/lists/{audienceId}/members/{subscriberHash}
+  // (Mailchimp 2.1 — unsubscribe_subscriber + update_subscriber).
+  if (req.method === "PATCH" && memberPutMatch) {
+    return handleMemberPatch(
+      req,
+      res,
+      state,
+      memberPutMatch[1]!,
+      memberPutMatch[2]!,
+    );
   }
 
   // POST /3.0/lists/{audienceId}/members/{subscriberHash}/tags
@@ -432,6 +588,22 @@ async function handleRequest(
   if (req.method === "POST" && url.pathname === "/__advanceCampaignOpens") {
     return handleAdvanceCampaignOpens(req, res, state);
   }
+  // Mailchimp 2.1 control endpoints.
+  if (req.method === "POST" && url.pathname === "/__seedList") {
+    return handleSeedList(req, res, state);
+  }
+  if (req.method === "POST" && url.pathname === "/__seedListMembers") {
+    return handleSeedListMembers(req, res, state);
+  }
+  if (req.method === "POST" && url.pathname === "/__seedSegment") {
+    return handleSeedSegment(req, res, state);
+  }
+  if (req.method === "POST" && url.pathname === "/__addSegmentMember") {
+    return handleAddSegmentMember(req, res, state);
+  }
+  if (req.method === "POST" && url.pathname === "/__updateSegment") {
+    return handleUpdateSegment(req, res, state);
+  }
   if (req.method === "POST" && url.pathname === "/__reset") {
     Object.assign(state, freshState());
     res.writeHead(200, { "content-type": "application/json" });
@@ -445,6 +617,20 @@ async function handleRequest(
         calls: state.calls,
         webhooks: Array.from(state.webhooks.values()),
         campaigns: Array.from(state.campaigns.values()),
+        lists: Array.from(state.lists.values()).map((l) => ({
+          id: l.id,
+          name: l.name,
+          memberCount: l.members.size,
+        })),
+        segments: Array.from(state.segments.values()).map((s) => ({
+          id: s.id,
+          name: s.name,
+          list_id: s.list_id,
+          member_count: s.member_count,
+          memberMapSize: s.members.size,
+          updated_at: s.updated_at,
+          type: s.type,
+        })),
       }),
     );
     return;
@@ -1252,7 +1438,466 @@ async function handleAdvanceCampaignOpens(
   res.end(JSON.stringify({ ok: true, totalOpens: c.totalOpens }));
 }
 
+// ── Mailchimp 2.1 read-tier + polling handlers ─────────────────────────
+
+async function handleMembersList(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  audienceId: string,
+  url: URL,
+): Promise<void> {
+  const query: Record<string, string> = {};
+  for (const [k, v] of url.searchParams.entries()) query[k] = v;
+  state.calls.membersList.push({
+    audienceId,
+    authorization: req.headers.authorization,
+    query,
+  });
+  const list = state.lists.get(audienceId);
+  const members = list ? Array.from(list.members.values()) : [];
+  // Optional status filter.
+  let filtered = members;
+  if (query.status) {
+    filtered = filtered.filter((m) => m.status === query.status);
+  }
+  const offset = query.offset ? Number(query.offset) : 0;
+  const count = query.count ? Number(query.count) : filtered.length;
+  const page = filtered.slice(offset, offset + count);
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      list_id: audienceId,
+      members: page,
+      total_items: filtered.length,
+    }),
+  );
+}
+
+async function handleMemberPatch(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  audienceId: string,
+  subscriberHash: string,
+): Promise<void> {
+  const authHeader = req.headers.authorization;
+  const contentType = req.headers["content-type"] as string | undefined;
+  const body = await readBody(req);
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = body.length > 0 ? (JSON.parse(body) as Record<string, unknown>) : {};
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ detail: "invalid json" }));
+    return;
+  }
+  state.calls.memberPatch.push({
+    audienceId,
+    subscriberHash,
+    authorization: authHeader,
+    contentType,
+    body,
+    parsedBody: parsed,
+  });
+
+  // Apply status change to whatever list/segment member maps reference
+  // this subscriberHash. Best-effort: tests assert on the recorded call,
+  // not on persistent state for unsubscribe.
+  const status =
+    (parsed.status as string | undefined) ?? "subscribed";
+  const list = state.lists.get(audienceId);
+  if (list?.members.has(subscriberHash)) {
+    const m = list.members.get(subscriberHash)!;
+    m.status = status;
+    m.last_changed = new Date().toISOString();
+  }
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      id: subscriberHash,
+      email_address:
+        (parsed.email_address as string | undefined) ??
+        list?.members.get(subscriberHash)?.email_address ??
+        "patched@e2e.test",
+      status,
+      list_id: audienceId,
+      last_changed: new Date().toISOString(),
+    }),
+  );
+}
+
+async function handleSegmentGet(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  audienceId: string,
+  segmentId: string,
+): Promise<void> {
+  state.calls.segmentGet.push({
+    audienceId,
+    segmentId,
+    authorization: req.headers.authorization,
+  });
+  const seg = state.segments.get(`${audienceId}:${segmentId}`);
+  if (!seg) {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ detail: `segment ${segmentId} not found` }));
+    return;
+  }
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      id: seg.id,
+      name: seg.name,
+      member_count: seg.member_count,
+      type: seg.type,
+      list_id: seg.list_id,
+      created_at: seg.created_at,
+      updated_at: seg.updated_at,
+    }),
+  );
+}
+
+async function handleSegmentMembersList(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  audienceId: string,
+  segmentId: string,
+  url: URL,
+): Promise<void> {
+  const query: Record<string, string> = {};
+  for (const [k, v] of url.searchParams.entries()) query[k] = v;
+  state.calls.segmentMembersList.push({
+    audienceId,
+    segmentId,
+    authorization: req.headers.authorization,
+    query,
+  });
+  const seg = state.segments.get(`${audienceId}:${segmentId}`);
+  const members = seg ? Array.from(seg.members.values()) : [];
+  const offset = query.offset ? Number(query.offset) : 0;
+  const count = query.count ? Number(query.count) : members.length;
+  const page = members.slice(offset, offset + count);
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      members: page,
+      total_items: members.length,
+    }),
+  );
+}
+
+async function handleListsList(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  url: URL,
+): Promise<void> {
+  const query: Record<string, string> = {};
+  for (const [k, v] of url.searchParams.entries()) query[k] = v;
+  state.calls.listsList.push({
+    authorization: req.headers.authorization,
+    query,
+  });
+  const lists = Array.from(state.lists.values()).map((l) => ({
+    id: l.id,
+    web_id: l.web_id,
+    name: l.name,
+    date_created: l.date_created,
+    contact: l.contact,
+    permission_reminder: l.permission_reminder,
+    stats: l.stats ?? { member_count: l.members.size },
+  }));
+  const offset = query.offset ? Number(query.offset) : 0;
+  const count = query.count ? Number(query.count) : lists.length;
+  const page = lists.slice(offset, offset + count);
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      lists: page,
+      total_items: lists.length,
+    }),
+  );
+}
+
+// ── Mailchimp 2.1 control-plane handlers ────────────────────────────
+
+interface SeedListPayload {
+  listId: string;
+  name?: string;
+  webId?: number;
+  company?: string;
+  dateCreated?: string;
+  permissionReminder?: string;
+  memberCount?: number;
+}
+
+async function handleSeedList(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+): Promise<void> {
+  const bodyText = await readBody(req);
+  let payload: SeedListPayload;
+  try {
+    payload = JSON.parse(bodyText) as SeedListPayload;
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid json" }));
+    return;
+  }
+  if (!payload.listId) {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "listId required" }));
+    return;
+  }
+  state.lists.set(payload.listId, {
+    id: payload.listId,
+    web_id: payload.webId,
+    name: payload.name ?? "Mock List",
+    date_created: payload.dateCreated ?? new Date().toISOString(),
+    contact: payload.company ? { company: payload.company } : undefined,
+    permission_reminder: payload.permissionReminder,
+    stats: { member_count: payload.memberCount ?? 0 },
+    members: new Map(),
+  });
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ ok: true }));
+}
+
+interface SeedListMembersPayload {
+  listId: string;
+  /** Array of { email, status?, firstName?, lastName? }. */
+  members: Array<{
+    email: string;
+    status?: string;
+    firstName?: string;
+    lastName?: string;
+  }>;
+}
+
+async function handleSeedListMembers(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+): Promise<void> {
+  const bodyText = await readBody(req);
+  let payload: SeedListMembersPayload;
+  try {
+    payload = JSON.parse(bodyText) as SeedListMembersPayload;
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid json" }));
+    return;
+  }
+  if (!payload.listId || !Array.isArray(payload.members)) {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "listId + members[] required" }));
+    return;
+  }
+  let list = state.lists.get(payload.listId);
+  if (!list) {
+    // Auto-seed an empty list so callers can drop members directly.
+    list = {
+      id: payload.listId,
+      name: "Mock List (auto-seeded)",
+      date_created: new Date().toISOString(),
+      members: new Map(),
+      stats: { member_count: 0 },
+    };
+    state.lists.set(payload.listId, list);
+  }
+  for (const m of payload.members) {
+    const hash = md5LowercaseEmail(m.email);
+    list.members.set(hash, {
+      id: hash,
+      email_address: m.email,
+      unique_email_id: `uid-${hash.slice(0, 8)}`,
+      contact_id: `contact-${hash.slice(0, 12)}`,
+      status: m.status ?? "subscribed",
+      list_id: payload.listId,
+      merge_fields: {
+        FNAME: m.firstName ?? "",
+        LNAME: m.lastName ?? "",
+      },
+      tags: [],
+      timestamp_signup: new Date().toISOString(),
+      last_changed: new Date().toISOString(),
+      email_type: "html",
+      vip: false,
+    });
+  }
+  list.stats = { member_count: list.members.size };
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ ok: true, memberCount: list.members.size }));
+}
+
+interface SeedSegmentPayload {
+  audienceId: string;
+  segmentId: string;
+  name?: string;
+  type?: string;
+  memberCount?: number;
+  updatedAt?: string;
+  createdAt?: string;
+  initialMembers?: Array<{ email: string; status?: string }>;
+}
+
+async function handleSeedSegment(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+): Promise<void> {
+  const bodyText = await readBody(req);
+  let payload: SeedSegmentPayload;
+  try {
+    payload = JSON.parse(bodyText) as SeedSegmentPayload;
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid json" }));
+    return;
+  }
+  if (!payload.audienceId || !payload.segmentId) {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "audienceId + segmentId required" }));
+    return;
+  }
+  const members = new Map<string, MockMember>();
+  for (const m of payload.initialMembers ?? []) {
+    const hash = md5LowercaseEmail(m.email);
+    members.set(hash, {
+      id: hash,
+      email_address: m.email,
+      status: m.status ?? "subscribed",
+      list_id: payload.audienceId,
+      last_changed: new Date().toISOString(),
+    });
+  }
+  const memberCount = payload.memberCount ?? members.size;
+  state.segments.set(`${payload.audienceId}:${payload.segmentId}`, {
+    id: Number.isFinite(Number(payload.segmentId))
+      ? Number(payload.segmentId)
+      : 0,
+    name: payload.name ?? "Mock Segment",
+    member_count: memberCount,
+    type: payload.type ?? "static",
+    list_id: payload.audienceId,
+    created_at: payload.createdAt ?? new Date().toISOString(),
+    updated_at: payload.updatedAt ?? new Date().toISOString(),
+    members,
+  });
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ ok: true, memberCount }));
+}
+
+interface AddSegmentMemberPayload {
+  audienceId: string;
+  segmentId: string;
+  email: string;
+  status?: string;
+}
+
+async function handleAddSegmentMember(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+): Promise<void> {
+  const bodyText = await readBody(req);
+  let payload: AddSegmentMemberPayload;
+  try {
+    payload = JSON.parse(bodyText) as AddSegmentMemberPayload;
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid json" }));
+    return;
+  }
+  if (!payload.audienceId || !payload.segmentId || !payload.email) {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        error: "audienceId + segmentId + email required",
+      }),
+    );
+    return;
+  }
+  const seg = state.segments.get(`${payload.audienceId}:${payload.segmentId}`);
+  if (!seg) {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "segment not seeded" }));
+    return;
+  }
+  const hash = md5LowercaseEmail(payload.email);
+  seg.members.set(hash, {
+    id: hash,
+    email_address: payload.email,
+    status: payload.status ?? "subscribed",
+    list_id: payload.audienceId,
+    last_changed: new Date().toISOString(),
+  });
+  seg.member_count = seg.members.size;
+  // Bumping updated_at: real Mailchimp does this automatically when
+  // membership changes. Match that behavior so segment_updated
+  // poll-tick triggers also fire on membership-only changes.
+  seg.updated_at = new Date().toISOString();
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      ok: true,
+      subscriberHash: hash,
+      memberCount: seg.member_count,
+    }),
+  );
+}
+
+interface UpdateSegmentPayload {
+  audienceId: string;
+  segmentId: string;
+  name?: string;
+  memberCount?: number;
+  type?: string;
+  updatedAt?: string;
+}
+
+async function handleUpdateSegment(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+): Promise<void> {
+  const bodyText = await readBody(req);
+  let payload: UpdateSegmentPayload;
+  try {
+    payload = JSON.parse(bodyText) as UpdateSegmentPayload;
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid json" }));
+    return;
+  }
+  if (!payload.audienceId || !payload.segmentId) {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "audienceId + segmentId required" }));
+    return;
+  }
+  const seg = state.segments.get(`${payload.audienceId}:${payload.segmentId}`);
+  if (!seg) {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "segment not seeded" }));
+    return;
+  }
+  if (payload.name !== undefined) seg.name = payload.name;
+  if (payload.memberCount !== undefined) seg.member_count = payload.memberCount;
+  if (payload.type !== undefined) seg.type = payload.type;
+  seg.updated_at = payload.updatedAt ?? new Date().toISOString();
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ ok: true, updatedAt: seg.updated_at }));
+}
+
 // ── helpers ────────────────────────────────────────────────────────────
+
+function md5LowercaseEmail(email: string): string {
+  return createHash("md5").update(email.toLowerCase()).digest("hex");
+}
 
 interface MailchimpEventFields {
   type: string;

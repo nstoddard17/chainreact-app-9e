@@ -661,6 +661,590 @@ test.describe("Slice 14 — full Mailchimp walkthrough", () => {
     await new Promise((r) => setTimeout(r, 1500));
     expect(await getWorkflowRunsForUser(user.id)).toHaveLength(2);
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Mailchimp 2.1 Commit 4 — read-tier actions + unsubscribe
+  // ─────────────────────────────────────────────────────────────────
+
+  test("Mailchimp 2.1 — read-tier actions + unsubscribe_subscriber", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMailchimpMockState();
+    const runMarker = randomUUID().replace(/-/g, "").slice(0, 12);
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await signIn(page, user);
+
+    // Connect Mailchimp.
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=mailchimp/),
+      page
+        .getByRole("button", { name: "Connect Mailchimp", exact: true })
+        .click(),
+    ]);
+
+    // Seed mock state required by the 4 read-tier actions:
+    //   - campaignId fixture for get_campaign + get_campaign_stats.
+    //   - a couple of list members so get_subscribers returns
+    //     bounded, recognizable rows.
+    const campaignId = `cmp-${runMarker}`;
+    const seededEmail1 = `seeded1-${runMarker}@e2e.test`;
+    const seededEmail2 = `seeded2-${runMarker}@e2e.test`;
+    const unsubscribeEmail = `unsub-${runMarker}@e2e.test`;
+
+    await page.request.post(`${mock.baseUrl}/__seedCampaign`, {
+      data: {
+        campaignId,
+        audienceId: AUDIENCE_ID,
+        audienceName: "Mock Audience",
+        title: "E2E 2.1 Campaign",
+        subjectLine: "Hello 2.1",
+        totalOpens: 7,
+        status: "sent",
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__seedListMembers`, {
+      data: {
+        listId: AUDIENCE_ID,
+        members: [
+          { email: seededEmail1, firstName: "First", lastName: "User" },
+          { email: seededEmail2, firstName: "Second", lastName: "User" },
+        ],
+      },
+    });
+
+    // Build a workflow that chains 4 read-tier / unsubscribe actions
+    // off ONE audience_event subscribe trigger fire. Compressed: one
+    // webhook → one workflow_run → four mock calls. Avoids the
+    // setup cost of four separate OAuth-connected workflows.
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill(`E2E Mailchimp 2.1 Read+Unsub — ${runMarker}`);
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const draft = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "mailchimp",
+          type: "audience_event",
+          config: {
+            audienceId: AUDIENCE_ID,
+            eventTypes: ["subscribe"],
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "get-subs",
+          kind: "action" as const,
+          provider: "mailchimp",
+          type: "get_subscribers",
+          config: {
+            listId: AUDIENCE_ID,
+            status: "subscribed",
+            count: 50,
+          },
+          position: { x: 0, y: 100 },
+        },
+        {
+          id: "get-campaign",
+          kind: "action" as const,
+          provider: "mailchimp",
+          type: "get_campaign",
+          config: { campaignId },
+          position: { x: 0, y: 200 },
+        },
+        {
+          id: "get-stats",
+          kind: "action" as const,
+          provider: "mailchimp",
+          type: "get_campaign_stats",
+          config: { campaignId },
+          position: { x: 0, y: 300 },
+        },
+        {
+          id: "unsub",
+          kind: "action" as const,
+          provider: "mailchimp",
+          type: "unsubscribe_subscriber",
+          config: {
+            listId: AUDIENCE_ID,
+            emailAddress: unsubscribeEmail,
+          },
+          position: { x: 0, y: 400 },
+        },
+      ],
+      edges: [
+        { id: "e1", from: "trigger-node", to: "get-subs" },
+        { id: "e2", from: "get-subs", to: "get-campaign" },
+        { id: "e3", from: "get-campaign", to: "get-stats" },
+        { id: "e4", from: "get-stats", to: "unsub" },
+      ],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition: draft },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+
+    await page.reload();
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(page.locator("[data-status-kind=active]")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Fire one subscribe webhook → workflow_run drives all 4 actions.
+    const sendResp = await page.request.post(
+      `${mock.baseUrl}/__sendWebhookEvent`,
+      {
+        data: {
+          type: "subscribe",
+          audienceId: AUDIENCE_ID,
+          email: `incoming-${runMarker}@e2e.test`,
+          subscriberHash: `incominghash${runMarker.slice(0, 8)}`,
+          firedAt: "2026-05-10 12:00:00",
+          merges: { FNAME: "Incoming" },
+          workflowId,
+          nodeId: "trigger-node",
+        },
+      },
+    );
+    expect(sendResp.status()).toBe(200);
+
+    // Workflow run reached completion with all 4 actions firing.
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "read-tier workflow_run to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+    const steps = run.steps as Array<{ nodeId: string; status: string }>;
+    const stepMap = new Map(steps.map((s) => [s.nodeId, s.status] as const));
+    expect(stepMap.get("get-subs")).toBe("succeeded");
+    expect(stepMap.get("get-campaign")).toBe("succeeded");
+    expect(stepMap.get("get-stats")).toBe("succeeded");
+    expect(stepMap.get("unsub")).toBe("succeeded");
+
+    // Mock saw the 4 wire calls in the expected shape.
+    const callsAfter = await fetchMailchimpCalls(request, mock.baseUrl);
+
+    // get_subscribers → GET /3.0/lists/{id}/members with the configured
+    // status + count query params.
+    expect(callsAfter.calls.membersList).toHaveLength(1);
+    const membersCall = callsAfter.calls.membersList[0]!;
+    expect(membersCall.audienceId).toBe(AUDIENCE_ID);
+    expect(membersCall.authorization).toBe(
+      "Bearer mailchimp-mock-e2e-access",
+    );
+    expect(membersCall.query.status).toBe("subscribed");
+    expect(membersCall.query.count).toBe("50");
+
+    // get_campaign → GET /3.0/campaigns/{id}. Only 1 campaign call
+    // (the get_campaign action). The activation-time campaignsList
+    // baseline calls in Test 1's polling leg don't fire here because
+    // this test doesn't activate a polling trigger.
+    const campaignGetCalls = callsAfter.calls.campaignGet.filter(
+      (c) => c.campaignId === campaignId,
+    );
+    expect(campaignGetCalls).toHaveLength(1);
+    expect(campaignGetCalls[0]!.authorization).toBe(
+      "Bearer mailchimp-mock-e2e-access",
+    );
+
+    // get_campaign_stats → GET /3.0/reports/{id} via reportGet (same
+    // wire path as reportSummary).
+    const reportCalls = callsAfter.calls.reportSummary.filter(
+      (c) => c.campaignId === campaignId,
+    );
+    expect(reportCalls).toHaveLength(1);
+
+    // unsubscribe_subscriber → PATCH /3.0/lists/{id}/members/{hash}
+    // with body.status = "unsubscribed". No sendGoodbye, no
+    // sendNotification, no reason.
+    expect(callsAfter.calls.memberPatch).toHaveLength(1);
+    const patchCall = callsAfter.calls.memberPatch[0]!;
+    expect(patchCall.audienceId).toBe(AUDIENCE_ID);
+    const expectedHash = createHash("md5")
+      .update(unsubscribeEmail.toLowerCase())
+      .digest("hex");
+    expect(patchCall.subscriberHash).toBe(expectedHash);
+    expect(patchCall.authorization).toBe(
+      "Bearer mailchimp-mock-e2e-access",
+    );
+    expect(patchCall.contentType).toContain("application/json");
+    expect(patchCall.parsedBody.status).toBe("unsubscribed");
+    expect(patchCall.parsedBody).not.toHaveProperty("sendGoodbye");
+    expect(patchCall.parsedBody).not.toHaveProperty("sendNotification");
+    expect(patchCall.parsedBody).not.toHaveProperty("reason");
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Mailchimp 2.1 Commit 4 — parity polling triggers
+  // ─────────────────────────────────────────────────────────────────
+
+  test("Mailchimp 2.1 — parity polling triggers (segment members, segment state, new audience)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMailchimpMockState();
+    const cronSecret = requireEnv("CRON_SECRET");
+    const runMarker = randomUUID().replace(/-/g, "").slice(0, 12);
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await signIn(page, user);
+
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=mailchimp/),
+      page
+        .getByRole("button", { name: "Connect Mailchimp", exact: true })
+        .click(),
+    ]);
+
+    // ── Seed baseline mock state for the 3 polling triggers ──
+    // Two segments: one for subscriber_added_to_segment, one for
+    // segment_updated. Each pre-loaded with one baseline member so
+    // first-poll-after-activation has something to NOT fire on.
+    const segId1 = `${100 + (parseInt(runMarker.slice(0, 4), 16) % 900)}`;
+    const segId2 = `${1100 + (parseInt(runMarker.slice(4, 8), 16) % 900)}`;
+    const baselineEmail = `baseline-${runMarker}@e2e.test`;
+    const baselineHash = createHash("md5")
+      .update(baselineEmail.toLowerCase())
+      .digest("hex");
+
+    await page.request.post(`${mock.baseUrl}/__seedSegment`, {
+      data: {
+        audienceId: AUDIENCE_ID,
+        segmentId: segId1,
+        name: "Subscribers VIP",
+        type: "static",
+        memberCount: 1,
+        updatedAt: "2026-01-01T00:00:00+00:00",
+        initialMembers: [{ email: baselineEmail }],
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__seedSegment`, {
+      data: {
+        audienceId: AUDIENCE_ID,
+        segmentId: segId2,
+        name: "Engagement",
+        type: "saved",
+        memberCount: 5,
+        updatedAt: "2026-01-01T00:00:00+00:00",
+      },
+    });
+    // Existing lists for new_audience baseline.
+    await page.request.post(`${mock.baseUrl}/__seedList`, {
+      data: {
+        listId: AUDIENCE_ID,
+        name: "Primary Audience",
+        company: "Acme",
+        dateCreated: "2026-01-01T00:00:00+00:00",
+        memberCount: 50,
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__seedList`, {
+      data: {
+        listId: `baseline-list-${runMarker}`,
+        name: "Existing Audience",
+        company: "Acme",
+        dateCreated: "2026-01-02T00:00:00+00:00",
+        memberCount: 12,
+      },
+    });
+
+    // Build 3 workflows, one per polling trigger. Each has a
+    // simple downstream add_subscriber action so the workflow_run
+    // succeeds end-to-end. (The add_subscriber call is unrelated
+    // observability — we don't assert on it; we read the
+    // trigger_event from the workflow_runs row directly.)
+    const triggerSpecs = [
+      {
+        eventType: "subscriber_added_to_segment",
+        triggerConfig: { listId: AUDIENCE_ID, segmentId: segId1 },
+        workflowName: `Mailchimp polling — subs add to seg — ${runMarker}`,
+      },
+      {
+        eventType: "segment_updated",
+        triggerConfig: { listId: AUDIENCE_ID, segmentId: segId2 },
+        workflowName: `Mailchimp polling — segment updated — ${runMarker}`,
+      },
+      {
+        eventType: "new_audience",
+        triggerConfig: {},
+        workflowName: `Mailchimp polling — new audience — ${runMarker}`,
+      },
+    ] as const;
+
+    const workflowIds: string[] = [];
+    const triggerIdByEventType = new Map<string, string>();
+
+    for (const spec of triggerSpecs) {
+      await page.goto("/workflows");
+      await page.getByRole("button", { name: "Create workflow" }).click();
+      await page.getByLabel(/workflow name/i).fill(spec.workflowName);
+      await Promise.all([
+        page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+        page.getByRole("button", { name: "Create", exact: true }).click(),
+      ]);
+      const wfId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+      workflowIds.push(wfId);
+
+      const draft = {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "mailchimp",
+            type: spec.eventType,
+            config: spec.triggerConfig,
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "tail-action",
+            kind: "action" as const,
+            provider: "mailchimp",
+            type: "add_subscriber",
+            config: {
+              audience_id: AUDIENCE_ID,
+              email: `tail-${spec.eventType}-${runMarker}@e2e.test`,
+              status: "pending",
+            },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "tail-action" }],
+      };
+      const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+        data: { draftDefinition: draft },
+      });
+      expect(patch.status(), await patch.text()).toBe(200);
+
+      await page.reload();
+      await page.getByRole("button", { name: "Activate" }).click();
+      await expect(page.locator("[data-status-kind=active]")).toBeVisible({
+        timeout: 10_000,
+      });
+    }
+
+    // Capture trigger ids per event type for the per-trigger rewind.
+    const triggerRowsAfterActivate = await getTriggerResourcesForUser(user.id);
+    for (const r of triggerRowsAfterActivate) {
+      const row = r as Record<string, unknown>;
+      const evType = row.event_type as string;
+      const id = row.id as string;
+      if (
+        evType === "subscriber_added_to_segment" ||
+        evType === "segment_updated" ||
+        evType === "new_audience"
+      ) {
+        triggerIdByEventType.set(evType, id);
+      }
+    }
+    expect(triggerIdByEventType.size).toBe(3);
+
+    // ── Baseline assertions — mock saw 3 baseline fetches ──
+    const callsAfterActivate = await fetchMailchimpCalls(request, mock.baseUrl);
+    // segmentMembersList(seg1) for subscriber_added_to_segment.
+    const seg1MembersBaselineCalls =
+      callsAfterActivate.calls.segmentMembersList.filter(
+        (c) => c.segmentId === segId1,
+      );
+    expect(seg1MembersBaselineCalls.length).toBeGreaterThanOrEqual(1);
+    // segmentGet(seg2) for segment_updated.
+    const seg2BaselineCalls = callsAfterActivate.calls.segmentGet.filter(
+      (c) => c.segmentId === segId2,
+    );
+    expect(seg2BaselineCalls.length).toBeGreaterThanOrEqual(1);
+    // listsList for new_audience.
+    expect(callsAfterActivate.calls.listsList.length).toBeGreaterThanOrEqual(1);
+
+    // Baseline snapshots stored in trigger_resources.config.
+    const sasTrigger = triggerRowsAfterActivate.find(
+      (r) =>
+        (r as Record<string, unknown>).event_type ===
+        "subscriber_added_to_segment",
+    ) as Record<string, unknown>;
+    const sasCfg = sasTrigger.config as {
+      snapshot?: { knownSubscriberHashes?: string[] };
+    };
+    expect(sasCfg.snapshot?.knownSubscriberHashes).toEqual([baselineHash]);
+
+    const segUpdTrigger = triggerRowsAfterActivate.find(
+      (r) =>
+        (r as Record<string, unknown>).event_type === "segment_updated",
+    ) as Record<string, unknown>;
+    const segUpdCfg = segUpdTrigger.config as {
+      snapshot?: { name?: string; memberCount?: number; type?: string };
+    };
+    expect(segUpdCfg.snapshot?.name).toBe("Engagement");
+    expect(segUpdCfg.snapshot?.memberCount).toBe(5);
+    expect(segUpdCfg.snapshot?.type).toBe("saved");
+
+    const newAudTrigger = triggerRowsAfterActivate.find(
+      (r) =>
+        (r as Record<string, unknown>).event_type === "new_audience",
+    ) as Record<string, unknown>;
+    const newAudCfg = newAudTrigger.config as {
+      snapshot?: { knownListIds?: string[] };
+    };
+    expect(newAudCfg.snapshot?.knownListIds?.sort()).toEqual(
+      [AUDIENCE_ID, `baseline-list-${runMarker}`].sort(),
+    );
+
+    // ── First polling tick — no state changes → no runs ──
+    for (const id of triggerIdByEventType.values()) {
+      await rewindTriggerPollingTimestamp(id);
+    }
+    const pollResp1 = await request.post("/api/cron/poll-triggers", {
+      headers: { authorization: `Bearer ${cronSecret}` },
+    });
+    expect(pollResp1.status()).toBe(200);
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(await getWorkflowRunsForUser(user.id)).toHaveLength(0);
+
+    // ── Advance state on all three triggers ──
+    // 1. subscriber_added_to_segment: add a new member to seg1.
+    const newSegMemberEmail = `newseg-${runMarker}@e2e.test`;
+    const newSegMemberHash = createHash("md5")
+      .update(newSegMemberEmail.toLowerCase())
+      .digest("hex");
+    await page.request.post(`${mock.baseUrl}/__addSegmentMember`, {
+      data: {
+        audienceId: AUDIENCE_ID,
+        segmentId: segId1,
+        email: newSegMemberEmail,
+      },
+    });
+    // 2. segment_updated: bump member_count on seg2 (also auto-bumps
+    //    updated_at).
+    const newUpdatedAt = "2026-06-01T12:00:00+00:00";
+    await page.request.post(`${mock.baseUrl}/__updateSegment`, {
+      data: {
+        audienceId: AUDIENCE_ID,
+        segmentId: segId2,
+        memberCount: 9,
+        updatedAt: newUpdatedAt,
+      },
+    });
+    // 3. new_audience: add a fresh list.
+    const newListId = `fresh-list-${runMarker}`;
+    await page.request.post(`${mock.baseUrl}/__seedList`, {
+      data: {
+        listId: newListId,
+        name: "Fresh Audience",
+        company: "Acme",
+        dateCreated: "2026-06-01T00:00:00+00:00",
+        memberCount: 3,
+      },
+    });
+
+    // ── Second polling tick — one run per trigger ──
+    for (const id of triggerIdByEventType.values()) {
+      await rewindTriggerPollingTimestamp(id);
+    }
+    const pollResp2 = await request.post("/api/cron/poll-triggers", {
+      headers: { authorization: `Bearer ${cronSecret}` },
+    });
+    expect(pollResp2.status()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length >= 3 ? rows : null;
+      },
+      {
+        description: "3 polling-trigger workflow_runs to appear",
+        timeoutMs: 15_000,
+      },
+    );
+    expect(runs).toHaveLength(3);
+    for (const r of runs) {
+      expect((r as Record<string, unknown>).status).toBe("succeeded");
+    }
+
+    // ── Payload assertions — read trigger_event off each run ──
+    const runByWorkflow = new Map<string, Record<string, unknown>>();
+    for (const r of runs) {
+      const row = r as Record<string, unknown>;
+      runByWorkflow.set(row.workflow_id as string, row);
+    }
+    // subscriber_added_to_segment payload.
+    const sasRun = runByWorkflow.get(workflowIds[0]!)!;
+    const sasEvent = sasRun.trigger_event as {
+      eventType: string;
+      eventId: string;
+      payload: Record<string, unknown>;
+    };
+    expect(sasEvent.eventType).toBe("subscriber_added_to_segment");
+    expect(sasEvent.eventId).toBe(
+      `subscriber_added_to_segment:${segId1}:${newSegMemberHash}`,
+    );
+    expect(sasEvent.payload.listId).toBe(AUDIENCE_ID);
+    expect(sasEvent.payload.segmentId).toBe(segId1);
+    expect(sasEvent.payload.subscriberHash).toBe(newSegMemberHash);
+    expect(sasEvent.payload.emailAddress).toBe(newSegMemberEmail);
+    expect(sasEvent.payload.status).toBe("subscribed");
+
+    // segment_updated payload.
+    const segUpdRun = runByWorkflow.get(workflowIds[1]!)!;
+    const segUpdEvent = segUpdRun.trigger_event as {
+      eventType: string;
+      eventId: string;
+      payload: Record<string, unknown>;
+    };
+    expect(segUpdEvent.eventType).toBe("segment_updated");
+    expect(segUpdEvent.eventId).toBe(`segment_updated:${segId2}:${newUpdatedAt}`);
+    expect(segUpdEvent.payload.listId).toBe(AUDIENCE_ID);
+    expect(segUpdEvent.payload.segmentId).toBe(segId2);
+    expect(segUpdEvent.payload.name).toBe("Engagement");
+    expect(segUpdEvent.payload.memberCount).toBe(9);
+    expect(segUpdEvent.payload.type).toBe("saved");
+    expect(segUpdEvent.payload.updatedAt).toBe(newUpdatedAt);
+
+    // new_audience payload.
+    const newAudRun = runByWorkflow.get(workflowIds[2]!)!;
+    const newAudEvent = newAudRun.trigger_event as {
+      eventType: string;
+      eventId: string;
+      payload: Record<string, unknown>;
+    };
+    expect(newAudEvent.eventType).toBe("new_audience");
+    expect(newAudEvent.eventId).toBe(`new_audience:${newListId}`);
+    expect(newAudEvent.payload.listId).toBe(newListId);
+    expect(newAudEvent.payload.name).toBe("Fresh Audience");
+    expect(newAudEvent.payload.company).toBe("Acme");
+    expect(newAudEvent.payload.memberCount).toBe(3);
+    expect(newAudEvent.payload.dateCreated).toBe("2026-06-01T00:00:00+00:00");
+
+    // ── Third tick — no further changes → no duplicate runs ──
+    for (const id of triggerIdByEventType.values()) {
+      await rewindTriggerPollingTimestamp(id);
+    }
+    const pollResp3 = await request.post("/api/cron/poll-triggers", {
+      headers: { authorization: `Bearer ${cronSecret}` },
+    });
+    expect(pollResp3.status()).toBe(200);
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(await getWorkflowRunsForUser(user.id)).toHaveLength(3);
+  });
 });
 
 // ── helpers ───────────────────────────────────────────────────────────
@@ -710,6 +1294,19 @@ interface MailchimpMockInspect {
       body: string;
       parsedBody: Record<string, unknown>;
     }[];
+    memberPatch: {
+      audienceId: string;
+      subscriberHash: string;
+      authorization: string | undefined;
+      contentType: string | undefined;
+      body: string;
+      parsedBody: Record<string, unknown>;
+    }[];
+    membersList: {
+      audienceId: string;
+      authorization: string | undefined;
+      query: Record<string, string>;
+    }[];
     tagsPost: unknown[];
     webhookCreate: {
       audienceId: string;
@@ -730,6 +1327,21 @@ interface MailchimpMockInspect {
     reportSummary: {
       campaignId: string;
       authorization: string | undefined;
+    }[];
+    segmentGet: {
+      audienceId: string;
+      segmentId: string;
+      authorization: string | undefined;
+    }[];
+    segmentMembersList: {
+      audienceId: string;
+      segmentId: string;
+      authorization: string | undefined;
+      query: Record<string, string>;
+    }[];
+    listsList: {
+      authorization: string | undefined;
+      query: Record<string, string>;
     }[];
     webhookEvent: {
       type: string;
