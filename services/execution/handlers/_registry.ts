@@ -106,10 +106,12 @@ import { listEvents as listOutlookCalendarEvents } from "@/integrations/microsof
 import { updateEvent as updateOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/updateEvent";
 import { appendBlockChildren as notionAppendBlockChildren } from "@/integrations/notion/actions/appendBlockChildren";
 import { archivePage as notionArchivePage } from "@/integrations/notion/actions/archivePage";
+import { createComment as notionCreateComment } from "@/integrations/notion/actions/createComment";
 import { createDatabaseEntry as notionCreateDatabaseEntry } from "@/integrations/notion/actions/createDatabaseEntry";
 import { createPage as notionCreatePage } from "@/integrations/notion/actions/createPage";
 import { getPage as notionGetPage } from "@/integrations/notion/actions/getPage";
 import { getUser as notionGetUser } from "@/integrations/notion/actions/getUser";
+import { listComments as notionListComments } from "@/integrations/notion/actions/listComments";
 import { listUsers as notionListUsers } from "@/integrations/notion/actions/listUsers";
 import { queryDatabase as notionQueryDatabase } from "@/integrations/notion/actions/queryDatabase";
 import { restorePage as notionRestorePage } from "@/integrations/notion/actions/restorePage";
@@ -289,6 +291,9 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Notion 2.1 Commit 2 — user lookups.
   { provider: "notion", type: "get_user", handler: notionGetUser },
   { provider: "notion", type: "list_users", handler: notionListUsers },
+  // Notion 2.1 Commit 3 — comments.
+  { provider: "notion", type: "create_comment", handler: notionCreateComment },
+  { provider: "notion", type: "list_comments", handler: notionListComments },
   { provider: "airtable", type: "list_records", handler: airtableListRecords },
   { provider: "airtable", type: "get_record", handler: airtableGetRecord },
   { provider: "airtable", type: "find_record", handler: airtableFindRecord },

@@ -144,6 +144,20 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 2 Notion 2.1 Commit 3 comment handlers (create_comment, list_comments)", () => {
+    expect(getActionHandler("notion", "create_comment")).toBeDefined();
+    expect(getActionHandler("notion", "list_comments")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "create_comment",
+    });
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "list_comments",
+    });
+  });
+
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
     const registered = listRegisteredHandlers();
     expect(registered).toContainEqual({
