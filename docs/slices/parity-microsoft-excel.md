@@ -1,12 +1,23 @@
 # Parity audit — Microsoft Excel
 
-**Status:** **PENDING ACCEPTANCE.** Doc-only audit. Implementation does NOT begin until Marcus accepts.
+**Status:** **ACCEPTED 2026-05-14** (audit decisions only). Implementation is NOT yet authorized — Marcus has accepted the four NPDs / deferrals below but has not yet signaled "begin Commit 1." Slice begins on explicit go-ahead.
 **V1 source:** `c:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e`
 **V2 baseline:** [`integrations/microsoft-excel/`](../../integrations/microsoft-excel/) (slice 15)
 **Phase 1 surface shipped:** 6 actions (`add_row`, `add_table_row`, `create_worksheet`, `export_sheet`, `get_workbooks`, `get_worksheets`), 2 polling triggers (`new_row`, `new_table_row`)
 **Master plan:** [`docs/slices/phase-2-plan.md`](phase-2-plan.md). Audit follows the 14-section template defined there.
 **Predecessor slice plan:** [`docs/slices/slice-15-microsoft-excel.md`](slice-15-microsoft-excel.md) (Phase 1 — accepted + shipped).
 **Rank in Phase 2 priority:** 4 (after Slack / Gmail / Notion).
+
+## Accepted decisions (2026-05-14)
+
+Recorded verbatim from Marcus's acceptance. These resolve every NPD / deferral row in §7, §10, and §14:
+
+1. **NPD-A (`add_multiple_rows` fold):** ACCEPT FOLD into `add_row` batch mode. Max **1000 rows per action execution**. **Fail loudly** when over the cap. **No separate `add_multiple_rows` registry entry.** Single `microsoft-excel:add_row` handler with optional `rows: [...]` mode.
+2. **NPD-T (`updated_row` positional diff):** ACCEPT ship-with-doc. Document that positional `rowIndex` hash diff can be noisy under mid-sheet inserts / deletes. Recommend `updated_table_row` for workflows that need stable row identity. No guard / block on the trigger — workflow authors opt into the table variant when they need stability.
+3. **`create_workbook`:** DEFER. Do NOT introduce ExcelJS or any binary workbook-generation dependency in this slice. R-Excel-3 stays open until either ExcelJS is acceptable in V2's bundle or a Graph-native empty-XLSX path is found.
+4. **P-X1 (header-detection):** ACCEPT handler-internal header read for `update_row` + `delete_row` (same pattern slice 15 adopted for `add_row`). Do NOT create a dynamic-field renderer / platform contract for Excel Phase 2. The dynamic-field renderer remains Phase 3 UI work.
+
+These decisions LOCK the §13 slice plan (7 commits) and the §11 effort estimate. Subsequent surface counts, V1 rot inventory, and platform-dependency map remain authoritative as written below.
 
 **Recommendation up front.** V1 registers **10 Excel actions** + **5 trigger schemas**; V2 ships **6 actions** + **2 polling triggers** (slice 15). Gap is **4 actions PORT now** (`update_row`, `delete_row`, `rename_worksheet`, `delete_worksheet`), **1 action PORT–FOLD** (`add_multiple_rows` — fold into `add_row` as a batch mode rather than a second registry entry, mirrors Gmail 2.2's `advancedSearch → searchEmails` decision), **1 action DEFER** (`create_workbook` — V1 uses CommonJS `require('exceljs')` in TypeScript with a heavy binary dependency for one action; Microsoft Graph has no native workbook-create endpoint that ships an empty XLSX file, so V1 generates one in-process and uploads via `/me/drive/root/children`; defer until either ExcelJS is acceptable in V2's bundle or a Graph-native path is found), **3 triggers PORT** (`new_worksheet`, `updated_row`, `updated_table_row`) reusing the shared `PollingHandler` from slice 15 with per-event snapshot adapters. **Two open product decisions** flagged in §6 (NPD): `updated_row`'s position-vs-hash diff strategy and `add_multiple_rows`' max-batch-size cap. **One required platform gap:** P-X1 — header-detection dynamic-field resolver for `update_row` + `delete_row` (V1's `add_row` already exposes the problem and V2 deferred it per slice-15 §"Open questions"; the new actions either re-defer or close the gap once). Estimated **1 parity slice in 4–5 commits** if accepted (Excel-sized per master plan §7). Excel parity is the fourth Phase 2 audit and closes the cleanest single-batch gap so far — the polling pattern is proven (slice 15 ships 2/5 of the triggers) and the missing actions are all per-row primitives over the same Graph workbook resource surface.
 
@@ -200,15 +211,17 @@ Every row from §5 + §6 gets a decision.
 | `delete_row` | Action | **PORT** | Same shape as `update_row`. Trivial after `update_row` schema lands; share the `targetMode` discriminator. |
 | `rename_worksheet` | Action | **PORT** | Single Graph PATCH; lowest risk in the batch. |
 | `delete_worksheet` | Action | **PORT** | Single Graph DELETE. Schema requires explicit `worksheetId`; no silent default. |
-| `add_multiple_rows` | Action | **PORT–FOLD** | Fold into `add_row` as a `rows: Array<Record<string, unknown>>` mode (mirrors Gmail 2.2 `advancedSearch → searchEmails` fold + Notion 2.1 NPD pattern). Avoid two registry entries doing the same thing. **NPD-A**: max-batch-size cap — propose 1000 rows / single chunk; V1 had no cap. |
+| `add_multiple_rows` | Action | **PORT–FOLD** | Fold into `add_row` as a `rows: Array<Record<string, unknown>>` mode (mirrors Gmail 2.2 `advancedSearch → searchEmails` fold + Notion 2.1 NPD pattern). No separate registry entry. **NPD-A RESOLVED:** cap at **1000 rows per action execution**, fail loudly when exceeded (no silent truncation — R8 compliance). |
 | `new_worksheet` | Trigger | **PORT** | Shared `PollingHandler` from slice 15 + a new snapshot adapter for the worksheet-id set. Cleanest of the 3 triggers. |
-| `updated_row` | Trigger | **PORT** | Same shared handler. **NPD-T**: positional rowIndex hash diff is noisy under mid-sheet inserts/deletes (V1 didn't address this); recommend documenting the limitation + flagging table variant as preferred. |
+| `updated_row` | Trigger | **PORT** | Same shared handler. **NPD-T RESOLVED:** ship-with-doc. Positional rowIndex hash diff is noisy under mid-sheet inserts / deletes; outcomes doc + handler comment will state the limitation and recommend `updated_table_row` for stable row identity. No guard / block on the trigger. |
 | `updated_table_row` | Trigger | **PORT** | Stable tableRowId means clean diff. Ship alongside `updated_row` so docs can recommend table mode when stability matters. |
 
 ### NPDs (Needs Product Decision) summary
 
-- **NPD-A (`add_multiple_rows` cap):** 1000 rows / single PATCH chunk? 5000? Unbounded? V1 had no cap. Recommend 1000 + explicit `batchSize` config field — fail-loud on overflow, no silent truncation (R8).
-- **NPD-T (`updated_row` positional diff):** ship as-is with documented limitation, or block the trigger behind a "table required" guard? Recommend ship-with-doc since users can opt into `updated_table_row` for stability.
+Both NPDs RESOLVED 2026-05-14 (see "Accepted decisions" at the top of this doc):
+
+- **NPD-A RESOLVED:** 1000 rows per action execution, fail-loud overflow, single `add_row` handler with optional `rows[]` mode.
+- **NPD-T RESOLVED:** Ship `updated_row` with documented positional-diff limitation; no guard; recommend `updated_table_row` when row-identity stability matters.
 
 ---
 
@@ -254,9 +267,9 @@ Which V2 contracts each ported item depends on. Reuse-vs-new tally.
 
 | ID | Gap | Why it's needed | Recommended slice shape |
 |---|---|---|---|
-| **P-X1** | **Header-detection dynamic-field resolver.** When a workflow author configures `update_row({ identifyBy: { column: "Email", value: "..." } })`, the handler needs to resolve the column name to a column letter at execute time. V1 used a custom dynamic-field renderer; V2's manifest has no equivalent dynamic-field type yet. Slice 15 §"Open questions" already deferred this for `add_row` by accepting a flat `Record<string, unknown>` and resolving column letters from a fresh header read inside the handler. | The Excel parity port has three options: **(a)** apply the same handler-internal header-read pattern to `update_row` + `delete_row` (consistent with slice 15, defers P-X1 again — RECOMMENDED for the parity slice); **(b)** introduce the dynamic-field renderer in V2's manifest schema (Phase 3 / UI work — out of scope for Phase 2 parity); **(c)** require workflow authors to pass column letters directly (worst UX). Recommend (a) — handler-internal resolution keeps the parity slice closable without a UI dependency. |
+| **P-X1** | **Header-detection dynamic-field resolver.** When a workflow author configures `update_row({ identifyBy: { column: "Email", value: "..." } })`, the handler needs to resolve the column name to a column letter at execute time. V1 used a custom dynamic-field renderer; V2's manifest has no equivalent dynamic-field type yet. Slice 15 §"Open questions" already deferred this for `add_row` by accepting a flat `Record<string, unknown>` and resolving column letters from a fresh header read inside the handler. | **RESOLVED 2026-05-14: option (a) accepted** — apply the handler-internal header-read pattern from `add_row` to `update_row` + `delete_row`. No new manifest schema, no dynamic-field renderer for Excel Phase 2. Dynamic-field renderer remains Phase 3 UI work. |
 
-No other platform gaps surface. P-X1 itself is reuse-of-an-existing-handler-pattern rather than a new contract.
+No other platform gaps surface. P-X1 is reuse-of-an-existing-handler-pattern, not a new contract. **Zero new shared contracts** introduced by this parity slice.
 
 ---
 
@@ -310,15 +323,18 @@ Each commit lands locally, gates green, no push. Pattern matches Gmail 2.3 (7 co
 
 ## 14. Exit checklist
 
-This audit is complete when Marcus has:
+Audit-decisions acceptance recorded 2026-05-14:
 
-- [ ] Confirmed the Phase 2 master-plan §3 surface count correction (audit shows **6 missing actions + 3 missing triggers**, not 5+3).
-- [ ] Resolved **NPD-A**: max batch size for `add_multiple_rows → add_row(batch)` fold. Recommended: 1000 rows / single PATCH chunk + explicit `batchSize` field; fail-loud on overflow.
-- [ ] Resolved **NPD-T**: `updated_row` positional-diff UX limitation. Recommended: ship with documented limitation + recommend `updated_table_row` for stability-sensitive workflows.
-- [ ] Confirmed **DEFER** for `create_workbook` (ExcelJS / R-Excel-3 cost vs benefit; recommend revisiting only when a real workflow asks).
-- [ ] Confirmed the **FOLD** decision for `add_multiple_rows` (no separate registry entry; mirrors Gmail 2.2 `advancedSearch → searchEmails` and Notion 2.1 NPD pattern).
-- [ ] Confirmed **P-X1 handler-internal header read** is acceptable for `update_row` + `delete_row` (defers the dynamic-field-renderer to Phase 3 UI work).
-- [ ] Confirmed the **7-commit slice plan** in §13 (parity slice is "Excel-sized" + 2 doc commits; stays within master-plan §6 shape).
-- [ ] Accepted the audit verbatim and authorized Commit 1 (slice plan doc).
+- [x] Confirmed the Phase 2 master-plan §3 surface count correction (audit shows **6 missing actions + 3 missing triggers**, not 5+3) — implicit acceptance via the lock on the §13 slice plan.
+- [x] Resolved **NPD-A**: 1000 rows per action execution; fail loudly on overflow; single `add_row` handler with optional `rows[]` mode.
+- [x] Resolved **NPD-T**: ship `updated_row` with documented positional-diff limitation; recommend `updated_table_row` for stability-sensitive workflows.
+- [x] Confirmed **DEFER** for `create_workbook` (no ExcelJS / binary workbook generation in this slice; R-Excel-3 stays open).
+- [x] Confirmed the **FOLD** decision for `add_multiple_rows` (no separate registry entry).
+- [x] Confirmed **P-X1 handler-internal header read** is acceptable for `update_row` + `delete_row` (no dynamic-field renderer / platform contract for Excel Phase 2).
+- [x] Confirmed the **7-commit slice plan** in §13 (parity slice is "Excel-sized" + 2 doc commits; stays within master-plan §6 shape).
 
-Until acceptance, no V2 runtime code changes; no test changes; no further docs beyond this audit.
+**Still pending — explicit implementation go-ahead:**
+
+- [ ] Marcus signals "begin Commit 1" (slice plan doc, `docs/slices/microsoft-excel-2-1-parity-plan.md` or equivalent).
+
+Until that go-ahead lands, no V2 runtime code changes; no test changes; no further docs beyond this audit.
