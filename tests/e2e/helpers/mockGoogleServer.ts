@@ -177,6 +177,33 @@ import { Buffer } from "node:buffer";
  *                         — append a row to the test spreadsheet's row store.
  *                           Body: `{ values: any[] }`. The next values.get
  *                           call surfaces this row.
+ *   POST /__updateSheetRow
+ *                         — Sheets 2.3. Replace an existing row's values in
+ *                           place. Body: `{ rowIndex: 1-based, values: any[] }`.
+ *                           Used by the row_changed e2e to fire an
+ *                           `updated` changeKind.
+ *   POST /__deleteSheetRow
+ *                         — Sheets 2.3. Splice a row out of currentSheetsRows.
+ *                           Body: `{ rowIndex: 1-based }`. Used to fire a
+ *                           `removed` changeKind.
+ *   POST /__insertSheetRow
+ *                         — Sheets 2.3. Insert a row at the given 1-based
+ *                           position, shifting existing rows down. Body:
+ *                           `{ rowIndex: 1-based, values: any[] }`. Used by
+ *                           the keyColumn-identity e2e to create a positional
+ *                           shift; passing `rowIndex = length + 1` appends
+ *                           (same as __injectSheetRow).
+ *   POST /__injectWorksheet
+ *                         — Sheets 2.3. Append a worksheet tab to
+ *                           currentWorksheets. Body: `{ title: string,
+ *                           sheetType?: string }`. Auto-assigns sheetId and
+ *                           index. The next spreadsheets.get surfaces the new
+ *                           entry via `sheets[]`. Rejects duplicate titles.
+ *   POST /__renameWorksheet
+ *                         — Sheets 2.3. Rename a worksheet by current title.
+ *                           Body: `{ from: string, to: string }`. Preserves
+ *                           sheetId. Used by the new_worksheet rename
+ *                           scenario.
  *   POST /__replayLastSheetRow
  *                         — re-append the most recently injected row, bumping
  *                           the row count by one more. Sheets' "dedup" works
@@ -346,6 +373,20 @@ export interface InjectedDriveChange {
   pageTokenAtInsert: string;
   /** Full Drive change entry — the spec hand-crafts a realistic shape. */
   change: Record<string, unknown>;
+}
+
+/**
+ * Worksheet entry surfaced by `spreadsheets.get` — minimal projection
+ * of Google's `Sheet.properties` shape. Seeded with a default `Sheet1`
+ * + `sheetId=0` so existing tests keep their assumed mapping; the
+ * Sheets 2.3 `new_worksheet` walkthrough appends additional entries
+ * via `__injectWorksheet`.
+ */
+export interface MockWorksheet {
+  sheetId: number;
+  title: string;
+  index: number;
+  sheetType: string;
 }
 
 export interface RecordedSheetsSpreadsheetsGet {
@@ -622,6 +663,16 @@ export interface MockGoogleHandle {
    */
   lastInjectedSheetsRow: ReadonlyArray<unknown> | null;
   /**
+   * Sheets — worksheet list of the test spreadsheet. Surfaced by
+   * `spreadsheets.get` so callers see a realistic `sheets[]` array.
+   * Seeded with `[{ sheetId: 0, title: "Sheet1", ... }]` so existing
+   * tests (Sheets 2.1 delete_row, 2.2 format_range) keep seeing the
+   * canonical sheetId=0 ↔ Sheet1 mapping. `__injectWorksheet` appends
+   * additional worksheets for the Sheets 2.3 `new_worksheet` trigger
+   * walkthrough.
+   */
+  currentWorksheets: Array<MockWorksheet>;
+  /**
    * Scope string from the most recent authorize call. Cached here so the
    * next /token response can echo whatever set the user "consented" to,
    * without per-provider branching on the token route.
@@ -710,6 +761,9 @@ export async function startMockGoogleServer(opts: {
     get lastInjectedSheetsRow() {
       return state.lastInjectedSheetsRow;
     },
+    get currentWorksheets() {
+      return state.currentWorksheets;
+    },
     get lastAuthorizeScope() {
       return state.lastAuthorizeScope;
     },
@@ -739,6 +793,7 @@ type MutableState = Pick<
   | "lastInjectedDriveFileId"
   | "currentSheetsRows"
   | "lastInjectedSheetsRow"
+  | "currentWorksheets"
   | "lastAuthorizeScope"
 >;
 
@@ -784,6 +839,9 @@ function freshState(): MutableState {
     lastInjectedDriveFileId: null,
     currentSheetsRows: [],
     lastInjectedSheetsRow: null,
+    currentWorksheets: [
+      { sheetId: 0, title: "Sheet1", index: 0, sheetType: "GRID" },
+    ],
     lastAuthorizeScope: null,
   };
 }
@@ -1236,6 +1294,25 @@ async function handleRequest(
       url: req.url ?? "",
       spreadsheetId,
     });
+    // Build the sheets[] array from the mock's worksheet list. The
+    // primary `Sheet1` entry (sheetId=0) carries `gridProperties.rowCount`
+    // derived from currentSheetsRows so the existing get_sheet_metadata
+    // assertion stays valid. Additional worksheets injected by
+    // __injectWorksheet (Sheets 2.3) report rowCount=0 — the mock does
+    // not maintain per-worksheet row stores.
+    const sheets = state.currentWorksheets.map((ws) => ({
+      properties: {
+        sheetId: ws.sheetId,
+        title: ws.title,
+        index: ws.index,
+        sheetType: ws.sheetType,
+        gridProperties: {
+          rowCount:
+            ws.sheetId === 0 ? state.currentSheetsRows.length : 0,
+          columnCount: 26,
+        },
+      },
+    }));
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -1245,20 +1322,7 @@ async function handleRequest(
           locale: "en_US",
           timeZone: "America/Los_Angeles",
         },
-        sheets: [
-          {
-            properties: {
-              sheetId: 0,
-              title: "Sheet1",
-              index: 0,
-              sheetType: "GRID",
-              gridProperties: {
-                rowCount: state.currentSheetsRows.length,
-                columnCount: 26,
-              },
-            },
-          },
-        ],
+        sheets,
       }),
     );
     return;
@@ -2215,6 +2279,226 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/__updateSheetRow") {
+    // Sheets 2.3 — replace an existing row's values in place. Body:
+    // `{ rowIndex: 1-based, values: any[] }`. The 1-based rowIndex
+    // matches Sheets' UI numbering (header row at 1 in headerRow mode).
+    // Used by the row_changed e2e to fire an `updated` changeKind.
+    const body = await readBody(req);
+    let parsed: { rowIndex?: number; values?: ReadonlyArray<unknown> };
+    try {
+      parsed = JSON.parse(body) as {
+        rowIndex?: number;
+        values?: ReadonlyArray<unknown>;
+      };
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (
+      typeof parsed.rowIndex !== "number" ||
+      !Array.isArray(parsed.values)
+    ) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("rowIndex (number, 1-based) + values (array) required");
+      return;
+    }
+    const idx = parsed.rowIndex - 1;
+    if (idx < 0 || idx >= state.currentSheetsRows.length) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end(
+        `rowIndex ${parsed.rowIndex} out of range (1..${state.currentSheetsRows.length})`,
+      );
+      return;
+    }
+    const next = state.currentSheetsRows.slice();
+    next[idx] = parsed.values;
+    state.currentSheetsRows = next;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ ok: true, rowCount: state.currentSheetsRows.length }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__deleteSheetRow") {
+    // Sheets 2.3 — splice a row out of currentSheetsRows. Body:
+    // `{ rowIndex: 1-based }`. Used by the row_changed e2e to fire a
+    // `removed` changeKind. Trailing rows shift up; if the spec needs
+    // to assert against window-slide vs genuine deletion, the snapshot
+    // bound + sheet size are the inputs that decide.
+    const body = await readBody(req);
+    let parsed: { rowIndex?: number };
+    try {
+      parsed = JSON.parse(body) as { rowIndex?: number };
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (typeof parsed.rowIndex !== "number") {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("rowIndex (number, 1-based) required");
+      return;
+    }
+    const idx = parsed.rowIndex - 1;
+    if (idx < 0 || idx >= state.currentSheetsRows.length) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end(
+        `rowIndex ${parsed.rowIndex} out of range (1..${state.currentSheetsRows.length})`,
+      );
+      return;
+    }
+    const next = state.currentSheetsRows.slice();
+    next.splice(idx, 1);
+    state.currentSheetsRows = next;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ ok: true, rowCount: state.currentSheetsRows.length }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__insertSheetRow") {
+    // Sheets 2.3 — insert a row at the given 1-based position,
+    // shifting existing rows down. Body: `{ rowIndex: 1-based, values:
+    // any[] }`. Used by the keyColumn-identity e2e to create a
+    // positional shift that would emit noise in positional mode but
+    // is silent in keyColumn mode (unchanged-content rows keep their
+    // hash). rowIndex == currentSheetsRows.length + 1 appends (same
+    // as __injectSheetRow).
+    const body = await readBody(req);
+    let parsed: { rowIndex?: number; values?: ReadonlyArray<unknown> };
+    try {
+      parsed = JSON.parse(body) as {
+        rowIndex?: number;
+        values?: ReadonlyArray<unknown>;
+      };
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (
+      typeof parsed.rowIndex !== "number" ||
+      !Array.isArray(parsed.values)
+    ) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("rowIndex (number, 1-based) + values (array) required");
+      return;
+    }
+    const idx = parsed.rowIndex - 1;
+    if (idx < 0 || idx > state.currentSheetsRows.length) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end(
+        `rowIndex ${parsed.rowIndex} out of range (1..${state.currentSheetsRows.length + 1})`,
+      );
+      return;
+    }
+    const next = state.currentSheetsRows.slice();
+    next.splice(idx, 0, parsed.values);
+    state.currentSheetsRows = next;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ ok: true, rowCount: state.currentSheetsRows.length }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__injectWorksheet") {
+    // Sheets 2.3 — append a worksheet tab to the test spreadsheet's
+    // worksheet list. Body: `{ title: string, sheetType?: string }`.
+    // Auto-assigns sheetId = max(existing) + 1 (Sheets API behavior)
+    // and index = currentWorksheets.length. Used by the new_worksheet
+    // trigger e2e to simulate a tab addition; the next spreadsheets.get
+    // call surfaces the new entry via the `sheets[]` array. Rejects
+    // titles that already exist in the list (Sheets API rejects too).
+    const body = await readBody(req);
+    let parsed: { title?: string; sheetType?: string };
+    try {
+      parsed = JSON.parse(body) as { title?: string; sheetType?: string };
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (typeof parsed.title !== "string" || parsed.title.length === 0) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("title (non-empty string) required");
+      return;
+    }
+    if (state.currentWorksheets.some((w) => w.title === parsed.title)) {
+      res.writeHead(409, { "content-type": "text/plain" });
+      res.end(`worksheet title '${parsed.title}' already exists`);
+      return;
+    }
+    const maxSheetId = state.currentWorksheets.reduce(
+      (m, w) => Math.max(m, w.sheetId),
+      -1,
+    );
+    const added: MockWorksheet = {
+      sheetId: maxSheetId + 1,
+      title: parsed.title,
+      index: state.currentWorksheets.length,
+      sheetType: parsed.sheetType ?? "GRID",
+    };
+    state.currentWorksheets = [...state.currentWorksheets, added];
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        worksheet: added,
+        worksheetCount: state.currentWorksheets.length,
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/__renameWorksheet") {
+    // Sheets 2.3 — rename a worksheet by its current title. Body:
+    // `{ from: string, to: string }`. Updates the entry's `title`
+    // while preserving its sheetId. Used by the new_worksheet e2e's
+    // rename scenario — Google surfaces a rename as
+    // `{remove old name, add new name}` and the trigger fires ONE
+    // event for the new name.
+    const body = await readBody(req);
+    let parsed: { from?: string; to?: string };
+    try {
+      parsed = JSON.parse(body) as { from?: string; to?: string };
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    if (typeof parsed.from !== "string" || typeof parsed.to !== "string") {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("from + to (string) required");
+      return;
+    }
+    const idx = state.currentWorksheets.findIndex(
+      (w) => w.title === parsed.from,
+    );
+    if (idx === -1) {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end(`worksheet '${parsed.from}' not found`);
+      return;
+    }
+    if (state.currentWorksheets.some((w) => w.title === parsed.to)) {
+      res.writeHead(409, { "content-type": "text/plain" });
+      res.end(`worksheet title '${parsed.to}' already exists`);
+      return;
+    }
+    const next = state.currentWorksheets.slice();
+    next[idx] = { ...next[idx]!, title: parsed.to };
+    state.currentWorksheets = next;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ ok: true, worksheet: next[idx] }),
+    );
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/__replayLastSheetRow") {
     if (!state.lastInjectedSheetsRow) {
       res.writeHead(400, { "content-type": "text/plain" });
@@ -2297,6 +2581,8 @@ async function handleRequest(
         currentSheetsRows: state.currentSheetsRows,
         currentSheetsRowCount: state.currentSheetsRows.length,
         lastInjectedSheetsRow: state.lastInjectedSheetsRow,
+        currentWorksheets: state.currentWorksheets,
+        currentWorksheetCount: state.currentWorksheets.length,
       }),
     );
     return;

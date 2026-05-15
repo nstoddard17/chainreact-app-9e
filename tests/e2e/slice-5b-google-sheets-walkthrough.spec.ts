@@ -1278,3 +1278,749 @@ test.describe("Sheets 2.2 — batch_update + format_range actions e2e", () => {
     expect(stepBatch.output).not.toHaveProperty("replies");
   });
 });
+
+/**
+ * Sheets 2.3 — extended row_changed changeKinds (added / updated / removed)
+ * end-to-end.
+ *
+ * Configures one workflow with `changeKinds: ["added","updated","removed"]`,
+ * `snapshotRowLimit: 100`, `headerRow: false`. Activate seeds a bounded
+ * per-row snapshot keyed positionally. Each of three operations (add /
+ * update / remove) drives one webhook fire → one workflow run with the
+ * matching `changeKind`.
+ *
+ * Per-run dedup safety: row values carry `randomUUID()` suffixes so the
+ * `webhook_event_dedup` table (system-wide, NOT FK-cascaded by
+ * deleteTestUser) doesn't collide across consecutive e2e runs. Same
+ * pattern as the Slice 5b single-action test.
+ *
+ * Window-slide vs genuine-removal scenario is asserted by unit tests in
+ * `tests/unit/integrations/google-sheets/triggers/_shared/snapshot.test.ts` —
+ * exercising it from e2e would require a 200+ row pre-population to push
+ * the sheet past the snapshot bound. The unit tests cover the diff
+ * helper's branching; the e2e here covers the engine plumbing.
+ */
+test.describe("Sheets 2.3 — row_changed extended changeKinds e2e", () => {
+  test.beforeEach(async () => {
+    testUser = await createTestUser();
+  });
+
+  test.afterEach(async () => {
+    if (testUser) {
+      await deleteTestUser(testUser.id);
+      testUser = null;
+    }
+  });
+
+  test("row_changed → added → updated → removed produce three runs with matching changeKinds", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readGoogleMockState();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // Per-run randomized row values so webhook_event_dedup
+    // (system-wide table, not cascaded by deleteTestUser) doesn't
+    // collide across consecutive e2e runs. The eventId hash includes
+    // JSON.stringify(rowValues) — without per-run uniqueness, two
+    // consecutive runs share the same eventId.
+    const runId = randomUUID();
+    const row1Values = [`a-${runId}`, "v1"] as const;
+    const row2Values = [`b-${runId}`, "v2"] as const;
+    const row3Values = [`c-${runId}`, "v3"] as const;
+    const row2UpdatedValues = [`b-${runId}`, "v2-updated"] as const;
+
+    // Pre-populate two rows so activate's snapshot captures
+    // { "1": hash(row1), "2": hash(row2) }. The add/update/remove
+    // sequence then drives one event each.
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: row1Values },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: row2Values },
+    });
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=google-sheets/),
+      page.getByRole("button", { name: "Connect Google Sheets" }).click(),
+    ]);
+
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill("E2E Sheets 2.3 — extended changeKinds");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const spreadsheetId = `ss-2.3-extended-${runId}`;
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "google-sheets",
+          type: "row_changed",
+          config: {
+            spreadsheetId,
+            sheetName: "Sheet1",
+            headerRow: false,
+            changeKinds: ["added", "updated", "removed"],
+            snapshotRowLimit: 100,
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "append_row",
+          config: {
+            spreadsheetId,
+            range: "Log!A:B",
+            values: ["row-event", "ok"],
+            valueInputOption: "USER_ENTERED",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const triggerRows = await getTriggerResourcesForUser(user.id);
+    expect(triggerRows).toHaveLength(1);
+    const triggerConfig = triggerRows[0]!.config as {
+      channelId: string;
+      resourceId: string;
+      changeKinds: string[];
+      snapshot?: { rowHashes: Record<string, string>; rowCount: number };
+    };
+    expect(triggerConfig.changeKinds).toEqual(["added", "updated", "removed"]);
+    // Extended path requires a seeded snapshot; absence is a regression.
+    expect(triggerConfig.snapshot).toBeDefined();
+    expect(triggerConfig.snapshot!.rowCount).toBe(2);
+    expect(Object.keys(triggerConfig.snapshot!.rowHashes).sort()).toEqual([
+      "1",
+      "2",
+    ]);
+
+    const channelId = triggerConfig.channelId;
+    const channelToken = buildChannelToken({ channelId });
+    const fireWebhook = async (messageNumber: string) => {
+      const resp = await request.post("/api/webhooks/google-sheets", {
+        headers: {
+          "x-goog-channel-id": channelId,
+          "x-goog-channel-token": channelToken,
+          "x-goog-resource-id": triggerConfig.resourceId,
+          "x-goog-resource-state": "update",
+          "x-goog-message-number": messageNumber,
+        },
+      });
+      expect(resp.status(), await resp.text()).toBe(200);
+    };
+
+    const waitForRunCount = async (
+      expected: number,
+      description: string,
+    ): Promise<ReadonlyArray<Record<string, unknown>>> =>
+      waitFor(
+        async () => {
+          const rows = await getWorkflowRunsForUser(user.id);
+          return rows.length >= expected ? rows : null;
+        },
+        { description, timeoutMs: 15_000 },
+      );
+
+    // ── Op 1: added row ─────────────────────────────────────────────
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: row3Values },
+    });
+    await fireWebhook("1");
+    const runsAfterAdd = await waitForRunCount(1, "added run");
+    expect(runsAfterAdd).toHaveLength(1);
+
+    // ── Op 2: updated row ───────────────────────────────────────────
+    await page.request.post(`${mock.baseUrl}/__updateSheetRow`, {
+      data: { rowIndex: 2, values: row2UpdatedValues },
+    });
+    await fireWebhook("2");
+    const runsAfterUpdate = await waitForRunCount(2, "updated run");
+    expect(runsAfterUpdate).toHaveLength(2);
+
+    // ── Op 3: removed row (delete the appended row 3) ───────────────
+    await page.request.post(`${mock.baseUrl}/__deleteSheetRow`, {
+      data: { rowIndex: 3 },
+    });
+    await fireWebhook("3");
+    const runsAfterRemove = await waitForRunCount(3, "removed run");
+    expect(runsAfterRemove).toHaveLength(3);
+
+    // Sort runs by created_at for deterministic positional assertions.
+    type Run = Record<string, unknown> & {
+      trigger_event: {
+        eventId: string;
+        payload: {
+          changeKind: string;
+          spreadsheetId: string;
+          sheetName: string;
+          rowIndex: number | null;
+          rowKey: string;
+          keyColumn: string | null;
+          keyValue: string | null;
+          rowValues: ReadonlyArray<unknown> | null;
+          previousValues: unknown;
+        };
+      };
+      created_at: string;
+      status: string;
+    };
+    const sortedRuns = (runsAfterRemove as ReadonlyArray<Run>)
+      .slice()
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+    expect(sortedRuns.every((r) => r.status === "succeeded")).toBe(true);
+
+    // Run 1: added row at sheet row 3.
+    const addedRun = sortedRuns[0]!;
+    expect(addedRun.trigger_event.payload.changeKind).toBe("added");
+    expect(addedRun.trigger_event.payload.spreadsheetId).toBe(spreadsheetId);
+    expect(addedRun.trigger_event.payload.sheetName).toBe("Sheet1");
+    expect(addedRun.trigger_event.payload.rowIndex).toBe(3);
+    expect(addedRun.trigger_event.payload.rowKey).toBe("3");
+    expect(addedRun.trigger_event.payload.keyColumn).toBeNull();
+    expect(addedRun.trigger_event.payload.keyValue).toBeNull();
+    expect(addedRun.trigger_event.payload.rowValues).toEqual([...row3Values]);
+    expect(addedRun.trigger_event.payload.previousValues).toBeNull();
+
+    // Run 2: updated row at sheet row 2.
+    const updatedRun = sortedRuns[1]!;
+    expect(updatedRun.trigger_event.payload.changeKind).toBe("updated");
+    expect(updatedRun.trigger_event.payload.rowIndex).toBe(2);
+    expect(updatedRun.trigger_event.payload.rowKey).toBe("2");
+    expect(updatedRun.trigger_event.payload.rowValues).toEqual([
+      ...row2UpdatedValues,
+    ]);
+    expect(updatedRun.trigger_event.payload.previousValues).toBeNull();
+
+    // Run 3: removed row — rowIndex/rowValues null per normalize.ts contract.
+    const removedRun = sortedRuns[2]!;
+    expect(removedRun.trigger_event.payload.changeKind).toBe("removed");
+    expect(removedRun.trigger_event.payload.rowIndex).toBeNull();
+    expect(removedRun.trigger_event.payload.rowKey).toBe("3");
+    expect(removedRun.trigger_event.payload.rowValues).toBeNull();
+    expect(removedRun.trigger_event.payload.previousValues).toBeNull();
+
+    // EventIds carry the changeKind infix and are distinct across kinds.
+    const eventIds = sortedRuns.map((r) => r.trigger_event.eventId);
+    expect(new Set(eventIds).size).toBe(3);
+    expect(eventIds[0]!).toContain(":added:");
+    expect(eventIds[1]!).toContain(":updated:");
+    expect(eventIds[2]!).toContain(":removed:");
+
+    // Each run drove one append_row action call. Total: 3.
+    const inspect = await fetchMockCalls(request, mock.baseUrl);
+    expect(inspect.calls.sheetsValuesAppend).toHaveLength(3);
+    for (const call of inspect.calls.sheetsValuesAppend) {
+      expect(call.range).toBe("Log!A:B");
+      expect(call.authorization).toBe("Bearer ya29.mock-e2e-access");
+    }
+  });
+
+  /**
+   * keyColumn stable identity — the load-bearing assertion for the
+   * D-KeyColumn decision. With `keyColumn: "Email"` configured, a
+   * positional shift (inserting a new row above existing ones) does
+   * NOT fire updated events for shifted-but-unchanged rows. Only
+   * genuine value changes — keyed by email — fire.
+   *
+   * The matched positional-mode behavior is unit-tested directly in
+   * `_shared/snapshot.test.ts` (findUpdated / findRemoved with shifted
+   * keys); the e2e here proves the full pipe (activate → webhook →
+   * pull → snapshot diff → dispatch → engine → handler) honors the
+   * keyColumn config end-to-end.
+   */
+  test("keyColumn → positional shift does NOT fire noise; only true keyed update fires", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readGoogleMockState();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const runId = randomUUID();
+    const aliceEmail = `alice-${runId}@e2e.test`;
+    const bobEmail = `bob-${runId}@e2e.test`;
+    const carolEmail = `carol-${runId}@e2e.test`;
+
+    // Pre-populate: header + alice + bob. Activate's snapshot:
+    // { "alice@…": hash([alice, "Alice"]), "bob@…": hash([bob, "Bob"]) }.
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["Email", "Name"] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: [aliceEmail, "Alice"] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: [bobEmail, "Bob"] },
+    });
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=google-sheets/),
+      page.getByRole("button", { name: "Connect Google Sheets" }).click(),
+    ]);
+
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill("E2E Sheets 2.3 — keyColumn identity");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const spreadsheetId = `ss-2.3-keycol-${runId}`;
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "google-sheets",
+          type: "row_changed",
+          config: {
+            spreadsheetId,
+            sheetName: "Sheet1",
+            headerRow: true,
+            keyColumn: "Email",
+            changeKinds: ["added", "updated", "removed"],
+            snapshotRowLimit: 100,
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "append_row",
+          config: {
+            spreadsheetId,
+            range: "Log!A:B",
+            values: ["keyed-event", "ok"],
+            valueInputOption: "USER_ENTERED",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const triggerRows = await getTriggerResourcesForUser(user.id);
+    expect(triggerRows).toHaveLength(1);
+    const triggerConfig = triggerRows[0]!.config as {
+      channelId: string;
+      resourceId: string;
+      keyColumn: string | null;
+      snapshot?: { rowHashes: Record<string, string>; keyMode: string };
+    };
+    expect(triggerConfig.keyColumn).toBe("Email");
+    expect(triggerConfig.snapshot).toBeDefined();
+    expect(triggerConfig.snapshot!.keyMode).toBe("keyColumn");
+    expect(Object.keys(triggerConfig.snapshot!.rowHashes).sort()).toEqual(
+      [aliceEmail, bobEmail].sort(),
+    );
+
+    const channelId = triggerConfig.channelId;
+    const channelToken = buildChannelToken({ channelId });
+    const fireWebhook = async (messageNumber: string) => {
+      const resp = await request.post("/api/webhooks/google-sheets", {
+        headers: {
+          "x-goog-channel-id": channelId,
+          "x-goog-channel-token": channelToken,
+          "x-goog-resource-id": triggerConfig.resourceId,
+          "x-goog-resource-state": "update",
+          "x-goog-message-number": messageNumber,
+        },
+      });
+      expect(resp.status(), await resp.text()).toBe(200);
+    };
+
+    const waitForRunCount = async (
+      expected: number,
+      description: string,
+    ): Promise<ReadonlyArray<Record<string, unknown>>> =>
+      waitFor(
+        async () => {
+          const rows = await getWorkflowRunsForUser(user.id);
+          return rows.length >= expected ? rows : null;
+        },
+        { description, timeoutMs: 15_000 },
+      );
+
+    // ── Insert carol at sheet row 2 (first data row), shifting
+    //    alice → row 3, bob → row 4. In positional mode this would
+    //    look like added(2), updated(3), added(4) — three noisy events.
+    //    In keyColumn mode: alice and bob keep their hashes (values
+    //    unchanged), so only carol fires.
+    await page.request.post(`${mock.baseUrl}/__insertSheetRow`, {
+      data: { rowIndex: 2, values: [carolEmail, "Carol"] },
+    });
+    await fireWebhook("1");
+    const runsAfterInsert = await waitForRunCount(1, "added carol");
+    expect(runsAfterInsert).toHaveLength(1);
+
+    // ── Update bob's row (now at sheet row 4 after the carol shift)
+    //    so the only diff is bob's hash. alice should NOT fire even
+    //    though her positional row index changed.
+    await page.request.post(`${mock.baseUrl}/__updateSheetRow`, {
+      data: { rowIndex: 4, values: [bobEmail, "Bob-Updated"] },
+    });
+    await fireWebhook("2");
+    const runsAfterBobUpdate = await waitForRunCount(2, "updated bob");
+    expect(runsAfterBobUpdate).toHaveLength(2);
+
+    type Run = Record<string, unknown> & {
+      trigger_event: {
+        eventId: string;
+        payload: {
+          changeKind: string;
+          rowIndex: number | null;
+          rowKey: string;
+          keyColumn: string | null;
+          keyValue: string | null;
+          rowValues: ReadonlyArray<unknown> | null;
+        };
+      };
+      created_at: string;
+      status: string;
+    };
+    const sortedRuns = (runsAfterBobUpdate as ReadonlyArray<Run>)
+      .slice()
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+    expect(sortedRuns.every((r) => r.status === "succeeded")).toBe(true);
+
+    // Run 1: added carol — keyValue = her email.
+    const addedRun = sortedRuns[0]!;
+    expect(addedRun.trigger_event.payload.changeKind).toBe("added");
+    expect(addedRun.trigger_event.payload.keyColumn).toBe("Email");
+    expect(addedRun.trigger_event.payload.keyValue).toBe(carolEmail);
+    expect(addedRun.trigger_event.payload.rowKey).toBe(carolEmail);
+    expect(addedRun.trigger_event.payload.rowValues).toEqual([
+      carolEmail,
+      "Carol",
+    ]);
+    // Positional rowIndex still surfaces — header at 1, carol at 2.
+    expect(addedRun.trigger_event.payload.rowIndex).toBe(2);
+
+    // Run 2: updated bob — keyValue = bob's email, NOT alice's.
+    const updatedRun = sortedRuns[1]!;
+    expect(updatedRun.trigger_event.payload.changeKind).toBe("updated");
+    expect(updatedRun.trigger_event.payload.keyColumn).toBe("Email");
+    expect(updatedRun.trigger_event.payload.keyValue).toBe(bobEmail);
+    expect(updatedRun.trigger_event.payload.rowKey).toBe(bobEmail);
+    expect(updatedRun.trigger_event.payload.rowValues).toEqual([
+      bobEmail,
+      "Bob-Updated",
+    ]);
+    // Positional rowIndex reflects bob's current position (header + 3).
+    expect(updatedRun.trigger_event.payload.rowIndex).toBe(4);
+
+    // Load-bearing assertion: NO run for alice. If positional shift had
+    // emitted noise, we'd see a third run with her email.
+    const keyValues = sortedRuns.map((r) => r.trigger_event.payload.keyValue);
+    expect(keyValues).not.toContain(aliceEmail);
+
+    // Exactly 2 action calls — proves the action did NOT fire for the
+    // shifted-but-unchanged alice row.
+    const inspect = await fetchMockCalls(request, mock.baseUrl);
+    expect(inspect.calls.sheetsValuesAppend).toHaveLength(2);
+  });
+});
+
+/**
+ * Sheets 2.3 — new_worksheet trigger end-to-end.
+ *
+ * Activates a `new_worksheet` workflow. The activate hook seeds a
+ * `worksheetSnapshot` of currently-known tab names via
+ * `spreadsheets.get`, then registers the Drive `files.watch` on the
+ * spreadsheet id. The next webhook + pull diffs the current names
+ * against the baseline and fires one event per truly-new name.
+ *
+ * Per-run dedup safety: worksheet names carry `randomUUID()` suffixes
+ * so the eventId (`${spreadsheetId}:new_worksheet:${sheetId}:${nameHash}`)
+ * doesn't collide with prior e2e runs via `webhook_event_dedup`.
+ *
+ * Rename note: Google's metadata presents a rename as
+ * `{remove old name, add new name}` and the trigger fires ONE event
+ * for the new name. The rename scenario is covered by a dedicated
+ * unit test in `triggers/_shared/snapshot.test.ts:findNewWorksheets`;
+ * exercising it from e2e adds little plumbing coverage beyond the
+ * baseline-add cycle here.
+ */
+test.describe("Sheets 2.3 — new_worksheet trigger e2e", () => {
+  test.beforeEach(async () => {
+    testUser = await createTestUser();
+  });
+
+  test.afterEach(async () => {
+    if (testUser) {
+      await deleteTestUser(testUser.id);
+      testUser = null;
+    }
+  });
+
+  test("new_worksheet → baseline does not fire; injecting a tab fires exactly one event", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readGoogleMockState();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=google-sheets/),
+      page.getByRole("button", { name: "Connect Google Sheets" }).click(),
+    ]);
+
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill("E2E Sheets 2.3 — new_worksheet");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const runId = randomUUID();
+    const spreadsheetId = `ss-2.3-newws-${runId}`;
+    const newWorksheetName = `Reports-${runId}`;
+
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "google-sheets",
+          type: "new_worksheet",
+          config: { spreadsheetId },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "append_row",
+          config: {
+            spreadsheetId,
+            range: "Log!A:B",
+            values: ["new-worksheet-event", "ok"],
+            valueInputOption: "USER_ENTERED",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Activate persisted the worksheet baseline = ["Sheet1"] (the mock's
+    // default seed). worksheetSnapshot lives on trigger_resources.config.
+    const triggerRows = await getTriggerResourcesForUser(user.id);
+    expect(triggerRows).toHaveLength(1);
+    const triggerRow = triggerRows[0]! as Record<string, unknown>;
+    expect(triggerRow.event_type).toBe("new_worksheet");
+    const triggerConfig = triggerRow.config as {
+      type: string;
+      webhookEnabled: boolean;
+      spreadsheetId: string;
+      worksheetSnapshot?: { names: string[]; updatedAt: string };
+      channelId: string;
+      resourceId: string;
+      pageToken: string;
+      expiresAt: string;
+    };
+    expect(triggerConfig.type).toBe("subscription-watch");
+    expect(triggerConfig.webhookEnabled).toBe(true);
+    expect(triggerConfig.spreadsheetId).toBe(spreadsheetId);
+    expect(triggerConfig.worksheetSnapshot).toBeDefined();
+    expect(triggerConfig.worksheetSnapshot!.names).toEqual(["Sheet1"]);
+    expect(triggerConfig.channelId).toMatch(
+      /^chainreact-trigger-node-[0-9a-f-]+$/,
+    );
+
+    // Mock-call assertions after activate: 1 spreadsheets.get (baseline)
+    // + 1 changes.getStartPageToken + 1 files.watch. No values.append yet.
+    const callsAfterActivate = await fetchMockCalls(request, mock.baseUrl);
+    expect(callsAfterActivate.calls.sheetsSpreadsheetsGet).toHaveLength(1);
+    expect(callsAfterActivate.calls.driveChangesGetStartPageToken).toHaveLength(
+      1,
+    );
+    expect(callsAfterActivate.calls.driveFilesWatch).toHaveLength(1);
+    expect(callsAfterActivate.calls.sheetsValuesAppend).toHaveLength(0);
+
+    const channelId = triggerConfig.channelId;
+    const channelToken = buildChannelToken({ channelId });
+    const fireWebhook = async (messageNumber: string) => {
+      const resp = await request.post("/api/webhooks/google-sheets", {
+        headers: {
+          "x-goog-channel-id": channelId,
+          "x-goog-channel-token": channelToken,
+          "x-goog-resource-id": triggerConfig.resourceId,
+          "x-goog-resource-state": "update",
+          "x-goog-message-number": messageNumber,
+        },
+      });
+      expect(resp.status(), await resp.text()).toBe(200);
+    };
+
+    // ── Baseline webhook (no new worksheet) → zero runs ─────────────
+    await fireWebhook("1");
+    // Allow time for any (unwanted) dispatch + run.
+    await new Promise((r) => setTimeout(r, 1500));
+    const runsBeforeInject = await getWorkflowRunsForUser(user.id);
+    expect(runsBeforeInject).toHaveLength(0);
+
+    // After the baseline pull, the mock should have logged 1 more
+    // spreadsheets.get (the pull's metadata fetch).
+    const callsAfterBaselinePull = await fetchMockCalls(request, mock.baseUrl);
+    expect(callsAfterBaselinePull.calls.sheetsSpreadsheetsGet).toHaveLength(2);
+    expect(callsAfterBaselinePull.calls.sheetsValuesAppend).toHaveLength(0);
+
+    // ── Inject a new worksheet via the mock control plane ──────────
+    const injectResp = await page.request.post(
+      `${mock.baseUrl}/__injectWorksheet`,
+      { data: { title: newWorksheetName, sheetType: "GRID" } },
+    );
+    expect(injectResp.status()).toBe(200);
+    const injectBody = (await injectResp.json()) as {
+      worksheet: { sheetId: number; title: string; index: number };
+      worksheetCount: number;
+    };
+    expect(injectBody.worksheetCount).toBe(2);
+    const addedSheetId = injectBody.worksheet.sheetId;
+    const addedIndex = injectBody.worksheet.index;
+
+    // ── Fire webhook → pull diffs current=[Sheet1,Reports-X] against
+    //    snapshot=[Sheet1] → emits ONE event for the new worksheet ──
+    await fireWebhook("2");
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "new_worksheet workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown> & {
+      trigger_event: {
+        provider: string;
+        eventType: string;
+        eventId: string;
+        payload: Record<string, unknown>;
+      };
+    };
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+    expect(run.trigger_event.provider).toBe("google-sheets");
+    expect(run.trigger_event.eventType).toBe("new_worksheet");
+    expect(run.trigger_event.eventId).toBe(
+      `${spreadsheetId}:new_worksheet:${addedSheetId}:${nameHashShort(newWorksheetName)}`,
+    );
+    expect(run.trigger_event.payload).toEqual({
+      changeKind: "added",
+      spreadsheetId,
+      worksheetId: addedSheetId,
+      worksheetName: newWorksheetName,
+      index: addedIndex,
+      sheetType: "GRID",
+    });
+
+    // Snapshot on the trigger row updated to include the new name.
+    const triggerRowsAfter = await getTriggerResourcesForUser(user.id);
+    const updatedConfig = triggerRowsAfter[0]!.config as {
+      worksheetSnapshot: { names: string[]; updatedAt: string };
+    };
+    expect(updatedConfig.worksheetSnapshot.names).toEqual([
+      "Sheet1",
+      newWorksheetName,
+    ]);
+
+    // ── Second webhook with unchanged state → no new run ────────────
+    await fireWebhook("3");
+    await new Promise((r) => setTimeout(r, 1500));
+    const runsAfterReplay = await getWorkflowRunsForUser(user.id);
+    expect(runsAfterReplay).toHaveLength(1);
+
+    // Mock-call totals: 4 spreadsheets.get (activate + baseline + new +
+    // unchanged) + 1 files.watch + 1 startPageToken + 1 values.append.
+    const inspect = await fetchMockCalls(request, mock.baseUrl);
+    expect(inspect.calls.sheetsSpreadsheetsGet).toHaveLength(4);
+    expect(inspect.calls.sheetsValuesAppend).toHaveLength(1);
+    expect(inspect.calls.driveFilesWatch).toHaveLength(1);
+    expect(inspect.calls.driveChangesGetStartPageToken).toHaveLength(1);
+  });
+});
+
+/**
+ * Compute the 12-char SHA-256 prefix the new_worksheet normalize uses
+ * for the eventId nameHash component. Inlined (not imported from the
+ * provider module) so a future hash-format change forces this test to
+ * update too — same forcing function as the row_changed spec's
+ * `computeSheetsEventId` helper.
+ */
+function nameHashShort(name: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createHash } = require("node:crypto") as typeof import("node:crypto");
+  return createHash("sha256")
+    .update(JSON.stringify(name))
+    .digest("hex")
+    .slice(0, 12);
+}
