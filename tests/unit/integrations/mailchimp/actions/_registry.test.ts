@@ -1,14 +1,16 @@
 /**
  * @jest-environment node
  *
- * Registry-coverage test — confirms that all 13 currently-registered
+ * Registry-coverage test — confirms that all 14 currently-registered
  * Mailchimp action handlers are wired in
  * services/execution/handlers/_registry.ts AND match the manifest's
  * declaration of `capabilities.actions: true`.
  *
  * Slice 14 Commit 3 landed the first 10 (subscriber/audience/segment/
- * note/event surface). Mailchimp 2.1 Commit 1 adds 3 read-tier actions
- * — get_subscribers, get_campaign, get_campaign_stats. Total 13.
+ * note/event surface). Mailchimp 2.1 Commit 1 added 3 read-tier
+ * actions (get_subscribers / get_campaign / get_campaign_stats).
+ * Mailchimp 2.1 Commit 2 adds `unsubscribe_subscriber` (state-change
+ * only — dropped V1 M-R3 dead flags). Total 14.
  *
  * Anti-test: a forgotten registration would silently break workflows
  * (the engine looks up handlers via `getActionHandler`; a missing
@@ -36,6 +38,8 @@ const EXPECTED_ACTIONS = [
   "get_subscribers",
   "get_campaign",
   "get_campaign_stats",
+  // Mailchimp 2.1 Commit 2 — unsubscribe state-change.
+  "unsubscribe_subscriber",
 ] as const;
 
 describe("Mailchimp action registry coverage", () => {
@@ -52,7 +56,7 @@ describe("Mailchimp action registry coverage", () => {
     },
   );
 
-  it("registers exactly the 13 currently-shipping Mailchimp actions", () => {
+  it("registers exactly the 14 currently-shipping Mailchimp actions", () => {
     const mcEntries = listRegisteredHandlers().filter(
       (e) => e.provider === "mailchimp",
     );

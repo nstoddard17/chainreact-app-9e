@@ -96,6 +96,7 @@ import { getSubscriber as mailchimpGetSubscriber } from "@/integrations/mailchim
 import { getSubscribers as mailchimpGetSubscribers } from "@/integrations/mailchimp/actions/getSubscribers";
 import { removeSubscriber as mailchimpRemoveSubscriber } from "@/integrations/mailchimp/actions/removeSubscriber";
 import { removeTag as mailchimpRemoveTag } from "@/integrations/mailchimp/actions/removeTag";
+import { unsubscribeSubscriber as mailchimpUnsubscribeSubscriber } from "@/integrations/mailchimp/actions/unsubscribeSubscriber";
 import { updateSubscriber as mailchimpUpdateSubscriber } from "@/integrations/mailchimp/actions/updateSubscriber";
 import { addRow as excelAddRow } from "@/integrations/microsoft-excel/actions/addRow";
 import { addTableRow as excelAddTableRow } from "@/integrations/microsoft-excel/actions/addTableRow";
@@ -466,6 +467,8 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "mailchimp", type: "get_subscribers", handler: mailchimpGetSubscribers },
   { provider: "mailchimp", type: "get_campaign", handler: mailchimpGetCampaign },
   { provider: "mailchimp", type: "get_campaign_stats", handler: mailchimpGetCampaignStats },
+  // Mailchimp 2.1 Commit 2 — unsubscribe state-change (drops V1 M-R3 dead flags).
+  { provider: "mailchimp", type: "unsubscribe_subscriber", handler: mailchimpUnsubscribeSubscriber },
   { provider: "trello", type: "create_card", handler: trelloCreateCard },
   { provider: "trello", type: "update_card", handler: trelloUpdateCard },
   { provider: "trello", type: "move_card", handler: trelloMoveCard },
