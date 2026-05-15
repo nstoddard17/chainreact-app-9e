@@ -5,6 +5,15 @@ import { filesWatch } from "@/integrations/google-drive/api/filesWatch";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActivationFn } from "@/services/triggers/activationRegistry";
 import { valuesGet } from "../../api/valuesGet";
+import {
+  buildBoundedSnapshot,
+  type BoundedSnapshot,
+} from "../_shared/snapshot";
+import {
+  RowChangedInputConfigSchema,
+  requiresExtendedSnapshot,
+  type RowChangedInputConfig,
+} from "./schema";
 
 /**
  * Google Sheets row_changed activation hook.
@@ -22,19 +31,28 @@ import { valuesGet } from "../../api/valuesGet";
  * `_shared/google/driveApi/` until a third Google product needs the
  * same wrappers.
  *
- * Three steps, in this order:
- *   1. Validate config — `spreadsheetId` and `sheetName` are required for
- *      Slice 5 Batch 1. V1 supports omitting sheetName ("watch all
- *      sheets"); V2 narrows scope.
+ * Five steps, in this order:
+ *   1. Parse + validate config via `RowChangedInputConfigSchema`. Strict
+ *      schema rejects V1 polling chrome (`hasHeaders`, `skipEmptyRows`,
+ *      `requiredColumns`) + unknown fields at activate time.
  *   2. Snapshot initial state — `values.get` on the configured sheet's
- *      A:Z range, store `lastRowCount = values.length`. Without this,
- *      the first push notification arrives and pull would backfill all
- *      existing rows as "added" events. V1's "first poll miss" lesson
- *      applied to Sheets.
- *   3. Drive watch registration — capture `pageToken` (currently unused
- *      by pull; persisted for future polling-mode use), generate
- *      channelId + HMAC token, call `files.watch` with `fileId =
- *      spreadsheetId`. Returns `{id, resourceId, expiration}`.
+ *      `<sheetName>!A:Z` range, store `lastRowCount = values.length`.
+ *      Without this, the first push notification arrives and pull
+ *      would backfill all existing rows as "added" events. V1's
+ *      "first poll miss" lesson applied to Sheets.
+ *   3. If `changeKinds` includes "updated" or "removed" — seed a
+ *      bounded per-row snapshot via `buildBoundedSnapshot`. Strict
+ *      reject if the sheet exceeds `snapshotRowLimit × 2` (per the
+ *      D-OverflowAtActivate decision: fail loud, don't silently
+ *      truncate, don't auto-raise). For `changeKinds = ["added"]`
+ *      (the Slice 5 default), no snapshot is seeded — the existing
+ *      count-delta fast path is preserved for backwards compat.
+ *   4. Drive watch registration — capture `pageToken` (persisted for
+ *      future polling-mode parity), generate channelId + HMAC token,
+ *      call `files.watch` with `fileId = spreadsheetId`. Returns
+ *      `{id, resourceId, expiration}`.
+ *   5. Return the merged config patch. Lifecycle merges this with
+ *      `node.config` to form the persisted `trigger_resources.config`.
  *
  * Throwing aborts the activate transition (TRIGGER_REGISTRATION_FAILED).
  * The returned config patch tags the row with
@@ -49,22 +67,12 @@ function webhookAddress(): string {
 }
 
 export const activate: ActivationFn = async ({ node, integration }) => {
-  const spreadsheetId = (node.config?.spreadsheetId as string | undefined)?.trim();
-  const sheetName = (node.config?.sheetName as string | undefined)?.trim();
-  if (!spreadsheetId) {
-    throw new Error(
-      "google-sheets activate: trigger config requires spreadsheetId.",
-    );
-  }
-  if (!sheetName) {
-    throw new Error(
-      "google-sheets activate: trigger config requires sheetName (Slice 5 Batch 1; multi-sheet support deferred).",
-    );
-  }
-  // Optional Boolean — defaults to false (no header treatment).
-  const headerRow = node.config?.headerRow === true;
+  // 1. Parse + validate config. ZodError surfaces as TRIGGER_REGISTRATION_FAILED.
+  const config: RowChangedInputConfig = RowChangedInputConfigSchema.parse(
+    node.config ?? {},
+  );
 
-  // 1. Snapshot initial row count so the first notification doesn't backfill.
+  // 2. Snapshot initial row count so the first notification doesn't backfill.
   const initialValues = await refreshAndRetry({
     userId: integration.userId,
     provider: "google-sheets",
@@ -72,13 +80,31 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
-        spreadsheetId,
-        range: `${sheetName}!A:Z`,
+        spreadsheetId: config.spreadsheetId,
+        range: `${config.sheetName}!A:Z`,
       }),
   });
-  const lastRowCount = (initialValues.values ?? []).length;
+  const rows = (initialValues.values ?? []) as ReadonlyArray<
+    ReadonlyArray<unknown>
+  >;
+  const lastRowCount = rows.length;
 
-  // 2. Capture Drive baseline cursor. Persisted for future polling-mode
+  // 3. Optionally seed the bounded snapshot. The schema's
+  // `keyColumn requires headerRow: true` refine guards the keyColumn
+  // precondition; `buildBoundedSnapshot` re-guards defensively and
+  // surfaces overflow / missing-column errors as throws.
+  let snapshot: BoundedSnapshot | null = null;
+  if (requiresExtendedSnapshot(config)) {
+    const result = buildBoundedSnapshot({
+      rows,
+      headerRow: config.headerRow,
+      snapshotRowLimit: config.snapshotRowLimit,
+      keyColumn: config.keyColumn,
+    });
+    snapshot = result.snapshot;
+  }
+
+  // 4. Capture Drive baseline cursor. Persisted for future polling-mode
   //    parity; pull does NOT consume this in Slice 5 Batch 1 (it reads
   //    values.get directly, which is cheaper than walking changes.list).
   const pageBaseline = await refreshAndRetry({
@@ -94,7 +120,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     );
   }
 
-  // 3. Register the Drive file-watch on the spreadsheet's fileId.
+  // 5. Register the Drive file-watch on the spreadsheet's fileId.
   const channelId = `chainreact-${node.id}-${randomUUID()}`;
   const channelToken = buildChannelToken({ channelId });
 
@@ -105,7 +131,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     apiCall: (accessToken) =>
       filesWatch({
         accessToken,
-        fileId: spreadsheetId,
+        fileId: config.spreadsheetId,
         channelId,
         channelToken,
         webhookAddress: webhookAddress(),
@@ -114,12 +140,20 @@ export const activate: ActivationFn = async ({ node, integration }) => {
 
   const expiresAt = new Date(Number(watch.expiration)).toISOString();
 
+  // Merged config patch. snapshot field is omitted entirely (not set
+  // to null) for `changeKinds = ["added"]` so the persisted shape
+  // matches Slice 5 byte-for-byte and the `hasExtendedChangeKinds`
+  // predicate (Commit 3) can use absence as the fast-path signal.
   return {
     type: SUBSCRIPTION_TYPE,
     webhookEnabled: true,
-    spreadsheetId,
-    sheetName,
-    headerRow,
+    spreadsheetId: config.spreadsheetId,
+    sheetName: config.sheetName,
+    headerRow: config.headerRow,
+    changeKinds: config.changeKinds,
+    snapshotRowLimit: config.snapshotRowLimit,
+    keyColumn: config.keyColumn,
+    ...(snapshot !== null ? { snapshot } : {}),
     channelId,
     resourceId: watch.resourceId,
     pageToken,

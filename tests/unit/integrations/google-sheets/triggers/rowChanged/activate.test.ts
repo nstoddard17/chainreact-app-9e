@@ -32,6 +32,19 @@ jest.mock("@/integrations/_shared/google/channelToken", () => ({
 
 import { activate } from "@/integrations/google-sheets/triggers/rowChanged/activate";
 
+interface ActivateSnapshot {
+  rowHashes: Record<string, string>;
+  rowCount: number;
+  windowStart: number;
+  windowEnd: number;
+  keyMode: "positional" | "keyColumn";
+  keyColumn: string | null;
+  updatedAt: string;
+}
+function snapshotOf(result: Record<string, unknown>): ActivateSnapshot {
+  return result.snapshot as ActivateSnapshot;
+}
+
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
   mockValuesGet.mockReset();
@@ -224,5 +237,296 @@ describe("Sheets row_changed activate", () => {
     await expect(
       activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/no startPageToken/);
+  });
+
+  // ──────────────────────────────────────────────────────────────────
+  // Sheets 2.3 Commit 2 — bounded snapshot seeding + overflow rejection.
+  // ──────────────────────────────────────────────────────────────────
+  describe("Sheets 2.3 — extended changeKinds", () => {
+    it("defaults to changeKinds=['added'] and OMITS the snapshot field (backwards-compat)", async () => {
+      mockValuesGet.mockResolvedValueOnce({
+        values: [["a"], ["b"], ["c"]],
+      });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      const result = await activate({
+        node: baseNode,
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      });
+
+      // Backwards-compat: existing added-only rows have no snapshot field.
+      expect(result.snapshot).toBeUndefined();
+      expect(result.changeKinds).toEqual(["added"]);
+      expect(result.snapshotRowLimit).toBe(1000);
+      expect(result.keyColumn).toBeNull();
+      expect(result.lastRowCount).toBe(3);
+    });
+
+    it("seeds a positional bounded snapshot when changeKinds includes 'updated'", async () => {
+      mockValuesGet.mockResolvedValueOnce({
+        values: [
+          ["alice", 30],
+          ["bob", 25],
+        ],
+      });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      const result = await activate({
+        node: {
+          ...baseNode,
+          config: {
+            ...baseNode.config,
+            changeKinds: ["added", "updated"],
+          },
+        },
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      });
+
+      expect(result.changeKinds).toEqual(["added", "updated"]);
+      expect(result.snapshot).toBeDefined();
+      const snap = snapshotOf(result);
+      expect(snap.keyMode).toBe("positional");
+      expect(snap.keyColumn).toBeNull();
+      expect(snap.rowCount).toBe(2);
+      expect(snap.windowStart).toBe(1);
+      expect(snap.windowEnd).toBe(2);
+      expect(Object.keys(snap.rowHashes).sort()).toEqual(["1", "2"]);
+    });
+
+    it("seeds a positional bounded snapshot when changeKinds includes 'removed'", async () => {
+      mockValuesGet.mockResolvedValueOnce({
+        values: [["only-row"]],
+      });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      const result = await activate({
+        node: {
+          ...baseNode,
+          config: {
+            ...baseNode.config,
+            changeKinds: ["removed"],
+          },
+        },
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      });
+
+      expect(result.snapshot).toBeDefined();
+      const snap = snapshotOf(result);
+      expect(snap.keyMode).toBe("positional");
+      expect(snap.rowCount).toBe(1);
+    });
+
+    it("seeds a keyColumn bounded snapshot when keyColumn + headerRow=true", async () => {
+      mockValuesGet.mockResolvedValueOnce({
+        values: [
+          ["id", "Name"],
+          ["a1", "alice"],
+          ["b2", "bob"],
+        ],
+      });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      const result = await activate({
+        node: {
+          ...baseNode,
+          config: {
+            ...baseNode.config,
+            headerRow: true,
+            changeKinds: ["added", "updated", "removed"],
+            keyColumn: "id",
+          },
+        },
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      });
+
+      expect(result.snapshot).toBeDefined();
+      const snap = snapshotOf(result);
+      expect(snap.keyMode).toBe("keyColumn");
+      expect(snap.keyColumn).toBe("id");
+      expect(Object.keys(snap.rowHashes).sort()).toEqual(["a1", "b2"]);
+    });
+
+    it("STRICT REJECTS overflow at activate time (does NOT silently truncate)", async () => {
+      // 2,500 data rows × snapshotRowLimit=1000 → 2,500 > 2,000 → overflow.
+      const rows = Array.from({ length: 2500 }, (_, i) => [`v${i}`]);
+      mockValuesGet.mockResolvedValueOnce({ values: rows });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      await expect(
+        activate({
+          node: {
+            ...baseNode,
+            config: {
+              ...baseNode.config,
+              changeKinds: ["added", "updated"],
+            },
+          },
+          integration: baseIntegration,
+          workflowId: "wf-test",
+        }),
+      ).rejects.toThrow(/snapshotRowLimit/);
+
+      // Critical: files.watch was NOT called — activation aborted BEFORE
+      // creating the provider-side resource. No orphaned channels.
+      expect(mockFilesWatch).not.toHaveBeenCalled();
+    });
+
+    it("does NOT seed a snapshot when overflow would occur AND changeKinds=['added'] (fast path is exempt)", async () => {
+      // 100k rows: would overflow ANY reasonable cap. But changeKinds
+      // defaults to ['added'] so no snapshot is built → no overflow check.
+      const rows = Array.from({ length: 100_000 }, (_, i) => [i]);
+      mockValuesGet.mockResolvedValueOnce({ values: rows });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      const result = await activate({
+        node: baseNode,
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      });
+
+      expect(result.snapshot).toBeUndefined();
+      expect(result.lastRowCount).toBe(100_000);
+      // files.watch DID get called — the fast path allows this.
+      expect(mockFilesWatch).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects unknown V1 polling chrome field at parse time", async () => {
+      await expect(
+        activate({
+          node: {
+            ...baseNode,
+            config: {
+              ...baseNode.config,
+              // V1 polling field — NOT ported.
+              hasHeaders: true,
+            },
+          },
+          integration: baseIntegration,
+          workflowId: "wf-test",
+        }),
+      ).rejects.toThrow();
+
+      expect(mockValuesGet).not.toHaveBeenCalled();
+    });
+
+    it("rejects keyColumn without headerRow=true (.refine guard)", async () => {
+      await expect(
+        activate({
+          node: {
+            ...baseNode,
+            config: {
+              ...baseNode.config,
+              keyColumn: "id",
+              // headerRow defaults to false
+            },
+          },
+          integration: baseIntegration,
+          workflowId: "wf-test",
+        }),
+      ).rejects.toThrow(/keyColumn requires headerRow/);
+
+      expect(mockValuesGet).not.toHaveBeenCalled();
+    });
+
+    it("rejects keyColumn that isn't in the header row", async () => {
+      mockValuesGet.mockResolvedValueOnce({
+        values: [
+          ["Name", "Age"],
+          ["alice", 30],
+        ],
+      });
+
+      await expect(
+        activate({
+          node: {
+            ...baseNode,
+            config: {
+              ...baseNode.config,
+              headerRow: true,
+              changeKinds: ["added", "updated"],
+              keyColumn: "id", // not in header row
+            },
+          },
+          integration: baseIntegration,
+          workflowId: "wf-test",
+        }),
+      ).rejects.toThrow(/keyColumn/);
+
+      // files.watch NOT called — failed before provider-side resource.
+      expect(mockFilesWatch).not.toHaveBeenCalled();
+    });
+
+    it("forwards snapshotRowLimit verbatim into the persisted config", async () => {
+      mockValuesGet.mockResolvedValueOnce({ values: [] });
+      mockChangesGetStartPageToken.mockResolvedValueOnce({
+        startPageToken: "p",
+      });
+      mockFilesWatch.mockResolvedValueOnce({
+        id: "c",
+        resourceId: "r",
+        expiration: String(Date.now() + 1000),
+      });
+
+      const result = await activate({
+        node: {
+          ...baseNode,
+          config: {
+            ...baseNode.config,
+            changeKinds: ["added", "updated"],
+            snapshotRowLimit: 500,
+          },
+        },
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      });
+
+      expect(result.snapshotRowLimit).toBe(500);
+    });
   });
 });
