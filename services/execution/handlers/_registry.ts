@@ -109,6 +109,8 @@ import { archivePage as notionArchivePage } from "@/integrations/notion/actions/
 import { createDatabaseEntry as notionCreateDatabaseEntry } from "@/integrations/notion/actions/createDatabaseEntry";
 import { createPage as notionCreatePage } from "@/integrations/notion/actions/createPage";
 import { getPage as notionGetPage } from "@/integrations/notion/actions/getPage";
+import { getUser as notionGetUser } from "@/integrations/notion/actions/getUser";
+import { listUsers as notionListUsers } from "@/integrations/notion/actions/listUsers";
 import { queryDatabase as notionQueryDatabase } from "@/integrations/notion/actions/queryDatabase";
 import { restorePage as notionRestorePage } from "@/integrations/notion/actions/restorePage";
 import { search as notionSearch } from "@/integrations/notion/actions/search";
@@ -284,6 +286,9 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Notion 2.1 Commit 1 — page lifecycle.
   { provider: "notion", type: "archive_page", handler: notionArchivePage },
   { provider: "notion", type: "restore_page", handler: notionRestorePage },
+  // Notion 2.1 Commit 2 — user lookups.
+  { provider: "notion", type: "get_user", handler: notionGetUser },
+  { provider: "notion", type: "list_users", handler: notionListUsers },
   { provider: "airtable", type: "list_records", handler: airtableListRecords },
   { provider: "airtable", type: "get_record", handler: airtableGetRecord },
   { provider: "airtable", type: "find_record", handler: airtableFindRecord },

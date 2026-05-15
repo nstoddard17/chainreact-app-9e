@@ -130,6 +130,20 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 2 Notion 2.1 Commit 2 user lookup handlers (get_user, list_users)", () => {
+    expect(getActionHandler("notion", "get_user")).toBeDefined();
+    expect(getActionHandler("notion", "list_users")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "get_user",
+    });
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "list_users",
+    });
+  });
+
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
     const registered = listRegisteredHandlers();
     expect(registered).toContainEqual({
