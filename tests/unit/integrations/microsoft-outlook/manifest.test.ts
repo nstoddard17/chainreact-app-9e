@@ -15,17 +15,35 @@ describe("microsoft-outlook manifest", () => {
     expect(getProvider("microsoft-outlook")).toBe(microsoftOutlookManifest);
   });
 
-  it("declares the mail-only Graph scopes — exactly the three approved for Slice 6", () => {
-    // Slice 6 confirmed scope decision #4: offline_access, Mail.Send,
-    // Mail.Read. NO Calendar / Files / Teams scopes (V1 rot fix #3 —
-    // V1's auth.ts asks for 8 scopes up front; we narrow strictly).
+  it("declares the mail-only Graph scopes — exactly the four approved through Outlook Mail 2.1", () => {
+    // Slice 6 confirmed scope decision #4 + Outlook Mail 2.1 P-O1
+    // widening (accepted 2026-05-15, see
+    // docs/slices/parity/outlook-mail-2-1-compose-drafts-plan.md §2):
+    // offline_access, Mail.Send, Mail.Read, Mail.ReadWrite. NO Calendar
+    // / Files / Teams / Contacts scopes (V1 rot fix #3 — V1's auth.ts
+    // asks for 8 scopes up front; we narrow strictly to mail-only).
     expect(microsoftOutlookManifest.scopes.required).toEqual([
       "offline_access",
       "Mail.Send",
       "Mail.Read",
+      "Mail.ReadWrite",
     ]);
     expect(microsoftOutlookManifest.scopes.optional).toEqual([]);
     expect(microsoftOutlookManifest.scopes.deprecated).toEqual([]);
+  });
+
+  it("declares Mail.ReadWrite as REQUIRED, not optional (Outlook Mail 2.1 P-O1)", () => {
+    // P-O1 widening (accepted 2026-05-15) ships Mail.ReadWrite as a
+    // required scope so create_draft_email (2.1) and 2.2's move /
+    // delete / add_categories actions have the Graph permissions they
+    // need at first call rather than discovering scope gaps at runtime.
+    // Mail.ReadWrite must be in `required` — never demoted to optional.
+    expect(microsoftOutlookManifest.scopes.required).toContain(
+      "Mail.ReadWrite",
+    );
+    expect(microsoftOutlookManifest.scopes.optional).not.toContain(
+      "Mail.ReadWrite",
+    );
   });
 
   it("does NOT include Calendar scopes — those land in Slice 7", () => {

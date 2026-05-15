@@ -22,18 +22,34 @@ import {
  * `actions` (when send_email registers) and `webhookTrigger` (when
  * new_email's subscription trigger registers).
  *
- * Scopes — exactly the three mail-only Graph scopes:
+ * Scopes — the four mail-only Graph scopes (Outlook Mail 2.1 widens
+ * from Slice 6's original three):
  *   - `offline_access` — required for the Microsoft v2 endpoint to issue
  *     a refresh_token. Without it tokens last 60-90 minutes and the
  *     integration goes cold.
- *   - `Mail.Send` — required by the send_email action (Commit 3).
- *   - `Mail.Read` — required by the new_email trigger (Commit 4) so the
- *     webhook receiver can fetch the message body via /me/messages/{id}.
+ *   - `Mail.Send` — required by the send_email action (Slice 6 Commit 3)
+ *     and by reply_to_email / forward_email (Outlook Mail 2.1).
+ *   - `Mail.Read` — required by the new_email trigger (Slice 6 Commit 4)
+ *     so the webhook receiver can fetch the message body via
+ *     /me/messages/{id}, and by future 2.2 fetch_emails.
+ *   - `Mail.ReadWrite` — required by create_draft_email (Outlook Mail
+ *     2.1) and by 2.2's move_email / delete_email / add_categories
+ *     (PATCH / move / DELETE on /me/messages/{id}). Mail.ReadWrite is a
+ *     superset of Mail.Read; both are declared so an IT-restricted
+ *     Azure AD tenant that grants only Mail.Read can still operate
+ *     send_email / new_email cleanly. Accepted by Marcus 2026-05-15;
+ *     P-O1 in docs/slices/parity/outlook-mail-2-1-compose-drafts-plan.md.
  *
- * Calendar / Files / Teams scopes are explicitly NOT here — the V1 rot
- * we fix is scope bloat (V1's auth.ts requested 8 scopes for any
- * Microsoft surface). Slice 7 (Calendar) widens additively via a
- * re-auth flow.
+ * Calendar / Files / Teams / Contacts scopes are explicitly NOT here —
+ * the V1 rot we fix is scope bloat (V1's auth.ts requested 8 scopes for
+ * any Microsoft surface). Slice 7 (Calendar) widens additively via its
+ * own sibling provider; future Outlook Mail surfaces stay mail-only.
+ *
+ * Existing connected accounts on the original 3-scope set will need
+ * to re-grant consent the first time they hit a Mail.ReadWrite endpoint.
+ * V2 handles that via the proactive-health system (CLAUDE.md "Proactive
+ * OAuth Token Management") — Graph 403 surfaces as `action_required` and
+ * the reconnect UX runs the standard OAuth flow. No migration script.
  *
  * tokenScope: "user" matches Gmail / Calendar / Drive / Sheets — one
  * Outlook integration per (user, email). A user with both Gmail and
@@ -66,7 +82,17 @@ export const microsoftOutlookManifest: ProviderManifest =
     oauthFlows: ["v2"],
     accountIdField: "email",
     scopes: {
-      required: ["offline_access", "Mail.Send", "Mail.Read"],
+      required: [
+        "offline_access",
+        "Mail.Send",
+        "Mail.Read",
+        // Outlook Mail 2.1 P-O1 widening — needed by create_draft_email
+        // (2.1) + move/delete/add_categories (2.2). Mail.ReadWrite is a
+        // superset of Mail.Read; both are declared so Azure AD tenants
+        // that grant only the narrower scope can still run send_email +
+        // new_email. Accepted 2026-05-15.
+        "Mail.ReadWrite",
+      ],
       optional: [],
       deprecated: [],
     },
