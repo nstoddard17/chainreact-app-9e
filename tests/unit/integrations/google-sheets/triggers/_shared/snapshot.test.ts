@@ -4,7 +4,9 @@
 import { createHash } from "node:crypto";
 import {
   buildBoundedSnapshot,
+  buildWorksheetListSnapshot,
   findAdded,
+  findNewWorksheets,
   findRemoved,
   findUpdated,
   hashRow,
@@ -13,6 +15,7 @@ import {
   SnapshotOverflowError,
   type BoundedSnapshot,
   type RowKeyed,
+  type WorksheetListSnapshot,
 } from "@/integrations/google-sheets/triggers/_shared/snapshot";
 
 const ts = new Date("2026-05-15T12:00:00.000Z");
@@ -931,5 +934,91 @@ describe("entries from buildBoundedSnapshot", () => {
     });
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]!.rowValues).toEqual(["dup", "second"]);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────
+// Worksheet-list snapshot (Sheets 2.3 Commit 4 — new_worksheet).
+// ──────────────────────────────────────────────────────────────────
+
+describe("buildWorksheetListSnapshot", () => {
+  it("preserves the workbook order Sheets returns", () => {
+    const snap = buildWorksheetListSnapshot({
+      names: ["Sheet1", "Notes", "Roster"],
+      now: fixedNow,
+    });
+    expect(snap.names).toEqual(["Sheet1", "Notes", "Roster"]);
+    expect(snap.updatedAt).toBe(ts.toISOString());
+  });
+
+  it("captures an empty workbook (defensive)", () => {
+    const snap = buildWorksheetListSnapshot({ names: [], now: fixedNow });
+    expect(snap.names).toEqual([]);
+  });
+
+  it("uses Date.now() when no now() override is supplied", () => {
+    const before = Date.now();
+    const snap = buildWorksheetListSnapshot({ names: ["a"] });
+    const after = Date.now();
+    const ms = new Date(snap.updatedAt).getTime();
+    expect(ms).toBeGreaterThanOrEqual(before);
+    expect(ms).toBeLessThanOrEqual(after);
+  });
+
+  it("clones the input array (mutating the input does not affect the snapshot)", () => {
+    const input = ["a", "b"];
+    const snap = buildWorksheetListSnapshot({ names: input, now: fixedNow });
+    input.push("c");
+    expect(snap.names).toEqual(["a", "b"]);
+  });
+});
+
+describe("findNewWorksheets", () => {
+  const baseSnap: WorksheetListSnapshot = {
+    names: ["Sheet1", "Notes"],
+    updatedAt: ts.toISOString(),
+  };
+
+  it("returns names present in current but absent from previous", () => {
+    const news = findNewWorksheets(baseSnap, ["Sheet1", "Notes", "Roster"]);
+    expect(news).toEqual(["Roster"]);
+  });
+
+  it("returns [] when nothing was added", () => {
+    expect(findNewWorksheets(baseSnap, ["Sheet1", "Notes"])).toEqual([]);
+  });
+
+  it("returns [] when sheets were only removed (no additions)", () => {
+    expect(findNewWorksheets(baseSnap, ["Sheet1"])).toEqual([]);
+  });
+
+  it("preserves the order in current[] (workbook order)", () => {
+    const news = findNewWorksheets(baseSnap, [
+      "C",
+      "Sheet1",
+      "A",
+      "Notes",
+      "B",
+    ]);
+    // Order: only the new names, in the order they appear in current[].
+    expect(news).toEqual(["C", "A", "B"]);
+  });
+
+  it("flags rename as add (rename = remove old + add new from diff's perspective)", () => {
+    // Sheet1 renamed to Sheet1Renamed → "Sheet1" disappears, "Sheet1Renamed"
+    // appears. findNewWorksheets returns the new name.
+    const news = findNewWorksheets(baseSnap, ["Sheet1Renamed", "Notes"]);
+    expect(news).toEqual(["Sheet1Renamed"]);
+  });
+
+  it("treats names case-sensitively (Sheet1 != sheet1)", () => {
+    const news = findNewWorksheets(baseSnap, ["sheet1", "Notes"]);
+    // "sheet1" is new (lowercase); "Sheet1" was in baseline but is now gone.
+    expect(news).toEqual(["sheet1"]);
+  });
+
+  it("handles re-ordering as a no-op (diff is set-difference, order ignored)", () => {
+    const news = findNewWorksheets(baseSnap, ["Notes", "Sheet1"]);
+    expect(news).toEqual([]);
   });
 });

@@ -33,6 +33,8 @@ import "./gmail/triggers/newAttachment";
 import "./google-calendar/triggers/eventChanged";
 import "./google-drive/triggers/fileChanged";
 import "./google-sheets/triggers/rowChanged";
+// Sheets 2.3 Commit 4 — new_worksheet watch-based push trigger.
+import "./google-sheets/triggers/newWorksheet";
 import "./microsoft-outlook/triggers/newEmail";
 import "./microsoft-outlook-calendar/triggers/eventChanged";
 import "./microsoft-onedrive/triggers/fileChanged";

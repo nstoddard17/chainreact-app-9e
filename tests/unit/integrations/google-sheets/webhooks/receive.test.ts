@@ -4,6 +4,7 @@
 const mockListByConfigContains = jest.fn();
 const mockVerifyChannelToken = jest.fn();
 const mockPull = jest.fn();
+const mockNewWorksheetPull = jest.fn();
 
 jest.mock("@/repositories/triggerResources", () => ({
   listByConfigContains: (...args: unknown[]) => mockListByConfigContains(...args),
@@ -17,6 +18,10 @@ jest.mock("@/integrations/google-sheets/triggers/rowChanged/pull", () => ({
   pull: (...args: unknown[]) => mockPull(...args),
 }));
 
+jest.mock("@/integrations/google-sheets/triggers/newWorksheet/pull", () => ({
+  pull: (...args: unknown[]) => mockNewWorksheetPull(...args),
+}));
+
 import { InvalidSignatureError } from "@/core/triggers/errors";
 import { receiveSheetsWebhook } from "@/integrations/google-sheets/webhooks/receive";
 
@@ -24,6 +29,7 @@ beforeEach(() => {
   mockListByConfigContains.mockReset();
   mockVerifyChannelToken.mockReset();
   mockPull.mockReset();
+  mockNewWorksheetPull.mockReset();
 });
 
 function makeRequest(headers: Record<string, string>): Request {
@@ -158,5 +164,115 @@ describe("receiveSheetsWebhook", () => {
     );
     expect(result.kind).toBe("events");
     expect(mockPull).toHaveBeenCalledWith(baseTrigger);
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // Sheets 2.3 Commit 4 — receive route dispatches by eventType.
+  // ────────────────────────────────────────────────────────────────
+  describe("event type dispatch", () => {
+    const newWorksheetTrigger = {
+      ...baseTrigger,
+      id: "tr-2",
+      eventType: "new_worksheet",
+      config: {
+        channelId: "channel-2",
+        spreadsheetId: "ss-1",
+        worksheetSnapshot: {
+          names: ["Sheet1"],
+          updatedAt: "2026-05-15T00:00:00.000Z",
+        },
+      },
+    };
+
+    it("dispatches new_worksheet trigger to the new_worksheet pull", async () => {
+      mockListByConfigContains.mockResolvedValueOnce([newWorksheetTrigger]);
+      mockVerifyChannelToken.mockReturnValueOnce(true);
+      mockNewWorksheetPull.mockResolvedValueOnce({
+        events: [
+          {
+            provider: "google-sheets",
+            eventType: "new_worksheet",
+            eventId: "ss-1:new_worksheet:42:abc123",
+            occurredAt: "2026-05-15T12:00:00Z",
+            accountId: "alice@example.com",
+            payload: {
+              changeKind: "added",
+              spreadsheetId: "ss-1",
+              worksheetId: 42,
+              worksheetName: "Sheet2",
+              index: 1,
+              sheetType: "GRID",
+            },
+          },
+        ],
+        resyncRequired: false,
+      });
+
+      const result = await receiveSheetsWebhook(
+        makeRequest({
+          "x-goog-channel-id": "channel-2",
+          "x-goog-channel-token": "valid",
+          "x-goog-resource-state": "update",
+        }),
+      );
+
+      expect(result.kind).toBe("events");
+      if (result.kind === "events") {
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0]!.eventType).toBe("new_worksheet");
+      }
+      expect(mockNewWorksheetPull).toHaveBeenCalledWith(newWorksheetTrigger);
+      // Critical: row_changed pull was NOT invoked for the
+      // new_worksheet trigger.
+      expect(mockPull).not.toHaveBeenCalled();
+    });
+
+    it("dispatches row_changed trigger to the row_changed pull (no cross-talk)", async () => {
+      mockListByConfigContains.mockResolvedValueOnce([baseTrigger]);
+      mockVerifyChannelToken.mockReturnValueOnce(true);
+      mockPull.mockResolvedValueOnce({ events: [], resyncRequired: false });
+
+      await receiveSheetsWebhook(
+        makeRequest({
+          "x-goog-channel-id": "channel-1",
+          "x-goog-channel-token": "valid",
+          "x-goog-resource-state": "update",
+        }),
+      );
+
+      expect(mockPull).toHaveBeenCalledWith(baseTrigger);
+      expect(mockNewWorksheetPull).not.toHaveBeenCalled();
+    });
+
+    it("logs + acks an unknown event type without dispatching", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      mockListByConfigContains.mockResolvedValueOnce([
+        { ...baseTrigger, eventType: "uninstalled_in_a_future_slice" },
+      ]);
+      mockVerifyChannelToken.mockReturnValueOnce(true);
+
+      const result = await receiveSheetsWebhook(
+        makeRequest({
+          "x-goog-channel-id": "channel-1",
+          "x-goog-channel-token": "valid",
+          "x-goog-resource-state": "update",
+        }),
+      );
+
+      expect(result.kind).toBe("events");
+      if (result.kind === "events") {
+        expect(result.events).toEqual([]);
+      }
+      expect(mockPull).not.toHaveBeenCalled();
+      expect(mockNewWorksheetPull).not.toHaveBeenCalled();
+      const warnedAboutUnknown = warnSpy.mock.calls
+        .flat()
+        .find(
+          (a) =>
+            typeof a === "string" && a.includes("unknown_event_type"),
+        );
+      expect(warnedAboutUnknown).toBeDefined();
+      warnSpy.mockRestore();
+    });
   });
 });

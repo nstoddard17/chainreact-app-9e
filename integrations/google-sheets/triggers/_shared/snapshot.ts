@@ -439,6 +439,67 @@ function indexByKey(
  * KeyColumn mode: no window concept; always returns false (every
  * previous key absent from current is a genuine removal).
  */
+// ──────────────────────────────────────────────────────────────────
+// Worksheet-list snapshot (Sheets 2.3 Commit 4 — new_worksheet trigger).
+// ──────────────────────────────────────────────────────────────────
+//
+// Distinct from `BoundedSnapshot`. The new_worksheet trigger doesn't
+// need hash-per-row tracking — it just diffs the spreadsheet's
+// worksheet-name list across pull cycles. Renames look like
+// `{ remove old name, add new name }` from `spreadsheets.get`'s
+// perspective and fire one event for the new name (matches V1 +
+// Microsoft Excel `new_worksheet` documented behavior).
+//
+// Shape mirrors Microsoft Excel's `ExcelWorksheetListSnapshot` so
+// future cross-provider helpers stay aligned, but lives in this
+// provider-local module per the V2 cross-provider import policy.
+
+export interface WorksheetListSnapshot {
+  /** Worksheet titles in workbook order (preserved as Sheets returns
+   * them). Diff is set-difference, so re-ordering does NOT fire the
+   * trigger. */
+  names: string[];
+  /** ISO 8601 timestamp when this snapshot was built. */
+  updatedAt: string;
+}
+
+export interface BuildWorksheetListSnapshotInput {
+  names: ReadonlyArray<string>;
+  /** Optional now() override for deterministic tests. Default:
+   * Date.now(). */
+  now?: () => Date;
+}
+
+/** Build a fresh worksheet-list snapshot. Empty/duplicate names are
+ * preserved — duplicate handling lives in the diff (`findNewWorksheets`
+ * treats names as a set). */
+export function buildWorksheetListSnapshot(
+  input: BuildWorksheetListSnapshotInput,
+): WorksheetListSnapshot {
+  const now = input.now ?? (() => new Date());
+  return {
+    names: [...input.names],
+    updatedAt: now().toISOString(),
+  };
+}
+
+/** Returns the names present in `current` but absent from `previous`,
+ * preserving the order they appear in `current`. Renames look like
+ * `{ remove old, add new }` and fire ONE event for the new name. */
+export function findNewWorksheets(
+  previous: WorksheetListSnapshot,
+  current: ReadonlyArray<string>,
+): string[] {
+  const seen = new Set(previous.names);
+  const out: string[] = [];
+  for (const name of current) {
+    if (!seen.has(name)) {
+      out.push(name);
+    }
+  }
+  return out;
+}
+
 function isWindowSlideArtifact(
   key: string,
   previous: BoundedSnapshot,

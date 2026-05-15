@@ -2,7 +2,8 @@ import { verifyChannelToken } from "@/integrations/_shared/google/channelToken";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import { InvalidSignatureError } from "@/core/triggers/errors";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
-import { pull } from "../triggers/rowChanged/pull";
+import { pull as newWorksheetPull } from "../triggers/newWorksheet/pull";
+import { pull as rowChangedPull } from "../triggers/rowChanged/pull";
 
 /**
  * Verify and parse an inbound Google Sheets push notification.
@@ -16,12 +17,17 @@ import { pull } from "../triggers/rowChanged/pull";
  *                                `remove` | `update` | `trash` | `untrash`
  *   - X-Goog-Message-Number      monotonic per-channel
  *
- * Slice 5 Batch 1 treats ALL non-`sync` resource_states as "go fetch the
- * row delta" — pull.ts reads `spreadsheets.values.get` and emits one
- * TriggerEvent per newly added row. We don't switch on resource_state
- * because the row-count comparison handles all the discrimination
- * (added/updated/removed) we care about; emitting only added events is
- * documented in the plan doc.
+ * Slice 5 / Sheets 2.3 treat all non-`sync` resource_states as "go fetch
+ * the delta". Dispatch by `trigger.eventType` to the right pull:
+ *   - `row_changed` → row delta (added / updated / removed) via the
+ *     bounded snapshot path (Commit 2 + Commit 3).
+ *   - `new_worksheet` → worksheet-list delta via `spreadsheets.get`
+ *     (Commit 4).
+ *
+ * Resource_state isn't used to discriminate because each pull
+ * function handles all relevant change kinds via its own snapshot
+ * comparison — Sheets' notification doesn't tell us WHAT inside the
+ * spreadsheet changed, just THAT it did. Pull figures it out.
  *
  * Outcomes:
  *   - `handshake`: resource_state === "sync". Google's "this watch is
@@ -29,17 +35,14 @@ import { pull } from "../triggers/rowChanged/pull";
  *   - `unknown_channel`: channelId doesn't match any trigger_resources
  *     row. Treat as success — Google may still be delivering late
  *     notifications for a stopped watch (in-flight window after
- *     channels.stop). Quietly ack with 200 rather than 401, to avoid
- *     noisy retries during normal channel lifecycle.
- *   - `events`: any other state AND token verifies. Pull the row delta
- *     via values.get and return the normalized TriggerEvents.
+ *     channels.stop). Quietly ack with 200 rather than 401.
+ *   - `events`: any other state AND token verifies. Pull the delta via
+ *     the per-eventType handler and return the normalized TriggerEvents.
  *
  * Throws:
  *   - `InvalidSignatureError` when channelId is present in
  *     trigger_resources but the channel token doesn't match the HMAC.
- *     Genuine spoof attempt — the route maps to 401.
- *   - `InvalidSignatureError` when required headers are missing — the
- *     request didn't come from Google.
+ *   - `InvalidSignatureError` when required headers are missing.
  */
 export type ReceiveResult =
   | { kind: "handshake" }
@@ -82,8 +85,29 @@ export async function receiveSheetsWebhook(
     return { kind: "handshake" };
   }
 
-  // Real change. Pull the row delta — pull persists the new lastRowCount
-  // before returning so a duplicate notification doesn't double-emit.
-  const result = await pull(trigger);
-  return { kind: "events", events: result.events };
+  // Real change. Dispatch by eventType to the right pull function.
+  // Each trigger has its own channelId so the channel-to-trigger
+  // lookup uniquely identifies the receiving trigger; eventType
+  // tells us which pull to invoke.
+  if (trigger.eventType === "row_changed") {
+    const result = await rowChangedPull(trigger);
+    return { kind: "events", events: result.events };
+  }
+  if (trigger.eventType === "new_worksheet") {
+    const result = await newWorksheetPull(trigger);
+    return { kind: "events", events: result.events };
+  }
+  // Unknown event type on a registered channel: treat as no-op +
+  // structured log. The renewal cron will eventually let the watch
+  // expire if the trigger was deleted; meanwhile we ack to avoid
+  // Google retries.
+  console.warn(
+    JSON.stringify({
+      event: "sheets.receive.unknown_event_type",
+      channelId,
+      triggerId: trigger.id,
+      eventType: trigger.eventType,
+    }),
+  );
+  return { kind: "events", events: [] };
 }
