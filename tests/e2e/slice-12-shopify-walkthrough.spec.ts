@@ -516,6 +516,289 @@ test.describe("Slice 12 — full Shopify walkthrough", () => {
     );
     expect(customerPostsAfterReplay).toHaveLength(1);
   });
+
+  /**
+   * Shopify 2.1 Commit 2 — `update_product_variant` parity port e2e.
+   *
+   * Single workflow chains `create_product_variant` →
+   * `update_product_variant` on the same product, with the engine's
+   * `{{<nodeId>.<key>}}` template resolving the created variant id into
+   * the update node's config. Asserts both REST endpoints are hit
+   * exactly once with the expected wire shapes, and pins the bounded
+   * output projection + inventory-boundary contract documented in
+   * [`docs/slices/parity-shopify.md`](../../docs/slices/parity-shopify.md) §7.
+   *
+   * Inventory contract (NPD-S5 + accepted Shopify 2.1 scope): the
+   * `update_product_variant` PATCH MUST NOT carry `inventory_quantity`,
+   * `inventory_item_id`, or `inventory_management` on the wire.
+   * Variant inventory changes are workflow-composed via
+   * `shopify:update_inventory`. The e2e regression-guards this.
+   */
+  test("Shopify 2.1: create_product_variant → update_product_variant chain (REST PUT /variants/{id}.json, inventory fields excluded, bounded output)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readShopifyMockState();
+    const runMarker = randomUUID();
+
+    // ── Setup: reset mock + sign in + connect Shopify (same OAuth dance
+    //    as the existing walkthrough) ──
+    await page.request.post(`${mock.baseUrl}/__reset`);
+    await signIn(page, user);
+    const connectResp = await page.request.post(
+      "/api/integrations/oauth/shopify/connect",
+      { data: { providerHint: { shop: SHOP_DOMAIN } } },
+    );
+    expect(connectResp.status(), await connectResp.text()).toBe(200);
+    const { redirectUrl } = (await connectResp.json()) as {
+      redirectUrl: string;
+    };
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=shopify/),
+      page.goto(redirectUrl),
+    ]);
+
+    // ── Build a workflow with the create → update chain ──
+    // PRODUCT_ID is hardcoded — the mock accepts any productId path
+    // segment and the test scenario doesn't exercise create_product
+    // (a separate Shopify 2.0 surface).
+    const PRODUCT_ID = 5001;
+    const SEED_PRICE = "39.99";
+    const UPDATED_PRICE = "44.99";
+    const SEED_SKU = `SKU-${runMarker.slice(0, 8)}`;
+    const UPDATED_SKU = `${SEED_SKU}-V2`;
+    const UPDATED_BARCODE = "1234567890123";
+
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill("E2E Shopify variant create+update");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "shopify",
+          type: "webhook_received",
+          config: { topics: ["orders/create"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "create-variant",
+          kind: "action" as const,
+          provider: "shopify",
+          type: "create_product_variant",
+          config: {
+            product_id: PRODUCT_ID,
+            price: SEED_PRICE,
+            option1: "Large",
+            sku: SEED_SKU,
+          },
+          position: { x: 0, y: 100 },
+        },
+        {
+          id: "update-variant",
+          kind: "action" as const,
+          provider: "shopify",
+          type: "update_product_variant",
+          config: {
+            // Pull the variant id from the upstream create step — proves
+            // the engine resolves {{<nodeId>.<key>}} templates against
+            // a prior step's bounded output.
+            variant_id: "{{create-variant.variantId}}",
+            price: UPDATED_PRICE,
+            sku: UPDATED_SKU,
+            barcode: UPDATED_BARCODE,
+            weight: 1.25,
+            weight_unit: "kg",
+            taxable: true,
+          },
+          position: { x: 0, y: 200 },
+        },
+      ],
+      edges: [
+        { id: "e1", from: "trigger-node", to: "create-variant" },
+        { id: "e2", from: "create-variant", to: "update-variant" },
+      ],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+
+    await page.reload();
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(page.locator("[data-status-kind=active]")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // ── Fire a signed event ──
+    const triggerRows = await getTriggerResourcesForUser(user.id);
+    const subId = (
+      triggerRows[0]! as Record<string, unknown>
+    ).config as { subscriptions: { topic: string; webhookId: number }[] };
+    const webhookId = subId.subscriptions.find(
+      (s) => s.topic === "orders/create",
+    )!.webhookId;
+
+    const eventId = `variant-e2e-${runMarker}`;
+    const sendResp = await page.request.post(
+      `${mock.baseUrl}/__sendWebhookEvent`,
+      {
+        data: {
+          webhookId,
+          topic: "orders/create",
+          eventId,
+          body: {
+            id: 9999777,
+            email: `buyer-${runMarker}@e2e.test`,
+            total_price: SEED_PRICE,
+            currency: "USD",
+            financial_status: "paid",
+            created_at: new Date().toISOString(),
+          },
+        },
+      },
+    );
+    expect(sendResp.status()).toBe(200);
+
+    // ── workflow_run succeeded ──
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+
+    // ── Mock saw EXACTLY one POST (create_product_variant) and EXACTLY
+    //    one PUT (update_product_variant). No per-record loop. No
+    //    second pass on either. ──
+    const callsAfterRun = await fetchShopifyCalls(request, mock.baseUrl);
+    expect(callsAfterRun.calls.variants).toHaveLength(2);
+    const postCalls = callsAfterRun.calls.variants.filter(
+      (c) => c.method === "POST",
+    );
+    const putCalls = callsAfterRun.calls.variants.filter(
+      (c) => c.method === "PUT",
+    );
+    expect(postCalls).toHaveLength(1);
+    expect(putCalls).toHaveLength(1);
+
+    // ── create_product_variant POST shape ──
+    const postCall = postCalls[0]!;
+    expect(postCall.shop).toBe(SHOP_DOMAIN);
+    expect(postCall.productId).toBe(PRODUCT_ID);
+    expect(postCall.accessToken).toBe("shopify-mock-e2e-access");
+    expect(postCall.authorization).toBeUndefined();
+    expect(postCall.contentType).toContain("application/json");
+    const postVariant = postCall.parsedBody.variant as Record<string, unknown>;
+    expect(postVariant.price).toBe(SEED_PRICE);
+    expect(postVariant.option1).toBe("Large");
+    expect(postVariant.sku).toBe(SEED_SKU);
+
+    // ── update_product_variant PUT shape ──
+    const putCall = putCalls[0]!;
+    expect(putCall.shop).toBe(SHOP_DOMAIN);
+    // Path id matches the mock-assigned variant id from the create
+    // step — i.e. the engine resolved the {{create-variant.variantId}}
+    // template into the upstream output's numeric id.
+    expect(putCall.variantId).toBe(postCall.responseVariantId);
+    expect(putCall.accessToken).toBe("shopify-mock-e2e-access");
+    expect(putCall.authorization).toBeUndefined();
+    expect(putCall.contentType).toContain("application/json");
+    expect(putCall.url).toBe(
+      `/${SHOP_DOMAIN}/admin/api/2024-10/variants/${postCall.responseVariantId}.json`,
+    );
+
+    const putVariant = putCall.parsedBody.variant as Record<string, unknown>;
+    expect(putVariant.id).toBe(postCall.responseVariantId);
+    expect(putVariant.price).toBe(UPDATED_PRICE);
+    expect(putVariant.sku).toBe(UPDATED_SKU);
+    expect(putVariant.barcode).toBe(UPDATED_BARCODE);
+    expect(putVariant.weight).toBe(1.25);
+    expect(putVariant.weight_unit).toBe("kg");
+    expect(putVariant.taxable).toBe(true);
+
+    // ── INVENTORY BOUNDARY: PUT body MUST NOT carry inventory fields ──
+    // Workflow authors who want inventory updates compose
+    // shopify:update_inventory downstream. This is a load-bearing
+    // contract — V1's GraphQL bulk update explicitly excluded
+    // inventory; V2 schema layer rejects the smuggle attempt at parse
+    // time, but the wire-level guard belongs at the e2e too.
+    expect(putVariant.inventory_quantity).toBeUndefined();
+    expect(putVariant.inventory_item_id).toBeUndefined();
+    expect(putVariant.inventory_management).toBeUndefined();
+
+    // ── workflow_runs.steps[update-variant].output: bounded shape ──
+    const steps = run.steps as Array<{
+      nodeId: string;
+      status: string;
+      output?: Record<string, unknown>;
+    }>;
+    const updateStep = steps.find((s) => s.nodeId === "update-variant");
+    expect(updateStep).toBeTruthy();
+    expect(updateStep!.status).toBe("succeeded");
+    expect(Object.keys(updateStep!.output!).sort()).toEqual([
+      "adminUrl",
+      "barcode",
+      "compareAtPrice",
+      "inventoryItemId",
+      "option1",
+      "option2",
+      "option3",
+      "price",
+      "productId",
+      "sku",
+      "success",
+      "title",
+      "updatedAt",
+      "variantId",
+    ]);
+    expect(updateStep!.output!.variantId).toBe(postCall.responseVariantId);
+    expect(updateStep!.output!.price).toBe(UPDATED_PRICE);
+    expect(updateStep!.output!.sku).toBe(UPDATED_SKU);
+    expect(updateStep!.output!.barcode).toBe(UPDATED_BARCODE);
+    // Mock surfaces inventory_item_id from the create step + preserves
+    // it on update; output exposes it so workflow authors can chain
+    // into update_inventory without an extra Shopify GET.
+    expect(updateStep!.output!.inventoryItemId).toBe(
+      postCall.responseInventoryItemId,
+    );
+    expect(updateStep!.output!.adminUrl).toBe(
+      `https://${SHOP_DOMAIN}/admin/products/${PRODUCT_ID}/variants/${postCall.responseVariantId}`,
+    );
+
+    // ── No raw Shopify response extras leak. Defensive sweep ──
+    // Mock's variant body has no inventory_quantity, but verify the
+    // step output also excludes any snake_case wire keys that a future
+    // Shopify response extension might introduce (the wrapper +
+    // handler bounded projection should reject them).
+    expect(updateStep!.output).not.toHaveProperty("inventory_quantity");
+    expect(updateStep!.output).not.toHaveProperty("inventory_item_id");
+    expect(updateStep!.output).not.toHaveProperty("inventory_management");
+    expect(updateStep!.output).not.toHaveProperty("requires_shipping");
+    expect(updateStep!.output).not.toHaveProperty("fulfillment_service");
+
+    // ── Create step also succeeded with sensible bounded output ──
+    const createStep = steps.find((s) => s.nodeId === "create-variant");
+    expect(createStep).toBeTruthy();
+    expect(createStep!.status).toBe("succeeded");
+    expect(createStep!.output!.variantId).toBe(postCall.responseVariantId);
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -566,6 +849,20 @@ interface ShopifyMockInspect {
       body: string;
       parsedBody: Record<string, unknown>;
       responseCustomerId: number | null;
+    }[];
+    variants: {
+      method: "POST" | "PUT";
+      shop: string;
+      accessToken: string | undefined;
+      authorization: string | undefined;
+      contentType: string | undefined;
+      productId: number | null;
+      variantId: number | null;
+      url: string;
+      body: string;
+      parsedBody: Record<string, unknown>;
+      responseVariantId: number;
+      responseInventoryItemId: number;
     }[];
     webhookCreate: {
       shop: string;

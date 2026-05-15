@@ -37,6 +37,22 @@ import { createHmac } from "node:crypto";
  *                                             NO refresh_token issued.
  *   GET  /:shop/admin/api/2024-10/shop.json → name + plan_name.
  *   POST /:shop/admin/api/2024-10/customers.json → echoes synthetic id.
+ *   POST /:shop/admin/api/2024-10/products/{productId}/variants.json
+ *                                              → assigns synthetic variant id +
+ *                                                inventory_item_id, stores
+ *                                                variant state, echoes back.
+ *                                                Used by create_product_variant
+ *                                                (Slice 12) + as the seed step
+ *                                                for the Shopify 2.1 Commit 2
+ *                                                update_product_variant e2e
+ *                                                chain.
+ *   PUT  /:shop/admin/api/2024-10/variants/{variantId}.json
+ *                                              → merges supplied fields onto
+ *                                                stored variant; preserves
+ *                                                inventory_item_id from create;
+ *                                                returns the merged variant.
+ *                                                Used by update_product_variant
+ *                                                (Shopify 2.1 Commit 1).
  *   POST /:shop/admin/api/2024-10/webhooks.json  → returns synthetic id.
  *   DELETE /:shop/admin/api/2024-10/webhooks/{id}.json → soft delete.
  *
@@ -101,6 +117,24 @@ export interface RecordedCustomerCall {
   responseCustomerId: number | null;
 }
 
+export interface RecordedVariantCall {
+  /** "POST" for create_product_variant; "PUT" for update_product_variant. */
+  method: "POST" | "PUT";
+  shop: string;
+  accessToken: string | undefined;
+  authorization: string | undefined;
+  contentType: string | undefined;
+  /** Numeric Shopify product id parsed from the path; null on PUT path. */
+  productId: number | null;
+  /** Numeric Shopify variant id parsed from the path; null on POST path. */
+  variantId: number | null;
+  url: string;
+  body: string;
+  parsedBody: Record<string, unknown>;
+  responseVariantId: number;
+  responseInventoryItemId: number;
+}
+
 export interface RecordedWebhookCreate {
   shop: string;
   accessToken: string | undefined;
@@ -135,6 +169,7 @@ export interface MockShopifyHandle {
     tokenExchange: RecordedTokenExchange[];
     shopJson: RecordedShopJson[];
     customers: RecordedCustomerCall[];
+    variants: RecordedVariantCall[];
     webhookCreate: RecordedWebhookCreate[];
     webhookDelete: RecordedWebhookDelete[];
     webhookEvent: RecordedWebhookEvent[];
@@ -162,12 +197,35 @@ interface LastSentEvent {
   triggeredAt: string;
 }
 
+interface MockVariantState {
+  id: number;
+  product_id: number;
+  inventory_item_id: number;
+  title?: string | null;
+  price?: string | null;
+  compare_at_price?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  option1?: string | null;
+  option2?: string | null;
+  option3?: string | null;
+  weight?: number | null;
+  weight_unit?: string | null;
+  taxable?: boolean | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface MutableState {
   calls: MockShopifyHandle["calls"];
   webhooks: Map<number, MockWebhookSubscription>;
   lastWebhookId: number | null;
   webhookCounter: number;
   customerCounter: number;
+  variantCounter: number;
+  inventoryItemCounter: number;
+  /** Variants by id — preserved across POST (create) + PUT (update). */
+  variants: Map<number, MockVariantState>;
   eventCounter: number;
   lastEvent: LastSentEvent | null;
 }
@@ -179,6 +237,7 @@ function freshState(): MutableState {
       tokenExchange: [],
       shopJson: [],
       customers: [],
+      variants: [],
       webhookCreate: [],
       webhookDelete: [],
       webhookEvent: [],
@@ -187,6 +246,9 @@ function freshState(): MutableState {
     lastWebhookId: null,
     webhookCounter: 0,
     customerCounter: 0,
+    variantCounter: 0,
+    inventoryItemCounter: 0,
+    variants: new Map(),
     eventCounter: 0,
     lastEvent: null,
   };
@@ -316,6 +378,34 @@ async function handleRequest(
   // ── /admin/api/2024-10/customers.json ──
   if (req.method === "POST" && rest === "/admin/api/2024-10/customers.json") {
     return handleCustomersCreate(req, res, state, shop);
+  }
+
+  // ── /admin/api/2024-10/products/{productId}/variants.json ──
+  const variantCreateMatch = rest.match(
+    /^\/admin\/api\/2024-10\/products\/(\d+)\/variants\.json$/,
+  );
+  if (req.method === "POST" && variantCreateMatch) {
+    return handleVariantCreate(
+      req,
+      res,
+      state,
+      shop,
+      Number(variantCreateMatch[1]!),
+    );
+  }
+
+  // ── /admin/api/2024-10/variants/{variantId}.json ──
+  const variantUpdateMatch = rest.match(
+    /^\/admin\/api\/2024-10\/variants\/(\d+)\.json$/,
+  );
+  if (req.method === "PUT" && variantUpdateMatch) {
+    return handleVariantUpdate(
+      req,
+      res,
+      state,
+      shop,
+      Number(variantUpdateMatch[1]!),
+    );
   }
 
   // ── /admin/api/2024-10/webhooks.json ──
@@ -532,6 +622,157 @@ async function handleCustomersCreate(
       },
     }),
   );
+}
+
+// ── Product variant handlers (create + update) ────────────────────────
+
+async function handleVariantCreate(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  shop: string,
+  productId: number,
+): Promise<void> {
+  const body = await readBody(req);
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = body.length > 0 ? (JSON.parse(body) as Record<string, unknown>) : {};
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ errors: "invalid json" }));
+    return;
+  }
+  const variantInput = (parsed.variant ?? {}) as Record<string, unknown>;
+
+  state.variantCounter += 1;
+  state.inventoryItemCounter += 1;
+  const variantId = 40000 + state.variantCounter;
+  const inventoryItemId = 60000 + state.inventoryItemCounter;
+  const created = new Date().toISOString();
+  const variant: MockVariantState = {
+    id: variantId,
+    product_id: productId,
+    inventory_item_id: inventoryItemId,
+    title: typeof variantInput.title === "string" ? variantInput.title : null,
+    price: typeof variantInput.price === "string" ? variantInput.price : null,
+    compare_at_price:
+      typeof variantInput.compare_at_price === "string"
+        ? variantInput.compare_at_price
+        : null,
+    sku: typeof variantInput.sku === "string" ? variantInput.sku : null,
+    barcode:
+      typeof variantInput.barcode === "string" ? variantInput.barcode : null,
+    option1:
+      typeof variantInput.option1 === "string" ? variantInput.option1 : null,
+    option2:
+      typeof variantInput.option2 === "string" ? variantInput.option2 : null,
+    option3:
+      typeof variantInput.option3 === "string" ? variantInput.option3 : null,
+    weight: typeof variantInput.weight === "number" ? variantInput.weight : null,
+    weight_unit:
+      typeof variantInput.weight_unit === "string"
+        ? variantInput.weight_unit
+        : null,
+    taxable:
+      typeof variantInput.taxable === "boolean" ? variantInput.taxable : null,
+    created_at: created,
+    updated_at: created,
+  };
+  state.variants.set(variantId, variant);
+
+  state.calls.variants.push({
+    method: "POST",
+    shop,
+    accessToken: req.headers["x-shopify-access-token"] as string | undefined,
+    authorization: req.headers.authorization,
+    contentType: req.headers["content-type"] as string | undefined,
+    productId,
+    variantId: null,
+    url: req.url ?? "",
+    body,
+    parsedBody: parsed,
+    responseVariantId: variantId,
+    responseInventoryItemId: inventoryItemId,
+  });
+
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ variant }));
+}
+
+async function handleVariantUpdate(
+  req: IncomingMessage,
+  res: ServerResponse,
+  state: MutableState,
+  shop: string,
+  variantId: number,
+): Promise<void> {
+  const body = await readBody(req);
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = body.length > 0 ? (JSON.parse(body) as Record<string, unknown>) : {};
+  } catch {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ errors: "invalid json" }));
+    return;
+  }
+  const variantInput = (parsed.variant ?? {}) as Record<string, unknown>;
+  const existing = state.variants.get(variantId);
+  // Helpful in e2e: synthesize a placeholder variant if the PUT lands
+  // without a prior POST (lets the variant-update scenario stand alone
+  // without forcing a create_product_variant call first).
+  const base: MockVariantState = existing ?? {
+    id: variantId,
+    product_id: 0,
+    inventory_item_id: 60000 + (state.inventoryItemCounter += 1),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const merged: MockVariantState = {
+    ...base,
+    price: typeof variantInput.price === "string" ? variantInput.price : base.price,
+    compare_at_price:
+      typeof variantInput.compare_at_price === "string"
+        ? variantInput.compare_at_price
+        : base.compare_at_price,
+    sku: typeof variantInput.sku === "string" ? variantInput.sku : base.sku,
+    barcode:
+      typeof variantInput.barcode === "string" ? variantInput.barcode : base.barcode,
+    option1:
+      typeof variantInput.option1 === "string" ? variantInput.option1 : base.option1,
+    option2:
+      typeof variantInput.option2 === "string" ? variantInput.option2 : base.option2,
+    option3:
+      typeof variantInput.option3 === "string" ? variantInput.option3 : base.option3,
+    weight:
+      typeof variantInput.weight === "number" ? variantInput.weight : base.weight,
+    weight_unit:
+      typeof variantInput.weight_unit === "string"
+        ? variantInput.weight_unit
+        : base.weight_unit,
+    taxable:
+      typeof variantInput.taxable === "boolean" ? variantInput.taxable : base.taxable,
+    updated_at: new Date().toISOString(),
+  };
+  state.variants.set(variantId, merged);
+
+  state.calls.variants.push({
+    method: "PUT",
+    shop,
+    accessToken: req.headers["x-shopify-access-token"] as string | undefined,
+    authorization: req.headers.authorization,
+    contentType: req.headers["content-type"] as string | undefined,
+    productId: null,
+    variantId,
+    url: req.url ?? "",
+    body,
+    parsedBody: parsed,
+    responseVariantId: variantId,
+    responseInventoryItemId: merged.inventory_item_id,
+  });
+
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ variant: merged }));
 }
 
 // ── Webhook lifecycle handlers ─────────────────────────────────────────
