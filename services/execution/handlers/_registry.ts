@@ -44,6 +44,7 @@ import { listFiles } from "@/integrations/google-drive/actions/listFiles";
 import { moveFile } from "@/integrations/google-drive/actions/moveFile";
 import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
 import { appendRow } from "@/integrations/google-sheets/actions/appendRow";
+import { batchUpdate as sheetsBatchUpdate } from "@/integrations/google-sheets/actions/batchUpdate";
 import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
 import { createSpreadsheet as sheetsCreateSpreadsheet } from "@/integrations/google-sheets/actions/createSpreadsheet";
 import { deleteRow as sheetsDeleteRow } from "@/integrations/google-sheets/actions/deleteRow";
@@ -176,6 +177,7 @@ import { confirmPaymentIntent as stripeConfirmPaymentIntent } from "@/integratio
 import { createCheckoutSession as stripeCreateCheckoutSession } from "@/integrations/stripe/actions/createCheckoutSession";
 import { createCustomer as stripeCreateCustomer } from "@/integrations/stripe/actions/createCustomer";
 import { createPaymentIntent as stripeCreatePaymentIntent } from "@/integrations/stripe/actions/createPaymentIntent";
+import { createPaymentLink as stripeCreatePaymentLink } from "@/integrations/stripe/actions/createPaymentLink";
 import { createRefund as stripeCreateRefund } from "@/integrations/stripe/actions/createRefund";
 import { createSubscription as stripeCreateSubscription } from "@/integrations/stripe/actions/createSubscription";
 import { findCustomer as stripeFindCustomer } from "@/integrations/stripe/actions/findCustomer";
@@ -284,6 +286,12 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
     type: "create_spreadsheet",
     handler: sheetsCreateSpreadsheet,
   },
+  // Google Sheets 2.2 Commit 2 — multi-range values write
+  // (parity-google-sheets.md §7; typed-only `updates[]` input — V1
+  // simple-mode cellN/valueN UI chrome + JSON-string mode + raw
+  // requests[] passthrough all skipped per accepted plan §10
+  // Decision 1).
+  { provider: "google-sheets", type: "batch_update", handler: sheetsBatchUpdate },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
@@ -354,6 +362,7 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "stripe", type: "update_subscription", handler: stripeUpdateSubscription },
   { provider: "stripe", type: "cancel_subscription", handler: stripeCancelSubscription },
   { provider: "stripe", type: "create_checkout_session", handler: stripeCreateCheckoutSession },
+  { provider: "stripe", type: "create_payment_link", handler: stripeCreatePaymentLink },
   { provider: "shopify", type: "create_order", handler: shopifyCreateOrder },
   { provider: "shopify", type: "update_order_status", handler: shopifyUpdateOrderStatus },
   { provider: "shopify", type: "add_order_note", handler: shopifyAddOrderNote },
