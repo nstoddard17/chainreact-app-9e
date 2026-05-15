@@ -428,6 +428,46 @@ export interface RecordedSheetsSpreadsheetsBatchUpdate {
     startIndex?: number;
     endIndex?: number;
   } | null;
+  /**
+   * Sheets 2.2 Commit 3 — convenience extraction for the first
+   * `repeatCell` request that `format_range` sends. Lets the e2e
+   * walkthrough assert the GridRange + userEnteredFormat + fields
+   * mask without traversing `body.requests[0].repeatCell.*` paths
+   * inline. Null when no repeatCell request is in the batch (e.g.
+   * delete_row only sends deleteDimension).
+   */
+  firstRepeatCellRequest: {
+    range: {
+      sheetId?: number;
+      startRowIndex?: number;
+      endRowIndex?: number;
+      startColumnIndex?: number;
+      endColumnIndex?: number;
+    };
+    userEnteredFormat: Record<string, unknown>;
+    fields: string;
+  } | null;
+}
+
+/**
+ * Sheets 2.2 Commit 2 — batch_update action exercises
+ * `spreadsheets.values.batchUpdate` (DISTINCT from
+ * spreadsheets.batchUpdate above — different endpoint, different
+ * body shape). Records the resolved data[] array + the body-level
+ * `valueInputOption` (V2's batch_update sends it in the body, NOT
+ * as a query param — distinct from values.update / values.append).
+ */
+export interface RecordedSheetsValuesBatchUpdate {
+  authorization: string | undefined;
+  url: string;
+  spreadsheetId: string;
+  body: Record<string, unknown>;
+  /** Body-level `valueInputOption` (NOT a query-param for this endpoint). */
+  valueInputOption: string | null;
+  /** Count of entries in `body.data[]`. */
+  dataCount: number;
+  /** Convenience: list of the `range` strings across `body.data[]`. */
+  dataRanges: ReadonlyArray<string>;
 }
 
 /**
@@ -520,6 +560,7 @@ export interface MockGoogleHandle {
     sheetsValuesGet: RecordedSheetsValuesGet[];
     sheetsValuesAppend: RecordedSheetsValuesAppend[];
     sheetsValuesUpdate: RecordedSheetsValuesUpdate[];
+    sheetsValuesBatchUpdate: RecordedSheetsValuesBatchUpdate[];
     sheetsValuesClear: RecordedSheetsValuesClear[];
   };
   /** Map of injected emails by id. */
@@ -725,6 +766,7 @@ function freshState(): MutableState {
       sheetsValuesGet: [],
       sheetsValuesAppend: [],
       sheetsValuesUpdate: [],
+      sheetsValuesBatchUpdate: [],
       sheetsValuesClear: [],
     },
     emails: new Map(),
@@ -1087,6 +1129,29 @@ async function handleRequest(
               .range as Record<string, unknown> | undefined
           )
         : undefined;
+    // Sheets 2.2 Commit 3 — format_range sends a single repeatCell
+    // request. Extract for the e2e walkthrough so assertions can
+    // reach the GridRange + userEnteredFormat + fields mask without
+    // diving into `body.requests[0].repeatCell.*` inline.
+    const firstRepeatCell = requestsArr.find(
+      (r) => r && typeof r === "object" && "repeatCell" in r,
+    );
+    const repeatCellBody =
+      firstRepeatCell && typeof firstRepeatCell.repeatCell === "object"
+        ? (firstRepeatCell.repeatCell as Record<string, unknown>)
+        : undefined;
+    const repeatCellRange =
+      repeatCellBody && typeof repeatCellBody.range === "object"
+        ? (repeatCellBody.range as Record<string, unknown>)
+        : undefined;
+    const repeatCellCell =
+      repeatCellBody && typeof repeatCellBody.cell === "object"
+        ? (repeatCellBody.cell as Record<string, unknown>)
+        : undefined;
+    const repeatCellUserEnteredFormat =
+      repeatCellCell && typeof repeatCellCell.userEnteredFormat === "object"
+        ? (repeatCellCell.userEnteredFormat as Record<string, unknown>)
+        : undefined;
     state.calls.sheetsSpreadsheetsBatchUpdate.push({
       authorization: req.headers.authorization,
       url: req.url ?? "",
@@ -1113,6 +1178,38 @@ async function handleRequest(
                 : undefined,
           }
         : null,
+      firstRepeatCellRequest:
+        repeatCellBody && repeatCellRange
+          ? {
+              range: {
+                sheetId:
+                  typeof repeatCellRange.sheetId === "number"
+                    ? repeatCellRange.sheetId
+                    : undefined,
+                startRowIndex:
+                  typeof repeatCellRange.startRowIndex === "number"
+                    ? repeatCellRange.startRowIndex
+                    : undefined,
+                endRowIndex:
+                  typeof repeatCellRange.endRowIndex === "number"
+                    ? repeatCellRange.endRowIndex
+                    : undefined,
+                startColumnIndex:
+                  typeof repeatCellRange.startColumnIndex === "number"
+                    ? repeatCellRange.startColumnIndex
+                    : undefined,
+                endColumnIndex:
+                  typeof repeatCellRange.endColumnIndex === "number"
+                    ? repeatCellRange.endColumnIndex
+                    : undefined,
+              },
+              userEnteredFormat: repeatCellUserEnteredFormat ?? {},
+              fields:
+                typeof repeatCellBody.fields === "string"
+                  ? repeatCellBody.fields
+                  : "",
+            }
+          : null,
     });
     // Echo back a per-request reply array shaped like Google's response.
     res.writeHead(200, { "content-type": "application/json" });
@@ -1162,6 +1259,91 @@ async function handleRequest(
             },
           },
         ],
+      }),
+    );
+    return;
+  }
+
+  // ── Sheets values.batchUpdate ──
+  // Path: POST /v4/spreadsheets/{id}/values:batchUpdate
+  // Used by Sheets 2.2 batch_update action. DISTINCT from
+  // spreadsheets.batchUpdate (POST /v4/spreadsheets/{id}:batchUpdate
+  // — no `/values` segment, different body shape). Records the body
+  // (valueInputOption + data[]) so the spec can assert the typed
+  // updates V2's batch_update handler sends.
+  //
+  // Matched BEFORE the values.get/append/clear regex below because
+  // that regex requires `/values/<range>` (with a slash); this
+  // endpoint has `/values:batchUpdate` (with a colon), so they don't
+  // overlap — but explicit ordering is safer.
+  const sheetsValuesBatchUpdateMatch = url.pathname.match(
+    /^\/v4\/spreadsheets\/([^/]+)\/values:batchUpdate$/,
+  );
+  if (req.method === "POST" && sheetsValuesBatchUpdateMatch) {
+    const spreadsheetId = decodeURIComponent(sheetsValuesBatchUpdateMatch[1]!);
+    const body = await readBody(req);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("malformed json");
+      return;
+    }
+    const dataArr = Array.isArray(parsed.data)
+      ? (parsed.data as Array<Record<string, unknown>>)
+      : [];
+    const dataRanges = dataArr
+      .map((d) => (typeof d.range === "string" ? d.range : null))
+      .filter((r): r is string => r !== null);
+    state.calls.sheetsValuesBatchUpdate.push({
+      authorization: req.headers.authorization,
+      url: req.url ?? "",
+      spreadsheetId,
+      body: parsed,
+      valueInputOption:
+        typeof parsed.valueInputOption === "string"
+          ? parsed.valueInputOption
+          : null,
+      dataCount: dataArr.length,
+      dataRanges,
+    });
+    // Build a synthetic response that echoes per-entry update counts
+    // so the action's bounded output projection has something to map.
+    let totalUpdatedRows = 0;
+    let totalUpdatedCells = 0;
+    let totalUpdatedColumns = 0;
+    const responses = dataArr.map((entry) => {
+      const range = typeof entry.range === "string" ? entry.range : "";
+      const values = Array.isArray(entry.values)
+        ? (entry.values as unknown[][])
+        : [];
+      const rows = values.length;
+      const cols = Math.max(
+        ...values.map((r) => (Array.isArray(r) ? r.length : 0)),
+        0,
+      );
+      const cells = rows * cols;
+      totalUpdatedRows += rows;
+      totalUpdatedCells += cells;
+      totalUpdatedColumns += cols;
+      return {
+        spreadsheetId,
+        updatedRange: range,
+        updatedRows: rows,
+        updatedColumns: cols,
+        updatedCells: cells,
+      };
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        spreadsheetId,
+        totalUpdatedRows,
+        totalUpdatedColumns,
+        totalUpdatedCells,
+        totalUpdatedSheets: dataArr.length > 0 ? 1 : 0,
+        responses,
       }),
     );
     return;

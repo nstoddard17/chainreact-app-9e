@@ -549,6 +549,32 @@ interface MockInspect {
         startIndex?: number;
         endIndex?: number;
       } | null;
+      // Sheets 2.2 Commit 4 — convenience extraction of the first
+      // repeatCell request that format_range sends. Null when no
+      // repeatCell request appears in the batch (delete_row case).
+      firstRepeatCellRequest?: {
+        range: {
+          sheetId?: number;
+          startRowIndex?: number;
+          endRowIndex?: number;
+          startColumnIndex?: number;
+          endColumnIndex?: number;
+        };
+        userEnteredFormat: Record<string, unknown>;
+        fields: string;
+      } | null;
+    }[];
+    // Sheets 2.2 Commit 4 — batch_update mock recorder. Distinct from
+    // spreadsheetsBatchUpdate above — values:batchUpdate is a
+    // different endpoint with body-level valueInputOption.
+    sheetsValuesBatchUpdate?: {
+      authorization: string | undefined;
+      url: string;
+      spreadsheetId: string;
+      body: Record<string, unknown>;
+      valueInputOption: string | null;
+      dataCount: number;
+      dataRanges: ReadonlyArray<string>;
     }[];
   };
   currentSheetsRowCount: number;
@@ -932,5 +958,323 @@ test.describe("Sheets 2.1 — cell + row + spreadsheet lifecycle actions e2e", (
 
     // No values.append calls — the 2.1 surface has no append-shaped action.
     expect(inspect.calls.sheetsValuesAppend).toHaveLength(0);
+  });
+});
+
+/**
+ * Sheets 2.2 — batch_update + format_range end-to-end.
+ *
+ * ONE workflow chain off the existing `row_changed` trigger:
+ *   batch_update  → format_range
+ *
+ * batch_update sends TWO updates to `values:batchUpdate` (the
+ * endpoint distinct from `spreadsheets.batchUpdate`). format_range
+ * exercises 5 of the 6 accepted options (backgroundColor + textColor
+ * + bold + horizontalAlignment + numberFormat) so the test asserts
+ * the dynamic `fields` mask construction + the per-leaf
+ * userEnteredFormat paths.
+ *
+ * Mock plumbing exercised:
+ *   - POST /v4/spreadsheets/{id}/values:batchUpdate — NEW handler
+ *     (Sheets 2.2 Commit 4); records body.valueInputOption +
+ *     body.data[] + range list.
+ *   - POST /v4/spreadsheets/{id}:batchUpdate — extended (Sheets 2.2
+ *     Commit 4) to extract `firstRepeatCellRequest` so the assertion
+ *     reaches GridRange + userEnteredFormat + fields without walking
+ *     body.requests[0].repeatCell.* inline.
+ *
+ * Re-uses the Sheets 2.1 chained-test pattern: pre-populate 3 rows
+ * (header + 2 data) so the activate snapshot captures
+ * lastRowCount=3, then inject one trigger row to emit exactly ONE
+ * event. find_row + delete_row are NOT in this chain — those were
+ * proven by the 2.1 walkthrough above.
+ */
+test.describe("Sheets 2.2 — batch_update + format_range actions e2e", () => {
+  test.beforeEach(async () => {
+    testUser = await createTestUser();
+  });
+
+  test.afterEach(async () => {
+    if (testUser) {
+      await deleteTestUser(testUser.id);
+      testUser = null;
+    }
+  });
+
+  test("row_changed → batch_update → format_range — both actions execute end-to-end", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readGoogleMockState();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // Pre-populate 3 rows so lastRowCount=3 at activate; subsequent
+    // single-row inject emits one event.
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["Name", "Amount"] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["alice", 100] },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: ["bob", 200] },
+    });
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=google-sheets/),
+      page.getByRole("button", { name: "Connect Google Sheets" }).click(),
+    ]);
+
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page.getByLabel(/workflow name/i).fill("E2E Sheets 2.2 — 2 Actions");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "google-sheets",
+          type: "row_changed",
+          config: {
+            spreadsheetId: "ss-2.2-e2e",
+            sheetName: "Sheet1",
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-batch-update",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "batch_update",
+          config: {
+            spreadsheetId: "ss-2.2-e2e",
+            valueInputOption: "USER_ENTERED",
+            updates: [
+              { range: "Sheet1!A2:B2", values: [["alice-updated", 111]] },
+              { range: "Sheet1!A3:B3", values: [["bob-updated", 222]] },
+            ],
+          },
+          position: { x: 0, y: 100 },
+        },
+        {
+          id: "action-format-range",
+          kind: "action" as const,
+          provider: "google-sheets",
+          type: "format_range",
+          config: {
+            spreadsheetId: "ss-2.2-e2e",
+            sheetName: "Sheet1",
+            range: "A1:B2",
+            backgroundColor: "#FFFF00",
+            textColor: "#000000",
+            bold: true,
+            horizontalAlignment: "CENTER",
+            numberFormat: { type: "CURRENCY", pattern: "$#,##0.00" },
+          },
+          position: { x: 0, y: 200 },
+        },
+      ],
+      edges: [
+        { id: "e1", from: "trigger-node", to: "action-batch-update" },
+        { id: "e2", from: "action-batch-update", to: "action-format-range" },
+      ],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const triggerRowsAfterActivate = await getTriggerResourcesForUser(user.id);
+    expect(triggerRowsAfterActivate).toHaveLength(1);
+    const triggerAfterActivate = triggerRowsAfterActivate[0]! as Record<
+      string,
+      unknown
+    >;
+    const triggerConfig = triggerAfterActivate.config as {
+      channelId: string;
+      resourceId: string;
+      lastRowCount: number;
+    };
+    expect(triggerConfig.lastRowCount).toBe(3);
+
+    // Per-run unique inject value so webhook_event_dedup (system-wide
+    // table, not cascaded by deleteTestUser) doesn't collide across
+    // consecutive runs. See the Sheets 2.1 chained test for the same
+    // pattern + rationale.
+    const carolLabel = `carol-${randomUUID()}`;
+    await page.request.post(`${mock.baseUrl}/__injectSheetRow`, {
+      data: { values: [carolLabel, 300] },
+    });
+    const channelToken = buildChannelToken({
+      channelId: triggerConfig.channelId,
+    });
+    const webhookResp = await request.post("/api/webhooks/google-sheets", {
+      headers: {
+        "x-goog-channel-id": triggerConfig.channelId,
+        "x-goog-channel-token": channelToken,
+        "x-goog-resource-id": triggerConfig.resourceId,
+        "x-goog-resource-state": "update",
+        "x-goog-message-number": "1",
+      },
+    });
+    expect(webhookResp.status(), await webhookResp.text()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+
+    const steps = run.steps as ReadonlyArray<{
+      nodeId: string;
+      status: string;
+      output?: Record<string, unknown>;
+    }>;
+    const stepBy = (id: string) => {
+      const step = steps.find((s) => s.nodeId === id);
+      if (!step) throw new Error(`step ${id} missing in run.steps`);
+      return step;
+    };
+
+    // ── batch_update step assertions ──
+    const stepBatch = stepBy("action-batch-update");
+    expect(stepBatch.status).toBe("succeeded");
+    expect(stepBatch.output).toEqual({
+      spreadsheetId: "ss-2.2-e2e",
+      totalUpdatedRanges: 2,
+      totalUpdatedCells: 4, // 2 rows × 2 cols
+      totalUpdatedRows: 2,
+      totalUpdatedColumns: 4, // mock sums per-entry; each row is 2 cols → 2 + 2
+      responses: [
+        {
+          updatedRange: "Sheet1!A2:B2",
+          updatedRows: 1,
+          updatedColumns: 2,
+          updatedCells: 2,
+        },
+        {
+          updatedRange: "Sheet1!A3:B3",
+          updatedRows: 1,
+          updatedColumns: 2,
+          updatedCells: 2,
+        },
+      ],
+    });
+
+    // ── format_range step assertions ──
+    const stepFormat = stepBy("action-format-range");
+    expect(stepFormat.status).toBe("succeeded");
+    expect(stepFormat.output).toEqual({
+      spreadsheetId: "ss-2.2-e2e",
+      sheetName: "Sheet1",
+      sheetId: 0,
+      formattedRange: "Sheet1!A1:B2",
+      appliedFormat: {
+        backgroundColor: "#FFFF00",
+        textColor: "#000000",
+        bold: true,
+        horizontalAlignment: "CENTER",
+        numberFormat: { type: "CURRENCY", pattern: "$#,##0.00" },
+      },
+    });
+
+    // ── Mock-call assertions ──
+    const inspect = await fetchMockCalls(request, mock.baseUrl);
+
+    // values:batchUpdate: 1 call from batch_update with the typed body.
+    expect(inspect.calls.sheetsValuesBatchUpdate).toHaveLength(1);
+    const batchCall = inspect.calls.sheetsValuesBatchUpdate![0]!;
+    expect(batchCall.spreadsheetId).toBe("ss-2.2-e2e");
+    expect(batchCall.valueInputOption).toBe("USER_ENTERED");
+    expect(batchCall.dataCount).toBe(2);
+    expect(batchCall.dataRanges).toEqual(["Sheet1!A2:B2", "Sheet1!A3:B3"]);
+    // Body-level valueInputOption + data[{range, values}] shape (NOT
+    // raw passthrough / NOT in the URL).
+    expect(batchCall.body).toEqual({
+      valueInputOption: "USER_ENTERED",
+      data: [
+        { range: "Sheet1!A2:B2", values: [["alice-updated", 111]] },
+        { range: "Sheet1!A3:B3", values: [["bob-updated", 222]] },
+      ],
+    });
+    expect(batchCall.url).not.toMatch(/[?&]valueInputOption=/);
+    expect(batchCall.authorization).toBe("Bearer ya29.mock-e2e-access");
+
+    // spreadsheets.batchUpdate: 1 call from format_range (one repeatCell).
+    expect(inspect.calls.sheetsSpreadsheetsBatchUpdate).toHaveLength(1);
+    const formatBatchCall = inspect.calls.sheetsSpreadsheetsBatchUpdate![0]!;
+    expect(formatBatchCall.spreadsheetId).toBe("ss-2.2-e2e");
+    expect(formatBatchCall.requestCount).toBe(1);
+    // delete_row's deleteDimension is NOT present in this batch.
+    expect(formatBatchCall.firstDeleteDimensionRange).toBeNull();
+
+    // repeatCell request — GridRange + userEnteredFormat + fields mask.
+    const repeatCell = formatBatchCall.firstRepeatCellRequest!;
+    expect(repeatCell).not.toBeNull();
+    expect(repeatCell.range).toEqual({
+      sheetId: 0,
+      startRowIndex: 0, // A1 → row 0
+      endRowIndex: 2, // B2 → exclusive end row 2
+      startColumnIndex: 0, // A
+      endColumnIndex: 2, // B → exclusive end col 2
+    });
+    // userEnteredFormat carries the typed projection.
+    expect(repeatCell.userEnteredFormat).toEqual({
+      backgroundColor: { red: 1, green: 1, blue: 0 }, // #FFFF00
+      horizontalAlignment: "CENTER",
+      numberFormat: { type: "CURRENCY", pattern: "$#,##0.00" },
+      textFormat: {
+        bold: true,
+        foregroundColor: { red: 0, green: 0, blue: 0 }, // #000000
+      },
+    });
+    // fields mask — per-leaf paths only (no broad userEnteredFormat
+    // or userEnteredFormat.textFormat). Sorted for stable assertion;
+    // handler joins on `,` in insertion order, so we split + sort.
+    const fields = repeatCell.fields.split(",").sort();
+    expect(fields).toEqual([
+      "userEnteredFormat.backgroundColor",
+      "userEnteredFormat.horizontalAlignment",
+      "userEnteredFormat.numberFormat",
+      "userEnteredFormat.textFormat.bold",
+      "userEnteredFormat.textFormat.foregroundColor",
+    ]);
+
+    // Bounded-projection invariants:
+    //  - No raw Google CellFormat sub-fields leak into the step
+    //    output (e.g. no `fields` mask, no Google RGB nested object).
+    expect(stepFormat.output).not.toHaveProperty("fields");
+    expect(stepFormat.output).not.toHaveProperty("userEnteredFormat");
+    expect(stepFormat.output).not.toHaveProperty("cellFormat");
+    expect(
+      (stepFormat.output!.appliedFormat as Record<string, unknown>)
+        .backgroundColor,
+    ).toBe("#FFFF00"); // hex echoed verbatim, NOT Google RGB
+    //  - No raw Google response spread on batch_update output.
+    expect(stepBatch.output).not.toHaveProperty("totalUpdatedSheets");
+    expect(stepBatch.output).not.toHaveProperty("replies");
   });
 });
