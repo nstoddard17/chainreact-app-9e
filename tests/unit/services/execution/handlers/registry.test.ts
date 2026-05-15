@@ -116,6 +116,40 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 2 Microsoft Excel parity Commit 1 row lifecycle handlers (update_row, delete_row)", () => {
+    expect(getActionHandler("microsoft-excel", "update_row")).toBeDefined();
+    expect(getActionHandler("microsoft-excel", "delete_row")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "microsoft-excel",
+      type: "update_row",
+    });
+    expect(registered).toContainEqual({
+      provider: "microsoft-excel",
+      type: "delete_row",
+    });
+  });
+
+  it("does NOT register a separate microsoft-excel:add_multiple_rows action (folds into add_row batch mode per parity-microsoft-excel.md §7)", () => {
+    expect(
+      getActionHandler("microsoft-excel", "add_multiple_rows"),
+    ).toBeUndefined();
+    expect(listRegisteredHandlers()).not.toContainEqual({
+      provider: "microsoft-excel",
+      type: "add_multiple_rows",
+    });
+  });
+
+  it("does NOT register a separate microsoft-excel:create_workbook action (deferred per parity-microsoft-excel.md §7 — ExcelJS binary dep)", () => {
+    expect(
+      getActionHandler("microsoft-excel", "create_workbook"),
+    ).toBeUndefined();
+    expect(listRegisteredHandlers()).not.toContainEqual({
+      provider: "microsoft-excel",
+      type: "create_workbook",
+    });
+  });
+
   it("registers the 2 Notion 2.1 Commit 1 page lifecycle handlers (archive_page, restore_page)", () => {
     expect(getActionHandler("notion", "archive_page")).toBeDefined();
     expect(getActionHandler("notion", "restore_page")).toBeDefined();
