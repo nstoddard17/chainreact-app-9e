@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import {
+  recordsBatchCreate,
   recordsCreate,
   recordsDelete,
   recordsGet,
@@ -230,6 +231,137 @@ describe("recordsUpdate", () => {
       fields: { Name: "Bob" },
       typecast: false,
     });
+  });
+});
+
+describe("recordsBatchCreate (Airtable 2.1 Commit 3)", () => {
+  it("POSTs to the table endpoint with { records: [{fields}], typecast } body", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [
+              { id: "rec1", fields: { Name: "Alice" }, createdTime: "t" },
+              { id: "rec2", fields: { Name: "Bob" }, createdTime: "t" },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    const result = await recordsBatchCreate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [
+        { fields: { Name: "Alice" } },
+        { fields: { Name: "Bob" } },
+      ],
+      typecast: false,
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toBe(
+      `https://api.airtable.com/v0/${BASE}/${TABLE}`,
+    );
+    const init = fetchSpy.mock.calls[0]![1]!;
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      records: [
+        { fields: { Name: "Alice" } },
+        { fields: { Name: "Bob" } },
+      ],
+      typecast: false,
+    });
+    expect(result.records).toHaveLength(2);
+    expect(result.records[0]!.id).toBe("rec1");
+    expect(result.records[1]!.id).toBe("rec2");
+  });
+
+  it("threads typecast: true through to the body", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    await recordsBatchCreate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [{ fields: { Name: "Alice" } }],
+      typecast: true,
+    });
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0]![1]!).body as string,
+    );
+    expect(body.typecast).toBe(true);
+  });
+
+  it("sends each record's fields as the only key inside the records[] entry (no extras)", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    // Pass an object that includes other keys to make sure they don't
+    // smuggle through to the wire (wrapper picks `fields` only).
+    await recordsBatchCreate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: TABLE,
+      records: [
+        {
+          fields: { Name: "Alice" },
+          // @ts-expect-error — wrapper-level defensive selection guard.
+          extra: "smuggled",
+        },
+      ],
+      typecast: false,
+    });
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0]![1]!).body as string,
+    );
+    expect(body.records).toEqual([{ fields: { Name: "Alice" } }]);
+    expect(body.records[0]).not.toHaveProperty("extra");
+  });
+
+  it("propagates Airtable 422 errors via airtableRequest", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              type: "INVALID_VALUE_FOR_COLUMN",
+              message: "Invalid value for field 'Tags'",
+            },
+          }),
+          { status: 422 },
+        ),
+      );
+    await expect(
+      recordsBatchCreate({
+        accessToken: "tok",
+        baseId: BASE,
+        tableIdOrName: TABLE,
+        records: [{ fields: { Name: "Alice" } }],
+        typecast: false,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("URL-encodes the table segment", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+    await recordsBatchCreate({
+      accessToken: "tok",
+      baseId: BASE,
+      tableIdOrName: "My Table",
+      records: [{ fields: { Name: "Alice" } }],
+      typecast: false,
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toContain("/My%20Table");
   });
 });
 

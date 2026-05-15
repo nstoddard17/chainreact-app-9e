@@ -171,6 +171,54 @@ export async function recordsCreate(
   });
 }
 
+// ─── recordsBatchCreate (Airtable 2.1 Commit 3) ────────────────────────────
+
+export interface RecordsBatchCreateInput {
+  accessToken: string;
+  baseId: string;
+  tableIdOrName: string;
+  /**
+   * 1..10 records. Each entry's `fields` is wire-format — already
+   * coerced via `formatFields`. Airtable enforces the max-10 server-side
+   * (returns 422 with "INVALID_REQUEST_UNKNOWN" or
+   * "INVALID_RECORDS"); the action schema enforces it client-side too
+   * so workflow authors fail loud at parse time.
+   */
+  records: ReadonlyArray<{ fields: Readonly<Record<string, unknown>> }>;
+  /** Same semantics as `recordsCreate.typecast` — Q11 explicit. */
+  typecast: boolean;
+}
+
+export interface RecordsBatchCreateResponse {
+  records: AirtableRecord[];
+}
+
+/**
+ * Airtable batch create — POST `/v0/{baseId}/{tableIdOrName}` with
+ * `body.records = [{fields}]`. All-or-nothing: Airtable returns 422
+ * if ANY record fails validation; no partial-success semantics. The
+ * `airtableRequest` helper surfaces 422 as a tagged error which the
+ * caller's `refreshAndRetry` lets propagate.
+ *
+ * V1 had a `createMultipleRecords.ts` action that did a sequential
+ * single-record loop (per parity-airtable §8 A-R11). V2 uses the real
+ * batch wire-format — exactly ONE HTTP request per call.
+ */
+export async function recordsBatchCreate(
+  input: RecordsBatchCreateInput,
+): Promise<RecordsBatchCreateResponse> {
+  return airtableRequest<RecordsBatchCreateResponse>({
+    accessToken: input.accessToken,
+    method: "POST",
+    path: `/v0/${input.baseId}/${encodeTableSegment(input.tableIdOrName)}`,
+    body: {
+      records: input.records.map((r) => ({ fields: r.fields })),
+      typecast: input.typecast,
+    },
+    resourceForNotFound: `table ${input.baseId}/${input.tableIdOrName}`,
+  });
+}
+
 // ─── recordsUpdate ─────────────────────────────────────────────────────────
 
 export interface RecordsUpdateInput {

@@ -1,4 +1,5 @@
 import { addAttachment as airtableAddAttachment } from "@/integrations/airtable/actions/addAttachment";
+import { createMultipleRecords as airtableCreateMultipleRecords } from "@/integrations/airtable/actions/createMultipleRecords";
 import { createRecord as airtableCreateRecord } from "@/integrations/airtable/actions/createRecord";
 import { deleteRecord as airtableDeleteRecord } from "@/integrations/airtable/actions/deleteRecord";
 import { findRecord as airtableFindRecord } from "@/integrations/airtable/actions/findRecord";
@@ -368,6 +369,9 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // an Airtable attachment field. v2_storage → signed URL; signed_url
   // passthrough; provider_url rejected with AirtableAddAttachmentConfigError.
   { provider: "airtable", type: "add_attachment", handler: airtableAddAttachment },
+  // Airtable 2.1 Commit 3 — true batch create (max 10 records,
+  // all-or-nothing per NPD-A1). Single POST per call.
+  { provider: "airtable", type: "create_multiple_records", handler: airtableCreateMultipleRecords },
   { provider: "stripe", type: "create_customer", handler: stripeCreateCustomer },
   { provider: "stripe", type: "update_customer", handler: stripeUpdateCustomer },
   { provider: "stripe", type: "find_customer", handler: stripeFindCustomer },

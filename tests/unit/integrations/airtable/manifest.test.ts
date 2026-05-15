@@ -93,13 +93,14 @@ describe("airtable manifest", () => {
     }
   });
 
-  it("when actions: true, the action-handler registry contains all 9 Airtable actions", () => {
+  it("when actions: true, the action-handler registry contains all 10 Airtable actions", () => {
     if (airtableManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "airtable",
       );
       expect(registered.map((r) => r.type).sort()).toEqual([
         "add_attachment",
+        "create_multiple_records",
         "create_record",
         "delete_record",
         "find_record",
