@@ -45,6 +45,8 @@ import { moveFile } from "@/integrations/google-drive/actions/moveFile";
 import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
 import { appendRow } from "@/integrations/google-sheets/actions/appendRow";
 import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
+import { deleteRow as sheetsDeleteRow } from "@/integrations/google-sheets/actions/deleteRow";
+import { findRow as sheetsFindRow } from "@/integrations/google-sheets/actions/findRow";
 import { getCellValue } from "@/integrations/google-sheets/actions/getCellValue";
 import { getSheetMetadata } from "@/integrations/google-sheets/actions/getSheetMetadata";
 import { readRows } from "@/integrations/google-sheets/actions/readRows";
@@ -267,6 +269,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // (parity-google-sheets.md §7 + accepted audit decisions).
   { provider: "google-sheets", type: "get_cell_value", handler: getCellValue },
   { provider: "google-sheets", type: "update_cell", handler: updateCell },
+  // Google Sheets 2.1 Commit 2 — row deletion + row finder
+  // (parity-google-sheets.md §7; ships single-row delete only,
+  // equals-only operator only — V1 kitchen-sink shape skipped).
+  { provider: "google-sheets", type: "delete_row", handler: sheetsDeleteRow },
+  { provider: "google-sheets", type: "find_row", handler: sheetsFindRow },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
