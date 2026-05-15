@@ -109,3 +109,99 @@ export async function segmentCreate(
     resourceForNotFound: `segment (create) for audience ${input.audienceId}`,
   });
 }
+
+// ─── segmentGet (GET /lists/{audienceId}/segments/{segmentId}) ──────────────
+
+/**
+ * Read a single segment's metadata. Used by Mailchimp 2.1 Commit 3's
+ * `segment_updated` polling trigger to detect observable state changes
+ * (member_count / updated_at / name / type).
+ *
+ * Note: Mailchimp's segment id is numeric on the wire but accepted as
+ * a string in the URL path. We accept string-typed input from the
+ * trigger schema and pass through verbatim.
+ */
+export interface SegmentGetInput {
+  accessToken: string;
+  dc: string;
+  audienceId: string;
+  segmentId: string;
+}
+
+export async function segmentGet(
+  input: SegmentGetInput,
+): Promise<MailchimpSegment> {
+  return mailchimpRequest<MailchimpSegment>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: `/lists/${encodeURIComponent(input.audienceId)}/segments/${encodeURIComponent(input.segmentId)}`,
+    resourceForNotFound: `segment ${input.segmentId} (audience ${input.audienceId})`,
+  });
+}
+
+// ─── segmentMembersList (GET /lists/{audienceId}/segments/{id}/members) ─────
+
+/**
+ * Member shape returned by `/lists/{audienceId}/segments/{id}/members`.
+ * Mailchimp returns a subset of the standard member fields here; the
+ * `subscriber_added_to_segment` trigger only needs the stable
+ * identifier (`id` — the md5(lowercase(email)) subscriber hash) for
+ * dedup keys plus a small bounded projection for the trigger payload.
+ */
+export interface MailchimpSegmentMember {
+  id: string;
+  email_address?: string;
+  status?: string;
+  merge_fields?: Record<string, unknown>;
+  last_changed?: string;
+}
+
+interface MailchimpSegmentMembersResponse {
+  members?: MailchimpSegmentMember[];
+  total_items?: number;
+}
+
+export interface SegmentMembersListResult {
+  members: readonly MailchimpSegmentMember[];
+  totalItems: number;
+}
+
+export interface SegmentMembersListInput {
+  accessToken: string;
+  dc: string;
+  audienceId: string;
+  segmentId: string;
+  /** Page size — Mailchimp caps at 1000; V2 wrappers clamp at 100. */
+  count?: number;
+  offset?: number;
+}
+
+/**
+ * GET /lists/{audienceId}/segments/{segmentId}/members — single-page
+ * list-read. Pagination cursoring is the caller's responsibility (the
+ * polling trigger keeps its baseline bounded by taking the first
+ * page; if a segment exceeds 100 members the trigger fires only on
+ * the most-recent 100 by Mailchimp's documented sort). No
+ * auto-pagination.
+ */
+export async function segmentMembersList(
+  input: SegmentMembersListInput,
+): Promise<SegmentMembersListResult> {
+  const query = new URLSearchParams();
+  query.set("count", String(Math.min(input.count ?? 50, 100)));
+  if (input.offset !== undefined) query.set("offset", String(input.offset));
+
+  const response = await mailchimpRequest<MailchimpSegmentMembersResponse>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: `/lists/${encodeURIComponent(input.audienceId)}/segments/${encodeURIComponent(input.segmentId)}/members`,
+    query,
+    resourceForNotFound: `segment members (audience ${input.audienceId} segment ${input.segmentId})`,
+  });
+  return {
+    members: response.members ?? [],
+    totalItems: response.total_items ?? 0,
+  };
+}

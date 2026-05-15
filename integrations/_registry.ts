@@ -53,6 +53,10 @@ import "./mailchimp/triggers/audienceEvent";
 import "./mailchimp/triggers/campaignCreated";
 import "./mailchimp/triggers/emailOpened";
 import "./mailchimp/triggers/linkClicked";
+// Mailchimp 2.1 Commit 3 — 3 parity polling triggers.
+import "./mailchimp/triggers/subscriberAddedToSegment";
+import "./mailchimp/triggers/segmentUpdated";
+import "./mailchimp/triggers/newAudience";
 // Slack 2.1 Commit 8 — 5 message + reaction trigger filters register
 // with the P-S2 filter registry at module load.
 import "./slack/triggers";

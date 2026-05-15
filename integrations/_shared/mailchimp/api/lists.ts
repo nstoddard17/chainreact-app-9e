@@ -32,6 +32,21 @@ export interface MailchimpList {
   web_id?: number;
   name: string;
   date_created?: string;
+  /**
+   * CAN-SPAM contact block. Mailchimp returns it on `GET /lists` and
+   * the `new_audience` polling trigger surfaces `contact.company` in
+   * its bounded payload (mirrors V1's `pollNewAudience` projection).
+   */
+  contact?: {
+    company?: string;
+    address1?: string;
+    address2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+  permission_reminder?: string;
   stats?: {
     member_count?: number;
   };
@@ -112,4 +127,58 @@ export async function listCreate(
     body,
     resourceForNotFound: "audience (create)",
   });
+}
+
+// ─── listsList (GET /lists) ────────────────────────────────────────────────
+
+/**
+ * Mailchimp `GET /lists` response envelope. Used by Mailchimp 2.1
+ * Commit 3's `new_audience` polling trigger to detect account-wide
+ * audience creation. Mailchimp doesn't expose a list-created webhook;
+ * polling is the only path.
+ */
+interface MailchimpListsListResponse {
+  lists?: MailchimpList[];
+  total_items?: number;
+}
+
+export interface ListsListResult {
+  lists: readonly MailchimpList[];
+  totalItems: number;
+}
+
+export interface ListsListInput {
+  accessToken: string;
+  dc: string;
+  /** Page size — Mailchimp caps at 1000; V2 wrappers clamp at 100. */
+  count?: number;
+  offset?: number;
+}
+
+/**
+ * GET /lists — single-page list-read of the account's audiences. No
+ * filters in scope for Mailchimp 2.1 Commit 3 (the polling trigger
+ * wants all lists to detect new ones). Account-wide list count is
+ * typically small (a handful of audiences); the 100-cap clamp is
+ * defensive against runaway responses.
+ */
+export async function listsList(
+  input: ListsListInput,
+): Promise<ListsListResult> {
+  const query = new URLSearchParams();
+  query.set("count", String(Math.min(input.count ?? 100, 100)));
+  if (input.offset !== undefined) query.set("offset", String(input.offset));
+
+  const response = await mailchimpRequest<MailchimpListsListResponse>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: "/lists",
+    query,
+    resourceForNotFound: "lists",
+  });
+  return {
+    lists: response.lists ?? [],
+    totalItems: response.total_items ?? 0,
+  };
 }

@@ -1,9 +1,14 @@
 /**
  * @jest-environment node
  *
- * Registry-coverage test — confirms ALL three Mailchimp polling
+ * Registry-coverage test — confirms ALL six Mailchimp polling
  * triggers are wired: manifest flag flipped, activation hooks
  * registered, polling handlers registered.
+ *
+ * Slice 14 Commit 5 landed the first 3 (campaign_created /
+ * email_opened / link_clicked). Mailchimp 2.1 Commit 3 adds 3
+ * parity triggers — subscriber_added_to_segment / segment_updated /
+ * new_audience.
  *
  * Anti-test: a forgotten registration would silently break workflow
  * activation OR the cron tick would skip the row (no handler
@@ -16,9 +21,14 @@ import { findActivation } from "@/services/triggers/activationRegistry";
 import { findPollingHandler } from "@/services/triggers/pollingRegistry";
 
 const POLLING_TRIGGER_TYPES = [
+  // Slice 14 Commit 5.
   "campaign_created",
   "email_opened",
   "link_clicked",
+  // Mailchimp 2.1 Commit 3.
+  "subscriber_added_to_segment",
+  "segment_updated",
+  "new_audience",
 ] as const;
 
 function fakeTrigger(eventType: string) {
