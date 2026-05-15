@@ -84,9 +84,11 @@ import { addRow as excelAddRow } from "@/integrations/microsoft-excel/actions/ad
 import { addTableRow as excelAddTableRow } from "@/integrations/microsoft-excel/actions/addTableRow";
 import { createWorksheet as excelCreateWorksheet } from "@/integrations/microsoft-excel/actions/createWorksheet";
 import { deleteRow as excelDeleteRow } from "@/integrations/microsoft-excel/actions/deleteRow";
+import { deleteWorksheet as excelDeleteWorksheet } from "@/integrations/microsoft-excel/actions/deleteWorksheet";
 import { exportSheet as excelExportSheet } from "@/integrations/microsoft-excel/actions/exportSheet";
 import { getWorkbooks as excelGetWorkbooks } from "@/integrations/microsoft-excel/actions/getWorkbooks";
 import { getWorksheets as excelGetWorksheets } from "@/integrations/microsoft-excel/actions/getWorksheets";
+import { renameWorksheet as excelRenameWorksheet } from "@/integrations/microsoft-excel/actions/renameWorksheet";
 import { updateRow as excelUpdateRow } from "@/integrations/microsoft-excel/actions/updateRow";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
 import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
@@ -275,6 +277,9 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // (parity-microsoft-excel.md §7 + accepted audit decisions).
   { provider: "microsoft-excel", type: "update_row", handler: excelUpdateRow },
   { provider: "microsoft-excel", type: "delete_row", handler: excelDeleteRow },
+  // Microsoft Excel parity Commit 2 — worksheet rename + delete actions.
+  { provider: "microsoft-excel", type: "rename_worksheet", handler: excelRenameWorksheet },
+  { provider: "microsoft-excel", type: "delete_worksheet", handler: excelDeleteWorksheet },
   { provider: "microsoft-onedrive", type: "upload_file", handler: uploadOneDriveFile },
   { provider: "microsoft-onedrive", type: "get_file", handler: getOneDriveFile },
   { provider: "microsoft-onedrive", type: "create_folder", handler: createOneDriveFolder },

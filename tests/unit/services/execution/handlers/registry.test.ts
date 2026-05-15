@@ -130,6 +130,24 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 2 Microsoft Excel parity Commit 2 worksheet lifecycle handlers (rename_worksheet, delete_worksheet)", () => {
+    expect(
+      getActionHandler("microsoft-excel", "rename_worksheet"),
+    ).toBeDefined();
+    expect(
+      getActionHandler("microsoft-excel", "delete_worksheet"),
+    ).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "microsoft-excel",
+      type: "rename_worksheet",
+    });
+    expect(registered).toContainEqual({
+      provider: "microsoft-excel",
+      type: "delete_worksheet",
+    });
+  });
+
   it("does NOT register a separate microsoft-excel:add_multiple_rows action (folds into add_row batch mode per parity-microsoft-excel.md §7)", () => {
     expect(
       getActionHandler("microsoft-excel", "add_multiple_rows"),
