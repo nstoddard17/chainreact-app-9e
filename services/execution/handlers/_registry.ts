@@ -45,6 +45,7 @@ import { moveFile } from "@/integrations/google-drive/actions/moveFile";
 import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
 import { appendRow } from "@/integrations/google-sheets/actions/appendRow";
 import { clearRange } from "@/integrations/google-sheets/actions/clearRange";
+import { createSpreadsheet as sheetsCreateSpreadsheet } from "@/integrations/google-sheets/actions/createSpreadsheet";
 import { deleteRow as sheetsDeleteRow } from "@/integrations/google-sheets/actions/deleteRow";
 import { findRow as sheetsFindRow } from "@/integrations/google-sheets/actions/findRow";
 import { getCellValue } from "@/integrations/google-sheets/actions/getCellValue";
@@ -274,6 +275,14 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // equals-only operator only — V1 kitchen-sink shape skipped).
   { provider: "google-sheets", type: "delete_row", handler: sheetsDeleteRow },
   { provider: "google-sheets", type: "find_row", handler: sheetsFindRow },
+  // Google Sheets 2.1 Commit 3 — spreadsheet lifecycle (bare
+  // spreadsheets.create surface; V1 template / initialData / folder /
+  // description chrome explicitly skipped per audit GS-R10).
+  {
+    provider: "google-sheets",
+    type: "create_spreadsheet",
+    handler: sheetsCreateSpreadsheet,
+  },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
