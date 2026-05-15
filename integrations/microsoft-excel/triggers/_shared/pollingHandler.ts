@@ -10,22 +10,31 @@ import { DEFAULT_INTERVAL_MS } from "@/services/cron/pollingIntervals";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import { worksheetUsedRange } from "../../api/worksheetUsedRange";
 import { tableRowsList } from "../../api/tableRowsList";
+import { worksheetsList } from "../../api/worksheetsList";
 import { ExcelNewRowConfigSchema } from "../newRow/schema";
 import { ExcelNewTableRowConfigSchema } from "../newTableRow/schema";
+import { ExcelUpdatedRowConfigSchema } from "../updatedRow/schema";
+import { ExcelUpdatedTableRowConfigSchema } from "../updatedTableRow/schema";
+import { ExcelNewWorksheetConfigSchema } from "../newWorksheet/schema";
 import {
   buildSnapshot,
+  buildWorksheetListSnapshot,
+  findChangedKeys,
   findNewKeys,
+  findNewWorksheets,
   type ExcelRowSnapshot,
+  type ExcelWorksheetListSnapshot,
 } from "./snapshot";
 
 /**
- * Shared polling handler for the two Excel triggers.
+ * Shared polling handler for the five Excel polling triggers.
  *
- * One handler instance covers both `new_row` (worksheet position-keyed)
- * and `new_table_row` (table stable-id-keyed). Slice 15 plan §"Trigger
- * surface" confirms the single-handler decision — both event types
- * exercise the same snapshot/diff/enqueue path with one differing
- * detail (which Graph endpoint feeds the current state).
+ * One handler instance covers `new_row`, `new_table_row`, `updated_row`,
+ * `updated_table_row`, and `new_worksheet`. All five exercise the same
+ * snapshot/diff/enqueue path with two differing details:
+ *   - which Graph endpoint feeds the current state.
+ *   - which snapshot helper (findNewKeys / findChangedKeys / findNewWorksheets)
+ *     computes the diff.
  *
  * Per-tick flow:
  *   1. Parse the trigger row's config through the event-type-specific
@@ -34,11 +43,11 @@ import {
  *      snapshot means activation failed without aborting — defensive
  *      log + skip rather than re-seed silently).
  *   3. Resolve integration → providerAccountId.
- *   4. Fetch current rows from Graph.
- *   5. Diff `current` vs `previousSnapshot` — new keys → emit one
- *      TriggerEvent per new row, dedup-keyed on
- *      `<provider>:<workflowId>:<nodeId>:<key>:<hash>` via the shared
- *      `webhook_event_dedup` repo.
+ *   4. Fetch current state from Graph.
+ *   5. Diff `current` vs `previousSnapshot` — emit one TriggerEvent per
+ *      new/changed entry, dedup-keyed on
+ *      `<provider>:<workflowId>:<nodeId>:<eventType>:<key>` so a
+ *      snapshot regression would still dedupe at the engine boundary.
  *   6. Persist updated snapshot back to `trigger_resources.config` and
  *      bump `polling.lastPolledAt`.
  *
@@ -52,13 +61,19 @@ import {
 
 const HANDLER_ID = "microsoft-excel/polling";
 
+const SUPPORTED_EVENT_TYPES = new Set([
+  "new_row",
+  "new_table_row",
+  "updated_row",
+  "updated_table_row",
+  "new_worksheet",
+]);
+
 async function poll(ctx: PollingHandlerContext): Promise<void> {
   const { trigger } = ctx;
 
   if (trigger.provider !== "microsoft-excel") return;
-  if (trigger.eventType !== "new_row" && trigger.eventType !== "new_table_row") {
-    return;
-  }
+  if (!SUPPORTED_EVENT_TYPES.has(trigger.eventType)) return;
 
   const integration = await getActiveForExecution(
     trigger.userId,
@@ -78,10 +93,27 @@ async function poll(ctx: PollingHandlerContext): Promise<void> {
   }
   const accountId = integration.providerAccountId;
 
-  if (trigger.eventType === "new_row") {
-    await pollWorksheet({ trigger, accountId, now: ctx.now });
-  } else {
-    await pollTable({ trigger, accountId, now: ctx.now });
+  switch (trigger.eventType) {
+    case "new_row":
+      await pollWorksheet({ trigger, accountId, now: ctx.now, mode: "new" });
+      return;
+    case "updated_row":
+      await pollWorksheet({
+        trigger,
+        accountId,
+        now: ctx.now,
+        mode: "updated",
+      });
+      return;
+    case "new_table_row":
+      await pollTable({ trigger, accountId, now: ctx.now, mode: "new" });
+      return;
+    case "updated_table_row":
+      await pollTable({ trigger, accountId, now: ctx.now, mode: "updated" });
+      return;
+    case "new_worksheet":
+      await pollWorksheetList({ trigger, accountId, now: ctx.now });
+      return;
   }
 }
 
@@ -89,9 +121,13 @@ async function pollWorksheet(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
   accountId: string;
   now: number;
+  mode: "new" | "updated";
 }): Promise<void> {
-  const { trigger, accountId, now } = input;
-  const config = ExcelNewRowConfigSchema.parse(trigger.config);
+  const { trigger, accountId, now, mode } = input;
+  const eventType = mode === "new" ? "new_row" : "updated_row";
+  const schema =
+    mode === "new" ? ExcelNewRowConfigSchema : ExcelUpdatedRowConfigSchema;
+  const config = schema.parse(trigger.config);
 
   if (!config.snapshot) {
     console.warn(
@@ -99,7 +135,7 @@ async function pollWorksheet(input: {
         event: "microsoft-excel.poll.no_snapshot",
         triggerId: trigger.id,
         workflowId: trigger.workflowId,
-        eventType: "new_row",
+        eventType,
       }),
     );
     return;
@@ -130,13 +166,16 @@ async function pollWorksheet(input: {
     : allValues.map((row, index) => ({ key: String(index + 1), values: row }));
 
   const previous: ExcelRowSnapshot = config.snapshot;
-  const newEntries = findNewKeys(previous, current);
+  const diff =
+    mode === "new"
+      ? findNewKeys(previous, current)
+      : findChangedKeys(previous, current);
 
-  for (const entry of newEntries) {
+  for (const entry of diff) {
     await emitEvent({
       trigger,
       accountId,
-      eventType: "new_row",
+      eventType,
       key: entry.key,
       values: entry.values,
       extra: {
@@ -159,9 +198,15 @@ async function pollTable(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
   accountId: string;
   now: number;
+  mode: "new" | "updated";
 }): Promise<void> {
-  const { trigger, accountId, now } = input;
-  const config = ExcelNewTableRowConfigSchema.parse(trigger.config);
+  const { trigger, accountId, now, mode } = input;
+  const eventType = mode === "new" ? "new_table_row" : "updated_table_row";
+  const schema =
+    mode === "new"
+      ? ExcelNewTableRowConfigSchema
+      : ExcelUpdatedTableRowConfigSchema;
+  const config = schema.parse(trigger.config);
 
   if (!config.snapshot) {
     console.warn(
@@ -169,7 +214,7 @@ async function pollTable(input: {
         event: "microsoft-excel.poll.no_snapshot",
         triggerId: trigger.id,
         workflowId: trigger.workflowId,
-        eventType: "new_table_row",
+        eventType,
       }),
     );
     return;
@@ -193,13 +238,16 @@ async function pollTable(input: {
   }));
 
   const previous: ExcelRowSnapshot = config.snapshot;
-  const newEntries = findNewKeys(previous, current);
+  const diff =
+    mode === "new"
+      ? findNewKeys(previous, current)
+      : findChangedKeys(previous, current);
 
-  for (const entry of newEntries) {
+  for (const entry of diff) {
     await emitEvent({
       trigger,
       accountId,
-      eventType: "new_table_row",
+      eventType,
       key: entry.key,
       values: entry.values,
       extra: {
@@ -218,19 +266,92 @@ async function pollTable(input: {
   });
 }
 
+async function pollWorksheetList(input: {
+  trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
+  accountId: string;
+  now: number;
+}): Promise<void> {
+  const { trigger, accountId, now } = input;
+  const config = ExcelNewWorksheetConfigSchema.parse(trigger.config);
+
+  if (!config.snapshot) {
+    console.warn(
+      JSON.stringify({
+        event: "microsoft-excel.poll.no_snapshot",
+        triggerId: trigger.id,
+        workflowId: trigger.workflowId,
+        eventType: "new_worksheet",
+      }),
+    );
+    return;
+  }
+
+  const sheets = await refreshAndRetry({
+    userId: trigger.userId,
+    provider: "microsoft-excel",
+    accountId,
+    apiCall: (accessToken) =>
+      worksheetsList({
+        accessToken,
+        workbookId: config.workbookId,
+      }),
+  });
+
+  const currentSheets = sheets.filter(
+    (s): s is { id: string; name: string; position?: number; visibility?: string } =>
+      typeof s.name === "string" && s.name.length > 0,
+  );
+  const currentNames = currentSheets.map((s) => s.name);
+
+  const previous: ExcelWorksheetListSnapshot = config.snapshot;
+  const newNames = findNewWorksheets(previous, currentNames);
+
+  for (const name of newNames) {
+    const sheet = currentSheets.find((s) => s.name === name);
+    await emitEvent({
+      trigger,
+      accountId,
+      eventType: "new_worksheet",
+      key: name,
+      // No row values for a worksheet — payload carries the metadata
+      // fields below instead. Passing an empty values array keeps the
+      // emitEvent shape consistent across triggers.
+      values: [],
+      extra: {
+        workbookId: config.workbookId,
+        worksheetName: name,
+        worksheetId: sheet?.id ?? null,
+        position: sheet?.position ?? null,
+      },
+    });
+  }
+
+  await persistSnapshot({
+    triggerId: trigger.id,
+    config,
+    snapshot: buildWorksheetListSnapshot(currentNames),
+    now,
+  });
+}
+
 async function emitEvent(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
   accountId: string;
-  eventType: "new_row" | "new_table_row";
+  eventType:
+    | "new_row"
+    | "new_table_row"
+    | "updated_row"
+    | "updated_table_row"
+    | "new_worksheet";
   key: string;
   values: ReadonlyArray<unknown>;
   extra: Record<string, unknown>;
 }): Promise<void> {
   const { trigger, accountId, eventType, key, values, extra } = input;
 
-  // Synthetic event id ties to the trigger + row key so a snapshot
-  // regression (e.g. workflow reactivated and pre-existing rows reappear
-  // as "new") would still dedupe at the engine boundary.
+  // Synthetic event id ties to the trigger + entry key so a snapshot
+  // regression (e.g. workflow reactivated and pre-existing entries
+  // reappear as "new") would still dedupe at the engine boundary.
   const eventId = `microsoft-excel:${trigger.workflowId}:${trigger.nodeId}:${eventType}:${key}`;
 
   const event: TriggerEvent = {
@@ -266,7 +387,7 @@ async function emitEvent(input: {
 async function persistSnapshot(input: {
   triggerId: string;
   config: Record<string, unknown>;
-  snapshot: ExcelRowSnapshot;
+  snapshot: ExcelRowSnapshot | ExcelWorksheetListSnapshot;
   now: number;
 }): Promise<void> {
   await triggerResourcesRepo.updateConfig(input.triggerId, {
@@ -282,8 +403,7 @@ export const microsoftExcelPollingHandler: PollingHandler = {
   id: HANDLER_ID,
   canHandle: (trigger) =>
     trigger.provider === "microsoft-excel" &&
-    (trigger.eventType === "new_row" ||
-      trigger.eventType === "new_table_row"),
+    SUPPORTED_EVENT_TYPES.has(trigger.eventType),
   getIntervalMs: () => DEFAULT_INTERVAL_MS,
   poll,
 };
