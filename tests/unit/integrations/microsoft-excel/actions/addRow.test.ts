@@ -192,3 +192,279 @@ describe("add_row action", () => {
     expect(result.output.columnCount).toBe(27);
   });
 });
+
+describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit 3)", () => {
+  it("appends multiple rows in one Graph PATCH at the tail of the used range", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:C5",
+      rowCount: 5,
+      columnCount: 3,
+      values: [
+        ["Name", "Age", "City"],
+        ["alice", 30, "Seattle"],
+        ["bob", 25, "Portland"],
+        ["carol", 40, "Denver"],
+        ["dave", 22, "Boise"],
+      ],
+    });
+
+    const result = await addRow({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        rows: [
+          { Name: "eve", Age: 28, City: "Austin" },
+          { Name: "frank", Age: 35, City: "Boston" },
+        ],
+      },
+      triggerEvent: trigger(),
+    });
+
+    expect(mockPatch).toHaveBeenCalledTimes(1);
+    const arg = mockPatch.mock.calls[0]![0];
+    expect(arg.address).toBe("A6:C7");
+    expect(arg.values).toEqual([
+      ["eve", 28, "Austin"],
+      ["frank", 35, "Boston"],
+    ]);
+
+    expect(result.output).toEqual({
+      workbookId: "wb-1",
+      worksheetName: "Sheet1",
+      address: "A6:C7",
+      rowCount: 2,
+      rowsAdded: 2,
+      firstRowNumber: 6,
+      lastRowNumber: 7,
+      columnCount: 3,
+    });
+  });
+
+  it("pads missing columns with null and preserves header column order", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:D2",
+      rowCount: 2,
+      columnCount: 4,
+      values: [
+        ["Name", "Age", "City", "Status"],
+        ["alice", 30, "Seattle", "active"],
+      ],
+    });
+
+    await addRow({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        rows: [
+          { Name: "eve", Status: "pending" },
+          { Age: 50, City: "Boise" },
+        ],
+      },
+      triggerEvent: trigger(),
+    });
+
+    const arg = mockPatch.mock.calls[0]![0];
+    expect(arg.values).toEqual([
+      ["eve", null, null, "pending"],
+      [null, 50, "Boise", null],
+    ]);
+    expect(arg.address).toBe("A3:D4");
+  });
+
+  it("issues exactly ONE Graph PATCH for the whole batch (no silent chunking)", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:B2",
+      rowCount: 2,
+      columnCount: 2,
+      values: [
+        ["Name", "Age"],
+        ["alice", 30],
+      ],
+    });
+    const rows = Array.from({ length: 500 }, (_, i) => ({
+      Name: `row${i}`,
+      Age: i,
+    }));
+
+    await addRow({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        rows,
+      },
+      triggerEvent: trigger(),
+    });
+
+    expect(mockPatch).toHaveBeenCalledTimes(1);
+    const arg = mockPatch.mock.calls[0]![0];
+    expect(arg.address).toBe("A3:B502");
+    expect((arg.values as unknown[][]).length).toBe(500);
+  });
+
+  it("rejects >1000 rows BEFORE any Graph round-trip (no silent chunking, no Graph call)", async () => {
+    const rows = Array.from({ length: 1001 }, (_, i) => ({ Name: `r${i}` }));
+
+    await expect(
+      addRow({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          workbookId: "wb-1",
+          worksheetName: "Sheet1",
+          rows,
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+
+    expect(mockUsed).not.toHaveBeenCalled();
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it("fails loudly when a row contains an unknown column (no silent skip)", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:B2",
+      rowCount: 2,
+      columnCount: 2,
+      values: [
+        ["Name", "Age"],
+        ["alice", 30],
+      ],
+    });
+
+    await expect(
+      addRow({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          workbookId: "wb-1",
+          worksheetName: "Sheet1",
+          rows: [{ Name: "eve", Email: "eve@x.com" }],
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow(/row 1.*'Email'/);
+
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it("reports unknown columns from ALL rows in a single error (not just the first)", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:B2",
+      rowCount: 2,
+      columnCount: 2,
+      values: [
+        ["Name", "Age"],
+        ["alice", 30],
+      ],
+    });
+
+    await expect(
+      addRow({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          workbookId: "wb-1",
+          worksheetName: "Sheet1",
+          rows: [
+            { Name: "eve", Email: "eve@x.com" },
+            { Name: "frank", Phone: "555" },
+          ],
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow(/row 1.*'Email'.*row 2.*'Phone'/);
+  });
+
+  it("rejects batch mode against an empty worksheet (no headers to validate against)", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1",
+      rowCount: 1,
+      columnCount: 1,
+      values: [],
+    });
+
+    await expect(
+      addRow({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          workbookId: "wb-1",
+          worksheetName: "Sheet1",
+          rows: [{ Name: "eve" }],
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow(/requires worksheet headers/);
+
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it("rejects batch mode when row 1 has no non-empty string headers", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:C2",
+      rowCount: 2,
+      columnCount: 3,
+      values: [
+        [null, null, null],
+        ["alice", 30, "Seattle"],
+      ],
+    });
+
+    await expect(
+      addRow({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          workbookId: "wb-1",
+          worksheetName: "Sheet1",
+          rows: [{ Name: "eve" }],
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow(/non-empty headers/);
+  });
+
+  it("rejects both values and rows in one call at parse time (XOR)", async () => {
+    await expect(
+      addRow({
+        workflowId: "wf",
+        userId: "u",
+        runId: "r",
+        nodeId: "n",
+        config: {
+          workbookId: "wb-1",
+          worksheetName: "Sheet1",
+          values: ["alice"],
+          rows: [{ Name: "alice" }],
+        },
+        triggerEvent: trigger(),
+      }),
+    ).rejects.toThrow();
+
+    expect(mockUsed).not.toHaveBeenCalled();
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+});
