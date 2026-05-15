@@ -31,6 +31,30 @@ import { createHmac } from "node:crypto";
  *                                 the Idempotency-Key header so the
  *                                 spec asserts V2 sent it on
  *                                 create_customer.
+ *   POST /v1/checkout/sessions  → Stripe 2.1 Commit 6 — echoes back
+ *                                 a synthetic cs_mock_N id + hosted
+ *                                 URL. Records Idempotency-Key + the
+ *                                 form-encoded line_items[][...] body
+ *                                 so the spec asserts wire shape.
+ *   POST /v1/payment_links      → Stripe 2.1 Commit 6 — echoes back a
+ *                                 synthetic plink_mock_N id + URL +
+ *                                 active=true.
+ *   POST /v1/invoices           → Stripe 2.1 Commit 6 — echoes back a
+ *                                 synthetic in_mock_N id + draft status
+ *                                 + auto_advance echo.
+ *   GET  /v1/charges            → Stripe 2.1 Commit 6 — list response
+ *                                 with a single synthetic charge.
+ *                                 Records the query (customer / limit
+ *                                 / starting_after) for assertions.
+ *   GET  /v1/subscriptions/{id} → Stripe 2.1 Commit 6 — returns a
+ *                                 synthetic subscription with the
+ *                                 14-key wire shape the find_subscription
+ *                                 projection consumes.
+ *   GET  /v1/payment_intents/{id} → Stripe 2.1 Commit 6 — returns a
+ *                                 synthetic payment intent with the
+ *                                 12-key wire shape the
+ *                                 find_payment_intent projection
+ *                                 consumes.
  *   POST /v1/webhook_endpoints  → returns synthetic id + signing
  *                                 secret. Mock holds the secret in
  *                                 string form so __sendWebhookEvent
@@ -89,6 +113,29 @@ export interface RecordedCustomerCall {
   responseCustomerId: string | null;
 }
 
+/**
+ * Stripe 2.1 Commit 6 — generic call shape shared by the new
+ * `/v1/checkout/sessions`, `/v1/payment_links`, `/v1/invoices`,
+ * `/v1/charges`, `/v1/subscriptions/{id}`, `/v1/payment_intents/{id}`
+ * endpoints. The spec asserts on `method`, `authorization`,
+ * `idempotencyKey`, `stripeVersion`, `contentType`, `parsedBody`,
+ * and the path-extracted id when relevant.
+ */
+export interface RecordedStripeCall {
+  method: string;
+  authorization: string | undefined;
+  idempotencyKey: string | undefined;
+  stripeVersion: string | undefined;
+  contentType: string | undefined;
+  url: string;
+  body: string;
+  parsedBody: Record<string, string>;
+  /** For GET-by-id endpoints (subscriptions / payment_intents). */
+  pathId?: string;
+  /** For GET list endpoints (charges) — the parsed query map. */
+  query?: Record<string, string>;
+}
+
 export interface RecordedWebhookEndpointCreate {
   authorization: string | undefined;
   body: string;
@@ -117,6 +164,12 @@ export interface MockStripeHandle {
     authorize: RecordedAuthorize[];
     tokenExchange: RecordedTokenExchange[];
     customers: RecordedCustomerCall[];
+    checkoutSessions: RecordedStripeCall[];
+    paymentLinks: RecordedStripeCall[];
+    invoices: RecordedStripeCall[];
+    charges: RecordedStripeCall[];
+    subscriptionsGet: RecordedStripeCall[];
+    paymentIntentsGet: RecordedStripeCall[];
     webhookEndpointCreate: RecordedWebhookEndpointCreate[];
     webhookEndpointDelete: RecordedWebhookEndpointDelete[];
     webhookEvent: RecordedWebhookEvent[];
@@ -151,6 +204,9 @@ interface MutableState {
   lastEndpointId: string | null;
   endpointCounter: number;
   customerCounter: number;
+  checkoutSessionCounter: number;
+  paymentLinkCounter: number;
+  invoiceCounter: number;
   eventCounter: number;
   lastEvent: LastSentEvent | null;
 }
@@ -161,6 +217,12 @@ function freshState(): MutableState {
       authorize: [],
       tokenExchange: [],
       customers: [],
+      checkoutSessions: [],
+      paymentLinks: [],
+      invoices: [],
+      charges: [],
+      subscriptionsGet: [],
+      paymentIntentsGet: [],
       webhookEndpointCreate: [],
       webhookEndpointDelete: [],
       webhookEvent: [],
@@ -169,6 +231,9 @@ function freshState(): MutableState {
     lastEndpointId: null,
     endpointCounter: 0,
     customerCounter: 0,
+    checkoutSessionCounter: 0,
+    paymentLinkCounter: 0,
+    invoiceCounter: 0,
     eventCounter: 0,
     lastEvent: null,
   };
@@ -382,6 +447,207 @@ async function handleRequest(
       parsedBody: parsed,
       responseCustomerId: customerId,
     });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(responseBody));
+    return;
+  }
+
+  // ── /v1/checkout/sessions (POST) — Stripe 2.1 Commit 6 ──
+  if (url.pathname === "/v1/checkout/sessions" && req.method === "POST") {
+    const body = await readBody(req);
+    const parsed = parseFormBody(body);
+    state.checkoutSessionCounter += 1;
+    const sessionId = `cs_mock_${state.checkoutSessionCounter}`;
+    state.calls.checkoutSessions.push(
+      makeCall(req, body, parsed, "POST"),
+    );
+    const responseBody = {
+      id: sessionId,
+      object: "checkout.session",
+      mode: parsed.mode ?? "payment",
+      url: `https://checkout.stripe.com/c/pay/${sessionId}`,
+      status: "open",
+      payment_status: "unpaid",
+      customer: parsed.customer ?? null,
+      customer_email: parsed.customer_email ?? null,
+      client_reference_id: parsed.client_reference_id ?? null,
+      payment_intent: null,
+      subscription: null,
+      amount_total: null,
+      currency: null,
+      expires_at: Math.floor(Date.now() / 1000) + 86_400,
+      success_url: parsed.success_url ?? null,
+      cancel_url: parsed.cancel_url ?? null,
+      metadata: extractMetadata(parsed),
+      livemode: false,
+    };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(responseBody));
+    return;
+  }
+
+  // ── /v1/payment_links (POST) — Stripe 2.1 Commit 6 ──
+  if (url.pathname === "/v1/payment_links" && req.method === "POST") {
+    const body = await readBody(req);
+    const parsed = parseFormBody(body);
+    state.paymentLinkCounter += 1;
+    const paymentLinkId = `plink_mock_${state.paymentLinkCounter}`;
+    state.calls.paymentLinks.push(
+      makeCall(req, body, parsed, "POST"),
+    );
+    const responseBody = {
+      id: paymentLinkId,
+      object: "payment_link",
+      url: `https://buy.stripe.com/test_${paymentLinkId}`,
+      active: true,
+      currency: "usd",
+      metadata: extractMetadata(parsed),
+      livemode: false,
+    };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(responseBody));
+    return;
+  }
+
+  // ── /v1/invoices (POST) — Stripe 2.1 Commit 6 ──
+  if (url.pathname === "/v1/invoices" && req.method === "POST") {
+    const body = await readBody(req);
+    const parsed = parseFormBody(body);
+    state.invoiceCounter += 1;
+    const invoiceId = `in_mock_${state.invoiceCounter}`;
+    state.calls.invoices.push(
+      makeCall(req, body, parsed, "POST"),
+    );
+    // auto_advance default is Stripe-side `true` if omitted.
+    const autoAdvance =
+      parsed.auto_advance === undefined
+        ? true
+        : parsed.auto_advance === "true";
+    const responseBody = {
+      id: invoiceId,
+      object: "invoice",
+      customer: parsed.customer ?? null,
+      subscription: null,
+      status: "draft",
+      collection_method: "charge_automatically",
+      auto_advance: autoAdvance,
+      hosted_invoice_url: null,
+      invoice_pdf: null,
+      amount_due: 0,
+      amount_paid: 0,
+      currency: "usd",
+      description: parsed.description ?? null,
+      metadata: extractMetadata(parsed),
+      livemode: false,
+    };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(responseBody));
+    return;
+  }
+
+  // ── /v1/charges (GET list) — Stripe 2.1 Commit 6 ──
+  if (url.pathname === "/v1/charges" && req.method === "GET") {
+    const query: Record<string, string> = {};
+    for (const [k, v] of url.searchParams.entries()) query[k] = v;
+    state.calls.charges.push({
+      ...makeCall(req, "", {}, "GET"),
+      query,
+    });
+    // Synthetic single-page list — one charge per call. Bounded
+    // projection consumers in get_payments map snake_case → camelCase.
+    const charge = {
+      id: "ch_mock_1",
+      object: "charge",
+      amount: 4200,
+      currency: "usd",
+      status: "succeeded",
+      paid: true,
+      refunded: false,
+      customer: query.customer ?? null,
+      payment_intent: "pi_mock_1",
+      created: Math.floor(Date.now() / 1000),
+      description: "Mock charge for e2e",
+      receipt_url: "https://pay.stripe.com/receipts/mock-receipt-1",
+      metadata: {},
+      livemode: false,
+    };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        object: "list",
+        data: [charge],
+        has_more: false,
+        url: "/v1/charges",
+      }),
+    );
+    return;
+  }
+
+  // ── /v1/subscriptions/{id} (GET) — Stripe 2.1 Commit 6 ──
+  const subscriptionsGetMatch = url.pathname.match(
+    /^\/v1\/subscriptions\/([^/]+)$/,
+  );
+  if (req.method === "GET" && subscriptionsGetMatch) {
+    const subscriptionId = decodeURIComponent(subscriptionsGetMatch[1]!);
+    state.calls.subscriptionsGet.push({
+      ...makeCall(req, "", {}, "GET"),
+      pathId: subscriptionId,
+    });
+    const now = Math.floor(Date.now() / 1000);
+    const responseBody = {
+      id: subscriptionId,
+      object: "subscription",
+      customer: "cus_mock_1",
+      status: "active",
+      current_period_start: now,
+      current_period_end: now + 30 * 86_400,
+      cancel_at_period_end: false,
+      canceled_at: null,
+      ended_at: null,
+      trial_start: null,
+      trial_end: null,
+      collection_method: "charge_automatically",
+      currency: "usd",
+      latest_invoice: "in_mock_latest",
+      livemode: false,
+      items: { object: "list", data: [] },
+      metadata: { plan: "mock-pro" },
+      created: now,
+    };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(responseBody));
+    return;
+  }
+
+  // ── /v1/payment_intents/{id} (GET) — Stripe 2.1 Commit 6 ──
+  const paymentIntentsGetMatch = url.pathname.match(
+    /^\/v1\/payment_intents\/([^/]+)$/,
+  );
+  if (req.method === "GET" && paymentIntentsGetMatch) {
+    const paymentIntentId = decodeURIComponent(paymentIntentsGetMatch[1]!);
+    state.calls.paymentIntentsGet.push({
+      ...makeCall(req, "", {}, "GET"),
+      pathId: paymentIntentId,
+    });
+    const responseBody = {
+      id: paymentIntentId,
+      object: "payment_intent",
+      amount: 2099,
+      amount_received: 2099,
+      currency: "usd",
+      status: "succeeded",
+      customer: "cus_mock_1",
+      description: "Mock payment_intent for e2e",
+      client_secret: `${paymentIntentId}_secret_mock`,
+      created: Math.floor(Date.now() / 1000),
+      metadata: { order: "ord_mock_1" },
+      next_action: null,
+      latest_charge: "ch_mock_latest",
+      payment_method: "pm_mock_1",
+      payment_method_types: ["card"],
+      receipt_email: "mock@example.com",
+      livemode: false,
+    };
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(responseBody));
     return;
@@ -734,6 +1000,30 @@ function collectIndexedArray(
     out.push(parsed[key]!);
   }
   return out;
+}
+
+/**
+ * Stripe 2.1 Commit 6 — shared call-recording shape constructor.
+ * Captures the headers + body shape every Stripe REST endpoint
+ * needs the spec to assert on (auth, idempotency, version,
+ * content-type, body).
+ */
+function makeCall(
+  req: IncomingMessage,
+  body: string,
+  parsed: Record<string, string>,
+  method: string,
+): RecordedStripeCall {
+  return {
+    method,
+    authorization: req.headers.authorization,
+    idempotencyKey: req.headers["idempotency-key"] as string | undefined,
+    stripeVersion: req.headers["stripe-version"] as string | undefined,
+    contentType: req.headers["content-type"] as string | undefined,
+    url: req.url ?? "",
+    body,
+    parsedBody: parsed,
+  };
 }
 
 /**

@@ -339,7 +339,13 @@ test.describe("Slice 11 — full Stripe walkthrough", () => {
       {
         data: {
           endpointId: configAfterActivate.endpointId,
-          eventType: "invoice.created", // valid Stripe event type, NOT in Slice 11 allowlist
+          // Valid Stripe event type, NOT in the Stripe allowlist
+          // (allowedEventTypes.ts). `invoice.created` was added in
+          // Stripe 2.1 Commit 3 (pairs with create_invoice), so pick a
+          // Stripe event type that's still outside the allowlist —
+          // `account.updated` is a Stripe Connect platform event that
+          // V2 doesn't subscribe workflows to.
+          eventType: "account.updated",
         },
       },
     );
@@ -472,6 +478,304 @@ test.describe("Slice 11 — full Stripe walkthrough", () => {
     );
     expect(customerPostsAfterReplay).toHaveLength(1);
   });
+
+  /**
+   * Stripe 2.1 Commit 6 — fan-out coverage for the 6 Stripe 2.1 actions.
+   *
+   * Pattern mirrors `slice-1-slack-walkthrough.spec.ts:828` ("14 workflows,
+   * one event, 14 distinct endpoints"): 6 workflows, each with the same
+   * `event_received` / `payment_intent.succeeded` trigger, each with a
+   * distinct Stripe 2.1 action. One signed webhook event fans out
+   * through all 6 workflows in one shot.
+   *
+   * Per-action assertions cover:
+   *   - mock endpoint hit count = 1
+   *   - wire-format details (Idempotency-Key suffix on writes, no
+   *     Idempotency-Key on reads, bracket-notation form encoding on
+   *     line_items, customer wire-field on invoices, GET query
+   *     forwarding on charges, path id on subscriptionsGet /
+   *     paymentIntentsGet)
+   *   - workflow output projection (sessionId, paymentLinkId,
+   *     invoiceId, payments[], subscription.subscriptionId,
+   *     paymentIntent.paymentIntentId)
+   */
+  test("fan-out: 6 Stripe 2.1 actions trigger from one signed payment_intent.succeeded event", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readStripeMockState();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── 1. Sign in + connect Stripe ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=stripe/),
+      page
+        .getByRole("button", { name: "Connect Stripe", exact: true })
+        .click(),
+    ]);
+    const integrations = await getIntegrationsForUser(user.id, "stripe");
+    expect(integrations).toHaveLength(1);
+
+    // ── 2. Build 6 workflows — one per Stripe 2.1 action ──
+    // All share the same trigger so a single signed webhook event fans
+    // out. Each workflow's action exercises a distinct Stripe endpoint
+    // on the mock.
+    const knownPaymentIntentId = "pi_e2e_known_target";
+    const knownSubscriptionId = "sub_e2e_known_target";
+    const knownCustomerId = "cus_e2e_known_target";
+    const knownPriceId = "price_e2e_test";
+
+    interface ActionSpec {
+      key: string;
+      type: string;
+      config: Record<string, unknown>;
+    }
+    const actionSpecs: ReadonlyArray<ActionSpec> = [
+      {
+        key: "create_checkout_session",
+        type: "create_checkout_session",
+        config: {
+          mode: "payment",
+          successUrl: "https://example.test/ok",
+          cancelUrl: "https://example.test/cancel",
+          lineItems: [{ priceId: knownPriceId, quantity: 2 }],
+          metadata: { runMarker: "stripe-2-1-commit-6" },
+        },
+      },
+      {
+        key: "create_payment_link",
+        type: "create_payment_link",
+        config: {
+          lineItems: [{ priceId: knownPriceId, quantity: 1 }],
+          afterCompletion: {
+            type: "redirect",
+            redirectUrl: "https://example.test/thanks",
+          },
+          metadata: { runMarker: "stripe-2-1-commit-6" },
+        },
+      },
+      {
+        key: "create_invoice",
+        type: "create_invoice",
+        config: {
+          customerId: knownCustomerId,
+          description: "E2E invoice for Stripe 2.1 Commit 6",
+          autoAdvance: false,
+          metadata: { runMarker: "stripe-2-1-commit-6" },
+        },
+      },
+      {
+        key: "get_payments",
+        type: "get_payments",
+        config: {
+          customer: knownCustomerId,
+          limit: 5,
+        },
+      },
+      {
+        key: "find_subscription",
+        type: "find_subscription",
+        config: { subscriptionId: knownSubscriptionId },
+      },
+      {
+        key: "find_payment_intent",
+        type: "find_payment_intent",
+        config: { paymentIntentId: knownPaymentIntentId },
+      },
+    ];
+    expect(actionSpecs).toHaveLength(6);
+
+    interface CreatedWorkflow {
+      id: string;
+      key: string;
+    }
+    const createdWorkflows: CreatedWorkflow[] = [];
+    for (const spec of actionSpecs) {
+      const createResp = await page.request.post("/api/workflows", {
+        data: { name: `WF Stripe-2.1 ${spec.key}` },
+      });
+      expect(createResp.status(), await createResp.text()).toBe(201);
+      const created = (await createResp.json()) as { id: string };
+      const wfId = created.id;
+
+      const draftDefinition = {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "stripe",
+            type: "event_received",
+            config: { enabledEvents: ["payment_intent.succeeded"] },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "stripe",
+            type: spec.type,
+            config: spec.config,
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      };
+      const patch = await page.request.patch(`/api/workflows/${wfId}`, {
+        data: { draftDefinition },
+      });
+      expect(patch.status(), await patch.text()).toBe(200);
+
+      const activate = await page.request.post(
+        `/api/workflows/${wfId}/activate`,
+      );
+      expect(activate.status(), await activate.text()).toBe(200);
+
+      createdWorkflows.push({ id: wfId, key: spec.key });
+    }
+    expect(createdWorkflows).toHaveLength(6);
+
+    // Snapshot endpoints — Stripe creates one webhook_endpoint per
+    // active workflow at activation time. We only need to deliver ONE
+    // signed event into the receive route: `dispatchTriggerEvent`
+    // looks up all active trigger_resources for (stripe,
+    // event_received) and fans out to every matching workflow (per
+    // `services/triggers/dispatch.ts:82` listForDispatch). Same pattern
+    // as `slice-1-slack-walkthrough.spec.ts:828` ("14 workflows, one
+    // event, 14 distinct endpoints").
+    const endpointSnapshot = await fetchStripeCalls(request, mock.baseUrl);
+    expect(endpointSnapshot.endpoints.length).toBeGreaterThanOrEqual(6);
+
+    // ── 3. Send ONE signed event — dispatch fans out to all 6 workflows ──
+    const eventId = `evt_e2e_stripe21_${Date.now()}`;
+    const firstEndpoint = endpointSnapshot.endpoints[0]!;
+    const sendResp = await page.request.post(
+      `${mock.baseUrl}/__sendWebhookEvent`,
+      {
+        data: {
+          endpointId: firstEndpoint.id,
+          eventType: "payment_intent.succeeded",
+          eventId,
+          data: {
+            id: "pi_e2e_test_fanout",
+            amount: 2099,
+            currency: "usd",
+            status: "succeeded",
+          },
+        },
+      },
+    );
+    expect(sendResp.status()).toBe(200);
+
+    // ── 4. All 6 workflow_runs succeed ──
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length >= 6 ? rows : null;
+      },
+      {
+        description: "Stripe 2.1: 6 workflow_runs to appear (one per action)",
+        timeoutMs: 30_000,
+      },
+    );
+    // Allow for race with extra rows from prior phases — assert at
+    // least the 6 we created. Filter to created workflow ids only.
+    const createdIds = new Set(createdWorkflows.map((w) => w.id));
+    const ownRuns = runs.filter((r) =>
+      createdIds.has((r as { workflow_id: string }).workflow_id),
+    );
+    expect(ownRuns).toHaveLength(6);
+    for (const run of ownRuns) {
+      expect(run.status).toBe("succeeded");
+      expect(run.error_classification).toBeNull();
+    }
+
+    // ── 5. Mock-side assertions: each Stripe endpoint received exactly 1 call ──
+    const calls = await fetchStripeCalls(request, mock.baseUrl);
+    expect(calls.calls.checkoutSessions).toHaveLength(1);
+    expect(calls.calls.paymentLinks).toHaveLength(1);
+    expect(calls.calls.invoices).toHaveLength(1);
+    expect(calls.calls.charges).toHaveLength(1);
+    expect(calls.calls.subscriptionsGet).toHaveLength(1);
+    expect(calls.calls.paymentIntentsGet).toHaveLength(1);
+
+    // ── 6. create_checkout_session wire-format ──
+    const cs = calls.calls.checkoutSessions[0]!;
+    expect(cs.method).toBe("POST");
+    expect(cs.authorization).toBe("Bearer stripe-mock-e2e-access");
+    expect(cs.stripeVersion).toBe("2025-05-28.basil");
+    expect(cs.contentType).toContain("application/x-www-form-urlencoded");
+    // Q4 idempotency: `${runId}:action-node:stripe_action_create_checkout_session`
+    expect(cs.idempotencyKey).toMatch(
+      /:action-node:stripe_action_create_checkout_session$/,
+    );
+    expect(cs.parsedBody.mode).toBe("payment");
+    expect(cs.parsedBody.success_url).toBe("https://example.test/ok");
+    expect(cs.parsedBody.cancel_url).toBe("https://example.test/cancel");
+    // Bracket-notation flattening of line_items.
+    expect(cs.parsedBody["line_items[0][price]"]).toBe(knownPriceId);
+    expect(cs.parsedBody["line_items[0][quantity]"]).toBe("2");
+
+    // ── 7. create_payment_link wire-format ──
+    const pl = calls.calls.paymentLinks[0]!;
+    expect(pl.method).toBe("POST");
+    expect(pl.idempotencyKey).toMatch(
+      /:action-node:stripe_action_create_payment_link$/,
+    );
+    expect(pl.parsedBody["line_items[0][price]"]).toBe(knownPriceId);
+    expect(pl.parsedBody["line_items[0][quantity]"]).toBe("1");
+    // after_completion.type=redirect + redirect_url.
+    expect(pl.parsedBody["after_completion[type]"]).toBe("redirect");
+    expect(pl.parsedBody["after_completion[redirect][url]"]).toBe(
+      "https://example.test/thanks",
+    );
+
+    // ── 8. create_invoice wire-format ──
+    const inv = calls.calls.invoices[0]!;
+    expect(inv.method).toBe("POST");
+    expect(inv.idempotencyKey).toMatch(
+      /:action-node:stripe_action_create_invoice$/,
+    );
+    // Schema field `customerId` is renamed to the Stripe wire field `customer`.
+    expect(inv.parsedBody.customer).toBe(knownCustomerId);
+    // auto_advance=false echo (workflow-author opted into draft).
+    expect(inv.parsedBody.auto_advance).toBe("false");
+    expect(inv.parsedBody.description).toBe(
+      "E2E invoice for Stripe 2.1 Commit 6",
+    );
+
+    // ── 9. get_payments wire-format ──
+    const ch = calls.calls.charges[0]!;
+    expect(ch.method).toBe("GET");
+    expect(ch.authorization).toBe("Bearer stripe-mock-e2e-access");
+    expect(ch.stripeVersion).toBe("2025-05-28.basil");
+    // Read-only — no Idempotency-Key on GET.
+    expect(ch.idempotencyKey).toBeUndefined();
+    // Stripe wire fields for the filter + limit (limit numeric stringified).
+    expect(ch.query?.customer).toBe(knownCustomerId);
+    expect(ch.query?.limit).toBe("5");
+    // No body / Content-Type on GET (verified separately in unit tests).
+    expect(ch.body).toBe("");
+
+    // ── 10. find_subscription wire-format ──
+    const sub = calls.calls.subscriptionsGet[0]!;
+    expect(sub.method).toBe("GET");
+    expect(sub.authorization).toBe("Bearer stripe-mock-e2e-access");
+    expect(sub.idempotencyKey).toBeUndefined();
+    expect(sub.pathId).toBe(knownSubscriptionId);
+    expect(sub.body).toBe("");
+
+    // ── 11. find_payment_intent wire-format ──
+    const pi = calls.calls.paymentIntentsGet[0]!;
+    expect(pi.method).toBe("GET");
+    expect(pi.authorization).toBe("Bearer stripe-mock-e2e-access");
+    expect(pi.idempotencyKey).toBeUndefined();
+    expect(pi.pathId).toBe(knownPaymentIntentId);
+    expect(pi.body).toBe("");
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -486,6 +790,21 @@ async function signIn(page: Page, user: TestUser): Promise<void> {
     }),
     page.getByRole("button", { name: "Sign in", exact: true }).click(),
   ]);
+}
+
+/** Stripe 2.1 Commit 6 — shared shape for the 6 new REST endpoint
+ * recordings. Mirrors mockStripeServer.ts `RecordedStripeCall`. */
+interface StripeMockCall {
+  method: string;
+  authorization: string | undefined;
+  idempotencyKey: string | undefined;
+  stripeVersion: string | undefined;
+  contentType: string | undefined;
+  url: string;
+  body: string;
+  parsedBody: Record<string, string>;
+  pathId?: string;
+  query?: Record<string, string>;
 }
 
 interface StripeMockInspect {
@@ -534,6 +853,13 @@ interface StripeMockInspect {
       status: number;
       responseBody: string;
     }[];
+    // Stripe 2.1 Commit 6 — REST endpoints exercised by fan-out test.
+    checkoutSessions: StripeMockCall[];
+    paymentLinks: StripeMockCall[];
+    invoices: StripeMockCall[];
+    charges: StripeMockCall[];
+    subscriptionsGet: StripeMockCall[];
+    paymentIntentsGet: StripeMockCall[];
   };
   endpoints: Array<{
     id: string;
