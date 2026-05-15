@@ -83,7 +83,7 @@ describe("stripe manifest", () => {
     }
   });
 
-  it("when actions: true, the action-handler registry contains all 11 Stripe actions", () => {
+  it("when actions: true, the action-handler registry contains all 12 Stripe actions", () => {
     if (stripeManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "stripe",
@@ -95,6 +95,7 @@ describe("stripe manifest", () => {
         "create_checkout_session",
         "create_customer",
         "create_payment_intent",
+        "create_payment_link",
         "create_refund",
         "create_subscription",
         "find_customer",
