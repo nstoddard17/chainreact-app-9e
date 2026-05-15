@@ -174,9 +174,11 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     expect(callsAfterOAuth.calls.authorize[0]!.redirectUri).toMatch(
       /\/api\/integrations\/oauth\/microsoft-outlook\/callback$/,
     );
-    // Authorize scope: exactly the three Slice 6 scopes.
+    // Authorize scope: exactly the four mail-only scopes after Outlook
+    // Mail 2.1 Commit 2 P-O1 widening (Mail.ReadWrite is required for
+    // create_draft_email plus 2.2's move/delete/add_categories).
     expect(callsAfterOAuth.calls.authorize[0]!.scope).toBe(
-      "offline_access Mail.Send Mail.Read",
+      "offline_access Mail.Send Mail.Read Mail.ReadWrite",
     );
     // PKCE: code_challenge present + S256.
     expect(callsAfterOAuth.calls.authorize[0]!.codeChallenge).toBeTruthy();
@@ -441,6 +443,257 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     // action did NOT double-fire.
     expect(callsAfterReplay.calls.sendMail).toHaveLength(1);
   });
+
+  // ── Outlook Mail 2.1 Commit 3 — reply / forward / create_draft ─────────
+  //
+  // Each scenario builds its own workflow with new_email → <action>,
+  // activates, sends one notification, and asserts the action handler
+  // hit the right Graph endpoint with the right payload. Per-run
+  // randomized message ids keep webhook_event_dedup from collapsing
+  // notifications across tests inside a single Playwright execution.
+
+  test("new_email → reply_to_email runs the reply path on the configured replyAll boolean", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-reply-${randomUUID()}`;
+    const { triggerConfig } = await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Reply",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "reply_to_email",
+        config: {
+          // Q11: replyAll REQUIRED — choose false to hit /reply (the
+          // load-bearing path-selection assertion below).
+          emailId: messageId,
+          replyAll: false,
+          body: "Thanks, replying now.",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    expect((runs[0] as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.replyMessage).toHaveLength(1);
+    const reply = calls.calls.replyMessage[0]!;
+    // Q11 endpoint selection: replyAll=false → /reply.
+    expect(reply.endpoint).toBe("reply");
+    expect(reply.messageId).toBe(messageId);
+    expect(reply.body).toEqual({ comment: "Thanks, replying now." });
+    expect(reply.authorization).toBe("Bearer ms-mock-e2e-access");
+    // sendMail / forward / draft must NOT have fired.
+    expect(calls.calls.sendMail).toHaveLength(0);
+    expect(calls.calls.forwardMessage).toHaveLength(0);
+    expect(calls.calls.createDraft).toHaveLength(0);
+    // Dedup row written.
+    const dedupEventId = `${triggerConfig.subscriptionId}:${messageId}:created`;
+    expect(await getDedupRow("microsoft-outlook", dedupEventId)).not.toBeNull();
+  });
+
+  test("new_email → reply_to_email with replyAll=true hits /replyAll instead", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-replyAll-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Reply All",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "reply_to_email",
+        config: {
+          emailId: messageId,
+          replyAll: true,
+          body: "Looping everyone in.",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.replyMessage).toHaveLength(1);
+    expect(calls.calls.replyMessage[0]!.endpoint).toBe("replyAll");
+    expect(calls.calls.replyMessage[0]!.body).toEqual({
+      comment: "Looping everyone in.",
+    });
+  });
+
+  test("new_email → forward_email parses CSV recipients and POSTs them to /forward", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-forward-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Forward",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "forward_email",
+        config: {
+          emailId: messageId,
+          // Q7: CSV with two recipients — parseRecipients should split.
+          to: "alice@example.test, bob@example.test",
+          cc: "carol@example.test",
+          comment: "FYI — please review.",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect((runs[0] as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.forwardMessage).toHaveLength(1);
+    const forward = calls.calls.forwardMessage[0]!;
+    expect(forward.messageId).toBe(messageId);
+    // Q7: each CSV recipient becomes its own Graph address. Closes
+    // V1 O-R3 (V1 sent the whole CSV as one address).
+    expect(forward.body.toRecipients).toEqual([
+      { emailAddress: { address: "alice@example.test" } },
+      { emailAddress: { address: "bob@example.test" } },
+    ]);
+    expect(forward.body.ccRecipients).toEqual([
+      { emailAddress: { address: "carol@example.test" } },
+    ]);
+    expect(forward.body.comment).toBe("FYI — please review.");
+    expect(calls.calls.replyMessage).toHaveLength(0);
+    expect(calls.calls.sendMail).toHaveLength(0);
+    expect(calls.calls.createDraft).toHaveLength(0);
+  });
+
+  test("new_email → create_draft_email POSTs to /me/messages and surfaces draftId + webLink", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-draft-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Create Draft",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "create_draft_email",
+        config: {
+          to: "alice@example.test, bob@example.test",
+          cc: "carol@example.test",
+          subject: "Draft from workflow",
+          body: "<p>Hello from the draft action.</p>",
+          isHtml: true,
+          importance: "high",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect((runs[0] as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.createDraft).toHaveLength(1);
+    const draft = calls.calls.createDraft[0]!;
+    // Q11: isHtml + importance round-tripped through handler.
+    expect(draft.body.subject).toBe("Draft from workflow");
+    expect(draft.body.body).toEqual({
+      contentType: "HTML",
+      content: "<p>Hello from the draft action.</p>",
+    });
+    expect(draft.body.importance).toBe("high");
+    // Q7: recipients parsed.
+    expect(draft.body.toRecipients).toEqual([
+      { emailAddress: { address: "alice@example.test" } },
+      { emailAddress: { address: "bob@example.test" } },
+    ]);
+    expect(draft.body.ccRecipients).toEqual([
+      { emailAddress: { address: "carol@example.test" } },
+    ]);
+    // bccRecipients was absent in config → omitted from the Graph body.
+    expect(draft.body.bccRecipients).toBeUndefined();
+    // Synthetic draft id was returned by the mock.
+    expect(draft.responseDraftId).toBe("mock-draft-1");
+    // Other action endpoints must NOT have fired.
+    expect(calls.calls.replyMessage).toHaveLength(0);
+    expect(calls.calls.forwardMessage).toHaveLength(0);
+    expect(calls.calls.sendMail).toHaveLength(0);
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -477,6 +730,25 @@ interface MockInspect {
       url: string;
       messageId: string;
     }[];
+    /** Outlook Mail 2.1 Commit 3: reply / replyAll. */
+    replyMessage: {
+      authorization: string | undefined;
+      messageId: string;
+      endpoint: "reply" | "replyAll";
+      body: Record<string, unknown>;
+    }[];
+    /** Outlook Mail 2.1 Commit 3: forward. */
+    forwardMessage: {
+      authorization: string | undefined;
+      messageId: string;
+      body: Record<string, unknown>;
+    }[];
+    /** Outlook Mail 2.1 Commit 3: create draft. */
+    createDraft: {
+      authorization: string | undefined;
+      body: Record<string, unknown>;
+      responseDraftId: string;
+    }[];
     subscriptionsCreate: {
       authorization: string | undefined;
       body: Record<string, unknown>;
@@ -512,4 +784,148 @@ async function fetchMockCalls(
 ): Promise<MockInspect> {
   const resp = await request.get(`${mockBaseUrl}/__inspect`);
   return (await resp.json()) as MockInspect;
+}
+
+/**
+ * Outlook Mail 2.1 Commit 3 — shared setup for the per-action e2e
+ * scenarios. Handles sign-in → OAuth connect → workflow create + patch
+ * → activate. Returns the workflow id + the trigger config (subscription
+ * id + clientState) for downstream assertions like dedup.
+ *
+ * Each scenario differs only in the action node configuration and the
+ * post-notification mock-call assertions. Centralizing the boilerplate
+ * here keeps each new test() compact while leaving the original
+ * detailed walkthrough above intact for OAuth / activation regression.
+ */
+async function connectAndActivateWorkflow(opts: {
+  page: Page;
+  request: APIRequestContext;
+  /**
+   * Mock handle is accepted for caller-symmetry with the original
+   * walkthrough's setup; this helper itself drives the OAuth + activate
+   * flow exclusively through the UI so the mock object isn't consumed
+   * here. Per-test mock state inspection happens after `__sendNotification`
+   * in each it() block.
+   */
+  mock: { baseUrl: string; appBaseUrl: string };
+  user: TestUser;
+  workflowName: string;
+  actionNode: Record<string, unknown>;
+}): Promise<{
+  workflowId: string;
+  triggerConfig: { subscriptionId: string; clientState: string };
+}> {
+  const { page, user, workflowName, actionNode } = opts;
+
+  // Sign in.
+  await signIn(page, user);
+
+  // Connect Outlook via the integrations UI.
+  await page.goto("/integrations");
+  await Promise.all([
+    page.waitForURL(
+      /\/\?integration=connected&provider=microsoft-outlook(?:&|$)/,
+    ),
+    page
+      .getByRole("button", { name: "Connect Microsoft Outlook", exact: true })
+      .click(),
+  ]);
+
+  // Create + configure workflow.
+  await page.goto("/workflows");
+  await page.getByRole("button", { name: "Create workflow" }).click();
+  await page.getByLabel(/workflow name/i).fill(workflowName);
+  await Promise.all([
+    page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+    page.getByRole("button", { name: "Create", exact: true }).click(),
+  ]);
+  const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+  const draftDefinition = {
+    nodes: [
+      {
+        id: "trigger-node",
+        kind: "trigger" as const,
+        provider: "microsoft-outlook",
+        type: "new_email",
+        config: {},
+        position: { x: 0, y: 0 },
+      },
+      actionNode,
+    ],
+    edges: [
+      { id: "e1", from: "trigger-node", to: actionNode.id as string },
+    ],
+  };
+  const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+    data: { draftDefinition },
+  });
+  expect(patch.status(), await patch.text()).toBe(200);
+  await page.reload();
+
+  // Activate.
+  await page.getByRole("button", { name: "Activate" }).click();
+  await expect(
+    page.locator("[data-status-kind=active]"),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // Pull the persisted trigger config so callers can correlate against
+  // dedup rows / subscription state.
+  const triggerRows = await getTriggerResourcesForUser(user.id);
+  const triggerRow = triggerRows[0]! as Record<string, unknown>;
+  const triggerConfig = triggerRow.config as {
+    subscriptionId: string;
+    clientState: string;
+  };
+
+  return {
+    workflowId,
+    triggerConfig: {
+      subscriptionId: triggerConfig.subscriptionId,
+      clientState: triggerConfig.clientState,
+    },
+  };
+}
+
+/**
+ * Inject a stored message resource into the mock + fire one Graph
+ * notification at V2's webhook URL. Mirrors the main walkthrough's
+ * step-7 sequence but compact for the per-action scenarios where the
+ * exact message body isn't load-bearing.
+ */
+async function injectMessageAndNotify(opts: {
+  page: Page;
+  mock: { baseUrl: string };
+  messageId: string;
+}): Promise<void> {
+  const { page, mock, messageId } = opts;
+
+  const injectResp = await page.request.post(
+    `${mock.baseUrl}/__injectMessage`,
+    {
+      data: {
+        id: messageId,
+        conversationId: `conv-${messageId}`,
+        subject: "Trigger message",
+        bodyPreview: "Sample body",
+        body: { contentType: "text", content: "Sample body" },
+        from: { emailAddress: { name: "Bob", address: "bob@e2e.test" } },
+        toRecipients: [
+          { emailAddress: { name: "Alice", address: "alice@e2e.test" } },
+        ],
+        ccRecipients: [],
+        receivedDateTime: new Date().toISOString(),
+        hasAttachments: false,
+        importance: "normal",
+        webLink: `https://outlook.office.com/owa/?ItemID=${messageId}`,
+      },
+    },
+  );
+  expect(injectResp.status()).toBe(200);
+
+  const notifyResp = await page.request.post(
+    `${mock.baseUrl}/__sendNotification`,
+    { data: { messageId } },
+  );
+  expect(notifyResp.status()).toBe(200);
 }

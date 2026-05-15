@@ -126,6 +126,38 @@ export interface RecordedGetMessage {
   messageId: string;
 }
 
+/**
+ * Outlook Mail 2.1 Commit 3: reply / replyAll hit log. `endpoint`
+ * captures which Graph URL was hit so the spec can assert the handler's
+ * Q11 replyAll boolean drove the right path selection.
+ */
+export interface RecordedReplyMessage {
+  authorization: string | undefined;
+  messageId: string;
+  endpoint: "reply" | "replyAll";
+  body: Record<string, unknown>;
+}
+
+/** Outlook Mail 2.1 Commit 3: forward hit log. */
+export interface RecordedForwardMessage {
+  authorization: string | undefined;
+  messageId: string;
+  body: Record<string, unknown>;
+}
+
+/**
+ * Outlook Mail 2.1 Commit 3: create-draft hit log. Records the message
+ * body so the spec can assert recipient parsing + Q11 importance/isHtml
+ * round-tripped through the handler; `responseDraftId` is the synthetic
+ * id the mock returned so the spec can correlate against the workflow's
+ * action output.
+ */
+export interface RecordedCreateDraft {
+  authorization: string | undefined;
+  body: Record<string, unknown>;
+  responseDraftId: string;
+}
+
 export interface RecordedSubscriptionsCreate {
   authorization: string | undefined;
   body: Record<string, unknown>;
@@ -363,6 +395,9 @@ export interface MockMicrosoftHandle {
     me: RecordedMe[];
     sendMail: RecordedSendMail[];
     getMessage: RecordedGetMessage[];
+    replyMessage: RecordedReplyMessage[];
+    forwardMessage: RecordedForwardMessage[];
+    createDraft: RecordedCreateDraft[];
     eventsCreate: RecordedEventsCreate[];
     eventsGet: RecordedEventsGet[];
     driveItemsGet: RecordedDriveItemsGet[];
@@ -434,6 +469,12 @@ interface MutableState {
    */
   driveItemCounter: number;
   /**
+   * Outlook Mail 2.1 Commit 3: monotonic counter for draft ids returned
+   * by POST /v1.0/me/messages so each draft creation in a single test
+   * gets a distinct response id. Reset on /__reset.
+   */
+  draftMessageCounter: number;
+  /**
    * Slice 8: monotonic counter for the synthetic delta cursors the
    * mock returns from /me/drive/root/delta. Both initial baseline +
    * incremental responses bump this. Persisted-cursor uniqueness
@@ -458,6 +499,9 @@ function freshState(): MutableState {
       me: [],
       sendMail: [],
       getMessage: [],
+      replyMessage: [],
+      forwardMessage: [],
+      createDraft: [],
       eventsCreate: [],
       eventsGet: [],
       driveItemsGet: [],
@@ -488,6 +532,7 @@ function freshState(): MutableState {
     eventCounter: 0,
     teamsMessageCounter: 0,
     driveItemCounter: 0,
+    draftMessageCounter: 0,
     driveDeltaCursor: 0,
     // Set by startMockMicrosoftServer() once the listener has bound.
     serverPort: 0,
@@ -669,6 +714,104 @@ async function handleRequest(
     });
     res.writeHead(202);
     res.end();
+    return;
+  }
+
+  // ── Outlook Mail 2.1: Graph /me/messages/{id}/reply or /replyAll ──
+  //
+  // Endpoint selection is the load-bearing assertion for the
+  // reply_to_email action — Q11 `replyAll` boolean drives `/reply` vs
+  // `/replyAll`. Both return 202 No Content like /me/sendMail.
+  {
+    const replyMatch = url.pathname.match(
+      /^\/v1\.0\/me\/messages\/([^/]+)\/(reply|replyAll)$/,
+    );
+    if (req.method === "POST" && replyMatch) {
+      const messageId = decodeURIComponent(replyMatch[1]!);
+      const endpoint = replyMatch[2] as "reply" | "replyAll";
+      const bodyText = await readBody(req);
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(bodyText);
+      } catch {
+        // ignore — record empty body for inspection
+      }
+      state.calls.replyMessage.push({
+        authorization: req.headers.authorization,
+        messageId,
+        endpoint,
+        body: parsed,
+      });
+      res.writeHead(202);
+      res.end();
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.1: Graph /me/messages/{id}/forward ──
+  {
+    const forwardMatch = url.pathname.match(
+      /^\/v1\.0\/me\/messages\/([^/]+)\/forward$/,
+    );
+    if (req.method === "POST" && forwardMatch) {
+      const messageId = decodeURIComponent(forwardMatch[1]!);
+      const bodyText = await readBody(req);
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(bodyText);
+      } catch {
+        // ignore — record empty body for inspection
+      }
+      state.calls.forwardMessage.push({
+        authorization: req.headers.authorization,
+        messageId,
+        body: parsed,
+      });
+      res.writeHead(202);
+      res.end();
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.1: Graph POST /me/messages (create draft) ──
+  //
+  // Unlike sendMail (202 No Content), this returns 201 Created with the
+  // draft envelope including a synthetic id + webLink + createdDateTime.
+  // The handler maps these onto the action's draftId / webLink /
+  // createdAt outputs.
+  if (req.method === "POST" && url.pathname === "/v1.0/me/messages") {
+    const bodyText = await readBody(req);
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // ignore — record empty body for inspection
+    }
+    state.draftMessageCounter += 1;
+    const draftId = `mock-draft-${state.draftMessageCounter}`;
+    state.calls.createDraft.push({
+      authorization: req.headers.authorization,
+      body: parsed,
+      responseDraftId: draftId,
+    });
+    const now = new Date().toISOString();
+    const responseBody: Record<string, unknown> = {
+      id: draftId,
+      // Echo the relevant config fields back so spec assertions can
+      // round-trip without needing to inject a stored resource.
+      subject: parsed.subject ?? null,
+      body: parsed.body ?? null,
+      toRecipients: parsed.toRecipients ?? [],
+      ccRecipients: parsed.ccRecipients ?? [],
+      bccRecipients: parsed.bccRecipients ?? [],
+      importance: parsed.importance ?? "normal",
+      isDraft: true,
+      webLink: `https://outlook.office.com/owa/?ItemID=${draftId}`,
+      createdDateTime: now,
+      lastModifiedDateTime: now,
+    };
+    res.writeHead(201, { "content-type": "application/json" });
+    res.end(JSON.stringify(responseBody));
     return;
   }
 

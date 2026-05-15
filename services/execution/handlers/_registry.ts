@@ -120,6 +120,9 @@ import { getTeamMembers as teamsGetTeamMembers } from "@/integrations/microsoft-
 import { replyToChannelMessage as teamsReplyToChannelMessage } from "@/integrations/microsoft-teams/actions/replyToChannelMessage";
 import { sendChannelMessage as teamsSendChannelMessage } from "@/integrations/microsoft-teams/actions/sendChannelMessage";
 import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsoft-teams/actions/sendChatMessage";
+import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
+import { forwardEmail as forwardOutlookEmail } from "@/integrations/microsoft-outlook/actions/forwardEmail";
+import { replyToEmail as replyToOutlookEmail } from "@/integrations/microsoft-outlook/actions/replyToEmail";
 import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
 import { addAttendees as addOutlookCalendarAttendees } from "@/integrations/microsoft-outlook-calendar/actions/addAttendees";
 import { createEvent as createOutlookCalendarEvent } from "@/integrations/microsoft-outlook-calendar/actions/createEvent";
@@ -317,6 +320,13 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // per Decision 3.
   { provider: "google-sheets", type: "format_range", handler: sheetsFormatRange },
   { provider: "microsoft-outlook", type: "send_email", handler: sendOutlookEmail },
+  // Outlook Mail 2.1 Commit 3 — compose / draft actions (parity audit
+  // §7 PORT set + accepted plan §4). Mail.ReadWrite scope landed in
+  // Commit 2; only create_draft_email needs it but all three ride the
+  // shared Microsoft OAuth + refreshAndRetry pipeline.
+  { provider: "microsoft-outlook", type: "reply_to_email", handler: replyToOutlookEmail },
+  { provider: "microsoft-outlook", type: "forward_email", handler: forwardOutlookEmail },
+  { provider: "microsoft-outlook", type: "create_draft_email", handler: createOutlookDraftEmail },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
