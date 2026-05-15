@@ -158,6 +158,25 @@ describe("action handler registry", () => {
     });
   });
 
+  it("registers the 3 Notion 2.1 Commit 4 handlers (create_database, get_block, get_block_children)", () => {
+    expect(getActionHandler("notion", "create_database")).toBeDefined();
+    expect(getActionHandler("notion", "get_block")).toBeDefined();
+    expect(getActionHandler("notion", "get_block_children")).toBeDefined();
+    const registered = listRegisteredHandlers();
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "create_database",
+    });
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "get_block",
+    });
+    expect(registered).toContainEqual({
+      provider: "notion",
+      type: "get_block_children",
+    });
+  });
+
   it("listRegisteredHandlers includes both Slack and Gmail entries", () => {
     const registered = listRegisteredHandlers();
     expect(registered).toContainEqual({

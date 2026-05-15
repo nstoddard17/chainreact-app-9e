@@ -83,9 +83,11 @@ import { updateSubscriber as mailchimpUpdateSubscriber } from "@/integrations/ma
 import { addRow as excelAddRow } from "@/integrations/microsoft-excel/actions/addRow";
 import { addTableRow as excelAddTableRow } from "@/integrations/microsoft-excel/actions/addTableRow";
 import { createWorksheet as excelCreateWorksheet } from "@/integrations/microsoft-excel/actions/createWorksheet";
+import { deleteRow as excelDeleteRow } from "@/integrations/microsoft-excel/actions/deleteRow";
 import { exportSheet as excelExportSheet } from "@/integrations/microsoft-excel/actions/exportSheet";
 import { getWorkbooks as excelGetWorkbooks } from "@/integrations/microsoft-excel/actions/getWorkbooks";
 import { getWorksheets as excelGetWorksheets } from "@/integrations/microsoft-excel/actions/getWorksheets";
+import { updateRow as excelUpdateRow } from "@/integrations/microsoft-excel/actions/updateRow";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
 import { createFolder as createOneDriveFolder } from "@/integrations/microsoft-onedrive/actions/createFolder";
 import { deleteItem as deleteOneDriveItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
@@ -107,8 +109,11 @@ import { updateEvent as updateOutlookCalendarEvent } from "@/integrations/micros
 import { appendBlockChildren as notionAppendBlockChildren } from "@/integrations/notion/actions/appendBlockChildren";
 import { archivePage as notionArchivePage } from "@/integrations/notion/actions/archivePage";
 import { createComment as notionCreateComment } from "@/integrations/notion/actions/createComment";
+import { createDatabase as notionCreateDatabase } from "@/integrations/notion/actions/createDatabase";
 import { createDatabaseEntry as notionCreateDatabaseEntry } from "@/integrations/notion/actions/createDatabaseEntry";
 import { createPage as notionCreatePage } from "@/integrations/notion/actions/createPage";
+import { getBlock as notionGetBlock } from "@/integrations/notion/actions/getBlock";
+import { getBlockChildren as notionGetBlockChildren } from "@/integrations/notion/actions/getBlockChildren";
 import { getPage as notionGetPage } from "@/integrations/notion/actions/getPage";
 import { getUser as notionGetUser } from "@/integrations/notion/actions/getUser";
 import { listComments as notionListComments } from "@/integrations/notion/actions/listComments";
@@ -266,6 +271,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-excel", type: "export_sheet", handler: excelExportSheet },
   { provider: "microsoft-excel", type: "get_workbooks", handler: excelGetWorkbooks },
   { provider: "microsoft-excel", type: "get_worksheets", handler: excelGetWorksheets },
+  // Microsoft Excel parity Commit 1 — row update + delete actions
+  // (parity-microsoft-excel.md §7 + accepted audit decisions).
+  { provider: "microsoft-excel", type: "update_row", handler: excelUpdateRow },
+  { provider: "microsoft-excel", type: "delete_row", handler: excelDeleteRow },
   { provider: "microsoft-onedrive", type: "upload_file", handler: uploadOneDriveFile },
   { provider: "microsoft-onedrive", type: "get_file", handler: getOneDriveFile },
   { provider: "microsoft-onedrive", type: "create_folder", handler: createOneDriveFolder },
@@ -294,6 +303,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Notion 2.1 Commit 3 — comments.
   { provider: "notion", type: "create_comment", handler: notionCreateComment },
   { provider: "notion", type: "list_comments", handler: notionListComments },
+  // Notion 2.1 Commit 4 — database create + block reads.
+  { provider: "notion", type: "create_database", handler: notionCreateDatabase },
+  { provider: "notion", type: "get_block", handler: notionGetBlock },
+  { provider: "notion", type: "get_block_children", handler: notionGetBlockChildren },
   { provider: "airtable", type: "list_records", handler: airtableListRecords },
   { provider: "airtable", type: "get_record", handler: airtableGetRecord },
   { provider: "airtable", type: "find_record", handler: airtableFindRecord },
