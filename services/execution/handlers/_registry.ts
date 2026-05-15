@@ -183,6 +183,7 @@ import { createPaymentLink as stripeCreatePaymentLink } from "@/integrations/str
 import { createRefund as stripeCreateRefund } from "@/integrations/stripe/actions/createRefund";
 import { createSubscription as stripeCreateSubscription } from "@/integrations/stripe/actions/createSubscription";
 import { findCustomer as stripeFindCustomer } from "@/integrations/stripe/actions/findCustomer";
+import { getPayments as stripeGetPayments } from "@/integrations/stripe/actions/getPayments";
 import { updateCustomer as stripeUpdateCustomer } from "@/integrations/stripe/actions/updateCustomer";
 import { updateSubscription as stripeUpdateSubscription } from "@/integrations/stripe/actions/updateSubscription";
 import type { ActionHandler } from "./types";
@@ -373,6 +374,7 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "stripe", type: "create_checkout_session", handler: stripeCreateCheckoutSession },
   { provider: "stripe", type: "create_payment_link", handler: stripeCreatePaymentLink },
   { provider: "stripe", type: "create_invoice", handler: stripeCreateInvoice },
+  { provider: "stripe", type: "get_payments", handler: stripeGetPayments },
   { provider: "shopify", type: "create_order", handler: shopifyCreateOrder },
   { provider: "shopify", type: "update_order_status", handler: shopifyUpdateOrderStatus },
   { provider: "shopify", type: "add_order_note", handler: shopifyAddOrderNote },
