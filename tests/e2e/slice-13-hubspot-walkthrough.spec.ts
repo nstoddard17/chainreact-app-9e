@@ -629,6 +629,338 @@ test.describe("Slice 13 — full HubSpot walkthrough", () => {
   });
 });
 
+/**
+ * HubSpot 2.1 — ticket trigger event-types e2e.
+ *
+ * Closes the trigger half of the accepted PORT set (parity-hubspot.md
+ * §7). Adds end-to-end coverage for the two new allowlist entries
+ * (`ticket.propertyChange`, `ticket.deletion`) — proves the full
+ * activate → app-subscription persistence → signed payload → receive →
+ * normalize → dispatch → engine → chained action chain handles ticket
+ * events the same way it handles contact / company / deal events.
+ *
+ * Per-run randomized eventId + portalId-derived values so
+ * `webhook_event_dedup` (system-wide, NOT cascaded by deleteTestUser)
+ * doesn't collide across consecutive runs. Same pattern as Slice 13's
+ * primary walkthrough and Sheets 2.2 §2.16 rule.
+ *
+ * Chained action is `create_contact` (existing mock endpoint) — the
+ * 4 net-new HubSpot 2.1 actions get unit-level coverage in
+ * `tests/unit/integrations/hubspot/actions/`; this e2e covers the
+ * trigger plumbing only.
+ */
+test.describe("HubSpot 2.1 — ticket trigger event-types e2e", () => {
+  test.beforeEach(async () => {
+    await deleteHubSpotAppSubscriptionsForApp(APP_ID);
+    testUser = await createTestUser();
+  });
+
+  test.afterEach(async () => {
+    if (testUser) {
+      await deleteTestUser(testUser.id);
+      testUser = null;
+    }
+    await deleteHubSpotAppSubscriptionsForApp(APP_ID);
+  });
+
+  test("ticket.propertyChange — signed event with propertyName lookup → succeeded run", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readHubSpotMockState();
+    const runMarker = randomUUID();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    // ── Sign in + Connect HubSpot ──
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=hubspot/),
+      page
+        .getByRole("button", { name: "Connect HubSpot", exact: true })
+        .click(),
+    ]);
+
+    // ── Create workflow ──
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill("E2E HubSpot 2.1 — ticket.propertyChange");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    // ── Patch draft: ticket.propertyChange subscription + create_contact action ──
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "hubspot",
+          type: "webhook_received",
+          config: {
+            subscriptions: [
+              {
+                eventType: "ticket.propertyChange",
+                propertyName: "hs_pipeline_stage",
+              },
+            ],
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "hubspot",
+          type: "create_contact",
+          config: {
+            email: `ticket-pc-${runMarker}@e2e.test`,
+            firstname: "Ticket",
+            lastname: "PropertyChange",
+            duplicateHandling: "fail",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    // ── Activate ──
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Activation called POST /webhooks/v3/{appId}/subscriptions with
+    // eventType=ticket.propertyChange + propertyName=hs_pipeline_stage.
+    const callsAfterActivate = await fetchHubSpotCalls(request, mock.baseUrl);
+    expect(callsAfterActivate.calls.webhookSubscriptionCreate).toHaveLength(1);
+    const subCreate = callsAfterActivate.calls.webhookSubscriptionCreate[0]!;
+    expect(subCreate.eventType).toBe("ticket.propertyChange");
+    expect(subCreate.propertyName).toBe("hs_pipeline_stage");
+    expect(subCreate.active).toBe(true);
+
+    // hubspot_app_subscriptions persists the new event-type.
+    const appSubs = await getHubSpotAppSubscriptions(APP_ID);
+    expect(appSubs).toHaveLength(1);
+    const appSub = appSubs[0]! as Record<string, unknown>;
+    expect(appSub.event_type).toBe("ticket.propertyChange");
+    expect(appSub.property_name).toBe("hs_pipeline_stage");
+
+    // ── Send signed ticket.propertyChange event ──
+    const eventId = `2${runMarker.replace(/-/g, "").slice(0, 10)}`;
+    const objectId = 9000 + Math.floor(Math.random() * 1000);
+    const sendResp = await page.request.post(
+      `${mock.baseUrl}/__sendWebhookEvent`,
+      {
+        data: {
+          subscriptionType: "ticket.propertyChange",
+          eventId,
+          portalId: Number(HUB_ID),
+          objectId,
+          propertyName: "hs_pipeline_stage",
+          propertyValue: "closed",
+        },
+      },
+    );
+    expect(sendResp.status()).toBe(200);
+
+    // ── Wait for workflow_run ──
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "ticket.propertyChange workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown> & {
+      trigger_event: {
+        provider: string;
+        eventType: string;
+        eventId: string;
+        accountId: string;
+        payload: Record<string, unknown>;
+      };
+    };
+    expect(run.status).toBe("succeeded");
+    expect(run.error_classification).toBeNull();
+    expect(run.trigger_event.provider).toBe("hubspot");
+    expect(run.trigger_event.eventType).toBe("webhook_received");
+    expect(run.trigger_event.eventId).toBe(eventId);
+    expect(run.trigger_event.accountId).toBe(HUB_ID);
+    expect(run.trigger_event.payload.subscriptionType).toBe(
+      "ticket.propertyChange",
+    );
+    expect(run.trigger_event.payload.propertyName).toBe("hs_pipeline_stage");
+    expect(run.trigger_event.payload.propertyValue).toBe("closed");
+    expect(run.trigger_event.payload.objectId).toBe(String(objectId));
+
+    // ── Chained create_contact action fired once with the merchant token ──
+    const callsAfterRun = await fetchHubSpotCalls(request, mock.baseUrl);
+    const contactPosts = callsAfterRun.calls.contacts.filter(
+      (c) => c.method === "POST",
+    );
+    expect(contactPosts).toHaveLength(1);
+    expect(contactPosts[0]!.authorization).toBe(
+      "Bearer hubspot-mock-e2e-access",
+    );
+    const props = (contactPosts[0]!.parsedBody.properties ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(props.email).toBe(`ticket-pc-${runMarker}@e2e.test`);
+
+    // ── Dedup row written ──
+    const dedupRow = await getDedupRow("hubspot", eventId);
+    expect(dedupRow).not.toBeNull();
+  });
+
+  test("ticket.deletion — signed event with propertyName=null lookup → succeeded run", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readHubSpotMockState();
+    const runMarker = randomUUID();
+
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    await signIn(page, user);
+    await page.goto("/integrations");
+    await Promise.all([
+      page.waitForURL(/\/\?integration=connected&provider=hubspot/),
+      page
+        .getByRole("button", { name: "Connect HubSpot", exact: true })
+        .click(),
+    ]);
+
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    await page
+      .getByLabel(/workflow name/i)
+      .fill("E2E HubSpot 2.1 — ticket.deletion");
+    await Promise.all([
+      page.waitForURL(/\/workflows\/[0-9a-f-]+/),
+      page.getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
+
+    const draftDefinition = {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "hubspot",
+          type: "webhook_received",
+          config: {
+            // Deletion is non-propertyChange → propertyName omitted.
+            subscriptions: [{ eventType: "ticket.deletion" }],
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "action-node",
+          kind: "action" as const,
+          provider: "hubspot",
+          type: "create_contact",
+          config: {
+            email: `ticket-del-${runMarker}@e2e.test`,
+            firstname: "Ticket",
+            lastname: "Deletion",
+            duplicateHandling: "fail",
+          },
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+    };
+    const patch = await page.request.patch(`/api/workflows/${workflowId}`, {
+      data: { draftDefinition },
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+    await page.reload();
+
+    await page.getByRole("button", { name: "Activate" }).click();
+    await expect(
+      page.locator("[data-status-kind=active]"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const callsAfterActivate = await fetchHubSpotCalls(request, mock.baseUrl);
+    expect(callsAfterActivate.calls.webhookSubscriptionCreate).toHaveLength(1);
+    const subCreate = callsAfterActivate.calls.webhookSubscriptionCreate[0]!;
+    expect(subCreate.eventType).toBe("ticket.deletion");
+    expect(subCreate.propertyName).toBeNull();
+
+    const appSubs = await getHubSpotAppSubscriptions(APP_ID);
+    expect(appSubs).toHaveLength(1);
+    expect((appSubs[0]! as Record<string, unknown>).event_type).toBe(
+      "ticket.deletion",
+    );
+    expect((appSubs[0]! as Record<string, unknown>).property_name).toBeNull();
+
+    // ── Send signed ticket.deletion event ──
+    const eventId = `3${runMarker.replace(/-/g, "").slice(0, 10)}`;
+    const objectId = 8000 + Math.floor(Math.random() * 1000);
+    const sendResp = await page.request.post(
+      `${mock.baseUrl}/__sendWebhookEvent`,
+      {
+        data: {
+          subscriptionType: "ticket.deletion",
+          eventId,
+          portalId: Number(HUB_ID),
+          objectId,
+        },
+      },
+    );
+    expect(sendResp.status()).toBe(200);
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "ticket.deletion workflow_run", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    const run = runs[0]! as Record<string, unknown> & {
+      trigger_event: {
+        eventType: string;
+        eventId: string;
+        payload: Record<string, unknown>;
+      };
+    };
+    expect(run.status).toBe("succeeded");
+    expect(run.trigger_event.eventId).toBe(eventId);
+    expect(run.trigger_event.payload.subscriptionType).toBe("ticket.deletion");
+    expect(run.trigger_event.payload.propertyName).toBeNull();
+    expect(run.trigger_event.payload.objectId).toBe(String(objectId));
+
+    const callsAfterRun = await fetchHubSpotCalls(request, mock.baseUrl);
+    const contactPosts = callsAfterRun.calls.contacts.filter(
+      (c) => c.method === "POST",
+    );
+    expect(contactPosts).toHaveLength(1);
+    const props = (contactPosts[0]!.parsedBody.properties ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(props.email).toBe(`ticket-del-${runMarker}@e2e.test`);
+  });
+});
+
 // ── helpers ─────────────────────────────────────────────────────────────
 
 async function signIn(page: Page, user: TestUser): Promise<void> {

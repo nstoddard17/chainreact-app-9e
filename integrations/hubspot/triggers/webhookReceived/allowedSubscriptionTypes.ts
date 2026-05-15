@@ -1,5 +1,6 @@
 /**
- * Slice 13 Batch 1 curated HubSpot subscription-type allowlist.
+ * Curated HubSpot subscription-type allowlist —
+ * Slice 13 Batch 1 (10 entries) + HubSpot 2.1 (2 entries).
  *
  * The consolidated `webhook_received` trigger lets workflow authors pick
  * one or more subscription types from this list at trigger config time.
@@ -7,15 +8,14 @@
  * loud at design time so misconfigured workflows never silently
  * subscribe to event types V2 doesn't intend to handle.
  *
- * 10 events selected from V1's 17 trigger node types (V1 lifecycle map
+ * 12 events selected from V1's 17 trigger node types (V1 lifecycle map
  * at [`HubSpotTriggerLifecycle.ts:41-59`](file:///c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/lib/triggers/providers/HubSpotTriggerLifecycle.ts#L41)):
  *   - 3 contact.* (creation / propertyChange / deletion)
  *   - 3 company.* (creation / propertyChange / deletion)
  *   - 3 deal.* (creation / propertyChange / deletion)
- *   - 1 ticket.creation
+ *   - 3 ticket.* (creation [Slice 13] / propertyChange + deletion [HubSpot 2.1])
  *
- * Deferred per slice plan (see slice-13-hubspot.md §"Deferred"):
- *   - ticket.propertyChange / ticket.deletion
+ * Deferred per parity-hubspot.md (post-HubSpot 2.1):
  *   - note.creation / task.creation / call.creation / meeting.creation
  *     (engagements — deferred until shared engagement schema is needed)
  *   - form.submission (different subscription model — `/forms/v2/...`,
@@ -23,6 +23,11 @@
  *   - marketing automation events
  *   - CMS / conversations
  *   - custom object subscriptions
+ *
+ * SKIPPED per accepted D-HS1:
+ *   - workflow enrollment (add_to_workflow, remove_from_workflow) —
+ *     legacy automation/v2 endpoint; revisit only on real customer
+ *     demand.
  *
  * Adding a new type is an additive change here + a HubSpot dashboard
  * surface review. No schema migration.
@@ -42,6 +47,8 @@ export const HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES = [
   "deal.propertyChange",
   "deal.deletion",
   "ticket.creation",
+  "ticket.propertyChange",
+  "ticket.deletion",
 ] as const;
 
 export type HubSpotAllowedSubscriptionType =

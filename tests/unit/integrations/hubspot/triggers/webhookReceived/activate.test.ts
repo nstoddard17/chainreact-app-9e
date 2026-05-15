@@ -309,4 +309,132 @@ describe("HubSpot webhook_received activate — schema rejections", () => {
       }),
     ).rejects.toThrow(/providerAccountId/);
   });
+
+  // HubSpot 2.1 — ticket.propertyChange + ticket.deletion allowlist additions.
+
+  it("accepts ticket.propertyChange when propertyName is supplied (HubSpot 2.1)", async () => {
+    mockAppSubsFindOrCreate.mockImplementation(async (_input, creator) => {
+      const { hubspotSubscriptionId } = await creator();
+      return {
+        id: "app-sub-ticket-pc",
+        appId: "11223344",
+        eventType: "ticket.propertyChange",
+        propertyName: "hs_pipeline_stage",
+        hubspotSubscriptionId,
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
+      };
+    });
+    mockCreateSub.mockResolvedValueOnce({
+      id: "hs-sub-ticket-pc",
+      eventType: "ticket.propertyChange",
+      active: true,
+    });
+    mockRefsUpsert.mockResolvedValueOnce({ id: "ref-ticket-pc" });
+
+    const result = await activate({
+      node: {
+        ...baseNode,
+        config: {
+          subscriptions: [
+            {
+              eventType: "ticket.propertyChange",
+              propertyName: "hs_pipeline_stage",
+            },
+          ],
+        },
+      },
+      integration: baseIntegration,
+      workflowId: "wf-ticket-pc",
+    });
+
+    expect(mockCreateSub).toHaveBeenCalledTimes(1);
+    expect(mockCreateSub.mock.calls[0]![0]).toMatchObject({
+      eventType: "ticket.propertyChange",
+      propertyName: "hs_pipeline_stage",
+    });
+    expect(result.subscriptions).toEqual([
+      {
+        eventType: "ticket.propertyChange",
+        propertyName: "hs_pipeline_stage",
+        appSubscriptionId: "app-sub-ticket-pc",
+        hubspotSubscriptionId: "hs-sub-ticket-pc",
+      },
+    ]);
+  });
+
+  it("rejects ticket.propertyChange without propertyName (HubSpot 2.1)", async () => {
+    await expect(
+      activate({
+        node: {
+          ...baseNode,
+          config: {
+            subscriptions: [{ eventType: "ticket.propertyChange" }],
+          },
+        },
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      }),
+    ).rejects.toThrow(/requires a non-empty propertyName/);
+  });
+
+  it("accepts ticket.deletion with no propertyName (HubSpot 2.1)", async () => {
+    mockAppSubsFindOrCreate.mockImplementation(async (_input, creator) => {
+      const { hubspotSubscriptionId } = await creator();
+      return {
+        id: "app-sub-ticket-del",
+        appId: "11223344",
+        eventType: "ticket.deletion",
+        propertyName: null,
+        hubspotSubscriptionId,
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
+      };
+    });
+    mockCreateSub.mockResolvedValueOnce({
+      id: "hs-sub-ticket-del",
+      eventType: "ticket.deletion",
+      active: true,
+    });
+    mockRefsUpsert.mockResolvedValueOnce({ id: "ref-ticket-del" });
+
+    const result = await activate({
+      node: {
+        ...baseNode,
+        config: {
+          subscriptions: [{ eventType: "ticket.deletion" }],
+        },
+      },
+      integration: baseIntegration,
+      workflowId: "wf-ticket-del",
+    });
+
+    expect(mockCreateSub.mock.calls[0]![0]).toMatchObject({
+      eventType: "ticket.deletion",
+      propertyName: null,
+    });
+    const subs = result.subscriptions as ReadonlyArray<{
+      propertyName: string | null;
+    }>;
+    expect(subs[0]!.propertyName).toBeNull();
+  });
+
+  it("rejects propertyName on ticket.deletion (non-propertyChange)", async () => {
+    await expect(
+      activate({
+        node: {
+          ...baseNode,
+          config: {
+            subscriptions: [
+              { eventType: "ticket.deletion", propertyName: "subject" },
+            ],
+          },
+        },
+        integration: baseIntegration,
+        workflowId: "wf-test",
+      }),
+    ).rejects.toThrow(/must not carry a propertyName/);
+  });
 });

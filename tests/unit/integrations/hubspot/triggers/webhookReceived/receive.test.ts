@@ -393,4 +393,98 @@ describe("receiveHubSpotWebhook — routing", () => {
     expect(event.payload.subscriptionType).toBe("contact.creation");
     expect(event.payload.objectId).toBe("5001");
   });
+
+  // HubSpot 2.1 — ticket.propertyChange + ticket.deletion routing.
+
+  it("dispatches ticket.propertyChange events through the same propertyName-scoped lookup as contact/company/deal (HubSpot 2.1)", async () => {
+    mockAppSubsFind.mockResolvedValueOnce({
+      id: "app-sub-ticket-pc",
+      appId: APP_ID,
+      eventType: "ticket.propertyChange",
+      propertyName: "hs_pipeline_stage",
+      hubspotSubscriptionId: "hs-ticket-pc",
+      status: "active",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockRefsList.mockResolvedValueOnce([
+      {
+        id: "ref-ticket-pc",
+        appSubscriptionId: "app-sub-ticket-pc",
+        workflowId: "wf-ticket-pc",
+        userId: "user-1",
+        nodeId: "node-1",
+        hubId: "9988776",
+        config: {},
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    const body = JSON.stringify([
+      makeEvent({
+        eventId: 7001,
+        subscriptionType: "ticket.propertyChange",
+        propertyName: "hs_pipeline_stage",
+        propertyValue: "closed",
+      }),
+    ]);
+    const result = await receiveHubSpotWebhook(
+      req({ body, sig: sign(body, NOW_MS) }),
+      { secret: SECRET, appId: APP_ID, requestUriOverride: URL, nowMs: NOW_MS },
+    );
+    expect(mockAppSubsFind).toHaveBeenCalledWith({
+      appId: APP_ID,
+      eventType: "ticket.propertyChange",
+      propertyName: "hs_pipeline_stage",
+    });
+    if (result.kind !== "events") throw new Error("expected events");
+    expect(result.deliveries).toHaveLength(1);
+    const event = result.deliveries[0]!.event;
+    expect(event.payload.subscriptionType).toBe("ticket.propertyChange");
+    expect(event.payload.propertyName).toBe("hs_pipeline_stage");
+    expect(event.payload.propertyValue).toBe("closed");
+  });
+
+  it("dispatches ticket.deletion events with propertyName=null lookup (HubSpot 2.1)", async () => {
+    mockAppSubsFind.mockResolvedValueOnce({
+      id: "app-sub-ticket-del",
+      appId: APP_ID,
+      eventType: "ticket.deletion",
+      propertyName: null,
+      hubspotSubscriptionId: "hs-ticket-del",
+      status: "active",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockRefsList.mockResolvedValueOnce([
+      {
+        id: "ref-ticket-del",
+        appSubscriptionId: "app-sub-ticket-del",
+        workflowId: "wf-ticket-del",
+        userId: "user-1",
+        nodeId: "node-1",
+        hubId: "9988776",
+        config: {},
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    const body = JSON.stringify([
+      makeEvent({ eventId: 7002, subscriptionType: "ticket.deletion" }),
+    ]);
+    const result = await receiveHubSpotWebhook(
+      req({ body, sig: sign(body, NOW_MS) }),
+      { secret: SECRET, appId: APP_ID, requestUriOverride: URL, nowMs: NOW_MS },
+    );
+    expect(mockAppSubsFind).toHaveBeenCalledWith({
+      appId: APP_ID,
+      eventType: "ticket.deletion",
+      propertyName: null,
+    });
+    if (result.kind !== "events") throw new Error("expected events");
+    const event = result.deliveries[0]!.event;
+    expect(event.payload.subscriptionType).toBe("ticket.deletion");
+  });
 });
