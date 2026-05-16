@@ -36,6 +36,12 @@ import "./google-sheets/triggers/rowChanged";
 // Sheets 2.3 Commit 4 — new_worksheet watch-based push trigger.
 import "./google-sheets/triggers/newWorksheet";
 import "./microsoft-outlook/triggers/newEmail";
+// Outlook Mail 2.3 Commit 3 — email_sent + email_flagged subscription-
+// watch triggers. Both share the existing webhook receive route and
+// renewal cron; their index.ts modules register activation /
+// deactivation / subscription handlers at load time.
+import "./microsoft-outlook/triggers/emailSent";
+import "./microsoft-outlook/triggers/emailFlagged";
 import "./microsoft-outlook-calendar/triggers/eventChanged";
 import "./microsoft-onedrive/triggers/fileChanged";
 import "./microsoft-excel/triggers/newRow";

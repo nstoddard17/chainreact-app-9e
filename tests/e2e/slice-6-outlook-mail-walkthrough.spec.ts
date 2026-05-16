@@ -1383,9 +1383,201 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     expect(sub.body.resource).toBe(`/me/mailFolders/${folderId}/messages`);
     expect(sub.body.changeType).toBe("created");
   });
-});
 
-// ── helpers ─────────────────────────────────────────────────────────────
+  // ── Outlook Mail 2.3 Commit 3 — email_sent + email_flagged triggers ────
+
+  test("email_sent subscribes to SentItems and fires on outbound mail", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-sent-${randomUUID()}`;
+    const { triggerConfig } = await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook email_sent",
+      triggerType: "email_sent",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "send_email",
+        config: {
+          to: "downstream@example.test",
+          subject: "Reaction to sent mail",
+          body: "ok",
+          isHtml: false,
+          importance: "normal",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    // Subscription resource is the SentItems folder.
+    const callsAtActivate = await fetchMockCalls(request, mock.baseUrl);
+    const sub = callsAtActivate.calls.subscriptionsCreate[0]!;
+    expect(sub.body.resource).toBe("/me/mailFolders/SentItems/messages");
+    expect(sub.body.changeType).toBe("created");
+
+    // Inject a sent-mail Graph message + send notification.
+    await page.request.post(`${mock.baseUrl}/__injectMessage`, {
+      data: {
+        id: messageId,
+        conversationId: `conv-${messageId}`,
+        subject: "Outgoing report",
+        bodyPreview: "FYI",
+        body: { contentType: "text", content: "FYI" },
+        from: {
+          emailAddress: { name: "Alice", address: "alice@e2e.test" },
+        },
+        toRecipients: [
+          { emailAddress: { name: "Bob", address: "bob@example.test" } },
+        ],
+        ccRecipients: [],
+        bccRecipients: [],
+        sentDateTime: "2026-05-08T11:30:00Z",
+        hasAttachments: false,
+        importance: "normal",
+        webLink: `https://outlook.office.com/owa/?ItemID=${messageId}`,
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__sendNotification`, {
+      data: { messageId, subscriptionId: triggerConfig.subscriptionId },
+    });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    expect((runs[0] as Record<string, unknown>).status).toBe("succeeded");
+  });
+
+  test("email_flagged fires when message is flagged; drops when not flagged (D-OM4)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const flaggedMessageId = `AAMkAGI2-flag-${randomUUID()}`;
+    const unflaggedMessageId = `AAMkAGI2-unflag-${randomUUID()}`;
+    const { triggerConfig } = await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook email_flagged",
+      triggerType: "email_flagged",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "send_email",
+        config: {
+          to: "downstream@example.test",
+          subject: "Reaction to flag",
+          body: "ok",
+          isHtml: false,
+          importance: "normal",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    // Subscription uses changeType=updated and resource=/me/messages.
+    const callsAtActivate = await fetchMockCalls(request, mock.baseUrl);
+    const sub = callsAtActivate.calls.subscriptionsCreate[0]!;
+    expect(sub.body.resource).toBe("/me/messages");
+    expect(sub.body.changeType).toBe("updated");
+
+    // (1) Inject a FLAGGED message + fire notification → workflow runs.
+    await page.request.post(`${mock.baseUrl}/__injectMessage`, {
+      data: {
+        id: flaggedMessageId,
+        conversationId: `conv-${flaggedMessageId}`,
+        subject: "Follow up",
+        bodyPreview: "...",
+        body: { contentType: "text", content: "..." },
+        from: {
+          emailAddress: { name: "Bob", address: "bob@e2e.test" },
+        },
+        toRecipients: [
+          { emailAddress: { name: "Alice", address: "alice@e2e.test" } },
+        ],
+        receivedDateTime: "2026-05-08T10:00:00Z",
+        lastModifiedDateTime: "2026-05-08T11:30:00Z",
+        hasAttachments: false,
+        importance: "high",
+        flag: { flagStatus: "flagged" },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__sendNotification`, {
+      data: {
+        messageId: flaggedMessageId,
+        subscriptionId: triggerConfig.subscriptionId,
+      },
+    });
+
+    const runsAfterFlagged = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "flagged run to appear", timeoutMs: 15_000 },
+    );
+    expect(runsAfterFlagged).toHaveLength(1);
+    expect((runsAfterFlagged[0] as Record<string, unknown>).status).toBe(
+      "succeeded",
+    );
+
+    // (2) Inject an UN-FLAGGED message + fire notification → workflow_runs
+    //     count must stay at 1 (D-OM4 over-fire allows re-flags on
+    //     already-flagged but NEVER fires on unflagged messages).
+    await page.request.post(`${mock.baseUrl}/__injectMessage`, {
+      data: {
+        id: unflaggedMessageId,
+        conversationId: `conv-${unflaggedMessageId}`,
+        subject: "Just a regular update",
+        bodyPreview: "...",
+        body: { contentType: "text", content: "..." },
+        from: {
+          emailAddress: { name: "Bob", address: "bob@e2e.test" },
+        },
+        toRecipients: [
+          { emailAddress: { name: "Alice", address: "alice@e2e.test" } },
+        ],
+        receivedDateTime: "2026-05-08T10:00:00Z",
+        lastModifiedDateTime: "2026-05-08T12:00:00Z",
+        hasAttachments: false,
+        importance: "normal",
+        flag: { flagStatus: "notFlagged" },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__sendNotification`, {
+      data: {
+        messageId: unflaggedMessageId,
+        subscriptionId: triggerConfig.subscriptionId,
+      },
+    });
+
+    // Give the receive route time to process; expect NO new run.
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const runsFinal = await getWorkflowRunsForUser(user.id);
+    expect(runsFinal).toHaveLength(1);
+  });
+});
 
 async function signIn(page: Page, user: TestUser): Promise<void> {
   await page.goto("/auth/sign-in");
@@ -1534,12 +1726,19 @@ async function connectAndActivateWorkflow(opts: {
    * `hasAttachment`, `importance`) pass them here.
    */
   triggerConfig?: Record<string, unknown>;
+  /**
+   * Outlook Mail 2.3 Commit 3 — optional trigger type. Defaults to
+   * `"new_email"` (Slice 6 baseline). Tests for `email_sent` /
+   * `email_flagged` triggers override this.
+   */
+  triggerType?: string;
 }): Promise<{
   workflowId: string;
   triggerConfig: { subscriptionId: string; clientState: string };
 }> {
   const { page, user, workflowName, actionNode } = opts;
   const triggerConfigOverride = opts.triggerConfig ?? {};
+  const triggerType = opts.triggerType ?? "new_email";
 
   // Sign in.
   await signIn(page, user);
@@ -1571,7 +1770,7 @@ async function connectAndActivateWorkflow(opts: {
         id: "trigger-node",
         kind: "trigger" as const,
         provider: "microsoft-outlook",
-        type: "new_email",
+        type: triggerType,
         config: triggerConfigOverride,
         position: { x: 0, y: 0 },
       },

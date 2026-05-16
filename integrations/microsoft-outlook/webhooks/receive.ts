@@ -6,11 +6,22 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { getMessage, type GraphMessage } from "../api/getMessage";
-import { normalize } from "../triggers/newEmail/normalize";
+import { normalize as normalizeNewEmail } from "../triggers/newEmail/normalize";
+import { normalize as normalizeEmailSent } from "../triggers/emailSent/normalize";
+import { normalize as normalizeEmailFlagged } from "../triggers/emailFlagged/normalize";
 import {
   NewEmailTriggerFilterSchema,
   extractNewEmailFilterFields,
 } from "../triggers/newEmail/configSchema";
+import {
+  EmailSentTriggerFilterSchema,
+  extractEmailSentFilterFields,
+} from "../triggers/emailSent/configSchema";
+import {
+  EmailFlaggedTriggerFilterSchema,
+  extractEmailFlaggedFilterFields,
+} from "../triggers/emailFlagged/configSchema";
+import { parseCsvList } from "@/core/integrations/parseCsvList";
 
 /**
  * Verify and parse an inbound Microsoft Graph notification.
@@ -193,32 +204,62 @@ export async function receiveOutlookWebhook(
     //    the schema's defaults converge to "no filter" so they fire
     //    unchanged.
     //
-    //    Outlook Mail 2.3 D-OM3 — new_email filters (5 V1 filters,
-    //    folder via subscription resource handled in activate.ts; the
-    //    rest applied here). email_sent / email_flagged filters ship
-    //    in Commit 3 of the slice.
-    if (trigger.eventType === "new_email") {
-      if (!shouldFireNewEmail(message, trigger.config)) {
+    //    Outlook Mail 2.3:
+    //      - new_email (D-OM3): 5 V1 filters; folder routes via
+    //        activation, the rest are receive-time.
+    //      - email_sent (D-OM3): `to` + `subject` + `subjectExactMatch`
+    //        receive-time filters.
+    //      - email_flagged (D-OM4 V1-parity over-fire): receive-time
+    //        skip when `flag.flagStatus !== "flagged"`. No prior-state
+    //        cache.
+    const ctx: NormalizeContext = {
+      subscriptionId,
+      changeType,
+      notificationOccurredAt: occurredAt,
+      accountId: integration.providerAccountId,
+    };
+    let normalized: TriggerEvent;
+    switch (trigger.eventType) {
+      case "new_email":
+        if (!shouldFireNewEmail(message, trigger.config)) continue;
+        normalized = normalizeNewEmail(message, ctx);
+        break;
+      case "email_sent":
+        if (!shouldFireEmailSent(message, trigger.config)) continue;
+        normalized = normalizeEmailSent(message, ctx);
+        break;
+      case "email_flagged":
+        if (!shouldFireEmailFlagged(message, trigger.config)) continue;
+        normalized = normalizeEmailFlagged(message, ctx);
+        break;
+      default:
+        // Unknown eventType — log and skip (don't throw, to avoid 5xx
+        // noise from misregistered triggers). webhook_event_dedup keeps
+        // the system safe.
+        console.warn(
+          JSON.stringify({
+            event: "webhook.outlook.unknown_event_type",
+            eventType: trigger.eventType,
+            subscriptionId,
+          }),
+        );
         continue;
-      }
     }
-    // Other eventTypes (`email_sent`, `email_flagged`) wire their
-    // filter logic in Outlook Mail 2.3 Commit 3.
 
     // 5. Normalize → TriggerEvent. accountId on the event is the
     //    integration's providerAccountId (the email), matching how
     //    Sheets / Gmail / Calendar populate it.
-    events.push(
-      normalize(message, {
-        subscriptionId,
-        changeType,
-        notificationOccurredAt: occurredAt,
-        accountId: integration.providerAccountId,
-      }),
-    );
+    events.push(normalized);
   }
 
   return { kind: "events", events };
+}
+
+interface NormalizeContext {
+  subscriptionId: string;
+  changeType: string;
+  notificationOccurredAt: string;
+  accountId: string;
 }
 
 /**
@@ -278,5 +319,103 @@ function shouldFireNewEmail(
     if (actual !== filter.importance) return false;
   }
 
+  return true;
+}
+
+/**
+ * Apply the 3 V1 email_sent filters at receive-time. Returns `false`
+ * when the message should be dropped (filter mismatch).
+ *
+ * D-OM3 — V1-parity. `to` is OPTIONAL in V2 (V1 marked required but its
+ * mega-route only filters when set). CSV-or-array via `parseCsvList`.
+ * At least one parsed address must match at least one of the message's
+ * `toRecipients[]` addresses. Empty parsed list → treated as no filter
+ * (whitespace-only CSV passes through silently).
+ */
+function shouldFireEmailSent(
+  message: GraphMessage,
+  rawConfig: Readonly<Record<string, unknown>>,
+): boolean {
+  const filter = EmailSentTriggerFilterSchema.parse(
+    extractEmailSentFilterFields(rawConfig),
+  );
+
+  // `to` filter — CSV-or-array; require any-of-many match.
+  if (filter.to !== undefined) {
+    const expectedAddresses = parseCsvList(filter.to).map((a) =>
+      a.toLowerCase(),
+    );
+    if (expectedAddresses.length > 0) {
+      const actualAddresses = (message.toRecipients ?? [])
+        .map((r) => r.emailAddress?.address?.toLowerCase().trim() ?? "")
+        .filter((a) => a.length > 0);
+      const hasMatch = expectedAddresses.some((e) =>
+        actualAddresses.includes(e),
+      );
+      if (!hasMatch) return false;
+    }
+  }
+
+  // `subject` filter — exact OR substring per subjectExactMatch.
+  if (filter.subject !== undefined && filter.subject.length > 0) {
+    const expected = filter.subject.toLowerCase().trim();
+    const actual = (message.subject ?? "").toLowerCase().trim();
+    if (filter.subjectExactMatch) {
+      if (actual !== expected) return false;
+    } else {
+      if (!actual.includes(expected)) return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Apply the email_flagged receive-time check. Returns `false` when the
+ * message should be dropped — typically because it's no longer flagged
+ * (the trigger watches `changeType: updated` on /me/messages so it
+ * receives every message-edit notification; only the flagged ones
+ * should fire).
+ *
+ * D-OM4 V1-parity over-fire: ANY update that leaves the message in a
+ * flagged state fires the trigger. No prior-state cache. Subject edits
+ * + body updates on already-flagged messages will re-fire.
+ *
+ * Defensive: if Graph omits the `flag` field on the envelope but the
+ * message IS flagged at Outlook-server-side, this returns `true` rather
+ * than silently dropping. Schema parse only validates the filter
+ * subset (currently just `folder`); no flag-status field comes from
+ * config.
+ */
+function shouldFireEmailFlagged(
+  message: GraphMessage,
+  rawConfig: Readonly<Record<string, unknown>>,
+): boolean {
+  // Schema parse establishes the filter is well-formed; folder routing
+  // happens at activation time so there's nothing to filter here from
+  // config. The schema parse acts as a strict-mode guard against future
+  // typo'd field names ending up in trigger config.
+  EmailFlaggedTriggerFilterSchema.parse(
+    extractEmailFlaggedFilterFields(rawConfig),
+  );
+
+  // D-OM4 receive-time check.
+  const flagStatus = message.flag?.flagStatus;
+  if (flagStatus === undefined) {
+    // Defensive: Graph omitted the flag field on the envelope. Don't
+    // drop — fire and let the workflow author decide. Better to
+    // over-fire than silently swallow a legitimate flagged event.
+    console.warn(
+      JSON.stringify({
+        event: "webhook.outlook.email_flagged_missing_flag_field",
+        messageId: message.id,
+      }),
+    );
+    return true;
+  }
+  if (flagStatus !== "flagged") {
+    // Update was unrelated to flag state (or the message was unflagged).
+    return false;
+  }
   return true;
 }
