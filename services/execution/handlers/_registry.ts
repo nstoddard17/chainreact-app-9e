@@ -213,6 +213,7 @@ import { updateSubscription as stripeUpdateSubscription } from "@/integrations/s
 // under providerId "native".
 import { httpRequest as nativeHttpRequest } from "@/integrations/native/actions/httpRequest";
 import { formatTransformer as nativeFormatTransformer } from "@/integrations/native/actions/formatTransformer";
+import { delay as nativeDelay } from "@/integrations/native/actions/delay";
 import type { ActionHandler } from "./types";
 
 /**
@@ -517,6 +518,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
     type: "format_transformer",
     handler: nativeFormatTransformer,
   },
+  // Native-nodes Slice 1 Commit 3 — narrow in-process delay (≤30s).
+  // No durable / unbounded delay surface; that requires pause/resume
+  // infrastructure and is deferred to Phase 6 (NPD-N6). See
+  // docs/slices/parity/native-nodes-1-tier-a-plan.md §6.
+  { provider: "native", type: "delay", handler: nativeDelay },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
