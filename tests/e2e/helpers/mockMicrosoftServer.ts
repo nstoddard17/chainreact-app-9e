@@ -194,6 +194,40 @@ export interface RecordedPatchMessage {
 }
 
 /**
+ * Outlook Mail 2.3 Commit 4: list-attachments hit log. get_attachment
+ * calls this once per invocation to read attachment metadata before
+ * dispatching per-id GETs.
+ */
+export interface RecordedListAttachments {
+  authorization: string | undefined;
+  messageId: string;
+  returnedCount: number;
+}
+
+/**
+ * Outlook Mail 2.3 Commit 4: per-attachment GET hit log. Records the
+ * subtype so the spec can verify itemAttachment / referenceAttachment
+ * SKIP entries do NOT fire bytes through stageFileToStorage.
+ */
+export interface RecordedGetAttachment {
+  authorization: string | undefined;
+  messageId: string;
+  attachmentId: string;
+  subtype: string;
+}
+
+/**
+ * Outlook Mail 2.3 Commit 4: control-plane attachment fixture. Mocked
+ * Graph attachment envelope used by both LIST and per-id GET endpoints
+ * — the LIST returns a metadata subset; the per-id GET returns the
+ * full envelope (including contentBytes for fileAttachment).
+ */
+export interface InjectedAttachment {
+  messageId: string;
+  attachment: Record<string, unknown>;
+}
+
+/**
  * Outlook Mail 2.2 Commit 3: list-messages hit log. fetch_emails
  * routes $filter vs $search through the wrapper; the spec asserts the
  * URL params to verify which path the handler exercised. `folderId`
@@ -457,6 +491,10 @@ export interface MockMicrosoftHandle {
     patchMessage: RecordedPatchMessage[];
     /** Outlook Mail 2.2 Commit 3 — GET /me/messages list records. */
     listMessages: RecordedListMessages[];
+    /** Outlook Mail 2.3 Commit 4 — GET /me/messages/{id}/attachments list records. */
+    listAttachments: RecordedListAttachments[];
+    /** Outlook Mail 2.3 Commit 4 — per-id GET attachment records. */
+    getAttachment: RecordedGetAttachment[];
     eventsCreate: RecordedEventsCreate[];
     eventsGet: RecordedEventsGet[];
     driveItemsGet: RecordedDriveItemsGet[];
@@ -510,6 +548,12 @@ interface MutableState {
   driveItems: Map<string, InjectedDriveItem>;
   teamsMessages: Map<string, InjectedTeamsMessage>;
   subscriptions: Map<string, RegisteredSubscription>;
+  /**
+   * Outlook Mail 2.3 Commit 4: messageId → attachment fixtures.
+   * Populated by control-plane `POST /__injectAttachment`. LIST and
+   * per-id GET endpoints read from this map.
+   */
+  messageAttachments: Map<string, Record<string, unknown>[]>;
   excelWorksheets: Map<string, Map<string, ExcelWorksheetState>>;
   excelTables: Map<string, Map<string, ExcelTableRowState[]>>;
   lastAuthorizeScope: string | null;
@@ -572,6 +616,8 @@ function freshState(): MutableState {
       deleteMessage: [],
       patchMessage: [],
       listMessages: [],
+      listAttachments: [],
+      getAttachment: [],
       eventsCreate: [],
       eventsGet: [],
       driveItemsGet: [],
@@ -594,6 +640,7 @@ function freshState(): MutableState {
     driveItems: new Map(),
     teamsMessages: new Map(),
     subscriptions: new Map(),
+    messageAttachments: new Map(),
     excelWorksheets: new Map(),
     excelTables: new Map(),
     lastAuthorizeScope: null,
@@ -1056,6 +1103,77 @@ async function handleRequest(
       });
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ value: filtered }));
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.3: Graph GET /me/messages/{id}/attachments/{attId} ─
+  //
+  // Per-id GET. Returns the full Graph attachment envelope (fileAttachment
+  // with `contentBytes`, itemAttachment with `item: { @odata.type }`, or
+  // referenceAttachment with `sourceUrl`). Must match BEFORE the broader
+  // `/v1.0/me/messages/{id}/attachments` LIST endpoint below — Node URL
+  // matching is order-sensitive when both share the same prefix.
+  {
+    const perIdMatch = url.pathname.match(
+      /^\/v1\.0\/me\/messages\/([^/]+)\/attachments\/([^/]+)$/,
+    );
+    if (req.method === "GET" && perIdMatch) {
+      const messageId = decodeURIComponent(perIdMatch[1]!);
+      const attachmentId = decodeURIComponent(perIdMatch[2]!);
+      const attachments = state.messageAttachments.get(messageId) ?? [];
+      const found = attachments.find(
+        (a) => (a as { id?: string }).id === attachmentId,
+      );
+      const subtype =
+        typeof (found as { "@odata.type"?: string } | undefined)?.[
+          "@odata.type"
+        ] === "string"
+          ? ((found as { "@odata.type": string })["@odata.type"] as string)
+          : "unknown";
+      state.calls.getAttachment.push({
+        authorization: req.headers.authorization,
+        messageId,
+        attachmentId,
+        subtype,
+      });
+      if (!found) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: {
+              code: "ErrorItemNotFound",
+              message: "Attachment not found.",
+            },
+          }),
+        );
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(found));
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.3: Graph GET /me/messages/{id}/attachments ─────────
+  //
+  // LIST endpoint. Returns the attachment metadata array for the message.
+  // Subtype dispatch is the handler's responsibility — mock just echoes
+  // injected attachments.
+  {
+    const listMatch = url.pathname.match(
+      /^\/v1\.0\/me\/messages\/([^/]+)\/attachments$/,
+    );
+    if (req.method === "GET" && listMatch) {
+      const messageId = decodeURIComponent(listMatch[1]!);
+      const attachments = state.messageAttachments.get(messageId) ?? [];
+      state.calls.listAttachments.push({
+        authorization: req.headers.authorization,
+        messageId,
+        returnedCount: attachments.length,
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ value: attachments }));
       return;
     }
   }
@@ -1859,6 +1977,47 @@ async function handleRequest(
     state.messages.set(id, { id, resource: payload });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, id }));
+    return;
+  }
+
+  // ── Outlook Mail 2.3 Commit 4: __injectAttachment control plane ──────
+  //
+  // Body shape: { messageId, attachment }
+  //   attachment is a full Graph attachment envelope including the
+  //   @odata.type discriminator. fileAttachment must include
+  //   contentBytes (base64 string) so the per-id GET returns it for
+  //   the handler to decode + stage.
+  //
+  // Multiple invocations append to the per-messageId list — the spec
+  // can stack arbitrary mixes of fileAttachment / itemAttachment /
+  // referenceAttachment + inline / non-inline.
+  if (req.method === "POST" && url.pathname === "/__injectAttachment") {
+    const bodyText = await readBody(req);
+    let payload: { messageId?: string; attachment?: Record<string, unknown> };
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid json" }));
+      return;
+    }
+    if (!payload.messageId || !payload.attachment) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "messageId + attachment required" }));
+      return;
+    }
+    const existing =
+      state.messageAttachments.get(payload.messageId) ?? [];
+    existing.push(payload.attachment);
+    state.messageAttachments.set(payload.messageId, existing);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        messageId: payload.messageId,
+        attachmentCount: existing.length,
+      }),
+    );
     return;
   }
 

@@ -1577,6 +1577,159 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     const runsFinal = await getWorkflowRunsForUser(user.id);
     expect(runsFinal).toHaveLength(1);
   });
+
+  // ── Outlook Mail 2.3 Commit 4 — get_attachment ────────────────────────
+
+  test("get_attachment stages fileAttachment to workflow_files and skips itemAttachment / inline", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-getatt-${randomUUID()}`;
+    const realFileAttId = `file-att-${randomUUID()}`;
+    const inlineAttId = `inline-att-${randomUUID()}`;
+    const itemAttId = `item-att-${randomUUID()}`;
+
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook get_attachment",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "get_attachment",
+        config: {
+          emailId: messageId,
+          // excludeInline + downloadMode defaults exercised — emailId
+          // only, schema applies defaults.
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    // Inject the trigger message + 3 attachments (1 real file, 1
+    // inline image, 1 embedded itemAttachment).
+    await page.request.post(`${mock.baseUrl}/__injectAttachment`, {
+      data: {
+        messageId,
+        attachment: {
+          id: realFileAttId,
+          name: "report.pdf",
+          contentType: "application/pdf",
+          size: 5,
+          isInline: false,
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          contentBytes: Buffer.from("hello").toString("base64"),
+        },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectAttachment`, {
+      data: {
+        messageId,
+        attachment: {
+          id: inlineAttId,
+          name: "embedded.png",
+          contentType: "image/png",
+          size: 100,
+          isInline: true,
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          contentBytes: Buffer.from("inline").toString("base64"),
+        },
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectAttachment`, {
+      data: {
+        messageId,
+        attachment: {
+          id: itemAttId,
+          name: "Forwarded message",
+          contentType: "message/rfc822",
+          size: 500,
+          isInline: false,
+          "@odata.type": "#microsoft.graph.itemAttachment",
+          item: { "@odata.type": "#microsoft.graph.message" },
+        },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // LIST call recorded exactly once.
+    expect(calls.calls.listAttachments).toHaveLength(1);
+    expect(calls.calls.listAttachments[0]!.messageId).toBe(messageId);
+    expect(calls.calls.listAttachments[0]!.returnedCount).toBe(3);
+
+    // Per-id GET called twice — the real fileAttachment + the
+    // itemAttachment. The inline fileAttachment was excluded
+    // at the list-filter step BEFORE the per-id GET.
+    expect(calls.calls.getAttachment).toHaveLength(2);
+    const fetchedIds = calls.calls.getAttachment.map((g) => g.attachmentId);
+    expect(fetchedIds).toContain(realFileAttId);
+    expect(fetchedIds).toContain(itemAttId);
+    expect(fetchedIds).not.toContain(inlineAttId);
+
+    // Step output: 2 attachment entries (1 staged FileRef + 1 itemAttachment
+    // stub with skipped:true). NO byte content anywhere.
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    expect(stepOutput.count).toBe(2);
+    expect(stepOutput.downloadedCount).toBe(1);
+
+    const attachments = stepOutput.attachments as Array<
+      Record<string, unknown>
+    >;
+    const portedEntry = attachments.find(
+      (a) => a.subtype === "fileAttachment",
+    )!;
+    expect(portedEntry.skipped).toBe(false);
+    expect(portedEntry.id).toBe(realFileAttId);
+    expect(portedEntry.name).toBe("report.pdf");
+    // FileRef points at workflow_files storage; no contentBytes / bytes /
+    // base64 / data anywhere in the entry.
+    expect(portedEntry.file).toBeDefined();
+    expect((portedEntry.file as { kind: string }).kind).toBe("v2_storage");
+    expect("contentBytes" in portedEntry).toBe(false);
+    expect("base64" in portedEntry).toBe(false);
+    expect("bytes" in portedEntry).toBe(false);
+    expect("content" in portedEntry).toBe(false);
+
+    const skippedEntry = attachments.find(
+      (a) => a.subtype === "itemAttachment",
+    )!;
+    expect(skippedEntry.skipped).toBe(true);
+    expect(skippedEntry.id).toBe(itemAttId);
+    expect((skippedEntry.reason as string).toLowerCase()).toContain(
+      "itemattachment",
+    );
+
+    // Serialized step-output also must NOT contain any base64 / bytes
+    // marker (end-to-end CLAUDE.md rule #1 check).
+    const serialized = JSON.stringify(stepOutput);
+    expect(serialized).not.toMatch(/"contentBytes"/);
+    expect(serialized).not.toMatch(/"base64"/);
+    // Note: "bytes" appears in "sizeBytes" — assert the specific
+    // bare-key version doesn't appear.
+    expect(serialized).not.toMatch(/"bytes":/);
+  });
 });
 
 async function signIn(page: Page, user: TestUser): Promise<void> {
@@ -1656,6 +1809,18 @@ interface MockInspect {
       consistencyLevel: string | undefined;
       searchParams: Record<string, string>;
       returnedCount: number;
+    }[];
+    /** Outlook Mail 2.3 Commit 4: get_attachment LIST + per-id GET. */
+    listAttachments: {
+      authorization: string | undefined;
+      messageId: string;
+      returnedCount: number;
+    }[];
+    getAttachment: {
+      authorization: string | undefined;
+      messageId: string;
+      attachmentId: string;
+      subtype: string;
     }[];
     subscriptionsCreate: {
       authorization: string | undefined;

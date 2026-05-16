@@ -125,6 +125,7 @@ import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/micr
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
 import { fetchEmails as fetchOutlookEmails } from "@/integrations/microsoft-outlook/actions/fetchEmails";
 import { forwardEmail as forwardOutlookEmail } from "@/integrations/microsoft-outlook/actions/forwardEmail";
+import { getAttachment as getOutlookAttachment } from "@/integrations/microsoft-outlook/actions/getAttachment";
 import { moveEmail as moveOutlookEmail } from "@/integrations/microsoft-outlook/actions/moveEmail";
 import { replyToEmail as replyToOutlookEmail } from "@/integrations/microsoft-outlook/actions/replyToEmail";
 import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
@@ -350,6 +351,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // only; Mail.Read scope already in manifest. Owns $filter vs $search
   // mutual-exclusion routing inside the wrapper.
   { provider: "microsoft-outlook", type: "fetch_emails", handler: fetchOutlookEmails },
+  // Outlook Mail 2.3 Commit 4 — get_attachment (P-O2 fileAttachment-only).
+  // Stages bytes to workflow_files via stageFileToStorage (P-S3); returns
+  // FileRef[] in `attachments`. itemAttachment + referenceAttachment
+  // emit metadata-only stubs with `skipped: true`.
+  { provider: "microsoft-outlook", type: "get_attachment", handler: getOutlookAttachment },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
