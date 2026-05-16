@@ -479,4 +479,12 @@ describe("action handler registry", () => {
     expect(getActionHandler("hubspot", "get_forms")).toBeUndefined();
     expect(getActionHandler("hubspot", "get_deal_pipelines")).toBeUndefined();
   });
+
+  it("registers if_then_condition (Native-nodes Slice 3 Commit 2 — Tier C control-flow port consuming engine branching)", () => {
+    expect(getActionHandler("native", "if_then_condition")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "native",
+      type: "if_then_condition",
+    });
+  });
 });

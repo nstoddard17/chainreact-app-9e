@@ -216,6 +216,12 @@ import { updateSubscription as stripeUpdateSubscription } from "@/integrations/s
 import { httpRequest as nativeHttpRequest } from "@/integrations/native/actions/httpRequest";
 import { formatTransformer as nativeFormatTransformer } from "@/integrations/native/actions/formatTransformer";
 import { delay as nativeDelay } from "@/integrations/native/actions/delay";
+// Native-nodes Slice 3 — Tier C control-flow ports
+// (docs/slices/parity/native-nodes-3-tier-c-control-flow-plan.md §4).
+// Consume the engine-branching contract (WorkflowEdge.label? +
+// ActionHandlerResult.branchTaken? + label-aware traversal + skip
+// emission). Pure handlers; no OAuth; no integration row.
+import { ifThenCondition as nativeIfThenCondition } from "@/integrations/native/actions/ifThenCondition";
 import type { ActionHandler } from "./types";
 
 /**
@@ -534,6 +540,15 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // infrastructure and is deferred to Phase 6 (NPD-N6). See
   // docs/slices/parity/native-nodes-1-tier-a-plan.md §6.
   { provider: "native", type: "delay", handler: nativeDelay },
+  // Native-nodes Slice 3 Commit 2 — boolean branching action backing
+  // the engine's label-aware traversal. Returns branchTaken "true" /
+  // "false" / null (when onFalse: "skip"). See
+  // docs/slices/parity/native-nodes-3-tier-c-control-flow-plan.md §5.
+  {
+    provider: "native",
+    type: "if_then_condition",
+    handler: nativeIfThenCondition,
+  },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
