@@ -1,7 +1,10 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import type { WorkflowRecord } from "@/repositories/workflows";
-import { findActivation } from "@/services/triggers/activationRegistry";
+import {
+  findActivation,
+  findNativeActivation,
+} from "@/services/triggers/activationRegistry";
 import { findDeactivation } from "@/services/triggers/deactivationRegistry";
 // Side-effect import: forces provider activation/polling-handler
 // registrations at module load. Without this, an activate API request
@@ -50,26 +53,39 @@ export async function registerWorkflowTriggers(
   if (triggers.length === 0) return; // manual-only workflow
 
   for (const node of triggers) {
-    const activation = findActivation(node.provider, node.type);
     let mergedConfig: Record<string, unknown> = { ...node.config };
 
-    if (activation) {
-      const integration = await getActiveForExecution(
-        workflow.userId,
-        node.provider,
-        null,
-      );
-      if (!integration) {
-        throw new Error(
-          `registerWorkflowTriggers: no active ${node.provider} integration for user ${workflow.userId}.`,
-        );
-      }
-      const patch = await activation({
+    // Native (non-OAuth) activation path runs first — no integration
+    // lookup. Used by scheduled_trigger (computes first nextFireAt) and
+    // any future native triggers that need activation-time work.
+    const nativeActivation = findNativeActivation(node.provider, node.type);
+    if (nativeActivation) {
+      const patch = await nativeActivation({
         node,
-        integration,
         workflowId: workflow.id,
       });
       mergedConfig = { ...mergedConfig, ...patch };
+    } else {
+      // Provider-tier activation path — requires an active integration.
+      const activation = findActivation(node.provider, node.type);
+      if (activation) {
+        const integration = await getActiveForExecution(
+          workflow.userId,
+          node.provider,
+          null,
+        );
+        if (!integration) {
+          throw new Error(
+            `registerWorkflowTriggers: no active ${node.provider} integration for user ${workflow.userId}.`,
+          );
+        }
+        const patch = await activation({
+          node,
+          integration,
+          workflowId: workflow.id,
+        });
+        mergedConfig = { ...mergedConfig, ...patch };
+      }
     }
 
     await triggerResourcesRepo.upsert({

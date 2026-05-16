@@ -74,6 +74,12 @@ import "./trello/triggers/cardMoved";
 import "./trello/triggers/commentAdded";
 import "./trello/triggers/memberChanged";
 import "./trello/triggers/cardArchived";
+// Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
+// native-activation hook at module load. See
+// docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
+// manual_trigger has no activation hook so no side-effect import
+// needed; the run-now route imports its schema directly.
+import "./native/triggers/scheduledTrigger";
 
 /**
  * Aggregated provider registry.

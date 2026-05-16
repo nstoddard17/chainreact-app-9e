@@ -34,6 +34,7 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 import {
   __resetActivationRegistryForTests,
   registerActivation,
+  registerNativeActivation,
 } from "@/services/triggers/activationRegistry";
 import {
   __resetDeactivationRegistryForTests,
@@ -133,6 +134,101 @@ describe("registerWorkflowTriggers", () => {
       ]),
     );
     expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  // ── Native (non-OAuth) activation path — Native Slice 2 Commit 3 ─────
+  // Native triggers register via registerNativeActivation; lifecycle
+  // calls them WITHOUT looking up an `integrations` row. See plan §6.2.
+
+  it("invokes a NativeActivationFn with { node, workflowId } and merges its patch into config", async () => {
+    const nativeActivation: jest.Mock = jest.fn(async () => ({
+      nextFireAt: "2026-05-18T09:00:00Z",
+      schedulerState: "armed",
+    }));
+    registerNativeActivation("native", "schedule.fired", nativeActivation);
+
+    await registerWorkflowTriggers(
+      makeWorkflow([
+        {
+          id: "n-sched",
+          kind: "trigger",
+          provider: "native",
+          type: "schedule.fired",
+          config: { cronExpression: "0 9 * * 1-5" },
+          position: { x: 0, y: 0 },
+        },
+      ]),
+    );
+
+    expect(nativeActivation).toHaveBeenCalledTimes(1);
+    const ctx = nativeActivation.mock.calls[0]![0] as Record<string, unknown>;
+    expect(ctx.workflowId).toBe("wf-1");
+    // No integration field on the native context.
+    expect(ctx).not.toHaveProperty("integration");
+
+    // Lifecycle did NOT call getActiveForExecution — native skips it.
+    expect(mockGetActiveForExecution).not.toHaveBeenCalled();
+
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockUpsert.mock.calls[0]![0]).toMatchObject({
+      provider: "native",
+      eventType: "schedule.fired",
+      nodeId: "n-sched",
+      config: {
+        cronExpression: "0 9 * * 1-5",
+        nextFireAt: "2026-05-18T09:00:00Z",
+        schedulerState: "armed",
+      },
+    });
+  });
+
+  it("manual_trigger workflow (no native + no provider activation registered) upserts the empty config straight through", async () => {
+    await registerWorkflowTriggers(
+      makeWorkflow([
+        {
+          id: "n-manual",
+          kind: "trigger",
+          provider: "native",
+          type: "manual.run",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+      ]),
+    );
+    expect(mockGetActiveForExecution).not.toHaveBeenCalled();
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockUpsert.mock.calls[0]![0]).toMatchObject({
+      provider: "native",
+      eventType: "manual.run",
+      config: {},
+    });
+  });
+
+  it("native activation takes precedence over a provider activation registered for the same (provider, eventType)", async () => {
+    const providerActivation = jest.fn(async () => ({ via: "provider" }));
+    const nativeActivation = jest.fn(async () => ({ via: "native" }));
+    registerActivation("native", "schedule.fired", providerActivation);
+    registerNativeActivation("native", "schedule.fired", nativeActivation);
+
+    await registerWorkflowTriggers(
+      makeWorkflow([
+        {
+          id: "n-sched",
+          kind: "trigger",
+          provider: "native",
+          type: "schedule.fired",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+      ]),
+    );
+
+    expect(nativeActivation).toHaveBeenCalledTimes(1);
+    expect(providerActivation).not.toHaveBeenCalled();
+    expect(mockGetActiveForExecution).not.toHaveBeenCalled();
+    expect(mockUpsert.mock.calls[0]![0]).toMatchObject({
+      config: { via: "native" },
+    });
   });
 
   it("propagates upsert errors so the orchestrator wraps with TRIGGER_REGISTRATION_FAILED", async () => {

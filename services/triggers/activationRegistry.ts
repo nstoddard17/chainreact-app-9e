@@ -80,7 +80,61 @@ export function findActivation(
   return activations.get(key(provider, eventType)) ?? null;
 }
 
+/**
+ * Native (non-OAuth) trigger activations.
+ *
+ * Per docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §6.2:
+ * native triggers (scheduled_trigger, future native triggers) have no
+ * `integrations` row to thread into their activation hook. Adding a
+ * separate type + registry keeps the provider activation surface
+ * untouched — none of the 31 per-provider activation files need to
+ * gain a null-check.
+ *
+ * Lifecycle dispatch order in `services/triggers/lifecycle.ts`:
+ *   1. `findNativeActivation(provider, eventType)` → if found, call
+ *      with `{ node, workflowId }` (no integration lookup).
+ *   2. Otherwise `findActivation(provider, eventType)` → the existing
+ *      provider path (looks up the integration row first).
+ *
+ * A given `(provider, eventType)` may register in EITHER the native
+ * registry OR the provider registry, not both. The native registry
+ * exists specifically for providers in NON_OAUTH_PROVIDERS (currently
+ * `"native"`).
+ */
+export interface NativeActivationContext {
+  node: WorkflowNode;
+  workflowId: string;
+}
+
+export type NativeActivationFn = (
+  ctx: NativeActivationContext,
+) => Promise<Record<string, unknown>>;
+
+const nativeActivations = new Map<string, NativeActivationFn>();
+
+export function registerNativeActivation(
+  provider: string,
+  eventType: string,
+  fn: NativeActivationFn,
+): void {
+  const k = key(provider, eventType);
+  if (nativeActivations.has(k)) {
+    throw new Error(
+      `activationRegistry: duplicate native registration for ${k}.`,
+    );
+  }
+  nativeActivations.set(k, fn);
+}
+
+export function findNativeActivation(
+  provider: string,
+  eventType: string,
+): NativeActivationFn | null {
+  return nativeActivations.get(key(provider, eventType)) ?? null;
+}
+
 /** Test seam — clears the registry between tests. */
 export function __resetActivationRegistryForTests(): void {
   activations.clear();
+  nativeActivations.clear();
 }
