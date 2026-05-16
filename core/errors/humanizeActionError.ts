@@ -110,6 +110,16 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
         action: "upgrade_plan",
         severity: "warning",
       };
+    case "INVALID_BRANCH":
+      return {
+        title: "Branch label not found",
+        description:
+          input.message ||
+          "This step chose a branch that isn't wired to any outgoing edge.",
+        hint: "Check the branch labels on this node's outgoing edges, or update the handler's branch decision.",
+        action: "open_node",
+        severity: "error",
+      };
     case "HANDLER_FAILED":
       // Slack-ish messages get further refinement below.
       return null;

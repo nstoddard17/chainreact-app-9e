@@ -37,6 +37,23 @@ export interface ActionHandlerInput {
 export interface ActionHandlerResult {
   /** Becomes `context.variables[nodeId]` for downstream nodes. */
   output: Readonly<Record<string, unknown>>;
+  /**
+   * Optional branch decision for label-aware engine traversal.
+   *
+   *   - `undefined` (default): no branch decision. The engine follows ALL
+   *     outgoing edges of this node, regardless of their label. Provider
+   *     and existing native handlers behave unchanged.
+   *   - `string`: only outgoing edges whose `label` matches this value are
+   *     activated. Unlabeled outgoing edges are still followed (treated as
+   *     unconditional "always-run" edges, e.g. cleanup steps).
+   *   - `null`: explicit short-circuit — no labeled outgoing edge is
+   *     activated. Unlabeled outgoing edges are still followed.
+   *
+   * The engine never reads this field in Commit 1 (contracts-only); the
+   * label-aware traversal lands in Commit 2. See
+   * docs/slices/parity/engine-branching-plan.md §3.2 + §4.1.
+   */
+  branchTaken?: string | null;
 }
 
 export type ActionHandler = (

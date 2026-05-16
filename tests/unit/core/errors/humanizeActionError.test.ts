@@ -87,6 +87,31 @@ describe("humanizeActionError — engine codes", () => {
     expect(result.description).toMatch(/task quota|billing period/i);
     expect(result.action).toBe("upgrade_plan");
   });
+
+  // Engine-branching Commit 1 — INVALID_BRANCH humanizer row added (the
+  // engine itself starts emitting this code in Commit 2). See
+  // docs/slices/parity/engine-branching-plan.md §3.3 + §6.1.
+
+  it("INVALID_BRANCH includes the failed branch label and routes to open_node", () => {
+    const result = humanizeActionError({
+      code: "INVALID_BRANCH",
+      message:
+        "Handler returned branchTaken='maybe' but no outgoing edge has that label.",
+    });
+    expect(result.title).toMatch(/branch label/i);
+    expect(result.description).toContain("maybe");
+    expect(result.hint).toMatch(/outgoing edge|branch decision/i);
+    expect(result.action).toBe("open_node");
+    expect(result.severity).toBe("error");
+  });
+
+  it("INVALID_BRANCH falls back to a generic description when message is empty", () => {
+    const result = humanizeActionError({ code: "INVALID_BRANCH", message: "" });
+    expect(result.title).toMatch(/branch label/i);
+    expect(result.description).toMatch(/branch|outgoing edge/i);
+    expect(result.action).toBe("open_node");
+    expect(result.severity).toBe("error");
+  });
 });
 
 describe("humanizeActionError — Slack handler errors (HANDLER_FAILED routing)", () => {

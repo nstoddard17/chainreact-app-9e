@@ -54,7 +54,14 @@ export type RunFailureCode =
   | "BILLING_EXHAUSTED"
   | "MISSING_HANDLER"
   | "MISSING_VARIABLE"
-  | "HANDLER_FAILED";
+  | "HANDLER_FAILED"
+  /**
+   * Handler returned `branchTaken: "<label>"` but no outgoing edge on this
+   * node has that label. The engine consumes this in Commit 2 (label-aware
+   * traversal); Commit 1 only adds the code + humanizer support. See
+   * docs/slices/parity/engine-branching-plan.md §3.3 + §6.1.
+   */
+  | "INVALID_BRANCH";
 
 export interface RunStepResult {
   nodeId: string;

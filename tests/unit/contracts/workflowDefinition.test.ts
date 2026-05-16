@@ -73,6 +73,64 @@ describe("WorkflowEdgeSchema", () => {
       WorkflowEdgeSchema.safeParse({ id: "e1", from: "", to: "n2" }).success,
     ).toBe(false);
   });
+
+  // Engine-branching Commit 1 — WorkflowEdge.label? contract additions.
+  // See docs/slices/parity/engine-branching-plan.md §3.1.
+
+  it("accepts a valid label (non-empty, ≤64 chars)", () => {
+    expect(
+      WorkflowEdgeSchema.safeParse({
+        id: "e1",
+        from: "n1",
+        to: "n2",
+        label: "yes",
+      }).success,
+    ).toBe(true);
+    expect(
+      WorkflowEdgeSchema.safeParse({
+        id: "e1",
+        from: "n1",
+        to: "n2",
+        label: "match-path-42_underscored",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty label", () => {
+    expect(
+      WorkflowEdgeSchema.safeParse({
+        id: "e1",
+        from: "n1",
+        to: "n2",
+        label: "",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a label longer than 64 chars", () => {
+    expect(
+      WorkflowEdgeSchema.safeParse({
+        id: "e1",
+        from: "n1",
+        to: "n2",
+        label: "a".repeat(65),
+      }).success,
+    ).toBe(false);
+    // Exactly 64 is fine.
+    expect(
+      WorkflowEdgeSchema.safeParse({
+        id: "e1",
+        from: "n1",
+        to: "n2",
+        label: "a".repeat(64),
+      }).success,
+    ).toBe(true);
+  });
+
+  it("treats missing label as unlabeled (legacy behavior preserved)", () => {
+    const r = WorkflowEdgeSchema.parse({ id: "e1", from: "n1", to: "n2" });
+    expect(r.label).toBeUndefined();
+  });
 });
 
 describe("WorkflowDefinitionSchema", () => {
@@ -148,7 +206,7 @@ describe("WorkflowDefinitionSchema", () => {
     }
   });
 
-  it("rejects duplicate edges between the same node pair", () => {
+  it("rejects duplicate edges between the same node pair (both unlabeled)", () => {
     const def = {
       nodes: [trigger("n1"), action("n2")],
       edges: [
@@ -163,6 +221,61 @@ describe("WorkflowDefinitionSchema", () => {
         result.error.issues.some((i) => i.message.includes("Duplicate edge")),
       ).toBe(true);
     }
+  });
+
+  // Engine-branching Commit 1 — duplicate-edge dedup keyed on
+  // (from, to, label ?? ""). See engine-branching-plan.md §3.5.
+
+  it("rejects duplicate edges with the same from/to and the same label", () => {
+    const def = {
+      nodes: [trigger("n1"), action("n2")],
+      edges: [
+        { id: "e1", from: "n1", to: "n2", label: "yes" },
+        { id: "e2", from: "n1", to: "n2", label: "yes" },
+      ],
+    };
+    const result = WorkflowDefinitionSchema.safeParse(def);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) =>
+          i.message.includes("label 'yes'"),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("allows two edges between the same from/to under different labels", () => {
+    const def = {
+      nodes: [trigger("n1"), action("n2")],
+      edges: [
+        { id: "e1", from: "n1", to: "n2", label: "yes" },
+        { id: "e2", from: "n1", to: "n2", label: "no" },
+      ],
+    };
+    expect(WorkflowDefinitionSchema.safeParse(def).success).toBe(true);
+  });
+
+  it("allows one labeled + one unlabeled edge between the same from/to (different dedup keys)", () => {
+    const def = {
+      nodes: [trigger("n1"), action("n2")],
+      edges: [
+        { id: "e1", from: "n1", to: "n2", label: "yes" },
+        { id: "e2", from: "n1", to: "n2" },
+      ],
+    };
+    expect(WorkflowDefinitionSchema.safeParse(def).success).toBe(true);
+  });
+
+  it("allows same-labeled edges from one source to different targets (router fan-out)", () => {
+    const def = {
+      nodes: [trigger("n1"), action("n2"), action("n3")],
+      edges: [
+        { id: "e1", from: "n1", to: "n2", label: "match" },
+        { id: "e2", from: "n1", to: "n3", label: "match" },
+      ],
+    };
+    expect(WorkflowDefinitionSchema.safeParse(def).success).toBe(true);
   });
 
   it("rejects duplicate node ids", () => {
