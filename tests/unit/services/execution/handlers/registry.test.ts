@@ -487,4 +487,12 @@ describe("action handler registry", () => {
       type: "if_then_condition",
     });
   });
+
+  it("registers router (Native-nodes Slice 3 Commit 3 — N-label branching action)", () => {
+    expect(getActionHandler("native", "router")).toBeDefined();
+    expect(listRegisteredHandlers()).toContainEqual({
+      provider: "native",
+      type: "router",
+    });
+  });
 });

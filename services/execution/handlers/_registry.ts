@@ -222,6 +222,7 @@ import { delay as nativeDelay } from "@/integrations/native/actions/delay";
 // ActionHandlerResult.branchTaken? + label-aware traversal + skip
 // emission). Pure handlers; no OAuth; no integration row.
 import { ifThenCondition as nativeIfThenCondition } from "@/integrations/native/actions/ifThenCondition";
+import { router as nativeRouter } from "@/integrations/native/actions/router";
 import type { ActionHandler } from "./types";
 
 /**
@@ -549,6 +550,11 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
     type: "if_then_condition",
     handler: nativeIfThenCondition,
   },
+  // Native-nodes Slice 3 Commit 3 — N-label branching action.
+  // First-match-wins evaluation; returns branchTaken as the matched
+  // route label, else configured defaultRoute, else null. See
+  // docs/slices/parity/native-nodes-3-tier-c-control-flow-plan.md §6.
+  { provider: "native", type: "router", handler: nativeRouter },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
