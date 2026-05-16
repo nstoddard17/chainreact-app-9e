@@ -17,6 +17,10 @@ import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { executionBillingGate } from "@/services/billing/executionBillingGate";
 import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
+import {
+  buildOutgoingEdgeMap,
+  selectActivatedEdges,
+} from "./branching";
 import { getActionHandler } from "./handlers/_registry";
 
 /**
@@ -187,10 +191,29 @@ export class WorkflowEngine {
     };
 
     const order = bfsExecutionOrder(triggerNode.id, def);
+    // Outgoing-edge index keyed by `from` — used for label-aware activation
+    // after each node executes. Built once per run; O(edges).
+    const outgoingByNodeId = buildOutgoingEdgeMap(def.edges);
+    // Label-aware traversal: a node executes only if it is reachable via at
+    // least one ACTIVATED incoming edge. The trigger seeds the set. After
+    // each successful execution, outgoing edges are filtered through
+    // selectActivatedEdges() and their `to` ids are added. Nodes that
+    // appear in `order` but never become reachable are emitted as
+    // `status: "skipped"` step entries (no handler call, no variables).
+    // See docs/slices/parity/engine-branching-plan.md §4.
+    const reachable = new Set<string>([triggerNode.id]);
     const steps: RunStepResult[] = [];
     let runFailed = false;
 
     for (const node of order) {
+      // Skip nodes that no activated edge has reached. The trigger is
+      // always seeded as reachable, so the first iteration always runs.
+      if (!reachable.has(node.id)) {
+        steps.push({ nodeId: node.id, status: "skipped" });
+        log("execution.step.skipped", { nodeId: node.id });
+        continue;
+      }
+
       if (node.kind === "trigger") {
         // The trigger doesn't execute — its payload is the seed. Record
         // it as succeeded for visibility in run history (Slice 1M).
@@ -199,6 +222,16 @@ export class WorkflowEngine {
           status: "succeeded",
           output: { event: input.triggerEvent } as Readonly<Record<string, unknown>>,
         });
+        // Triggers have no handler and therefore no branchTaken; activate
+        // outgoing edges under the §6.2.a permissive default (unlabeled
+        // follow; labeled require explicit branchTaken, which a trigger
+        // never emits, so labeled edges out of a trigger never activate).
+        // A trigger by definition never produces an INVALID_BRANCH because
+        // its synthetic branchTaken is `undefined`, not a string.
+        const triggerEdges = outgoingByNodeId.get(node.id) ?? [];
+        for (const e of selectActivatedEdges(triggerEdges, undefined).activated) {
+          reachable.add(e);
+        }
         continue;
       }
 
@@ -275,6 +308,38 @@ export class WorkflowEngine {
           config: resolvedConfig,
           triggerEvent: input.triggerEvent,
         });
+
+        // 4. Label-aware activation. Inspect outgoing edges and decide
+        // which ones the handler's branchTaken activates. Catches
+        // INVALID_BRANCH (handler returned a string label with no
+        // matching outgoing edge) BEFORE recording the step as succeeded
+        // — a malformed branch decision marks the node as failed.
+        // See engine-branching-plan.md §4.1 + §6.1.
+        const outgoing = outgoingByNodeId.get(node.id) ?? [];
+        const activation = selectActivatedEdges(outgoing, result.branchTaken);
+        if (activation.invalidBranch) {
+          const message = `Handler returned branchTaken='${result.branchTaken}' but no outgoing edge has that label.`;
+          steps.push({
+            nodeId: node.id,
+            status: "failed",
+            error: {
+              code: "INVALID_BRANCH",
+              message,
+              details: { branchTaken: result.branchTaken as string },
+            },
+          });
+          log("execution.step.failed", {
+            nodeId: node.id,
+            code: "INVALID_BRANCH",
+            branchTaken: result.branchTaken,
+          });
+          runFailed = true;
+          break;
+        }
+        for (const next of activation.activated) {
+          reachable.add(next);
+        }
+
         variables[node.id] = result.output;
         steps.push({ nodeId: node.id, status: "succeeded", output: result.output });
         log("execution.step.succeeded", {
