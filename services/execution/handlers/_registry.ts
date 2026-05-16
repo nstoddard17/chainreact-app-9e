@@ -123,7 +123,6 @@ import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsof
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
-import { fetchEmails as fetchOutlookEmails } from "@/integrations/microsoft-outlook/actions/fetchEmails";
 import { forwardEmail as forwardOutlookEmail } from "@/integrations/microsoft-outlook/actions/forwardEmail";
 import { moveEmail as moveOutlookEmail } from "@/integrations/microsoft-outlook/actions/moveEmail";
 import { replyToEmail as replyToOutlookEmail } from "@/integrations/microsoft-outlook/actions/replyToEmail";
@@ -345,10 +344,6 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-outlook", type: "move_email", handler: moveOutlookEmail },
   { provider: "microsoft-outlook", type: "delete_email", handler: deleteOutlookEmail },
   { provider: "microsoft-outlook", type: "add_categories", handler: addOutlookCategories },
-  // Outlook Mail 2.2 Commit 3 — V1-shape fetch_emails (D-OM1). Read-
-  // only; Mail.Read scope already in manifest. Owns $filter vs $search
-  // mutual-exclusion routing inside the wrapper.
-  { provider: "microsoft-outlook", type: "fetch_emails", handler: fetchOutlookEmails },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
