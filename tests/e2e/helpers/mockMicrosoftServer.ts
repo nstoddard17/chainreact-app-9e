@@ -158,6 +158,41 @@ export interface RecordedCreateDraft {
   responseDraftId: string;
 }
 
+/**
+ * Outlook Mail 2.2 Commit 2: move-message hit log. `destinationId` is
+ * the load-bearing field — delete_email "trash" mode and move_email
+ * both POST /me/messages/{id}/move; the spec asserts the destination
+ * to distinguish the two paths.
+ */
+export interface RecordedMoveMessage {
+  authorization: string | undefined;
+  messageId: string;
+  destinationId: string;
+  responseNewId: string;
+}
+
+/**
+ * Outlook Mail 2.2 Commit 2: permanent-delete hit log. Mode is implicit
+ * — only delete_email's `deleteMode: "permanent"` mode hits this. The
+ * absence of a moveMessage record on the same run is the load-bearing
+ * assertion (and vice-versa for trash mode).
+ */
+export interface RecordedDeleteMessage {
+  authorization: string | undefined;
+  messageId: string;
+}
+
+/**
+ * Outlook Mail 2.2 Commit 2: patch-message hit log. add_categories
+ * supplies `patch.categories[]`; future actions may patch isRead /
+ * flag / etc. Records the patch verbatim for shape assertions.
+ */
+export interface RecordedPatchMessage {
+  authorization: string | undefined;
+  messageId: string;
+  patch: Record<string, unknown>;
+}
+
 export interface RecordedSubscriptionsCreate {
   authorization: string | undefined;
   body: Record<string, unknown>;
@@ -398,6 +433,12 @@ export interface MockMicrosoftHandle {
     replyMessage: RecordedReplyMessage[];
     forwardMessage: RecordedForwardMessage[];
     createDraft: RecordedCreateDraft[];
+    /** Outlook Mail 2.2 Commit 2 — move + trash-delete records. */
+    moveMessage: RecordedMoveMessage[];
+    /** Outlook Mail 2.2 Commit 2 — permanent-delete records. */
+    deleteMessage: RecordedDeleteMessage[];
+    /** Outlook Mail 2.2 Commit 2 — PATCH (add_categories) records. */
+    patchMessage: RecordedPatchMessage[];
     eventsCreate: RecordedEventsCreate[];
     eventsGet: RecordedEventsGet[];
     driveItemsGet: RecordedDriveItemsGet[];
@@ -475,6 +516,13 @@ interface MutableState {
    */
   draftMessageCounter: number;
   /**
+   * Outlook Mail 2.2 Commit 2: monotonic counter for moved-message
+   * response ids. Outlook re-keys on move so the mock returns a
+   * synthetic new id (`mock-moved-N`); the spec can correlate this
+   * against the action's `newId` output. Reset on /__reset.
+   */
+  movedMessageCounter: number;
+  /**
    * Slice 8: monotonic counter for the synthetic delta cursors the
    * mock returns from /me/drive/root/delta. Both initial baseline +
    * incremental responses bump this. Persisted-cursor uniqueness
@@ -502,6 +550,9 @@ function freshState(): MutableState {
       replyMessage: [],
       forwardMessage: [],
       createDraft: [],
+      moveMessage: [],
+      deleteMessage: [],
+      patchMessage: [],
       eventsCreate: [],
       eventsGet: [],
       driveItemsGet: [],
@@ -533,6 +584,7 @@ function freshState(): MutableState {
     teamsMessageCounter: 0,
     driveItemCounter: 0,
     draftMessageCounter: 0,
+    movedMessageCounter: 0,
     driveDeltaCursor: 0,
     // Set by startMockMicrosoftServer() once the listener has bound.
     serverPort: 0,
@@ -837,6 +889,103 @@ async function handleRequest(
     res.writeHead(201, { "content-type": "application/json" });
     res.end(JSON.stringify(responseBody));
     return;
+  }
+
+  // ── Outlook Mail 2.2: Graph POST /me/messages/{id}/move ──
+  //
+  // Used by move_email (any destinationId) and delete_email's "trash"
+  // mode (destinationId: "deleteditems"). Spec asserts destinationId to
+  // distinguish the two paths. Returns 201 Created with a synthetic
+  // moved-message envelope including a NEW id (Outlook re-keys on move).
+  {
+    const moveMatch = url.pathname.match(
+      /^\/v1\.0\/me\/messages\/([^/]+)\/move$/,
+    );
+    if (req.method === "POST" && moveMatch) {
+      const messageId = decodeURIComponent(moveMatch[1]!);
+      const bodyText = await readBody(req);
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(bodyText);
+      } catch {
+        // ignore — record empty body for inspection
+      }
+      const destinationId =
+        typeof parsed.destinationId === "string"
+          ? parsed.destinationId
+          : "";
+      state.movedMessageCounter += 1;
+      const newId = `mock-moved-${state.movedMessageCounter}`;
+      state.calls.moveMessage.push({
+        authorization: req.headers.authorization,
+        messageId,
+        destinationId,
+        responseNewId: newId,
+      });
+      res.writeHead(201, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          id: newId,
+          parentFolderId: destinationId,
+        }),
+      );
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.2: Graph DELETE /me/messages/{id} ──
+  //
+  // Used by delete_email's "permanent" mode only. Graph returns 204 No
+  // Content. The absence of a moveMessage record on the same run is
+  // the spec's load-bearing distinction vs. the trash path.
+  {
+    const deleteMatch = url.pathname.match(/^\/v1\.0\/me\/messages\/([^/]+)$/);
+    if (req.method === "DELETE" && deleteMatch) {
+      const messageId = decodeURIComponent(deleteMatch[1]!);
+      state.calls.deleteMessage.push({
+        authorization: req.headers.authorization,
+        messageId,
+      });
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.2: Graph PATCH /me/messages/{id} ──
+  //
+  // Used by add_categories (patch.categories[]). Open-shape patch — the
+  // mock echoes the patch fields back on a synthetic envelope so the
+  // handler's PATCH-replace-semantics test path round-trips.
+  {
+    const patchMatch = url.pathname.match(/^\/v1\.0\/me\/messages\/([^/]+)$/);
+    if (req.method === "PATCH" && patchMatch) {
+      const messageId = decodeURIComponent(patchMatch[1]!);
+      const bodyText = await readBody(req);
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(bodyText);
+      } catch {
+        // ignore — record empty body for inspection
+      }
+      state.calls.patchMessage.push({
+        authorization: req.headers.authorization,
+        messageId,
+        patch: parsed,
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          id: messageId,
+          // Echo categories verbatim — handlers map response.categories
+          // through to the action output.
+          ...(Array.isArray(parsed.categories) && {
+            categories: parsed.categories,
+          }),
+        }),
+      );
+      return;
+    }
   }
 
   // ── Graph /me/messages/{id} ──

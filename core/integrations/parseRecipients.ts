@@ -1,3 +1,5 @@
+import { parseCsvList } from "./parseCsvList";
+
 /**
  * Q7 — Multi-recipient field parser.
  *
@@ -9,19 +11,14 @@
  * Out of scope: RFC 5322 display-name parsing. The helper returns the raw
  * trimmed strings; callers map them to provider-specific shapes (e.g.
  * `[{ email }]` for Calendar attendees) and apply provider-specific validation.
+ *
+ * Outlook Mail 2.2 — implementation moved to the shape-agnostic
+ * `parseCsvList` so `add_categories` and other Q7-shape callers can
+ * share one canonical splitter. The `parseRecipients` name stays as the
+ * public surface for email-recipient fields (test + handler legibility).
  */
 export function parseRecipients(
   input: string | readonly string[] | null | undefined,
 ): string[] {
-  if (input == null) return [];
-  const arr = Array.isArray(input) ? input : [input as string];
-  const out: string[] = [];
-  for (const entry of arr) {
-    if (typeof entry !== "string") continue;
-    for (const part of entry.split(",")) {
-      const trimmed = part.trim();
-      if (trimmed.length > 0) out.push(trimmed);
-    }
-  }
-  return out;
+  return parseCsvList(input);
 }

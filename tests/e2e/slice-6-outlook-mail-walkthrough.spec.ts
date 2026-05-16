@@ -805,6 +805,252 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     expect("base64" in stepOutput).toBe(false);
     expect("bytes" in stepOutput).toBe(false);
   });
+
+  // ── Outlook Mail 2.2 Commit 2 — lifecycle trio ────────────────────────
+
+  test("new_email → move_email POSTs to /me/messages/{id}/move and exposes the new id", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-move-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Move",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "move_email",
+        config: {
+          emailId: messageId,
+          destinationFolderId: "archive",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.moveMessage).toHaveLength(1);
+    const move = calls.calls.moveMessage[0]!;
+    expect(move.messageId).toBe(messageId);
+    expect(move.destinationId).toBe("archive");
+    expect(move.authorization).toBe("Bearer ms-mock-e2e-access");
+
+    // Permanent-delete + categories endpoints must NOT have fired.
+    expect(calls.calls.deleteMessage).toHaveLength(0);
+    expect(calls.calls.patchMessage).toHaveLength(0);
+
+    // Action output exposes the new id Outlook re-keyed on move.
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    expect(stepOutput).toEqual({
+      moved: true,
+      emailId: messageId,
+      newId: move.responseNewId,
+      destinationFolderId: "archive",
+    });
+  });
+
+  test("new_email → delete_email with deleteMode='trash' moves to deleteditems (NOT permanent DELETE)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-trash-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Delete Trash",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "delete_email",
+        config: {
+          emailId: messageId,
+          deleteMode: "trash",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // trash mode hits move endpoint with destination "deleteditems"
+    expect(calls.calls.moveMessage).toHaveLength(1);
+    expect(calls.calls.moveMessage[0]!.messageId).toBe(messageId);
+    expect(calls.calls.moveMessage[0]!.destinationId).toBe("deleteditems");
+    // Permanent DELETE must NOT have fired.
+    expect(calls.calls.deleteMessage).toHaveLength(0);
+
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    expect(stepOutput).toEqual({
+      deleted: true,
+      emailId: messageId,
+      mode: "trash",
+    });
+  });
+
+  test("new_email → delete_email with deleteMode='permanent' DELETEs (NOT a move)", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-perm-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Delete Permanent",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "delete_email",
+        config: {
+          emailId: messageId,
+          deleteMode: "permanent",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // permanent mode hits DELETE endpoint.
+    expect(calls.calls.deleteMessage).toHaveLength(1);
+    expect(calls.calls.deleteMessage[0]!.messageId).toBe(messageId);
+    // Move endpoint must NOT have fired.
+    expect(calls.calls.moveMessage).toHaveLength(0);
+
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    expect(stepOutput).toEqual({
+      deleted: true,
+      emailId: messageId,
+      mode: "permanent",
+    });
+  });
+
+  test("new_email → add_categories parses CSV input and PATCHes /me/messages/{id} with categories[]", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-cat-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Add Categories",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "add_categories",
+        config: {
+          emailId: messageId,
+          // CSV with whitespace — parseCsvList trims + splits.
+          categories: "Important, Urgent, Follow-up",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.patchMessage).toHaveLength(1);
+    const patch = calls.calls.patchMessage[0]!;
+    expect(patch.messageId).toBe(messageId);
+    expect(patch.patch).toEqual({
+      categories: ["Important", "Urgent", "Follow-up"],
+    });
+    // Other lifecycle endpoints must NOT have fired.
+    expect(calls.calls.moveMessage).toHaveLength(0);
+    expect(calls.calls.deleteMessage).toHaveLength(0);
+
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    expect(stepOutput).toEqual({
+      categorized: true,
+      emailId: messageId,
+      categories: ["Important", "Urgent", "Follow-up"],
+    });
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -859,6 +1105,24 @@ interface MockInspect {
       authorization: string | undefined;
       body: Record<string, unknown>;
       responseDraftId: string;
+    }[];
+    /** Outlook Mail 2.2 Commit 2: move + trash-delete records. */
+    moveMessage: {
+      authorization: string | undefined;
+      messageId: string;
+      destinationId: string;
+      responseNewId: string;
+    }[];
+    /** Outlook Mail 2.2 Commit 2: permanent-delete records. */
+    deleteMessage: {
+      authorization: string | undefined;
+      messageId: string;
+    }[];
+    /** Outlook Mail 2.2 Commit 2: PATCH (add_categories) records. */
+    patchMessage: {
+      authorization: string | undefined;
+      messageId: string;
+      patch: Record<string, unknown>;
     }[];
     subscriptionsCreate: {
       authorization: string | undefined;

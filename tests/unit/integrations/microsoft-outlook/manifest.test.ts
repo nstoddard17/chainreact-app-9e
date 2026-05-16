@@ -88,18 +88,21 @@ describe("microsoft-outlook manifest", () => {
     expect(providerSupports("microsoft-outlook", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains the 2.1 compose-and-drafts set", () => {
-    // Outlook Mail 2.1 Commit 3 — registers reply_to_email, forward_email,
-    // and create_draft_email alongside Slice 6's send_email. fetch_emails
-    // / move_email / delete_email / add_categories land in 2.2;
-    // get_attachment lands in 2.3.
+  it("when actions: true, the action-handler registry contains the 2.1 + 2.2 set", () => {
+    // Outlook Mail 2.2 Commit 2 — adds move_email, delete_email, and
+    // add_categories alongside 2.1's send_email / reply_to_email /
+    // forward_email / create_draft_email. fetch_emails lands in 2.2
+    // Commit 3; get_attachment lands in 2.3.
     if (microsoftOutlookManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "microsoft-outlook",
       );
       expect(registered.map((r) => r.type).sort()).toEqual([
+        "add_categories",
         "create_draft_email",
+        "delete_email",
         "forward_email",
+        "move_email",
         "reply_to_email",
         "send_email",
       ]);
