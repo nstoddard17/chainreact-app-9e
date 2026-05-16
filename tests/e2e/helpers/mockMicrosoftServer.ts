@@ -193,6 +193,22 @@ export interface RecordedPatchMessage {
   patch: Record<string, unknown>;
 }
 
+/**
+ * Outlook Mail 2.2 Commit 3: list-messages hit log. fetch_emails
+ * routes $filter vs $search through the wrapper; the spec asserts the
+ * URL params to verify which path the handler exercised. `folderId`
+ * is captured separately because the wrapper branches the base URL
+ * (/me/messages vs /me/mailFolders/{id}/messages) on it.
+ */
+export interface RecordedListMessages {
+  authorization: string | undefined;
+  url: string;
+  folderId: string | null;
+  consistencyLevel: string | undefined;
+  searchParams: Record<string, string>;
+  returnedCount: number;
+}
+
 export interface RecordedSubscriptionsCreate {
   authorization: string | undefined;
   body: Record<string, unknown>;
@@ -439,6 +455,8 @@ export interface MockMicrosoftHandle {
     deleteMessage: RecordedDeleteMessage[];
     /** Outlook Mail 2.2 Commit 2 — PATCH (add_categories) records. */
     patchMessage: RecordedPatchMessage[];
+    /** Outlook Mail 2.2 Commit 3 — GET /me/messages list records. */
+    listMessages: RecordedListMessages[];
     eventsCreate: RecordedEventsCreate[];
     eventsGet: RecordedEventsGet[];
     driveItemsGet: RecordedDriveItemsGet[];
@@ -553,6 +571,7 @@ function freshState(): MutableState {
       moveMessage: [],
       deleteMessage: [],
       patchMessage: [],
+      listMessages: [],
       eventsCreate: [],
       eventsGet: [],
       driveItemsGet: [],
@@ -984,6 +1003,59 @@ async function handleRequest(
           }),
         }),
       );
+      return;
+    }
+  }
+
+  // ── Outlook Mail 2.2: Graph GET /me/messages and
+  //                     GET /me/mailFolders/{folderId}/messages ──
+  //
+  // Used by fetch_emails. Returns injected messages from state.messages,
+  // filtered by parentFolderId when a folderId path was specified. The
+  // request's $select / $top / $filter / $search are recorded verbatim
+  // for the spec to assert URL construction — the mock does NOT honor
+  // them server-side (we trust the handler-level unit tests for that;
+  // e2e is about wire-level integration).
+  //
+  // Matches /v1.0/me/messages exactly (no further path segments — the
+  // single-message GET below uses /v1.0/me/messages/{id} which is the
+  // ".../{id}" form, disjoint from this base).
+  {
+    const listFolderMatch = url.pathname.match(
+      /^\/v1\.0\/me\/mailFolders\/([^/]+)\/messages$/,
+    );
+    if (
+      req.method === "GET" &&
+      (url.pathname === "/v1.0/me/messages" || listFolderMatch)
+    ) {
+      const folderId = listFolderMatch
+        ? decodeURIComponent(listFolderMatch[1]!)
+        : null;
+      const allMessages = Array.from(state.messages.values()).map(
+        (m) => m.resource,
+      );
+      const filtered = folderId
+        ? allMessages.filter(
+            (msg) =>
+              (msg as Record<string, unknown>).parentFolderId === folderId,
+          )
+        : allMessages;
+      const searchParams: Record<string, string> = {};
+      url.searchParams.forEach((value, key) => {
+        searchParams[key] = value;
+      });
+      state.calls.listMessages.push({
+        authorization: req.headers.authorization,
+        url: req.url ?? "",
+        folderId,
+        consistencyLevel:
+          (req.headers["consistencylevel"] as string | undefined) ??
+          (req.headers["ConsistencyLevel"] as string | undefined),
+        searchParams,
+        returnedCount: filtered.length,
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ value: filtered }));
       return;
     }
   }

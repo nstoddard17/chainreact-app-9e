@@ -1051,6 +1051,232 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
       categories: ["Important", "Urgent", "Follow-up"],
     });
   });
+
+  // ── Outlook Mail 2.2 Commit 3 — fetch_emails ──────────────────────────
+
+  test("new_email → fetch_emails (no query) uses $filter + $orderby and projects bounded output", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const triggerMessageId = `AAMkAGI2-fetch-trig-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Fetch No-Query",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "fetch_emails",
+        config: {
+          startDate: "2026-05-01T00:00:00Z",
+          maxResults: 5,
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    // Inject a few additional messages so fetch_emails has a non-trivial
+    // result set. The mock's GET /me/messages returns all injected
+    // messages; the e2e walkthrough doesn't honor $filter server-side
+    // (handler unit tests cover that — e2e is wire-level).
+    for (let i = 0; i < 3; i += 1) {
+      await page.request.post(`${mock.baseUrl}/__injectMessage`, {
+        data: {
+          id: `extra-${i}-${randomUUID()}`,
+          subject: `Bulk email ${i}`,
+          from: {
+            emailAddress: { name: "Sender", address: "sender@example.test" },
+          },
+          toRecipients: [
+            {
+              emailAddress: { name: "Alice", address: "alice@example.test" },
+            },
+          ],
+          receivedDateTime: `2026-05-${10 + i}T12:00:00Z`,
+          bodyPreview: `Body ${i}`,
+          hasAttachments: false,
+          importance: "normal",
+          isRead: false,
+        },
+      });
+    }
+
+    await injectMessageAndNotify({
+      page,
+      mock,
+      messageId: triggerMessageId,
+    });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.listMessages).toHaveLength(1);
+    const list = calls.calls.listMessages[0]!;
+    // No folderId → cross-folder /me/messages.
+    expect(list.folderId).toBeNull();
+    // No-query path: $filter present with `receivedDateTime ge ...`,
+    // $orderby present, NO $search.
+    expect(list.searchParams.$filter).toMatch(/receivedDateTime ge/);
+    expect(list.searchParams.$orderby).toBe("receivedDateTime desc");
+    expect(list.searchParams.$search).toBeUndefined();
+    // $top equals maxResults.
+    expect(list.searchParams.$top).toBe("5");
+    // Required header for $search compatibility (also harmless here).
+    expect(list.consistencyLevel).toBe("eventual");
+
+    // Action output should expose 4 messages (1 from new_email trigger +
+    // 3 injected). Sliced to maxResults: 5, so all 4 fit.
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    const messages = stepOutput.messages as Array<Record<string, unknown>>;
+    expect(messages.length).toBeGreaterThanOrEqual(1);
+    expect(messages.length).toBeLessThanOrEqual(5);
+    expect(stepOutput.count).toBe(messages.length);
+    // Bounded shape — no raw Graph envelope leakage on a sample message.
+    const sample = messages[0]!;
+    expect(Object.keys(sample).sort()).toEqual(
+      [
+        "bodyPreview",
+        "cc",
+        "from",
+        "hasAttachments",
+        "id",
+        "importance",
+        "isRead",
+        "receivedDateTime",
+        "subject",
+        "to",
+      ].sort(),
+    );
+  });
+
+  test("new_email → fetch_emails (with query) uses $search and headroom $top, NO $orderby", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const triggerMessageId = `AAMkAGI2-search-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook Fetch With Query",
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "fetch_emails",
+        config: {
+          query: "invoice",
+          startDate: "2026-05-01T00:00:00Z",
+          endDate: "2026-05-31T23:59:59Z",
+          maxResults: 5,
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    // Inject 1 in-window + 1 out-of-window message ahead of the
+    // trigger so the client-side date filter has something deterministic
+    // to act on. The trigger message itself uses `new Date()` so its
+    // inclusion depends on the test runner's clock — we don't assert on it.
+    const inWindowId = `in-window-${randomUUID()}`;
+    const outOfWindowId = `out-of-window-${randomUUID()}`;
+    await page.request.post(`${mock.baseUrl}/__injectMessage`, {
+      data: {
+        id: inWindowId,
+        subject: "Invoice in window",
+        from: {
+          emailAddress: { name: "Vendor", address: "vendor@example.test" },
+        },
+        toRecipients: [
+          { emailAddress: { name: "Alice", address: "alice@example.test" } },
+        ],
+        receivedDateTime: "2026-05-15T12:00:00Z",
+        bodyPreview: "Invoice details...",
+        hasAttachments: false,
+        importance: "normal",
+        isRead: false,
+      },
+    });
+    await page.request.post(`${mock.baseUrl}/__injectMessage`, {
+      data: {
+        id: outOfWindowId,
+        subject: "Invoice from way back",
+        from: {
+          emailAddress: { name: "Vendor", address: "vendor@example.test" },
+        },
+        toRecipients: [
+          { emailAddress: { name: "Alice", address: "alice@example.test" } },
+        ],
+        receivedDateTime: "2020-01-01T00:00:00Z",
+        bodyPreview: "Old invoice",
+        hasAttachments: false,
+        importance: "normal",
+        isRead: true,
+      },
+    });
+
+    await injectMessageAndNotify({
+      page,
+      mock,
+      messageId: triggerMessageId,
+    });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    const run = runs[0]! as Record<string, unknown>;
+    expect(run.status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.listMessages).toHaveLength(1);
+    const list = calls.calls.listMessages[0]!;
+    // $search path — quoted query, NO $filter / $orderby at server.
+    expect(list.searchParams.$search).toBe('"invoice"');
+    expect(list.searchParams.$filter).toBeUndefined();
+    expect(list.searchParams.$orderby).toBeUndefined();
+    // $top = maxResults * 3 (headroom for client-side date filter).
+    expect(list.searchParams.$top).toBe("15");
+    // ConsistencyLevel header required for $search.
+    expect(list.consistencyLevel).toBe("eventual");
+
+    // Client-side date filter: the in-window injected message
+    // (2026-05-15) appears; the out-of-window one (2020-01-01) does NOT.
+    const steps = run.steps as Array<Record<string, unknown>>;
+    const actionStep = steps.find((s) => s.nodeId === "action-node")!;
+    const stepOutput = actionStep.output as Record<string, unknown>;
+    const messages = stepOutput.messages as Array<Record<string, unknown>>;
+    const ids = messages.map((m) => m.id as string);
+    expect(ids).toContain(inWindowId);
+    expect(ids).not.toContain(outOfWindowId);
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -1123,6 +1349,15 @@ interface MockInspect {
       authorization: string | undefined;
       messageId: string;
       patch: Record<string, unknown>;
+    }[];
+    /** Outlook Mail 2.2 Commit 3: GET /me/messages list records. */
+    listMessages: {
+      authorization: string | undefined;
+      url: string;
+      folderId: string | null;
+      consistencyLevel: string | undefined;
+      searchParams: Record<string, string>;
+      returnedCount: number;
     }[];
     subscriptionsCreate: {
       authorization: string | undefined;

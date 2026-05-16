@@ -89,10 +89,10 @@ describe("microsoft-outlook manifest", () => {
   });
 
   it("when actions: true, the action-handler registry contains the 2.1 + 2.2 set", () => {
-    // Outlook Mail 2.2 Commit 2 — adds move_email, delete_email, and
-    // add_categories alongside 2.1's send_email / reply_to_email /
-    // forward_email / create_draft_email. fetch_emails lands in 2.2
-    // Commit 3; get_attachment lands in 2.3.
+    // Outlook Mail 2.2 Commit 3 — fetch_emails joins the 2.2 lifecycle
+    // trio (move_email / delete_email / add_categories) and 2.1's
+    // compose set (send_email / reply_to_email / forward_email /
+    // create_draft_email). get_attachment lands in 2.3.
     if (microsoftOutlookManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "microsoft-outlook",
@@ -101,6 +101,7 @@ describe("microsoft-outlook manifest", () => {
         "add_categories",
         "create_draft_email",
         "delete_email",
+        "fetch_emails",
         "forward_email",
         "move_email",
         "reply_to_email",
