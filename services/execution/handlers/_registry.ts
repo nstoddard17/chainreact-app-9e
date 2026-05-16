@@ -120,8 +120,11 @@ import { getTeamMembers as teamsGetTeamMembers } from "@/integrations/microsoft-
 import { replyToChannelMessage as teamsReplyToChannelMessage } from "@/integrations/microsoft-teams/actions/replyToChannelMessage";
 import { sendChannelMessage as teamsSendChannelMessage } from "@/integrations/microsoft-teams/actions/sendChannelMessage";
 import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsoft-teams/actions/sendChatMessage";
+import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
+import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
 import { forwardEmail as forwardOutlookEmail } from "@/integrations/microsoft-outlook/actions/forwardEmail";
+import { moveEmail as moveOutlookEmail } from "@/integrations/microsoft-outlook/actions/moveEmail";
 import { replyToEmail as replyToOutlookEmail } from "@/integrations/microsoft-outlook/actions/replyToEmail";
 import { sendEmail as sendOutlookEmail } from "@/integrations/microsoft-outlook/actions/sendEmail";
 import { addAttendees as addOutlookCalendarAttendees } from "@/integrations/microsoft-outlook-calendar/actions/addAttendees";
@@ -203,6 +206,12 @@ import { findSubscription as stripeFindSubscription } from "@/integrations/strip
 import { getPayments as stripeGetPayments } from "@/integrations/stripe/actions/getPayments";
 import { updateCustomer as stripeUpdateCustomer } from "@/integrations/stripe/actions/updateCustomer";
 import { updateSubscription as stripeUpdateSubscription } from "@/integrations/stripe/actions/updateSubscription";
+// Native-nodes Slice 1 — Tier A pure-handler ports
+// (docs/slices/parity/parity-native-nodes.md §7 Tier A +
+// docs/slices/parity/native-nodes-1-tier-a-plan.md). No OAuth /
+// manifest / scopes — registered directly into the handler registry
+// under providerId "native".
+import { httpRequest as nativeHttpRequest } from "@/integrations/native/actions/httpRequest";
 import type { ActionHandler } from "./types";
 
 /**
@@ -327,6 +336,13 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-outlook", type: "reply_to_email", handler: replyToOutlookEmail },
   { provider: "microsoft-outlook", type: "forward_email", handler: forwardOutlookEmail },
   { provider: "microsoft-outlook", type: "create_draft_email", handler: createOutlookDraftEmail },
+  // Outlook Mail 2.2 Commit 2 — lifecycle trio (parity audit §7 PORT
+  // set + 2.2 plan §6). All three require Mail.ReadWrite (already in
+  // manifest from 2.1 P-O1). delete_email has REQUIRED Q11 deleteMode
+  // enum — no destructive hidden defaults.
+  { provider: "microsoft-outlook", type: "move_email", handler: moveOutlookEmail },
+  { provider: "microsoft-outlook", type: "delete_email", handler: deleteOutlookEmail },
+  { provider: "microsoft-outlook", type: "add_categories", handler: addOutlookCategories },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
@@ -487,6 +503,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "trello", type: "add_label_to_card", handler: trelloAddLabelToCard },
   { provider: "trello", type: "create_list", handler: trelloCreateList },
   { provider: "trello", type: "create_board", handler: trelloCreateBoard },
+  // Native-nodes Slice 1 Commit 1 — Tier A pure-handler port.
+  // Pure handler: no OAuth, no integration lookup, no manifest entry.
+  // Dispatched by the engine via the standard (provider, type) key.
+  { provider: "native", type: "http_request", handler: nativeHttpRequest },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
