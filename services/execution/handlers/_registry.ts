@@ -123,6 +123,7 @@ import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsof
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
+import { fetchEmails as fetchOutlookEmails } from "@/integrations/microsoft-outlook/actions/fetchEmails";
 import { forwardEmail as forwardOutlookEmail } from "@/integrations/microsoft-outlook/actions/forwardEmail";
 import { moveEmail as moveOutlookEmail } from "@/integrations/microsoft-outlook/actions/moveEmail";
 import { replyToEmail as replyToOutlookEmail } from "@/integrations/microsoft-outlook/actions/replyToEmail";
@@ -212,6 +213,7 @@ import { updateSubscription as stripeUpdateSubscription } from "@/integrations/s
 // manifest / scopes — registered directly into the handler registry
 // under providerId "native".
 import { httpRequest as nativeHttpRequest } from "@/integrations/native/actions/httpRequest";
+import { formatTransformer as nativeFormatTransformer } from "@/integrations/native/actions/formatTransformer";
 import type { ActionHandler } from "./types";
 
 /**
@@ -343,6 +345,10 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-outlook", type: "move_email", handler: moveOutlookEmail },
   { provider: "microsoft-outlook", type: "delete_email", handler: deleteOutlookEmail },
   { provider: "microsoft-outlook", type: "add_categories", handler: addOutlookCategories },
+  // Outlook Mail 2.2 Commit 3 — V1-shape fetch_emails (D-OM1). Read-
+  // only; Mail.Read scope already in manifest. Owns $filter vs $search
+  // mutual-exclusion routing inside the wrapper.
+  { provider: "microsoft-outlook", type: "fetch_emails", handler: fetchOutlookEmails },
   { provider: "microsoft-outlook-calendar", type: "create_event", handler: createOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "list_events", handler: listOutlookCalendarEvents },
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
@@ -503,10 +509,19 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "trello", type: "add_label_to_card", handler: trelloAddLabelToCard },
   { provider: "trello", type: "create_list", handler: trelloCreateList },
   { provider: "trello", type: "create_board", handler: trelloCreateBoard },
-  // Native-nodes Slice 1 Commit 1 — Tier A pure-handler port.
-  // Pure handler: no OAuth, no integration lookup, no manifest entry.
+  // Native-nodes Slice 1 — Tier A pure-handler ports.
+  // Pure handlers: no OAuth, no integration lookup, no manifest entry.
   // Dispatched by the engine via the standard (provider, type) key.
   { provider: "native", type: "http_request", handler: nativeHttpRequest },
+  // Native-nodes Slice 1 Commit 2 — text format converter
+  // (HTML / Markdown / Plain / Slack Markdown). In-tree converter; no
+  // turndown / no LLM / no network. See
+  // docs/slices/parity/native-nodes-1-tier-a-plan.md §5.
+  {
+    provider: "native",
+    type: "format_transformer",
+    handler: nativeFormatTransformer,
+  },
 ];
 
 const byKey: ReadonlyMap<string, ActionHandler> = (() => {
