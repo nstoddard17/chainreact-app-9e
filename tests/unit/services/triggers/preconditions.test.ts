@@ -125,6 +125,56 @@ describe("checkActivationPreconditions — activate", () => {
   });
 });
 
+describe("checkActivationPreconditions — native pseudo-provider", () => {
+  // Native nodes (http_request / format_transformer / delay — Native Slice 1
+  // Tier A) have providerId "native" but no `integrations` row / no OAuth.
+  // The activation gate skips them so workflows using native nodes can be
+  // activated. See docs/slices/parity/native-nodes-1-tier-a-plan.md §7.
+
+  const nativeAction = {
+    id: "native-1",
+    kind: "action" as const,
+    provider: "native",
+    type: "delay",
+    config: { seconds: 5 },
+    position: { x: 0, y: 100 },
+  };
+
+  it("activates a workflow whose only action is a native node, with the OAuth provider present for the trigger", async () => {
+    mockListActiveByUser.mockResolvedValueOnce([{ provider: "slack" }]);
+    const result = await checkActivationPreconditions(
+      makeWorkflow([slackTrigger, nativeAction]),
+      "activate",
+    );
+    expect(result.ok).toBe(true);
+    expect(mockListActiveByUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT add an INTEGRATION_NOT_CONNECTED failure for the native provider", async () => {
+    mockListActiveByUser.mockResolvedValueOnce([]);
+    const result = await checkActivationPreconditions(
+      makeWorkflow([slackTrigger, nativeAction]),
+      "activate",
+    );
+    expect(result.ok).toBe(false);
+    // Exactly one failure (for slack) — none for native.
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures?.[0]?.message).toMatch(/slack/);
+    expect(result.failures?.[0]?.message).not.toMatch(/native/);
+  });
+
+  it("skips integrations lookup entirely when every node is native", async () => {
+    const allNative = makeWorkflow([
+      { ...nativeAction, id: "n1", type: "http_request" },
+      { ...nativeAction, id: "n2", type: "format_transformer" },
+      { ...nativeAction, id: "n3", type: "delay" },
+    ]);
+    const result = await checkActivationPreconditions(allNative, "activate");
+    expect(result).toEqual({ ok: true });
+    expect(mockListActiveByUser).not.toHaveBeenCalled();
+  });
+});
+
 describe("checkActivationPreconditions — resume", () => {
   it("re-runs the same gate for resume (rule §eligible_to_resume must re-check)", async () => {
     mockListActiveByUser.mockResolvedValueOnce([]);
