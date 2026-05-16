@@ -5,8 +5,12 @@ import { checkValidationHandshake } from "@/integrations/_shared/microsoft/webho
 import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import { getMessage } from "../api/getMessage";
+import { getMessage, type GraphMessage } from "../api/getMessage";
 import { normalize } from "../triggers/newEmail/normalize";
+import {
+  NewEmailTriggerFilterSchema,
+  extractNewEmailFilterFields,
+} from "../triggers/newEmail/configSchema";
 
 /**
  * Verify and parse an inbound Microsoft Graph notification.
@@ -183,7 +187,25 @@ export async function receiveOutlookWebhook(
       throw err;
     }
 
-    // 4. Normalize → TriggerEvent. accountId on the event is the
+    // 4. Per-trigger receive-time filtering. Each trigger eventType
+    //    owns its own filter schema + match logic. Slice 6 baseline
+    //    new_email workflows have NO filter fields in their config —
+    //    the schema's defaults converge to "no filter" so they fire
+    //    unchanged.
+    //
+    //    Outlook Mail 2.3 D-OM3 — new_email filters (5 V1 filters,
+    //    folder via subscription resource handled in activate.ts; the
+    //    rest applied here). email_sent / email_flagged filters ship
+    //    in Commit 3 of the slice.
+    if (trigger.eventType === "new_email") {
+      if (!shouldFireNewEmail(message, trigger.config)) {
+        continue;
+      }
+    }
+    // Other eventTypes (`email_sent`, `email_flagged`) wire their
+    // filter logic in Outlook Mail 2.3 Commit 3.
+
+    // 5. Normalize → TriggerEvent. accountId on the event is the
     //    integration's providerAccountId (the email), matching how
     //    Sheets / Gmail / Calendar populate it.
     events.push(
@@ -197,4 +219,64 @@ export async function receiveOutlookWebhook(
   }
 
   return { kind: "events", events };
+}
+
+/**
+ * Apply the 5 V1 new_email filters at receive-time (folder handled at
+ * activate-time via subscription resource routing). Returns `false`
+ * when the message should be dropped (filter mismatch); `true` when
+ * the trigger should fire.
+ *
+ * D-OM3 — V1 defaults preserved (subjectExactMatch: true,
+ * hasAttachment: "any", importance: "any"). Slice 6 baseline workflows
+ * with no filter config pass through unchanged.
+ *
+ * Filter logic mirrors V1's mega-route at app/api/webhooks/microsoft/route.ts:
+ *   - `from`: case-insensitive exact match against sender address.
+ *   - `subject` + `subjectExactMatch`: exact (case-insensitive) or
+ *     substring match.
+ *   - `hasAttachment` ("any" | "yes" | "no"): expected vs actual.
+ *   - `importance` ("any" | "high" | "normal" | "low"): match level.
+ */
+function shouldFireNewEmail(
+  message: GraphMessage,
+  rawConfig: Readonly<Record<string, unknown>>,
+): boolean {
+  const filter = NewEmailTriggerFilterSchema.parse(
+    extractNewEmailFilterFields(rawConfig),
+  );
+
+  // `from` filter — V1 single-email-string exact match.
+  if (filter.from !== undefined) {
+    const expected = filter.from.toLowerCase().trim();
+    const actual =
+      message.from?.emailAddress?.address?.toLowerCase().trim() ?? "";
+    if (actual !== expected) return false;
+  }
+
+  // `subject` filter — exact OR substring based on subjectExactMatch.
+  if (filter.subject !== undefined && filter.subject.length > 0) {
+    const expected = filter.subject.toLowerCase().trim();
+    const actual = (message.subject ?? "").toLowerCase().trim();
+    if (filter.subjectExactMatch) {
+      if (actual !== expected) return false;
+    } else {
+      if (!actual.includes(expected)) return false;
+    }
+  }
+
+  // `hasAttachment` filter — "any" passes; "yes"/"no" gates.
+  if (filter.hasAttachment !== "any") {
+    const expectsAttachment = filter.hasAttachment === "yes";
+    const has = message.hasAttachments === true;
+    if (expectsAttachment !== has) return false;
+  }
+
+  // `importance` filter — "any" passes; otherwise require match.
+  if (filter.importance !== "any") {
+    const actual = (message.importance ?? "normal").toLowerCase();
+    if (actual !== filter.importance) return false;
+  }
+
+  return true;
 }

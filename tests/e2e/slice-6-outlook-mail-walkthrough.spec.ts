@@ -1277,6 +1277,112 @@ test.describe("Slice 6 — full Microsoft Outlook walkthrough", () => {
     expect(ids).toContain(inWindowId);
     expect(ids).not.toContain(outOfWindowId);
   });
+
+  // ── Outlook Mail 2.3 Commit 2 — new_email filter expansion (D-OM3) ─────
+
+  test("new_email with filters fires when the message matches all 5 filter fields", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const messageId = `AAMkAGI2-filter-match-${randomUUID()}`;
+
+    // Filters chosen to match the default injectMessageAndNotify payload:
+    //   from: bob@e2e.test, subject: "Trigger message",
+    //   hasAttachments: false, importance: "normal".
+    // `subjectExactMatch: false` exercises substring match (the default
+    // sample subject is "Trigger message"; configured filter is "Trigger").
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook new_email filters match",
+      triggerConfig: {
+        from: "bob@e2e.test",
+        subject: "Trigger",
+        subjectExactMatch: false,
+        hasAttachment: "no",
+        importance: "normal",
+      },
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "send_email",
+        config: {
+          to: "filter-match@example.test",
+          subject: "Filter matched",
+          body: "ok",
+          isHtml: false,
+          importance: "normal",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    await injectMessageAndNotify({ page, mock, messageId });
+
+    const runs = await waitFor(
+      async () => {
+        const rows = await getWorkflowRunsForUser(user.id);
+        return rows.length > 0 ? rows : null;
+      },
+      { description: "workflow_runs row to appear", timeoutMs: 15_000 },
+    );
+    expect(runs).toHaveLength(1);
+    expect((runs[0] as Record<string, unknown>).status).toBe("succeeded");
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    // Trigger fired → action invoked → sendMail recorded.
+    expect(calls.calls.sendMail).toHaveLength(1);
+  });
+
+  test("new_email folder-scoped subscription POSTs the folder path to Graph", async ({
+    page,
+    request,
+  }) => {
+    if (!testUser) throw new Error("test user setup failed");
+    const user = testUser;
+    const mock = await readMicrosoftMockState();
+    await page.request.post(`${mock.baseUrl}/__reset`);
+
+    const folderId = `AAMkAGI2-folder-${randomUUID()}`;
+    await connectAndActivateWorkflow({
+      page,
+      request,
+      mock,
+      user,
+      workflowName: "E2E Outlook new_email folder-scoped",
+      triggerConfig: { folder: folderId },
+      actionNode: {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "microsoft-outlook",
+        type: "send_email",
+        config: {
+          to: "folder-test@example.test",
+          subject: "Folder-scoped",
+          body: "ok",
+          isHtml: false,
+          importance: "normal",
+        },
+        position: { x: 0, y: 100 },
+      },
+    });
+
+    const calls = await fetchMockCalls(request, mock.baseUrl);
+    expect(calls.calls.subscriptionsCreate).toHaveLength(1);
+    const sub = calls.calls.subscriptionsCreate[0]!;
+    // Folder-scoped resource path — the activation hook composed the
+    // /me/mailFolders/{folderId}/messages URL from node.config.folder.
+    expect(sub.body.resource).toBe(`/me/mailFolders/${folderId}/messages`);
+    expect(sub.body.changeType).toBe("created");
+  });
 });
 
 // ── helpers ─────────────────────────────────────────────────────────────
@@ -1421,11 +1527,19 @@ async function connectAndActivateWorkflow(opts: {
   user: TestUser;
   workflowName: string;
   actionNode: Record<string, unknown>;
+  /**
+   * Outlook Mail 2.3 Commit 2 — optional trigger config (D-OM3 filters).
+   * Defaults to `{}` (Slice 6 zero-filter baseline). Workflows that need
+   * filter fields (`folder`, `from`, `subject`, `subjectExactMatch`,
+   * `hasAttachment`, `importance`) pass them here.
+   */
+  triggerConfig?: Record<string, unknown>;
 }): Promise<{
   workflowId: string;
   triggerConfig: { subscriptionId: string; clientState: string };
 }> {
   const { page, user, workflowName, actionNode } = opts;
+  const triggerConfigOverride = opts.triggerConfig ?? {};
 
   // Sign in.
   await signIn(page, user);
@@ -1458,7 +1572,7 @@ async function connectAndActivateWorkflow(opts: {
         kind: "trigger" as const,
         provider: "microsoft-outlook",
         type: "new_email",
-        config: {},
+        config: triggerConfigOverride,
         position: { x: 0, y: 0 },
       },
       actionNode,

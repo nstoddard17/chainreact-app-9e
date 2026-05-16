@@ -210,4 +210,130 @@ describe("Outlook new_email activate", () => {
       activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
     ).rejects.toThrow(/validation request failed/);
   });
+
+  // Outlook Mail 2.3 D-OM3 — folder-scoped subscription routing.
+
+  it("routes subscription to /me/mailFolders/{folder}/messages when node.config.folder is set", async () => {
+    mockCreateSubscription.mockResolvedValueOnce({
+      id: "sub-graph-folder",
+      resource: "/me/mailFolders/inbox/messages",
+      changeType: "created",
+      notificationUrl: "x",
+      expirationDateTime: "2026-05-11T00:00:00Z",
+    });
+
+    const result = await activate({
+      node: { ...baseNode, config: { folder: "inbox" } },
+      integration: baseIntegration,
+      workflowId: "wf-test",
+    });
+
+    const call = mockCreateSubscription.mock.calls[0]![0];
+    expect(call.resource).toBe("/me/mailFolders/inbox/messages");
+    expect(result.resource).toBe("/me/mailFolders/inbox/messages");
+  });
+
+  it("accepts a custom Graph folder id verbatim in the subscription resource", async () => {
+    mockCreateSubscription.mockResolvedValueOnce({
+      id: "s",
+      resource: "/me/mailFolders/AAMkAGI2-custom-folder/messages",
+      changeType: "created",
+      notificationUrl: "x",
+      expirationDateTime: "x",
+    });
+
+    await activate({
+      node: {
+        ...baseNode,
+        config: { folder: "AAMkAGI2-custom-folder" },
+      },
+      integration: baseIntegration,
+      workflowId: "wf-test",
+    });
+
+    const call = mockCreateSubscription.mock.calls[0]![0];
+    expect(call.resource).toBe(
+      "/me/mailFolders/AAMkAGI2-custom-folder/messages",
+    );
+  });
+
+  it("trims whitespace around the folder before composing the resource path", async () => {
+    mockCreateSubscription.mockResolvedValueOnce({
+      id: "s",
+      resource: "/me/mailFolders/inbox/messages",
+      changeType: "created",
+      notificationUrl: "x",
+      expirationDateTime: "x",
+    });
+
+    await activate({
+      node: { ...baseNode, config: { folder: "  inbox  " } },
+      integration: baseIntegration,
+      workflowId: "wf-test",
+    });
+
+    const call = mockCreateSubscription.mock.calls[0]![0];
+    expect(call.resource).toBe("/me/mailFolders/inbox/messages");
+  });
+
+  it("falls back to /me/messages when folder is an empty / whitespace-only string", async () => {
+    mockCreateSubscription.mockResolvedValueOnce({
+      id: "s",
+      resource: "/me/messages",
+      changeType: "created",
+      notificationUrl: "x",
+      expirationDateTime: "x",
+    });
+
+    await activate({
+      node: { ...baseNode, config: { folder: "   " } },
+      integration: baseIntegration,
+      workflowId: "wf-test",
+    });
+
+    const call = mockCreateSubscription.mock.calls[0]![0];
+    expect(call.resource).toBe("/me/messages");
+  });
+
+  it("falls back to /me/messages when folder is not a string", async () => {
+    mockCreateSubscription.mockResolvedValueOnce({
+      id: "s",
+      resource: "/me/messages",
+      changeType: "created",
+      notificationUrl: "x",
+      expirationDateTime: "x",
+    });
+
+    await activate({
+      node: {
+        ...baseNode,
+        config: { folder: { id: "x" } as unknown as string },
+      },
+      integration: baseIntegration,
+      workflowId: "wf-test",
+    });
+
+    const call = mockCreateSubscription.mock.calls[0]![0];
+    expect(call.resource).toBe("/me/messages");
+  });
+
+  it("preserves Slice 6 behavior when no folder field is set (backward compat)", async () => {
+    mockCreateSubscription.mockResolvedValueOnce({
+      id: "s",
+      resource: "/me/messages",
+      changeType: "created",
+      notificationUrl: "x",
+      expirationDateTime: "x",
+    });
+
+    const result = await activate({
+      node: baseNode, // config: {}
+      integration: baseIntegration,
+      workflowId: "wf-test",
+    });
+
+    const call = mockCreateSubscription.mock.calls[0]![0];
+    expect(call.resource).toBe("/me/messages");
+    expect(result.resource).toBe("/me/messages");
+  });
 });

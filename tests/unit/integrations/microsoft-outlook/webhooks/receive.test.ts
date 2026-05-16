@@ -353,3 +353,284 @@ describe("receiveOutlookWebhook — notifications", () => {
     expect(mockListByConfigContains).not.toHaveBeenCalled();
   });
 });
+
+// ── Outlook Mail 2.3 Commit 2 — new_email filter expansion (D-OM3) ───────
+
+describe("receiveOutlookWebhook — new_email filter expansion (D-OM3)", () => {
+  function notification(): string {
+    return JSON.stringify({
+      value: [
+        {
+          subscriptionId: "sub-1",
+          clientState: "deadbeef",
+          changeType: "created",
+          resourceData: { id: "msg-1" },
+        },
+      ],
+    });
+  }
+
+  function makeTrigger(filterFields: Record<string, unknown>) {
+    return {
+      ...baseTrigger,
+      config: { ...baseTrigger.config, ...filterFields },
+    };
+  }
+
+  it("fires unchanged when no filter fields are configured (Slice 6 backward compat)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([baseTrigger]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  // `from` filter — case-insensitive exact match on sender address.
+
+  it("fires when `from` filter matches the message sender (case-insensitive)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ from: "BOB@x.com" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("drops when `from` filter does NOT match the sender", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ from: "different@x.com" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+
+  // `subject` filter — exact vs substring per `subjectExactMatch`.
+
+  it("fires on `subject` exact-match (default subjectExactMatch: true)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ subject: "Hello" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("drops on `subject` exact-match mismatch", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ subject: "Different Subject" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+
+  it("fires on `subject` substring match when subjectExactMatch=false", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ subject: "ello", subjectExactMatch: false }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("drops on `subject` substring mismatch when subjectExactMatch=false", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ subject: "Quarterly", subjectExactMatch: false }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+
+  // `hasAttachment` filter — enum "any" | "yes" | "no".
+
+  it("fires regardless of attachment status when hasAttachment='any' (V1 default)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ hasAttachment: "any" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      hasAttachments: false,
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("fires when hasAttachment='yes' and the message has attachments", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ hasAttachment: "yes" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      hasAttachments: true,
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("drops when hasAttachment='yes' but the message has none", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ hasAttachment: "yes" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      hasAttachments: false,
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+
+  it("drops when hasAttachment='no' but the message has attachments", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ hasAttachment: "no" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      hasAttachments: true,
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+
+  // `importance` filter — enum "any" | "high" | "normal" | "low".
+
+  it("fires regardless of importance when importance='any' (V1 default)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ importance: "any" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      importance: "low",
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("fires when importance='high' matches the message", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ importance: "high" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      importance: "high",
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("drops when importance='high' but the message is normal", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({ importance: "high" }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce({
+      ...SAMPLE_GRAPH_MESSAGE,
+      importance: "normal",
+    });
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+
+  // Compound — all filters must pass.
+
+  it("fires only when ALL configured filters match (compound AND)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({
+        from: "bob@x.com",
+        subject: "Hello",
+        hasAttachment: "no",
+        importance: "normal",
+      }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    if (result.kind !== "events") throw new Error("unreachable");
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("drops when ANY configured filter fails (compound AND)", async () => {
+    mockListByConfigContains.mockResolvedValueOnce([
+      makeTrigger({
+        from: "bob@x.com",  // matches
+        subject: "Hello",   // matches
+        hasAttachment: "no", // matches
+        importance: "high",  // FAILS — message is normal
+      }),
+    ]);
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockGetMessage.mockResolvedValueOnce(SAMPLE_GRAPH_MESSAGE);
+
+    const result = await receiveOutlookWebhook(
+      makeRequest({ body: notification() }),
+    );
+    expect(result).toEqual({ kind: "events", events: [] });
+  });
+});

@@ -37,8 +37,30 @@ import { createSubscription } from "@/integrations/_shared/microsoft/api/subscri
  */
 
 const SUBSCRIPTION_TYPE = "subscription-watch";
-const RESOURCE = "/me/messages";
+const DEFAULT_RESOURCE = "/me/messages";
 const CHANGE_TYPE = "created";
+
+/**
+ * Outlook Mail 2.3 D-OM3 — folder-scoped subscription routing.
+ *
+ * When `node.config.folder` is a non-empty string, the activation hook
+ * subscribes to the folder-scoped resource instead of `/me/messages`.
+ * Matches V1's MicrosoftGraphTriggerLifecycle line 531-537. Lower
+ * bandwidth than receive-time folder filtering — Graph only emits
+ * notifications for messages in the chosen folder.
+ *
+ * Folder ids may be well-known names (`inbox`, `sentitems`, etc.) OR
+ * custom Graph folder ids; the activate hook passes them verbatim. The
+ * receive route applies any additional non-folder filters (sender,
+ * subject, hasAttachment, importance) at receive-time.
+ */
+function resolveResource(config: Readonly<Record<string, unknown>>): string {
+  const folder = config.folder;
+  if (typeof folder === "string" && folder.trim().length > 0) {
+    return `/me/mailFolders/${folder.trim()}/messages`;
+  }
+  return DEFAULT_RESOURCE;
+}
 
 /**
  * Microsoft's max for Outlook /me/messages = 4230 minutes (~70.5h ≈
@@ -87,9 +109,10 @@ function expirationFromNow(now: Date = new Date()): string {
   return t.toISOString();
 }
 
-export const activate: ActivationFn = async ({ integration }) => {
+export const activate: ActivationFn = async ({ integration, node }) => {
   const clientState = generateClientState();
   const expiresAt = expirationFromNow();
+  const resource = resolveResource(node.config);
 
   const result = await refreshAndRetry({
     userId: integration.userId,
@@ -98,7 +121,7 @@ export const activate: ActivationFn = async ({ integration }) => {
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,
-        resource: RESOURCE,
+        resource,
         changeType: CHANGE_TYPE,
         notificationUrl: notificationUrl(),
         // Required for any subscription with expirationDateTime > 1h.
@@ -111,11 +134,13 @@ export const activate: ActivationFn = async ({ integration }) => {
 
   // Return value Graph echoes is authoritative for `id` and
   // `expirationDateTime`. Graph may round the expiration down — use
-  // what Graph gave us, not what we requested.
+  // what Graph gave us, not what we requested. The resolved resource
+  // is persisted so the renewal hook + receive-time logging can verify
+  // it later.
   return {
     type: SUBSCRIPTION_TYPE,
     webhookEnabled: true,
-    resource: RESOURCE,
+    resource,
     changeType: CHANGE_TYPE,
     subscriptionId: result.id,
     clientState,

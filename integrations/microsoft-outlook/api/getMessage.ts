@@ -34,6 +34,24 @@ export interface GraphRecipientField {
   emailAddress?: GraphEmailAddress;
 }
 
+/**
+ * Microsoft Graph followup-flag block.
+ *
+ * Outlook Mail 2.3 — used by the `email_flagged` trigger's receive-time
+ * filter (D-OM4 V1-parity over-fire) AND surfaced in the trigger's
+ * normalized payload so workflows can branch on `flagStatus` /
+ * `dueDateTime` / `completedDateTime` downstream.
+ *
+ * Graph nests datetime fields as `{ dateTime, timeZone }`; the
+ * normalizer flattens to ISO strings for downstream consumption.
+ */
+export interface GraphMessageFlag {
+  flagStatus?: "notFlagged" | "flagged" | "complete";
+  completedDateTime?: { dateTime: string; timeZone?: string };
+  dueDateTime?: { dateTime: string; timeZone?: string };
+  startDateTime?: { dateTime: string; timeZone?: string };
+}
+
 export interface GraphMessage {
   id: string;
   conversationId?: string;
@@ -50,9 +68,25 @@ export interface GraphMessage {
   bccRecipients?: GraphRecipientField[];
   receivedDateTime?: string;
   sentDateTime?: string;
+  /** Last-modified timestamp — used by email_flagged's normalize. */
+  lastModifiedDateTime?: string;
   hasAttachments?: boolean;
   importance?: "low" | "normal" | "high";
   webLink?: string;
+  /**
+   * Parent folder id (Graph message envelope field). Used by the
+   * receive route as defense-in-depth — verifies that a notification
+   * delivered against `/me/mailFolders/{folder}/messages` matches its
+   * folder-scoped subscription mid-flight if a message was moved.
+   */
+  parentFolderId?: string;
+  /**
+   * Followup flag — present on every Graph message envelope (Graph
+   * returns `flag: { flagStatus: "notFlagged" }` for unflagged messages
+   * by default). Used by the `email_flagged` trigger receive-time
+   * filter (Outlook Mail 2.3 D-OM4).
+   */
+  flag?: GraphMessageFlag;
 }
 
 export interface GetMessageInput {
