@@ -9,10 +9,12 @@
 
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
+const mockListProviderActions = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
+  listProviderActions: (p: string) => mockListProviderActions(p),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -26,6 +28,7 @@ import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
+import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 
@@ -128,8 +131,13 @@ beforeEach(() => {
     manualTriggerMeta,
     scheduledTriggerMeta,
   ]);
+  mockListProviderActions.mockReset();
+  // Default: every provider returns an empty actions list; individual
+  // provider-action tests override per-provider as needed.
+  mockListProviderActions.mockResolvedValue([]);
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
+  __resetProviderActionsCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });
@@ -258,19 +266,18 @@ describe("ConfigModalShell — router placeholder", () => {
   });
 });
 
-describe("ConfigModalShell — non-native node", () => {
-  it("renders a 'Provider-action configuration arrives in Slice 3.4' notice", async () => {
+describe("ConfigModalShell — provider trigger placeholder (Slice 3.4 deferred surface)", () => {
+  it("renders a 'Provider-trigger configuration arrives in a later slice' notice", async () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
-    useGraphSlice.getState().addTrigger({ provider: "slack" });
     const node = useGraphSlice
       .getState()
-      .addAction({ provider: "slack", type: "send_channel_message" });
+      .addTrigger({ provider: "slack", type: "message_received" });
     useConfigSlice
       .getState()
       .openNode({ nodeId: node.id, initialValues: node.config });
     render(<ConfigModalShell />);
     expect(
-      screen.getByText(/Provider-action configuration arrives in Slice 3.4/i),
+      screen.getByText(/Provider-trigger configuration arrives in a later slice/i),
     ).toBeInTheDocument();
   });
 });
@@ -367,7 +374,7 @@ describe("ConfigModalShell — native trigger open state", () => {
 });
 
 describe("ConfigModalShell — non-native trigger placeholder", () => {
-  it("renders a 'Provider-trigger configuration arrives in Slice 3.4' notice", async () => {
+  it("renders a 'Provider-trigger configuration arrives in a later slice' notice", async () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
     const node = useGraphSlice
       .getState()
@@ -377,7 +384,7 @@ describe("ConfigModalShell — non-native trigger placeholder", () => {
       .openNode({ nodeId: node.id, initialValues: node.config });
     render(<ConfigModalShell />);
     expect(
-      screen.getByText(/Provider-trigger configuration arrives in Slice 3.4/i),
+      screen.getByText(/Provider-trigger configuration arrives in a later slice/i),
     ).toBeInTheDocument();
   });
 });
@@ -397,5 +404,231 @@ describe("ConfigModalShell — missing trigger meta", () => {
         /No metadata for trigger/i,
       );
     });
+  });
+});
+
+// ─── Slice 3.4 — provider action rendering ────────────────────────────────────
+
+const githubAddCommentMeta: ActionMeta = {
+  key: "github:add_comment",
+  provider: "github",
+  type: "add_comment",
+  displayName: "Add Comment",
+  description: "Add a comment to a GitHub issue or PR.",
+  category: "developer",
+  requiresIntegration: true,
+  fields: [
+    {
+      name: "repository",
+      label: "Repository",
+      type: "text",
+      required: true,
+      placeholder: "octocat/hello-world",
+    },
+    {
+      name: "issueNumber",
+      label: "Issue or PR Number",
+      type: "number",
+      required: true,
+      numeric: { min: 1, integer: true, step: 1 },
+    },
+    {
+      name: "body",
+      label: "Body",
+      type: "textarea",
+      required: true,
+      defaultValue: "",
+    },
+  ],
+  outputs: [],
+  producesFileRef: false,
+  consumesFileRef: false,
+  displayOrder: 60,
+};
+
+function bootWithProviderAction(meta: ActionMeta) {
+  useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+  useGraphSlice.getState().addTrigger({ provider: "slack" });
+  const node = useGraphSlice.getState().addActionFromMeta(meta);
+  useConfigSlice
+    .getState()
+    .openNode({ nodeId: node.id, initialValues: node.config });
+  return { nodeId: node.id };
+}
+
+describe("ConfigModalShell — provider action open state", () => {
+  it("looks up the meta through useProviderActions(provider) and renders displayName + description", async () => {
+    mockListProviderActions.mockResolvedValueOnce([githubAddCommentMeta]);
+    bootWithProviderAction(githubAddCommentMeta);
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByText("Add Comment")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Add a comment to a GitHub issue or PR."),
+    ).toBeInTheDocument();
+    expect(mockListProviderActions).toHaveBeenCalledWith("github");
+  });
+
+  it("renders the provider meta's fields through SchemaForm", async () => {
+    mockListProviderActions.mockResolvedValueOnce([githubAddCommentMeta]);
+    bootWithProviderAction(githubAddCommentMeta);
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Repository")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Issue or PR Number")).toBeInTheDocument();
+    expect(screen.getByLabelText("Body")).toBeInTheDocument();
+  });
+
+  it("Save writes the provider-action draft into graphSlice", async () => {
+    mockListProviderActions.mockResolvedValueOnce([githubAddCommentMeta]);
+    const { nodeId } = bootWithProviderAction(githubAddCommentMeta);
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Repository")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Repository"), "octocat/hello-world");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    const persisted = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === nodeId);
+    expect(persisted?.config).toMatchObject({
+      repository: "octocat/hello-world",
+    });
+    expect(useConfigSlice.getState().drafts[nodeId]!.isDirty).toBe(false);
+  });
+
+  it("Cancel discards the provider-action draft without touching graphSlice config", async () => {
+    mockListProviderActions.mockResolvedValueOnce([githubAddCommentMeta]);
+    const { nodeId } = bootWithProviderAction(githubAddCommentMeta);
+    const before = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === nodeId)!.config;
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Repository")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Repository"), "abandoned");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
+    const after = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === nodeId)!.config;
+    expect(after).toEqual(before);
+  });
+
+  it("Save button is disabled while the provider-action draft is clean", async () => {
+    mockListProviderActions.mockResolvedValueOnce([githubAddCommentMeta]);
+    bootWithProviderAction(githubAddCommentMeta);
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Repository")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  });
+
+  it("surfaces a per-provider loading state while the provider catalog resolves", async () => {
+    let resolveFetch: (v: readonly ActionMeta[]) => void = () => {};
+    mockListProviderActions.mockReturnValueOnce(
+      new Promise<readonly ActionMeta[]>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    bootWithProviderAction(githubAddCommentMeta);
+    render(<ConfigModalShell />);
+    expect(screen.getByText(/^loading…$/i)).toBeInTheDocument();
+    resolveFetch([githubAddCommentMeta]);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Repository")).toBeInTheDocument();
+    });
+  });
+
+  it("surfaces an alert when the provider catalog fetch fails", async () => {
+    mockListProviderActions.mockRejectedValueOnce(new Error("github offline"));
+    bootWithProviderAction(githubAddCommentMeta);
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/github offline/i);
+    });
+  });
+
+  it("renders the missing-meta alert (with 'action' label) for an unknown provider action key", async () => {
+    // Catalog resolves to a different action — the lookup misses.
+    mockListProviderActions.mockResolvedValueOnce([
+      {
+        ...githubAddCommentMeta,
+        key: "github:create_issue",
+        type: "create_issue",
+        displayName: "Create Issue",
+      },
+    ]);
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const node = useGraphSlice.getState().addAction({
+      provider: "github",
+      type: "ghost_action",
+    });
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /No metadata for action/i,
+      );
+    });
+  });
+});
+
+describe("ConfigModalShell — provider-action lookup gating", () => {
+  it("does NOT fetch provider actions when the active node is a native action (no useless work)", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByText("HTTP Request")).toBeInTheDocument();
+    });
+    expect(mockListProviderActions).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fetch provider actions when the active node is a provider trigger", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTrigger({ provider: "slack", type: "message_received" });
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Provider-trigger configuration arrives/i),
+      ).toBeInTheDocument();
+    });
+    expect(mockListProviderActions).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fetch provider actions when the action node has no type yet", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    // addAction with no type → provider-action lookup is skipped
+    // because there's no `${provider}:${type}` to look up.
+    const node = useGraphSlice.getState().addAction({ provider: "github" });
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    // Renders the missing-meta alert.
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/No metadata/i);
+    });
+    expect(mockListProviderActions).not.toHaveBeenCalled();
   });
 });

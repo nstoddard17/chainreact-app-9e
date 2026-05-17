@@ -6,6 +6,8 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { useGraphSlice } from "../state/graphSlice";
 import { useNativeActions } from "../hooks/useNativeActions";
 import { useNativeTriggers } from "../hooks/useNativeTriggers";
+import { ActionPicker } from "./ActionPicker";
+import { TriggerPicker } from "./TriggerPicker";
 
 export interface ProviderOption {
   id: string;
@@ -22,22 +24,27 @@ type OpenMenu = "trigger" | "action" | null;
 /**
  * Picker for adding a trigger or action node.
  *
- * Slice 3.2 added a "Native" section to the action picker, sourced from
- * `useNativeActions()`. Slice 3.3 mirrors the same shape on the trigger
- * picker via `useNativeTriggers()` — the two native catalogs are loaded
- * on demand by their respective hooks (cached at module level once the
- * first picker opens).
+ * Slice 3.4 — `AddNodeMenu` is now the top-level toggle shell. The
+ * trigger / action picker bodies live in `TriggerPicker.tsx` and
+ * `ActionPicker.tsx` so each can own its own state (provider drill-in,
+ * loading / error) without bloating this file past the 300-line
+ * target.
  *
- * Selecting a native trigger / action creates a fully-typed node via
- * `addTriggerFromMeta` / `addActionFromMeta`, including default config
- * derived from the meta's field defaults. Provider picking keeps the
- * existing Slice 1I.2 behavior (a node with `type=""` and empty config)
- * — proper provider-config wrappers land in Slice 3.4.
+ * Behavior summary:
+ *   - Trigger picker (Slice 3.3): Native triggers from metadata +
+ *     provider triggers from the bare `addTrigger({provider})` path.
+ *     Provider-trigger wrappers are deferred (see Slice 3.4 brief).
+ *   - Action picker (Slice 3.4): Native + Providers. Picking a
+ *     provider drills into that provider's action list (via
+ *     `useProviderActions`). Picking ANY action — native or provider
+ *     — dispatches `addActionFromMeta` with metadata-derived defaults.
+ *     The legacy bare `addAction({provider})` path is no longer
+ *     reachable through this UI (the slice action stays exported so
+ *     tests + future surfaces can still use it directly).
  */
 export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const addTrigger = useGraphSlice((s) => s.addTrigger);
-  const addAction = useGraphSlice((s) => s.addAction);
   const addActionFromMeta = useGraphSlice((s) => s.addActionFromMeta);
   const addTriggerFromMeta = useGraphSlice((s) => s.addTriggerFromMeta);
   const [open, setOpen] = useState<OpenMenu>(null);
@@ -57,12 +64,7 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
     setOpen(null);
   }
 
-  function handleAddProviderAction(provider: ProviderOption) {
-    addAction({ provider: provider.id });
-    setOpen(null);
-  }
-
-  function handleAddNativeAction(meta: ActionMeta) {
+  function handlePickAction(meta: ActionMeta) {
     addActionFromMeta(meta);
     setOpen(null);
   }
@@ -109,175 +111,9 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
           nativeLoading={nativeActions.loading}
           nativeError={nativeActions.error}
           actionProviders={actionProviders}
-          onPickNative={handleAddNativeAction}
-          onPickProvider={handleAddProviderAction}
+          onPickAction={handlePickAction}
         />
       )}
     </div>
-  );
-}
-
-interface ActionPickerProps {
-  nativeActions: readonly ActionMeta[];
-  nativeLoading: boolean;
-  nativeError: string | null;
-  actionProviders: readonly ProviderOption[];
-  onPickNative: (meta: ActionMeta) => void;
-  onPickProvider: (provider: ProviderOption) => void;
-}
-
-function ActionPicker({
-  nativeActions,
-  nativeLoading,
-  nativeError,
-  actionProviders,
-  onPickNative,
-  onPickProvider,
-}: ActionPickerProps) {
-  return (
-    <div className="flex flex-col gap-3 rounded border border-input p-3">
-      <section aria-label="Native actions" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Native
-        </h3>
-        {nativeLoading ? (
-          <p className="text-xs text-muted-foreground">Loading native actions…</p>
-        ) : nativeError ? (
-          <p role="alert" className="text-xs text-destructive">
-            {nativeError}
-          </p>
-        ) : nativeActions.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No native actions available.</p>
-        ) : (
-          <ul aria-label="Native actions list" className="flex flex-col gap-1">
-            {nativeActions.map((meta) => (
-              <li key={meta.key}>
-                <button
-                  type="button"
-                  onClick={() => onPickNative(meta)}
-                  className="flex w-full flex-col gap-0.5 rounded border border-transparent bg-muted/50 px-3 py-2 text-left hover:border-input hover:bg-muted"
-                >
-                  <span className="text-sm font-medium">{meta.displayName}</span>
-                  <span className="text-xs text-muted-foreground line-clamp-2">
-                    {meta.description}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section aria-label="Provider actions" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Providers
-        </h3>
-        <ProviderList
-          aria-label="Action providers"
-          providers={actionProviders}
-          onPick={onPickProvider}
-          emptyMessage="No action providers available."
-        />
-      </section>
-    </div>
-  );
-}
-
-interface TriggerPickerProps {
-  nativeTriggers: readonly TriggerMeta[];
-  nativeLoading: boolean;
-  nativeError: string | null;
-  triggerProviders: readonly ProviderOption[];
-  onPickNative: (meta: TriggerMeta) => void;
-  onPickProvider: (provider: ProviderOption) => void;
-}
-
-function TriggerPicker({
-  nativeTriggers,
-  nativeLoading,
-  nativeError,
-  triggerProviders,
-  onPickNative,
-  onPickProvider,
-}: TriggerPickerProps) {
-  return (
-    <div className="flex flex-col gap-3 rounded border border-input p-3">
-      <section aria-label="Native triggers" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Native
-        </h3>
-        {nativeLoading ? (
-          <p className="text-xs text-muted-foreground">Loading native triggers…</p>
-        ) : nativeError ? (
-          <p role="alert" className="text-xs text-destructive">
-            {nativeError}
-          </p>
-        ) : nativeTriggers.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No native triggers available.</p>
-        ) : (
-          <ul aria-label="Native triggers list" className="flex flex-col gap-1">
-            {nativeTriggers.map((meta) => (
-              <li key={meta.key}>
-                <button
-                  type="button"
-                  onClick={() => onPickNative(meta)}
-                  className="flex w-full flex-col gap-0.5 rounded border border-transparent bg-muted/50 px-3 py-2 text-left hover:border-input hover:bg-muted"
-                >
-                  <span className="text-sm font-medium">{meta.displayName}</span>
-                  <span className="text-xs text-muted-foreground line-clamp-2">
-                    {meta.description}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section aria-label="Provider triggers" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Providers
-        </h3>
-        <ProviderList
-          aria-label="Trigger providers"
-          providers={triggerProviders}
-          onPick={onPickProvider}
-          emptyMessage="No trigger providers available."
-        />
-      </section>
-    </div>
-  );
-}
-
-interface ProviderListProps {
-  providers: readonly ProviderOption[];
-  onPick: (provider: ProviderOption) => void;
-  emptyMessage: string;
-  "aria-label": string;
-}
-
-function ProviderList({
-  providers,
-  onPick,
-  emptyMessage,
-  ...rest
-}: ProviderListProps) {
-  if (providers.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground">{emptyMessage}</p>
-    );
-  }
-  return (
-    <ul aria-label={rest["aria-label"]} className="flex flex-wrap gap-2">
-      {providers.map((p) => (
-        <li key={p.id}>
-          <button
-            type="button"
-            onClick={() => onPick(p)}
-            className="rounded bg-muted px-3 py-1 text-sm"
-          >
-            {p.displayName}
-          </button>
-        </li>
-      ))}
-    </ul>
   );
 }

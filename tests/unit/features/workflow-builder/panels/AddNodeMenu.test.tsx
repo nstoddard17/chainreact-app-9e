@@ -9,10 +9,12 @@
 
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
+const mockListProviderActions = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
+  listProviderActions: (provider: string) => mockListProviderActions(provider),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -26,6 +28,7 @@ import { AddNodeMenu } from "@/features/workflow-builder/panels/AddNodeMenu";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
+import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 
@@ -123,8 +126,13 @@ beforeEach(() => {
     manualTriggerMeta,
     scheduledTriggerMeta,
   ]);
+  mockListProviderActions.mockReset();
+  // Default: every provider returns an empty actions list. Individual
+  // drill-in tests override per-provider with mockResolvedValueOnce.
+  mockListProviderActions.mockResolvedValue([]);
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
+  __resetProviderActionsCacheForTests();
 });
 
 describe("AddNodeMenu", () => {
@@ -173,7 +181,12 @@ describe("AddNodeMenu", () => {
     expect(screen.getByRole("button", { name: /add action/i })).toBeEnabled();
   });
 
-  it("dispatches addAction with the picked provider", async () => {
+  it("clicking a provider button drills into that provider's actions (no bare-add dispatch — Slice 3.4)", async () => {
+    // Slice 3.4 removed the legacy bare addAction({provider}) path from
+    // the picker. Clicking a provider now opens its action drill-in
+    // (loading state surfaces immediately, async list resolves below).
+    // The slice's addAction action itself is still exported for tests
+    // / future surfaces — see graphSlice.test.ts.
     useGraphSlice.getState().addTrigger({ provider: "slack" });
     const user = userEvent.setup();
     render(
@@ -183,10 +196,14 @@ describe("AddNodeMenu", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: /add action/i }));
-    await user.click(screen.getByRole("button", { name: /^Gmail$/ }));
-    const nodes = useGraphSlice.getState().pendingNodes;
-    expect(nodes).toHaveLength(2);
-    expect(nodes[1]).toMatchObject({ kind: "action", provider: "gmail" });
+    await user.click(
+      screen.getByRole("button", { name: /browse gmail actions/i }),
+    );
+    expect(
+      screen.getByRole("button", { name: /back to action picker/i }),
+    ).toBeInTheDocument();
+    // No action node added by the drill-in itself.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
   });
 
   it("renders an empty-state message when no trigger providers are available", async () => {
