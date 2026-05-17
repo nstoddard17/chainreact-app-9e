@@ -18,6 +18,7 @@ import {
   useProviderActions,
 } from "../hooks/useProviderActions";
 import { SchemaForm } from "./SchemaForm";
+import { validateRoutesValue } from "./fields/_routesValidator";
 
 /**
  * Config rail / modal shell for the currently-active node.
@@ -151,9 +152,24 @@ export function ConfigModalShell() {
   })();
   const isLoadingMeta = sourceState.loading;
   const metaError = sourceState.error;
-  const isRouter = activeMeta?.key === ROUTER_KEY;
   const missingMetaLabel =
     activeNode.kind === "trigger" ? "trigger" : "action";
+
+  // Slice 3.6 — modal Save must not commit a malformed router-routes
+  // value into graphSlice. The runtime schema isn't checked at save
+  // time (config is opaque until handler dispatch), so the client-side
+  // routes validator is the only pre-run guard.
+  //
+  // Field-level Save gating uses the same pattern Slice 3.2's Save
+  // already does: a single boolean computed at render time. When more
+  // field types need pre-save validation later, this becomes a
+  // per-field-type validator map called against the draft values.
+  const hasBlockingValidationError =
+    activeMeta?.key === ROUTER_KEY
+      ? validateRoutesValue(
+          (values as Record<string, unknown>)["routes"],
+        ).error !== null
+      : false;
 
   return (
     <aside
@@ -225,28 +241,12 @@ export function ConfigModalShell() {
             . The node may have been added before its metadata shipped.
           </p>
         ) : (
-          <>
-            {isRouter ? (
-              <div
-                role="status"
-                className="rounded border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground"
-              >
-                Router routes need a dedicated editor (with per-route
-                operator + value fields) that lands in Slice 3.6. The
-                placeholder below renders the routes field as a generic
-                key/value list — its saved shape will NOT match the
-                runtime router schema. Use{" "}
-                <code className="font-mono">defaultRoute</code> to wire a
-                fall-through label that has its own outgoing edge.
-              </div>
-            ) : null}
-            <SchemaForm
-              fields={activeMeta.fields}
-              values={values}
-              errors={errors}
-              onChange={(name, value) => updateField({ name, value })}
-            />
-          </>
+          <SchemaForm
+            fields={activeMeta.fields}
+            values={values}
+            errors={errors}
+            onChange={(name, value) => updateField({ name, value })}
+          />
         )}
       </section>
 
@@ -261,7 +261,7 @@ export function ConfigModalShell() {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!isDirty || !activeMeta}
+            disabled={!isDirty || !activeMeta || hasBlockingValidationError}
           >
             Save
           </Button>

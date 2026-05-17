@@ -33,6 +33,14 @@ import { z } from "zod";
  * `cron` is its own type — not a `text` field with hidden validation —
  * because the renderer humanizes the expression inline ("Runs every weekday
  * at 9am") and a generic text input cannot provide that affordance.
+ *
+ * `router-routes` (Slice 3.6) is a dedicated type for the
+ * `native:router` action's `routes` config. Shape:
+ * `Array<{label, condition:{input, operator, value?}}>`. Lives as a
+ * proper FieldType (not a special-case branch inside ConfigModalShell)
+ * so the field-renderer registry stays the single source of "which
+ * fields exist". Future actions that need conditional routes can
+ * reuse the same renderer without adding more shell special cases.
  */
 export const FieldTypeSchema = z.enum([
   "text",
@@ -44,6 +52,7 @@ export const FieldTypeSchema = z.enum([
   "boolean",
   "file",
   "cron",
+  "router-routes",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 

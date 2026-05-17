@@ -74,9 +74,8 @@ const routerMeta: ActionMeta = {
     {
       name: "routes",
       label: "Routes",
-      type: "keyvalue",
+      type: "router-routes",
       required: true,
-      keyValueMaxRows: 32,
     },
     {
       name: "defaultRoute",
@@ -248,8 +247,26 @@ describe("ConfigModalShell — native action open state", () => {
   });
 });
 
-describe("ConfigModalShell — router placeholder", () => {
-  it("shows the placeholder banner when the active meta is native:router", async () => {
+describe("ConfigModalShell — native router (Slice 3.6 routes editor)", () => {
+  it("renders the routes field through the RouterRoutesField renderer", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const node = useGraphSlice.getState().addActionFromMeta(routerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByText("Router")).toBeInTheDocument();
+    });
+    // The dedicated renderer (not the keyvalue stub) is what shows up.
+    expect(screen.getByTestId("router-routes-field")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^add route$/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("no longer renders the Slice 3.2 'Router routes need a dedicated editor' banner", async () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
     useGraphSlice.getState().addTrigger({ provider: "slack" });
     const node = useGraphSlice.getState().addActionFromMeta(routerMeta);
@@ -261,8 +278,77 @@ describe("ConfigModalShell — router placeholder", () => {
       expect(screen.getByText("Router")).toBeInTheDocument();
     });
     expect(
-      screen.getByText(/Router routes need a dedicated editor/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/Router routes need a dedicated editor/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables Save while the routes field is invalid (empty routes), enables once a valid route is added", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const node = useGraphSlice.getState().addActionFromMeta(routerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByTestId("router-routes-field")).toBeInTheDocument();
+    });
+
+    // Empty + dirty? Even after Add route → still no label, still invalid.
+    await user.click(screen.getByRole("button", { name: /^add route$/i }));
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+
+    // Fill the label → routes valid → Save enables.
+    await user.type(screen.getByLabelText("Route 1 label"), "happy");
+    await user.type(
+      screen.getByLabelText("Route 1 input"),
+      // user-event v14 escapes `{` by doubling it; type `{{{{x}}` to
+      // produce the literal `{{x}}` inside the input.
+      "{{{{trigger.foo}}",
+    );
+    await user.type(screen.getByLabelText("Route 1 value"), "yes");
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeEnabled();
+  });
+
+  it("Save with a valid route writes the runtime-schema-shaped routes into graphSlice", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const node = useGraphSlice.getState().addActionFromMeta(routerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByTestId("router-routes-field")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^add route$/i }));
+    await user.type(screen.getByLabelText("Route 1 label"), "happy");
+    await user.type(
+      screen.getByLabelText("Route 1 input"),
+      // user-event v14 escapes `{` by doubling it; type `{{{{x}}` to
+      // produce the literal `{{x}}` inside the input.
+      "{{{{trigger.foo}}",
+    );
+    await user.type(screen.getByLabelText("Route 1 value"), "yes");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const persisted = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === node.id);
+    expect(persisted?.config).toMatchObject({
+      routes: [
+        {
+          label: "happy",
+          condition: {
+            input: "{{trigger.foo}}",
+            operator: "equals",
+            value: "yes",
+          },
+        },
+      ],
+    });
   });
 });
 

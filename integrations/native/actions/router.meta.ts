@@ -3,21 +3,32 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 /**
  * Builder-facing metadata for `native:router`.
  *
- * The router takes a list of `{label, condition}` routes and a default
- * route. Routes are first-match-wins. The repeating-route shape is NOT
- * a generic SchemaForm field — it lands as a dedicated RouterConfig
- * wrapper in Slice 3.6.
+ * The router takes a list of `{label, condition}` routes (first match
+ * wins) plus an optional `defaultRoute` that fires when no route
+ * matches. The repeating-route shape is rendered by the dedicated
+ * `router-routes` field renderer (Slice 3.6) — a generic SchemaForm
+ * field cannot express the per-row operator / value conditional UX
+ * that this action needs.
  *
- * The meta still exposes a `routes` field with type `keyvalue` so the
- * library panel can render a stub form for ad-hoc inspection AND a
- * future schema-drift CI check (zod-to-json-schema) can verify the field
- * name aligns with the schema. The wrapper in Slice 3.6 owns the rich
- * editor (per-route operator selector, value field, label uniqueness
- * validation).
+ * Field types in use:
+ *   - `routes` → `router-routes` — see
+ *     `features/workflow-builder/config-modal/fields/RouterRoutesField.tsx`.
+ *     Produces the exact shape `RouterConfigSchema` expects at
+ *     runtime: `Array<{label, condition:{input, operator, value?}}>`.
+ *   - `defaultRoute` → `text` — free-text label that must match one
+ *     of the routes' labels (or a fall-through label with its own
+ *     outgoing edge). Soft cross-field validation lives in the
+ *     `RouterRoutesField` family; runtime parsing happens at handler
+ *     dispatch.
  *
- * `defaultRoute` is a free-text input — authors type a label that must
- * match one of the routes (or a fall-through label that has its own
- * outgoing edge). Validation lives in the schema's superRefine.
+ * The field has no `defaultValue` for `routes`: deriving an empty
+ * array would block save (the runtime schema requires
+ * `routes.length >= 1`) but starting with a stub row preloads
+ * placeholder content the author must edit. The renderer instead
+ * shows a clear empty state ("Add a route to get started") so the
+ * author's first action is intentional. The modal Save button gates
+ * on the routes-field validator so an empty / malformed routes
+ * value cannot save into graphSlice.
  */
 export const routerMeta: ActionMeta = {
   key: "native:router",
@@ -34,9 +45,8 @@ export const routerMeta: ActionMeta = {
       label: "Routes",
       description:
         "Ordered list of routes. Each route has a unique label (the edge label downstream nodes wire to) and a condition. Up to 32 routes.",
-      type: "keyvalue",
+      type: "router-routes",
       required: true,
-      keyValueMaxRows: 32,
     },
     {
       name: "defaultRoute",
