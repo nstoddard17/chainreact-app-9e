@@ -23,9 +23,11 @@ jest.mock("@/lib/api/workflows", () => {
 });
 
 const mockListNativeActions = jest.fn();
+const mockListNativeTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
+  listNativeTriggers: () => mockListNativeTriggers(),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -38,6 +40,7 @@ import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
+import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 
@@ -101,7 +104,10 @@ beforeEach(() => {
   mockUpdateWorkflow.mockReset();
   mockListNativeActions.mockReset();
   mockListNativeActions.mockResolvedValue([httpRequestMeta]);
+  mockListNativeTriggers.mockReset();
+  mockListNativeTriggers.mockResolvedValue([]);
   __resetNativeActionsCacheForTests();
+  __resetNativeTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });

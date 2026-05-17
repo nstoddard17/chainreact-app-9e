@@ -8,9 +8,11 @@
  */
 
 const mockListNativeActions = jest.fn();
+const mockListNativeTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
+  listNativeTriggers: () => mockListNativeTriggers(),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -23,7 +25,9 @@ import { ConfigModalShell } from "@/features/workflow-builder/config-modal/Confi
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
+import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 const httpRequestMeta: ActionMeta = {
   key: "native:http_request",
@@ -80,10 +84,52 @@ const routerMeta: ActionMeta = {
   ],
 };
 
+const manualTriggerMeta: TriggerMeta = {
+  key: "native:manual.run",
+  provider: "native",
+  type: "manual.run",
+  displayName: "Manual Trigger",
+  description: "Runs when you click Run Now.",
+  category: "logic",
+  activation: "manual",
+  requiresIntegration: false,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
+
+const scheduledTriggerMeta: TriggerMeta = {
+  key: "native:schedule.fired",
+  provider: "native",
+  type: "schedule.fired",
+  displayName: "Scheduled Trigger",
+  description: "Fires on a cron expression.",
+  category: "scheduling",
+  activation: "scheduled",
+  requiresIntegration: false,
+  fields: [
+    {
+      name: "cronExpression",
+      label: "Cron Expression",
+      type: "cron",
+      required: true,
+      placeholder: "0 9 * * 1-5",
+    },
+  ],
+  payloadShape: [],
+  displayOrder: 20,
+};
+
 beforeEach(() => {
   mockListNativeActions.mockReset();
   mockListNativeActions.mockResolvedValue([httpRequestMeta, routerMeta]);
+  mockListNativeTriggers.mockReset();
+  mockListNativeTriggers.mockResolvedValue([
+    manualTriggerMeta,
+    scheduledTriggerMeta,
+  ]);
   __resetNativeActionsCacheForTests();
+  __resetNativeTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });
@@ -242,6 +288,114 @@ describe("ConfigModalShell — missing meta", () => {
     render(<ConfigModalShell />);
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/No metadata/i);
+    });
+  });
+});
+
+// ─── Slice 3.3 — native trigger rendering ────────────────────────────────────
+
+describe("ConfigModalShell — native trigger open state", () => {
+  it("renders the trigger's displayName + description from TriggerMeta", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(scheduledTriggerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByText("Scheduled Trigger")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Fires on a cron expression.")).toBeInTheDocument();
+  });
+
+  it("renders the trigger's fields through SchemaForm (cronExpression)", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(scheduledTriggerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Cron Expression")).toBeInTheDocument();
+    });
+  });
+
+  it("renders a fields-less manual trigger without crashing", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(manualTriggerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
+    });
+    // SchemaForm's empty-fields hint surfaces when fields[] is empty.
+    expect(
+      screen.getByText(/this action has no configurable fields/i),
+    ).toBeInTheDocument();
+  });
+
+  it("Save writes the trigger draft into graphSlice (cron edit)", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(scheduledTriggerMeta);
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Cron Expression")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Cron Expression"), "*/15 * * * *");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    const persisted = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === node.id);
+    expect(persisted?.config).toMatchObject({
+      cronExpression: "*/15 * * * *",
+    });
+  });
+});
+
+describe("ConfigModalShell — non-native trigger placeholder", () => {
+  it("renders a 'Provider-trigger configuration arrives in Slice 3.4' notice", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTrigger({ provider: "slack", type: "message_received" });
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    expect(
+      screen.getByText(/Provider-trigger configuration arrives in Slice 3.4/i),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("ConfigModalShell — missing trigger meta", () => {
+  it("renders an alert mentioning 'trigger' for an unknown native trigger key", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const node = useGraphSlice
+      .getState()
+      .addTrigger({ provider: "native", type: "ghost_trigger" });
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: node.id, initialValues: node.config });
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /No metadata for trigger/i,
+      );
     });
   });
 });

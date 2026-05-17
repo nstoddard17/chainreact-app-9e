@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type {
   WorkflowDefinition,
   WorkflowEdge,
@@ -62,6 +63,14 @@ export interface GraphSliceActions {
    * the recommended starting values pre-populated in the config form.
    */
   addActionFromMeta(meta: ActionMeta): WorkflowNode;
+  /**
+   * Slice 3.3 — add a trigger node by its TriggerMeta. Symmetric to
+   * `addActionFromMeta`: derives the default config from
+   * `meta.fields[].defaultValue` so e.g. the scheduled trigger's
+   * cronExpression field can pre-populate a sensible placeholder.
+   * Same single-trigger-per-workflow guard as `addTrigger`.
+   */
+  addTriggerFromMeta(meta: TriggerMeta): WorkflowNode;
   removeNode(nodeId: string): void;
   /**
    * Slice 3.2 — replace the named node's config. Caller passes the
@@ -73,13 +82,18 @@ export interface GraphSliceActions {
 }
 
 /**
- * Derive an initial config Record from an ActionMeta's field defaults.
+ * Derive an initial config Record from a meta's field defaults.
+ *
+ * Slice 3.2 introduced this helper for ActionMeta; Slice 3.3 widens it
+ * to TriggerMeta — both shapes share the same `FieldMeta[]` contract,
+ * so a single helper covers both via a structural `{ fields }` param.
+ *
  * Only fields whose `defaultValue` is explicitly set contribute; other
  * fields are left absent so the schema's own defaults / requireds take
  * effect when the workflow runs.
  */
 export function deriveDefaultConfig(
-  meta: ActionMeta,
+  meta: Pick<ActionMeta, "fields"> | Pick<TriggerMeta, "fields">,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const field of meta.fields) {
@@ -156,7 +170,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       kind: "trigger",
       provider: input.provider,
       type: input.type ?? "",
-      config: {},
+      config: input.config ?? {},
       position: { x: 0, y: 0 },
     };
     set({
@@ -199,6 +213,17 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     // Delegates to addAction with metadata-derived defaults so the
     // dirty-check + edge-creation behavior stays single-sourced.
     return get().addAction({
+      provider: meta.provider,
+      type: meta.type,
+      config: deriveDefaultConfig(meta),
+    });
+  },
+
+  addTriggerFromMeta(meta) {
+    // Slice 3.3 — mirror of addActionFromMeta. Delegates to addTrigger
+    // so the single-trigger-per-workflow guard + dirty-check stay
+    // single-sourced. Same metadata-derived defaults policy as actions.
+    return get().addTrigger({
       provider: meta.provider,
       type: meta.type,
       config: deriveDefaultConfig(meta),

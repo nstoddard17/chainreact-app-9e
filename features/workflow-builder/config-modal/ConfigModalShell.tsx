@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ActionMeta } from "@/contracts/actionMeta";
+import type { FieldMeta } from "@/contracts/actionMeta";
 import { Button } from "@/components/ui/button";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
@@ -9,6 +9,10 @@ import {
   findNativeActionByKey,
   useNativeActions,
 } from "../hooks/useNativeActions";
+import {
+  findNativeTriggerByKey,
+  useNativeTriggers,
+} from "../hooks/useNativeTriggers";
 import { SchemaForm } from "./SchemaForm";
 
 /**
@@ -22,6 +26,15 @@ import { SchemaForm } from "./SchemaForm";
  *     (keeping the rail open at the same node so authors can verify).
  *   - Cancel discards the draft (resetNode) and closes the rail.
  *
+ * Slice 3.3 scope:
+ *   - Extends meta lookup to native trigger nodes (manual, scheduled).
+ *     Triggers reuse the exact same SchemaForm path — TriggerMeta and
+ *     ActionMeta both expose `FieldMeta[]` and `displayName` /
+ *     `description`, so a small shared shape lets the rest of the
+ *     shell stay identical.
+ *   - Provider trigger nodes get the same "coming in a later slice"
+ *     placeholder as provider actions (deferred to Slice 3.4).
+ *
  * Tabs (Setup / Advanced / Results / Data Inspector) are deferred —
  * Slice 3.2 ships Setup only. The shell layout reserves header room so
  * the tab strip slots in cleanly when Slice 3.7 / 3.8 fill the other
@@ -29,6 +42,17 @@ import { SchemaForm } from "./SchemaForm";
  */
 
 const ROUTER_KEY = "native:router";
+
+/**
+ * Common subset of ActionMeta + TriggerMeta needed by the rail. Avoids
+ * having to thread the union type into every consumer below.
+ */
+interface ConfigurableMeta {
+  key: string;
+  displayName: string;
+  description: string;
+  fields: readonly FieldMeta[];
+}
 
 export function ConfigModalShell() {
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
@@ -41,23 +65,23 @@ export function ConfigModalShell() {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const updateNodeConfig = useGraphSlice((s) => s.updateNodeConfig);
 
-  const native = useNativeActions();
+  const nativeActions = useNativeActions();
+  const nativeTriggers = useNativeTriggers();
 
   const activeNode = useMemo(
     () => (activeNodeId ? pendingNodes.find((n) => n.id === activeNodeId) : undefined),
     [pendingNodes, activeNodeId],
   );
 
-  const activeMeta: ActionMeta | undefined = useMemo(() => {
+  const activeMeta: ConfigurableMeta | undefined = useMemo(() => {
     if (!activeNode) return undefined;
-    if (activeNode.provider === "native" && activeNode.type) {
-      return findNativeActionByKey(
-        native.actions,
-        `${activeNode.provider}:${activeNode.type}`,
-      );
+    if (activeNode.provider !== "native" || !activeNode.type) return undefined;
+    const key = `${activeNode.provider}:${activeNode.type}`;
+    if (activeNode.kind === "trigger") {
+      return findNativeTriggerByKey(nativeTriggers.triggers, key);
     }
-    return undefined;
-  }, [activeNode, native.actions]);
+    return findNativeActionByKey(nativeActions.actions, key);
+  }, [activeNode, nativeActions.actions, nativeTriggers.triggers]);
 
   // No active node → shell is hidden.
   if (!activeNodeId || !activeNode) return null;
@@ -79,9 +103,20 @@ export function ConfigModalShell() {
   }
 
   const isNative = activeNode.provider === "native";
-  const isLoadingMeta = isNative && native.loading;
-  const metaError = isNative ? native.error : null;
+  // Pick the loading / error signal that matches the active node's kind
+  // so a slow / failed actions fetch never blocks the trigger rail (and
+  // vice versa).
+  const sourceState =
+    activeNode.kind === "trigger" ? nativeTriggers : nativeActions;
+  const isLoadingMeta = isNative && sourceState.loading;
+  const metaError = isNative ? sourceState.error : null;
   const isRouter = activeMeta?.key === ROUTER_KEY;
+  const missingMetaLabel =
+    activeNode.kind === "trigger" ? "trigger" : "action";
+  const providerPlaceholder =
+    activeNode.kind === "trigger"
+      ? "Provider-trigger configuration arrives in Slice 3.4. For now, only native triggers can be configured through this rail."
+      : "Provider-action configuration arrives in Slice 3.4. For now, only native actions can be configured through this rail.";
 
   return (
     <aside
@@ -140,12 +175,11 @@ export function ConfigModalShell() {
           </p>
         ) : !isNative ? (
           <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
-            Provider-action configuration arrives in Slice 3.4. For now,
-            only native actions can be configured through this rail.
+            {providerPlaceholder}
           </p>
         ) : !activeMeta ? (
           <p role="alert" className="text-xs text-destructive">
-            No metadata for{" "}
+            No metadata for {missingMetaLabel}{" "}
             <code>
               {activeNode.provider}:{activeNode.type}
             </code>

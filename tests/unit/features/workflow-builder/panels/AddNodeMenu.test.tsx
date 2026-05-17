@@ -8,28 +8,68 @@
  */
 
 const mockListNativeActions = jest.fn();
+const mockListNativeTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
+  listNativeTriggers: () => mockListNativeTriggers(),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
   },
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AddNodeMenu } from "@/features/workflow-builder/panels/AddNodeMenu";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
+import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 const triggerProviders = [{ id: "slack", displayName: "Slack" }];
 const actionProviders = [
   { id: "slack", displayName: "Slack" },
   { id: "gmail", displayName: "Gmail" },
 ];
+
+const manualTriggerMeta: TriggerMeta = {
+  key: "native:manual.run",
+  provider: "native",
+  type: "manual.run",
+  displayName: "Manual Trigger",
+  description: "Runs when you click Run Now.",
+  category: "logic",
+  activation: "manual",
+  requiresIntegration: false,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
+
+const scheduledTriggerMeta: TriggerMeta = {
+  key: "native:schedule.fired",
+  provider: "native",
+  type: "schedule.fired",
+  displayName: "Scheduled Trigger",
+  description: "Fires on a cron expression.",
+  category: "scheduling",
+  activation: "scheduled",
+  requiresIntegration: false,
+  fields: [
+    {
+      name: "cronExpression",
+      label: "Cron Expression",
+      type: "cron",
+      required: true,
+      placeholder: "0 9 * * 1-5",
+    },
+  ],
+  payloadShape: [],
+  displayOrder: 20,
+};
 
 const httpRequestMeta: ActionMeta = {
   key: "native:http_request",
@@ -78,7 +118,13 @@ beforeEach(() => {
   useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
   mockListNativeActions.mockReset();
   mockListNativeActions.mockResolvedValue([httpRequestMeta, delayMeta]);
+  mockListNativeTriggers.mockReset();
+  mockListNativeTriggers.mockResolvedValue([
+    manualTriggerMeta,
+    scheduledTriggerMeta,
+  ]);
   __resetNativeActionsCacheForTests();
+  __resetNativeTriggersCacheForTests();
 });
 
 describe("AddNodeMenu", () => {
@@ -93,7 +139,7 @@ describe("AddNodeMenu", () => {
     expect(screen.getByRole("button", { name: /add trigger/i })).toBeEnabled();
   });
 
-  it("opens the trigger provider list and dispatches addTrigger on pick", async () => {
+  it("opens the trigger picker (provider sub-section) and dispatches addTrigger on pick", async () => {
     const user = userEvent.setup();
     render(
       <AddNodeMenu
@@ -102,11 +148,14 @@ describe("AddNodeMenu", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    const triggerList = screen.getByRole("list", { name: /trigger providers/i });
+    await waitFor(() => {
+      expect(screen.getByRole("list", { name: /trigger providers/i })).toBeInTheDocument();
+    });
+    const providerList = screen.getByRole("list", { name: /trigger providers/i });
     await user.click(
-      screen.getByRole("button", { name: /^Slack$/ }),
+      within(providerList).getByRole("button", { name: /^Slack$/ }),
     );
-    expect(triggerList).not.toBeInTheDocument();
+    expect(providerList).not.toBeInTheDocument();
     const nodes = useGraphSlice.getState().pendingNodes;
     expect(nodes).toHaveLength(1);
     expect(nodes[0]).toMatchObject({ kind: "trigger", provider: "slack" });
@@ -140,7 +189,7 @@ describe("AddNodeMenu", () => {
     expect(nodes[1]).toMatchObject({ kind: "action", provider: "gmail" });
   });
 
-  it("renders an empty-state message when no providers are available", async () => {
+  it("renders an empty-state message when no trigger providers are available", async () => {
     const user = userEvent.setup();
     render(<AddNodeMenu triggerProviders={[]} actionProviders={actionProviders} />);
     await user.click(screen.getByRole("button", { name: /add trigger/i }));
@@ -247,6 +296,166 @@ describe("AddNodeMenu", () => {
     await user.click(screen.getByRole("button", { name: /add action/i }));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/offline/i);
+    });
+  });
+});
+
+// ─── Slice 3.3 — native trigger picker ───────────────────────────────────────
+
+describe("AddNodeMenu — native triggers section", () => {
+  it("shows a Native section in the trigger picker with metadata-driven entries", async () => {
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("list", { name: /native triggers list/i }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled Trigger")).toBeInTheDocument();
+    expect(screen.getByText(/Runs when you click Run Now/i)).toBeInTheDocument();
+  });
+
+  it("dispatches addTriggerFromMeta when a native trigger is picked (manual.run, no default config)", async () => {
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Manual Trigger"));
+    const nodes = useGraphSlice.getState().pendingNodes;
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      kind: "trigger",
+      provider: "native",
+      type: "manual.run",
+      config: {},
+    });
+  });
+
+  it("dispatches addTriggerFromMeta when a native trigger with a defaulted field is picked", async () => {
+    const scheduledWithDefault: TriggerMeta = {
+      ...scheduledTriggerMeta,
+      fields: [
+        {
+          ...scheduledTriggerMeta.fields[0]!,
+          defaultValue: "0 9 * * 1-5",
+        },
+      ],
+    };
+    mockListNativeTriggers.mockResolvedValueOnce([scheduledWithDefault]);
+    __resetNativeTriggersCacheForTests();
+
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Scheduled Trigger")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Scheduled Trigger"));
+    const nodes = useGraphSlice.getState().pendingNodes;
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      kind: "trigger",
+      provider: "native",
+      type: "schedule.fired",
+      config: { cronExpression: "0 9 * * 1-5" },
+    });
+  });
+
+  it("hides the trigger picker after a native trigger is added (single-trigger guard)", async () => {
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Manual Trigger"));
+    expect(
+      screen.queryByRole("list", { name: /native triggers list/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add trigger/i })).toBeDisabled();
+  });
+
+  it("renders a loading state while native triggers resolve", async () => {
+    let resolveFetch: (v: readonly TriggerMeta[]) => void = () => {};
+    mockListNativeTriggers.mockReturnValueOnce(
+      new Promise<readonly TriggerMeta[]>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    __resetNativeTriggersCacheForTests();
+
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    expect(screen.getByText(/loading native triggers/i)).toBeInTheDocument();
+    resolveFetch([]);
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/loading native triggers/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("surfaces an inline error when native triggers fail to load", async () => {
+    mockListNativeTriggers.mockRejectedValueOnce(new Error("trigger-offline"));
+    __resetNativeTriggersCacheForTests();
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/trigger-offline/i);
+    });
+  });
+
+  it("renders 'No native triggers available' when the catalog is empty", async () => {
+    mockListNativeTriggers.mockResolvedValueOnce([]);
+    __resetNativeTriggersCacheForTests();
+    const user = userEvent.setup();
+    render(
+      <AddNodeMenu
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /add trigger/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByText(/no native triggers available/i),
+      ).toBeInTheDocument();
     });
   });
 });

@@ -179,3 +179,36 @@ export async function disableWorkflow(
     input,
   );
 }
+
+export interface RunNowRequest {
+  /** Key/value bag delivered to the workflow as `{{trigger.inputs.*}}`. */
+  inputs?: Record<string, unknown>;
+}
+
+export interface RunNowResponse {
+  runId: string;
+  enqueuedAt: string;
+}
+
+/**
+ * Slice 3.3 — kick off a manual-trigger workflow.
+ *
+ * Wraps `POST /api/workflows/[id]/run-now`. The server route enforces
+ * auth / ownership / state, validates the payload against
+ * `ManualTriggerPayloadSchema`, and enqueues the run; it returns
+ * 202 Accepted with `{ runId, enqueuedAt }`.
+ *
+ * The RunNowPanel uses this — and ONLY this — to dispatch. Modal Save
+ * stays a pending-edit operation; toolbar Save persists the workflow;
+ * Run Now enqueues an execution against the *already-saved* workflow.
+ * The three paths must not share a code path.
+ */
+export async function runNowWorkflow(
+  id: string,
+  input: RunNowRequest = {},
+): Promise<RunNowResponse> {
+  return postJson<RunNowResponse>(
+    `/api/workflows/${encodeURIComponent(id)}/run-now`,
+    { inputs: input.inputs ?? {} },
+  );
+}

@@ -314,6 +314,116 @@ describe("graphSlice.addActionFromMeta", () => {
   });
 });
 
+// ─── Slice 3.3 — trigger meta extension ──────────────────────────────────────
+
+import type { TriggerMeta } from "@/contracts/triggerMeta";
+
+const scheduledTriggerMeta: TriggerMeta = {
+  key: "native:schedule.fired",
+  provider: "native",
+  type: "schedule.fired",
+  displayName: "Scheduled Trigger",
+  description: "Fires on a cron expression.",
+  category: "scheduling",
+  activation: "scheduled",
+  requiresIntegration: false,
+  fields: [
+    {
+      name: "cronExpression",
+      label: "Cron Expression",
+      type: "cron",
+      required: true,
+      defaultValue: "0 9 * * 1-5",
+    },
+  ],
+  payloadShape: [],
+  displayOrder: 20,
+};
+
+const manualTriggerMeta: TriggerMeta = {
+  key: "native:manual.run",
+  provider: "native",
+  type: "manual.run",
+  displayName: "Manual Trigger",
+  description: "Runs when you click Run Now.",
+  category: "logic",
+  activation: "manual",
+  requiresIntegration: false,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
+
+describe("deriveDefaultConfig — TriggerMeta variant", () => {
+  it("returns only fields that declare a defaultValue (scheduled trigger)", () => {
+    expect(deriveDefaultConfig(scheduledTriggerMeta)).toEqual({
+      cronExpression: "0 9 * * 1-5",
+    });
+  });
+
+  it("returns empty for fields-less manual trigger", () => {
+    expect(deriveDefaultConfig(manualTriggerMeta)).toEqual({});
+  });
+});
+
+describe("graphSlice.addTriggerFromMeta", () => {
+  it("creates a trigger node with provider/type from the meta and default config", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(scheduledTriggerMeta);
+    expect(node).toMatchObject({
+      kind: "trigger",
+      provider: "native",
+      type: "schedule.fired",
+      config: { cronExpression: "0 9 * * 1-5" },
+    });
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("creates a manual trigger with empty config", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(manualTriggerMeta);
+    expect(node).toMatchObject({
+      kind: "trigger",
+      provider: "native",
+      type: "manual.run",
+      config: {},
+    });
+  });
+
+  it("refuses to add a second trigger when one already exists (delegates to addTrigger)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    expect(() =>
+      useGraphSlice.getState().addTriggerFromMeta(manualTriggerMeta),
+    ).toThrow(/already has a trigger/i);
+    // No state mutation on rejection.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});
+
+describe("graphSlice.addTrigger — config passthrough (Slice 3.3)", () => {
+  it("uses the supplied config when provided", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice.getState().addTrigger({
+      provider: "native",
+      type: "schedule.fired",
+      config: { cronExpression: "*/30 * * * *" },
+    });
+    expect(node.config).toEqual({ cronExpression: "*/30 * * * *" });
+  });
+
+  it("defaults to empty config when not supplied (Slice 1I.2 behavior preserved)", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice.getState().addTrigger({ provider: "slack" });
+    expect(node.config).toEqual({});
+  });
+});
+
 describe("graphSlice.updateNodeConfig", () => {
   beforeEach(() => {
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);

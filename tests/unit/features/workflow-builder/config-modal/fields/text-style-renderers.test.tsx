@@ -191,7 +191,10 @@ describe("CronField", () => {
     expect(input).toHaveClass("font-mono");
   });
 
-  it("appends humanizer-pending hint to the description", () => {
+  it("uses the field description verbatim as the helper text (no slice-3.1 appendix)", () => {
+    // Slice 3.3 wired the humanizer into a separate <p> below the input,
+    // so the helper text is just the field's own description — no
+    // "Humanized preview arrives" trailing hint anymore.
     render(
       <CronField
         field={textField({
@@ -205,9 +208,11 @@ describe("CronField", () => {
         onChange={jest.fn()}
       />,
     );
-    expect(
-      screen.getByText(/Humanized preview arrives with the scheduled-trigger UI/),
-    ).toBeInTheDocument();
+    const helper = screen.getByText("5-field UTC.");
+    expect(helper).toBeInTheDocument();
+    // The detailed CronField → humanizer behavior is covered by
+    // CronField.test.tsx — text-style-renderers only sanity-checks the
+    // FieldShell-shape parity.
   });
 });
 

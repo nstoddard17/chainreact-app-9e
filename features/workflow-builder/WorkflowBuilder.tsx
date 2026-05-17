@@ -5,6 +5,7 @@ import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
 import { ConfigModalShell } from "./config-modal/ConfigModalShell";
 import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
+import { RunNowPanel } from "./panels/RunNowPanel";
 import { useConfigSlice } from "./state/configSlice";
 import { useGraphSlice } from "./state/graphSlice";
 
@@ -71,8 +72,9 @@ export function WorkflowBuilder({
         actionProviders={actionProviders}
       />
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
           <NodeList providerLabels={providerLabels} />
+          <RunNowPanel />
         </div>
         <ConfigModalShell />
       </div>
