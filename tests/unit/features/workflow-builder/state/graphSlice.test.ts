@@ -465,3 +465,135 @@ describe("graphSlice.updateNodeConfig", () => {
     expect(useGraphSlice.getState().pendingNodes).toBe(before);
   });
 });
+
+// ─── Slice 3.5 — canvas-driven actions ──────────────────────────────────────
+
+describe("graphSlice.updateNodePosition", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+  });
+
+  it("replaces the named node's position and flips dirty", () => {
+    useGraphSlice
+      .getState()
+      .updateNodePosition("t1", { x: 200, y: 80 });
+    const moved = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === "t1");
+    expect(moved?.position).toEqual({ x: 200, y: 80 });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("no-op when the position is shallow-equal (click without drag)", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice
+      .getState()
+      .updateNodePosition("t1", { x: 0, y: 0 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("no-op when the nodeId is unknown", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice
+      .getState()
+      .updateNodePosition("ghost", { x: 1, y: 2 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("does not touch unrelated nodes", () => {
+    useGraphSlice.getState().addAction({ provider: "slack" });
+    const otherBefore = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id !== "t1")!;
+    useGraphSlice
+      .getState()
+      .updateNodePosition("t1", { x: 1, y: 2 });
+    const otherAfter = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id !== "t1")!;
+    expect(otherAfter).toBe(otherBefore);
+  });
+});
+
+describe("graphSlice.connectNodes", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack" });
+    useGraphSlice.getState().addAction({ provider: "gmail" });
+  });
+
+  it("adds an edge between two existing nodes and flips dirty", () => {
+    // addAction auto-stitches edges trigger→A→B, so we connect
+    // trigger→B (a non-adjacent pair) to exercise connectNodes without
+    // colliding with the existing auto-stitched edges.
+    const { pendingNodes, pendingEdges } = useGraphSlice.getState();
+    const from = pendingNodes[0]!.id;
+    const to = pendingNodes[2]!.id;
+    const initialEdgeCount = pendingEdges.length;
+    // Reset dirty after the addAction-driven flip so we measure connectNodes alone.
+    useGraphSlice.setState({ isDirty: false });
+    const edge = useGraphSlice.getState().connectNodes({ from, to });
+    expect(edge.from).toBe(from);
+    expect(edge.to).toBe(to);
+    const after = useGraphSlice.getState();
+    expect(after.pendingEdges).toHaveLength(initialEdgeCount + 1);
+    expect(after.pendingEdges).toContainEqual(edge);
+    expect(after.isDirty).toBe(true);
+  });
+
+  it("throws on self-loop", () => {
+    const id = useGraphSlice.getState().pendingNodes[0]!.id;
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from: id, to: id }),
+    ).toThrow(/self-loops/i);
+  });
+
+  it("throws when the source is unknown", () => {
+    const id = useGraphSlice.getState().pendingNodes[0]!.id;
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from: "ghost", to: id }),
+    ).toThrow(/unknown source node/i);
+  });
+
+  it("throws when the target is unknown", () => {
+    const id = useGraphSlice.getState().pendingNodes[0]!.id;
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from: id, to: "ghost" }),
+    ).toThrow(/unknown target node/i);
+  });
+
+  it("rejects duplicate unlabeled edges between the same (from, to)", () => {
+    // Use a non-adjacent pair so the first connectNodes succeeds (the
+    // auto-stitched edges already cover trigger→A and A→B).
+    const { pendingNodes } = useGraphSlice.getState();
+    const from = pendingNodes[0]!.id;
+    const to = pendingNodes[2]!.id;
+    useGraphSlice.getState().connectNodes({ from, to });
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from, to }),
+    ).toThrow(/already exists/i);
+  });
+});
+
+describe("graphSlice.removeEdge", () => {
+  it("removes the edge by id and flips dirty", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack" });
+    const edgeId = useGraphSlice.getState().pendingEdges[0]!.id;
+    useGraphSlice.setState({ isDirty: false });
+    useGraphSlice.getState().removeEdge(edgeId);
+    const s = useGraphSlice.getState();
+    expect(s.pendingEdges.find((e) => e.id === edgeId)).toBeUndefined();
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("no-op on unknown edge id (does not flip dirty)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const before = useGraphSlice.getState().pendingEdges;
+    useGraphSlice.getState().removeEdge("ghost");
+    expect(useGraphSlice.getState().pendingEdges).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});

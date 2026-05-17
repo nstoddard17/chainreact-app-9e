@@ -6,6 +6,7 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from "@/contracts/workflow";
+import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
 import {
   WorkflowApiError,
   updateWorkflow,
@@ -78,6 +79,26 @@ export interface GraphSliceActions {
    * the node). Sets `isDirty: true` if the config changed.
    */
   updateNodeConfig(nodeId: string, config: Record<string, unknown>): void;
+  /**
+   * Slice 3.5 — replace the named node's position after a canvas drag.
+   * No-op if the position is shallow-equal to the current one (avoids
+   * flipping dirty on a click that doesn't move the node). No-op on
+   * unknown nodeId.
+   */
+  updateNodePosition(nodeId: string, position: WorkflowNodePosition): void;
+  /**
+   * Slice 3.5 — add an edge between two existing nodes (canvas connect
+   * handle). Returns the new edge. Throws when either endpoint is
+   * unknown, when from === to (self-loop), or when an unlabeled edge
+   * between the same (from, to) already exists. Label support is
+   * deferred — branching edits land with Slice 3.6 (router routes).
+   */
+  connectNodes(input: { from: string; to: string }): WorkflowEdge;
+  /**
+   * Slice 3.5 — remove an edge by id (canvas keyboard-delete on a
+   * selected edge). No-op on unknown edgeId.
+   */
+  removeEdge(edgeId: string): void;
   save(): Promise<void>;
 }
 
@@ -268,6 +289,75 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     set({
       pendingNodes: remaining,
       pendingEdges: newEdges,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
+  updateNodePosition(nodeId, position) {
+    const { pendingNodes } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return;
+    const current = pendingNodes[idx]!;
+    if (
+      current.position.x === position.x &&
+      current.position.y === position.y
+    ) {
+      return; // shallow-equal — no dirty flip.
+    }
+    const updated: WorkflowNode = {
+      ...current,
+      position: { x: position.x, y: position.y },
+    };
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updated;
+    set({
+      pendingNodes: nextNodes,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
+  connectNodes({ from, to }) {
+    const { pendingNodes, pendingEdges } = get();
+    if (from === to) {
+      throw new Error("Self-loops are not allowed.");
+    }
+    if (!pendingNodes.some((n) => n.id === from)) {
+      throw new Error(`Unknown source node '${from}'.`);
+    }
+    if (!pendingNodes.some((n) => n.id === to)) {
+      throw new Error(`Unknown target node '${to}'.`);
+    }
+    // Dedup unlabeled edges. Labels are deferred to Slice 3.6.
+    if (
+      pendingEdges.some(
+        (e) => e.from === from && e.to === to && e.label === undefined,
+      )
+    ) {
+      throw new Error(
+        `An edge from '${from}' to '${to}' already exists.`,
+      );
+    }
+    const edge: WorkflowEdge = {
+      id: newEdgeId(),
+      from,
+      to,
+    };
+    set({
+      pendingEdges: [...pendingEdges, edge],
+      isDirty: true,
+      saveError: null,
+    });
+    return edge;
+  },
+
+  removeEdge(edgeId) {
+    const { pendingEdges } = get();
+    const remaining = pendingEdges.filter((e) => e.id !== edgeId);
+    if (remaining.length === pendingEdges.length) return;
+    set({
+      pendingEdges: remaining,
       isDirty: true,
       saveError: null,
     });

@@ -1,0 +1,137 @@
+/**
+ * Tests for features/workflow-builder/canvas/WorkflowCanvas.
+ *
+ * Asserts the canvas's dispatch contract: ReactFlow user actions
+ * route through to graphSlice / configSlice, never to backend
+ * persistence. We render the real canvas (with our jsdom polyfills)
+ * and exercise it through React Flow's emitted nodes / edges, then
+ * verify the slice mutations.
+ *
+ * Rendering details are deliberately NOT asserted (those depend on
+ * React Flow internals + ResizeObserver size). The contract that
+ * matters is: clicking → openNode, drag-end → updateNodePosition,
+ * connect → connectNodes, delete → removeNode / removeEdge.
+ */
+
+const mockUpdateWorkflow = jest.fn();
+jest.mock("@/lib/api/workflows", () => {
+  const actual = jest.requireActual("@/lib/api/workflows");
+  return {
+    ...actual,
+    updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
+  };
+});
+
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { WorkflowCanvas } from "@/features/workflow-builder/canvas/WorkflowCanvas";
+import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
+import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
+import type { WorkflowDefinition } from "@/contracts/workflow";
+
+const baseDef: WorkflowDefinition = {
+  nodes: [
+    {
+      id: "trig",
+      kind: "trigger",
+      provider: "slack",
+      type: "message_received",
+      config: {},
+      position: { x: 0, y: 0 },
+    },
+    {
+      id: "act",
+      kind: "action",
+      provider: "github",
+      type: "add_comment",
+      config: { repository: "octocat/x" },
+      position: { x: 0, y: 200 },
+    },
+  ],
+  edges: [{ id: "e1", from: "trig", to: "act" }],
+};
+
+const providerLabels = { slack: "Slack", github: "GitHub" };
+
+beforeEach(() => {
+  mockUpdateWorkflow.mockReset();
+  useGraphSlice.getState().reset();
+  useConfigSlice.getState().reset();
+  useGraphSlice.getState().hydrate("wf-1", baseDef);
+});
+
+describe("WorkflowCanvas — render", () => {
+  it("renders the canvas region with the workflow's pending nodes", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    const canvas = screen.getByTestId("workflow-canvas");
+    expect(canvas).toBeInTheDocument();
+    // Custom node views appear one per pending node.
+    const views = within(canvas).getAllByTestId("workflow-node-view");
+    expect(views).toHaveLength(2);
+    // Provider labels surface in the node body (Slack / GitHub).
+    expect(within(canvas).getByText("Slack")).toBeInTheDocument();
+    expect(within(canvas).getByText("GitHub")).toBeInTheDocument();
+  });
+
+  it("falls back to the raw provider id when no label map entry exists", () => {
+    render(<WorkflowCanvas />); // no providerLabels prop
+    const canvas = screen.getByTestId("workflow-canvas");
+    expect(within(canvas).getByText("slack")).toBeInTheDocument();
+    expect(within(canvas).getByText("github")).toBeInTheDocument();
+  });
+
+  it("renders nothing inside the canvas when there are no pending nodes", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(
+      screen.queryAllByTestId("workflow-node-view"),
+    ).toHaveLength(0);
+  });
+
+  it("highlights the active node when configSlice.activeNodeId is set (list ↔ canvas sync)", () => {
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: "act", initialValues: {} });
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    // Selection on the node view is surfaced via `data-selected="true"`.
+    const views = screen.getAllByTestId("workflow-node-view");
+    const active = views.find(
+      (v) => v.getAttribute("data-selected") === "true",
+    );
+    expect(active).toBeDefined();
+    expect(active!.textContent).toMatch(/GitHub/);
+  });
+});
+
+describe("WorkflowCanvas — node click dispatches configSlice.openNode", () => {
+  it("opens the matching configSlice draft when a node is clicked", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    const views = screen.getAllByTestId("workflow-node-view");
+    const githubNodeView = views.find((v) =>
+      v.textContent?.includes("GitHub"),
+    )!;
+    // React Flow attaches its click handler to the wrapping `.react-flow__node`
+    // element rather than our custom view, so fire on the closest parent.
+    const flowNode = githubNodeView.closest(".react-flow__node");
+    expect(flowNode).not.toBeNull();
+    fireEvent.click(flowNode!);
+    const cfg = useConfigSlice.getState();
+    expect(cfg.activeNodeId).toBe("act");
+    expect(cfg.drafts.act!.initialValues).toEqual({ repository: "octocat/x" });
+  });
+});
+
+describe("WorkflowCanvas — never persists to backend", () => {
+  it("does not call updateWorkflow on mount", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("does not call updateWorkflow on a node click", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    const view = screen.getAllByTestId("workflow-node-view")[0]!;
+    const flowNode = view.closest(".react-flow__node");
+    fireEvent.click(flowNode!);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+});

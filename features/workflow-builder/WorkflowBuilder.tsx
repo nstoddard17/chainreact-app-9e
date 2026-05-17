@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
+import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { ConfigModalShell } from "./config-modal/ConfigModalShell";
 import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
 import { RunNowPanel } from "./panels/RunNowPanel";
@@ -73,6 +74,7 @@ export function WorkflowBuilder({
       />
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
         <div className="flex-1 min-w-0 flex flex-col gap-4">
+          <WorkflowCanvas providerLabels={providerLabels} />
           <NodeList providerLabels={providerLabels} />
           <RunNowPanel />
         </div>
