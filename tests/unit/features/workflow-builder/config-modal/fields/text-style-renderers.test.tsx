@@ -1,0 +1,233 @@
+/**
+ * Tests for the "text-style" field renderers — TextField, TextareaField,
+ * NumberField, CronField, FileField. These share the FieldShell shape
+ * (label + required + helper + inline error) so they're batched here
+ * to keep one suite per logical concern.
+ */
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { FieldMeta } from "@/contracts/actionMeta";
+import { TextField } from "@/features/workflow-builder/config-modal/fields/TextField";
+import { TextareaField } from "@/features/workflow-builder/config-modal/fields/TextareaField";
+import { NumberField } from "@/features/workflow-builder/config-modal/fields/NumberField";
+import { CronField } from "@/features/workflow-builder/config-modal/fields/CronField";
+import { FileField } from "@/features/workflow-builder/config-modal/fields/FileField";
+
+function textField(overrides: Partial<FieldMeta> = {}): FieldMeta {
+  return {
+    name: "title",
+    label: "Title",
+    type: "text",
+    required: false,
+    ...overrides,
+  } as FieldMeta;
+}
+
+describe("TextField", () => {
+  it("renders the label and initial value", () => {
+    render(
+      <TextField
+        field={textField()}
+        value="hello"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Title")).toHaveValue("hello");
+  });
+
+  it("renders a required marker when field.required is true", () => {
+    const { container } = render(
+      <TextField
+        field={textField({ required: true })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    expect(container.querySelector('[data-required="true"]')).toBeInTheDocument();
+  });
+
+  it("renders helper text from field.description", () => {
+    render(
+      <TextField
+        field={textField({ description: "Up to 256 characters." })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("Up to 256 characters.")).toBeInTheDocument();
+  });
+
+  it("renders inline error text instead of helper when error is supplied", () => {
+    render(
+      <TextField
+        field={textField({ description: "Up to 256 characters." })}
+        value=""
+        error="Title is required."
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Title is required.");
+    expect(screen.queryByText("Up to 256 characters.")).not.toBeInTheDocument();
+  });
+
+  it("marks input as aria-invalid when error is present", () => {
+    render(
+      <TextField
+        field={textField()}
+        value=""
+        error="bad"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Title")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("invokes onChange with the raw string on input", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <TextField field={textField()} value="" onChange={onChange} />,
+    );
+    await user.type(screen.getByLabelText("Title"), "ab");
+    expect(onChange).toHaveBeenCalledWith("a");
+    expect(onChange).toHaveBeenLastCalledWith("b");
+  });
+
+  it("disables input when disabled prop is set", () => {
+    render(
+      <TextField
+        field={textField()}
+        value=""
+        onChange={jest.fn()}
+        disabled
+      />,
+    );
+    expect(screen.getByLabelText("Title")).toBeDisabled();
+  });
+});
+
+describe("TextareaField", () => {
+  it("renders a multi-line textarea wired to value/onChange", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <TextareaField
+        field={textField({ name: "body", label: "Body", type: "textarea" })}
+        value=""
+        onChange={onChange}
+      />,
+    );
+    const ta = screen.getByLabelText("Body") as HTMLTextAreaElement;
+    expect(ta.tagName).toBe("TEXTAREA");
+    await user.type(ta, "x");
+    expect(onChange).toHaveBeenCalledWith("x");
+  });
+});
+
+describe("NumberField", () => {
+  function numberField(overrides: Partial<FieldMeta> = {}): FieldMeta {
+    return {
+      name: "seconds",
+      label: "Seconds",
+      type: "number",
+      required: true,
+      numeric: { min: 1, max: 30, integer: true, step: 1 },
+      ...overrides,
+    } as FieldMeta;
+  }
+
+  it("applies min/max/step from numeric bounds", () => {
+    render(
+      <NumberField
+        field={numberField()}
+        value={5}
+        onChange={jest.fn()}
+      />,
+    );
+    const input = screen.getByLabelText("Seconds");
+    expect(input).toHaveAttribute("min", "1");
+    expect(input).toHaveAttribute("max", "30");
+    expect(input).toHaveAttribute("step", "1");
+    expect(input).toHaveValue(5);
+  });
+
+  it("emits undefined when cleared", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <NumberField field={numberField()} value={5} onChange={onChange} />,
+    );
+    await user.clear(screen.getByLabelText("Seconds"));
+    expect(onChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it("emits parsed integer when integer bound is set", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <NumberField field={numberField()} value="" onChange={onChange} />,
+    );
+    await user.type(screen.getByLabelText("Seconds"), "7");
+    expect(onChange).toHaveBeenLastCalledWith(7);
+  });
+});
+
+describe("CronField", () => {
+  it("renders a monospace text input with cron placeholder", () => {
+    render(
+      <CronField
+        field={textField({
+          name: "cronExpression",
+          label: "Cron Expression",
+          type: "cron",
+          required: true,
+        })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    const input = screen.getByLabelText("Cron Expression");
+    expect(input).toHaveAttribute("placeholder", "0 9 * * 1-5");
+    expect(input).toHaveClass("font-mono");
+  });
+
+  it("appends humanizer-pending hint to the description", () => {
+    render(
+      <CronField
+        field={textField({
+          name: "cronExpression",
+          label: "Cron Expression",
+          type: "cron",
+          required: true,
+          description: "5-field UTC.",
+        })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/Humanized preview arrives with the scheduled-trigger UI/),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("FileField", () => {
+  it("surfaces a 'picker arrives later' hint and a typed-fallback input", () => {
+    render(
+      <FileField
+        field={textField({
+          name: "ref",
+          label: "Source File",
+          type: "file",
+          required: false,
+        })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Source File")).toBeInTheDocument();
+    expect(
+      screen.getByText(/File picker.*lands in Slice 3.7/i),
+    ).toBeInTheDocument();
+  });
+});
