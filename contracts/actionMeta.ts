@@ -1,0 +1,306 @@
+import { z } from "zod";
+
+/**
+ * Builder-facing metadata contract for action handlers.
+ *
+ * Per docs/slices/phase-3-builder-ui-plan.md §10 Slice 3.0:
+ *   - Each registered action handler (services/execution/handlers/_registry.ts)
+ *     gets a co-located `<action>.meta.ts` exporting an `ActionMeta` const.
+ *   - The discovery registry (services/discovery/_registry.ts) imports every
+ *     meta explicitly and validates against this schema at module load —
+ *     same pattern as the integration manifest registry.
+ *   - Runtime Zod handler schemas (e.g. `httpRequest.schema.ts`) remain the
+ *     authoritative validation contract for resolved config. The metadata
+ *     here is a UI / discovery facet: labels, field types, dependencies,
+ *     option sources, output shape, FileRef awareness. It does NOT replace
+ *     the handler schema and is NOT used to validate config at runtime.
+ *
+ * Key invariant: `key === "${provider}:${type}"`. The discovery registry
+ * enforces this and rejects metas whose key drifts from their declared
+ * (provider, type) tuple.
+ *
+ * Decoupled from Zod internals so a future schema-drift CI check
+ * (zod-to-json-schema) can compare meta fields to handler-schema shape
+ * without this contract depending on Zod's introspection API.
+ */
+
+// ─── Field metadata ──────────────────────────────────────────────────────────
+
+/**
+ * UI-renderable field types. Each maps to one renderer in
+ * features/workflow-builder/config-modal/fields/<Type>Field.tsx (Slice 3.1).
+ *
+ * `cron` is its own type — not a `text` field with hidden validation —
+ * because the renderer humanizes the expression inline ("Runs every weekday
+ * at 9am") and a generic text input cannot provide that affordance.
+ */
+export const FieldTypeSchema = z.enum([
+  "text",
+  "textarea",
+  "select",
+  "combobox",
+  "keyvalue",
+  "number",
+  "boolean",
+  "file",
+  "cron",
+]);
+export type FieldType = z.infer<typeof FieldTypeSchema>;
+
+/** Inline option for select / combobox fields whose values are static. */
+export const FieldOptionSchema = z
+  .object({
+    value: z.string().min(1).max(256),
+    label: z.string().min(1).max(256),
+    description: z.string().max(512).optional(),
+  })
+  .strict();
+export type FieldOption = z.infer<typeof FieldOptionSchema>;
+
+/**
+ * Numeric bounds for `number` fields. Captured here so the renderer can
+ * surface min/max in the UI and run client-side validation before the
+ * authoritative server-side Zod parse on save.
+ */
+export const FieldNumericBoundsSchema = z
+  .object({
+    min: z.number().finite().optional(),
+    max: z.number().finite().optional(),
+    step: z.number().positive().finite().optional(),
+    integer: z.boolean().optional(),
+  })
+  .strict();
+export type FieldNumericBounds = z.infer<typeof FieldNumericBoundsSchema>;
+
+export const FieldMetaSchema = z
+  .object({
+    /** Stable field key matching the handler schema's property name. */
+    name: z.string().min(1).max(128),
+    /** Human-readable label rendered above the input. */
+    label: z.string().min(1).max(128),
+    /** Optional help text rendered below the input. */
+    description: z.string().max(2048).optional(),
+    type: FieldTypeSchema,
+    /** When true, the renderer marks the field with an asterisk + validates non-empty. */
+    required: z.boolean(),
+    /**
+     * Optional placeholder string. Renderer-specific:
+     *   - text / textarea / number / cron: HTML placeholder.
+     *   - select / combobox: shown when no value is selected.
+     *   - keyvalue: not used.
+     */
+    placeholder: z.string().max(256).optional(),
+    /**
+     * Optional default value the renderer populates before user edits.
+     * NOT a contract for the handler schema's `.default()` — duplicating
+     * defaults across two systems courts drift. Default is purely
+     * UI-side: it pre-fills the form so the user sees what will be
+     * submitted if they take no action.
+     */
+    defaultValue: z.unknown().optional(),
+    /**
+     * Name of another field in the same action whose value gates this
+     * field's options / visibility. When the parent changes, the
+     * renderer clears this field's value and re-fetches its options.
+     */
+    dependsOn: z.string().min(1).max(128).optional(),
+    /**
+     * For dynamic select / combobox fields whose options are loaded from
+     * the server (e.g. Slack channel list). The string is an
+     * implementation-defined token the builder UI maps to a fetch
+     * (e.g. "slack:channels"). Static option lists use `options[]`
+     * instead — never both.
+     */
+    optionsSource: z.string().min(1).max(128).optional(),
+    /** Static options for select / combobox. Mutually exclusive with `optionsSource`. */
+    options: z.array(FieldOptionSchema).max(256).optional(),
+    /** Numeric bounds for `number` fields. */
+    numeric: FieldNumericBoundsSchema.optional(),
+    /**
+     * Multi-select toggle for select / combobox. When true the field
+     * value is `string[]` rather than `string`.
+     */
+    multiple: z.boolean().optional(),
+    /**
+     * For `keyvalue` fields, hint the renderer about cap behavior. The
+     * underlying handler schema enforces the authoritative cap.
+     */
+    keyValueMaxRows: z.number().int().positive().max(256).optional(),
+  })
+  .strict()
+  .superRefine((field, ctx) => {
+    if (field.options && field.optionsSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["options"],
+        message:
+          "Field cannot declare both `options` (static) and `optionsSource` (dynamic).",
+      });
+    }
+    if ((field.options || field.optionsSource) && field.type !== "select" && field.type !== "combobox") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["type"],
+        message:
+          "`options` / `optionsSource` are only valid on `select` or `combobox` fields.",
+      });
+    }
+    if (field.numeric && field.type !== "number") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["numeric"],
+        message: "`numeric` is only valid on `number` fields.",
+      });
+    }
+    if (field.multiple && field.type !== "select" && field.type !== "combobox") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["multiple"],
+        message: "`multiple` is only valid on `select` or `combobox` fields.",
+      });
+    }
+    if (field.keyValueMaxRows && field.type !== "keyvalue") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["keyValueMaxRows"],
+        message: "`keyValueMaxRows` is only valid on `keyvalue` fields.",
+      });
+    }
+  });
+export type FieldMeta = z.infer<typeof FieldMetaSchema>;
+
+// ─── Output metadata ─────────────────────────────────────────────────────────
+
+/**
+ * Output types the variable picker (Slice 3.7) renders as type chips. The
+ * `fileRef` type signals a downstream node may consume the value via a
+ * `file` field; the picker shows a file icon.
+ */
+export const OutputTypeSchema = z.enum([
+  "string",
+  "number",
+  "boolean",
+  "object",
+  "array",
+  "fileRef",
+  "unknown",
+]);
+export type OutputType = z.infer<typeof OutputTypeSchema>;
+
+export interface OutputMeta {
+  /** Stable output path key, e.g. `messageId` or `attachments`. */
+  name: string;
+  type: OutputType;
+  description?: string;
+  /**
+   * For `object` outputs whose nested fields are exposed in the variable
+   * picker. Self-recursive — kept as a type alias rather than `z.lazy`
+   * to keep the contract import surface flat.
+   */
+  fields?: readonly OutputMeta[];
+}
+
+// Zod schema mirrors the type. `z.lazy` makes the recursion explicit; the
+// inferred type is reconciled via `z.ZodType<OutputMeta>` so consumers
+// import the TS interface above (cleaner doc surface).
+export const OutputMetaSchema: z.ZodType<OutputMeta> = z.lazy(() =>
+  z
+    .object({
+      name: z.string().min(1).max(128),
+      type: OutputTypeSchema,
+      description: z.string().max(2048).optional(),
+      fields: z.array(OutputMetaSchema).max(64).optional(),
+    })
+    .strict(),
+);
+
+// ─── Action metadata ─────────────────────────────────────────────────────────
+
+/**
+ * Top-level action metadata. The builder library panel renders one row per
+ * `ActionMeta`; clicking opens the config modal hydrated from `fields`.
+ *
+ * `key` is the canonical lookup `${provider}:${type}` and matches the
+ * handler-registry's primary key. The discovery registry enforces this
+ * invariant at module load.
+ *
+ * `requiresIntegration` separates native actions (false — no OAuth) from
+ * provider actions (true — disconnected provider blocks activation,
+ * surfaces inline reconnect CTA).
+ *
+ * `producesFileRef` / `consumesFileRef` drive the variable picker's file
+ * icon and the upcoming Slice 3.7 file-aware data passing.
+ *
+ * `displayOrder` lets a provider impose a non-alphabetical sort within
+ * the library panel (e.g. Slack might surface `send_channel_message`
+ * above `list_users` even though alphabetical sort would invert it).
+ * Defaults to `null` — alphabetical sort by `displayName`.
+ */
+export const ActionCategorySchema = z.enum([
+  "messaging",
+  "email",
+  "calendar",
+  "files",
+  "data",
+  "commerce",
+  "crm",
+  "marketing",
+  "developer",
+  "logic",
+  "http",
+  "transform",
+  "scheduling",
+  "other",
+]);
+export type ActionCategory = z.infer<typeof ActionCategorySchema>;
+
+export const ActionMetaSchema = z
+  .object({
+    /** Canonical `${provider}:${type}` lookup key. */
+    key: z.string().regex(/^[a-z][a-z0-9_-]*:[a-z][a-z0-9_]*$/),
+    provider: z.string().min(1).max(64),
+    type: z.string().min(1).max(64),
+    displayName: z.string().min(1).max(128),
+    description: z.string().min(1).max(2048),
+    category: ActionCategorySchema,
+    requiresIntegration: z.boolean(),
+    fields: z.array(FieldMetaSchema).max(128),
+    outputs: z.array(OutputMetaSchema).max(128).default([]),
+    producesFileRef: z.boolean().default(false),
+    consumesFileRef: z.boolean().default(false),
+    /** Optional sort hint within a provider's action list. Lower = earlier. */
+    displayOrder: z.number().int().nullable().default(null),
+  })
+  .strict()
+  .superRefine((meta, ctx) => {
+    if (meta.key !== `${meta.provider}:${meta.type}`) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["key"],
+        message: `Action key '${meta.key}' must equal '${meta.provider}:${meta.type}'.`,
+      });
+    }
+    const fieldNames = new Set<string>();
+    for (let i = 0; i < meta.fields.length; i++) {
+      const name = meta.fields[i]!.name;
+      if (fieldNames.has(name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["fields", i, "name"],
+          message: `Duplicate field name '${name}'.`,
+        });
+      }
+      fieldNames.add(name);
+    }
+    for (let i = 0; i < meta.fields.length; i++) {
+      const dep = meta.fields[i]!.dependsOn;
+      if (dep && !fieldNames.has(dep)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["fields", i, "dependsOn"],
+          message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
+        });
+      }
+    }
+  });
+export type ActionMeta = z.infer<typeof ActionMetaSchema>;
