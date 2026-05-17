@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ActionMeta } from "@/contracts/actionMeta";
 import type {
   WorkflowDefinition,
   WorkflowEdge,
@@ -46,6 +47,8 @@ export interface GraphSliceState {
 export interface AddNodeInput {
   provider: string;
   type?: string;
+  /** Optional initial config (e.g. derived from ActionMeta.fields defaults). */
+  config?: Record<string, unknown>;
 }
 
 export interface GraphSliceActions {
@@ -53,8 +56,38 @@ export interface GraphSliceActions {
   reset(): void;
   addTrigger(input: AddNodeInput): WorkflowNode;
   addAction(input: AddNodeInput): WorkflowNode;
+  /**
+   * Slice 3.2 — add an action node by its ActionMeta. Derives the
+   * default config from `meta.fields[].defaultValue` so authors see
+   * the recommended starting values pre-populated in the config form.
+   */
+  addActionFromMeta(meta: ActionMeta): WorkflowNode;
   removeNode(nodeId: string): void;
+  /**
+   * Slice 3.2 — replace the named node's config. Caller passes the
+   * full config object (typically the configSlice draft values for
+   * the node). Sets `isDirty: true` if the config changed.
+   */
+  updateNodeConfig(nodeId: string, config: Record<string, unknown>): void;
   save(): Promise<void>;
+}
+
+/**
+ * Derive an initial config Record from an ActionMeta's field defaults.
+ * Only fields whose `defaultValue` is explicitly set contribute; other
+ * fields are left absent so the schema's own defaults / requireds take
+ * effect when the workflow runs.
+ */
+export function deriveDefaultConfig(
+  meta: ActionMeta,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const field of meta.fields) {
+    if (field.defaultValue !== undefined) {
+      out[field.name] = field.defaultValue;
+    }
+  }
+  return out;
 }
 
 export type GraphSlice = GraphSliceState & GraphSliceActions;
@@ -145,7 +178,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       kind: "action",
       provider: input.provider,
       type: input.type ?? "",
-      config: {},
+      config: input.config ?? {},
       position: { x: 0, y: (pendingNodes.length) * 120 },
     };
     const newEdge: WorkflowEdge = {
@@ -160,6 +193,44 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       saveError: null,
     });
     return node;
+  },
+
+  addActionFromMeta(meta) {
+    // Delegates to addAction with metadata-derived defaults so the
+    // dirty-check + edge-creation behavior stays single-sourced.
+    return get().addAction({
+      provider: meta.provider,
+      type: meta.type,
+      config: deriveDefaultConfig(meta),
+    });
+  },
+
+  updateNodeConfig(nodeId, config) {
+    const { pendingNodes } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return;
+    const current = pendingNodes[idx]!;
+    // Cheap shallow-equality short-circuit: if values match, no-op.
+    const currentKeys = Object.keys(current.config);
+    const nextKeys = Object.keys(config);
+    if (currentKeys.length === nextKeys.length) {
+      let same = true;
+      for (const k of currentKeys) {
+        if (current.config[k] !== config[k]) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return;
+    }
+    const updated: WorkflowNode = { ...current, config: { ...config } };
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updated;
+    set({
+      pendingNodes: nextNodes,
+      isDirty: true,
+      saveError: null,
+    });
   },
 
   removeNode(nodeId) {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import type { ActionMeta } from "@/contracts/actionMeta";
 import { useGraphSlice } from "../state/graphSlice";
+import { useNativeActions } from "../hooks/useNativeActions";
 
 export interface ProviderOption {
   id: string;
@@ -16,17 +18,25 @@ interface Props {
 type OpenMenu = "trigger" | "action" | null;
 
 /**
- * Picker for adding a trigger or action node to the workflow.
+ * Picker for adding a trigger or action node.
  *
- * 1I.2 minimum: pick a provider; the node is created with `type=""` and an
- * empty config. Per-provider action catalogs (e.g. Slack's "send_channel_message"
- * vs "create_channel") arrive with each provider's slice (1L+).
+ * Slice 3.2 extends the action picker with a "Native" section sourced
+ * from `useNativeActions()` (discovery API → typed client). Selecting a
+ * native action creates a fully-typed node via `addActionFromMeta`,
+ * including default config derived from the meta's field defaults.
+ *
+ * Provider-action picking keeps the existing Slice 1I.2 behavior (a
+ * node with `type=""` and empty config) — proper provider-action
+ * pickers land in Slice 3.4 per-provider config wrappers.
  */
 export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const addTrigger = useGraphSlice((s) => s.addTrigger);
   const addAction = useGraphSlice((s) => s.addAction);
+  const addActionFromMeta = useGraphSlice((s) => s.addActionFromMeta);
   const [open, setOpen] = useState<OpenMenu>(null);
+
+  const nativeActions = useNativeActions();
 
   const hasTrigger = pendingNodes.some((n) => n.kind === "trigger");
 
@@ -35,8 +45,13 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
     setOpen(null);
   }
 
-  function handleAddAction(provider: ProviderOption) {
+  function handleAddProviderAction(provider: ProviderOption) {
     addAction({ provider: provider.id });
+    setOpen(null);
+  }
+
+  function handleAddNativeAction(meta: ActionMeta) {
+    addActionFromMeta(meta);
     setOpen(null);
   }
 
@@ -75,13 +90,80 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
         />
       )}
       {open === "action" && (
+        <ActionPicker
+          nativeActions={nativeActions.actions}
+          nativeLoading={nativeActions.loading}
+          nativeError={nativeActions.error}
+          actionProviders={actionProviders}
+          onPickNative={handleAddNativeAction}
+          onPickProvider={handleAddProviderAction}
+        />
+      )}
+    </div>
+  );
+}
+
+interface ActionPickerProps {
+  nativeActions: readonly ActionMeta[];
+  nativeLoading: boolean;
+  nativeError: string | null;
+  actionProviders: readonly ProviderOption[];
+  onPickNative: (meta: ActionMeta) => void;
+  onPickProvider: (provider: ProviderOption) => void;
+}
+
+function ActionPicker({
+  nativeActions,
+  nativeLoading,
+  nativeError,
+  actionProviders,
+  onPickNative,
+  onPickProvider,
+}: ActionPickerProps) {
+  return (
+    <div className="flex flex-col gap-3 rounded border border-input p-3">
+      <section aria-label="Native actions" className="flex flex-col gap-1.5">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Native
+        </h3>
+        {nativeLoading ? (
+          <p className="text-xs text-muted-foreground">Loading native actions…</p>
+        ) : nativeError ? (
+          <p role="alert" className="text-xs text-destructive">
+            {nativeError}
+          </p>
+        ) : nativeActions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No native actions available.</p>
+        ) : (
+          <ul aria-label="Native actions list" className="flex flex-col gap-1">
+            {nativeActions.map((meta) => (
+              <li key={meta.key}>
+                <button
+                  type="button"
+                  onClick={() => onPickNative(meta)}
+                  className="flex w-full flex-col gap-0.5 rounded border border-transparent bg-muted/50 px-3 py-2 text-left hover:border-input hover:bg-muted"
+                >
+                  <span className="text-sm font-medium">{meta.displayName}</span>
+                  <span className="text-xs text-muted-foreground line-clamp-2">
+                    {meta.description}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section aria-label="Provider actions" className="flex flex-col gap-1.5">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Providers
+        </h3>
         <ProviderList
           aria-label="Action providers"
           providers={actionProviders}
-          onPick={handleAddAction}
+          onPick={onPickProvider}
           emptyMessage="No action providers available."
         />
-      )}
+      </section>
     </div>
   );
 }

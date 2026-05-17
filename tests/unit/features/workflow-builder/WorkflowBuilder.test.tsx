@@ -17,8 +17,20 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
+const mockListNativeActions = jest.fn(async () => []);
+jest.mock("@/lib/api/discovery", () => ({
+  __esModule: true,
+  listNativeActions: () => mockListNativeActions(),
+  DiscoveryApiError: class DiscoveryApiError extends Error {
+    code = "UNKNOWN";
+    status = 500;
+  },
+}));
+
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
+import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
+import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import type { WorkflowDetail } from "@/contracts/workflow";
 
 const baseWorkflow: WorkflowDetail = {
@@ -39,7 +51,11 @@ const actionProviders = [{ id: "slack", displayName: "Slack" }];
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockListNativeActions.mockReset();
+  mockListNativeActions.mockResolvedValue([]);
+  __resetNativeActionsCacheForTests();
   useGraphSlice.getState().reset();
+  useConfigSlice.getState().reset();
 });
 
 describe("WorkflowBuilder", () => {
@@ -137,5 +153,23 @@ describe("WorkflowBuilder", () => {
     expect(s.workflowId).toBeNull();
     expect(s.pendingNodes).toEqual([]);
     expect(s.isHydrated).toBe(false);
+  });
+
+  it("resets configSlice on unmount so stale per-node drafts don't leak", () => {
+    const { unmount } = render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: "fake", initialValues: { x: 1 } });
+    expect(useConfigSlice.getState().drafts.fake).toBeDefined();
+    unmount();
+    expect(useConfigSlice.getState().drafts).toEqual({});
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 });

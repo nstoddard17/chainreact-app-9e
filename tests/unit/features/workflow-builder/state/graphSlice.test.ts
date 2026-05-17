@@ -244,3 +244,114 @@ describe("graphSlice.save", () => {
     await Promise.all([p1, p2]);
   });
 });
+
+// ─── Slice 3.2 extensions ────────────────────────────────────────────────────
+
+import type { ActionMeta } from "@/contracts/actionMeta";
+import { deriveDefaultConfig } from "@/features/workflow-builder/state/graphSlice";
+
+const httpRequestMeta: ActionMeta = {
+  key: "native:http_request",
+  provider: "native",
+  type: "http_request",
+  displayName: "HTTP Request",
+  description: "Make an HTTP request.",
+  category: "http",
+  requiresIntegration: false,
+  fields: [
+    {
+      name: "method",
+      label: "Method",
+      type: "select",
+      required: true,
+      options: [{ value: "GET", label: "GET" }],
+    },
+    {
+      name: "url",
+      label: "URL",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "timeoutSeconds",
+      label: "Timeout",
+      type: "number",
+      required: false,
+      defaultValue: 15,
+      numeric: { min: 1, max: 30, integer: true, step: 1 },
+    },
+  ],
+  outputs: [],
+  producesFileRef: false,
+  consumesFileRef: false,
+  displayOrder: 10,
+};
+
+describe("deriveDefaultConfig", () => {
+  it("returns only fields that declare a defaultValue", () => {
+    expect(deriveDefaultConfig(httpRequestMeta)).toEqual({ timeoutSeconds: 15 });
+  });
+});
+
+describe("graphSlice.addActionFromMeta", () => {
+  it("creates a node with provider/type from the meta and default config", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    expect(node).toMatchObject({
+      provider: "native",
+      type: "http_request",
+      config: { timeoutSeconds: 15 },
+      kind: "action",
+    });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("refuses to add an action before a trigger exists (delegates to addAction)", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    expect(() =>
+      useGraphSlice.getState().addActionFromMeta(httpRequestMeta),
+    ).toThrow(/trigger/i);
+  });
+});
+
+describe("graphSlice.updateNodeConfig", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+  });
+
+  it("replaces the named node's config and marks dirty", () => {
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    // Saving the node + clearing dirty is the caller's concern in real code;
+    // here we just compare before/after the update.
+    useGraphSlice.getState().updateNodeConfig(node.id, {
+      method: "POST",
+      url: "https://example.com",
+      timeoutSeconds: 30,
+    });
+    const updated = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === node.id);
+    expect(updated?.config).toEqual({
+      method: "POST",
+      url: "https://example.com",
+      timeoutSeconds: 30,
+    });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("no-op when the supplied config is shallow-equal to the existing one", () => {
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    // First update with new values to flip dirty back to false would require a save;
+    // instead, snapshot pendingNodes reference and assert the second update doesn't
+    // produce a new reference.
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().updateNodeConfig(node.id, { timeoutSeconds: 15 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+
+  it("no-op when the nodeId is unknown", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().updateNodeConfig("ghost", { x: 1 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+});
