@@ -45,6 +45,21 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the GitHub action metas registered in Slice 3.0b", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "github:create_issue",
+        "github:create_repository",
+        "github:create_pull_request",
+        "github:create_branch",
+        "github:create_gist",
+        "github:add_comment",
+      ]),
+    );
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -75,6 +90,12 @@ describe("listAllTriggerMetas", () => {
     );
   });
 
+  it("returns the GitHub trigger meta registered in Slice 3.0b", () => {
+    const metas = listAllTriggerMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toContain("github:new_commit");
+  });
+
   it("returns metas that pass the Zod contract", () => {
     for (const m of listAllTriggerMetas()) {
       expect(() => TriggerMetaSchema.parse(m)).not.toThrow();
@@ -95,6 +116,44 @@ describe("per-provider accessors", () => {
     expect(metas.every((m) => m.provider === "native")).toBe(true);
   });
 
+  it("listActionMetasForProvider('github') returns 6 actions in displayOrder", () => {
+    const metas = listActionMetasForProvider("github");
+    expect(metas).toHaveLength(6);
+    expect(metas.every((m) => m.provider === "github")).toBe(true);
+    expect(metas.map((m) => m.key)).toEqual([
+      "github:create_issue",
+      "github:create_repository",
+      "github:create_pull_request",
+      "github:create_branch",
+      "github:create_gist",
+      "github:add_comment",
+    ]);
+  });
+
+  it("listTriggerMetasForProvider('github') returns 1 trigger", () => {
+    const metas = listTriggerMetasForProvider("github");
+    expect(metas).toHaveLength(1);
+    expect(metas[0]!.key).toBe("github:new_commit");
+    expect(metas[0]!.activation).toBe("webhook");
+  });
+
+  it("every GitHub action meta declares requiresIntegration: true", () => {
+    const metas = listActionMetasForProvider("github");
+    expect(metas.every((m) => m.requiresIntegration === true)).toBe(true);
+  });
+
+  it("the GitHub trigger meta declares requiresIntegration: true", () => {
+    const metas = listTriggerMetasForProvider("github");
+    expect(metas[0]!.requiresIntegration).toBe(true);
+  });
+
+  it("every GitHub meta uses the developer category", () => {
+    const actionMetas = listActionMetasForProvider("github");
+    expect(actionMetas.every((m) => m.category === "developer")).toBe(true);
+    const triggerMetas = listTriggerMetasForProvider("github");
+    expect(triggerMetas.every((m) => m.category === "developer")).toBe(true);
+  });
+
   it("returns [] for an unknown provider", () => {
     expect(listActionMetasForProvider("nonexistent")).toEqual([]);
     expect(listTriggerMetasForProvider("nonexistent")).toEqual([]);
@@ -106,6 +165,13 @@ describe("keyed accessors", () => {
     const meta = getActionMeta("native:http_request");
     expect(meta).toBeDefined();
     expect(meta?.key).toBe("native:http_request");
+  });
+
+  it("getActionMeta resolves a GitHub key", () => {
+    const meta = getActionMeta("github:create_issue");
+    expect(meta).toBeDefined();
+    expect(meta?.provider).toBe("github");
+    expect(meta?.requiresIntegration).toBe(true);
   });
 
   it("getActionMeta returns undefined for an unregistered key", () => {
@@ -124,9 +190,10 @@ describe("keyed accessors", () => {
 });
 
 describe("listProvidersWithMetadata", () => {
-  it("returns sorted unique provider ids covering native", () => {
+  it("returns sorted unique provider ids covering native and github", () => {
     const providers = listProvidersWithMetadata();
     expect(providers).toContain("native");
+    expect(providers).toContain("github");
     const sorted = [...providers].sort();
     expect(providers).toEqual(sorted);
     expect(new Set(providers).size).toBe(providers.length);

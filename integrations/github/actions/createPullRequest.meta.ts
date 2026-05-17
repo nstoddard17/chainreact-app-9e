@@ -1,0 +1,87 @@
+import type { ActionMeta } from "@/contracts/actionMeta";
+
+/**
+ * Builder-facing metadata for `github:create_pull_request`.
+ *
+ * Mirrors `createPullRequest.schema.ts`. `base` is optional — the
+ * handler auto-detects the repo's default branch when blank (PR-G6).
+ * The field description spells this out so authors know leaving it
+ * blank is safe (no silent fallback to literal 'main').
+ *
+ * `head` accepts cross-repo notation `fork-owner:branch`.
+ */
+export const createPullRequestMeta: ActionMeta = {
+  key: "github:create_pull_request",
+  provider: "github",
+  type: "create_pull_request",
+  displayName: "Create Pull Request",
+  description:
+    "Open a pull request between two branches. Leave the base blank to auto-target the repository's default branch.",
+  category: "developer",
+  requiresIntegration: true,
+  fields: [
+    {
+      name: "repository",
+      label: "Repository",
+      description: "Target repository in 'owner/repo' format.",
+      type: "text",
+      required: true,
+      placeholder: "octocat/hello-world",
+    },
+    {
+      name: "title",
+      label: "Title",
+      description: "Pull request title.",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "head",
+      label: "Head Branch",
+      description:
+        "Branch with your changes. Accepts simple names ('feature/x') or cross-repo notation ('fork-owner:branch').",
+      type: "text",
+      required: true,
+      placeholder: "feature/widget",
+    },
+    {
+      name: "base",
+      label: "Base Branch",
+      description:
+        "Branch you want the changes merged into. When blank, auto-detected from the repository's default branch.",
+      type: "text",
+      required: false,
+      placeholder: "main",
+    },
+    {
+      name: "body",
+      label: "Body",
+      description: "Optional pull request description (Markdown).",
+      type: "textarea",
+      required: false,
+    },
+    {
+      name: "draft",
+      label: "Draft",
+      description: "When true, opens the PR in draft state.",
+      type: "boolean",
+      required: false,
+    },
+  ],
+  outputs: [
+    { name: "pullRequestId", type: "number", description: "GitHub's internal PR id." },
+    { name: "pullRequestNumber", type: "number", description: "Per-repository PR number (URL number)." },
+    { name: "title", type: "string" },
+    { name: "body", type: "string" },
+    { name: "state", type: "string", description: "'open' or 'closed'." },
+    { name: "draft", type: "boolean" },
+    { name: "url", type: "string" },
+    { name: "repository", type: "string" },
+    { name: "head", type: "string", description: "Resolved head branch ref." },
+    { name: "base", type: "string", description: "Resolved base branch ref (auto-detected default branch if input was blank)." },
+    { name: "createdAt", type: "string" },
+  ],
+  producesFileRef: false,
+  consumesFileRef: false,
+  displayOrder: 30,
+};

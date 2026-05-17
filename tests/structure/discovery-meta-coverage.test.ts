@@ -11,16 +11,16 @@
  *     coverage for that provider going forward, preventing accidental
  *     handler/meta drift inside the covered scope.
  *
- * Coverage scope (this commit): native only.
+ * Coverage scope: native (Slice 3.0) + GitHub (Slice 3.0b).
  *
  * This test does NOT block adding new handlers for uncovered providers —
- * a Slack handler can land without a meta file, but a native handler
- * landing without a meta file will fail.
+ * a Slack handler can land without a meta file, but a native handler or
+ * a GitHub handler landing without a meta file will fail.
  */
 import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 import { listAllActionMetas } from "@/services/discovery/_registry";
 
-const COVERED_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
+const COVERED_PROVIDERS: ReadonlySet<string> = new Set(["native", "github"]);
 
 describe("discovery meta coverage (covered providers)", () => {
   it("every registered handler in a covered provider has an ActionMeta entry", () => {

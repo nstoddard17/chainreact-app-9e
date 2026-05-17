@@ -18,6 +18,17 @@ import { routerMeta } from "@/integrations/native/actions/router.meta";
 import { manualTriggerMeta } from "@/integrations/native/triggers/manualTrigger.meta";
 import { scheduledTriggerMeta } from "@/integrations/native/triggers/scheduledTrigger.meta";
 
+// GitHub action metadata (Slice 3.0b coverage scope).
+import { createIssueMeta } from "@/integrations/github/actions/createIssue.meta";
+import { createRepositoryMeta } from "@/integrations/github/actions/createRepository.meta";
+import { createPullRequestMeta } from "@/integrations/github/actions/createPullRequest.meta";
+import { createBranchMeta } from "@/integrations/github/actions/createBranch.meta";
+import { createGistMeta } from "@/integrations/github/actions/createGist.meta";
+import { addCommentMeta } from "@/integrations/github/actions/addComment.meta";
+
+// GitHub trigger metadata.
+import { newCommitTriggerMeta } from "@/integrations/github/triggers/newCommit/newCommit.meta";
+
 /**
  * Hand-maintained discovery metadata registry.
  *
@@ -39,22 +50,34 @@ import { scheduledTriggerMeta } from "@/integrations/native/triggers/scheduledTr
  *     in runtime validation schemas (labels, descriptions, dependsOn,
  *     optionsSource, displayOrder, FileRef awareness).
  *
- * Coverage scope (this commit): native only. Subsequent commits expand
- * coverage one provider at a time, validated by a coverage structural
- * test that grows its expected-coverage set alongside the imports.
+ * Coverage scope: native (Slice 3.0) + GitHub (Slice 3.0b). Subsequent
+ * commits expand coverage one provider at a time, validated by a
+ * coverage structural test that grows its expected-coverage set
+ * alongside the imports.
  */
 
 const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
+  // Native (Slice 3.0).
   httpRequestMeta,
   formatTransformerMeta,
   delayMeta,
   ifThenConditionMeta,
   routerMeta,
+  // GitHub (Slice 3.0b).
+  createIssueMeta,
+  createRepositoryMeta,
+  createPullRequestMeta,
+  createBranchMeta,
+  createGistMeta,
+  addCommentMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
+  // Native (Slice 3.0).
   manualTriggerMeta,
   scheduledTriggerMeta,
+  // GitHub (Slice 3.0b).
+  newCommitTriggerMeta,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
