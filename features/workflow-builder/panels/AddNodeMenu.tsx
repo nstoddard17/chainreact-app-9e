@@ -44,7 +44,6 @@ type OpenMenu = "trigger" | "action" | null;
  */
 export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
-  const addTrigger = useGraphSlice((s) => s.addTrigger);
   const addActionFromMeta = useGraphSlice((s) => s.addActionFromMeta);
   const addTriggerFromMeta = useGraphSlice((s) => s.addTriggerFromMeta);
   const [open, setOpen] = useState<OpenMenu>(null);
@@ -54,8 +53,14 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
 
   const hasTrigger = pendingNodes.some((n) => n.kind === "trigger");
 
-  function handleAddProviderTrigger(provider: ProviderOption) {
-    addTrigger({ provider: provider.id });
+  // Slice 3.10 — provider triggers now drill in like provider actions
+  // and pick a specific TriggerMeta. The legacy bare-add path
+  // (`addTrigger({provider})`) is no longer reachable through this UI;
+  // it stays exported on the slice so tests + future surfaces (e.g.
+  // an agent that builds a workflow from a prompt) can still use it
+  // directly.
+  function handlePickProviderTrigger(meta: TriggerMeta) {
+    addTriggerFromMeta(meta);
     setOpen(null);
   }
 
@@ -102,7 +107,7 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
           nativeError={nativeTriggers.error}
           triggerProviders={triggerProviders}
           onPickNative={handleAddNativeTrigger}
-          onPickProvider={handleAddProviderTrigger}
+          onPickProviderTrigger={handlePickProviderTrigger}
         />
       )}
       {open === "action" && (

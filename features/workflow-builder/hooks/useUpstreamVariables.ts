@@ -19,6 +19,10 @@ import {
   findProviderActionByKey,
   useProviderActionsForProviders,
 } from "./useProviderActions";
+import {
+  findProviderTriggerByKey,
+  useProviderTriggers,
+} from "./useProviderTriggers";
 
 /**
  * Compose graphSlice + meta hooks into the variable-picker's source
@@ -136,6 +140,25 @@ export function useUpstreamVariables(
   //    regardless of how many providers the current node depends on.
   const providerCatalogs = useProviderActionsForProviders(upstreamProviderIds);
 
+  // 3b. Slice 3.10 — provider-trigger catalog.
+  //
+  // A workflow has at most one trigger node (single-trigger invariant
+  // enforced in graphSlice.addTrigger), so the upstream set contains
+  // at most one provider trigger. That makes a single-provider
+  // `useProviderTriggers(provider)` call sufficient — no fan-out hook
+  // needed, no Rules-of-Hooks risk across renders. `null` signals
+  // "current node has no provider-trigger ancestor right now"; the
+  // hook short-circuits to an idle state and never fetches.
+  const upstreamTriggerProvider = useMemo<string | null>(() => {
+    for (const node of ancestorNodes) {
+      if (node.kind === "trigger" && node.provider !== NATIVE_PROVIDER) {
+        return node.provider;
+      }
+    }
+    return null;
+  }, [ancestorNodes]);
+  const providerTriggers = useProviderTriggers(upstreamTriggerProvider);
+
   // 4. Slice 3.9 — compute the latest-run value map. Derived from
   //    `runSlice.detail` + the current graph's trigger node id. Kept
   //    in its own useMemo so the (often unchanged) sources work above
@@ -169,6 +192,7 @@ export function useUpstreamVariables(
         nativeActions: nativeActions.actions,
         nativeTriggers: nativeTriggers.triggers,
         providerCatalogs: providerCatalogs.byProvider,
+        providerTriggers: providerTriggers.triggers,
       });
       if (!meta) continue; // not loaded yet, or unknown — skip silently
       const outputs = meta.outputs;
@@ -189,7 +213,8 @@ export function useUpstreamVariables(
       loading:
         nativeActions.loading ||
         nativeTriggers.loading ||
-        providerCatalogs.loading,
+        providerCatalogs.loading ||
+        providerTriggers.loading,
       latestValuesBySource,
     };
   }, [
@@ -201,6 +226,8 @@ export function useUpstreamVariables(
     nativeTriggers.loading,
     providerCatalogs.byProvider,
     providerCatalogs.loading,
+    providerTriggers.triggers,
+    providerTriggers.loading,
     latestValuesBySource,
   ]);
 }
@@ -214,6 +241,12 @@ interface ResolveCtx {
   nativeActions: readonly ActionMeta[];
   nativeTriggers: readonly TriggerMeta[];
   providerCatalogs: Readonly<Record<string, readonly ActionMeta[]>>;
+  /**
+   * Slice 3.10 — provider trigger catalog for the (at-most-one) upstream
+   * provider-trigger node. Empty array means "no provider-trigger
+   * ancestor for the current node" OR "catalog hasn't resolved yet."
+   */
+  providerTriggers: readonly TriggerMeta[];
 }
 
 function resolveMeta(
@@ -223,13 +256,19 @@ function resolveMeta(
   if (!node.type) return undefined;
   const key = `${node.provider}:${node.type}`;
   if (node.kind === "trigger") {
-    if (node.provider !== NATIVE_PROVIDER) {
-      // Provider triggers don't yet ship payloadShape through this
-      // path. Out of scope for Slice 3.7; deferred with provider
-      // trigger wrappers.
-      return undefined;
+    if (node.provider === NATIVE_PROVIDER) {
+      const trigMeta = findNativeTriggerByKey(ctx.nativeTriggers, key);
+      if (!trigMeta) return undefined;
+      return {
+        displayName: trigMeta.displayName,
+        outputs: trigMeta.payloadShape,
+      };
     }
-    const trigMeta = findNativeTriggerByKey(ctx.nativeTriggers, key);
+    // Slice 3.10 — provider triggers now resolve through the same
+    // payloadShape contract as native triggers. The trigger's
+    // `payloadShape` is exposed under the canonical `"trigger"` alias
+    // by the caller (sourceId assignment).
+    const trigMeta = findProviderTriggerByKey(ctx.providerTriggers, key);
     if (!trigMeta) return undefined;
     return {
       displayName: trigMeta.displayName,

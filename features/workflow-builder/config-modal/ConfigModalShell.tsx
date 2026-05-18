@@ -17,6 +17,10 @@ import {
   findProviderActionByKey,
   useProviderActions,
 } from "../hooks/useProviderActions";
+import {
+  findProviderTriggerByKey,
+  useProviderTriggers,
+} from "../hooks/useProviderTriggers";
 import { SchemaForm } from "./SchemaForm";
 import { validateRoutesValue } from "./fields/_routesValidator";
 
@@ -26,16 +30,13 @@ import { validateRoutesValue } from "./fields/_routesValidator";
  * Slice 3.2 — native action nodes.
  * Slice 3.3 — native trigger nodes.
  * Slice 3.4 — provider action nodes via `useProviderActions(provider)`.
- *
- * Provider-trigger nodes still get the "coming in a later slice"
- * placeholder — that wrapper is intentionally deferred per the Slice
- * 3.4 task brief.
+ * Slice 3.10 — provider trigger nodes via `useProviderTriggers(provider)`.
  *
  * Lookup branches by `(kind, provider)`:
  *   - action + native  → `useNativeActions` (cached cross-session)
  *   - trigger + native → `useNativeTriggers` (cached cross-session)
  *   - action + other   → `useProviderActions(provider)` (per-provider cache)
- *   - trigger + other  → placeholder (deferred)
+ *   - trigger + other  → `useProviderTriggers(provider)` (per-provider cache)
  *
  * The active source's loading / error signal drives the rail's
  * loading / error UI so a slow / failed fetch in one source never
@@ -96,6 +97,20 @@ export function ConfigModalShell() {
   }, [activeNode]);
   const providerActions = useProviderActions(providerActionSourceProvider);
 
+  // Slice 3.10 — provider-trigger source mirrors providerActions. Only
+  // loads when the active node is a non-native trigger with a type. A
+  // trigger node added through the legacy bare-add path (no `type`)
+  // short-circuits to null — the modal's "unknown meta" branch then
+  // surfaces the missing-meta error.
+  const providerTriggerSourceProvider: string | null = useMemo(() => {
+    if (!activeNode) return null;
+    if (activeNode.kind !== "trigger") return null;
+    if (activeNode.provider === NATIVE_PROVIDER) return null;
+    if (!activeNode.type) return null;
+    return activeNode.provider;
+  }, [activeNode]);
+  const providerTriggers = useProviderTriggers(providerTriggerSourceProvider);
+
   const activeMeta: ConfigurableMeta | undefined = useMemo(() => {
     if (!activeNode || !activeNode.type) return undefined;
     const key = `${activeNode.provider}:${activeNode.type}`;
@@ -107,12 +122,14 @@ export function ConfigModalShell() {
     if (activeNode.kind === "action") {
       return findProviderActionByKey(providerActions.actions, key);
     }
-    return undefined; // provider trigger — placeholder branch below
+    // Slice 3.10 — provider trigger lookup.
+    return findProviderTriggerByKey(providerTriggers.triggers, key);
   }, [
     activeNode,
     nativeActions.actions,
     nativeTriggers.triggers,
     providerActions.actions,
+    providerTriggers.triggers,
   ]);
 
   // No active node → shell is hidden.
@@ -148,6 +165,7 @@ export function ConfigModalShell() {
       return activeNode.kind === "trigger" ? nativeTriggers : nativeActions;
     }
     if (isProviderAction) return providerActions;
+    if (isProviderTrigger) return providerTriggers;
     return { loading: false, error: null };
   })();
   const isLoadingMeta = sourceState.loading;
@@ -225,12 +243,6 @@ export function ConfigModalShell() {
         ) : metaError ? (
           <p role="alert" className="text-xs text-destructive">
             {metaError}
-          </p>
-        ) : isProviderTrigger ? (
-          <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
-            Provider-trigger configuration arrives in a later slice. For
-            now, only native triggers can be configured through this
-            rail.
           </p>
         ) : !activeMeta ? (
           <p role="alert" className="text-xs text-destructive">

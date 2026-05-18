@@ -38,11 +38,13 @@ jest.mock("@/lib/api/workflows", () => {
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
 const mockListProviderActions = jest.fn();
+const mockListProviderTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
   listProviderActions: (p: string) => mockListProviderActions(p),
+  listProviderTriggers: (p: string) => mockListProviderTriggers(p),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -57,7 +59,23 @@ import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
+import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
+
+const slackTriggerMeta: TriggerMeta = {
+  key: "slack:slack.message.channel",
+  provider: "slack",
+  type: "slack.message.channel",
+  displayName: "Slack Message",
+  description: "Slack message in a channel.",
+  category: "messaging",
+  activation: "webhook",
+  requiresIntegration: true,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
 import type { WorkflowDetail } from "@/contracts/workflow";
 
 const addCommentMeta: ActionMeta = {
@@ -123,9 +141,14 @@ beforeEach(() => {
   mockListNativeTriggers.mockResolvedValue([]);
   mockListProviderActions.mockReset();
   mockListProviderActions.mockResolvedValue([]);
+  mockListProviderTriggers.mockReset();
+  mockListProviderTriggers.mockImplementation(async (p: string) =>
+    p === "slack" ? [slackTriggerMeta] : [],
+  );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
+  __resetProviderTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });
@@ -147,19 +170,20 @@ it("end-to-end: drill into provider, pick action from metadata, configure, save 
     />,
   );
 
-  // 1. Add a Slack trigger via the legacy provider-trigger path.
+  // 1. Add a Slack trigger via the Slice 3.10 drill-in path.
   await user.click(screen.getByRole("button", { name: /add trigger/i }));
   await waitFor(() => {
     expect(
       screen.getByRole("list", { name: /trigger providers/i }),
     ).toBeInTheDocument();
   });
-  const triggerProviderList = screen.getByRole("list", {
-    name: /trigger providers/i,
-  });
   await user.click(
-    within(triggerProviderList).getByRole("button", { name: /^Slack$/ }),
+    screen.getByRole("button", { name: /browse slack triggers/i }),
   );
+  await waitFor(() => {
+    expect(screen.getByText("Slack Message")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Slack Message"));
 
   // 2. Open the action picker, drill into the GitHub provider.
   await user.click(screen.getByRole("button", { name: /add action/i }));
@@ -236,7 +260,7 @@ it("drill-in for a provider with no shipped metadata renders the empty-state hin
     />,
   );
 
-  // Same Slack-trigger setup.
+  // Same Slack-trigger setup via the Slice 3.10 drill-in.
   await user.click(screen.getByRole("button", { name: /add trigger/i }));
   await waitFor(() => {
     expect(
@@ -244,10 +268,12 @@ it("drill-in for a provider with no shipped metadata renders the empty-state hin
     ).toBeInTheDocument();
   });
   await user.click(
-    within(
-      screen.getByRole("list", { name: /trigger providers/i }),
-    ).getByRole("button", { name: /^Slack$/ }),
+    screen.getByRole("button", { name: /browse slack triggers/i }),
   );
+  await waitFor(() => {
+    expect(screen.getByText("Slack Message")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Slack Message"));
 
   // Drill into Gmail (no metadata in this test).
   await user.click(screen.getByRole("button", { name: /add action/i }));

@@ -12,11 +12,13 @@
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
 const mockListProviderActions = jest.fn();
+const mockListProviderTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
   listProviderActions: (p: string) => mockListProviderActions(p),
+  listProviderTriggers: (p: string) => mockListProviderTriggers(p),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -30,6 +32,7 @@ import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
+import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
@@ -98,9 +101,12 @@ beforeEach(() => {
   mockListNativeTriggers.mockResolvedValue([manualTriggerMeta]);
   mockListProviderActions.mockReset();
   mockListProviderActions.mockResolvedValue([]);
+  mockListProviderTriggers.mockReset();
+  mockListProviderTriggers.mockResolvedValue([]);
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
+  __resetProviderTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useRunSlice.getState().reset();
 });
@@ -366,7 +372,10 @@ describe("useUpstreamVariables — latestValuesBySource (Slice 3.9)", () => {
     (globalThis as { fetch?: unknown }).fetch = jest.fn(async () => {
       throw new Error("Unexpected fetch from useUpstreamVariables");
     });
-    const fetchSpy = jest.spyOn(globalThis as { fetch: jest.Mock }, "fetch");
+    const fetchSpy = jest.spyOn(
+      globalThis as unknown as { fetch: jest.Mock },
+      "fetch",
+    );
 
     const { triggerId, actionId, targetId } = bootGraph();
     act(() => {
@@ -407,5 +416,121 @@ describe("useUpstreamVariables — latestValuesBySource (Slice 3.9)", () => {
     } else {
       (globalThis as { fetch?: unknown }).fetch = originalFetch;
     }
+  });
+});
+
+// ─── Slice 3.10 — provider-trigger ancestor payloadShape ────────────────────
+
+describe("useUpstreamVariables — provider-trigger ancestor (Slice 3.10)", () => {
+  const newCommitTriggerMeta: TriggerMeta = {
+    key: "github:new_commit",
+    provider: "github",
+    type: "new_commit",
+    displayName: "New Commit",
+    description: "Push.",
+    category: "developer",
+    activation: "webhook",
+    requiresIntegration: true,
+    fields: [],
+    payloadShape: [
+      { name: "repository", type: "string", description: "owner/repo." },
+      { name: "branch", type: "string", description: "Branch name." },
+    ],
+    displayOrder: 10,
+  };
+
+  it("surfaces a provider-trigger's payloadShape under the 'trigger' alias", async () => {
+    mockListProviderTriggers.mockImplementation(async (p: string) =>
+      p === "github" ? [newCommitTriggerMeta] : [],
+    );
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTriggerFromMeta(newCommitTriggerMeta);
+    const target = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+
+    const { result } = renderHook(() => useUpstreamVariables(target.id));
+    await waitFor(() => {
+      const trigSource = result.current.sources.find((s) => s.kind === "trigger");
+      expect(trigSource?.sourceId).toBe("trigger");
+    });
+    const trigSource = result.current.sources.find((s) => s.kind === "trigger");
+    expect(trigSource?.displayName).toBe("New Commit");
+    expect(trigSource?.outputs.map((o) => o.name)).toEqual([
+      "repository",
+      "branch",
+    ]);
+    expect(mockListProviderTriggers).toHaveBeenCalledWith("github");
+  });
+
+  it("returns no trigger source when the provider-trigger meta hasn't loaded yet (idle empty array)", async () => {
+    // The provider returns an empty triggers list — no meta to resolve.
+    mockListProviderTriggers.mockResolvedValue([]);
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTrigger({ provider: "slack", type: "message_received" });
+    const target = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+
+    const { result } = renderHook(() => useUpstreamVariables(target.id));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.sources.find((s) => s.kind === "trigger")).toBeUndefined();
+  });
+
+  it("swapping a provider-trigger ancestor between renders stays hook-stable (no Rules-of-Hooks errors)", async () => {
+    const githubTrig = newCommitTriggerMeta;
+    const slackTrig: TriggerMeta = {
+      key: "slack:slack.message.channel",
+      provider: "slack",
+      type: "slack.message.channel",
+      displayName: "Slack Message",
+      description: "msg.",
+      category: "messaging",
+      activation: "webhook",
+      requiresIntegration: true,
+      fields: [],
+      payloadShape: [{ name: "text", type: "string" }],
+      displayOrder: 10,
+    };
+    mockListProviderTriggers.mockImplementation(async (p: string) => {
+      if (p === "github") return [githubTrig];
+      if (p === "slack") return [slackTrig];
+      return [];
+    });
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTriggerFromMeta(githubTrig);
+    const target = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+
+    const { result, rerender } = renderHook(() =>
+      useUpstreamVariables(target.id),
+    );
+    await waitFor(() => {
+      expect(
+        result.current.sources.find((s) => s.kind === "trigger")?.displayName,
+      ).toBe("New Commit");
+    });
+
+    // Swap the trigger — remove the GitHub one, add a Slack one, and
+    // reconnect to `target` (removeNode also drops the edges from the
+    // removed node so the new trigger needs an explicit connection to
+    // restore the upstream relationship).
+    const triggerNodeId = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.kind === "trigger")!.id;
+    useGraphSlice.getState().removeNode(triggerNodeId);
+    const newTrigger = useGraphSlice.getState().addTriggerFromMeta(slackTrig);
+    useGraphSlice.getState().connectNodes({ from: newTrigger.id, to: target.id });
+    rerender();
+    await waitFor(() => {
+      expect(
+        result.current.sources.find((s) => s.kind === "trigger")?.displayName,
+      ).toBe("Slack Message");
+    });
+  });
+
+  it("native triggers still resolve through the native catalog (no provider-trigger fetch)", async () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    useGraphSlice.getState().addTriggerFromMeta(manualTriggerMeta);
+    const target = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+
+    const { result } = renderHook(() => useUpstreamVariables(target.id));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockListProviderTriggers).not.toHaveBeenCalled();
   });
 });

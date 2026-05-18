@@ -10,18 +10,20 @@
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
 const mockListProviderActions = jest.fn();
+const mockListProviderTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
   listProviderActions: (provider: string) => mockListProviderActions(provider),
+  listProviderTriggers: (provider: string) => mockListProviderTriggers(provider),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
   },
 }));
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AddNodeMenu } from "@/features/workflow-builder/panels/AddNodeMenu";
@@ -29,6 +31,7 @@ import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
+import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 
@@ -130,9 +133,12 @@ beforeEach(() => {
   // Default: every provider returns an empty actions list. Individual
   // drill-in tests override per-provider with mockResolvedValueOnce.
   mockListProviderActions.mockResolvedValue([]);
+  mockListProviderTriggers.mockReset();
+  mockListProviderTriggers.mockResolvedValue([]);
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
+  __resetProviderTriggersCacheForTests();
 });
 
 describe("AddNodeMenu", () => {
@@ -147,7 +153,28 @@ describe("AddNodeMenu", () => {
     expect(screen.getByRole("button", { name: /add trigger/i })).toBeEnabled();
   });
 
-  it("opens the trigger picker (provider sub-section) and dispatches addTrigger on pick", async () => {
+  it("clicking a provider button drills into that provider's triggers (no bare-add dispatch — Slice 3.10)", async () => {
+    // Slice 3.10 removed the legacy bare addTrigger({provider}) path from
+    // the picker, mirroring the Slice 3.4 provider-actions migration.
+    // Clicking a provider now opens the drill-in; picking a trigger
+    // there dispatches addTriggerFromMeta with the resolved meta. The
+    // slice's addTrigger action itself is still exported for tests +
+    // future surfaces (see graphSlice.test.ts).
+    mockListProviderTriggers.mockResolvedValueOnce([
+      {
+        key: "slack:slack.message.channel",
+        provider: "slack",
+        type: "slack.message.channel",
+        displayName: "Slack Message",
+        description: "Slack message in a channel.",
+        category: "messaging",
+        activation: "webhook",
+        requiresIntegration: true,
+        fields: [],
+        payloadShape: [],
+        displayOrder: 10,
+      },
+    ]);
     const user = userEvent.setup();
     render(
       <AddNodeMenu
@@ -157,16 +184,25 @@ describe("AddNodeMenu", () => {
     );
     await user.click(screen.getByRole("button", { name: /add trigger/i }));
     await waitFor(() => {
-      expect(screen.getByRole("list", { name: /trigger providers/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("list", { name: /trigger providers/i }),
+      ).toBeInTheDocument();
     });
-    const providerList = screen.getByRole("list", { name: /trigger providers/i });
+    // Drill in via the provider's drill-in button.
     await user.click(
-      within(providerList).getByRole("button", { name: /^Slack$/ }),
+      screen.getByRole("button", { name: /browse slack triggers/i }),
     );
-    expect(providerList).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Slack Message")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Slack Message"));
     const nodes = useGraphSlice.getState().pendingNodes;
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]).toMatchObject({ kind: "trigger", provider: "slack" });
+    expect(nodes[0]).toMatchObject({
+      kind: "trigger",
+      provider: "slack",
+      type: "slack.message.channel",
+    });
   });
 
   it("after a trigger is added, 'Add trigger' is disabled and 'Add action' is enabled", async () => {

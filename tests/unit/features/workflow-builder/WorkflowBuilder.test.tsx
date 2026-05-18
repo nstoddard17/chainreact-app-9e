@@ -20,11 +20,16 @@ jest.mock("@/lib/api/workflows", () => {
 const mockListNativeActions = jest.fn(async () => []);
 const mockListNativeTriggers = jest.fn(async () => []);
 const mockListProviderActions = jest.fn(async (_provider: string) => []);
+const mockListProviderTriggers = jest.fn<
+  Promise<readonly TriggerMeta[]>,
+  [string]
+>(async (_provider: string) => []);
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
   listProviderActions: (p: string) => mockListProviderActions(p),
+  listProviderTriggers: (p: string) => mockListProviderTriggers(p),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -37,7 +42,9 @@ import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
+import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { WorkflowDetail } from "@/contracts/workflow";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 const baseWorkflow: WorkflowDetail = {
   id: "wf-1",
@@ -63,12 +70,31 @@ beforeEach(() => {
   mockListNativeTriggers.mockResolvedValue([]);
   mockListProviderActions.mockReset();
   mockListProviderActions.mockResolvedValue([]);
+  mockListProviderTriggers.mockReset();
+  mockListProviderTriggers.mockResolvedValue([]);
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
+  __resetProviderTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });
+
+// Slice 3.10 — the picker now uses a drill-in for provider triggers.
+// These tests need at least one provider trigger meta to pick.
+const slackTriggerMeta = {
+  key: "slack:slack.message.channel",
+  provider: "slack",
+  type: "slack.message.channel",
+  displayName: "Slack Message",
+  description: "Slack message in a channel.",
+  category: "messaging" as const,
+  activation: "webhook" as const,
+  requiresIntegration: true,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
 
 describe("WorkflowBuilder", () => {
   it("hydrates the slice on mount and shows the empty-state when no nodes", () => {
@@ -94,8 +120,15 @@ describe("WorkflowBuilder", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
     await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    await user.click(screen.getByRole("button", { name: /^Slack$/ }));
+    await user.click(
+      screen.getByRole("button", { name: /browse slack triggers/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Slack Message")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Slack Message"));
     expect(screen.getByRole("button", { name: /^save$/i })).toBeEnabled();
     expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
   });
@@ -113,8 +146,15 @@ describe("WorkflowBuilder", () => {
         actionProviders={actionProviders}
       />,
     );
+    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
     await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    await user.click(screen.getByRole("button", { name: /^Slack$/ }));
+    await user.click(
+      screen.getByRole("button", { name: /browse slack triggers/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Slack Message")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Slack Message"));
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
@@ -143,8 +183,15 @@ describe("WorkflowBuilder", () => {
         actionProviders={actionProviders}
       />,
     );
+    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
     await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    await user.click(screen.getByRole("button", { name: /^Slack$/ }));
+    await user.click(
+      screen.getByRole("button", { name: /browse slack triggers/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Slack Message")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Slack Message"));
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/failed to save/i);
     expect(useGraphSlice.getState().isDirty).toBe(true);

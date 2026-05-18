@@ -25,11 +25,13 @@ jest.mock("@/lib/api/workflows", () => {
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
 const mockListProviderActions = jest.fn();
+const mockListProviderTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
   listNativeTriggers: () => mockListNativeTriggers(),
   listProviderActions: (p: string) => mockListProviderActions(p),
+  listProviderTriggers: (p: string) => mockListProviderTriggers(p),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;
@@ -44,8 +46,24 @@ import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
+import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
+
+const slackTriggerMeta: TriggerMeta = {
+  key: "slack:slack.message.channel",
+  provider: "slack",
+  type: "slack.message.channel",
+  displayName: "Slack Message",
+  description: "Slack message in a channel.",
+  category: "messaging",
+  activation: "webhook",
+  requiresIntegration: true,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
 
 const httpRequestMeta: ActionMeta = {
   key: "native:http_request",
@@ -111,9 +129,14 @@ beforeEach(() => {
   mockListNativeTriggers.mockResolvedValue([]);
   mockListProviderActions.mockReset();
   mockListProviderActions.mockResolvedValue([]);
+  mockListProviderTriggers.mockReset();
+  mockListProviderTriggers.mockImplementation(async (p: string) =>
+    p === "slack" ? [slackTriggerMeta] : [],
+  );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
+  __resetProviderTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });
@@ -132,9 +155,15 @@ it("end-to-end: add native action, configure, save modal, save workflow", async 
     />,
   );
 
-  // 1. Add Slack trigger.
+  // 1. Add Slack trigger via the Slice 3.10 drill-in.
   await user.click(screen.getByRole("button", { name: /add trigger/i }));
-  await user.click(screen.getByRole("button", { name: /^Slack$/ }));
+  await user.click(
+    screen.getByRole("button", { name: /browse slack triggers/i }),
+  );
+  await waitFor(() => {
+    expect(screen.getByText("Slack Message")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Slack Message"));
 
   // 2. Open the action picker, pick the native HTTP Request action.
   await user.click(screen.getByRole("button", { name: /add action/i }));
