@@ -8,6 +8,7 @@ import {
 } from "@/integrations/native/triggers/manualTrigger";
 import { runNowWorkflow, WorkflowApiError } from "@/lib/api/workflows";
 import { useGraphSlice } from "../state/graphSlice";
+import { useRunSlice } from "../state/runSlice";
 
 /**
  * Run Now panel — Slice 3.3.
@@ -40,6 +41,7 @@ export function RunNowPanel() {
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const startTracking = useRunSlice((s) => s.startTracking);
 
   const hasManualTrigger = pendingNodes.some(
     (n) =>
@@ -60,6 +62,11 @@ export function RunNowPanel() {
     try {
       const result = await runNowWorkflow(workflowId, { inputs: {} });
       setLastRunId(result.runId);
+      // Slice 3.8 — kick off latest-run tracking. The polling hook
+      // installed in WorkflowBuilder picks this up and renders the
+      // result into RunResultsPanel. Save state stays a separate
+      // concern: Run Now does NOT call updateWorkflow.
+      startTracking({ workflowId, runId: result.runId });
     } catch (err) {
       const message =
         err instanceof WorkflowApiError

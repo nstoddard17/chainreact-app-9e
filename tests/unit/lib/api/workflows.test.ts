@@ -15,6 +15,7 @@ import {
   createWorkflow,
   disableWorkflow,
   getWorkflow,
+  getWorkflowRun,
   listWorkflowRuns,
   listWorkflows,
   pauseWorkflow,
@@ -253,6 +254,71 @@ describe("listWorkflowRuns", () => {
       new Response(JSON.stringify({ error: "unauthenticated" }), { status: 401 }),
     );
     await expect(listWorkflowRuns(SAMPLE.id)).rejects.toMatchObject({
+      code: "UNAUTHENTICATED",
+    });
+  });
+});
+
+describe("getWorkflowRun", () => {
+  const sampleDetail = {
+    id: "44444444-4444-4444-4444-444444444444",
+    workflowId: SAMPLE.id,
+    status: "succeeded" as const,
+    triggerNodeId: "t1",
+    startedAt: "2026-05-17T00:00:00Z",
+    finishedAt: "2026-05-17T00:00:01Z",
+    errorClassification: null,
+    triggerEvent: {
+      provider: "native",
+      eventType: "manual.run",
+      eventId: "ev1",
+      occurredAt: "2026-05-17T00:00:00Z",
+      accountId: "system",
+      payload: { inputs: {} },
+    },
+    steps: [
+      { nodeId: "t1", status: "succeeded" as const, output: {} },
+      { nodeId: "a1", status: "succeeded" as const, output: { sentTo: "C123" } },
+    ],
+    fatalError: null,
+  };
+
+  it("GETs /api/workflows/<id>/runs/<runId> and returns the detail", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(sampleDetail), { status: 200 }),
+    );
+    const result = await getWorkflowRun(SAMPLE.id, sampleDetail.id);
+    expect(result).toEqual(sampleDetail);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `/api/workflows/${SAMPLE.id}/runs/${sampleDetail.id}`,
+    );
+  });
+
+  it("URL-encodes both ids", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(sampleDetail), { status: 200 }),
+    );
+    await getWorkflowRun("wf with space", "run/slash");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/workflows/wf%20with%20space/runs/run%2Fslash",
+    );
+  });
+
+  it("throws WORKFLOW_NOT_FOUND on 404", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "Run not found." }), { status: 404 }),
+    );
+    await expect(getWorkflowRun(SAMPLE.id, "missing")).rejects.toMatchObject({
+      code: "WORKFLOW_NOT_FOUND",
+      status: 404,
+    });
+  });
+
+  it("throws UNAUTHENTICATED on 401", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "unauthenticated" }), { status: 401 }),
+    );
+    await expect(getWorkflowRun(SAMPLE.id, "run-1")).rejects.toMatchObject({
       code: "UNAUTHENTICATED",
     });
   });

@@ -3,6 +3,7 @@ import type {
   DisableWorkflowRequest,
   UpdateWorkflowRequest,
   WorkflowDetail,
+  WorkflowRunDetail,
   WorkflowRunSummary,
   WorkflowSummary,
 } from "@/contracts/workflow";
@@ -147,6 +148,31 @@ export async function listWorkflowRuns(
   if (!res.ok) throw await parseError(res);
   const body = (await res.json()) as { runs: WorkflowRunSummary[] };
   return body.runs;
+}
+
+/**
+ * Slice 3.8 — fetch the detail of one run for the test-run output preview.
+ *
+ * Hits `GET /api/workflows/[id]/runs/[runId]`. Surfaces the steps[],
+ * triggerEvent, and fatalError that the list endpoint intentionally
+ * strips. The builder's RunResultsPanel polls this every 1s while the
+ * run is in flight, then stops on terminal status (succeeded / failed)
+ * or after a poll-count ceiling.
+ *
+ * A 404 surfaces as `WorkflowApiError(code: "WORKFLOW_NOT_FOUND")` —
+ * the polling layer interprets that as "still enqueueing" for the
+ * first few ticks (the engine writes the row only after run completes),
+ * and after the ceiling treats it as a hard not-found.
+ */
+export async function getWorkflowRun(
+  workflowId: string,
+  runId: string,
+): Promise<WorkflowRunDetail> {
+  const res = await fetch(
+    `/api/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}`,
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as WorkflowRunDetail;
 }
 
 export async function activateWorkflow(id: string): Promise<WorkflowSummary> {

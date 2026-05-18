@@ -157,6 +157,29 @@ export async function claimNotificationFanout(runId: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Fetch a single run by id. Returns null when the row does not exist or
+ * RLS hides it from the current user. Used by the detail endpoint in
+ * Slice 3.8 (test-run output preview); the list endpoint stays
+ * `listByWorkflow` for cheap pagination.
+ *
+ * Reads via the SSR-cookie client so RLS gates per-user access — a
+ * runId that belongs to another user surfaces as `null`, not a leak.
+ */
+export async function getById(runId: string): Promise<WorkflowRunRecord | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("*")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`workflow_runs.getById failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return rowToRecord(data as WorkflowRunsRow);
+}
+
 export async function listByWorkflow(
   workflowId: string,
   opts: ListRunsOptions = {},

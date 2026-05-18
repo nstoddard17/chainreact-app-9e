@@ -12,6 +12,8 @@ interface ChainState {
   filters: Array<{ op: string; args: unknown[] }>;
   resultData: unknown;
   resultError: { message: string } | null;
+  /** Single-row result for `.maybeSingle()`. Set per-test. */
+  maybeSingleResult?: { data: unknown; error: { message: string } | null };
 }
 
 function makeMockClient(state: ChainState) {
@@ -28,6 +30,9 @@ function makeMockClient(state: ChainState) {
     }),
     order: jest.fn(() => builder),
     limit: jest.fn(() => builder),
+    maybeSingle: jest.fn(async () =>
+      state.maybeSingleResult ?? { data: null, error: null },
+    ),
     then: (resolve: (v: unknown) => void) =>
       resolve({ data: state.resultData, error: state.resultError }),
   });
@@ -49,7 +54,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
   getServiceRoleClient: jest.fn(() => mockServiceRole.current),
 }));
 
-import { listByWorkflow, recordRun } from "@/repositories/workflowRuns";
+import { getById, listByWorkflow, recordRun } from "@/repositories/workflowRuns";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
 const triggerEvent: TriggerEvent = {
@@ -177,5 +182,62 @@ describe("workflowRuns.listByWorkflow", () => {
     mockSSR.current = makeMockClient(state);
     const result = await listByWorkflow("wf-1");
     expect(result).toEqual([]);
+  });
+});
+
+describe("workflowRuns.getById", () => {
+  const row = {
+    id: "run-1",
+    workflow_id: "wf-1",
+    user_id: "user-1",
+    status: "succeeded" as const,
+    trigger_node_id: "t1",
+    trigger_event: triggerEvent,
+    steps: [{ nodeId: "t1", status: "succeeded" as const, output: { ok: true } }],
+    fatal_error: null,
+    error_classification: null,
+    started_at: "2026-05-07T00:00:00Z",
+    finished_at: "2026-05-07T00:00:01Z",
+    created_at: "2026-05-07T00:00:00Z",
+  };
+
+  it("returns the record when the row exists", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: row, error: null },
+    };
+    mockSSR.current = makeMockClient(state);
+    const result = await getById("run-1");
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe("run-1");
+    expect(result!.workflowId).toBe("wf-1");
+    expect(result!.steps).toHaveLength(1);
+    expect(result!.steps[0]?.output).toEqual({ ok: true });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["id", "run-1"] });
+  });
+
+  it("returns null when the row does not exist (RLS or missing)", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: null, error: null },
+    };
+    mockSSR.current = makeMockClient(state);
+    const result = await getById("run-missing");
+    expect(result).toBeNull();
+  });
+
+  it("propagates Supabase errors", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: null, error: { message: "boom" } },
+    };
+    mockSSR.current = makeMockClient(state);
+    await expect(getById("run-1")).rejects.toThrow(/boom/);
   });
 });

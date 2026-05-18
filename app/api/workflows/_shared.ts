@@ -5,6 +5,7 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type {
   WorkflowDetail,
+  WorkflowRunDetail,
   WorkflowRunSummary,
   WorkflowSummary,
 } from "@/contracts/workflow";
@@ -123,6 +124,22 @@ export function toWorkflowRunSummary(
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
     errorClassification: record.errorClassification,
+  };
+}
+
+export function toWorkflowRunDetail(
+  record: WorkflowRunRecord,
+): WorkflowRunDetail {
+  return {
+    ...toWorkflowRunSummary(record),
+    triggerEvent: record.triggerEvent,
+    steps: record.steps.map((s) => ({
+      nodeId: s.nodeId,
+      status: s.status,
+      ...(s.output !== undefined ? { output: s.output } : {}),
+      ...(s.error !== undefined ? { error: s.error } : {}),
+    })),
+    fatalError: record.fatalError,
   };
 }
 
