@@ -40,6 +40,12 @@ export interface VariablePickerButtonProps {
   ariaLabel?: string;
   /** Optional testid root, useful when multiple buttons live in the same row. */
   testIdRoot?: string;
+  /**
+   * Slice 3.9 — passed through to the popover for inline latest-run
+   * previews. Optional so call sites that don't have a runSlice
+   * subscription handy (e.g. future agent surfaces) still work.
+   */
+  latestValuesBySource?: Readonly<Record<string, unknown>>;
 }
 
 export function VariablePickerButton({
@@ -47,6 +53,7 @@ export function VariablePickerButton({
   onInsertAtCursor,
   ariaLabel = "Insert variable",
   testIdRoot = "variable-picker",
+  latestValuesBySource,
 }: VariablePickerButtonProps) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -100,6 +107,7 @@ export function VariablePickerButton({
             onInsert={handleInsert}
             onClose={() => setOpen(false)}
             testId={`${testIdRoot}-popover`}
+            latestValuesBySource={latestValuesBySource}
           />
         </div>
       ) : null}

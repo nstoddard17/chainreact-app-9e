@@ -4,6 +4,8 @@ import * as React from "react";
 import { Braces, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OutputMeta } from "@/contracts/actionMeta";
+import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePreview";
+import { resolveValueAtPath } from "@/core/workflows/resolveValueAtPath";
 import { formatReference } from "@/core/workflows/variableReferences";
 import type { VariableSource } from "../../hooks/useUpstreamVariables";
 
@@ -33,10 +35,27 @@ import type { VariableSource } from "../../hooks/useUpstreamVariables";
  *
  * What this DOES NOT do (out of scope):
  *   - Search across the tree (later iteration).
- *   - Per-output test-run preview (Slice 3.8).
  *   - Clipboard copy / drag (later iteration).
  *   - AI_FIELD picker UI (agent construct, not author-pickable).
  *   - File / FileRef sub-picking (deferred slice).
+ *
+ * Slice 3.9 — inline latest-run previews:
+ *   - The optional `latestValuesBySource` prop carries a record keyed
+ *     by the picker's `sourceId` (`"trigger"` alias or action node id).
+ *     Values are opaque blobs the engine persisted into
+ *     `workflow_runs.steps[].output`.
+ *   - Each output button looks up its value via the pure
+ *     `resolveValueAtPath` helper and renders the
+ *     `formatLatestValuePreview` output:
+ *       - scalar → text badge (`"42"`, `true`, `null`, `"hello…"`)
+ *       - object / array → compact type chip
+ *       - absent → nothing rendered
+ *   - The preview is DECORATIVE. Clicking the output still inserts
+ *     the canonical `{{sourceId.path}}` token verbatim — never the
+ *     preview text. (Rejecting V1's SimpleVariablePicker pattern
+ *     where the preview WAS the click target.)
+ *   - The picker does not start a run, fetch, poll, or save — the
+ *     prop is the only data surface.
  */
 
 export interface VariablePickerPopoverProps {
@@ -47,13 +66,23 @@ export interface VariablePickerPopoverProps {
   onClose: () => void;
   /** Optional id surfacing as `data-testid` for scoped queries. */
   testId?: string;
+  /**
+   * Slice 3.9 — optional latest-run output per source. Keyed by
+   * `sourceId`. Absent keys render no preview (the picker stays
+   * compact for sources that haven't run yet). The shape is opaque
+   * — the picker uses `resolveValueAtPath` to walk per-output paths.
+   */
+  latestValuesBySource?: Readonly<Record<string, unknown>>;
 }
+
+const EMPTY_LATEST_VALUES: Readonly<Record<string, unknown>> = Object.freeze({});
 
 export function VariablePickerPopover({
   sources,
   onInsert,
   onClose,
   testId = "variable-picker-popover",
+  latestValuesBySource = EMPTY_LATEST_VALUES,
 }: VariablePickerPopoverProps) {
   // Expand the first source by default — the trigger source surfaces
   // first when present, and it's the most-likely pick.
@@ -131,6 +160,11 @@ export function VariablePickerPopover({
                 sourceId={source.sourceId}
                 onInsert={onInsert}
                 depth={0}
+                latestValue={latestValuesBySource[source.sourceId]}
+                latestValueAvailable={Object.prototype.hasOwnProperty.call(
+                  latestValuesBySource,
+                  source.sourceId,
+                )}
               />
             ) : null}
           </section>
@@ -147,6 +181,18 @@ interface OutputListProps {
   pathPrefix?: string;
   depth: number;
   onInsert: (token: string) => void;
+  /**
+   * Slice 3.9 — the root opaque value for the source (passed through
+   * unchanged on recursive calls; each row walks its own `fullPath`
+   * against it). Undefined means the source has no recorded run.
+   */
+  latestValue: unknown;
+  /**
+   * True when the source actually appears in `latestValuesBySource`.
+   * Distinguishes "source has no run yet" (skip preview wiring) from
+   * "source ran but a specific path is absent" (render absent).
+   */
+  latestValueAvailable: boolean;
 }
 
 function OutputList({
@@ -155,6 +201,8 @@ function OutputList({
   pathPrefix = "",
   depth,
   onInsert,
+  latestValue,
+  latestValueAvailable,
 }: OutputListProps) {
   return (
     <ul className="ml-3 mt-0.5 flex flex-col gap-0.5">
@@ -164,6 +212,9 @@ function OutputList({
           : output.name;
         const token = formatReference({ nodeId: sourceId, path: fullPath });
         const hasChildren = output.fields && output.fields.length > 0;
+        const preview = latestValueAvailable
+          ? formatLatestValuePreview(resolveValueAtPath(latestValue, fullPath))
+          : { kind: "absent" as const, preview: "" };
         return (
           <li
             key={output.name}
@@ -178,11 +229,21 @@ function OutputList({
               className="h-auto justify-between gap-2 px-2 py-1"
               aria-label={`Insert ${token}`}
             >
-              <span className="flex flex-col items-start">
+              <span className="flex flex-col items-start min-w-0">
                 <span className="text-xs font-medium">{output.name}</span>
                 {output.description ? (
                   <span className="text-[10px] leading-tight text-muted-foreground line-clamp-2">
                     {output.description}
+                  </span>
+                ) : null}
+                {preview.kind !== "absent" ? (
+                  <span
+                    className="mt-0.5 max-w-full truncate font-mono text-[10px] leading-tight text-muted-foreground"
+                    data-testid={`variable-output-${sourceId}-${fullPath}-preview`}
+                    data-preview-kind={preview.kind}
+                    title={preview.preview}
+                  >
+                    {preview.preview}
                   </span>
                 ) : null}
               </span>
@@ -200,6 +261,8 @@ function OutputList({
                 pathPrefix={fullPath}
                 depth={depth + 1}
                 onInsert={onInsert}
+                latestValue={latestValue}
+                latestValueAvailable={latestValueAvailable}
               />
             ) : null}
           </li>

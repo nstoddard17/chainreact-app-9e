@@ -3,8 +3,10 @@
 import { useMemo } from "react";
 import type { ActionMeta, OutputMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
+import { buildLatestValuesBySource } from "@/core/workflows/latestRunValues";
 import { findUpstreamNodes } from "@/core/workflows/upstreamVariables";
 import { useGraphSlice } from "../state/graphSlice";
+import { useRunSlice } from "../state/runSlice";
 import {
   findNativeActionByKey,
   useNativeActions,
@@ -64,11 +66,26 @@ export interface UseUpstreamVariablesResult {
   readonly sources: readonly VariableSource[];
   /** True while any upstream provider catalog is still loading. */
   readonly loading: boolean;
+  /**
+   * Slice 3.9 — per-source latest-run output, keyed by `sourceId`.
+   * The picker uses this to render inline previews next to each
+   * output button. The empty record means "no latest run" (idle, or
+   * the latest run's trigger node id has drifted from the current
+   * graph). Picker MUST treat missing keys as `absent`; it MUST NOT
+   * fall back to mock data or a synthetic shape.
+   *
+   * Read directly from `runSlice.detail` via a single selector
+   * subscription. No fetch from this hook; no polling; no save.
+   */
+  readonly latestValuesBySource: Readonly<Record<string, unknown>>;
 }
+
+const EMPTY_LATEST_VALUES: Readonly<Record<string, unknown>> = Object.freeze({});
 
 const EMPTY_RESULT: UseUpstreamVariablesResult = Object.freeze({
   sources: [],
   loading: false,
+  latestValuesBySource: EMPTY_LATEST_VALUES,
 });
 
 const NATIVE_PROVIDER = "native";
@@ -79,6 +96,11 @@ export function useUpstreamVariables(
 ): UseUpstreamVariablesResult {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+  // Slice 3.9 — single new subscription to the run slice's detail so
+  // the picker re-renders when a Run Now finishes. Reading directly
+  // from the slice keeps the hook free of any fetch / poll / save
+  // side effect (the slice is the only owner of those).
+  const latestRunDetail = useRunSlice((s) => s.detail);
 
   const nativeActions = useNativeActions();
   const nativeTriggers = useNativeTriggers();
@@ -114,9 +136,31 @@ export function useUpstreamVariables(
   //    regardless of how many providers the current node depends on.
   const providerCatalogs = useProviderActionsForProviders(upstreamProviderIds);
 
-  // 4. Build the source list from the ancestor nodes + their metas.
+  // 4. Slice 3.9 — compute the latest-run value map. Derived from
+  //    `runSlice.detail` + the current graph's trigger node id. Kept
+  //    in its own useMemo so the (often unchanged) sources work above
+  //    doesn't re-run when only the run changes.
+  const currentTriggerNodeId = useMemo(() => {
+    const trig = pendingNodes.find((n) => n.kind === "trigger");
+    return trig?.id ?? null;
+  }, [pendingNodes]);
+
+  const latestValuesBySource = useMemo(() => {
+    return buildLatestValuesBySource({
+      detail: latestRunDetail,
+      currentTriggerNodeId,
+    });
+  }, [latestRunDetail, currentTriggerNodeId]);
+
+  // 5. Build the source list from the ancestor nodes + their metas.
   return useMemo<UseUpstreamVariablesResult>(() => {
-    if (currentNodeId === null || ancestorNodes.length === 0) return EMPTY_RESULT;
+    if (currentNodeId === null || ancestorNodes.length === 0) {
+      // Even with no sources, emit the same `latestValuesBySource`
+      // shape — keeps the consumer's `Object.keys(...)` reads safe.
+      return latestValuesBySource === EMPTY_LATEST_VALUES
+        ? EMPTY_RESULT
+        : { ...EMPTY_RESULT, latestValuesBySource };
+    }
 
     const sources: VariableSource[] = [];
 
@@ -146,6 +190,7 @@ export function useUpstreamVariables(
         nativeActions.loading ||
         nativeTriggers.loading ||
         providerCatalogs.loading,
+      latestValuesBySource,
     };
   }, [
     currentNodeId,
@@ -156,6 +201,7 @@ export function useUpstreamVariables(
     nativeTriggers.loading,
     providerCatalogs.byProvider,
     providerCatalogs.loading,
+    latestValuesBySource,
   ]);
 }
 

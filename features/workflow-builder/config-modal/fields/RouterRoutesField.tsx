@@ -115,7 +115,10 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
   // profile regardless of row count). The row child component owns
   // its own input ref so picker insertion targets the right input
   // without us tracking refs across N rows.
-  const { sources } = useActiveNodeUpstreamVariables();
+  // Slice 3.9 — also pull `latestValuesBySource` from the same hook
+  // so per-row picker pop-overs show inline latest-run previews
+  // without each row re-subscribing to the run slice.
+  const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
 
   function commit(next: RouteRow[]): void {
     onChange(next.map(rowToSaved));
@@ -239,6 +242,7 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
                 onChange={(next) => updateInput(i, next)}
                 className="font-mono"
                 sources={sources}
+                latestValuesBySource={latestValuesBySource}
                 pickerTestIdRoot={`router-row-${i}-input-picker`}
               />
               {/*
@@ -271,6 +275,7 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
                   disabled={disabled}
                   onChange={(next) => updateValue(i, next)}
                   sources={sources}
+                  latestValuesBySource={latestValuesBySource}
                   pickerTestIdRoot={`router-row-${i}-value-picker`}
                 />
               ) : null}
@@ -311,6 +316,7 @@ interface RouterRouteTextInputProps {
   onChange: (next: string) => void;
   className?: string;
   sources: readonly VariableSource[];
+  latestValuesBySource: Readonly<Record<string, unknown>>;
   pickerTestIdRoot: string;
 }
 
@@ -328,6 +334,7 @@ function RouterRouteTextInput({
   onChange,
   className,
   sources,
+  latestValuesBySource,
   pickerTestIdRoot,
 }: RouterRouteTextInputProps) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -359,6 +366,7 @@ function RouterRouteTextInput({
         onInsertAtCursor={handleInsertAtCursor}
         ariaLabel={`Insert variable into ${ariaLabel}`}
         testIdRoot={pickerTestIdRoot}
+        latestValuesBySource={latestValuesBySource}
       />
     </div>
   );

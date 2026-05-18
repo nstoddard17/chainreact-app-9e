@@ -23,14 +23,16 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useUpstreamVariables } from "@/features/workflow-builder/hooks/useUpstreamVariables";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
+import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
+import type { WorkflowRunDetail } from "@/contracts/workflow";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -100,6 +102,7 @@ beforeEach(() => {
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
   useGraphSlice.getState().reset();
+  useRunSlice.getState().reset();
 });
 
 function bootGraph(): { triggerId: string; actionId: string; targetId: string } {
@@ -202,6 +205,9 @@ describe("useUpstreamVariables — provider catalogs", () => {
     expect(mockListProviderActions).toHaveBeenCalledWith("github");
   });
 
+  // Slice 3.9 — see describe("latestValuesBySource") below for runSlice
+  // wiring assertions.
+
   it("varying the set of upstream providers between renders does NOT throw a hook order error", async () => {
     // This is the regression guard for the dynamic-hook-loop pitfall.
     // We render with one upstream provider, then re-render after adding
@@ -233,5 +239,173 @@ describe("useUpstreamVariables — provider catalogs", () => {
     // changed from {github} to {github, gmail}; the multi-provider
     // hook handles this internally.
     await waitFor(() => expect(result.current.loading).toBe(false));
+  });
+});
+
+describe("useUpstreamVariables — latestValuesBySource (Slice 3.9)", () => {
+  function detailFor(triggerNodeId: string, actionNodeId: string): WorkflowRunDetail {
+    return {
+      id: "44444444-4444-4444-4444-444444444444",
+      workflowId: "wf-1",
+      status: "succeeded",
+      triggerNodeId,
+      startedAt: "2026-05-17T00:00:00Z",
+      finishedAt: "2026-05-17T00:00:01Z",
+      errorClassification: null,
+      triggerEvent: {
+        provider: "native",
+        eventType: "manual.run",
+        eventId: "ev1",
+        occurredAt: "2026-05-17T00:00:00Z",
+        accountId: "system",
+        payload: { inputs: { foo: "bar" } },
+      },
+      steps: [
+        {
+          nodeId: triggerNodeId,
+          status: "succeeded",
+          output: { payload: { inputs: { foo: "bar" } } },
+        },
+        {
+          nodeId: actionNodeId,
+          status: "succeeded",
+          output: { status: 200, body: "OK" },
+        },
+      ],
+      fatalError: null,
+    };
+  }
+
+  it("returns an empty record when runSlice has no detail (idle)", async () => {
+    const { targetId } = bootGraph();
+    const { result } = renderHook(() => useUpstreamVariables(targetId));
+    await waitFor(() =>
+      expect(result.current.sources.length).toBeGreaterThan(0),
+    );
+    expect(result.current.latestValuesBySource).toEqual({});
+  });
+
+  it("exposes per-source latest values when runSlice.detail is set", async () => {
+    const { triggerId, actionId, targetId } = bootGraph();
+    act(() => {
+      useRunSlice.setState({
+        workflowId: "wf-1",
+        runId: "run-1",
+        status: "succeeded",
+        detail: detailFor(triggerId, actionId),
+        fetchError: null,
+        pollCount: 1,
+      });
+    });
+    const { result } = renderHook(() => useUpstreamVariables(targetId));
+    await waitFor(() =>
+      expect(result.current.sources.length).toBeGreaterThan(0),
+    );
+    // Trigger value is keyed under the canonical "trigger" alias.
+    expect(result.current.latestValuesBySource["trigger"]).toEqual({
+      payload: { inputs: { foo: "bar" } },
+    });
+    // Action value is keyed under its node id.
+    expect(result.current.latestValuesBySource[actionId]).toEqual({
+      status: 200,
+      body: "OK",
+    });
+  });
+
+  it("updates when runSlice.detail changes", async () => {
+    const { triggerId, actionId, targetId } = bootGraph();
+    const { result } = renderHook(() => useUpstreamVariables(targetId));
+    await waitFor(() =>
+      expect(result.current.sources.length).toBeGreaterThan(0),
+    );
+    expect(result.current.latestValuesBySource).toEqual({});
+    act(() => {
+      useRunSlice.setState({
+        workflowId: "wf-1",
+        runId: "run-1",
+        status: "succeeded",
+        detail: detailFor(triggerId, actionId),
+        fetchError: null,
+        pollCount: 1,
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.latestValuesBySource["trigger"]).toBeDefined(),
+    );
+  });
+
+  it("omits the trigger alias when the graph's trigger node id no longer matches the run", async () => {
+    const { actionId, targetId } = bootGraph();
+    act(() => {
+      useRunSlice.setState({
+        workflowId: "wf-1",
+        runId: "run-1",
+        status: "succeeded",
+        // Run was recorded against a now-deleted trigger node.
+        detail: detailFor("t-stale", actionId),
+        fetchError: null,
+        pollCount: 1,
+      });
+    });
+    const { result } = renderHook(() => useUpstreamVariables(targetId));
+    await waitFor(() =>
+      expect(result.current.sources.length).toBeGreaterThan(0),
+    );
+    expect(result.current.latestValuesBySource).not.toHaveProperty("trigger");
+    // Action values are unaffected by the stale trigger.
+    expect(result.current.latestValuesBySource[actionId]).toEqual({
+      status: 200,
+      body: "OK",
+    });
+  });
+
+  it("does not call the typed client (no getWorkflowRun / no fetch / no updateWorkflow)", async () => {
+    // Install a fetch spy. jsdom doesn't ship a global fetch, so define
+    // one before spying so jest.spyOn finds a property to wrap.
+    const originalFetch = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = jest.fn(async () => {
+      throw new Error("Unexpected fetch from useUpstreamVariables");
+    });
+    const fetchSpy = jest.spyOn(globalThis as { fetch: jest.Mock }, "fetch");
+
+    const { triggerId, actionId, targetId } = bootGraph();
+    act(() => {
+      useRunSlice.setState({
+        workflowId: "wf-1",
+        runId: "run-1",
+        status: "succeeded",
+        detail: detailFor(triggerId, actionId),
+        fetchError: null,
+        pollCount: 1,
+      });
+    });
+    const { result } = renderHook(() => useUpstreamVariables(targetId));
+    await waitFor(() =>
+      expect(result.current.latestValuesBySource["trigger"]).toBeDefined(),
+    );
+
+    // None of the typed-client routes (run detail, workflow update,
+    // workflow get) should have been hit by useUpstreamVariables.
+    const calls = fetchSpy.mock.calls;
+    expect(
+      calls.filter(([url]) => typeof url === "string" && url.includes("/runs/")),
+    ).toHaveLength(0);
+    expect(
+      calls.filter(
+        ([url, init]) =>
+          typeof url === "string" &&
+          url.startsWith("/api/workflows/") &&
+          typeof init === "object" &&
+          init !== null &&
+          (init as { method?: string }).method === "PATCH",
+      ),
+    ).toHaveLength(0);
+
+    // Restore so later tests / global state aren't polluted.
+    if (originalFetch === undefined) {
+      delete (globalThis as { fetch?: unknown }).fetch;
+    } else {
+      (globalThis as { fetch?: unknown }).fetch = originalFetch;
+    }
   });
 });

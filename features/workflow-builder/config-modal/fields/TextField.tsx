@@ -41,7 +41,7 @@ export const TextField: React.FC<FieldRendererProps> = ({
   const stringValue = typeof value === "string" ? value : "";
   const controlId = `field-${field.name}`;
   const inputRef = React.useRef<HTMLInputElement | null>(null);
-  const { sources } = useActiveNodeUpstreamVariables();
+  const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
 
   const warnings = React.useMemo(
     () => validateReferences({ value: stringValue, sources }),
@@ -86,6 +86,7 @@ export const TextField: React.FC<FieldRendererProps> = ({
           onInsertAtCursor={handleInsertAtCursor}
           ariaLabel={`Insert variable into ${field.label}`}
           testIdRoot={`text-${field.name}-picker`}
+          latestValuesBySource={latestValuesBySource}
         />
       </div>
       {warnings.length > 0 ? (

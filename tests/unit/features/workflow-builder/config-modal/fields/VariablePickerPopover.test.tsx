@@ -190,6 +190,154 @@ describe("VariablePickerPopover — keyboard", () => {
   });
 });
 
+describe("VariablePickerPopover — latest-run preview (Slice 3.9)", () => {
+  it("renders no preview badges when latestValuesBySource is absent (back-compat with 3.7)", () => {
+    renderPopover();
+    expect(
+      screen.queryByTestId("variable-output-trigger-from-preview"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("variable-output-trigger-payload-preview"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders no preview when the source has no entry in the map", () => {
+    renderPopover({
+      latestValuesBySource: { "different-source": { x: 1 } },
+    });
+    expect(
+      screen.queryByTestId("variable-output-trigger-from-preview"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a scalar preview for string values", () => {
+    renderPopover({
+      latestValuesBySource: { trigger: { from: "alice@example.com" } },
+    });
+    const preview = screen.getByTestId("variable-output-trigger-from-preview");
+    expect(preview).toHaveAttribute("data-preview-kind", "scalar");
+    expect(preview.textContent).toBe('"alice@example.com"');
+  });
+
+  it("renders a scalar preview for number, boolean, and null", () => {
+    const triggerWithMix: VariableSource = {
+      ...triggerSource,
+      outputs: [
+        { name: "n", type: "number" },
+        { name: "b", type: "boolean" },
+        { name: "v", type: "string" },
+      ],
+    };
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[triggerWithMix]}
+        onInsert={onInsert}
+        onClose={onClose}
+        latestValuesBySource={{ trigger: { n: 42, b: true, v: null } }}
+      />,
+    );
+    expect(
+      screen.getByTestId("variable-output-trigger-n-preview").textContent,
+    ).toBe("42");
+    expect(
+      screen.getByTestId("variable-output-trigger-b-preview").textContent,
+    ).toBe("true");
+    expect(
+      screen.getByTestId("variable-output-trigger-v-preview").textContent,
+    ).toBe("null");
+  });
+
+  it("renders an 'object' chip for object-shaped values", () => {
+    renderPopover({
+      latestValuesBySource: {
+        trigger: { payload: { message: "hi", subject: "test" } },
+      },
+    });
+    const preview = screen.getByTestId(
+      "variable-output-trigger-payload-preview",
+    );
+    expect(preview).toHaveAttribute("data-preview-kind", "object");
+    expect(preview.textContent).toBe("object");
+  });
+
+  it("renders an 'array(N)' chip for array values", () => {
+    const arrayTrigger: VariableSource = {
+      ...triggerSource,
+      outputs: [{ name: "items", type: "array" }],
+    };
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[arrayTrigger]}
+        onInsert={onInsert}
+        onClose={onClose}
+        latestValuesBySource={{ trigger: { items: [1, 2, 3] } }}
+      />,
+    );
+    const preview = screen.getByTestId(
+      "variable-output-trigger-items-preview",
+    );
+    expect(preview).toHaveAttribute("data-preview-kind", "array");
+    expect(preview.textContent).toBe("array(3)");
+  });
+
+  it("nested fields render their own previews against the path", () => {
+    renderPopover({
+      latestValuesBySource: {
+        trigger: { payload: { message: "hello", subject: "test" } },
+      },
+    });
+    expect(
+      screen.getByTestId("variable-output-trigger-payload.message-preview")
+        .textContent,
+    ).toBe('"hello"');
+    expect(
+      screen.getByTestId("variable-output-trigger-payload.subject-preview")
+        .textContent,
+    ).toBe('"test"');
+  });
+
+  it("clicking an output still inserts the canonical token (NOT the preview value)", async () => {
+    const user = userEvent.setup();
+    const { onInsert } = renderPopover({
+      latestValuesBySource: { trigger: { from: "alice@example.com" } },
+    });
+    await user.click(screen.getByLabelText("Insert {{trigger.from}}"));
+    expect(onInsert).toHaveBeenCalledWith("{{trigger.from}}");
+    expect(onInsert).not.toHaveBeenCalledWith("alice@example.com");
+  });
+
+  it("circular values do not crash the preview render", () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() =>
+      renderPopover({ latestValuesBySource: { trigger: circular } }),
+    ).not.toThrow();
+    // The picker resolves to absent for `trigger.from` since the
+    // circular root has no `from` key.
+    expect(
+      screen.queryByTestId("variable-output-trigger-from-preview"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("absent path (key not present in latest output) renders no preview", () => {
+    renderPopover({
+      // The latest output has no `from` field, only payload.
+      latestValuesBySource: { trigger: { payload: { message: "hi" } } },
+    });
+    expect(
+      screen.queryByTestId("variable-output-trigger-from-preview"),
+    ).not.toBeInTheDocument();
+    // But the present path still renders.
+    expect(
+      screen.getByTestId("variable-output-trigger-payload-preview"),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("VariablePickerPopover — testId scoping", () => {
   it("renders the default testid root by default", () => {
     renderPopover();
