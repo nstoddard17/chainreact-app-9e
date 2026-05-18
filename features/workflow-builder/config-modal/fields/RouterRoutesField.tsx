@@ -4,7 +4,10 @@ import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
 import { FieldShell } from "./FieldShell";
+import { VariablePickerButton } from "./VariablePickerButton";
+import { insertAtCursor } from "./_insertAtCursor";
 import type { FieldRendererProps } from "./types";
 import {
   ROUTER_MAX_ROUTES,
@@ -16,6 +19,7 @@ import {
   type RouteRow,
   type RouterOperator,
 } from "./_routesValidator";
+import type { VariableSource } from "../../hooks/useUpstreamVariables";
 
 /**
  * `router-routes` field renderer — Slice 3.6.
@@ -106,6 +110,12 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
   // takes precedence so a future server-side message can still show.
   const validation = validateRoutesValue(value);
   const surfaceError = parentError ?? validation.error ?? undefined;
+
+  // Slice 3.7 — single hook call at the field level (stable hook
+  // profile regardless of row count). The row child component owns
+  // its own input ref so picker insertion targets the right input
+  // without us tracking refs across N rows.
+  const { sources } = useActiveNodeUpstreamVariables();
 
   function commit(next: RouteRow[]): void {
     onChange(next.map(rowToSaved));
@@ -221,13 +231,15 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
                 disabled={disabled}
                 onChange={(e) => updateLabel(i, e.target.value)}
               />
-              <Input
-                aria-label={`Route ${i + 1} input`}
+              <RouterRouteTextInput
+                ariaLabel={`Route ${i + 1} input`}
                 placeholder="{{trigger.field}}"
                 value={inputValue}
                 disabled={disabled}
-                onChange={(e) => updateInput(i, e.target.value)}
+                onChange={(next) => updateInput(i, next)}
                 className="font-mono"
+                sources={sources}
+                pickerTestIdRoot={`router-row-${i}-input-picker`}
               />
               {/*
                 Native <select> rather than the Radix Select wrapper:
@@ -252,12 +264,14 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
                 ))}
               </select>
               {!isUnary ? (
-                <Input
-                  aria-label={`Route ${i + 1} value`}
+                <RouterRouteTextInput
+                  ariaLabel={`Route ${i + 1} value`}
                   placeholder="value to compare against"
                   value={stringValue}
                   disabled={disabled}
-                  onChange={(e) => updateValue(i, e.target.value)}
+                  onChange={(next) => updateValue(i, next)}
+                  sources={sources}
+                  pickerTestIdRoot={`router-row-${i}-value-picker`}
                 />
               ) : null}
               {rowError ? (
@@ -288,3 +302,64 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
     </FieldShell>
   );
 };
+
+interface RouterRouteTextInputProps {
+  ariaLabel: string;
+  placeholder?: string;
+  value: string;
+  disabled?: boolean;
+  onChange: (next: string) => void;
+  className?: string;
+  sources: readonly VariableSource[];
+  pickerTestIdRoot: string;
+}
+
+/**
+ * Slice 3.7 — per-row text input + variable picker for the router
+ * editor. Lives in its own component so each (row, subfield) gets a
+ * stable hook profile (one useRef) instead of forcing the parent
+ * field to manage refs across N rows.
+ */
+function RouterRouteTextInput({
+  ariaLabel,
+  placeholder,
+  value,
+  disabled,
+  onChange,
+  className,
+  sources,
+  pickerTestIdRoot,
+}: RouterRouteTextInputProps) {
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  function handleInsertAtCursor(token: string): void {
+    const el = inputRef.current;
+    const { nextValue } = insertAtCursor({
+      value,
+      insert: token,
+      selectionStart: el?.selectionStart,
+      selectionEnd: el?.selectionEnd,
+    });
+    onChange(nextValue);
+  }
+
+  return (
+    <div className="flex items-start gap-2">
+      <Input
+        ref={inputRef}
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className={className ? `${className} flex-1` : "flex-1"}
+      />
+      <VariablePickerButton
+        sources={sources}
+        onInsertAtCursor={handleInsertAtCursor}
+        ariaLabel={`Insert variable into ${ariaLabel}`}
+        testIdRoot={pickerTestIdRoot}
+      />
+    </div>
+  );
+}
