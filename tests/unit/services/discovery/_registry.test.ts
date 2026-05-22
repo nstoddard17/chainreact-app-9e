@@ -899,7 +899,7 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("Slack action coverage as of Slice 3.35 is files + messaging Group A in displayOrder (broader Slack coverage is a future arc)", () => {
+    it("Slack action coverage as of Slice 3.36 is files + messaging Group A + reactions/pins/list_scheduled (Group B) in displayOrder (broader Slack coverage is a future arc)", () => {
       const slackActionKeys = listActionMetasForProvider("slack").map(
         (m) => m.key,
       );
@@ -914,6 +914,11 @@ describe("per-provider accessors", () => {
         "slack:get_thread_messages",
         "slack:schedule_message",
         "slack:cancel_scheduled_message",
+        "slack:add_reaction",
+        "slack:remove_reaction",
+        "slack:pin_message",
+        "slack:unpin_message",
+        "slack:list_scheduled_messages",
       ]);
     });
 
@@ -1109,6 +1114,184 @@ describe("per-provider accessors", () => {
         );
         const unique = new Set(orders);
         expect(unique.size).toBe(orders.length);
+      });
+    });
+
+    describe("Slack reactions / pins / list_scheduled surface (Slice 3.36 — Group B)", () => {
+      const GROUP_B_KEYS = [
+        "slack:add_reaction",
+        "slack:remove_reaction",
+        "slack:pin_message",
+        "slack:unpin_message",
+        "slack:list_scheduled_messages",
+      ] as const;
+
+      function metaByKey(key: string): ActionMeta {
+        const meta = listActionMetasForProvider("slack").find(
+          (m) => m.key === key,
+        );
+        if (!meta) throw new Error(`Slack meta '${key}' not registered.`);
+        return meta;
+      }
+
+      it.each(GROUP_B_KEYS)(
+        "%s declares provider=slack, category=messaging, requiresIntegration=true",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.provider).toBe("slack");
+          expect(meta.category).toBe("messaging");
+          expect(meta.requiresIntegration).toBe(true);
+        },
+      );
+
+      it.each(GROUP_B_KEYS)(
+        "%s declares producesFileRef=false and consumesFileRef=false",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.producesFileRef).toBe(false);
+          expect(meta.consumesFileRef).toBe(false);
+        },
+      );
+
+      it.each(GROUP_B_KEYS)(
+        "%s output names exclude bytes/base64/content/data (no payload leakage)",
+        (key) => {
+          const outputNames = metaByKey(key).outputs.map((o) => o.name);
+          for (const banned of ["bytes", "base64", "content", "data"]) {
+            expect(outputNames).not.toContain(banned);
+          }
+        },
+      );
+
+      it.each(GROUP_B_KEYS)(
+        "%s does NOT expose `cursor` (server-managed pagination handle)",
+        (key) => {
+          const fieldNames = metaByKey(key).fields.map((f) => f.name);
+          expect(fieldNames).not.toContain("cursor");
+        },
+      );
+
+      // Channel-field-bearing actions: add/remove_reaction and pin/unpin
+      // require channel (single-message ops). list_scheduled_messages
+      // makes channel optional (filter scope is workspace-wide by
+      // default).
+      it.each([
+        ["slack:add_reaction", true],
+        ["slack:remove_reaction", true],
+        ["slack:pin_message", true],
+        ["slack:unpin_message", true],
+        ["slack:list_scheduled_messages", false],
+      ] as const)(
+        "%s `channel` field is an async combobox sourced from slack:channels with required=%s",
+        (key, required) => {
+          const channel = metaByKey(key).fields.find(
+            (f) => f.name === "channel",
+          );
+          expect(channel).toBeDefined();
+          expect(channel!.type).toBe("combobox");
+          expect(channel!.required).toBe(required);
+          expect(channel!.optionsSource).toBe("slack:channels");
+          expect(channel!.options).toBeUndefined();
+        },
+      );
+
+      // add/remove_reaction + pin/unpin all carry a required `ts`.
+      // list_scheduled_messages does not (it operates by post-at
+      // window, not a single message).
+      it.each([
+        "slack:add_reaction",
+        "slack:remove_reaction",
+        "slack:pin_message",
+        "slack:unpin_message",
+      ] as const)(
+        "%s `ts` field is a required text field with strict Slack timestamp placeholder",
+        (key) => {
+          const ts = metaByKey(key).fields.find((f) => f.name === "ts");
+          expect(ts).toBeDefined();
+          expect(ts!.type).toBe("text");
+          expect(ts!.required).toBe(true);
+          expect(ts!.placeholder).toMatch(/\d{10}\.\d{6}/);
+        },
+      );
+
+      it("list_scheduled_messages has no `ts` field (operates on post-at window, not a single message)", () => {
+        const ts = metaByKey("slack:list_scheduled_messages").fields.find(
+          (f) => f.name === "ts",
+        );
+        expect(ts).toBeUndefined();
+      });
+
+      it.each(["slack:add_reaction", "slack:remove_reaction"] as const)(
+        "%s `reaction` field is a required text field with bare-name placeholder",
+        (key) => {
+          const reaction = metaByKey(key).fields.find(
+            (f) => f.name === "reaction",
+          );
+          expect(reaction).toBeDefined();
+          expect(reaction!.type).toBe("text");
+          expect(reaction!.required).toBe(true);
+          // Bare name placeholder (no surrounding colons) — handler
+          // accepts both forms but the canonical UX hints at the bare
+          // form.
+          expect(reaction!.placeholder).toBe("thumbsup");
+          // No optionsSource — Slack does not expose a workspace-emoji
+          // list endpoint.
+          expect(reaction!.optionsSource).toBeUndefined();
+        },
+      );
+
+      it("add_reaction output is {channel, ts, reaction} echo shape", () => {
+        const outputs = metaByKey("slack:add_reaction").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "ts",
+          "reaction",
+        ]);
+      });
+
+      it("remove_reaction output is {channel, ts, reaction} echo shape", () => {
+        const outputs = metaByKey("slack:remove_reaction").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "ts",
+          "reaction",
+        ]);
+      });
+
+      it.each(["slack:pin_message", "slack:unpin_message"] as const)(
+        "%s output is {channel, ts} echo shape",
+        (key) => {
+          const outputs = metaByKey(key).outputs;
+          expect(outputs.map((o) => o.name)).toEqual(["channel", "ts"]);
+        },
+      );
+
+      it("list_scheduled_messages declares limit numeric bounds 1..1000", () => {
+        const limit = metaByKey(
+          "slack:list_scheduled_messages",
+        ).fields.find((f) => f.name === "limit");
+        expect(limit).toBeDefined();
+        expect(limit!.type).toBe("number");
+        expect(limit!.required).toBe(false);
+        expect(limit!.numeric).toEqual(
+          expect.objectContaining({ min: 1, max: 1000, integer: true }),
+        );
+      });
+
+      it("list_scheduled_messages output includes pagination scalars (count/hasMore/nextCursor) and a `messages` array", () => {
+        const outputs = metaByKey(
+          "slack:list_scheduled_messages",
+        ).outputs;
+        const names = outputs.map((o) => o.name);
+        expect(names).toEqual(["messages", "count", "hasMore", "nextCursor"]);
+        expect(outputs.find((o) => o.name === "messages")!.type).toBe("array");
+      });
+
+      it("Group B displayOrders extend Group A without collision", () => {
+        const orders = listActionMetasForProvider("slack").map(
+          (m) => m.displayOrder,
+        );
+        expect(new Set(orders).size).toBe(orders.length);
       });
     });
 

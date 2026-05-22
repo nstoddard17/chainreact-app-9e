@@ -82,6 +82,12 @@ import { slackGetMessagesMeta } from "@/integrations/slack/actions/getMessages.m
 import { slackGetThreadMessagesMeta } from "@/integrations/slack/actions/getThreadMessages.meta";
 import { slackScheduleMessageMeta } from "@/integrations/slack/actions/scheduleMessage.meta";
 import { slackCancelScheduledMessageMeta } from "@/integrations/slack/actions/cancelScheduledMessage.meta";
+// Slice 3.36 — Slack reactions / pins / list_scheduled_messages (Group B).
+import { slackAddReactionMeta } from "@/integrations/slack/actions/addReaction.meta";
+import { slackRemoveReactionMeta } from "@/integrations/slack/actions/removeReaction.meta";
+import { slackPinMessageMeta } from "@/integrations/slack/actions/pinMessage.meta";
+import { slackUnpinMessageMeta } from "@/integrations/slack/actions/unpinMessage.meta";
+import { slackListScheduledMessagesMeta } from "@/integrations/slack/actions/listScheduledMessages.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -172,10 +178,8 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // Slack messaging Group A (Slice 3.35). 8 actions sharing the
   // channel-picker (`slack:channels`) + message-reference UX shape.
   // user-id field on send_direct_message stays `text` for v1; a
-  // future `slack:users` resolver slice (3.39+) will flip it. Slack
-  // remains absent from COVERED_PROVIDERS because reactions / pins /
-  // channels / users / block-kit surfaces still lack metas. Ordered
-  // to match displayOrder (30..100).
+  // future `slack:users` resolver slice (3.39+) will flip it.
+  // Ordered to match displayOrder (30..100).
   slackSendChannelMessageMeta,
   slackSendDirectMessageMeta,
   slackUpdateMessageMeta,
@@ -184,6 +188,18 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   slackGetThreadMessagesMeta,
   slackScheduleMessageMeta,
   slackCancelScheduledMessageMeta,
+  // Slack reactions / pins / list_scheduled_messages (Slice 3.36 —
+  // Group B). All small `{channel, ts, …}`-shape actions; no user-id
+  // fields. `list_scheduled_messages` lives here because it's the
+  // read companion to Group A's schedule/cancel pair. Slack still
+  // absent from COVERED_PROVIDERS because channels / users / block-
+  // kit surfaces remain pending. Ordered to match displayOrder
+  // (110..150).
+  slackAddReactionMeta,
+  slackRemoveReactionMeta,
+  slackPinMessageMeta,
+  slackUnpinMessageMeta,
+  slackListScheduledMessagesMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
