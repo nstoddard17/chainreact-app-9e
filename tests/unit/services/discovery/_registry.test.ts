@@ -127,6 +127,22 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the Notion blocks + comments + users action metas registered in Slice 3.42 (closes Notion at 16/16)", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "notion:append_block_children",
+        "notion:get_block",
+        "notion:get_block_children",
+        "notion:create_comment",
+        "notion:list_comments",
+        "notion:get_user",
+        "notion:list_users",
+      ]),
+    );
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -1971,14 +1987,15 @@ describe("per-provider accessors", () => {
     });
   });
 
-  describe("Notion pages + databases surface (Slice 3.41 — Group 3.41)", () => {
+  describe("Notion full surface (Slices 3.41 + 3.42 — 16/16 coverage)", () => {
     function notionActionMetas() {
       return listActionMetasForProvider("notion");
     }
 
-    it("Group 3.41 registers all 9 page + database action metas in displayOrder", () => {
+    it("Slices 3.41 + 3.42 together register all 16 Notion action metas in displayOrder", () => {
       const metas = notionActionMetas();
       expect(metas.map((m) => m.key)).toEqual([
+        // Slice 3.41 — pages + databases (displayOrder 10..90).
         "notion:create_page",
         "notion:update_page",
         "notion:archive_page",
@@ -1988,12 +2005,20 @@ describe("per-provider accessors", () => {
         "notion:create_database_entry",
         "notion:query_database",
         "notion:search",
+        // Slice 3.42 — blocks + comments + users (displayOrder 100..160).
+        "notion:append_block_children",
+        "notion:get_block",
+        "notion:get_block_children",
+        "notion:create_comment",
+        "notion:list_comments",
+        "notion:get_user",
+        "notion:list_users",
       ]);
     });
 
     it("every Notion action meta declares provider=notion, category=data, requiresIntegration=true, no FileRef", () => {
       const metas = notionActionMetas();
-      expect(metas).toHaveLength(9);
+      expect(metas).toHaveLength(16);
       for (const meta of metas) {
         expect(meta.provider).toBe("notion");
         expect(meta.category).toBe("data");
@@ -2361,6 +2386,245 @@ describe("per-provider accessors", () => {
         expect(outputs.get("results")!.type).toBe("array");
         expect(outputs.get("hasMore")!.type).toBe("boolean");
         expect(outputs.get("nextCursor")!.type).toBe("string");
+      });
+    });
+
+    describe("Slice 3.42 — blocks + comments + users surface (closes Notion at 16/16)", () => {
+      it("Slice 3.42 registers all 7 remaining action metas in displayOrder", () => {
+        const slice42Keys = notionActionMetas()
+          .filter((m) => (m.displayOrder ?? 0) >= 100)
+          .map((m) => m.key);
+        expect(slice42Keys).toEqual([
+          "notion:append_block_children",
+          "notion:get_block",
+          "notion:get_block_children",
+          "notion:create_comment",
+          "notion:list_comments",
+          "notion:get_user",
+          "notion:list_users",
+        ]);
+      });
+
+      describe("append_block_children field surface", () => {
+        function meta() {
+          return notionActionMetas().find(
+            (m) => m.key === "notion:append_block_children",
+          )!;
+        }
+
+        it("exposes blockId (required text) + children (required textarea)", () => {
+          const fields = meta().fields;
+          expect(fields.map((f) => f.name)).toEqual(["blockId", "children"]);
+          const byName = new Map(fields.map((f) => [f.name, f]));
+          expect(byName.get("blockId")!.type).toBe("text");
+          expect(byName.get("blockId")!.required).toBe(true);
+          expect(byName.get("children")!.type).toBe("textarea");
+          expect(byName.get("children")!.required).toBe(true);
+        });
+
+        it("blockId description mentions dual block-id / page-id semantics", () => {
+          const blockId = meta().fields.find((f) => f.name === "blockId")!;
+          expect(blockId.description?.toLowerCase()).toContain("page id");
+        });
+
+        it("children description mentions the ≤100 cap and BlockSpec shape", () => {
+          const children = meta().fields.find((f) => f.name === "children")!;
+          expect(children.description?.toLowerCase()).toContain("blockspec");
+          expect(children.description).toContain("100");
+        });
+
+        it("output is {childIds: array, count: number}", () => {
+          expect(meta().outputs.map((o) => o.name)).toEqual([
+            "childIds",
+            "count",
+          ]);
+          const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+          expect(byName.get("childIds")!.type).toBe("array");
+          expect(byName.get("count")!.type).toBe("number");
+        });
+      });
+
+      describe("get_block field surface", () => {
+        function meta() {
+          return notionActionMetas().find((m) => m.key === "notion:get_block")!;
+        }
+
+        it("exposes only blockId (required text)", () => {
+          expect(meta().fields.map((f) => f.name)).toEqual(["blockId"]);
+          const blockId = meta().fields[0]!;
+          expect(blockId.type).toBe("text");
+          expect(blockId.required).toBe(true);
+        });
+
+        it("output exposes plainText: string + content: object + bounded scalars", () => {
+          expect(meta().outputs.map((o) => o.name)).toEqual([
+            "blockId",
+            "object",
+            "type",
+            "archived",
+            "hasChildren",
+            "parentType",
+            "parentId",
+            "createdTime",
+            "lastEditedTime",
+            "plainText",
+            "content",
+          ]);
+          const outputs = new Map(meta().outputs.map((o) => [o.name, o]));
+          expect(outputs.get("plainText")!.type).toBe("string");
+          expect(outputs.get("content")!.type).toBe("object");
+          expect(outputs.get("hasChildren")!.type).toBe("boolean");
+        });
+      });
+
+      describe("get_block_children field surface", () => {
+        function meta() {
+          return notionActionMetas().find(
+            (m) => m.key === "notion:get_block_children",
+          )!;
+        }
+
+        it("exposes blockId / pageSize and OMITS startCursor", () => {
+          const names = meta().fields.map((f) => f.name);
+          expect(names).toEqual(["blockId", "pageSize"]);
+          expect(names).not.toContain("startCursor");
+        });
+
+        it("blockId required text; pageSize optional number 1..100", () => {
+          const byName = new Map(meta().fields.map((f) => [f.name, f]));
+          expect(byName.get("blockId")!.type).toBe("text");
+          expect(byName.get("blockId")!.required).toBe(true);
+          const pageSize = byName.get("pageSize")!;
+          expect(pageSize.type).toBe("number");
+          expect(pageSize.required).toBe(false);
+          expect(pageSize.numeric?.min).toBe(1);
+          expect(pageSize.numeric?.max).toBe(100);
+          expect(pageSize.numeric?.integer).toBe(true);
+        });
+
+        it("output is {blocks: array, nextCursor: string, hasMore: boolean}", () => {
+          const outputs = new Map(meta().outputs.map((o) => [o.name, o]));
+          expect(outputs.get("blocks")!.type).toBe("array");
+          expect(outputs.get("nextCursor")!.type).toBe("string");
+          expect(outputs.get("hasMore")!.type).toBe("boolean");
+        });
+      });
+
+      describe("create_comment field surface", () => {
+        function meta() {
+          return notionActionMetas().find(
+            (m) => m.key === "notion:create_comment",
+          )!;
+        }
+
+        it("exposes pageId (optional) / discussionId (optional) / text (required textarea)", () => {
+          expect(meta().fields.map((f) => f.name)).toEqual([
+            "pageId",
+            "discussionId",
+            "text",
+          ]);
+          const byName = new Map(meta().fields.map((f) => [f.name, f]));
+          expect(byName.get("pageId")!.type).toBe("text");
+          expect(byName.get("pageId")!.required).toBe(false);
+          expect(byName.get("discussionId")!.type).toBe("text");
+          expect(byName.get("discussionId")!.required).toBe(false);
+          expect(byName.get("text")!.type).toBe("textarea");
+          expect(byName.get("text")!.required).toBe(true);
+        });
+
+        it("description documents the XOR runtime invariant (exactly one of pageId / discussionId)", () => {
+          const desc = meta().description.toLowerCase();
+          expect(desc).toContain("exactly one");
+          expect(desc).toContain("page id");
+          expect(desc).toContain("discussion id");
+        });
+
+        it("output exposes commentId + discussionId + plainText + bounded scalars", () => {
+          expect(meta().outputs.map((o) => o.name)).toEqual([
+            "commentId",
+            "object",
+            "parentType",
+            "parentId",
+            "parentBlockId",
+            "discussionId",
+            "plainText",
+            "createdTime",
+            "lastEditedTime",
+            "createdByUserId",
+          ]);
+        });
+      });
+
+      describe("list_comments field surface", () => {
+        function meta() {
+          return notionActionMetas().find(
+            (m) => m.key === "notion:list_comments",
+          )!;
+        }
+
+        it("exposes blockId / pageSize and OMITS startCursor", () => {
+          const names = meta().fields.map((f) => f.name);
+          expect(names).toEqual(["blockId", "pageSize"]);
+          expect(names).not.toContain("startCursor");
+        });
+
+        it("output is {comments: array, nextCursor: string, hasMore: boolean}", () => {
+          const outputs = new Map(meta().outputs.map((o) => [o.name, o]));
+          expect(outputs.get("comments")!.type).toBe("array");
+          expect(outputs.get("nextCursor")!.type).toBe("string");
+          expect(outputs.get("hasMore")!.type).toBe("boolean");
+        });
+      });
+
+      describe("get_user field surface", () => {
+        function meta() {
+          return notionActionMetas().find((m) => m.key === "notion:get_user")!;
+        }
+
+        it("exposes only userId (required text)", () => {
+          expect(meta().fields.map((f) => f.name)).toEqual(["userId"]);
+          const userId = meta().fields[0]!;
+          expect(userId.type).toBe("text");
+          expect(userId.required).toBe(true);
+        });
+
+        it("output mirrors the handler's flat user projection (person+bot polymorphism)", () => {
+          expect(meta().outputs.map((o) => o.name)).toEqual([
+            "userId",
+            "object",
+            "type",
+            "name",
+            "avatarUrl",
+            "personEmail",
+            "botOwnerType",
+            "botOwnerUserId",
+            "botWorkspaceName",
+          ]);
+        });
+      });
+
+      describe("list_users field surface", () => {
+        function meta() {
+          return notionActionMetas().find((m) => m.key === "notion:list_users")!;
+        }
+
+        it("exposes only pageSize (optional number 1..100) — no channel, no startCursor", () => {
+          const names = meta().fields.map((f) => f.name);
+          expect(names).toEqual(["pageSize"]);
+          expect(names).not.toContain("startCursor");
+          const pageSize = meta().fields[0]!;
+          expect(pageSize.type).toBe("number");
+          expect(pageSize.required).toBe(false);
+          expect(pageSize.numeric?.min).toBe(1);
+          expect(pageSize.numeric?.max).toBe(100);
+        });
+
+        it("output is {users: array, nextCursor: string, hasMore: boolean}", () => {
+          const outputs = new Map(meta().outputs.map((o) => [o.name, o]));
+          expect(outputs.get("users")!.type).toBe("array");
+          expect(outputs.get("nextCursor")!.type).toBe("string");
+          expect(outputs.get("hasMore")!.type).toBe("boolean");
+        });
       });
     });
   });

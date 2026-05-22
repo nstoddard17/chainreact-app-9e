@@ -110,11 +110,10 @@ import { slackListUsersMeta } from "@/integrations/slack/actions/users/listUsers
 import { slackGetFileInfoMeta } from "@/integrations/slack/actions/files/getFileInfo.meta";
 import { slackPostInteractiveBlocksMeta } from "@/integrations/slack/actions/postInteractiveBlocks.meta";
 
-// Notion action metadata (Slice 3.41 — pages + databases group, 9 of
-// 16). Notion stays OUT of COVERED_PROVIDERS until Slice 3.42 lands the
-// remaining 7 (blocks / comments / users) and flips the structural
-// gate. Adding a new Notion handler in the meantime can land without a
-// meta; once Slice 3.42 ships, 1:1 handler↔meta coverage is enforced.
+// Notion action metadata (Slices 3.41 + 3.42 — full 16/16 coverage).
+// Slice 3.42 added the blocks/comments/users group and flipped Notion
+// into `COVERED_PROVIDERS` in tests/structure/discovery-meta-coverage.test.ts
+// — 1:1 handler↔meta coverage is enforced from here on.
 import { notionCreatePageMeta } from "@/integrations/notion/actions/createPage.meta";
 import { notionUpdatePageMeta } from "@/integrations/notion/actions/updatePage.meta";
 import { notionArchivePageMeta } from "@/integrations/notion/actions/archivePage.meta";
@@ -124,6 +123,16 @@ import { notionCreateDatabaseMeta } from "@/integrations/notion/actions/createDa
 import { notionCreateDatabaseEntryMeta } from "@/integrations/notion/actions/createDatabaseEntry.meta";
 import { notionQueryDatabaseMeta } from "@/integrations/notion/actions/queryDatabase.meta";
 import { notionSearchMeta } from "@/integrations/notion/actions/search.meta";
+// Slice 3.42 — blocks + comments + users (7 actions). After this slice
+// Notion's 16/16 action surface is covered and the structural test
+// gates on 1:1 handler↔meta coverage.
+import { notionAppendBlockChildrenMeta } from "@/integrations/notion/actions/appendBlockChildren.meta";
+import { notionGetBlockMeta } from "@/integrations/notion/actions/getBlock.meta";
+import { notionGetBlockChildrenMeta } from "@/integrations/notion/actions/getBlockChildren.meta";
+import { notionCreateCommentMeta } from "@/integrations/notion/actions/createComment.meta";
+import { notionListCommentsMeta } from "@/integrations/notion/actions/listComments.meta";
+import { notionGetUserMeta } from "@/integrations/notion/actions/getUser.meta";
+import { notionListUsersMeta } from "@/integrations/notion/actions/listUsers.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -281,6 +290,18 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   notionCreateDatabaseEntryMeta,
   notionQueryDatabaseMeta,
   notionSearchMeta,
+  // Notion blocks + comments + users (Slice 3.42 — closes Notion at
+  // 16/16). Same slice flips Notion into `COVERED_PROVIDERS` in
+  // tests/structure/discovery-meta-coverage.test.ts so the 1:1
+  // handler↔meta invariant is enforced from here on. Ordered to match
+  // displayOrder (100..160).
+  notionAppendBlockChildrenMeta,
+  notionGetBlockMeta,
+  notionGetBlockChildrenMeta,
+  notionCreateCommentMeta,
+  notionListCommentsMeta,
+  notionGetUserMeta,
+  notionListUsersMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

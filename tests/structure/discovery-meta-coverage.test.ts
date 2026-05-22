@@ -13,7 +13,7 @@
  *
  * Coverage scope: native (Slice 3.0) + GitHub (Slice 3.0b) + Gmail
  * (Slice 3.15) + Microsoft Outlook Mail (Slice 3.17) + Slack
- * (Slices 3.26 → 3.38).
+ * (Slices 3.26 → 3.38) + Notion (Slices 3.41 → 3.42).
  *
  * This test does NOT block adding new handlers for uncovered providers —
  * adding a handler in an uncovered provider can land without an action
@@ -32,6 +32,11 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // handlers have a matching meta. From here on, adding a new Slack
   // handler without a meta (or vice-versa) fails this structural test.
   "slack",
+  // Notion added in Slice 3.42 once all 16 registered Notion action
+  // handlers have a matching meta (pages+databases in 3.41,
+  // blocks+comments+users in 3.42). Adding a new Notion handler
+  // without a meta (or vice-versa) fails this structural test.
+  "notion",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

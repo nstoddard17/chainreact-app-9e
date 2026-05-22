@@ -345,7 +345,7 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
   });
 
-  it("returns the 9 Notion page+database action metas in displayOrder (Slice 3.41 — Notion not yet in COVERED_PROVIDERS, more land in 3.42)", async () => {
+  it("returns the full 16/16 Notion action coverage in displayOrder as of Slice 3.42 (Notion now in COVERED_PROVIDERS)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/notion/actions"), {
       params: Promise.resolve({ id: "notion" }),
@@ -362,8 +362,9 @@ describe("GET /api/providers/[id]/actions", () => {
       }>;
     };
     expect(body.provider).toBe("notion");
-    expect(body.actions).toHaveLength(9);
+    expect(body.actions).toHaveLength(16);
     expect(body.actions.map((a) => a.key)).toEqual([
+      // Slice 3.41 — pages + databases.
       "notion:create_page",
       "notion:update_page",
       "notion:archive_page",
@@ -373,6 +374,14 @@ describe("GET /api/providers/[id]/actions", () => {
       "notion:create_database_entry",
       "notion:query_database",
       "notion:search",
+      // Slice 3.42 — blocks + comments + users.
+      "notion:append_block_children",
+      "notion:get_block",
+      "notion:get_block_children",
+      "notion:create_comment",
+      "notion:list_comments",
+      "notion:get_user",
+      "notion:list_users",
     ]);
     expect(body.actions.every((a) => a.category === "data")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
