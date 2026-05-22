@@ -24,12 +24,13 @@
  *   5. Add two recipients to `to`; one Cc.
  *   6. Type Subject + Body via plain text inputs.
  *   7. Toggle Is HTML on via the Switch role.
- *   8. Set Importance to "high". Done via configSlice.updateField rather
- *      than UI click because Radix Select portals its content and jsdom
- *      doesn't reliably interact with the portal — this matches the
- *      precedent in SelectField.test.tsx which limits select-UI testing
- *      to trigger-shape assertions. The handler-renderer wiring is
- *      identical for both paths (updateField is what onChange calls).
+ *   8. Set Importance to "high" via the live Radix Select. Slice 3.19
+ *      added jsdom polyfills (hasPointerCapture / scrollIntoView) and
+ *      the `selectFieldOption` helper so the natural `click trigger →
+ *      click option` flow works end-to-end. SelectField.test.tsx still
+ *      owns trigger-shape + guard branches; this integration path
+ *      asserts the value reaches the configSlice draft via the live
+ *      Radix interaction.
  *   9. Modal Save → pendingNodes config carries real `string[]` chip
  *      values; subject/body remain strings; isHtml is boolean; importance
  *      is "high".
@@ -71,12 +72,13 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
+import { selectFieldOption } from "./helpers/selectField";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
@@ -236,22 +238,11 @@ it("end-to-end: Outlook send_email config round-trips chip arrays + required isH
   //    primitive (not portaled), so this works in jsdom.
   await user.click(screen.getByRole("switch", { name: /is html/i }));
 
-  // 9. Set Importance to "high" via configSlice.updateField directly.
-  //    Radix Select portals its content; SelectField.test.tsx explicitly
-  //    limits select UI testing to trigger-shape assertions for the same
-  //    jsdom-portal reason. The path through configSlice IS what the
-  //    SelectField's onChange invokes, so this test still proves the
-  //    end-to-end draft → graphSlice → toolbar Save → updateWorkflow
-  //    plumbing. Wrapped in act() so React's update-flush warning stays
-  //    quiet — the store update synchronously re-renders subscribed
-  //    components.
-  act(() => {
-    useConfigSlice.getState().updateField({
-      nodeId: action!.id,
-      name: "importance",
-      value: "high",
-    });
-  });
+  // 9. Set Importance to "high" via the live Radix Select. Slice 3.19
+  //    polyfills + helper let the natural click-trigger → click-option
+  //    flow work in jsdom; SelectField.test.tsx still owns trigger-
+  //    shape + guard branches.
+  await selectFieldOption(user, /^importance$/i, "High");
 
   // 10. Modal Save flushes the draft into graphSlice.pendingNodes.
   const modal = screen.getByRole("complementary", {

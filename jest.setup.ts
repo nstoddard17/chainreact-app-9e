@@ -54,4 +54,29 @@ if (typeof globalThis.HTMLElement !== "undefined") {
       },
     },
   });
+
+  // Radix UI primitives (Select, Popover, DropdownMenu, etc.) call
+  // pointer-capture APIs and scrollIntoView on their triggers. jsdom
+  // ships neither, so without these stubs `userEvent.click` on a Radix
+  // Select trigger throws and the menu never opens. Stubbing them lets
+  // tests drive the live UI exactly the way a user would (`click
+  // trigger → click option`), matching the helper at
+  // tests/integration/features/workflow-builder/helpers/selectField.ts.
+  // Keep these scoped to test mode; production code never touches this
+  // file.
+  if (!HTMLElement.prototype.hasPointerCapture) {
+    (HTMLElement.prototype as unknown as { hasPointerCapture: () => boolean }).hasPointerCapture =
+      () => false;
+  }
+  if (!HTMLElement.prototype.releasePointerCapture) {
+    (HTMLElement.prototype as unknown as { releasePointerCapture: () => void }).releasePointerCapture =
+      () => {};
+  }
+  if (!HTMLElement.prototype.setPointerCapture) {
+    (HTMLElement.prototype as unknown as { setPointerCapture: () => void }).setPointerCapture =
+      () => {};
+  }
+  if (!HTMLElement.prototype.scrollIntoView) {
+    (HTMLElement.prototype as unknown as { scrollIntoView: () => void }).scrollIntoView = () => {};
+  }
 }
