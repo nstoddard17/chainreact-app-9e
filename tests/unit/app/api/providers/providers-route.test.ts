@@ -165,7 +165,7 @@ describe("GET /api/providers/[id]/actions", () => {
     );
   });
 
-  it("returns the partial Slack action coverage as of Slice 3.36 (files + messaging Group A + reactions/pins/list_scheduled in displayOrder; channels/users/block-kit still pending)", async () => {
+  it("returns the partial Slack action coverage as of Slice 3.37 (files + messaging Group A + reactions Group B + channels Group C in displayOrder; users/block-kit still pending)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/slack/actions"), {
       params: Promise.resolve({ id: "slack" }),
@@ -198,6 +198,18 @@ describe("GET /api/providers/[id]/actions", () => {
       "slack:pin_message",
       "slack:unpin_message",
       "slack:list_scheduled_messages",
+      "slack:list_channels",
+      "slack:get_channel_info",
+      "slack:create_channel",
+      "slack:archive_channel",
+      "slack:unarchive_channel",
+      "slack:rename_channel",
+      "slack:join_channel",
+      "slack:leave_channel",
+      "slack:invite_users_to_channel",
+      "slack:remove_user_from_channel",
+      "slack:set_channel_topic",
+      "slack:set_channel_purpose",
     ]);
     const download = body.actions[0]!;
     expect(download.category).toBe("files");
@@ -212,7 +224,7 @@ describe("GET /api/providers/[id]/actions", () => {
     // resulting Slack-hosted FileRef.
     expect(upload.consumesFileRef).toBe(true);
     expect(upload.producesFileRef).toBe(true);
-    // Group A + Group B: every messaging action is category=messaging,
+    // Group A + B + C: every messaging action is category=messaging,
     // requires integration, neither produces nor consumes a FileRef.
     for (const messagingAction of body.actions.slice(2)) {
       expect(messagingAction.category).toBe("messaging");

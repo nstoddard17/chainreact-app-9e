@@ -899,7 +899,7 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("Slack action coverage as of Slice 3.36 is files + messaging Group A + reactions/pins/list_scheduled (Group B) in displayOrder (broader Slack coverage is a future arc)", () => {
+    it("Slack action coverage as of Slice 3.37 is files + messaging Group A + reactions Group B + channels Group C in displayOrder (broader Slack coverage is a future arc)", () => {
       const slackActionKeys = listActionMetasForProvider("slack").map(
         (m) => m.key,
       );
@@ -919,6 +919,18 @@ describe("per-provider accessors", () => {
         "slack:pin_message",
         "slack:unpin_message",
         "slack:list_scheduled_messages",
+        "slack:list_channels",
+        "slack:get_channel_info",
+        "slack:create_channel",
+        "slack:archive_channel",
+        "slack:unarchive_channel",
+        "slack:rename_channel",
+        "slack:join_channel",
+        "slack:leave_channel",
+        "slack:invite_users_to_channel",
+        "slack:remove_user_from_channel",
+        "slack:set_channel_topic",
+        "slack:set_channel_purpose",
       ]);
     });
 
@@ -1291,6 +1303,321 @@ describe("per-provider accessors", () => {
         const orders = listActionMetasForProvider("slack").map(
           (m) => m.displayOrder,
         );
+        expect(new Set(orders).size).toBe(orders.length);
+      });
+    });
+
+    describe("Slack channel management surface (Slice 3.37 — Group C)", () => {
+      const GROUP_C_KEYS = [
+        "slack:list_channels",
+        "slack:get_channel_info",
+        "slack:create_channel",
+        "slack:archive_channel",
+        "slack:unarchive_channel",
+        "slack:rename_channel",
+        "slack:join_channel",
+        "slack:leave_channel",
+        "slack:invite_users_to_channel",
+        "slack:remove_user_from_channel",
+        "slack:set_channel_topic",
+        "slack:set_channel_purpose",
+      ] as const;
+
+      function metaByKey(key: string): ActionMeta {
+        const meta = listActionMetasForProvider("slack").find(
+          (m) => m.key === key,
+        );
+        if (!meta) throw new Error(`Slack meta '${key}' not registered.`);
+        return meta;
+      }
+
+      it("Group C registers all 12 channel-management actions", () => {
+        for (const key of GROUP_C_KEYS) {
+          expect(
+            listActionMetasForProvider("slack").find((m) => m.key === key),
+          ).toBeDefined();
+        }
+      });
+
+      it.each(GROUP_C_KEYS)(
+        "%s declares provider=slack, category=messaging, requiresIntegration=true",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.provider).toBe("slack");
+          expect(meta.category).toBe("messaging");
+          expect(meta.requiresIntegration).toBe(true);
+        },
+      );
+
+      it.each(GROUP_C_KEYS)(
+        "%s declares producesFileRef=false and consumesFileRef=false",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.producesFileRef).toBe(false);
+          expect(meta.consumesFileRef).toBe(false);
+        },
+      );
+
+      it.each(GROUP_C_KEYS)(
+        "%s output names exclude bytes/base64/content/data (no payload leakage)",
+        (key) => {
+          const outputNames = metaByKey(key).outputs.map((o) => o.name);
+          for (const banned of ["bytes", "base64", "content", "data"]) {
+            expect(outputNames).not.toContain(banned);
+          }
+        },
+      );
+
+      it.each(GROUP_C_KEYS)(
+        "%s does NOT expose `cursor` (server-managed pagination handle)",
+        (key) => {
+          const fieldNames = metaByKey(key).fields.map((f) => f.name);
+          expect(fieldNames).not.toContain("cursor");
+        },
+      );
+
+      // Channel-field-bearing actions. list_channels has NO channel
+      // field (it discovers channels); create_channel has NO channel
+      // field (it creates one). Everything else takes channel.
+      const CHANNEL_FIELD_KEYS = [
+        "slack:get_channel_info",
+        "slack:archive_channel",
+        "slack:unarchive_channel",
+        "slack:rename_channel",
+        "slack:join_channel",
+        "slack:leave_channel",
+        "slack:invite_users_to_channel",
+        "slack:remove_user_from_channel",
+        "slack:set_channel_topic",
+        "slack:set_channel_purpose",
+      ] as const;
+
+      it.each(CHANNEL_FIELD_KEYS)(
+        "%s `channel` field is a required async combobox sourced from slack:channels",
+        (key) => {
+          const channel = metaByKey(key).fields.find(
+            (f) => f.name === "channel",
+          );
+          expect(channel).toBeDefined();
+          expect(channel!.type).toBe("combobox");
+          expect(channel!.required).toBe(true);
+          expect(channel!.optionsSource).toBe("slack:channels");
+          expect(channel!.options).toBeUndefined();
+        },
+      );
+
+      it("list_channels has no channel field (action discovers channels)", () => {
+        const channel = metaByKey("slack:list_channels").fields.find(
+          (f) => f.name === "channel",
+        );
+        expect(channel).toBeUndefined();
+      });
+
+      it("create_channel has no channel field (action creates a new one)", () => {
+        const channel = metaByKey("slack:create_channel").fields.find(
+          (f) => f.name === "channel",
+        );
+        expect(channel).toBeUndefined();
+      });
+
+      it("list_channels.kind is a select with the public/private/both options + no enabled default", () => {
+        const kind = metaByKey("slack:list_channels").fields.find(
+          (f) => f.name === "kind",
+        );
+        expect(kind).toBeDefined();
+        expect(kind!.type).toBe("select");
+        expect(kind!.required).toBe(false);
+        expect(kind!.options?.map((o) => o.value)).toEqual([
+          "public",
+          "private",
+          "both",
+        ]);
+        expect(kind!.defaultValue).toBeUndefined();
+      });
+
+      it("list_channels.excludeArchived is an optional boolean (handler default is true)", () => {
+        const excl = metaByKey("slack:list_channels").fields.find(
+          (f) => f.name === "excludeArchived",
+        );
+        expect(excl).toBeDefined();
+        expect(excl!.type).toBe("boolean");
+        expect(excl!.required).toBe(false);
+      });
+
+      it("list_channels.limit is bounded 1..1000 integer", () => {
+        const limit = metaByKey("slack:list_channels").fields.find(
+          (f) => f.name === "limit",
+        );
+        expect(limit).toBeDefined();
+        expect(limit!.type).toBe("number");
+        expect(limit!.numeric).toEqual(
+          expect.objectContaining({ min: 1, max: 1000, integer: true }),
+        );
+      });
+
+      it("create_channel.name is a required text field (Slack sanitizes server-side)", () => {
+        const name = metaByKey("slack:create_channel").fields.find(
+          (f) => f.name === "name",
+        );
+        expect(name).toBeDefined();
+        expect(name!.type).toBe("text");
+        expect(name!.required).toBe(true);
+      });
+
+      it("create_channel.isPrivate is a required boolean with NO defaultValue (Q11 — no hidden default)", () => {
+        const isPrivate = metaByKey("slack:create_channel").fields.find(
+          (f) => f.name === "isPrivate",
+        );
+        expect(isPrivate).toBeDefined();
+        expect(isPrivate!.type).toBe("boolean");
+        expect(isPrivate!.required).toBe(true);
+        expect(isPrivate!.defaultValue).toBeUndefined();
+      });
+
+      it("rename_channel.name is a required text field", () => {
+        const name = metaByKey("slack:rename_channel").fields.find(
+          (f) => f.name === "name",
+        );
+        expect(name).toBeDefined();
+        expect(name!.type).toBe("text");
+        expect(name!.required).toBe(true);
+      });
+
+      it("invite_users_to_channel.users is a required string-array (multi-select combobox is deferred)", () => {
+        const users = metaByKey("slack:invite_users_to_channel").fields.find(
+          (f) => f.name === "users",
+        );
+        expect(users).toBeDefined();
+        expect(users!.type).toBe("string-array");
+        expect(users!.required).toBe(true);
+        // No slack:users resolver yet.
+        expect(users!.optionsSource).toBeUndefined();
+      });
+
+      it("invite_users_to_channel.sendInviteNotification is a required boolean with NO defaultValue (Q11)", () => {
+        const flag = metaByKey(
+          "slack:invite_users_to_channel",
+        ).fields.find((f) => f.name === "sendInviteNotification");
+        expect(flag).toBeDefined();
+        expect(flag!.type).toBe("boolean");
+        expect(flag!.required).toBe(true);
+        expect(flag!.defaultValue).toBeUndefined();
+      });
+
+      it("remove_user_from_channel.user is a required text field (slack:users resolver deferred to 3.39+)", () => {
+        const user = metaByKey("slack:remove_user_from_channel").fields.find(
+          (f) => f.name === "user",
+        );
+        expect(user).toBeDefined();
+        expect(user!.type).toBe("text");
+        expect(user!.required).toBe(true);
+        expect(user!.optionsSource).toBeUndefined();
+      });
+
+      it.each([
+        ["slack:set_channel_topic", "topic"],
+        ["slack:set_channel_purpose", "purpose"],
+      ] as const)(
+        "%s `%s` field is a required textarea (Slack permits multi-line up to 250 chars)",
+        (key, fieldName) => {
+          const field = metaByKey(key).fields.find((f) => f.name === fieldName);
+          expect(field).toBeDefined();
+          expect(field!.type).toBe("textarea");
+          expect(field!.required).toBe(true);
+        },
+      );
+
+      it("list_channels output is {channels, count, hasMore, nextCursor}", () => {
+        const outputs = metaByKey("slack:list_channels").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channels",
+          "count",
+          "hasMore",
+          "nextCursor",
+        ]);
+        expect(outputs.find((o) => o.name === "channels")!.type).toBe("array");
+      });
+
+      it("get_channel_info output exposes the bounded Slack channel scalars", () => {
+        const outputs = metaByKey("slack:get_channel_info").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "id",
+          "name",
+          "is_private",
+          "is_archived",
+          "num_members",
+          "topic",
+          "purpose",
+          "created",
+        ]);
+      });
+
+      it("create_channel output is {channel, id, name, is_private}", () => {
+        const outputs = metaByKey("slack:create_channel").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "id",
+          "name",
+          "is_private",
+        ]);
+      });
+
+      it.each(["slack:archive_channel", "slack:leave_channel"] as const)(
+        "%s output is {channel} echo shape",
+        (key) => {
+          const outputs = metaByKey(key).outputs;
+          expect(outputs.map((o) => o.name)).toEqual(["channel"]);
+        },
+      );
+
+      it("unarchive_channel output is {channel} echo shape", () => {
+        const outputs = metaByKey("slack:unarchive_channel").outputs;
+        expect(outputs.map((o) => o.name)).toEqual(["channel"]);
+      });
+
+      it.each(["slack:rename_channel", "slack:join_channel"] as const)(
+        "%s output is {channel, id, name}",
+        (key) => {
+          const outputs = metaByKey(key).outputs;
+          expect(outputs.map((o) => o.name)).toEqual(["channel", "id", "name"]);
+        },
+      );
+
+      it("invite_users_to_channel output is {channel, users, invited_count}", () => {
+        const outputs = metaByKey(
+          "slack:invite_users_to_channel",
+        ).outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "users",
+          "invited_count",
+        ]);
+      });
+
+      it("remove_user_from_channel output is {channel, user}", () => {
+        const outputs = metaByKey(
+          "slack:remove_user_from_channel",
+        ).outputs;
+        expect(outputs.map((o) => o.name)).toEqual(["channel", "user"]);
+      });
+
+      it.each([
+        ["slack:set_channel_topic", "topic"],
+        ["slack:set_channel_purpose", "purpose"],
+      ] as const)(
+        "%s output is {channel, %s}",
+        (key, fieldName) => {
+          const outputs = metaByKey(key).outputs;
+          expect(outputs.map((o) => o.name)).toEqual(["channel", fieldName]);
+        },
+      );
+
+      it("Group C displayOrders extend Group A + B without collision (Slack provider total = 27 unique)", () => {
+        const orders = listActionMetasForProvider("slack").map(
+          (m) => m.displayOrder,
+        );
+        expect(orders.length).toBe(27);
         expect(new Set(orders).size).toBe(orders.length);
       });
     });

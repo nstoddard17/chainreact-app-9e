@@ -88,6 +88,19 @@ import { slackRemoveReactionMeta } from "@/integrations/slack/actions/removeReac
 import { slackPinMessageMeta } from "@/integrations/slack/actions/pinMessage.meta";
 import { slackUnpinMessageMeta } from "@/integrations/slack/actions/unpinMessage.meta";
 import { slackListScheduledMessagesMeta } from "@/integrations/slack/actions/listScheduledMessages.meta";
+// Slice 3.37 — Slack channel management (Group C, 12 actions).
+import { slackListChannelsMeta } from "@/integrations/slack/actions/channels/listChannels.meta";
+import { slackGetChannelInfoMeta } from "@/integrations/slack/actions/channels/getChannelInfo.meta";
+import { slackCreateChannelMeta } from "@/integrations/slack/actions/channels/createChannel.meta";
+import { slackArchiveChannelMeta } from "@/integrations/slack/actions/channels/archiveChannel.meta";
+import { slackUnarchiveChannelMeta } from "@/integrations/slack/actions/channels/unarchiveChannel.meta";
+import { slackRenameChannelMeta } from "@/integrations/slack/actions/channels/renameChannel.meta";
+import { slackJoinChannelMeta } from "@/integrations/slack/actions/channels/joinChannel.meta";
+import { slackLeaveChannelMeta } from "@/integrations/slack/actions/channels/leaveChannel.meta";
+import { slackInviteUsersToChannelMeta } from "@/integrations/slack/actions/channels/inviteUsersToChannel.meta";
+import { slackRemoveUserFromChannelMeta } from "@/integrations/slack/actions/channels/removeUserFromChannel.meta";
+import { slackSetChannelTopicMeta } from "@/integrations/slack/actions/channels/setChannelTopic.meta";
+import { slackSetChannelPurposeMeta } from "@/integrations/slack/actions/channels/setChannelPurpose.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -191,15 +204,35 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // Slack reactions / pins / list_scheduled_messages (Slice 3.36 —
   // Group B). All small `{channel, ts, …}`-shape actions; no user-id
   // fields. `list_scheduled_messages` lives here because it's the
-  // read companion to Group A's schedule/cancel pair. Slack still
-  // absent from COVERED_PROVIDERS because channels / users / block-
-  // kit surfaces remain pending. Ordered to match displayOrder
-  // (110..150).
+  // read companion to Group A's schedule/cancel pair. Ordered to
+  // match displayOrder (110..150).
   slackAddReactionMeta,
   slackRemoveReactionMeta,
   slackPinMessageMeta,
   slackUnpinMessageMeta,
   slackListScheduledMessagesMeta,
+  // Slack channel management (Slice 3.37 — Group C, 12 actions).
+  // Reads + lifecycle + membership + topic/purpose. Every action's
+  // channel field uses the `slack:channels` picker; required for the
+  // single-channel ops, optional only on list_channels (which has no
+  // channel field at all — it discovers them). `invite_users_to_channel`
+  // uses `string-array` for `users` since multi-select combobox is
+  // deferred (Slice 3.7) and the `slack:users` resolver is deferred
+  // (Slice 3.39+). Slack still absent from COVERED_PROVIDERS because
+  // users + block-kit surfaces remain pending. Ordered to match
+  // displayOrder (160..270).
+  slackListChannelsMeta,
+  slackGetChannelInfoMeta,
+  slackCreateChannelMeta,
+  slackArchiveChannelMeta,
+  slackUnarchiveChannelMeta,
+  slackRenameChannelMeta,
+  slackJoinChannelMeta,
+  slackLeaveChannelMeta,
+  slackInviteUsersToChannelMeta,
+  slackRemoveUserFromChannelMeta,
+  slackSetChannelTopicMeta,
+  slackSetChannelPurposeMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
