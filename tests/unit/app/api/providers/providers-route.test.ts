@@ -165,7 +165,7 @@ describe("GET /api/providers/[id]/actions", () => {
     );
   });
 
-  it("returns the partial Slack action coverage as of Slice 3.27 (download_file + upload_file in displayOrder; broader Slack action coverage is a future arc)", async () => {
+  it("returns the partial Slack action coverage as of Slice 3.35 (files + messaging Group A in displayOrder; channels/reactions/users/block-kit still pending)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/slack/actions"), {
       params: Promise.resolve({ id: "slack" }),
@@ -185,6 +185,14 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.map((a) => a.key)).toEqual([
       "slack:download_file",
       "slack:upload_file",
+      "slack:send_channel_message",
+      "slack:send_direct_message",
+      "slack:update_message",
+      "slack:delete_message",
+      "slack:get_messages",
+      "slack:get_thread_messages",
+      "slack:schedule_message",
+      "slack:cancel_scheduled_message",
     ]);
     const download = body.actions[0]!;
     expect(download.category).toBe("files");
@@ -199,6 +207,14 @@ describe("GET /api/providers/[id]/actions", () => {
     // resulting Slack-hosted FileRef.
     expect(upload.consumesFileRef).toBe(true);
     expect(upload.producesFileRef).toBe(true);
+    // Group A: every messaging action is category=messaging, requires
+    // integration, neither produces nor consumes a FileRef.
+    for (const messagingAction of body.actions.slice(2)) {
+      expect(messagingAction.category).toBe("messaging");
+      expect(messagingAction.requiresIntegration).toBe(true);
+      expect(messagingAction.producesFileRef).toBe(false);
+      expect(messagingAction.consumesFileRef).toBe(false);
+    }
   });
 
   it("returns 404 PROVIDER_NOT_FOUND for an unknown provider id", async () => {

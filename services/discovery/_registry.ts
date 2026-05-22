@@ -65,12 +65,23 @@ import { newEmailTriggerMeta } from "@/integrations/gmail/triggers/newEmail/newE
 import { newLabeledEmailTriggerMeta } from "@/integrations/gmail/triggers/newLabeledEmail/newLabeledEmail.meta";
 import { newAttachmentTriggerMeta } from "@/integrations/gmail/triggers/newAttachment/newAttachment.meta";
 
-// Slack action metadata (Slice 3.26 + 3.27 — partial coverage, file
-// actions only; Slack is intentionally absent from COVERED_PROVIDERS in
+// Slack action metadata (Slice 3.26 + 3.27 + 3.35 — partial coverage:
+// file actions + messaging Group A; Slack remains intentionally absent
+// from COVERED_PROVIDERS in
 // tests/structure/discovery-meta-coverage.test.ts until every Slack
-// runtime handler has a meta).
+// runtime handler has a meta — the channels / reactions / users /
+// block-kit surfaces are still pending).
 import { slackDownloadFileMeta } from "@/integrations/slack/actions/files/downloadFile.meta";
 import { slackUploadFileMeta } from "@/integrations/slack/actions/files/uploadFile.meta";
+// Slice 3.35 — Slack messaging Group A.
+import { slackSendChannelMessageMeta } from "@/integrations/slack/actions/sendChannelMessage.meta";
+import { slackSendDirectMessageMeta } from "@/integrations/slack/actions/sendDirectMessage.meta";
+import { slackUpdateMessageMeta } from "@/integrations/slack/actions/updateMessage.meta";
+import { slackDeleteMessageMeta } from "@/integrations/slack/actions/deleteMessage.meta";
+import { slackGetMessagesMeta } from "@/integrations/slack/actions/getMessages.meta";
+import { slackGetThreadMessagesMeta } from "@/integrations/slack/actions/getThreadMessages.meta";
+import { slackScheduleMessageMeta } from "@/integrations/slack/actions/scheduleMessage.meta";
+import { slackCancelScheduledMessageMeta } from "@/integrations/slack/actions/cancelScheduledMessage.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -152,15 +163,27 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   outlookAddCategoriesMeta,
   outlookMoveEmailMeta,
   outlookDeleteEmailMeta,
-  // Slack file actions (Slice 3.26 + 3.27). Partial Slack action
-  // coverage — `download_file` is the FileRef producer; `upload_file`
-  // is the FileRef consumer that exercises the Slice 3.25 single-
-  // FileRef FileField (chip + variable picker + replace semantics).
-  // Slack is NOT yet in COVERED_PROVIDERS because the broader Slack
-  // action surface (messaging, channels, reactions, etc.) has no
-  // metas yet. Ordered to match displayOrder (10/20).
+  // Slack file actions (Slice 3.26 + 3.27). `download_file` is the
+  // FileRef producer; `upload_file` is the FileRef consumer that
+  // exercises the Slice 3.25 single-FileRef FileField (chip + picker
+  // + replace semantics). Ordered by displayOrder (10/20).
   slackDownloadFileMeta,
   slackUploadFileMeta,
+  // Slack messaging Group A (Slice 3.35). 8 actions sharing the
+  // channel-picker (`slack:channels`) + message-reference UX shape.
+  // user-id field on send_direct_message stays `text` for v1; a
+  // future `slack:users` resolver slice (3.39+) will flip it. Slack
+  // remains absent from COVERED_PROVIDERS because reactions / pins /
+  // channels / users / block-kit surfaces still lack metas. Ordered
+  // to match displayOrder (30..100).
+  slackSendChannelMessageMeta,
+  slackSendDirectMessageMeta,
+  slackUpdateMessageMeta,
+  slackDeleteMessageMeta,
+  slackGetMessagesMeta,
+  slackGetThreadMessagesMeta,
+  slackScheduleMessageMeta,
+  slackCancelScheduledMessageMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

@@ -16,6 +16,7 @@
  */
 import {
   ActionMetaSchema,
+  type ActionMeta,
 } from "@/contracts/actionMeta";
 import {
   TriggerMetaSchema,
@@ -898,14 +899,217 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("Slack action coverage as of Slice 3.27 is [download_file, upload_file] in displayOrder (broader Slack coverage is a future arc)", () => {
+    it("Slack action coverage as of Slice 3.35 is files + messaging Group A in displayOrder (broader Slack coverage is a future arc)", () => {
       const slackActionKeys = listActionMetasForProvider("slack").map(
         (m) => m.key,
       );
       expect(slackActionKeys).toEqual([
         "slack:download_file",
         "slack:upload_file",
+        "slack:send_channel_message",
+        "slack:send_direct_message",
+        "slack:update_message",
+        "slack:delete_message",
+        "slack:get_messages",
+        "slack:get_thread_messages",
+        "slack:schedule_message",
+        "slack:cancel_scheduled_message",
       ]);
+    });
+
+    describe("Slack messaging Group A surface (Slice 3.35)", () => {
+      const GROUP_A_KEYS = [
+        "slack:send_channel_message",
+        "slack:send_direct_message",
+        "slack:update_message",
+        "slack:delete_message",
+        "slack:get_messages",
+        "slack:get_thread_messages",
+        "slack:schedule_message",
+        "slack:cancel_scheduled_message",
+      ] as const;
+
+      function metaByKey(key: string): ActionMeta {
+        const meta = listActionMetasForProvider("slack").find(
+          (m) => m.key === key,
+        );
+        if (!meta) throw new Error(`Slack meta '${key}' not registered.`);
+        return meta;
+      }
+
+      it.each(GROUP_A_KEYS)(
+        "%s declares provider=slack, category=messaging, requiresIntegration=true",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.provider).toBe("slack");
+          expect(meta.category).toBe("messaging");
+          expect(meta.requiresIntegration).toBe(true);
+        },
+      );
+
+      it.each(GROUP_A_KEYS)(
+        "%s declares producesFileRef=false and consumesFileRef=false",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.producesFileRef).toBe(false);
+          expect(meta.consumesFileRef).toBe(false);
+        },
+      );
+
+      it.each(GROUP_A_KEYS)(
+        "%s output names exclude bytes/base64/content/data (no payload leakage)",
+        (key) => {
+          const outputNames = metaByKey(key).outputs.map((o) => o.name);
+          for (const banned of ["bytes", "base64", "content", "data"]) {
+            expect(outputNames).not.toContain(banned);
+          }
+        },
+      );
+
+      // Channel-field-bearing actions: every channel field MUST be the
+      // async combobox sourced from `slack:channels`. send_direct_message
+      // has no `channel` field (it opens the DM channel from a userId),
+      // and Get / List / etc. all carry channel either as required or
+      // optional.
+      const CHANNEL_FIELD_KEYS = [
+        "slack:send_channel_message",
+        "slack:update_message",
+        "slack:delete_message",
+        "slack:get_messages",
+        "slack:get_thread_messages",
+        "slack:schedule_message",
+        "slack:cancel_scheduled_message",
+      ] as const;
+
+      it.each(CHANNEL_FIELD_KEYS)(
+        "%s `channel` field is a required async combobox sourced from slack:channels",
+        (key) => {
+          const channel = metaByKey(key).fields.find(
+            (f) => f.name === "channel",
+          );
+          expect(channel).toBeDefined();
+          expect(channel!.type).toBe("combobox");
+          expect(channel!.required).toBe(true);
+          expect(channel!.optionsSource).toBe("slack:channels");
+          expect(channel!.options).toBeUndefined();
+        },
+      );
+
+      it("send_direct_message exposes `userId` as a required text field (no slack:users resolver yet — Slice 3.39+)", () => {
+        const userId = metaByKey("slack:send_direct_message").fields.find(
+          (f) => f.name === "userId",
+        );
+        expect(userId).toBeDefined();
+        expect(userId!.type).toBe("text");
+        expect(userId!.required).toBe(true);
+        expect(userId!.optionsSource).toBeUndefined();
+      });
+
+      it.each([
+        ["slack:send_channel_message", "text"],
+        ["slack:send_direct_message", "text"],
+        ["slack:update_message", "text"],
+        ["slack:schedule_message", "text"],
+      ] as const)(
+        "%s message body field `%s` is a textarea",
+        (key, fieldName) => {
+          const field = metaByKey(key).fields.find((f) => f.name === fieldName);
+          expect(field).toBeDefined();
+          expect(field!.type).toBe("textarea");
+          expect(field!.required).toBe(true);
+        },
+      );
+
+      it.each([
+        ["slack:send_channel_message", "threadTs", false],
+        ["slack:send_direct_message", "threadTs", false],
+        ["slack:update_message", "ts", true],
+        ["slack:delete_message", "ts", true],
+        ["slack:get_thread_messages", "threadTs", true],
+        ["slack:schedule_message", "threadTs", false],
+        ["slack:cancel_scheduled_message", "scheduledMessageId", true],
+      ] as const)(
+        "%s timestamp/id field `%s` is text with required=%s",
+        (key, fieldName, required) => {
+          const field = metaByKey(key).fields.find((f) => f.name === fieldName);
+          expect(field).toBeDefined();
+          expect(field!.type).toBe("text");
+          expect(field!.required).toBe(required);
+        },
+      );
+
+      it("schedule_message exposes postAt as a required text field with strict-format helper text", () => {
+        const postAt = metaByKey("slack:schedule_message").fields.find(
+          (f) => f.name === "postAt",
+        );
+        expect(postAt).toBeDefined();
+        expect(postAt!.type).toBe("text");
+        expect(postAt!.required).toBe(true);
+        expect(postAt!.description).toMatch(/ISO-8601|Unix-seconds/i);
+      });
+
+      it.each(GROUP_A_KEYS)(
+        "%s does NOT expose `cursor` (server-managed pagination handle)",
+        (key) => {
+          const fieldNames = metaByKey(key).fields.map((f) => f.name);
+          expect(fieldNames).not.toContain("cursor");
+        },
+      );
+
+      it("get_messages declares limit as a numeric field bounded to Slack's 1..1000 range", () => {
+        const limit = metaByKey("slack:get_messages").fields.find(
+          (f) => f.name === "limit",
+        );
+        expect(limit).toBeDefined();
+        expect(limit!.type).toBe("number");
+        expect(limit!.required).toBe(false);
+        expect(limit!.numeric).toEqual(
+          expect.objectContaining({ min: 1, max: 1000, integer: true }),
+        );
+      });
+
+      it("get_messages output includes pagination scalars (count/hasMore/nextCursor) and a `messages` array", () => {
+        const outputs = metaByKey("slack:get_messages").outputs;
+        const names = outputs.map((o) => o.name);
+        expect(names).toEqual(["messages", "count", "hasMore", "nextCursor"]);
+        const messages = outputs.find((o) => o.name === "messages")!;
+        expect(messages.type).toBe("array");
+      });
+
+      it("send_channel_message output is {channel, ts, message:object} matching the handler exactly", () => {
+        const outputs = metaByKey("slack:send_channel_message").outputs;
+        expect(outputs.map((o) => o.name)).toEqual(["channel", "ts", "message"]);
+        expect(outputs.find((o) => o.name === "message")!.type).toBe("object");
+      });
+
+      it("schedule_message output exposes scheduledMessageId for downstream cancel wiring", () => {
+        const outputs = metaByKey("slack:schedule_message").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "scheduledMessageId",
+          "postAt",
+        ]);
+      });
+
+      it("cancel_scheduled_message output is {channel, scheduledMessageId, cancelled:boolean}", () => {
+        const outputs = metaByKey("slack:cancel_scheduled_message").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "channel",
+          "scheduledMessageId",
+          "cancelled",
+        ]);
+        expect(outputs.find((o) => o.name === "cancelled")!.type).toBe(
+          "boolean",
+        );
+      });
+
+      it("Group A displayOrders are unique within the Slack provider", () => {
+        const orders = listActionMetasForProvider("slack").map(
+          (m) => m.displayOrder,
+        );
+        const unique = new Set(orders);
+        expect(unique.size).toBe(orders.length);
+      });
     });
 
     it("does NOT regress Slack trigger metas (Slice 3.11 surface unchanged)", () => {
