@@ -899,7 +899,7 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("Slack action coverage as of Slice 3.37 is files + messaging Group A + reactions Group B + channels Group C in displayOrder (broader Slack coverage is a future arc)", () => {
+    it("Slack action coverage as of Slice 3.38 is the full 31/31 registered surface in displayOrder (Slack now in COVERED_PROVIDERS)", () => {
       const slackActionKeys = listActionMetasForProvider("slack").map(
         (m) => m.key,
       );
@@ -931,6 +931,10 @@ describe("per-provider accessors", () => {
         "slack:remove_user_from_channel",
         "slack:set_channel_topic",
         "slack:set_channel_purpose",
+        "slack:get_user_info",
+        "slack:list_users",
+        "slack:get_file_info",
+        "slack:post_interactive_blocks",
       ]);
     });
 
@@ -1613,12 +1617,240 @@ describe("per-provider accessors", () => {
         },
       );
 
-      it("Group C displayOrders extend Group A + B without collision (Slack provider total = 27 unique)", () => {
+      it("Group C displayOrders extend Group A + B without collision", () => {
         const orders = listActionMetasForProvider("slack").map(
           (m) => m.displayOrder,
         );
-        expect(orders.length).toBe(27);
         expect(new Set(orders).size).toBe(orders.length);
+      });
+    });
+
+    describe("Slack users + final file + block-kit surface (Slice 3.38 — Group D + E)", () => {
+      const GROUP_D_E_KEYS = [
+        "slack:get_user_info",
+        "slack:list_users",
+        "slack:get_file_info",
+        "slack:post_interactive_blocks",
+      ] as const;
+
+      function metaByKey(key: string): ActionMeta {
+        const meta = listActionMetasForProvider("slack").find(
+          (m) => m.key === key,
+        );
+        if (!meta) throw new Error(`Slack meta '${key}' not registered.`);
+        return meta;
+      }
+
+      it("Group D + E registers all 4 remaining actions", () => {
+        for (const key of GROUP_D_E_KEYS) {
+          expect(
+            listActionMetasForProvider("slack").find((m) => m.key === key),
+          ).toBeDefined();
+        }
+      });
+
+      it.each(GROUP_D_E_KEYS)(
+        "%s declares provider=slack and requiresIntegration=true",
+        (key) => {
+          const meta = metaByKey(key);
+          expect(meta.provider).toBe("slack");
+          expect(meta.requiresIntegration).toBe(true);
+        },
+      );
+
+      it.each([
+        ["slack:get_user_info", "messaging"],
+        ["slack:list_users", "messaging"],
+        ["slack:get_file_info", "files"],
+        ["slack:post_interactive_blocks", "messaging"],
+      ] as const)("%s category is %s", (key, category) => {
+        expect(metaByKey(key).category).toBe(category);
+      });
+
+      it.each(GROUP_D_E_KEYS)(
+        "%s output names exclude bytes/base64/content/data (no payload leakage)",
+        (key) => {
+          const outputNames = metaByKey(key).outputs.map((o) => o.name);
+          for (const banned of ["bytes", "base64", "content", "data"]) {
+            expect(outputNames).not.toContain(banned);
+          }
+        },
+      );
+
+      it.each(GROUP_D_E_KEYS)(
+        "%s does NOT expose `cursor` (server-managed pagination handle)",
+        (key) => {
+          const fieldNames = metaByKey(key).fields.map((f) => f.name);
+          expect(fieldNames).not.toContain("cursor");
+        },
+      );
+
+      // FileRef flags — only get_file_info produces a FileRef.
+      it.each([
+        ["slack:get_user_info", false, false],
+        ["slack:list_users", false, false],
+        ["slack:get_file_info", true, false],
+        ["slack:post_interactive_blocks", false, false],
+      ] as const)(
+        "%s producesFileRef=%s, consumesFileRef=%s",
+        (key, produces, consumes) => {
+          const meta = metaByKey(key);
+          expect(meta.producesFileRef).toBe(produces);
+          expect(meta.consumesFileRef).toBe(consumes);
+        },
+      );
+
+      it("get_user_info `user` field is a required text field (slack:users resolver deferred to 3.39+)", () => {
+        const user = metaByKey("slack:get_user_info").fields.find(
+          (f) => f.name === "user",
+        );
+        expect(user).toBeDefined();
+        expect(user!.type).toBe("text");
+        expect(user!.required).toBe(true);
+        expect(user!.optionsSource).toBeUndefined();
+        expect(user!.placeholder).toBe("U01ABC23DEF");
+      });
+
+      it("get_user_info output mirrors the handler's bounded scalar set", () => {
+        const outputs = metaByKey("slack:get_user_info").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "user",
+          "id",
+          "name",
+          "real_name",
+          "display_name",
+          "is_admin",
+          "is_owner",
+          "is_bot",
+          "tz",
+          "image_192",
+        ]);
+      });
+
+      it("list_users exposes only the bounded `limit` field (no channel, no cursor)", () => {
+        const fields = metaByKey("slack:list_users").fields;
+        expect(fields.map((f) => f.name)).toEqual(["limit"]);
+        const limit = fields[0]!;
+        expect(limit.type).toBe("number");
+        expect(limit.required).toBe(false);
+        expect(limit.numeric).toEqual(
+          expect.objectContaining({ min: 1, max: 1000, integer: true }),
+        );
+      });
+
+      it("list_users output is {users, count, hasMore, nextCursor}", () => {
+        const outputs = metaByKey("slack:list_users").outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "users",
+          "count",
+          "hasMore",
+          "nextCursor",
+        ]);
+        expect(outputs.find((o) => o.name === "users")!.type).toBe("array");
+      });
+
+      it("get_file_info `fileId` is a required text field with F-prefixed placeholder", () => {
+        const fileId = metaByKey("slack:get_file_info").fields.find(
+          (f) => f.name === "fileId",
+        );
+        expect(fileId).toBeDefined();
+        expect(fileId!.type).toBe("text");
+        expect(fileId!.required).toBe(true);
+        expect(fileId!.placeholder).toBe("F01ABC23DEF");
+      });
+
+      it("get_file_info `includeComments` is an optional boolean (no defaultValue)", () => {
+        const flag = metaByKey("slack:get_file_info").fields.find(
+          (f) => f.name === "includeComments",
+        );
+        expect(flag).toBeDefined();
+        expect(flag!.type).toBe("boolean");
+        expect(flag!.required).toBe(false);
+        expect(flag!.defaultValue).toBeUndefined();
+      });
+
+      it("get_file_info output declares `file` as a `fileRef` type chip and mirrors the handler's bounded scalars", () => {
+        const outputs = metaByKey("slack:get_file_info").outputs;
+        const names = outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "file",
+          "fileId",
+          "fileName",
+          "title",
+          "fileType",
+          "mimeType",
+          "sizeBytes",
+          "permalink",
+          "permalinkPublic",
+          "uploaderId",
+          "channels",
+          "isPublic",
+          "isExternal",
+          "createdAt",
+          "commentsCount",
+          "comments",
+        ]);
+        expect(outputs.find((o) => o.name === "file")!.type).toBe("fileRef");
+      });
+
+      it("post_interactive_blocks `channel` is a required async combobox sourced from slack:channels", () => {
+        const channel = metaByKey(
+          "slack:post_interactive_blocks",
+        ).fields.find((f) => f.name === "channel");
+        expect(channel).toBeDefined();
+        expect(channel!.type).toBe("combobox");
+        expect(channel!.required).toBe(true);
+        expect(channel!.optionsSource).toBe("slack:channels");
+      });
+
+      it("post_interactive_blocks `blocks` is a required textarea (Block Kit JSON paste — no keyvalue / no structured editor in v1)", () => {
+        const blocks = metaByKey(
+          "slack:post_interactive_blocks",
+        ).fields.find((f) => f.name === "blocks");
+        expect(blocks).toBeDefined();
+        expect(blocks!.type).toBe("textarea");
+        expect(blocks!.required).toBe(true);
+      });
+
+      it("post_interactive_blocks `text` is an optional text fallback (Q11 — no silent auto-fallback)", () => {
+        const text = metaByKey(
+          "slack:post_interactive_blocks",
+        ).fields.find((f) => f.name === "text");
+        expect(text).toBeDefined();
+        expect(text!.type).toBe("text");
+        expect(text!.required).toBe(false);
+        expect(text!.defaultValue).toBeUndefined();
+      });
+
+      it("post_interactive_blocks `threadTs` is an optional text field with strict Slack timestamp placeholder", () => {
+        const threadTs = metaByKey(
+          "slack:post_interactive_blocks",
+        ).fields.find((f) => f.name === "threadTs");
+        expect(threadTs).toBeDefined();
+        expect(threadTs!.type).toBe("text");
+        expect(threadTs!.required).toBe(false);
+        expect(threadTs!.placeholder).toMatch(/\d{10}\.\d{6}/);
+      });
+
+      it("post_interactive_blocks output is {channel, ts, message:object} matching the handler exactly", () => {
+        const outputs = metaByKey(
+          "slack:post_interactive_blocks",
+        ).outputs;
+        expect(outputs.map((o) => o.name)).toEqual(["channel", "ts", "message"]);
+        expect(outputs.find((o) => o.name === "message")!.type).toBe("object");
+      });
+
+      it("Group D + E close Slack coverage at exactly 31 unique displayOrders", () => {
+        const orders = listActionMetasForProvider("slack").map(
+          (m) => m.displayOrder,
+        );
+        expect(orders.length).toBe(31);
+        expect(new Set(orders).size).toBe(orders.length);
+      });
+
+      it("Slack action coverage is 1:1 with registered handlers (31/31 — structural test now enforces this going forward)", () => {
+        const slackMetaCount = listActionMetasForProvider("slack").length;
+        expect(slackMetaCount).toBe(31);
       });
     });
 

@@ -101,6 +101,14 @@ import { slackInviteUsersToChannelMeta } from "@/integrations/slack/actions/chan
 import { slackRemoveUserFromChannelMeta } from "@/integrations/slack/actions/channels/removeUserFromChannel.meta";
 import { slackSetChannelTopicMeta } from "@/integrations/slack/actions/channels/setChannelTopic.meta";
 import { slackSetChannelPurposeMeta } from "@/integrations/slack/actions/channels/setChannelPurpose.meta";
+// Slice 3.38 — Slack users + remaining file (Group D) + block-kit (Group E) +
+// COVERED_PROVIDERS flip. After this slice every Slack runtime handler
+// has a meta; tests/structure/discovery-meta-coverage.test.ts gates on
+// 1:1 handler↔meta from here on.
+import { slackGetUserInfoMeta } from "@/integrations/slack/actions/users/getUserInfo.meta";
+import { slackListUsersMeta } from "@/integrations/slack/actions/users/listUsers.meta";
+import { slackGetFileInfoMeta } from "@/integrations/slack/actions/files/getFileInfo.meta";
+import { slackPostInteractiveBlocksMeta } from "@/integrations/slack/actions/postInteractiveBlocks.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -218,9 +226,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // channel field at all — it discovers them). `invite_users_to_channel`
   // uses `string-array` for `users` since multi-select combobox is
   // deferred (Slice 3.7) and the `slack:users` resolver is deferred
-  // (Slice 3.39+). Slack still absent from COVERED_PROVIDERS because
-  // users + block-kit surfaces remain pending. Ordered to match
-  // displayOrder (160..270).
+  // (Slice 3.39+). Ordered to match displayOrder (160..270).
   slackListChannelsMeta,
   slackGetChannelInfoMeta,
   slackCreateChannelMeta,
@@ -233,6 +239,18 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   slackRemoveUserFromChannelMeta,
   slackSetChannelTopicMeta,
   slackSetChannelPurposeMeta,
+  // Slack users + remaining file + block-kit (Slice 3.38 — Group D +
+  // E). Closes Slack action coverage at 31/31; the same slice flips
+  // Slack into `COVERED_PROVIDERS` in tests/structure/
+  // discovery-meta-coverage.test.ts so the 1:1 handler↔meta invariant
+  // is enforced from here on. User-id fields stay `text` pending a
+  // future `slack:users` resolver slice (3.39+). `get_file_info`
+  // produces a FileRef(provider_url) — declared with
+  // producesFileRef=true. Ordered to match displayOrder (280..310).
+  slackGetUserInfoMeta,
+  slackListUsersMeta,
+  slackGetFileInfoMeta,
+  slackPostInteractiveBlocksMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

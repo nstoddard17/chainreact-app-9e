@@ -12,12 +12,13 @@
  *     handler/meta drift inside the covered scope.
  *
  * Coverage scope: native (Slice 3.0) + GitHub (Slice 3.0b) + Gmail
- * (Slice 3.15) + Microsoft Outlook Mail (Slice 3.17).
+ * (Slice 3.15) + Microsoft Outlook Mail (Slice 3.17) + Slack
+ * (Slices 3.26 → 3.38).
  *
  * This test does NOT block adding new handlers for uncovered providers —
- * a Slack handler can land without an action meta file, but a native,
- * GitHub, Gmail, or Microsoft Outlook handler landing without a meta
- * file will fail.
+ * adding a handler in an uncovered provider can land without an action
+ * meta file, but a handler landing in any covered provider without a
+ * meta file will fail.
  */
 import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 import { listAllActionMetas } from "@/services/discovery/_registry";
@@ -27,6 +28,10 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   "github",
   "gmail",
   "microsoft-outlook",
+  // Slack added in Slice 3.38 once all 31 registered Slack action
+  // handlers have a matching meta. From here on, adding a new Slack
+  // handler without a meta (or vice-versa) fails this structural test.
+  "slack",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

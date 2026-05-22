@@ -165,7 +165,7 @@ describe("GET /api/providers/[id]/actions", () => {
     );
   });
 
-  it("returns the partial Slack action coverage as of Slice 3.37 (files + messaging Group A + reactions Group B + channels Group C in displayOrder; users/block-kit still pending)", async () => {
+  it("returns the full 31/31 Slack action coverage as of Slice 3.38 (Slack is now in COVERED_PROVIDERS)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/slack/actions"), {
       params: Promise.resolve({ id: "slack" }),
@@ -210,27 +210,36 @@ describe("GET /api/providers/[id]/actions", () => {
       "slack:remove_user_from_channel",
       "slack:set_channel_topic",
       "slack:set_channel_purpose",
+      "slack:get_user_info",
+      "slack:list_users",
+      "slack:get_file_info",
+      "slack:post_interactive_blocks",
     ]);
-    const download = body.actions[0]!;
-    expect(download.category).toBe("files");
-    expect(download.requiresIntegration).toBe(true);
-    expect(download.producesFileRef).toBe(true);
-    expect(download.consumesFileRef).toBe(false);
-    const upload = body.actions[1]!;
-    expect(upload.category).toBe("files");
-    expect(upload.requiresIntegration).toBe(true);
-    // upload_file is the rare action that BOTH consumes AND produces a
-    // FileRef — config.file is the input ref, output.file is the
-    // resulting Slack-hosted FileRef.
-    expect(upload.consumesFileRef).toBe(true);
-    expect(upload.producesFileRef).toBe(true);
-    // Group A + B + C: every messaging action is category=messaging,
-    // requires integration, neither produces nor consumes a FileRef.
-    for (const messagingAction of body.actions.slice(2)) {
-      expect(messagingAction.category).toBe("messaging");
-      expect(messagingAction.requiresIntegration).toBe(true);
-      expect(messagingAction.producesFileRef).toBe(false);
-      expect(messagingAction.consumesFileRef).toBe(false);
+    // Files surface: download_file produces FileRef; upload_file both
+    // produces AND consumes; get_file_info produces FileRef.
+    const byKey = new Map(body.actions.map((a) => [a.key, a]));
+    const fileKeys = [
+      "slack:download_file",
+      "slack:upload_file",
+      "slack:get_file_info",
+    ];
+    for (const key of fileKeys) {
+      const action = byKey.get(key)!;
+      expect(action.category).toBe("files");
+      expect(action.requiresIntegration).toBe(true);
+      expect(action.producesFileRef).toBe(true);
+    }
+    expect(byKey.get("slack:download_file")!.consumesFileRef).toBe(false);
+    expect(byKey.get("slack:upload_file")!.consumesFileRef).toBe(true);
+    expect(byKey.get("slack:get_file_info")!.consumesFileRef).toBe(false);
+    // Every non-files action is category=messaging, integration-
+    // required, no FileRef on either side.
+    for (const action of body.actions) {
+      if (fileKeys.includes(action.key)) continue;
+      expect(action.category).toBe("messaging");
+      expect(action.requiresIntegration).toBe(true);
+      expect(action.producesFileRef).toBe(false);
+      expect(action.consumesFileRef).toBe(false);
     }
   });
 
