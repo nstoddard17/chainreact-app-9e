@@ -27,6 +27,23 @@ jest.mock("@/repositories/integrations", () => ({
     mockGetActiveForExecution(...args),
 }));
 
+// The slack:channels happy-path tests below drive the real resolver
+// (registered in `services/options/_registry.ts`) — but the resolver
+// itself calls into `integrations/slack/api/conversationsList` and
+// `core/encryption/tokens.decryptToken`. We mock those so the route
+// test stays pure (no real Slack network, no real key material).
+const mockConversationsList = jest.fn();
+jest.mock("@/integrations/slack/api/conversationsList", () => ({
+  __esModule: true,
+  conversationsList: (...args: unknown[]) => mockConversationsList(...args),
+}));
+
+const mockDecryptToken = jest.fn();
+jest.mock("@/core/encryption/tokens", () => ({
+  __esModule: true,
+  decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
+}));
+
 // Resolver getter is mocked ONLY for the dedicated integration-flow
 // tests below. Default behavior: `jest.requireActual` so the rest of
 // the suite drives the real `native:examples` fixture path.
@@ -61,6 +78,8 @@ const realGetOptionsResolver =
 beforeEach(() => {
   mockGetUser.mockReset();
   mockGetActiveForExecution.mockReset();
+  mockConversationsList.mockReset();
+  mockDecryptToken.mockReset();
   // Default: delegate to the real registry so the fixture-driven
   // tests don't need to manage the mock.
   mockGetOptionsResolver.mockReset();
@@ -422,6 +441,106 @@ describe("GET /api/options/[source] — requiresIntegration branch", () => {
     if (!body.ok) {
       expect(body.code).toBe("PROVIDER_ERROR");
       expect(body.message).toBe("Provider said no.");
+    }
+  });
+});
+
+describe("GET /api/options/slack:channels — end-to-end through the real resolver (Slice 3.32)", () => {
+  const slackIntegrationRow = {
+    id: "int-slack",
+    userId: "user-1",
+    provider: "slack",
+    providerAccountId: "T01TEAM",
+    displayName: "Test Workspace",
+    accessTokenEncrypted: "enc:cipher",
+    refreshTokenEncrypted: null,
+    accessTokenExpiresAt: null,
+    scopes: ["channels:read"],
+    accountMetadata: {},
+    disconnectedAt: null,
+    createdAt: "2026-05-22T00:00:00Z",
+    updatedAt: "2026-05-22T00:00:00Z",
+  };
+
+  it("returns ok:true + mapped channels when an active integration is connected", async () => {
+    authedUser();
+    mockGetActiveForExecution.mockResolvedValue(slackIntegrationRow);
+    mockDecryptToken.mockReturnValue("xoxb-decrypted");
+    mockConversationsList.mockResolvedValue({
+      channels: [
+        { id: "C1", name: "general", purpose: { value: "Announcements" } },
+        { id: "C2", name: "random" },
+      ],
+      hasMore: false,
+      nextCursor: null,
+    });
+
+    const res = await getOptions(
+      makeReq("http://x/api/options/slack:channels"),
+      paramsOf("slack:channels"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(true);
+    if (body.ok) {
+      expect(body.source).toBe("slack:channels");
+      expect(body.items).toEqual([
+        { value: "C1", label: "#general", description: "Announcements" },
+        { value: "C2", label: "#random" },
+      ]);
+      expect(body.hasMore).toBe(false);
+    }
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith(
+      "user-1",
+      "slack",
+      null,
+    );
+    expect(mockDecryptToken).toHaveBeenCalledWith("enc:cipher");
+  });
+
+  it("returns INTEGRATION_DISCONNECTED when no active Slack integration exists", async () => {
+    authedUser();
+    mockGetActiveForExecution.mockResolvedValue(null);
+
+    const res = await getOptions(
+      makeReq("http://x/api/options/slack:channels"),
+      paramsOf("slack:channels"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(false);
+    if (!body.ok) {
+      expect(body.code).toBe("INTEGRATION_DISCONNECTED");
+      expect(body.message).toMatch(/slack/i);
+    }
+    // No token decryption / wrapper invocation when the route's
+    // integration guard short-circuits.
+    expect(mockDecryptToken).not.toHaveBeenCalled();
+    expect(mockConversationsList).not.toHaveBeenCalled();
+  });
+
+  it("forwards `q` as the resolver's client-side filter", async () => {
+    authedUser();
+    mockGetActiveForExecution.mockResolvedValue(slackIntegrationRow);
+    mockDecryptToken.mockReturnValue("xoxb-decrypted");
+    mockConversationsList.mockResolvedValue({
+      channels: [
+        { id: "C1", name: "general" },
+        { id: "C2", name: "engineering" },
+        { id: "C3", name: "random" },
+      ],
+      hasMore: false,
+      nextCursor: null,
+    });
+
+    const res = await getOptions(
+      makeReq("http://x/api/options/slack:channels?q=eng"),
+      paramsOf("slack:channels"),
+    );
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(true);
+    if (body.ok) {
+      expect(body.items.map((i) => i.value)).toEqual(["C2"]);
     }
   });
 });

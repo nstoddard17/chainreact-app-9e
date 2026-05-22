@@ -52,6 +52,16 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+// Slice 3.32: `slack:upload_file.channel` now renders as the async
+// ComboboxField sourced from `slack:channels`. The integration test
+// mocks the typed options client so the picker loads channels without
+// a real network round-trip.
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
+}));
+
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -65,6 +75,7 @@ import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builde
 import { slackUploadFileMeta } from "@/integrations/slack/actions/files/uploadFile.meta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
+import { pickComboboxOption } from "./helpers/comboboxField";
 
 // Manual trigger advertises TWO FileRef-typed payload entries so the
 // "replace, not append" test below has a distinct second source.
@@ -117,6 +128,32 @@ beforeEach(() => {
   );
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
+  mockFetchOptionsSource.mockReset();
+  mockFetchOptionsSource.mockImplementation(
+    async (source: string) => {
+      if (source === "slack:channels") {
+        return {
+          ok: true,
+          source: "slack:channels",
+          items: [
+            {
+              value: "C01ABC23DEF",
+              label: "#general",
+              description: "Company-wide announcements",
+            },
+            { value: "C02XYZ45GHI", label: "#random" },
+          ],
+          hasMore: false,
+        };
+      }
+      return {
+        ok: false,
+        source,
+        code: "SOURCE_NOT_FOUND",
+        message: `Unknown source '${source}'.`,
+      };
+    },
+  );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -135,6 +172,15 @@ it("Slack upload_file meta exposes a single-FileRef `file` field and BOTH FileRe
   // that both consumes a FileRef in config AND emits one in output.
   expect(slackUploadFileMeta.consumesFileRef).toBe(true);
   expect(slackUploadFileMeta.producesFileRef).toBe(true);
+});
+
+it("Slack upload_file meta upgrades `channel` to an async combobox sourced from slack:channels (Slice 3.32 — meta guard)", () => {
+  const channel = slackUploadFileMeta.fields.find((f) => f.name === "channel");
+  expect(channel).toBeDefined();
+  expect(channel!.type).toBe("combobox");
+  expect(channel!.required).toBe(true);
+  expect(channel!.optionsSource).toBe("slack:channels");
+  expect(channel!.options).toBeUndefined();
 });
 
 it("end-to-end: variable-picker → Slack upload_file.file FileField chip → Modal Save + Toolbar Save preserve the single token alongside every other shipped field", async () => {
@@ -176,7 +222,10 @@ it("end-to-end: variable-picker → Slack upload_file.file FileField chip → Mo
     screen.getByRole("button", { name: /configure action node/i }),
   );
   await waitFor(() => {
-    expect(screen.getByRole("textbox", { name: /^channel$/i })).toBeInTheDocument();
+    // Slice 3.32: channel is now an async combobox (no longer a textbox).
+    expect(
+      screen.getByRole("combobox", { name: /^channel$/i }),
+    ).toBeInTheDocument();
   });
   // FileField uses the field label "File" — its Input is a textbox.
   expect(screen.getByRole("textbox", { name: /^file$/i })).toBeInTheDocument();
@@ -187,12 +236,21 @@ it("end-to-end: variable-picker → Slack upload_file.file FileField chip → Mo
     screen.getByTestId("file-file-picker-trigger"),
   ).toBeInTheDocument();
 
-  // 4. Fill the required `channel` + a couple of optional fields so
-  //    the shape proves the FileField composes alongside the rest.
-  await user.type(
-    screen.getByRole("textbox", { name: /^channel$/i }),
+  // 4. Pick the required `channel` through the async combobox + fill a
+  //    couple of optional fields so the shape proves the FileField
+  //    composes alongside the rest. Slice 3.32: the channel field
+  //    loads its options from the `slack:channels` resolver (mocked
+  //    above via `@/lib/api/options`).
+  await pickComboboxOption(user, /^channel$/i, "#general");
+  // The combobox writes the underlying channel id, not the label.
+  expect(useConfigSlice.getState().drafts[action.id]!.values.channel).toBe(
     "C01ABC23DEF",
   );
+  // The typed client was invoked against the slack:channels source.
+  expect(mockFetchOptionsSource).toHaveBeenCalled();
+  const optionsCall = mockFetchOptionsSource.mock.calls[0]!;
+  expect(optionsCall[0]).toBe("slack:channels");
+
   await user.type(
     screen.getByRole("textbox", { name: /^title$/i }),
     "Q4 report",

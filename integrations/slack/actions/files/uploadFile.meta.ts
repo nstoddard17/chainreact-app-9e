@@ -4,7 +4,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `slack:upload_file`.
  *
  * Mirrors `uploadFile.schema.ts` exactly. Five config fields:
- *   - `channel` (required text)  — Slack channel id, strict C…/G…/D… regex.
+ *   - `channel` (required combobox) — Slack channel id, populated via
+ *                                     the async `slack:channels` options
+ *                                     source (Slice 3.32). The runtime
+ *                                     handler's strict C…/G…/D… regex
+ *                                     remains the authoritative
+ *                                     validator on save.
  *   - `file`    (required file)  — P-S3 `FileRef`. Authors insert via the
  *                                  Slice 3.25 single-FileRef chip + variable
  *                                  picker.
@@ -19,9 +24,10 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *     §provider_url_unsupported). The renderer does NOT type-aware-
  *     filter picker options (D-FRA-6 / D-SFR-10 — runtime is the
  *     authoritative gate).
- *   - `channel` is channel-id-only — no `#name` resolution. The
- *     placeholder shows the expected shape; the handler regex is the
- *     real validator.
+ *   - `channel` resolves to a channel id (C…/G…/D…) — the picker
+ *     surfaces friendly `#name` labels for selection but the saved
+ *     value is the channel id; the runtime handler regex is the real
+ *     validator.
  *
  * **Both `producesFileRef` AND `consumesFileRef` are true.** Slack
  * `upload_file` is the first action V2 ships that touches FileRef on
@@ -56,10 +62,11 @@ export const slackUploadFileMeta: ActionMeta = {
       name: "channel",
       label: "Channel",
       description:
-        "Slack channel id (C… public, G… legacy private, D… DM). Channel-id-only — no `#name` resolution.",
-      type: "text",
+        "Searchable picker over public + private channels visible to the bot. The picker surfaces friendly `#name` labels; the saved value is the underlying channel id (C…/G…/D…).",
+      type: "combobox",
+      optionsSource: "slack:channels",
       required: true,
-      placeholder: "C01ABC23DEF",
+      placeholder: "Search channels…",
     },
     {
       name: "file",

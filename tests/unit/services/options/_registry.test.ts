@@ -34,6 +34,15 @@ describe("options resolver registry", () => {
     expect(r?.requiredDeps).toEqual(["category"]);
   });
 
+  it("getOptionsResolver resolves the slack:channels resolver (Slice 3.32)", () => {
+    const r = getOptionsResolver("slack:channels");
+    expect(r).toBeDefined();
+    expect(r?.source).toBe("slack:channels");
+    expect(r?.provider).toBe("slack");
+    expect(r?.requiresIntegration).toBe(true);
+    expect(r?.requiredDeps).toBeUndefined();
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

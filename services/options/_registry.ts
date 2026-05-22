@@ -3,11 +3,13 @@ import {
   type OptionsResolver,
 } from "./types";
 
-// Fixture resolver (Slice 3.30). The first real provider resolver
-// (`slack:channels`) is added in Slice 3.32 alongside its own meta
-// upgrade. The fixture stays registered so future smoke / route /
+// Fixture resolver (Slice 3.30). Stays registered so smoke / route /
 // integration tests have a provider-mock-free baseline.
 import { nativeExamplesResolver } from "./fixtures/nativeExamples";
+
+// First real provider resolver — Slice 3.32 (Slack channels picker for
+// `slack:upload_file.channel`).
+import { slackChannelsResolver } from "@/integrations/slack/options/channels";
 
 /**
  * Hand-maintained options-source resolver registry.
@@ -37,6 +39,7 @@ import { nativeExamplesResolver } from "./fixtures/nativeExamples";
 
 export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   nativeExamplesResolver,
+  slackChannelsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

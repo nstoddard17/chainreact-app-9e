@@ -964,10 +964,14 @@ describe("per-provider accessors", () => {
       ]);
     });
 
-    it("`channel` is a required text field", () => {
+    it("`channel` is a required async combobox sourced from slack:channels (Slice 3.32)", () => {
       const channel = uploadMeta().fields.find((f) => f.name === "channel")!;
-      expect(channel.type).toBe("text");
+      expect(channel.type).toBe("combobox");
       expect(channel.required).toBe(true);
+      expect(channel.optionsSource).toBe("slack:channels");
+      // Mutually exclusive with static options per FieldMetaSchema's
+      // superRefine — pinning this prevents drift.
+      expect(channel.options).toBeUndefined();
     });
 
     it("`file` is a required file field (exercises the Slice 3.25 single-FileRef FileField)", () => {
