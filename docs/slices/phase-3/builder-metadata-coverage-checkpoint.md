@@ -1,11 +1,11 @@
 # Phase 3 — Builder Metadata Coverage Checkpoint
 
-**Status:** Checkpoint snapshot as of `f0aa79e74` (Slice 3.27 Slack upload_file). Doc-only.
+**Status:** Checkpoint snapshot as of `37d4a6b63` (Slice 3.38 — Slack metadata-complete + COVERED_PROVIDERS flip). Doc-only.
 **Branch:** `v2-provider-port-local` (local-only; do not push).
 **Master plan:** [`docs/slices/phase-2-plan.md`](../phase-2-plan.md).
-**Companion plans:** [`./file-ref-array-field-plan.md`](./file-ref-array-field-plan.md), [`./single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md).
+**Companion plans:** [`./file-ref-array-field-plan.md`](./file-ref-array-field-plan.md), [`./single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md), [`./options-source-plan.md`](./options-source-plan.md), [`./slack-action-metadata-plan.md`](./slack-action-metadata-plan.md).
 
-This is a CEO-level snapshot of where Phase-3 Builder UI metadata stands across all V2 providers, what's missing, and what should happen next. Every claim below was verified by reading the live registry, `services/execution/handlers/_registry.ts`, the `integrations/` tree, and the discovery test suite — not from memory.
+This is a CEO-level snapshot of where Phase-3 Builder UI metadata stands across all V2 providers, what's missing, and what should happen next. Every claim below was verified by reading the live registries (`services/execution/handlers/_registry.ts`, `services/discovery/_registry.ts`, `services/options/_registry.ts`), the `integrations/` tree, and the discovery test suite — not from memory.
 
 ---
 
@@ -13,113 +13,108 @@ This is a CEO-level snapshot of where Phase-3 Builder UI metadata stands across 
 
 ### 1.1 Contracts (`contracts/`)
 
-- **`actionMeta.ts`** — `ActionMetaSchema`, `FieldTypeSchema` (12 variants), `FieldMetaSchema` (incl. `dependsOn`, `optionsSource`, `numeric`, `multiple`, `stringArrayMaxItems`, `fileArrayMaxItems`), `OutputTypeSchema` (incl. `"fileRef"`), `ActionCategorySchema` (14 categories). Strict mode + Zod `superRefine` invariants (e.g. `multiple` only on select/combobox, `fileArrayMaxItems` only on file-array).
+- **`actionMeta.ts`** — `ActionMetaSchema`, `FieldTypeSchema` (12 variants), `FieldMetaSchema` (incl. `dependsOn`, `optionsSource`, `numeric`, `multiple`, `stringArrayMaxItems`, `fileArrayMaxItems`), `OutputTypeSchema` (incl. `"fileRef"`), `ActionCategorySchema` (14 categories). Strict mode + Zod `superRefine` invariants.
 - **`triggerMeta.ts`** — `TriggerMetaSchema`, activation/payloadShape, parallel `payloadShape` items typed via `OutputMeta`.
-- **`file.ts`** — `FileRefSchema` (3-arm discriminated union: `provider_url` / `v2_storage` / `signed_url`), strict per-arm.
+- **`file.ts`** — `FileRefSchema` (3-arm discriminated union: `provider_url` / `v2_storage` / `signed_url`).
 
 ### 1.2 Discovery layer
 
-- **`services/discovery/_registry.ts`** — hand-maintained module-load-validated registry. Imports each meta explicitly; rejects duplicate keys at module load; freezes lookup maps.
-- **`services/discovery/`** accessors — `listAllActionMetas`, `listActionMetasForProvider`, `getActionMeta`, mirrored for triggers. Sort by `(displayOrder asc, displayName asc)`.
-- **`app/api/providers/[id]/actions`** + **`app/api/providers/[id]/triggers`** routes return JSON with shape matching the contract.
-- **`lib/api/discovery.ts`** — typed client for the builder UI.
-- **`services/execution/handlers/_registry.ts`** — handler registry that the structure tests pair 1:1 against the meta registry for `COVERED_PROVIDERS`.
+- **`services/discovery/_registry.ts`** — hand-maintained module-load-validated registry. 60+ explicit imports; rejects duplicate keys at module load.
+- **`services/discovery/`** accessors — `listAllActionMetas`, `listActionMetasForProvider`, `getActionMeta`, mirrored for triggers. Stable `(displayOrder asc, displayName asc)` sort.
+- **`app/api/providers/[id]/{actions,triggers}`** routes — JSON shape matching the contract; typed via [`lib/api/discovery.ts`](../../../lib/api/discovery.ts).
+- **`services/execution/handlers/_registry.ts`** — handler registry paired 1:1 against the meta registry for `COVERED_PROVIDERS`.
 
-### 1.3 Builder UI shell (`features/workflow-builder/`)
+### 1.3 Async options-source infrastructure (Slices 3.30 → 3.33 — **shipped since the last checkpoint**)
 
-| Surface | File(s) | State |
+The single biggest infrastructure unlock since the previous snapshot. Closes the long-standing `FieldMeta.optionsSource` gap.
+
+| Layer | File(s) | Slice |
 | --- | --- | --- |
-| Top-level shell | [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) | Shipped |
-| Canvas (ReactFlow) | [`canvas/WorkflowCanvas.tsx`](../../../features/workflow-builder/canvas/WorkflowCanvas.tsx), [`canvas/NodeList.tsx`](../../../features/workflow-builder/canvas/NodeList.tsx), [`canvas/adapters.ts`](../../../features/workflow-builder/canvas/adapters.ts), [`canvas/nodes/WorkflowNodeView.tsx`](../../../features/workflow-builder/canvas/nodes/WorkflowNodeView.tsx) | Shipped (Slice 3.5) — graphSlice is source of truth |
-| Picker panels | [`panels/TriggerPicker.tsx`](../../../features/workflow-builder/panels/TriggerPicker.tsx), [`panels/ActionPicker.tsx`](../../../features/workflow-builder/panels/ActionPicker.tsx), [`panels/AddNodeMenu.tsx`](../../../features/workflow-builder/panels/AddNodeMenu.tsx) | Shipped |
-| Run / lifecycle | [`panels/LifecycleActions.tsx`](../../../features/workflow-builder/panels/LifecycleActions.tsx), [`panels/RunNowPanel.tsx`](../../../features/workflow-builder/panels/RunNowPanel.tsx), [`panels/RunResultsPanel.tsx`](../../../features/workflow-builder/panels/RunResultsPanel.tsx), [`panels/RunHistory.tsx`](../../../features/workflow-builder/panels/RunHistory.tsx) | Shipped |
-| Config modal shell | [`config-modal/ConfigModalShell.tsx`](../../../features/workflow-builder/config-modal/ConfigModalShell.tsx), [`config-modal/SchemaForm.tsx`](../../../features/workflow-builder/config-modal/SchemaForm.tsx) | Shipped |
-| State slices | [`state/graphSlice.ts`](../../../features/workflow-builder/state/graphSlice.ts), [`state/configSlice.ts`](../../../features/workflow-builder/state/configSlice.ts), [`state/runSlice.ts`](../../../features/workflow-builder/state/runSlice.ts) | Shipped |
-| Discovery / variable hooks | [`hooks/useNativeActions.ts`](../../../features/workflow-builder/hooks/useNativeActions.ts), [`hooks/useNativeTriggers.ts`](../../../features/workflow-builder/hooks/useNativeTriggers.ts), [`hooks/useProviderActions.ts`](../../../features/workflow-builder/hooks/useProviderActions.ts), [`hooks/useProviderTriggers.ts`](../../../features/workflow-builder/hooks/useProviderTriggers.ts), [`hooks/useUpstreamVariables.ts`](../../../features/workflow-builder/hooks/useUpstreamVariables.ts), [`hooks/useActiveNodeUpstreamVariables.ts`](../../../features/workflow-builder/hooks/useActiveNodeUpstreamVariables.ts), [`hooks/useLatestRunPolling.ts`](../../../features/workflow-builder/hooks/useLatestRunPolling.ts) | Shipped |
+| Server-side resolver contract + registry | [`services/options/types.ts`](../../../services/options/types.ts), [`services/options/_registry.ts`](../../../services/options/_registry.ts) | **3.30** |
+| API route | [`app/api/options/[source]/route.ts`](../../../app/api/options/[source]/route.ts) | 3.30 |
+| Typed client | [`lib/api/options.ts`](../../../lib/api/options.ts) | 3.30 |
+| Client hook | [`features/workflow-builder/hooks/useOptionsSource.ts`](../../../features/workflow-builder/hooks/useOptionsSource.ts) — debounced, abortable, refetchable; states `idle / loading / ready / empty / error / disconnected` | **3.31** |
+| `ComboboxField` async branch | [`features/workflow-builder/config-modal/fields/ComboboxField.tsx`](../../../features/workflow-builder/config-modal/fields/ComboboxField.tsx) | 3.31 |
+| First real resolver — Slack channels | [`integrations/slack/options/channels.ts`](../../../integrations/slack/options/channels.ts) | **3.32** |
+| `dependsOn` cascade in SchemaForm | [`features/workflow-builder/config-modal/SchemaForm.tsx`](../../../features/workflow-builder/config-modal/SchemaForm.tsx) — clears direct dependent fields on parent change; passes `deps` + `enabled` + `parentLabel` to renderers | **3.33** |
+| Integration-test helper | [`tests/integration/features/workflow-builder/helpers/comboboxField.ts`](../../../tests/integration/features/workflow-builder/helpers/comboboxField.ts) — `pickComboboxOption` | 3.32 |
 
-### 1.4 Field renderer registry (`features/workflow-builder/config-modal/fields/`)
+**Resolver registry as of 3.38:** 2 entries — `native:examples` (fixture) + `slack:channels` (production). Provider resolvers are colocated under their integration tree (`integrations/<provider>/options/<resource>.ts`).
 
-12 FieldType variants → 12 renderers, all registered + tested:
+### 1.4 Builder UI shell (`features/workflow-builder/`)
 
-| FieldType | Renderer | Slice |
+Unchanged since the prior checkpoint — shell / canvas / pickers / run-now / run-history / config-modal / state slices / discovery + variable hooks all still shipped. The async combobox UI lives inside the existing ComboboxField; no new top-level surface.
+
+### 1.5 Field renderer registry
+
+12 `FieldType` variants → 12 renderers, all registered + tested. Unchanged list, but two renderers were extended:
+
+| FieldType | Renderer | Recent changes |
 | --- | --- | --- |
-| `text` | `TextField.tsx` | 3.1 / 3.7 (picker) |
-| `textarea` | `TextareaField.tsx` | 3.1 / 3.7 (picker) |
-| `select` | `SelectField.tsx` | 3.1 / 3.19 (Radix Select test helper) |
-| `combobox` | `ComboboxField.tsx` | 3.1 |
-| `keyvalue` | `KeyValueField.tsx` | 3.1 |
-| `number` | `NumberField.tsx` | 3.1 |
-| `boolean` | `BooleanField.tsx` | 3.1 |
-| `file` | `FileField.tsx` | 3.1 (placeholder) → **3.25 upgrade** (chip + picker + replace) |
-| `cron` | `CronField.tsx` | 3.1 |
-| `router-routes` | `RouterRoutesField.tsx` | 3.6 |
-| `string-array` | `StringArrayField.tsx` | 3.13 |
-| `file-array` | `FileRefArrayField.tsx` | **3.21** (contract+renderer) / **3.22** (picker chip-append) |
+| `combobox` | `ComboboxField.tsx` | **3.31** added async-mode branch with `useOptionsSource`; **3.33** added passive "Select &lt;parentLabel&gt; first" trigger when `enabled === false && dependsOn` set. |
+| `select` | `SelectField.tsx` | Unchanged — stays static-only in v1 per the options-source plan. |
 
-Supporting infra:
+`FieldRendererProps` gained optional `deps`, `enabled`, `parentLabel` props in Slice 3.33; non-combobox renderers ignore them.
 
-- [`config-modal/fields/FieldShell.tsx`](../../../features/workflow-builder/config-modal/fields/FieldShell.tsx) — shared label/required/description/error wrapper.
-- [`config-modal/fields/VariablePickerButton.tsx`](../../../features/workflow-builder/config-modal/fields/VariablePickerButton.tsx) + [`VariablePickerPopover.tsx`](../../../features/workflow-builder/config-modal/fields/VariablePickerPopover.tsx) — Slice 3.7 picker.
-- [`config-modal/fields/_fileRefEntry.ts`](../../../features/workflow-builder/config-modal/fields/_fileRefEntry.ts) — Slice 3.25 shared helpers (`isExactToken`, `tryParseFileRef`, `entryKey`, `entryLabel`, `coerceFileRefArray`, `coerceSingleFileRef`) used by both `FileField` and `FileRefArrayField`.
-- [`config-modal/fields/_insertAtCursor.ts`](../../../features/workflow-builder/config-modal/fields/_insertAtCursor.ts) — cursor-position insertion helper for text-style fields.
-- [`config-modal/fields/_variableValidator.ts`](../../../features/workflow-builder/config-modal/fields/_variableValidator.ts) — design-time `{{...}}` reference validation.
-- [`config-modal/fields/_routesValidator.ts`](../../../features/workflow-builder/config-modal/fields/_routesValidator.ts) — router-routes validator.
+### 1.6 Test infrastructure additions since the prior checkpoint
 
-### 1.5 Test infrastructure additions
-
-- Slice 3.19 — [`tests/integration/features/workflow-builder/helpers/selectField.ts`](../../../tests/integration/features/workflow-builder/helpers/selectField.ts) (`selectFieldOption` helper) + `jest.setup.ts` polyfills for `hasPointerCapture` / `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` so Radix Select interaction works through `userEvent` in jsdom.
-- Slice 3.25 — `tests/unit/features/workflow-builder/config-modal/fields/_fileRefEntry.test.ts` for pure helpers.
-- 788/788 suites, **8319/8319 tests** as of `f0aa79e74`.
+- Slice 3.32 — [`tests/integration/features/workflow-builder/helpers/comboboxField.ts`](../../../tests/integration/features/workflow-builder/helpers/comboboxField.ts) (`pickComboboxOption`).
+- Slice 3.32–3.38 — 5 new Slack integration tests: `slack-send-channel-message-config`, `slack-add-reaction-config`, `slack-invite-users-config`, `slack-post-interactive-blocks-config`, plus the extended `slack-upload-file-config` (channel field migrated to async combobox).
+- **797 suites, 8662 tests** as of `37d4a6b63`. (Prior checkpoint: 788 / 8319.)
 
 ---
 
 ## 2. Providers with complete metadata coverage
 
-`COVERED_PROVIDERS` in [`tests/structure/discovery-meta-coverage.test.ts`](../../../tests/structure/discovery-meta-coverage.test.ts) enforces 1:1 handler ↔ meta coverage for these — adding a runtime handler in any of them without a meta fails the structural test:
+`COVERED_PROVIDERS` in [`tests/structure/discovery-meta-coverage.test.ts`](../../../tests/structure/discovery-meta-coverage.test.ts) enforces 1:1 handler ↔ meta coverage for these — adding a runtime handler in any of them without a meta fails the structural test.
 
 | Provider | Action handlers | Action metas | Trigger handlers | Trigger metas |
 | --- | --- | --- | --- | --- |
-| **native** | 3 (`http_request`, `format_transformer`, `delay`) + 2 logic (`if_then_condition`, `router`) registered as metas | 5 | 0 (manual + scheduled are activation-only) | 2 |
+| **native** | 5 (`http_request`, `format_transformer`, `delay`, `if_then_condition`, `router`) | 5 | 0 (manual + scheduled are activation-only) | 2 |
 | **github** | 6 | 6 | 1 (`new_commit`) | 1 |
 | **gmail** | 13 | 13 | 3 (`new_email`, `new_labeled_email`, `new_attachment`) | 3 |
 | **microsoft-outlook** | 9 | 9 | 3 (`new_email`, `email_sent`, `email_flagged`) | 3 |
+| **slack** | **31** | **31** | 1 (`file_uploaded`) + 9 shared-webhook activations | **10** |
 
-These four providers are "metadata-complete" in the V2 sense: a user can browse the entire shipped runtime surface from inside the builder picker.
+Slack joined this list in Slice 3.38. It is the first larger provider to reach metadata-completeness via the Slice 3.34 plan + four implementation slices (3.35 → 3.38), and proves the metadata-completion process scales beyond the email-style providers (gmail / outlook) that anchored the earlier covered set.
 
 ---
 
 ## 3. Providers with partial metadata coverage
 
-| Provider | Action handlers | Action metas | Trigger handlers | Trigger metas | Gap |
-| --- | --- | --- | --- | --- | --- |
-| **slack** | 31 | **2** (`download_file`, `upload_file`) | global-webhook activation (no per-trigger `index.ts`) | 10 | 29 action metas missing (messaging, channels, reactions, scheduled, search, user/channel info, files-info/get-file-info, etc.) |
+**None.** Every provider in `services/discovery/_registry.ts` either has full action coverage (the 5 listed above) or zero action coverage (the 14 listed in §4 below). Slack's old partial-coverage row is gone — it's metadata-complete.
 
-Slack is intentionally NOT in `COVERED_PROVIDERS`. Triggers are complete. Action coverage is partial-by-design — the FileRef arc (Slices 3.26 / 3.27) only needed `download_file` (producer) + `upload_file` (consumer) to validate the single-FileRef FileField + the upgraded variable picker chip flow.
+This is a deliberately-narrow definition: a provider is "partial" only when ≥1 action meta exists alongside missing siblings. It does NOT mean "this provider has triggers but no actions" — those rows live in §4 instead.
 
 ---
 
-## 4. Providers with zero metadata that still ship a runtime surface
+## 4. Providers with zero action metadata that still ship a runtime surface
 
-Every row below has a manifest in `integrations/_registry.ts` AND registered handlers in `services/execution/handlers/_registry.ts`, but ZERO metas in `services/discovery/_registry.ts`. The builder shows no actions / no triggers for them today.
+Every row below has a manifest in `integrations/_registry.ts` AND registered handlers in `services/execution/handlers/_registry.ts`, but ZERO action metas in `services/discovery/_registry.ts`. The builder shows no actions for them today (triggers may still surface where trigger metas exist, but none of these providers ship trigger metas either).
 
 | Provider | Action handlers | Trigger handlers | Notes / business priority |
 | --- | --- | --- | --- |
-| **hubspot** | 26 | 1 | Largest single missing surface. CRM core for any sales-flavored workflow. |
-| **stripe** | 16 | 1 | Commerce + billing — high direct revenue relevance, but most workflows that use Stripe are reactive (webhook → action) so meta coverage matters but triggers are already runtime-only. |
-| **notion** | 16 | 0 | Big knowledge-base provider — pages / databases / blocks. |
+| **hubspot** | 26 | 1 | Largest single missing surface. CRM core for any sales-flavored workflow. Per the slack-action-metadata-plan-style audit cadence, this is the natural next batch. |
+| **stripe** | 16 | 1 | Commerce + billing. Most Stripe fields are static / text, so this provider could ship without any new `optionsSource` resolver. |
+| **notion** | 16 | 0 | Big knowledge-base provider — pages / databases / blocks. Notion has no V2 trigger handlers; metadata batch is action-only. |
 | **mailchimp** | 14 | 7 | Lots of trigger handlers but no metas — marketing automation flows are blocked at the builder UI. |
+| **google-sheets** | 12 | 2 | Top "data table" workflow surface. Spreadsheet → sheet → range chain naturally wants `optionsSource` + `dependsOn`. |
 | **shopify** | 11 | 1 | Commerce. |
-| **google-sheets** | 11 | 2 | High-frequency workflow surface for data ops. |
-| **airtable** | 11 | 1 | Records + attachments. Plan §6.3 of [`single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md) explicitly defers `airtable:add_attachment` until broader Airtable coverage lands. |
+| **airtable** | 11 | 1 | Records + attachments. Plan §6.3 of [`single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md) explicitly defers `airtable:add_attachment` until broader Airtable coverage lands. Base → table → field chain naturally wants `optionsSource` + `dependsOn`. |
 | **microsoft-excel** | 10 | 5 | Symmetric Microsoft equivalent of Google Sheets. |
 | **trello** | 8 | 6 | Card-based PM workflows. |
 | **microsoft-onedrive** | 7 | 1 | File storage; the `provider_url` arm of FileRef cross-references here. |
-| **microsoft-teams** | 5 | 1 | Channel messaging mirror of Slack. |
+| **microsoft-teams** | 5 | 1 | Channel messaging mirror of Slack. Team → channel chain wants `optionsSource` + `dependsOn`. |
 | **google-calendar** | 5 | 1 | Calendar + scheduling. |
 | **google-drive** | 5 | 1 | File storage mirror of OneDrive. |
 | **microsoft-outlook-calendar** | 5 | 1 | Sibling of `microsoft-outlook` mail provider. |
 
-**Total uncovered action surface: 150 handlers across 14 providers.** This is the headline number for "how much builder UI is invisible today."
+**Total uncovered action surface: 151 handlers across 14 providers.**
+
+Net change vs the prior checkpoint:
+- Slack moved out of this bucket (−29 from the 150 total at `f0aa79e74`).
+- `google-sheets` gained one handler in the meantime (11 → 12) — accounts for the +1 swing.
+- All other rows unchanged.
 
 ---
 
@@ -132,24 +127,17 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   "github",
   "gmail",
   "microsoft-outlook",
+  "slack",
 ]);
 ```
 
-The list expands as a provider crosses the "every registered handler has a meta" line. Slack will join when its remaining 29 action metas land. Any other provider joins when ALL its action + trigger handlers carry metas.
+5 of 19 providers cross the "every registered handler has a meta" line as of 3.38. The 14 listed in §4 remain outside.
 
 ---
 
-## 6. Rationale for not expanding Slack `COVERED_PROVIDERS` yet
+## 6. Current high-value user flows now supported
 
-- Slack's runtime surface today is 31 actions + 10 trigger metas + 1 file_uploaded trigger handler.
-- 29 of those 31 actions have NO meta. Adding `slack` to `COVERED_PROVIDERS` would fail the "every registered handler in a covered provider has an ActionMeta entry" structural test immediately.
-- The Slice 3.24 plan + Slice 3.26 / 3.27 commits deliberately ship partial coverage for the **FileRef workflow arc** without committing to the broader Slack surface. That's the right discipline — `COVERED_PROVIDERS` should mean "this provider is metadata-complete," not "this provider has something in the picker."
-
----
-
-## 7. Current high-value user flows now supported or nearly supported
-
-Verified by reading existing integration tests in [`tests/integration/features/workflow-builder/`](../../../tests/integration/features/workflow-builder/):
+Verified by reading existing integration tests in [`tests/integration/features/workflow-builder/`](../../../tests/integration/features/workflow-builder/). New Slack-driven rows added since the prior checkpoint are marked **(new)**.
 
 | Flow | Status | Verifier |
 | --- | --- | --- |
@@ -159,90 +147,117 @@ Verified by reading existing integration tests in [`tests/integration/features/w
 | Gmail `send_email` (string-array recipients, signatures, labels) | ✅ Shipped | `gmail-send-email-config.test.tsx` |
 | Outlook `send_email` (recipients, isHtml, importance Q11) | ✅ Shipped | `outlook-send-email-config.test.tsx` |
 | Outlook `send_email.attachments` (file-array via picker) | ✅ Shipped | `outlook-send-email-attachments.test.tsx` |
-| Slack `download_file` ⇒ Outlook `send_email.attachments` | ✅ Shipped via Slice 3.26 (download_file is now picker-surfaceable as a FileRef output) | Slice 3.26 registry tests + the existing Outlook attachments integration test compose |
-| Slack `upload_file` consuming upstream FileRef via FileField | ✅ Shipped | `slack-upload-file-config.test.tsx` |
+| Slack `download_file` ⇒ Outlook `send_email.attachments` | ✅ Shipped | Slice 3.26 registry tests + Outlook attachments integration test compose |
+| Slack `upload_file` consuming upstream FileRef via FileField + async channel picker | ✅ Shipped | `slack-upload-file-config.test.tsx` (channel field migrated to async combobox in Slice 3.32) |
+| **Slack `send_channel_message` with async channel picker + textarea body (new)** | ✅ Shipped (Slice 3.35) | `slack-send-channel-message-config.test.tsx` |
+| **Slack `add_reaction` with channel picker + ts + reaction (new)** | ✅ Shipped (Slice 3.36) | `slack-add-reaction-config.test.tsx` |
+| **Slack `invite_users_to_channel` with channel picker + string-array users + boolean Q11 (new)** | ✅ Shipped (Slice 3.37) | `slack-invite-users-config.test.tsx` |
+| **Slack `post_interactive_blocks` with channel picker + Block Kit JSON paste textarea (new)** | ✅ Shipped (Slice 3.38) | `slack-post-interactive-blocks-config.test.tsx` |
+| **Async combobox / `slack:channels` picker (new)** | ✅ Shipped (Slice 3.32) | All Slack channel-bearing integration tests above + `ComboboxField.test.tsx` |
+| **dependsOn cascade (clear child on parent change, "select parent first" disabled state) (new)** | ✅ Shipped (Slice 3.33) | `SchemaForm.test.tsx` + `ComboboxField.test.tsx` |
 | Variable picker (text-style insertion) | ✅ Shipped | `variable-picker-flow.test.tsx`, `variable-picker-latest-value.test.tsx` |
 | Variable picker chip-append into file-array | ✅ Shipped | `variable-picker-file-array.test.tsx` |
 | Latest-run output preview | ✅ Shipped | `latest-run-preview.test.tsx` |
-| Slack trigger config (chip arrays, channel filters) | ✅ Shipped | `slack-provider-trigger-config.test.tsx`, `gmail-provider-trigger-config.test.tsx` |
+| Slack trigger config (chip arrays, channel filters) | ✅ Shipped | `slack-provider-trigger-config.test.tsx` |
 | Canvas ↔ config rail sync | ✅ Shipped | `canvas-config-sync.test.tsx` |
-| Native Router routes UX | ✅ Shipped | `native-router-routes-editor.test.tsx` |
 
 ---
 
-## 8. Remaining Builder UI gaps
+## 7. Remaining Builder UI gaps
 
-In order from "infrastructure not started" → "polish":
+Re-ordered from "infrastructure not started" → "polish". Items struck through landed since the prior checkpoint.
 
-1. **Async `optionsSource` loading.** Contract supports it (`FieldMeta.optionsSource: z.string().min(1).max(128).optional()` in [`contracts/actionMeta.ts:147`](../../../contracts/actionMeta.ts)); ZERO metas use it; both `SelectField.tsx:15` and `ComboboxField.tsx:27` reference it as "lands in Slice 3.4" but Slice 3.4 has not shipped. Required for Slack channel pickers, Notion DB pickers, Google Sheets sheet/range pickers, Airtable base/table pickers, etc. — the entire "resource selector" UX class.
-2. **Variable picker type-aware filtering.** D-FRA-6 / D-SFR-10 explicitly deferred. Picker shows all upstream outputs regardless of the focused field's type. Acceptable today; will need addressing when authors regularly hit "I picked the wrong thing and got rejected at execute time."
-3. **FileRef sub-field drilling.** Picker can't expand a `fileRef`-typed output into `{{ref.name}}` / `{{ref.mimeType}}` / etc. Comment in `VariablePickerPopover.tsx:40` calls this out explicitly.
-4. **Local-file upload UI / storage picker.** Async drag-drop or `<input type="file">` → `v2_storage`. Neither plan ships this.
-5. **Field cascading / dependsOn UX polish.** `dependsOn` is in the contract; renderers don't currently auto-clear dependent fields on parent change (the SchemaForm hands the raw values through).
-6. **Provider-specific resource selectors.** Slack channel browser, Notion DB browser, Airtable base browser, Google Sheets sheet/range pickers. Each blocked on §8.1 above.
-7. **Run / test UX.** Run-now + run-history panels exist (Slice 3.9 + 3.10) but the deeper "run a single node with synthetic inputs," "inspect step outputs," "replay a failed run" surfaces aren't built.
-8. **Edge editing UX.** Canvas connects + drags; the edge-condition / on-failure routing UX beyond `native:router` isn't yet exposed.
-9. **Template surface.** No template gallery / import path.
-10. **AI builder helper / planner.** Out of Phase-3 scope by design.
-
----
-
-## 9. Recommended next implementation candidates
-
-Ranked by `(unblocked workflow value) × (engineering size sanity check)`. None of these are blocked on each other except as noted.
-
-| Rank | Candidate | Rationale | Approx. size |
-| --- | --- | --- | --- |
-| 1 | **Slack broader action metadata** (29 remaining: messaging, channels, reactions, scheduling, search, files-info) | Largest provider gap-by-handler-count; provider already exists in builder via triggers; can land incrementally without new infrastructure; flips Slack into `COVERED_PROVIDERS` at the end. Each meta is ~30-80 lines + a registry test stanza. Estimate: 2-3 slices grouped by category (messaging / channels / files-info+misc). |
-| 2 | **Async `optionsSource` infrastructure (Slice 3.4 — never shipped)** | Single highest-leverage infra unlock. Without it, every Slack-channel / Notion-DB / Airtable-base / Sheets-sheet selector has to be hand-typed as a `text` field. The unblocking is broad: Slack action coverage gets channel-name typeahead, Airtable gets base-id picker, etc. Touches `useProviderActions`-like hook fan-out, a new `lib/api/options.ts` route, plus `SelectField`/`ComboboxField` async-mode branches. Estimate: 2-3 slices (contract + renderer + first-real consumer). |
-| 3 | **Notion metadata batch** | 16 actions, 0 triggers (Notion's webhook story is V1-style). High knowledge-base / docs workflow value. No new field-type needs. |
-| 4 | **HubSpot metadata batch** | 26 actions — biggest remaining single chunk. Sales/CRM workflows. Will probably want `optionsSource` for object/list pickers; landing it after #2 reduces meta churn. |
-| 5 | **Google Sheets metadata batch** | 11 actions + 2 triggers. Top "data table" workflow surface. Same `optionsSource` dependency as HubSpot for sheet/range pickers — better after #2. |
-| 6 | **Stripe metadata batch** | 16 actions. Commerce flows. Most Stripe fields are static / text, so this could ship without `optionsSource`. |
-| 7 | **Airtable metadata batch (incl. `add_attachment`)** | 11 actions. Plan §6.3 of single-file-ref doc explicitly gates `airtable:add_attachment` on this slice. |
-| 8 | **Trello / Shopify / Mailchimp / Microsoft Excel + OneDrive + Teams metadata batches** | Each meaningful but lower-ROI than #1-#7. Sequence later. |
-| 9 | **Type-aware variable picker filtering** | Quality-of-life. Worth doing after >5 providers have FileRef-aware metas so the user-facing benefit shows up in real flows. |
-| 10 | **FileRef sub-field drilling** | Same as #9 — sub-field picking becomes valuable only once `fileRef` outputs are pickable across many providers. |
+1. ~~**Async `optionsSource` loading.**~~ **Shipped (Slices 3.30–3.32).** `slack:channels` is the first production resolver. Contract + route + hook + renderer + helper all in place. Adding a new resolver is a single colocated file + one `_registry.ts` line.
+2. ~~**Field cascading / dependsOn UX polish.**~~ **Shipped (Slice 3.33).** SchemaForm now clears direct dependents on parent change; ComboboxField surfaces a passive "Select &lt;parent&gt; first" trigger when the parent value is missing. Single-hop only (matches the FieldMeta contract).
+3. **Provider-specific options resolvers beyond Slack channels.** Only `slack:channels` exists as a production resolver. Natural follow-ups: `slack:users` (3 user-id fields would benefit), `airtable:bases / airtable:tables` (the cascade test bed), `google-sheets:spreadsheets / google-sheets:sheets` (same shape), `microsoft-teams:teams / microsoft-teams:channels`, `hubspot:lists / hubspot:pipelines`, `notion:databases`. Each is the same cost as `slack:channels` was — one new file + one registry entry + a few tests.
+4. **Variable picker type-aware filtering.** D-FRA-6 / D-SFR-10 still deferred. Picker shows all upstream outputs regardless of the focused field's type. Acceptable today; will need addressing when authors regularly hit "I picked the wrong thing and got rejected at execute time."
+5. **FileRef sub-field drilling.** Picker can't expand a `fileRef`-typed output into `{{ref.name}}` / `{{ref.mimeType}}` / etc. Comment in `VariablePickerPopover.tsx:40` calls this out explicitly. Becomes more valuable as more providers ship FileRef-aware metas (Slack now ships 3 FileRef-aware metas: download_file, upload_file, get_file_info).
+6. **Multi-select async combobox.** Slice 3.7 deferral. Today `invite_users_to_channel.users` ships as `string-array` instead of a multi-select picker; adding multi-select unblocks any future provider that needs picker-driven multi-pick.
+7. **Local-file upload UI / storage picker.** Async drag-drop or `<input type="file">` → `v2_storage`. Neither plan ships this.
+8. **Run / test UX.** Run-now + run-history panels exist (Slice 3.9 + 3.10) but the deeper "run a single node with synthetic inputs," "inspect step outputs," "replay a failed run" surfaces aren't built.
+9. **Edge editing UX.** Canvas connects + drags; the edge-condition / on-failure routing UX beyond `native:router` isn't yet exposed.
+10. **Template surface.** No template gallery / import path.
+11. **AI builder helper / planner.** Out of Phase-3 scope by design.
 
 ---
 
-## 10. Recommended near-term direction
+## 8. Recommended next implementation candidates
 
-**Recommendation: ship two foundational infrastructure slices (`optionsSource`-async + Slack-broader-action-batch), THEN do one or two more provider metadata batches, THEN re-checkpoint.**
+Re-ranked after the Slack completion + async-options + dependsOn cascade unlocks. The "metadata-only" candidates that don't need new `optionsSource` resolvers move up; the ones that do are flagged.
 
-Reasoning:
-
-- The "provider with no metas" gap is dominant — 14 providers, 150 uncovered action handlers. Most of those metas will need `optionsSource` to be useful (channel pickers, base pickers, sheet pickers). Shipping more metas WITHOUT `optionsSource` produces metas that have to be re-touched later — that's the kind of "design for known immediate need" rework the CLAUDE.md principles flag.
-- Slack is the cleanest first batch because (a) the provider is already half-exposed via 10 trigger metas + 2 file action metas, (b) its 29 missing actions don't all need `optionsSource` (most messaging actions take a channel-id which can land as a strict `text` field with picker-typeahead landing later), (c) finishing Slack flips it into `COVERED_PROVIDERS` and demonstrates the "metadata-complete-provider" cadence at a larger scale than gmail/outlook.
-- After those two, a single metadata batch (likely Notion or HubSpot) gives concrete signal on whether more provider metas + the existing builder UX is enough for first-shipping the builder, or whether additional infra (type-aware filtering, FileRef sub-field drilling, async resource pickers) needs to come next.
-- Defer canvas / edge-condition / run-test UX work until the metadata floor is high enough that a user can build a real workflow. The current Phase-3 surface composes well; the bottleneck is "I picked a provider but my action isn't here" — not "the canvas doesn't draw."
-
-**Alternative direction (briefly considered, NOT recommended):** Pause metadata expansion and move to canvas / edge / run-test polish. Reject this because every existing integration test demonstrates that the canvas + config + run path is functional for the providers that DO have metas. Polishing UX before content arrives produces a beautiful builder with five providers — not what's needed.
+| Rank | Candidate | Rationale | New resolver needed? | Approx. size |
+| --- | --- | --- | --- | --- |
+| 1 | **Notion metadata batch** (16 actions) | High knowledge-base / docs workflow value. Database / page id fields would BENEFIT from a `notion:databases` resolver but Notion has so many other "paste an id from the URL" fields that the batch can ship as text-first and gain the picker in a polish slice. No triggers to handle. | Optional `notion:databases` follow-up | 3-5 slices grouped by surface (pages / databases / users / search) |
+| 2 | **Stripe metadata batch** (16 actions) | Commerce. Most Stripe fields ARE static / text (object ids), so this is the cleanest "no new resolver needed" batch in the queue. High direct revenue relevance — Stripe-driven workflows are common. | No | 3-4 slices grouped by resource (customers / charges / subscriptions / events) |
+| 3 | **HubSpot metadata batch** (26 actions) | Biggest remaining single chunk — sales/CRM workflows. Will probably want `optionsSource` resolvers for object/list/pipeline pickers (`hubspot:lists`, `hubspot:pipelines`, `hubspot:object-schemas`). Landing those resolvers FIRST or alongside the metadata batch reduces meta churn. | **Yes** — 2-3 resolvers either before or during the batch | 4-6 slices |
+| 4 | **Google Sheets metadata batch** (12 actions + 2 triggers) | Top "data table" workflow surface. Spreadsheet → sheet → range chain is the textbook `dependsOn` cascade. The Slice 3.33 cascade infra is built; this batch is the right place to exercise it on a real two-hop chain. | **Yes** — `google-sheets:spreadsheets` + `google-sheets:sheets` (`dependsOn: spreadsheetId`) | 3-4 slices |
+| 5 | **Airtable metadata batch** (11 actions + 1 trigger) | Records + attachments. Base → table → field chain (three-hop). Plan §6.3 of `single-file-ref-metadata-plan.md` explicitly gates `airtable:add_attachment` on this batch. | **Yes** — 3 resolvers for the base → table → field chain | 4-5 slices |
+| 6 | **`slack:users` resolver + flip 3 Slack user-id fields to combobox** | Polish on top of completed Slack coverage. Lands as documented in the Slack metadata plan §6 follow-up. Low risk, single small slice. | **Yes** (the resolver itself) | 1 small slice |
+| 7 | **Microsoft Teams metadata batch** (5 actions + 1 trigger) | Channel messaging mirror of Slack. Team → channel cascade. | **Yes** — `microsoft-teams:teams` + `microsoft-teams:channels` | 2 slices |
+| 8 | **Type-aware variable picker filtering** | Quality-of-life. Worth doing after 7-8 providers have FileRef-aware metas so the user-facing benefit shows up in real flows. Slack just added 3 FileRef-aware metas to the surface; we're closer than the prior checkpoint. | No | 2 slices |
+| 9 | **Mailchimp / Shopify / Microsoft Excel + OneDrive / Trello / Google Drive / Google + Outlook Calendar metadata batches** | Each meaningful but lower-ROI than #1-#7. Sequence after the bigger commerce / data / CRM providers. | Mixed | per-batch |
+| 10 | **FileRef sub-field drilling** | Same as #8 — sub-field picking becomes valuable only once `fileRef` outputs are pickable across many providers. | No | 1 slice |
 
 ---
 
-## 11. Open questions for the next planning conversation
+## 9. Recommended near-term direction
+
+**Recommendation: continue with provider metadata batches in priority order — Notion → Stripe → (resolver + HubSpot together) → (resolver + Google Sheets together) — then re-checkpoint. Don't pause for UX polish yet.**
+
+Why not pause for UX polish:
+- The provider gap is still dominant: 14 providers, 151 uncovered action handlers. The builder still feels half-empty for any non-email / non-Slack workflow.
+- The Slack completion (29 metas in 4 slices) demonstrated the metadata-completion cadence is sustainable. Continuing it produces visible builder value per slice.
+- The infrastructure unlocks needed for the next batches already exist: async `optionsSource` ships, `dependsOn` cascade ships. The "Notion + Stripe first" recommendation deliberately picks two providers that can land WITHOUT any new resolver, so we can validate the cadence on smaller batches before tackling the larger HubSpot+resolver pairing.
+
+Why this ordering vs the prior checkpoint:
+- The prior checkpoint recommended "Slack broader actions THEN options-source infra THEN one or two metadata batches THEN re-checkpoint." Slack is done; options-source shipped; the cascade shipped. The follow-on metadata batches are the natural next step.
+- Notion + Stripe both punch above their resolver-cost weight: neither strictly needs a new resolver, both produce visible builder value, and together they cover the "docs / knowledge-base" and "commerce / billing" surfaces — the two most common workflow categories outside email and chat.
+- HubSpot is bigger AND wants 2-3 new resolvers. Landing it third lets the resolver pattern get one more rep (after `slack:channels`) before the multi-resolver provider hits.
+
+**Alternatives briefly considered:**
+
+- **Pause metadata and ship the run-test / canvas-polish UX.** Reject: every shipped integration test demonstrates the canvas + config + run path is functional. The bottleneck is "I picked a provider but my action isn't here," not "the canvas doesn't draw."
+- **Land `slack:users` resolver first as a tightly-scoped polish slice.** Acceptable as a low-risk warm-up if Marcus prefers a tiny next slice before the bigger Notion batch. Not the primary recommendation because it's polish on already-completed coverage, not new coverage.
+- **Lead with Google Sheets to validate the `dependsOn` cascade on a real two-hop chain.** Reject as the lead: Sheets needs 2 resolvers + its own meta batch; better to land 1-2 resolver-free batches first to keep the slice diet moving. But strong candidate at #4.
+
+---
+
+## 10. Open questions for the next planning conversation
 
 These are decisions worth surfacing explicitly so they don't get punted as "let's see when we get there":
 
-- Should `optionsSource` infrastructure land BEFORE or alongside the Slack broader-action batch? Bundling them keeps Slack metas idiomatic from day one; separating them lets Slack metas ship faster but accepts known rework.
-- For provider-trigger surfaces with zero handlers (e.g. Slack file_uploaded uses the global webhook), is the existing "exempt from activation-invariant test" pattern enough, or should the trigger-meta contract gain a `globalWebhookOnly: true` flag so the absence of an `index.ts` is documented at the meta level?
-- How do we want to handle the partial-coverage providers in `app/api/providers/[id]/actions` ordering? Today Slack returns `[download_file, upload_file]` by displayOrder. When 29 more land, are the file actions still surfaced at the top, or do they sort into a `files` category section? The route currently doesn't group — it's a flat sorted list. May want a `category` group hint in the response shape.
+- For the Notion batch: ship as resolver-free text-first (matches the recommendation) OR pre-build `notion:databases` resolver so the batch lands with picker UX from day one? The prior Slack-batch precedent (`text` first, picker polish later for users) argues for resolver-free; the Slack-channel-picker integration test demonstrates how much nicer the UX is when the picker exists on day one.
+- For the HubSpot batch (rank #3): build all needed resolvers as a single "HubSpot pickers" slice BEFORE the metadata batch, or interleave resolver-per-sub-batch? The Slack precedent was "build the resolver once, then land metadata over multiple slices." HubSpot has 2-3 resolvers; interleaving may be cleaner.
+- For the slack:users polish (rank #6): land it before Notion (tiny warm-up) or after Notion+Stripe (groups all polish work together)? Both are defensible; mention before starting the next batch so it doesn't get forgotten.
+- The provider-route response shape is still flat (sorted by displayOrder). With 31 Slack actions + the Notion/HubSpot batches incoming, picker UX may want a category-grouped response shape. Worth designing now or wait until the picker shows visible bloat?
 
 ---
 
-## 12. Snapshot summary
+## 11. Snapshot summary
 
 ```text
-INFRASTRUCTURE:        Complete for the 12 FieldType variants + discovery + canvas + picker.
-COMPLETE PROVIDERS:    native, github, gmail, microsoft-outlook (4).
-PARTIAL PROVIDERS:     slack (10 trigger metas + 2 file action metas; 29 action gap).
-UNCOVERED PROVIDERS:   14 (hubspot, stripe, notion, mailchimp, shopify, google-sheets,
+INFRASTRUCTURE:        Complete for the 12 FieldType variants + discovery + canvas + picker
+                       + async optionsSource resolvers + dependsOn cascade.
+COMPLETE PROVIDERS:    native, github, gmail, microsoft-outlook, slack (5).
+                       Slack is the first larger provider to reach metadata-completeness
+                       (31 action metas + 10 trigger metas; flipped into COVERED_PROVIDERS
+                       in Slice 3.38).
+PARTIAL PROVIDERS:     None.
+UNCOVERED PROVIDERS:   14 (hubspot, stripe, notion, mailchimp, google-sheets, shopify,
                           airtable, microsoft-excel, trello, microsoft-onedrive,
                           microsoft-teams, google-calendar, google-drive,
                           microsoft-outlook-calendar).
-UNCOVERED HANDLERS:    150 actions across the 14 providers above.
-TESTS:                 788 suites, 8319 tests, all green at f0aa79e74.
-NEXT INFRA UNLOCK:     async optionsSource (Slice 3.4 — never shipped).
-NEXT METADATA BATCH:   Slack broader actions (29 → 0 over 2-3 slices, flips Slack into COVERED_PROVIDERS).
+UNCOVERED HANDLERS:    151 actions across the 14 providers above.
+                       (Prior checkpoint: 150 across the same 14 + Slack's 29 missing
+                       at the time. Net: Slack -29, google-sheets +1.)
+OPTIONS RESOLVERS:     2 registered — native:examples (fixture) + slack:channels (prod).
+TESTS:                 797 suites, 8662 tests, all green at 37d4a6b63.
+                       (Prior checkpoint: 788 / 8319.)
+NEXT METADATA BATCH:   Notion (16 actions, no new resolver needed).
+NEXT INFRA UNLOCK:     None blocking the next 2 metadata batches.
+                       HubSpot batch (rank #3) will want 2-3 new resolvers.
+                       Google Sheets batch (rank #4) will want 2 resolvers
+                       to exercise the dependsOn cascade on a real two-hop chain.
 ```
+
+The builder feels substantially more usable than at the prior checkpoint: a workflow author can compose every Slack flow that the runtime supports, the async channel picker eliminates the "type an id" friction, and the cascade infra is ready for the next two-hop provider (Google Sheets / Airtable). The remaining 14 providers are still the limiting factor — finishing Notion + Stripe + HubSpot would cover the largest non-email / non-Slack categories of real-world workflows.
