@@ -17,18 +17,14 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * satisfied by this registration; no exemption is needed (and adding
  * one would mask a real correctness invariant).
  *
- * `fields[]` mirrors only the SINGLE-VALUE user-set fields of
+ * `fields[]` mirrors the user-set fields of
  * `GmailNewEmailConfigSchema`. The array-valued filters `from` and
- * `labelIds` are intentionally deferred — V2's multi-select / multi-
- * value field renderer is not yet implemented (see the explicit
- * not-supported guards in
- * `features/workflow-builder/config-modal/fields/SelectField.tsx` and
- * `ComboboxField.tsx`). The runtime defaults still apply:
- *   - `from` defaults to `[]` (every sender matches).
- *   - `labelIds` defaults to `["INBOX"]` (fires on inbox arrivals).
- * Both filters land in a follow-up slice once the multi-select
- * renderer is in place — likely paired with async option sources for
- * `from` autocomplete and Gmail labels lookup.
+ * `labelIds` use the Slice 3.13 `string-array` field type — free-text
+ * chip input that writes `string[]` natively (no JSON encoding, no
+ * CSV). Workflow authors paste sender addresses / Gmail label ids
+ * directly; an async Gmail-labels picker remains deferred to a future
+ * slice that pairs `select`/`combobox` + `multiple` with option-source
+ * loaders.
  *
  * Internal server-managed state — `pollingEnabled`, `snapshot`,
  * `polling` — is intentionally NOT surfaced (mirrors the
@@ -48,11 +44,21 @@ export const newEmailTriggerMeta: TriggerMeta = {
   type: "new_email",
   displayName: "New Email",
   description:
-    "Fires when a new email arrives in the connected Gmail inbox. Optionally narrow by subject text and attachment presence. Polls every 5 minutes by default. Sender-list and label-list filters are deferred until V2's multi-select field renderer ships — the runtime defaults fire on every sender and the INBOX label. Requires the gmail.readonly scope.",
+    "Fires when a new email arrives in the connected Gmail inbox. Optionally narrow by sender addresses, subject text, attachment presence, and Gmail label ids. Polls every 5 minutes by default. Requires the gmail.readonly scope.",
   category: "email",
   activation: "polling",
   requiresIntegration: true,
   fields: [
+    {
+      name: "from",
+      label: "From (optional)",
+      description:
+        "Email addresses to match against the message's From header (case-insensitive, OR-match). Press Enter or click Add to append each address. Leave empty to match every sender.",
+      type: "string-array",
+      required: false,
+      placeholder: "alice@example.com",
+      defaultValue: [],
+    },
     {
       name: "subject",
       label: "Subject (optional)",
@@ -84,6 +90,16 @@ export const newEmailTriggerMeta: TriggerMeta = {
         { value: "yes", label: "Has attachment" },
         { value: "no", label: "No attachment" },
       ],
+    },
+    {
+      name: "labelIds",
+      label: "Labels",
+      description:
+        "Gmail label ids the message must carry (AND-match — the message must have at least one of these labels). Press Enter or click Add to append each label id. System labels use uppercase names (e.g. 'INBOX', 'STARRED'); user labels use 'Label_<n>' ids — find these via Gmail Settings → Labels or the labels.list API.",
+      type: "string-array",
+      required: false,
+      placeholder: "Label_12345",
+      defaultValue: ["INBOX"],
     },
   ],
   payloadShape: [

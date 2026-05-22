@@ -9,6 +9,7 @@ import { BooleanField } from "./BooleanField";
 import { FileField } from "./FileField";
 import { CronField } from "./CronField";
 import { RouterRoutesField } from "./RouterRoutesField";
+import { StringArrayField } from "./StringArrayField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -35,6 +36,7 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     file: FileField,
     cron: CronField,
     "router-routes": RouterRoutesField,
+    "string-array": StringArrayField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

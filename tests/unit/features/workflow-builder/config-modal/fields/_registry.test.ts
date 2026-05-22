@@ -15,6 +15,7 @@ import {
   FIELD_RENDERERS,
   getFieldRenderer,
 } from "@/features/workflow-builder/config-modal/fields/_registry";
+import { StringArrayField } from "@/features/workflow-builder/config-modal/fields/StringArrayField";
 
 describe("field-renderer registry", () => {
   it("has exactly one renderer per FieldType variant", () => {
@@ -26,6 +27,15 @@ describe("field-renderer registry", () => {
     }
     // No extra keys.
     expect(Object.keys(FIELD_RENDERERS).sort()).toEqual([...types].sort());
+  });
+
+  it("covers all 11 FieldType variants (Slice 3.13 added 'string-array')", () => {
+    expect(FieldTypeSchema.options).toHaveLength(11);
+    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(11);
+  });
+
+  it("FIELD_RENDERERS['string-array'] resolves to StringArrayField", () => {
+    expect(FIELD_RENDERERS["string-array"]).toBe(StringArrayField);
   });
 
   it("getFieldRenderer returns the same component as FIELD_RENDERERS[type]", () => {

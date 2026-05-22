@@ -41,6 +41,16 @@ import { z } from "zod";
  * so the field-renderer registry stays the single source of "which
  * fields exist". Future actions that need conditional routes can
  * reuse the same renderer without adding more shell special cases.
+ *
+ * `string-array` (Slice 3.13) is a dedicated type for free-text
+ * `string[]` config fields (e.g. Gmail `from[]`, Gmail `labelIds[]`,
+ * future Outlook recipient filters). Distinct from `select`/`combobox`
+ * + `multiple`, which represent multi-pick from a known options set —
+ * `string-array` is "user-typed list of strings" rendered as chips.
+ * The renderer writes `string[]` natively (never JSON-encoded, never
+ * CSV). Async option sources are deliberately out of scope; that
+ * concern belongs on a future `select`/`combobox` + `multiple` slice
+ * paired with `optionsSource` loaders.
  */
 export const FieldTypeSchema = z.enum([
   "text",
@@ -53,6 +63,7 @@ export const FieldTypeSchema = z.enum([
   "file",
   "cron",
   "router-routes",
+  "string-array",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
@@ -135,6 +146,13 @@ export const FieldMetaSchema = z
      * underlying handler schema enforces the authoritative cap.
      */
     keyValueMaxRows: z.number().int().positive().max(256).optional(),
+    /**
+     * For `string-array` fields, the maximum number of items the chip
+     * renderer accepts. When reached, the Add affordance is disabled.
+     * The underlying handler schema enforces the authoritative cap;
+     * this is a UI hint only. Mirrors `keyValueMaxRows`'s 256 ceiling.
+     */
+    stringArrayMaxItems: z.number().int().positive().max(256).optional(),
   })
   .strict()
   .superRefine((field, ctx) => {
@@ -173,6 +191,13 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["keyValueMaxRows"],
         message: "`keyValueMaxRows` is only valid on `keyvalue` fields.",
+      });
+    }
+    if (field.stringArrayMaxItems && field.type !== "string-array") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stringArrayMaxItems"],
+        message: "`stringArrayMaxItems` is only valid on `string-array` fields.",
       });
     }
   });

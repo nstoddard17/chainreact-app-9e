@@ -199,6 +199,105 @@ describe("FieldMetaSchema — type-specific constraints", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts a string-array field (Slice 3.13)", () => {
+    expect(() =>
+      FieldMetaSchema.parse({
+        name: "from",
+        label: "From",
+        type: "string-array",
+        required: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts stringArrayMaxItems on a string-array field", () => {
+    expect(() =>
+      FieldMetaSchema.parse({
+        name: "from",
+        label: "From",
+        type: "string-array",
+        required: false,
+        stringArrayMaxItems: 10,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts defaultValue: [] on a string-array field", () => {
+    expect(() =>
+      FieldMetaSchema.parse({
+        name: "from",
+        label: "From",
+        type: "string-array",
+        required: false,
+        defaultValue: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts defaultValue: string[] (non-empty) on a string-array field", () => {
+    expect(() =>
+      FieldMetaSchema.parse({
+        name: "labelIds",
+        label: "Labels",
+        type: "string-array",
+        required: false,
+        defaultValue: ["INBOX"],
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects stringArrayMaxItems on a non-string-array field", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "f",
+      label: "F",
+      type: "text",
+      required: false,
+      stringArrayMaxItems: 5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects multiple: true on a string-array field (multiple stays select/combobox-only)", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "from",
+      label: "From",
+      type: "string-array",
+      required: false,
+      multiple: true,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects stringArrayMaxItems above the 256 ceiling", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "from",
+      label: "From",
+      type: "string-array",
+      required: false,
+      stringArrayMaxItems: 257,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects zero / negative stringArrayMaxItems", () => {
+    const zero = FieldMetaSchema.safeParse({
+      name: "f",
+      label: "F",
+      type: "string-array",
+      required: false,
+      stringArrayMaxItems: 0,
+    });
+    expect(zero.success).toBe(false);
+    const negative = FieldMetaSchema.safeParse({
+      name: "f",
+      label: "F",
+      type: "string-array",
+      required: false,
+      stringArrayMaxItems: -1,
+    });
+    expect(negative.success).toBe(false);
+  });
 });
 
 describe("ActionMetaSchema — strict mode", () => {
