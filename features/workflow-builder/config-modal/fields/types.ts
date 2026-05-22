@@ -22,6 +22,35 @@ export interface FieldRendererProps {
   onChange: (value: unknown) => void;
   /** When true, the renderer renders read-only (used when the workflow is disabled). */
   disabled?: boolean;
+  /**
+   * dependsOn parent values keyed by parent field name. Populated by
+   * SchemaForm for fields whose `field.dependsOn` resolves to a non-
+   * empty parent value. Async-options renderers (ComboboxField) forward
+   * this to `useOptionsSource`. Non-async renderers ignore it.
+   *
+   * Slice 3.33 — single-parent only (matches the FieldMeta.dependsOn
+   * contract).
+   */
+  deps?: Readonly<Record<string, string>>;
+  /**
+   * When `false`, async-options renderers should not load options.
+   * SchemaForm sets this to `false` when a field's `dependsOn` parent
+   * value is empty/missing, gating the picker until the parent has a
+   * value. Defaults to `true` (or undefined → treated as true) for
+   * fields without `dependsOn`.
+   *
+   * Slice 3.33.
+   */
+  enabled?: boolean;
+  /**
+   * Human-readable label of the `dependsOn` parent field. Async-options
+   * renderers use it to render the "Select <parentLabel> first" hint
+   * when `enabled === false`. SchemaForm looks up the parent field in
+   * the same fields[] list it received and passes its `.label`.
+   *
+   * Slice 3.33.
+   */
+  parentLabel?: string;
 }
 
 export type FieldComponent = React.FC<FieldRendererProps>;

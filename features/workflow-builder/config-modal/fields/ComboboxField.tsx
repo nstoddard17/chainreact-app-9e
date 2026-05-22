@@ -44,13 +44,16 @@ import type { OptionItem } from "@/lib/api/options";
  *     style helper text (rendered when `dependsOn` is set; the
  *     parent's label drives the wording)
  *
- * `dependsOn` cascade plumbing is intentionally minimal for v1: the
- * field accepts `deps` + `enabled` via the meta's `dependsOn` field
- * read against a `parentValues` map supplied by SchemaForm in a later
- * slice. Today (Slice 3.31), neither `dependsOn` cascade nor parent-
- * change clearing is wired through SchemaForm — that lands in Slice
- * 3.33 per the plan. The async renderer still works standalone for
- * dependency-free sources like `native:examples`.
+ * `dependsOn` cascade — Slice 3.33.
+ *   - SchemaForm passes `deps` (resolved parent values) + `enabled`
+ *     (false when a `dependsOn` parent value is missing) + `parentLabel`
+ *     (parent field's display label) into this renderer.
+ *   - When `enabled === false` for a field that declares `dependsOn`,
+ *     the renderer short-circuits to a passive "Select <parentLabel>
+ *     first" trigger — popover doesn't open, async hook never mounts.
+ *   - When `enabled !== false`, `deps` flows through to
+ *     `useOptionsSource` so the resolver receives the parent values
+ *     via the route's `?deps[parent]=…` query string.
  */
 
 interface AsyncComboboxBodyProps {
@@ -60,6 +63,7 @@ interface AsyncComboboxBodyProps {
   onChange: (next: string) => void;
   error: string | undefined;
   disabled: boolean | undefined;
+  deps: Readonly<Record<string, string>> | undefined;
 }
 
 const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
@@ -69,6 +73,7 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
   onChange,
   error,
   disabled,
+  deps,
 }) => {
   const [open, setOpen] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState("");
@@ -76,6 +81,7 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
   const { state, refetch } = useOptionsSource({
     source: field.optionsSource ?? null,
     query: searchInput,
+    ...(deps !== undefined && { deps }),
   });
 
   // Selected-option lookup. When the user picks an option, we cache its
@@ -235,6 +241,9 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
   error,
   onChange,
   disabled,
+  deps,
+  enabled,
+  parentLabel,
 }) => {
   const stringValue = typeof value === "string" ? value : "";
   const controlId = `field-${field.name}`;
@@ -261,6 +270,35 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
   // branch and the async branch never coexist (the contract's
   // `superRefine` rejects metas declaring both).
   if (field.optionsSource) {
+    // dependsOn cascade — Slice 3.33. When SchemaForm signals
+    // `enabled === false` AND the meta declares a `dependsOn` parent,
+    // render a passive "Select <parentLabel> first" trigger and don't
+    // mount the async body (so the hook never fires).
+    if (enabled === false && field.dependsOn) {
+      const parentHint = parentLabel ?? field.dependsOn;
+      return (
+        <FieldShell
+          controlId={controlId}
+          label={field.label}
+          required={field.required}
+          description={field.description}
+          error={error}
+        >
+          <Button
+            id={controlId}
+            type="button"
+            variant="outline"
+            disabled
+            aria-disabled
+            data-testid="combobox-parent-missing"
+            className="w-full justify-between font-normal text-muted-foreground"
+          >
+            <span>{`Select ${parentHint} first`}</span>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </FieldShell>
+      );
+    }
     return (
       <AsyncComboboxBody
         controlId={controlId}
@@ -269,6 +307,7 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
         onChange={(next) => onChange(next)}
         error={error}
         disabled={disabled}
+        deps={deps}
       />
     );
   }

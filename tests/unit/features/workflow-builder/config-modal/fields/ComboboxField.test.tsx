@@ -367,3 +367,136 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     expect(marker).not.toBeNull();
   });
 });
+
+// ─── Slice 3.33 — dependsOn cascade props ──────────────────────────────────
+
+describe("ComboboxField async optionsSource — dependsOn cascade props (Slice 3.33)", () => {
+  function dependentField(overrides: Partial<FieldMeta> = {}): FieldMeta {
+    return {
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: true,
+      optionsSource: "native:examples",
+      dependsOn: "parent",
+      ...overrides,
+    } as FieldMeta;
+  }
+
+  it("renders a passive 'Select <parentLabel> first' trigger when enabled is false and dependsOn is set", () => {
+    render(
+      <ComboboxField
+        field={dependentField()}
+        value=""
+        onChange={jest.fn()}
+        enabled={false}
+        parentLabel="Workspace"
+      />,
+    );
+    const passive = screen.getByTestId("combobox-parent-missing");
+    expect(passive).toBeInTheDocument();
+    expect(passive).toBeDisabled();
+    expect(passive).toHaveTextContent(/Select Workspace first/i);
+    // The async hook is NOT invoked when enabled=false + dependsOn.
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+
+  it("falls back to field.dependsOn name when parentLabel is not provided", () => {
+    render(
+      <ComboboxField
+        field={dependentField()}
+        value=""
+        onChange={jest.fn()}
+        enabled={false}
+      />,
+    );
+    expect(screen.getByTestId("combobox-parent-missing")).toHaveTextContent(
+      /Select parent first/i,
+    );
+  });
+
+  it("renders the async body normally (and calls the hook) when enabled is true", () => {
+    setHookState({
+      status: "ready",
+      items: [{ value: "x", label: "X" }],
+      hasMore: false,
+    });
+    render(
+      <ComboboxField
+        field={dependentField()}
+        value=""
+        onChange={jest.fn()}
+        enabled={true}
+        parentLabel="Workspace"
+        deps={{ parent: "PV" }}
+      />,
+    );
+    expect(
+      screen.queryByTestId("combobox-parent-missing"),
+    ).not.toBeInTheDocument();
+    expect(mockUseOptionsSource).toHaveBeenCalled();
+  });
+
+  it("forwards deps to useOptionsSource when enabled is true", () => {
+    setHookState({ status: "ready", items: [], hasMore: false });
+    render(
+      <ComboboxField
+        field={dependentField()}
+        value=""
+        onChange={jest.fn()}
+        enabled={true}
+        deps={{ parent: "PV" }}
+      />,
+    );
+    const lastArgs =
+      mockUseOptionsSource.mock.calls[
+        mockUseOptionsSource.mock.calls.length - 1
+      ]![0];
+    expect(lastArgs.deps).toEqual({ parent: "PV" });
+    expect(lastArgs.source).toBe("native:examples");
+  });
+
+  it("falls through to the async body when enabled is false but the field has no dependsOn (no passive UX without a parent to gate on)", () => {
+    // Defensive: SchemaForm shouldn't ever set enabled=false without
+    // dependsOn, but ComboboxField doesn't render the parent-missing
+    // hint without a parent to reference. The async body still mounts
+    // and the hook handles the enabled=false state (returns idle).
+    setHookState({ status: "idle", items: [], hasMore: false });
+    render(
+      <ComboboxField
+        field={asyncField({ dependsOn: undefined })}
+        value=""
+        onChange={jest.fn()}
+        enabled={false}
+      />,
+    );
+    expect(
+      screen.queryByTestId("combobox-parent-missing"),
+    ).not.toBeInTheDocument();
+    expect(mockUseOptionsSource).toHaveBeenCalled();
+  });
+
+  it("static-options path ignores deps/enabled/parentLabel entirely", () => {
+    const onChange = jest.fn();
+    render(
+      <ComboboxField
+        field={field()}
+        value="C1"
+        onChange={onChange}
+        enabled={false}
+        deps={{ parent: "X" }}
+        parentLabel="Workspace"
+      />,
+    );
+    // Static path renders normally — the trigger shows the selected
+    // label, NOT the "Select X first" passive trigger.
+    expect(
+      screen.queryByTestId("combobox-parent-missing"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Channel" }),
+    ).toHaveTextContent("#general");
+    // No hook invocation on the static path either.
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+});
