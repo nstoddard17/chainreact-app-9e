@@ -165,7 +165,7 @@ describe("GET /api/providers/[id]/actions", () => {
     );
   });
 
-  it("returns the partial Slack action coverage as of Slice 3.26 (download_file only; broader Slack action coverage is a future arc)", async () => {
+  it("returns the partial Slack action coverage as of Slice 3.27 (download_file + upload_file in displayOrder; broader Slack action coverage is a future arc)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/slack/actions"), {
       params: Promise.resolve({ id: "slack" }),
@@ -182,12 +182,23 @@ describe("GET /api/providers/[id]/actions", () => {
       }>;
     };
     expect(body.provider).toBe("slack");
-    expect(body.actions.map((a) => a.key)).toEqual(["slack:download_file"]);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "slack:download_file",
+      "slack:upload_file",
+    ]);
     const download = body.actions[0]!;
     expect(download.category).toBe("files");
     expect(download.requiresIntegration).toBe(true);
     expect(download.producesFileRef).toBe(true);
     expect(download.consumesFileRef).toBe(false);
+    const upload = body.actions[1]!;
+    expect(upload.category).toBe("files");
+    expect(upload.requiresIntegration).toBe(true);
+    // upload_file is the rare action that BOTH consumes AND produces a
+    // FileRef — config.file is the input ref, output.file is the
+    // resulting Slack-hosted FileRef.
+    expect(upload.consumesFileRef).toBe(true);
+    expect(upload.producesFileRef).toBe(true);
   });
 
   it("returns 404 PROVIDER_NOT_FOUND for an unknown provider id", async () => {

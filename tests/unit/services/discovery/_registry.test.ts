@@ -100,10 +100,12 @@ describe("listAllActionMetas", () => {
     );
   });
 
-  it("returns the partial Slack action coverage registered in Slice 3.26 (download_file only)", () => {
+  it("returns the partial Slack action coverage registered in Slices 3.26 + 3.27 (download_file + upload_file)", () => {
     const metas = listAllActionMetas();
     const keys = metas.map((m) => m.key);
-    expect(keys).toEqual(expect.arrayContaining(["slack:download_file"]));
+    expect(keys).toEqual(
+      expect.arrayContaining(["slack:download_file", "slack:upload_file"]),
+    );
   });
 
   it("sorts by (displayOrder asc, displayName asc)", () => {
@@ -896,11 +898,14 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("is the ONLY Slack action meta as of Slice 3.26 (broader Slack coverage is a future arc)", () => {
+    it("Slack action coverage as of Slice 3.27 is [download_file, upload_file] in displayOrder (broader Slack coverage is a future arc)", () => {
       const slackActionKeys = listActionMetasForProvider("slack").map(
         (m) => m.key,
       );
-      expect(slackActionKeys).toEqual(["slack:download_file"]);
+      expect(slackActionKeys).toEqual([
+        "slack:download_file",
+        "slack:upload_file",
+      ]);
     });
 
     it("does NOT regress Slack trigger metas (Slice 3.11 surface unchanged)", () => {
@@ -914,6 +919,87 @@ describe("per-provider accessors", () => {
           "slack:file_shared",
         ]),
       );
+    });
+  });
+
+  // Slice 3.27 — first single-FileRef consumer meta. Pin the field
+  // shapes + the dual FileRef advertisement (config.file in / output.file
+  // out) so a future renderer/picker change can't silently regress the
+  // contract that the FileField integration test relies on.
+  describe("slack:upload_file single-FileRef consumer surface (Slice 3.27)", () => {
+    function uploadMeta() {
+      const meta = listActionMetasForProvider("slack").find(
+        (m) => m.key === "slack:upload_file",
+      );
+      expect(meta).toBeDefined();
+      return meta!;
+    }
+
+    it("is registered under provider 'slack' with category 'files' + requiresIntegration true", () => {
+      const meta = uploadMeta();
+      expect(meta.provider).toBe("slack");
+      expect(meta.type).toBe("upload_file");
+      expect(meta.category).toBe("files");
+      expect(meta.requiresIntegration).toBe(true);
+    });
+
+    it("declares BOTH producesFileRef=true AND consumesFileRef=true (dual FileRef action)", () => {
+      const meta = uploadMeta();
+      // Runtime accepts a FileRef in `config.file` AND emits a Slack-
+      // hosted FileRef in `output.file` (uploadFile.ts:221-240). The
+      // meta MUST advertise both — silently dropping producesFileRef
+      // would break downstream chip rendering in the variable picker.
+      expect(meta.consumesFileRef).toBe(true);
+      expect(meta.producesFileRef).toBe(true);
+    });
+
+    it("exposes the 5-field config surface that mirrors SlackUploadFileConfigSchema", () => {
+      const fields = uploadMeta().fields;
+      expect(fields.map((f) => f.name)).toEqual([
+        "channel",
+        "file",
+        "title",
+        "initialComment",
+        "threadTs",
+      ]);
+    });
+
+    it("`channel` is a required text field", () => {
+      const channel = uploadMeta().fields.find((f) => f.name === "channel")!;
+      expect(channel.type).toBe("text");
+      expect(channel.required).toBe(true);
+    });
+
+    it("`file` is a required file field (exercises the Slice 3.25 single-FileRef FileField)", () => {
+      const file = uploadMeta().fields.find((f) => f.name === "file")!;
+      expect(file.type).toBe("file");
+      expect(file.required).toBe(true);
+    });
+
+    it("`title` / `initialComment` / `threadTs` are optional text/textarea fields", () => {
+      const title = uploadMeta().fields.find((f) => f.name === "title")!;
+      expect(title.type).toBe("text");
+      expect(title.required).toBe(false);
+      const initialComment = uploadMeta().fields.find(
+        (f) => f.name === "initialComment",
+      )!;
+      expect(initialComment.type).toBe("textarea");
+      expect(initialComment.required).toBe(false);
+      const threadTs = uploadMeta().fields.find((f) => f.name === "threadTs")!;
+      expect(threadTs.type).toBe("text");
+      expect(threadTs.required).toBe(false);
+    });
+
+    it("output `file` is a fileRef chip; siblings are bounded scalars (no bytes / base64 / content / data)", () => {
+      const outputs = uploadMeta().outputs;
+      const file = outputs.find((o) => o.name === "file");
+      expect(file).toBeDefined();
+      expect(file!.type).toBe("fileRef");
+      const names = outputs.map((o) => o.name);
+      expect(names).toEqual(["file", "fileId", "permalink", "channelIds"]);
+      for (const banned of ["bytes", "base64", "content", "data"]) {
+        expect(names).not.toContain(banned);
+      }
     });
   });
 

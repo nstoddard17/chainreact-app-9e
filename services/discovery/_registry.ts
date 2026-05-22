@@ -65,11 +65,12 @@ import { newEmailTriggerMeta } from "@/integrations/gmail/triggers/newEmail/newE
 import { newLabeledEmailTriggerMeta } from "@/integrations/gmail/triggers/newLabeledEmail/newLabeledEmail.meta";
 import { newAttachmentTriggerMeta } from "@/integrations/gmail/triggers/newAttachment/newAttachment.meta";
 
-// Slack action metadata (Slice 3.26 — partial coverage, file actions
-// only; Slack is intentionally absent from COVERED_PROVIDERS in
+// Slack action metadata (Slice 3.26 + 3.27 — partial coverage, file
+// actions only; Slack is intentionally absent from COVERED_PROVIDERS in
 // tests/structure/discovery-meta-coverage.test.ts until every Slack
 // runtime handler has a meta).
 import { slackDownloadFileMeta } from "@/integrations/slack/actions/files/downloadFile.meta";
+import { slackUploadFileMeta } from "@/integrations/slack/actions/files/uploadFile.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -151,13 +152,15 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   outlookAddCategoriesMeta,
   outlookMoveEmailMeta,
   outlookDeleteEmailMeta,
-  // Slack file actions (Slice 3.26). Partial Slack action coverage —
-  // `download_file` is the FileRef producer; `slack:upload_file` (the
-  // consumer that exercises the Slice 3.25 single-FileRef FileField)
-  // follows in its own slice. Slack is NOT yet in COVERED_PROVIDERS
-  // because the broader Slack action surface (messaging, channels,
-  // reactions, etc.) has no metas yet.
+  // Slack file actions (Slice 3.26 + 3.27). Partial Slack action
+  // coverage — `download_file` is the FileRef producer; `upload_file`
+  // is the FileRef consumer that exercises the Slice 3.25 single-
+  // FileRef FileField (chip + variable picker + replace semantics).
+  // Slack is NOT yet in COVERED_PROVIDERS because the broader Slack
+  // action surface (messaging, channels, reactions, etc.) has no
+  // metas yet. Ordered to match displayOrder (10/20).
   slackDownloadFileMeta,
+  slackUploadFileMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
