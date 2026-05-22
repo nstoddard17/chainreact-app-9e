@@ -174,6 +174,37 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body).toMatchObject({ code: "PROVIDER_NOT_FOUND" });
   });
 
+  it("returns the 13 Gmail action metas registered in Slice 3.15, all email category + requiresIntegration", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/gmail/actions"), {
+      params: Promise.resolve({ id: "gmail" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{ key: string; category: string; requiresIntegration: boolean }>;
+    };
+    expect(body.provider).toBe("gmail");
+    expect(body.actions).toHaveLength(13);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "gmail:send_email",
+      "gmail:reply_to_email",
+      "gmail:create_draft",
+      "gmail:create_draft_reply",
+      "gmail:search_emails",
+      "gmail:get_attachment",
+      "gmail:add_label",
+      "gmail:remove_label",
+      "gmail:create_label",
+      "gmail:mark_as_read",
+      "gmail:mark_as_unread",
+      "gmail:archive_email",
+      "gmail:delete_email",
+    ]);
+    expect(body.actions.every((a) => a.category === "email")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+  });
+
   it("returns the 6 GitHub action metas in displayOrder", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/github/actions"), {

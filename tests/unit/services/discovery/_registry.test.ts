@@ -60,6 +60,28 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the Gmail action metas registered in Slice 3.15", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "gmail:send_email",
+        "gmail:reply_to_email",
+        "gmail:create_draft",
+        "gmail:create_draft_reply",
+        "gmail:search_emails",
+        "gmail:get_attachment",
+        "gmail:add_label",
+        "gmail:remove_label",
+        "gmail:create_label",
+        "gmail:mark_as_read",
+        "gmail:mark_as_unread",
+        "gmail:archive_email",
+        "gmail:delete_email",
+      ]),
+    );
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -183,6 +205,155 @@ describe("per-provider accessors", () => {
     expect(actionMetas.every((m) => m.category === "developer")).toBe(true);
     const triggerMetas = listTriggerMetasForProvider("github");
     expect(triggerMetas.every((m) => m.category === "developer")).toBe(true);
+  });
+
+  it("listActionMetasForProvider('gmail') returns the 13 Gmail actions in displayOrder", () => {
+    const metas = listActionMetasForProvider("gmail");
+    expect(metas).toHaveLength(13);
+    expect(metas.every((m) => m.provider === "gmail")).toBe(true);
+    expect(metas.map((m) => m.key)).toEqual([
+      "gmail:send_email",
+      "gmail:reply_to_email",
+      "gmail:create_draft",
+      "gmail:create_draft_reply",
+      "gmail:search_emails",
+      "gmail:get_attachment",
+      "gmail:add_label",
+      "gmail:remove_label",
+      "gmail:create_label",
+      "gmail:mark_as_read",
+      "gmail:mark_as_unread",
+      "gmail:archive_email",
+      "gmail:delete_email",
+    ]);
+  });
+
+  it("every Gmail action meta declares requiresIntegration=true and category='email'", () => {
+    const metas = listActionMetasForProvider("gmail");
+    for (const m of metas) {
+      expect(m.requiresIntegration).toBe(true);
+      expect(m.category).toBe("email");
+    }
+  });
+
+  // Slice 3.15 — pin the field-type choices for high-risk Gmail action
+  // metas. Each codifies a deliberate design decision so contract↔meta
+  // drift (e.g. recipient field reverting to CSV-in-text) fails fast.
+  describe("gmail:send_email field-type choices (Slice 3.15)", () => {
+    function sendEmailFields() {
+      const meta = listActionMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:send_email",
+      );
+      expect(meta).toBeDefined();
+      return meta!.fields;
+    }
+
+    it("`to` is a required string-array (chip input, not CSV-in-text)", () => {
+      const f = sendEmailFields().find((x) => x.name === "to");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("string-array");
+      expect(f!.required).toBe(true);
+    });
+
+    it("`cc` and `bcc` are optional string-array", () => {
+      const cc = sendEmailFields().find((x) => x.name === "cc");
+      const bcc = sendEmailFields().find((x) => x.name === "bcc");
+      expect(cc!.type).toBe("string-array");
+      expect(cc!.required).toBe(false);
+      expect(bcc!.type).toBe("string-array");
+      expect(bcc!.required).toBe(false);
+    });
+
+    it("`textBody` and `htmlBody` are textareas (both optional)", () => {
+      const t = sendEmailFields().find((x) => x.name === "textBody");
+      const h = sendEmailFields().find((x) => x.name === "htmlBody");
+      expect(t!.type).toBe("textarea");
+      expect(t!.required).toBe(false);
+      expect(h!.type).toBe("textarea");
+      expect(h!.required).toBe(false);
+    });
+
+    it("`labels` is an optional string-array (label ids only, no name lookup)", () => {
+      const f = sendEmailFields().find((x) => x.name === "labels");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("string-array");
+      expect(f!.required).toBe(false);
+    });
+  });
+
+  describe("gmail:delete_email required deleteMode (parity-gmail.md decision 2)", () => {
+    it("`deleteMode` is a required select with no defaultValue", () => {
+      const meta = listActionMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:delete_email",
+      );
+      expect(meta).toBeDefined();
+      const f = meta!.fields.find((x) => x.name === "deleteMode");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("select");
+      expect(f!.required).toBe(true);
+      expect(f!.defaultValue).toBeUndefined();
+      expect(f!.options!.map((o) => o.value).sort()).toEqual([
+        "permanent",
+        "trash",
+      ]);
+    });
+  });
+
+  describe("gmail:get_attachment FileRef boundary (Slice 3.15)", () => {
+    it("declares producesFileRef=true and outputs a fileRef-typed `file`", () => {
+      const meta = listActionMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:get_attachment",
+      );
+      expect(meta).toBeDefined();
+      expect(meta!.producesFileRef).toBe(true);
+      expect(meta!.consumesFileRef).toBe(false);
+      const fileOut = meta!.outputs.find((o) => o.name === "file");
+      expect(fileOut).toBeDefined();
+      expect(fileOut!.type).toBe("fileRef");
+    });
+  });
+
+  describe("gmail:add_label / gmail:remove_label labelIds shape", () => {
+    it("both expose `labelIds` as a required string-array", () => {
+      for (const key of ["gmail:add_label", "gmail:remove_label"]) {
+        const meta = listActionMetasForProvider("gmail").find(
+          (m) => m.key === key,
+        );
+        expect(meta).toBeDefined();
+        const f = meta!.fields.find((x) => x.name === "labelIds");
+        expect(f).toBeDefined();
+        expect(f!.type).toBe("string-array");
+        expect(f!.required).toBe(true);
+      }
+    });
+  });
+
+  describe("gmail:search_emails discriminated-union surface", () => {
+    it("exposes `searchMode` as a required select with both modes + defaults to 'filters'", () => {
+      const meta = listActionMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:search_emails",
+      );
+      expect(meta).toBeDefined();
+      const f = meta!.fields.find((x) => x.name === "searchMode");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("select");
+      expect(f!.required).toBe(true);
+      expect(f!.defaultValue).toBe("filters");
+      expect(f!.options!.map((o) => o.value).sort()).toEqual([
+        "filters",
+        "query",
+      ]);
+    });
+
+    it("exposes `labelIds` as a string-array in the filters branch", () => {
+      const meta = listActionMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:search_emails",
+      );
+      const f = meta!.fields.find((x) => x.name === "labelIds");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("string-array");
+      expect(f!.required).toBe(false);
+    });
   });
 
   it("listTriggerMetasForProvider('gmail') returns the 3 Gmail triggers in displayOrder", () => {

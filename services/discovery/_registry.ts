@@ -26,6 +26,21 @@ import { createBranchMeta } from "@/integrations/github/actions/createBranch.met
 import { createGistMeta } from "@/integrations/github/actions/createGist.meta";
 import { addCommentMeta } from "@/integrations/github/actions/addComment.meta";
 
+// Gmail action metadata (Slice 3.15 coverage scope).
+import { sendEmailMeta } from "@/integrations/gmail/actions/sendEmail.meta";
+import { replyToEmailMeta } from "@/integrations/gmail/actions/replyToEmail.meta";
+import { createDraftMeta } from "@/integrations/gmail/actions/createDraft.meta";
+import { createDraftReplyMeta } from "@/integrations/gmail/actions/createDraftReply.meta";
+import { searchEmailsMeta } from "@/integrations/gmail/actions/searchEmails.meta";
+import { getAttachmentMeta } from "@/integrations/gmail/actions/getAttachment.meta";
+import { addLabelMeta } from "@/integrations/gmail/actions/addLabel.meta";
+import { removeLabelMeta } from "@/integrations/gmail/actions/removeLabel.meta";
+import { createLabelMeta } from "@/integrations/gmail/actions/createLabel.meta";
+import { markAsReadMeta } from "@/integrations/gmail/actions/markAsRead.meta";
+import { markAsUnreadMeta } from "@/integrations/gmail/actions/markAsUnread.meta";
+import { archiveEmailMeta } from "@/integrations/gmail/actions/archiveEmail.meta";
+import { deleteEmailMeta } from "@/integrations/gmail/actions/deleteEmail.meta";
+
 // GitHub trigger metadata.
 import { newCommitTriggerMeta } from "@/integrations/github/triggers/newCommit/newCommit.meta";
 
@@ -87,6 +102,22 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   createBranchMeta,
   createGistMeta,
   addCommentMeta,
+  // Gmail (Slice 3.15). Ordered to match each meta's displayOrder
+  // (10/20/30/40/50/60/70/80/90/100/110/120/130) so the registry
+  // diff lines up with the sorted output of listActionMetasForProvider.
+  sendEmailMeta,
+  replyToEmailMeta,
+  createDraftMeta,
+  createDraftReplyMeta,
+  searchEmailsMeta,
+  getAttachmentMeta,
+  addLabelMeta,
+  removeLabelMeta,
+  createLabelMeta,
+  markAsReadMeta,
+  markAsUnreadMeta,
+  archiveEmailMeta,
+  deleteEmailMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
