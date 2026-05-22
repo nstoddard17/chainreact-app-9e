@@ -211,6 +211,92 @@ describe("per-provider accessors", () => {
     }
   });
 
+  // Slice 3.14 — pin the field-type choices for Gmail trigger metas so
+  // any contract↔meta drift (e.g. a future refactor that converts `from`
+  // to `text` losing the chip renderer) fails this test before reaching
+  // the builder. Each assertion encodes a deliberate design decision
+  // from Slice 3.12 / 3.13.
+  describe("gmail:new_email field-type choices (Slice 3.13)", () => {
+    function newEmailFields() {
+      const meta = listTriggerMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:new_email",
+      );
+      expect(meta).toBeDefined();
+      return meta!.fields;
+    }
+
+    it("exposes 5 user-configurable fields", () => {
+      expect(newEmailFields()).toHaveLength(5);
+    });
+
+    it("`from` is a string-array with defaultValue: []", () => {
+      const f = newEmailFields().find((x) => x.name === "from");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("string-array");
+      expect(f!.required).toBe(false);
+      expect(f!.defaultValue).toEqual([]);
+    });
+
+    it("`subject` is a text field", () => {
+      const f = newEmailFields().find((x) => x.name === "subject");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("text");
+      expect(f!.required).toBe(false);
+    });
+
+    it("`subjectExactMatch` is a boolean with defaultValue: true", () => {
+      const f = newEmailFields().find((x) => x.name === "subjectExactMatch");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("boolean");
+      expect(f!.defaultValue).toBe(true);
+    });
+
+    it("`hasAttachment` is a select with 3 options + defaultValue: 'any'", () => {
+      const f = newEmailFields().find((x) => x.name === "hasAttachment");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("select");
+      expect(f!.defaultValue).toBe("any");
+      expect(f!.options).toHaveLength(3);
+      expect(f!.options!.map((o) => o.value).sort()).toEqual([
+        "any",
+        "no",
+        "yes",
+      ]);
+    });
+
+    it("`labelIds` is a string-array with defaultValue: ['INBOX']", () => {
+      const f = newEmailFields().find((x) => x.name === "labelIds");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("string-array");
+      expect(f!.required).toBe(false);
+      expect(f!.defaultValue).toEqual(["INBOX"]);
+    });
+  });
+
+  describe("gmail:new_labeled_email field-type choices (Slice 3.12)", () => {
+    it("has a single required `labelId` text field", () => {
+      const meta = listTriggerMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:new_labeled_email",
+      );
+      expect(meta).toBeDefined();
+      expect(meta!.fields).toHaveLength(1);
+      const f = meta!.fields[0]!;
+      expect(f.name).toBe("labelId");
+      expect(f.type).toBe("text");
+      expect(f.required).toBe(true);
+    });
+  });
+
+  describe("gmail:new_attachment field-type choices (Slice 3.12)", () => {
+    it("has zero user-set fields (runtime schema declares none in v1)", () => {
+      const meta = listTriggerMetasForProvider("gmail").find(
+        (m) => m.key === "gmail:new_attachment",
+      );
+      expect(meta).toBeDefined();
+      expect(meta!.fields).toHaveLength(0);
+    });
+  });
+
   it("listTriggerMetasForProvider('slack') returns the 10 Slack triggers in displayOrder", () => {
     const metas = listTriggerMetasForProvider("slack");
     expect(metas).toHaveLength(10);

@@ -61,60 +61,19 @@ import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/h
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
+import { newEmailTriggerMeta } from "@/integrations/gmail/triggers/newEmail/newEmail.meta";
+import { newLabeledEmailTriggerMeta } from "@/integrations/gmail/triggers/newLabeledEmail/newLabeledEmail.meta";
 import type { ActionMeta } from "@/contracts/actionMeta";
-import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 
-const newEmailMeta: TriggerMeta = {
-  key: "gmail:new_email",
-  provider: "gmail",
-  type: "new_email",
-  displayName: "New Email",
-  description: "Fires when a new email arrives.",
-  category: "email",
-  activation: "polling",
-  requiresIntegration: true,
-  fields: [
-    {
-      name: "subject",
-      label: "Subject (optional)",
-      type: "text",
-      required: false,
-    },
-  ],
-  payloadShape: [
-    { name: "from", type: "string" },
-    { name: "subject", type: "string" },
-  ],
-  displayOrder: 10,
-};
-
-const newLabeledEmailMeta: TriggerMeta = {
-  key: "gmail:new_labeled_email",
-  provider: "gmail",
-  type: "new_labeled_email",
-  displayName: "New Labeled Email",
-  description: "Fires when a Gmail label is applied.",
-  category: "email",
-  activation: "polling",
-  requiresIntegration: true,
-  fields: [
-    {
-      name: "labelId",
-      label: "Label ID",
-      type: "text",
-      required: true,
-      placeholder: "Label_12345",
-    },
-  ],
-  payloadShape: [
-    { name: "from", type: "string" },
-    { name: "subject", type: "string" },
-    { name: "labelAppliedId", type: "string" },
-    { name: "labelsAdded", type: "array" },
-  ],
-  displayOrder: 20,
-};
+// Slice 3.14 — use the real shipped Gmail metas instead of inline
+// mocks. Migrating turns this integration test into a regression guard
+// against any future Gmail meta drift (renamed field, changed label,
+// dropped payloadShape entry, etc.). Previously the inline `newEmailMeta`
+// mock was out of sync with the shipped meta (1 field vs 5) and the
+// test silently passed. The picker test below selects new_labeled_email
+// — but exposing the real `newEmailTriggerMeta` keeps both Gmail triggers
+// available in the picker drill-in, matching the production surface.
 
 const httpRequestMeta: ActionMeta = {
   key: "native:http_request",
@@ -165,7 +124,7 @@ beforeEach(() => {
   mockListProviderActions.mockResolvedValue([]);
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockImplementation(async (p: string) =>
-    p === "gmail" ? [newEmailMeta, newLabeledEmailMeta] : [],
+    p === "gmail" ? [newEmailTriggerMeta, newLabeledEmailTriggerMeta] : [],
   );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
