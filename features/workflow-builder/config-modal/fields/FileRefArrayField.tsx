@@ -8,8 +8,14 @@ import { Input } from "@/components/ui/input";
 import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
 import { FieldShell } from "./FieldShell";
 import { VariablePickerButton } from "./VariablePickerButton";
-import { FileRefSchema, type FileRef } from "@/contracts/file";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import type { FileRef } from "@/contracts/file";
+import {
+  coerceFileRefArray,
+  entryKey,
+  entryLabel,
+  isExactToken,
+  tryParseFileRef,
+} from "./_fileRefEntry";
 import type { FieldRendererProps } from "./types";
 
 /**
@@ -91,88 +97,9 @@ import type { FieldRendererProps } from "./types";
  *   - Type-aware picker filtering (show only `fileRef` outputs).
  */
 
-// Entry shape used internally by the renderer. The on-disk array
-// contains the raw `string` (token) or `FileRef` (object) values; the
-// `Entry` discriminated form is for rendering only.
-type Entry =
-  | { readonly kind: "token"; readonly value: string }
-  | { readonly kind: "fileRef"; readonly value: FileRef };
-
-/** Returns true when the trimmed string is a single token spanning the whole input. */
-function isExactToken(trimmed: string): boolean {
-  if (!trimmed.startsWith("{{") || !trimmed.endsWith("}}")) return false;
-  const refs = parseReferences(trimmed);
-  if (refs.length !== 1) return false;
-  return refs[0]!.token === trimmed;
-}
-
-/** Try to parse a paste-text input as a FileRef JSON literal. */
-function tryParseFileRef(trimmed: string): FileRef | null {
-  // FileRef literals are JSON objects — quick prefix check avoids
-  // pointlessly parsing every paste.
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    return null;
-  }
-  const result = FileRefSchema.safeParse(parsed);
-  return result.success ? result.data : null;
-}
-
-/**
- * Coerce arbitrary input into the canonical on-disk array. Drops any
- * entry that is neither a valid token string nor a FileRefSchema parse.
- * Filtering (not throwing) keeps a malformed workflow draft openable so
- * the author can recover; the resolved-config Zod parse at save time is
- * the authoritative gate.
- */
-function coerceValue(value: unknown): Array<string | FileRef> {
-  if (!Array.isArray(value)) return [];
-  const out: Array<string | FileRef> = [];
-  for (const raw of value) {
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.length > 0 && isExactToken(trimmed)) {
-        out.push(trimmed);
-      }
-      continue;
-    }
-    if (raw && typeof raw === "object") {
-      const parsed = FileRefSchema.safeParse(raw);
-      if (parsed.success) out.push(parsed.data);
-    }
-  }
-  return out;
-}
-
-/** Build the renderer's internal Entry list from the on-disk array. */
-function toEntries(values: ReadonlyArray<string | FileRef>): Entry[] {
-  return values.map((v) =>
-    typeof v === "string"
-      ? ({ kind: "token", value: v } as const)
-      : ({ kind: "fileRef", value: v } as const),
-  );
-}
-
-/** Canonical comparison key for dedup. Tokens compare by literal; FileRefs by JSON.stringify of the validated object. */
-function entryKey(value: string | FileRef): string {
-  if (typeof value === "string") return `t:${value}`;
-  // Deterministic key — FileRef objects are strict + small; JSON.stringify
-  // on a validated discriminated-union object is a stable hash for dedup.
-  return `f:${JSON.stringify(value)}`;
-}
-
-/** Display label for a chip — token shorthand or FileRef.name. */
-function entryLabel(entry: Entry): string {
-  if (entry.kind === "token") return entry.value;
-  return entry.value.name;
-}
-
 /** Stable accessible name for the chip's remove button. */
-function entryAriaLabel(label: string, entry: Entry): string {
-  return `Remove ${label} item ${entryLabel(entry)}`;
+function chipAriaLabel(fieldLabel: string, value: string | FileRef): string {
+  return `Remove ${fieldLabel} item ${entryLabel(value)}`;
 }
 
 export const FileRefArrayField: React.FC<FieldRendererProps> = ({
@@ -182,8 +109,7 @@ export const FileRefArrayField: React.FC<FieldRendererProps> = ({
   onChange,
   disabled,
 }) => {
-  const items = coerceValue(value);
-  const entries = toEntries(items);
+  const items = coerceFileRefArray(value);
   const controlId = `field-${field.name}`;
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = React.useState("");
@@ -302,27 +228,27 @@ export const FileRefArrayField: React.FC<FieldRendererProps> = ({
             latestValuesBySource={latestValuesBySource}
           />
         </div>
-        {entries.length === 0 ? (
+        {items.length === 0 ? (
           <p className="text-xs italic text-muted-foreground">No attachments.</p>
         ) : (
           <div
             className="flex flex-wrap gap-1.5"
             data-testid={`field-${field.name}-chips`}
           >
-            {entries.map((entry, i) => {
-              const label = entryLabel(entry);
+            {items.map((entry, i) => {
+              const entryKind = typeof entry === "string" ? "token" : "fileRef";
               return (
                 <Badge
-                  key={`${i}-${entryKey(items[i]!)}`}
+                  key={`${i}-${entryKey(entry)}`}
                   variant="outline"
                   className="gap-1 pr-1"
-                  data-entry-kind={entry.kind}
+                  data-entry-kind={entryKind}
                 >
                   <Paperclip className="h-3 w-3 text-muted-foreground" />
-                  <span>{label}</span>
+                  <span>{entryLabel(entry)}</span>
                   <button
                     type="button"
-                    aria-label={entryAriaLabel(field.label, entry)}
+                    aria-label={chipAriaLabel(field.label, entry)}
                     onClick={() => removeAt(i)}
                     disabled={disabled}
                     className="rounded-sm p-0.5 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"

@@ -1,8 +1,16 @@
 /**
  * Tests for the "text-style" field renderers — TextField, TextareaField,
- * NumberField, CronField, FileField. These share the FieldShell shape
+ * NumberField, CronField. These share the FieldShell shape
  * (label + required + helper + inline error) so they're batched here
  * to keep one suite per logical concern.
+ *
+ * NOTE — FileField moved out (Slice 3.25). The earlier paste-text
+ * placeholder lived in this suite as a one-liner alongside the other
+ * "input wrapped in FieldShell" renderers. After the Slice 3.25
+ * upgrade FileField now owns chip rendering, paste-text + JSON parsing,
+ * variable-picker integration, and replace-not-append semantics — none
+ * of which match the "text-style" shape this suite represents. The
+ * full FileField coverage lives in `FileField.test.tsx`.
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -11,7 +19,6 @@ import { TextField } from "@/features/workflow-builder/config-modal/fields/TextF
 import { TextareaField } from "@/features/workflow-builder/config-modal/fields/TextareaField";
 import { NumberField } from "@/features/workflow-builder/config-modal/fields/NumberField";
 import { CronField } from "@/features/workflow-builder/config-modal/fields/CronField";
-import { FileField } from "@/features/workflow-builder/config-modal/fields/FileField";
 
 function textField(overrides: Partial<FieldMeta> = {}): FieldMeta {
   return {
@@ -216,23 +223,3 @@ describe("CronField", () => {
   });
 });
 
-describe("FileField", () => {
-  it("surfaces a 'picker arrives later' hint and a typed-fallback input", () => {
-    render(
-      <FileField
-        field={textField({
-          name: "ref",
-          label: "Source File",
-          type: "file",
-          required: false,
-        })}
-        value=""
-        onChange={jest.fn()}
-      />,
-    );
-    expect(screen.getByLabelText("Source File")).toBeInTheDocument();
-    expect(
-      screen.getByText(/File picker.*lands in Slice 3.7/i),
-    ).toBeInTheDocument();
-  });
-});
