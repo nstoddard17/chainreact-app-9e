@@ -109,6 +109,24 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the Notion page + database action metas registered in Slice 3.41", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "notion:create_page",
+        "notion:update_page",
+        "notion:archive_page",
+        "notion:restore_page",
+        "notion:get_page",
+        "notion:create_database",
+        "notion:create_database_entry",
+        "notion:query_database",
+        "notion:search",
+      ]),
+    );
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -1950,6 +1968,400 @@ describe("per-provider accessors", () => {
       for (const banned of ["bytes", "base64", "content", "data"]) {
         expect(names).not.toContain(banned);
       }
+    });
+  });
+
+  describe("Notion pages + databases surface (Slice 3.41 — Group 3.41)", () => {
+    function notionActionMetas() {
+      return listActionMetasForProvider("notion");
+    }
+
+    it("Group 3.41 registers all 9 page + database action metas in displayOrder", () => {
+      const metas = notionActionMetas();
+      expect(metas.map((m) => m.key)).toEqual([
+        "notion:create_page",
+        "notion:update_page",
+        "notion:archive_page",
+        "notion:restore_page",
+        "notion:get_page",
+        "notion:create_database",
+        "notion:create_database_entry",
+        "notion:query_database",
+        "notion:search",
+      ]);
+    });
+
+    it("every Notion action meta declares provider=notion, category=data, requiresIntegration=true, no FileRef", () => {
+      const metas = notionActionMetas();
+      expect(metas).toHaveLength(9);
+      for (const meta of metas) {
+        expect(meta.provider).toBe("notion");
+        expect(meta.category).toBe("data");
+        expect(meta.requiresIntegration).toBe(true);
+        expect(meta.producesFileRef).toBe(false);
+        expect(meta.consumesFileRef).toBe(false);
+      }
+    });
+
+    it("Notion displayOrders are unique within the provider", () => {
+      const orders = notionActionMetas().map((m) => m.displayOrder);
+      expect(new Set(orders).size).toBe(orders.length);
+      for (const o of orders) {
+        expect(o).not.toBeNull();
+      }
+    });
+
+    it("`startCursor` is NEVER exposed in any Notion meta (server-managed pagination)", () => {
+      for (const meta of notionActionMetas()) {
+        const names = meta.fields.map((f) => f.name);
+        expect(names).not.toContain("startCursor");
+      }
+    });
+
+    it("ID fields (pageId, databaseId, parentPageId, etc.) are `text` (resolvers deferred to Slice 3.43+)", () => {
+      const idFieldNames = new Set([
+        "pageId",
+        "databaseId",
+        "parentPageId",
+      ]);
+      for (const meta of notionActionMetas()) {
+        for (const f of meta.fields) {
+          if (idFieldNames.has(f.name)) {
+            expect(f.type).toBe("text");
+            expect(f.optionsSource).toBeUndefined();
+          }
+        }
+      }
+    });
+
+    it("nested-object fields (parent, properties, children, icon, cover, filter, sorts) are `textarea` (paste-JSON UX)", () => {
+      const jsonFieldNames = new Set([
+        "parent",
+        "properties",
+        "children",
+        "icon",
+        "cover",
+        "filter",
+        "sorts",
+      ]);
+      for (const meta of notionActionMetas()) {
+        for (const f of meta.fields) {
+          if (jsonFieldNames.has(f.name)) {
+            expect(f.type).toBe("textarea");
+            expect(f.placeholder).toBeDefined();
+          }
+        }
+      }
+    });
+
+    it("`pageSize` fields use number with min:1 / max:100 / integer (Notion's hard ceiling)", () => {
+      for (const meta of notionActionMetas()) {
+        const pageSize = meta.fields.find((f) => f.name === "pageSize");
+        if (pageSize) {
+          expect(pageSize.type).toBe("number");
+          expect(pageSize.required).toBe(false);
+          expect(pageSize.numeric?.min).toBe(1);
+          expect(pageSize.numeric?.max).toBe(100);
+          expect(pageSize.numeric?.integer).toBe(true);
+        }
+      }
+    });
+
+    it("no Notion output exposes raw bytes/base64/content/data sibling fields", () => {
+      const banned = ["bytes", "base64", "data"];
+      for (const meta of notionActionMetas()) {
+        const names = meta.outputs.map((o) => o.name);
+        for (const b of banned) {
+          expect(names).not.toContain(b);
+        }
+      }
+    });
+
+    describe("create_page field surface", () => {
+      function createPageMeta() {
+        return notionActionMetas().find((m) => m.key === "notion:create_page")!;
+      }
+
+      it("exposes parent / properties / children / icon / cover", () => {
+        expect(createPageMeta().fields.map((f) => f.name)).toEqual([
+          "parent",
+          "properties",
+          "children",
+          "icon",
+          "cover",
+        ]);
+      });
+
+      it("parent + properties are required textareas; children/icon/cover are optional textareas", () => {
+        const byName = new Map(
+          createPageMeta().fields.map((f) => [f.name, f]),
+        );
+        expect(byName.get("parent")!.type).toBe("textarea");
+        expect(byName.get("parent")!.required).toBe(true);
+        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.required).toBe(true);
+        for (const optional of ["children", "icon", "cover"]) {
+          expect(byName.get(optional)!.type).toBe("textarea");
+          expect(byName.get(optional)!.required).toBe(false);
+        }
+      });
+
+      it("output is {pageId, url, parent:object, createdTime, lastEditedTime}", () => {
+        const outputs = createPageMeta().outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "pageId",
+          "url",
+          "parent",
+          "createdTime",
+          "lastEditedTime",
+        ]);
+        expect(outputs.find((o) => o.name === "parent")!.type).toBe("object");
+      });
+    });
+
+    describe("update_page field surface", () => {
+      function updatePageMeta() {
+        return notionActionMetas().find((m) => m.key === "notion:update_page")!;
+      }
+
+      it("pageId is required text; properties/icon/cover are optional textareas; archived is optional boolean", () => {
+        const byName = new Map(
+          updatePageMeta().fields.map((f) => [f.name, f]),
+        );
+        expect(byName.get("pageId")!.type).toBe("text");
+        expect(byName.get("pageId")!.required).toBe(true);
+        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.required).toBe(false);
+        expect(byName.get("icon")!.type).toBe("textarea");
+        expect(byName.get("icon")!.required).toBe(false);
+        expect(byName.get("cover")!.type).toBe("textarea");
+        expect(byName.get("cover")!.required).toBe(false);
+        expect(byName.get("archived")!.type).toBe("boolean");
+        expect(byName.get("archived")!.required).toBe(false);
+      });
+
+      it("description mentions the runtime cross-field 'at least one mutating field' invariant", () => {
+        expect(updatePageMeta().description.toLowerCase()).toContain(
+          "at least one mutating field",
+        );
+      });
+
+      it("output is {pageId, url, archived, lastEditedTime}", () => {
+        expect(updatePageMeta().outputs.map((o) => o.name)).toEqual([
+          "pageId",
+          "url",
+          "archived",
+          "lastEditedTime",
+        ]);
+      });
+    });
+
+    describe("archive_page / restore_page / get_page id-only field surface", () => {
+      it.each([
+        "notion:archive_page",
+        "notion:restore_page",
+        "notion:get_page",
+      ])("%s exposes only pageId (required text)", (key) => {
+        const meta = notionActionMetas().find((m) => m.key === key)!;
+        expect(meta.fields.map((f) => f.name)).toEqual(["pageId"]);
+        const pageId = meta.fields[0]!;
+        expect(pageId.type).toBe("text");
+        expect(pageId.required).toBe(true);
+      });
+
+      it("archive_page output is {pageId, url, archived, lastEditedTime}", () => {
+        const meta = notionActionMetas().find(
+          (m) => m.key === "notion:archive_page",
+        )!;
+        expect(meta.outputs.map((o) => o.name)).toEqual([
+          "pageId",
+          "url",
+          "archived",
+          "lastEditedTime",
+        ]);
+      });
+
+      it("get_page output exposes parent/icon/cover as objects + skippedProperties as array", () => {
+        const meta = notionActionMetas().find(
+          (m) => m.key === "notion:get_page",
+        )!;
+        const outputs = new Map(meta.outputs.map((o) => [o.name, o]));
+        expect(outputs.get("parent")!.type).toBe("object");
+        expect(outputs.get("icon")!.type).toBe("object");
+        expect(outputs.get("cover")!.type).toBe("object");
+        expect(outputs.get("properties")!.type).toBe("object");
+        expect(outputs.get("skippedProperties")!.type).toBe("array");
+      });
+    });
+
+    describe("create_database field surface", () => {
+      function createDatabaseMeta() {
+        return notionActionMetas().find(
+          (m) => m.key === "notion:create_database",
+        )!;
+      }
+
+      it("exposes parentPageId / title / description / isInline / properties", () => {
+        expect(createDatabaseMeta().fields.map((f) => f.name)).toEqual([
+          "parentPageId",
+          "title",
+          "description",
+          "isInline",
+          "properties",
+        ]);
+      });
+
+      it("parentPageId+title+properties required; description/isInline optional", () => {
+        const byName = new Map(
+          createDatabaseMeta().fields.map((f) => [f.name, f]),
+        );
+        expect(byName.get("parentPageId")!.required).toBe(true);
+        expect(byName.get("title")!.required).toBe(true);
+        expect(byName.get("description")!.required).toBe(false);
+        expect(byName.get("description")!.type).toBe("textarea");
+        expect(byName.get("isInline")!.required).toBe(false);
+        expect(byName.get("isInline")!.type).toBe("boolean");
+        expect(byName.get("properties")!.required).toBe(true);
+        expect(byName.get("properties")!.type).toBe("textarea");
+      });
+
+      it("description mentions the 'exactly one title property' runtime invariant", () => {
+        expect(createDatabaseMeta().description.toLowerCase()).toContain(
+          "exactly one property of type 'title'",
+        );
+      });
+
+      it("output includes databaseId + bounded scalars + properties object", () => {
+        const outputs = createDatabaseMeta().outputs;
+        expect(outputs.map((o) => o.name)).toEqual([
+          "databaseId",
+          "object",
+          "url",
+          "title",
+          "description",
+          "archived",
+          "isInline",
+          "parentType",
+          "parentId",
+          "createdTime",
+          "lastEditedTime",
+          "properties",
+        ]);
+        expect(outputs.find((o) => o.name === "properties")!.type).toBe(
+          "object",
+        );
+      });
+    });
+
+    describe("create_database_entry field surface", () => {
+      function createEntryMeta() {
+        return notionActionMetas().find(
+          (m) => m.key === "notion:create_database_entry",
+        )!;
+      }
+
+      it("exposes databaseId / properties / children / icon / cover", () => {
+        expect(createEntryMeta().fields.map((f) => f.name)).toEqual([
+          "databaseId",
+          "properties",
+          "children",
+          "icon",
+          "cover",
+        ]);
+      });
+
+      it("databaseId text + required; properties textarea + required; children/icon/cover optional textarea", () => {
+        const byName = new Map(
+          createEntryMeta().fields.map((f) => [f.name, f]),
+        );
+        expect(byName.get("databaseId")!.type).toBe("text");
+        expect(byName.get("databaseId")!.required).toBe(true);
+        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.required).toBe(true);
+        for (const optional of ["children", "icon", "cover"]) {
+          expect(byName.get(optional)!.type).toBe("textarea");
+          expect(byName.get(optional)!.required).toBe(false);
+        }
+      });
+
+      it("output mirrors create_page", () => {
+        expect(createEntryMeta().outputs.map((o) => o.name)).toEqual([
+          "pageId",
+          "url",
+          "parent",
+          "createdTime",
+          "lastEditedTime",
+        ]);
+      });
+    });
+
+    describe("query_database field surface", () => {
+      function queryMeta() {
+        return notionActionMetas().find(
+          (m) => m.key === "notion:query_database",
+        )!;
+      }
+
+      it("exposes databaseId / filter / sorts / pageSize and OMITS startCursor", () => {
+        const names = queryMeta().fields.map((f) => f.name);
+        expect(names).toEqual(["databaseId", "filter", "sorts", "pageSize"]);
+        expect(names).not.toContain("startCursor");
+      });
+
+      it("databaseId required text; filter/sorts optional textareas; pageSize optional number 1..100", () => {
+        const byName = new Map(queryMeta().fields.map((f) => [f.name, f]));
+        expect(byName.get("databaseId")!.type).toBe("text");
+        expect(byName.get("databaseId")!.required).toBe(true);
+        expect(byName.get("filter")!.type).toBe("textarea");
+        expect(byName.get("filter")!.required).toBe(false);
+        expect(byName.get("sorts")!.type).toBe("textarea");
+        expect(byName.get("sorts")!.required).toBe(false);
+        const pageSize = byName.get("pageSize")!;
+        expect(pageSize.type).toBe("number");
+        expect(pageSize.required).toBe(false);
+        expect(pageSize.numeric?.min).toBe(1);
+        expect(pageSize.numeric?.max).toBe(100);
+      });
+
+      it("output is {results: array, hasMore: boolean, nextCursor: string}", () => {
+        const outputs = new Map(
+          queryMeta().outputs.map((o) => [o.name, o]),
+        );
+        expect(outputs.get("results")!.type).toBe("array");
+        expect(outputs.get("hasMore")!.type).toBe("boolean");
+        expect(outputs.get("nextCursor")!.type).toBe("string");
+      });
+    });
+
+    describe("search field surface", () => {
+      function searchMeta() {
+        return notionActionMetas().find((m) => m.key === "notion:search")!;
+      }
+
+      it("exposes query / filter / pageSize and OMITS startCursor", () => {
+        const names = searchMeta().fields.map((f) => f.name);
+        expect(names).toEqual(["query", "filter", "pageSize"]);
+        expect(names).not.toContain("startCursor");
+      });
+
+      it("query required text (empty allowed per Notion API); filter optional textarea; pageSize optional number", () => {
+        const byName = new Map(searchMeta().fields.map((f) => [f.name, f]));
+        expect(byName.get("query")!.type).toBe("text");
+        expect(byName.get("query")!.required).toBe(true);
+        expect(byName.get("filter")!.type).toBe("textarea");
+        expect(byName.get("filter")!.required).toBe(false);
+        expect(byName.get("pageSize")!.type).toBe("number");
+        expect(byName.get("pageSize")!.required).toBe(false);
+      });
+
+      it("output is {results: array, hasMore: boolean, nextCursor: string}", () => {
+        const outputs = new Map(
+          searchMeta().outputs.map((o) => [o.name, o]),
+        );
+        expect(outputs.get("results")!.type).toBe("array");
+        expect(outputs.get("hasMore")!.type).toBe("boolean");
+        expect(outputs.get("nextCursor")!.type).toBe("string");
+      });
     });
   });
 

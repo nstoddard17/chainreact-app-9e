@@ -110,7 +110,7 @@ describe("GET /api/providers", () => {
     expect(outlook?.hasMetadata).toBe(true);
   });
 
-  it("marks providers without metadata yet (e.g. notion) as hasMetadata=false", async () => {
+  it("marks Notion as hasMetadata=true now that Slice 3.41 shipped the page+database action metas", async () => {
     authedUser();
     const res = await getProviders();
     const body = (await res.json()) as {
@@ -118,7 +118,18 @@ describe("GET /api/providers", () => {
     };
     const notion = body.providers.find((p) => p.id === "notion");
     expect(notion).toBeDefined();
-    expect(notion?.hasMetadata).toBe(false);
+    expect(notion?.hasMetadata).toBe(true);
+  });
+
+  it("marks providers still without any metadata (e.g. hubspot) as hasMetadata=false", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const hubspot = body.providers.find((p) => p.id === "hubspot");
+    expect(hubspot).toBeDefined();
+    expect(hubspot?.hasMetadata).toBe(false);
   });
 
   it("sorts providers by displayName", async () => {
@@ -332,6 +343,41 @@ describe("GET /api/providers/[id]/actions", () => {
       "github:add_comment",
     ]);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+  });
+
+  it("returns the 9 Notion page+database action metas in displayOrder (Slice 3.41 — Notion not yet in COVERED_PROVIDERS, more land in 3.42)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/notion/actions"), {
+      params: Promise.resolve({ id: "notion" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+      }>;
+    };
+    expect(body.provider).toBe("notion");
+    expect(body.actions).toHaveLength(9);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "notion:create_page",
+      "notion:update_page",
+      "notion:archive_page",
+      "notion:restore_page",
+      "notion:get_page",
+      "notion:create_database",
+      "notion:create_database_entry",
+      "notion:query_database",
+      "notion:search",
+    ]);
+    expect(body.actions.every((a) => a.category === "data")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+    expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
+    expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
   });
 });
 

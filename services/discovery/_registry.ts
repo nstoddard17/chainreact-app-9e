@@ -110,6 +110,21 @@ import { slackListUsersMeta } from "@/integrations/slack/actions/users/listUsers
 import { slackGetFileInfoMeta } from "@/integrations/slack/actions/files/getFileInfo.meta";
 import { slackPostInteractiveBlocksMeta } from "@/integrations/slack/actions/postInteractiveBlocks.meta";
 
+// Notion action metadata (Slice 3.41 — pages + databases group, 9 of
+// 16). Notion stays OUT of COVERED_PROVIDERS until Slice 3.42 lands the
+// remaining 7 (blocks / comments / users) and flips the structural
+// gate. Adding a new Notion handler in the meantime can land without a
+// meta; once Slice 3.42 ships, 1:1 handler↔meta coverage is enforced.
+import { notionCreatePageMeta } from "@/integrations/notion/actions/createPage.meta";
+import { notionUpdatePageMeta } from "@/integrations/notion/actions/updatePage.meta";
+import { notionArchivePageMeta } from "@/integrations/notion/actions/archivePage.meta";
+import { notionRestorePageMeta } from "@/integrations/notion/actions/restorePage.meta";
+import { notionGetPageMeta } from "@/integrations/notion/actions/getPage.meta";
+import { notionCreateDatabaseMeta } from "@/integrations/notion/actions/createDatabase.meta";
+import { notionCreateDatabaseEntryMeta } from "@/integrations/notion/actions/createDatabaseEntry.meta";
+import { notionQueryDatabaseMeta } from "@/integrations/notion/actions/queryDatabase.meta";
+import { notionSearchMeta } from "@/integrations/notion/actions/search.meta";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -251,6 +266,21 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   slackListUsersMeta,
   slackGetFileInfoMeta,
   slackPostInteractiveBlocksMeta,
+  // Notion pages + databases (Slice 3.41 — Group 3.41, 9 of 16). The
+  // page/database surface — paste-JSON for nested object/array fields
+  // (parent, properties, children, icon, cover, filter, sorts) per the
+  // metadata plan §3.2. The remaining 7 (blocks / comments / users)
+  // land in Slice 3.42, which flips Notion into COVERED_PROVIDERS in
+  // the same commit. Ordered to match displayOrder (10..90).
+  notionCreatePageMeta,
+  notionUpdatePageMeta,
+  notionArchivePageMeta,
+  notionRestorePageMeta,
+  notionGetPageMeta,
+  notionCreateDatabaseMeta,
+  notionCreateDatabaseEntryMeta,
+  notionQueryDatabaseMeta,
+  notionSearchMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
