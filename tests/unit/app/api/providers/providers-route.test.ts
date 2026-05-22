@@ -77,7 +77,7 @@ describe("GET /api/providers", () => {
     expect(github?.hasMetadata).toBe(true);
   });
 
-  it("marks providers without metadata yet (e.g. slack) as hasMetadata=false", async () => {
+  it("marks Slack as hasMetadata=true now that Slice 3.11 shipped its trigger metas", async () => {
     authedUser();
     const res = await getProviders();
     const body = (await res.json()) as {
@@ -85,7 +85,18 @@ describe("GET /api/providers", () => {
     };
     const slack = body.providers.find((p) => p.id === "slack");
     expect(slack).toBeDefined();
-    expect(slack?.hasMetadata).toBe(false);
+    expect(slack?.hasMetadata).toBe(true);
+  });
+
+  it("marks providers without metadata yet (e.g. gmail) as hasMetadata=false", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const gmail = body.providers.find((p) => p.id === "gmail");
+    expect(gmail).toBeDefined();
+    expect(gmail?.hasMetadata).toBe(false);
   });
 
   it("sorts providers by displayName", async () => {
@@ -132,7 +143,7 @@ describe("GET /api/providers/[id]/actions", () => {
     );
   });
 
-  it("returns empty array for a manifest-registered provider with no metas yet", async () => {
+  it("returns empty array for a provider with trigger metas but no action metas (e.g. slack after Slice 3.11)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/slack/actions"), {
       params: Promise.resolve({ id: "slack" }),
@@ -222,5 +233,33 @@ describe("GET /api/providers/[id]/triggers", () => {
       key: "github:new_commit",
       activation: "webhook",
     });
+  });
+
+  it("returns the 10 Slack trigger metas registered in Slice 3.11, all webhook-activated", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/slack/triggers"), {
+      params: Promise.resolve({ id: "slack" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{ key: string; activation: string; requiresIntegration: boolean }>;
+    };
+    expect(body.provider).toBe("slack");
+    expect(body.triggers).toHaveLength(10);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "slack:message.channel",
+      "slack:message.im",
+      "slack:message.group",
+      "slack:message.mpim",
+      "slack:reaction_added",
+      "slack:reaction_removed",
+      "slack:channel_created",
+      "slack:member_joined_channel",
+      "slack:member_left_channel",
+      "slack:file_shared",
+    ]);
+    expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
+    expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
   });
 });

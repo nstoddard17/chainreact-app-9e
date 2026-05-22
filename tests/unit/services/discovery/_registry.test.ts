@@ -96,6 +96,25 @@ describe("listAllTriggerMetas", () => {
     expect(keys).toContain("github:new_commit");
   });
 
+  it("returns the Slack trigger metas registered in Slice 3.11", () => {
+    const metas = listAllTriggerMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "slack:message.channel",
+        "slack:message.im",
+        "slack:message.group",
+        "slack:message.mpim",
+        "slack:reaction_added",
+        "slack:reaction_removed",
+        "slack:channel_created",
+        "slack:member_joined_channel",
+        "slack:member_left_channel",
+        "slack:file_shared",
+      ]),
+    );
+  });
+
   it("returns metas that pass the Zod contract", () => {
     for (const m of listAllTriggerMetas()) {
       expect(() => TriggerMetaSchema.parse(m)).not.toThrow();
@@ -154,6 +173,39 @@ describe("per-provider accessors", () => {
     expect(triggerMetas.every((m) => m.category === "developer")).toBe(true);
   });
 
+  it("listTriggerMetasForProvider('slack') returns the 10 Slack triggers in displayOrder", () => {
+    const metas = listTriggerMetasForProvider("slack");
+    expect(metas).toHaveLength(10);
+    expect(metas.every((m) => m.provider === "slack")).toBe(true);
+    expect(metas.map((m) => m.key)).toEqual([
+      "slack:message.channel",
+      "slack:message.im",
+      "slack:message.group",
+      "slack:message.mpim",
+      "slack:reaction_added",
+      "slack:reaction_removed",
+      "slack:channel_created",
+      "slack:member_joined_channel",
+      "slack:member_left_channel",
+      "slack:file_shared",
+    ]);
+  });
+
+  it("every Slack trigger meta declares activation='webhook' and requiresIntegration=true", () => {
+    const metas = listTriggerMetasForProvider("slack");
+    for (const m of metas) {
+      expect(m.activation).toBe("webhook");
+      expect(m.requiresIntegration).toBe(true);
+    }
+  });
+
+  it("every Slack trigger meta uses a Slack-appropriate category (messaging or files)", () => {
+    const metas = listTriggerMetasForProvider("slack");
+    for (const m of metas) {
+      expect(["messaging", "files"]).toContain(m.category);
+    }
+  });
+
   it("returns [] for an unknown provider", () => {
     expect(listActionMetasForProvider("nonexistent")).toEqual([]);
     expect(listTriggerMetasForProvider("nonexistent")).toEqual([]);
@@ -190,10 +242,11 @@ describe("keyed accessors", () => {
 });
 
 describe("listProvidersWithMetadata", () => {
-  it("returns sorted unique provider ids covering native and github", () => {
+  it("returns sorted unique provider ids covering native, github, and slack", () => {
     const providers = listProvidersWithMetadata();
     expect(providers).toContain("native");
     expect(providers).toContain("github");
+    expect(providers).toContain("slack");
     const sorted = [...providers].sort();
     expect(providers).toEqual(sorted);
     expect(new Set(providers).size).toBe(providers.length);

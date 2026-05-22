@@ -60,8 +60,24 @@ import { listAllTriggerMetas } from "@/services/discovery/_registry";
  * The accompanying comment must explain *why*.
  */
 const SHARED_INFRA_EXEMPT_KEYS: ReadonlySet<string> = new Set<string>([
-  // (no exemptions yet — every registered trigger meta currently does
-  //  per-workflow activation work)
+  // Slack (Slice 3.11). Slack's Events API uses one global webhook URL
+  // per app installation, routed at receive time via the per-(provider,
+  // eventType) filter registry in `core/triggers/filterRegistry.ts`.
+  // There is no per-workflow subscription to create at activate time —
+  // `services/triggers/lifecycle.ts` writes a `trigger_resources` row
+  // and the dispatcher looks the row up by (provider, event_type) and
+  // gates it through the registered filter. The runtime filter for each
+  // key lives at `integrations/slack/triggers/<event>/filter.ts`.
+  "slack:message.channel",
+  "slack:message.im",
+  "slack:message.group",
+  "slack:message.mpim",
+  "slack:reaction_added",
+  "slack:reaction_removed",
+  "slack:channel_created",
+  "slack:member_joined_channel",
+  "slack:member_left_channel",
+  "slack:file_shared",
 ]);
 
 describe("trigger-meta ↔ activation-registry invariant", () => {

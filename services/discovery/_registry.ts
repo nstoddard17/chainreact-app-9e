@@ -29,6 +29,18 @@ import { addCommentMeta } from "@/integrations/github/actions/addComment.meta";
 // GitHub trigger metadata.
 import { newCommitTriggerMeta } from "@/integrations/github/triggers/newCommit/newCommit.meta";
 
+// Slack trigger metadata (Slice 3.11 coverage scope).
+import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
+import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
+import { newMessagePrivateChannelTriggerMeta } from "@/integrations/slack/triggers/newMessagePrivateChannel/newMessagePrivateChannel.meta";
+import { newGroupDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newGroupDirectMessage/newGroupDirectMessage.meta";
+import { reactionAddedTriggerMeta } from "@/integrations/slack/triggers/reactionAdded/reactionAdded.meta";
+import { reactionRemovedTriggerMeta } from "@/integrations/slack/triggers/reactionRemoved/reactionRemoved.meta";
+import { channelCreatedTriggerMeta } from "@/integrations/slack/triggers/channelCreated/channelCreated.meta";
+import { memberJoinedChannelTriggerMeta } from "@/integrations/slack/triggers/memberJoinedChannel/memberJoinedChannel.meta";
+import { memberLeftChannelTriggerMeta } from "@/integrations/slack/triggers/memberLeftChannel/memberLeftChannel.meta";
+import { fileUploadedTriggerMeta } from "@/integrations/slack/triggers/fileUploaded/fileUploaded.meta";
+
 /**
  * Hand-maintained discovery metadata registry.
  *
@@ -78,6 +90,19 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   scheduledTriggerMeta,
   // GitHub (Slice 3.0b).
   newCommitTriggerMeta,
+  // Slack (Slice 3.11). Slack uses a single global webhook URL — no
+  // per-workflow activation work — so every key below is registered in
+  // SHARED_INFRA_EXEMPT_KEYS of the activation invariant test.
+  newMessageChannelTriggerMeta,
+  newDirectMessageTriggerMeta,
+  newMessagePrivateChannelTriggerMeta,
+  newGroupDirectMessageTriggerMeta,
+  reactionAddedTriggerMeta,
+  reactionRemovedTriggerMeta,
+  channelCreatedTriggerMeta,
+  memberJoinedChannelTriggerMeta,
+  memberLeftChannelTriggerMeta,
+  fileUploadedTriggerMeta,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
