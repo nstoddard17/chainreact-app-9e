@@ -88,7 +88,7 @@ describe("GET /api/providers", () => {
     expect(slack?.hasMetadata).toBe(true);
   });
 
-  it("marks providers without metadata yet (e.g. gmail) as hasMetadata=false", async () => {
+  it("marks Gmail as hasMetadata=true now that Slice 3.12 shipped its trigger metas", async () => {
     authedUser();
     const res = await getProviders();
     const body = (await res.json()) as {
@@ -96,7 +96,18 @@ describe("GET /api/providers", () => {
     };
     const gmail = body.providers.find((p) => p.id === "gmail");
     expect(gmail).toBeDefined();
-    expect(gmail?.hasMetadata).toBe(false);
+    expect(gmail?.hasMetadata).toBe(true);
+  });
+
+  it("marks providers without metadata yet (e.g. notion) as hasMetadata=false", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const notion = body.providers.find((p) => p.id === "notion");
+    expect(notion).toBeDefined();
+    expect(notion?.hasMetadata).toBe(false);
   });
 
   it("sorts providers by displayName", async () => {
@@ -233,6 +244,27 @@ describe("GET /api/providers/[id]/triggers", () => {
       key: "github:new_commit",
       activation: "webhook",
     });
+  });
+
+  it("returns the 3 Gmail trigger metas registered in Slice 3.12, all polling-activated", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/gmail/triggers"), {
+      params: Promise.resolve({ id: "gmail" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{ key: string; activation: string; requiresIntegration: boolean }>;
+    };
+    expect(body.provider).toBe("gmail");
+    expect(body.triggers).toHaveLength(3);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "gmail:new_email",
+      "gmail:new_labeled_email",
+      "gmail:new_attachment",
+    ]);
+    expect(body.triggers.every((t) => t.activation === "polling")).toBe(true);
+    expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
   });
 
   it("returns the 10 Slack trigger metas registered in Slice 3.11, all webhook-activated", async () => {

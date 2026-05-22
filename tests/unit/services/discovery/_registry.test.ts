@@ -96,6 +96,18 @@ describe("listAllTriggerMetas", () => {
     expect(keys).toContain("github:new_commit");
   });
 
+  it("returns the Gmail trigger metas registered in Slice 3.12", () => {
+    const metas = listAllTriggerMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "gmail:new_email",
+        "gmail:new_labeled_email",
+        "gmail:new_attachment",
+      ]),
+    );
+  });
+
   it("returns the Slack trigger metas registered in Slice 3.11", () => {
     const metas = listAllTriggerMetas();
     const keys = metas.map((m) => m.key);
@@ -171,6 +183,32 @@ describe("per-provider accessors", () => {
     expect(actionMetas.every((m) => m.category === "developer")).toBe(true);
     const triggerMetas = listTriggerMetasForProvider("github");
     expect(triggerMetas.every((m) => m.category === "developer")).toBe(true);
+  });
+
+  it("listTriggerMetasForProvider('gmail') returns the 3 Gmail triggers in displayOrder", () => {
+    const metas = listTriggerMetasForProvider("gmail");
+    expect(metas).toHaveLength(3);
+    expect(metas.every((m) => m.provider === "gmail")).toBe(true);
+    expect(metas.map((m) => m.key)).toEqual([
+      "gmail:new_email",
+      "gmail:new_labeled_email",
+      "gmail:new_attachment",
+    ]);
+  });
+
+  it("every Gmail trigger meta declares activation='polling' and requiresIntegration=true", () => {
+    const metas = listTriggerMetasForProvider("gmail");
+    for (const m of metas) {
+      expect(m.activation).toBe("polling");
+      expect(m.requiresIntegration).toBe(true);
+    }
+  });
+
+  it("every Gmail trigger meta uses the email category", () => {
+    const metas = listTriggerMetasForProvider("gmail");
+    for (const m of metas) {
+      expect(m.category).toBe("email");
+    }
   });
 
   it("listTriggerMetasForProvider('slack') returns the 10 Slack triggers in displayOrder", () => {

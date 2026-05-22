@@ -29,6 +29,11 @@ import { addCommentMeta } from "@/integrations/github/actions/addComment.meta";
 // GitHub trigger metadata.
 import { newCommitTriggerMeta } from "@/integrations/github/triggers/newCommit/newCommit.meta";
 
+// Gmail trigger metadata (Slice 3.12 coverage scope).
+import { newEmailTriggerMeta } from "@/integrations/gmail/triggers/newEmail/newEmail.meta";
+import { newLabeledEmailTriggerMeta } from "@/integrations/gmail/triggers/newLabeledEmail/newLabeledEmail.meta";
+import { newAttachmentTriggerMeta } from "@/integrations/gmail/triggers/newAttachment/newAttachment.meta";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -90,6 +95,15 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   scheduledTriggerMeta,
   // GitHub (Slice 3.0b).
   newCommitTriggerMeta,
+  // Gmail (Slice 3.12). Polling triggers — each registers an activation
+  // function in `integrations/gmail/triggers/<event>/index.ts` that
+  // seeds `snapshot.historyId` at activate time. The activation-registry
+  // invariant test is satisfied by those registrations (no exemption
+  // needed); adding one here would silently mask the first-poll-miss
+  // protection contract.
+  newEmailTriggerMeta,
+  newLabeledEmailTriggerMeta,
+  newAttachmentTriggerMeta,
   // Slack (Slice 3.11). Slack uses a single global webhook URL — no
   // per-workflow activation work — so every key below is registered in
   // SHARED_INFRA_EXEMPT_KEYS of the activation invariant test.
