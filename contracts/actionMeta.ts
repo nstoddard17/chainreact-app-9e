@@ -51,6 +51,18 @@ import { z } from "zod";
  * CSV). Async option sources are deliberately out of scope; that
  * concern belongs on a future `select`/`combobox` + `multiple` slice
  * paired with `optionsSource` loaders.
+ *
+ * `file-array` (Slice 3.21) is a dedicated type for `FileRef[]` config
+ * fields whose canonical first consumer is
+ * `microsoft-outlook:send_email.attachments`. Distinct from the
+ * single-value `file` type. The renderer stores either canonical
+ * `{{nodeId.path}}` variable tokens (resolved at runtime to upstream
+ * FileRef producer outputs like `gmail:get_attachment`) or pasted
+ * FileRef JSON literals. The renderer writes the array natively
+ * — never JSON-encoded, never CSV, never base64. Variable-picker
+ * chip-append integration lands in a follow-up slice; today the
+ * renderer ships with a paste-text fallback only. Plan reference:
+ * docs/slices/phase-3/file-ref-array-field-plan.md.
  */
 export const FieldTypeSchema = z.enum([
   "text",
@@ -64,6 +76,7 @@ export const FieldTypeSchema = z.enum([
   "cron",
   "router-routes",
   "string-array",
+  "file-array",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
@@ -153,6 +166,19 @@ export const FieldMetaSchema = z
      * this is a UI hint only. Mirrors `keyValueMaxRows`'s 256 ceiling.
      */
     stringArrayMaxItems: z.number().int().positive().max(256).optional(),
+    /**
+     * For `file-array` fields, the maximum number of FileRef chips the
+     * renderer accepts. When reached, the Add affordance is disabled.
+     * The underlying handler schema enforces the authoritative cap
+     * (Outlook Graph caps the combined attachment payload at 25 MB; per-
+     * provider attachment-count limits vary). This is a UI hint only.
+     *
+     * Capped at 64 — file lists in real workflows are bounded by per-
+     * provider size policies, so a tighter cap than `stringArrayMaxItems`'s
+     * 256 keeps drift visible (a meta asking for 200 attachments is
+     * almost certainly wrong).
+     */
+    fileArrayMaxItems: z.number().int().positive().max(64).optional(),
   })
   .strict()
   .superRefine((field, ctx) => {
@@ -198,6 +224,13 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["stringArrayMaxItems"],
         message: "`stringArrayMaxItems` is only valid on `string-array` fields.",
+      });
+    }
+    if (field.fileArrayMaxItems && field.type !== "file-array") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fileArrayMaxItems"],
+        message: "`fileArrayMaxItems` is only valid on `file-array` fields.",
       });
     }
   });

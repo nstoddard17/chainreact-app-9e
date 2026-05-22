@@ -16,6 +16,7 @@ import {
   getFieldRenderer,
 } from "@/features/workflow-builder/config-modal/fields/_registry";
 import { StringArrayField } from "@/features/workflow-builder/config-modal/fields/StringArrayField";
+import { FileRefArrayField } from "@/features/workflow-builder/config-modal/fields/FileRefArrayField";
 
 describe("field-renderer registry", () => {
   it("has exactly one renderer per FieldType variant", () => {
@@ -29,13 +30,17 @@ describe("field-renderer registry", () => {
     expect(Object.keys(FIELD_RENDERERS).sort()).toEqual([...types].sort());
   });
 
-  it("covers all 11 FieldType variants (Slice 3.13 added 'string-array')", () => {
-    expect(FieldTypeSchema.options).toHaveLength(11);
-    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(11);
+  it("covers all 12 FieldType variants (Slice 3.21 added 'file-array')", () => {
+    expect(FieldTypeSchema.options).toHaveLength(12);
+    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(12);
   });
 
   it("FIELD_RENDERERS['string-array'] resolves to StringArrayField", () => {
     expect(FIELD_RENDERERS["string-array"]).toBe(StringArrayField);
+  });
+
+  it("FIELD_RENDERERS['file-array'] resolves to FileRefArrayField (Slice 3.21)", () => {
+    expect(FIELD_RENDERERS["file-array"]).toBe(FileRefArrayField);
   });
 
   it("getFieldRenderer returns the same component as FIELD_RENDERERS[type]", () => {

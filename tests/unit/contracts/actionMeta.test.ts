@@ -298,6 +298,107 @@ describe("FieldMetaSchema — type-specific constraints", () => {
     });
     expect(negative.success).toBe(false);
   });
+
+  // ─── Slice 3.21: file-array FieldType ────────────────────────────────────
+  it("accepts a file-array field (Slice 3.21)", () => {
+    expect(() =>
+      FieldMetaSchema.parse({
+        name: "attachments",
+        label: "Attachments",
+        type: "file-array",
+        required: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts fileArrayMaxItems on a file-array field", () => {
+    expect(() =>
+      FieldMetaSchema.parse({
+        name: "attachments",
+        label: "Attachments",
+        type: "file-array",
+        required: false,
+        fileArrayMaxItems: 25,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects fileArrayMaxItems on a non-file-array field", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "f",
+      label: "F",
+      type: "text",
+      required: false,
+      fileArrayMaxItems: 5,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toMatch(/file-array/);
+    }
+  });
+
+  it("rejects fileArrayMaxItems on a string-array field (each array type owns its own cap key)", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "from",
+      label: "From",
+      type: "string-array",
+      required: false,
+      fileArrayMaxItems: 5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects stringArrayMaxItems on a file-array field (cap keys do not cross over)", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "attachments",
+      label: "Attachments",
+      type: "file-array",
+      required: false,
+      stringArrayMaxItems: 5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects fileArrayMaxItems above the 64 ceiling", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "attachments",
+      label: "Attachments",
+      type: "file-array",
+      required: false,
+      fileArrayMaxItems: 65,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects zero / negative fileArrayMaxItems", () => {
+    const zero = FieldMetaSchema.safeParse({
+      name: "attachments",
+      label: "Attachments",
+      type: "file-array",
+      required: false,
+      fileArrayMaxItems: 0,
+    });
+    expect(zero.success).toBe(false);
+    const negative = FieldMetaSchema.safeParse({
+      name: "attachments",
+      label: "Attachments",
+      type: "file-array",
+      required: false,
+      fileArrayMaxItems: -1,
+    });
+    expect(negative.success).toBe(false);
+  });
+
+  it("rejects multiple: true on a file-array field (multiple stays select/combobox-only)", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "attachments",
+      label: "Attachments",
+      type: "file-array",
+      required: false,
+      multiple: true,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("ActionMetaSchema — strict mode", () => {
