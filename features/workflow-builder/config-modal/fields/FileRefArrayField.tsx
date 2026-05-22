@@ -5,7 +5,9 @@ import { Paperclip, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
 import { FieldShell } from "./FieldShell";
+import { VariablePickerButton } from "./VariablePickerButton";
 import { FileRefSchema, type FileRef } from "@/contracts/file";
 import { parseReferences } from "@/core/workflows/variableReferences";
 import type { FieldRendererProps } from "./types";
@@ -61,12 +63,32 @@ import type { FieldRendererProps } from "./types";
  *   - Existing chips remain visible. Input row + Add button + per-chip
  *     ✕ disabled (decision D-FRA-10).
  *
+ * Variable picker chip-append (Slice 3.22):
+ *   - The renderer embeds its own `VariablePickerButton` next to the
+ *     input, mirroring how `TextField` / `TextareaField` /
+ *     `RouterRoutesField` per-row inputs each carry their own picker.
+ *     Each renderer's insertion callback decides what "insert" means
+ *     for its value shape — no global focused-field state needed.
+ *   - On insert, the picker emits a canonical `{{nodeId.path}}` token
+ *     (from `formatReference`). This renderer appends it to the chip
+ *     array. Existing chips are preserved.
+ *   - Dedup by `entryKey` (token literal). Duplicate selections are
+ *     silently dropped, matching the paste-text Add semantics.
+ *   - No pre-filtering of picker outputs by type — per plan §6 / D-FRA-6.
+ *     Authors can pick any output; the runtime resolved-config Zod
+ *     parse remains authoritative on whether the resolved value is a
+ *     valid `FileRef`.
+ *   - The picker hides itself automatically when there are no upstream
+ *     sources (`sources.length === 0` inside `VariablePickerButton`),
+ *     so trigger-node configs that surface a file-array field gracefully
+ *     render the paste-text path only.
+ *
  * Out of scope (deferred slices):
- *   - Variable picker chip-append branch.
  *   - Drag-and-drop reorder.
  *   - FileRef sub-field drilling.
  *   - Async file upload UI / storage picker / signed-URL minting.
  *   - Client-side URL fetch / resolution.
+ *   - Type-aware picker filtering (show only `fileRef` outputs).
  */
 
 // Entry shape used internally by the renderer. The on-disk array
@@ -165,6 +187,7 @@ export const FileRefArrayField: React.FC<FieldRendererProps> = ({
   const controlId = `field-${field.name}`;
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = React.useState("");
+  const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
 
   const maxItems = field.fileArrayMaxItems;
   const atCap = maxItems !== undefined && items.length >= maxItems;
@@ -213,6 +236,28 @@ export const FileRefArrayField: React.FC<FieldRendererProps> = ({
     tryAdd();
   }
 
+  /**
+   * Slice 3.22 — variable-picker insertion path. The picker emits a
+   * canonical `{{nodeId.path}}` token (always a well-formed token from
+   * `formatReference`). We append it to the chip array, deduping by
+   * the same `entryKey` the paste-text path uses. At-cap / disabled
+   * mirror the paste-text path's gating so the picker can't bypass
+   * the cap.
+   */
+  function handleInsertAtCursor(token: string): void {
+    if (disabled || atCap) return;
+    const trimmed = token.trim();
+    if (trimmed.length === 0) return;
+    // Defense: the picker always emits canonical tokens, but stay
+    // tolerant if a future picker source emits something else — silently
+    // drop anything that isn't a valid token. Never coerces a malformed
+    // token to a FileRef literal.
+    if (!isExactToken(trimmed)) return;
+    const nextKey = entryKey(trimmed);
+    if (items.some((existing) => entryKey(existing) === nextKey)) return;
+    onChange([...items, trimmed]);
+  }
+
   return (
     <FieldShell
       controlId={controlId}
@@ -249,6 +294,13 @@ export const FileRefArrayField: React.FC<FieldRendererProps> = ({
             <Plus className="h-4 w-4" />
             Add{atCap ? ` (max ${maxItems})` : ""}
           </Button>
+          <VariablePickerButton
+            sources={sources}
+            onInsertAtCursor={handleInsertAtCursor}
+            ariaLabel={`Insert variable into ${field.label}`}
+            testIdRoot={`file-array-${field.name}-picker`}
+            latestValuesBySource={latestValuesBySource}
+          />
         </div>
         {entries.length === 0 ? (
           <p className="text-xs italic text-muted-foreground">No attachments.</p>
