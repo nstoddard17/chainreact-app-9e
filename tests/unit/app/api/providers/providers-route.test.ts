@@ -165,14 +165,29 @@ describe("GET /api/providers/[id]/actions", () => {
     );
   });
 
-  it("returns empty array for a provider with trigger metas but no action metas (e.g. slack after Slice 3.11)", async () => {
+  it("returns the partial Slack action coverage as of Slice 3.26 (download_file only; broader Slack action coverage is a future arc)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/slack/actions"), {
       params: Promise.resolve({ id: "slack" }),
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { actions: unknown[] };
-    expect(body.actions).toEqual([]);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+      }>;
+    };
+    expect(body.provider).toBe("slack");
+    expect(body.actions.map((a) => a.key)).toEqual(["slack:download_file"]);
+    const download = body.actions[0]!;
+    expect(download.category).toBe("files");
+    expect(download.requiresIntegration).toBe(true);
+    expect(download.producesFileRef).toBe(true);
+    expect(download.consumesFileRef).toBe(false);
   });
 
   it("returns 404 PROVIDER_NOT_FOUND for an unknown provider id", async () => {

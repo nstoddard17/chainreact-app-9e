@@ -100,6 +100,12 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the partial Slack action coverage registered in Slice 3.26 (download_file only)", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(expect.arrayContaining(["slack:download_file"]));
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -839,6 +845,75 @@ describe("per-provider accessors", () => {
       const flagOut = meta!.payloadShape.find((p) => p.name === "flag");
       expect(flagOut).toBeDefined();
       expect(flagOut!.type).toBe("object");
+    });
+  });
+
+  // Slice 3.26 — first Slack action meta. Pin the FileRef-producer
+  // surface so a future renderer/picker change can't silently regress
+  // the contract that downstream FileRef consumers rely on.
+  describe("slack:download_file FileRef producer surface (Slice 3.26)", () => {
+    function downloadMeta() {
+      const meta = listActionMetasForProvider("slack").find(
+        (m) => m.key === "slack:download_file",
+      );
+      expect(meta).toBeDefined();
+      return meta!;
+    }
+
+    it("is registered under provider 'slack' with category 'files' + requiresIntegration true", () => {
+      const meta = downloadMeta();
+      expect(meta.provider).toBe("slack");
+      expect(meta.type).toBe("download_file");
+      expect(meta.category).toBe("files");
+      expect(meta.requiresIntegration).toBe(true);
+    });
+
+    it("declares producesFileRef=true and consumesFileRef=false", () => {
+      const meta = downloadMeta();
+      expect(meta.producesFileRef).toBe(true);
+      expect(meta.consumesFileRef).toBe(false);
+    });
+
+    it("exposes a single required `fileId` text field (mirrors SlackDownloadFileConfigSchema)", () => {
+      const fields = downloadMeta().fields;
+      expect(fields.map((f) => f.name)).toEqual(["fileId"]);
+      const fileId = fields[0]!;
+      expect(fileId.type).toBe("text");
+      expect(fileId.required).toBe(true);
+    });
+
+    it("output `file` is a fileRef chip; siblings are bounded scalars (no bytes / base64 / content)", () => {
+      const outputs = downloadMeta().outputs;
+      const file = outputs.find((o) => o.name === "file");
+      expect(file).toBeDefined();
+      expect(file!.type).toBe("fileRef");
+      // Bounded sibling outputs — handler return shape on
+      // downloadFile.ts:113-121. No bytes / base64 / content fields.
+      const names = outputs.map((o) => o.name);
+      expect(names).toEqual(["file", "fileId", "fileName", "mimeType", "sizeBytes"]);
+      for (const banned of ["bytes", "base64", "content", "data"]) {
+        expect(names).not.toContain(banned);
+      }
+    });
+
+    it("is the ONLY Slack action meta as of Slice 3.26 (broader Slack coverage is a future arc)", () => {
+      const slackActionKeys = listActionMetasForProvider("slack").map(
+        (m) => m.key,
+      );
+      expect(slackActionKeys).toEqual(["slack:download_file"]);
+    });
+
+    it("does NOT regress Slack trigger metas (Slice 3.11 surface unchanged)", () => {
+      const triggers = listTriggerMetasForProvider("slack").map((m) => m.key);
+      // Spot-check rather than full-list — the trigger surface is its
+      // own slice and shouldn't be re-asserted here.
+      expect(triggers).toEqual(
+        expect.arrayContaining([
+          "slack:message.channel",
+          "slack:reaction_added",
+          "slack:file_shared",
+        ]),
+      );
     });
   });
 
