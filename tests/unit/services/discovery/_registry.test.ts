@@ -627,12 +627,23 @@ describe("per-provider accessors", () => {
       ]);
     });
 
-    it("declares consumesFileRef=true (attachments deferred from meta surface but runtime accepts FileRef[])", () => {
+    it("declares consumesFileRef=true (runtime + builder both accept FileRef[])", () => {
       const meta = listActionMetasForProvider("microsoft-outlook").find(
         (m) => m.key === "microsoft-outlook:send_email",
       );
       expect(meta!.consumesFileRef).toBe(true);
       expect(meta!.producesFileRef).toBe(false);
+    });
+
+    // Slice 3.23 — `attachments` is now surfaced as a `file-array`
+    // field. Runtime cap (3 MB per / 25 MB total) stays
+    // handler-authoritative; the meta cap is a UI hint.
+    it("`attachments` is file-array, optional, with fileArrayMaxItems UI hint (Slice 3.23)", () => {
+      const f = sendFields().find((x) => x.name === "attachments");
+      expect(f).toBeDefined();
+      expect(f!.type).toBe("file-array");
+      expect(f!.required).toBe(false);
+      expect(f!.fileArrayMaxItems).toBe(25);
     });
   });
 

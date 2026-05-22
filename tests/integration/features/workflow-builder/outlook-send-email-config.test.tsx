@@ -140,15 +140,25 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("FileRef metadata boundary: Outlook sendEmailMeta advertises consumesFileRef=true (attachments not yet a builder field)", () => {
+it("FileRef metadata boundary: Outlook sendEmailMeta advertises consumesFileRef=true and exposes attachments as file-array (Slice 3.23)", () => {
   expect(outlookSendEmailMeta.consumesFileRef).toBe(true);
   expect(outlookSendEmailMeta.producesFileRef).toBe(false);
-  // attachments is intentionally absent from fields[] until a FileRef-
-  // array renderer exists — runtime accepts FileRef[] via direct
-  // workflow JSON edit; the meta surface reflects today's UI capability.
-  expect(
-    outlookSendEmailMeta.fields.find((f) => f.name === "attachments"),
-  ).toBeUndefined();
+  // Slice 3.23 — `attachments` now ships as a `file-array` field
+  // backed by the Slice 3.21 chip renderer + Slice 3.22 picker
+  // chip-append branch. Runtime still owns the byte-size cap (3 MB
+  // per / 25 MB total, enforced by `sendEmail.ts`); `fileArrayMaxItems`
+  // is a UI hint.
+  const attachments = outlookSendEmailMeta.fields.find(
+    (f) => f.name === "attachments",
+  );
+  expect(attachments).toBeDefined();
+  expect(attachments).toEqual(
+    expect.objectContaining({
+      type: "file-array",
+      required: false,
+      fileArrayMaxItems: 25,
+    }),
+  );
 });
 
 it("end-to-end: Outlook send_email config round-trips chip arrays + required isHtml + required importance through modal Save and toolbar Save", async () => {

@@ -20,13 +20,17 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *   - `importance`: no default — V1 silently picked "normal"; V2 forces
  *     explicit because "high" sets Outlook's user-visible exclamation.
  *
- * `attachments` (FileRefSchema[]) is intentionally NOT exposed in the
- * builder today: the V2 `file` FieldType is single-value (FileField is
- * a paste-FileRef-id text fallback) and the FieldMeta contract has no
- * FileRef-array type. Workflow authors who need attachments wire
- * `{{prevAction.file}}` variable references via direct workflow JSON
- * edit and the resolved-config Zod schema validates the shape. Mirrors
- * the createLabel.color decision in `gmail/actions/createLabel.meta.ts`.
+ * `attachments` (Slice 3.23) — exposed as a `file-array` FieldType so
+ * workflow authors can configure attachments via the variable picker
+ * (Slice 3.22 chip-append integration) without hand-editing workflow
+ * JSON. The runtime contract is unchanged: `z.array(FileRefSchema).optional()`.
+ * Handler-side caps stay authoritative (3 MB per / 25 MB total per
+ * Microsoft Graph synchronous-sendMail limits — see `sendEmail.ts:18-29`).
+ * `fileArrayMaxItems: 25` is a UI hint that nudges authors toward the
+ * realistic-workflow regime; the handler enforces the real byte cap.
+ * Per plan D-FRA-6, the picker is NOT type-filtered today — authors
+ * can pick any output; the runtime parse rejects non-FileRef-shaped
+ * resolved values at execute time.
  *
  * Required scope: `Mail.Send` (P-O1 manifest).
  *
@@ -104,6 +108,16 @@ export const outlookSendEmailMeta: ActionMeta = {
         { value: "normal", label: "Normal" },
         { value: "high", label: "High" },
       ],
+    },
+    {
+      name: "attachments",
+      label: "Attachments",
+      description:
+        "Optional file attachments. Use the variable picker to insert upstream FileRef outputs (e.g. gmail:get_attachment, slack:download_file). The Outlook handler enforces Microsoft Graph's synchronous-sendMail caps (3 MB per attachment, 25 MB combined) before calling Graph; signed-URL + provider-URL fetching is handler-owned. Prefer upstream get_*/download_* actions that yield v2_storage refs — Outlook's handler rejects provider_url refs (cross-provider URL fetch is not supported).",
+      type: "file-array",
+      required: false,
+      fileArrayMaxItems: 25,
+      placeholder: "Paste a {{...}} token or FileRef JSON",
     },
   ],
   outputs: [
