@@ -26,6 +26,22 @@ import { createBranchMeta } from "@/integrations/github/actions/createBranch.met
 import { createGistMeta } from "@/integrations/github/actions/createGist.meta";
 import { addCommentMeta } from "@/integrations/github/actions/addComment.meta";
 
+// Microsoft Outlook Mail action metadata (Slice 3.17 coverage scope).
+import { outlookSendEmailMeta } from "@/integrations/microsoft-outlook/actions/sendEmail.meta";
+import { outlookReplyToEmailMeta } from "@/integrations/microsoft-outlook/actions/replyToEmail.meta";
+import { outlookForwardEmailMeta } from "@/integrations/microsoft-outlook/actions/forwardEmail.meta";
+import { outlookCreateDraftEmailMeta } from "@/integrations/microsoft-outlook/actions/createDraftEmail.meta";
+import { outlookFetchEmailsMeta } from "@/integrations/microsoft-outlook/actions/fetchEmails.meta";
+import { outlookGetAttachmentMeta } from "@/integrations/microsoft-outlook/actions/getAttachment.meta";
+import { outlookAddCategoriesMeta } from "@/integrations/microsoft-outlook/actions/addCategories.meta";
+import { outlookMoveEmailMeta } from "@/integrations/microsoft-outlook/actions/moveEmail.meta";
+import { outlookDeleteEmailMeta } from "@/integrations/microsoft-outlook/actions/deleteEmail.meta";
+
+// Microsoft Outlook Mail trigger metadata (Slice 3.17 coverage scope).
+import { outlookNewEmailTriggerMeta } from "@/integrations/microsoft-outlook/triggers/newEmail/newEmail.meta";
+import { outlookEmailSentTriggerMeta } from "@/integrations/microsoft-outlook/triggers/emailSent/emailSent.meta";
+import { outlookEmailFlaggedTriggerMeta } from "@/integrations/microsoft-outlook/triggers/emailFlagged/emailFlagged.meta";
+
 // Gmail action metadata (Slice 3.15 coverage scope).
 import { sendEmailMeta } from "@/integrations/gmail/actions/sendEmail.meta";
 import { replyToEmailMeta } from "@/integrations/gmail/actions/replyToEmail.meta";
@@ -118,6 +134,17 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   markAsUnreadMeta,
   archiveEmailMeta,
   deleteEmailMeta,
+  // Microsoft Outlook Mail (Slice 3.17). Ordered to match each meta's
+  // displayOrder (10/20/30/40/50/60/70/80/90).
+  outlookSendEmailMeta,
+  outlookReplyToEmailMeta,
+  outlookForwardEmailMeta,
+  outlookCreateDraftEmailMeta,
+  outlookFetchEmailsMeta,
+  outlookGetAttachmentMeta,
+  outlookAddCategoriesMeta,
+  outlookMoveEmailMeta,
+  outlookDeleteEmailMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -148,6 +175,15 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   memberJoinedChannelTriggerMeta,
   memberLeftChannelTriggerMeta,
   fileUploadedTriggerMeta,
+  // Microsoft Outlook Mail (Slice 3.17). Webhook subscription-watch
+  // triggers — each registers a per-workflow Graph subscription via
+  // `registerActivation("microsoft-outlook", <type>, ...)`. The
+  // activation-registry invariant test is satisfied by those
+  // registrations (no exemption needed). Ordered to match each meta's
+  // displayOrder (10/20/30).
+  outlookNewEmailTriggerMeta,
+  outlookEmailSentTriggerMeta,
+  outlookEmailFlaggedTriggerMeta,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

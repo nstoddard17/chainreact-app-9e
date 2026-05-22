@@ -99,6 +99,17 @@ describe("GET /api/providers", () => {
     expect(gmail?.hasMetadata).toBe(true);
   });
 
+  it("marks Microsoft Outlook as hasMetadata=true now that Slice 3.17 shipped its action+trigger metas", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const outlook = body.providers.find((p) => p.id === "microsoft-outlook");
+    expect(outlook).toBeDefined();
+    expect(outlook?.hasMetadata).toBe(true);
+  });
+
   it("marks providers without metadata yet (e.g. notion) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -200,6 +211,33 @@ describe("GET /api/providers/[id]/actions", () => {
       "gmail:mark_as_unread",
       "gmail:archive_email",
       "gmail:delete_email",
+    ]);
+    expect(body.actions.every((a) => a.category === "email")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+  });
+
+  it("returns the 9 Microsoft Outlook action metas registered in Slice 3.17, all email category + requiresIntegration", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/microsoft-outlook/actions"), {
+      params: Promise.resolve({ id: "microsoft-outlook" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{ key: string; category: string; requiresIntegration: boolean }>;
+    };
+    expect(body.provider).toBe("microsoft-outlook");
+    expect(body.actions).toHaveLength(9);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "microsoft-outlook:send_email",
+      "microsoft-outlook:reply_to_email",
+      "microsoft-outlook:forward_email",
+      "microsoft-outlook:create_draft_email",
+      "microsoft-outlook:fetch_emails",
+      "microsoft-outlook:get_attachment",
+      "microsoft-outlook:add_categories",
+      "microsoft-outlook:move_email",
+      "microsoft-outlook:delete_email",
     ]);
     expect(body.actions.every((a) => a.category === "email")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
@@ -321,6 +359,27 @@ describe("GET /api/providers/[id]/triggers", () => {
       "slack:member_joined_channel",
       "slack:member_left_channel",
       "slack:file_shared",
+    ]);
+    expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
+    expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
+  });
+
+  it("returns the 3 Microsoft Outlook trigger metas registered in Slice 3.17, all webhook-activated", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/microsoft-outlook/triggers"), {
+      params: Promise.resolve({ id: "microsoft-outlook" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{ key: string; activation: string; requiresIntegration: boolean }>;
+    };
+    expect(body.provider).toBe("microsoft-outlook");
+    expect(body.triggers).toHaveLength(3);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "microsoft-outlook:new_email",
+      "microsoft-outlook:email_sent",
+      "microsoft-outlook:email_flagged",
     ]);
     expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
