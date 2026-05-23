@@ -72,6 +72,20 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // test. Trigger-meta-activation-invariant.test.ts pins the
   // 7 activation-registry registrations on the polling/webhook side.
   "mailchimp",
+  // Discord added in Slice 3.DISCORD-4 with the actions-only scope
+  // accepted by Marcus's product decision. All 5 V1-manifest-declared
+  // action handlers (send_message, edit_message, delete_message,
+  // fetch_messages, assign_role) have a matching meta — 1:1 drift is
+  // enforced from here on. **Discord triggers are intentionally NOT
+  // shipped in this slice** per Slice 3.DISCORD-1 §2.3 decision
+  // D-DC1: V1's 3 Discord triggers depended on persistent gateway
+  // WebSocket infrastructure (lib/integrations/discordGateway.ts) and
+  // V2's trigger contract has no activation mode for that pattern.
+  // Trigger coverage is NOT enforced by this test (precedent set by
+  // Stripe — see comment at lines 41-46 above). The trigger arc is
+  // gated under DISCORD-N-triggers and does not block this slice's
+  // action-coverage flip.
+  "discord",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

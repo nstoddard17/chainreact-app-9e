@@ -165,6 +165,17 @@ describe("GET /api/providers", () => {
     expect(mailchimp?.hasMetadata).toBe(true);
   });
 
+  it("marks Discord as hasMetadata=true now that Slice 3.DISCORD-4 shipped the 5 action metas (triggers deferred per D-DC1)", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const discord = body.providers.find((p) => p.id === "discord");
+    expect(discord).toBeDefined();
+    expect(discord?.hasMetadata).toBe(true);
+  });
+
   it("marks providers still without any metadata (e.g. airtable) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -985,6 +996,99 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
   });
+
+  it("returns the 5 Discord action metas in displayOrder (Slice 3.DISCORD-4 — actions-only flip)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/discord/actions"), {
+      params: Promise.resolve({ id: "discord" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          optionsSource?: string;
+          dependsOn?: string;
+          defaultValue?: unknown;
+          numeric?: { min?: number; max?: number; integer?: boolean };
+        }>;
+      }>;
+    };
+    expect(body.provider).toBe("discord");
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "discord:send_message",
+      "discord:edit_message",
+      "discord:delete_message",
+      "discord:fetch_messages",
+      "discord:assign_role",
+    ]);
+    expect(body.actions.every((a) => a.category === "messaging")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+    expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
+    expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+
+    const byKey = new Map(body.actions.map((a) => [a.key, a]));
+
+    // delete_message — full destructive trio round-trips on the wire.
+    const del = byKey.get("discord:delete_message")!;
+    expect(del.isDestructive).toBe(true);
+    expect(del.requiresConfirmation).toBe(true);
+    expect(del.riskLevel).toBe("high");
+
+    // The other 4 are not destructive.
+    for (const key of [
+      "discord:send_message",
+      "discord:edit_message",
+      "discord:fetch_messages",
+      "discord:assign_role",
+    ]) {
+      const a = byKey.get(key)!;
+      expect(a.isDestructive).toBe(false);
+      expect(a.requiresConfirmation).toBe(false);
+    }
+
+    // send_message cascade wire shape: channelId depends on guildId
+    // and consumes discord:channels.
+    const send = byKey.get("discord:send_message")!;
+    const sendChannel = send.fields.find((f) => f.name === "channelId")!;
+    expect(sendChannel.optionsSource).toBe("discord:channels");
+    expect(sendChannel.dependsOn).toBe("guildId");
+
+    // fetch_messages numeric bounds + defaults round-trip on the wire.
+    const fetch = byKey.get("discord:fetch_messages")!;
+    const limit = fetch.fields.find((f) => f.name === "limit")!;
+    expect(limit.type).toBe("number");
+    expect(limit.defaultValue).toBe(20);
+    expect(limit.numeric).toMatchObject({ min: 1, max: 100, integer: true });
+
+    // fetch_messages.sortOrder default = newest, filterType default = none.
+    expect(
+      fetch.fields.find((f) => f.name === "sortOrder")!.defaultValue,
+    ).toBe("newest");
+    expect(
+      fetch.fields.find((f) => f.name === "filterType")!.defaultValue,
+    ).toBe("none");
+
+    // assign_role cascade: userId → discord:members, roleId →
+    // discord:roles, both deps=guildId.
+    const role = byKey.get("discord:assign_role")!;
+    const user = role.fields.find((f) => f.name === "userId")!;
+    const roleField = role.fields.find((f) => f.name === "roleId")!;
+    expect(user.optionsSource).toBe("discord:members");
+    expect(user.dependsOn).toBe("guildId");
+    expect(roleField.optionsSource).toBe("discord:roles");
+    expect(roleField.dependsOn).toBe("guildId");
+  });
 });
 
 describe("GET /api/providers/[id]/triggers", () => {
@@ -1054,6 +1158,25 @@ describe("GET /api/providers/[id]/triggers", () => {
     ]);
     expect(body.triggers.every((t) => t.activation === "polling")).toBe(true);
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
+  });
+
+  it("returns an empty array for Discord triggers (Slice 3.DISCORD-4 — D-DC1 deferral)", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/discord/triggers"), {
+      params: Promise.resolve({ id: "discord" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<unknown>;
+    };
+    expect(body.provider).toBe("discord");
+    // Triggers intentionally deferred — V1's 3 Discord triggers depend
+    // on gateway-websocket infrastructure that V2 does not support
+    // (see contracts/triggerMeta.ts:TriggerActivationSchema). The
+    // discovery-meta-coverage test exempts triggers from the COVERED
+    // contract; the Stripe `event_received` deferral is the precedent.
+    expect(body.triggers).toEqual([]);
   });
 
   it("returns the 10 Slack trigger metas registered in Slice 3.11, all webhook-activated", async () => {

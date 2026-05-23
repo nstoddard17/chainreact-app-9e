@@ -287,6 +287,20 @@ import { hubspotWebhookReceivedTriggerMeta } from "@/integrations/hubspot/trigge
 // See providers/mailchimp.ts for per-meta imports + rationale.
 import { MAILCHIMP_ACTION_METAS, MAILCHIMP_TRIGGER_METAS } from "./providers/mailchimp";
 
+// Discord (Slice 3.DISCORD-4) — sub-registry split.
+//   - DISCORD_ACTION_METAS: 5 metas for the V1-manifest-declared
+//     actions (send_message, edit_message, delete_message,
+//     fetch_messages, assign_role).
+//   - DISCORD_TRIGGER_METAS: intentionally EMPTY — Discord triggers
+//     are gated on a separate DISCORD-N-triggers arc per Slice
+//     3.DISCORD-1 §2.3 decision D-DC1. V2's trigger contract has no
+//     activation mode for V1's persistent gateway-websocket trigger
+//     architecture; the migration path (polling / interactions
+//     webhook) is a deliberate product+architecture decision that
+//     does not block this slice's action coverage flip.
+// See providers/discord.ts for per-meta imports + rationale.
+import { DISCORD_ACTION_METAS, DISCORD_TRIGGER_METAS } from "./providers/discord";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -560,6 +574,13 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   hubspotRemoveLineItemMeta,
   // Mailchimp (Slice 3.MAILCHIMP-3 + 3.MAILCHIMP-4) — 14 actions in displayOrder 10..140.
   ...MAILCHIMP_ACTION_METAS,
+  // Discord (Slice 3.DISCORD-4) — 5 actions in displayOrder 10..50.
+  // Same slice flips `discord` into `COVERED_PROVIDERS` — 1:1
+  // handler↔meta drift is enforced from here on. Discord triggers
+  // are intentionally NOT covered (see providers/discord.ts header
+  // + D-DC1 decision); trigger coverage is not enforced by the
+  // discovery-meta-coverage test.
+  ...DISCORD_ACTION_METAS,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -619,6 +640,14 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   hubspotWebhookReceivedTriggerMeta,
   // Mailchimp (Slice 3.MAILCHIMP-4) — 1 webhook + 6 polling.
   ...MAILCHIMP_TRIGGER_METAS,
+  // Discord (Slice 3.DISCORD-4) — INTENTIONALLY EMPTY. See
+  // providers/discord.ts header for the D-DC1 decision: V2's trigger
+  // contract has no activation mode for V1's gateway-websocket
+  // trigger architecture. Spread the empty array for consistency
+  // with the central-registry contract; trigger coverage flips when
+  // a future DISCORD-N-triggers arc lands one or more of the three
+  // V1 triggers under V2's polling / interactions-webhook surfaces.
+  ...DISCORD_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
