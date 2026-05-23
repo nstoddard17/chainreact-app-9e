@@ -1155,6 +1155,83 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
   });
+
+  it("returns the consolidated HubSpot webhook_received trigger meta registered in Slice 3.HUBSPOT-6 (closes the HubSpot provider arc; hubspot now in COVERED_PROVIDERS)", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/hubspot/triggers"), {
+      params: Promise.resolve({ id: "hubspot" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{
+        key: string;
+        activation: string;
+        requiresIntegration: boolean;
+        category: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          description?: string;
+        }>;
+        payloadShape: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("hubspot");
+    expect(body.triggers).toHaveLength(1);
+    expect(body.triggers[0]!.key).toBe("hubspot:webhook_received");
+    expect(body.triggers[0]!.activation).toBe("webhook");
+    expect(body.triggers[0]!.requiresIntegration).toBe(true);
+    expect(body.triggers[0]!.category).toBe("crm");
+
+    // Config field — single required `subscriptions` textarea.
+    expect(body.triggers[0]!.fields.map((f) => f.name)).toEqual([
+      "subscriptions",
+    ]);
+    const subscriptionsField = body.triggers[0]!.fields[0]!;
+    expect(subscriptionsField.type).toBe("textarea");
+    expect(subscriptionsField.required).toBe(true);
+    // Description rounds-trip and calls out the allowed event types.
+    expect(subscriptionsField.description!.toLowerCase()).toContain(
+      "contact.creation",
+    );
+    expect(subscriptionsField.description!.toLowerCase()).toContain(
+      "propertyname",
+    );
+
+    // Payload shape — exact 12-field set, in declared order.
+    expect(body.triggers[0]!.payloadShape.map((o) => o.name)).toEqual([
+      "subscriptionType",
+      "portalId",
+      "hubId",
+      "objectId",
+      "propertyName",
+      "propertyValue",
+      "occurredAt",
+      "subscriptionId",
+      "appId",
+      "attemptNumber",
+      "changeSource",
+      "event",
+    ]);
+
+    // Sensitive flags round-trip — propertyValue + event carry
+    // customer data; the discriminator scalars stay structural.
+    const byName = new Map(
+      body.triggers[0]!.payloadShape.map((o) => [o.name, o]),
+    );
+    expect(byName.get("propertyValue")?.sensitive).toBe(true);
+    expect(byName.get("event")?.sensitive).toBe(true);
+    expect(byName.get("subscriptionType")?.sensitive).toBeFalsy();
+    expect(byName.get("portalId")?.sensitive).toBeFalsy();
+    expect(byName.get("objectId")?.sensitive).toBeFalsy();
+    expect(byName.get("propertyName")?.sensitive).toBeFalsy();
+    expect(byName.get("subscriptionId")?.sensitive).toBeFalsy();
+    expect(byName.get("appId")?.sensitive).toBeFalsy();
+    expect(byName.get("attemptNumber")?.sensitive).toBeFalsy();
+    expect(byName.get("changeSource")?.sensitive).toBeFalsy();
+  });
 });
 
 // ─── Slice 3.SEC-2A — risk fields exposed on the actions endpoint ───────────

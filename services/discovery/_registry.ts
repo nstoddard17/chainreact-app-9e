@@ -269,6 +269,20 @@ import { stripeCreatePaymentLinkMeta } from "@/integrations/stripe/actions/creat
 import { stripeCreateInvoiceMeta } from "@/integrations/stripe/actions/createInvoice.meta";
 import { stripeGetPaymentsMeta } from "@/integrations/stripe/actions/getPayments.meta";
 
+// HubSpot trigger metadata (Slice 3.HUBSPOT-6 — closes HubSpot at
+// 26/26 actions + 1/1 triggers). Single consolidated `webhook_received`
+// trigger covers every HubSpot subscription type (12 as of HubSpot 2.1
+// — contact / company / deal / ticket × creation / propertyChange /
+// deletion); workflows branch on `payload.subscriptionType`. Webhook
+// activation: `integrations/hubspot/triggers/webhookReceived/index.ts`
+// calls `registerActivation("hubspot", "webhook_received", activate)`,
+// so the `trigger-meta-activation-invariant` test is satisfied without
+// adding an entry to `SHARED_INFRA_EXEMPT_KEYS`. Same slice flips
+// `hubspot` into `COVERED_PROVIDERS` in
+// tests/structure/discovery-meta-coverage.test.ts — 1:1 handler↔meta
+// drift is enforced from here on.
+import { hubspotWebhookReceivedTriggerMeta } from "@/integrations/hubspot/triggers/webhookReceived/webhookReceived.meta";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -586,6 +600,17 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // needed. Same slice flips google-sheets into `COVERED_PROVIDERS`.
   googleSheetsNewWorksheetTriggerMeta,
   googleSheetsRowChangedTriggerMeta,
+  // HubSpot (Slice 3.HUBSPOT-6 — closes HubSpot at 26/26 actions +
+  // 1/1 triggers). Consolidated `webhook_received` trigger covers
+  // every HubSpot subscription type (workflows branch on
+  // `payload.subscriptionType`). Activation is wired via
+  // `integrations/hubspot/triggers/webhookReceived/index.ts` →
+  // `registerActivation("hubspot", "webhook_received", activate)`, so
+  // the trigger-meta-activation-invariant test is satisfied without
+  // adding the key to `SHARED_INFRA_EXEMPT_KEYS`. Same slice flips
+  // `hubspot` into `COVERED_PROVIDERS` — 1:1 handler↔meta drift is
+  // enforced from here on.
+  hubspotWebhookReceivedTriggerMeta,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

@@ -53,6 +53,16 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // without a meta (or vice-versa) fails this structural test from
   // here on.
   "google-sheets",
+  // HubSpot added in Slice 3.HUBSPOT-6 once all 26 registered HubSpot
+  // action handlers have a matching meta (contacts + companies in
+  // HUBSPOT-3, deals + tickets + owners in HUBSPOT-4, engagements +
+  // lists + commerce in HUBSPOT-5) AND the single consolidated
+  // `webhook_received` trigger meta is registered alongside in
+  // HUBSPOT-6. Adding a new HubSpot handler without a meta (or
+  // vice-versa) fails this structural test from here on. Trigger
+  // coverage is not enforced by this test, but trigger-meta-
+  // activation-invariant.test.ts pins the activation-registry side.
+  "hubspot",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

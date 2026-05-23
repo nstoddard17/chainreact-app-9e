@@ -278,11 +278,16 @@ describe("listAllActionMetas", () => {
     );
   });
 
-  it("hubspot is NOT in COVERED_PROVIDERS yet — 1 trigger meta still pending in HUBSPOT-6 (actions are 26/26)", () => {
-    const metas = listAllActionMetas().filter(
+  it("hubspot is now in COVERED_PROVIDERS — 26 action metas + 1 trigger meta (HUBSPOT-6 closes the provider arc)", () => {
+    const actionMetas = listAllActionMetas().filter(
       (m) => m.provider === "hubspot",
     );
-    expect(metas).toHaveLength(26);
+    expect(actionMetas).toHaveLength(26);
+    const triggerMetas = listAllTriggerMetas().filter(
+      (m) => m.provider === "hubspot",
+    );
+    expect(triggerMetas).toHaveLength(1);
+    expect(triggerMetas[0]!.key).toBe("hubspot:webhook_received");
   });
 
   it("sorts by (displayOrder asc, displayName asc)", () => {
@@ -362,6 +367,12 @@ describe("listAllTriggerMetas", () => {
         "microsoft-outlook:email_flagged",
       ]),
     );
+  });
+
+  it("returns the consolidated HubSpot webhook trigger meta registered in Slice 3.HUBSPOT-6", () => {
+    const metas = listAllTriggerMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toContain("hubspot:webhook_received");
   });
 
   it("returns metas that pass the Zod contract", () => {
@@ -5724,6 +5735,99 @@ describe("per-provider accessors", () => {
           expect(o.sensitive).toBeFalsy();
         }
       });
+    });
+  });
+
+  // ─── HubSpot trigger surface (Slice 3.HUBSPOT-6) ─────────────────────────
+  //
+  // Single consolidated `webhook_received` trigger meta closes the
+  // HubSpot provider arc at 26 actions + 1 trigger and flips hubspot
+  // into COVERED_PROVIDERS.
+  describe("HubSpot trigger surface (Slice 3.HUBSPOT-6)", () => {
+    function hubspotTriggerMetas() {
+      return listTriggerMetasForProvider("hubspot");
+    }
+
+    it("registers exactly 1 trigger meta — the consolidated hubspot:webhook_received", () => {
+      const metas = hubspotTriggerMetas();
+      expect(metas).toHaveLength(1);
+      expect(metas[0]!.key).toBe("hubspot:webhook_received");
+    });
+
+    it("trigger meta declares provider=hubspot, category=crm, activation=webhook, requiresIntegration=true", () => {
+      const meta = hubspotTriggerMetas()[0]!;
+      expect(meta.provider).toBe("hubspot");
+      expect(meta.type).toBe("webhook_received");
+      expect(meta.category).toBe("crm");
+      expect(meta.activation).toBe("webhook");
+      expect(meta.requiresIntegration).toBe(true);
+    });
+
+    it("exposes a single required `subscriptions` textarea field (matches the parseSubscriptions paste-JSON contract)", () => {
+      const meta = hubspotTriggerMetas()[0]!;
+      expect(meta.fields.map((f) => f.name)).toEqual(["subscriptions"]);
+      const f = meta.fields[0]!;
+      expect(f.type).toBe("textarea");
+      expect(f.required).toBe(true);
+      // Description must call out the allowed event types so workflow
+      // authors don't have to read activate.ts. propertyChange wiring
+      // requirement also lives in the description.
+      expect(f.description!.toLowerCase()).toContain("contact.creation");
+      expect(f.description!.toLowerCase()).toContain("propertychange");
+      expect(f.description!.toLowerCase()).toContain("propertyname");
+    });
+
+    it("payloadShape mirrors normalize.ts:normalizeHubSpotEvent — exact field set in declared order", () => {
+      const meta = hubspotTriggerMetas()[0]!;
+      expect(meta.payloadShape.map((o) => o.name)).toEqual([
+        "subscriptionType",
+        "portalId",
+        "hubId",
+        "objectId",
+        "propertyName",
+        "propertyValue",
+        "occurredAt",
+        "subscriptionId",
+        "appId",
+        "attemptNumber",
+        "changeSource",
+        "event",
+      ]);
+    });
+
+    it("propertyValue + raw event payload are sensitive; discriminator scalars + opaque IDs stay structural", () => {
+      const meta = hubspotTriggerMetas()[0]!;
+      const byName = new Map(meta.payloadShape.map((o) => [o.name, o]));
+      // Customer-data carriers — sensitive.
+      expect(byName.get("propertyValue")!.sensitive).toBe(true);
+      expect(byName.get("event")!.sensitive).toBe(true);
+      // Discriminators + opaque IDs + retry-state — non-sensitive.
+      expect(byName.get("subscriptionType")!.sensitive).toBeFalsy();
+      expect(byName.get("portalId")!.sensitive).toBeFalsy();
+      expect(byName.get("hubId")!.sensitive).toBeFalsy();
+      expect(byName.get("objectId")!.sensitive).toBeFalsy();
+      expect(byName.get("propertyName")!.sensitive).toBeFalsy();
+      expect(byName.get("occurredAt")!.sensitive).toBeFalsy();
+      expect(byName.get("subscriptionId")!.sensitive).toBeFalsy();
+      expect(byName.get("appId")!.sensitive).toBeFalsy();
+      expect(byName.get("attemptNumber")!.sensitive).toBeFalsy();
+      expect(byName.get("changeSource")!.sensitive).toBeFalsy();
+    });
+
+    it("no HubSpot trigger payload field uses a banned secret name (defense in depth)", () => {
+      const banned = new Set([
+        "token",
+        "accessToken",
+        "refreshToken",
+        "clientSecret",
+        "secret",
+        "apiKey",
+        "webhookSecret",
+      ]);
+      const meta = hubspotTriggerMetas()[0]!;
+      for (const o of meta.payloadShape) {
+        expect(banned.has(o.name)).toBe(false);
+      }
     });
   });
 
