@@ -1,5 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { subscriptionsCancel } from "../api/subscriptions";
 import { CancelSubscriptionConfigSchema } from "./cancelSubscription.schema";
 
@@ -28,6 +29,10 @@ export const cancelSubscription: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "cancel_subscription",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       subscriptionsCancel({
         accessToken,

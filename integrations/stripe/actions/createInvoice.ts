@@ -1,6 +1,7 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { buildIdempotencyKey } from "@/core/workflows/idempotency";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { invoicesCreate } from "../api/invoices";
 import { CreateInvoiceConfigSchema } from "./createInvoice.schema";
 
@@ -70,6 +71,10 @@ export const createInvoice: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "create_invoice",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       invoicesCreate({
         accessToken,

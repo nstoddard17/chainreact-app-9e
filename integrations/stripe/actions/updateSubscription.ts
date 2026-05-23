@@ -1,5 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import {
   type SubscriptionItemUpdate,
   subscriptionsGet,
@@ -39,6 +40,11 @@ export const updateSubscription: ActionHandler = async (input) => {
       ? input.triggerEvent.accountId
       : null;
 
+  const preflight = stripeLivemodePreflight({
+    actionType: "update_subscription",
+    runTestMode: input.testMode === true,
+  });
+
   // Build the items array only when priceId or quantity is supplied.
   // When neither is set, omit the items field entirely so the rest of
   // the update (trial_end, cancel_at_period_end, metadata, …) goes
@@ -49,6 +55,7 @@ export const updateSubscription: ActionHandler = async (input) => {
       userId: input.userId,
       provider: "stripe",
       accountId,
+      preflight,
       apiCall: (accessToken) =>
         subscriptionsGet({
           accessToken,
@@ -67,6 +74,7 @@ export const updateSubscription: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight,
     apiCall: (accessToken) =>
       subscriptionsUpdate({
         accessToken,

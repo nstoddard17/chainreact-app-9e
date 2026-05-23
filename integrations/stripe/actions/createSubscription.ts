@@ -1,6 +1,7 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { buildIdempotencyKey } from "@/core/workflows/idempotency";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { subscriptionsCreate } from "../api/subscriptions";
 import { CreateSubscriptionConfigSchema } from "./createSubscription.schema";
 
@@ -36,6 +37,10 @@ export const createSubscription: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "create_subscription",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       subscriptionsCreate({
         accessToken,

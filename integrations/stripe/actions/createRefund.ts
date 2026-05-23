@@ -2,6 +2,7 @@ import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { buildIdempotencyKey } from "@/core/workflows/idempotency";
 import { dollarsToCents } from "@/integrations/_shared/stripe/amount";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { refundsCreate } from "../api/refunds";
 import { CreateRefundConfigSchema } from "./createRefund.schema";
 
@@ -36,6 +37,10 @@ export const createRefund: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "create_refund",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       refundsCreate({
         accessToken,

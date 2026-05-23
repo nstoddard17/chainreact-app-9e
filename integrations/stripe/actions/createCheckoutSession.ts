@@ -1,6 +1,7 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { buildIdempotencyKey } from "@/core/workflows/idempotency";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { checkoutSessionsCreate } from "../api/checkoutSessions";
 import { CreateCheckoutSessionConfigSchema } from "./createCheckoutSession.schema";
 
@@ -59,6 +60,10 @@ export const createCheckoutSession: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "create_checkout_session",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       checkoutSessionsCreate({
         accessToken,

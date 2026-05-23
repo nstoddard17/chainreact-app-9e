@@ -1,6 +1,7 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { buildIdempotencyKey } from "@/core/workflows/idempotency";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { customersCreate } from "../api/customers";
 import { CreateCustomerConfigSchema } from "./createCustomer.schema";
 
@@ -58,6 +59,10 @@ export const createCustomer: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "create_customer",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       customersCreate({
         accessToken,

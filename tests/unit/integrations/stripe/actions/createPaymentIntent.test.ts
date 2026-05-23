@@ -191,4 +191,24 @@ describe("create_payment_intent action", () => {
     expect(result.output).not.toHaveProperty("clientSecret");
     expect(result.output).not.toHaveProperty("client_secret");
   });
+
+  // Slice 3.SEC-14 — Stripe livemode policy wiring regression.
+  // Asserts the handler threads a preflight callback into
+  // refreshAndRetry. The pure-policy decision matrix is covered in
+  // tests/unit/integrations/stripe/security/livemodePolicy.test.ts;
+  // this test catches the regression where a future refactor drops
+  // the preflight wiring at the handler boundary.
+  it("threads a stripeLivemodePreflight into refreshAndRetry (Slice 3.SEC-14)", async () => {
+    mockCreate.mockResolvedValueOnce(piResponse());
+    await createPaymentIntent({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: { amount: 20.99, currency: "usd" },
+      triggerEvent: trigger(),
+    });
+    const callArg = mockRefreshAndRetry.mock.calls[0]![0]!;
+    expect(typeof callArg.preflight).toBe("function");
+  });
 });

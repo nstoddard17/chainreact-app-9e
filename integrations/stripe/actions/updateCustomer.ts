@@ -1,5 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { customersUpdate } from "../api/customers";
 import { UpdateCustomerConfigSchema } from "./updateCustomer.schema";
 
@@ -27,6 +28,10 @@ export const updateCustomer: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "update_customer",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       customersUpdate({
         accessToken,

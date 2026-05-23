@@ -3,6 +3,7 @@ import {
   refreshAndRetry,
   Unauthorized401Error,
 } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { NotFoundError } from "@/integrations/_shared/stripe/errors";
 import {
   paymentIntentsGet,
@@ -48,6 +49,10 @@ export const findPaymentIntent: ActionHandler = async (input) => {
       userId: input.userId,
       provider: "stripe",
       accountId,
+      preflight: stripeLivemodePreflight({
+        actionType: "find_payment_intent",
+        runTestMode: input.testMode === true,
+      }),
       apiCall: (accessToken) =>
         paymentIntentsGet({
           accessToken,

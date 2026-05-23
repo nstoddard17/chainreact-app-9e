@@ -1,5 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { paymentIntentsCapture } from "../api/paymentIntents";
 import { CapturePaymentIntentConfigSchema } from "./capturePaymentIntent.schema";
 
@@ -25,6 +26,10 @@ export const capturePaymentIntent: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "capture_payment_intent",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       paymentIntentsCapture({
         accessToken,

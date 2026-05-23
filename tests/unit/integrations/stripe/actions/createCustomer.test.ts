@@ -172,4 +172,22 @@ describe("create_customer action", () => {
     ).rejects.toThrow();
     expect(mockCreate).not.toHaveBeenCalled();
   });
+
+  // Slice 3.SEC-14 — regression guard. `create_customer` is
+  // `riskLevel: "medium"`; the handler still threads a preflight so
+  // test-mode defense-in-depth and future risk-level escalations are
+  // covered uniformly across every Stripe handler.
+  it("threads a stripeLivemodePreflight into refreshAndRetry (Slice 3.SEC-14)", async () => {
+    mockCreate.mockResolvedValueOnce(customerResponse());
+    await createCustomer({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: { email: "alice@example.com" },
+      triggerEvent: trigger(),
+    });
+    const callArg = mockRefreshAndRetry.mock.calls[0]![0]!;
+    expect(typeof callArg.preflight).toBe("function");
+  });
 });

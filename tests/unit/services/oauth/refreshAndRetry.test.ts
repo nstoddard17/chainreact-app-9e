@@ -246,3 +246,116 @@ describe("refreshAndRetry — missing integration", () => {
     ).rejects.toThrow(/disappeared between refresh and retry/i);
   });
 });
+
+// ─── Slice 3.SEC-14 — preflight hook ────────────────────────────────────────
+
+describe("refreshAndRetry — preflight hook (Slice 3.SEC-14)", () => {
+  it("invokes the preflight ONCE with the initial integration row before apiCall", async () => {
+    const row = makeRow("ENC-tok", { accountMetadata: { livemode: true } });
+    mockGetActiveForExecution.mockResolvedValueOnce(row);
+    const apiCall = jest.fn().mockResolvedValue("ok");
+    const preflight = jest.fn();
+
+    const result = await refreshAndRetry({
+      userId: "user-1",
+      provider: "stripe",
+      apiCall,
+      preflight,
+    });
+
+    expect(result).toBe("ok");
+    expect(preflight).toHaveBeenCalledTimes(1);
+    expect(preflight).toHaveBeenCalledWith(row);
+    expect(apiCall).toHaveBeenCalledTimes(1);
+    // Ordering check: preflight runs before the first apiCall.
+    expect(preflight.mock.invocationCallOrder[0]).toBeLessThan(
+      apiCall.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("propagates preflight throw verbatim and never invokes apiCall", async () => {
+    const row = makeRow("ENC-tok");
+    mockGetActiveForExecution.mockResolvedValueOnce(row);
+    const apiCall = jest.fn();
+    const policyError = new Error("STRIPE_LIVEMODE_UNKNOWN");
+    const preflight = jest.fn(() => {
+      throw policyError;
+    });
+
+    await expect(
+      refreshAndRetry({
+        userId: "user-1",
+        provider: "stripe",
+        apiCall,
+        preflight,
+      }),
+    ).rejects.toBe(policyError);
+
+    expect(apiCall).not.toHaveBeenCalled();
+    expect(mockDispatcherRefresh).not.toHaveBeenCalled();
+  });
+
+  it("does NOT re-invoke preflight on the 401 → refresh → retry path", async () => {
+    // The post-refresh refetch returns the same row shape (refresh
+    // rotates only the access token, not account_metadata). The
+    // preflight is invoked exactly once with the initial row, BEFORE
+    // any apiCall. If a future change moves preflight into the retry
+    // path, this test surfaces the regression — concurrent retries
+    // shouldn't pay the policy cost twice.
+    const initialRow = makeRow("ENC-stale", {
+      accountMetadata: { livemode: true },
+    });
+    const refreshedRow = makeRow("ENC-fresh", {
+      accountMetadata: { livemode: true },
+    });
+    mockGetActiveForExecution
+      .mockResolvedValueOnce(initialRow)
+      .mockResolvedValueOnce(refreshedRow);
+    mockDispatcherRefresh.mockResolvedValueOnce({ integration: refreshedRow });
+    const apiCall = jest
+      .fn()
+      .mockRejectedValueOnce(new Unauthorized401Error())
+      .mockResolvedValueOnce({ ok: true });
+    const preflight = jest.fn();
+
+    const result = await refreshAndRetry({
+      userId: "user-1",
+      provider: "stripe",
+      apiCall,
+      preflight,
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(preflight).toHaveBeenCalledTimes(1);
+    expect(preflight).toHaveBeenCalledWith(initialRow);
+    expect(apiCall).toHaveBeenCalledTimes(2);
+  });
+
+  it("is a no-op when no preflight is provided (backward compat)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow("ENC-tok"));
+    const apiCall = jest.fn().mockResolvedValue("ok");
+    const result = await refreshAndRetry({
+      userId: "user-1",
+      provider: "gmail",
+      apiCall,
+    });
+    expect(result).toBe("ok");
+    expect(apiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("preflight runs after the missing-integration check (preflight never sees null)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(null);
+    const apiCall = jest.fn();
+    const preflight = jest.fn();
+    await expect(
+      refreshAndRetry({
+        userId: "user-1",
+        provider: "stripe",
+        apiCall,
+        preflight,
+      }),
+    ).rejects.toThrow(/no active integration/i);
+    expect(preflight).not.toHaveBeenCalled();
+    expect(apiCall).not.toHaveBeenCalled();
+  });
+});

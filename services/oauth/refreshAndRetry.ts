@@ -1,6 +1,9 @@
 import { RefreshNotSupportedError } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
-import { getActiveForExecution } from "@/repositories/integrations";
+import {
+  getActiveForExecution,
+  type IntegrationRecord,
+} from "@/repositories/integrations";
 import { refresh as dispatcherRefresh } from "@/services/oauth/dispatcher";
 
 /**
@@ -105,6 +108,25 @@ export interface RefreshAndRetryInput<T> {
    * propagate to the caller without triggering refresh.
    */
   apiCall: (accessToken: string) => Promise<T>;
+  /**
+   * Slice 3.SEC-14 — optional provider-policy preflight hook.
+   *
+   * Invoked AFTER the initial integration lookup but BEFORE the first
+   * `apiCall`. Used by provider-specific policy gates (Stripe livemode
+   * enforcement; future destructive-action confirmation gates). If
+   * the preflight throws, no apiCall happens — the throw propagates
+   * verbatim to the caller, and refresh-and-retry never enters the
+   * 401 path. The preflight is invoked EXACTLY ONCE per
+   * `refreshAndRetry` call, with the initial integration row; the
+   * post-refresh refetch does NOT re-invoke it (refresh rotates only
+   * the access token, never the account_metadata jsonb that the
+   * policy reads).
+   *
+   * Synchronous by design — the existing provider policies (Stripe
+   * livemode) need no I/O. Async preflights would broaden the cost
+   * model without a current consumer.
+   */
+  preflight?: (integration: IntegrationRecord) => void;
 }
 
 /**
@@ -140,6 +162,13 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
         accountId !== null ? ` account ${accountId}` : ""
       }.`,
     );
+  }
+
+  // Slice 3.SEC-14 — provider-policy preflight (Stripe livemode, etc.).
+  // Runs once on the initial row; if it throws, no apiCall fires and
+  // we never enter the refresh path. The throw propagates verbatim.
+  if (input.preflight) {
+    input.preflight(initialRow);
   }
 
   const initialToken = decryptToken(initialRow.accessTokenEncrypted);

@@ -1,5 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { chargesList } from "../api/charges";
 import { GetPaymentsConfigSchema } from "./getPayments.schema";
 
@@ -50,6 +51,10 @@ export const getPayments: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "get_payments",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       chargesList({
         accessToken,

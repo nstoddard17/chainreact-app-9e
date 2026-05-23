@@ -3,6 +3,7 @@ import {
   refreshAndRetry,
   Unauthorized401Error,
 } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { NotFoundError } from "@/integrations/_shared/stripe/errors";
 import {
   customersGet,
@@ -43,12 +44,18 @@ export const findCustomer: ActionHandler = async (input) => {
       ? input.triggerEvent.accountId
       : null;
 
+  const preflight = stripeLivemodePreflight({
+    actionType: "find_customer",
+    runTestMode: input.testMode === true,
+  });
+
   if (config.customerId !== undefined) {
     try {
       const result = await refreshAndRetry({
         userId: input.userId,
         provider: "stripe",
         accountId,
+        preflight,
         apiCall: (accessToken) =>
           customersGet({
             accessToken,
@@ -75,6 +82,7 @@ export const findCustomer: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight,
     apiCall: (accessToken) =>
       customersList({
         accessToken,

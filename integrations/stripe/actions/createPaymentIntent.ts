@@ -2,6 +2,7 @@ import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { buildIdempotencyKey } from "@/core/workflows/idempotency";
 import { dollarsToCents } from "@/integrations/_shared/stripe/amount";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { paymentIntentsCreate } from "../api/paymentIntents";
 import { CreatePaymentIntentConfigSchema } from "./createPaymentIntent.schema";
 
@@ -56,6 +57,10 @@ export const createPaymentIntent: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "create_payment_intent",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       paymentIntentsCreate({
         accessToken,

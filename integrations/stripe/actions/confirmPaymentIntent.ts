@@ -1,5 +1,6 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
+import { stripeLivemodePreflight } from "@/integrations/stripe/security/livemodePolicy";
 import { paymentIntentsConfirm } from "../api/paymentIntents";
 import { ConfirmPaymentIntentConfigSchema } from "./confirmPaymentIntent.schema";
 
@@ -30,6 +31,10 @@ export const confirmPaymentIntent: ActionHandler = async (input) => {
     userId: input.userId,
     provider: "stripe",
     accountId,
+    preflight: stripeLivemodePreflight({
+      actionType: "confirm_payment_intent",
+      runTestMode: input.testMode === true,
+    }),
     apiCall: (accessToken) =>
       paymentIntentsConfirm({
         accessToken,
