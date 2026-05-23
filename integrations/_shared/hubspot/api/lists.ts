@@ -99,3 +99,76 @@ export async function removeListMembershipByEmail(
     resourceForNotFound: `list ${input.listId}`,
   });
 }
+
+// ─── searchLists (Slice 3.HUBSPOT-2) ───────────────────────────────────────
+
+export interface HubSpotListSummary {
+  listId: string;
+  name?: string | null;
+  /**
+   * `MANUAL` for static lists (membership controlled by API/UI) vs
+   * `DYNAMIC` for HubSpot's rule-engine-controlled lists. Surfaced as
+   * the `description` on the resolver so workflow authors don't
+   * accidentally pick a dynamic list (the membership add/remove
+   * actions reject those with a 400).
+   */
+  processingType?: string | null;
+  /** Object type the list is over — typically `"0-1"` (contacts). */
+  objectTypeId?: string | null;
+  /** Approximate member count when HubSpot returns it. */
+  additionalProperties?: { hs_list_size?: string | null } | null;
+  archived?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SearchListsResponse {
+  /** HubSpot v3 lists search returns the list summaries under `lists`. */
+  lists?: HubSpotListSummary[];
+  /** Pagination cursor for the next page (offset-based; passed back in body). */
+  offset?: number | null;
+  total?: number | null;
+  hasMore?: boolean | null;
+}
+
+export interface SearchListsInput {
+  accessToken: string;
+  /** Page size. HubSpot caps at 500 per docs; we pin a sane 200 default. */
+  count?: number;
+  /** Offset cursor (numeric; HubSpot v3 lists search is offset-based, not cursor-based). */
+  offset?: number;
+}
+
+/**
+ * List discovery for HubSpot v3 lists.
+ *
+ * Endpoint: POST /crm/v3/lists/search — HubSpot's v3 lists discovery
+ * surface. The body is an empty filter object that returns every
+ * non-archived list visible to the access token; `processingType`
+ * (`MANUAL` / `DYNAMIC`) comes back inline so the resolver can echo
+ * it as the option description.
+ *
+ * Scope: `crm.lists.read` (already in the manifest).
+ *
+ * Pagination uses HubSpot's `offset` (not the v3 object-search-style
+ * `after` cursor). v1 of the resolver paginates over a single page
+ * of 200; `hasMore` propagates so the renderer can hint that further
+ * results exist.
+ */
+export async function searchLists(
+  input: SearchListsInput,
+): Promise<SearchListsResponse> {
+  const body: Record<string, unknown> = {
+    count: Math.min(input.count ?? 200, 500),
+  };
+  if (typeof input.offset === "number" && input.offset > 0) {
+    body.offset = input.offset;
+  }
+  return hubspotRequest<SearchListsResponse>({
+    accessToken: input.accessToken,
+    method: "POST",
+    path: crmPath("lists/search"),
+    body,
+    resourceForNotFound: "lists",
+  });
+}

@@ -63,6 +63,61 @@ describe("options resolver registry", () => {
     expect(r?.requiredDeps).toEqual(["spreadsheetId"]);
   });
 
+  describe("HubSpot resolvers (Slice 3.HUBSPOT-2)", () => {
+    it("getOptionsResolver resolves hubspot:owners", () => {
+      const r = getOptionsResolver("hubspot:owners");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("hubspot:owners");
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves hubspot:deal_pipelines (no deps)", () => {
+      const r = getOptionsResolver("hubspot:deal_pipelines");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves hubspot:deal_stages (dependsOn pipeline)", () => {
+      const r = getOptionsResolver("hubspot:deal_stages");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["pipeline"]);
+    });
+
+    it("getOptionsResolver resolves hubspot:ticket_pipelines (no deps)", () => {
+      const r = getOptionsResolver("hubspot:ticket_pipelines");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves hubspot:ticket_stages (dependsOn hs_pipeline — schema-anchored field name)", () => {
+      const r = getOptionsResolver("hubspot:ticket_stages");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      // hs_pipeline matches the createTicket / updateTicket schema field
+      // name. Deal-stages uses `pipeline` (no `hs_` prefix) because the
+      // deal schema uses a different field name. Pinned here so the
+      // cascade wiring stays correctly parented across providers.
+      expect(r?.requiredDeps).toEqual(["hs_pipeline"]);
+    });
+
+    it("getOptionsResolver resolves hubspot:lists (stretch)", () => {
+      const r = getOptionsResolver("hubspot:lists");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

@@ -22,6 +22,29 @@ import { slackChannelsResolver } from "@/integrations/slack/options/channels";
 import { googleSheetsSpreadsheetsResolver } from "@/integrations/google-sheets/options/spreadsheets";
 import { googleSheetsSheetsResolver } from "@/integrations/google-sheets/options/sheets";
 
+// HubSpot resolvers — Slice 3.HUBSPOT-2.
+//   - `hubspot:owners` — backs the `hubspot_owner_id` field across 8
+//     create/update actions and engagements.
+//   - `hubspot:deal_pipelines` → `hubspot:deal_stages` (depends on
+//     `pipeline`) — the canonical pipeline → stage cascade for
+//     `create_deal` / `update_deal`.
+//   - `hubspot:ticket_pipelines` → `hubspot:ticket_stages` (depends on
+//     `hs_pipeline`) — same cascade shape against ticket pipelines for
+//     `create_ticket` / `update_ticket`.
+//   - `hubspot:lists` — backs `listId` on `add_contact_to_list` and
+//     `remove_from_list`. Surfaces `processingType` (MANUAL vs
+//     DYNAMIC) on the option description so authors don't accidentally
+//     target a dynamic list (which the membership APIs reject).
+//
+// All five core resolvers are read-only against scopes already in the
+// 18-scope HubSpot manifest; no reconnect required.
+import { hubspotOwnersResolver } from "@/integrations/hubspot/options/owners";
+import { hubspotDealPipelinesResolver } from "@/integrations/hubspot/options/dealPipelines";
+import { hubspotDealStagesResolver } from "@/integrations/hubspot/options/dealStages";
+import { hubspotTicketPipelinesResolver } from "@/integrations/hubspot/options/ticketPipelines";
+import { hubspotTicketStagesResolver } from "@/integrations/hubspot/options/ticketStages";
+import { hubspotListsResolver } from "@/integrations/hubspot/options/lists";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -53,6 +76,15 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   slackChannelsResolver,
   googleSheetsSpreadsheetsResolver,
   googleSheetsSheetsResolver,
+  // HubSpot (Slice 3.HUBSPOT-2). Resolver-first ahead of HubSpot
+  // metadata batches (HUBSPOT-3..6); 17 of the 26 HubSpot mutation /
+  // read metas consume at least one of these resolvers.
+  hubspotOwnersResolver,
+  hubspotDealPipelinesResolver,
+  hubspotDealStagesResolver,
+  hubspotTicketPipelinesResolver,
+  hubspotTicketStagesResolver,
+  hubspotListsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

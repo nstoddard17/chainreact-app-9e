@@ -13,6 +13,7 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 import {
   addListMembershipByEmail,
   removeListMembershipByEmail,
+  searchLists,
 } from "@/integrations/_shared/hubspot/api/lists";
 
 beforeEach(() => {
@@ -134,5 +135,38 @@ describe("removeListMembershipByEmail (HubSpot 2.1)", () => {
         email: "a@b.com",
       }),
     ).rejects.toThrow(/dynamic list/i);
+  });
+});
+
+describe("searchLists (Slice 3.HUBSPOT-2)", () => {
+  it("POSTs /crm/v3/lists/search with default count 200 and no offset", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ lists: [] });
+    await searchLists({ accessToken: "tok" });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("POST");
+    expect(call.path).toBe("/crm/v3/lists/search");
+    expect(call.body).toEqual({ count: 200 });
+    expect(call.resourceForNotFound).toBe("lists");
+  });
+
+  it("includes offset when supplied (positive)", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ lists: [] });
+    await searchLists({ accessToken: "tok", count: 50, offset: 100 });
+    expect(mockHubspotRequest.mock.calls[0]![0]!.body).toEqual({
+      count: 50,
+      offset: 100,
+    });
+  });
+
+  it("clamps count to 500 (HubSpot's documented cap)", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ lists: [] });
+    await searchLists({ accessToken: "tok", count: 9999 });
+    expect(mockHubspotRequest.mock.calls[0]![0]!.body).toEqual({ count: 500 });
+  });
+
+  it("omits offset when it is zero (HubSpot expects absent for first page)", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ lists: [] });
+    await searchLists({ accessToken: "tok", offset: 0 });
+    expect(mockHubspotRequest.mock.calls[0]![0]!.body).toEqual({ count: 200 });
   });
 });
