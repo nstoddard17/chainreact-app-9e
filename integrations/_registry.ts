@@ -82,6 +82,12 @@ import "./trello/triggers/cardArchived";
 // `/api/webhooks/discord` (configured per Discord application in the
 // Developer Portal) — strict-direct-lookup via ?workflowId=&nodeId=.
 import "./discord/triggers/slashCommand";
+// Slice 3.DISCORD-7 — discord:new_message polling trigger.
+// Activation seeds snapshot.lastSeenMessageId from the channel's
+// current newest message; the polling-triggers cron fetches new
+// messages every ~5 minutes via GET /channels/{id}/messages?after={id}.
+// Polling-only — no provider-side resource to renew.
+import "./discord/triggers/newMessage";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.

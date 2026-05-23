@@ -1160,7 +1160,7 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
   });
 
-  it("returns one Discord trigger (Slice 3.DISCORD-6 — slash_command via Interactions Endpoint URL)", async () => {
+  it("returns two Discord triggers (Slice 3.DISCORD-6 slash_command + Slice 3.DISCORD-7 new_message)", async () => {
     authedUser();
     const res = await getTriggers(new Request("http://x/discord/triggers"), {
       params: Promise.resolve({ id: "discord" }),
@@ -1171,15 +1171,19 @@ describe("GET /api/providers/[id]/triggers", () => {
       triggers: Array<{ key: string; activation: string; requiresIntegration: boolean }>;
     };
     expect(body.provider).toBe("discord");
-    // DISCORD-5 trigger-architecture decision: ship slash_command now
-    // via Discord's HTTP Interactions Endpoint URL (Ed25519 signed,
-    // no gateway dependency). new_message lands in DISCORD-7 as a
-    // polling trigger; member_join deferred (DISCORD-N-member-join,
-    // Discord REST has no join-time-indexed endpoint).
-    expect(body.triggers).toHaveLength(1);
-    expect(body.triggers[0]!.key).toBe("discord:slash_command");
+    // DISCORD-5 trigger-architecture decision:
+    //   - slash_command (DISCORD-6) — webhook via Interactions Endpoint URL.
+    //   - new_message (DISCORD-7) — polling via REST messages?after=.
+    //   - member_join deferred (DISCORD-N-member-join; Discord REST has
+    //     no join-time-indexed endpoint).
+    expect(body.triggers).toHaveLength(2);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "discord:slash_command",
+      "discord:new_message",
+    ]);
     expect(body.triggers[0]!.activation).toBe("webhook");
-    expect(body.triggers[0]!.requiresIntegration).toBe(true);
+    expect(body.triggers[1]!.activation).toBe("polling");
+    expect(body.triggers.every((t) => t.requiresIntegration)).toBe(true);
   });
 
   it("returns the 10 Slack trigger metas registered in Slice 3.11, all webhook-activated", async () => {

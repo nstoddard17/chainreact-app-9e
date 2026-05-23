@@ -57,13 +57,28 @@ Optional follow-on slices (per-provider as needed):
 
 ## Per-provider notes
 
-### Discord — in flight
+### Discord — complete except deferred member_join
 - DISCORD-1: audit doc landed at `docs/slices/phase-3/discord-metadata-plan.md` (commit `4205697c8`).
 - DISCORD-2: runtime port (5 actions only, no triggers) landed at commit `c0aace04b`.
-- DISCORD-3: 6 OptionsSource resolvers (this slice).
-- DISCORD-4 (next): action metas for the 5 ported actions + COVERED_PROVIDERS flip.
-- DISCORD-N-triggers (deferred): pending the trigger-architecture decision (D-DC1 in the audit).
-- Follow-up tracked from DISCORD-2: production bot install needs either a `permissions=` query param on the OAuth authorize URL OR operator documentation for the required Discord Developer Portal bot permissions (View Channel, Send Messages, Read Message History, Manage Messages, Manage Roles). Not a DISCORD-3 blocker.
+- DISCORD-3: 6 OptionsSource resolvers landed at commit `b04224574`.
+- DISCORD-4: action metas for the 5 ported actions + COVERED_PROVIDERS flip landed at commit `6eafedb31`.
+- DISCORD-4A: registry trim landed at commit `36c4133d4`.
+- DISCORD-5: trigger architecture decision doc (per-trigger answer to D-DC1) landed at commit `4d9a9df11`.
+- DISCORD-6: `discord:slash_command` webhook trigger via Discord's Interactions Endpoint URL (Ed25519 signed) landed at commit `21b8753b5`.
+- DISCORD-7: `discord:new_message` polling trigger over `GET /channels/{id}/messages?after={id}` (this slice).
+- **DISCORD-N-member-join — deferred with hard blocker**: Discord REST has no join-time-indexed members endpoint (`GET /guilds/{id}/members` sorts by user id); audit log doesn't record joins; Application Webhooks don't cover `GUILD_MEMBER_ADD`. Revisit conditions: V2 ships gateway-worker infrastructure (Phase-level), OR Discord adds `GUILD_MEMBER_ADD` to Event Webhooks, OR Discord adds a join-time-indexed REST endpoint. See `docs/slices/phase-3/discord-trigger-architecture-plan.md` §4.3.
+
+**Production follow-ups (tracked, not blocking):**
+- Bot install permissions surface: production needs `permissions=` query param on the OAuth authorize URL OR operator documentation for required Discord Developer Portal permissions (View Channel, Send Messages, Read Message History, Manage Messages, Manage Roles, `applications.commands` scope).
+- **MESSAGE_CONTENT privileged intent (DISCORD-7 operator burden):** `discord:new_message`'s `content` payload field arrives EMPTY when the bot lacks the MESSAGE_CONTENT privileged intent. Operator must enable it in the Discord Developer Portal under "Bot → Privileged Gateway Intents → Message Content Intent". For bots in 100+ guilds, Discord additionally requires manual approval. Without the intent, the `contentFilter` config field still functions but always evaluates against empty strings (effectively rejects every message when set).
+- Slash-command options/arguments builder UI (DISCORD-6 future polish) — the API helper accepts options[] verbatim but the meta keeps fields minimal v1.
+- Workflow-customizable slash-command ephemeral reply (DISCORD-6 future) — currently every invocation shows "Workflow triggered." privately; future may let workflows fill the immediate reply.
+- `channelName` / `guildName` on `new_message` trigger payload arrive `null` because Discord's raw messages API doesn't include them. Follow-up plumbs them through trigger config from the picker labels at activation time.
+- Role hierarchy filtering on `discord:roles` resolver.
+- GUILD_MEMBERS privileged intent for `discord:members` resolver (large servers).
+- discord-rich-text FieldType polish.
+- FieldMeta conditional visibility polish.
+- string-array + optionsSource / multi-select polish.
 
 ### Google Docs — not started
 - Audit + scope plan needed (`gdocs-1`).

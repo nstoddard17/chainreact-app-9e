@@ -4,6 +4,7 @@ import {
   type DiscordMessage,
   messagesList,
 } from "../../_shared/discord/api/messages";
+import { isUserVisibleMessage } from "../../_shared/discord/messageFilters";
 import {
   FetchMessagesConfigSchema,
   type FetchMessagesFilterType,
@@ -127,15 +128,10 @@ function applyFilter(
   });
 }
 
-// Discord MessageType.DEFAULT === 0 — anything else is a system message.
-function isUserVisibleMessage(msg: DiscordMessage): boolean {
-  if (msg.type === undefined || msg.type === 0) return true;
-  // Keep system messages that carry attachments or embeds — rare, but
-  // pin/notification messages occasionally echo the original content.
-  if ((msg.attachments?.length ?? 0) > 0) return true;
-  if ((msg.embeds?.length ?? 0) > 0) return true;
-  return false;
-}
+// `isUserVisibleMessage` lives in `_shared/discord/messageFilters.ts` —
+// the same helper is consumed by the `new_message` polling trigger
+// (Slice 3.DISCORD-7) so the system-message filter stays consistent
+// across action + trigger surfaces.
 
 export const fetchMessages: ActionHandler = async (input) => {
   const config = FetchMessagesConfigSchema.parse(input.config);

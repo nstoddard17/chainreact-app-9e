@@ -60,11 +60,15 @@ import { ProviderManifestSchema, type ProviderManifest } from "@/contracts/integ
  *   - Actions: true — 5 handlers (DISCORD-2: `services/execution/handlers/_registry.ts`).
  *   - Webhook trigger: true — `discord:slash_command` ships in DISCORD-6
  *     via Discord's Interactions Endpoint URL (Ed25519-signed HTTP POST).
- *     `discord:new_message` (polling) and `discord:member_join` are
- *     scoped to follow-up slices per
- *     `docs/slices/phase-3/discord-trigger-architecture-plan.md`.
- *   - Polling trigger: false — `discord:new_message` polling lands in
- *     DISCORD-7. The capability flag flips when that slice ships.
+ *   - Polling trigger: true — `discord:new_message` ships in DISCORD-7
+ *     via REST polling over `GET /channels/{id}/messages?after={id}`
+ *     at ~5 min cadence. Per Slice 3.DISCORD-5 §4.2, this accepts the
+ *     latency tradeoff vs V1's gateway sub-second delivery; the bot's
+ *     MESSAGE_CONTENT privileged intent (Discord Developer Portal) must
+ *     be enabled for the `content` field to arrive populated.
+ *     `discord:member_join` is deferred (DISCORD-N-member-join — no
+ *     reliable Discord REST endpoint indexed on join time; revisit
+ *     conditions tracked in the architecture doc).
  *
  * The action keys ship at:
  *   - `discord:send_message`
@@ -101,7 +105,7 @@ export const discordManifest: ProviderManifest = ProviderManifestSchema.parse({
   capabilities: {
     oauth: true,
     webhookTrigger: true,
-    pollingTrigger: false,
+    pollingTrigger: true,
     actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000,

@@ -51,8 +51,13 @@ describe("discord manifest — capabilities", () => {
     expect(discordManifest.capabilities.webhookTrigger).toBe(true);
   });
 
-  it("DOES NOT enable pollingTrigger yet (discord:new_message lands in DISCORD-7)", () => {
-    expect(discordManifest.capabilities.pollingTrigger).toBe(false);
+  it("enables pollingTrigger now that DISCORD-7 shipped new_message via REST polling", () => {
+    // Was `false` through DISCORD-2..6. DISCORD-7 adds the polling
+    // trigger over GET /channels/{id}/messages?after={id} per the
+    // DISCORD-5 architecture decision — V2-native polling instead of
+    // V1's gateway websocket. ~5-min cadence vs V1's sub-second is
+    // an accepted tradeoff (see newMessage.meta.ts description).
+    expect(discordManifest.capabilities.pollingTrigger).toBe(true);
   });
 });
 
