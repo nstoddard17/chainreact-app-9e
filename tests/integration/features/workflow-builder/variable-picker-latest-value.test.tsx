@@ -215,12 +215,12 @@ it("Run Now → terminal succeeded → picker shows trigger.payload.subject prev
   };
   mockGetWorkflowRun.mockResolvedValueOnce(successDetail);
 
-  // 4. Click Run Live → polling picks up the success on tick 1.
-  await user.click(screen.getByTestId("run-now-live-button"));
+  // 4. Click Run Manually → polling picks up the success on tick 1.
+  await user.click(screen.getByTestId("run-controls-run-manually-button"));
   await waitFor(() => {
-    // Slice 3.POSTSEC-6 — runNowWorkflow signature is now
-    // (id, inputs, { testMode?, confirmationText? }). Live Run sends
-    // testMode:false explicitly.
+    // Slice 3.POSTSEC-6 / 6B — runNowWorkflow signature is now
+    // (id, inputs, { testMode?, confirmationText? }). Run Manually
+    // sends testMode:false explicitly.
     expect(mockRunNowWorkflow).toHaveBeenCalledWith(
       "wf-1",
       { inputs: {} },

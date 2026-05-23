@@ -237,13 +237,14 @@ it("end-to-end: add manual trigger, Run Now posts to runNowWorkflow", async () =
   // 3. Unsaved-changes warning surfaces (graph is dirty after add).
   expect(screen.getByRole("status")).toHaveTextContent(/unsaved changes/i);
 
-  // 4. Click Run Live → typed-client called with the workflow id +
+  // 4. Click Run Manually → typed-client called with the workflow id +
   //    empty inputs payload.
-  await user.click(screen.getByTestId("run-now-live-button"));
+  await user.click(screen.getByTestId("run-controls-run-manually-button"));
   await waitFor(() => {
-    // Slice 3.POSTSEC-6 — runNowWorkflow signature is now
-    // (id, inputs, { testMode?, confirmationText? }). Live Run sends
-    // testMode:false explicitly; Test Run would send testMode:true.
+    // Slice 3.POSTSEC-6 / 6B — runNowWorkflow signature is now
+    // (id, inputs, { testMode?, confirmationText? }). Run Manually
+    // sends testMode:false explicitly; Test Workflow would send
+    // testMode:true.
     expect(mockRunNowWorkflow).toHaveBeenCalledWith(
       "wf-1",
       { inputs: {} },

@@ -3,10 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  MANUAL_TRIGGER_EVENT_TYPE,
-  MANUAL_TRIGGER_PROVIDER,
-} from "@/integrations/native/triggers/manualTrigger";
-import {
   isConfirmationRequiredError,
   runNowWorkflow,
   WorkflowApiError,
@@ -14,55 +10,62 @@ import {
 } from "@/lib/api/workflows";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
+import {
+  getTriggerKind,
+  type TriggerKind,
+} from "../state/triggerKind";
 import { DestructiveActionConfirmationModal } from "./DestructiveActionConfirmationModal";
 
 /**
- * Run Now panel — Slice 3.3 + Slice 3.POSTSEC-6.
+ * Run-controls panel — Slice 3.3 → Slice 3.POSTSEC-6B.
  *
- * Only renders when the workflow has a `native:manual.run` trigger. The
- * panel surfaces two explicit actions:
+ * The panel branches on the workflow's trigger kind
+ * (`features/workflow-builder/state/triggerKind.ts`):
  *
- *   • Test Run (primary) — calls `runNowWorkflow(id, inputs,
- *     { testMode: true })`. The engine (SEC-2) short-circuits external
- *     and high-risk handlers; destructive provider calls never fire,
- *     so the SEC-4B confirmation modal is intentionally bypassed.
- *     `triggeredBy: "test"` + `isTest: true` distinguishes the run in
- *     the run history.
+ *   - **Manual workflows** (`native:manual.run` trigger):
+ *       The user fires the workflow — Run Manually is the primary live
+ *       action. Two buttons:
+ *         • Test Workflow (primary)   — testMode:true, skips modal
+ *         • Run Manually  (destructive) — testMode:false, opens modal
+ *           on 409 CONFIRMATION_REQUIRED. Retry preserves testMode:false
+ *           plus the typed confirmation phrase.
  *
- *   • Run Live (destructive-style secondary) — calls `runNowWorkflow`
- *     with `testMode: false`. Real provider APIs fire. If the workflow
- *     contains a SEC-4B-gated action the first shot returns
- *     409 CONFIRMATION_REQUIRED; the destructive-action confirmation
- *     modal opens and the user types the server-issued phrase to retry.
+ *   - **Automated workflows** (scheduled, provider event, webhook,
+ *     polling — anything not `native:manual.run`):
+ *       The workflow is fired by an external event after activation.
+ *       Manually live-running it from the builder would either need a
+ *       fake event payload or would short-circuit the trigger; neither
+ *       is a normal end-user flow. The panel shows ONLY a Test Workflow
+ *       surface, currently rendered as a disabled button with copy
+ *       explaining how to validate the workflow today (activate it and
+ *       trigger the source event). Wiring mock/sample event data to a
+ *       non-manual test path is a follow-up slice — backend run-now
+ *       still requires a manual trigger node server-side.
  *
- * Crucial invariant (no silent promotion / demotion):
- *   - Test Run NEVER becomes Live Run.
- *   - Live Run NEVER silently degrades to Test Run.
- *   - Confirmation retry preserves `testMode: false` so the user can't
- *     accidentally have a destructive-action confirmation flow execute
- *     as a sandbox run.
+ *   - **No trigger** (graph still being composed):
+ *       Panel is hidden — there is nothing to run or test yet.
+ *
+ * Crucial invariant (no silent promotion / demotion, carried from
+ * POSTSEC-6):
+ *   - Test Workflow NEVER becomes Run Manually.
+ *   - Run Manually NEVER silently degrades to a test run, including
+ *     the post-modal retry path.
+ *   - `testMode` and `confirmationText` travel as envelope siblings of
+ *     `inputs`; never injected into the trigger payload.
  *
  * Architectural boundary (preserved from Slice 3.2):
- *   - Modal Save updates pending graph state in `configSlice` /
- *     `graphSlice` only.
- *   - Toolbar Save persists workflow definition via `updateWorkflow`.
- *   - Run Now (either mode) executes the *already-saved* workflow. It
- *     does NOT trigger a save. If the user has unsaved edits, the panel
- *     surfaces a warning so they don't accidentally test against the
- *     stale server-side definition.
- *
- * The panel intentionally does not auto-save before run: hiding a save
- * inside a run button conflates two operations and was a frequent
- * source of "but I clicked Run, why are my edits gone?" confusion in
- * V1. The user explicitly Saves, then Runs.
+ *   - Modal Save → pending graph state (configSlice / graphSlice only).
+ *   - Toolbar Save → workflow persistence (updateWorkflow).
+ *   - Run controls → execute the *already-saved* workflow. They do
+ *     NOT save. Unsaved-changes warning surfaces when applicable.
  */
 
 /**
  * Which button is currently in-flight. `null` = nothing running. Used
  * for per-button busy labelling + disabling both buttons so the user
- * can't fire a Test Run and a Live Run concurrently.
+ * can't fire a Test Workflow and a Run Manually concurrently.
  */
-type RunningMode = "test" | "live" | null;
+type RunningMode = "test" | "manual" | null;
 
 export function RunNowPanel() {
   const workflowId = useGraphSlice((s) => s.workflowId);
@@ -74,23 +77,18 @@ export function RunNowPanel() {
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [lastRunIsTest, setLastRunIsTest] = useState<boolean>(false);
   // Slice 3.POSTSEC-5 — pending typed-confirmation modal state for the
-  // Live Run path. Non-null = modal open; the server's structured 409
-  // detail is the source of truth for the action list + required phrase.
+  // Run Manually path. Non-null = modal open; the server's structured
+  // 409 detail is the source of truth for the action list + required
+  // phrase. Only Run Manually opens this; Test Workflow never does.
   const [confirmationDetail, setConfirmationDetail] =
     useState<WorkflowConfirmationRequiredDetail | null>(null);
   const startTracking = useRunSlice((s) => s.startTracking);
 
-  const hasManualTrigger = pendingNodes.some(
-    (n) =>
-      n.kind === "trigger" &&
-      n.provider === MANUAL_TRIGGER_PROVIDER &&
-      n.type === MANUAL_TRIGGER_EVENT_TYPE,
-  );
+  const triggerKind: TriggerKind = getTriggerKind(pendingNodes);
 
-  // Hidden when the workflow has no manual trigger — Run Now is
-  // meaningless for webhook / scheduled / polling triggers (those fire
-  // via their own activation pathways).
-  if (!hasManualTrigger || !workflowId) return null;
+  // Hidden when there is no trigger yet OR the workflow hasn't
+  // hydrated (no workflowId). Both branches render the same null.
+  if (triggerKind === "none" || !workflowId) return null;
 
   async function dispatchRun(
     targetWorkflowId: string,
@@ -109,11 +107,11 @@ export function RunNowPanel() {
     // Slice 3.8 — kick off latest-run tracking. The polling hook
     // installed in WorkflowBuilder picks this up and renders the
     // result into RunResultsPanel. Save state stays a separate
-    // concern: Run Now does NOT call updateWorkflow.
+    // concern: the run controls never call updateWorkflow.
     startTracking({ workflowId: targetWorkflowId, runId: result.runId });
   }
 
-  async function handleTestRun(): Promise<void> {
+  async function handleTestWorkflow(): Promise<void> {
     if (!workflowId) return;
     if (runningMode !== null) return;
     if (confirmationDetail !== null) return;
@@ -122,8 +120,8 @@ export function RunNowPanel() {
     try {
       // testMode: true → SEC-2 blocks external handlers before the
       // SEC-4B confirmation gate ever evaluates. The modal MUST NOT
-      // appear for test runs even on destructive workflows — that's
-      // the whole point of an explicit safe-test surface.
+      // appear for test workflow runs even on destructive workflows
+      // — that's the whole point of an explicit safe-test surface.
       await dispatchRun(workflowId, true, undefined);
     } catch (err) {
       // Defensive — server should never return 409 CONFIRMATION_REQUIRED
@@ -136,25 +134,25 @@ export function RunNowPanel() {
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Test Run failed.";
+            : "Test Workflow failed.";
       setRunError(message);
     } finally {
       setRunningMode(null);
     }
   }
 
-  async function handleLiveRun(): Promise<void> {
+  async function handleRunManually(): Promise<void> {
     if (!workflowId) return;
     if (runningMode !== null) return;
     if (confirmationDetail !== null) return;
-    setRunningMode("live");
+    setRunningMode("manual");
     setRunError(null);
     try {
       await dispatchRun(workflowId, false, undefined);
     } catch (err) {
       // Slice 3.POSTSEC-5 — server returned 409 CONFIRMATION_REQUIRED.
       // Defer to the typed-confirmation modal; clear the in-flight
-      // spinner so the Live Run button isn't stuck in "Running…"
+      // spinner so the Run Manually button isn't stuck in "Running…"
       // while the user reads the modal.
       if (isConfirmationRequiredError(err)) {
         setConfirmationDetail(err.detail);
@@ -166,21 +164,21 @@ export function RunNowPanel() {
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Live Run failed.";
+            : "Run Manually failed.";
       setRunError(message);
     } finally {
       setRunningMode(null);
     }
   }
 
-  async function handleConfirmLiveRun(): Promise<void> {
+  async function handleConfirmRunManually(): Promise<void> {
     if (!workflowId || !confirmationDetail) return;
-    setRunningMode("live");
+    setRunningMode("manual");
     setRunError(null);
     try {
-      // Retry preserves testMode:false (Live Run never silently flips
-      // to Test Run mid-confirmation) and adds the server-issued phrase
-      // verbatim.
+      // Retry preserves testMode:false (Run Manually never silently
+      // flips to Test Workflow mid-confirmation) and adds the
+      // server-issued phrase verbatim.
       await dispatchRun(
         workflowId,
         false,
@@ -190,14 +188,14 @@ export function RunNowPanel() {
     } catch (err) {
       // Defensive — the server's `isValidConfirmationText` matches the
       // client's modal validation exactly, so a second 409 on retry is
-      // rare. Treat any failure as a normal Run Now failure and close
-      // the modal so the user isn't stuck.
+      // rare. Treat any failure as a normal Run Manually failure and
+      // close the modal so the user isn't stuck.
       const message =
         err instanceof WorkflowApiError
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Live Run failed.";
+            : "Run Manually failed.";
       setRunError(message);
       setConfirmationDetail(null);
     } finally {
@@ -211,10 +209,48 @@ export function RunNowPanel() {
 
   const anyRunning = runningMode !== null;
 
+  // ── automated workflow surface ────────────────────────────────────
+  if (triggerKind === "automated") {
+    return (
+      <section
+        aria-label="Workflow testing"
+        className="flex flex-col gap-3 rounded border border-input bg-card p-3"
+        data-testid="run-controls-panel-automated"
+      >
+        <header className="flex flex-col gap-1">
+          <h3 className="text-sm font-medium">Test workflow</h3>
+          <p className="text-xs text-muted-foreground">
+            This workflow is fired by an external event (scheduled, webhook,
+            or provider event). Manual live runs aren&rsquo;t the normal path
+            — use Activate to wire up the trigger.
+          </p>
+        </header>
+        <Button
+          type="button"
+          size="sm"
+          variant="default"
+          disabled
+          data-testid="run-controls-test-button"
+          title="Test runs for automated workflows are in development."
+        >
+          Test Workflow
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Test runs for automated workflows are in development. To validate
+          this workflow end-to-end today, activate it and trigger the source
+          event.
+        </p>
+      </section>
+    );
+  }
+
+  // ── manual workflow surface ───────────────────────────────────────
+  // (triggerKind === "manual")
   return (
     <section
       aria-label="Manual run"
       className="flex flex-col gap-3 rounded border border-input bg-card p-3"
+      data-testid="run-controls-panel-manual"
     >
       <header className="flex flex-col gap-1">
         <h3 className="text-sm font-medium">Manual run</h3>
@@ -225,18 +261,18 @@ export function RunNowPanel() {
 
       <div
         className="flex flex-col gap-2 sm:flex-row sm:items-stretch"
-        data-testid="run-now-actions"
+        data-testid="run-controls-actions"
       >
         <div className="flex flex-1 flex-col gap-1">
           <Button
             type="button"
             size="sm"
             variant="default"
-            onClick={handleTestRun}
+            onClick={handleTestWorkflow}
             disabled={anyRunning}
-            data-testid="run-now-test-button"
+            data-testid="run-controls-test-button"
           >
-            {runningMode === "test" ? "Testing…" : "Test Run"}
+            {runningMode === "test" ? "Testing…" : "Test Workflow"}
           </Button>
           <p className="text-xs text-muted-foreground">
             Runs safely without calling connected provider APIs. External
@@ -248,11 +284,11 @@ export function RunNowPanel() {
             type="button"
             size="sm"
             variant="destructive"
-            onClick={handleLiveRun}
+            onClick={handleRunManually}
             disabled={anyRunning}
-            data-testid="run-now-live-button"
+            data-testid="run-controls-run-manually-button"
           >
-            {runningMode === "live" ? "Running…" : "Run Live"}
+            {runningMode === "manual" ? "Running…" : "Run Manually"}
           </Button>
           <p className="text-xs text-muted-foreground">
             Runs for real and may call connected apps. Destructive actions
@@ -266,8 +302,8 @@ export function RunNowPanel() {
           role="status"
           className="text-xs text-warning-foreground"
         >
-          You have unsaved changes. Run Now will execute the saved
-          workflow, not the in-progress edits.
+          You have unsaved changes. Run controls execute the saved workflow,
+          not the in-progress edits.
         </p>
       ) : null}
       {runError ? (
@@ -284,8 +320,8 @@ export function RunNowPanel() {
       {confirmationDetail && (
         <DestructiveActionConfirmationModal
           detail={confirmationDetail}
-          busy={runningMode === "live"}
-          onConfirm={handleConfirmLiveRun}
+          busy={runningMode === "manual"}
+          onConfirm={handleConfirmRunManually}
           onCancel={handleCancelConfirm}
         />
       )}

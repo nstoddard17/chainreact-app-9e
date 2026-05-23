@@ -1,27 +1,30 @@
 /**
  * Tests for features/workflow-builder/panels/RunNowPanel —
- * Slice 3.3 + Slice 3.POSTSEC-5 + Slice 3.POSTSEC-6.
+ * Slice 3.3 + Slice 3.POSTSEC-5 + Slice 3.POSTSEC-6 + Slice 3.POSTSEC-6B.
  *
- * The panel only renders when the workflow has a `native:manual.run`
- * trigger. After POSTSEC-6 it exposes two explicit actions:
- *   - "Test Run" → runNowWorkflow(id, inputs, { testMode: true })
- *   - "Run Live" → runNowWorkflow(id, inputs, { testMode: false })
+ * The panel branches on the workflow's trigger kind (see
+ * `features/workflow-builder/state/triggerKind.ts`):
+ *
+ *   - Manual workflows  → Test Workflow + Run Manually
+ *   - Automated workflows → Test Workflow (disabled, with copy)
+ *   - No trigger        → nothing rendered
  *
  * Behavior boundaries verified here:
- *   - Test Run NEVER opens the destructive-action confirmation modal,
- *     even on workflows that would normally require confirmation
- *     (SEC-2 already blocks the destructive provider calls before the
- *     SEC-4B gate would fire).
- *   - Live Run opens the modal on 409 and retries with
+ *   - Test Workflow NEVER opens the destructive-action confirmation
+ *     modal — even on workflows that would normally require
+ *     confirmation. SEC-2 already blocks the destructive provider
+ *     calls before the SEC-4B gate would fire.
+ *   - Run Manually opens the modal on 409 and retries with
  *     `testMode: false` + `confirmationText` — never silently promotes
  *     to a test run mid-flow.
+ *   - Automated workflows NEVER expose Run Manually / live-run.
  *   - Inputs are not polluted with `testMode` / `confirmationText`;
  *     those stay at the envelope (third-arg options) layer.
  *   - Each button has its own busy label; clicking either disables
  *     both to prevent double-fire.
- *   - The panel does NOT call updateWorkflow — Run Now is execution
- *     against the *saved* workflow, distinct from modal Save and
- *     toolbar Save (the Slice 3.2 boundary).
+ *   - The panel does NOT call updateWorkflow — run controls execute
+ *     the *saved* workflow, distinct from modal Save and toolbar Save
+ *     (the Slice 3.2 boundary).
  */
 
 const mockRunNowWorkflow = jest.fn();
@@ -50,6 +53,26 @@ function bootWithManualTrigger(): void {
     .addTrigger({ provider: "native", type: "manual.run" });
 }
 
+function bootWithScheduledTrigger(): void {
+  useGraphSlice.getState().reset();
+  useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+  useGraphSlice
+    .getState()
+    .addTrigger({
+      provider: "native",
+      type: "schedule.fired",
+      config: { cronExpression: "0 9 * * *" },
+    });
+}
+
+function bootWithProviderTrigger(): void {
+  useGraphSlice.getState().reset();
+  useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+  useGraphSlice
+    .getState()
+    .addTrigger({ provider: "slack", type: "message_received" });
+}
+
 beforeEach(() => {
   mockRunNowWorkflow.mockReset();
   useGraphSlice.getState().reset();
@@ -62,56 +85,93 @@ describe("RunNowPanel — visibility", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders nothing when the trigger is not native:manual.run", () => {
-    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
-    useGraphSlice
-      .getState()
-      .addTrigger({ provider: "native", type: "schedule.fired" });
-    const { container } = render(<RunNowPanel />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("renders nothing when the trigger is a provider trigger (not native)", () => {
-    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
-    useGraphSlice.getState().addTrigger({ provider: "slack", type: "message_received" });
-    const { container } = render(<RunNowPanel />);
-    expect(container.firstChild).toBeNull();
-  });
-
   it("renders nothing when the slice has not been hydrated yet (no workflowId)", () => {
-    // No hydrate() call → workflowId is null, even if a trigger were
-    // somehow present. Defensive check.
+    // No hydrate() call → workflowId is null. Defensive check.
     const { container } = render(<RunNowPanel />);
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders both Test Run and Run Live buttons when a manual trigger is present", () => {
+  it("renders the manual surface when the trigger is native:manual.run", () => {
     bootWithManualTrigger();
     render(<RunNowPanel />);
     expect(
-      screen.getByRole("region", { name: /manual run/i }),
+      screen.getByTestId("run-controls-panel-manual"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("run-now-test-button")).toBeEnabled();
-    expect(screen.getByTestId("run-now-live-button")).toBeEnabled();
+    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeEnabled();
+    // Automated surface is NOT rendered.
+    expect(
+      screen.queryByTestId("run-controls-panel-automated"),
+    ).not.toBeInTheDocument();
   });
 
-  it("renders the explanatory copy distinguishing Test Run and Run Live", () => {
+  it("renders the automated surface when the trigger is native scheduled", () => {
+    bootWithScheduledTrigger();
+    render(<RunNowPanel />);
+    expect(
+      screen.getByTestId("run-controls-panel-automated"),
+    ).toBeInTheDocument();
+    // Manual surface is NOT rendered.
+    expect(
+      screen.queryByTestId("run-controls-panel-manual"),
+    ).not.toBeInTheDocument();
+    // Run Manually / live-run button is NEVER exposed on automated.
+    expect(
+      screen.queryByTestId("run-controls-run-manually-button"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the automated surface when the trigger is a provider event trigger", () => {
+    bootWithProviderTrigger();
+    render(<RunNowPanel />);
+    expect(
+      screen.getByTestId("run-controls-panel-automated"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("run-controls-run-manually-button"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("RunNowPanel — manual workflow copy", () => {
+  it("renders the manual-context explanatory copy on both buttons", () => {
     bootWithManualTrigger();
     render(<RunNowPanel />);
-    // Test Run copy emphasises safety.
     expect(
       screen.getByText(/runs safely without calling connected provider apis/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/external actions are skipped/i)).toBeInTheDocument();
-    // Live Run copy emphasises real execution.
+    expect(
+      screen.getByText(/external actions are skipped/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/runs for real and may call connected apps/i),
     ).toBeInTheDocument();
   });
+
+  it("labels the buttons 'Test Workflow' and 'Run Manually' (POSTSEC-6B rename)", () => {
+    bootWithManualTrigger();
+    render(<RunNowPanel />);
+    expect(screen.getByTestId("run-controls-test-button")).toHaveTextContent(
+      /test workflow/i,
+    );
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toHaveTextContent(/run manually/i);
+    // Pre-POSTSEC-6B labels MUST NOT survive — they implied universal
+    // applicability that doesn't match the product model.
+    expect(
+      screen.getByTestId("run-controls-test-button"),
+    ).not.toHaveTextContent(/^test run$/i);
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).not.toHaveTextContent(/^run live$/i);
+  });
 });
 
-// ─── Slice 3.POSTSEC-6 — Test Run path ─────────────────────────────────────
-describe("RunNowPanel — Test Run (Slice 3.POSTSEC-6)", () => {
+// ─── Slice 3.POSTSEC-6 / 6B — Test Workflow path (manual workflows) ────────
+describe("RunNowPanel — Test Workflow (manual workflows)", () => {
   it("dispatches runNowWorkflow with testMode:true and empty inputs", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
@@ -122,7 +182,7 @@ describe("RunNowPanel — Test Run (Slice 3.POSTSEC-6)", () => {
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-test-button"));
+    await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
     });
@@ -141,7 +201,7 @@ describe("RunNowPanel — Test Run (Slice 3.POSTSEC-6)", () => {
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-test-button"));
+    await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalled();
     });
@@ -151,35 +211,24 @@ describe("RunNowPanel — Test Run (Slice 3.POSTSEC-6)", () => {
     expect(callArgs[1]).not.toHaveProperty("confirmationText");
   });
 
-  it("surfaces the runId and marks the success line as a test run", async () => {
+  it("marks the success line as a test run", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
       runId: "run-test-success",
       enqueuedAt: "2026-05-23T10:00:00.000Z",
-      isTest: true,
-      triggeredBy: "test",
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-test-button"));
+    await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toBeInTheDocument();
     });
     const success = screen.getByTestId("run-now-success");
     expect(success).toHaveTextContent(/run-test-success/);
-    // The success line distinguishes test vs live; without this the user
-    // can't tell what they actually ran (one of the audit findings that
-    // motivated POSTSEC-6).
     expect(success).toHaveTextContent(/test run/i);
   });
 
-  it("does NOT open the confirmation modal on Test Run even if the server would have flagged the workflow", async () => {
-    // Server-side SEC-4B does not fire for testMode=true (SEC-2 blocks
-    // destructive handlers first), so the wire shape can't return a 409
-    // here. Belt-and-braces: even if a (broken) server returned 409, the
-    // Test Run handler treats it as a plain error rather than promoting
-    // to a destructive-action confirmation flow — confirming destructive
-    // intent on a test run would be UX nonsense.
+  it("does NOT open the confirmation modal on Test Workflow even if the server (somehow) returned 409", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockRejectedValueOnce(
       new WorkflowConfirmationRequiredError("Confirmation required.", 409, {
@@ -197,19 +246,17 @@ describe("RunNowPanel — Test Run (Slice 3.POSTSEC-6)", () => {
     );
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-test-button"));
+    await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
-    // Modal MUST NOT appear for Test Run.
     expect(
       screen.queryByTestId("destructive-action-confirmation-modal"),
     ).not.toBeInTheDocument();
-    // And no retry was fired.
     expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
   });
 
-  it("disables both buttons while a Test Run is in-flight", async () => {
+  it("disables both buttons while a Test Workflow run is in-flight", async () => {
     bootWithManualTrigger();
     let resolveCall: (v: unknown) => void = () => {};
     mockRunNowWorkflow.mockImplementationOnce(
@@ -220,33 +267,39 @@ describe("RunNowPanel — Test Run (Slice 3.POSTSEC-6)", () => {
     );
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-test-button"));
-    expect(screen.getByTestId("run-now-test-button")).toBeDisabled();
-    expect(screen.getByTestId("run-now-test-button")).toHaveTextContent(
+    await user.click(screen.getByTestId("run-controls-test-button"));
+    expect(screen.getByTestId("run-controls-test-button")).toBeDisabled();
+    expect(screen.getByTestId("run-controls-test-button")).toHaveTextContent(
       /testing/i,
     );
-    expect(screen.getByTestId("run-now-live-button")).toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeDisabled();
     resolveCall({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" });
     await waitFor(() => {
-      expect(screen.getByTestId("run-now-test-button")).toBeEnabled();
+      expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
     });
-    expect(screen.getByTestId("run-now-live-button")).toBeEnabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeEnabled();
   });
 });
 
-// ─── Slice 3.POSTSEC-6 — Run Live path ─────────────────────────────────────
-describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
+// ─── Slice 3.POSTSEC-6 / 6B — Run Manually path (manual workflows) ─────────
+describe("RunNowPanel — Run Manually (manual workflows)", () => {
   it("dispatches runNowWorkflow with testMode:false and empty inputs", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
-      runId: "run-live-1",
+      runId: "run-manual-1",
       enqueuedAt: "2026-05-23T10:00:00.000Z",
       isTest: false,
       triggeredBy: "manual",
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
     });
@@ -257,32 +310,34 @@ describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
     );
   });
 
-  it("surfaces the runId on a successful low-risk live run", async () => {
+  it("surfaces the runId on a successful low-risk manual run", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
-      runId: "run-live-success",
+      runId: "run-manual-success",
       enqueuedAt: "2026-05-23T10:00:00.000Z",
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toBeInTheDocument();
     });
     expect(screen.getByTestId("run-now-success")).toHaveTextContent(
-      /run-live-success/,
+      /run-manual-success/,
     );
-    // The success line for a live run does NOT carry the "test" label.
+    // The success line for a manual (live) run does NOT carry the
+    // "test" label.
     expect(screen.getByTestId("run-now-success")).not.toHaveTextContent(
       /test run/i,
     );
-    // And the modal never appeared (low-risk live run path).
     expect(
       screen.queryByTestId("destructive-action-confirmation-modal"),
     ).not.toBeInTheDocument();
   });
 
-  it("disables both buttons while a Live Run is in-flight", async () => {
+  it("disables both buttons while a manual run is in-flight", async () => {
     bootWithManualTrigger();
     let resolveCall: (v: unknown) => void = () => {};
     mockRunNowWorkflow.mockImplementationOnce(
@@ -293,17 +348,23 @@ describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
     );
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
-    expect(screen.getByTestId("run-now-live-button")).toBeDisabled();
-    expect(screen.getByTestId("run-now-live-button")).toHaveTextContent(
-      /running/i,
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
     );
-    expect(screen.getByTestId("run-now-test-button")).toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toHaveTextContent(/running/i);
+    expect(screen.getByTestId("run-controls-test-button")).toBeDisabled();
     resolveCall({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" });
     await waitFor(() => {
-      expect(screen.getByTestId("run-now-live-button")).toBeEnabled();
+      expect(
+        screen.getByTestId("run-controls-run-manually-button"),
+      ).toBeEnabled();
     });
-    expect(screen.getByTestId("run-now-test-button")).toBeEnabled();
+    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
   });
 
   it("surfaces a WorkflowApiError message inline", async () => {
@@ -317,7 +378,9 @@ describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
     );
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
         /workflow state 'paused' does not accept run-now/i,
@@ -330,16 +393,15 @@ describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
     mockRunNowWorkflow.mockRejectedValueOnce(new Error("network down"));
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/network down/i);
     });
   });
 
   it("does NOT call updateWorkflow (modal/toolbar save are separate paths)", async () => {
-    // Sanity guard for the architectural boundary: Run Now must never
-    // accidentally trigger a save. We snapshot the slice's saveError +
-    // isDirty before and after; runNow should leave them untouched.
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
       runId: "r",
@@ -348,7 +410,9 @@ describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
     const before = useGraphSlice.getState();
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await waitFor(() => expect(mockRunNowWorkflow).toHaveBeenCalled());
     const after = useGraphSlice.getState();
     expect(after.isDirty).toBe(before.isDirty);
@@ -357,7 +421,7 @@ describe("RunNowPanel — Run Live (Slice 3.POSTSEC-6)", () => {
   });
 });
 
-// ─── Slice 3.POSTSEC-5 — typed-confirmation modal flow (via Live Run) ──────
+// ─── Slice 3.POSTSEC-5 — typed-confirmation modal flow (via Run Manually) ──
 describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", () => {
   function makeConfirmationError(): WorkflowConfirmationRequiredError {
     return new WorkflowConfirmationRequiredError(
@@ -379,12 +443,14 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
     );
   }
 
-  it("Live Run first-shot 409 opens the typed-confirmation modal and does NOT enqueue a run", async () => {
+  it("Run Manually first-shot 409 opens the typed-confirmation modal and does NOT enqueue a run", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockRejectedValueOnce(makeConfirmationError());
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     expect(
       await screen.findByTestId("destructive-action-confirmation-modal"),
     ).toBeInTheDocument();
@@ -394,8 +460,10 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
     expect(screen.queryByTestId("run-now-success")).not.toBeInTheDocument();
     // Both buttons are back to enabled (in-flight cleared so the modal is
     // the sole focus surface).
-    expect(screen.getByTestId("run-now-live-button")).toBeEnabled();
-    expect(screen.getByTestId("run-now-test-button")).toBeEnabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeEnabled();
+    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
   });
 
   it("typing CONFIRM and clicking Confirm retries runNowWorkflow with confirmationText + testMode:false + same inputs", async () => {
@@ -408,7 +476,9 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
       });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await screen.findByTestId("destructive-action-confirmation-modal");
     await user.type(
       screen.getByTestId("destructive-action-confirmation-input"),
@@ -427,7 +497,6 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
       { inputs: {} },
       { testMode: false, confirmationText: "CONFIRM" },
     ]);
-    // Run id surfaces; modal closes.
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toHaveTextContent(
         /run-postsec5/,
@@ -438,12 +507,14 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
     ).not.toBeInTheDocument();
   });
 
-  it("Cancel closes the modal without retrying Live Run", async () => {
+  it("Cancel closes the modal without retrying", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockRejectedValueOnce(makeConfirmationError());
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await screen.findByTestId("destructive-action-confirmation-modal");
     await user.click(
       screen.getByTestId("destructive-action-confirmation-cancel"),
@@ -460,7 +531,9 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
     mockRunNowWorkflow.mockRejectedValueOnce(makeConfirmationError());
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await screen.findByTestId("destructive-action-confirmation-modal");
     await user.type(
       screen.getByTestId("destructive-action-confirmation-input"),
@@ -472,7 +545,7 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
     expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
   });
 
-  it("low-risk Live Run still works without the modal (regression guard)", async () => {
+  it("low-risk Run Manually still works without the modal (regression guard)", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
       runId: "run-low-risk",
@@ -480,15 +553,15 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toBeInTheDocument();
     });
     expect(
       screen.queryByTestId("destructive-action-confirmation-modal"),
     ).not.toBeInTheDocument();
-    // First call carries testMode:false (back-compat — server treats
-    // false and omitted identically).
     expect(mockRunNowWorkflow.mock.calls[0]).toEqual([
       "wf-1",
       { inputs: {} },
@@ -497,9 +570,9 @@ describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", 
   });
 });
 
-// ─── Slice 3.POSTSEC-6 — promotion / demotion invariants ───────────────────
+// ─── Slice 3.POSTSEC-6 — no silent promotion / demotion ────────────────────
 describe("RunNowPanel — no silent promotion or demotion (Slice 3.POSTSEC-6)", () => {
-  it("Test Run does NOT silently become Live Run anywhere on its path", async () => {
+  it("Test Workflow does NOT silently become Run Manually anywhere on its path", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow.mockResolvedValueOnce({
       runId: "r",
@@ -507,19 +580,17 @@ describe("RunNowPanel — no silent promotion or demotion (Slice 3.POSTSEC-6)", 
     });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-test-button"));
+    await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalled();
     });
-    // Every call from a Test Run carries testMode:true. There is no
-    // codepath in the panel that retries Test Run with testMode:false.
     for (const call of mockRunNowWorkflow.mock.calls) {
       const opts = call[2] as { testMode?: boolean } | undefined;
       expect(opts?.testMode).toBe(true);
     }
   });
 
-  it("Live Run does NOT silently become Test Run mid-confirmation", async () => {
+  it("Run Manually does NOT silently become Test Workflow mid-confirmation", async () => {
     bootWithManualTrigger();
     mockRunNowWorkflow
       .mockRejectedValueOnce(
@@ -546,7 +617,9 @@ describe("RunNowPanel — no silent promotion or demotion (Slice 3.POSTSEC-6)", 
       });
     const user = userEvent.setup();
     render(<RunNowPanel />);
-    await user.click(screen.getByTestId("run-now-live-button"));
+    await user.click(
+      screen.getByTestId("run-controls-run-manually-button"),
+    );
     await screen.findByTestId("destructive-action-confirmation-modal");
     await user.type(
       screen.getByTestId("destructive-action-confirmation-input"),
@@ -558,9 +631,6 @@ describe("RunNowPanel — no silent promotion or demotion (Slice 3.POSTSEC-6)", 
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalledTimes(2);
     });
-    // Every call from a Live Run carries testMode:false — even the
-    // post-modal retry. The retry MUST NOT silently promote to a test
-    // run "for safety" — that would defeat the user's clear intent.
     for (const call of mockRunNowWorkflow.mock.calls) {
       const opts = call[2] as { testMode?: boolean } | undefined;
       expect(opts?.testMode).toBe(false);
@@ -568,17 +638,77 @@ describe("RunNowPanel — no silent promotion or demotion (Slice 3.POSTSEC-6)", 
   });
 });
 
-describe("RunNowPanel — dirty-state warning", () => {
+// ─── Slice 3.POSTSEC-6B — automated workflow surface ───────────────────────
+describe("RunNowPanel — automated workflows (Slice 3.POSTSEC-6B)", () => {
+  it("does NOT render Run Manually for scheduled triggers", () => {
+    bootWithScheduledTrigger();
+    render(<RunNowPanel />);
+    expect(
+      screen.queryByTestId("run-controls-run-manually-button"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does NOT render Run Manually for provider event triggers", () => {
+    bootWithProviderTrigger();
+    render(<RunNowPanel />);
+    expect(
+      screen.queryByTestId("run-controls-run-manually-button"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a disabled Test Workflow button with explanatory copy on scheduled workflows", () => {
+    bootWithScheduledTrigger();
+    render(<RunNowPanel />);
+    const button = screen.getByTestId("run-controls-test-button");
+    expect(button).toBeInTheDocument();
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent(/test workflow/i);
+    // Copy explains the alternative path is Activate.
+    expect(
+      screen.getByText(/test runs for automated workflows are in development/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/activate it and trigger the source event/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a disabled Test Workflow button on provider event workflows", () => {
+    bootWithProviderTrigger();
+    render(<RunNowPanel />);
+    const button = screen.getByTestId("run-controls-test-button");
+    expect(button).toBeInTheDocument();
+    expect(button).toBeDisabled();
+  });
+
+  it("never calls runNowWorkflow from the automated panel — the button is non-interactive", async () => {
+    bootWithScheduledTrigger();
+    const user = userEvent.setup();
+    render(<RunNowPanel />);
+    // Clicking a disabled button is a no-op in real browsers; userEvent
+    // mirrors that. The handler must never fire.
+    await user.click(screen.getByTestId("run-controls-test-button"));
+    expect(mockRunNowWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("automated panel describes the workflow as external-event-driven", () => {
+    bootWithScheduledTrigger();
+    render(<RunNowPanel />);
+    expect(
+      screen.getByText(/fired by an external event/i),
+    ).toBeInTheDocument();
+  });
+});
+
+// ─── Slice 3.3 — dirty-state warning (manual workflows only) ───────────────
+describe("RunNowPanel — dirty-state warning (manual workflows)", () => {
   it("surfaces an unsaved-changes warning when the slice is dirty", () => {
     bootWithManualTrigger();
-    // addTrigger flipped isDirty to true.
     expect(useGraphSlice.getState().isDirty).toBe(true);
     render(<RunNowPanel />);
     expect(screen.getByRole("status")).toHaveTextContent(/unsaved changes/i);
   });
 
   it("hides the warning once the slice is clean", () => {
-    // Hydrate with a saved manual trigger already in the definition.
     useGraphSlice.getState().reset();
     useGraphSlice.getState().hydrate("wf-1", {
       nodes: [

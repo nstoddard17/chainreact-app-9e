@@ -165,12 +165,12 @@ it("Run Now → polling 404 then 200 → RunResultsPanel renders step output", a
   });
   await user.click(screen.getByText("Manual Trigger"));
 
-  // 3. Click Run Live → typed-client called.
-  await user.click(screen.getByTestId("run-now-live-button"));
+  // 3. Click Run Manually → typed-client called.
+  await user.click(screen.getByTestId("run-controls-run-manually-button"));
   await waitFor(() => {
-    // Slice 3.POSTSEC-6 — runNowWorkflow signature is now
-    // (id, inputs, { testMode?, confirmationText? }). Live Run sends
-    // testMode:false explicitly.
+    // Slice 3.POSTSEC-6 / 6B — runNowWorkflow signature is now
+    // (id, inputs, { testMode?, confirmationText? }). Run Manually
+    // sends testMode:false explicitly.
     expect(mockRunNowWorkflow).toHaveBeenCalledWith(
       "wf-1",
       { inputs: {} },
