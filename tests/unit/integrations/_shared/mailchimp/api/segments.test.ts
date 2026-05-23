@@ -8,6 +8,7 @@ import {
   segmentCreate,
   segmentGet,
   segmentMembersList,
+  segmentsList,
 } from "@/integrations/_shared/mailchimp/api/segments";
 
 afterEach(() => jest.restoreAllMocks());
@@ -264,6 +265,142 @@ describe("segmentMembersList", () => {
         dc: "us21",
         audienceId: AUDIENCE_ID,
         segmentId: "42",
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+// ─── segmentsList (MAILCHIMP-2) ─────────────────────────────────────────────
+
+describe("segmentsList", () => {
+  it("GETs /lists/{audienceId}/segments with default count=100", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { segments: [{ id: 1, name: "VIPs" }], total_items: 1 },
+    });
+    await segmentsList({ accessToken: "t", dc: "us21", audienceId: AUDIENCE_ID });
+    const url = fetchSpy.mock.calls[0]![0] as string;
+    expect(url).toContain(
+      `https://us21.api.mailchimp.com/3.0/lists/${AUDIENCE_ID}/segments?`,
+    );
+    expect(new URL(url).searchParams.get("count")).toBe("100");
+  });
+
+  it("clamps count at 100 when caller requests more", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { segments: [], total_items: 0 },
+    });
+    await segmentsList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+      count: 500,
+    });
+    expect(
+      new URL(fetchSpy.mock.calls[0]![0] as string).searchParams.get("count"),
+    ).toBe("100");
+  });
+
+  it("forwards offset on the wire", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { segments: [], total_items: 0 },
+    });
+    await segmentsList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+      offset: 50,
+    });
+    expect(
+      new URL(fetchSpy.mock.calls[0]![0] as string).searchParams.get("offset"),
+    ).toBe("50");
+  });
+
+  it("forwards type filter when supplied", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { segments: [], total_items: 0 },
+    });
+    await segmentsList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+      type: "saved",
+    });
+    expect(
+      new URL(fetchSpy.mock.calls[0]![0] as string).searchParams.get("type"),
+    ).toBe("saved");
+  });
+
+  it("returns { segments: [], totalItems: 0 } when response is absent", async () => {
+    mockFetchOnce({ ok: true, json: {} });
+    const result = await segmentsList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+    });
+    expect(result).toEqual({ segments: [], totalItems: 0 });
+  });
+
+  it("returns parsed segments + totalItems on success", async () => {
+    mockFetchOnce({
+      ok: true,
+      json: {
+        segments: [
+          { id: 11, name: "VIPs", member_count: 42, type: "saved" },
+          { id: 22, name: "Recent signups", member_count: 7, type: "static" },
+        ],
+        total_items: 2,
+      },
+    });
+    const result = await segmentsList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: AUDIENCE_ID,
+    });
+    expect(result.segments.map((s) => s.id)).toEqual([11, 22]);
+    expect(result.totalItems).toBe(2);
+  });
+
+  it("routes through the per-dc origin (eu1 vs us21)", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { segments: [], total_items: 0 },
+    });
+    await segmentsList({
+      accessToken: "t",
+      dc: "eu1",
+      audienceId: AUDIENCE_ID,
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toContain(
+      `https://eu1.api.mailchimp.com/3.0/lists/${AUDIENCE_ID}/segments`,
+    );
+  });
+
+  it("URL-encodes the audienceId in the path", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { segments: [], total_items: 0 },
+    });
+    await segmentsList({
+      accessToken: "t",
+      dc: "us21",
+      audienceId: "weird id/with chars",
+    });
+    expect(fetchSpy.mock.calls[0]![0]).toContain(
+      "weird%20id%2Fwith%20chars/segments",
+    );
+  });
+
+  it("propagates 5xx errors", async () => {
+    mockFetchOnce({ ok: false, status: 500, text: '{"detail":"oops"}' });
+    await expect(
+      segmentsList({
+        accessToken: "t",
+        dc: "us21",
+        audienceId: AUDIENCE_ID,
       }),
     ).rejects.toThrow();
   });

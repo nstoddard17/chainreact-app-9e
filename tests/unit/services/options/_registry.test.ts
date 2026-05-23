@@ -118,6 +118,40 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Mailchimp resolvers (Slice 3.MAILCHIMP-2)", () => {
+    it("getOptionsResolver resolves mailchimp:audiences (no deps)", () => {
+      const r = getOptionsResolver("mailchimp:audiences");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("mailchimp:audiences");
+      expect(r?.provider).toBe("mailchimp");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves mailchimp:campaigns (no deps)", () => {
+      const r = getOptionsResolver("mailchimp:campaigns");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("mailchimp:campaigns");
+      expect(r?.provider).toBe("mailchimp");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves mailchimp:segments (dependsOn listId — matches segmentUpdated + subscriberAddedToSegment trigger schemas)", () => {
+      const r = getOptionsResolver("mailchimp:segments");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("mailchimp:segments");
+      expect(r?.provider).toBe("mailchimp");
+      expect(r?.requiresIntegration).toBe(true);
+      // `listId` matches the two existing consumer trigger schemas
+      // (segment_updated, subscriber_added_to_segment). Future
+      // segment-selecting actions that use `audience_id` as the parent
+      // field name would need a sibling resolver — deferred to
+      // MAILCHIMP-3+ when meta wiring lands.
+      expect(r?.requiredDeps).toEqual(["listId"]);
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

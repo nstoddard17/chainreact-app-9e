@@ -45,6 +45,28 @@ import { hubspotTicketPipelinesResolver } from "@/integrations/hubspot/options/t
 import { hubspotTicketStagesResolver } from "@/integrations/hubspot/options/ticketStages";
 import { hubspotListsResolver } from "@/integrations/hubspot/options/lists";
 
+// Mailchimp resolvers — Slice 3.MAILCHIMP-2.
+//   - `mailchimp:audiences` — backs the audience / list picker across
+//     the Mailchimp action + trigger surface (account-scoped, no deps).
+//   - `mailchimp:campaigns` — backs the `campaignId` picker on
+//     `get_campaign` / `get_campaign_stats` actions + `email_opened` /
+//     `link_clicked` trigger filters (account-scoped, no deps).
+//   - `mailchimp:segments` (depends on `listId`) — backs the
+//     `segmentId` picker on `segment_updated` /
+//     `subscriber_added_to_segment` triggers. Dep name is `listId`
+//     because the two existing consumer trigger schemas both use
+//     `listId` as the parent field — see the resolver file's header
+//     for the field-name-variance discussion.
+//
+// Resolvers ship resolver-first ahead of MAILCHIMP-3 / MAILCHIMP-4
+// metas. Mailchimp stays OUT of `COVERED_PROVIDERS` until those land.
+// All three resolvers are read-only against the single
+// `account_access` scope already in the Mailchimp manifest — no
+// reconnect required.
+import { mailchimpAudiencesResolver } from "@/integrations/mailchimp/options/audiences";
+import { mailchimpCampaignsResolver } from "@/integrations/mailchimp/options/campaigns";
+import { mailchimpSegmentsResolver } from "@/integrations/mailchimp/options/segments";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -85,6 +107,12 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   hubspotTicketPipelinesResolver,
   hubspotTicketStagesResolver,
   hubspotListsResolver,
+  // Mailchimp (Slice 3.MAILCHIMP-2). Resolver-first ahead of
+  // MAILCHIMP-3 (12 action metas) + MAILCHIMP-4 (2 campaign-read
+  // metas + 7 trigger metas + COVERED_PROVIDERS flip).
+  mailchimpAudiencesResolver,
+  mailchimpCampaignsResolver,
+  mailchimpSegmentsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

@@ -140,6 +140,69 @@ export async function segmentGet(
   });
 }
 
+// ─── segmentsList (GET /lists/{audienceId}/segments) ───────────────────────
+
+/**
+ * Mailchimp `GET /lists/{audienceId}/segments` response envelope. Used
+ * by the `mailchimp:segments` options resolver (MAILCHIMP-2) to back
+ * the segment picker in the workflow builder cascade
+ * (listId → segmentId). Sibling to the existing single-segment
+ * `segmentGet`.
+ */
+interface MailchimpSegmentsListResponse {
+  segments?: MailchimpSegment[];
+  total_items?: number;
+}
+
+export interface SegmentsListResult {
+  segments: readonly MailchimpSegment[];
+  totalItems: number;
+}
+
+export interface SegmentsListInput {
+  accessToken: string;
+  dc: string;
+  audienceId: string;
+  /** Page size — Mailchimp caps at 1000; V2 wrappers clamp at 100. */
+  count?: number;
+  offset?: number;
+  /** Filter by segment type (`static`, `saved`, `fuzzy`). Omit for any. */
+  type?: "static" | "saved" | "fuzzy";
+}
+
+/**
+ * GET /lists/{audienceId}/segments — single-page list-read for the
+ * options-source resolver. The resolver displays segment names in a
+ * combobox; pagination is not in scope (audiences with > 100 segments
+ * are vanishingly rare). The 100-cap clamp mirrors `listsList` /
+ * `campaignsList` / `segmentMembersList` defensiveness.
+ *
+ * No automatic retry / pagination — caller is the options resolver,
+ * which surfaces an `hasMore: true` hint to the renderer when
+ * `totalItems > segments.length`.
+ */
+export async function segmentsList(
+  input: SegmentsListInput,
+): Promise<SegmentsListResult> {
+  const query = new URLSearchParams();
+  query.set("count", String(Math.min(input.count ?? 100, 100)));
+  if (input.offset !== undefined) query.set("offset", String(input.offset));
+  if (input.type !== undefined) query.set("type", input.type);
+
+  const response = await mailchimpRequest<MailchimpSegmentsListResponse>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: `/lists/${encodeURIComponent(input.audienceId)}/segments`,
+    query,
+    resourceForNotFound: `segments (audience ${input.audienceId})`,
+  });
+  return {
+    segments: response.segments ?? [],
+    totalItems: response.total_items ?? 0,
+  };
+}
+
 // ─── segmentMembersList (GET /lists/{audienceId}/segments/{id}/members) ─────
 
 /**
