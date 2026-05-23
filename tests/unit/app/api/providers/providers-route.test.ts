@@ -1250,7 +1250,7 @@ describe("GET /api/providers/[id]/triggers", () => {
   // (destructive trio + high+confirm-only), and sensitive-output
   // serialization. Mailchimp stays OUT of COVERED_PROVIDERS — the test
   // does not assert any trigger metas exist yet.
-  it("returns the 12 MAILCHIMP-3 action metas in displayOrder (Mailchimp NOT yet in COVERED_PROVIDERS — campaign reads + triggers land in MAILCHIMP-4)", async () => {
+  it("returns the full 14 Mailchimp action metas in displayOrder as of Slice 3.MAILCHIMP-4 (closes the Mailchimp action surface; mailchimp now IN COVERED_PROVIDERS)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/mailchimp/actions"), {
       params: Promise.resolve({ id: "mailchimp" }),
@@ -1278,12 +1278,18 @@ describe("GET /api/providers/[id]/triggers", () => {
           numeric?: { min?: number; max?: number; integer?: boolean };
           options?: Array<{ value: string; label: string }>;
         }>;
-        outputs: Array<{ name: string; sensitive?: boolean }>;
+        outputs: Array<{
+          name: string;
+          type?: string;
+          sensitive?: boolean;
+          fields?: Array<{ name: string; sensitive?: boolean }>;
+        }>;
       }>;
     };
     expect(body.provider).toBe("mailchimp");
-    expect(body.actions).toHaveLength(12);
+    expect(body.actions).toHaveLength(14);
     expect(body.actions.map((a) => a.key)).toEqual([
+      // MAILCHIMP-3 (10..120).
       "mailchimp:add_subscriber",
       "mailchimp:update_subscriber",
       "mailchimp:get_subscriber",
@@ -1296,6 +1302,9 @@ describe("GET /api/providers/[id]/triggers", () => {
       "mailchimp:add_note",
       "mailchimp:unsubscribe_subscriber",
       "mailchimp:remove_subscriber",
+      // MAILCHIMP-4 (130, 140).
+      "mailchimp:get_campaign",
+      "mailchimp:get_campaign_stats",
     ]);
     expect(body.actions.every((a) => a.category === "marketing")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
@@ -1471,15 +1480,214 @@ describe("GET /api/providers/[id]/triggers", () => {
     }
   });
 
-  it("/api/providers/mailchimp/triggers returns [] (triggers land in MAILCHIMP-4)", async () => {
+  it("MAILCHIMP-4 campaign-read action wire shape — get_campaign + get_campaign_stats are low-risk, picker = mailchimp:campaigns, nested OutputMeta.fields serialize on settings/recipients (get_campaign) + opens/clicks/bounces/forwards (get_campaign_stats)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/mailchimp/actions"), {
+      params: Promise.resolve({ id: "mailchimp" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        riskLevel: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        fields: Array<{ name: string; type: string; required: boolean; optionsSource?: string }>;
+        outputs: Array<{
+          name: string;
+          type?: string;
+          sensitive?: boolean;
+          fields?: Array<{ name: string; type?: string; sensitive?: boolean }>;
+        }>;
+      }>;
+    };
+    const getCampaign = body.actions.find((a) => a.key === "mailchimp:get_campaign")!;
+    expect(getCampaign.riskLevel).toBe("low");
+    expect(getCampaign.isDestructive).toBe(false);
+    expect(getCampaign.requiresConfirmation).toBe(false);
+    expect(getCampaign.fields).toHaveLength(1);
+    expect(getCampaign.fields[0]!.name).toBe("campaignId");
+    expect(getCampaign.fields[0]!.type).toBe("combobox");
+    expect(getCampaign.fields[0]!.required).toBe(true);
+    expect(getCampaign.fields[0]!.optionsSource).toBe("mailchimp:campaigns");
+
+    // archiveUrl + longArchiveUrl sensitive on the wire.
+    expect(
+      getCampaign.outputs.find((o) => o.name === "archiveUrl")?.sensitive,
+    ).toBe(true);
+    expect(
+      getCampaign.outputs.find((o) => o.name === "longArchiveUrl")?.sensitive,
+    ).toBe(true);
+    // settings + recipients sub-objects ship with nested fields[] populated.
+    const settings = getCampaign.outputs.find((o) => o.name === "settings")!;
+    expect(settings.type).toBe("object");
+    expect(settings.sensitive).toBe(true);
+    expect(settings.fields?.map((f) => f.name).sort()).toEqual([
+      "fromName",
+      "previewText",
+      "replyTo",
+      "subjectLine",
+      "title",
+    ]);
+    const recipients = getCampaign.outputs.find((o) => o.name === "recipients")!;
+    expect(recipients.type).toBe("object");
+    expect(recipients.sensitive).toBe(true);
+    expect(recipients.fields?.map((f) => f.name).sort()).toEqual([
+      "listId",
+      "listName",
+      "recipientCount",
+    ]);
+
+    const stats = body.actions.find((a) => a.key === "mailchimp:get_campaign_stats")!;
+    expect(stats.riskLevel).toBe("low");
+    expect(stats.fields[0]!.optionsSource).toBe("mailchimp:campaigns");
+    // Engagement aggregates are sensitive object projections; industryStats stays structural.
+    for (const nestedName of ["opens", "clicks", "bounces", "forwards"]) {
+      const o = stats.outputs.find((x) => x.name === nestedName)!;
+      expect(o.type).toBe("object");
+      expect(o.sensitive).toBe(true);
+      expect((o.fields ?? []).length).toBeGreaterThan(0);
+    }
+    const industry = stats.outputs.find((o) => o.name === "industryStats")!;
+    expect(industry.type).toBe("object");
+    expect(industry.sensitive).toBeFalsy();
+  });
+
+  it("/api/providers/mailchimp/triggers returns the 7 Mailchimp triggers in displayOrder (1 webhook + 6 polling); sensitive payload fields round-trip", async () => {
     authedUser();
     const res = await getTriggers(new Request("http://x/mailchimp/triggers"), {
       params: Promise.resolve({ id: "mailchimp" }),
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { provider: string; triggers: unknown[] };
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{
+        key: string;
+        category: string;
+        activation: string;
+        requiresIntegration: boolean;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          optionsSource?: string;
+          dependsOn?: string;
+          description?: string;
+        }>;
+        payloadShape: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
     expect(body.provider).toBe("mailchimp");
-    expect(body.triggers).toEqual([]);
+    expect(body.triggers).toHaveLength(7);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "mailchimp:audience_event",
+      "mailchimp:campaign_created",
+      "mailchimp:email_opened",
+      "mailchimp:link_clicked",
+      "mailchimp:new_audience",
+      "mailchimp:segment_updated",
+      "mailchimp:subscriber_added_to_segment",
+    ]);
+    for (const t of body.triggers) {
+      expect(t.category).toBe("marketing");
+      expect(t.requiresIntegration).toBe(true);
+    }
+    expect(
+      body.triggers.find((t) => t.key === "mailchimp:audience_event")!.activation,
+    ).toBe("webhook");
+    for (const k of [
+      "mailchimp:campaign_created",
+      "mailchimp:email_opened",
+      "mailchimp:link_clicked",
+      "mailchimp:new_audience",
+      "mailchimp:segment_updated",
+      "mailchimp:subscriber_added_to_segment",
+    ]) {
+      expect(body.triggers.find((t) => t.key === k)!.activation).toBe("polling");
+    }
+
+    // audience_event field-name preservation: audienceId (camelCase) +
+    // eventTypes (string-array, with 6 allowed values surfaced in description).
+    const audEvt = body.triggers.find((t) => t.key === "mailchimp:audience_event")!;
+    const audId = audEvt.fields.find((f) => f.name === "audienceId")!;
+    expect(audId.type).toBe("combobox");
+    expect(audId.optionsSource).toBe("mailchimp:audiences");
+    expect(audId.required).toBe(true);
+    expect(audEvt.fields.find((f) => f.name === "audience_id")).toBeUndefined();
+    const evtTypes = audEvt.fields.find((f) => f.name === "eventTypes")!;
+    expect(evtTypes.type).toBe("string-array");
+    expect(evtTypes.required).toBe(true);
+    for (const allowed of [
+      "subscribe",
+      "unsubscribe",
+      "profile",
+      "upemail",
+      "cleaned",
+      "campaign",
+    ]) {
+      expect(evtTypes.description).toContain(allowed);
+    }
+
+    // segment-scoped triggers expose the listId → segmentId cascade.
+    for (const k of [
+      "mailchimp:segment_updated",
+      "mailchimp:subscriber_added_to_segment",
+    ]) {
+      const t = body.triggers.find((x) => x.key === k)!;
+      const listId = t.fields.find((f) => f.name === "listId")!;
+      expect(listId.type).toBe("combobox");
+      expect(listId.optionsSource).toBe("mailchimp:audiences");
+      const segmentId = t.fields.find((f) => f.name === "segmentId")!;
+      expect(segmentId.type).toBe("combobox");
+      expect(segmentId.optionsSource).toBe("mailchimp:segments");
+      expect(segmentId.dependsOn).toBe("listId");
+    }
+
+    // Representative sensitive-output round-trip for trigger payloads.
+    const aePayload = new Map(
+      audEvt.payloadShape.map((o) => [o.name, o]),
+    );
+    expect(aePayload.get("email")?.sensitive).toBe(true);
+    expect(aePayload.get("subscriberHash")?.sensitive).toBe(true);
+    expect(aePayload.get("parsed")?.sensitive).toBe(true);
+    expect(aePayload.get("type")?.sensitive).toBeFalsy();
+    expect(aePayload.get("audienceId")?.sensitive).toBeFalsy();
+
+    const ccPayload = new Map(
+      body.triggers
+        .find((t) => t.key === "mailchimp:campaign_created")!
+        .payloadShape.map((o) => [o.name, o]),
+    );
+    expect(ccPayload.get("title")?.sensitive).toBe(true);
+    expect(ccPayload.get("subjectLine")?.sensitive).toBe(true);
+    expect(ccPayload.get("audienceName")?.sensitive).toBe(true);
+    expect(ccPayload.get("campaignId")?.sensitive).toBeFalsy();
+
+    const lcPayload = new Map(
+      body.triggers
+        .find((t) => t.key === "mailchimp:link_clicked")!
+        .payloadShape.map((o) => [o.name, o]),
+    );
+    expect(lcPayload.get("email")?.sensitive).toBe(true);
+    expect(lcPayload.get("url")?.sensitive).toBe(true);
+    expect(lcPayload.get("urlId")?.sensitive).toBeFalsy();
+
+    // Defense-in-depth: no secret-shaped trigger payload names.
+    const banned = new Set([
+      "token",
+      "accessToken",
+      "refreshToken",
+      "clientSecret",
+      "client_secret",
+      "secret",
+      "apiKey",
+      "webhookSecret",
+    ]);
+    for (const t of body.triggers) {
+      for (const o of t.payloadShape) {
+        expect(banned.has(o.name)).toBe(false);
+      }
+    }
   });
 });
 

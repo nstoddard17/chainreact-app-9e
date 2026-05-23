@@ -63,6 +63,15 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // coverage is not enforced by this test, but trigger-meta-
   // activation-invariant.test.ts pins the activation-registry side.
   "hubspot",
+  // Mailchimp added in Slice 3.MAILCHIMP-4 once all 14 registered
+  // Mailchimp action handlers have a matching meta (12 non-campaign
+  // actions in MAILCHIMP-3; the 2 `get_campaign*` reads in MAILCHIMP-4)
+  // AND all 7 trigger metas (`audience_event` webhook + 6 polling
+  // triggers) ship in the same slice. Field-name variance is preserved
+  // 1:1 with the runtime schemas — drift in either direction fails this
+  // test. Trigger-meta-activation-invariant.test.ts pins the
+  // 7 activation-registry registrations on the polling/webhook side.
+  "mailchimp",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

@@ -5839,10 +5839,11 @@ describe("per-provider accessors", () => {
       return listActionMetasForProvider("mailchimp");
     }
 
-    it("listActionMetasForProvider('mailchimp') returns the 12 MAILCHIMP-3 actions in displayOrder", () => {
+    it("listActionMetasForProvider('mailchimp') returns the 14 Mailchimp actions in displayOrder (12 MAILCHIMP-3 + 2 MAILCHIMP-4 campaign reads)", () => {
       const metas = mailchimp();
-      expect(metas).toHaveLength(12);
+      expect(metas).toHaveLength(14);
       expect(metas.map((m) => m.key)).toEqual([
+        // MAILCHIMP-3 (10..120).
         "mailchimp:add_subscriber",
         "mailchimp:update_subscriber",
         "mailchimp:get_subscriber",
@@ -5855,6 +5856,9 @@ describe("per-provider accessors", () => {
         "mailchimp:add_note",
         "mailchimp:unsubscribe_subscriber",
         "mailchimp:remove_subscriber",
+        // MAILCHIMP-4 (130, 140).
+        "mailchimp:get_campaign",
+        "mailchimp:get_campaign_stats",
       ]);
     });
 
@@ -6139,15 +6143,226 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("mailchimp stays OUT of COVERED_PROVIDERS — has 12 action metas but ZERO trigger metas (coverage flip lands in MAILCHIMP-4)", () => {
+    it("mailchimp is now in COVERED_PROVIDERS — 14 action metas + 7 trigger metas (MAILCHIMP-4 closes the provider arc)", () => {
       const actionMetas = listAllActionMetas().filter(
         (m) => m.provider === "mailchimp",
       );
-      expect(actionMetas).toHaveLength(12);
+      expect(actionMetas).toHaveLength(14);
       const triggerMetas = listAllTriggerMetas().filter(
         (m) => m.provider === "mailchimp",
       );
-      expect(triggerMetas).toHaveLength(0);
+      expect(triggerMetas).toHaveLength(7);
+      expect(triggerMetas.map((m) => m.key)).toEqual([
+        // Ordered by displayOrder (10..70).
+        "mailchimp:audience_event",
+        "mailchimp:campaign_created",
+        "mailchimp:email_opened",
+        "mailchimp:link_clicked",
+        "mailchimp:new_audience",
+        "mailchimp:segment_updated",
+        "mailchimp:subscriber_added_to_segment",
+      ]);
+    });
+
+    it("Mailchimp campaign-read actions (MAILCHIMP-4) are low-risk, use mailchimp:campaigns picker, expose campaignId field, and project nested sub-objects as OutputMeta.fields", () => {
+      const byKey = new Map(mailchimp().map((m) => [m.key, m]));
+
+      for (const key of [
+        "mailchimp:get_campaign",
+        "mailchimp:get_campaign_stats",
+      ] as const) {
+        const m = byKey.get(key)!;
+        expect(m.riskLevel).toBe("low");
+        expect(m.isDestructive).toBe(false);
+        expect(m.requiresConfirmation).toBe(false);
+
+        // Single required field: campaignId — combobox via mailchimp:campaigns.
+        expect(m.fields.map((f) => f.name)).toEqual(["campaignId"]);
+        const campaignField = m.fields[0]!;
+        expect(campaignField.type).toBe("combobox");
+        expect(campaignField.optionsSource).toBe("mailchimp:campaigns");
+        expect(campaignField.required).toBe(true);
+      }
+
+      // get_campaign exposes nested settings + recipients sub-objects.
+      const getCampaign = byKey.get("mailchimp:get_campaign")!;
+      const settings = getCampaign.outputs.find((o) => o.name === "settings")!;
+      expect(settings.type).toBe("object");
+      expect(settings.sensitive).toBe(true);
+      expect(settings.fields?.map((f) => f.name).sort()).toEqual([
+        "fromName",
+        "previewText",
+        "replyTo",
+        "subjectLine",
+        "title",
+      ]);
+      const recipients = getCampaign.outputs.find((o) => o.name === "recipients")!;
+      expect(recipients.type).toBe("object");
+      expect(recipients.sensitive).toBe(true);
+      // archiveUrl + longArchiveUrl are sensitive top-level outputs.
+      expect(
+        getCampaign.outputs.find((o) => o.name === "archiveUrl")?.sensitive,
+      ).toBe(true);
+      expect(
+        getCampaign.outputs.find((o) => o.name === "longArchiveUrl")?.sensitive,
+      ).toBe(true);
+
+      // get_campaign_stats nests the engagement aggregates as objects.
+      const stats = byKey.get("mailchimp:get_campaign_stats")!;
+      for (const nestedName of ["opens", "clicks", "bounces", "forwards"]) {
+        const nested = stats.outputs.find((o) => o.name === nestedName)!;
+        expect(nested.type).toBe("object");
+        expect(nested.sensitive).toBe(true);
+        expect(nested.fields?.length).toBeGreaterThan(0);
+      }
+      // industryStats stays structural (aggregate benchmarks; not customer data).
+      const industry = stats.outputs.find((o) => o.name === "industryStats")!;
+      expect(industry.type).toBe("object");
+      expect(industry.sensitive).toBeFalsy();
+    });
+
+    it("listTriggerMetasForProvider('mailchimp') returns the 7 Mailchimp triggers in displayOrder, all category='marketing' + requiresIntegration=true", () => {
+      const metas = listTriggerMetasForProvider("mailchimp");
+      expect(metas).toHaveLength(7);
+      for (const m of metas) {
+        expect(m.category).toBe("marketing");
+        expect(m.requiresIntegration).toBe(true);
+      }
+      const byKey = new Map(metas.map((m) => [m.key, m]));
+      // 1 webhook + 6 polling activation modes.
+      expect(byKey.get("mailchimp:audience_event")!.activation).toBe("webhook");
+      for (const k of [
+        "mailchimp:campaign_created",
+        "mailchimp:email_opened",
+        "mailchimp:link_clicked",
+        "mailchimp:new_audience",
+        "mailchimp:segment_updated",
+        "mailchimp:subscriber_added_to_segment",
+      ]) {
+        expect(byKey.get(k)!.activation).toBe("polling");
+      }
+    });
+
+    it("Mailchimp segment-scoped triggers (segment_updated, subscriber_added_to_segment) declare the listId → segmentId cascade via the MAILCHIMP-2 resolvers", () => {
+      const metas = listTriggerMetasForProvider("mailchimp");
+      const byKey = new Map(metas.map((m) => [m.key, m]));
+
+      for (const key of [
+        "mailchimp:segment_updated",
+        "mailchimp:subscriber_added_to_segment",
+      ] as const) {
+        const m = byKey.get(key)!;
+        const listId = m.fields.find((f) => f.name === "listId")!;
+        expect(listId.type).toBe("combobox");
+        expect(listId.optionsSource).toBe("mailchimp:audiences");
+        expect(listId.required).toBe(true);
+
+        const segmentId = m.fields.find((f) => f.name === "segmentId")!;
+        expect(segmentId.type).toBe("combobox");
+        expect(segmentId.optionsSource).toBe("mailchimp:segments");
+        expect(segmentId.dependsOn).toBe("listId");
+        expect(segmentId.required).toBe(true);
+      }
+    });
+
+    it("Mailchimp audience_event trigger preserves field-name variance (audienceId, eventTypes string-array) and exposes the 6 allowed event types in its eventTypes description", () => {
+      const metas = listTriggerMetasForProvider("mailchimp");
+      const m = metas.find((x) => x.key === "mailchimp:audience_event")!;
+
+      const audienceId = m.fields.find((f) => f.name === "audienceId")!;
+      expect(audienceId.type).toBe("combobox");
+      expect(audienceId.optionsSource).toBe("mailchimp:audiences");
+      expect(audienceId.required).toBe(true);
+      // camelCase preservation — must NOT be `audience_id` like the
+      // snake-case actions.
+      expect(m.fields.find((f) => f.name === "audience_id")).toBeUndefined();
+
+      const eventTypes = m.fields.find((f) => f.name === "eventTypes")!;
+      expect(eventTypes.type).toBe("string-array");
+      expect(eventTypes.required).toBe(true);
+      // The 6 allowed event types must surface in the description so
+      // workflow authors know the allowlist without reading activate.ts.
+      for (const allowed of [
+        "subscribe",
+        "unsubscribe",
+        "profile",
+        "upemail",
+        "cleaned",
+        "campaign",
+      ]) {
+        expect(eventTypes.description).toContain(allowed);
+      }
+    });
+
+    it("Mailchimp trigger payloads mark PII + author-supplied content as sensitive (email, emailAddress, subscriberHash, campaign content, audience/segment names)", () => {
+      const metas = listTriggerMetasForProvider("mailchimp");
+      const byKey = new Map(metas.map((m) => [m.key, m]));
+      const sensitiveOf = (key: string) =>
+        new Set(
+          byKey
+            .get(key)!
+            .payloadShape.filter((o) => o.sensitive === true)
+            .map((o) => o.name),
+        );
+
+      // audience_event — email + subscriberHash + raw parsed body.
+      expect(sensitiveOf("mailchimp:audience_event")).toEqual(
+        new Set(["email", "subscriberHash", "parsed"]),
+      );
+
+      // campaign_created — author-supplied content + audience name.
+      expect(sensitiveOf("mailchimp:campaign_created")).toEqual(
+        new Set(["title", "subjectLine", "fromName", "replyTo", "audienceName"]),
+      );
+
+      // email_opened — email + subscriberId + author content.
+      expect(sensitiveOf("mailchimp:email_opened")).toEqual(
+        new Set(["campaignTitle", "subjectLine", "email", "subscriberId"]),
+      );
+
+      // link_clicked — email + subscriberId + author content + clicked URL.
+      expect(sensitiveOf("mailchimp:link_clicked")).toEqual(
+        new Set([
+          "campaignTitle",
+          "subjectLine",
+          "email",
+          "subscriberId",
+          "url",
+        ]),
+      );
+
+      // new_audience — audience name + company.
+      expect(sensitiveOf("mailchimp:new_audience")).toEqual(
+        new Set(["name", "company"]),
+      );
+
+      // segment_updated — segment name only.
+      expect(sensitiveOf("mailchimp:segment_updated")).toEqual(
+        new Set(["name"]),
+      );
+
+      // subscriber_added_to_segment — emailAddress + subscriberHash.
+      expect(sensitiveOf("mailchimp:subscriber_added_to_segment")).toEqual(
+        new Set(["emailAddress", "subscriberHash"]),
+      );
+    });
+
+    it("Mailchimp trigger payloads do NOT expose secret-shaped names (defense-in-depth)", () => {
+      const banned = new Set([
+        "token",
+        "accessToken",
+        "refreshToken",
+        "clientSecret",
+        "client_secret",
+        "secret",
+        "apiKey",
+        "webhookSecret",
+      ]);
+      for (const m of listTriggerMetasForProvider("mailchimp")) {
+        for (const o of m.payloadShape) {
+          expect(banned.has(o.name)).toBe(false);
+        }
+      }
     });
   });
 
