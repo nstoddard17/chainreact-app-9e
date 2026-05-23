@@ -11,7 +11,19 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * client so RLS gates by auth.uid() = user_id.
  */
 
-export type NotificationType = "workflow_failed";
+/**
+ * Slice 3.POSTSEC-8 — `workflow_high_risk_activated` and
+ * `workflow_high_risk_run` are audit-event types written when a
+ * workflow containing destructive / requires-confirmation actions is
+ * activated or really-run after typed confirmation. The enum value
+ * lives alongside the original `workflow_failed` because the in-app
+ * feed surface is the same; the per-type rendering / filtering is the
+ * notification page's job.
+ */
+export type NotificationType =
+  | "workflow_failed"
+  | "workflow_high_risk_activated"
+  | "workflow_high_risk_run";
 export type NotificationSeverity = "warning" | "error";
 
 export interface NotificationRecord {

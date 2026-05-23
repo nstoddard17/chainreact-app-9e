@@ -26,6 +26,16 @@ jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: (...args: unknown[]) => mockEnqueueRun(...args),
 }));
 
+// Slice 3.POSTSEC-8 — high-risk run-now audit emission. Mocked so
+// route tests can assert "audit event was emitted with the right
+// payload" without hitting the notifications repo.
+const mockNotifyRun = jest.fn();
+jest.mock("@/services/notifications/notifyHighRiskWorkflowEvent", () => ({
+  notifyHighRiskRun: (...args: unknown[]) => mockNotifyRun(...args),
+  // Unused in this test file but exported by the module under mock.
+  notifyHighRiskActivation: jest.fn(),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/run-now/route";
 
 const baseWorkflow = {
@@ -99,6 +109,8 @@ beforeEach(() => {
     runId: "run-mock",
     enqueuedAt: "2026-05-16T00:00:01Z",
   });
+  mockNotifyRun.mockReset();
+  mockNotifyRun.mockResolvedValue({ outcome: "emitted" });
 });
 
 // ── auth + ownership ────────────────────────────────────────────────────────
@@ -723,5 +735,108 @@ describe("POST /run-now — POSTSEC-3 newly-confirmed Stripe money-moving action
     };
     expect(call.testMode).toBe(true);
     expect(call.triggeredBy).toBe("test");
+  });
+});
+
+// ── Slice 3.POSTSEC-8 — high-risk run-now audit emission ────────────────────
+describe("POST /run-now — high-risk audit event emission (Slice 3.POSTSEC-8)", () => {
+  beforeEach(() => signedInAs("user-1"));
+
+  function destructiveWorkflow() {
+    return {
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [
+          baseWorkflow.draftDefinition.nodes[0]!,
+          {
+            id: "refund-node",
+            kind: "action" as const,
+            provider: "stripe",
+            type: "create_refund",
+            config: { chargeId: "ch_internal_leak" },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "refund-node" }],
+      },
+    };
+  }
+
+  it("emits notifyHighRiskRun after a successful real-mode run on a destructive workflow", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow());
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ inputs: {}, confirmationText: "CONFIRM" }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockNotifyRun).toHaveBeenCalledTimes(1);
+    const call = mockNotifyRun.mock.calls[0]![0];
+    expect(call.workflowId).toBe("wf-1");
+    expect(call.workflowName).toBe("WF");
+    expect(call.actorUserId).toBe("user-1");
+    expect(call.runId).toBe("run-mock");
+    expect(call.isTest).toBe(false);
+    expect(call.triggeredBy).toBe("manual");
+    expect(call.confirmationRequiredActions).toHaveLength(1);
+    expect(call.confirmationRequiredActions[0]).toMatchObject({
+      nodeId: "refund-node",
+      provider: "stripe",
+      type: "create_refund",
+      displayName: "Create Refund",
+    });
+  });
+
+  it("does NOT emit on a testMode run, even if the workflow is destructive", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow());
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ testMode: true, inputs: {} }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    // testMode skips the SEC-4B gate; risk is null at the route layer,
+    // so the helper is never invoked. (The helper itself ALSO defends
+    // by short-circuiting on isTest:true — covered in the unit tests.)
+    expect(mockNotifyRun).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit on a low-risk real-mode run (no destructive actions in graph)", async () => {
+    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ inputs: {} }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockNotifyRun).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when the confirmation gate rejects the request (409)", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow());
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(409);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockNotifyRun).not.toHaveBeenCalled();
+  });
+
+  it("emission payload does NOT carry node config from the destructive workflow", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow());
+    await POST(
+      buildRequest({
+        body: JSON.stringify({ inputs: {}, confirmationText: "CONFIRM" }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(mockNotifyRun).toHaveBeenCalledTimes(1);
+    const call = mockNotifyRun.mock.calls[0]![0];
+    const text = JSON.stringify(call);
+    // ch_internal_leak is in the destructive workflow's node config —
+    // it MUST NOT reach the audit emission.
+    expect(text).not.toContain("ch_internal_leak");
+    expect(text).not.toContain("chargeId");
   });
 });

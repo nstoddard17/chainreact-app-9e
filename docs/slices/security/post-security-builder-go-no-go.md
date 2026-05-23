@@ -150,9 +150,9 @@ These are **known gaps**. Each requires a product-owner decision: accept for V1 
 
 ### 4.6 Richer risk UI / notification integration
 
-- Confirmation modal exists. Risk chips on the action picker, post-execution "this run fired N destructive actions" indicators, and notification/audit event integration for high-risk lifecycle events (activation, real run, blocked livemode) are not built.
-- **Effect:** No telemetry for "how often is the confirmation modal triggered?" or "how often does livemode-unknown block activation?" Operator response to a misfire is procedural-only (per the runbook).
-- **Closure work:** notification event publisher + a small surface in the existing notification system. Risk chips on the picker.
+- Confirmation modal exists. **Notification/audit event integration for high-risk lifecycle events partially closed by POSTSEC-8** (`workflow_high_risk_activated` + `workflow_high_risk_run` audit notifications fire after a successful destructive activation / real manual run; visible to the workflow owner at `/notifications`). Still NOT built: risk chips on the action picker, post-execution "this run fired N destructive actions" indicators, blocked-livemode audit event, cross-user / admin audit feed.
+- **Effect:** Workflow owners now have a durable record of when their high-risk workflows were activated / live-run. Cross-user admin visibility + Stripe livemode-block telemetry are still pending.
+- **Closure work:** risk chips on the picker; admin / operator cross-workflow audit feed; Stripe livemode-block audit emission (the policy block path currently throws but does not emit).
 
 ### 4.7 `engine.ts` and `_registry.ts` max-lines cleanup
 

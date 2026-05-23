@@ -79,11 +79,15 @@ const LIFECYCLE_HTTP_STATUS: Readonly<Record<LifecycleError["code"], number>> = 
 /** Wraps an orchestrator call and converts LifecycleError → JSON response. */
 export async function runLifecycle<T>(
   fn: () => Promise<T>,
-  toResponse: (result: T) => NextResponse,
+  toResponse: (result: T) => NextResponse | Promise<NextResponse>,
 ): Promise<NextResponse> {
   try {
     const result = await fn();
-    return toResponse(result);
+    // `toResponse` is permitted to be async — POSTSEC-8 uses this so
+    // the activate route can emit a high-risk audit event in-band
+    // before the HTTP response returns. Sync callers continue to work
+    // because `await` on a non-thenable resolves to the value itself.
+    return await toResponse(result);
   } catch (err) {
     if (err instanceof LifecycleError) {
       return lifecycleErrorResponse(err);

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import * as workflowsRepo from "@/repositories/workflows";
+import { notifyHighRiskActivation } from "@/services/notifications/notifyHighRiskWorkflowEvent";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 import {
   findConfirmationRequiredActions,
   isValidConfirmationText,
+  type RiskConfirmationResult,
 } from "@/services/workflows/riskConfirmation";
 import {
   requireUser,
@@ -97,8 +99,9 @@ export async function POST(
   // extra route-level read is cheap and avoids duplicating
   // LifecycleError translation.)
   const workflow = await workflowsRepo.getById(id);
+  let risk: RiskConfirmationResult | null = null;
   if (workflow && workflow.state !== "deleted") {
-    const risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);
+    risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);
     if (risk.requiresConfirmation && !isValidConfirmationText(confirmationText)) {
       return NextResponse.json(
         {
@@ -115,6 +118,23 @@ export async function POST(
   const orch = createLifecycleOrchestrator();
   return runLifecycle(
     () => orch.activate(id),
-    (record) => NextResponse.json(toWorkflowSummary(record)),
+    async (record) => {
+      // Slice 3.POSTSEC-8 — emit a high-risk audit event when the
+      // workflow contains destructive / requires-confirmation actions
+      // AND the orchestrator returned success. Best-effort — the
+      // helper swallows write errors so an audit failure never flips
+      // a successful activation response to a 5xx. Only fires when
+      // `risk.requiresConfirmation` was true on entry (low-risk
+      // activations don't pollute the audit surface).
+      if (workflow && risk && risk.requiresConfirmation) {
+        await notifyHighRiskActivation({
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          actorUserId: auth.userId,
+          confirmationRequiredActions: risk.actions,
+        });
+      }
+      return NextResponse.json(toWorkflowSummary(record));
+    },
   );
 }

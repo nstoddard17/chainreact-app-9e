@@ -9,6 +9,7 @@ import {
   MANUAL_TRIGGER_PROVIDER,
   ManualTriggerPayloadSchema,
 } from "@/integrations/native/triggers/manualTrigger";
+import { notifyHighRiskRun } from "@/services/notifications/notifyHighRiskWorkflowEvent";
 import {
   findConfirmationRequiredActions,
   isValidConfirmationText,
@@ -182,8 +183,14 @@ export async function POST(
   // before the handler is invoked — test-mode runs cannot actually
   // execute destructive provider calls, so a confirmation prompt
   // would be friction without safety value.
+  //
+  // Slice 3.POSTSEC-8 — the `risk` value is reused after enqueue to
+  // decide whether to emit a `workflow_high_risk_run` audit event.
+  let risk:
+    | ReturnType<typeof findConfirmationRequiredActions>
+    | null = null;
   if (!testMode) {
-    const risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);
+    risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);
     if (risk.requiresConfirmation && !isValidConfirmationText(confirmationText)) {
       return NextResponse.json(
         {
@@ -219,6 +226,24 @@ export async function POST(
     testMode,
     triggeredBy,
   });
+
+  // Slice 3.POSTSEC-8 — emit a high-risk audit event when the run is
+  // real-mode AND the workflow contained destructive / requires-
+  // confirmation actions. testMode runs explicitly do NOT emit
+  // (`notifyHighRiskRun` returns `skipped_test_mode` as belt-and-braces).
+  // Best-effort — the helper swallows any DB error so an audit failure
+  // never flips a successful 202 to 5xx.
+  if (!testMode && risk && risk.requiresConfirmation) {
+    await notifyHighRiskRun({
+      workflowId: workflow.id,
+      workflowName: workflow.name,
+      actorUserId: auth.userId,
+      runId: enqueued.runId,
+      isTest: testMode,
+      triggeredBy,
+      confirmationRequiredActions: risk.actions,
+    });
+  }
 
   return NextResponse.json(
     {

@@ -391,6 +391,7 @@ Verify each is functioning during post-incident review:
 | `native:http_request` egress denylist | First-tier SSRF guard; blocks private IPv4/IPv6 + cloud metadata endpoints | SEC-3 |
 | Discovery-coverage CI guard | Every covered-provider handler MUST have an ActionMeta; reject drift | structural test |
 | Sensitive-output structural guard | Suspicious output names fail the build without `sensitive: true` or allowlist | POSTSEC-2 |
+| High-risk lifecycle audit events | Workflow owner receives an in-app notification of type `workflow_high_risk_activated` / `workflow_high_risk_run` when a destructive / requires-confirmation workflow is activated or really-run after typed confirmation. Visible at `/notifications`. Metadata is route-safe (workflow id + name, actor user, run id when applicable, the action descriptors, `triggeredBy`, `isTest`, timestamp — never config / IDs / resolved values). Use these as the FIRST early-warning signal when triaging an accidental-action report — they timestamp the moment of activation / live execution. | POSTSEC-8 |
 
 ### 9.2 Controls deferred to follow-up slices
 These were NOT shipped as of POSTSEC-3. Production Stripe high-risk write exposure waits on POSTSEC-5 + product-owner sign-off on the rest:
