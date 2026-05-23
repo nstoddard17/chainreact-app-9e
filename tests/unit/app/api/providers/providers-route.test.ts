@@ -121,6 +121,17 @@ describe("GET /api/providers", () => {
     expect(notion?.hasMetadata).toBe(true);
   });
 
+  it("marks Stripe as hasMetadata=true now that Slice 3.45 shipped the customer + payment lifecycle action metas", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const stripe = body.providers.find((p) => p.id === "stripe");
+    expect(stripe).toBeDefined();
+    expect(stripe?.hasMetadata).toBe(true);
+  });
+
   it("marks providers still without any metadata (e.g. hubspot) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -384,6 +395,40 @@ describe("GET /api/providers/[id]/actions", () => {
       "notion:list_users",
     ]);
     expect(body.actions.every((a) => a.category === "data")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+    expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
+    expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+  });
+
+  it("returns the 8 Stripe customer + payment lifecycle action metas in displayOrder (Slice 3.45 — Stripe not yet in COVERED_PROVIDERS, more land in 3.46)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+      }>;
+    };
+    expect(body.provider).toBe("stripe");
+    expect(body.actions).toHaveLength(8);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "stripe:create_customer",
+      "stripe:update_customer",
+      "stripe:find_customer",
+      "stripe:create_payment_intent",
+      "stripe:confirm_payment_intent",
+      "stripe:capture_payment_intent",
+      "stripe:create_refund",
+      "stripe:find_payment_intent",
+    ]);
+    expect(body.actions.every((a) => a.category === "commerce")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
     expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);

@@ -143,6 +143,23 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the Stripe customer + payment lifecycle action metas registered in Slice 3.45", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "stripe:create_customer",
+        "stripe:update_customer",
+        "stripe:find_customer",
+        "stripe:create_payment_intent",
+        "stripe:confirm_payment_intent",
+        "stripe:capture_payment_intent",
+        "stripe:create_refund",
+        "stripe:find_payment_intent",
+      ]),
+    );
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -2625,6 +2642,384 @@ describe("per-provider accessors", () => {
           expect(outputs.get("nextCursor")!.type).toBe("string");
           expect(outputs.get("hasMore")!.type).toBe("boolean");
         });
+      });
+    });
+  });
+
+  describe("Stripe customer + payment lifecycle surface (Slice 3.45 — 8 of 16)", () => {
+    function stripeActionMetas() {
+      return listActionMetasForProvider("stripe");
+    }
+
+    it("Slice 3.45 registers 8 customer + payment lifecycle action metas in displayOrder", () => {
+      const metas = stripeActionMetas();
+      expect(metas.map((m) => m.key)).toEqual([
+        "stripe:create_customer",
+        "stripe:update_customer",
+        "stripe:find_customer",
+        "stripe:create_payment_intent",
+        "stripe:confirm_payment_intent",
+        "stripe:capture_payment_intent",
+        "stripe:create_refund",
+        "stripe:find_payment_intent",
+      ]);
+    });
+
+    it("every Stripe meta declares provider=stripe, category=commerce, requiresIntegration=true, no FileRef", () => {
+      const metas = stripeActionMetas();
+      expect(metas).toHaveLength(8);
+      for (const meta of metas) {
+        expect(meta.provider).toBe("stripe");
+        expect(meta.category).toBe("commerce");
+        expect(meta.requiresIntegration).toBe(true);
+        expect(meta.producesFileRef).toBe(false);
+        expect(meta.consumesFileRef).toBe(false);
+      }
+    });
+
+    it("Stripe displayOrders are unique within the provider", () => {
+      const orders = stripeActionMetas().map((m) => m.displayOrder);
+      expect(new Set(orders).size).toBe(orders.length);
+      for (const o of orders) {
+        expect(o).not.toBeNull();
+      }
+    });
+
+    it("ID fields (customerId, paymentIntentId, chargeId) are `text` (resolvers deferred to follow-up)", () => {
+      const idFieldNames = new Set([
+        "customerId",
+        "paymentIntentId",
+        "chargeId",
+      ]);
+      for (const meta of stripeActionMetas()) {
+        for (const f of meta.fields) {
+          if (idFieldNames.has(f.name)) {
+            expect(f.type).toBe("text");
+            expect(f.optionsSource).toBeUndefined();
+          }
+        }
+      }
+    });
+
+    it("every `metadata` field is a `keyvalue` field with keyValueMaxRows=50 (Stripe's per-object cap)", () => {
+      let foundCount = 0;
+      for (const meta of stripeActionMetas()) {
+        const md = meta.fields.find((f) => f.name === "metadata");
+        if (md) {
+          expect(md.type).toBe("keyvalue");
+          expect(md.required).toBe(false);
+          expect(md.keyValueMaxRows).toBe(50);
+          foundCount += 1;
+        }
+      }
+      // 4 actions in this slice have a metadata field: create_customer,
+      // update_customer, create_payment_intent, create_refund.
+      expect(foundCount).toBe(4);
+    });
+
+    it("no output exposes raw bytes/base64/data sibling fields (no FileRef on Stripe in this slice)", () => {
+      const banned = ["bytes", "base64", "data"];
+      for (const meta of stripeActionMetas()) {
+        const names = meta.outputs.map((o) => o.name);
+        for (const b of banned) {
+          expect(names).not.toContain(b);
+        }
+      }
+    });
+
+    it("no output exposes secret-keyed fields beyond intentional clientSecret (PaymentIntent flows only)", () => {
+      // clientSecret is allowed only on create_payment_intent and
+      // confirm_payment_intent — Stripe's documented Payment Element
+      // handoff. Reject any other secret-shaped output names.
+      const allowedClientSecretActions = new Set([
+        "stripe:create_payment_intent",
+        "stripe:confirm_payment_intent",
+      ]);
+      for (const meta of stripeActionMetas()) {
+        const names = meta.outputs.map((o) => o.name);
+        const hasClientSecret = names.includes("clientSecret");
+        if (hasClientSecret) {
+          expect(allowedClientSecretActions.has(meta.key)).toBe(true);
+        }
+        // Reject other secret-shaped output names regardless of action.
+        for (const banned of [
+          "apiKey",
+          "secretKey",
+          "webhookSecret",
+          "stripeKey",
+          "card",
+          "cardNumber",
+          "cvc",
+        ]) {
+          expect(names).not.toContain(banned);
+        }
+      }
+    });
+
+    describe("create_customer field surface", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_customer",
+        )!;
+      }
+
+      it("exposes email / name / description / metadata (no payment method fields)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "email",
+          "name",
+          "description",
+          "metadata",
+        ]);
+        // Defensive — make sure we don't accidentally surface card /
+        // payment-method fields here.
+        for (const banned of ["payment_method", "card", "source"]) {
+          expect(meta().fields.find((f) => f.name === banned)).toBeUndefined();
+        }
+      });
+
+      it("email is required text; name/description/metadata are optional", () => {
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("email")!.type).toBe("text");
+        expect(byName.get("email")!.required).toBe(true);
+        expect(byName.get("name")!.required).toBe(false);
+        expect(byName.get("description")!.required).toBe(false);
+        expect(byName.get("metadata")!.required).toBe(false);
+      });
+
+      it("output is the 7-key bounded customer projection (no clientSecret leakage)", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "customerId",
+          "email",
+          "name",
+          "description",
+          "created",
+          "livemode",
+          "metadata",
+        ]);
+        expect(names).not.toContain("clientSecret");
+      });
+    });
+
+    describe("find_customer XOR field surface", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:find_customer",
+        )!;
+      }
+
+      it("exposes customerId + email, both optional (XOR enforced at runtime)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "customerId",
+          "email",
+        ]);
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("customerId")!.required).toBe(false);
+        expect(byName.get("email")!.required).toBe(false);
+      });
+
+      it("description documents the EXACTLY ONE XOR invariant", () => {
+        expect(meta().description.toLowerCase()).toContain("exactly one");
+      });
+
+      it("output is {found, customer}", () => {
+        expect(meta().outputs.map((o) => o.name)).toEqual([
+          "found",
+          "customer",
+        ]);
+      });
+    });
+
+    describe("create_payment_intent — DOLLARS unit anchoring + clientSecret", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_payment_intent",
+        )!;
+      }
+
+      it("exposes amount / currency / customerId / description / metadata", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "amount",
+          "currency",
+          "customerId",
+          "description",
+          "metadata",
+        ]);
+      });
+
+      it("amount is required number with min:0.01, step:0.01 (DOLLARS, not integer)", () => {
+        const amount = meta().fields.find((f) => f.name === "amount")!;
+        expect(amount.type).toBe("number");
+        expect(amount.required).toBe(true);
+        expect(amount.numeric?.min).toBe(0.01);
+        expect(amount.numeric?.step).toBe(0.01);
+        expect(amount.numeric?.integer).not.toBe(true);
+      });
+
+      it("amount description anchors the DOLLARS unit (catches dollars/cents drift)", () => {
+        const amount = meta().fields.find((f) => f.name === "amount")!;
+        expect(amount.label.toLowerCase()).toContain("dollar");
+        expect(amount.description?.toLowerCase()).toContain("dollar");
+      });
+
+      it("currency is required text (NOT a 135-option select)", () => {
+        const currency = meta().fields.find((f) => f.name === "currency")!;
+        expect(currency.type).toBe("text");
+        expect(currency.required).toBe(true);
+        expect(currency.options).toBeUndefined();
+      });
+
+      it("output includes clientSecret with picker-useful description", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toContain("clientSecret");
+        const cs = meta().outputs.find((o) => o.name === "clientSecret")!;
+        expect(cs.type).toBe("string");
+        // Description must explain intended use to avoid warning fatigue.
+        expect(cs.description?.toLowerCase()).toContain("payment element");
+      });
+
+      it("output `amount` description anchors the CENTS echo (input→output unit asymmetry)", () => {
+        const out = meta().outputs.find((o) => o.name === "amount")!;
+        expect(out.description?.toLowerCase()).toContain("cent");
+      });
+
+      it("output includes `nextAction` as an object (3DS / off-session descriptor)", () => {
+        const na = meta().outputs.find((o) => o.name === "nextAction")!;
+        expect(na.type).toBe("object");
+      });
+    });
+
+    describe("capture_payment_intent — CENTS unit anchoring (footgun guard)", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:capture_payment_intent",
+        )!;
+      }
+
+      it("exposes paymentIntentId + amount_to_capture", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "paymentIntentId",
+          "amount_to_capture",
+        ]);
+      });
+
+      it("amount_to_capture is OPTIONAL number with integer:true, min:1 (CENTS)", () => {
+        const a = meta().fields.find((f) => f.name === "amount_to_capture")!;
+        expect(a.type).toBe("number");
+        expect(a.required).toBe(false);
+        expect(a.numeric?.min).toBe(1);
+        expect(a.numeric?.integer).toBe(true);
+      });
+
+      it("amount_to_capture description anchors the CENTS unit (footgun guard vs create_payment_intent.amount=DOLLARS)", () => {
+        const a = meta().fields.find((f) => f.name === "amount_to_capture")!;
+        expect(a.label.toLowerCase()).toContain("cent");
+        expect(a.description?.toLowerCase()).toContain("cent");
+      });
+
+      it("no defaultValue (Q11 — no hidden destructive default)", () => {
+        const a = meta().fields.find((f) => f.name === "amount_to_capture")!;
+        expect(a.defaultValue).toBeUndefined();
+      });
+
+      it("top-level description warns that capture is NOT reversible without a refund", () => {
+        expect(meta().description.toLowerCase()).toContain("not reversible");
+      });
+    });
+
+    describe("confirm_payment_intent — snake_case field names + clientSecret", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:confirm_payment_intent",
+        )!;
+      }
+
+      it("preserves snake_case schema field names (payment_method / receipt_email / return_url)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "paymentIntentId",
+          "payment_method",
+          "receipt_email",
+          "return_url",
+        ]);
+      });
+
+      it("output includes clientSecret (frontend handoff for requires_action)", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toContain("clientSecret");
+      });
+    });
+
+    describe("create_refund — destructive money-flow + XOR + reason enum", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_refund",
+        )!;
+      }
+
+      it("exposes chargeId + paymentIntentId + amount + reason + metadata (all optional or XOR)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "chargeId",
+          "paymentIntentId",
+          "amount",
+          "reason",
+          "metadata",
+        ]);
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("chargeId")!.required).toBe(false);
+        expect(byName.get("paymentIntentId")!.required).toBe(false);
+        expect(byName.get("amount")!.required).toBe(false);
+        expect(byName.get("reason")!.required).toBe(false);
+        expect(byName.get("metadata")!.required).toBe(false);
+      });
+
+      it("description warns DESTRUCTIVE + EXACTLY ONE XOR + full-refund default behavior", () => {
+        const d = meta().description.toLowerCase();
+        expect(d).toContain("destructive");
+        expect(d).toContain("exactly one");
+        expect(d).toContain("full refund");
+      });
+
+      it("amount is number with DOLLARS unit anchoring (matches create_payment_intent)", () => {
+        const a = meta().fields.find((f) => f.name === "amount")!;
+        expect(a.type).toBe("number");
+        expect(a.numeric?.min).toBe(0.01);
+        expect(a.numeric?.step).toBe(0.01);
+        expect(a.label.toLowerCase()).toContain("dollar");
+        expect(a.description?.toLowerCase()).toContain("dollar");
+      });
+
+      it("reason is `select` with Stripe's 3 enum values and NO defaultValue (Q11)", () => {
+        const r = meta().fields.find((f) => f.name === "reason")!;
+        expect(r.type).toBe("select");
+        expect(r.required).toBe(false);
+        expect(r.defaultValue).toBeUndefined();
+        const values = r.options?.map((o) => o.value);
+        expect(values).toEqual([
+          "duplicate",
+          "fraudulent",
+          "requested_by_customer",
+        ]);
+      });
+    });
+
+    describe("find_payment_intent read-only surface", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:find_payment_intent",
+        )!;
+      }
+
+      it("exposes only paymentIntentId (required text)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual(["paymentIntentId"]);
+        const pi = meta().fields[0]!;
+        expect(pi.type).toBe("text");
+        expect(pi.required).toBe(true);
+      });
+
+      it("output is {found, paymentIntent}; no clientSecret leakage on the read path", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual(["found", "paymentIntent"]);
+        expect(names).not.toContain("clientSecret");
       });
     });
   });

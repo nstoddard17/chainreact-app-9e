@@ -134,6 +134,20 @@ import { notionListCommentsMeta } from "@/integrations/notion/actions/listCommen
 import { notionGetUserMeta } from "@/integrations/notion/actions/getUser.meta";
 import { notionListUsersMeta } from "@/integrations/notion/actions/listUsers.meta";
 
+// Stripe action metadata (Slice 3.45 — customer + payment lifecycle,
+// 8 of 16). Stripe stays OUT of COVERED_PROVIDERS until Slice 3.46
+// lands the remaining 8 (subscriptions + commerce surfaces) and flips
+// the structural gate. Trigger meta (`stripe:event_received`) is
+// deferred to a follow-up slice — see stripe-action-metadata-plan §3.
+import { stripeCreateCustomerMeta } from "@/integrations/stripe/actions/createCustomer.meta";
+import { stripeUpdateCustomerMeta } from "@/integrations/stripe/actions/updateCustomer.meta";
+import { stripeFindCustomerMeta } from "@/integrations/stripe/actions/findCustomer.meta";
+import { stripeCreatePaymentIntentMeta } from "@/integrations/stripe/actions/createPaymentIntent.meta";
+import { stripeConfirmPaymentIntentMeta } from "@/integrations/stripe/actions/confirmPaymentIntent.meta";
+import { stripeCapturePaymentIntentMeta } from "@/integrations/stripe/actions/capturePaymentIntent.meta";
+import { stripeCreateRefundMeta } from "@/integrations/stripe/actions/createRefund.meta";
+import { stripeFindPaymentIntentMeta } from "@/integrations/stripe/actions/findPaymentIntent.meta";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -302,6 +316,22 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   notionListCommentsMeta,
   notionGetUserMeta,
   notionListUsersMeta,
+  // Stripe customer + payment lifecycle (Slice 3.45 — 8 of 16).
+  // Money-moving actions; every meta carries unit-anchored
+  // descriptions (DOLLARS vs CENTS) per the metadata plan §8.
+  // `metadata` fields use `keyvalue` (Record<string,string> contract
+  // fit); enums use `select` with static options. The remaining 8
+  // (subscriptions + commerce surfaces) land in Slice 3.46 + flip
+  // Stripe into COVERED_PROVIDERS. Ordered to match displayOrder
+  // (10..80).
+  stripeCreateCustomerMeta,
+  stripeUpdateCustomerMeta,
+  stripeFindCustomerMeta,
+  stripeCreatePaymentIntentMeta,
+  stripeConfirmPaymentIntentMeta,
+  stripeCapturePaymentIntentMeta,
+  stripeCreateRefundMeta,
+  stripeFindPaymentIntentMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
