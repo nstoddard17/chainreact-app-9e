@@ -41,11 +41,17 @@ describe("discord manifest — capabilities", () => {
     expect(discordManifest.capabilities.actions).toBe(true);
   });
 
-  it("DOES NOT enable webhookTrigger (Discord triggers deferred per D-DC1)", () => {
-    expect(discordManifest.capabilities.webhookTrigger).toBe(false);
+  it("enables webhookTrigger now that DISCORD-6 shipped slash_command via Interactions Endpoint URL", () => {
+    // Was `false` through DISCORD-2..DISCORD-5 (gateway-websocket
+    // dependency made every V1 trigger incompatible with V2's webhook
+    // contract). DISCORD-5 resolved the D-DC1 deferral with a per-
+    // trigger architecture decision: slash_command ships as a webhook
+    // trigger via Discord's HTTP-only interactions endpoint (Ed25519
+    // signature, per-guild POST commands at activation, no gateway).
+    expect(discordManifest.capabilities.webhookTrigger).toBe(true);
   });
 
-  it("DOES NOT enable pollingTrigger (deferred per D-DC1)", () => {
+  it("DOES NOT enable pollingTrigger yet (discord:new_message lands in DISCORD-7)", () => {
     expect(discordManifest.capabilities.pollingTrigger).toBe(false);
   });
 });

@@ -1160,7 +1160,7 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
   });
 
-  it("returns an empty array for Discord triggers (Slice 3.DISCORD-4 — D-DC1 deferral)", async () => {
+  it("returns one Discord trigger (Slice 3.DISCORD-6 — slash_command via Interactions Endpoint URL)", async () => {
     authedUser();
     const res = await getTriggers(new Request("http://x/discord/triggers"), {
       params: Promise.resolve({ id: "discord" }),
@@ -1168,15 +1168,18 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       provider: string;
-      triggers: Array<unknown>;
+      triggers: Array<{ key: string; activation: string; requiresIntegration: boolean }>;
     };
     expect(body.provider).toBe("discord");
-    // Triggers intentionally deferred — V1's 3 Discord triggers depend
-    // on gateway-websocket infrastructure that V2 does not support
-    // (see contracts/triggerMeta.ts:TriggerActivationSchema). The
-    // discovery-meta-coverage test exempts triggers from the COVERED
-    // contract; the Stripe `event_received` deferral is the precedent.
-    expect(body.triggers).toEqual([]);
+    // DISCORD-5 trigger-architecture decision: ship slash_command now
+    // via Discord's HTTP Interactions Endpoint URL (Ed25519 signed,
+    // no gateway dependency). new_message lands in DISCORD-7 as a
+    // polling trigger; member_join deferred (DISCORD-N-member-join,
+    // Discord REST has no join-time-indexed endpoint).
+    expect(body.triggers).toHaveLength(1);
+    expect(body.triggers[0]!.key).toBe("discord:slash_command");
+    expect(body.triggers[0]!.activation).toBe("webhook");
+    expect(body.triggers[0]!.requiresIntegration).toBe(true);
   });
 
   it("returns the 10 Slack trigger metas registered in Slice 3.11, all webhook-activated", async () => {

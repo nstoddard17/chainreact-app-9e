@@ -55,16 +55,16 @@ import { ProviderManifestSchema, type ProviderManifest } from "@/contracts/integ
  * **Health check interval.** 4h — same cadence as Slack / GitHub /
  * Notion per CLAUDE.md V1 health-check intervals.
  *
- * **DISCORD-2 capabilities.**
+ * **Capabilities.**
  *   - OAuth: true.
- *   - Actions: true (5 handlers ship in this slice — see
- *     `services/execution/handlers/_registry.ts`).
- *   - Webhook trigger: false (Discord's trigger architecture is gateway
- *     websockets — incompatible with V2's trigger contracts. Deferred
- *     to a later DISCORD-N-triggers arc per Slice 3.DISCORD-1 §2.3
- *     decision D-DC1).
- *   - Polling trigger: false (same reason; no V1 trigger has a clean
- *     polling analog at this time).
+ *   - Actions: true — 5 handlers (DISCORD-2: `services/execution/handlers/_registry.ts`).
+ *   - Webhook trigger: true — `discord:slash_command` ships in DISCORD-6
+ *     via Discord's Interactions Endpoint URL (Ed25519-signed HTTP POST).
+ *     `discord:new_message` (polling) and `discord:member_join` are
+ *     scoped to follow-up slices per
+ *     `docs/slices/phase-3/discord-trigger-architecture-plan.md`.
+ *   - Polling trigger: false — `discord:new_message` polling lands in
+ *     DISCORD-7. The capability flag flips when that slice ships.
  *
  * The action keys ship at:
  *   - `discord:send_message`
@@ -100,7 +100,7 @@ export const discordManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    webhookTrigger: false,
+    webhookTrigger: true,
     pollingTrigger: false,
     actions: true,
   },

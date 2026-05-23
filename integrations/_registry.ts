@@ -75,6 +75,13 @@ import "./trello/triggers/cardMoved";
 import "./trello/triggers/commentAdded";
 import "./trello/triggers/memberChanged";
 import "./trello/triggers/cardArchived";
+// Slice 3.DISCORD-6 — discord:slash_command webhook trigger.
+// Activation registers a guild-scoped slash command via Discord's
+// `POST /applications/{app_id}/guilds/{guild_id}/commands`; deactivation
+// deletes it. Interactions arrive at the deployment-wide endpoint
+// `/api/webhooks/discord` (configured per Discord application in the
+// Developer Portal) — strict-direct-lookup via ?workflowId=&nodeId=.
+import "./discord/triggers/slashCommand";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.

@@ -281,9 +281,13 @@ import { hubspotWebhookReceivedTriggerMeta } from "@/integrations/hubspot/trigge
 // See providers/mailchimp.ts for per-meta imports + rationale.
 import { MAILCHIMP_ACTION_METAS, MAILCHIMP_TRIGGER_METAS } from "./providers/mailchimp";
 
-// Discord (Slice 3.DISCORD-4) — 5 actions. No trigger metas in this
-// arc; see providers/discord.ts + DISCORD-5 architecture doc.
-import { DISCORD_ACTION_METAS } from "./providers/discord";
+// Discord (Slice 3.DISCORD-4 + 3.DISCORD-6) — 5 actions + 1 trigger
+// (`slash_command`, webhook activation via Interactions Endpoint URL).
+// See providers/discord.ts + DISCORD-5 architecture doc.
+import {
+  DISCORD_ACTION_METAS,
+  DISCORD_TRIGGER_METAS,
+} from "./providers/discord";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -621,9 +625,16 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   hubspotWebhookReceivedTriggerMeta,
   // Mailchimp (Slice 3.MAILCHIMP-4) — 1 webhook + 6 polling.
   ...MAILCHIMP_TRIGGER_METAS,
-  // Discord (Slice 3.DISCORD-4): no trigger metas — empty-spread
-  // omitted intentionally. See providers/discord.ts +
+  // Discord (Slice 3.DISCORD-6) — `slash_command` webhook trigger.
+  // Activation registers a guild-scoped slash command via Discord's
+  // `POST /applications/{app_id}/guilds/{guild_id}/commands`. Activation
+  // hook lives at integrations/discord/triggers/slashCommand/index.ts
+  // → registerActivation("discord", "slash_command", activate), so the
+  // trigger-meta-activation-invariant test is satisfied without an
+  // exemption. `new_message` polling lands in DISCORD-7;
+  // `member_join` deferred (DISCORD-N-member-join) per
   // docs/slices/phase-3/discord-trigger-architecture-plan.md.
+  ...DISCORD_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

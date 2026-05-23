@@ -5,7 +5,7 @@
  *
  * Pins:
  *   - 5 Discord action metas registered (no more, no less).
- *   - 0 Discord trigger metas (triggers deferred per D-DC1).
+ *   - 1 Discord trigger meta (slash_command, DISCORD-6 webhook activation).
  *   - No duplicate keys.
  *   - Per-meta field-name preservation (camelCase).
  *   - Per-meta sensitive-output flags match the Slice 3.DISCORD-1
@@ -37,8 +37,11 @@ describe("Discord action metas — registration", () => {
     expect(getActionMeta(key)).toBeDefined();
   });
 
-  it("registers zero Discord trigger metas (D-DC1 — triggers deferred)", () => {
-    expect(listTriggerMetasForProvider("discord")).toEqual([]);
+  it("registers one Discord trigger meta — slash_command (DISCORD-6)", () => {
+    const triggers = listTriggerMetasForProvider("discord");
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0]!.key).toBe("discord:slash_command");
+    expect(triggers[0]!.activation).toBe("webhook");
   });
 
   it("sorts Discord actions by their displayOrder in the per-provider list", () => {
