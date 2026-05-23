@@ -154,6 +154,17 @@ describe("GET /api/providers", () => {
     expect(hubspot?.hasMetadata).toBe(true);
   });
 
+  it("marks Mailchimp as hasMetadata=true now that Slice 3.MAILCHIMP-3 shipped the first 12 action metas", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const mailchimp = body.providers.find((p) => p.id === "mailchimp");
+    expect(mailchimp).toBeDefined();
+    expect(mailchimp?.hasMetadata).toBe(true);
+  });
+
   it("marks providers still without any metadata (e.g. airtable) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -1231,6 +1242,244 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(byName.get("appId")?.sensitive).toBeFalsy();
     expect(byName.get("attemptNumber")?.sensitive).toBeFalsy();
     expect(byName.get("changeSource")?.sensitive).toBeFalsy();
+  });
+
+  // ─── MAILCHIMP-3 wire-shape pins ─────────────────────────────────────
+  //
+  // 12-action surface, audience-picker wiring, risk classification
+  // (destructive trio + high+confirm-only), and sensitive-output
+  // serialization. Mailchimp stays OUT of COVERED_PROVIDERS — the test
+  // does not assert any trigger metas exist yet.
+  it("returns the 12 MAILCHIMP-3 action metas in displayOrder (Mailchimp NOT yet in COVERED_PROVIDERS — campaign reads + triggers land in MAILCHIMP-4)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/mailchimp/actions"), {
+      params: Promise.resolve({ id: "mailchimp" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          defaultValue?: unknown;
+          optionsSource?: string;
+          dependsOn?: string;
+          numeric?: { min?: number; max?: number; integer?: boolean };
+          options?: Array<{ value: string; label: string }>;
+        }>;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("mailchimp");
+    expect(body.actions).toHaveLength(12);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "mailchimp:add_subscriber",
+      "mailchimp:update_subscriber",
+      "mailchimp:get_subscriber",
+      "mailchimp:get_subscribers",
+      "mailchimp:add_tag",
+      "mailchimp:remove_tag",
+      "mailchimp:create_audience",
+      "mailchimp:create_segment",
+      "mailchimp:create_custom_event",
+      "mailchimp:add_note",
+      "mailchimp:unsubscribe_subscriber",
+      "mailchimp:remove_subscriber",
+    ]);
+    expect(body.actions.every((a) => a.category === "marketing")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+    expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
+    expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+
+    // Risk classification — destructive trio on remove_subscriber.
+    const remove = body.actions.find(
+      (a) => a.key === "mailchimp:remove_subscriber",
+    )!;
+    expect(remove.riskLevel).toBe("high");
+    expect(remove.isDestructive).toBe(true);
+    expect(remove.requiresConfirmation).toBe(true);
+    expect(typeof remove.riskDescription).toBe("string");
+    expect(remove.riskDescription!.length).toBeGreaterThan(0);
+
+    // unsubscribe — high + confirm-only, NOT destructive (consent
+    // change, record retained).
+    const unsub = body.actions.find(
+      (a) => a.key === "mailchimp:unsubscribe_subscriber",
+    )!;
+    expect(unsub.riskLevel).toBe("high");
+    expect(unsub.requiresConfirmation).toBe(true);
+    expect(unsub.isDestructive).toBe(false);
+
+    // Medium-risk subset round-trips.
+    for (const key of [
+      "mailchimp:add_subscriber",
+      "mailchimp:update_subscriber",
+      "mailchimp:add_tag",
+      "mailchimp:remove_tag",
+      "mailchimp:create_audience",
+      "mailchimp:create_segment",
+      "mailchimp:create_custom_event",
+    ]) {
+      const a = body.actions.find((x) => x.key === key)!;
+      expect(a.riskLevel).toBe("medium");
+      expect(a.isDestructive).toBe(false);
+      expect(a.requiresConfirmation).toBe(false);
+    }
+
+    // Low-risk reads + note.
+    for (const key of [
+      "mailchimp:get_subscriber",
+      "mailchimp:get_subscribers",
+      "mailchimp:add_note",
+    ]) {
+      const a = body.actions.find((x) => x.key === key)!;
+      expect(a.riskLevel).toBe("low");
+      expect(a.isDestructive).toBe(false);
+    }
+
+    // Audience picker wires the mailchimp:audiences resolver under
+    // BOTH field-name conventions (audience_id and listId).
+    const addSub = body.actions.find(
+      (a) => a.key === "mailchimp:add_subscriber",
+    )!;
+    const addSubAudience = addSub.fields.find((f) => f.name === "audience_id")!;
+    expect(addSubAudience.type).toBe("combobox");
+    expect(addSubAudience.optionsSource).toBe("mailchimp:audiences");
+    expect(addSubAudience.required).toBe(true);
+
+    const getSubs = body.actions.find(
+      (a) => a.key === "mailchimp:get_subscribers",
+    )!;
+    const getSubsListId = getSubs.fields.find((f) => f.name === "listId")!;
+    expect(getSubsListId.type).toBe("combobox");
+    expect(getSubsListId.optionsSource).toBe("mailchimp:audiences");
+    expect(getSubsListId.required).toBe(true);
+
+    const unsubFields = body.actions.find(
+      (a) => a.key === "mailchimp:unsubscribe_subscriber",
+    )!.fields;
+    expect(unsubFields.find((f) => f.name === "listId")?.optionsSource).toBe(
+      "mailchimp:audiences",
+    );
+    // Field-name preservation: unsubscribe uses `emailAddress`, not
+    // `email`.
+    expect(unsubFields.find((f) => f.name === "emailAddress")).toBeDefined();
+    expect(unsubFields.find((f) => f.name === "email")).toBeUndefined();
+
+    // Q11 consent gate — add_subscriber.status required, no default,
+    // 5 enum options.
+    const status = addSub.fields.find((f) => f.name === "status")!;
+    expect(status.type).toBe("select");
+    expect(status.required).toBe(true);
+    expect(status.defaultValue).toBeUndefined();
+    expect(status.options!.map((o) => o.value).sort()).toEqual([
+      "cleaned",
+      "pending",
+      "subscribed",
+      "transactional",
+      "unsubscribed",
+    ]);
+
+    // remove_subscriber.mode — Q11 required-select gate.
+    const mode = remove.fields.find((f) => f.name === "mode")!;
+    expect(mode.type).toBe("select");
+    expect(mode.required).toBe(true);
+    expect(mode.defaultValue).toBeUndefined();
+    expect(mode.options!.map((o) => o.value).sort()).toEqual([
+      "archive",
+      "delete_permanent",
+    ]);
+
+    // add_tag.tags is string-array (NOT CSV like add_subscriber.tags).
+    const addTag = body.actions.find((a) => a.key === "mailchimp:add_tag")!;
+    expect(addTag.fields.find((f) => f.name === "tags")!.type).toBe(
+      "string-array",
+    );
+
+    // create_custom_event.properties is keyvalue.
+    const cce = body.actions.find(
+      (a) => a.key === "mailchimp:create_custom_event",
+    )!;
+    expect(cce.fields.find((f) => f.name === "properties")!.type).toBe(
+      "keyvalue",
+    );
+
+    // get_subscribers.count surfaces its numeric bounds.
+    const count = getSubs.fields.find((f) => f.name === "count")!;
+    expect(count.type).toBe("number");
+    expect(count.numeric?.min).toBe(1);
+    expect(count.numeric?.max).toBe(100);
+    expect(count.numeric?.integer).toBe(true);
+
+    // Sensitive flags round-trip for the representative outputs.
+    expect(
+      addSub.outputs.find((o) => o.name === "email")?.sensitive,
+    ).toBe(true);
+    expect(
+      addSub.outputs.find((o) => o.name === "subscriberId")?.sensitive,
+    ).toBe(true);
+    expect(addSub.outputs.find((o) => o.name === "tags")?.sensitive).toBe(true);
+    expect(addSub.outputs.find((o) => o.name === "status")?.sensitive).toBeFalsy();
+
+    expect(
+      getSubs.outputs.find((o) => o.name === "subscribers")?.sensitive,
+    ).toBe(true);
+    expect(getSubs.outputs.find((o) => o.name === "count")?.sensitive).toBeFalsy();
+    expect(
+      getSubs.outputs.find((o) => o.name === "nextOffset")?.sensitive,
+    ).toBeFalsy();
+
+    expect(
+      unsub.outputs.find((o) => o.name === "emailAddress")?.sensitive,
+    ).toBe(true);
+    expect(
+      unsub.outputs.find((o) => o.name === "subscriberHash")?.sensitive,
+    ).toBe(true);
+    expect(unsub.outputs.find((o) => o.name === "success")?.sensitive).toBeFalsy();
+
+    const note = body.actions.find((a) => a.key === "mailchimp:add_note")!;
+    expect(note.outputs.find((o) => o.name === "note")?.sensitive).toBe(true);
+    expect(note.outputs.find((o) => o.name === "email")?.sensitive).toBe(true);
+    expect(note.outputs.find((o) => o.name === "noteId")?.sensitive).toBeFalsy();
+
+    // Defense-in-depth: NO Mailchimp action output is a secret-shaped name.
+    const banned = new Set([
+      "token",
+      "accessToken",
+      "refreshToken",
+      "clientSecret",
+      "client_secret",
+      "secret",
+      "apiKey",
+      "webhookSecret",
+    ]);
+    for (const action of body.actions) {
+      for (const o of action.outputs) {
+        expect(banned.has(o.name)).toBe(false);
+      }
+    }
+  });
+
+  it("/api/providers/mailchimp/triggers returns [] (triggers land in MAILCHIMP-4)", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/mailchimp/triggers"), {
+      params: Promise.resolve({ id: "mailchimp" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { provider: string; triggers: unknown[] };
+    expect(body.provider).toBe("mailchimp");
+    expect(body.triggers).toEqual([]);
   });
 });
 

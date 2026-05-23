@@ -283,6 +283,37 @@ import { stripeGetPaymentsMeta } from "@/integrations/stripe/actions/getPayments
 // drift is enforced from here on.
 import { hubspotWebhookReceivedTriggerMeta } from "@/integrations/hubspot/triggers/webhookReceived/webhookReceived.meta";
 
+// Mailchimp action metadata (Slice 3.MAILCHIMP-3 — 12 of 14 non-
+// campaign-read actions). The two `get_campaign*` reads + 7 trigger
+// metas land in MAILCHIMP-4, which also flips Mailchimp into
+// `COVERED_PROVIDERS`. Until then, Mailchimp remains intentionally
+// absent from coverage — adding a runtime handler without a meta (or
+// vice-versa) does NOT yet trip the structural coverage guard.
+//
+// Field-name variance is preserved 1:1 with the runtime schemas:
+//   - 10 actions use `audience_id` + `email`.
+//   - 2 actions (`unsubscribe_subscriber`, `get_subscribers`) use
+//     `listId` + (for unsubscribe) `emailAddress`.
+//   - 2 actions are high-risk (`unsubscribe_subscriber` = high +
+//     confirm-only, NOT destructive; `remove_subscriber` = the full
+//     destructive trio).
+//
+// Audience picker on every audience-scoped field uses the MAILCHIMP-2
+// `mailchimp:audiences` resolver (which carries no `requiredDeps` so
+// it backs both `audience_id` and `listId` consumers).
+import { mailchimpAddSubscriberMeta } from "@/integrations/mailchimp/actions/addSubscriber.meta";
+import { mailchimpUpdateSubscriberMeta } from "@/integrations/mailchimp/actions/updateSubscriber.meta";
+import { mailchimpGetSubscriberMeta } from "@/integrations/mailchimp/actions/getSubscriber.meta";
+import { mailchimpGetSubscribersMeta } from "@/integrations/mailchimp/actions/getSubscribers.meta";
+import { mailchimpAddTagMeta } from "@/integrations/mailchimp/actions/addTag.meta";
+import { mailchimpRemoveTagMeta } from "@/integrations/mailchimp/actions/removeTag.meta";
+import { mailchimpCreateAudienceMeta } from "@/integrations/mailchimp/actions/createAudience.meta";
+import { mailchimpCreateSegmentMeta } from "@/integrations/mailchimp/actions/createSegment.meta";
+import { mailchimpCreateCustomEventMeta } from "@/integrations/mailchimp/actions/createCustomEvent.meta";
+import { mailchimpAddNoteMeta } from "@/integrations/mailchimp/actions/addNote.meta";
+import { mailchimpUnsubscribeSubscriberMeta } from "@/integrations/mailchimp/actions/unsubscribeSubscriber.meta";
+import { mailchimpRemoveSubscriberMeta } from "@/integrations/mailchimp/actions/removeSubscriber.meta";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -554,6 +585,32 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   hubspotUpdateLineItemMeta,
   hubspotGetLineItemsMeta,
   hubspotRemoveLineItemMeta,
+  // Mailchimp (Slice 3.MAILCHIMP-3). 12 of 14 non-campaign-read
+  // actions. Ordered by displayOrder (10..120):
+  //   - 10/20: subscriber writes (add / update).
+  //   - 30/40: subscriber reads (single / bulk).
+  //   - 50/60: tag management (add / remove tags).
+  //   - 70/80: audience + segment creation.
+  //   - 90/100: events + notes.
+  //   - 110/120: high-risk consent + removal — at the bottom of the
+  //     library list so reviewers see them clearly. `unsubscribe`
+  //     is high + confirm-only (consent change); `remove` is the
+  //     full destructive trio.
+  // Mailchimp stays OUT of `COVERED_PROVIDERS` — the 2 campaign-read
+  // metas + 7 trigger metas land in MAILCHIMP-4 along with the
+  // coverage flip.
+  mailchimpAddSubscriberMeta,
+  mailchimpUpdateSubscriberMeta,
+  mailchimpGetSubscriberMeta,
+  mailchimpGetSubscribersMeta,
+  mailchimpAddTagMeta,
+  mailchimpRemoveTagMeta,
+  mailchimpCreateAudienceMeta,
+  mailchimpCreateSegmentMeta,
+  mailchimpCreateCustomEventMeta,
+  mailchimpAddNoteMeta,
+  mailchimpUnsubscribeSubscriberMeta,
+  mailchimpRemoveSubscriberMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

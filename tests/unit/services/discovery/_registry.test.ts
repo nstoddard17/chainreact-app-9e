@@ -5831,6 +5831,326 @@ describe("per-provider accessors", () => {
     });
   });
 
+  // Mailchimp (Slice 3.MAILCHIMP-3) — 12 of 14 non-campaign-read
+  // actions. The 2 `get_campaign*` metas + 7 trigger metas land in
+  // MAILCHIMP-4, which also flips Mailchimp into COVERED_PROVIDERS.
+  describe("Mailchimp action surface (Slice 3.MAILCHIMP-3)", () => {
+    function mailchimp(): ReadonlyArray<ActionMeta> {
+      return listActionMetasForProvider("mailchimp");
+    }
+
+    it("listActionMetasForProvider('mailchimp') returns the 12 MAILCHIMP-3 actions in displayOrder", () => {
+      const metas = mailchimp();
+      expect(metas).toHaveLength(12);
+      expect(metas.map((m) => m.key)).toEqual([
+        "mailchimp:add_subscriber",
+        "mailchimp:update_subscriber",
+        "mailchimp:get_subscriber",
+        "mailchimp:get_subscribers",
+        "mailchimp:add_tag",
+        "mailchimp:remove_tag",
+        "mailchimp:create_audience",
+        "mailchimp:create_segment",
+        "mailchimp:create_custom_event",
+        "mailchimp:add_note",
+        "mailchimp:unsubscribe_subscriber",
+        "mailchimp:remove_subscriber",
+      ]);
+    });
+
+    it("every Mailchimp action meta declares provider='mailchimp', category='marketing', requiresIntegration=true, and no file refs", () => {
+      for (const m of mailchimp()) {
+        expect(m.provider).toBe("mailchimp");
+        expect(m.category).toBe("marketing");
+        expect(m.requiresIntegration).toBe(true);
+        expect(m.producesFileRef).toBe(false);
+        expect(m.consumesFileRef).toBe(false);
+      }
+    });
+
+    it("mailchimp:remove_subscriber declares the FULL destructive trio (high + isDestructive + requiresConfirmation) with a riskDescription", () => {
+      const m = mailchimp().find((x) => x.key === "mailchimp:remove_subscriber")!;
+      expect(m.riskLevel).toBe("high");
+      expect(m.isDestructive).toBe(true);
+      expect(m.requiresConfirmation).toBe(true);
+      expect(m.riskDescription).toBeDefined();
+      expect(m.riskDescription!.length).toBeGreaterThan(0);
+      // riskDescription must call out the irreversibility / re-subscribe
+      // block so reviewers see WHY the destructive trio is justified.
+      expect(m.riskDescription!.toLowerCase()).toContain("re-subscribe");
+    });
+
+    it("mailchimp:unsubscribe_subscriber is high + requiresConfirmation BUT NOT destructive (consent change only — record retained)", () => {
+      const m = mailchimp().find(
+        (x) => x.key === "mailchimp:unsubscribe_subscriber",
+      )!;
+      expect(m.riskLevel).toBe("high");
+      expect(m.requiresConfirmation).toBe(true);
+      expect(m.isDestructive).toBe(false);
+      expect(m.riskDescription).toBeDefined();
+      expect(m.riskDescription!.length).toBeGreaterThan(0);
+    });
+
+    it("medium-risk Mailchimp actions are isDestructive:false + requiresConfirmation:false + riskLevel:'medium' with riskDescription", () => {
+      const MEDIUM_KEYS = [
+        "mailchimp:add_subscriber",
+        "mailchimp:update_subscriber",
+        "mailchimp:add_tag",
+        "mailchimp:remove_tag",
+        "mailchimp:create_audience",
+        "mailchimp:create_segment",
+        "mailchimp:create_custom_event",
+      ] as const;
+      for (const key of MEDIUM_KEYS) {
+        const m = mailchimp().find((x) => x.key === key);
+        expect(m).toBeDefined();
+        expect(m!.riskLevel).toBe("medium");
+        expect(m!.isDestructive).toBe(false);
+        expect(m!.requiresConfirmation).toBe(false);
+        expect(m!.riskDescription).toBeDefined();
+        expect(m!.riskDescription!.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("low-risk Mailchimp actions are reads + the internal note annotation", () => {
+      const LOW_KEYS = [
+        "mailchimp:get_subscriber",
+        "mailchimp:get_subscribers",
+        "mailchimp:add_note",
+      ] as const;
+      for (const key of LOW_KEYS) {
+        const m = mailchimp().find((x) => x.key === key);
+        expect(m).toBeDefined();
+        expect(m!.riskLevel).toBe("low");
+        expect(m!.isDestructive).toBe(false);
+        expect(m!.requiresConfirmation).toBe(false);
+      }
+    });
+
+    it("audience-scoped action fields preserve EXACT runtime names (audience_id for 10 actions, listId for the V1-named pair)", () => {
+      const byKey = new Map(mailchimp().map((m) => [m.key, m]));
+      const AUDIENCE_ID_KEYS = [
+        "mailchimp:add_subscriber",
+        "mailchimp:update_subscriber",
+        "mailchimp:get_subscriber",
+        "mailchimp:add_tag",
+        "mailchimp:remove_tag",
+        "mailchimp:create_segment",
+        "mailchimp:create_custom_event",
+        "mailchimp:add_note",
+        "mailchimp:remove_subscriber",
+      ] as const;
+      for (const key of AUDIENCE_ID_KEYS) {
+        const fields = byKey.get(key)!.fields;
+        const audience = fields.find((f) => f.name === "audience_id");
+        expect(audience).toBeDefined();
+        expect(audience!.type).toBe("combobox");
+        expect(audience!.optionsSource).toBe("mailchimp:audiences");
+        expect(audience!.required).toBe(true);
+        // None of these actions consume mailchimp:segments yet.
+        expect(fields.some((f) => f.optionsSource === "mailchimp:segments")).toBe(
+          false,
+        );
+      }
+
+      // listId pair — preserved verbatim from the V1-derived schemas.
+      for (const key of [
+        "mailchimp:get_subscribers",
+        "mailchimp:unsubscribe_subscriber",
+      ] as const) {
+        const fields = byKey.get(key)!.fields;
+        const listId = fields.find((f) => f.name === "listId");
+        expect(listId).toBeDefined();
+        expect(listId!.type).toBe("combobox");
+        expect(listId!.optionsSource).toBe("mailchimp:audiences");
+        expect(listId!.required).toBe(true);
+        // unsubscribe uses `emailAddress` not `email`; verify the
+        // runtime-name preservation is visible in the meta.
+        if (key === "mailchimp:unsubscribe_subscriber") {
+          expect(fields.find((f) => f.name === "emailAddress")).toBeDefined();
+          expect(fields.find((f) => f.name === "email")).toBeUndefined();
+        }
+      }
+    });
+
+    it("mailchimp:add_subscriber pins the Q11 consent gate — status is REQUIRED with NO defaultValue and 5 enum options", () => {
+      const m = mailchimp().find((x) => x.key === "mailchimp:add_subscriber")!;
+      const status = m.fields.find((f) => f.name === "status")!;
+      expect(status.type).toBe("select");
+      expect(status.required).toBe(true);
+      expect(status.defaultValue).toBeUndefined();
+      const values = status.options!.map((o) => o.value).sort();
+      expect(values).toEqual([
+        "cleaned",
+        "pending",
+        "subscribed",
+        "transactional",
+        "unsubscribed",
+      ]);
+      // tags stays text (CSV) per V1 input shape — string-array is a
+      // future UI slice. Pin so a flip to string-array breaks visibly.
+      const tags = m.fields.find((f) => f.name === "tags")!;
+      expect(tags.type).toBe("text");
+      expect(tags.required).toBe(false);
+    });
+
+    it("mailchimp:remove_subscriber pins mode as REQUIRED select with NO default and BOTH options (archive + delete_permanent)", () => {
+      const m = mailchimp().find(
+        (x) => x.key === "mailchimp:remove_subscriber",
+      )!;
+      const mode = m.fields.find((f) => f.name === "mode")!;
+      expect(mode.type).toBe("select");
+      expect(mode.required).toBe(true);
+      expect(mode.defaultValue).toBeUndefined();
+      expect(mode.options!.map((o) => o.value).sort()).toEqual([
+        "archive",
+        "delete_permanent",
+      ]);
+    });
+
+    it("mailchimp:add_tag + remove_tag use string-array for `tags` (NOT CSV — the schema is z.array(z.string()))", () => {
+      for (const key of ["mailchimp:add_tag", "mailchimp:remove_tag"] as const) {
+        const m = mailchimp().find((x) => x.key === key)!;
+        const tags = m.fields.find((f) => f.name === "tags")!;
+        expect(tags.type).toBe("string-array");
+        expect(tags.required).toBe(true);
+      }
+    });
+
+    it("mailchimp:create_custom_event.properties is keyvalue (Record<string,string>)", () => {
+      const m = mailchimp().find(
+        (x) => x.key === "mailchimp:create_custom_event",
+      )!;
+      const properties = m.fields.find((f) => f.name === "properties")!;
+      expect(properties.type).toBe("keyvalue");
+      expect(properties.required).toBe(false);
+    });
+
+    it("mailchimp:create_segment pins the discriminated-union shape — mode required with NO default + both options + paste-JSON conditions textarea", () => {
+      const m = mailchimp().find((x) => x.key === "mailchimp:create_segment")!;
+      const mode = m.fields.find((f) => f.name === "mode")!;
+      expect(mode.type).toBe("select");
+      expect(mode.required).toBe(true);
+      expect(mode.defaultValue).toBeUndefined();
+      expect(mode.options!.map((o) => o.value).sort()).toEqual([
+        "saved",
+        "static",
+      ]);
+      const conditions = m.fields.find((f) => f.name === "conditions")!;
+      expect(conditions.type).toBe("textarea");
+      expect(conditions.required).toBe(false); // cross-field required at runtime
+      const staticEmails = m.fields.find((f) => f.name === "static_emails")!;
+      expect(staticEmails.type).toBe("textarea");
+      expect(staticEmails.required).toBe(false);
+    });
+
+    it("mailchimp:create_audience pins the compliance fields as required + nested objects as paste-JSON textarea", () => {
+      const m = mailchimp().find((x) => x.key === "mailchimp:create_audience")!;
+      const byName = new Map(m.fields.map((f) => [f.name, f]));
+      expect(byName.get("name")!.required).toBe(true);
+      expect(byName.get("permission_reminder")!.required).toBe(true);
+      expect(byName.get("permission_reminder")!.type).toBe("textarea");
+      const emailTypeOption = byName.get("email_type_option")!;
+      expect(emailTypeOption.type).toBe("boolean");
+      expect(emailTypeOption.required).toBe(true);
+      // Nested objects are paste-JSON until a dedicated nested-form UI lands.
+      expect(byName.get("contact")!.type).toBe("textarea");
+      expect(byName.get("contact")!.required).toBe(true);
+      expect(byName.get("campaign_defaults")!.type).toBe("textarea");
+      expect(byName.get("campaign_defaults")!.required).toBe(true);
+    });
+
+    it("PII-bearing Mailchimp outputs are marked sensitive", () => {
+      const byKey = new Map(mailchimp().map((m) => [m.key, m]));
+
+      // `email` outputs (suspicious-name structural guard would catch
+      // these anyway — pinned here for documentation).
+      for (const key of [
+        "mailchimp:add_subscriber",
+        "mailchimp:update_subscriber",
+        "mailchimp:get_subscriber",
+        "mailchimp:add_tag",
+        "mailchimp:remove_tag",
+        "mailchimp:remove_subscriber",
+        "mailchimp:add_note",
+      ] as const) {
+        const m = byKey.get(key)!;
+        const email = m.outputs.find((o) => o.name === "email")!;
+        expect(email.sensitive).toBe(true);
+      }
+
+      // emailAddress / subscriberEmail / subscribers / note / tags /
+      // mergeFields / segment name / audience name — NOT in the
+      // suspicious-name set, but per the accepted plan they must be
+      // sensitive.
+      const unsub = byKey.get("mailchimp:unsubscribe_subscriber")!;
+      expect(
+        unsub.outputs.find((o) => o.name === "emailAddress")?.sensitive,
+      ).toBe(true);
+      expect(
+        unsub.outputs.find((o) => o.name === "subscriberHash")?.sensitive,
+      ).toBe(true);
+
+      const cce = byKey.get("mailchimp:create_custom_event")!;
+      expect(
+        cce.outputs.find((o) => o.name === "subscriberEmail")?.sensitive,
+      ).toBe(true);
+
+      const gss = byKey.get("mailchimp:get_subscribers")!;
+      expect(gss.outputs.find((o) => o.name === "subscribers")?.sensitive).toBe(
+        true,
+      );
+
+      const note = byKey.get("mailchimp:add_note")!;
+      expect(note.outputs.find((o) => o.name === "note")?.sensitive).toBe(true);
+
+      const getSub = byKey.get("mailchimp:get_subscriber")!;
+      expect(
+        getSub.outputs.find((o) => o.name === "mergeFields")?.sensitive,
+      ).toBe(true);
+      expect(getSub.outputs.find((o) => o.name === "tags")?.sensitive).toBe(true);
+
+      const audience = byKey.get("mailchimp:create_audience")!;
+      expect(audience.outputs.find((o) => o.name === "name")?.sensitive).toBe(
+        true,
+      );
+
+      const segment = byKey.get("mailchimp:create_segment")!;
+      expect(segment.outputs.find((o) => o.name === "name")?.sensitive).toBe(
+        true,
+      );
+    });
+
+    it("Mailchimp meta outputs do NOT expose secret-shaped names (defense-in-depth)", () => {
+      const banned = new Set([
+        "token",
+        "accessToken",
+        "refreshToken",
+        "clientSecret",
+        "client_secret",
+        "secret",
+        "apiKey",
+        "webhookSecret",
+      ]);
+      for (const m of mailchimp()) {
+        for (const o of m.outputs) {
+          expect(banned.has(o.name)).toBe(false);
+        }
+      }
+    });
+
+    it("mailchimp stays OUT of COVERED_PROVIDERS — has 12 action metas but ZERO trigger metas (coverage flip lands in MAILCHIMP-4)", () => {
+      const actionMetas = listAllActionMetas().filter(
+        (m) => m.provider === "mailchimp",
+      );
+      expect(actionMetas).toHaveLength(12);
+      const triggerMetas = listAllTriggerMetas().filter(
+        (m) => m.provider === "mailchimp",
+      );
+      expect(triggerMetas).toHaveLength(0);
+    });
+  });
+
   it("returns [] for an unknown provider", () => {
     expect(listActionMetasForProvider("nonexistent")).toEqual([]);
     expect(listTriggerMetasForProvider("nonexistent")).toEqual([]);
