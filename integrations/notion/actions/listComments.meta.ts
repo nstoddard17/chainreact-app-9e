@@ -50,7 +50,8 @@ export const notionListCommentsMeta: ActionMeta = {
       name: "comments",
       type: "array",
       description:
-        "Array of comments — each entry matches Create Comment's output shape (`{commentId, object, parentType, parentId, parentBlockId, discussionId, plainText, createdTime, lastEditedTime, createdByUserId}`).",
+        "Array of comments — each entry matches Create Comment's output shape (`{commentId, object, parentType, parentId, parentBlockId, discussionId, plainText, createdTime, lastEditedTime, createdByUserId}`). Marked sensitive — per-row `plainText` is user-typed content that redacts from the run-detail API and variable picker preview (token wiring still works).",
+      sensitive: true,
     },
     {
       name: "nextCursor",

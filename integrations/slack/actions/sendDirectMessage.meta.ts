@@ -79,7 +79,8 @@ export const slackSendDirectMessageMeta: ActionMeta = {
       name: "message",
       type: "object",
       description:
-        "Slack message payload object as returned by chat.postMessage. Drill into specific fields via the variable picker.",
+        "Slack message payload object as returned by chat.postMessage. Drill into specific fields via the variable picker. Marked sensitive — Slack echoes the posted body (and any user-mention names), so the object redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

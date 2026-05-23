@@ -49,7 +49,8 @@ export const notionGetBlockChildrenMeta: ActionMeta = {
       name: "blocks",
       type: "array",
       description:
-        "Array of child blocks — each entry matches Get Block's output shape (`{blockId, object, type, archived, hasChildren, parentType, parentId, createdTime, lastEditedTime, plainText, content}`).",
+        "Array of child blocks — each entry matches Get Block's output shape (`{blockId, object, type, archived, hasChildren, parentType, parentId, createdTime, lastEditedTime, plainText, content}`). Marked sensitive — per-row block bodies are user-typed content; redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "nextCursor",

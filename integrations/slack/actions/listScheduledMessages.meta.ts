@@ -72,7 +72,8 @@ export const slackListScheduledMessagesMeta: ActionMeta = {
       name: "messages",
       type: "array",
       description:
-        "Array of scheduled-message records as Slack returns them (each carries `id`, `channel_id`, `post_at`, `text`, …).",
+        "Array of scheduled-message records as Slack returns them (each carries `id`, `channel_id`, `post_at`, `text`, …). Marked sensitive — scheduled message bodies redact from the run-detail API and variable picker preview (token wiring still works).",
+      sensitive: true,
     },
     {
       name: "count",

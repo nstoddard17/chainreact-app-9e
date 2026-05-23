@@ -132,7 +132,8 @@ export const slackGetFileInfoMeta: ActionMeta = {
       name: "comments",
       type: "array",
       description:
-        "First page of file comments when `Include comments` is enabled. Empty array otherwise (shape-stable).",
+        "First page of file comments when `Include comments` is enabled. Empty array otherwise (shape-stable). Marked sensitive — per-row comment bodies are user-typed content; redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: true,

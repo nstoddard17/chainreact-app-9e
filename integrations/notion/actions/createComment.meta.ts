@@ -99,7 +99,8 @@ export const notionCreateCommentMeta: ActionMeta = {
       name: "plainText",
       type: "string",
       description:
-        "Pre-extracted plain text from the comment's rich_text array (matches what was posted).",
+        "Pre-extracted plain text from the comment's rich_text array (matches what was posted). Marked sensitive — comment body is user-typed PII-bearing content; redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "createdTime",

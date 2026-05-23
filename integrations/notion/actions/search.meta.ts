@@ -64,7 +64,8 @@ export const notionSearchMeta: ActionMeta = {
       name: "results",
       type: "array",
       description:
-        "Array of raw Notion search hits — each hit carries `object: 'page' | 'database'`, `id`, `url`, `parent`, etc. Chain Get Page for typed property values on page-shaped hits.",
+        "Array of raw Notion search hits — each hit carries `object: 'page' | 'database'`, `id`, `url`, `parent`, etc. Chain Get Page for typed property values on page-shaped hits. Marked sensitive — raw hits may carry page titles + property previews containing user-typed PII; parity with `query_database.results` (which is also sensitive).",
+      sensitive: true,
     },
     {
       name: "hasMore",

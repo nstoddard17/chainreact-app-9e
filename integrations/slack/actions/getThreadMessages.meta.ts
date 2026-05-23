@@ -76,7 +76,8 @@ export const slackGetThreadMessagesMeta: ActionMeta = {
       name: "messages",
       type: "array",
       description:
-        "Array of Slack message objects — `messages[0]` is the thread parent, subsequent entries are replies in chronological order.",
+        "Array of Slack message objects — `messages[0]` is the thread parent, subsequent entries are replies in chronological order. Marked sensitive — message bodies redact from the run-detail API and variable picker preview (token wiring still works).",
+      sensitive: true,
     },
     {
       name: "count",

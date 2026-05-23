@@ -3907,4 +3907,174 @@ describe("OutputMeta.sensitive coverage (Slice 3.SEC-7)", () => {
       expect(findOutput("native:http_request", "headers").sensitive).toBeFalsy();
     });
   });
+
+  // ─── Slice 3.POSTSEC-2 — sensitive-output drift cleanup ─────────────────
+  //
+  // Pin the metas the POSTSEC-1 audit identified as missing sensitive
+  // flags on read-path arrays / domain projections / trigger payloads.
+  // The structural test
+  // `tests/structure/sensitive-output-coverage.test.ts` catches future
+  // drift on naming patterns; these per-action pins fail loudly + locally
+  // if the meta value regresses to an explicit `sensitive: false` or the
+  // flag is deleted.
+  describe("POSTSEC-2 sensitive-flag pins (read-path drift cleanup)", () => {
+    it("gmail:search_emails.messages is sensitive (array of email projections)", () => {
+      expect(findOutput("gmail:search_emails", "messages").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:fetch_emails.messages is sensitive (array of email projections)", () => {
+      expect(findOutput("microsoft-outlook:fetch_emails", "messages").sensitive).toBe(true);
+    });
+    it("slack:get_messages.messages is sensitive (message bodies)", () => {
+      expect(findOutput("slack:get_messages", "messages").sensitive).toBe(true);
+    });
+    it("slack:get_thread_messages.messages is sensitive (message bodies)", () => {
+      expect(findOutput("slack:get_thread_messages", "messages").sensitive).toBe(true);
+    });
+    it("slack:list_scheduled_messages.messages is sensitive (scheduled message bodies)", () => {
+      expect(findOutput("slack:list_scheduled_messages", "messages").sensitive).toBe(true);
+    });
+    it("slack:update_message.text is sensitive (echoed body text)", () => {
+      expect(findOutput("slack:update_message", "text").sensitive).toBe(true);
+    });
+    it("slack:send_channel_message.message is sensitive (response payload includes echoed text)", () => {
+      expect(findOutput("slack:send_channel_message", "message").sensitive).toBe(true);
+    });
+    it("slack:send_direct_message.message is sensitive (response payload includes echoed text)", () => {
+      expect(findOutput("slack:send_direct_message", "message").sensitive).toBe(true);
+    });
+    it("slack:post_interactive_blocks.message is sensitive (response payload includes echoed Block Kit body)", () => {
+      expect(findOutput("slack:post_interactive_blocks", "message").sensitive).toBe(true);
+    });
+    it("slack:get_user_info.user is sensitive (Slack user record may include profile.email)", () => {
+      expect(findOutput("slack:get_user_info", "user").sensitive).toBe(true);
+    });
+    it("slack:list_users.users is sensitive (per-row profile.email)", () => {
+      expect(findOutput("slack:list_users", "users").sensitive).toBe(true);
+    });
+    it("slack:get_file_info.comments is sensitive (user-typed file comment bodies)", () => {
+      expect(findOutput("slack:get_file_info", "comments").sensitive).toBe(true);
+    });
+    it("notion:list_comments.comments is sensitive (per-row plainText)", () => {
+      expect(findOutput("notion:list_comments", "comments").sensitive).toBe(true);
+    });
+    it("notion:create_comment.plainText is sensitive (echoed comment body)", () => {
+      expect(findOutput("notion:create_comment", "plainText").sensitive).toBe(true);
+    });
+    it("notion:get_block.plainText is sensitive (block body)", () => {
+      expect(findOutput("notion:get_block", "plainText").sensitive).toBe(true);
+    });
+    it("notion:get_block.content is sensitive (type-specific block payload)", () => {
+      expect(findOutput("notion:get_block", "content").sensitive).toBe(true);
+    });
+    it("notion:get_block_children.blocks is sensitive (per-row block bodies)", () => {
+      expect(findOutput("notion:get_block_children", "blocks").sensitive).toBe(true);
+    });
+    it("notion:search.results is sensitive (raw Notion search hits — parity with query_database.results)", () => {
+      expect(findOutput("notion:search", "results").sensitive).toBe(true);
+    });
+    it("notion:list_users.users is sensitive (per-row personEmail)", () => {
+      expect(findOutput("notion:list_users", "users").sensitive).toBe(true);
+    });
+    it("stripe:find_payment_intent.paymentIntent is sensitive (projection carries receiptEmail + metadata)", () => {
+      expect(findOutput("stripe:find_payment_intent", "paymentIntent").sensitive).toBe(true);
+    });
+    it("stripe:find_subscription.subscription is sensitive (projection carries customerId + metadata)", () => {
+      expect(findOutput("stripe:find_subscription", "subscription").sensitive).toBe(true);
+    });
+    it("stripe:get_payments.payments is sensitive (per-row customerId + receiptUrl + metadata)", () => {
+      expect(findOutput("stripe:get_payments", "payments").sensitive).toBe(true);
+    });
+    it("stripe:create_checkout_session.customerEmail is sensitive (echoed customer email PII)", () => {
+      expect(findOutput("stripe:create_checkout_session", "customerEmail").sensitive).toBe(true);
+    });
+  });
+
+  // ─── POSTSEC-2 — trigger payload sensitive pins ─────────────────────────
+  //
+  // Trigger payloadShape entries — same shape as ActionMeta.outputs but
+  // delivered via TriggerMeta. POSTSEC-1 §5.2 + §7 identified the Outlook
+  // trigger recipient arrays, Outlook trigger bodyPreview, and the GitHub
+  // new_commit author-bearing fields as gaps.
+  describe("POSTSEC-2 trigger payloadShape sensitive pins", () => {
+    function findTriggerPayloadField(triggerKey: string, fieldName: string) {
+      const trigger = listAllTriggerMetas().find((m) => m.key === triggerKey);
+      if (!trigger) throw new Error(`trigger meta '${triggerKey}' missing from registry`);
+      const field = trigger.payloadShape.find((p) => p.name === fieldName);
+      if (!field) {
+        throw new Error(
+          `payloadShape field '${fieldName}' missing from '${triggerKey}' (registered fields: ${trigger.payloadShape.map((p) => p.name).join(", ")})`,
+        );
+      }
+      return field;
+    }
+
+    it("microsoft-outlook:new_email payload.to is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:new_email", "to").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:new_email payload.cc is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:new_email", "cc").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:new_email payload.bodyPreview is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:new_email", "bodyPreview").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_sent payload.to is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_sent", "to").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_sent payload.cc is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_sent", "cc").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_sent payload.bcc is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_sent", "bcc").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_sent payload.bodyPreview is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_sent", "bodyPreview").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_flagged payload.to is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_flagged", "to").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_flagged payload.cc is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_flagged", "cc").sensitive).toBe(true);
+    });
+    it("microsoft-outlook:email_flagged payload.bodyPreview is sensitive", () => {
+      expect(findTriggerPayloadField("microsoft-outlook:email_flagged", "bodyPreview").sensitive).toBe(true);
+    });
+    it("github:new_commit payload.head_commit is sensitive (author email + commit message)", () => {
+      expect(findTriggerPayloadField("github:new_commit", "head_commit").sensitive).toBe(true);
+    });
+    it("github:new_commit payload.commits is sensitive (per-row author emails + messages)", () => {
+      expect(findTriggerPayloadField("github:new_commit", "commits").sensitive).toBe(true);
+    });
+    it("github:new_commit payload.pusher is sensitive (pusher email)", () => {
+      expect(findTriggerPayloadField("github:new_commit", "pusher").sensitive).toBe(true);
+    });
+  });
+
+  // ─── POSTSEC-2 — Stripe regression guards (no clientSecret output) ─────
+  //
+  // Cross-action belt-and-suspenders: every Stripe action's outputs MUST
+  // NOT include any name in the secret family. SEC-8 removed `clientSecret`
+  // from PaymentIntent surfaces; this guard ensures no future Stripe
+  // handler regresses by adding `secret`/`token`/`apiKey` etc.
+  describe("POSTSEC-2 cross-action Stripe regression — no secret-shaped outputs", () => {
+    it("no Stripe action declares a secret-shaped output name", () => {
+      const BANNED = new Set([
+        "clientSecret",
+        "client_secret",
+        "secret",
+        "token",
+        "apiKey",
+        "accessToken",
+        "refreshToken",
+        "webhookSecret",
+      ]);
+      const offenders: string[] = [];
+      for (const meta of listAllActionMetas()) {
+        if (meta.provider !== "stripe") continue;
+        for (const out of meta.outputs) {
+          if (BANNED.has(out.name)) offenders.push(`${meta.key}.${out.name}`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
 });

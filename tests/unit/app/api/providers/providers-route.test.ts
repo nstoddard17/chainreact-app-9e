@@ -757,3 +757,77 @@ describe("GET /api/providers/[id]/actions — sensitive flag on outputs (Slice 3
     expect(http.outputs.find((o) => o.name === "ok")?.sensitive).toBeFalsy();
   });
 });
+
+// ─── Slice 3.POSTSEC-2 — sensitive flag serialization regression guards ────
+describe("GET /api/providers/[id]/actions — sensitive flag for POSTSEC-2 drift cleanup", () => {
+  it("stripe:find_payment_intent.paymentIntent is serialized with sensitive=true (and `found` stays unflagged)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    const find = body.actions.find((a) => a.key === "stripe:find_payment_intent")!;
+    expect(find.outputs.find((o) => o.name === "paymentIntent")?.sensitive).toBe(true);
+    expect(find.outputs.find((o) => o.name === "found")?.sensitive).toBeFalsy();
+  });
+
+  it("gmail:search_emails.messages is serialized with sensitive=true (and `count`/`query` stay unflagged)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/gmail/actions"), {
+      params: Promise.resolve({ id: "gmail" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    const search = body.actions.find((a) => a.key === "gmail:search_emails")!;
+    expect(search.outputs.find((o) => o.name === "messages")?.sensitive).toBe(true);
+    expect(search.outputs.find((o) => o.name === "count")?.sensitive).toBeFalsy();
+    expect(search.outputs.find((o) => o.name === "query")?.sensitive).toBeFalsy();
+  });
+
+  it("slack:get_messages.messages is serialized with sensitive=true (and `hasMore`/`nextCursor` stay unflagged)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/slack/actions"), {
+      params: Promise.resolve({ id: "slack" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    const gm = body.actions.find((a) => a.key === "slack:get_messages")!;
+    expect(gm.outputs.find((o) => o.name === "messages")?.sensitive).toBe(true);
+    expect(gm.outputs.find((o) => o.name === "hasMore")?.sensitive).toBeFalsy();
+    expect(gm.outputs.find((o) => o.name === "nextCursor")?.sensitive).toBeFalsy();
+  });
+
+  it("notion:search.results is serialized with sensitive=true (and `hasMore`/`nextCursor` stay unflagged)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/notion/actions"), {
+      params: Promise.resolve({ id: "notion" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    const search = body.actions.find((a) => a.key === "notion:search")!;
+    expect(search.outputs.find((o) => o.name === "results")?.sensitive).toBe(true);
+    expect(search.outputs.find((o) => o.name === "hasMore")?.sensitive).toBeFalsy();
+    expect(search.outputs.find((o) => o.name === "nextCursor")?.sensitive).toBeFalsy();
+  });
+});

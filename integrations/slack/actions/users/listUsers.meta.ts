@@ -41,7 +41,8 @@ export const slackListUsersMeta: ActionMeta = {
       name: "users",
       type: "array",
       description:
-        "Array of Slack user records as Slack returns them (each carries `id`, `name`, `real_name`, `profile`, `is_admin`, `is_bot`, …).",
+        "Array of Slack user records as Slack returns them (each carries `id`, `name`, `real_name`, `profile`, `is_admin`, `is_bot`, …). Marked sensitive — per-row `profile.email` and other PII fields may be present depending on bot scopes; the array redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "count",

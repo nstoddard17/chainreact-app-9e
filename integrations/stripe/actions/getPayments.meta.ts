@@ -77,7 +77,8 @@ export const stripeGetPaymentsMeta: ActionMeta = {
       name: "payments",
       type: "array",
       description:
-        "Array of bounded charge projections. Each entry: `{chargeId, amount, currency, status, paid, refunded, customerId, paymentIntentId, created, description, receiptUrl, metadata, livemode}`. Amounts are in CENTS (Stripe wire-format). Drill via `{{nodeId.payments[0].chargeId}}`.",
+        "Array of bounded charge projections. Each entry: `{chargeId, amount, currency, status, paid, refunded, customerId, paymentIntentId, created, description, receiptUrl, metadata, livemode}`. Amounts are in CENTS (Stripe wire-format). Drill via `{{nodeId.payments[0].chargeId}}`. Marked sensitive — per-row `customerId`, `description`, `receiptUrl` (customer-facing payment receipt link), and `metadata` (workflow-defined keys); redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "count",

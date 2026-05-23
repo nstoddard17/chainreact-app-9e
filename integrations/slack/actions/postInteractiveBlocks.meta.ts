@@ -91,7 +91,8 @@ export const slackPostInteractiveBlocksMeta: ActionMeta = {
       name: "message",
       type: "object",
       description:
-        "Slack message payload object as returned by chat.postMessage (includes `text`, `blocks`, `bot_id`, …).",
+        "Slack message payload object as returned by chat.postMessage (includes `text`, `blocks`, `bot_id`, …). Marked sensitive — Slack echoes the posted body and Block Kit payload, so the object redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

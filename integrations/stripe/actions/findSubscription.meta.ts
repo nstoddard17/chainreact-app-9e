@@ -44,7 +44,8 @@ export const stripeFindSubscriptionMeta: ActionMeta = {
       name: "subscription",
       type: "object",
       description:
-        "Bounded subscription projection when `found: true` (`{subscriptionId, customerId, status, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, canceledAt, trialStart, trialEnd, collectionMethod, currency, latestInvoiceId, metadata, livemode}`); null when `found: false`. Period / trial / canceled timestamps are raw Unix seconds. Drill via `{{nodeId.subscription.<field>}}`.",
+        "Bounded subscription projection when `found: true` (`{subscriptionId, customerId, status, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, canceledAt, trialStart, trialEnd, collectionMethod, currency, latestInvoiceId, metadata, livemode}`); null when `found: false`. Period / trial / canceled timestamps are raw Unix seconds. Drill via `{{nodeId.subscription.<field>}}`. Marked sensitive — carries `customerId`, `latestInvoiceId`, and `metadata` (arbitrary workflow-defined keys often containing customer references); parity with `findCustomer.customer` (which is also sensitive); redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

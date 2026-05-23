@@ -489,4 +489,100 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     expect(custOut.email).toBe(REDACTED_SENTINEL);
     expect(fmtOut.formatted).toBe("ok");
   });
+
+  // ─── Slice 3.POSTSEC-2 — newly-sensitive arrays/objects redact ────────────
+  //
+  // Cover the four POSTSEC-2 categories from the audit: a Stripe object
+  // projection (find_payment_intent), a Gmail messages array, a Slack
+  // messages array, and a Notion search results array. Each test confirms
+  // the previously-leaking output now redacts to REDACTED_SENTINEL AND
+  // the original persisted record is not mutated.
+  it("POSTSEC-2: stripe:find_payment_intent.paymentIntent redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      found: true,
+      paymentIntent: {
+        paymentIntentId: "pi_1",
+        amount: 2099,
+        receiptEmail: "alice@example.com",
+        metadata: { order_id: "ord_42" },
+      },
+    };
+    const record = makeRecord([
+      { nodeId: "find-pi-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("find-pi-node", "stripe", "find_payment_intent")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.found).toBe(true);
+    expect(out.paymentIntent).toBe(REDACTED_SENTINEL);
+    // Immutability — the persisted record still carries the original object.
+    expect(originalOutput.paymentIntent.receiptEmail).toBe("alice@example.com");
+  });
+
+  it("POSTSEC-2: gmail:search_emails.messages redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      query: "subject:invoice",
+      messages: [
+        { messageId: "m1", subject: "Invoice #1", from: "alice@example.com" },
+        { messageId: "m2", subject: "Invoice #2", from: "bob@example.com" },
+      ],
+      count: 2,
+      hasMore: false,
+    };
+    const record = makeRecord([
+      { nodeId: "search-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("search-node", "gmail", "search_emails")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.messages).toBe(REDACTED_SENTINEL);
+    // Non-sensitive siblings remain visible.
+    expect(out.query).toBe("subject:invoice");
+    expect(out.count).toBe(2);
+    expect(out.hasMore).toBe(false);
+    // Immutability — the original messages array still carries the data.
+    expect(originalOutput.messages).toHaveLength(2);
+  });
+
+  it("POSTSEC-2: slack:get_messages.messages redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      messages: [
+        { ts: "1700000001.000100", text: "secret-channel-message", user: "U1" },
+      ],
+      count: 1,
+      hasMore: false,
+      nextCursor: "",
+    };
+    const record = makeRecord([
+      { nodeId: "get-msg-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("get-msg-node", "slack", "get_messages")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.messages).toBe(REDACTED_SENTINEL);
+    expect(out.count).toBe(1);
+    expect(out.hasMore).toBe(false);
+    expect(out.nextCursor).toBe("");
+  });
+
+  it("POSTSEC-2: notion:search.results redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      results: [
+        { id: "page-1", object: "page", url: "https://notion.so/abc" },
+        { id: "db-1", object: "database", url: "https://notion.so/def" },
+      ],
+      hasMore: false,
+      nextCursor: null,
+    };
+    const record = makeRecord([
+      { nodeId: "search-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("search-node", "notion", "search")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.results).toBe(REDACTED_SENTINEL);
+    expect(out.hasMore).toBe(false);
+    expect(out.nextCursor).toBe(null);
+    expect(originalOutput.results).toHaveLength(2);
+  });
 });

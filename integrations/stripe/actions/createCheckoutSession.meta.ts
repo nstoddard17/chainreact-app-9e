@@ -200,7 +200,8 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
     {
       name: "customerEmail",
       type: "string",
-      description: "Customer email (echoed). Null when not pre-filled.",
+      description: "Customer email (echoed). Null when not pre-filled. Marked sensitive — PII (a real customer email address); redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "clientReferenceId",

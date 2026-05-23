@@ -66,7 +66,8 @@ export const slackUpdateMessageMeta: ActionMeta = {
     {
       name: "text",
       type: "string",
-      description: "Echo of the new message text as Slack stored it.",
+      description: "Echo of the new message text as Slack stored it. Marked sensitive — message body redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

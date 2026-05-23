@@ -469,6 +469,113 @@ describe("VariablePickerPopover — sensitive output chip (Slice 3.SEC-7)", () =
     expect(preview).toHaveTextContent('"pi_1"');
     expect(preview).toHaveAttribute("data-preview-kind", "scalar");
   });
+
+  // ─── Slice 3.POSTSEC-2 — array/object sensitive output coverage ────────
+  //
+  // The SEC-7 tests above cover a sensitive STRING output (customerEmail).
+  // POSTSEC-2 added sensitive flags on ARRAY (gmail:search_emails.messages)
+  // and OBJECT (stripe:find_payment_intent.paymentIntent) outputs. This
+  // exercises one of each through the picker to confirm the chip + masked-
+  // preview behavior works for non-scalar shapes too (the array/object
+  // values are also masked, not just leaf strings).
+  it("POSTSEC-2: sensitive ARRAY output (gmail:search_emails.messages) shows chip + masked preview", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    const arraySource: VariableSource = {
+      sourceId: "gmail-node",
+      displayName: "Search Emails",
+      kind: "action",
+      provider: "gmail",
+      outputs: [
+        { name: "count", type: "number" },
+        {
+          name: "messages",
+          type: "array",
+          description: "Per-row email projections (sensitive).",
+          sensitive: true,
+        },
+      ],
+    };
+    render(
+      <VariablePickerPopover
+        sources={[arraySource]}
+        onInsert={onInsert}
+        onClose={onClose}
+        latestValuesBySource={{
+          "gmail-node": {
+            count: 2,
+            messages: [
+              { subject: "Invoice #1", from: "alice@example.com" },
+              { subject: "Invoice #2", from: "bob@example.com" },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(
+      screen.getByTestId("variable-output-gmail-node-messages-sensitive-chip"),
+    ).toBeInTheDocument();
+    const preview = screen.getByTestId(
+      "variable-output-gmail-node-messages-preview",
+    );
+    expect(preview).toHaveTextContent("Sensitive value hidden");
+    // Sanity — the raw email addresses do NOT leak into the picker preview.
+    expect(preview).not.toHaveTextContent("alice@example.com");
+    expect(preview).not.toHaveTextContent("bob@example.com");
+    // Non-sensitive `count` sibling stays visible.
+    const countPreview = screen.getByTestId(
+      "variable-output-gmail-node-count-preview",
+    );
+    expect(countPreview).toHaveTextContent("2");
+  });
+
+  it("POSTSEC-2: sensitive OBJECT output (stripe:find_payment_intent.paymentIntent) shows chip + masked preview", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    const objectSource: VariableSource = {
+      sourceId: "find-pi-node",
+      displayName: "Find Payment Intent",
+      kind: "action",
+      provider: "stripe",
+      outputs: [
+        { name: "found", type: "boolean" },
+        {
+          name: "paymentIntent",
+          type: "object",
+          description: "PaymentIntent projection — receiptEmail + metadata.",
+          sensitive: true,
+        },
+      ],
+    };
+    render(
+      <VariablePickerPopover
+        sources={[objectSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+        latestValuesBySource={{
+          "find-pi-node": {
+            found: true,
+            paymentIntent: {
+              paymentIntentId: "pi_1",
+              receiptEmail: "alice@example.com",
+              metadata: { order_id: "ord_42" },
+            },
+          },
+        }}
+      />,
+    );
+    expect(
+      screen.getByTestId(
+        "variable-output-find-pi-node-paymentIntent-sensitive-chip",
+      ),
+    ).toBeInTheDocument();
+    const preview = screen.getByTestId(
+      "variable-output-find-pi-node-paymentIntent-preview",
+    );
+    expect(preview).toHaveTextContent("Sensitive value hidden");
+    expect(preview).not.toHaveTextContent("alice@example.com");
+    expect(preview).not.toHaveTextContent("pi_1");
+  });
 });
 
 describe("VariablePickerPopover — testId scoping", () => {

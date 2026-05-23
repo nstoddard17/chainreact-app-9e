@@ -88,7 +88,8 @@ export const outlookFetchEmailsMeta: ActionMeta = {
       name: "messages",
       type: "array",
       description:
-        "Array of per-message projections — each carries { id, subject, from, to, cc, receivedDateTime, hasAttachments, importance, bodyPreview, webLink }.",
+        "Array of per-message projections — each carries { id, subject, from, to, cc, receivedDateTime, hasAttachments, importance, bodyPreview, webLink }. Marked sensitive — per-row recipient addresses + body previews redact from the run-detail API and the variable picker preview (token wiring still works).",
+      sensitive: true,
     },
     { name: "count", type: "number", description: "messages.length convenience." },
   ],

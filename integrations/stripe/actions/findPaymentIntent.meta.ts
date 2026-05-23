@@ -45,7 +45,8 @@ export const stripeFindPaymentIntentMeta: ActionMeta = {
       name: "paymentIntent",
       type: "object",
       description:
-        "Bounded PaymentIntent projection when `found: true` (`{paymentIntentId, amount, amountReceived, currency, status, customerId, latestChargeId, paymentMethodId, description, receiptEmail, metadata, livemode}`); null when `found: false`. Amounts in CENTS (Stripe wire-format). Drill via `{{nodeId.paymentIntent.<field>}}`.",
+        "Bounded PaymentIntent projection when `found: true` (`{paymentIntentId, amount, amountReceived, currency, status, customerId, latestChargeId, paymentMethodId, description, receiptEmail, metadata, livemode}`); null when `found: false`. Amounts in CENTS (Stripe wire-format). Drill via `{{nodeId.paymentIntent.<field>}}`. Marked sensitive — carries `receiptEmail` (PII), `description`, and `metadata` (arbitrary workflow-defined keys); parity with `findCustomer.customer` (which is also sensitive); redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

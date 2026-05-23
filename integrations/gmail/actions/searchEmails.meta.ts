@@ -185,7 +185,8 @@ export const searchEmailsMeta: ActionMeta = {
       name: "messages",
       type: "array",
       description:
-        "Array of per-message projections — each carries { messageId, threadId, subject, from, to, date, snippet, labelIds, internalDate }.",
+        "Array of per-message projections — each carries { messageId, threadId, subject, from, to, date, snippet, labelIds, internalDate }. Marked sensitive — per-row email addresses + snippet redact from the run-detail API and the variable picker preview (token wiring still works).",
+      sensitive: true,
     },
     { name: "count", type: "number", description: "messages.length convenience." },
     { name: "nextPageToken", type: "string", description: "Pagination cursor for the next call. Absent when there are no more pages." },

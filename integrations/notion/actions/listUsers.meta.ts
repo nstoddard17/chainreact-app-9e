@@ -41,7 +41,8 @@ export const notionListUsersMeta: ActionMeta = {
       name: "users",
       type: "array",
       description:
-        "Array of users — each entry matches Get User's output shape (`{userId, object, type, name, avatarUrl, personEmail, botOwnerType, botOwnerUserId, botWorkspaceName}`).",
+        "Array of users — each entry matches Get User's output shape (`{userId, object, type, name, avatarUrl, personEmail, botOwnerType, botOwnerUserId, botWorkspaceName}`). Marked sensitive — per-row `personEmail` is PII; parity with `get_user.personEmail` (singular IS marked); redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "nextCursor",

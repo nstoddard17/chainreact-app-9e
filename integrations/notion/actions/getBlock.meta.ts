@@ -88,13 +88,15 @@ export const notionGetBlockMeta: ActionMeta = {
       name: "plainText",
       type: "string",
       description:
-        "Pre-extracted plain text for rich-text-bearing block types (paragraph, headings, list items, to_do, quote, callout, code, toggle). Empty string for non-text blocks (divider, image, embed, …).",
+        "Pre-extracted plain text for rich-text-bearing block types (paragraph, headings, list items, to_do, quote, callout, code, toggle). Empty string for non-text blocks (divider, image, embed, …). Marked sensitive — block body is user-typed content; redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
     {
       name: "content",
       type: "object",
       description:
-        "Type-specific Notion payload — `result[result.type]`. For text-bearing blocks this carries the raw `rich_text` array; for media blocks it carries the source url + metadata. Drill via `{{nodeId.content.<key>}}`.",
+        "Type-specific Notion payload — `result[result.type]`. For text-bearing blocks this carries the raw `rich_text` array; for media blocks it carries the source url + metadata. Drill via `{{nodeId.content.<key>}}`. Marked sensitive — payload mirrors the block body (and may carry media URLs); redacts from the run-detail API and variable picker preview.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

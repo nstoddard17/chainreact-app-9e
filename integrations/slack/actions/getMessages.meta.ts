@@ -71,7 +71,8 @@ export const slackGetMessagesMeta: ActionMeta = {
       name: "messages",
       type: "array",
       description:
-        "Array of Slack message objects (each carries `ts`, `text`, `user`, `subtype`, …). Iterate downstream to fan-out per message.",
+        "Array of Slack message objects (each carries `ts`, `text`, `user`, `subtype`, …). Iterate downstream to fan-out per message. Marked sensitive — message bodies redact from the run-detail API and variable picker preview (token wiring still works).",
+      sensitive: true,
     },
     {
       name: "count",

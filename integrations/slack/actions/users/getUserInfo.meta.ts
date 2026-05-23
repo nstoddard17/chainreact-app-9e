@@ -39,7 +39,8 @@ export const slackGetUserInfoMeta: ActionMeta = {
       name: "user",
       type: "object",
       description:
-        "Full Slack user record as returned by users.info. Drill into specific profile fields via the variable picker.",
+        "Full Slack user record as returned by users.info. Drill into specific profile fields via the variable picker. Marked sensitive — the full record may include `profile.email` and other PII fields depending on bot scopes; the object redacts from the run-detail API and variable picker preview (bounded scalars below stay visible).",
+      sensitive: true,
     },
     {
       name: "id",
