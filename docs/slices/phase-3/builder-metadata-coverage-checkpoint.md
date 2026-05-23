@@ -1,9 +1,9 @@
 # Phase 3 — Builder Metadata Coverage Checkpoint
 
-**Status:** Checkpoint snapshot as of `37d4a6b63` (Slice 3.38 — Slack metadata-complete + COVERED_PROVIDERS flip). Doc-only.
+**Status:** Checkpoint snapshot as of `ffbe1fdda` (Slice 3.42 — Notion metadata-complete + COVERED_PROVIDERS flip). Doc-only.
 **Branch:** `v2-provider-port-local` (local-only; do not push).
 **Master plan:** [`docs/slices/phase-2-plan.md`](../phase-2-plan.md).
-**Companion plans:** [`./file-ref-array-field-plan.md`](./file-ref-array-field-plan.md), [`./single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md), [`./options-source-plan.md`](./options-source-plan.md), [`./slack-action-metadata-plan.md`](./slack-action-metadata-plan.md).
+**Companion plans:** [`./file-ref-array-field-plan.md`](./file-ref-array-field-plan.md), [`./single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md), [`./options-source-plan.md`](./options-source-plan.md), [`./slack-action-metadata-plan.md`](./slack-action-metadata-plan.md), [`./notion-action-metadata-plan.md`](./notion-action-metadata-plan.md).
 
 This is a CEO-level snapshot of where Phase-3 Builder UI metadata stands across all V2 providers, what's missing, and what should happen next. Every claim below was verified by reading the live registries (`services/execution/handlers/_registry.ts`, `services/discovery/_registry.ts`, `services/options/_registry.ts`), the `integrations/` tree, and the discovery test suite — not from memory.
 
@@ -39,7 +39,7 @@ The single biggest infrastructure unlock since the previous snapshot. Closes the
 | `dependsOn` cascade in SchemaForm | [`features/workflow-builder/config-modal/SchemaForm.tsx`](../../../features/workflow-builder/config-modal/SchemaForm.tsx) — clears direct dependent fields on parent change; passes `deps` + `enabled` + `parentLabel` to renderers | **3.33** |
 | Integration-test helper | [`tests/integration/features/workflow-builder/helpers/comboboxField.ts`](../../../tests/integration/features/workflow-builder/helpers/comboboxField.ts) — `pickComboboxOption` | 3.32 |
 
-**Resolver registry as of 3.38:** 2 entries — `native:examples` (fixture) + `slack:channels` (production). Provider resolvers are colocated under their integration tree (`integrations/<provider>/options/<resource>.ts`).
+**Resolver registry as of 3.42:** 2 entries — `native:examples` (fixture) + `slack:channels` (production). Provider resolvers are colocated under their integration tree (`integrations/<provider>/options/<resource>.ts`). **Notion ships ZERO resolvers** as of Slice 3.42 — Notion ID fields all render as plain text. The first three Notion ideal-UX follow-up slices (`notion:databases`, `notion:pages`, `notion:users` — see §7) each add one resolver entry; only after that does Notion gain picker UX for typed-id fields.
 
 ### 1.4 Builder UI shell (`features/workflow-builder/`)
 
@@ -60,7 +60,8 @@ Unchanged since the prior checkpoint — shell / canvas / pickers / run-now / ru
 
 - Slice 3.32 — [`tests/integration/features/workflow-builder/helpers/comboboxField.ts`](../../../tests/integration/features/workflow-builder/helpers/comboboxField.ts) (`pickComboboxOption`).
 - Slice 3.32–3.38 — 5 new Slack integration tests: `slack-send-channel-message-config`, `slack-add-reaction-config`, `slack-invite-users-config`, `slack-post-interactive-blocks-config`, plus the extended `slack-upload-file-config` (channel field migrated to async combobox).
-- **797 suites, 8662 tests** as of `37d4a6b63`. (Prior checkpoint: 788 / 8319.)
+- Slice 3.41–3.42 — 4 new Notion integration tests: `notion-create-page-config`, `notion-query-database-config` (Slice 3.41); `notion-append-block-children-config`, `notion-list-comments-config` (Slice 3.42).
+- **801 suites, 8725 tests** as of `ffbe1fdda`. (Prior checkpoint: 797 / 8662.)
 
 ---
 
@@ -74,9 +75,12 @@ Unchanged since the prior checkpoint — shell / canvas / pickers / run-now / ru
 | **github** | 6 | 6 | 1 (`new_commit`) | 1 |
 | **gmail** | 13 | 13 | 3 (`new_email`, `new_labeled_email`, `new_attachment`) | 3 |
 | **microsoft-outlook** | 9 | 9 | 3 (`new_email`, `email_sent`, `email_flagged`) | 3 |
-| **slack** | **31** | **31** | 1 (`file_uploaded`) + 9 shared-webhook activations | **10** |
+| **slack** | 31 | 31 | 1 (`file_uploaded`) + 9 shared-webhook activations | 10 |
+| **notion** | **16** | **16** | 0 (Notion has no programmatic webhook subscription API; manual-only) | 0 |
 
-Slack joined this list in Slice 3.38. It is the first larger provider to reach metadata-completeness via the Slice 3.34 plan + four implementation slices (3.35 → 3.38), and proves the metadata-completion process scales beyond the email-style providers (gmail / outlook) that anchored the earlier covered set.
+**6 complete providers** (was 5 at the prior checkpoint). Notion joined in Slice 3.42 via the Slice 3.40 plan + two implementation slices (3.41 pages+databases, 3.42 blocks+comments+users). It's the second larger provider to reach metadata-completeness after Slack, and the first provider in the covered set with **zero trigger surface** — Notion has no V2 trigger handlers because Notion's webhook subscription API is manual-only (see [`integrations/notion/manifest.ts`](../../../integrations/notion/manifest.ts)).
+
+**Important — metadata-complete ≠ ideal-UX-complete.** Notion ships 16 action metas, every registered handler is reachable from the builder, and the structural test enforces drift protection. But the Notion UX in Slice 3.42 leans on a **paste-JSON bridge** for nested-object fields (parent / properties / children / icon / cover / filter / sorts). That bridge is *correct* (the meta accurately mirrors the schema, the engine resolves values at runtime), but it is **not the final product direction**. The Notion ideal-UX follow-up path is documented in §7 and §8 below; do not treat Notion as UX-done.
 
 ---
 
@@ -94,13 +98,12 @@ Every row below has a manifest in `integrations/_registry.ts` AND registered han
 
 | Provider | Action handlers | Trigger handlers | Notes / business priority |
 | --- | --- | --- | --- |
-| **hubspot** | 26 | 1 | Largest single missing surface. CRM core for any sales-flavored workflow. Per the slack-action-metadata-plan-style audit cadence, this is the natural next batch. |
-| **stripe** | 16 | 1 | Commerce + billing. Most Stripe fields are static / text, so this provider could ship without any new `optionsSource` resolver. |
-| **notion** | 16 | 0 | Big knowledge-base provider — pages / databases / blocks. Notion has no V2 trigger handlers; metadata batch is action-only. |
+| **hubspot** | 26 | 1 | Largest single missing surface. CRM core for any sales-flavored workflow. Will want 2-3 new resolvers (`hubspot:lists` / `hubspot:pipelines` / `hubspot:object-schemas`). |
+| **stripe** | 16 | 1 | Commerce + billing. Most Stripe fields are static / text, so this provider could ship without any new `optionsSource` resolver. The cleanest "no new resolver needed" batch in the queue. |
 | **mailchimp** | 14 | 7 | Lots of trigger handlers but no metas — marketing automation flows are blocked at the builder UI. |
-| **google-sheets** | 12 | 2 | Top "data table" workflow surface. Spreadsheet → sheet → range chain naturally wants `optionsSource` + `dependsOn`. |
+| **google-sheets** | 12 | 2 | Top "data table" workflow surface. Spreadsheet → sheet → range chain naturally wants `optionsSource` + `dependsOn` (textbook two-hop cascade). |
 | **shopify** | 11 | 1 | Commerce. |
-| **airtable** | 11 | 1 | Records + attachments. Plan §6.3 of [`single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md) explicitly defers `airtable:add_attachment` until broader Airtable coverage lands. Base → table → field chain naturally wants `optionsSource` + `dependsOn`. |
+| **airtable** | 11 | 1 | Records + attachments. Plan §6.3 of [`single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md) explicitly defers `airtable:add_attachment` until broader Airtable coverage lands. Base → table → field chain naturally wants `optionsSource` + `dependsOn` (three-hop). |
 | **microsoft-excel** | 10 | 5 | Symmetric Microsoft equivalent of Google Sheets. |
 | **trello** | 8 | 6 | Card-based PM workflows. |
 | **microsoft-onedrive** | 7 | 1 | File storage; the `provider_url` arm of FileRef cross-references here. |
@@ -109,12 +112,12 @@ Every row below has a manifest in `integrations/_registry.ts` AND registered han
 | **google-drive** | 5 | 1 | File storage mirror of OneDrive. |
 | **microsoft-outlook-calendar** | 5 | 1 | Sibling of `microsoft-outlook` mail provider. |
 
-**Total uncovered action surface: 151 handlers across 14 providers.**
+**Total uncovered action surface: 135 handlers across 13 providers.**
 
 Net change vs the prior checkpoint:
-- Slack moved out of this bucket (−29 from the 150 total at `f0aa79e74`).
-- `google-sheets` gained one handler in the meantime (11 → 12) — accounts for the +1 swing.
-- All other rows unchanged.
+- Notion moved out of this bucket (−16 from the prior 151 total at `37d4a6b63`) when Slice 3.42 flipped Notion into `COVERED_PROVIDERS`.
+- The remaining 13 providers' counts are unchanged since the prior checkpoint.
+- Verified against live [`services/execution/handlers/_registry.ts`](../../../services/execution/handlers/_registry.ts) by per-provider handler count — totals add to 215 entries (covered providers 80 + uncovered 135 = 215). The 6 covered providers ship 80 handlers; the 13 uncovered ship 135.
 
 ---
 
@@ -128,10 +131,11 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   "gmail",
   "microsoft-outlook",
   "slack",
+  "notion",
 ]);
 ```
 
-5 of 19 providers cross the "every registered handler has a meta" line as of 3.38. The 14 listed in §4 remain outside.
+**6 of 19 providers** cross the "every registered handler has a meta" line as of Slice 3.42. The 13 listed in §4 remain outside.
 
 ---
 
@@ -152,9 +156,14 @@ Verified by reading existing integration tests in [`tests/integration/features/w
 | **Slack `send_channel_message` with async channel picker + textarea body (new)** | ✅ Shipped (Slice 3.35) | `slack-send-channel-message-config.test.tsx` |
 | **Slack `add_reaction` with channel picker + ts + reaction (new)** | ✅ Shipped (Slice 3.36) | `slack-add-reaction-config.test.tsx` |
 | **Slack `invite_users_to_channel` with channel picker + string-array users + boolean Q11 (new)** | ✅ Shipped (Slice 3.37) | `slack-invite-users-config.test.tsx` |
-| **Slack `post_interactive_blocks` with channel picker + Block Kit JSON paste textarea (new)** | ✅ Shipped (Slice 3.38) | `slack-post-interactive-blocks-config.test.tsx` |
-| **Async combobox / `slack:channels` picker (new)** | ✅ Shipped (Slice 3.32) | All Slack channel-bearing integration tests above + `ComboboxField.test.tsx` |
-| **dependsOn cascade (clear child on parent change, "select parent first" disabled state) (new)** | ✅ Shipped (Slice 3.33) | `SchemaForm.test.tsx` + `ComboboxField.test.tsx` |
+| **Slack `post_interactive_blocks` with channel picker + Block Kit JSON paste textarea** | ✅ Shipped (Slice 3.38) | `slack-post-interactive-blocks-config.test.tsx` |
+| **Async combobox / `slack:channels` picker** | ✅ Shipped (Slice 3.32) | All Slack channel-bearing integration tests above + `ComboboxField.test.tsx` |
+| **dependsOn cascade (clear child on parent change, "select parent first" disabled state)** | ✅ Shipped (Slice 3.33) | `SchemaForm.test.tsx` + `ComboboxField.test.tsx` |
+| **Notion `create_page` with parent + properties + icon JSON paste textareas (new)** | ✅ Shipped (Slice 3.41) | `notion-create-page-config.test.tsx` |
+| **Notion `query_database` with databaseId text + filter/sorts JSON paste + bounded pageSize (new)** | ✅ Shipped (Slice 3.41) | `notion-query-database-config.test.tsx` |
+| **Notion `append_block_children` with dual block/page-id text + children BlockSpec[] JSON paste (new)** | ✅ Shipped (Slice 3.42) | `notion-append-block-children-config.test.tsx` |
+| **Notion `list_comments` bounded-read shape (id + pageSize, server-managed cursor hidden) (new)** | ✅ Shipped (Slice 3.42) | `notion-list-comments-config.test.tsx` |
+| **All 16 Notion actions (pages, databases, blocks, comments, users, search) discoverable in builder (new)** | ✅ Shipped (Slices 3.41 → 3.42) | Discovery registry + provider-route + structural-coverage tests; per-action UX still text-/JSON-first pending §7 follow-ups |
 | Variable picker (text-style insertion) | ✅ Shipped | `variable-picker-flow.test.tsx`, `variable-picker-latest-value.test.tsx` |
 | Variable picker chip-append into file-array | ✅ Shipped | `variable-picker-file-array.test.tsx` |
 | Latest-run output preview | ✅ Shipped | `latest-run-preview.test.tsx` |
@@ -165,60 +174,72 @@ Verified by reading existing integration tests in [`tests/integration/features/w
 
 ## 7. Remaining Builder UI gaps
 
-Re-ordered from "infrastructure not started" → "polish". Items struck through landed since the prior checkpoint.
+Re-ordered from "infrastructure not started" → "ideal-UX polish on metadata-complete providers" → "general polish". Items struck through landed since the prior checkpoint.
 
 1. ~~**Async `optionsSource` loading.**~~ **Shipped (Slices 3.30–3.32).** `slack:channels` is the first production resolver. Contract + route + hook + renderer + helper all in place. Adding a new resolver is a single colocated file + one `_registry.ts` line.
 2. ~~**Field cascading / dependsOn UX polish.**~~ **Shipped (Slice 3.33).** SchemaForm now clears direct dependents on parent change; ComboboxField surfaces a passive "Select &lt;parent&gt; first" trigger when the parent value is missing. Single-hop only (matches the FieldMeta contract).
-3. **Provider-specific options resolvers beyond Slack channels.** Only `slack:channels` exists as a production resolver. Natural follow-ups: `slack:users` (3 user-id fields would benefit), `airtable:bases / airtable:tables` (the cascade test bed), `google-sheets:spreadsheets / google-sheets:sheets` (same shape), `microsoft-teams:teams / microsoft-teams:channels`, `hubspot:lists / hubspot:pipelines`, `notion:databases`. Each is the same cost as `slack:channels` was — one new file + one registry entry + a few tests.
-4. **Variable picker type-aware filtering.** D-FRA-6 / D-SFR-10 still deferred. Picker shows all upstream outputs regardless of the focused field's type. Acceptable today; will need addressing when authors regularly hit "I picked the wrong thing and got rejected at execute time."
-5. **FileRef sub-field drilling.** Picker can't expand a `fileRef`-typed output into `{{ref.name}}` / `{{ref.mimeType}}` / etc. Comment in `VariablePickerPopover.tsx:40` calls this out explicitly. Becomes more valuable as more providers ship FileRef-aware metas (Slack now ships 3 FileRef-aware metas: download_file, upload_file, get_file_info).
-6. **Multi-select async combobox.** Slice 3.7 deferral. Today `invite_users_to_channel.users` ships as `string-array` instead of a multi-select picker; adding multi-select unblocks any future provider that needs picker-driven multi-pick.
-7. **Local-file upload UI / storage picker.** Async drag-drop or `<input type="file">` → `v2_storage`. Neither plan ships this.
-8. **Run / test UX.** Run-now + run-history panels exist (Slice 3.9 + 3.10) but the deeper "run a single node with synthetic inputs," "inspect step outputs," "replay a failed run" surfaces aren't built.
-9. **Edge editing UX.** Canvas connects + drags; the edge-condition / on-failure routing UX beyond `native:router` isn't yet exposed.
-10. **Template surface.** No template gallery / import path.
-11. **AI builder helper / planner.** Out of Phase-3 scope by design.
+3. **Provider-specific options resolvers beyond Slack channels.** Only `slack:channels` exists as a production resolver. Natural follow-ups, in priority order: `notion:databases` (flips 2 high-value Notion fields, see §8), `notion:pages` (flips ~10 Notion id fields), `notion:users` (flips `get_user.userId`), `slack:users` (3 user-id fields), `airtable:bases / airtable:tables / airtable:fields` (the three-hop cascade test bed), `google-sheets:spreadsheets / google-sheets:sheets` (two-hop), `microsoft-teams:teams / microsoft-teams:channels`, `hubspot:lists / hubspot:pipelines / hubspot:object-schemas`. Each is the same cost as `slack:channels` was — one new file + one registry entry + a few tests.
+4. **Notion ideal-UX gaps (5 follow-ups).** Notion is metadata-complete (Slices 3.41 + 3.42) but lands its nested-object surfaces as **paste-JSON textareas** — an accepted *temporary coverage bridge*, not the final product direction. The five planned follow-up slices are (in recommended order):
+   1. **`notion:databases` resolver** — upgrade `query_database.databaseId` + `create_database_entry.databaseId` from `text` to async combobox. Highest-leverage flip; backing API is `POST /v1/search` with `filter.value="database"`.
+   2. **`notion:pages` resolver** — upgrade the ~10 page-id-bearing fields (`update_page.pageId`, `get_page.pageId`, `archive_page.pageId`, `restore_page.pageId`, `create_comment.pageId`, `create_database.parentPageId`, etc.). **Care needed:** several fields named `blockId` accept both block ids AND page ids (`append_block_children`, `get_block`, `get_block_children`, `list_comments`); do NOT blindly relabel — these stay text-or-block-picker until a true unified picker exists.
+   3. **`notion:users` resolver** — upgrade `get_user.userId`. Backing API is `GET /v1/users`.
+   4. **Notion database-schema-driven property editor** — the *real* ideal-UX endpoint for `create_page.properties`, `update_page.properties`, `create_database_entry.properties`. After the author picks a database, fetch its column schema and render typed property inputs per column (title / rich_text / number / select / checkbox / date / url / email / phone_number). Replaces the paste-JSON `properties` textarea. Long-term — requires both a resolver and a new FieldType for "schema-driven object editor".
+   5. **Notion block builder / structured block editor** — long-term ideal-UX endpoint for `children` on `create_page` / `create_database_entry` / `append_block_children`. Replaces paste-JSON `BlockSpec[]` with an add-block-of-type UI. Requires a new FieldType and likely a separate panel.
+5. **Variable picker type-aware filtering.** D-FRA-6 / D-SFR-10 still deferred. Picker shows all upstream outputs regardless of the focused field's type. Acceptable today; will need addressing when authors regularly hit "I picked the wrong thing and got rejected at execute time."
+6. **FileRef sub-field drilling.** Picker can't expand a `fileRef`-typed output into `{{ref.name}}` / `{{ref.mimeType}}` / etc. Comment in `VariablePickerPopover.tsx:40` calls this out explicitly. Becomes more valuable as more providers ship FileRef-aware metas (Slack ships 3: download_file, upload_file, get_file_info; Notion ships 0).
+7. **Multi-select async combobox.** Slice 3.7 deferral. Today `invite_users_to_channel.users` ships as `string-array` instead of a multi-select picker; adding multi-select unblocks any future provider that needs picker-driven multi-pick.
+8. **Local-file upload UI / storage picker.** Async drag-drop or `<input type="file">` → `v2_storage`. Neither plan ships this.
+9. **Run / test UX.** Run-now + run-history panels exist (Slice 3.9 + 3.10) but the deeper "run a single node with synthetic inputs," "inspect step outputs," "replay a failed run" surfaces aren't built.
+10. **Edge editing UX.** Canvas connects + drags; the edge-condition / on-failure routing UX beyond `native:router` isn't yet exposed.
+11. **Template surface.** No template gallery / import path.
+12. **AI builder helper / planner.** Out of Phase-3 scope by design.
 
 ---
 
 ## 8. Recommended next implementation candidates
 
-Re-ranked after the Slack completion + async-options + dependsOn cascade unlocks. The "metadata-only" candidates that don't need new `optionsSource` resolvers move up; the ones that do are flagged.
+Re-ranked after Notion's metadata-completion. The big strategic question for the next slice is **"broad coverage momentum (Stripe) vs. Notion ideal-UX polish (`notion:databases` resolver)?"** — both are defensible; see §9 for the recommendation and the tradeoff.
 
 | Rank | Candidate | Rationale | New resolver needed? | Approx. size |
 | --- | --- | --- | --- | --- |
-| 1 | **Notion metadata batch** (16 actions) | High knowledge-base / docs workflow value. Database / page id fields would BENEFIT from a `notion:databases` resolver but Notion has so many other "paste an id from the URL" fields that the batch can ship as text-first and gain the picker in a polish slice. No triggers to handle. | Optional `notion:databases` follow-up | 3-5 slices grouped by surface (pages / databases / users / search) |
-| 2 | **Stripe metadata batch** (16 actions) | Commerce. Most Stripe fields ARE static / text (object ids), so this is the cleanest "no new resolver needed" batch in the queue. High direct revenue relevance — Stripe-driven workflows are common. | No | 3-4 slices grouped by resource (customers / charges / subscriptions / events) |
+| 1 | **Stripe metadata batch** (16 actions) | Commerce / billing. Most Stripe fields ARE static / text (object ids), so this is the cleanest "no new resolver needed" batch in the queue. High direct revenue relevance — Stripe-driven workflows are common. Same shape as the Notion batch (paste-JSON-free since Stripe's surface is flat object ids), so it lands faster than Notion did. | No | 2-3 slices grouped by resource (customers / payments / subscriptions / etc.) |
+| 2 | **`notion:databases` resolver + flip 2 fields** | Highest-leverage Notion ideal-UX win — `query_database.databaseId` and `create_database_entry.databaseId` flip from `text` to async combobox in one small slice. Validates the Notion ideal-UX path before the heavier work (schema-driven editor, block builder). | **Yes** — `notion:databases` | 1 small slice |
 | 3 | **HubSpot metadata batch** (26 actions) | Biggest remaining single chunk — sales/CRM workflows. Will probably want `optionsSource` resolvers for object/list/pipeline pickers (`hubspot:lists`, `hubspot:pipelines`, `hubspot:object-schemas`). Landing those resolvers FIRST or alongside the metadata batch reduces meta churn. | **Yes** — 2-3 resolvers either before or during the batch | 4-6 slices |
-| 4 | **Google Sheets metadata batch** (12 actions + 2 triggers) | Top "data table" workflow surface. Spreadsheet → sheet → range chain is the textbook `dependsOn` cascade. The Slice 3.33 cascade infra is built; this batch is the right place to exercise it on a real two-hop chain. | **Yes** — `google-sheets:spreadsheets` + `google-sheets:sheets` (`dependsOn: spreadsheetId`) | 3-4 slices |
-| 5 | **Airtable metadata batch** (11 actions + 1 trigger) | Records + attachments. Base → table → field chain (three-hop). Plan §6.3 of `single-file-ref-metadata-plan.md` explicitly gates `airtable:add_attachment` on this batch. | **Yes** — 3 resolvers for the base → table → field chain | 4-5 slices |
-| 6 | **`slack:users` resolver + flip 3 Slack user-id fields to combobox** | Polish on top of completed Slack coverage. Lands as documented in the Slack metadata plan §6 follow-up. Low risk, single small slice. | **Yes** (the resolver itself) | 1 small slice |
-| 7 | **Microsoft Teams metadata batch** (5 actions + 1 trigger) | Channel messaging mirror of Slack. Team → channel cascade. | **Yes** — `microsoft-teams:teams` + `microsoft-teams:channels` | 2 slices |
-| 8 | **Type-aware variable picker filtering** | Quality-of-life. Worth doing after 7-8 providers have FileRef-aware metas so the user-facing benefit shows up in real flows. Slack just added 3 FileRef-aware metas to the surface; we're closer than the prior checkpoint. | No | 2 slices |
-| 9 | **Mailchimp / Shopify / Microsoft Excel + OneDrive / Trello / Google Drive / Google + Outlook Calendar metadata batches** | Each meaningful but lower-ROI than #1-#7. Sequence after the bigger commerce / data / CRM providers. | Mixed | per-batch |
-| 10 | **FileRef sub-field drilling** | Same as #8 — sub-field picking becomes valuable only once `fileRef` outputs are pickable across many providers. | No | 1 slice |
+| 4 | **`notion:pages` resolver + careful field flips** | Second Notion ideal-UX slice. Flips ~10 page-id-bearing fields to async combobox (`update_page.pageId`, `get_page.pageId`, `archive_page.pageId`, etc.). Care needed on the dual-meaning `blockId` fields — they accept page ids OR block ids, so they stay text until a unified picker exists. | **Yes** — `notion:pages` | 1 small slice |
+| 5 | **Google Sheets metadata batch** (12 actions + 2 triggers) | Top "data table" workflow surface. Spreadsheet → sheet → range chain is the textbook `dependsOn` cascade. The Slice 3.33 cascade infra is built; this batch is the right place to exercise it on a real two-hop chain. | **Yes** — `google-sheets:spreadsheets` + `google-sheets:sheets` (`dependsOn: spreadsheetId`) | 3-4 slices |
+| 6 | **Airtable metadata batch** (11 actions + 1 trigger) | Records + attachments. Base → table → field chain (three-hop). Plan §6.3 of [`./single-file-ref-metadata-plan.md`](./single-file-ref-metadata-plan.md) explicitly gates `airtable:add_attachment` on this batch. | **Yes** — 3 resolvers for the base → table → field chain | 4-5 slices |
+| 7 | **`slack:users` resolver + flip 3 Slack user-id fields** | Polish on top of completed Slack coverage. Documented in the Slack metadata plan §6 follow-up. | **Yes** — `slack:users` | 1 small slice |
+| 8 | **`notion:users` resolver + flip `get_user.userId`** | Third Notion ideal-UX slice. Smallest of the three Notion resolver slices. | **Yes** — `notion:users` | 1 small slice |
+| 9 | **Microsoft Teams metadata batch** (5 actions + 1 trigger) | Channel messaging mirror of Slack. Team → channel cascade. | **Yes** — `microsoft-teams:teams` + `microsoft-teams:channels` | 2 slices |
+| 10 | **Type-aware variable picker filtering** | Quality-of-life. Worth doing after 7-8 providers have FileRef-aware metas so the user-facing benefit shows up in real flows. Slack ships 3 FileRef-aware metas; Notion ships 0. | No | 2 slices |
+| 11 | **Mailchimp / Shopify / Microsoft Excel + OneDrive / Trello / Google Drive / Google + Outlook Calendar metadata batches** | Each meaningful but lower-ROI than #1-#9. Sequence after the bigger commerce / CRM / data providers. | Mixed | per-batch |
+| 12 | **Notion database-schema-driven property editor** | Long-term Notion ideal-UX endpoint for `create_page.properties` / `update_page.properties` / `create_database_entry.properties`. After the author picks a database, fetch its column schema and render typed property inputs. Replaces the paste-JSON `properties` textarea. Requires both a resolver-style fetch AND a new FieldType. | **Yes** (resolver + new field type) | 3-4 slices |
+| 13 | **Notion block builder / structured block editor** | Long-term Notion ideal-UX endpoint for `children` fields. Replaces paste-JSON `BlockSpec[]` with an add-block-of-type UI. Requires a new FieldType. | No (UI-only) | 3-4 slices |
+| 14 | **FileRef sub-field drilling** | Same as #10 — sub-field picking becomes valuable only once `fileRef` outputs are pickable across many providers. | No | 1 slice |
 
 ---
 
 ## 9. Recommended near-term direction
 
-**Recommendation: continue with provider metadata batches in priority order — Notion → Stripe → (resolver + HubSpot together) → (resolver + Google Sheets together) — then re-checkpoint. Don't pause for UX polish yet.**
+**Recommendation: Stripe metadata batch next, then `notion:databases` resolver, then re-checkpoint.** This trades a little Notion UX delay for one more provider in the covered set, plus it validates that the metadata-completion cadence works on a provider where paste-JSON is *not* needed (Stripe's surface is flat object ids).
 
-Why not pause for UX polish:
-- The provider gap is still dominant: 14 providers, 151 uncovered action handlers. The builder still feels half-empty for any non-email / non-Slack workflow.
-- The Slack completion (29 metas in 4 slices) demonstrated the metadata-completion cadence is sustainable. Continuing it produces visible builder value per slice.
-- The infrastructure unlocks needed for the next batches already exist: async `optionsSource` ships, `dependsOn` cascade ships. The "Notion + Stripe first" recommendation deliberately picks two providers that can land WITHOUT any new resolver, so we can validate the cadence on smaller batches before tackling the larger HubSpot+resolver pairing.
+**Why Stripe before `notion:databases`:**
 
-Why this ordering vs the prior checkpoint:
-- The prior checkpoint recommended "Slack broader actions THEN options-source infra THEN one or two metadata batches THEN re-checkpoint." Slack is done; options-source shipped; the cascade shipped. The follow-on metadata batches are the natural next step.
-- Notion + Stripe both punch above their resolver-cost weight: neither strictly needs a new resolver, both produce visible builder value, and together they cover the "docs / knowledge-base" and "commerce / billing" surfaces — the two most common workflow categories outside email and chat.
-- HubSpot is bigger AND wants 2-3 new resolvers. Landing it third lets the resolver pattern get one more rep (after `slack:channels`) before the multi-resolver provider hits.
+1. **Stripe metadata is the cleanest remaining "no-new-resolver" batch.** All 16 Stripe handlers take flat object ids (customer, payment intent, subscription) plus typed scalars. No nested JSON, no cross-provider chains, no resolver dependencies. Likely 2-3 slices and Stripe joins `COVERED_PROVIDERS`.
+2. **Covered providers compound on each other.** Each new covered provider gets a permanent structural-test guardrail. 7 covered ≫ 6 covered for long-tail drift protection.
+3. **`notion:databases` is small and lands cleanly *after* Stripe** as a single polish slice. The Notion UX gap doesn't grow while Stripe ships — Notion is already usable through paste-JSON and `{{...}}` references; the picker is a UX win, not a correctness fix.
+4. **Stripe pairs naturally with the "commerce / billing" workflow category** which is currently zero-coverage (no Stripe, no Shopify metas, no Square). Landing it punches above its weight on the "what can the builder actually do?" surface.
 
-**Alternatives briefly considered:**
+**Tradeoff explicitly:** Stripe-first delays the first Notion ideal-UX improvement by ~1-2 slices. Acceptable because Notion's paste-JSON bridge is **functionally correct** — workflows work end-to-end today via JSON literals + variable references. The picker is polish, not a blocker. If a Notion-heavy user reports active friction with the paste-JSON UX before Stripe lands, swap to `notion:databases` first.
 
-- **Pause metadata and ship the run-test / canvas-polish UX.** Reject: every shipped integration test demonstrates the canvas + config + run path is functional. The bottleneck is "I picked a provider but my action isn't here," not "the canvas doesn't draw."
-- **Land `slack:users` resolver first as a tightly-scoped polish slice.** Acceptable as a low-risk warm-up if Marcus prefers a tiny next slice before the bigger Notion batch. Not the primary recommendation because it's polish on already-completed coverage, not new coverage.
-- **Lead with Google Sheets to validate the `dependsOn` cascade on a real two-hop chain.** Reject as the lead: Sheets needs 2 resolvers + its own meta batch; better to land 1-2 resolver-free batches first to keep the slice diet moving. But strong candidate at #4.
+**Alternative: `notion:databases` first (defensible).** Lands Notion ideal-UX validation immediately, exercises the resolver pattern one more time before the HubSpot multi-resolver batch, and gives the Notion completion arc a satisfying "done + polished" closing slice. Pick this if the strategic goal is "make Notion *good*" rather than "broaden coverage."
+
+**Why not other candidates:**
+
+- **HubSpot now.** Reject: 26 actions plus 2-3 new resolvers is the biggest single slice queue in the backlog. Better to land Stripe (smaller) + `notion:databases` (tiny) first to keep the slice diet moving.
+- **Google Sheets to exercise the cascade.** Reject as the lead: Sheets needs 2 resolvers + its own meta batch. Stronger candidate after Stripe + `notion:databases`.
+- **Run-test / canvas polish.** Reject: the bottleneck is still "I picked a provider but my action isn't here," not "the canvas doesn't draw." 13 uncovered providers, 135 uncovered actions.
+- **Notion database-schema-driven property editor.** Reject: requires a new FieldType (schema-driven object editor) and a separate panel; multi-slice infrastructure investment. Sequence after `notion:databases` + `notion:pages` + `notion:users` land, so the picker primitives are in place first.
 
 ---
 
@@ -226,10 +247,12 @@ Why this ordering vs the prior checkpoint:
 
 These are decisions worth surfacing explicitly so they don't get punted as "let's see when we get there":
 
-- For the Notion batch: ship as resolver-free text-first (matches the recommendation) OR pre-build `notion:databases` resolver so the batch lands with picker UX from day one? The prior Slack-batch precedent (`text` first, picker polish later for users) argues for resolver-free; the Slack-channel-picker integration test demonstrates how much nicer the UX is when the picker exists on day one.
-- For the HubSpot batch (rank #3): build all needed resolvers as a single "HubSpot pickers" slice BEFORE the metadata batch, or interleave resolver-per-sub-batch? The Slack precedent was "build the resolver once, then land metadata over multiple slices." HubSpot has 2-3 resolvers; interleaving may be cleaner.
-- For the slack:users polish (rank #6): land it before Notion (tiny warm-up) or after Notion+Stripe (groups all polish work together)? Both are defensible; mention before starting the next batch so it doesn't get forgotten.
-- The provider-route response shape is still flat (sorted by displayOrder). With 31 Slack actions + the Notion/HubSpot batches incoming, picker UX may want a category-grouped response shape. Worth designing now or wait until the picker shows visible bloat?
+- **Stripe-first vs `notion:databases`-first?** Recommendation is Stripe (see §9), but `notion:databases` is a strong second-place candidate if the strategic goal is "polish Notion" rather than "broaden coverage." Decide before starting the next slice.
+- **For the HubSpot batch (rank #3):** build all needed resolvers as a single "HubSpot pickers" slice BEFORE the metadata batch, or interleave resolver-per-sub-batch? The Slack precedent was "build the resolver once, then land metadata over multiple slices." HubSpot has 2-3 resolvers; interleaving may be cleaner.
+- **For the three Notion resolver slices (`notion:databases` / `notion:pages` / `notion:users`):** ship as three back-to-back small slices, or interleave with broader provider metadata batches (Stripe → Notion:databases → HubSpot batch → Notion:pages → ...)? Three back-to-back closes the Notion ideal-UX gap faster; interleaving balances coverage breadth and Notion depth.
+- **For the long-term Notion schema-driven property editor (rank #12):** introduce it as a brand-new FieldType, or build it as an inline rendering branch on the existing `textarea` (auto-detect when a database id is set + load schema)? The former is cleaner architecturally; the latter is more incremental. Worth sketching before commitment.
+- **`slack:users` polish (rank #7):** still pending. Decide whether to sequence before or after the Notion resolver path.
+- **The provider-route response shape is still flat** (sorted by displayOrder). With 31 Slack + 16 Notion actions in the picker today, and HubSpot's 26 incoming, picker UX may want a category-grouped response shape. Worth designing now or wait until the picker shows visible bloat?
 
 ---
 
@@ -238,26 +261,36 @@ These are decisions worth surfacing explicitly so they don't get punted as "let'
 ```text
 INFRASTRUCTURE:        Complete for the 12 FieldType variants + discovery + canvas + picker
                        + async optionsSource resolvers + dependsOn cascade.
-COMPLETE PROVIDERS:    native, github, gmail, microsoft-outlook, slack (5).
-                       Slack is the first larger provider to reach metadata-completeness
-                       (31 action metas + 10 trigger metas; flipped into COVERED_PROVIDERS
-                       in Slice 3.38).
+COMPLETE PROVIDERS:    native, github, gmail, microsoft-outlook, slack, notion (6).
+                       Notion joined in Slice 3.42 — second larger provider to reach
+                       metadata-completeness after Slack (16 action metas; flipped into
+                       COVERED_PROVIDERS in Slice 3.42).
+                       NOTE: Notion is metadata-complete but NOT ideal-UX-complete.
+                       Five Notion follow-up slices documented in §7.4 (notion:databases
+                       / notion:pages / notion:users resolvers + schema-driven property
+                       editor + structured block builder).
 PARTIAL PROVIDERS:     None.
-UNCOVERED PROVIDERS:   14 (hubspot, stripe, notion, mailchimp, google-sheets, shopify,
-                          airtable, microsoft-excel, trello, microsoft-onedrive,
-                          microsoft-teams, google-calendar, google-drive,
-                          microsoft-outlook-calendar).
-UNCOVERED HANDLERS:    151 actions across the 14 providers above.
-                       (Prior checkpoint: 150 across the same 14 + Slack's 29 missing
-                       at the time. Net: Slack -29, google-sheets +1.)
+UNCOVERED PROVIDERS:   13 (hubspot, stripe, mailchimp, google-sheets, shopify, airtable,
+                          microsoft-excel, trello, microsoft-onedrive, microsoft-teams,
+                          google-calendar, google-drive, microsoft-outlook-calendar).
+UNCOVERED HANDLERS:    135 actions across the 13 providers above.
+                       (Prior checkpoint: 151 across 14 providers. Net: Notion -16
+                       moved into the covered set.)
 OPTIONS RESOLVERS:     2 registered — native:examples (fixture) + slack:channels (prod).
-TESTS:                 797 suites, 8662 tests, all green at 37d4a6b63.
-                       (Prior checkpoint: 788 / 8319.)
-NEXT METADATA BATCH:   Notion (16 actions, no new resolver needed).
+                       Notion ships ZERO resolvers; the first three (notion:databases /
+                       notion:pages / notion:users) are sequenced as polish slices.
+TESTS:                 801 suites, 8725 tests, all green at ffbe1fdda.
+                       (Prior checkpoint: 797 / 8662.)
+NEXT METADATA BATCH:   Stripe (16 actions, no new resolver needed) — see §9.
+                       Alternative: notion:databases resolver as a small polish-first slice.
 NEXT INFRA UNLOCK:     None blocking the next 2 metadata batches.
                        HubSpot batch (rank #3) will want 2-3 new resolvers.
-                       Google Sheets batch (rank #4) will want 2 resolvers
+                       Google Sheets batch (rank #5) will want 2 resolvers
                        to exercise the dependsOn cascade on a real two-hop chain.
+                       Notion's schema-driven property editor (rank #12) will need a
+                       new FieldType + resolver-style fetch when Marcus prioritizes it.
 ```
 
-The builder feels substantially more usable than at the prior checkpoint: a workflow author can compose every Slack flow that the runtime supports, the async channel picker eliminates the "type an id" friction, and the cascade infra is ready for the next two-hop provider (Google Sheets / Airtable). The remaining 14 providers are still the limiting factor — finishing Notion + Stripe + HubSpot would cover the largest non-email / non-Slack categories of real-world workflows.
+The builder feels substantially more usable than at the prior checkpoint: every Notion knowledge-base flow that the runtime supports is now composable from the picker, joining the every-Slack-flow milestone that landed in 3.38. The remaining 13 providers are still the limiting factor — finishing Stripe + HubSpot would cover the largest non-email / non-Slack / non-Notion categories of real-world workflows.
+
+**Don't lose sight of Notion's UX debt.** The 16-action metadata coverage means workflows CAN be built; the paste-JSON bridge for nested-object fields means they aren't yet *pleasant* to build. The five-slice follow-up path documented in §7.4 is the path from "complete" to "good." Capture this in the working memory of any future planning chat so Notion doesn't get filed as "done" prematurely.
