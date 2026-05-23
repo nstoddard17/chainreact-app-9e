@@ -146,7 +146,7 @@ describe("integration — activation → CONFIRMATION_REQUIRED → modal → CON
   });
 });
 
-describe("integration — run-now → CONFIRMATION_REQUIRED → modal → Cancel → no retry", () => {
+describe("integration — Run Live → CONFIRMATION_REQUIRED → modal → Cancel → no retry", () => {
   it("modal appears on 409 and Cancel closes it without enqueuing a run", async () => {
     mockRunNowWorkflow.mockRejectedValueOnce(
       makeStripeRefundConfirmationError(),
@@ -154,15 +154,16 @@ describe("integration — run-now → CONFIRMATION_REQUIRED → modal → Cancel
     const user = userEvent.setup();
     bootWithManualTrigger();
     render(<RunNowPanel />);
-    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await user.click(screen.getByTestId("run-now-live-button"));
     await screen.findByTestId("destructive-action-confirmation-modal");
 
-    // First call — no confirmationText.
+    // First call — testMode:false (explicit user choice via Live Run),
+    // no confirmationText yet.
     expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
     expect(mockRunNowWorkflow.mock.calls[0]).toEqual([
       "wf-int",
       { inputs: {} },
-      {},
+      { testMode: false },
     ]);
 
     // Cancel — no further call.
@@ -176,7 +177,7 @@ describe("integration — run-now → CONFIRMATION_REQUIRED → modal → Cancel
     expect(screen.queryByTestId("run-now-success")).not.toBeInTheDocument();
   });
 
-  it("modal Confirm retries run-now with confirmationText + inputs preserved + no testMode promotion", async () => {
+  it("modal Confirm retries Run Live with confirmationText + testMode:false preserved + inputs preserved", async () => {
     mockRunNowWorkflow
       .mockRejectedValueOnce(makeStripeRefundConfirmationError())
       .mockResolvedValueOnce({
@@ -186,7 +187,7 @@ describe("integration — run-now → CONFIRMATION_REQUIRED → modal → Cancel
     const user = userEvent.setup();
     bootWithManualTrigger();
     render(<RunNowPanel />);
-    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await user.click(screen.getByTestId("run-now-live-button"));
     await screen.findByTestId("destructive-action-confirmation-modal");
     await user.type(
       screen.getByTestId("destructive-action-confirmation-input"),
@@ -198,14 +199,20 @@ describe("integration — run-now → CONFIRMATION_REQUIRED → modal → Cancel
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalledTimes(2);
     });
-    // Retry carries confirmationText; inputs unchanged; testMode NEVER
-    // sneaks in (the panel does not silently promote real run to test).
+    // Retry carries confirmationText AND keeps testMode:false. The
+    // panel MUST NOT silently promote the destructive-confirmation
+    // flow to a test run — the user explicitly chose Live Run and the
+    // confirmation modal is the safety net for THAT choice.
     const retryArgs = mockRunNowWorkflow.mock.calls[1]!;
     expect(retryArgs[0]).toBe("wf-int");
     expect(retryArgs[1]).toEqual({ inputs: {} });
-    expect(retryArgs[2]).toEqual({ confirmationText: "CONFIRM" });
+    expect(retryArgs[2]).toEqual({
+      testMode: false,
+      confirmationText: "CONFIRM",
+    });
+    // testMode never sneaks into inputs — envelope vs payload separation.
     expect(retryArgs[1]).not.toHaveProperty("testMode");
-    expect(retryArgs[2]).not.toHaveProperty("testMode");
+    expect(retryArgs[1]).not.toHaveProperty("confirmationText");
 
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toHaveTextContent(
@@ -237,7 +244,7 @@ describe("integration — low-risk activation + run-now do NOT show the modal", 
     expect(mockActivateWorkflow).toHaveBeenCalledTimes(1);
   });
 
-  it("low-risk run-now: success first shot → no modal, run id surfaces immediately", async () => {
+  it("low-risk Run Live: success first shot → no modal, run id surfaces immediately", async () => {
     mockRunNowWorkflow.mockResolvedValueOnce({
       runId: "run-low-risk-int",
       enqueuedAt: "2026-05-23T00:00:00Z",
@@ -245,7 +252,7 @@ describe("integration — low-risk activation + run-now do NOT show the modal", 
     const user = userEvent.setup();
     bootWithManualTrigger();
     render(<RunNowPanel />);
-    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await user.click(screen.getByTestId("run-now-live-button"));
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toHaveTextContent(
         /run-low-risk-int/,
@@ -254,6 +261,82 @@ describe("integration — low-risk activation + run-now do NOT show the modal", 
     expect(
       screen.queryByTestId("destructive-action-confirmation-modal"),
     ).not.toBeInTheDocument();
+  });
+});
+
+// ─── Slice 3.POSTSEC-6 — Test Run bypasses the confirmation modal ─────────
+describe("integration — Test Run skips the confirmation modal (Slice 3.POSTSEC-6)", () => {
+  it("Test Run on a destructive workflow does NOT open the modal — sends testMode:true and enqueues immediately", async () => {
+    // Test Run never trips the SEC-4B server gate because SEC-2 already
+    // blocks the destructive provider call before the gate evaluates.
+    // The server's run-now route returns 202 with isTest:true /
+    // triggeredBy:"test" — the panel surfaces the runId without ever
+    // touching the destructive-action confirmation modal.
+    mockRunNowWorkflow.mockResolvedValueOnce({
+      runId: "run-test-destructive",
+      enqueuedAt: "2026-05-23T00:00:00Z",
+      isTest: true,
+      triggeredBy: "test",
+    });
+    const user = userEvent.setup();
+    bootWithManualTrigger();
+    render(<RunNowPanel />);
+    await user.click(screen.getByTestId("run-now-test-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("run-now-success")).toHaveTextContent(
+        /run-test-destructive/,
+      );
+    });
+    // No modal — even though, on a destructive workflow, Live Run would
+    // have opened it.
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+    // Wire shape: testMode:true at the envelope, NEVER inside inputs.
+    expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
+    const callArgs = mockRunNowWorkflow.mock.calls[0]!;
+    expect(callArgs[0]).toBe("wf-int");
+    expect(callArgs[1]).toEqual({ inputs: {} });
+    expect(callArgs[2]).toEqual({ testMode: true });
+    expect(callArgs[1]).not.toHaveProperty("testMode");
+  });
+
+  it("Test Run on a low-risk workflow ALSO sends testMode:true (no demotion to Live Run)", async () => {
+    mockRunNowWorkflow.mockResolvedValueOnce({
+      runId: "run-test-low-risk",
+      enqueuedAt: "2026-05-23T00:00:00Z",
+      isTest: true,
+      triggeredBy: "test",
+    });
+    const user = userEvent.setup();
+    bootWithManualTrigger();
+    render(<RunNowPanel />);
+    await user.click(screen.getByTestId("run-now-test-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("run-now-success")).toBeInTheDocument();
+    });
+    // Test Run NEVER silently degrades to Live Run — even if the
+    // workflow would have been safe to run live. testMode:true reflects
+    // the user's explicit intent.
+    const opts = mockRunNowWorkflow.mock.calls[0]![2] as {
+      testMode?: boolean;
+    };
+    expect(opts.testMode).toBe(true);
+  });
+
+  it("Both buttons are visible — the user always sees an explicit Test Run vs Run Live choice", async () => {
+    bootWithManualTrigger();
+    render(<RunNowPanel />);
+    expect(screen.getByTestId("run-now-test-button")).toBeEnabled();
+    expect(screen.getByTestId("run-now-live-button")).toBeEnabled();
+    // Explanatory copy is rendered so the user doesn't have to guess
+    // what each button does — the entire point of POSTSEC-6.
+    expect(
+      screen.getByText(/runs safely without calling connected provider apis/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/runs for real and may call connected apps/i),
+    ).toBeInTheDocument();
   });
 });
 

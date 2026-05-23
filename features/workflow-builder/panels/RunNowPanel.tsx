@@ -17,38 +17,64 @@ import { useRunSlice } from "../state/runSlice";
 import { DestructiveActionConfirmationModal } from "./DestructiveActionConfirmationModal";
 
 /**
- * Run Now panel — Slice 3.3.
+ * Run Now panel — Slice 3.3 + Slice 3.POSTSEC-6.
  *
- * Only renders when the workflow has a `native:manual.run` trigger.
- * Clicking "Run Now" dispatches `POST /api/workflows/[id]/run-now` via
- * the typed client. Inputs are passed as the empty object `{}` for now;
- * a full input editor (key/value pairs, mirroring V1's "Test Run inputs"
- * panel) lands in Slice 3.8 alongside the test-run streaming surface.
+ * Only renders when the workflow has a `native:manual.run` trigger. The
+ * panel surfaces two explicit actions:
+ *
+ *   • Test Run (primary) — calls `runNowWorkflow(id, inputs,
+ *     { testMode: true })`. The engine (SEC-2) short-circuits external
+ *     and high-risk handlers; destructive provider calls never fire,
+ *     so the SEC-4B confirmation modal is intentionally bypassed.
+ *     `triggeredBy: "test"` + `isTest: true` distinguishes the run in
+ *     the run history.
+ *
+ *   • Run Live (destructive-style secondary) — calls `runNowWorkflow`
+ *     with `testMode: false`. Real provider APIs fire. If the workflow
+ *     contains a SEC-4B-gated action the first shot returns
+ *     409 CONFIRMATION_REQUIRED; the destructive-action confirmation
+ *     modal opens and the user types the server-issued phrase to retry.
+ *
+ * Crucial invariant (no silent promotion / demotion):
+ *   - Test Run NEVER becomes Live Run.
+ *   - Live Run NEVER silently degrades to Test Run.
+ *   - Confirmation retry preserves `testMode: false` so the user can't
+ *     accidentally have a destructive-action confirmation flow execute
+ *     as a sandbox run.
  *
  * Architectural boundary (preserved from Slice 3.2):
  *   - Modal Save updates pending graph state in `configSlice` /
  *     `graphSlice` only.
  *   - Toolbar Save persists workflow definition via `updateWorkflow`.
- *   - Run Now executes the *already-saved* workflow. It does NOT
- *     trigger a save. If the user has unsaved edits, the panel surfaces
- *     a warning so they don't accidentally test against the stale
- *     server-side definition.
+ *   - Run Now (either mode) executes the *already-saved* workflow. It
+ *     does NOT trigger a save. If the user has unsaved edits, the panel
+ *     surfaces a warning so they don't accidentally test against the
+ *     stale server-side definition.
  *
  * The panel intentionally does not auto-save before run: hiding a save
  * inside a run button conflates two operations and was a frequent
  * source of "but I clicked Run, why are my edits gone?" confusion in
  * V1. The user explicitly Saves, then Runs.
  */
+
+/**
+ * Which button is currently in-flight. `null` = nothing running. Used
+ * for per-button busy labelling + disabling both buttons so the user
+ * can't fire a Test Run and a Live Run concurrently.
+ */
+type RunningMode = "test" | "live" | null;
+
 export function RunNowPanel() {
   const workflowId = useGraphSlice((s) => s.workflowId);
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const isDirty = useGraphSlice((s) => s.isDirty);
 
-  const [isRunning, setIsRunning] = useState(false);
+  const [runningMode, setRunningMode] = useState<RunningMode>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastRunIsTest, setLastRunIsTest] = useState<boolean>(false);
   // Slice 3.POSTSEC-5 — pending typed-confirmation modal state for the
-  // real-run path. Non-null = modal open; the server's structured 409
+  // Live Run path. Non-null = modal open; the server's structured 409
   // detail is the source of truth for the action list + required phrase.
   const [confirmationDetail, setConfirmationDetail] =
     useState<WorkflowConfirmationRequiredDetail | null>(null);
@@ -68,14 +94,18 @@ export function RunNowPanel() {
 
   async function dispatchRun(
     targetWorkflowId: string,
+    testMode: boolean,
     confirmationText: string | undefined,
   ): Promise<void> {
     const result = await runNowWorkflow(
       targetWorkflowId,
       { inputs: {} },
-      confirmationText !== undefined ? { confirmationText } : {},
+      confirmationText !== undefined
+        ? { testMode, confirmationText }
+        : { testMode },
     );
     setLastRunId(result.runId);
+    setLastRunIsTest(testMode);
     // Slice 3.8 — kick off latest-run tracking. The polling hook
     // installed in WorkflowBuilder picks this up and renders the
     // result into RunResultsPanel. Save state stays a separate
@@ -83,21 +113,52 @@ export function RunNowPanel() {
     startTracking({ workflowId: targetWorkflowId, runId: result.runId });
   }
 
-  async function handleRun(): Promise<void> {
+  async function handleTestRun(): Promise<void> {
     if (!workflowId) return;
+    if (runningMode !== null) return;
     if (confirmationDetail !== null) return;
-    setIsRunning(true);
+    setRunningMode("test");
     setRunError(null);
     try {
-      await dispatchRun(workflowId, undefined);
+      // testMode: true → SEC-2 blocks external handlers before the
+      // SEC-4B confirmation gate ever evaluates. The modal MUST NOT
+      // appear for test runs even on destructive workflows — that's
+      // the whole point of an explicit safe-test surface.
+      await dispatchRun(workflowId, true, undefined);
+    } catch (err) {
+      // Defensive — server should never return 409 CONFIRMATION_REQUIRED
+      // when testMode=true (SEC-4B bypasses the gate for test runs by
+      // contract). If it does, surface as a plain error rather than
+      // routing into the destructive-action modal — a test-mode
+      // confirmation flow would be UX nonsense.
+      const message =
+        err instanceof WorkflowApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Test Run failed.";
+      setRunError(message);
+    } finally {
+      setRunningMode(null);
+    }
+  }
+
+  async function handleLiveRun(): Promise<void> {
+    if (!workflowId) return;
+    if (runningMode !== null) return;
+    if (confirmationDetail !== null) return;
+    setRunningMode("live");
+    setRunError(null);
+    try {
+      await dispatchRun(workflowId, false, undefined);
     } catch (err) {
       // Slice 3.POSTSEC-5 — server returned 409 CONFIRMATION_REQUIRED.
       // Defer to the typed-confirmation modal; clear the in-flight
-      // spinner so the Run Now button isn't stuck in "Running…" while
-      // the user reads the modal.
+      // spinner so the Live Run button isn't stuck in "Running…"
+      // while the user reads the modal.
       if (isConfirmationRequiredError(err)) {
         setConfirmationDetail(err.detail);
-        setIsRunning(false);
+        setRunningMode(null);
         return;
       }
       const message =
@@ -105,19 +166,26 @@ export function RunNowPanel() {
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Run Now failed.";
+            : "Live Run failed.";
       setRunError(message);
     } finally {
-      setIsRunning(false);
+      setRunningMode(null);
     }
   }
 
-  async function handleConfirmRun(): Promise<void> {
+  async function handleConfirmLiveRun(): Promise<void> {
     if (!workflowId || !confirmationDetail) return;
-    setIsRunning(true);
+    setRunningMode("live");
     setRunError(null);
     try {
-      await dispatchRun(workflowId, confirmationDetail.confirmationText);
+      // Retry preserves testMode:false (Live Run never silently flips
+      // to Test Run mid-confirmation) and adds the server-issued phrase
+      // verbatim.
+      await dispatchRun(
+        workflowId,
+        false,
+        confirmationDetail.confirmationText,
+      );
       setConfirmationDetail(null);
     } catch (err) {
       // Defensive — the server's `isValidConfirmationText` matches the
@@ -129,11 +197,11 @@ export function RunNowPanel() {
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Run Now failed.";
+            : "Live Run failed.";
       setRunError(message);
       setConfirmationDetail(null);
     } finally {
-      setIsRunning(false);
+      setRunningMode(null);
     }
   }
 
@@ -141,27 +209,58 @@ export function RunNowPanel() {
     setConfirmationDetail(null);
   }
 
+  const anyRunning = runningMode !== null;
+
   return (
     <section
       aria-label="Manual run"
-      className="flex flex-col gap-2 rounded border border-input bg-card p-3"
+      className="flex flex-col gap-3 rounded border border-input bg-card p-3"
     >
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <h3 className="text-sm font-medium">Manual run</h3>
+      <header className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium">Manual run</h3>
+        <p className="text-xs text-muted-foreground">
+          Execute the saved workflow once with empty trigger inputs.
+        </p>
+      </header>
+
+      <div
+        className="flex flex-col gap-2 sm:flex-row sm:items-stretch"
+        data-testid="run-now-actions"
+      >
+        <div className="flex flex-1 flex-col gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            onClick={handleTestRun}
+            disabled={anyRunning}
+            data-testid="run-now-test-button"
+          >
+            {runningMode === "test" ? "Testing…" : "Test Run"}
+          </Button>
           <p className="text-xs text-muted-foreground">
-            Runs the saved workflow once with empty trigger inputs.
+            Runs safely without calling connected provider APIs. External
+            actions are skipped with test-mode outputs.
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleRun}
-          disabled={isRunning}
-        >
-          {isRunning ? "Running…" : "Run Now"}
-        </Button>
-      </header>
+        <div className="flex flex-1 flex-col gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            onClick={handleLiveRun}
+            disabled={anyRunning}
+            data-testid="run-now-live-button"
+          >
+            {runningMode === "live" ? "Running…" : "Run Live"}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Runs for real and may call connected apps. Destructive actions
+            require a typed confirmation before they fire.
+          </p>
+        </div>
+      </div>
+
       {isDirty ? (
         <p
           role="status"
@@ -178,14 +277,15 @@ export function RunNowPanel() {
       ) : null}
       {lastRunId && !runError ? (
         <p className="text-xs text-muted-foreground" data-testid="run-now-success">
-          Enqueued run <code className="font-mono">{lastRunId}</code>.
+          Enqueued {lastRunIsTest ? "test " : ""}run{" "}
+          <code className="font-mono">{lastRunId}</code>.
         </p>
       ) : null}
       {confirmationDetail && (
         <DestructiveActionConfirmationModal
           detail={confirmationDetail}
-          busy={isRunning}
-          onConfirm={handleConfirmRun}
+          busy={runningMode === "live"}
+          onConfirm={handleConfirmLiveRun}
           onCancel={handleCancelConfirm}
         />
       )}

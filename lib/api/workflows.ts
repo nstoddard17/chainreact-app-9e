@@ -315,6 +315,31 @@ export interface ConfirmationOptions {
   confirmationText?: string;
 }
 
+/**
+ * Slice 3.POSTSEC-6 — Run-Now-specific options. Extends `ConfirmationOptions`
+ * with the SEC-2 `testMode` flag so the builder's Test-Run UI can opt into
+ * the engine's test-mode short-circuit without silently promoting / demoting
+ * the user's intent.
+ *
+ * Semantics:
+ *   - `testMode === true`  → wire body includes `testMode: true`. Server
+ *     skips external + high-risk handlers; run is marked `isTest: true`,
+ *     `triggeredBy: "test"`. SEC-4B confirmation gate is bypassed (SEC-2
+ *     already blocks the destructive handlers before they fire).
+ *   - `testMode === false` → wire body includes `testMode: false`. Server
+ *     executes for real; confirmation gate applies. Distinguishes "user
+ *     explicitly chose Live" from "client forgot to set the flag".
+ *   - `testMode` omitted → wire body omits the field. Server defaults to
+ *     real execution (matches pre-POSTSEC-6 callers — back-compat).
+ *
+ * The client NEVER coerces between true / false / omitted. Test Run and
+ * Live Run are user-driven; the client preserves whichever the panel
+ * chose. This is the no-promotion / no-demotion invariant.
+ */
+export interface RunNowOptions extends ConfirmationOptions {
+  testMode?: boolean;
+}
+
 export async function activateWorkflow(
   id: string,
   opts: ConfirmationOptions = {},
@@ -383,18 +408,30 @@ export interface RunNowResponse {
 export async function runNowWorkflow(
   id: string,
   input: RunNowRequest = {},
-  opts: ConfirmationOptions = {},
+  opts: RunNowOptions = {},
 ): Promise<RunNowResponse> {
-  // Slice 3.POSTSEC-5 — confirmation retry flow. The server's run-now
-  // envelope accepts `confirmationText` as a sibling of `inputs`; supplying
-  // the server-issued phrase tells the SEC-4B gate the typed confirmation
-  // happened. Omitted by default → low-risk + destructive-but-confirmed
-  // calls work unchanged; the modal layer adds it on retry.
-  const body: { inputs: Record<string, unknown>; confirmationText?: string } = {
+  // Slice 3.POSTSEC-5 / POSTSEC-6 — envelope-level fields are siblings of
+  // `inputs`, not inside it. We add each field conditionally on its
+  // option being defined so the wire body stays minimal:
+  //   - low-risk Live Run     → `{ inputs }`
+  //   - low-risk Test Run     → `{ inputs, testMode: true }`
+  //   - destructive Live Run  → first shot `{ inputs }`, retry adds
+  //                              `confirmationText` (testMode stays absent
+  //                              unless the caller explicitly passed it).
+  // Callers control promotion / demotion — the client never injects
+  // `testMode` or `confirmationText` on its own.
+  const body: {
+    inputs: Record<string, unknown>;
+    confirmationText?: string;
+    testMode?: boolean;
+  } = {
     inputs: input.inputs ?? {},
   };
   if (opts.confirmationText !== undefined) {
     body.confirmationText = opts.confirmationText;
+  }
+  if (opts.testMode !== undefined) {
+    body.testMode = opts.testMode;
   }
   return postJson<RunNowResponse>(
     `/api/workflows/${encodeURIComponent(id)}/run-now`,

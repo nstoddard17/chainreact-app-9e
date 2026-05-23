@@ -588,3 +588,117 @@ describe("CONFIRMATION_REQUIRED handling (Slice 3.POSTSEC-5)", () => {
     });
   });
 });
+
+// ── Slice 3.POSTSEC-6 — runNowWorkflow `testMode` envelope option ─────────
+describe("runNowWorkflow testMode option (Slice 3.POSTSEC-6)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const apiModule = require("@/lib/api/workflows") as typeof import("@/lib/api/workflows");
+  const { runNowWorkflow } = apiModule;
+
+  it("omits testMode from the wire body when the option is undefined (back-compat with pre-POSTSEC-6 callers)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" }),
+        { status: 202 },
+      ),
+    );
+    await runNowWorkflow(SAMPLE.id);
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    expect(parsed).not.toHaveProperty("testMode");
+  });
+
+  it("posts testMode:true as a top-level sibling of inputs when opts.testMode === true", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          runId: "r-test",
+          enqueuedAt: "2026-05-23T00:00:00Z",
+          isTest: true,
+          triggeredBy: "test",
+        }),
+        { status: 202 },
+      ),
+    );
+    await runNowWorkflow(SAMPLE.id, { inputs: {} }, { testMode: true });
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    expect(parsed).toEqual({ inputs: {}, testMode: true });
+  });
+
+  it("posts testMode:false explicitly when opts.testMode === false (distinguishes explicit Live from omitted)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" }),
+        { status: 202 },
+      ),
+    );
+    await runNowWorkflow(SAMPLE.id, { inputs: {} }, { testMode: false });
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    expect(parsed).toEqual({ inputs: {}, testMode: false });
+  });
+
+  it("keeps testMode as an envelope sibling — never inside inputs (server schema is strict)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" }),
+        { status: 202 },
+      ),
+    );
+    await runNowWorkflow(
+      SAMPLE.id,
+      { inputs: { x: 1, y: "two" } },
+      { testMode: true },
+    );
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const parsed = JSON.parse(body) as { inputs: Record<string, unknown> } & {
+      testMode?: boolean;
+    };
+    expect(parsed.testMode).toBe(true);
+    expect(parsed.inputs).toEqual({ x: 1, y: "two" });
+    expect(parsed.inputs).not.toHaveProperty("testMode");
+  });
+
+  it("posts testMode + confirmationText together when retrying a destructive Live Run", async () => {
+    // The combined shape is what the panel's confirmation retry sends:
+    // testMode:false (preserved from the user's Live Run choice) +
+    // confirmationText (the server-issued phrase).
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" }),
+        { status: 202 },
+      ),
+    );
+    await runNowWorkflow(
+      SAMPLE.id,
+      { inputs: {} },
+      { testMode: false, confirmationText: "CONFIRM" },
+    );
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    expect(parsed).toEqual({
+      inputs: {},
+      testMode: false,
+      confirmationText: "CONFIRM",
+    });
+  });
+
+  it("the client does not invent testMode when only confirmationText is supplied (no promotion)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ runId: "r", enqueuedAt: "2026-05-23T00:00:00Z" }),
+        { status: 202 },
+      ),
+    );
+    await runNowWorkflow(
+      SAMPLE.id,
+      { inputs: {} },
+      { confirmationText: "CONFIRM" },
+    );
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    expect(parsed).toEqual({ inputs: {}, confirmationText: "CONFIRM" });
+    expect(parsed).not.toHaveProperty("testMode");
+  });
+});

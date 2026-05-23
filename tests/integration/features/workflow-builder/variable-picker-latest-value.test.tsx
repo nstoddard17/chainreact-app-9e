@@ -215,16 +215,16 @@ it("Run Now → terminal succeeded → picker shows trigger.payload.subject prev
   };
   mockGetWorkflowRun.mockResolvedValueOnce(successDetail);
 
-  // 4. Click Run Now → polling picks up the success on tick 1.
-  await user.click(screen.getByRole("button", { name: /run now/i }));
+  // 4. Click Run Live → polling picks up the success on tick 1.
+  await user.click(screen.getByTestId("run-now-live-button"));
   await waitFor(() => {
-    // Slice 3.POSTSEC-5 — runNowWorkflow signature is now
-    // (id, inputs, { confirmationText? }). First-shot call passes
-    // empty options.
+    // Slice 3.POSTSEC-6 — runNowWorkflow signature is now
+    // (id, inputs, { testMode?, confirmationText? }). Live Run sends
+    // testMode:false explicitly.
     expect(mockRunNowWorkflow).toHaveBeenCalledWith(
       "wf-1",
       { inputs: {} },
-      {},
+      { testMode: false },
     );
   });
   await act(async () => {
