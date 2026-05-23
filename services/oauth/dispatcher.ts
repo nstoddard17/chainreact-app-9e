@@ -10,6 +10,7 @@ import { discordOAuth } from "@/integrations/discord/oauth";
 import { githubOAuth } from "@/integrations/github/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
 import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
+import { googleDocsOAuth } from "@/integrations/google-docs/oauth";
 import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
 import { googleSheetsOAuth } from "@/integrations/google-sheets/oauth";
 import { hubspotOAuth } from "@/integrations/hubspot/oauth";
@@ -47,6 +48,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   slack: slackOAuth,
   gmail: gmailOAuth,
   "google-calendar": googleCalendarOAuth,
+  "google-docs": googleDocsOAuth,
   "google-drive": googleDriveOAuth,
   "google-sheets": googleSheetsOAuth,
   "microsoft-outlook": microsoftOutlookOAuth,

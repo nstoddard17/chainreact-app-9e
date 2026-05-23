@@ -8,6 +8,7 @@ import { discordManifest } from "./discord/manifest";
 import { githubManifest } from "./github/manifest";
 import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
+import { googleDocsManifest } from "./google-docs/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
 import { googleSheetsManifest } from "./google-sheets/manifest";
 import { microsoftExcelManifest } from "./microsoft-excel/manifest";
@@ -110,6 +111,10 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   slackManifest,
   gmailManifest,
   googleCalendarManifest,
+  // Slice 3.GDOCS-2 — Google Docs runtime port (5 actions, no
+  // triggers). webhookTrigger flips when GDOCS-5 ships Drive
+  // files.watch push triggers.
+  googleDocsManifest,
   googleDriveManifest,
   googleSheetsManifest,
   microsoftOutlookManifest,

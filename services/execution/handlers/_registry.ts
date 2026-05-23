@@ -50,6 +50,11 @@ import { createEvent } from "@/integrations/google-calendar/actions/createEvent"
 import { deleteEvent } from "@/integrations/google-calendar/actions/deleteEvent";
 import { listEvents } from "@/integrations/google-calendar/actions/listEvents";
 import { updateEvent } from "@/integrations/google-calendar/actions/updateEvent";
+import { createDocument as googleDocsCreateDocument } from "@/integrations/google-docs/actions/createDocument";
+import { exportDocument as googleDocsExportDocument } from "@/integrations/google-docs/actions/exportDocument";
+import { getDocument as googleDocsGetDocument } from "@/integrations/google-docs/actions/getDocument";
+import { shareDocument as googleDocsShareDocument } from "@/integrations/google-docs/actions/shareDocument";
+import { updateDocument as googleDocsUpdateDocument } from "@/integrations/google-docs/actions/updateDocument";
 import { createFolder } from "@/integrations/google-drive/actions/createFolder";
 import { deleteFile } from "@/integrations/google-drive/actions/deleteFile";
 import { listFiles } from "@/integrations/google-drive/actions/listFiles";
@@ -313,6 +318,20 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-drive", type: "list_files", handler: listFiles },
   { provider: "google-drive", type: "move_file", handler: moveFile },
   { provider: "google-drive", type: "delete_file", handler: deleteFile },
+  // Slice 3.GDOCS-2 — Google Docs runtime port (5 actions).
+  //   - share_document destructive-trio classification lands at the
+  //     meta layer in GDOCS-4 (this slice ships runtime only).
+  //   - export_document returns a FileRef(kind=v2_storage); V1's
+  //     email/webhook/workflow-base64 destinations are DROPPED per
+  //     GDOCS-1 §3.1.
+  //   - update_document supports the V1 5-mode insertLocation enum
+  //     (end / beginning / replace / after_text / before_text)
+  //     including `*` wildcard semantics.
+  { provider: "google-docs", type: "create_document", handler: googleDocsCreateDocument },
+  { provider: "google-docs", type: "update_document", handler: googleDocsUpdateDocument },
+  { provider: "google-docs", type: "share_document", handler: googleDocsShareDocument },
+  { provider: "google-docs", type: "get_document", handler: googleDocsGetDocument },
+  { provider: "google-docs", type: "export_document", handler: googleDocsExportDocument },
   { provider: "google-sheets", type: "read_rows", handler: readRows },
   { provider: "google-sheets", type: "append_row", handler: appendRow },
   { provider: "google-sheets", type: "update_row", handler: updateRow },
