@@ -8,7 +8,23 @@
  * pure adapter over global fetch with strict schema, bounded output,
  * URL-scheme allowlist, sensitive-header sanitization, and timeout via
  * AbortController.
+ *
+ * Slice 3.SEC-3 added a DNS-resolving egress validator. We mock
+ * `node:dns/promises.lookup` at module load so the existing tests
+ * (which use `example.com` / `api.example.com` / etc.) deterministically
+ * resolve to a known public IP without hitting real DNS. The SEC-3
+ * "block" tests later in the file override the mock per-test.
  */
+
+// Mock DNS BEFORE importing the handler so the egress module sees the
+// mock during its module-load lookup-binding. Default behavior: all
+// hostnames resolve to a single public IPv4 (1.1.1.1). Per-test
+// overrides happen via `mockDnsLookup.mockResolvedValueOnce(...)` /
+// `mockRejectedValueOnce(...)` inside the SEC-3 describe block.
+const mockDnsLookup = jest.fn();
+jest.mock("node:dns/promises", () => ({
+  lookup: (...args: unknown[]) => mockDnsLookup(...args),
+}));
 
 import { ZodError } from "zod";
 import {
@@ -17,9 +33,17 @@ import {
   InvalidHttpRequestUrlError,
   UnsupportedUrlSchemeError,
 } from "@/integrations/native/actions/httpRequest";
+import { HttpRequestBlockedDestinationError } from "@/integrations/native/actions/httpRequestEgress";
 import { HttpRequestConfigSchema } from "@/integrations/native/actions/httpRequest.schema";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+
+beforeEach(() => {
+  // Default DNS: every hostname resolves to a single public IPv4.
+  // Tests that need a different outcome override before calling httpRequest.
+  mockDnsLookup.mockReset();
+  mockDnsLookup.mockResolvedValue([{ address: "1.1.1.1", family: 4 }]);
+});
 
 const triggerEvent: TriggerEvent = {
   provider: "native",
@@ -659,5 +683,211 @@ describe("httpRequest — registry wiring", () => {
       "@/services/execution/handlers/_registry"
     );
     expect(getActionHandler("native", "http_request")).toBe(httpRequest);
+  });
+});
+
+// ── Slice 3.SEC-3 — egress hardening ────────────────────────────────────────
+//
+// Verifies the handler delegates to the egress validator BEFORE calling
+// fetch, that blocked destinations do NOT result in a fetch dispatch,
+// and that the manual-redirect mode is set so a 3xx response is
+// returned without auto-following to a potentially-blocked Location.
+describe("httpRequest — egress hardening (Slice 3.SEC-3)", () => {
+  it("blocks localhost — fetch is NEVER called", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "http://localhost:8080/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks 169.254.169.254 (cloud metadata IP) — fetch is NEVER called", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(
+        makeInput({
+          method: "GET",
+          url: "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+        }),
+      ),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks https://10.0.0.5/api (RFC1918 private)", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "https://10.0.0.5/api" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks https://[::1]/ (IPv6 loopback literal)", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "https://[::1]/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks https://[fc00::1]/ (IPv6 unique local literal)", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "https://[fc00::1]/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a domain that resolves to a private IP — DNS rebind-style defense", async () => {
+    mockDnsLookup.mockResolvedValueOnce([{ address: "10.0.0.5", family: 4 }]);
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "https://attacker.example/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks when DNS resolution fails (fail-closed)", async () => {
+    mockDnsLookup.mockRejectedValueOnce(new Error("ENOTFOUND"));
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "https://nxdomain.example/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks metadata.google.internal BEFORE issuing DNS", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(
+        makeInput({
+          method: "GET",
+          url: "http://metadata.google.internal/computeMetadata/v1/",
+        }),
+      ),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Hostname-denylist hits short-circuit DNS entirely.
+    expect(mockDnsLookup).not.toHaveBeenCalled();
+  });
+
+  it("blocked-destination error does NOT echo the full URL / query string", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      await httpRequest(
+        makeInput({
+          method: "GET",
+          url: "http://localhost/secret-path?token=sk-attacker-secret",
+        }),
+      );
+      throw new Error("expected to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpRequestBlockedDestinationError);
+      const blocked = err as HttpRequestBlockedDestinationError;
+      expect(blocked.message).not.toContain("sk-attacker-secret");
+      expect(blocked.message).not.toContain("/secret-path");
+      expect(blocked.code).toBe("HTTP_REQUEST_BLOCKED_DESTINATION");
+    }
+  });
+
+  it("allows a public destination when DNS returns a public IP", async () => {
+    // Default mock already returns 1.1.1.1; test just confirms the
+    // happy path is unaffected by the new check.
+    const fetchMock = jest.fn(async () => new Response("ok", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await httpRequest(
+      makeInput({ method: "GET", url: "https://example.com/r" }),
+    );
+    expect(result.output).toMatchObject({ status: 200, ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets `redirect: \"manual\"` on the fetch (3xx not auto-followed)", async () => {
+    const fetchMock = jest.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await httpRequest(makeInput({ method: "GET", url: "https://example.com/r" }));
+    const call = fetchMock.mock.calls[0] as unknown as [string, { redirect?: string }];
+    expect(call[1].redirect).toBe("manual");
+  });
+
+  it("returns 3xx response with status + Location header instead of auto-following", async () => {
+    // With `redirect: "manual"`, fetch surfaces the 3xx response as-is.
+    // The handler returns it; the workflow author decides what to do.
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("", {
+          status: 302,
+          statusText: "Found",
+          headers: { location: "http://169.254.169.254/latest/meta-data/" },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await httpRequest(
+      makeInput({ method: "GET", url: "https://shorturl.example/abc" }),
+    );
+    expect(result.output).toMatchObject({
+      status: 302,
+      ok: false,
+      urlHost: "shorturl.example",
+    });
+    expect((result.output as { headers: Record<string, string> }).headers.location).toBe(
+      "http://169.254.169.254/latest/meta-data/",
+    );
+    // Critical: a SINGLE outbound request was made — fetch never followed
+    // the redirect to the metadata IP.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a domain with MIXED A records (one public, one private)", async () => {
+    // Split-horizon defense: a single private IP rejects the request.
+    mockDnsLookup.mockResolvedValueOnce([
+      { address: "1.1.1.1", family: 4 },
+      { address: "10.0.0.5", family: 4 },
+    ]);
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "https://mixed.example/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks 0.0.0.0 (IPv4 unspecified)", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "http://0.0.0.0/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks 224.0.0.1 (IPv4 multicast)", async () => {
+    const fetchMock = jest.fn(async () => new Response(""));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await expect(
+      httpRequest(makeInput({ method: "GET", url: "http://224.0.0.1/" })),
+    ).rejects.toBeInstanceOf(HttpRequestBlockedDestinationError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

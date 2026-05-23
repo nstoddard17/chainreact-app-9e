@@ -4,6 +4,7 @@ import {
   type HttpRequestAuthConfig,
   type HttpRequestConfig,
 } from "./httpRequest.schema";
+import { validateEgressDestination } from "./httpRequestEgress";
 
 /**
  * Native `http_request` action — Native-nodes Slice 1 Commit 1.
@@ -19,9 +20,22 @@ import {
  *     defaults — no silent GET, no silent Content-Type injection).
  *   - URL scheme allowlist: `http:` and `https:` only. Everything else
  *     (file:, data:, javascript:, ftp:, …) rejected with
- *     `UnsupportedUrlSchemeError`. SSRF / private-network guards are
- *     intentionally NOT in Slice 1 — called out in the slice outcomes
- *     as a future hardening item.
+ *     `UnsupportedUrlSchemeError`.
+ *   - Egress hardening (Slice 3.SEC-3): after URL parsing the
+ *     destination is validated through `validateEgressDestination` —
+ *     IP literals are classified against the blocked-range table
+ *     (RFC 1918 private, loopback, link-local incl. 169.254.169.254
+ *     metadata, multicast, IPv6 ULA / link-local / IPv4-mapped), and
+ *     domain hostnames are DNS-resolved with every returned address
+ *     re-checked. DNS failure fails closed. See
+ *     `httpRequestEgress.ts` for the full policy.
+ *   - Redirects (Slice 3.SEC-3): `redirect: "manual"` on the fetch.
+ *     A 3xx response is returned to the workflow author with status
+ *     and Location header preserved — the handler does NOT
+ *     auto-follow, which closes the "public domain → 169.254.169.254"
+ *     redirect bypass. Workflow authors who want to chase a redirect
+ *     issue another http_request node, at which point egress checks
+ *     fire again.
  *   - Auth header is layered LAST. User-supplied `Authorization` in
  *     `headers[]` is dropped before the auth scheme builds the
  *     canonical Authorization header — caller `headers[]` cannot smuggle
@@ -91,6 +105,13 @@ export const httpRequest: ActionHandler = async (input) => {
 
   const baseUrl = parseUrlSafely(config.url);
   const fullUrl = applyQueryParams(baseUrl, config.queryParams);
+
+  // Slice 3.SEC-3 — block private / metadata / loopback / link-local /
+  // multicast / reserved destinations BEFORE we issue the fetch.
+  // Re-thrown as-is so the engine surfaces the structured
+  // `HTTP_REQUEST_BLOCKED_DESTINATION` code without re-wrapping.
+  await validateEgressDestination(fullUrl);
+
   const headers = buildRequestHeaders(config.headers, config.auth);
 
   const bodyForFetch = methodAllowsBody(config.method)
@@ -111,6 +132,13 @@ export const httpRequest: ActionHandler = async (input) => {
       headers,
       body: bodyForFetch,
       signal: controller.signal,
+      // Slice 3.SEC-3: do not auto-follow 3xx. A redirect to
+      // 169.254.169.254 (or any other blocked host) cannot bypass the
+      // pre-flight egress check this way. The 3xx response surfaces to
+      // the workflow author with `status` + `Location` header; a
+      // follow-on request goes through this handler again and
+      // re-validates.
+      redirect: "manual",
     });
   } catch (err) {
     if (controller.signal.aborted) {
