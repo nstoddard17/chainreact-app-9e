@@ -43,6 +43,26 @@ describe("options resolver registry", () => {
     expect(r?.requiredDeps).toBeUndefined();
   });
 
+  it("getOptionsResolver resolves the google-sheets:spreadsheets resolver (Slice 3.GSHEETS-2)", () => {
+    const r = getOptionsResolver("google-sheets:spreadsheets");
+    expect(r).toBeDefined();
+    expect(r?.source).toBe("google-sheets:spreadsheets");
+    expect(r?.provider).toBe("google-sheets");
+    expect(r?.requiresIntegration).toBe(true);
+    // Top-level picker — no deps.
+    expect(r?.requiredDeps).toBeUndefined();
+  });
+
+  it("getOptionsResolver resolves the google-sheets:sheets resolver (Slice 3.GSHEETS-2)", () => {
+    const r = getOptionsResolver("google-sheets:sheets");
+    expect(r).toBeDefined();
+    expect(r?.source).toBe("google-sheets:sheets");
+    expect(r?.provider).toBe("google-sheets");
+    expect(r?.requiresIntegration).toBe(true);
+    // Two-hop cascade — sheets are scoped to a parent spreadsheet.
+    expect(r?.requiredDeps).toEqual(["spreadsheetId"]);
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

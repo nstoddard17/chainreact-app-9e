@@ -15,9 +15,14 @@ describe("google-sheets manifest", () => {
     expect(getProvider("google-sheets")).toBe(googleSheetsManifest);
   });
 
-  it("declares Sheets' required scopes — full spreadsheets + OIDC userinfo (Slice 5 confirmed scope)", () => {
+  it("declares Sheets' required scopes — full spreadsheets + drive metadata read-only + OIDC userinfo", () => {
+    // Slice 3.GSHEETS-2 — `drive.metadata.readonly` added so the
+    // `google-sheets:spreadsheets` builder options resolver can
+    // enumerate the user's spreadsheets via Drive's `files.list`
+    // (the Sheets API itself has no list endpoint).
     expect(googleSheetsManifest.scopes.required).toEqual([
       "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.metadata.readonly",
       "https://www.googleapis.com/auth/userinfo.email",
     ]);
     expect(googleSheetsManifest.scopes.optional).toEqual([]);

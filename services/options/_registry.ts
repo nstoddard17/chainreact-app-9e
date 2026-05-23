@@ -11,6 +11,17 @@ import { nativeExamplesResolver } from "./fixtures/nativeExamples";
 // `slack:upload_file.channel`).
 import { slackChannelsResolver } from "@/integrations/slack/options/channels";
 
+// Google Sheets resolvers — Slice 3.GSHEETS-2.
+// `spreadsheets` enumerates the connected user's spreadsheets via
+// Drive's `files.list` (requires `drive.metadata.readonly` scope —
+// added to the google-sheets manifest in the same slice). `sheets`
+// enumerates the worksheets/tabs of a selected spreadsheet via Sheets'
+// `spreadsheets.get?includeGridData=false`; depends on spreadsheetId.
+// Together they back the two-hop cascade documented in
+// docs/slices/phase-3/google-sheets-action-metadata-plan.md §4.
+import { googleSheetsSpreadsheetsResolver } from "@/integrations/google-sheets/options/spreadsheets";
+import { googleSheetsSheetsResolver } from "@/integrations/google-sheets/options/sheets";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -40,6 +51,8 @@ import { slackChannelsResolver } from "@/integrations/slack/options/channels";
 export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   nativeExamplesResolver,
   slackChannelsResolver,
+  googleSheetsSpreadsheetsResolver,
+  googleSheetsSheetsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
