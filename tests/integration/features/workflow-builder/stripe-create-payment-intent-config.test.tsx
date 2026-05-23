@@ -14,8 +14,10 @@
  *   - `customerId` is plain text (resolver-less for v1),
  *   - `metadata` renders as the `keyvalue` chip UI — the renderer
  *     stores typed `Array<{key, value}>` (NOT a JSON string),
- *   - clientSecret + nextAction are exposed in the meta outputs (not
- *     exercised in the form; documented for variable-picker drilling),
+*   - nextAction is exposed in the meta outputs (not exercised in the
+ *     form; documented for variable-picker drilling); `clientSecret`
+ *     was removed in Slice 3.SEC-8 — see
+ *     `integrations/stripe/actions/createPaymentIntent.ts` JSDoc.
  *   - Modal Save flushes the draft into pendingNodes,
  *   - Toolbar Save persists once with every filled field intact.
  */
@@ -125,7 +127,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-text currency + customerId text + keyvalue metadata + clientSecret output — Slice 3.45 meta guard", () => {
+it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-text currency + customerId text + keyvalue metadata + NO clientSecret output (Slice 3.SEC-8) — Slice 3.45 meta guard", () => {
   // amount: required number, min 0.01, step 0.01, dollars-anchored
   const amount = stripeCreatePaymentIntentMeta.fields.find(
     (f) => f.name === "amount",
@@ -163,9 +165,12 @@ it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-t
   expect(metadata.required).toBe(false);
   expect(metadata.keyValueMaxRows).toBe(50);
 
-  // clientSecret in outputs (frontend Payment Element handoff)
+  // Slice 3.SEC-8 — clientSecret is NOT exposed as a workflow output.
+  // Browser-side Payment Element flows belong in customer-facing surfaces
+  // (Checkout Session, Payment Link); raw client_secret as a workflow
+  // variable leaks into run history + downstream sinks.
   const outputNames = stripeCreatePaymentIntentMeta.outputs.map((o) => o.name);
-  expect(outputNames).toContain("clientSecret");
+  expect(outputNames).not.toContain("clientSecret");
   // Output `amount` documents the CENTS unit asymmetry
   const outAmount = stripeCreatePaymentIntentMeta.outputs.find(
     (o) => o.name === "amount",

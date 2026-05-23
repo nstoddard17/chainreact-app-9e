@@ -17,12 +17,24 @@ import { CreatePaymentIntentConfigSchema } from "./createPaymentIntent.schema";
  * negative — typed handler-side error rather than a Stripe 400.
  *
  * Output shape:
- *   { paymentIntentId, clientSecret, amount, currency, status,
+ *   { paymentIntentId, amount, currency, status,
  *     customerId, description, created, metadata, nextAction }
  *
  *   `amount` echoes back in CENTS (Stripe wire-format). Workflows
  *   that display it should convert; workflows that pass it to
  *   downstream Stripe actions consume it as-is.
+ *
+ * Slice 3.SEC-8 — `client_secret` is intentionally NOT in the output
+ * projection. Stripe's `client_secret` is meant for browser-side
+ * Stripe.js / Payment Element flows; surfacing it as a workflow
+ * variable lets it land in run history, the variable picker, Slack
+ * messages, email bodies, http_request bodies, etc. — every place a
+ * workflow author can wire upstream outputs. The SEC-7 redactor masks
+ * the value in previews + run-detail serialization, but the safer
+ * design (per the SEC-1 audit no-go gate #4) is to never let it leave
+ * the handler. Workflows that need a customer-facing payment surface
+ * should use `stripe:create_checkout_session.url` or
+ * `stripe:create_payment_link.url` instead.
  */
 export const createPaymentIntent: ActionHandler = async (input) => {
   const config = CreatePaymentIntentConfigSchema.parse(input.config);
@@ -59,7 +71,6 @@ export const createPaymentIntent: ActionHandler = async (input) => {
   return {
     output: {
       paymentIntentId: result.id,
-      clientSecret: result.client_secret,
       amount: result.amount,
       currency: result.currency,
       status: result.status,

@@ -29,12 +29,13 @@ describe("redactOutput — sentinel", () => {
 
 describe("redactOutput — top-level redaction", () => {
   it("replaces a sensitive scalar field with the sentinel", () => {
+    // Synthetic field name; not tied to any real provider output.
     const meta: OutputMeta[] = [
       { name: "id", type: "string" },
-      { name: "clientSecret", type: "string", sensitive: true },
+      { name: "apiToken", type: "string", sensitive: true },
     ];
-    const out = redactOutput({ id: "pi_1", clientSecret: "pi_1_secret_xyz" }, meta);
-    expect(out).toEqual({ id: "pi_1", clientSecret: REDACTED_SENTINEL });
+    const out = redactOutput({ id: "pi_1", apiToken: "synthetic-secret-xyz" }, meta);
+    expect(out).toEqual({ id: "pi_1", apiToken: REDACTED_SENTINEL });
   });
 
   it("preserves non-sensitive fields verbatim", () => {
@@ -243,12 +244,12 @@ describe("redactOutput — immutability", () => {
   it("never mutates the input object", () => {
     const value = {
       id: "pi_1",
-      clientSecret: "pi_1_secret_xyz",
+      apiToken: "synthetic-secret-xyz",
       user: { id: "u-1", email: "a@b.c" },
     };
     const meta: OutputMeta[] = [
       { name: "id", type: "string" },
-      { name: "clientSecret", type: "string", sensitive: true },
+      { name: "apiToken", type: "string", sensitive: true },
       {
         name: "user",
         type: "object",
@@ -261,7 +262,7 @@ describe("redactOutput — immutability", () => {
     const snapshot = JSON.parse(JSON.stringify(value));
     redactOutput(value, meta);
     expect(value).toEqual(snapshot);
-    expect(value.clientSecret).toBe("pi_1_secret_xyz");
+    expect(value.apiToken).toBe("synthetic-secret-xyz");
     expect(value.user.email).toBe("a@b.c");
   });
 

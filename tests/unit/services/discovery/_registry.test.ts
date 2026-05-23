@@ -2868,20 +2868,15 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("no output exposes secret-keyed fields beyond intentional clientSecret (PaymentIntent flows only)", () => {
-      // clientSecret is allowed only on create_payment_intent and
-      // confirm_payment_intent — Stripe's documented Payment Element
-      // handoff. Reject any other secret-shaped output names.
-      const allowedClientSecretActions = new Set([
-        "stripe:create_payment_intent",
-        "stripe:confirm_payment_intent",
-      ]);
+    it("no Stripe output is named clientSecret (Slice 3.SEC-8 — full ban)", () => {
+      // Pre-SEC-8 this test allowed clientSecret on create/confirm
+      // payment_intent for "Payment Element handoff." SEC-8 removed
+      // clientSecret from those handler projections entirely — see
+      // `integrations/stripe/actions/createPaymentIntent.ts` JSDoc.
+      // The check is now a hard ban across the whole Stripe surface.
       for (const meta of stripeActionMetas()) {
         const names = meta.outputs.map((o) => o.name);
-        const hasClientSecret = names.includes("clientSecret");
-        if (hasClientSecret) {
-          expect(allowedClientSecretActions.has(meta.key)).toBe(true);
-        }
+        expect(names).not.toContain("clientSecret");
         // Reject other secret-shaped output names regardless of action.
         for (const banned of [
           "apiKey",
@@ -3010,13 +3005,13 @@ describe("per-provider accessors", () => {
         expect(currency.options).toBeUndefined();
       });
 
-      it("output includes clientSecret with picker-useful description", () => {
+      it("output does NOT include clientSecret (Slice 3.SEC-8 removal)", () => {
+        // Pre-SEC-8 the output included clientSecret for "Payment
+        // Element handoff." SEC-8 removed it — the handler projection
+        // intentionally drops it before returning. See
+        // `createPaymentIntent.ts` JSDoc for the rationale.
         const names = meta().outputs.map((o) => o.name);
-        expect(names).toContain("clientSecret");
-        const cs = meta().outputs.find((o) => o.name === "clientSecret")!;
-        expect(cs.type).toBe("string");
-        // Description must explain intended use to avoid warning fatigue.
-        expect(cs.description?.toLowerCase()).toContain("payment element");
+        expect(names).not.toContain("clientSecret");
       });
 
       it("output `amount` description anchors the CENTS echo (input→output unit asymmetry)", () => {
@@ -3068,7 +3063,7 @@ describe("per-provider accessors", () => {
       });
     });
 
-    describe("confirm_payment_intent — snake_case field names + clientSecret", () => {
+    describe("confirm_payment_intent — snake_case field names + bounded output (no clientSecret)", () => {
       function meta() {
         return stripeActionMetas().find(
           (m) => m.key === "stripe:confirm_payment_intent",
@@ -3084,9 +3079,9 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("output includes clientSecret (frontend handoff for requires_action)", () => {
+      it("output does NOT include clientSecret (Slice 3.SEC-8 removal)", () => {
         const names = meta().outputs.map((o) => o.name);
-        expect(names).toContain("clientSecret");
+        expect(names).not.toContain("clientSecret");
       });
     });
 
@@ -3849,13 +3844,7 @@ describe("OutputMeta.sensitive coverage (Slice 3.SEC-7)", () => {
     return output;
   }
 
-  describe("Stripe — clientSecret + customer email + payment URLs", () => {
-    it("stripe:create_payment_intent.clientSecret is sensitive", () => {
-      expect(findOutput("stripe:create_payment_intent", "clientSecret").sensitive).toBe(true);
-    });
-    it("stripe:confirm_payment_intent.clientSecret is sensitive", () => {
-      expect(findOutput("stripe:confirm_payment_intent", "clientSecret").sensitive).toBe(true);
-    });
+  describe("Stripe — customer email + payment URLs (clientSecret removed in SEC-8)", () => {
     it("stripe:create_customer.email is sensitive (output, not config)", () => {
       expect(findOutput("stripe:create_customer", "email").sensitive).toBe(true);
     });

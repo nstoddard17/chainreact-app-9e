@@ -11,6 +11,12 @@ import { ConfirmPaymentIntentConfigSchema } from "./confirmPaymentIntent.schema"
  * deduplicating key); calling confirm twice on a `succeeded` intent
  * yields the same final state. (Q4 idempotency-keyed actions are
  * limited to creates per the Slice 11 plan §17.)
+ *
+ * Slice 3.SEC-8 — `client_secret` is intentionally NOT in the output
+ * projection. See the matching JSDoc on `createPaymentIntent.ts` for
+ * the full rationale. Workflows that need a customer-facing payment
+ * surface use `stripe:create_checkout_session.url` /
+ * `stripe:create_payment_link.url` instead.
  */
 export const confirmPaymentIntent: ActionHandler = async (input) => {
   const config = ConfirmPaymentIntentConfigSchema.parse(input.config);
@@ -40,7 +46,6 @@ export const confirmPaymentIntent: ActionHandler = async (input) => {
       status: result.status,
       amount: result.amount,
       currency: result.currency,
-      clientSecret: result.client_secret,
       nextAction: result.next_action,
     },
   };

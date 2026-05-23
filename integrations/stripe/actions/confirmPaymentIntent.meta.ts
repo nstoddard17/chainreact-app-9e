@@ -24,7 +24,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * names mirror exactly so existing V1 workflow configs migrate
  * cleanly.
  *
- * Outputs match `confirmPaymentIntent.ts:return` exactly.
+ * Outputs match `confirmPaymentIntent.ts:return` exactly. Slice 3.SEC-8
+ * removed `clientSecret` from the projection — see the matching JSDoc on
+ * `confirmPaymentIntent.ts` for the rationale.
  */
 export const stripeConfirmPaymentIntentMeta: ActionMeta = {
   key: "stripe:confirm_payment_intent",
@@ -94,13 +96,6 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
       name: "currency",
       type: "string",
       description: "Lowercase ISO-4217 currency code (echoed).",
-    },
-    {
-      name: "clientSecret",
-      type: "string",
-      description:
-        "Client secret for frontend handoff. Exposed intentionally — Stripe.js / Payment Element on the client uses this to resolve `requires_action` states. NOT a Stripe API key; safe to send to the client per Stripe's documented flow.",
-      sensitive: true,
     },
     {
       name: "nextAction",

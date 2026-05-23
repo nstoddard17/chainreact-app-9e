@@ -684,7 +684,11 @@ describe("GET /api/providers/[id]/actions — risk fields in response (Slice 3.S
 
 // ─── Slice 3.SEC-7 — OutputMeta.sensitive in JSON response ──────────────────
 describe("GET /api/providers/[id]/actions — sensitive flag on outputs (Slice 3.SEC-7)", () => {
-  it("stripe:create_payment_intent's clientSecret output is serialized with sensitive=true", async () => {
+  it("stripe:create_customer's email output is serialized with sensitive=true", async () => {
+    // Slice 3.SEC-8 removed `clientSecret` from create_payment_intent's
+    // output projection entirely (see `createPaymentIntent.ts` JSDoc),
+    // so the original SEC-7 test was rewritten against a sensitive
+    // output that still exists: customer email.
     authedUser();
     const res = await getActions(new Request("http://x/stripe/actions"), {
       params: Promise.resolve({ id: "stripe" }),
@@ -696,12 +700,42 @@ describe("GET /api/providers/[id]/actions — sensitive flag on outputs (Slice 3
         outputs: Array<{ name: string; sensitive?: boolean }>;
       }>;
     };
-    const pi = body.actions.find((a) => a.key === "stripe:create_payment_intent")!;
-    const cs = pi.outputs.find((o) => o.name === "clientSecret")!;
-    expect(cs.sensitive).toBe(true);
+    const create = body.actions.find((a) => a.key === "stripe:create_customer")!;
+    const email = create.outputs.find((o) => o.name === "email")!;
+    expect(email.sensitive).toBe(true);
     // Non-sensitive sibling stays unflagged.
-    const piId = pi.outputs.find((o) => o.name === "paymentIntentId")!;
-    expect(piId.sensitive).toBeFalsy();
+    const customerId = create.outputs.find((o) => o.name === "customerId")!;
+    expect(customerId.sensitive).toBeFalsy();
+  });
+
+  it("stripe:create_payment_intent does NOT expose clientSecret in JSON (Slice 3.SEC-8 regression)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string }>;
+      }>;
+    };
+    const pi = body.actions.find((a) => a.key === "stripe:create_payment_intent")!;
+    expect(pi.outputs.map((o) => o.name)).not.toContain("clientSecret");
+  });
+
+  it("stripe:confirm_payment_intent does NOT expose clientSecret in JSON (Slice 3.SEC-8 regression)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string }>;
+      }>;
+    };
+    const confirm = body.actions.find((a) => a.key === "stripe:confirm_payment_intent")!;
+    expect(confirm.outputs.map((o) => o.name)).not.toContain("clientSecret");
   });
 
   it("native:http_request's body + bodyJson are serialized with sensitive=true", async () => {

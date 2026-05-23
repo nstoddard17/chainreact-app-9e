@@ -21,10 +21,14 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                   if Stripe routes it as `statement_descriptor`.
  *   - `metadata`    (optional) — Record<string,string>.
  *
- * Outputs match `createPaymentIntent.ts:return` exactly. `clientSecret`
- * is exposed intentionally — required for frontend Payment Element
- * confirmation (e.g. handing off to Stripe.js / mobile SDK). Workflows
- * that don't surface the secret to a client simply don't reference it.
+ * Outputs match `createPaymentIntent.ts:return` exactly. Slice 3.SEC-8
+ * removed `clientSecret` from the projection — Stripe's `client_secret`
+ * is browser-side flow material; surfacing it as a workflow output
+ * leaked it into run history, the variable picker, and downstream
+ * sinks. Workflows that need a customer-facing payment surface use
+ * `stripe:create_checkout_session.url` / `stripe:create_payment_link.url`
+ * instead. See the matching JSDoc on `createPaymentIntent.ts` for the
+ * full rationale and the SEC-1 audit no-go-gate #4 reference.
  */
 export const stripeCreatePaymentIntentMeta: ActionMeta = {
   key: "stripe:create_payment_intent",
@@ -88,13 +92,6 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
       type: "string",
       description:
         "Stripe PaymentIntent id (`pi_xxx`). Wire to Confirm Payment Intent / Capture Payment Intent / Find Payment Intent downstream.",
-    },
-    {
-      name: "clientSecret",
-      type: "string",
-      description:
-        "Client secret used by Stripe.js / Payment Element on the FRONTEND to confirm the payment. Exposed intentionally — workflows that hand off to a client checkout surface need this value. NOT a Stripe API key; safe to send to the client per Stripe's documented flow.",
-      sensitive: true,
     },
     {
       name: "amount",

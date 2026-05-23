@@ -163,7 +163,6 @@ describe("create_payment_intent action", () => {
     });
     expect(result.output).toEqual({
       paymentIntentId: "pi_test_1",
-      clientSecret: "pi_test_1_secret_xxx",
       amount: 2099,
       currency: "usd",
       status: "requires_payment_method",
@@ -173,5 +172,23 @@ describe("create_payment_intent action", () => {
       metadata: {},
       nextAction: null,
     });
+  });
+
+  // Slice 3.SEC-8 — regression guard. Even when the Stripe response
+  // includes `client_secret` (which it always does), the handler MUST
+  // NOT surface it on either snake_case or camelCase key. See the
+  // matching JSDoc on `createPaymentIntent.ts` for the rationale.
+  it("OMITS clientSecret from the workflow output (Slice 3.SEC-8)", async () => {
+    mockCreate.mockResolvedValueOnce(piResponse());
+    const result = await createPaymentIntent({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: { amount: 20.99, currency: "usd" },
+      triggerEvent: trigger(),
+    });
+    expect(result.output).not.toHaveProperty("clientSecret");
+    expect(result.output).not.toHaveProperty("client_secret");
   });
 });

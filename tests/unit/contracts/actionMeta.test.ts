@@ -536,10 +536,11 @@ describe("OutputMetaSchema — recursive nested fields", () => {
 
 describe("OutputMetaSchema — Slice 3.SEC-7 sensitive flag", () => {
   it("accepts sensitive: true on a top-level output", () => {
+    // Synthetic output name; not tied to any real provider field.
     const parsed = OutputMetaSchema.parse({
-      name: "clientSecret",
+      name: "apiToken",
       type: "string",
-      description: "Stripe client secret.",
+      description: "Synthetic example of a sensitive output.",
       sensitive: true,
     });
     expect(parsed.sensitive).toBe(true);

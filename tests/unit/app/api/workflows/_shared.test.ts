@@ -342,40 +342,45 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     };
   }
 
-  it("redacts a sensitive Stripe output (clientSecret) when nodes are supplied", () => {
+  // Slice 3.SEC-8 — the original SEC-7 demos used Stripe `clientSecret`
+  // as the canonical "sensitive Stripe output." SEC-8 removed
+  // clientSecret from the handler projection entirely, so these tests
+  // now exercise redaction against `stripe:create_customer.email` (a
+  // sensitive output that still exists).
+  it("redacts a sensitive Stripe output (email) when nodes are supplied", () => {
     const record = makeRecord([
       {
-        nodeId: "pi-node",
+        nodeId: "cust-node",
         status: "succeeded",
         output: {
-          paymentIntentId: "pi_1",
-          clientSecret: "pi_1_secret_xyz",
-          amount: 100,
+          customerId: "cus_1",
+          email: "alice@example.com",
+          name: "Alice",
         },
       },
     ]);
-    const nodes = [makeNode("pi-node", "stripe", "create_payment_intent")];
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
     const detail = toWorkflowRunDetail(record, nodes);
     expect(detail.steps[0]!.output).toEqual({
-      paymentIntentId: "pi_1",
-      clientSecret: REDACTED_SENTINEL,
-      amount: 100,
+      customerId: "cus_1",
+      email: REDACTED_SENTINEL,
+      name: "Alice",
     });
   });
 
-  it("preserves non-sensitive Stripe outputs (paymentIntentId stays visible)", () => {
+  it("preserves non-sensitive Stripe outputs (customerId stays visible)", () => {
     const record = makeRecord([
       {
-        nodeId: "pi-node",
+        nodeId: "cust-node",
         status: "succeeded",
-        output: { paymentIntentId: "pi_1", clientSecret: "secret" },
+        output: { customerId: "cus_1", email: "alice@example.com" },
       },
     ]);
-    const nodes = [makeNode("pi-node", "stripe", "create_payment_intent")];
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
     const detail = toWorkflowRunDetail(record, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
-    expect(out.paymentIntentId).toBe("pi_1");
-    expect(out.clientSecret).toBe(REDACTED_SENTINEL);
+    expect(out.customerId).toBe("cus_1");
+    expect(out.email).toBe(REDACTED_SENTINEL);
   });
 
   it("redacts http_request body + bodyJson when meta is wired", () => {
@@ -422,14 +427,14 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
   it("does NOT redact when workflowNodes is omitted (legacy behavior preserved)", () => {
     const record = makeRecord([
       {
-        nodeId: "pi-node",
+        nodeId: "cust-node",
         status: "succeeded",
-        output: { clientSecret: "pi_1_secret_xyz" },
+        output: { customerId: "cus_1", email: "alice@example.com" },
       },
     ]);
     const detail = toWorkflowRunDetail(record);
     const out = detail.steps[0]!.output as Record<string, unknown>;
-    expect(out.clientSecret).toBe("pi_1_secret_xyz");
+    expect(out.email).toBe("alice@example.com");
   });
 
   it("passes through steps whose nodeId is missing from workflowNodes (workflow edited post-run)", () => {
@@ -448,25 +453,25 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
 
   it("does NOT mutate the persisted record's output (immutability)", () => {
     const originalOutput = {
-      paymentIntentId: "pi_1",
-      clientSecret: "pi_1_secret_xyz",
+      customerId: "cus_1",
+      email: "alice@example.com",
     };
     const record = makeRecord([
-      { nodeId: "pi-node", status: "succeeded", output: originalOutput },
+      { nodeId: "cust-node", status: "succeeded", output: originalOutput },
     ]);
-    const nodes = [makeNode("pi-node", "stripe", "create_payment_intent")];
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
     toWorkflowRunDetail(record, nodes);
     // Persisted record is unchanged.
-    expect(originalOutput.clientSecret).toBe("pi_1_secret_xyz");
+    expect(originalOutput.email).toBe("alice@example.com");
     expect(record.steps[0]!.output).toBe(originalOutput);
   });
 
   it("redacts only the matching step when multiple steps with different actions are present", () => {
     const record = makeRecord([
       {
-        nodeId: "pi-node",
+        nodeId: "cust-node",
         status: "succeeded",
-        output: { paymentIntentId: "pi_1", clientSecret: "secret" },
+        output: { customerId: "cus_1", email: "alice@example.com" },
       },
       {
         nodeId: "fmt-node",
@@ -475,13 +480,13 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       },
     ]);
     const nodes = [
-      makeNode("pi-node", "stripe", "create_payment_intent"),
+      makeNode("cust-node", "stripe", "create_customer"),
       makeNode("fmt-node", "native", "format_transformer"),
     ];
     const detail = toWorkflowRunDetail(record, nodes);
-    const piOut = detail.steps[0]!.output as Record<string, unknown>;
+    const custOut = detail.steps[0]!.output as Record<string, unknown>;
     const fmtOut = detail.steps[1]!.output as Record<string, unknown>;
-    expect(piOut.clientSecret).toBe(REDACTED_SENTINEL);
+    expect(custOut.email).toBe(REDACTED_SENTINEL);
     expect(fmtOut.formatted).toBe("ok");
   });
 });

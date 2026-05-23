@@ -113,4 +113,35 @@ describe("confirm_payment_intent action", () => {
       }),
     ).rejects.toThrow();
   });
+
+  // Slice 3.SEC-8 — regression guard. Stripe's confirm response always
+  // contains `client_secret`; the handler MUST drop it before returning.
+  it("OMITS clientSecret from the workflow output (Slice 3.SEC-8)", async () => {
+    mockConfirm.mockResolvedValueOnce({
+      id: "pi_1",
+      status: "succeeded",
+      amount: 2099,
+      currency: "usd",
+      client_secret: "pi_1_secret_xxx",
+      next_action: null,
+    });
+    const result = await confirmPaymentIntent({
+      workflowId: "wf",
+      userId: "u",
+      runId: "r",
+      nodeId: "n",
+      config: { paymentIntentId: "pi_1" },
+      triggerEvent: trigger(),
+    });
+    expect(result.output).not.toHaveProperty("clientSecret");
+    expect(result.output).not.toHaveProperty("client_secret");
+    // Bounded projection: only the 5 canonical fields remain.
+    expect(Object.keys(result.output).sort()).toEqual([
+      "amount",
+      "currency",
+      "nextAction",
+      "paymentIntentId",
+      "status",
+    ]);
+  });
 });
