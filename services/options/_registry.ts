@@ -67,6 +67,38 @@ import { mailchimpAudiencesResolver } from "@/integrations/mailchimp/options/aud
 import { mailchimpCampaignsResolver } from "@/integrations/mailchimp/options/campaigns";
 import { mailchimpSegmentsResolver } from "@/integrations/mailchimp/options/segments";
 
+// Discord resolvers — Slice 3.DISCORD-3.
+//   - `discord:guilds` — bot's guild list (no deps; top-level picker
+//     for every Discord action's `guildId`).
+//   - `discord:channels` (depends on `guildId`) — text-shaped channels
+//     in the selected guild. Backs `channelId` on all 4 message actions.
+//   - `discord:members` (depends on `guildId`) — guild member list.
+//     Backs `userId` on `assign_role`, `userIds[]` on `delete_message`,
+//     `filterAuthor` on `fetch_messages`.
+//   - `discord:bot_messages` (depends on `channelId`) — channel's last
+//     100 messages filtered to bot-authored only. Backs the future
+//     `edit_message.messageId` picker (Discord only allows editing
+//     bot-authored messages — D-DC2 two-resolver split).
+//   - `discord:messages` (depends on `channelId`) — channel's last 100
+//     messages, unfiltered. Backs the future `delete_message.messageIds`
+//     picker (bot with Manage Messages can delete any message).
+//   - `discord:roles` (depends on `guildId`) — assignable roles, with
+//     @everyone + managed roles filtered out. Backs `roleId` on
+//     `assign_role`. Hierarchy filtering documented-but-deferred (see
+//     roles.ts header).
+//
+// Resolvers ship resolver-first ahead of the future DISCORD-4 action
+// meta layer. Discord stays OUT of `COVERED_PROVIDERS` until those
+// metas land. All resolvers authenticate as the global env
+// `DISCORD_BOT_TOKEN`; per-user OAuth tokens are not used at resolver
+// time (same model as Discord action handlers).
+import { discordBotMessagesResolver } from "@/integrations/discord/options/botMessages";
+import { discordChannelsResolver } from "@/integrations/discord/options/channels";
+import { discordGuildsResolver } from "@/integrations/discord/options/guilds";
+import { discordMembersResolver } from "@/integrations/discord/options/members";
+import { discordMessagesResolver } from "@/integrations/discord/options/messages";
+import { discordRolesResolver } from "@/integrations/discord/options/roles";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -113,6 +145,15 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   mailchimpAudiencesResolver,
   mailchimpCampaignsResolver,
   mailchimpSegmentsResolver,
+  // Slice 3.DISCORD-3 — 6 Discord resolvers (resolver-first ahead of
+  // DISCORD-4 action metas). Dep names preserved verbatim from V1
+  // (`guildId`, `channelId` — camelCase, NOT snake_case).
+  discordGuildsResolver,
+  discordChannelsResolver,
+  discordMembersResolver,
+  discordBotMessagesResolver,
+  discordMessagesResolver,
+  discordRolesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
