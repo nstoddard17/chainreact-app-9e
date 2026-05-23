@@ -422,7 +422,7 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
   });
 
-  it("returns the 13 HubSpot contact + company + deal + ticket + owners action metas in displayOrder as of Slice 3.HUBSPOT-4 (hubspot NOT yet in COVERED_PROVIDERS)", async () => {
+  it("returns the full 26 HubSpot action metas in displayOrder as of Slice 3.HUBSPOT-5 (closes the action surface; hubspot NOT yet in COVERED_PROVIDERS — trigger meta pending in HUBSPOT-6)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/hubspot/actions"), {
       params: Promise.resolve({ id: "hubspot" }),
@@ -454,7 +454,7 @@ describe("GET /api/providers/[id]/actions", () => {
       }>;
     };
     expect(body.provider).toBe("hubspot");
-    expect(body.actions).toHaveLength(13);
+    expect(body.actions).toHaveLength(26);
     expect(body.actions.map((a) => a.key)).toEqual([
       // Slice 3.HUBSPOT-3 — contacts + companies (10..60).
       "hubspot:create_contact",
@@ -471,6 +471,20 @@ describe("GET /api/providers/[id]/actions", () => {
       "hubspot:update_ticket",
       "hubspot:get_tickets",
       "hubspot:get_owners",
+      // Slice 3.HUBSPOT-5 — engagements + lists + commerce (140..260).
+      "hubspot:create_note",
+      "hubspot:create_task",
+      "hubspot:create_call",
+      "hubspot:create_meeting",
+      "hubspot:add_contact_to_list",
+      "hubspot:remove_from_list",
+      "hubspot:create_product",
+      "hubspot:update_product",
+      "hubspot:get_products",
+      "hubspot:create_line_item",
+      "hubspot:update_line_item",
+      "hubspot:get_line_items",
+      "hubspot:remove_line_item",
     ]);
     expect(body.actions.every((a) => a.category === "crm")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
@@ -654,6 +668,140 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(
       getOwners.outputs.find((o) => o.name === "hasMore")?.sensitive,
     ).toBeFalsy();
+
+    // ─── HUBSPOT-5 wire-shape pins ───────────────────────────────────────
+    //
+    // Risk classifications across the engagement + list + commerce
+    // surface serialize correctly; remove_line_item carries the full
+    // destructive trio; list pickers serialize the `hubspot:lists`
+    // resolver wiring; create_task select defaults survive the JSON
+    // layer.
+
+    // Medium risk across the 10 HUBSPOT-5 write actions.
+    for (const key of [
+      "hubspot:create_note",
+      "hubspot:create_task",
+      "hubspot:create_call",
+      "hubspot:create_meeting",
+      "hubspot:add_contact_to_list",
+      "hubspot:remove_from_list",
+      "hubspot:create_product",
+      "hubspot:update_product",
+      "hubspot:create_line_item",
+      "hubspot:update_line_item",
+    ]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.riskLevel).toBe("medium");
+      expect(action.isDestructive).toBe(false);
+      expect(action.requiresConfirmation).toBe(false);
+      expect(typeof action.riskDescription).toBe("string");
+      expect(action.riskDescription!.length).toBeGreaterThan(0);
+    }
+
+    // Low risk on the HUBSPOT-5 reads.
+    for (const key of ["hubspot:get_products", "hubspot:get_line_items"]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.riskLevel).toBe("low");
+      expect(action.isDestructive).toBe(false);
+      expect(action.requiresConfirmation).toBe(false);
+    }
+
+    // remove_line_item — sole destructive HubSpot action.
+    const removeLineItem = body.actions.find(
+      (a) => a.key === "hubspot:remove_line_item",
+    )!;
+    expect(removeLineItem.riskLevel).toBe("high");
+    expect(removeLineItem.isDestructive).toBe(true);
+    expect(removeLineItem.requiresConfirmation).toBe(true);
+    expect(typeof removeLineItem.riskDescription).toBe("string");
+    expect(removeLineItem.riskDescription!.length).toBeGreaterThan(0);
+    // Narrow field + output shape — single required text id, narrow
+    // structural outputs (neither sensitive).
+    expect(removeLineItem.fields.map((f) => f.name)).toEqual(["lineItemId"]);
+    expect(removeLineItem.fields[0]!.type).toBe("text");
+    expect(removeLineItem.fields[0]!.required).toBe(true);
+    expect(removeLineItem.outputs.map((o) => o.name)).toEqual([
+      "lineItemId",
+      "deleted",
+    ]);
+    for (const o of removeLineItem.outputs) {
+      expect(o.sensitive).toBeFalsy();
+    }
+
+    // List membership picker wiring (add + remove).
+    for (const key of ["hubspot:add_contact_to_list", "hubspot:remove_from_list"]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      const listId = action.fields.find((f) => f.name === "listId")!;
+      expect(listId.type).toBe("combobox");
+      expect(listId.optionsSource).toBe("hubspot:lists");
+      expect(listId.required).toBe(true);
+    }
+
+    // create_task select defaults round-trip through the JSON layer.
+    const createTask = body.actions.find(
+      (a) => a.key === "hubspot:create_task",
+    )!;
+    const taskStatus = createTask.fields.find(
+      (f) => f.name === "hs_task_status",
+    )!;
+    expect(taskStatus.type).toBe("select");
+    expect(taskStatus.defaultValue).toBe("NOT_STARTED");
+    const taskPriority = createTask.fields.find(
+      (f) => f.name === "hs_task_priority",
+    )!;
+    expect(taskPriority.type).toBe("select");
+    expect(taskPriority.defaultValue).toBe("MEDIUM");
+    const taskType = createTask.fields.find((f) => f.name === "hs_task_type")!;
+    expect(taskType.type).toBe("select");
+    expect(taskType.defaultValue).toBe("TODO");
+    // Owners resolver wired on create_task too.
+    const taskOwner = createTask.fields.find(
+      (f) => f.name === "hubspot_owner_id",
+    )!;
+    expect(taskOwner.type).toBe("combobox");
+    expect(taskOwner.optionsSource).toBe("hubspot:owners");
+
+    // create_note body output sensitive (load-bearing — `body` is in
+    // SUSPICIOUS_NAMES so missing this flag would fail the structural
+    // test; pinning it here guards the wire serialization too).
+    const createNote = body.actions.find(
+      (a) => a.key === "hubspot:create_note",
+    )!;
+    expect(
+      createNote.outputs.find((o) => o.name === "body")?.sensitive,
+    ).toBe(true);
+    expect(
+      createNote.outputs.find((o) => o.name === "properties")?.sensitive,
+    ).toBe(true);
+
+    // create_line_item commerce sensitivity round-trip.
+    const createLineItem = body.actions.find(
+      (a) => a.key === "hubspot:create_line_item",
+    )!;
+    for (const oname of ["name", "quantity", "price", "discount", "amount", "properties"]) {
+      expect(
+        createLineItem.outputs.find((o) => o.name === oname)?.sensitive,
+      ).toBe(true);
+    }
+    // Numeric-string fields stay text on the wire.
+    for (const fname of ["quantity", "price", "discount"]) {
+      const f = createLineItem.fields.find((x) => x.name === fname)!;
+      expect(f.type).toBe("text");
+    }
+
+    // Product sku stays non-sensitive (public catalog identifier).
+    const createProduct = body.actions.find(
+      (a) => a.key === "hubspot:create_product",
+    )!;
+    expect(
+      createProduct.outputs.find((o) => o.name === "sku")?.sensitive,
+    ).toBeFalsy();
+    expect(
+      createProduct.outputs.find((o) => o.name === "name")?.sensitive,
+    ).toBe(true);
+    expect(
+      createProduct.outputs.find((o) => o.name === "price")?.sensitive,
+    ).toBe(true);
   });
 
   it("returns the full 12/12 Google Sheets action coverage in displayOrder as of Slice 3.GSHEETS-4 (google-sheets now in COVERED_PROVIDERS)", async () => {

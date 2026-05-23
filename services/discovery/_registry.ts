@@ -211,6 +211,36 @@ import { hubspotCreateTicketMeta } from "@/integrations/hubspot/actions/meta/cre
 import { hubspotUpdateTicketMeta } from "@/integrations/hubspot/actions/meta/updateTicket.meta";
 import { hubspotGetTicketsMeta } from "@/integrations/hubspot/actions/meta/getTickets.meta";
 import { hubspotGetOwnersMeta } from "@/integrations/hubspot/actions/meta/getOwners.meta";
+// HubSpot engagements + lists + commerce (Slice 3.HUBSPOT-5 — final
+// 13 of 26 actions). Closes the HubSpot action surface at 26/26.
+// HubSpot stays OUT of `COVERED_PROVIDERS` for ONE more slice — the
+// HUBSPOT-6 trigger meta + `webhook_received` registration flips the
+// gate. Resolver re-uses from HUBSPOT-2:
+//   - `hubspot:owners`  — owner combobox on every engagement
+//                         (create_note / create_task / create_call /
+//                         create_meeting).
+//   - `hubspot:lists`   — list picker on add_contact_to_list +
+//                         remove_from_list (first consumer of the
+//                         stretch resolver). Picker surfaces each
+//                         list's MANUAL / DYNAMIC processingType.
+// `remove_line_item` is the single high-risk + destructive action in
+// the HubSpot surface — the meta declares the destructive trio
+// (isDestructive / requiresConfirmation / riskLevel: high). All
+// other HUBSPOT-5 actions are medium (create/update writes) or low
+// (`get_products` / `get_line_items` reads).
+import { hubspotCreateNoteMeta } from "@/integrations/hubspot/actions/meta/createNote.meta";
+import { hubspotCreateTaskMeta } from "@/integrations/hubspot/actions/meta/createTask.meta";
+import { hubspotCreateCallMeta } from "@/integrations/hubspot/actions/meta/createCall.meta";
+import { hubspotCreateMeetingMeta } from "@/integrations/hubspot/actions/meta/createMeeting.meta";
+import { hubspotAddContactToListMeta } from "@/integrations/hubspot/actions/meta/addContactToList.meta";
+import { hubspotRemoveFromListMeta } from "@/integrations/hubspot/actions/meta/removeFromList.meta";
+import { hubspotCreateProductMeta } from "@/integrations/hubspot/actions/meta/createProduct.meta";
+import { hubspotUpdateProductMeta } from "@/integrations/hubspot/actions/meta/updateProduct.meta";
+import { hubspotGetProductsMeta } from "@/integrations/hubspot/actions/meta/getProducts.meta";
+import { hubspotCreateLineItemMeta } from "@/integrations/hubspot/actions/meta/createLineItem.meta";
+import { hubspotUpdateLineItemMeta } from "@/integrations/hubspot/actions/meta/updateLineItem.meta";
+import { hubspotGetLineItemsMeta } from "@/integrations/hubspot/actions/meta/getLineItems.meta";
+import { hubspotRemoveLineItemMeta } from "@/integrations/hubspot/actions/meta/removeLineItem.meta";
 
 // Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
 // Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
@@ -488,6 +518,28 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   hubspotUpdateTicketMeta,
   hubspotGetTicketsMeta,
   hubspotGetOwnersMeta,
+  // HubSpot engagements + lists + commerce (Slice 3.HUBSPOT-5 — final
+  // 13 of 26). Ordered to match displayOrder (140..260): the four
+  // engagement creates first (note / task / call / meeting), then the
+  // list-membership pair, then products (create / update / get), then
+  // line items (create / update / get / remove). `remove_line_item`
+  // displayOrder is intentionally LAST in the HubSpot surface — it's
+  // the only destructive action and reviewers should see it at the
+  // bottom of the library list. HubSpot stays OUT of
+  // `COVERED_PROVIDERS` until HUBSPOT-6 ships the trigger meta.
+  hubspotCreateNoteMeta,
+  hubspotCreateTaskMeta,
+  hubspotCreateCallMeta,
+  hubspotCreateMeetingMeta,
+  hubspotAddContactToListMeta,
+  hubspotRemoveFromListMeta,
+  hubspotCreateProductMeta,
+  hubspotUpdateProductMeta,
+  hubspotGetProductsMeta,
+  hubspotCreateLineItemMeta,
+  hubspotUpdateLineItemMeta,
+  hubspotGetLineItemsMeta,
+  hubspotRemoveLineItemMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

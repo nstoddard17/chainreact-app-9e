@@ -1,0 +1,121 @@
+import type { ActionMeta } from "@/contracts/actionMeta";
+
+/**
+ * Builder-facing metadata for `hubspot:update_product`.
+ *
+ * Mirrors `updateProduct.schema.ts`: `productId` (required) + the
+ * same 5 property fields as `create_product`, all optional. Handler
+ * enforces "at least one property field must be present" at runtime.
+ *
+ * Output mirrors `updateProduct.ts:return` — narrower than
+ * `create_product` (no `createdAt`).
+ */
+export const hubspotUpdateProductMeta: ActionMeta = {
+  key: "hubspot:update_product",
+  provider: "hubspot",
+  type: "update_product",
+  displayName: "Update Product",
+  description:
+    "Update a HubSpot CRM product via `/crm/v3/objects/products/{id}`. Requires the product id and at least one property field — runtime rejects empty updates. Pass only the fields you want to change; omitted fields are left untouched.",
+  category: "crm",
+  requiresIntegration: true,
+  fields: [
+    {
+      name: "productId",
+      label: "Product ID",
+      description:
+        "HubSpot product id (numeric, returned by the API as a string). Usually wired from `{{hubspot:create_product.productId}}` or `{{hubspot:get_products.products[0].id}}`.",
+      type: "text",
+      required: true,
+      placeholder: "12345",
+    },
+    {
+      name: "name",
+      label: "Name",
+      description: "HubSpot `name` property.",
+      type: "text",
+      required: false,
+    },
+    {
+      name: "description",
+      label: "Description",
+      description: "HubSpot `description` property — free-form text.",
+      type: "textarea",
+      required: false,
+    },
+    {
+      name: "price",
+      label: "Price",
+      description:
+        "**Numeric STRING** — HubSpot expects stringified numbers for CRM property writes.",
+      type: "text",
+      required: false,
+    },
+    {
+      name: "hs_sku",
+      label: "SKU",
+      description: "HubSpot `hs_sku` property.",
+      type: "text",
+      required: false,
+    },
+    {
+      name: "hs_cost_of_goods_sold",
+      label: "Cost of goods sold",
+      description: "**Numeric STRING** — same shape as `Price`.",
+      type: "text",
+      required: false,
+    },
+    {
+      name: "hs_recurring_billing_period",
+      label: "Recurring billing period",
+      description:
+        "HubSpot `hs_recurring_billing_period` property. ISO 8601 duration string (e.g. `P1M`, `P1Y`).",
+      type: "text",
+      required: false,
+    },
+  ],
+  outputs: [
+    {
+      name: "productId",
+      type: "string",
+      description: "HubSpot product id (echoed).",
+    },
+    {
+      name: "name",
+      type: "string",
+      description: "Echoed `name` property (null when omitted). Marked sensitive — product names carry customer-identifying catalog data.",
+      sensitive: true,
+    },
+    {
+      name: "price",
+      type: "string",
+      description: "Echoed `price` property (null when omitted). Marked sensitive — financial catalog data.",
+      sensitive: true,
+    },
+    {
+      name: "sku",
+      type: "string",
+      description: "Echoed `hs_sku` property (null when omitted). Public catalog identifier — not marked sensitive.",
+    },
+    {
+      name: "updatedAt",
+      type: "string",
+      description: "ISO 8601 timestamp from HubSpot.",
+    },
+    {
+      name: "properties",
+      type: "object",
+      description:
+        "Full HubSpot product properties map after the update. Variable-shape. Marked sensitive — carries name + price + cost-of-goods + custom properties.",
+      sensitive: true,
+    },
+  ],
+  producesFileRef: false,
+  consumesFileRef: false,
+  displayOrder: 210,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription:
+    "Updates a HubSpot CRM product's properties. Supplied fields overwrite existing values; reversible only by writing the prior values back. Downstream quotes / line items referencing this product see the change.",
+};
