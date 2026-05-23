@@ -4,6 +4,7 @@ import {
   ProviderManifestSchema,
 } from "@/contracts/integration";
 import { airtableManifest } from "./airtable/manifest";
+import { discordManifest } from "./discord/manifest";
 import { githubManifest } from "./github/manifest";
 import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
@@ -111,6 +112,10 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   githubManifest,
   mailchimpManifest,
   trelloManifest,
+  // Slice 3.DISCORD-2 — Discord runtime port (actions only). Triggers
+  // deferred per Slice 3.DISCORD-1 §2.3 decision D-DC1; manifest
+  // declares capabilities.actions=true with webhook+polling=false.
+  discordManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

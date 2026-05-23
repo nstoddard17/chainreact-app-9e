@@ -18,6 +18,15 @@ import { createCard as trelloCreateCard } from "@/integrations/trello/actions/cr
 import { createList as trelloCreateList } from "@/integrations/trello/actions/createList";
 import { moveCard as trelloMoveCard } from "@/integrations/trello/actions/moveCard";
 import { updateCard as trelloUpdateCard } from "@/integrations/trello/actions/updateCard";
+// Slice 3.DISCORD-2 — Discord runtime port (5 actions). Bot-token
+// auth via env (DISCORD_BOT_TOKEN); no user-OAuth token used at
+// action time. Per Slice 3.DISCORD-1 decisions: actions only, no
+// triggers (D-DC1), only the 5 V1-manifest-declared handlers (D-DC3).
+import { assignRole as discordAssignRole } from "@/integrations/discord/actions/assignRole";
+import { deleteMessage as discordDeleteMessage } from "@/integrations/discord/actions/deleteMessage";
+import { editMessage as discordEditMessage } from "@/integrations/discord/actions/editMessage";
+import { fetchMessages as discordFetchMessages } from "@/integrations/discord/actions/fetchMessages";
+import { sendMessage as discordSendMessage } from "@/integrations/discord/actions/sendMessage";
 import { createBranch as githubCreateBranch } from "@/integrations/github/actions/createBranch";
 import { createGist as githubCreateGist } from "@/integrations/github/actions/createGist";
 import { createIssue as githubCreateIssue } from "@/integrations/github/actions/createIssue";
@@ -523,6 +532,15 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "trello", type: "add_label_to_card", handler: trelloAddLabelToCard },
   { provider: "trello", type: "create_list", handler: trelloCreateList },
   { provider: "trello", type: "create_board", handler: trelloCreateBoard },
+  // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
+  // delete_message is destructive (bulk + filter modes — see handler
+  // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT
+  // ported in this slice (Slice 3.DISCORD-1 decisions D-DC1 + D-DC3).
+  { provider: "discord", type: "send_message", handler: discordSendMessage },
+  { provider: "discord", type: "edit_message", handler: discordEditMessage },
+  { provider: "discord", type: "delete_message", handler: discordDeleteMessage },
+  { provider: "discord", type: "fetch_messages", handler: discordFetchMessages },
+  { provider: "discord", type: "assign_role", handler: discordAssignRole },
   // Native-nodes Slice 1 — Tier A pure-handler ports.
   // Pure handlers: no OAuth, no integration lookup, no manifest entry.
   // Dispatched by the engine via the standard (provider, type) key.

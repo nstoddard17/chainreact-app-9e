@@ -6,6 +6,7 @@ import {
 } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
+import { discordOAuth } from "@/integrations/discord/oauth";
 import { githubOAuth } from "@/integrations/github/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
 import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
@@ -60,6 +61,13 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   hubspot: hubspotOAuth,
   github: githubOAuth,
   mailchimp: mailchimpOAuth,
+  // Slice 3.DISCORD-2 — Discord identity OAuth. Refreshable (Discord
+  // issues refresh tokens for user identity flows); bot install is a
+  // side-effect of the inline `bot` scope picker on Discord's
+  // authorize page. The deployment-level DISCORD_BOT_TOKEN env is
+  // owned by integrations/_shared/discord/api/_base.ts and is NOT
+  // touched by this OAuth implementation.
+  discord: discordOAuth,
 });
 
 /**
