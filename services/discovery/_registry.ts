@@ -191,6 +191,26 @@ import { hubspotGetContactsMeta } from "@/integrations/hubspot/actions/meta/getC
 import { hubspotCreateCompanyMeta } from "@/integrations/hubspot/actions/meta/createCompany.meta";
 import { hubspotUpdateCompanyMeta } from "@/integrations/hubspot/actions/meta/updateCompany.meta";
 import { hubspotGetCompaniesMeta } from "@/integrations/hubspot/actions/meta/getCompanies.meta";
+// HubSpot deals + tickets + owners-read (Slice 3.HUBSPOT-4 — next 7
+// of 26 actions). First HubSpot batch to consume the HUBSPOT-2
+// resolver-first machinery:
+//   - `hubspot:owners`         — `hubspot_owner_id` on create/update
+//                                deal + create/update ticket.
+//   - `hubspot:deal_pipelines` → `hubspot:deal_stages` (dependsOn
+//                                `pipeline`) — pipeline → dealstage
+//                                cascade on create/update deal.
+//   - `hubspot:ticket_pipelines` → `hubspot:ticket_stages` (dependsOn
+//                                `hs_pipeline`) — pipeline → stage
+//                                cascade on create/update ticket.
+// HubSpot still stays OUT of `COVERED_PROVIDERS` — 13 more action
+// metas + 1 trigger meta still pending across HUBSPOT-5..6.
+import { hubspotCreateDealMeta } from "@/integrations/hubspot/actions/meta/createDeal.meta";
+import { hubspotUpdateDealMeta } from "@/integrations/hubspot/actions/meta/updateDeal.meta";
+import { hubspotGetDealsMeta } from "@/integrations/hubspot/actions/meta/getDeals.meta";
+import { hubspotCreateTicketMeta } from "@/integrations/hubspot/actions/meta/createTicket.meta";
+import { hubspotUpdateTicketMeta } from "@/integrations/hubspot/actions/meta/updateTicket.meta";
+import { hubspotGetTicketsMeta } from "@/integrations/hubspot/actions/meta/getTickets.meta";
+import { hubspotGetOwnersMeta } from "@/integrations/hubspot/actions/meta/getOwners.meta";
 
 // Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
 // Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
@@ -454,6 +474,20 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   hubspotCreateCompanyMeta,
   hubspotUpdateCompanyMeta,
   hubspotGetCompaniesMeta,
+  // HubSpot deals + tickets + owners-read (Slice 3.HUBSPOT-4 — next 7
+  // of 26). Ordered to match displayOrder (70..130): deal create/update/
+  // get, ticket create/update/get, then owners read. First HubSpot
+  // batch to wire `hubspot:owners` + the deal_pipelines/deal_stages +
+  // ticket_pipelines/ticket_stages cascades from HUBSPOT-2. HubSpot
+  // stays OUT of `COVERED_PROVIDERS` — 13 actions + 1 trigger pending
+  // across HUBSPOT-5..6.
+  hubspotCreateDealMeta,
+  hubspotUpdateDealMeta,
+  hubspotGetDealsMeta,
+  hubspotCreateTicketMeta,
+  hubspotUpdateTicketMeta,
+  hubspotGetTicketsMeta,
+  hubspotGetOwnersMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

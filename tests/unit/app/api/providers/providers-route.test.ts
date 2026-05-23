@@ -422,7 +422,7 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
   });
 
-  it("returns the 6 HubSpot contact + company action metas in displayOrder as of Slice 3.HUBSPOT-3 (hubspot NOT yet in COVERED_PROVIDERS)", async () => {
+  it("returns the 13 HubSpot contact + company + deal + ticket + owners action metas in displayOrder as of Slice 3.HUBSPOT-4 (hubspot NOT yet in COVERED_PROVIDERS)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/hubspot/actions"), {
       params: Promise.resolve({ id: "hubspot" }),
@@ -445,6 +445,8 @@ describe("GET /api/providers/[id]/actions", () => {
           type: string;
           required: boolean;
           defaultValue?: unknown;
+          optionsSource?: string;
+          dependsOn?: string;
           numeric?: { min?: number; max?: number; integer?: boolean };
           options?: Array<{ value: string; label: string }>;
         }>;
@@ -452,14 +454,23 @@ describe("GET /api/providers/[id]/actions", () => {
       }>;
     };
     expect(body.provider).toBe("hubspot");
-    expect(body.actions).toHaveLength(6);
+    expect(body.actions).toHaveLength(13);
     expect(body.actions.map((a) => a.key)).toEqual([
+      // Slice 3.HUBSPOT-3 — contacts + companies (10..60).
       "hubspot:create_contact",
       "hubspot:update_contact",
       "hubspot:get_contacts",
       "hubspot:create_company",
       "hubspot:update_company",
       "hubspot:get_companies",
+      // Slice 3.HUBSPOT-4 — deals + tickets + owners-read (70..130).
+      "hubspot:create_deal",
+      "hubspot:update_deal",
+      "hubspot:get_deals",
+      "hubspot:create_ticket",
+      "hubspot:update_ticket",
+      "hubspot:get_tickets",
+      "hubspot:get_owners",
     ]);
     expect(body.actions.every((a) => a.category === "crm")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
@@ -467,7 +478,14 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
 
     // Risk classifications round-trip through the JSON serializer.
-    for (const key of ["hubspot:create_contact", "hubspot:update_contact"]) {
+    for (const key of [
+      "hubspot:create_contact",
+      "hubspot:update_contact",
+      "hubspot:create_deal",
+      "hubspot:update_deal",
+      "hubspot:create_ticket",
+      "hubspot:update_ticket",
+    ]) {
       const action = body.actions.find((a) => a.key === key)!;
       expect(action.riskLevel).toBe("medium");
       expect(action.isDestructive).toBe(false);
@@ -475,7 +493,13 @@ describe("GET /api/providers/[id]/actions", () => {
       expect(typeof action.riskDescription).toBe("string");
       expect(action.riskDescription!.length).toBeGreaterThan(0);
     }
-    for (const key of ["hubspot:get_contacts", "hubspot:get_companies"]) {
+    for (const key of [
+      "hubspot:get_contacts",
+      "hubspot:get_companies",
+      "hubspot:get_deals",
+      "hubspot:get_tickets",
+      "hubspot:get_owners",
+    ]) {
       const action = body.actions.find((a) => a.key === key)!;
       expect(action.riskLevel).toBe("low");
       expect(action.isDestructive).toBe(false);
@@ -533,6 +557,103 @@ describe("GET /api/providers/[id]/actions", () => {
       const f = createCompany.fields.find((x) => x.name === fname)!;
       expect(f.type).toBe("text");
     }
+
+    // ─── HUBSPOT-4 wire-shape pins ───────────────────────────────────────
+    //
+    // Pipeline → stage cascade serializes correctly on create_deal +
+    // create_ticket, owners resolver wiring round-trips, sensitive
+    // flags survive the JSON layer.
+
+    const createDeal = body.actions.find(
+      (a) => a.key === "hubspot:create_deal",
+    )!;
+    const dealPipeline = createDeal.fields.find((f) => f.name === "pipeline")!;
+    expect(dealPipeline.type).toBe("combobox");
+    expect(dealPipeline.optionsSource).toBe("hubspot:deal_pipelines");
+    expect(dealPipeline.required).toBe(false);
+    const dealStage = createDeal.fields.find((f) => f.name === "dealstage")!;
+    expect(dealStage.type).toBe("combobox");
+    expect(dealStage.optionsSource).toBe("hubspot:deal_stages");
+    expect(dealStage.dependsOn).toBe("pipeline");
+    expect(dealStage.required).toBe(true);
+    const dealOwner = createDeal.fields.find(
+      (f) => f.name === "hubspot_owner_id",
+    )!;
+    expect(dealOwner.type).toBe("combobox");
+    expect(dealOwner.optionsSource).toBe("hubspot:owners");
+    // amount is TEXT (HubSpot expects numeric strings).
+    const dealAmount = createDeal.fields.find((f) => f.name === "amount")!;
+    expect(dealAmount.type).toBe("text");
+    // Sensitive deal outputs round-trip.
+    expect(
+      createDeal.outputs.find((o) => o.name === "dealname")?.sensitive,
+    ).toBe(true);
+    expect(
+      createDeal.outputs.find((o) => o.name === "amount")?.sensitive,
+    ).toBe(true);
+    expect(
+      createDeal.outputs.find((o) => o.name === "properties")?.sensitive,
+    ).toBe(true);
+    expect(
+      createDeal.outputs.find((o) => o.name === "dealId")?.sensitive,
+    ).toBeFalsy();
+
+    const createTicket = body.actions.find(
+      (a) => a.key === "hubspot:create_ticket",
+    )!;
+    const ticketPipeline = createTicket.fields.find(
+      (f) => f.name === "hs_pipeline",
+    )!;
+    expect(ticketPipeline.type).toBe("combobox");
+    expect(ticketPipeline.optionsSource).toBe("hubspot:ticket_pipelines");
+    expect(ticketPipeline.required).toBe(true);
+    const ticketStage = createTicket.fields.find(
+      (f) => f.name === "hs_pipeline_stage",
+    )!;
+    expect(ticketStage.type).toBe("combobox");
+    expect(ticketStage.optionsSource).toBe("hubspot:ticket_stages");
+    expect(ticketStage.dependsOn).toBe("hs_pipeline");
+    expect(ticketStage.required).toBe(true);
+    const priority = createTicket.fields.find(
+      (f) => f.name === "hs_ticket_priority",
+    )!;
+    expect(priority.type).toBe("select");
+    expect(priority.defaultValue).toBeUndefined();
+    expect(priority.options!.map((o) => o.value)).toEqual([
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+    ]);
+    // Sensitive ticket outputs round-trip.
+    expect(
+      createTicket.outputs.find((o) => o.name === "subject")?.sensitive,
+    ).toBe(true);
+    expect(
+      createTicket.outputs.find((o) => o.name === "properties")?.sensitive,
+    ).toBe(true);
+    expect(
+      createTicket.outputs.find((o) => o.name === "ticketId")?.sensitive,
+    ).toBeFalsy();
+
+    // get_owners surface.
+    const getOwners = body.actions.find(
+      (a) => a.key === "hubspot:get_owners",
+    )!;
+    expect(getOwners.fields.map((f) => f.name)).toEqual([
+      "limit",
+      "email",
+      "after",
+    ]);
+    const ownersLimit = getOwners.fields.find((f) => f.name === "limit")!;
+    expect(ownersLimit.type).toBe("number");
+    expect(ownersLimit.numeric?.min).toBe(1);
+    expect(ownersLimit.numeric?.max).toBe(100);
+    expect(
+      getOwners.outputs.find((o) => o.name === "owners")?.sensitive,
+    ).toBe(true);
+    expect(
+      getOwners.outputs.find((o) => o.name === "hasMore")?.sensitive,
+    ).toBeFalsy();
   });
 
   it("returns the full 12/12 Google Sheets action coverage in displayOrder as of Slice 3.GSHEETS-4 (google-sheets now in COVERED_PROVIDERS)", async () => {

@@ -240,11 +240,27 @@ describe("listAllActionMetas", () => {
     );
   });
 
-  it("hubspot is NOT in COVERED_PROVIDERS yet — 20 more action metas + 1 trigger meta pending in HUBSPOT-4..6", () => {
+  it("returns the HubSpot deal + ticket + owners-read action metas registered in Slice 3.HUBSPOT-4", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "hubspot:create_deal",
+        "hubspot:update_deal",
+        "hubspot:get_deals",
+        "hubspot:create_ticket",
+        "hubspot:update_ticket",
+        "hubspot:get_tickets",
+        "hubspot:get_owners",
+      ]),
+    );
+  });
+
+  it("hubspot is NOT in COVERED_PROVIDERS yet — 13 more action metas + 1 trigger meta pending in HUBSPOT-5..6", () => {
     const metas = listAllActionMetas().filter(
       (m) => m.provider === "hubspot",
     );
-    expect(metas).toHaveLength(6);
+    expect(metas).toHaveLength(13);
   });
 
   it("sorts by (displayOrder asc, displayName asc)", () => {
@@ -4426,31 +4442,42 @@ describe("per-provider accessors", () => {
     });
   });
 
-  // ─── HubSpot (Slice 3.HUBSPOT-3 — contacts + companies, 6 of 26) ─────────
+  // ─── HubSpot (Slices 3.HUBSPOT-3 + 3.HUBSPOT-4 — 13 of 26) ───────────────
   //
-  // Pinned surface for the first HubSpot metadata batch. HubSpot stays
-  // OUT of COVERED_PROVIDERS until HUBSPOT-6 (20 more action metas + 1
+  // HUBSPOT-3 shipped the 6 contact + company metas; HUBSPOT-4 added
+  // the 7 deal + ticket + owners-read metas + first owners-resolver +
+  // pipeline/stage cascade consumers. HubSpot stays OUT of
+  // COVERED_PROVIDERS until HUBSPOT-6 (13 more action metas + 1
   // trigger meta still pending).
-  describe("HubSpot action surface (Slice 3.HUBSPOT-3 — 6 of 26 coverage)", () => {
+  describe("HubSpot action surface (Slices 3.HUBSPOT-3 + 3.HUBSPOT-4 — 13 of 26 coverage)", () => {
     function hubspotActionMetas() {
       return listActionMetasForProvider("hubspot");
     }
 
-    it("registers the 6 contact + company action metas in displayOrder", () => {
+    it("registers the 13 contact + company + deal + ticket + owners-read action metas in displayOrder", () => {
       const metas = hubspotActionMetas();
       expect(metas.map((m) => m.key)).toEqual([
+        // HUBSPOT-3 (10..60)
         "hubspot:create_contact",
         "hubspot:update_contact",
         "hubspot:get_contacts",
         "hubspot:create_company",
         "hubspot:update_company",
         "hubspot:get_companies",
+        // HUBSPOT-4 (70..130)
+        "hubspot:create_deal",
+        "hubspot:update_deal",
+        "hubspot:get_deals",
+        "hubspot:create_ticket",
+        "hubspot:update_ticket",
+        "hubspot:get_tickets",
+        "hubspot:get_owners",
       ]);
     });
 
     it("every HubSpot meta declares provider=hubspot, category=crm, requiresIntegration=true, no FileRef", () => {
       const metas = hubspotActionMetas();
-      expect(metas).toHaveLength(6);
+      expect(metas).toHaveLength(13);
       for (const meta of metas) {
         expect(meta.provider).toBe("hubspot");
         expect(meta.category).toBe("crm");
@@ -4476,6 +4503,13 @@ describe("per-provider accessors", () => {
         "hubspot:create_company": "medium",
         "hubspot:update_company": "medium",
         "hubspot:get_companies": "low",
+        "hubspot:create_deal": "medium",
+        "hubspot:update_deal": "medium",
+        "hubspot:get_deals": "low",
+        "hubspot:create_ticket": "medium",
+        "hubspot:update_ticket": "medium",
+        "hubspot:get_tickets": "low",
+        "hubspot:get_owners": "low",
       };
       for (const meta of hubspotActionMetas()) {
         expect(meta.riskLevel).toBe(expectedRisk[meta.key]);
@@ -4483,7 +4517,7 @@ describe("per-provider accessors", () => {
           expect(meta.riskDescription).toBeDefined();
           expect(meta.riskDescription!.length).toBeGreaterThan(0);
         }
-        // No HubSpot Batch-1 action is destructive or requires
+        // No HubSpot Batch-1/2 action is destructive or requires
         // confirmation. (remove_line_item — the only HubSpot
         // destructive action — lands in HUBSPOT-5.)
         expect(meta.isDestructive).toBe(false);
@@ -4491,12 +4525,22 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("HUBSPOT-3 contact / company metas do NOT yet consume the hubspot:owners resolver — the contact/company schemas have no hubspot_owner_id field", () => {
-      // The 8 hubspot_owner_id-bearing actions all live in HUBSPOT-4/5
-      // (deals, tickets, engagements). This test pins the absence so
-      // a future change that adds `hubspot:owners` to a contact /
-      // company meta forces an explicit decision (and a schema check).
+    it("HUBSPOT-3 contact / company metas do NOT consume the hubspot:owners resolver — the contact/company schemas have no hubspot_owner_id field", () => {
+      // The 4 hubspot_owner_id-bearing HUBSPOT-4 metas live below
+      // (create/update deal, create/update ticket). This test pins
+      // the contact/company absence so a future change that adds
+      // `hubspot:owners` to a contact / company meta forces an
+      // explicit decision (and a schema check).
+      const contactCompanyKeys = new Set([
+        "hubspot:create_contact",
+        "hubspot:update_contact",
+        "hubspot:get_contacts",
+        "hubspot:create_company",
+        "hubspot:update_company",
+        "hubspot:get_companies",
+      ]);
       for (const meta of hubspotActionMetas()) {
+        if (!contactCompanyKeys.has(meta.key)) continue;
         const f = meta.fields.find((x) => x.name === "hubspot_owner_id");
         expect(f).toBeUndefined();
       }
@@ -4763,6 +4807,410 @@ describe("per-provider accessors", () => {
           expect(banned.has(o.name)).toBe(false);
         }
       }
+    });
+
+    // ─── HUBSPOT-4 deal + ticket + owners surface ──────────────────────────
+
+    describe("create_deal field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:create_deal",
+        )!;
+      }
+
+      it("exposes the schema's 8 fields ordered for the pipeline→stage cascade UX", () => {
+        // Pipeline is listed BEFORE dealstage even though the schema
+        // lists pipeline AFTER dealstage — the cascade requires the
+        // parent to render above the child.
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "dealname",
+          "pipeline",
+          "dealstage",
+          "amount",
+          "closedate",
+          "dealtype",
+          "description",
+          "hubspot_owner_id",
+        ]);
+      });
+
+      it("dealname is required text", () => {
+        const f = meta().fields.find((x) => x.name === "dealname")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("pipeline is an optional combobox sourced from hubspot:deal_pipelines", () => {
+        const f = meta().fields.find((x) => x.name === "pipeline")!;
+        expect(f.type).toBe("combobox");
+        expect(f.required).toBe(false);
+        expect(f.optionsSource).toBe("hubspot:deal_pipelines");
+        expect(f.dependsOn).toBeUndefined();
+      });
+
+      it("dealstage is a required combobox sourced from hubspot:deal_stages with dependsOn: pipeline (matches resolver's requiredDeps)", () => {
+        const f = meta().fields.find((x) => x.name === "dealstage")!;
+        expect(f.type).toBe("combobox");
+        expect(f.required).toBe(true);
+        expect(f.optionsSource).toBe("hubspot:deal_stages");
+        expect(f.dependsOn).toBe("pipeline");
+      });
+
+      it("amount is TEXT, not number — schema is z.string() and HubSpot API expects stringified numerics", () => {
+        const f = meta().fields.find((x) => x.name === "amount")!;
+        expect(f.type).toBe("text");
+        expect(f.description!.toLowerCase()).toContain("string");
+      });
+
+      it("description is textarea (free-form longer text)", () => {
+        const f = meta().fields.find((x) => x.name === "description")!;
+        expect(f.type).toBe("textarea");
+      });
+
+      it("hubspot_owner_id is an optional combobox sourced from hubspot:owners — first owners-resolver consumer", () => {
+        const f = meta().fields.find((x) => x.name === "hubspot_owner_id")!;
+        expect(f.type).toBe("combobox");
+        expect(f.required).toBe(false);
+        expect(f.optionsSource).toBe("hubspot:owners");
+      });
+
+      it("outputs are {dealId, dealname, dealstage, pipeline, amount, closedate, createdAt, updatedAt, properties} — dealname/amount/properties sensitive", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "dealId",
+          "dealname",
+          "dealstage",
+          "pipeline",
+          "amount",
+          "closedate",
+          "createdAt",
+          "updatedAt",
+          "properties",
+        ]);
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("dealname")!.sensitive).toBe(true);
+        expect(byName.get("amount")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+        // Structural fields stay non-sensitive.
+        expect(byName.get("dealId")!.sensitive).toBeFalsy();
+        expect(byName.get("dealstage")!.sensitive).toBeFalsy();
+        expect(byName.get("pipeline")!.sensitive).toBeFalsy();
+        expect(byName.get("closedate")!.sensitive).toBeFalsy();
+        expect(byName.get("createdAt")!.sensitive).toBeFalsy();
+        expect(byName.get("updatedAt")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("update_deal field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:update_deal",
+        )!;
+      }
+
+      it("dealId is required text (search-by-property picker deferred)", () => {
+        const f = meta().fields.find((x) => x.name === "dealId")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("every property field is OPTIONAL (runtime enforces 'at least one property')", () => {
+        const optionals = meta().fields.filter((f) => f.name !== "dealId");
+        for (const f of optionals) {
+          expect(f.required).toBe(false);
+        }
+      });
+
+      it("preserves pipeline→dealstage cascade (pipeline before dealstage; dealstage.dependsOn=pipeline)", () => {
+        const names = meta().fields.map((f) => f.name);
+        expect(names.indexOf("pipeline")).toBeLessThan(names.indexOf("dealstage"));
+        const stage = meta().fields.find((x) => x.name === "dealstage")!;
+        expect(stage.optionsSource).toBe("hubspot:deal_stages");
+        expect(stage.dependsOn).toBe("pipeline");
+      });
+
+      it("hubspot_owner_id is an optional combobox sourced from hubspot:owners", () => {
+        const f = meta().fields.find((x) => x.name === "hubspot_owner_id")!;
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:owners");
+      });
+
+      it("outputs mark dealname + amount + properties sensitive", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("dealname")!.sensitive).toBe(true);
+        expect(byName.get("amount")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+      });
+    });
+
+    describe("get_deals field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:get_deals",
+        )!;
+      }
+
+      it("exposes limit / after / properties / filterProperty / filterValue (mirrors get_contacts shape)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "limit",
+          "after",
+          "properties",
+          "filterProperty",
+          "filterValue",
+        ]);
+      });
+
+      it("limit is a bounded number (1..100, integer — matches schema cap)", () => {
+        const f = meta().fields.find((x) => x.name === "limit")!;
+        expect(f.type).toBe("number");
+        expect(f.numeric?.min).toBe(1);
+        expect(f.numeric?.max).toBe(100);
+        expect(f.numeric?.integer).toBe(true);
+      });
+
+      it("properties is an optional string-array (matches schema's string|string[] union)", () => {
+        const f = meta().fields.find((x) => x.name === "properties")!;
+        expect(f.type).toBe("string-array");
+      });
+
+      it("deals output is sensitive; count/total/nextCursor/hasMore stay structural", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("deals")!.sensitive).toBe(true);
+        expect(byName.get("count")!.sensitive).toBeFalsy();
+        expect(byName.get("total")!.sensitive).toBeFalsy();
+        expect(byName.get("nextCursor")!.sensitive).toBeFalsy();
+        expect(byName.get("hasMore")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("create_ticket field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:create_ticket",
+        )!;
+      }
+
+      it("exposes the schema's 11 fields ordered for the pipeline→stage cascade UX", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "subject",
+          "hs_pipeline",
+          "hs_pipeline_stage",
+          "content",
+          "hs_ticket_priority",
+          "hs_ticket_category",
+          "source_type",
+          "hubspot_owner_id",
+          "associatedContactId",
+          "associatedCompanyId",
+          "associatedDealId",
+        ]);
+      });
+
+      it("subject is required text", () => {
+        const f = meta().fields.find((x) => x.name === "subject")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("hs_pipeline is a required combobox sourced from hubspot:ticket_pipelines", () => {
+        const f = meta().fields.find((x) => x.name === "hs_pipeline")!;
+        expect(f.type).toBe("combobox");
+        expect(f.required).toBe(true);
+        expect(f.optionsSource).toBe("hubspot:ticket_pipelines");
+      });
+
+      it("hs_pipeline_stage is a required combobox sourced from hubspot:ticket_stages with dependsOn: hs_pipeline (matches resolver's requiredDeps)", () => {
+        const f = meta().fields.find((x) => x.name === "hs_pipeline_stage")!;
+        expect(f.type).toBe("combobox");
+        expect(f.required).toBe(true);
+        expect(f.optionsSource).toBe("hubspot:ticket_stages");
+        expect(f.dependsOn).toBe("hs_pipeline");
+      });
+
+      it("content is textarea (ticket body)", () => {
+        const f = meta().fields.find((x) => x.name === "content")!;
+        expect(f.type).toBe("textarea");
+      });
+
+      it("hs_ticket_priority is a select with exact LOW/MEDIUM/HIGH enum options + NO defaultValue per Q11", () => {
+        const f = meta().fields.find((x) => x.name === "hs_ticket_priority")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(false);
+        expect(f.defaultValue).toBeUndefined();
+        expect(f.options!.map((o) => o.value)).toEqual([
+          "LOW",
+          "MEDIUM",
+          "HIGH",
+        ]);
+      });
+
+      it("hubspot_owner_id is an optional combobox sourced from hubspot:owners", () => {
+        const f = meta().fields.find((x) => x.name === "hubspot_owner_id")!;
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:owners");
+      });
+
+      it("association fields are optional text (search-by-property pickers deferred)", () => {
+        for (const name of [
+          "associatedContactId",
+          "associatedCompanyId",
+          "associatedDealId",
+        ]) {
+          const f = meta().fields.find((x) => x.name === name)!;
+          expect(f.type).toBe("text");
+          expect(f.required).toBe(false);
+        }
+      });
+
+      it("outputs are {ticketId, subject, pipeline, pipelineStage, createdAt, updatedAt, properties, associationsAttached, associationWarnings} — subject + properties sensitive", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "ticketId",
+          "subject",
+          "pipeline",
+          "pipelineStage",
+          "createdAt",
+          "updatedAt",
+          "properties",
+          "associationsAttached",
+          "associationWarnings",
+        ]);
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("subject")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+        // Structural / association-report fields stay non-sensitive
+        // (warnings carry hubspot ids + provider error strings, not
+        // customer PII).
+        expect(byName.get("ticketId")!.sensitive).toBeFalsy();
+        expect(byName.get("pipeline")!.sensitive).toBeFalsy();
+        expect(byName.get("pipelineStage")!.sensitive).toBeFalsy();
+        expect(byName.get("associationsAttached")!.sensitive).toBeFalsy();
+        expect(byName.get("associationWarnings")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("update_ticket field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:update_ticket",
+        )!;
+      }
+
+      it("ticketId is required text", () => {
+        const f = meta().fields.find((x) => x.name === "ticketId")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("every property field is OPTIONAL (runtime enforces 'at least one property')", () => {
+        const optionals = meta().fields.filter((f) => f.name !== "ticketId");
+        for (const f of optionals) {
+          expect(f.required).toBe(false);
+        }
+      });
+
+      it("preserves hs_pipeline→hs_pipeline_stage cascade (parent before child; child.dependsOn=hs_pipeline)", () => {
+        const names = meta().fields.map((f) => f.name);
+        expect(names.indexOf("hs_pipeline")).toBeLessThan(
+          names.indexOf("hs_pipeline_stage"),
+        );
+        const stage = meta().fields.find((x) => x.name === "hs_pipeline_stage")!;
+        expect(stage.optionsSource).toBe("hubspot:ticket_stages");
+        expect(stage.dependsOn).toBe("hs_pipeline");
+      });
+
+      it("hs_ticket_priority is a select with exact LOW/MEDIUM/HIGH enum options + NO defaultValue", () => {
+        const f = meta().fields.find((x) => x.name === "hs_ticket_priority")!;
+        expect(f.type).toBe("select");
+        expect(f.defaultValue).toBeUndefined();
+        expect(f.options!.map((o) => o.value)).toEqual([
+          "LOW",
+          "MEDIUM",
+          "HIGH",
+        ]);
+      });
+
+      it("does NOT include association fields (V1 + V2 don't ship association handling on update)", () => {
+        const names = new Set(meta().fields.map((f) => f.name));
+        expect(names.has("associatedContactId")).toBe(false);
+        expect(names.has("associatedCompanyId")).toBe(false);
+        expect(names.has("associatedDealId")).toBe(false);
+      });
+
+      it("outputs mark subject + properties sensitive", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("subject")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+      });
+    });
+
+    describe("get_tickets field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:get_tickets",
+        )!;
+      }
+
+      it("mirrors get_deals shape (limit / after / properties / filterProperty / filterValue)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "limit",
+          "after",
+          "properties",
+          "filterProperty",
+          "filterValue",
+        ]);
+      });
+
+      it("tickets output is sensitive; pagination scalars stay structural", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("tickets")!.sensitive).toBe(true);
+        expect(byName.get("count")!.sensitive).toBeFalsy();
+        expect(byName.get("hasMore")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("get_owners field surface (Slice 3.HUBSPOT-4)", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:get_owners",
+        )!;
+      }
+
+      it("exposes limit / email / after (matches schema)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "limit",
+          "email",
+          "after",
+        ]);
+      });
+
+      it("limit is a bounded number (1..100, integer)", () => {
+        const f = meta().fields.find((x) => x.name === "limit")!;
+        expect(f.type).toBe("number");
+        expect(f.numeric?.min).toBe(1);
+        expect(f.numeric?.max).toBe(100);
+        expect(f.numeric?.integer).toBe(true);
+      });
+
+      it("email is optional text (schema z.string().email(); UI keeps text per the slice rule)", () => {
+        const f = meta().fields.find((x) => x.name === "email")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(false);
+      });
+
+      it("owners array output is sensitive (per-entry email + names = employee PII); count/cursor/hasMore stay structural", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("owners")!.sensitive).toBe(true);
+        expect(byName.get("count")!.sensitive).toBeFalsy();
+        expect(byName.get("nextCursor")!.sensitive).toBeFalsy();
+        expect(byName.get("hasMore")!.sensitive).toBeFalsy();
+      });
+
+      it("get_owners is low-risk (pure read)", () => {
+        expect(meta().riskLevel).toBe("low");
+        expect(meta().isDestructive).toBe(false);
+        expect(meta().requiresConfirmation).toBe(false);
+      });
     });
   });
 
