@@ -60,7 +60,7 @@ export const newCommitTriggerMeta: TriggerMeta = {
       description: "Head commit shape: id, message, url, timestamp, author{...}, added/modified/removed[].",
     },
     { name: "commits", type: "array", description: "All commits included in the push (in order)." },
-    { name: "body", type: "object", description: "Raw GitHub event body for fields not surfaced above." },
+    { name: "body", type: "object", description: "Raw GitHub event body for fields not surfaced above.", sensitive: true  },
   ],
   displayOrder: 10,
 };

@@ -23,12 +23,15 @@ import {
   requireUser,
   runLifecycle,
   toWorkflowDetail,
+  toWorkflowRunDetail,
   toWorkflowRunSummary,
   toWorkflowSummary,
 } from "@/app/api/workflows/_shared";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import type { WorkflowNode } from "@/contracts/workflowDefinition";
+import { REDACTED_SENTINEL } from "@/core/security/redactOutput";
 
 beforeEach(() => {
   mockGetUser.mockReset();
@@ -293,5 +296,192 @@ describe("toWorkflowRunSummary", () => {
       action: "open_node",
       severity: "error",
     });
+  });
+});
+
+// ── Slice 3.SEC-7 — toWorkflowRunDetail redaction ───────────────────────────
+describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () => {
+  const triggerEvent: TriggerEvent = {
+    provider: "native",
+    eventType: "manual.run",
+    eventId: "ev-1",
+    occurredAt: "2026-05-22T00:00:00Z",
+    accountId: "system",
+    payload: { inputs: {} },
+  };
+
+  function makeRecord(
+    steps: WorkflowRunRecord["steps"],
+  ): WorkflowRunRecord {
+    return {
+      id: "11111111-1111-1111-1111-111111111111",
+      workflowId: "22222222-2222-2222-2222-222222222222",
+      userId: "user-1",
+      status: "succeeded",
+      triggerNodeId: "t1",
+      triggerEvent,
+      steps,
+      fatalError: null,
+      errorClassification: null,
+      startedAt: "2026-05-22T00:00:00Z",
+      finishedAt: "2026-05-22T00:00:01Z",
+      createdAt: "2026-05-22T00:00:00Z",
+      isTest: false,
+      triggeredBy: "unknown",
+    };
+  }
+
+  function makeNode(id: string, provider: string, type: string): WorkflowNode {
+    return {
+      id,
+      kind: "action",
+      provider,
+      type,
+      config: {},
+      position: { x: 0, y: 0 },
+    };
+  }
+
+  it("redacts a sensitive Stripe output (clientSecret) when nodes are supplied", () => {
+    const record = makeRecord([
+      {
+        nodeId: "pi-node",
+        status: "succeeded",
+        output: {
+          paymentIntentId: "pi_1",
+          clientSecret: "pi_1_secret_xyz",
+          amount: 100,
+        },
+      },
+    ]);
+    const nodes = [makeNode("pi-node", "stripe", "create_payment_intent")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    expect(detail.steps[0]!.output).toEqual({
+      paymentIntentId: "pi_1",
+      clientSecret: REDACTED_SENTINEL,
+      amount: 100,
+    });
+  });
+
+  it("preserves non-sensitive Stripe outputs (paymentIntentId stays visible)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "pi-node",
+        status: "succeeded",
+        output: { paymentIntentId: "pi_1", clientSecret: "secret" },
+      },
+    ]);
+    const nodes = [makeNode("pi-node", "stripe", "create_payment_intent")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.paymentIntentId).toBe("pi_1");
+    expect(out.clientSecret).toBe(REDACTED_SENTINEL);
+  });
+
+  it("redacts http_request body + bodyJson when meta is wired", () => {
+    const record = makeRecord([
+      {
+        nodeId: "http-node",
+        status: "succeeded",
+        output: {
+          status: 200,
+          ok: true,
+          body: "secret-leaked-response",
+          bodyJson: { token: "leaked-token" },
+        },
+      },
+    ]);
+    const nodes = [makeNode("http-node", "native", "http_request")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.body).toBe(REDACTED_SENTINEL);
+    expect(out.bodyJson).toBe(REDACTED_SENTINEL);
+    // Non-sensitive fields stay.
+    expect(out.status).toBe(200);
+    expect(out.ok).toBe(true);
+  });
+
+  it("redacts a sensitive object output as a whole (Stripe findCustomer.customer)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "find-node",
+        status: "succeeded",
+        output: {
+          found: true,
+          customer: { customerId: "cus_1", email: "x@y.z", name: "Alice" },
+        },
+      },
+    ]);
+    const nodes = [makeNode("find-node", "stripe", "find_customer")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.found).toBe(true);
+    expect(out.customer).toBe(REDACTED_SENTINEL);
+  });
+
+  it("does NOT redact when workflowNodes is omitted (legacy behavior preserved)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "pi-node",
+        status: "succeeded",
+        output: { clientSecret: "pi_1_secret_xyz" },
+      },
+    ]);
+    const detail = toWorkflowRunDetail(record);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.clientSecret).toBe("pi_1_secret_xyz");
+  });
+
+  it("passes through steps whose nodeId is missing from workflowNodes (workflow edited post-run)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "deleted-node",
+        status: "succeeded",
+        output: { secret: "abc" },
+      },
+    ]);
+    // Workflow no longer has that node — fail-open: output unchanged.
+    const nodes: WorkflowNode[] = [];
+    const detail = toWorkflowRunDetail(record, nodes);
+    expect(detail.steps[0]!.output).toEqual({ secret: "abc" });
+  });
+
+  it("does NOT mutate the persisted record's output (immutability)", () => {
+    const originalOutput = {
+      paymentIntentId: "pi_1",
+      clientSecret: "pi_1_secret_xyz",
+    };
+    const record = makeRecord([
+      { nodeId: "pi-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("pi-node", "stripe", "create_payment_intent")];
+    toWorkflowRunDetail(record, nodes);
+    // Persisted record is unchanged.
+    expect(originalOutput.clientSecret).toBe("pi_1_secret_xyz");
+    expect(record.steps[0]!.output).toBe(originalOutput);
+  });
+
+  it("redacts only the matching step when multiple steps with different actions are present", () => {
+    const record = makeRecord([
+      {
+        nodeId: "pi-node",
+        status: "succeeded",
+        output: { paymentIntentId: "pi_1", clientSecret: "secret" },
+      },
+      {
+        nodeId: "fmt-node",
+        status: "succeeded",
+        output: { formatted: "ok" },
+      },
+    ]);
+    const nodes = [
+      makeNode("pi-node", "stripe", "create_payment_intent"),
+      makeNode("fmt-node", "native", "format_transformer"),
+    ];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const piOut = detail.steps[0]!.output as Record<string, unknown>;
+    const fmtOut = detail.steps[1]!.output as Record<string, unknown>;
+    expect(piOut.clientSecret).toBe(REDACTED_SENTINEL);
+    expect(fmtOut.formatted).toBe("ok");
   });
 });

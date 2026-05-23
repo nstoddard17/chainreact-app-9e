@@ -75,6 +75,7 @@ export const stripeCreateCustomerMeta: ActionMeta = {
       name: "email",
       type: "string",
       description: "Email Stripe stored (echoed from the response).",
+      sensitive: true,
     },
     {
       name: "name",

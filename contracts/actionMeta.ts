@@ -265,6 +265,37 @@ export interface OutputMeta {
    * to keep the contract import surface flat.
    */
   fields?: readonly OutputMeta[];
+  /**
+   * Slice 3.SEC-7 — marks this output (or nested field) as containing
+   * sensitive data: PII, secrets, signed URLs, message bodies, payment
+   * data, customer emails, etc. Consumers:
+   *
+   *   - Run-details API (`app/api/workflows/_shared.ts:toWorkflowRunDetail`)
+   *     replaces the value with the redaction sentinel before serializing
+   *     to the client. The DB row stays unmodified — first-tier
+   *     mitigation is read-side only.
+   *   - Variable picker (`features/workflow-builder/config-modal/fields/
+   *     VariablePickerPopover.tsx`) renders a "Sensitive" warning chip
+   *     next to the output button and replaces the latest-run preview
+   *     value with "[REDACTED]" / "Sensitive value hidden".
+   *   - The variable token is still INSERTABLE — sensitive-flagged values
+   *     can still flow into downstream nodes; this slice's goal is to
+   *     stop accidental visual exposure in the builder + API, not to
+   *     prevent legitimate data flow. Stricter policies (hide from
+   *     picker entirely; refuse to wire into certain field types) ship
+   *     in follow-up slices.
+   *
+   * Default behavior when omitted: NOT sensitive. Existing metas continue
+   * parsing without modification; this is a purely additive flag.
+   *
+   * Nested handling: when an `object`-typed output declares `fields[]`,
+   * each child can carry its own `sensitive` flag. The redaction helper
+   * descends into the object and redacts only the marked children. When
+   * a parent `object` itself is marked sensitive, the helper redacts the
+   * whole subtree without descending — useful when nested shape varies
+   * per row (e.g. Notion `properties` map).
+   */
+  sensitive?: boolean;
 }
 
 // Zod schema mirrors the type. `z.lazy` makes the recursion explicit; the
@@ -277,6 +308,7 @@ export const OutputMetaSchema: z.ZodType<OutputMeta> = z.lazy(() =>
       type: OutputTypeSchema,
       description: z.string().max(2048).optional(),
       fields: z.array(OutputMetaSchema).max(64).optional(),
+      sensitive: z.boolean().optional(),
     })
     .strict(),
 );

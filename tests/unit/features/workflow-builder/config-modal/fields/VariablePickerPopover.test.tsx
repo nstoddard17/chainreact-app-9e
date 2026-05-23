@@ -338,6 +338,139 @@ describe("VariablePickerPopover — latest-run preview (Slice 3.9)", () => {
   });
 });
 
+describe("VariablePickerPopover — sensitive output chip (Slice 3.SEC-7)", () => {
+  const sensitiveSource: VariableSource = {
+    sourceId: "stripe-node",
+    displayName: "Create Payment Intent",
+    kind: "action",
+    provider: "stripe",
+    outputs: [
+      { name: "paymentIntentId", type: "string" },
+      {
+        name: "clientSecret",
+        type: "string",
+        description: "Stripe client secret.",
+        sensitive: true,
+      },
+    ],
+  };
+
+  it("renders a Sensitive chip on a sensitive output button", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[sensitiveSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+      />,
+    );
+    const chip = screen.getByTestId(
+      "variable-output-stripe-node-clientSecret-sensitive-chip",
+    );
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveTextContent("Sensitive");
+  });
+
+  it("does NOT render a Sensitive chip on a non-sensitive output button", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[sensitiveSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+      />,
+    );
+    expect(
+      screen.queryByTestId(
+        "variable-output-stripe-node-paymentIntentId-sensitive-chip",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("flags the row with data-sensitive=\"true\" for downstream CSS / queries", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[sensitiveSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+      />,
+    );
+    const row = screen.getByTestId("variable-output-stripe-node-clientSecret");
+    expect(row).toHaveAttribute("data-sensitive", "true");
+    const nonRow = screen.getByTestId("variable-output-stripe-node-paymentIntentId");
+    expect(nonRow).not.toHaveAttribute("data-sensitive");
+  });
+
+  it("shows 'Sensitive value hidden' instead of the raw latest-run preview", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[sensitiveSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+        latestValuesBySource={{
+          "stripe-node": {
+            paymentIntentId: "pi_1",
+            clientSecret: "pi_1_secret_xyz",
+          },
+        }}
+      />,
+    );
+    const preview = screen.getByTestId(
+      "variable-output-stripe-node-clientSecret-preview",
+    );
+    expect(preview).toHaveTextContent("Sensitive value hidden");
+    expect(preview).not.toHaveTextContent("pi_1_secret_xyz");
+    expect(preview).toHaveAttribute("data-preview-kind", "sensitive");
+  });
+
+  it("keeps the variable token insertable (clicking still fires onInsert)", async () => {
+    const user = userEvent.setup();
+    const onInsert = jest.fn<void, [string]>();
+    const onClose = jest.fn<void, []>();
+    render(
+      <VariablePickerPopover
+        sources={[sensitiveSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+      />,
+    );
+    const btn = screen.getByLabelText(
+      "Insert {{stripe-node.clientSecret}} (sensitive value — preview is masked)",
+    );
+    await user.click(btn);
+    expect(onInsert).toHaveBeenCalledWith("{{stripe-node.clientSecret}}");
+  });
+
+  it("non-sensitive outputs still show their latest-run preview unchanged", () => {
+    const onInsert = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <VariablePickerPopover
+        sources={[sensitiveSource]}
+        onInsert={onInsert}
+        onClose={onClose}
+        latestValuesBySource={{
+          "stripe-node": {
+            paymentIntentId: "pi_1",
+            clientSecret: "pi_1_secret_xyz",
+          },
+        }}
+      />,
+    );
+    const preview = screen.getByTestId(
+      "variable-output-stripe-node-paymentIntentId-preview",
+    );
+    expect(preview).toHaveTextContent('"pi_1"');
+    expect(preview).toHaveAttribute("data-preview-kind", "scalar");
+  });
+});
+
 describe("VariablePickerPopover — testId scoping", () => {
   it("renders the default testid root by default", () => {
     renderPopover();

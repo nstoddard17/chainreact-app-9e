@@ -57,6 +57,7 @@ export const stripeFindCustomerMeta: ActionMeta = {
       type: "object",
       description:
         "Bounded customer projection when `found: true` (`{customerId, email, name, description, created, livemode, metadata}`); null when `found: false`. Mirrors Create Customer's output shape for drop-in downstream wiring.",
+      sensitive: true,
     },
   ],
   producesFileRef: false,

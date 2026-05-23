@@ -533,3 +533,71 @@ describe("OutputMetaSchema — recursive nested fields", () => {
     ).not.toThrow();
   });
 });
+
+describe("OutputMetaSchema — Slice 3.SEC-7 sensitive flag", () => {
+  it("accepts sensitive: true on a top-level output", () => {
+    const parsed = OutputMetaSchema.parse({
+      name: "clientSecret",
+      type: "string",
+      description: "Stripe client secret.",
+      sensitive: true,
+    });
+    expect(parsed.sensitive).toBe(true);
+  });
+
+  it("accepts sensitive: false explicitly (== default)", () => {
+    const parsed = OutputMetaSchema.parse({
+      name: "paymentIntentId",
+      type: "string",
+      sensitive: false,
+    });
+    expect(parsed.sensitive).toBe(false);
+  });
+
+  it("treats omitted sensitive as undefined (consumers coerce to non-sensitive)", () => {
+    const parsed = OutputMetaSchema.parse({
+      name: "paymentIntentId",
+      type: "string",
+    });
+    expect(parsed.sensitive).toBeUndefined();
+  });
+
+  it("accepts sensitive on a nested field inside fields[]", () => {
+    const parsed = OutputMetaSchema.parse({
+      name: "envelope",
+      type: "object",
+      fields: [
+        { name: "id", type: "string" },
+        { name: "customerEmail", type: "string", sensitive: true },
+      ],
+    });
+    expect(parsed.fields?.[1]?.sensitive).toBe(true);
+  });
+
+  it("rejects sensitive: 'true' (string — must be boolean)", () => {
+    const result = OutputMetaSchema.safeParse({
+      name: "x",
+      type: "string",
+      sensitive: "true",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects sensitive: 1 (number — must be boolean)", () => {
+    const result = OutputMetaSchema.safeParse({
+      name: "x",
+      type: "string",
+      sensitive: 1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects unknown sibling keys via strict mode (defense against typos like `senstive`)", () => {
+    const result = OutputMetaSchema.safeParse({
+      name: "x",
+      type: "string",
+      senstive: true,
+    });
+    expect(result.success).toBe(false);
+  });
+});

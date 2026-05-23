@@ -69,6 +69,7 @@ export const notionGetPageMeta: ActionMeta = {
       type: "object",
       description:
         "Parsed property map — `Record<propertyName, ParsedPropertyValue>`. Drill via `properties.<Name>.value`.",
+      sensitive: true,
     },
     {
       name: "skippedProperties",

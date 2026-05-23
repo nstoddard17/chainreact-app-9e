@@ -681,3 +681,45 @@ describe("GET /api/providers/[id]/actions — risk fields in response (Slice 3.S
     expect(find.requiresConfirmation).toBe(false);
   });
 });
+
+// ─── Slice 3.SEC-7 — OutputMeta.sensitive in JSON response ──────────────────
+describe("GET /api/providers/[id]/actions — sensitive flag on outputs (Slice 3.SEC-7)", () => {
+  it("stripe:create_payment_intent's clientSecret output is serialized with sensitive=true", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    const pi = body.actions.find((a) => a.key === "stripe:create_payment_intent")!;
+    const cs = pi.outputs.find((o) => o.name === "clientSecret")!;
+    expect(cs.sensitive).toBe(true);
+    // Non-sensitive sibling stays unflagged.
+    const piId = pi.outputs.find((o) => o.name === "paymentIntentId")!;
+    expect(piId.sensitive).toBeFalsy();
+  });
+
+  it("native:http_request's body + bodyJson are serialized with sensitive=true", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/native/actions"), {
+      params: Promise.resolve({ id: "native" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    const http = body.actions.find((a) => a.key === "native:http_request")!;
+    expect(http.outputs.find((o) => o.name === "body")?.sensitive).toBe(true);
+    expect(http.outputs.find((o) => o.name === "bodyJson")?.sensitive).toBe(true);
+    // status / ok / urlHost stay unflagged.
+    expect(http.outputs.find((o) => o.name === "status")?.sensitive).toBeFalsy();
+    expect(http.outputs.find((o) => o.name === "ok")?.sensitive).toBeFalsy();
+  });
+});

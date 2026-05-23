@@ -77,6 +77,7 @@ export const stripeUpdateCustomerMeta: ActionMeta = {
       name: "email",
       type: "string",
       description: "Email after the update.",
+      sensitive: true,
     },
     {
       name: "name",

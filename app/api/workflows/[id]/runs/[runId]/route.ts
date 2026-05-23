@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
+import * as workflowsRepo from "@/repositories/workflows";
 import { requireUser, toWorkflowRunDetail } from "../../../_shared";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 
 /**
  * GET /api/workflows/[id]/runs/[runId] — fetch a single run's detail.
@@ -11,15 +13,23 @@ import { requireUser, toWorkflowRunDetail } from "../../../_shared";
  * RunResultsPanel can show per-step output for the most-recent test
  * run — without bloating the list payload.
  *
- * RLS gates per-user access via the SSR-cookie client inside
- * `workflowRunsRepo.getById`. A runId that belongs to another user
- * returns `null` from the repo and surfaces as a 404 here — never a
- * leak. The path's `[id]` is cross-validated against the run's stored
+ * Slice 3.SEC-7: the route also fetches the workflow record so
+ * `toWorkflowRunDetail` can look up each step's action meta and apply
+ * `OutputMeta.sensitive` redaction before serializing. The added query
+ * is a single RLS-scoped SELECT through `workflowsRepo.getById` —
+ * cheap and necessary for the redaction lookup. If the workflow no
+ * longer exists (deleted post-run), the record was already null and we
+ * return 404 before we'd need its nodes.
+ *
+ * RLS gates per-user access via the SSR-cookie client inside both
+ * repository calls. A runId that belongs to another user returns
+ * `null` from the repo and surfaces as a 404 here — never a leak.
+ * The path's `[id]` is cross-validated against the run's stored
  * `workflowId` so a malformed deep-link doesn't return the wrong run.
  *
- * The route is deliberately a single thin SELECT — no orchestration,
- * no enqueue logic, no side effects. Polling cost stays predictable
- * even when the builder hits it once per second.
+ * The route is deliberately a thin couple of SELECTs — no
+ * orchestration, no enqueue logic, no side effects. Polling cost stays
+ * predictable even when the builder hits it once per second.
  */
 export async function GET(
   _request: Request,
@@ -35,5 +45,21 @@ export async function GET(
     return NextResponse.json({ error: "Run not found." }, { status: 404 });
   }
 
-  return NextResponse.json(toWorkflowRunDetail(record));
+  // Slice 3.SEC-7 — load the workflow so the serializer can resolve
+  // per-step (provider, type) for sensitive-output redaction. RLS-
+  // scoped through `workflowsRepo.getById`. If the lookup throws OR
+  // the workflow row is missing (deleted post-run, transient DB
+  // error), we degrade gracefully and call the serializer with
+  // undefined nodes — redaction is skipped for this response but the
+  // run detail still returns. The redactor's missing-meta path is
+  // documented in `core/security/redactOutput.ts` JSDoc.
+  let workflowNodes: WorkflowDefinition["nodes"] | undefined;
+  try {
+    const workflow = await workflowsRepo.getById(id);
+    workflowNodes = workflow?.draftDefinition.nodes;
+  } catch {
+    workflowNodes = undefined;
+  }
+
+  return NextResponse.json(toWorkflowRunDetail(record, workflowNodes));
 }

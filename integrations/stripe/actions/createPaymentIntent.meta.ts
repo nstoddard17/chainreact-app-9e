@@ -94,6 +94,7 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
       type: "string",
       description:
         "Client secret used by Stripe.js / Payment Element on the FRONTEND to confirm the payment. Exposed intentionally — workflows that hand off to a client checkout surface need this value. NOT a Stripe API key; safe to send to the client per Stripe's documented flow.",
+      sensitive: true,
     },
     {
       name: "amount",

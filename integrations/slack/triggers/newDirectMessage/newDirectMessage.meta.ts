@@ -42,7 +42,7 @@ export const newDirectMessageTriggerMeta: TriggerMeta = {
     { name: "channel", type: "string", description: "DM channel id (Slack 'D…' prefix)." },
     { name: "channel_type", type: "string", description: "Channel kind — 'im' for direct messages." },
     { name: "user", type: "string", description: "Sender user id." },
-    { name: "text", type: "string", description: "Message text." },
+    { name: "text", type: "string", description: "Message text.", sensitive: true  },
     { name: "ts", type: "string", description: "Slack message timestamp." },
     { name: "thread_ts", type: "string", description: "Parent thread timestamp when this message is a thread reply." },
     { name: "team", type: "string", description: "Slack workspace (team) id." },

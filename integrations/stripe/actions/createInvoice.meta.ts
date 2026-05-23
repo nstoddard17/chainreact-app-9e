@@ -111,12 +111,14 @@ export const stripeCreateInvoiceMeta: ActionMeta = {
       type: "string",
       description:
         "**Customer-facing Stripe-hosted invoice URL.** Populated once the invoice transitions to `open` or beyond — null on fresh drafts. Safe to expose; this is the documented Stripe invoice viewing surface.",
+      sensitive: true,
     },
     {
       name: "invoicePdf",
       type: "string",
       description:
         "**Customer-facing Stripe-hosted invoice PDF URL.** Populated once the invoice transitions to `open` or beyond — null on fresh drafts. Safe to expose.",
+      sensitive: true,
     },
     {
       name: "amountDue",

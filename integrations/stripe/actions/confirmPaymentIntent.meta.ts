@@ -100,6 +100,7 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
       type: "string",
       description:
         "Client secret for frontend handoff. Exposed intentionally — Stripe.js / Payment Element on the client uses this to resolve `requires_action` states. NOT a Stripe API key; safe to send to the client per Stripe's documented flow.",
+      sensitive: true,
     },
     {
       name: "nextAction",

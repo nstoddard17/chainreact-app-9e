@@ -255,11 +255,17 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   await waitFor(() => {
     expect(screen.getByText("New Labeled Email")).toBeInTheDocument();
   });
+  // SEC-7: from + subject are now flagged sensitive (PII); aria-label
+  // gains the masked-preview suffix for screen-reader announcement.
   expect(
-    screen.getByLabelText("Insert {{trigger.from}}"),
+    screen.getByLabelText(
+      "Insert {{trigger.from}} (sensitive value — preview is masked)",
+    ),
   ).toBeInTheDocument();
   expect(
-    screen.getByLabelText("Insert {{trigger.subject}}"),
+    screen.getByLabelText(
+      "Insert {{trigger.subject}} (sensitive value — preview is masked)",
+    ),
   ).toBeInTheDocument();
   // Labeled-email-specific payload fields surface alongside the shared
   // email metadata.

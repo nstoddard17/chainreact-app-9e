@@ -82,6 +82,7 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
       type: "string",
       description:
         "**Customer-facing Stripe-hosted payment URL.** Publish via email, SMS, or button. Reusable across many customers; remains valid until the Payment Link is deactivated. Safe to expose; this is the documented Stripe Payment Link surface.",
+      sensitive: true,
     },
     {
       name: "active",

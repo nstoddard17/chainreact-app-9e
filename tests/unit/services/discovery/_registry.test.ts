@@ -3829,3 +3829,93 @@ describe("action risk metadata coverage (Slice 3.SEC-2A)", () => {
     });
   });
 });
+
+// ─── Slice 3.SEC-7 — OutputMeta.sensitive backfill coverage ────────────────
+//
+// Pin the minimum set of outputs that MUST carry `sensitive: true` so that
+// run-details API redaction + variable-picker masking fire on them. These
+// are the most-critical leaks identified by the SEC-1 audit (F-H3, F-H4, F-C2).
+// Adding new sensitive fields = adding the assertion here and to the meta.
+describe("OutputMeta.sensitive coverage (Slice 3.SEC-7)", () => {
+  function findOutput(actionKey: string, outputName: string) {
+    const action = listAllActionMetas().find((m) => m.key === actionKey);
+    if (!action) throw new Error(`action meta '${actionKey}' missing from registry`);
+    const output = action.outputs.find((o) => o.name === outputName);
+    if (!output) {
+      throw new Error(
+        `output '${outputName}' missing from '${actionKey}' (registered outputs: ${action.outputs.map((o) => o.name).join(", ")})`,
+      );
+    }
+    return output;
+  }
+
+  describe("Stripe — clientSecret + customer email + payment URLs", () => {
+    it("stripe:create_payment_intent.clientSecret is sensitive", () => {
+      expect(findOutput("stripe:create_payment_intent", "clientSecret").sensitive).toBe(true);
+    });
+    it("stripe:confirm_payment_intent.clientSecret is sensitive", () => {
+      expect(findOutput("stripe:confirm_payment_intent", "clientSecret").sensitive).toBe(true);
+    });
+    it("stripe:create_customer.email is sensitive (output, not config)", () => {
+      expect(findOutput("stripe:create_customer", "email").sensitive).toBe(true);
+    });
+    it("stripe:update_customer.email is sensitive (output)", () => {
+      expect(findOutput("stripe:update_customer", "email").sensitive).toBe(true);
+    });
+    it("stripe:find_customer.customer is sensitive (object includes PII)", () => {
+      expect(findOutput("stripe:find_customer", "customer").sensitive).toBe(true);
+    });
+    it("stripe:create_payment_link.url is sensitive (anyone with URL can pay)", () => {
+      expect(findOutput("stripe:create_payment_link", "url").sensitive).toBe(true);
+    });
+    it("stripe:create_checkout_session.url is sensitive", () => {
+      expect(findOutput("stripe:create_checkout_session", "url").sensitive).toBe(true);
+    });
+    it("stripe:create_invoice.hostedInvoiceUrl is sensitive", () => {
+      expect(findOutput("stripe:create_invoice", "hostedInvoiceUrl").sensitive).toBe(true);
+    });
+    it("stripe:create_invoice.invoicePdf is sensitive", () => {
+      expect(findOutput("stripe:create_invoice", "invoicePdf").sensitive).toBe(true);
+    });
+  });
+
+  describe("native:http_request — response body + bodyJson", () => {
+    it("body is sensitive (HTTP responses can carry secrets)", () => {
+      expect(findOutput("native:http_request", "body").sensitive).toBe(true);
+    });
+    it("bodyJson is sensitive (parsed responses can carry tokens)", () => {
+      expect(findOutput("native:http_request", "bodyJson").sensitive).toBe(true);
+    });
+  });
+
+  describe("Notion — variable-shape property maps + user emails", () => {
+    it("notion:get_page.properties is sensitive (row content varies; opaque)", () => {
+      expect(findOutput("notion:get_page", "properties").sensitive).toBe(true);
+    });
+    it("notion:query_database.results is sensitive (rows may carry PII)", () => {
+      expect(findOutput("notion:query_database", "results").sensitive).toBe(true);
+    });
+    it("notion:get_user.personEmail is sensitive", () => {
+      expect(findOutput("notion:get_user", "personEmail").sensitive).toBe(true);
+    });
+  });
+
+  describe("non-sensitive outputs stay non-sensitive (sanity check)", () => {
+    // Verifies the backfill didn't over-mark harmless IDs.
+    it("stripe:create_payment_intent.paymentIntentId is NOT sensitive", () => {
+      expect(findOutput("stripe:create_payment_intent", "paymentIntentId").sensitive).toBeFalsy();
+    });
+    it("stripe:create_payment_intent.amount is NOT sensitive (echoed cents)", () => {
+      expect(findOutput("stripe:create_payment_intent", "amount").sensitive).toBeFalsy();
+    });
+    it("stripe:create_customer.customerId is NOT sensitive (id only)", () => {
+      expect(findOutput("stripe:create_customer", "customerId").sensitive).toBeFalsy();
+    });
+    it("native:http_request.status is NOT sensitive", () => {
+      expect(findOutput("native:http_request", "status").sensitive).toBeFalsy();
+    });
+    it("native:http_request.headers is NOT sensitive (sensitive header values already stripped at handler layer)", () => {
+      expect(findOutput("native:http_request", "headers").sensitive).toBeFalsy();
+    });
+  });
+});

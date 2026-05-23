@@ -72,6 +72,7 @@ export const notionQueryDatabaseMeta: ActionMeta = {
       type: "array",
       description:
         "Array of parsed rows. Each entry carries `{id, url, archived, createdTime, lastEditedTime, properties: object, skippedProperties: array}`. Drill via `{{nodeId.results[0].properties.Name.value}}`.",
+      sensitive: true,
     },
     {
       name: "hasMore",

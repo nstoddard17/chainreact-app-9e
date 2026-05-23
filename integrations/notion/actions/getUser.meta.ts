@@ -68,6 +68,7 @@ export const notionGetUserMeta: ActionMeta = {
       type: "string",
       description:
         "Email address for person users — populated when Notion grants the integration the 'user information including email addresses' capability. Null otherwise.",
+      sensitive: true,
     },
     {
       name: "botOwnerType",

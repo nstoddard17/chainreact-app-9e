@@ -212,14 +212,23 @@ function OutputList({
           : output.name;
         const token = formatReference({ nodeId: sourceId, path: fullPath });
         const hasChildren = output.fields && output.fields.length > 0;
-        const preview = latestValueAvailable
-          ? formatLatestValuePreview(resolveValueAtPath(latestValue, fullPath))
-          : { kind: "absent" as const, preview: "" };
+        const isSensitive = output.sensitive === true;
+        // Slice 3.SEC-7 — for sensitive outputs we (a) skip the
+        // latest-run resolver entirely so the raw value never enters
+        // React state, and (b) render a fixed "Sensitive value hidden"
+        // placeholder so the author still sees the output exists. The
+        // variable token stays insertable.
+        const preview = isSensitive
+          ? { kind: "sensitive" as const, preview: "Sensitive value hidden" }
+          : latestValueAvailable
+            ? formatLatestValuePreview(resolveValueAtPath(latestValue, fullPath))
+            : { kind: "absent" as const, preview: "" };
         return (
           <li
             key={output.name}
             className="flex flex-col gap-0.5"
             data-testid={`variable-output-${sourceId}-${fullPath}`}
+            data-sensitive={isSensitive ? "true" : undefined}
           >
             <Button
               type="button"
@@ -227,7 +236,7 @@ function OutputList({
               size="sm"
               onClick={() => onInsert(token)}
               className="h-auto justify-between gap-2 px-2 py-1"
-              aria-label={`Insert ${token}`}
+              aria-label={`Insert ${token}${isSensitive ? " (sensitive value — preview is masked)" : ""}`}
             >
               <span className="flex flex-col items-start min-w-0">
                 <span className="text-xs font-medium">{output.name}</span>
@@ -247,11 +256,22 @@ function OutputList({
                   </span>
                 ) : null}
               </span>
-              <span
-                className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground"
-                aria-label={`Type ${output.type}`}
-              >
-                {output.type}
+              <span className="flex items-center gap-1">
+                {isSensitive ? (
+                  <span
+                    className="rounded bg-amber-100 px-1 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
+                    data-testid={`variable-output-${sourceId}-${fullPath}-sensitive-chip`}
+                    aria-label="Sensitive output"
+                  >
+                    Sensitive
+                  </span>
+                ) : null}
+                <span
+                  className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                  aria-label={`Type ${output.type}`}
+                >
+                  {output.type}
+                </span>
               </span>
             </Button>
             {hasChildren ? (

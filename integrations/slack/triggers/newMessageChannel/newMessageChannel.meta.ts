@@ -57,7 +57,7 @@ export const newMessageChannelTriggerMeta: TriggerMeta = {
     { name: "channel_type", type: "string", description: "Channel kind — 'channel' for public channels." },
     { name: "user", type: "string", description: "Sender user id. Absent for bot_message subtype; see bot_id." },
     { name: "bot_id", type: "string", description: "Sender bot id when the message is from a bot." },
-    { name: "text", type: "string", description: "Message text." },
+    { name: "text", type: "string", description: "Message text.", sensitive: true  },
     { name: "ts", type: "string", description: "Slack message timestamp — uniquely identifies the message within the channel." },
     { name: "thread_ts", type: "string", description: "Parent thread timestamp when this message is a thread reply." },
     { name: "team", type: "string", description: "Slack workspace (team) id." },

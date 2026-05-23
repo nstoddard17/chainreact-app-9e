@@ -171,6 +171,7 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       type: "string",
       description:
         "**Customer-facing Stripe-hosted checkout URL.** Hand off to the customer via email / SMS / redirect — they complete payment inside Stripe's hosted page. Safe to expose; this is the documented Stripe Checkout entry point.",
+      sensitive: true,
     },
     {
       name: "mode",
