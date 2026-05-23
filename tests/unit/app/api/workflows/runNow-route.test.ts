@@ -307,7 +307,7 @@ describe("POST /run-now — happy path", () => {
     mockGetById.mockResolvedValue(baseWorkflow);
   });
 
-  it("returns 202 with { runId, enqueuedAt } shape", async () => {
+  it("returns 202 with { runId, enqueuedAt, isTest, triggeredBy } shape", async () => {
     const res = await POST(
       buildRequest({ body: JSON.stringify({ inputs: { x: 1 } }) }),
       { params: Promise.resolve({ id: "wf-1" }) },
@@ -317,6 +317,8 @@ describe("POST /run-now — happy path", () => {
     expect(body).toEqual({
       runId: "run-mock",
       enqueuedAt: "2026-05-16T00:00:01Z",
+      isTest: false,
+      triggeredBy: "manual",
     });
   });
 
@@ -382,5 +384,78 @@ describe("POST /run-now — happy path", () => {
       params: Promise.resolve({ id: "wf-1" }),
     });
     expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Slice 3.SEC-2 — testMode flag ───────────────────────────────────────────
+describe("POST /run-now — testMode flag (Slice 3.SEC-2)", () => {
+  beforeEach(() => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValue(baseWorkflow);
+  });
+
+  it("defaults to real execution: testMode false + triggeredBy 'manual' when body omits testMode", async () => {
+    await POST(buildRequest({ body: JSON.stringify({ inputs: {} }) }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(enqueueCall.testMode).toBe(false);
+    expect(enqueueCall.triggeredBy).toBe("manual");
+  });
+
+  it("explicit testMode: true forwards to enqueueRun with triggeredBy='test'", async () => {
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ testMode: true, inputs: {} }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(enqueueCall.testMode).toBe(true);
+    expect(enqueueCall.triggeredBy).toBe("test");
+    const body = await res.json();
+    expect(body.isTest).toBe(true);
+    expect(body.triggeredBy).toBe("test");
+  });
+
+  it("explicit testMode: false does NOT silently promote (mirrors omission)", async () => {
+    await POST(
+      buildRequest({ body: JSON.stringify({ testMode: false, inputs: {} }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(enqueueCall.testMode).toBe(false);
+    expect(enqueueCall.triggeredBy).toBe("manual");
+  });
+
+  it("rejects non-boolean testMode at the envelope layer with 400", async () => {
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ testMode: "yes", inputs: {} }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(400);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("testMode does NOT pollute the trigger event payload (kept at envelope layer)", async () => {
+    await POST(
+      buildRequest({
+        body: JSON.stringify({ testMode: true, inputs: { x: 1 } }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      event: { payload: Record<string, unknown> };
+    };
+    expect(enqueueCall.event.payload).toEqual({ inputs: { x: 1 } });
+    expect(enqueueCall.event.payload).not.toHaveProperty("testMode");
   });
 });

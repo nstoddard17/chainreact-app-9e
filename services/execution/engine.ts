@@ -22,6 +22,10 @@ import {
   selectActivatedEdges,
 } from "./branching";
 import { getActionHandler } from "./handlers/_registry";
+import {
+  buildTestModeMockOutput,
+  decideTestModeBlock,
+} from "./testModeGate";
 
 /**
  * Workflow execution engine.
@@ -83,7 +87,36 @@ export interface RunResult {
   finishedAt: string;
   /** Top-level failure when the run never reached the per-step loop. */
   fatalError?: { code: RunFailureCode; message: string };
+  /** Slice 3.SEC-2 — true when engine ran in test mode (handlers gated). */
+  isTest: boolean;
+  /** Slice 3.SEC-2 — how the run was triggered. Persisted to workflow_runs. */
+  triggeredBy: RunTriggerSource;
 }
+
+/**
+ * How a run was started. Persisted into `workflow_runs.triggered_by` so
+ * post-mortems can attribute runs without inferring from `trigger_event`.
+ *
+ * - `manual`    — user clicked Run-now (real execution).
+ * - `test`      — user clicked Test (engine `testMode` true; external
+ *                 handlers short-circuited).
+ * - `webhook`   — provider webhook delivery dispatched the run.
+ * - `scheduled` — cron-triggered run.
+ * - `retry`     — a failed run was retried.
+ * - `unknown`   — pre-SEC-2 rows + any future entry path that hasn't
+ *                 declared its source yet.
+ *
+ * Kept as a TS literal union (not a Zod enum) because this is engine-
+ * internal — input validation happens at the route layer. The DB
+ * check constraint is the authoritative gate against drift.
+ */
+export type RunTriggerSource =
+  | "manual"
+  | "test"
+  | "webhook"
+  | "scheduled"
+  | "retry"
+  | "unknown";
 
 export interface RunWorkflowInput {
   workflowId: string;
@@ -91,6 +124,21 @@ export interface RunWorkflowInput {
   triggerEvent: TriggerEvent;
   /** Optional pre-assigned id (the dispatcher's enqueueRun supplies one). */
   runId?: string;
+  /**
+   * Slice 3.SEC-2 — when true, the engine consults the test-mode gate
+   * before invoking each handler and short-circuits external / high-risk
+   * actions. Default: `false` (real execution). Callers that want a safe
+   * preview MUST pass `true` explicitly — the engine never silently
+   * promotes a real run to test mode.
+   */
+  testMode?: boolean;
+  /**
+   * Slice 3.SEC-2 — how the run was kicked off. Persisted to
+   * `workflow_runs.triggered_by`. Defaults to `"unknown"` when omitted.
+   * Callers (run-now route, webhook dispatcher, cron) MUST supply their
+   * own source label.
+   */
+  triggeredBy?: RunTriggerSource;
 }
 
 export interface EngineDependencies {
@@ -104,12 +152,18 @@ export class WorkflowEngine {
   async runWorkflow(input: RunWorkflowInput): Promise<RunResult> {
     const runId = input.runId ?? randomUUID();
     const startedAt = new Date().toISOString();
+    // SEC-2: capture both provenance fields up-front so they thread into
+    // every exit path uniformly. Defaults match the SQL column defaults.
+    const isTest = input.testMode === true;
+    const triggeredBy: RunTriggerSource = input.triggeredBy ?? "unknown";
     const log = (event: string, extra: Record<string, unknown> = {}) =>
       console.info(
         JSON.stringify({
           event,
           runId,
           workflowId: input.workflowId,
+          isTest,
+          triggeredBy,
           ...extra,
         }),
       );
@@ -131,6 +185,8 @@ export class WorkflowEngine {
           code: "WORKFLOW_NOT_FOUND",
           message: `Workflow ${input.workflowId} not found.`,
         },
+        isTest,
+        triggeredBy,
       };
     }
 
@@ -150,6 +206,8 @@ export class WorkflowEngine {
           code: "TRIGGER_NODE_NOT_FOUND",
           message: `Trigger node ${input.triggerNodeId} not present in workflow definition.`,
         },
+        isTest,
+        triggeredBy,
       };
       await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
       return fatalResult;
@@ -177,6 +235,8 @@ export class WorkflowEngine {
           code: "BILLING_EXHAUSTED",
           message: `Task quota exhausted: ${gateOutcome.used}/${gateOutcome.limit} tasks used this period.`,
         },
+        isTest,
+        triggeredBy,
       };
       await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
       return fatalResult;
@@ -298,6 +358,50 @@ export class WorkflowEngine {
         break;
       }
 
+      // 3a. Slice 3.SEC-2 — test-mode pre-call gate.
+      //
+      // When the engine is running in test mode, consult the gate before
+      // invoking the handler. Blocked actions are recorded as `succeeded`
+      // steps with a deterministic mock output (testMode/actionSkipped/
+      // reason/provider/type) and the engine moves on. Downstream nodes
+      // see the mock output via `{{nodeId.testMode}}` etc. — if a
+      // downstream node tries to read a real field like `{{nodeId.id}}`
+      // the strict resolver surfaces MISSING_VARIABLE with the actual
+      // path, which is a clearer signal than a fake id would be.
+      //
+      // Activated edges still propagate (the blocked step's outgoing
+      // edges are activated as if it had executed normally); branchTaken
+      // for blocked steps is `undefined`, matching the unlabeled-edge
+      // semantics §6.2.a.
+      const isTestMode = input.testMode === true;
+      if (isTestMode) {
+        const gateDecision = decideTestModeBlock(node.provider, node.type);
+        if (gateDecision.blocked) {
+          const mockOutput = buildTestModeMockOutput(
+            node.provider,
+            node.type,
+            gateDecision.reason!,
+          );
+          const outgoingForBlocked = outgoingByNodeId.get(node.id) ?? [];
+          for (const e of selectActivatedEdges(outgoingForBlocked, undefined).activated) {
+            reachable.add(e);
+          }
+          variables[node.id] = mockOutput;
+          steps.push({
+            nodeId: node.id,
+            status: "succeeded",
+            output: mockOutput as unknown as Readonly<Record<string, unknown>>,
+          });
+          log("execution.step.test_mode_skipped", {
+            nodeId: node.id,
+            provider: node.provider,
+            type: node.type,
+            reason: gateDecision.reason,
+          });
+          continue;
+        }
+      }
+
       // 3. Invoke handler.
       try {
         const result = await handler({
@@ -307,6 +411,7 @@ export class WorkflowEngine {
           nodeId: node.id,
           config: resolvedConfig,
           triggerEvent: input.triggerEvent,
+          testMode: isTestMode,
         });
 
         // 4. Label-aware activation. Inspect outgoing edges and decide
@@ -377,6 +482,8 @@ export class WorkflowEngine {
       steps,
       startedAt,
       finishedAt,
+      isTest,
+      triggeredBy,
     };
     await persistRun(result, workflow.userId, workflow.name, input, log);
     return result;
@@ -414,6 +521,8 @@ async function persistRun(
       errorClassification,
       startedAt: result.startedAt,
       finishedAt: result.finishedAt,
+      isTest: result.isTest,
+      triggeredBy: result.triggeredBy,
     });
   } catch (err) {
     log("execution.run.persist_failed", { error: (err as Error).message });

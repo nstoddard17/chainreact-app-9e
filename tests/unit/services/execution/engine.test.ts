@@ -36,6 +36,15 @@ jest.mock("@/services/notifications/notifyWorkflowFailure", () => ({
   notifyWorkflowFailure: (...args: unknown[]) => mockNotifyWorkflowFailure(...args),
 }));
 
+// Slice 3.SEC-2 — the engine's test-mode gate consults `getActionMeta` from
+// the discovery registry. Mock it so the SEC-2 engine tests can use
+// synthetic action types ("slack:step_one" etc.) without depending on
+// whatever real metas happen to live in the registry.
+const mockGetActionMeta = jest.fn();
+jest.mock("@/services/discovery/_registry", () => ({
+  getActionMeta: (...args: unknown[]) => mockGetActionMeta(...args),
+}));
+
 import { WorkflowEngine } from "@/services/execution/engine";
 import { MissingVariableError } from "@/workflow-engine/variables/resolveValue";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -110,7 +119,51 @@ beforeEach(() => {
   mockBillingGate.mockResolvedValue({ ok: true, used: 1, limit: 100 });
   mockNotifyWorkflowFailure.mockReset();
   mockNotifyWorkflowFailure.mockResolvedValue({ claimed: true, results: [] });
+  // SEC-2: default the meta lookup to "not registered" so the gate fails
+  // closed unless a test explicitly registers a meta for its action type.
+  // Test-mode tests must seed their own meta resolutions; non-test-mode
+  // tests don't consult the gate at all so the default never matters.
+  mockGetActionMeta.mockReset();
+  mockGetActionMeta.mockReturnValue(undefined);
 });
+
+// Slice 3.SEC-2 — helper for the test-mode test block. Builds a minimally-
+// valid synthetic ActionMeta keyed on `${provider}:${type}`. Tests pass
+// the risk-related overrides; everything else defaults to safe values.
+function makeMetaResolver(
+  metas: ReadonlyArray<{
+    provider: string;
+    type: string;
+    riskLevel?: "low" | "medium" | "high";
+    isDestructive?: boolean;
+    requiresConfirmation?: boolean;
+    requiresIntegration?: boolean;
+  }>,
+): (key: string) => unknown {
+  const byKey = new Map<string, unknown>(
+    metas.map((m) => [
+      `${m.provider}:${m.type}`,
+      {
+        key: `${m.provider}:${m.type}`,
+        provider: m.provider,
+        type: m.type,
+        displayName: m.type,
+        description: m.type,
+        category: "other",
+        requiresIntegration: m.requiresIntegration ?? false,
+        fields: [],
+        outputs: [],
+        producesFileRef: false,
+        consumesFileRef: false,
+        displayOrder: null,
+        isDestructive: m.isDestructive ?? false,
+        requiresConfirmation: m.requiresConfirmation ?? false,
+        riskLevel: m.riskLevel ?? "low",
+      },
+    ]),
+  );
+  return (key: string) => byKey.get(key);
+}
 
 describe("WorkflowEngine — fatal errors", () => {
   it("returns WORKFLOW_NOT_FOUND when getByIdServiceRole returns null", async () => {
@@ -1369,5 +1422,528 @@ describe("WorkflowEngine — label-aware branching (Engine Branching Commit 2 lo
       );
     });
     expect(calledWithSkippedConfig).toBe(false);
+  });
+});
+
+// ─── Slice 3.SEC-2 — engine test-mode gate ──────────────────────────────────
+//
+// Verifies the engine consults the testModeGate BEFORE invoking handlers
+// when `testMode: true` is supplied, and lets real runs (testMode omitted
+// or false) execute handlers as before. The gate decision itself is unit-
+// tested in `testModeGate.test.ts` — these tests verify the engine wiring.
+describe("WorkflowEngine — test mode (Slice 3.SEC-2)", () => {
+  it("does NOT invoke a destructive Stripe handler in test mode (create_refund)", async () => {
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        {
+          provider: "stripe",
+          type: "create_refund",
+          requiresIntegration: true,
+          isDestructive: true,
+          requiresConfirmation: true,
+          riskLevel: "high",
+        },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const refundNode: WorkflowNode = {
+      id: "refund",
+      kind: "action",
+      provider: "stripe",
+      type: "create_refund",
+      config: { chargeId: "ch_1" },
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, refundNode], edges: [edge("e1", "t1", "refund")] },
+    });
+
+    const handler = jest.fn();
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+      triggeredBy: "test",
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(result.status).toBe("succeeded");
+    expect(result.isTest).toBe(true);
+    expect(result.triggeredBy).toBe("test");
+    const refundStep = result.steps.find((s) => s.nodeId === "refund");
+    expect(refundStep?.status).toBe("succeeded");
+    expect(refundStep?.output).toEqual({
+      testMode: true,
+      actionSkipped: true,
+      reason: "TEST_MODE_DESTRUCTIVE_BLOCKED",
+      provider: "stripe",
+      type: "create_refund",
+    });
+  });
+
+  it("blocks a high-risk non-destructive Stripe action in test mode (create_payment_intent — safety regression)", async () => {
+    // This is the explicit guard from the user's spec: even though
+    // create_payment_intent is NOT marked isDestructive, it must still be
+    // blocked in test mode because riskLevel is "high".
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        {
+          provider: "stripe",
+          type: "create_payment_intent",
+          requiresIntegration: true,
+          isDestructive: false,
+          requiresConfirmation: false,
+          riskLevel: "high",
+        },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const piNode: WorkflowNode = {
+      id: "pi",
+      kind: "action",
+      provider: "stripe",
+      type: "create_payment_intent",
+      config: { amount: 100, currency: "usd" },
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, piNode], edges: [edge("e1", "t1", "pi")] },
+    });
+
+    const handler = jest.fn();
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+    const piStep = result.steps.find((s) => s.nodeId === "pi");
+    expect(piStep?.output).toMatchObject({
+      reason: "TEST_MODE_HIGH_RISK_BLOCKED",
+      provider: "stripe",
+      type: "create_payment_intent",
+    });
+  });
+
+  it("blocks native:http_request in test mode (egress sink)", async () => {
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        {
+          provider: "native",
+          type: "http_request",
+          requiresIntegration: false,
+          riskLevel: "high",
+        },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const httpNode: WorkflowNode = {
+      id: "http",
+      kind: "action",
+      provider: "native",
+      type: "http_request",
+      config: { url: "https://attacker.example" },
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, httpNode], edges: [edge("e1", "t1", "http")] },
+    });
+
+    const handler = jest.fn();
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(result.steps.find((s) => s.nodeId === "http")?.output).toMatchObject({
+      reason: "TEST_MODE_HIGH_RISK_BLOCKED",
+    });
+  });
+
+  it("allows native:format_transformer to execute in test mode (pure transform)", async () => {
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        {
+          provider: "native",
+          type: "format_transformer",
+          requiresIntegration: false,
+          riskLevel: "low",
+        },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const transformNode: WorkflowNode = {
+      id: "fmt",
+      kind: "action",
+      provider: "native",
+      type: "format_transformer",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, transformNode], edges: [edge("e1", "t1", "fmt")] },
+    });
+
+    const transformHandler = jest.fn(async () => ({ output: { formatted: "ok" } }));
+    mockGetActionHandler.mockReturnValue(transformHandler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(transformHandler).toHaveBeenCalledTimes(1);
+    // Handler should see testMode: true threaded into its input.
+    const handlerInput = transformHandler.mock.calls[0] as unknown as [
+      Record<string, unknown>,
+    ];
+    expect(handlerInput[0]).toMatchObject({ testMode: true });
+    expect(result.steps.find((s) => s.nodeId === "fmt")?.output).toEqual({
+      formatted: "ok",
+    });
+  });
+
+  it("allows native:if_then_condition and native:router in test mode", async () => {
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        { provider: "native", type: "if_then_condition", riskLevel: "low" },
+        { provider: "native", type: "router", riskLevel: "low" },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const ifNode: WorkflowNode = {
+      id: "if",
+      kind: "action",
+      provider: "native",
+      type: "if_then_condition",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    const routerNode: WorkflowNode = {
+      id: "router",
+      kind: "action",
+      provider: "native",
+      type: "router",
+      config: {},
+      position: { x: 0, y: 200 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [t, ifNode, routerNode],
+        edges: [edge("e1", "t1", "if"), edge("e2", "if", "router")],
+      },
+    });
+
+    const ifHandler = jest.fn(async () => ({ output: { matched: true } }));
+    const routerHandler = jest.fn(async () => ({ output: { routed: "a" } }));
+    mockGetActionHandler.mockImplementation((p: string, t: string) => {
+      if (p === "native" && t === "if_then_condition") return ifHandler;
+      if (p === "native" && t === "router") return routerHandler;
+      return undefined;
+    });
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(ifHandler).toHaveBeenCalledTimes(1);
+    expect(routerHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("FAIL-CLOSED: blocks an action with no registered meta in test mode", async () => {
+    // No metas seeded — the default mockGetActionMeta returns undefined,
+    // and the gate's fail-closed branch fires.
+    const t = trigger("t1");
+    const ghost: WorkflowNode = {
+      id: "ghost",
+      kind: "action",
+      provider: "unknown_provider",
+      type: "unknown_type",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, ghost], edges: [edge("e1", "t1", "ghost")] },
+    });
+
+    const handler = jest.fn();
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(result.steps.find((s) => s.nodeId === "ghost")?.output).toMatchObject({
+      reason: "TEST_MODE_UNKNOWN_ACTION_BLOCKED",
+    });
+  });
+
+  it("real mode (testMode omitted) invokes the handler for high-risk actions", async () => {
+    // Real runs ignore the gate entirely — even Stripe refunds execute.
+    // mockGetActionMeta would never be called; default return is harmless.
+    const t = trigger("t1");
+    const refundNode: WorkflowNode = {
+      id: "refund",
+      kind: "action",
+      provider: "stripe",
+      type: "create_refund",
+      config: { chargeId: "ch_1" },
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, refundNode], edges: [edge("e1", "t1", "refund")] },
+    });
+
+    const handler = jest.fn(async () => ({ output: { refundId: "re_1" } }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      triggeredBy: "manual",
+    });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(result.isTest).toBe(false);
+    expect(result.triggeredBy).toBe("manual");
+    expect(result.steps.find((s) => s.nodeId === "refund")?.output).toEqual({
+      refundId: "re_1",
+    });
+  });
+
+  it("explicit testMode: false also runs handlers (does not silently promote)", async () => {
+    // Defensive check: passing testMode: false is identical to omitting it.
+    const t = trigger("t1");
+    const refundNode: WorkflowNode = {
+      id: "refund",
+      kind: "action",
+      provider: "stripe",
+      type: "create_refund",
+      config: { chargeId: "ch_1" },
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, refundNode], edges: [edge("e1", "t1", "refund")] },
+    });
+
+    const handler = jest.fn(async () => ({ output: { refundId: "re_1" } }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: false,
+    });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists is_test=true and triggered_by='test' on a test run", async () => {
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        { provider: "native", type: "format_transformer", riskLevel: "low" },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const node: WorkflowNode = {
+      id: "fmt",
+      kind: "action",
+      provider: "native",
+      type: "format_transformer",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, node], edges: [edge("e1", "t1", "fmt")] },
+    });
+    mockGetActionHandler.mockReturnValue(async () => ({ output: {} }));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+      triggeredBy: "test",
+    });
+
+    expect(mockRecordRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({
+      isTest: true,
+      triggeredBy: "test",
+    });
+  });
+
+  it("persists is_test=false and triggered_by='manual' on a real run", async () => {
+    const t = trigger("t1");
+    const node: WorkflowNode = {
+      id: "fmt",
+      kind: "action",
+      provider: "native",
+      type: "format_transformer",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, node], edges: [edge("e1", "t1", "fmt")] },
+    });
+    mockGetActionHandler.mockReturnValue(async () => ({ output: {} }));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      triggeredBy: "manual",
+    });
+
+    expect(mockRecordRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({
+      isTest: false,
+      triggeredBy: "manual",
+    });
+  });
+
+  it("persists triggered_by='unknown' when caller omits the field", async () => {
+    const t = trigger("t1");
+    const node: WorkflowNode = {
+      id: "fmt",
+      kind: "action",
+      provider: "native",
+      type: "format_transformer",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, node], edges: [edge("e1", "t1", "fmt")] },
+    });
+    mockGetActionHandler.mockReturnValue(async () => ({ output: {} }));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({
+      triggeredBy: "unknown",
+    });
+  });
+
+  it("downstream node sees the test-mode mock output as its upstream variable", async () => {
+    // Verifies the engine threads `variables[blockedNodeId] = mockOutput`
+    // so downstream resolution doesn't crash with MISSING_VARIABLE for
+    // `{{blockedNode.testMode}}` references.
+    mockGetActionMeta.mockImplementation(
+      makeMetaResolver([
+        {
+          provider: "stripe",
+          type: "create_refund",
+          requiresIntegration: true,
+          isDestructive: true,
+          requiresConfirmation: true,
+          riskLevel: "high",
+        },
+        { provider: "native", type: "format_transformer", riskLevel: "low" },
+      ]),
+    );
+
+    const t = trigger("t1");
+    const refund: WorkflowNode = {
+      id: "refund",
+      kind: "action",
+      provider: "stripe",
+      type: "create_refund",
+      config: {},
+      position: { x: 0, y: 100 },
+    };
+    const fmt: WorkflowNode = {
+      id: "fmt",
+      kind: "action",
+      provider: "native",
+      type: "format_transformer",
+      config: { template: "{{refund.testMode}}" },
+      position: { x: 0, y: 200 },
+    };
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [t, refund, fmt],
+        edges: [edge("e1", "t1", "refund"), edge("e2", "refund", "fmt")],
+      },
+    });
+
+    // The refund handler is REGISTERED (so the MISSING_HANDLER path
+    // doesn't pre-empt the gate) but the gate must short-circuit before
+    // it gets invoked — verified via the `not.toHaveBeenCalled` assertion.
+    const refundHandler = jest.fn(async () => ({ output: { refundId: "should-not-fire" } }));
+    const fmtHandler = jest.fn(async () => ({ output: { done: true } }));
+    mockGetActionHandler.mockImplementation((p: string, type: string) => {
+      if (p === "stripe" && type === "create_refund") return refundHandler;
+      if (p === "native" && type === "format_transformer") return fmtHandler;
+      return undefined;
+    });
+
+    const resolveStrict = jest.fn((v: unknown, _ctx?: unknown) => v);
+    await new WorkflowEngine({ resolveStrict }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(refundHandler).not.toHaveBeenCalled();
+
+    // The fmt node's resolveStrict call must have seen the mock refund
+    // output in its variables context.
+    const fmtCall = resolveStrict.mock.calls.find(
+      (c) => (c[0] as Record<string, unknown>) === fmt.config,
+    );
+    expect(fmtCall).toBeDefined();
+    const ctx = fmtCall![1] as { variables: Record<string, unknown> };
+    expect(ctx.variables.refund).toMatchObject({
+      testMode: true,
+      actionSkipped: true,
+      provider: "stripe",
+      type: "create_refund",
+    });
   });
 });

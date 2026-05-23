@@ -32,6 +32,21 @@ export interface ActionHandlerInput {
   config: Readonly<Record<string, unknown>>;
   /** The original trigger event that started the run. */
   triggerEvent: TriggerEvent;
+  /**
+   * Slice 3.SEC-2 — test-mode flag threaded from engine entry.
+   *
+   * The engine's pre-call gate (services/execution/testModeGate.ts)
+   * already prevents high-risk and external-integration handlers from
+   * being invoked when `testMode === true`. This field reaches handlers
+   * ONLY for the small set of native logic / transform actions that are
+   * allowed to execute in test mode. They generally ignore it; the
+   * field exists so future handlers can branch (e.g. `native:delay`
+   * could short-circuit its sleep) without another plumbing pass.
+   *
+   * Optional in the type so existing handlers stay source-compatible.
+   * Engine ALWAYS supplies a boolean — never undefined — at runtime.
+   */
+  testMode?: boolean;
 }
 
 export interface ActionHandlerResult {

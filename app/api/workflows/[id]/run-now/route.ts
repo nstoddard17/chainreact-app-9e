@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import * as workflowsRepo from "@/repositories/workflows";
 import { enqueueRun } from "@/services/execution/enqueue";
@@ -21,15 +22,21 @@ import { requireUser } from "../../_shared";
  *   - Owner-only check: `workflow.userId === auth.userId` (403 otherwise).
  *   - Workflow state ∈ {active, paused, draft}. Other states return 409.
  *
- * Body:
- *   - JSON, schema-validated against ManualTriggerPayloadSchema.
- *   - Cap 256 KiB via the `content-length` header — exceeds → 413.
- *   - Missing body / `{}` defaults to `{ inputs: {} }`.
+ * Body (Slice 3.SEC-2 update):
+ *   - JSON, capped at 256 KiB via `content-length` (exceeds → 413).
+ *   - Top-level `testMode: boolean` (OPTIONAL). When true the engine
+ *     short-circuits external + high-risk handlers. Defaults to `false`
+ *     — a real production execution. The route NEVER silently promotes
+ *     a request without `testMode: true` to a test run.
+ *   - The remaining fields form the manual trigger payload and are
+ *     validated by `ManualTriggerPayloadSchema` (shape:
+ *     `{ inputs: Record<string,unknown> }`).
+ *   - Missing body / `{}` → `{ inputs: {} }` with `testMode: false`.
  *
  * Output:
- *   - 202 Accepted — `{ runId, enqueuedAt }`. Engine runs asynchronously
- *     after enqueue; failures surface via workflow_runs.status + the
- *     existing notification orchestrator.
+ *   - 202 Accepted — `{ runId, enqueuedAt, isTest, triggeredBy }`.
+ *     Engine runs asynchronously after enqueue; failures surface via
+ *     workflow_runs.status + the existing notification orchestrator.
  *
  * Bypasses `dispatchTriggerEvent` (which does dedup + state gate +
  * trigger_resources lookup) because the route already knows
@@ -44,6 +51,18 @@ const ALLOWED_STATES: ReadonlySet<string> = new Set([
   "paused",
   "draft",
 ]);
+
+/**
+ * Slice 3.SEC-2 — `testMode` is a sibling of the manual trigger payload,
+ * not part of it. Extracting before schema validation keeps
+ * ManualTriggerPayloadSchema strict (which would otherwise reject the
+ * extra field) while letting clients send a single JSON body.
+ */
+const RunNowEnvelopeSchema = z
+  .object({
+    testMode: z.boolean().optional(),
+  })
+  .passthrough();
 
 export async function POST(
   request: Request,
@@ -95,7 +114,25 @@ export async function POST(
       { status: 400 },
     );
   }
-  const parsed = ManualTriggerPayloadSchema.safeParse(rawBody ?? {});
+
+  // Slice 3.SEC-2 — extract testMode at the envelope layer BEFORE the
+  // strict-mode payload schema, then pass only the remaining fields to
+  // the manual trigger schema. testMode is engine-level provenance, not
+  // part of the trigger payload semantics.
+  const envelope = RunNowEnvelopeSchema.safeParse(rawBody ?? {});
+  if (!envelope.success) {
+    return NextResponse.json(
+      {
+        error: envelope.error.issues[0]?.message ?? "Invalid request envelope.",
+        issues: envelope.error.issues,
+      },
+      { status: 400 },
+    );
+  }
+  const { testMode: rawTestMode, ...payloadFields } = envelope.data;
+  const testMode = rawTestMode === true;
+
+  const parsed = ManualTriggerPayloadSchema.safeParse(payloadFields);
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -129,14 +166,27 @@ export async function POST(
     payload: parsed.data,
   };
 
+  // Triggered-by: "test" when the caller explicitly opted into test mode,
+  // "manual" otherwise. Distinguishing these in workflow_runs lets us
+  // answer "show me every real manual run" cleanly without crossing
+  // is_test = false to filter.
+  const triggeredBy = testMode ? "test" : "manual";
+
   const enqueued = await enqueueRun({
     workflowId: workflow.id,
     triggerNodeId: triggerNode.id,
     event,
+    testMode,
+    triggeredBy,
   });
 
   return NextResponse.json(
-    { runId: enqueued.runId, enqueuedAt: enqueued.enqueuedAt },
+    {
+      runId: enqueued.runId,
+      enqueuedAt: enqueued.enqueuedAt,
+      isTest: testMode,
+      triggeredBy,
+    },
     { status: 202 },
   );
 }

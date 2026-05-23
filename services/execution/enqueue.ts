@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import { resolveStrict } from "@/workflow-engine/variables/resolveValue";
-import { WorkflowEngine } from "./engine";
+import { WorkflowEngine, type RunTriggerSource } from "./engine";
 
 /**
  * Webhook → execution handoff.
@@ -24,6 +24,20 @@ export interface EnqueueRunInput {
   workflowId: string;
   triggerNodeId: string;
   event: TriggerEvent;
+  /**
+   * Slice 3.SEC-2 — Forward to the engine's testMode flag. When true,
+   * the engine consults `decideTestModeBlock` before invoking each
+   * handler and short-circuits high-risk / external actions. Default
+   * `false` (real execution).
+   */
+  testMode?: boolean;
+  /**
+   * Slice 3.SEC-2 — Caller-supplied source label. Engine writes this to
+   * `workflow_runs.triggered_by`. Webhook dispatchers should pass
+   * `"webhook"`, cron should pass `"scheduled"`, run-now should pass
+   * `"manual"` (or `"test"` when the same route is used for a test run).
+   */
+  triggeredBy?: RunTriggerSource;
 }
 
 export interface EnqueueRunResult {
@@ -44,6 +58,8 @@ export async function enqueueRun(input: EnqueueRunInput): Promise<EnqueueRunResu
       provider: input.event.provider,
       eventType: input.event.eventType,
       eventId: input.event.eventId,
+      isTest: input.testMode === true,
+      triggeredBy: input.triggeredBy ?? "unknown",
     }),
   );
 
@@ -65,6 +81,8 @@ async function runWorkflowInBackground(
       triggerNodeId: input.triggerNodeId,
       triggerEvent: input.event,
       runId,
+      testMode: input.testMode === true,
+      triggeredBy: input.triggeredBy ?? "unknown",
     });
   } catch (err) {
     console.error(

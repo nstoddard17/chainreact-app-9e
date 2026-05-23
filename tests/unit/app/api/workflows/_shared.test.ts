@@ -265,6 +265,8 @@ describe("toWorkflowRunSummary", () => {
     startedAt: "2026-05-07T00:00:00Z",
     finishedAt: "2026-05-07T00:00:01Z",
     createdAt: "2026-05-07T00:00:00Z",
+    isTest: false,
+    triggeredBy: "unknown",
   };
 
   it("strips userId / steps / triggerEvent / fatalError from the wire shape", () => {

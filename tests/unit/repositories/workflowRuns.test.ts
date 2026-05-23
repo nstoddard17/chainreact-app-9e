@@ -80,6 +80,8 @@ describe("workflowRuns.recordRun", () => {
       steps: [{ nodeId: "t1", status: "succeeded", output: {} }],
       startedAt: "2026-05-07T00:00:00Z",
       finishedAt: "2026-05-07T00:00:01Z",
+      isTest: false,
+      triggeredBy: "unknown",
     });
     expect(state.insertPayload).toMatchObject({
       id: "run-1",
@@ -90,7 +92,52 @@ describe("workflowRuns.recordRun", () => {
       trigger_event: triggerEvent,
       fatal_error: null,
       error_classification: null,
+      // Slice 3.SEC-2 — provenance columns always written by the engine.
+      is_test: false,
+      triggered_by: "unknown",
     });
+  });
+
+  it("persists is_test=true and triggered_by='test' when supplied (Slice 3.SEC-2)", async () => {
+    const state: ChainState = { filters: [], resultData: null, resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    await recordRun({
+      runId: "run-test",
+      workflowId: "wf-1",
+      userId: "user-1",
+      status: "succeeded",
+      triggerNodeId: "t1",
+      triggerEvent,
+      steps: [{ nodeId: "t1", status: "succeeded", output: {} }],
+      startedAt: "2026-05-07T00:00:00Z",
+      finishedAt: "2026-05-07T00:00:01Z",
+      isTest: true,
+      triggeredBy: "test",
+    });
+    const payload = state.insertPayload as Record<string, unknown>;
+    expect(payload.is_test).toBe(true);
+    expect(payload.triggered_by).toBe("test");
+  });
+
+  it("persists is_test=false and triggered_by='webhook' for webhook-dispatched runs", async () => {
+    const state: ChainState = { filters: [], resultData: null, resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    await recordRun({
+      runId: "run-wh",
+      workflowId: "wf-1",
+      userId: "user-1",
+      status: "succeeded",
+      triggerNodeId: "t1",
+      triggerEvent,
+      steps: [],
+      startedAt: "2026-05-07T00:00:00Z",
+      finishedAt: "2026-05-07T00:00:01Z",
+      isTest: false,
+      triggeredBy: "webhook",
+    });
+    const payload = state.insertPayload as Record<string, unknown>;
+    expect(payload.is_test).toBe(false);
+    expect(payload.triggered_by).toBe("webhook");
   });
 
   it("persists fatal_error + error_classification when supplied", async () => {
@@ -112,6 +159,8 @@ describe("workflowRuns.recordRun", () => {
       },
       startedAt: "2026-05-07T00:00:00Z",
       finishedAt: "2026-05-07T00:00:01Z",
+      isTest: false,
+      triggeredBy: "unknown",
     });
     const payload = state.insertPayload as Record<string, unknown>;
     expect(payload.fatal_error).toMatchObject({ code: "TRIGGER_NODE_NOT_FOUND" });
@@ -136,6 +185,8 @@ describe("workflowRuns.recordRun", () => {
         steps: [],
         startedAt: "x",
         finishedAt: "y",
+        isTest: false,
+        triggeredBy: "unknown",
       }),
     ).rejects.toThrow(/duplicate key/);
   });
