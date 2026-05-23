@@ -100,4 +100,7 @@ export const notionUpdatePageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 20,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

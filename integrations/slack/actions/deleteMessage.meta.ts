@@ -56,4 +56,8 @@ export const slackDeleteMessageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: true,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Permanently removes a Slack message. Audit log may retain a record on Enterprise plans.",
 };

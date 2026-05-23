@@ -321,6 +321,33 @@ export const ActionCategorySchema = z.enum([
 ]);
 export type ActionCategory = z.infer<typeof ActionCategorySchema>;
 
+/**
+ * Action risk classification — Slice 3.SEC-2A.
+ *
+ *   - `low`    — Pure reads, logic nodes, format/transform, idempotent
+ *                state reads. Default when no risk fields are set.
+ *   - `medium` — Mutates external provider state in a way that's
+ *                recoverable (rename channel, move email, update
+ *                record). Includes external-comm send-like actions
+ *                whose effects can be deleted/recalled.
+ *   - `high`   — Money-moving, externally-irreversible, or arbitrary
+ *                egress (Stripe writes, deletes, archives, the native
+ *                `http_request` action).
+ *
+ * Drives downstream consumers:
+ *   - Builder UI: ranks library items, warns before drag-into-workflow
+ *     for `high`, surfaces typed-confirmation modals for
+ *     `requiresConfirmation: true`.
+ *   - Engine (Slice SEC-2, future): test-mode short-circuits handlers
+ *     marked `isDestructive: true` to prevent accidental real-world
+ *     side effects during a builder Run-now.
+ *
+ * This file is the SINGLE source of truth for the enum string set.
+ * Consumers MUST import `RiskLevel` rather than re-declaring.
+ */
+export const RiskLevelSchema = z.enum(["low", "medium", "high"]);
+export type RiskLevel = z.infer<typeof RiskLevelSchema>;
+
 export const ActionMetaSchema = z
   .object({
     /** Canonical `${provider}:${type}` lookup key. */
@@ -337,6 +364,36 @@ export const ActionMetaSchema = z
     consumesFileRef: z.boolean().default(false),
     /** Optional sort hint within a provider's action list. Lower = earlier. */
     displayOrder: z.number().int().nullable().default(null),
+    /**
+     * Slice 3.SEC-2A — Action risk metadata. All four fields are
+     * additive + default-bearing so pre-existing metas continue parsing
+     * without modification; only metas that ARE destructive / high-risk
+     * need to set them explicitly. See `RiskLevelSchema` JSDoc for the
+     * semantics.
+     *
+     * Defaults intentionally cluster on the safe side:
+     *   - `isDestructive: false` — only set true for irreversible OR
+     *     hard-to-reverse provider-side side effects (refund, delete,
+     *     archive, cancel subscription, capture payment).
+     *   - `requiresConfirmation: false` — only set true for actions
+     *     that move money or trigger downstream legal / regulatory
+     *     workflows (Stripe refund/capture/cancel; future delete-user
+     *     style actions).
+     *   - `riskLevel: "low"` — default. Set `medium` for recoverable
+     *     external mutations (rename, update, move), `high` for
+     *     irreversible / money-moving / arbitrary-egress.
+     *   - `riskDescription`: optional one-liner shown next to the
+     *     risk chip in the builder UI. Capped at 512 chars to stay
+     *     tooltip-sized.
+     *
+     * IMPORTANT: setting `isDestructive: true` OR `requiresConfirmation:
+     * true` MUST be paired with `riskLevel: "high"`. Enforced by the
+     * superRefine below.
+     */
+    isDestructive: z.boolean().default(false),
+    requiresConfirmation: z.boolean().default(false),
+    riskLevel: RiskLevelSchema.default("low"),
+    riskDescription: z.string().max(512).optional(),
   })
   .strict()
   .superRefine((meta, ctx) => {
@@ -368,6 +425,29 @@ export const ActionMetaSchema = z
           message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
         });
       }
+    }
+
+    // Slice 3.SEC-2A — risk-flag consistency. `isDestructive` and
+    // `requiresConfirmation` are both stronger claims than mere
+    // `riskLevel: "medium"`; if either is true the meta MUST also
+    // declare `riskLevel: "high"`. Catches drift where a destructive
+    // action is left implicitly low because the author forgot the
+    // matching risk level.
+    if (meta.isDestructive && meta.riskLevel !== "high") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["riskLevel"],
+        message:
+          "`isDestructive: true` requires `riskLevel: \"high\"` (destructive actions are always high-risk).",
+      });
+    }
+    if (meta.requiresConfirmation && meta.riskLevel !== "high") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["riskLevel"],
+        message:
+          "`requiresConfirmation: true` requires `riskLevel: \"high\"` (only high-risk actions warrant a confirmation step).",
+      });
     }
   });
 export type ActionMeta = z.infer<typeof ActionMetaSchema>;

@@ -63,4 +63,7 @@ export const slackListUsersMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 290,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

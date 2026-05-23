@@ -85,4 +85,8 @@ export const slackSendDirectMessageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 40,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Posts a Slack DM — visible immediately to the recipient.",
 };

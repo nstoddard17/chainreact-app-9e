@@ -92,4 +92,7 @@ export const notionGetPageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 50,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

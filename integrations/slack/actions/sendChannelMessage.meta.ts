@@ -81,4 +81,8 @@ export const slackSendChannelMessageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 30,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Posts to a Slack channel — visible immediately; deletion possible but conspicuous.",
 };

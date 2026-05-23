@@ -69,4 +69,8 @@ export const slackCreateChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 180,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Creates a new Slack channel visible to the workspace.",
 };

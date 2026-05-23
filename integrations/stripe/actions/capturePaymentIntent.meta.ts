@@ -80,4 +80,8 @@ export const stripeCapturePaymentIntentMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: true,
+  requiresConfirmation: true,
+  riskLevel: "high",
+  riskDescription: "CAPTURES the authorized charge — money moves from customer to merchant. Reversal requires a separate refund.",
 };

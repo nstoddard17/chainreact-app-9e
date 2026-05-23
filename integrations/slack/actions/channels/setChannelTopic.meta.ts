@@ -60,4 +60,8 @@ export const slackSetChannelTopicMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 260,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Changes the channel topic — visible to all members.",
 };

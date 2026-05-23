@@ -197,4 +197,8 @@ export const stripeCreateSubscriptionMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 90,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Starts a recurring subscription — first invoice may charge immediately depending on billing settings.",
 };

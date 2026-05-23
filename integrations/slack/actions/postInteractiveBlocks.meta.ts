@@ -97,4 +97,8 @@ export const slackPostInteractiveBlocksMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 310,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Posts an interactive Block Kit message — visible immediately and may trigger user-driven workflows.",
 };

@@ -50,4 +50,8 @@ export const outlookMoveEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 80,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Moves email between folders — recoverable but invisible until restored.",
 };

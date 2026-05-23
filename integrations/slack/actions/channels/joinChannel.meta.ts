@@ -54,4 +54,7 @@ export const slackJoinChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 220,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

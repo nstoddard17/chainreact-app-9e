@@ -60,4 +60,7 @@ export const formatTransformerMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 20,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

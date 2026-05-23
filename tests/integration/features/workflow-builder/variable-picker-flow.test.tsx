@@ -91,6 +91,9 @@ const httpRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const baseWorkflow: WorkflowDetail = {
@@ -342,6 +345,9 @@ it("router row input + value fields get picker affordances and inserts produce r
     producesFileRef: false,
     consumesFileRef: false,
     displayOrder: 50,
+    isDestructive: false,
+    requiresConfirmation: false,
+    riskLevel: "low",
   };
   mockListNativeActions.mockResolvedValue([httpRequestMeta, routerMeta]);
   __resetNativeActionsCacheForTests();

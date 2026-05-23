@@ -102,4 +102,7 @@ export const outlookGetAttachmentMeta: ActionMeta = {
   producesFileRef: true,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

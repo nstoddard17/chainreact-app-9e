@@ -90,4 +90,8 @@ export const slackScheduleMessageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 90,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Schedules a Slack post for later delivery — cancel via `cancel_scheduled_message`.",
 };

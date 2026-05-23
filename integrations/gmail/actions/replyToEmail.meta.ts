@@ -104,4 +104,8 @@ export const replyToEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 20,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Sends external email reply — delivery is observable and cannot be recalled.",
 };

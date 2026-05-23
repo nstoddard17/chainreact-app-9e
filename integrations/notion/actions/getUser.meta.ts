@@ -88,4 +88,7 @@ export const notionGetUserMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 150,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

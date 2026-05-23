@@ -111,4 +111,8 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 50,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Confirms a PaymentIntent — may capture immediately depending on capture method.",
 };

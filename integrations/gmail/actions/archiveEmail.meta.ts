@@ -37,4 +37,8 @@ export const archiveEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 120,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Moves email out of inbox — recoverable but invisible until restored.",
 };

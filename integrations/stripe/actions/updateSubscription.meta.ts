@@ -239,4 +239,8 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 100,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Modifies a subscription — proration may trigger an immediate charge or credit.",
 };

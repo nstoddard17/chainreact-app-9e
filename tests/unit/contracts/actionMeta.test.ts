@@ -411,6 +411,110 @@ describe("ActionMetaSchema — strict mode", () => {
   });
 });
 
+describe("ActionMetaSchema — Slice 3.SEC-2A risk flags", () => {
+  it("applies low-risk defaults when no risk fields are present", () => {
+    const parsed = ActionMetaSchema.parse(validMeta());
+    expect(parsed.isDestructive).toBe(false);
+    expect(parsed.requiresConfirmation).toBe(false);
+    expect(parsed.riskLevel).toBe("low");
+    expect(parsed.riskDescription).toBeUndefined();
+  });
+
+  it("accepts the full risk-field set on a high-risk action", () => {
+    const parsed = ActionMetaSchema.parse(
+      validMeta({
+        isDestructive: true,
+        requiresConfirmation: true,
+        riskLevel: "high",
+        riskDescription: "Permanent delete; not recoverable.",
+      }),
+    );
+    expect(parsed.isDestructive).toBe(true);
+    expect(parsed.requiresConfirmation).toBe(true);
+    expect(parsed.riskLevel).toBe("high");
+    expect(parsed.riskDescription).toBe("Permanent delete; not recoverable.");
+  });
+
+  it("accepts riskLevel medium without destructive/confirmation flags", () => {
+    const parsed = ActionMetaSchema.parse(
+      validMeta({ riskLevel: "medium" }),
+    );
+    expect(parsed.riskLevel).toBe("medium");
+    expect(parsed.isDestructive).toBe(false);
+    expect(parsed.requiresConfirmation).toBe(false);
+  });
+
+  it("rejects an invalid riskLevel value", () => {
+    const result = ActionMetaSchema.safeParse(
+      validMeta({ riskLevel: "extreme" as unknown as "low" }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a riskDescription longer than 512 characters", () => {
+    const tooLong = "x".repeat(513);
+    const result = ActionMetaSchema.safeParse(
+      validMeta({ riskDescription: tooLong }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a riskDescription up to 512 characters", () => {
+    const ok = "x".repeat(512);
+    const result = ActionMetaSchema.safeParse(
+      validMeta({ riskDescription: ok }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects isDestructive: true paired with non-high riskLevel (consistency guard)", () => {
+    const lowRisk = ActionMetaSchema.safeParse(
+      validMeta({ isDestructive: true, riskLevel: "low" }),
+    );
+    expect(lowRisk.success).toBe(false);
+    if (!lowRisk.success) {
+      expect(lowRisk.error.issues[0]?.path).toEqual(["riskLevel"]);
+    }
+    const mediumRisk = ActionMetaSchema.safeParse(
+      validMeta({ isDestructive: true, riskLevel: "medium" }),
+    );
+    expect(mediumRisk.success).toBe(false);
+  });
+
+  it("rejects requiresConfirmation: true paired with non-high riskLevel", () => {
+    const lowRisk = ActionMetaSchema.safeParse(
+      validMeta({ requiresConfirmation: true, riskLevel: "low" }),
+    );
+    expect(lowRisk.success).toBe(false);
+    const mediumRisk = ActionMetaSchema.safeParse(
+      validMeta({ requiresConfirmation: true, riskLevel: "medium" }),
+    );
+    expect(mediumRisk.success).toBe(false);
+  });
+
+  it("accepts isDestructive: true when paired with riskLevel: high", () => {
+    const result = ActionMetaSchema.safeParse(
+      validMeta({ isDestructive: true, riskLevel: "high" }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts requiresConfirmation: true when paired with riskLevel: high", () => {
+    const result = ActionMetaSchema.safeParse(
+      validMeta({ requiresConfirmation: true, riskLevel: "high" }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects unknown values via strict mode (catches typos like `riskLeval`)", () => {
+    const result = ActionMetaSchema.safeParse({
+      ...(validMeta() as object),
+      riskLeval: "high",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("OutputMetaSchema — recursive nested fields", () => {
   it("accepts a nested object output", () => {
     expect(() =>

@@ -60,4 +60,8 @@ export const slackSetChannelPurposeMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 270,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Changes the channel purpose — visible to all members.",
 };

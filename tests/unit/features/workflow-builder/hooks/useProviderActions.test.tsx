@@ -48,6 +48,9 @@ const githubMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const gmailMeta: ActionMeta = {
@@ -63,6 +66,9 @@ const gmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 beforeEach(() => {

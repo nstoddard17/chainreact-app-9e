@@ -76,4 +76,7 @@ export const createLabelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 90,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

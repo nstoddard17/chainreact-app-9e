@@ -147,4 +147,8 @@ export const notionCreateDatabaseMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Creates a new database — visible to workspace members with access.",
 };

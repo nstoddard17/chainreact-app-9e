@@ -107,4 +107,8 @@ export const stripeUpdateCustomerMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 20,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Modifies an existing Stripe Customer record.",
 };

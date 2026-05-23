@@ -90,4 +90,8 @@ export const slackInviteUsersToChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 240,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Adds users to a channel — affects others' notifications and visibility.",
 };

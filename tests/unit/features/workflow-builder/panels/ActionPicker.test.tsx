@@ -49,6 +49,9 @@ const httpRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const addCommentMeta: ActionMeta = {
@@ -64,6 +67,9 @@ const addCommentMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const createIssueMeta: ActionMeta = {
@@ -79,6 +85,9 @@ const createIssueMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const githubProvider: ProviderOption = { id: "github", displayName: "GitHub" };

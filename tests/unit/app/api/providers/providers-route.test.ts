@@ -563,3 +563,121 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
   });
 });
+
+// ─── Slice 3.SEC-2A — risk fields exposed on the actions endpoint ───────────
+//
+// The API surface for the builder MUST include the new risk metadata so the
+// client can render warning chips, gate destructive drag-into-workflow, etc.
+// These tests pin that the four fields are present on every action — both
+// for high-risk Stripe actions AND for low-risk native ones (defaults).
+describe("GET /api/providers/[id]/actions — risk fields in response (Slice 3.SEC-2A)", () => {
+  it("returns riskLevel + isDestructive + requiresConfirmation on every native action (defaults applied)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/native/actions"), {
+      params: Promise.resolve({ id: "native" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+      }>;
+    };
+    for (const action of body.actions) {
+      expect(typeof action.isDestructive).toBe("boolean");
+      expect(typeof action.requiresConfirmation).toBe("boolean");
+      expect(["low", "medium", "high"]).toContain(action.riskLevel);
+    }
+  });
+
+  it("native:http_request returns riskLevel=high + a riskDescription explaining the egress concern", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/native/actions"), {
+      params: Promise.resolve({ id: "native" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        riskLevel: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskDescription?: string;
+      }>;
+    };
+    const http = body.actions.find((a) => a.key === "native:http_request")!;
+    expect(http).toBeDefined();
+    expect(http.riskLevel).toBe("high");
+    expect(http.isDestructive).toBe(false);
+    expect(http.requiresConfirmation).toBe(false);
+    expect(http.riskDescription).toBeDefined();
+    expect(http.riskDescription!.length).toBeGreaterThan(0);
+  });
+
+  it("native:delay returns riskLevel=low with no riskDescription (defaults visible)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/native/actions"), {
+      params: Promise.resolve({ id: "native" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        riskLevel: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskDescription?: string;
+      }>;
+    };
+    const delay = body.actions.find((a) => a.key === "native:delay")!;
+    expect(delay).toBeDefined();
+    expect(delay.riskLevel).toBe("low");
+    expect(delay.isDestructive).toBe(false);
+    expect(delay.requiresConfirmation).toBe(false);
+    expect(delay.riskDescription).toBeUndefined();
+  });
+
+  it("stripe:create_refund returns the full destructive-confirmation tuple", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        riskLevel: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskDescription?: string;
+      }>;
+    };
+    const refund = body.actions.find((a) => a.key === "stripe:create_refund")!;
+    expect(refund).toBeDefined();
+    expect(refund.riskLevel).toBe("high");
+    expect(refund.isDestructive).toBe(true);
+    expect(refund.requiresConfirmation).toBe(true);
+    expect(refund.riskDescription).toBeDefined();
+  });
+
+  it("stripe:find_customer (read action) returns riskLevel=low and is not destructive", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        riskLevel: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+      }>;
+    };
+    const find = body.actions.find((a) => a.key === "stripe:find_customer")!;
+    expect(find).toBeDefined();
+    expect(find.riskLevel).toBe("low");
+    expect(find.isDestructive).toBe(false);
+    expect(find.requiresConfirmation).toBe(false);
+  });
+});

@@ -80,4 +80,7 @@ export const slackDownloadFileMeta: ActionMeta = {
   producesFileRef: true,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

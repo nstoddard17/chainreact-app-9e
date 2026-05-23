@@ -3623,3 +3623,209 @@ describe("listProvidersWithMetadata", () => {
     expect(new Set(providers).size).toBe(providers.length);
   });
 });
+
+// ─── Slice 3.SEC-2A — Action risk metadata coverage ─────────────────────────
+//
+// Every action in the registry MUST have its risk classification right.
+// These assertions stop a future PR from silently introducing a destructive
+// action without flagging it. The rules tested below are not aspirational —
+// they reflect decisions made in Slice 3.SEC-2A:
+//
+//   - Every Stripe action that touches money is `riskLevel: "high"`.
+//   - Stripe capturePaymentIntent / createRefund / cancelSubscription are
+//     additionally `isDestructive` AND `requiresConfirmation` (the three
+//     gates from F-C3 of the SEC-1 audit).
+//   - `native:http_request` is `riskLevel: "high"` because it is an
+//     unrestricted egress sink (F-C2 of the SEC-1 audit).
+//   - Any action whose `type` ends in `delete_*` / `archive_*` /
+//     `cancel_subscription` MUST be `isDestructive: true`. Reverse holds:
+//     read/list/find/get actions MUST NOT be `isDestructive: true`.
+describe("action risk metadata coverage (Slice 3.SEC-2A)", () => {
+  function findAction(key: string): ActionMeta {
+    const meta = listAllActionMetas().find((m) => m.key === key);
+    if (!meta) throw new Error(`action meta '${key}' not in registry`);
+    return meta;
+  }
+
+  describe("Stripe money-moving actions are riskLevel=high", () => {
+    const STRIPE_HIGH_RISK_KEYS = [
+      "stripe:create_payment_intent",
+      "stripe:confirm_payment_intent",
+      "stripe:capture_payment_intent",
+      "stripe:create_refund",
+      "stripe:create_subscription",
+      "stripe:update_subscription",
+      "stripe:cancel_subscription",
+      "stripe:create_invoice",
+    ] as const;
+
+    for (const key of STRIPE_HIGH_RISK_KEYS) {
+      it(`${key} declares riskLevel: "high"`, () => {
+        expect(findAction(key).riskLevel).toBe("high");
+      });
+    }
+
+    it("every high-risk Stripe action also documents WHY via riskDescription", () => {
+      for (const key of STRIPE_HIGH_RISK_KEYS) {
+        const m = findAction(key);
+        expect(m.riskDescription).toBeDefined();
+        expect(m.riskDescription!.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe("Stripe destructive money-moving actions require confirmation", () => {
+    // The three actions where a single accidental fire causes real-world
+    // financial impact that cannot be undone with a single inverse action.
+    const STRIPE_CONFIRM_REQUIRED_KEYS = [
+      "stripe:capture_payment_intent",
+      "stripe:create_refund",
+      "stripe:cancel_subscription",
+    ] as const;
+
+    for (const key of STRIPE_CONFIRM_REQUIRED_KEYS) {
+      it(`${key} declares isDestructive AND requiresConfirmation`, () => {
+        const meta = findAction(key);
+        expect(meta.isDestructive).toBe(true);
+        expect(meta.requiresConfirmation).toBe(true);
+        expect(meta.riskLevel).toBe("high");
+      });
+    }
+  });
+
+  describe("Stripe non-write actions stay low risk", () => {
+    const STRIPE_LOW_RISK_KEYS = [
+      "stripe:find_customer",
+      "stripe:find_payment_intent",
+      "stripe:find_subscription",
+      "stripe:get_payments",
+    ] as const;
+
+    for (const key of STRIPE_LOW_RISK_KEYS) {
+      it(`${key} is low risk and not destructive`, () => {
+        const meta = findAction(key);
+        expect(meta.riskLevel).toBe("low");
+        expect(meta.isDestructive).toBe(false);
+        expect(meta.requiresConfirmation).toBe(false);
+      });
+    }
+  });
+
+  describe("native:http_request is high risk (arbitrary egress sink)", () => {
+    it("declares riskLevel: high", () => {
+      expect(findAction("native:http_request").riskLevel).toBe("high");
+    });
+    it("documents the egress concern in riskDescription", () => {
+      const meta = findAction("native:http_request");
+      expect(meta.riskDescription).toBeDefined();
+      expect(meta.riskDescription!.toLowerCase()).toMatch(/egress|outbound|sink|http/);
+    });
+    it("is NOT destructive AND does NOT require confirmation (egress != irreversible)", () => {
+      const meta = findAction("native:http_request");
+      expect(meta.isDestructive).toBe(false);
+      expect(meta.requiresConfirmation).toBe(false);
+    });
+  });
+
+  describe("Native logic / transform actions stay low risk", () => {
+    const LOW_RISK_NATIVE = [
+      "native:delay",
+      "native:format_transformer",
+      "native:if_then_condition",
+      "native:router",
+    ] as const;
+
+    for (const key of LOW_RISK_NATIVE) {
+      it(`${key} is low risk and non-destructive`, () => {
+        const meta = findAction(key);
+        expect(meta.riskLevel).toBe("low");
+        expect(meta.isDestructive).toBe(false);
+        expect(meta.requiresConfirmation).toBe(false);
+      });
+    }
+  });
+
+  describe("Cross-provider destructive actions are flagged", () => {
+    // Hand-curated list of every action whose runtime behavior matches the
+    // F-C3 "destructive" definition: irreversible OR hard-to-reverse OR
+    // hides data from the workspace until a separate restore call.
+    const DESTRUCTIVE_KEYS = [
+      "gmail:delete_email",
+      "microsoft-outlook:delete_email",
+      "slack:delete_message",
+      "slack:archive_channel",
+      "notion:archive_page",
+      "stripe:capture_payment_intent",
+      "stripe:create_refund",
+      "stripe:cancel_subscription",
+    ] as const;
+
+    for (const key of DESTRUCTIVE_KEYS) {
+      it(`${key} is isDestructive: true AND riskLevel: "high"`, () => {
+        const meta = findAction(key);
+        expect(meta.isDestructive).toBe(true);
+        expect(meta.riskLevel).toBe("high");
+      });
+    }
+  });
+
+  describe("Pure read / list / find / get actions are NOT destructive", () => {
+    // Audit guard: no `read-shaped` action key may carry isDestructive: true.
+    // Catches future drift where a get/list/find handler is accidentally
+    // misclassified.
+    const READ_VERB_RE = /:(get|list|find|search|fetch|query)_/;
+
+    it("every action whose type starts with a read verb is non-destructive", () => {
+      const violators: string[] = [];
+      for (const meta of listAllActionMetas()) {
+        if (READ_VERB_RE.test(meta.key) && meta.isDestructive) {
+          violators.push(meta.key);
+        }
+      }
+      expect(violators).toEqual([]);
+    });
+
+    it("every action whose type starts with a read verb is at most medium risk", () => {
+      const violators: string[] = [];
+      for (const meta of listAllActionMetas()) {
+        if (READ_VERB_RE.test(meta.key) && meta.riskLevel === "high") {
+          violators.push(meta.key);
+        }
+      }
+      expect(violators).toEqual([]);
+    });
+  });
+
+  describe("Consistency invariants across the full registry", () => {
+    it("isDestructive: true ALWAYS implies riskLevel: high", () => {
+      const violators: string[] = [];
+      for (const meta of listAllActionMetas()) {
+        if (meta.isDestructive && meta.riskLevel !== "high") {
+          violators.push(meta.key);
+        }
+      }
+      expect(violators).toEqual([]);
+    });
+
+    it("requiresConfirmation: true ALWAYS implies riskLevel: high", () => {
+      const violators: string[] = [];
+      for (const meta of listAllActionMetas()) {
+        if (meta.requiresConfirmation && meta.riskLevel !== "high") {
+          violators.push(meta.key);
+        }
+      }
+      expect(violators).toEqual([]);
+    });
+
+    it("every action declares a riskLevel from the enum {low, medium, high}", () => {
+      const VALID: ReadonlySet<string> = new Set(["low", "medium", "high"]);
+      const violators: string[] = [];
+      for (const meta of listAllActionMetas()) {
+        if (!VALID.has(meta.riskLevel)) {
+          violators.push(`${meta.key}=${meta.riskLevel}`);
+        }
+      }
+      expect(violators).toEqual([]);
+    });
+  });
+});

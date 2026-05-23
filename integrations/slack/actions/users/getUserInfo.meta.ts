@@ -91,4 +91,7 @@ export const slackGetUserInfoMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 280,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

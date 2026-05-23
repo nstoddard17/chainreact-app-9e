@@ -260,4 +260,8 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 130,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Creates a Checkout Session URL — customer completes payment on Stripe-hosted page; no charge until they submit.",
 };

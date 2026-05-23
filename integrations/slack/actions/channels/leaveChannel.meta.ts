@@ -42,4 +42,7 @@ export const slackLeaveChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 230,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

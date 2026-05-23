@@ -109,4 +109,8 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 140,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Creates a reusable payment link — anyone with the URL can attempt to pay.",
 };

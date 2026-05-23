@@ -285,6 +285,9 @@ const httpRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 describe("deriveDefaultConfig", () => {

@@ -138,4 +138,7 @@ export const slackGetFileInfoMeta: ActionMeta = {
   producesFileRef: true,
   consumesFileRef: false,
   displayOrder: 300,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

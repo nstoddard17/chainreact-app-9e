@@ -155,4 +155,8 @@ export const stripeCreateInvoiceMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 150,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Creates an invoice. Default `auto_advance: true` (Stripe-side default) finalizes and queues collection automatically.",
 };

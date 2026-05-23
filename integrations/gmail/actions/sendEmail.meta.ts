@@ -126,4 +126,8 @@ export const sendEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Sends external email — delivery is observable and cannot be recalled.",
 };

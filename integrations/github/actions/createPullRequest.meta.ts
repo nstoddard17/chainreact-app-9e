@@ -84,4 +84,7 @@ export const createPullRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 30,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

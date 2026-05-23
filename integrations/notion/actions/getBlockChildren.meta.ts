@@ -65,4 +65,7 @@ export const notionGetBlockChildrenMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 120,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

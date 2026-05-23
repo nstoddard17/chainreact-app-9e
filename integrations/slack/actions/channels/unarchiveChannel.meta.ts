@@ -43,4 +43,8 @@ export const slackUnarchiveChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 200,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Restores an archived channel — members regain access.",
 };

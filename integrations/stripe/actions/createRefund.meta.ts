@@ -157,4 +157,8 @@ export const stripeCreateRefundMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 70,
+  isDestructive: true,
+  requiresConfirmation: true,
+  riskLevel: "high",
+  riskDescription: "Issues a refund — money moves from merchant to customer. Cannot be undone.",
 };

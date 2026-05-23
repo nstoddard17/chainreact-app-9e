@@ -80,4 +80,7 @@ export const notionSearchMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 90,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

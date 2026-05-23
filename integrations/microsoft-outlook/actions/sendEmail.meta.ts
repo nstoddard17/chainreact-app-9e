@@ -132,4 +132,8 @@ export const outlookSendEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: true,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Sends external email — delivery is observable and cannot be recalled.",
 };

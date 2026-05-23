@@ -85,4 +85,7 @@ export const slackGetChannelInfoMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 170,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

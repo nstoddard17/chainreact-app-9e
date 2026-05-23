@@ -93,4 +93,8 @@ export const createRepositoryMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 20,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Creates a new GitHub repository — visible to org and harder to remove than a branch or issue.",
 };

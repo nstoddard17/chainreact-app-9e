@@ -72,4 +72,8 @@ export const slackUpdateMessageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 50,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Edits an existing Slack message — Slack surfaces an `(edited)` indicator.",
 };

@@ -106,4 +106,8 @@ export const stripeCreateCustomerMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Creates a Stripe Customer record — external write, easy to update or delete but persists in Stripe's audit trail.",
 };

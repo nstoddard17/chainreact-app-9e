@@ -59,4 +59,8 @@ export const slackRemoveUserFromChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 250,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Removes a user from a channel — they lose access until re-invited.",
 };

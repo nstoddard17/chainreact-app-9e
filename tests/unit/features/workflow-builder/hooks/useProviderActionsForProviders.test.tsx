@@ -43,6 +43,9 @@ const githubMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const gmailMeta: ActionMeta = {

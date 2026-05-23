@@ -54,4 +54,7 @@ export const slackPinMessageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 130,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

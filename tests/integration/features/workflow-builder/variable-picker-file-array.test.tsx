@@ -110,6 +110,9 @@ const attachAction: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: true,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const baseWorkflow: WorkflowDetail = {
@@ -392,6 +395,9 @@ it("existing text-field picker behavior is unchanged: variable insertion still t
     producesFileRef: false,
     consumesFileRef: false,
     displayOrder: 10,
+    isDestructive: false,
+    requiresConfirmation: false,
+    riskLevel: "low",
   };
   mockListNativeActions.mockResolvedValue([textConsumer]);
   __resetNativeActionsCacheForTests();

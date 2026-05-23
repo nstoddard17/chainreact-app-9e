@@ -64,6 +64,9 @@ const httpRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const routerMeta: ActionMeta = {
@@ -721,6 +724,9 @@ const githubAddCommentMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 60,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 function bootWithProviderAction(meta: ActionMeta) {

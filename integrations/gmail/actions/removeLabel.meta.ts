@@ -47,4 +47,7 @@ export const removeLabelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 80,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

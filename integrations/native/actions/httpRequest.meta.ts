@@ -96,4 +96,8 @@ export const httpRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Arbitrary outbound HTTP — can send any upstream value to any URL. Treat as an egress sink.",
 };

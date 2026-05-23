@@ -61,4 +61,8 @@ export const deleteEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 130,
+  isDestructive: true,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Permanent deletion. Gmail does not retain a recoverable copy after this call.",
 };

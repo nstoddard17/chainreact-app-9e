@@ -55,4 +55,8 @@ export const outlookDeleteEmailMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 90,
+  isDestructive: true,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Permanent deletion after Deleted Items retention. Recovery is best-effort.",
 };

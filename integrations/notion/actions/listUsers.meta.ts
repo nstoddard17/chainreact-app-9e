@@ -57,4 +57,7 @@ export const notionListUsersMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 160,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

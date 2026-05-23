@@ -98,4 +98,7 @@ export const createDraftReplyMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 40,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

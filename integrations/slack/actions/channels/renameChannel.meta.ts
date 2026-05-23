@@ -62,4 +62,8 @@ export const slackRenameChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 210,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Renames a channel — visible to all members; bookmarks/links survive.",
 };

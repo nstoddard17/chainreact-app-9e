@@ -37,4 +37,7 @@ export const markAsReadMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 100,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

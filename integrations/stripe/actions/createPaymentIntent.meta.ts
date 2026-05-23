@@ -142,4 +142,8 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 40,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Authorizes a charge (capture pending). Money does not move until capture, but the authorization is real.",
 };

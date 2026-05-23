@@ -75,4 +75,7 @@ export const slackAddReactionMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 110,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

@@ -51,4 +51,7 @@ export const stripeFindPaymentIntentMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 80,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };

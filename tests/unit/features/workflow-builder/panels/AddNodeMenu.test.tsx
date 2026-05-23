@@ -98,6 +98,9 @@ const httpRequestMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
 };
 
 const delayMeta: ActionMeta = {
@@ -108,6 +111,9 @@ const delayMeta: ActionMeta = {
   description: "Pause the workflow.",
   category: "scheduling",
   displayOrder: 30,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
   fields: [
     {
       name: "seconds",

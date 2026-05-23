@@ -42,4 +42,8 @@ export const slackArchiveChannelMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 190,
+  isDestructive: true,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Archives a channel — members lose access; unarchive is possible but channel history is hidden until then.",
 };

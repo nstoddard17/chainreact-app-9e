@@ -130,4 +130,8 @@ export const slackUploadFileMeta: ActionMeta = {
   producesFileRef: true,
   consumesFileRef: true,
   displayOrder: 20,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+  riskDescription: "Uploads a file to Slack — visible to channel members; deletion requires a separate call.",
 };

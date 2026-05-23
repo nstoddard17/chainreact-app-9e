@@ -123,4 +123,8 @@ export const stripeCancelSubscriptionMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 110,
+  isDestructive: true,
+  requiresConfirmation: true,
+  riskLevel: "high",
+  riskDescription: "Cancels a subscription — customer loses access at period end (or immediately if configured).",
 };

@@ -58,4 +58,8 @@ export const notionArchivePageMeta: ActionMeta = {
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 30,
+  isDestructive: true,
+  requiresConfirmation: false,
+  riskLevel: "high",
+  riskDescription: "Archives a page — hidden from workspace; recoverable via `restore_page` but invisible until then.",
 };
