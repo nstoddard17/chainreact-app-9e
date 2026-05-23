@@ -459,3 +459,162 @@ describe("POST /run-now — testMode flag (Slice 3.SEC-2)", () => {
     expect(enqueueCall.event.payload).not.toHaveProperty("testMode");
   });
 });
+
+// ── Slice 3.SEC-4B — destructive-action confirmation gate ──────────────────
+
+const destructiveWorkflow = {
+  ...baseWorkflow,
+  draftDefinition: {
+    nodes: [
+      baseWorkflow.draftDefinition.nodes[0]!, // trigger
+      {
+        id: "refund-node",
+        kind: "action" as const,
+        provider: "stripe",
+        type: "create_refund",
+        config: { chargeId: "ch_secret_1", metadata: { internal: "do-not-leak" } },
+        position: { x: 0, y: 100 },
+      },
+    ],
+    edges: [
+      { id: "e1", from: baseWorkflow.draftDefinition.nodes[0]!.id, to: "refund-node" },
+    ],
+  },
+};
+
+describe("POST /run-now — destructive-action confirmation (Slice 3.SEC-4B)", () => {
+  beforeEach(() => {
+    signedInAs("user-1");
+  });
+
+  it("returns 409 CONFIRMATION_REQUIRED when testMode=false + destructive action + no confirmationText", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow);
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(409);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+
+    const body = await res.json();
+    expect(body.error).toBe("CONFIRMATION_REQUIRED");
+    expect(body.requiresConfirmation).toBe(true);
+    expect(body.confirmationText).toBe("CONFIRM");
+    expect(body.actions).toHaveLength(1);
+    expect(body.actions[0].nodeId).toBe("refund-node");
+    expect(body.actions[0].provider).toBe("stripe");
+    expect(body.actions[0].type).toBe("create_refund");
+    expect(body.actions[0].displayName).toBe("Create Refund");
+    expect(typeof body.actions[0].riskDescription).toBe("string");
+  });
+
+  it("returns 409 when confirmationText is wrong (case mismatch)", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow);
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ confirmationText: "confirm" }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(409);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("enqueues a real run when correct confirmationText is supplied", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow);
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ confirmationText: "CONFIRM", inputs: {} }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(enqueueCall.testMode).toBe(false);
+    expect(enqueueCall.triggeredBy).toBe("manual");
+  });
+
+  it("testMode=true bypasses the confirmation gate even for destructive workflows (SEC-2 blocks externally)", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow);
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ testMode: true, inputs: {} }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(enqueueCall.testMode).toBe(true);
+    expect(enqueueCall.triggeredBy).toBe("test");
+  });
+
+  it("low-risk workflow does NOT require confirmation when testMode=false", async () => {
+    // baseWorkflow has a slack:send_channel_message action which is
+    // medium-risk, not destructive, not requiresConfirmation.
+    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("response does NOT include node config when CONFIRMATION_REQUIRED fires", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow);
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(409);
+    const text = await res.text();
+    expect(text).not.toContain("ch_secret_1");
+    expect(text).not.toContain("do-not-leak");
+    expect(text).not.toContain("draftDefinition");
+  });
+
+  it("rejects non-string confirmationText at envelope (400 not 409)", async () => {
+    mockGetById.mockResolvedValueOnce(destructiveWorkflow);
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ confirmationText: 123 }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(400);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("Slack delete_message in workflow also requires confirmation", async () => {
+    mockGetById.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [
+          baseWorkflow.draftDefinition.nodes[0]!,
+          {
+            id: "slack-delete-node",
+            kind: "action" as const,
+            provider: "slack",
+            type: "delete_message",
+            config: {},
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [],
+      },
+    });
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe("CONFIRMATION_REQUIRED");
+    expect(body.actions[0].provider).toBe("slack");
+    expect(body.actions[0].type).toBe("delete_message");
+  });
+});

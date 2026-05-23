@@ -9,6 +9,10 @@ import {
   MANUAL_TRIGGER_PROVIDER,
   ManualTriggerPayloadSchema,
 } from "@/integrations/native/triggers/manualTrigger";
+import {
+  findConfirmationRequiredActions,
+  isValidConfirmationText,
+} from "@/services/workflows/riskConfirmation";
 import { requireUser } from "../../_shared";
 
 /**
@@ -57,10 +61,17 @@ const ALLOWED_STATES: ReadonlySet<string> = new Set([
  * not part of it. Extracting before schema validation keeps
  * ManualTriggerPayloadSchema strict (which would otherwise reject the
  * extra field) while letting clients send a single JSON body.
+ *
+ * Slice 3.SEC-4B — `confirmationText` is similarly a sibling. When the
+ * workflow contains a destructive / requires-confirmation action AND
+ * `testMode === false`, the caller MUST echo `"CONFIRM"` as
+ * `confirmationText`; otherwise the route returns 409 with a
+ * structured `CONFIRMATION_REQUIRED` response.
  */
 const RunNowEnvelopeSchema = z
   .object({
     testMode: z.boolean().optional(),
+    confirmationText: z.string().optional(),
   })
   .passthrough();
 
@@ -129,7 +140,11 @@ export async function POST(
       { status: 400 },
     );
   }
-  const { testMode: rawTestMode, ...payloadFields } = envelope.data;
+  const {
+    testMode: rawTestMode,
+    confirmationText,
+    ...payloadFields
+  } = envelope.data;
   const testMode = rawTestMode === true;
 
   const parsed = ManualTriggerPayloadSchema.safeParse(payloadFields);
@@ -155,6 +170,31 @@ export async function POST(
       { error: "Workflow has no manual_trigger node." },
       { status: 422 },
     );
+  }
+
+  // Slice 3.SEC-4B — destructive-action confirmation gate.
+  // Runs AFTER body validation + trigger-node lookup so malformed-
+  // workflow signals (400 / 422) surface first; the confirmation
+  // gate only fires once the request shape is otherwise valid.
+  //
+  // Only enforced for real-mode runs. testMode runs skip the gate
+  // because SEC-2 already blocks `requiresIntegration: true` actions
+  // before the handler is invoked — test-mode runs cannot actually
+  // execute destructive provider calls, so a confirmation prompt
+  // would be friction without safety value.
+  if (!testMode) {
+    const risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);
+    if (risk.requiresConfirmation && !isValidConfirmationText(confirmationText)) {
+      return NextResponse.json(
+        {
+          error: "CONFIRMATION_REQUIRED",
+          requiresConfirmation: true,
+          confirmationText: risk.confirmationText,
+          actions: risk.actions,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const event: TriggerEvent = {
