@@ -168,7 +168,14 @@ it("Run Now → polling 404 then 200 → RunResultsPanel renders step output", a
   // 3. Click Run Now → typed-client called.
   await user.click(screen.getByRole("button", { name: /run now/i }));
   await waitFor(() => {
-    expect(mockRunNowWorkflow).toHaveBeenCalledWith("wf-1", { inputs: {} });
+    // Slice 3.POSTSEC-5 — runNowWorkflow signature is now
+    // (id, inputs, { confirmationText? }). First-shot call passes
+    // empty options.
+    expect(mockRunNowWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      { inputs: {} },
+      {},
+    );
   });
 
   // 4. RunResultsPanel switches to pending. (advancing zero timers,

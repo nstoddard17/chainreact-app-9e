@@ -26,6 +26,7 @@ export type WorkflowApiErrorCode =
   | "MISSING_PRECONDITIONS"
   | "TRIGGER_REGISTRATION_FAILED"
   | "LIFECYCLE_CONFLICT"
+  | "CONFIRMATION_REQUIRED"
   | "SERVER_ERROR"
   | "UNKNOWN";
 
@@ -40,9 +41,97 @@ export class WorkflowApiError extends Error {
   }
 }
 
+/**
+ * Slice 3.POSTSEC-5 — descriptor of one action that requires typed
+ * confirmation before activation / Run-now can proceed. Mirrors the
+ * server-side `ConfirmationRequiredAction` (see
+ * `services/workflows/riskConfirmation.ts`), which is intentionally
+ * route-safe — no config, no resolved values, no IDs beyond the
+ * provider/type/displayName triple + an optional risk description.
+ */
+export interface WorkflowConfirmationRequiredAction {
+  readonly nodeId: string;
+  readonly provider: string;
+  readonly type: string;
+  readonly displayName: string;
+  readonly riskDescription?: string;
+}
+
+export interface WorkflowConfirmationRequiredDetail {
+  /** Always true on a CONFIRMATION_REQUIRED response. */
+  readonly requiresConfirmation: true;
+  /**
+   * The literal phrase the caller must echo verbatim (V1: `"CONFIRM"`).
+   * Server-driven — UIs MUST NOT hardcode the phrase.
+   */
+  readonly confirmationText: string;
+  /** Action nodes that flipped the workflow into confirmation-required mode. */
+  readonly actions: readonly WorkflowConfirmationRequiredAction[];
+}
+
+/**
+ * Slice 3.POSTSEC-5 — thrown by `activateWorkflow` / `runNowWorkflow`
+ * (and any future SEC-4B-gated endpoint) when the server returns
+ * `409 CONFIRMATION_REQUIRED`. Subclasses `WorkflowApiError` so existing
+ * `instanceof WorkflowApiError` checks keep working; the `detail` carries
+ * the structured payload UIs need to render a typed-confirmation modal.
+ *
+ * Use the `isConfirmationRequiredError` type guard rather than checking
+ * `code === "CONFIRMATION_REQUIRED"` inline — the guard narrows the
+ * type so TypeScript surfaces `error.detail` correctly.
+ */
+export class WorkflowConfirmationRequiredError extends WorkflowApiError {
+  readonly detail: WorkflowConfirmationRequiredDetail;
+  constructor(
+    message: string,
+    status: number,
+    detail: WorkflowConfirmationRequiredDetail,
+  ) {
+    super(message, "CONFIRMATION_REQUIRED", status);
+    this.name = "WorkflowConfirmationRequiredError";
+    this.detail = detail;
+  }
+}
+
+/**
+ * Type guard — narrows a caught error to
+ * `WorkflowConfirmationRequiredError` so callers can read `.detail`
+ * without an extra cast. Prefer this over `instanceof` checks because
+ * the guard ALSO accepts errors whose prototype was lost across module
+ * boundaries (Jest mocks / iframe boundaries / serialization round-trips)
+ * by falling back to a shape check.
+ */
+export function isConfirmationRequiredError(
+  err: unknown,
+): err is WorkflowConfirmationRequiredError {
+  if (err instanceof WorkflowConfirmationRequiredError) return true;
+  if (!(err instanceof Error)) return false;
+  const candidate = err as { code?: unknown; detail?: unknown };
+  if (candidate.code !== "CONFIRMATION_REQUIRED") return false;
+  const detail = candidate.detail as
+    | { requiresConfirmation?: unknown; confirmationText?: unknown; actions?: unknown }
+    | undefined;
+  if (!detail) return false;
+  if (detail.requiresConfirmation !== true) return false;
+  if (typeof detail.confirmationText !== "string") return false;
+  if (!Array.isArray(detail.actions)) return false;
+  return true;
+}
+
 interface ServerErrorBody {
   error?: string;
   code?: string;
+  // Slice 3.POSTSEC-5 — CONFIRMATION_REQUIRED body shape (sibling fields,
+  // not nested under `code`).
+  requiresConfirmation?: boolean;
+  confirmationText?: string;
+  actions?: ReadonlyArray<{
+    nodeId?: string;
+    provider?: string;
+    type?: string;
+    displayName?: string;
+    riskDescription?: string;
+  }>;
 }
 
 async function parseError(res: Response): Promise<WorkflowApiError> {
@@ -53,6 +142,46 @@ async function parseError(res: Response): Promise<WorkflowApiError> {
     /* not json */
   }
   const message = body.error ?? `Workflow request failed (HTTP ${res.status}).`;
+
+  // Slice 3.POSTSEC-5 — server returns a structured 409 with
+  // { error: "CONFIRMATION_REQUIRED", requiresConfirmation, confirmationText, actions }
+  // when activation / Run-now is gated by SEC-4B + POSTSEC-3. Surface
+  // that as a dedicated error subclass so UI callers can branch to the
+  // typed-confirmation modal.
+  if (
+    body.error === "CONFIRMATION_REQUIRED" &&
+    body.requiresConfirmation === true &&
+    typeof body.confirmationText === "string" &&
+    Array.isArray(body.actions)
+  ) {
+    const actions: WorkflowConfirmationRequiredAction[] = [];
+    for (const raw of body.actions) {
+      if (
+        raw &&
+        typeof raw.nodeId === "string" &&
+        typeof raw.provider === "string" &&
+        typeof raw.type === "string" &&
+        typeof raw.displayName === "string"
+      ) {
+        const action: WorkflowConfirmationRequiredAction = {
+          nodeId: raw.nodeId,
+          provider: raw.provider,
+          type: raw.type,
+          displayName: raw.displayName,
+          ...(typeof raw.riskDescription === "string"
+            ? { riskDescription: raw.riskDescription }
+            : {}),
+        };
+        actions.push(action);
+      }
+    }
+    return new WorkflowConfirmationRequiredError(message, res.status, {
+      requiresConfirmation: true,
+      confirmationText: body.confirmationText,
+      actions,
+    });
+  }
+
   const code = pickCode(body.code, res.status);
   return new WorkflowApiError(message, code, res.status);
 }
@@ -175,10 +304,32 @@ export async function getWorkflowRun(
   return (await res.json()) as WorkflowRunDetail;
 }
 
-export async function activateWorkflow(id: string): Promise<WorkflowSummary> {
+/**
+ * Slice 3.POSTSEC-5 — typed confirmation payload accepted by `activate` /
+ * `run-now` when retrying after a `WorkflowConfirmationRequiredError`.
+ * `confirmationText` MUST equal the server-provided `detail.confirmationText`
+ * (currently the literal `"CONFIRM"`); the server rejects anything else
+ * with another 409.
+ */
+export interface ConfirmationOptions {
+  confirmationText?: string;
+}
+
+export async function activateWorkflow(
+  id: string,
+  opts: ConfirmationOptions = {},
+): Promise<WorkflowSummary> {
+  // Send a JSON body only when there's something to send — keeps the
+  // pre-POSTSEC-5 call shape (body: undefined) intact for low-risk
+  // workflows so existing tests + routes that don't expect any body
+  // still see exactly what they did before.
+  const body =
+    opts.confirmationText !== undefined
+      ? { confirmationText: opts.confirmationText }
+      : undefined;
   return postJson<WorkflowSummary>(
     `/api/workflows/${encodeURIComponent(id)}/activate`,
-    undefined,
+    body,
   );
 }
 
@@ -232,9 +383,21 @@ export interface RunNowResponse {
 export async function runNowWorkflow(
   id: string,
   input: RunNowRequest = {},
+  opts: ConfirmationOptions = {},
 ): Promise<RunNowResponse> {
+  // Slice 3.POSTSEC-5 — confirmation retry flow. The server's run-now
+  // envelope accepts `confirmationText` as a sibling of `inputs`; supplying
+  // the server-issued phrase tells the SEC-4B gate the typed confirmation
+  // happened. Omitted by default → low-risk + destructive-but-confirmed
+  // calls work unchanged; the modal layer adds it on retry.
+  const body: { inputs: Record<string, unknown>; confirmationText?: string } = {
+    inputs: input.inputs ?? {},
+  };
+  if (opts.confirmationText !== undefined) {
+    body.confirmationText = opts.confirmationText;
+  }
   return postJson<RunNowResponse>(
     `/api/workflows/${encodeURIComponent(id)}/run-now`,
-    { inputs: input.inputs ?? {} },
+    body,
   );
 }

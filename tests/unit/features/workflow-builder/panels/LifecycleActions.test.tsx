@@ -28,7 +28,10 @@ jest.mock("next/navigation", () => ({
 
 import { LifecycleActions } from "@/features/workflow-builder/panels/LifecycleActions";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
-import { WorkflowApiError } from "@/lib/api/workflows";
+import {
+  WorkflowApiError,
+  WorkflowConfirmationRequiredError,
+} from "@/lib/api/workflows";
 
 beforeEach(() => {
   mockActivate.mockReset();
@@ -84,7 +87,13 @@ describe("LifecycleActions — interactions", () => {
     render(<LifecycleActions workflowId="wf-1" state="draft" />);
     await user.click(screen.getByRole("button", { name: /activate/i }));
     await waitFor(() => {
-      expect(mockActivate).toHaveBeenCalledWith("wf-1");
+      // Slice 3.POSTSEC-5 — activateWorkflow signature is
+      // (id, { confirmationText? }). Initial call carries
+      // confirmationText: undefined (back-compat: the client maps that
+      // to body: null on the wire). Retry path supplies the phrase.
+      expect(mockActivate).toHaveBeenCalledWith("wf-1", {
+        confirmationText: undefined,
+      });
       expect(mockRefresh).toHaveBeenCalled();
     });
   });
@@ -108,5 +117,162 @@ describe("LifecycleActions — interactions", () => {
     await user.click(screen.getByRole("button", { name: /activate/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/slack disconnected/i);
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Slice 3.POSTSEC-5 — typed-confirmation modal flow ──────────────────────
+describe("LifecycleActions — destructive-action confirmation (Slice 3.POSTSEC-5)", () => {
+  function makeConfirmationError(): WorkflowConfirmationRequiredError {
+    return new WorkflowConfirmationRequiredError("Confirmation required.", 409, {
+      requiresConfirmation: true,
+      confirmationText: "CONFIRM",
+      actions: [
+        {
+          nodeId: "refund-node",
+          provider: "stripe",
+          type: "create_refund",
+          displayName: "Create Refund",
+          riskDescription:
+            "Reverses a Stripe charge — destructive, generally not reversible.",
+        },
+      ],
+    });
+  }
+
+  it("on first-shot 409 CONFIRMATION_REQUIRED, opens the typed-confirmation modal and does NOT refresh", async () => {
+    mockActivate.mockRejectedValueOnce(makeConfirmationError());
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="draft" />);
+    await user.click(screen.getByRole("button", { name: /activate/i }));
+    expect(
+      await screen.findByTestId("destructive-action-confirmation-modal"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Create Refund")).toBeInTheDocument();
+    expect(screen.getByText("stripe:create_refund")).toBeInTheDocument();
+    expect(screen.getByText(/reverses a stripe charge/i)).toBeInTheDocument();
+    // activateWorkflow called once (the failing first attempt). Refresh NOT
+    // called (workflow stays in draft).
+    expect(mockActivate).toHaveBeenCalledTimes(1);
+    expect(mockRefresh).not.toHaveBeenCalled();
+    // The activate button is now disabled while the modal is open so the
+    // user cannot re-trigger from the lifecycle bar.
+    expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();
+  });
+
+  it("typing CONFIRM and clicking Confirm retries activateWorkflow with confirmationText=CONFIRM", async () => {
+    mockActivate
+      .mockRejectedValueOnce(makeConfirmationError())
+      .mockResolvedValueOnce({ id: "wf-1", state: "active" });
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="draft" />);
+    await user.click(screen.getByRole("button", { name: /activate/i }));
+    await screen.findByTestId("destructive-action-confirmation-modal");
+    await user.type(
+      screen.getByTestId("destructive-action-confirmation-input"),
+      "CONFIRM",
+    );
+    await user.click(
+      screen.getByTestId("destructive-action-confirmation-confirm"),
+    );
+    await waitFor(() => {
+      expect(mockActivate).toHaveBeenCalledTimes(2);
+    });
+    // Second call carries the confirmationText.
+    expect(mockActivate.mock.calls[1]).toEqual([
+      "wf-1",
+      { confirmationText: "CONFIRM" },
+    ]);
+    await waitFor(() => {
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+    // Modal closes on success.
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("wrong phrase keeps Confirm disabled and never retries", async () => {
+    mockActivate.mockRejectedValueOnce(makeConfirmationError());
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="draft" />);
+    await user.click(screen.getByRole("button", { name: /activate/i }));
+    await screen.findByTestId("destructive-action-confirmation-modal");
+    await user.type(
+      screen.getByTestId("destructive-action-confirmation-input"),
+      "confirm",
+    );
+    expect(
+      screen.getByTestId("destructive-action-confirmation-confirm"),
+    ).toBeDisabled();
+    expect(mockActivate).toHaveBeenCalledTimes(1);
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it("Cancel closes the modal without retrying activate", async () => {
+    mockActivate.mockRejectedValueOnce(makeConfirmationError());
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="draft" />);
+    await user.click(screen.getByRole("button", { name: /activate/i }));
+    await screen.findByTestId("destructive-action-confirmation-modal");
+    await user.click(
+      screen.getByTestId("destructive-action-confirmation-cancel"),
+    );
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+    expect(mockActivate).toHaveBeenCalledTimes(1);
+    expect(mockRefresh).not.toHaveBeenCalled();
+    // Activate button re-enabled (modal closed, pending cleared).
+    expect(screen.getByRole("button", { name: /activate/i })).toBeEnabled();
+  });
+
+  it("low-risk activation still works without the modal (regression guard)", async () => {
+    mockActivate.mockResolvedValueOnce({ id: "wf-1", state: "active" });
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="draft" />);
+    await user.click(screen.getByRole("button", { name: /activate/i }));
+    await waitFor(() => {
+      expect(mockActivate).toHaveBeenCalledTimes(1);
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+    // First call carries no confirmationText (back-compat).
+    expect(mockActivate).toHaveBeenCalledWith("wf-1", { confirmationText: undefined });
+  });
+
+  it("modal does NOT render workflow config or secrets even when the action node has a leaky id", async () => {
+    // The modal only sees what the server's `findConfirmationRequiredActions`
+    // returns — the route-safe shape. Defensive: assert the rendered
+    // modal does NOT echo secret-looking strings the workflow MIGHT have
+    // had in its config. This belt-and-suspenders catches a future
+    // server regression where extra fields leak through.
+    mockActivate.mockRejectedValueOnce(
+      new WorkflowConfirmationRequiredError("Confirmation required.", 409, {
+        requiresConfirmation: true,
+        confirmationText: "CONFIRM",
+        actions: [
+          {
+            nodeId: "refund-node",
+            provider: "stripe",
+            type: "create_refund",
+            displayName: "Create Refund",
+            // riskDescription is the only free-text field — make sure
+            // tests don't accidentally trust it to carry safe data.
+            riskDescription: "Reverses a Stripe charge.",
+          },
+        ],
+      }),
+    );
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="draft" />);
+    await user.click(screen.getByRole("button", { name: /activate/i }));
+    const modal = await screen.findByTestId(
+      "destructive-action-confirmation-modal",
+    );
+    expect(modal).not.toHaveTextContent(/ch_secret_1/);
+    expect(modal).not.toHaveTextContent(/cus_/);
+    expect(modal).not.toHaveTextContent(/draftDefinition/);
   });
 });

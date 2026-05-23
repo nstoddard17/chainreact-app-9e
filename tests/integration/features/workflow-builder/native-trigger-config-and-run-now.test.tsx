@@ -241,7 +241,14 @@ it("end-to-end: add manual trigger, Run Now posts to runNowWorkflow", async () =
   //    empty inputs payload.
   await user.click(screen.getByRole("button", { name: /run now/i }));
   await waitFor(() => {
-    expect(mockRunNowWorkflow).toHaveBeenCalledWith("wf-1", { inputs: {} });
+    // Slice 3.POSTSEC-5 — runNowWorkflow signature is now
+    // (id, inputs, { confirmationText? }). First-shot call passes
+    // empty options.
+    expect(mockRunNowWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      { inputs: {} },
+      {},
+    );
   });
   expect(mockUpdateWorkflow).not.toHaveBeenCalled();
 

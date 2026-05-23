@@ -6,9 +6,15 @@ import {
   MANUAL_TRIGGER_EVENT_TYPE,
   MANUAL_TRIGGER_PROVIDER,
 } from "@/integrations/native/triggers/manualTrigger";
-import { runNowWorkflow, WorkflowApiError } from "@/lib/api/workflows";
+import {
+  isConfirmationRequiredError,
+  runNowWorkflow,
+  WorkflowApiError,
+  type WorkflowConfirmationRequiredDetail,
+} from "@/lib/api/workflows";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
+import { DestructiveActionConfirmationModal } from "./DestructiveActionConfirmationModal";
 
 /**
  * Run Now panel — Slice 3.3.
@@ -41,6 +47,11 @@ export function RunNowPanel() {
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
+  // Slice 3.POSTSEC-5 — pending typed-confirmation modal state for the
+  // real-run path. Non-null = modal open; the server's structured 409
+  // detail is the source of truth for the action list + required phrase.
+  const [confirmationDetail, setConfirmationDetail] =
+    useState<WorkflowConfirmationRequiredDetail | null>(null);
   const startTracking = useRunSlice((s) => s.startTracking);
 
   const hasManualTrigger = pendingNodes.some(
@@ -55,19 +66,40 @@ export function RunNowPanel() {
   // via their own activation pathways).
   if (!hasManualTrigger || !workflowId) return null;
 
+  async function dispatchRun(
+    targetWorkflowId: string,
+    confirmationText: string | undefined,
+  ): Promise<void> {
+    const result = await runNowWorkflow(
+      targetWorkflowId,
+      { inputs: {} },
+      confirmationText !== undefined ? { confirmationText } : {},
+    );
+    setLastRunId(result.runId);
+    // Slice 3.8 — kick off latest-run tracking. The polling hook
+    // installed in WorkflowBuilder picks this up and renders the
+    // result into RunResultsPanel. Save state stays a separate
+    // concern: Run Now does NOT call updateWorkflow.
+    startTracking({ workflowId: targetWorkflowId, runId: result.runId });
+  }
+
   async function handleRun(): Promise<void> {
     if (!workflowId) return;
+    if (confirmationDetail !== null) return;
     setIsRunning(true);
     setRunError(null);
     try {
-      const result = await runNowWorkflow(workflowId, { inputs: {} });
-      setLastRunId(result.runId);
-      // Slice 3.8 — kick off latest-run tracking. The polling hook
-      // installed in WorkflowBuilder picks this up and renders the
-      // result into RunResultsPanel. Save state stays a separate
-      // concern: Run Now does NOT call updateWorkflow.
-      startTracking({ workflowId, runId: result.runId });
+      await dispatchRun(workflowId, undefined);
     } catch (err) {
+      // Slice 3.POSTSEC-5 — server returned 409 CONFIRMATION_REQUIRED.
+      // Defer to the typed-confirmation modal; clear the in-flight
+      // spinner so the Run Now button isn't stuck in "Running…" while
+      // the user reads the modal.
+      if (isConfirmationRequiredError(err)) {
+        setConfirmationDetail(err.detail);
+        setIsRunning(false);
+        return;
+      }
       const message =
         err instanceof WorkflowApiError
           ? err.message
@@ -78,6 +110,35 @@ export function RunNowPanel() {
     } finally {
       setIsRunning(false);
     }
+  }
+
+  async function handleConfirmRun(): Promise<void> {
+    if (!workflowId || !confirmationDetail) return;
+    setIsRunning(true);
+    setRunError(null);
+    try {
+      await dispatchRun(workflowId, confirmationDetail.confirmationText);
+      setConfirmationDetail(null);
+    } catch (err) {
+      // Defensive — the server's `isValidConfirmationText` matches the
+      // client's modal validation exactly, so a second 409 on retry is
+      // rare. Treat any failure as a normal Run Now failure and close
+      // the modal so the user isn't stuck.
+      const message =
+        err instanceof WorkflowApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Run Now failed.";
+      setRunError(message);
+      setConfirmationDetail(null);
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
+  function handleCancelConfirm(): void {
+    setConfirmationDetail(null);
   }
 
   return (
@@ -120,6 +181,14 @@ export function RunNowPanel() {
           Enqueued run <code className="font-mono">{lastRunId}</code>.
         </p>
       ) : null}
+      {confirmationDetail && (
+        <DestructiveActionConfirmationModal
+          detail={confirmationDetail}
+          busy={isRunning}
+          onConfirm={handleConfirmRun}
+          onCancel={handleCancelConfirm}
+        />
+      )}
     </section>
   );
 }

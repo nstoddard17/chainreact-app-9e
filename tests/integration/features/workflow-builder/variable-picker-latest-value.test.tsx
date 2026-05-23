@@ -218,7 +218,14 @@ it("Run Now → terminal succeeded → picker shows trigger.payload.subject prev
   // 4. Click Run Now → polling picks up the success on tick 1.
   await user.click(screen.getByRole("button", { name: /run now/i }));
   await waitFor(() => {
-    expect(mockRunNowWorkflow).toHaveBeenCalledWith("wf-1", { inputs: {} });
+    // Slice 3.POSTSEC-5 — runNowWorkflow signature is now
+    // (id, inputs, { confirmationText? }). First-shot call passes
+    // empty options.
+    expect(mockRunNowWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      { inputs: {} },
+      {},
+    );
   });
   await act(async () => {
     jest.advanceTimersByTime(1000);

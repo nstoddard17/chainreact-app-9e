@@ -23,7 +23,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RunNowPanel } from "@/features/workflow-builder/panels/RunNowPanel";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
-import { WorkflowApiError } from "@/lib/api/workflows";
+import {
+  WorkflowApiError,
+  WorkflowConfirmationRequiredError,
+} from "@/lib/api/workflows";
 
 function bootWithManualTrigger(): void {
   useGraphSlice.getState().reset();
@@ -91,7 +94,15 @@ describe("RunNowPanel — execution", () => {
     await waitFor(() => {
       expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
     });
-    expect(mockRunNowWorkflow).toHaveBeenCalledWith("wf-1", { inputs: {} });
+    // Slice 3.POSTSEC-5 — runNowWorkflow signature is now
+    // (id, inputs, { confirmationText? }). Initial call passes an
+    // empty options object (client maps to no `confirmationText` on
+    // the wire). Retry path supplies the phrase.
+    expect(mockRunNowWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      { inputs: {} },
+      {},
+    );
   });
 
   it("surfaces the runId on success", async () => {
@@ -181,6 +192,143 @@ describe("RunNowPanel — execution", () => {
     expect(after.isDirty).toBe(before.isDirty);
     expect(after.saveError).toBe(before.saveError);
     expect(after.isSaving).toBe(before.isSaving);
+  });
+});
+
+// ─── Slice 3.POSTSEC-5 — typed-confirmation modal flow ─────────────────────
+describe("RunNowPanel — destructive-action confirmation (Slice 3.POSTSEC-5)", () => {
+  function makeConfirmationError(): WorkflowConfirmationRequiredError {
+    return new WorkflowConfirmationRequiredError(
+      "Confirmation required.",
+      409,
+      {
+        requiresConfirmation: true,
+        confirmationText: "CONFIRM",
+        actions: [
+          {
+            nodeId: "pi-node",
+            provider: "stripe",
+            type: "create_payment_intent",
+            displayName: "Create Payment Intent",
+            riskDescription: "Starts a customer payment flow.",
+          },
+        ],
+      },
+    );
+  }
+
+  it("on first-shot 409, opens the typed-confirmation modal and does NOT enqueue a run", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow.mockRejectedValueOnce(makeConfirmationError());
+    const user = userEvent.setup();
+    render(<RunNowPanel />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    expect(
+      await screen.findByTestId("destructive-action-confirmation-modal"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Create Payment Intent")).toBeInTheDocument();
+    expect(screen.getByText("stripe:create_payment_intent")).toBeInTheDocument();
+    expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("run-now-success")).not.toBeInTheDocument();
+    // Run Now button is back to enabled (in-flight cleared so the modal is the
+    // sole focus surface).
+    expect(screen.getByRole("button", { name: /run now/i })).toBeEnabled();
+  });
+
+  it("typing CONFIRM and clicking Confirm retries runNowWorkflow with confirmationText + same inputs", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow
+      .mockRejectedValueOnce(makeConfirmationError())
+      .mockResolvedValueOnce({
+        runId: "run-postsec5",
+        enqueuedAt: "2026-05-23T00:00:00Z",
+      });
+    const user = userEvent.setup();
+    render(<RunNowPanel />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await screen.findByTestId("destructive-action-confirmation-modal");
+    await user.type(
+      screen.getByTestId("destructive-action-confirmation-input"),
+      "CONFIRM",
+    );
+    await user.click(
+      screen.getByTestId("destructive-action-confirmation-confirm"),
+    );
+    await waitFor(() => {
+      expect(mockRunNowWorkflow).toHaveBeenCalledTimes(2);
+    });
+    // Second call: inputs unchanged + confirmationText supplied.
+    expect(mockRunNowWorkflow.mock.calls[1]).toEqual([
+      "wf-1",
+      { inputs: {} },
+      { confirmationText: "CONFIRM" },
+    ]);
+    // Run id surfaces; modal closes.
+    await waitFor(() => {
+      expect(screen.getByTestId("run-now-success")).toHaveTextContent(
+        /run-postsec5/,
+      );
+    });
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Cancel closes the modal without retrying Run Now", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow.mockRejectedValueOnce(makeConfirmationError());
+    const user = userEvent.setup();
+    render(<RunNowPanel />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await screen.findByTestId("destructive-action-confirmation-modal");
+    await user.click(
+      screen.getByTestId("destructive-action-confirmation-cancel"),
+    );
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+    expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("run-now-success")).not.toBeInTheDocument();
+  });
+
+  it("wrong phrase keeps Confirm disabled and never retries", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow.mockRejectedValueOnce(makeConfirmationError());
+    const user = userEvent.setup();
+    render(<RunNowPanel />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await screen.findByTestId("destructive-action-confirmation-modal");
+    await user.type(
+      screen.getByTestId("destructive-action-confirmation-input"),
+      "confirm",
+    );
+    expect(
+      screen.getByTestId("destructive-action-confirmation-confirm"),
+    ).toBeDisabled();
+    expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it("low-risk Run Now still works without the modal (regression guard)", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow.mockResolvedValueOnce({
+      runId: "run-low-risk",
+      enqueuedAt: "2026-05-23T00:00:00Z",
+    });
+    const user = userEvent.setup();
+    render(<RunNowPanel />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("run-now-success")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("destructive-action-confirmation-modal"),
+    ).not.toBeInTheDocument();
+    // First call carries no confirmationText option (back-compat).
+    expect(mockRunNowWorkflow.mock.calls[0]).toEqual([
+      "wf-1",
+      { inputs: {} },
+      {},
+    ]);
   });
 });
 
