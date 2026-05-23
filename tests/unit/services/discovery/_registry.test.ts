@@ -160,6 +160,23 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the Stripe subscriptions + commerce action metas registered in Slice 3.46 (closes Stripe at 16/16)", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "stripe:create_subscription",
+        "stripe:update_subscription",
+        "stripe:cancel_subscription",
+        "stripe:find_subscription",
+        "stripe:create_checkout_session",
+        "stripe:create_payment_link",
+        "stripe:create_invoice",
+        "stripe:get_payments",
+      ]),
+    );
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -2646,14 +2663,15 @@ describe("per-provider accessors", () => {
     });
   });
 
-  describe("Stripe customer + payment lifecycle surface (Slice 3.45 — 8 of 16)", () => {
+  describe("Stripe action surface (Slices 3.45 + 3.46 — full 16/16 coverage)", () => {
     function stripeActionMetas() {
       return listActionMetasForProvider("stripe");
     }
 
-    it("Slice 3.45 registers 8 customer + payment lifecycle action metas in displayOrder", () => {
+    it("registers all 16 Stripe action metas in displayOrder (8 lifecycle + 8 subscriptions/commerce)", () => {
       const metas = stripeActionMetas();
       expect(metas.map((m) => m.key)).toEqual([
+        // Slice 3.45 — customer + payment lifecycle.
         "stripe:create_customer",
         "stripe:update_customer",
         "stripe:find_customer",
@@ -2662,12 +2680,38 @@ describe("per-provider accessors", () => {
         "stripe:capture_payment_intent",
         "stripe:create_refund",
         "stripe:find_payment_intent",
+        // Slice 3.46 — subscriptions + commerce surfaces.
+        "stripe:create_subscription",
+        "stripe:update_subscription",
+        "stripe:cancel_subscription",
+        "stripe:find_subscription",
+        "stripe:create_checkout_session",
+        "stripe:create_payment_link",
+        "stripe:create_invoice",
+        "stripe:get_payments",
       ]);
+    });
+
+    it("Slice 3.46 group contains exactly 8 new metas", () => {
+      const slice346Keys = new Set([
+        "stripe:create_subscription",
+        "stripe:update_subscription",
+        "stripe:cancel_subscription",
+        "stripe:find_subscription",
+        "stripe:create_checkout_session",
+        "stripe:create_payment_link",
+        "stripe:create_invoice",
+        "stripe:get_payments",
+      ]);
+      const matched = stripeActionMetas().filter((m) =>
+        slice346Keys.has(m.key),
+      );
+      expect(matched).toHaveLength(8);
     });
 
     it("every Stripe meta declares provider=stripe, category=commerce, requiresIntegration=true, no FileRef", () => {
       const metas = stripeActionMetas();
-      expect(metas).toHaveLength(8);
+      expect(metas).toHaveLength(16);
       for (const meta of metas) {
         expect(meta.provider).toBe("stripe");
         expect(meta.category).toBe("commerce");
@@ -2685,11 +2729,14 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("ID fields (customerId, paymentIntentId, chargeId) are `text` (resolvers deferred to follow-up)", () => {
+    it("ID fields (customerId, paymentIntentId, chargeId, subscriptionId, priceId, invoiceId) are `text` (resolvers deferred to follow-up)", () => {
       const idFieldNames = new Set([
         "customerId",
         "paymentIntentId",
         "chargeId",
+        "subscriptionId",
+        "priceId",
+        "invoiceId",
       ]);
       for (const meta of stripeActionMetas()) {
         for (const f of meta.fields) {
@@ -2712,9 +2759,103 @@ describe("per-provider accessors", () => {
           foundCount += 1;
         }
       }
-      // 4 actions in this slice have a metadata field: create_customer,
-      // update_customer, create_payment_intent, create_refund.
+      // 9 actions in the full 16/16 surface have a metadata field:
+      // create_customer, update_customer, create_payment_intent,
+      // create_refund (Slice 3.45) + create_subscription,
+      // update_subscription, create_checkout_session,
+      // create_payment_link, create_invoice (Slice 3.46).
+      expect(foundCount).toBe(9);
+    });
+
+    it("nested-object fields (lineItems, automaticTax, afterCompletion) use textarea paste-JSON (no new FieldType introduced in this slice)", () => {
+      const nestedFieldNames = new Set([
+        "lineItems",
+        "automaticTax",
+        "afterCompletion",
+      ]);
+      let foundCount = 0;
+      for (const meta of stripeActionMetas()) {
+        for (const f of meta.fields) {
+          if (nestedFieldNames.has(f.name)) {
+            expect(f.type).toBe("textarea");
+            foundCount += 1;
+          }
+        }
+      }
+      // lineItems on create_checkout_session + create_payment_link;
+      // automaticTax on create_checkout_session; afterCompletion on
+      // create_payment_link.
       expect(foundCount).toBe(4);
+    });
+
+    it("money/subscription-changing boolean+enum fields carry NO defaultValue (Q11 — no hidden destructive defaults)", () => {
+      const riskyFields: Record<string, ReadonlyArray<string>> = {
+        "stripe:create_subscription": [
+          "payment_behavior",
+          "trialPeriodDays",
+        ],
+        "stripe:update_subscription": [
+          "cancel_at_period_end",
+          "proration_behavior",
+          "collection_method",
+          "days_until_due",
+        ],
+        "stripe:cancel_subscription": [
+          "at_period_end",
+          "invoice_now",
+          "prorate",
+        ],
+        "stripe:create_checkout_session": ["allowPromotionCodes"],
+        "stripe:create_payment_link": ["allowPromotionCodes"],
+        "stripe:create_invoice": ["autoAdvance"],
+        "stripe:get_payments": ["limit"],
+      };
+      for (const [metaKey, names] of Object.entries(riskyFields)) {
+        const meta = stripeActionMetas().find((m) => m.key === metaKey)!;
+        expect(meta).toBeDefined();
+        for (const name of names) {
+          const field = meta.fields.find((f) => f.name === name);
+          expect(field).toBeDefined();
+          expect(field!.defaultValue).toBeUndefined();
+        }
+      }
+    });
+
+    it("cancel_subscription description carries cancellation-risk language (DESTRUCTIVE + immediate semantics)", () => {
+      const d = stripeActionMetas()
+        .find((m) => m.key === "stripe:cancel_subscription")!
+        .description.toLowerCase();
+      expect(d).toContain("destructive");
+      expect(d).toContain("immediate");
+    });
+
+    it("create_invoice description clarifies autoAdvance finalization/collection behavior (MONEY-MOVING when omitted)", () => {
+      const d = stripeActionMetas()
+        .find((m) => m.key === "stripe:create_invoice")!
+        .description.toLowerCase();
+      expect(d).toContain("money-moving");
+      expect(d).toContain("autoadvance");
+    });
+
+    it("checkout/payment-link/invoice URL outputs are present where the handler returns them (intended customer-facing Stripe URLs)", () => {
+      // create_checkout_session.url, create_payment_link.url,
+      // create_invoice.{hostedInvoiceUrl, invoicePdf}.
+      const sessionMeta = stripeActionMetas().find(
+        (m) => m.key === "stripe:create_checkout_session",
+      )!;
+      expect(sessionMeta.outputs.map((o) => o.name)).toContain("url");
+
+      const linkMeta = stripeActionMetas().find(
+        (m) => m.key === "stripe:create_payment_link",
+      )!;
+      expect(linkMeta.outputs.map((o) => o.name)).toContain("url");
+
+      const invoiceMeta = stripeActionMetas().find(
+        (m) => m.key === "stripe:create_invoice",
+      )!;
+      const invoiceOutputs = invoiceMeta.outputs.map((o) => o.name);
+      expect(invoiceOutputs).toContain("hostedInvoiceUrl");
+      expect(invoiceOutputs).toContain("invoicePdf");
     });
 
     it("no output exposes raw bytes/base64/data sibling fields (no FileRef on Stripe in this slice)", () => {
@@ -3020,6 +3161,416 @@ describe("per-provider accessors", () => {
         const names = meta().outputs.map((o) => o.name);
         expect(names).toEqual(["found", "paymentIntent"]);
         expect(names).not.toContain("clientSecret");
+      });
+    });
+
+    describe("create_subscription — money-moving recurring billing", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_subscription",
+        )!;
+      }
+
+      it("requires customerId + priceId; payment_behavior / trialPeriodDays / metadata / default_payment_method optional", () => {
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("customerId")!.required).toBe(true);
+        expect(byName.get("priceId")!.required).toBe(true);
+        expect(byName.get("default_payment_method")!.required).toBe(false);
+        expect(byName.get("payment_behavior")!.required).toBe(false);
+        expect(byName.get("trialPeriodDays")!.required).toBe(false);
+        expect(byName.get("metadata")!.required).toBe(false);
+      });
+
+      it("payment_behavior is `select` with Stripe's 4 enum values and NO defaultValue (Q11)", () => {
+        const pb = meta().fields.find((f) => f.name === "payment_behavior")!;
+        expect(pb.type).toBe("select");
+        expect(pb.defaultValue).toBeUndefined();
+        const values = pb.options?.map((o) => o.value);
+        expect(values).toEqual([
+          "allow_incomplete",
+          "default_incomplete",
+          "error_if_incomplete",
+          "pending_if_incomplete",
+        ]);
+      });
+
+      it("trialPeriodDays is integer-only number with min:1 (Q11 — no default)", () => {
+        const t = meta().fields.find((f) => f.name === "trialPeriodDays")!;
+        expect(t.type).toBe("number");
+        expect(t.numeric?.integer).toBe(true);
+        expect(t.numeric?.min).toBe(1);
+        expect(t.defaultValue).toBeUndefined();
+      });
+
+      it("description warns money-moving recurring billing", () => {
+        expect(meta().description.toLowerCase()).toContain("money-moving");
+      });
+
+      it("output is the 12-key bounded subscription projection (no clientSecret leakage)", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "subscriptionId",
+          "customerId",
+          "status",
+          "currentPeriodStart",
+          "currentPeriodEnd",
+          "cancelAtPeriodEnd",
+          "trialStart",
+          "trialEnd",
+          "priceId",
+          "quantity",
+          "created",
+          "metadata",
+        ]);
+        expect(names).not.toContain("clientSecret");
+      });
+    });
+
+    describe("update_subscription — proration + collection enums (no hidden defaults)", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:update_subscription",
+        )!;
+      }
+
+      it("only subscriptionId is required; every other field optional", () => {
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("subscriptionId")!.required).toBe(true);
+        for (const name of [
+          "priceId",
+          "quantity",
+          "trial_end",
+          "cancel_at_period_end",
+          "proration_behavior",
+          "default_payment_method",
+          "metadata",
+          "collection_method",
+          "days_until_due",
+        ]) {
+          expect(byName.get(name)!.required).toBe(false);
+        }
+      });
+
+      it("proration_behavior is `select` with 3 enum values and NO defaultValue", () => {
+        const pb = meta().fields.find((f) => f.name === "proration_behavior")!;
+        expect(pb.type).toBe("select");
+        expect(pb.defaultValue).toBeUndefined();
+        expect(pb.options?.map((o) => o.value)).toEqual([
+          "create_prorations",
+          "none",
+          "always_invoice",
+        ]);
+      });
+
+      it("collection_method is `select` with 2 enum values and NO defaultValue", () => {
+        const cm = meta().fields.find((f) => f.name === "collection_method")!;
+        expect(cm.type).toBe("select");
+        expect(cm.defaultValue).toBeUndefined();
+        expect(cm.options?.map((o) => o.value)).toEqual([
+          "charge_automatically",
+          "send_invoice",
+        ]);
+      });
+
+      it("trial_end is `text` (accepts Unix timestamp OR literal 'now')", () => {
+        const t = meta().fields.find((f) => f.name === "trial_end")!;
+        expect(t.type).toBe("text");
+        expect(t.description?.toLowerCase()).toContain("now");
+      });
+
+      it("description warns money-moving (priceId/quantity/proration changes affect invoices)", () => {
+        expect(meta().description.toLowerCase()).toContain("money-moving");
+      });
+    });
+
+    describe("cancel_subscription — destructive + cancellation-risk semantics", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:cancel_subscription",
+        )!;
+      }
+
+      it("exposes subscriptionId + at_period_end + invoice_now + prorate", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "subscriptionId",
+          "at_period_end",
+          "invoice_now",
+          "prorate",
+        ]);
+      });
+
+      it("at_period_end / invoice_now / prorate are boolean with NO defaultValue (Q11)", () => {
+        for (const name of ["at_period_end", "invoice_now", "prorate"]) {
+          const f = meta().fields.find((ff) => ff.name === name)!;
+          expect(f.type).toBe("boolean");
+          expect(f.required).toBe(false);
+          expect(f.defaultValue).toBeUndefined();
+        }
+      });
+
+      it("description includes destructive + immediate + billing-access language", () => {
+        const d = meta().description.toLowerCase();
+        expect(d).toContain("destructive");
+        expect(d).toContain("billing access");
+        expect(d).toContain("immediate");
+      });
+
+      it("output is the 7-key bounded cancellation projection (no clientSecret leakage)", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "subscriptionId",
+          "status",
+          "canceledAt",
+          "cancelAtPeriodEnd",
+          "currentPeriodEnd",
+          "customerId",
+          "endedAt",
+        ]);
+        expect(names).not.toContain("clientSecret");
+      });
+    });
+
+    describe("find_subscription read-only surface", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:find_subscription",
+        )!;
+      }
+
+      it("exposes only subscriptionId (required text)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual(["subscriptionId"]);
+        const f = meta().fields[0]!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("output is {found, subscription}; no clientSecret/card leakage", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual(["found", "subscription"]);
+        for (const banned of ["clientSecret", "card", "cardNumber"]) {
+          expect(names).not.toContain(banned);
+        }
+      });
+    });
+
+    describe("create_checkout_session — mode select + lineItems paste-JSON + XOR customer/email + customer-facing URL output", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_checkout_session",
+        )!;
+      }
+
+      it("exposes mode / successUrl / cancelUrl / lineItems / customer / customerEmail / clientReferenceId / metadata / allowPromotionCodes / automaticTax in order", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "mode",
+          "successUrl",
+          "cancelUrl",
+          "lineItems",
+          "customer",
+          "customerEmail",
+          "clientReferenceId",
+          "metadata",
+          "allowPromotionCodes",
+          "automaticTax",
+        ]);
+      });
+
+      it("mode is `select` with payment/subscription/setup; required; NO defaultValue", () => {
+        const m = meta().fields.find((f) => f.name === "mode")!;
+        expect(m.type).toBe("select");
+        expect(m.required).toBe(true);
+        expect(m.defaultValue).toBeUndefined();
+        expect(m.options?.map((o) => o.value)).toEqual([
+          "payment",
+          "subscription",
+          "setup",
+        ]);
+      });
+
+      it("lineItems is textarea paste-JSON (optional at field level; XOR with mode enforced at runtime)", () => {
+        const li = meta().fields.find((f) => f.name === "lineItems")!;
+        expect(li.type).toBe("textarea");
+        expect(li.required).toBe(false);
+        expect(li.description?.toLowerCase()).toContain("setup");
+        expect(li.description?.toLowerCase()).toContain("required");
+      });
+
+      it("customer + customerEmail are both optional with XOR documented in description", () => {
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("customer")!.required).toBe(false);
+        expect(byName.get("customerEmail")!.required).toBe(false);
+        expect(byName.get("customer")!.description?.toLowerCase()).toContain(
+          "mutex",
+        );
+        expect(
+          byName.get("customerEmail")!.description?.toLowerCase(),
+        ).toContain("mutex");
+        expect(meta().description.toLowerCase()).toContain("exactly one");
+      });
+
+      it("automaticTax is textarea paste-JSON (object shape)", () => {
+        const at = meta().fields.find((f) => f.name === "automaticTax")!;
+        expect(at.type).toBe("textarea");
+        expect(at.required).toBe(false);
+      });
+
+      it("successUrl/cancelUrl are required text with URL placeholders", () => {
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("successUrl")!.type).toBe("text");
+        expect(byName.get("successUrl")!.required).toBe(true);
+        expect(byName.get("successUrl")!.placeholder).toMatch(/^https:\/\//);
+        expect(byName.get("cancelUrl")!.type).toBe("text");
+        expect(byName.get("cancelUrl")!.required).toBe(true);
+        expect(byName.get("cancelUrl")!.placeholder).toMatch(/^https:\/\//);
+      });
+
+      it("output `url` is the customer-facing Stripe-hosted checkout URL (intentional + safe)", () => {
+        const url = meta().outputs.find((o) => o.name === "url")!;
+        expect(url.type).toBe("string");
+        expect(url.description?.toLowerCase()).toContain("customer-facing");
+        expect(url.description?.toLowerCase()).toContain("safe");
+      });
+
+      it("output `amountTotal` description anchors CENTS unit (Stripe wire-format)", () => {
+        const at = meta().outputs.find((o) => o.name === "amountTotal")!;
+        expect(at.description?.toLowerCase()).toContain("cent");
+      });
+    });
+
+    describe("create_payment_link — required lineItems paste-JSON + URL output", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_payment_link",
+        )!;
+      }
+
+      it("exposes lineItems / metadata / allowPromotionCodes / afterCompletion", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "lineItems",
+          "metadata",
+          "allowPromotionCodes",
+          "afterCompletion",
+        ]);
+      });
+
+      it("lineItems is REQUIRED textarea paste-JSON", () => {
+        const li = meta().fields.find((f) => f.name === "lineItems")!;
+        expect(li.type).toBe("textarea");
+        expect(li.required).toBe(true);
+      });
+
+      it("afterCompletion is OPTIONAL textarea paste-JSON (discriminated union)", () => {
+        const ac = meta().fields.find((f) => f.name === "afterCompletion")!;
+        expect(ac.type).toBe("textarea");
+        expect(ac.required).toBe(false);
+        expect(ac.description?.toLowerCase()).toContain("redirect");
+        expect(ac.description?.toLowerCase()).toContain("hosted_confirmation");
+      });
+
+      it("output `url` is the customer-facing Stripe-hosted payment URL", () => {
+        const url = meta().outputs.find((o) => o.name === "url")!;
+        expect(url.type).toBe("string");
+        expect(url.description?.toLowerCase()).toContain("customer-facing");
+      });
+    });
+
+    describe("create_invoice — autoAdvance finalization risk + hostedInvoiceUrl/invoicePdf outputs", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:create_invoice",
+        )!;
+      }
+
+      it("exposes customerId / description / metadata / autoAdvance", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "customerId",
+          "description",
+          "metadata",
+          "autoAdvance",
+        ]);
+      });
+
+      it("autoAdvance is boolean with NO defaultValue (Q11) and description warns of Stripe server-side `true` default", () => {
+        const a = meta().fields.find((f) => f.name === "autoAdvance")!;
+        expect(a.type).toBe("boolean");
+        expect(a.required).toBe(false);
+        expect(a.defaultValue).toBeUndefined();
+        expect(a.description?.toLowerCase()).toContain("money-moving");
+        expect(a.description?.toLowerCase()).toContain("true");
+      });
+
+      it("description is the autoAdvance finalization warning", () => {
+        const d = meta().description.toLowerCase();
+        expect(d).toContain("money-moving");
+        expect(d).toContain("autoadvance");
+        expect(d).toContain("finalization");
+      });
+
+      it("output exposes hostedInvoiceUrl + invoicePdf with customer-facing intent", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("hostedInvoiceUrl")!.description?.toLowerCase())
+          .toContain("customer-facing");
+        expect(byName.get("invoicePdf")!.description?.toLowerCase())
+          .toContain("customer-facing");
+      });
+
+      it("output `amountDue` / `amountPaid` descriptions anchor CENTS unit", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("amountDue")!.description?.toLowerCase()).toContain(
+          "cent",
+        );
+        expect(byName.get("amountPaid")!.description?.toLowerCase()).toContain(
+          "cent",
+        );
+      });
+    });
+
+    describe("get_payments — pagination cursors + bounded payments output", () => {
+      function meta() {
+        return stripeActionMetas().find(
+          (m) => m.key === "stripe:get_payments",
+        )!;
+      }
+
+      it("exposes customer / limit / startingAfter / endingBefore (no startCursor / endCursor server-managed handles)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "customer",
+          "limit",
+          "startingAfter",
+          "endingBefore",
+        ]);
+      });
+
+      it("limit is OPTIONAL number with integer:true + min:1 + max:100 (Stripe API ceiling); NO defaultValue", () => {
+        const l = meta().fields.find((f) => f.name === "limit")!;
+        expect(l.type).toBe("number");
+        expect(l.required).toBe(false);
+        expect(l.numeric?.min).toBe(1);
+        expect(l.numeric?.max).toBe(100);
+        expect(l.numeric?.integer).toBe(true);
+        expect(l.defaultValue).toBeUndefined();
+      });
+
+      it("startingAfter + endingBefore are text with mutex documented in descriptions", () => {
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("startingAfter")!.type).toBe("text");
+        expect(byName.get("endingBefore")!.type).toBe("text");
+        expect(byName.get("startingAfter")!.description?.toLowerCase()).toContain(
+          "mutex",
+        );
+        expect(byName.get("endingBefore")!.description?.toLowerCase()).toContain(
+          "mutex",
+        );
+      });
+
+      it("output is {payments[], count, hasMore, nextCursor} — bounded shape", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual(["payments", "count", "hasMore", "nextCursor"]);
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("payments")!.type).toBe("array");
+        expect(byName.get("count")!.type).toBe("number");
+        expect(byName.get("hasMore")!.type).toBe("boolean");
+        expect(byName.get("nextCursor")!.type).toBe("string");
       });
     });
   });

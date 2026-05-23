@@ -400,7 +400,7 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
   });
 
-  it("returns the 8 Stripe customer + payment lifecycle action metas in displayOrder (Slice 3.45 — Stripe not yet in COVERED_PROVIDERS, more land in 3.46)", async () => {
+  it("returns the full 16/16 Stripe action coverage in displayOrder as of Slice 3.46 (Stripe now in COVERED_PROVIDERS)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/stripe/actions"), {
       params: Promise.resolve({ id: "stripe" }),
@@ -417,8 +417,9 @@ describe("GET /api/providers/[id]/actions", () => {
       }>;
     };
     expect(body.provider).toBe("stripe");
-    expect(body.actions).toHaveLength(8);
+    expect(body.actions).toHaveLength(16);
     expect(body.actions.map((a) => a.key)).toEqual([
+      // Slice 3.45 — customer + payment lifecycle.
       "stripe:create_customer",
       "stripe:update_customer",
       "stripe:find_customer",
@@ -427,6 +428,15 @@ describe("GET /api/providers/[id]/actions", () => {
       "stripe:capture_payment_intent",
       "stripe:create_refund",
       "stripe:find_payment_intent",
+      // Slice 3.46 — subscriptions + commerce surfaces.
+      "stripe:create_subscription",
+      "stripe:update_subscription",
+      "stripe:cancel_subscription",
+      "stripe:find_subscription",
+      "stripe:create_checkout_session",
+      "stripe:create_payment_link",
+      "stripe:create_invoice",
+      "stripe:get_payments",
     ]);
     expect(body.actions.every((a) => a.category === "commerce")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);

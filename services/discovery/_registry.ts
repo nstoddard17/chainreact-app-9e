@@ -134,11 +134,13 @@ import { notionListCommentsMeta } from "@/integrations/notion/actions/listCommen
 import { notionGetUserMeta } from "@/integrations/notion/actions/getUser.meta";
 import { notionListUsersMeta } from "@/integrations/notion/actions/listUsers.meta";
 
-// Stripe action metadata (Slice 3.45 — customer + payment lifecycle,
-// 8 of 16). Stripe stays OUT of COVERED_PROVIDERS until Slice 3.46
-// lands the remaining 8 (subscriptions + commerce surfaces) and flips
-// the structural gate. Trigger meta (`stripe:event_received`) is
-// deferred to a follow-up slice — see stripe-action-metadata-plan §3.
+// Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
+// Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
+// shipped subscriptions + commerce (8) and flipped Stripe into
+// `COVERED_PROVIDERS` in tests/structure/discovery-meta-coverage.test.ts
+// — 1:1 handler↔meta coverage is enforced from here on. Trigger meta
+// (`stripe:event_received`) is deferred to a follow-up slice — see
+// stripe-action-metadata-plan §3.
 import { stripeCreateCustomerMeta } from "@/integrations/stripe/actions/createCustomer.meta";
 import { stripeUpdateCustomerMeta } from "@/integrations/stripe/actions/updateCustomer.meta";
 import { stripeFindCustomerMeta } from "@/integrations/stripe/actions/findCustomer.meta";
@@ -147,6 +149,17 @@ import { stripeConfirmPaymentIntentMeta } from "@/integrations/stripe/actions/co
 import { stripeCapturePaymentIntentMeta } from "@/integrations/stripe/actions/capturePaymentIntent.meta";
 import { stripeCreateRefundMeta } from "@/integrations/stripe/actions/createRefund.meta";
 import { stripeFindPaymentIntentMeta } from "@/integrations/stripe/actions/findPaymentIntent.meta";
+// Slice 3.46 — Stripe subscriptions + commerce surfaces (8 actions).
+// Closes Stripe action coverage at 16/16; same slice flips Stripe into
+// `COVERED_PROVIDERS` so 1:1 handler↔meta drift is enforced from here on.
+import { stripeCreateSubscriptionMeta } from "@/integrations/stripe/actions/createSubscription.meta";
+import { stripeUpdateSubscriptionMeta } from "@/integrations/stripe/actions/updateSubscription.meta";
+import { stripeCancelSubscriptionMeta } from "@/integrations/stripe/actions/cancelSubscription.meta";
+import { stripeFindSubscriptionMeta } from "@/integrations/stripe/actions/findSubscription.meta";
+import { stripeCreateCheckoutSessionMeta } from "@/integrations/stripe/actions/createCheckoutSession.meta";
+import { stripeCreatePaymentLinkMeta } from "@/integrations/stripe/actions/createPaymentLink.meta";
+import { stripeCreateInvoiceMeta } from "@/integrations/stripe/actions/createInvoice.meta";
+import { stripeGetPaymentsMeta } from "@/integrations/stripe/actions/getPayments.meta";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -320,10 +333,8 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // Money-moving actions; every meta carries unit-anchored
   // descriptions (DOLLARS vs CENTS) per the metadata plan §8.
   // `metadata` fields use `keyvalue` (Record<string,string> contract
-  // fit); enums use `select` with static options. The remaining 8
-  // (subscriptions + commerce surfaces) land in Slice 3.46 + flip
-  // Stripe into COVERED_PROVIDERS. Ordered to match displayOrder
-  // (10..80).
+  // fit); enums use `select` with static options. Ordered to match
+  // displayOrder (10..80).
   stripeCreateCustomerMeta,
   stripeUpdateCustomerMeta,
   stripeFindCustomerMeta,
@@ -332,6 +343,26 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   stripeCapturePaymentIntentMeta,
   stripeCreateRefundMeta,
   stripeFindPaymentIntentMeta,
+  // Stripe subscriptions + commerce surfaces (Slice 3.46 — closes
+  // Stripe at 16/16). Same slice flips Stripe into `COVERED_PROVIDERS`
+  // in tests/structure/discovery-meta-coverage.test.ts so the 1:1
+  // handler↔meta invariant is enforced from here on.
+  // Money/subscription-changing actions; descriptions explicitly call
+  // out money-moving / destructive / cancellation-risk semantics.
+  // Nested objects (`lineItems`, `automaticTax`, `afterCompletion`)
+  // use textarea paste-JSON (mirrors `slack:post_interactive_blocks.blocks`
+  // and the Notion paste-JSON pattern). Enums (`mode`, `payment_behavior`,
+  // `proration_behavior`, `collection_method`) use `select` with static
+  // options and NO defaultValue per Q11. Ordered to match displayOrder
+  // (90..160).
+  stripeCreateSubscriptionMeta,
+  stripeUpdateSubscriptionMeta,
+  stripeCancelSubscriptionMeta,
+  stripeFindSubscriptionMeta,
+  stripeCreateCheckoutSessionMeta,
+  stripeCreatePaymentLinkMeta,
+  stripeCreateInvoiceMeta,
+  stripeGetPaymentsMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

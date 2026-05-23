@@ -13,7 +13,8 @@
  *
  * Coverage scope: native (Slice 3.0) + GitHub (Slice 3.0b) + Gmail
  * (Slice 3.15) + Microsoft Outlook Mail (Slice 3.17) + Slack
- * (Slices 3.26 → 3.38) + Notion (Slices 3.41 → 3.42).
+ * (Slices 3.26 → 3.38) + Notion (Slices 3.41 → 3.42) + Stripe
+ * (Slices 3.45 → 3.46).
  *
  * This test does NOT block adding new handlers for uncovered providers —
  * adding a handler in an uncovered provider can land without an action
@@ -37,6 +38,13 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // blocks+comments+users in 3.42). Adding a new Notion handler
   // without a meta (or vice-versa) fails this structural test.
   "notion",
+  // Stripe added in Slice 3.46 once all 16 registered Stripe action
+  // handlers have a matching meta (customer + payment lifecycle in
+  // 3.45, subscriptions + commerce in 3.46). Adding a new Stripe
+  // handler without a meta (or vice-versa) fails this structural test.
+  // Trigger meta (`stripe:event_received`) is deferred — trigger
+  // coverage is NOT enforced by this test.
+  "stripe",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {
