@@ -134,19 +134,20 @@ import { notionListCommentsMeta } from "@/integrations/notion/actions/listCommen
 import { notionGetUserMeta } from "@/integrations/notion/actions/getUser.meta";
 import { notionListUsersMeta } from "@/integrations/notion/actions/listUsers.meta";
 
-// Google Sheets action metadata (Slice 3.GSHEETS-3 — first 8 of 12
-// actions). Read + simple-write surface using the GSHEETS-2 resolvers
-// (`google-sheets:spreadsheets` + `google-sheets:sheets`). Google
-// Sheets remains intentionally OUT of `COVERED_PROVIDERS` in
-// tests/structure/discovery-meta-coverage.test.ts until the remaining
-// 4 actions (batch_update, clear_range, delete_row, format_range) +
-// the 2 trigger metas land — the structural test continues to gate on
-// full handler↔meta coverage. `append_row` / `update_row` mirror the
-// schema's `range` field (not a sheet picker) because the schema does
-// not accept a separate `sheetName` for these two; the slice rule is
-// "use exact runtime field names." Cascade behavior (sheetName picker
-// gated on spreadsheetId) is exercised by `get_cell_value`,
-// `get_sheet_metadata`, `find_row`, and `update_cell`.
+// Google Sheets action metadata (Slices 3.GSHEETS-3 + 3.GSHEETS-4 —
+// full 12/12 coverage). Read + simple-write surface in GSHEETS-3;
+// GSHEETS-4 closes with the destructive (clear_range, delete_row),
+// bulk (batch_update), and formatting (format_range) actions plus
+// the 2 trigger metas. Google Sheets is flipped INTO
+// `COVERED_PROVIDERS` in tests/structure/discovery-meta-coverage.test.ts
+// in the same slice — the 1:1 handler↔meta invariant is enforced from
+// here on. `append_row` / `update_row` mirror the schema's `range`
+// field (not a sheet picker) because the schema does not accept a
+// separate `sheetName` for these two; the slice rule is "use exact
+// runtime field names." Cascade behavior (sheetName picker gated on
+// spreadsheetId) is exercised by `get_cell_value`, `find_row`,
+// `update_cell`, `delete_row`, `format_range`, and the `row_changed`
+// trigger.
 import { googleSheetsReadRowsMeta } from "@/integrations/google-sheets/actions/readRows.meta";
 import { googleSheetsGetCellValueMeta } from "@/integrations/google-sheets/actions/getCellValue.meta";
 import { googleSheetsGetSheetMetadataMeta } from "@/integrations/google-sheets/actions/getSheetMetadata.meta";
@@ -155,6 +156,17 @@ import { googleSheetsCreateSpreadsheetMeta } from "@/integrations/google-sheets/
 import { googleSheetsAppendRowMeta } from "@/integrations/google-sheets/actions/appendRow.meta";
 import { googleSheetsUpdateRowMeta } from "@/integrations/google-sheets/actions/updateRow.meta";
 import { googleSheetsUpdateCellMeta } from "@/integrations/google-sheets/actions/updateCell.meta";
+// Slice 3.GSHEETS-4 — destructive / bulk / formatting actions.
+import { googleSheetsClearRangeMeta } from "@/integrations/google-sheets/actions/clearRange.meta";
+import { googleSheetsDeleteRowMeta } from "@/integrations/google-sheets/actions/deleteRow.meta";
+import { googleSheetsBatchUpdateMeta } from "@/integrations/google-sheets/actions/batchUpdate.meta";
+import { googleSheetsFormatRangeMeta } from "@/integrations/google-sheets/actions/formatRange.meta";
+// Slice 3.GSHEETS-4 — Google Sheets trigger metas. Both register an
+// activation hook in their respective `triggers/<event>/index.ts`
+// (Drive `files.watch` push transport); the
+// trigger-meta-activation-invariant test is satisfied.
+import { googleSheetsNewWorksheetTriggerMeta } from "@/integrations/google-sheets/triggers/newWorksheet/newWorksheet.meta";
+import { googleSheetsRowChangedTriggerMeta } from "@/integrations/google-sheets/triggers/rowChanged/rowChanged.meta";
 
 // Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
 // Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
@@ -400,6 +412,12 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   googleSheetsAppendRowMeta,
   googleSheetsUpdateRowMeta,
   googleSheetsUpdateCellMeta,
+  // Slice 3.GSHEETS-4 — destructive / bulk / formatting actions.
+  // displayOrder 90..120 continues the 10..80 GSHEETS-3 sequence.
+  googleSheetsClearRangeMeta,
+  googleSheetsDeleteRowMeta,
+  googleSheetsBatchUpdateMeta,
+  googleSheetsFormatRangeMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -439,6 +457,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   outlookNewEmailTriggerMeta,
   outlookEmailSentTriggerMeta,
   outlookEmailFlaggedTriggerMeta,
+  // Google Sheets (Slice 3.GSHEETS-4 — closes Google Sheets at 12/12
+  // actions + 2/2 triggers). Both triggers register a per-workflow
+  // activation hook (Drive `files.watch`) — the
+  // trigger-meta-activation-invariant test is satisfied, no exemption
+  // needed. Same slice flips google-sheets into `COVERED_PROVIDERS`.
+  googleSheetsNewWorksheetTriggerMeta,
+  googleSheetsRowChangedTriggerMeta,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

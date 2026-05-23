@@ -45,6 +45,14 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // Trigger meta (`stripe:event_received`) is deferred — trigger
   // coverage is NOT enforced by this test.
   "stripe",
+  // Google Sheets added in Slice 3.GSHEETS-4 once all 12 registered
+  // Google Sheets action handlers have a matching meta (read +
+  // simple-write in GSHEETS-3; destructive + bulk + formatting in
+  // GSHEETS-4) AND both trigger metas (new_worksheet + row_changed)
+  // are registered alongside. Adding a new Google Sheets handler
+  // without a meta (or vice-versa) fails this structural test from
+  // here on.
+  "google-sheets",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

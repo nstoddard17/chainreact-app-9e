@@ -411,7 +411,7 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
   });
 
-  it("returns the 8 Google Sheets action metas in displayOrder as of Slice 3.GSHEETS-3 (google-sheets NOT yet in COVERED_PROVIDERS)", async () => {
+  it("returns the full 12/12 Google Sheets action coverage in displayOrder as of Slice 3.GSHEETS-4 (google-sheets now in COVERED_PROVIDERS)", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/google-sheets/actions"), {
       params: Promise.resolve({ id: "google-sheets" }),
@@ -425,6 +425,8 @@ describe("GET /api/providers/[id]/actions", () => {
         requiresIntegration: boolean;
         producesFileRef: boolean;
         consumesFileRef: boolean;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
         riskLevel: string;
         riskDescription?: string;
         fields: Array<{
@@ -438,8 +440,9 @@ describe("GET /api/providers/[id]/actions", () => {
       }>;
     };
     expect(body.provider).toBe("google-sheets");
-    expect(body.actions).toHaveLength(8);
+    expect(body.actions).toHaveLength(12);
     expect(body.actions.map((a) => a.key)).toEqual([
+      // Slice 3.GSHEETS-3 — read + simple-write.
       "google-sheets:read_rows",
       "google-sheets:get_cell_value",
       "google-sheets:get_sheet_metadata",
@@ -448,6 +451,11 @@ describe("GET /api/providers/[id]/actions", () => {
       "google-sheets:append_row",
       "google-sheets:update_row",
       "google-sheets:update_cell",
+      // Slice 3.GSHEETS-4 — destructive / bulk / formatting.
+      "google-sheets:clear_range",
+      "google-sheets:delete_row",
+      "google-sheets:batch_update",
+      "google-sheets:format_range",
     ]);
     expect(body.actions.every((a) => a.category === "data")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
@@ -455,8 +463,9 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
 
     // Resolver wiring round-trips through the JSON serializer — both
-    // `google-sheets:spreadsheets` (every action) and `google-sheets:sheets`
-    // (sheetName-cascade actions) survive the route layer.
+    // `google-sheets:spreadsheets` (every action except create_spreadsheet)
+    // and `google-sheets:sheets` (sheetName-cascade actions) survive the
+    // route layer.
     const readRows = body.actions.find(
       (a) => a.key === "google-sheets:read_rows",
     )!;
@@ -497,12 +506,36 @@ describe("GET /api/providers/[id]/actions", () => {
       "google-sheets:append_row",
       "google-sheets:update_row",
       "google-sheets:update_cell",
+      "google-sheets:batch_update",
     ]) {
       const action = body.actions.find((a) => a.key === key)!;
       expect(action.riskLevel).toBe("medium");
       expect(typeof action.riskDescription).toBe("string");
       expect(action.riskDescription!.length).toBeGreaterThan(0);
     }
+
+    // Slice 3.GSHEETS-4 destructive actions serialize the
+    // isDestructive + requiresConfirmation + riskLevel:high tuple.
+    for (const key of [
+      "google-sheets:clear_range",
+      "google-sheets:delete_row",
+    ]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.riskLevel).toBe("high");
+      expect(action.isDestructive).toBe(true);
+      expect(action.requiresConfirmation).toBe(true);
+      expect(typeof action.riskDescription).toBe("string");
+      expect(action.riskDescription!.length).toBeGreaterThan(0);
+    }
+
+    // format_range stays low-risk despite being a write — formatting
+    // is non-destructive of cell values.
+    const formatRange = body.actions.find(
+      (a) => a.key === "google-sheets:format_range",
+    )!;
+    expect(formatRange.riskLevel).toBe("low");
+    expect(formatRange.isDestructive).toBe(false);
+    expect(formatRange.requiresConfirmation).toBe(false);
   });
 
   it("returns the full 16/16 Stripe action coverage in displayOrder as of Slice 3.46 (Stripe now in COVERED_PROVIDERS)", async () => {
@@ -645,6 +678,68 @@ describe("GET /api/providers/[id]/triggers", () => {
     ]);
     expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
     expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
+  });
+
+  it("returns the 2 Google Sheets trigger metas registered in Slice 3.GSHEETS-4, all webhook-activated, with sensitive payload fields", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/google-sheets/triggers"), {
+      params: Promise.resolve({ id: "google-sheets" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{
+        key: string;
+        activation: string;
+        requiresIntegration: boolean;
+        category: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          optionsSource?: string;
+          dependsOn?: string;
+        }>;
+        payloadShape: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("google-sheets");
+    expect(body.triggers).toHaveLength(2);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "google-sheets:new_worksheet",
+      "google-sheets:row_changed",
+    ]);
+    expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
+    expect(body.triggers.every((t) => t.requiresIntegration === true)).toBe(true);
+    expect(body.triggers.every((t) => t.category === "data")).toBe(true);
+
+    // row_changed's sheetName cascade serializes correctly.
+    const rowChanged = body.triggers.find(
+      (t) => t.key === "google-sheets:row_changed",
+    )!;
+    const sheetField = rowChanged.fields.find((f) => f.name === "sheetName")!;
+    expect(sheetField.type).toBe("combobox");
+    expect(sheetField.optionsSource).toBe("google-sheets:sheets");
+    expect(sheetField.dependsOn).toBe("spreadsheetId");
+
+    // row_changed sensitive payload fields round-trip through JSON.
+    expect(
+      rowChanged.payloadShape.find((o) => o.name === "rowValues")?.sensitive,
+    ).toBe(true);
+    expect(
+      rowChanged.payloadShape.find((o) => o.name === "keyValue")?.sensitive,
+    ).toBe(true);
+    // headers stays structural (column labels are like field names).
+    expect(
+      rowChanged.payloadShape.find((o) => o.name === "headers")?.sensitive,
+    ).toBeFalsy();
+
+    // new_worksheet payload is purely structural.
+    const newWorksheet = body.triggers.find(
+      (t) => t.key === "google-sheets:new_worksheet",
+    )!;
+    for (const o of newWorksheet.payloadShape) {
+      expect(o.sensitive).toBeFalsy();
+    }
   });
 
   it("returns the 3 Microsoft Outlook trigger metas registered in Slice 3.17, all webhook-activated", async () => {
