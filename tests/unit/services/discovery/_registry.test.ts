@@ -177,6 +177,35 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the Google Sheets read + simple-write action metas registered in Slice 3.GSHEETS-3", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "google-sheets:read_rows",
+        "google-sheets:get_cell_value",
+        "google-sheets:get_sheet_metadata",
+        "google-sheets:find_row",
+        "google-sheets:create_spreadsheet",
+        "google-sheets:append_row",
+        "google-sheets:update_row",
+        "google-sheets:update_cell",
+      ]),
+    );
+  });
+
+  it("google-sheets is NOT in COVERED_PROVIDERS yet — batch_update / clear_range / delete_row / format_range still pending in GSHEETS-3", () => {
+    // Sanity: at least one Google Sheets handler is registered without a
+    // matching meta (the 4 remaining actions). This is the inverse of
+    // the structural test; if all 12 metas land here, the structural
+    // test should be updated + google-sheets added to COVERED_PROVIDERS
+    // in the same slice.
+    const metas = listAllActionMetas().filter(
+      (m) => m.provider === "google-sheets",
+    );
+    expect(metas).toHaveLength(8);
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -3567,6 +3596,407 @@ describe("per-provider accessors", () => {
         expect(byName.get("hasMore")!.type).toBe("boolean");
         expect(byName.get("nextCursor")!.type).toBe("string");
       });
+    });
+  });
+
+  // ─── Google Sheets (Slice 3.GSHEETS-3 — first 8 of 12 actions) ───────────
+  //
+  // Pinned surface for the read + simple-write group. Closes the gap from
+  // GSHEETS-2 (resolvers landed but no consuming metas). Google Sheets
+  // stays OUT of COVERED_PROVIDERS until batch_update / clear_range /
+  // delete_row / format_range + the 2 trigger metas land in GSHEETS-4+.
+  describe("Google Sheets action surface (Slice 3.GSHEETS-3 — 8 of 12 coverage)", () => {
+    function gsheetsActionMetas() {
+      return listActionMetasForProvider("google-sheets");
+    }
+
+    it("registers the 8 Slice 3.GSHEETS-3 action metas in displayOrder", () => {
+      const metas = gsheetsActionMetas();
+      expect(metas.map((m) => m.key)).toEqual([
+        "google-sheets:read_rows",
+        "google-sheets:get_cell_value",
+        "google-sheets:get_sheet_metadata",
+        "google-sheets:find_row",
+        "google-sheets:create_spreadsheet",
+        "google-sheets:append_row",
+        "google-sheets:update_row",
+        "google-sheets:update_cell",
+      ]);
+    });
+
+    it("every Google Sheets meta declares provider=google-sheets, category=data, requiresIntegration=true, no FileRef", () => {
+      const metas = gsheetsActionMetas();
+      expect(metas).toHaveLength(8);
+      for (const meta of metas) {
+        expect(meta.provider).toBe("google-sheets");
+        expect(meta.category).toBe("data");
+        expect(meta.requiresIntegration).toBe(true);
+        expect(meta.producesFileRef).toBe(false);
+        expect(meta.consumesFileRef).toBe(false);
+      }
+    });
+
+    it("Google Sheets displayOrders are unique within the provider", () => {
+      const orders = gsheetsActionMetas().map((m) => m.displayOrder);
+      expect(new Set(orders).size).toBe(orders.length);
+      for (const o of orders) {
+        expect(o).not.toBeNull();
+      }
+    });
+
+    it("every spreadsheetId field uses the `google-sheets:spreadsheets` resolver (7/8 — create_spreadsheet creates a new file)", () => {
+      // create_spreadsheet has no spreadsheetId field — it CREATES the
+      // spreadsheet rather than pointing at one. Everyone else uses the
+      // GSHEETS-2 picker.
+      const expectSpreadsheetField = [
+        "google-sheets:read_rows",
+        "google-sheets:get_cell_value",
+        "google-sheets:get_sheet_metadata",
+        "google-sheets:find_row",
+        "google-sheets:append_row",
+        "google-sheets:update_row",
+        "google-sheets:update_cell",
+      ];
+      for (const key of expectSpreadsheetField) {
+        const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+        const f = meta.fields.find((x) => x.name === "spreadsheetId");
+        expect(f).toBeDefined();
+        expect(f!.type).toBe("combobox");
+        expect(f!.optionsSource).toBe("google-sheets:spreadsheets");
+        expect(f!.required).toBe(true);
+      }
+      // create_spreadsheet explicitly does NOT carry a spreadsheetId.
+      const create = gsheetsActionMetas().find(
+        (m) => m.key === "google-sheets:create_spreadsheet",
+      )!;
+      expect(create.fields.find((x) => x.name === "spreadsheetId")).toBeUndefined();
+    });
+
+    it("every sheetName field uses the `google-sheets:sheets` resolver with dependsOn=spreadsheetId (4 actions: get_cell_value, get_sheet_metadata-NO/find_row/update_cell)", () => {
+      const expectSheetField = [
+        "google-sheets:get_cell_value",
+        "google-sheets:find_row",
+        "google-sheets:update_cell",
+      ];
+      for (const key of expectSheetField) {
+        const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+        const f = meta.fields.find((x) => x.name === "sheetName");
+        expect(f).toBeDefined();
+        expect(f!.type).toBe("combobox");
+        expect(f!.optionsSource).toBe("google-sheets:sheets");
+        expect(f!.dependsOn).toBe("spreadsheetId");
+        expect(f!.required).toBe(true);
+      }
+    });
+
+    it("append_row and update_row do NOT expose a sheetName field — schema accepts `range` only (slice rule: use exact runtime field names)", () => {
+      for (const key of ["google-sheets:append_row", "google-sheets:update_row"]) {
+        const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+        expect(meta.fields.map((f) => f.name)).not.toContain("sheetName");
+        const range = meta.fields.find((f) => f.name === "range");
+        expect(range).toBeDefined();
+        expect(range!.type).toBe("text");
+        expect(range!.required).toBe(true);
+      }
+    });
+
+    it("get_sheet_metadata exposes spreadsheetId ONLY — no sheetName picker (schema is single-field)", () => {
+      const meta = gsheetsActionMetas().find(
+        (m) => m.key === "google-sheets:get_sheet_metadata",
+      )!;
+      expect(meta.fields.map((f) => f.name)).toEqual(["spreadsheetId"]);
+    });
+
+    describe("read_rows field + output surface", () => {
+      function meta() {
+        return gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:read_rows",
+        )!;
+      }
+
+      it("exposes spreadsheetId / range / majorDimension / valueRenderOption", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "spreadsheetId",
+          "range",
+          "majorDimension",
+          "valueRenderOption",
+        ]);
+      });
+
+      it("range is required text", () => {
+        const f = meta().fields.find((x) => x.name === "range")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("majorDimension is a required select defaulting to ROWS", () => {
+        const f = meta().fields.find((x) => x.name === "majorDimension")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(true);
+        expect(f.defaultValue).toBe("ROWS");
+        expect(f.options!.map((o) => o.value).sort()).toEqual([
+          "COLUMNS",
+          "ROWS",
+        ]);
+      });
+
+      it("valueRenderOption is an optional select with the 3 Sheets enum values", () => {
+        const f = meta().fields.find((x) => x.name === "valueRenderOption")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(false);
+        expect(f.options!.map((o) => o.value).sort()).toEqual([
+          "FORMATTED_VALUE",
+          "FORMULA",
+          "UNFORMATTED_VALUE",
+        ]);
+      });
+
+      it("outputs are {range, majorDimension, values, count} — `values` sensitive", () => {
+        expect(meta().outputs.map((o) => o.name)).toEqual([
+          "range",
+          "majorDimension",
+          "values",
+          "count",
+        ]);
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("values")!.sensitive).toBe(true);
+        expect(byName.get("count")!.sensitive).toBeFalsy();
+        expect(byName.get("range")!.sensitive).toBeFalsy();
+        expect(byName.get("majorDimension")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("get_cell_value field + output surface", () => {
+      function meta() {
+        return gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:get_cell_value",
+        )!;
+      }
+
+      it("exposes spreadsheetId / sheetName / cell", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "spreadsheetId",
+          "sheetName",
+          "cell",
+        ]);
+      });
+
+      it("cell is required text", () => {
+        const f = meta().fields.find((x) => x.name === "cell")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("`value` output is sensitive (cell content can be PII)", () => {
+        const value = meta().outputs.find((o) => o.name === "value")!;
+        expect(value.sensitive).toBe(true);
+      });
+    });
+
+    describe("find_row field + output surface", () => {
+      function meta() {
+        return gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:find_row",
+        )!;
+      }
+
+      it("exposes spreadsheetId / sheetName / column / value / operator / returnAll", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "spreadsheetId",
+          "sheetName",
+          "column",
+          "value",
+          "operator",
+          "returnAll",
+        ]);
+      });
+
+      it("operator is a required select with single value `equals` (Batch 1 narrowing)", () => {
+        const f = meta().fields.find((x) => x.name === "operator")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(true);
+        expect(f.defaultValue).toBe("equals");
+        expect(f.options!.map((o) => o.value)).toEqual(["equals"]);
+      });
+
+      it("returnAll is an optional boolean with defaultValue false", () => {
+        const f = meta().fields.find((x) => x.name === "returnAll")!;
+        expect(f.type).toBe("boolean");
+        expect(f.required).toBe(false);
+        expect(f.defaultValue).toBe(false);
+      });
+
+      it("`firstMatch` and `matches` outputs are sensitive (row content can be PII)", () => {
+        const firstMatch = meta().outputs.find((o) => o.name === "firstMatch")!;
+        const matches = meta().outputs.find((o) => o.name === "matches")!;
+        expect(firstMatch.sensitive).toBe(true);
+        expect(matches.sensitive).toBe(true);
+        const found = meta().outputs.find((o) => o.name === "found")!;
+        const count = meta().outputs.find((o) => o.name === "count")!;
+        expect(found.sensitive).toBeFalsy();
+        expect(count.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("create_spreadsheet field + output surface", () => {
+      function meta() {
+        return gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:create_spreadsheet",
+        )!;
+      }
+
+      it("exposes title (required) + initialSheetName (optional)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "title",
+          "initialSheetName",
+        ]);
+        const byName = new Map(meta().fields.map((f) => [f.name, f]));
+        expect(byName.get("title")!.required).toBe(true);
+        expect(byName.get("initialSheetName")!.required).toBe(false);
+      });
+
+      it("is riskLevel=medium with a riskDescription explaining the create semantic", () => {
+        expect(meta().riskLevel).toBe("medium");
+        expect(meta().riskDescription).toBeDefined();
+        expect(meta().riskDescription!.length).toBeGreaterThan(0);
+      });
+
+      it("spreadsheetUrl output is structural (NOT sensitive — standard share URL, not signed)", () => {
+        const url = meta().outputs.find((o) => o.name === "spreadsheetUrl")!;
+        expect(url).toBeDefined();
+        expect(url.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("append_row / update_row write surface", () => {
+      it("append_row exposes spreadsheetId / range / values / valueInputOption / insertDataOption", () => {
+        const meta = gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:append_row",
+        )!;
+        expect(meta.fields.map((f) => f.name)).toEqual([
+          "spreadsheetId",
+          "range",
+          "values",
+          "valueInputOption",
+          "insertDataOption",
+        ]);
+      });
+
+      it("update_row exposes spreadsheetId / range / values / valueInputOption (no insertDataOption — schema omits it)", () => {
+        const meta = gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:update_row",
+        )!;
+        expect(meta.fields.map((f) => f.name)).toEqual([
+          "spreadsheetId",
+          "range",
+          "values",
+          "valueInputOption",
+        ]);
+      });
+
+      it("values is a required textarea on both write actions (paste-JSON UX)", () => {
+        for (const key of [
+          "google-sheets:append_row",
+          "google-sheets:update_row",
+        ]) {
+          const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+          const f = meta.fields.find((x) => x.name === "values")!;
+          expect(f.type).toBe("textarea");
+          expect(f.required).toBe(true);
+        }
+      });
+
+      it("valueInputOption is a required select with NO defaultValue (Q11 — no hidden destructive defaults)", () => {
+        for (const key of [
+          "google-sheets:append_row",
+          "google-sheets:update_row",
+          "google-sheets:update_cell",
+        ]) {
+          const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+          const f = meta.fields.find((x) => x.name === "valueInputOption")!;
+          expect(f.type).toBe("select");
+          expect(f.required).toBe(true);
+          expect(f.defaultValue).toBeUndefined();
+          expect(f.options!.map((o) => o.value).sort()).toEqual([
+            "RAW",
+            "USER_ENTERED",
+          ]);
+        }
+      });
+
+      it("append_row insertDataOption is a required select defaulting to INSERT_ROWS (mirrors schema's .default)", () => {
+        const meta = gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:append_row",
+        )!;
+        const f = meta.fields.find((x) => x.name === "insertDataOption")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(true);
+        expect(f.defaultValue).toBe("INSERT_ROWS");
+        expect(f.options!.map((o) => o.value).sort()).toEqual([
+          "INSERT_ROWS",
+          "OVERWRITE",
+        ]);
+      });
+
+      it("write actions are riskLevel=medium with a riskDescription (recoverable mutation — NOT high)", () => {
+        for (const key of [
+          "google-sheets:append_row",
+          "google-sheets:update_row",
+          "google-sheets:update_cell",
+        ]) {
+          const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+          expect(meta.riskLevel).toBe("medium");
+          expect(meta.isDestructive).toBe(false);
+          expect(meta.requiresConfirmation).toBe(false);
+          expect(meta.riskDescription).toBeDefined();
+          expect(meta.riskDescription!.length).toBeGreaterThan(0);
+        }
+      });
+
+      it("write-action outputs are structural counters only — no sensitive flag", () => {
+        for (const key of [
+          "google-sheets:append_row",
+          "google-sheets:update_row",
+          "google-sheets:update_cell",
+        ]) {
+          const meta = gsheetsActionMetas().find((m) => m.key === key)!;
+          for (const o of meta.outputs) {
+            expect(o.sensitive).toBeFalsy();
+          }
+        }
+      });
+    });
+
+    it("no Google Sheets output is named with a banned secret pattern (defense in depth)", () => {
+      const banned = new Set([
+        "token",
+        "accessToken",
+        "refreshToken",
+        "clientSecret",
+        "secret",
+        "apiKey",
+      ]);
+      for (const meta of gsheetsActionMetas()) {
+        for (const o of meta.outputs) {
+          expect(banned.has(o.name)).toBe(false);
+        }
+      }
+    });
+
+    it("read actions stay low risk; write actions stay medium (no accidental escalation to high)", () => {
+      const expectedRisk: Record<string, "low" | "medium" | "high"> = {
+        "google-sheets:read_rows": "low",
+        "google-sheets:get_cell_value": "low",
+        "google-sheets:get_sheet_metadata": "low",
+        "google-sheets:find_row": "low",
+        "google-sheets:create_spreadsheet": "medium",
+        "google-sheets:append_row": "medium",
+        "google-sheets:update_row": "medium",
+        "google-sheets:update_cell": "medium",
+      };
+      for (const meta of gsheetsActionMetas()) {
+        expect(meta.riskLevel).toBe(expectedRisk[meta.key]);
+      }
     });
   });
 

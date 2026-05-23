@@ -134,6 +134,28 @@ import { notionListCommentsMeta } from "@/integrations/notion/actions/listCommen
 import { notionGetUserMeta } from "@/integrations/notion/actions/getUser.meta";
 import { notionListUsersMeta } from "@/integrations/notion/actions/listUsers.meta";
 
+// Google Sheets action metadata (Slice 3.GSHEETS-3 — first 8 of 12
+// actions). Read + simple-write surface using the GSHEETS-2 resolvers
+// (`google-sheets:spreadsheets` + `google-sheets:sheets`). Google
+// Sheets remains intentionally OUT of `COVERED_PROVIDERS` in
+// tests/structure/discovery-meta-coverage.test.ts until the remaining
+// 4 actions (batch_update, clear_range, delete_row, format_range) +
+// the 2 trigger metas land — the structural test continues to gate on
+// full handler↔meta coverage. `append_row` / `update_row` mirror the
+// schema's `range` field (not a sheet picker) because the schema does
+// not accept a separate `sheetName` for these two; the slice rule is
+// "use exact runtime field names." Cascade behavior (sheetName picker
+// gated on spreadsheetId) is exercised by `get_cell_value`,
+// `get_sheet_metadata`, `find_row`, and `update_cell`.
+import { googleSheetsReadRowsMeta } from "@/integrations/google-sheets/actions/readRows.meta";
+import { googleSheetsGetCellValueMeta } from "@/integrations/google-sheets/actions/getCellValue.meta";
+import { googleSheetsGetSheetMetadataMeta } from "@/integrations/google-sheets/actions/getSheetMetadata.meta";
+import { googleSheetsFindRowMeta } from "@/integrations/google-sheets/actions/findRow.meta";
+import { googleSheetsCreateSpreadsheetMeta } from "@/integrations/google-sheets/actions/createSpreadsheet.meta";
+import { googleSheetsAppendRowMeta } from "@/integrations/google-sheets/actions/appendRow.meta";
+import { googleSheetsUpdateRowMeta } from "@/integrations/google-sheets/actions/updateRow.meta";
+import { googleSheetsUpdateCellMeta } from "@/integrations/google-sheets/actions/updateCell.meta";
+
 // Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
 // Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
 // shipped subscriptions + commerce (8) and flipped Stripe into
@@ -363,6 +385,21 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   stripeCreatePaymentLinkMeta,
   stripeCreateInvoiceMeta,
   stripeGetPaymentsMeta,
+  // Google Sheets — first 8 of 12 actions (Slice 3.GSHEETS-3).
+  // Consumes the GSHEETS-2 `google-sheets:spreadsheets` /
+  // `google-sheets:sheets` resolvers. Google Sheets remains OUT of
+  // `COVERED_PROVIDERS` until batch_update / clear_range / delete_row /
+  // format_range action metas + the 2 trigger metas land. Ordered to
+  // match displayOrder (10..80): read surface first, then create, then
+  // writes.
+  googleSheetsReadRowsMeta,
+  googleSheetsGetCellValueMeta,
+  googleSheetsGetSheetMetadataMeta,
+  googleSheetsFindRowMeta,
+  googleSheetsCreateSpreadsheetMeta,
+  googleSheetsAppendRowMeta,
+  googleSheetsUpdateRowMeta,
+  googleSheetsUpdateCellMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

@@ -132,6 +132,17 @@ describe("GET /api/providers", () => {
     expect(stripe?.hasMetadata).toBe(true);
   });
 
+  it("marks Google Sheets as hasMetadata=true now that Slice 3.GSHEETS-3 shipped the first 8 action metas", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const gsheets = body.providers.find((p) => p.id === "google-sheets");
+    expect(gsheets).toBeDefined();
+    expect(gsheets?.hasMetadata).toBe(true);
+  });
+
   it("marks providers still without any metadata (e.g. hubspot) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -398,6 +409,100 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
     expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+  });
+
+  it("returns the 8 Google Sheets action metas in displayOrder as of Slice 3.GSHEETS-3 (google-sheets NOT yet in COVERED_PROVIDERS)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/google-sheets/actions"), {
+      params: Promise.resolve({ id: "google-sheets" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          optionsSource?: string;
+          dependsOn?: string;
+          required: boolean;
+        }>;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("google-sheets");
+    expect(body.actions).toHaveLength(8);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "google-sheets:read_rows",
+      "google-sheets:get_cell_value",
+      "google-sheets:get_sheet_metadata",
+      "google-sheets:find_row",
+      "google-sheets:create_spreadsheet",
+      "google-sheets:append_row",
+      "google-sheets:update_row",
+      "google-sheets:update_cell",
+    ]);
+    expect(body.actions.every((a) => a.category === "data")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+    expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
+    expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+
+    // Resolver wiring round-trips through the JSON serializer — both
+    // `google-sheets:spreadsheets` (every action) and `google-sheets:sheets`
+    // (sheetName-cascade actions) survive the route layer.
+    const readRows = body.actions.find(
+      (a) => a.key === "google-sheets:read_rows",
+    )!;
+    const spreadsheetField = readRows.fields.find(
+      (f) => f.name === "spreadsheetId",
+    )!;
+    expect(spreadsheetField.type).toBe("combobox");
+    expect(spreadsheetField.optionsSource).toBe("google-sheets:spreadsheets");
+
+    const getCellValue = body.actions.find(
+      (a) => a.key === "google-sheets:get_cell_value",
+    )!;
+    const sheetField = getCellValue.fields.find((f) => f.name === "sheetName")!;
+    expect(sheetField.type).toBe("combobox");
+    expect(sheetField.optionsSource).toBe("google-sheets:sheets");
+    expect(sheetField.dependsOn).toBe("spreadsheetId");
+
+    // Sensitive flag round-trips for the 3 actions that expose cell content.
+    expect(
+      readRows.outputs.find((o) => o.name === "values")?.sensitive,
+    ).toBe(true);
+    expect(
+      getCellValue.outputs.find((o) => o.name === "value")?.sensitive,
+    ).toBe(true);
+    const findRow = body.actions.find(
+      (a) => a.key === "google-sheets:find_row",
+    )!;
+    expect(
+      findRow.outputs.find((o) => o.name === "firstMatch")?.sensitive,
+    ).toBe(true);
+    expect(
+      findRow.outputs.find((o) => o.name === "matches")?.sensitive,
+    ).toBe(true);
+
+    // Medium-risk write actions carry a riskDescription.
+    for (const key of [
+      "google-sheets:create_spreadsheet",
+      "google-sheets:append_row",
+      "google-sheets:update_row",
+      "google-sheets:update_cell",
+    ]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.riskLevel).toBe("medium");
+      expect(typeof action.riskDescription).toBe("string");
+      expect(action.riskDescription!.length).toBeGreaterThan(0);
+    }
   });
 
   it("returns the full 16/16 Stripe action coverage in displayOrder as of Slice 3.46 (Stripe now in COVERED_PROVIDERS)", async () => {
