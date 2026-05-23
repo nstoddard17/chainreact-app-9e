@@ -108,7 +108,7 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
   consumesFileRef: false,
   displayOrder: 50,
   isDestructive: false,
-  requiresConfirmation: false,
+  requiresConfirmation: true,
   riskLevel: "high",
-  riskDescription: "Confirms a PaymentIntent — may capture immediately depending on capture method.",
+  riskDescription: "Confirms an existing Stripe PaymentIntent and triggers the real charge attempt — the customer is debited synchronously OR redirected to 3D Secure / a return URL. Activation and real Run-now require typed confirmation per SEC-4B.",
 };

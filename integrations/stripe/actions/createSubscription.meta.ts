@@ -198,7 +198,7 @@ export const stripeCreateSubscriptionMeta: ActionMeta = {
   consumesFileRef: false,
   displayOrder: 90,
   isDestructive: false,
-  requiresConfirmation: false,
+  requiresConfirmation: true,
   riskLevel: "high",
-  riskDescription: "Starts a recurring subscription — first invoice may charge immediately depending on billing settings.",
+  riskDescription: "Creates a Stripe subscription that enrolls the customer in recurring billing — the first invoice may charge immediately depending on the price's billing cycle and the chosen `payment_behavior`. Activation and real Run-now require typed confirmation per SEC-4B.",
 };

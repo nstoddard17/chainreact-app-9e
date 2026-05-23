@@ -187,13 +187,16 @@ describe("findConfirmationRequiredActions — read-only / low-risk pass-through"
 
 // ─── high-risk non-destructive: NOT flagged in v1 ───────────────────────────
 
-describe("findConfirmationRequiredActions — high-risk-only actions are NOT flagged (v1 policy)", () => {
-  it("does NOT flag stripe:create_payment_intent (riskLevel high but isDestructive=false / requiresConfirmation=false)", () => {
-    // Per slice scope: typed confirmation is required for
-    // requiresConfirmation OR isDestructive. High-risk non-destructive
-    // (e.g. authorizing-only payment intent, reversible by canceling
-    // before capture) shows risk metadata via the providers route but
-    // does not block activation in this slice.
+describe("findConfirmationRequiredActions — high-risk-only actions (POSTSEC-3 policy)", () => {
+  // Slice 3.POSTSEC-3 — flipped. The 5 Stripe money-moving actions now
+  // carry `requiresConfirmation: true` even though they remain
+  // `isDestructive: false` (they have a reversible second-action path).
+  // Their workflows therefore DO require typed confirmation at
+  // activation + real Run-now. native:http_request remains
+  // high-risk-only / non-destructive / non-confirm (a single egress
+  // request is not by itself irreversible enough to warrant friction;
+  // the egress denylist + redaction stack is the mitigation).
+  it("flags stripe:create_payment_intent (POSTSEC-3 requiresConfirmation:true; reversible via Cancel before capture)", () => {
     const result = findConfirmationRequiredActions([
       actionNode({
         id: "n1",
@@ -201,11 +204,64 @@ describe("findConfirmationRequiredActions — high-risk-only actions are NOT fla
         type: "create_payment_intent",
       }),
     ]);
-    expect(result.requiresConfirmation).toBe(false);
-    expect(result.actions).toEqual([]);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.actions).toHaveLength(1);
+    expect(result.actions[0]!.type).toBe("create_payment_intent");
+    expect(result.actions[0]!.riskDescription).toBeDefined();
   });
 
-  it("does NOT flag native:http_request (riskLevel high, generic egress, but not destructive)", () => {
+  it("flags stripe:confirm_payment_intent (POSTSEC-3 requiresConfirmation:true; triggers real charge attempt)", () => {
+    const result = findConfirmationRequiredActions([
+      actionNode({
+        id: "n1",
+        provider: "stripe",
+        type: "confirm_payment_intent",
+      }),
+    ]);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.actions[0]!.type).toBe("confirm_payment_intent");
+  });
+
+  it("flags stripe:create_subscription (POSTSEC-3 requiresConfirmation:true; starts recurring billing)", () => {
+    const result = findConfirmationRequiredActions([
+      actionNode({
+        id: "n1",
+        provider: "stripe",
+        type: "create_subscription",
+      }),
+    ]);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.actions[0]!.type).toBe("create_subscription");
+  });
+
+  it("flags stripe:update_subscription (POSTSEC-3 requiresConfirmation:true; proration may trigger immediate charge)", () => {
+    const result = findConfirmationRequiredActions([
+      actionNode({
+        id: "n1",
+        provider: "stripe",
+        type: "update_subscription",
+      }),
+    ]);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.actions[0]!.type).toBe("update_subscription");
+  });
+
+  it("flags stripe:create_invoice (POSTSEC-3 requiresConfirmation:true; default autoAdvance finalizes + collects)", () => {
+    const result = findConfirmationRequiredActions([
+      actionNode({
+        id: "n1",
+        provider: "stripe",
+        type: "create_invoice",
+      }),
+    ]);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.actions[0]!.type).toBe("create_invoice");
+  });
+
+  it("does NOT flag native:http_request (riskLevel high, generic egress, but not destructive and not requiresConfirmation)", () => {
+    // Egress is high-risk for data exfil but firing one request is not
+    // by itself irreversible. SEC-3 denylist mitigates the actual
+    // attack surface; confirmation friction here would over-block.
     const result = findConfirmationRequiredActions([
       actionNode({ id: "n1", provider: "native", type: "http_request" }),
     ]);

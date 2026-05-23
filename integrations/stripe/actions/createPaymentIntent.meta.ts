@@ -141,7 +141,7 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
   consumesFileRef: false,
   displayOrder: 40,
   isDestructive: false,
-  requiresConfirmation: false,
+  requiresConfirmation: true,
   riskLevel: "high",
-  riskDescription: "Authorizes a charge (capture pending). Money does not move until capture, but the authorization is real.",
+  riskDescription: "Creates a Stripe PaymentIntent and starts a customer payment flow — when followed by Confirm Payment Intent (or Stripe's hosted Payment Element) Stripe attempts the real charge. Activation and real Run-now require typed confirmation per SEC-4B.",
 };

@@ -831,3 +831,92 @@ describe("GET /api/providers/[id]/actions — sensitive flag for POSTSEC-2 drift
     expect(search.outputs.find((o) => o.name === "nextCursor")?.sensitive).toBeFalsy();
   });
 });
+
+// ── Slice 3.POSTSEC-3 — requiresConfirmation serialization regression ─────
+describe("GET /api/providers/[id]/actions — POSTSEC-3 requiresConfirmation flag serialization", () => {
+  it("the 5 POSTSEC-3 Stripe actions serialize requiresConfirmation:true + isDestructive:false + riskLevel:high", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+      }>;
+    };
+    const KEYS = [
+      "stripe:create_payment_intent",
+      "stripe:confirm_payment_intent",
+      "stripe:create_subscription",
+      "stripe:update_subscription",
+      "stripe:create_invoice",
+    ];
+    for (const key of KEYS) {
+      const action = body.actions.find((a) => a.key === key);
+      expect(action).toBeDefined();
+      expect(action!.requiresConfirmation).toBe(true);
+      expect(action!.isDestructive).toBe(false);
+      expect(action!.riskLevel).toBe("high");
+      expect(typeof action!.riskDescription).toBe("string");
+      expect(action!.riskDescription!.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("the 3 Stripe destructive actions still serialize as isDestructive:true + requiresConfirmation:true (no regression from POSTSEC-3)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+      }>;
+    };
+    for (const key of [
+      "stripe:capture_payment_intent",
+      "stripe:create_refund",
+      "stripe:cancel_subscription",
+    ]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.isDestructive).toBe(true);
+      expect(action.requiresConfirmation).toBe(true);
+      expect(action.riskLevel).toBe("high");
+    }
+  });
+
+  it("medium/low Stripe actions still serialize requiresConfirmation:false (no accidental escalation)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/stripe/actions"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    const body = (await res.json()) as {
+      actions: Array<{
+        key: string;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+      }>;
+    };
+    for (const key of [
+      "stripe:create_customer",
+      "stripe:update_customer",
+      "stripe:create_checkout_session",
+      "stripe:create_payment_link",
+      "stripe:find_customer",
+      "stripe:find_payment_intent",
+      "stripe:find_subscription",
+      "stripe:get_payments",
+    ]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.requiresConfirmation).toBe(false);
+      expect(action.isDestructive).toBe(false);
+    }
+  });
+});

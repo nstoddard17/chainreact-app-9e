@@ -3688,6 +3688,121 @@ describe("action risk metadata coverage (Slice 3.SEC-2A)", () => {
     }
   });
 
+  describe("Stripe high-risk money-moving NON-destructive actions require confirmation (Slice 3.POSTSEC-3)", () => {
+    // Per POSTSEC-3 product decision: financially-consequential Stripe
+    // actions that are NOT strictly irreversible still gate activation
+    // and real Run-now on a typed CONFIRM. They are NOT marked
+    // `isDestructive` (they have a reversible second-step path —
+    // create_payment_intent can be canceled before capture,
+    // create_subscription can be canceled, create_invoice can be voided
+    // if still in `draft`, update_subscription can be reverted, etc.).
+    // The SEC-2A consistency guard still requires `riskLevel: "high"`.
+    const STRIPE_CONFIRM_NOT_DESTRUCTIVE_KEYS = [
+      "stripe:create_payment_intent",
+      "stripe:confirm_payment_intent",
+      "stripe:create_subscription",
+      "stripe:update_subscription",
+      "stripe:create_invoice",
+    ] as const;
+
+    for (const key of STRIPE_CONFIRM_NOT_DESTRUCTIVE_KEYS) {
+      it(`${key} declares requiresConfirmation AND riskLevel:high AND isDestructive:false`, () => {
+        const meta = findAction(key);
+        expect(meta.requiresConfirmation).toBe(true);
+        expect(meta.riskLevel).toBe("high");
+        // Critical: these are NOT destructive. Don't drift into the
+        // destructive bucket — that would skip the careful product call
+        // to keep them reversible-via-second-action.
+        expect(meta.isDestructive).toBe(false);
+      });
+    }
+
+    it("every POSTSEC-3 newly-confirmed Stripe action has a riskDescription mentioning money / billing / charge / payment", () => {
+      const offenders: string[] = [];
+      for (const key of STRIPE_CONFIRM_NOT_DESTRUCTIVE_KEYS) {
+        const desc = findAction(key).riskDescription;
+        if (!desc) {
+          offenders.push(`${key} (no riskDescription)`);
+          continue;
+        }
+        const d = desc.toLowerCase();
+        const hasMoneyLanguage =
+          d.includes("charge") ||
+          d.includes("payment") ||
+          d.includes("billing") ||
+          d.includes("invoice") ||
+          d.includes("proration") ||
+          d.includes("recurring") ||
+          d.includes("money");
+        if (!hasMoneyLanguage) {
+          offenders.push(`${key} (riskDescription does not mention money/billing/charge/payment)`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
+
+  describe("Stripe full high-risk confirmation set (8 actions — destructive + non-destructive together)", () => {
+    // Aggregated assertion: after POSTSEC-3, every Stripe high-risk
+    // action requires typed confirmation. Adding a new Stripe write
+    // without `requiresConfirmation: true` (or downgrading one) fails
+    // this test loudly. Use this as the canonical "are we covered?"
+    // single-shot check.
+    const STRIPE_ALL_HIGH_RISK_CONFIRM_KEYS = [
+      "stripe:create_payment_intent",
+      "stripe:confirm_payment_intent",
+      "stripe:capture_payment_intent",
+      "stripe:create_refund",
+      "stripe:create_subscription",
+      "stripe:update_subscription",
+      "stripe:cancel_subscription",
+      "stripe:create_invoice",
+    ] as const;
+
+    it("all 8 Stripe high-risk write actions declare requiresConfirmation:true + riskLevel:high + non-empty riskDescription", () => {
+      const offenders: string[] = [];
+      for (const key of STRIPE_ALL_HIGH_RISK_CONFIRM_KEYS) {
+        const meta = findAction(key);
+        if (meta.riskLevel !== "high") {
+          offenders.push(`${key} (riskLevel=${meta.riskLevel})`);
+        }
+        if (!meta.requiresConfirmation) {
+          offenders.push(`${key} (requiresConfirmation=false)`);
+        }
+        if (!meta.riskDescription || meta.riskDescription.length === 0) {
+          offenders.push(`${key} (missing riskDescription)`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    it("medium / low Stripe actions do NOT require confirmation (no accidental escalation)", () => {
+      const NON_CONFIRM_KEYS = [
+        // medium
+        "stripe:create_customer",
+        "stripe:update_customer",
+        "stripe:create_checkout_session",
+        "stripe:create_payment_link",
+        // low
+        "stripe:find_customer",
+        "stripe:find_payment_intent",
+        "stripe:find_subscription",
+        "stripe:get_payments",
+      ] as const;
+      const offenders: string[] = [];
+      for (const key of NON_CONFIRM_KEYS) {
+        const meta = findAction(key);
+        if (meta.requiresConfirmation) {
+          offenders.push(`${key} (requiresConfirmation=true unexpectedly)`);
+        }
+        if (meta.isDestructive) {
+          offenders.push(`${key} (isDestructive=true unexpectedly)`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
+
   describe("Stripe non-write actions stay low risk", () => {
     const STRIPE_LOW_RISK_KEYS = [
       "stripe:find_customer",

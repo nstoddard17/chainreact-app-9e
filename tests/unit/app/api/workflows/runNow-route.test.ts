@@ -618,3 +618,110 @@ describe("POST /run-now — destructive-action confirmation (Slice 3.SEC-4B)", (
     expect(body.actions[0].type).toBe("delete_message");
   });
 });
+
+// ── Slice 3.POSTSEC-3 — newly-confirmed Stripe money-moving actions ────────
+//
+// The 5 Stripe high-risk-but-reversible actions now require typed
+// confirmation per the POSTSEC-3 product call. Each action's workflow,
+// when run in real mode without `confirmationText`, returns 409
+// CONFIRMATION_REQUIRED. testMode=true continues to bypass (SEC-2 blocks
+// before handler invocation).
+describe("POST /run-now — POSTSEC-3 newly-confirmed Stripe money-moving actions", () => {
+  beforeEach(() => {
+    signedInAs("user-1");
+  });
+
+  function workflowWith(action: { provider: string; type: string }) {
+    return {
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [
+          baseWorkflow.draftDefinition.nodes[0]!,
+          {
+            id: "stripe-node",
+            kind: "action" as const,
+            provider: action.provider,
+            type: action.type,
+            config: { internal: "do-not-leak" },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [
+          {
+            id: "e1",
+            from: baseWorkflow.draftDefinition.nodes[0]!.id,
+            to: "stripe-node",
+          },
+        ],
+      },
+    };
+  }
+
+  const POSTSEC3_KEYS = [
+    "create_payment_intent",
+    "confirm_payment_intent",
+    "create_subscription",
+    "update_subscription",
+    "create_invoice",
+  ] as const;
+
+  for (const type of POSTSEC3_KEYS) {
+    it(`stripe:${type} in workflow returns 409 CONFIRMATION_REQUIRED when testMode=false + no confirmationText`, async () => {
+      mockGetById.mockResolvedValueOnce(workflowWith({ provider: "stripe", type }));
+      const res = await POST(buildRequest({ body: "{}" }), {
+        params: Promise.resolve({ id: "wf-1" }),
+      });
+      expect(res.status).toBe(409);
+      expect(mockEnqueueRun).not.toHaveBeenCalled();
+      const body = await res.json();
+      expect(body.error).toBe("CONFIRMATION_REQUIRED");
+      expect(body.confirmationText).toBe("CONFIRM");
+      expect(body.actions[0].provider).toBe("stripe");
+      expect(body.actions[0].type).toBe(type);
+      // Defensive — the action's own config is NEVER echoed in the
+      // CONFIRMATION_REQUIRED response.
+      const text = JSON.stringify(body);
+      expect(text).not.toContain("do-not-leak");
+    });
+  }
+
+  it("stripe:create_payment_intent — correct confirmationText enqueues real run", async () => {
+    mockGetById.mockResolvedValueOnce(
+      workflowWith({ provider: "stripe", type: "create_payment_intent" }),
+    );
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ confirmationText: "CONFIRM", inputs: {} }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    const call = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(call.testMode).toBe(false);
+    expect(call.triggeredBy).toBe("manual");
+  });
+
+  it("stripe:create_invoice — testMode=true bypasses confirmation gate (SEC-2 blocks before handler)", async () => {
+    mockGetById.mockResolvedValueOnce(
+      workflowWith({ provider: "stripe", type: "create_invoice" }),
+    );
+    const res = await POST(
+      buildRequest({
+        body: JSON.stringify({ testMode: true, inputs: {} }),
+      }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    const call = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      triggeredBy: string;
+    };
+    expect(call.testMode).toBe(true);
+    expect(call.triggeredBy).toBe("test");
+  });
+});

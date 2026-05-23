@@ -240,7 +240,7 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
   consumesFileRef: false,
   displayOrder: 100,
   isDestructive: false,
-  requiresConfirmation: false,
+  requiresConfirmation: true,
   riskLevel: "high",
-  riskDescription: "Modifies a subscription — proration may trigger an immediate charge or credit.",
+  riskDescription: "Modifies an existing Stripe subscription — changing `priceId` / `quantity` / `proration_behavior` directly affects the customer's next invoice and may trigger an immediate proration charge or credit. Activation and real Run-now require typed confirmation per SEC-4B.",
 };

@@ -191,10 +191,15 @@ describe("decideTestModeBlock — production wiring", () => {
     expect(decision.reason).toBe("TEST_MODE_DESTRUCTIVE_BLOCKED");
   });
 
-  it("blocks stripe:create_payment_intent (high-risk, NOT destructive — safety regression guard)", () => {
+  it("blocks stripe:create_payment_intent through the real discovery registry (POSTSEC-3 flipped this to requiresConfirmation:true)", () => {
+    // Slice 3.POSTSEC-3 reclassified the 5 Stripe money-moving
+    // high-risk actions to `requiresConfirmation: true` (still
+    // `isDestructive: false`). The gate's reason code therefore reports
+    // CONFIRMATION_REQUIRED rather than HIGH_RISK — defense-in-depth
+    // ordering is `isDestructive` → `requiresConfirmation` → high-risk.
     const decision = decideTestModeBlock("stripe", "create_payment_intent");
     expect(decision.blocked).toBe(true);
-    expect(decision.reason).toBe("TEST_MODE_HIGH_RISK_BLOCKED");
+    expect(decision.reason).toBe("TEST_MODE_CONFIRMATION_REQUIRED_BLOCKED");
   });
 });
 

@@ -158,7 +158,7 @@ export const stripeCreateInvoiceMeta: ActionMeta = {
   consumesFileRef: false,
   displayOrder: 150,
   isDestructive: false,
-  requiresConfirmation: false,
+  requiresConfirmation: true,
   riskLevel: "high",
-  riskDescription: "Creates an invoice. Default `auto_advance: true` (Stripe-side default) finalizes and queues collection automatically.",
+  riskDescription: "Creates a Stripe invoice. When `autoAdvance` is omitted Stripe applies its server-side default of `true` — the invoice is finalized + collection is queued automatically, so customer-facing billing fires. Activation and real Run-now require typed confirmation per SEC-4B.",
 };

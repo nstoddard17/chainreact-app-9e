@@ -319,6 +319,85 @@ describe("POST /activate — destructive workflows (Slice 3.SEC-4B)", () => {
   });
 });
 
+// ── Slice 3.POSTSEC-3 — newly-confirmed Stripe money-moving actions ────────
+//
+// Activation of any workflow containing one of the 5 POSTSEC-3 actions
+// requires typed confirmation, even though those actions are NOT
+// isDestructive. Supplying the correct confirmation proceeds.
+describe("POST /activate — POSTSEC-3 newly-confirmed Stripe money-moving actions", () => {
+  beforeEach(() => signedInAs("user-1"));
+
+  function workflowWith(type: string) {
+    return {
+      ...baseWorkflowRecord,
+      draftDefinition: {
+        nodes: [
+          baseWorkflowRecord.draftDefinition.nodes[0]!,
+          {
+            id: "stripe-node",
+            kind: "action" as const,
+            provider: "stripe",
+            type,
+            config: { internal: "do-not-leak" },
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [
+          { id: "e1", from: "trigger-node", to: "stripe-node" },
+        ],
+      },
+    };
+  }
+
+  const POSTSEC3_KEYS = [
+    "create_payment_intent",
+    "confirm_payment_intent",
+    "create_subscription",
+    "update_subscription",
+    "create_invoice",
+  ] as const;
+
+  for (const type of POSTSEC3_KEYS) {
+    it(`activation of a workflow containing stripe:${type} returns 409 CONFIRMATION_REQUIRED without confirmationText`, async () => {
+      mockGetById.mockResolvedValueOnce(workflowWith(type));
+      const res = await POST(buildRequest(), {
+        params: Promise.resolve({ id: "wf-1" }),
+      });
+      expect(res.status).toBe(409);
+      expect(mockActivate).not.toHaveBeenCalled();
+      const body = await res.json();
+      expect(body.error).toBe("CONFIRMATION_REQUIRED");
+      expect(body.confirmationText).toBe("CONFIRM");
+      expect(body.actions[0].provider).toBe("stripe");
+      expect(body.actions[0].type).toBe(type);
+      // Defensive — the action's own config is NEVER echoed in the
+      // CONFIRMATION_REQUIRED response.
+      const text = JSON.stringify(body);
+      expect(text).not.toContain("do-not-leak");
+    });
+  }
+
+  it("activation of a workflow containing stripe:create_payment_intent PROCEEDS when confirmationText:'CONFIRM'", async () => {
+    mockGetById.mockResolvedValueOnce(workflowWith("create_payment_intent"));
+    const res = await POST(
+      buildRequest(JSON.stringify({ confirmationText: "CONFIRM" })),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockActivate).toHaveBeenCalledWith("wf-1");
+  });
+
+  it("activation of a workflow containing stripe:create_invoice rejects wrong confirmationText (case mismatch)", async () => {
+    mockGetById.mockResolvedValueOnce(workflowWith("create_invoice"));
+    const res = await POST(
+      buildRequest(JSON.stringify({ confirmationText: "confirm" })),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(409);
+    expect(mockActivate).not.toHaveBeenCalled();
+  });
+});
+
 // ── unknown / missing workflow defers to orchestrator ───────────────────────
 
 describe("POST /activate — missing workflow defers to orchestrator's LifecycleError", () => {
