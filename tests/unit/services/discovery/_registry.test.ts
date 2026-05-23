@@ -225,6 +225,28 @@ describe("listAllActionMetas", () => {
     );
   });
 
+  it("returns the HubSpot contact + company action metas registered in Slice 3.HUBSPOT-3", () => {
+    const metas = listAllActionMetas();
+    const keys = metas.map((m) => m.key);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "hubspot:create_contact",
+        "hubspot:update_contact",
+        "hubspot:get_contacts",
+        "hubspot:create_company",
+        "hubspot:update_company",
+        "hubspot:get_companies",
+      ]),
+    );
+  });
+
+  it("hubspot is NOT in COVERED_PROVIDERS yet — 20 more action metas + 1 trigger meta pending in HUBSPOT-4..6", () => {
+    const metas = listAllActionMetas().filter(
+      (m) => m.provider === "hubspot",
+    );
+    expect(metas).toHaveLength(6);
+  });
+
   it("sorts by (displayOrder asc, displayName asc)", () => {
     const metas = listAllActionMetas();
     for (let i = 1; i < metas.length; i++) {
@@ -4401,6 +4423,346 @@ describe("per-provider accessors", () => {
           expect(byName.get("keyColumn")!.sensitive).toBeFalsy();
         });
       });
+    });
+  });
+
+  // ─── HubSpot (Slice 3.HUBSPOT-3 — contacts + companies, 6 of 26) ─────────
+  //
+  // Pinned surface for the first HubSpot metadata batch. HubSpot stays
+  // OUT of COVERED_PROVIDERS until HUBSPOT-6 (20 more action metas + 1
+  // trigger meta still pending).
+  describe("HubSpot action surface (Slice 3.HUBSPOT-3 — 6 of 26 coverage)", () => {
+    function hubspotActionMetas() {
+      return listActionMetasForProvider("hubspot");
+    }
+
+    it("registers the 6 contact + company action metas in displayOrder", () => {
+      const metas = hubspotActionMetas();
+      expect(metas.map((m) => m.key)).toEqual([
+        "hubspot:create_contact",
+        "hubspot:update_contact",
+        "hubspot:get_contacts",
+        "hubspot:create_company",
+        "hubspot:update_company",
+        "hubspot:get_companies",
+      ]);
+    });
+
+    it("every HubSpot meta declares provider=hubspot, category=crm, requiresIntegration=true, no FileRef", () => {
+      const metas = hubspotActionMetas();
+      expect(metas).toHaveLength(6);
+      for (const meta of metas) {
+        expect(meta.provider).toBe("hubspot");
+        expect(meta.category).toBe("crm");
+        expect(meta.requiresIntegration).toBe(true);
+        expect(meta.producesFileRef).toBe(false);
+        expect(meta.consumesFileRef).toBe(false);
+      }
+    });
+
+    it("HubSpot displayOrders are unique within the provider", () => {
+      const orders = hubspotActionMetas().map((m) => m.displayOrder);
+      expect(new Set(orders).size).toBe(orders.length);
+      for (const o of orders) {
+        expect(o).not.toBeNull();
+      }
+    });
+
+    it("create/update actions are riskLevel=medium with riskDescription; get actions are riskLevel=low", () => {
+      const expectedRisk: Record<string, "low" | "medium"> = {
+        "hubspot:create_contact": "medium",
+        "hubspot:update_contact": "medium",
+        "hubspot:get_contacts": "low",
+        "hubspot:create_company": "medium",
+        "hubspot:update_company": "medium",
+        "hubspot:get_companies": "low",
+      };
+      for (const meta of hubspotActionMetas()) {
+        expect(meta.riskLevel).toBe(expectedRisk[meta.key]);
+        if (meta.riskLevel === "medium") {
+          expect(meta.riskDescription).toBeDefined();
+          expect(meta.riskDescription!.length).toBeGreaterThan(0);
+        }
+        // No HubSpot Batch-1 action is destructive or requires
+        // confirmation. (remove_line_item — the only HubSpot
+        // destructive action — lands in HUBSPOT-5.)
+        expect(meta.isDestructive).toBe(false);
+        expect(meta.requiresConfirmation).toBe(false);
+      }
+    });
+
+    it("HUBSPOT-3 contact / company metas do NOT yet consume the hubspot:owners resolver — the contact/company schemas have no hubspot_owner_id field", () => {
+      // The 8 hubspot_owner_id-bearing actions all live in HUBSPOT-4/5
+      // (deals, tickets, engagements). This test pins the absence so
+      // a future change that adds `hubspot:owners` to a contact /
+      // company meta forces an explicit decision (and a schema check).
+      for (const meta of hubspotActionMetas()) {
+        const f = meta.fields.find((x) => x.name === "hubspot_owner_id");
+        expect(f).toBeUndefined();
+      }
+    });
+
+    describe("create_contact field surface", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:create_contact",
+        )!;
+      }
+
+      it("exposes the schema's 15 fields (email + 13 standard properties + duplicateHandling)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "email",
+          "firstname",
+          "lastname",
+          "phone",
+          "company",
+          "jobtitle",
+          "website",
+          "lifecyclestage",
+          "hs_lead_status",
+          "address",
+          "city",
+          "state",
+          "zip",
+          "country",
+          "duplicateHandling",
+        ]);
+      });
+
+      it("email is required text (z.string().email() at the schema level — UI keeps it text per the slice rule)", () => {
+        const f = meta().fields.find((x) => x.name === "email")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("duplicateHandling is a required select with defaultValue='fail' + 3 option values", () => {
+        const f = meta().fields.find((x) => x.name === "duplicateHandling")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(true);
+        expect(f.defaultValue).toBe("fail");
+        expect(f.options!.map((o) => o.value).sort()).toEqual([
+          "fail",
+          "skip",
+          "update",
+        ]);
+      });
+
+      it("outputs are {contactId, email, firstName, lastName, createdAt, updatedAt, wasUpdate, wasSkip, properties} — email/firstName/lastName/properties sensitive", () => {
+        const names = meta().outputs.map((o) => o.name);
+        expect(names).toEqual([
+          "contactId",
+          "email",
+          "firstName",
+          "lastName",
+          "createdAt",
+          "updatedAt",
+          "wasUpdate",
+          "wasSkip",
+          "properties",
+        ]);
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("email")!.sensitive).toBe(true);
+        expect(byName.get("firstName")!.sensitive).toBe(true);
+        expect(byName.get("lastName")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+        // Structural fields stay non-sensitive.
+        expect(byName.get("contactId")!.sensitive).toBeFalsy();
+        expect(byName.get("createdAt")!.sensitive).toBeFalsy();
+        expect(byName.get("wasUpdate")!.sensitive).toBeFalsy();
+        expect(byName.get("wasSkip")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("update_contact field surface", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:update_contact",
+        )!;
+      }
+
+      it("contactId is required text (search-by-email picker deferred to follow-up)", () => {
+        const f = meta().fields.find((x) => x.name === "contactId")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("every property field is OPTIONAL (runtime enforces 'at least one property')", () => {
+        const optionals = meta().fields.filter((f) => f.name !== "contactId");
+        for (const f of optionals) {
+          expect(f.required).toBe(false);
+        }
+      });
+
+      it("outputs mark email + firstName + lastName + properties sensitive", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("email")!.sensitive).toBe(true);
+        expect(byName.get("firstName")!.sensitive).toBe(true);
+        expect(byName.get("lastName")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+      });
+    });
+
+    describe("get_contacts field surface", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:get_contacts",
+        )!;
+      }
+
+      it("exposes limit / after / properties / filterProperty / filterValue", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "limit",
+          "after",
+          "properties",
+          "filterProperty",
+          "filterValue",
+        ]);
+      });
+
+      it("limit is a bounded number (1..100, integer — matches schema cap)", () => {
+        const f = meta().fields.find((x) => x.name === "limit")!;
+        expect(f.type).toBe("number");
+        expect(f.required).toBe(false);
+        expect(f.numeric?.min).toBe(1);
+        expect(f.numeric?.max).toBe(100);
+        expect(f.numeric?.integer).toBe(true);
+      });
+
+      it("properties is an optional string-array (matches schema's string|string[] union)", () => {
+        const f = meta().fields.find((x) => x.name === "properties")!;
+        expect(f.type).toBe("string-array");
+        expect(f.required).toBe(false);
+      });
+
+      it("contacts output is sensitive (each entry carries PII); count/total/nextCursor/hasMore stay structural", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("contacts")!.sensitive).toBe(true);
+        expect(byName.get("count")!.sensitive).toBeFalsy();
+        expect(byName.get("total")!.sensitive).toBeFalsy();
+        expect(byName.get("nextCursor")!.sensitive).toBeFalsy();
+        expect(byName.get("hasMore")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("create_company field surface", () => {
+      function meta() {
+        return hubspotActionMetas().find(
+          (m) => m.key === "hubspot:create_company",
+        )!;
+      }
+
+      it("exposes the schema's 15 fields (name + 13 standard properties + duplicateHandling)", () => {
+        expect(meta().fields.map((f) => f.name)).toEqual([
+          "name",
+          "domain",
+          "phone",
+          "website",
+          "address",
+          "city",
+          "state",
+          "zip",
+          "country",
+          "industry",
+          "description",
+          "annualrevenue",
+          "numberofemployees",
+          "lifecyclestage",
+          "duplicateHandling",
+        ]);
+      });
+
+      it("name is required text", () => {
+        const f = meta().fields.find((x) => x.name === "name")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("numeric-string fields (annualrevenue, numberofemployees) are TEXT, not number — schema is z.string() and HubSpot API expects stringified numerics", () => {
+        for (const name of ["annualrevenue", "numberofemployees"]) {
+          const f = meta().fields.find((x) => x.name === name)!;
+          expect(f.type).toBe("text");
+          // Description must call out the numeric-string footgun.
+          expect(f.description!.toLowerCase()).toContain("string");
+        }
+      });
+
+      it("description field is textarea (free-form longer text)", () => {
+        const f = meta().fields.find((x) => x.name === "description")!;
+        expect(f.type).toBe("textarea");
+      });
+
+      it("duplicateHandling is a required select with defaultValue='fail'", () => {
+        const f = meta().fields.find((x) => x.name === "duplicateHandling")!;
+        expect(f.type).toBe("select");
+        expect(f.required).toBe(true);
+        expect(f.defaultValue).toBe("fail");
+        expect(f.options!.map((o) => o.value).sort()).toEqual([
+          "fail",
+          "skip",
+          "update",
+        ]);
+      });
+
+      it("outputs mark name + domain + properties sensitive; companyId / timestamps / wasUpdate / wasSkip stay structural", () => {
+        const byName = new Map(meta().outputs.map((o) => [o.name, o]));
+        expect(byName.get("name")!.sensitive).toBe(true);
+        expect(byName.get("domain")!.sensitive).toBe(true);
+        expect(byName.get("properties")!.sensitive).toBe(true);
+        expect(byName.get("companyId")!.sensitive).toBeFalsy();
+        expect(byName.get("wasUpdate")!.sensitive).toBeFalsy();
+        expect(byName.get("wasSkip")!.sensitive).toBeFalsy();
+      });
+    });
+
+    describe("update_company / get_companies parity", () => {
+      it("update_company.companyId is required text", () => {
+        const meta = hubspotActionMetas().find(
+          (m) => m.key === "hubspot:update_company",
+        )!;
+        const f = meta.fields.find((x) => x.name === "companyId")!;
+        expect(f.type).toBe("text");
+        expect(f.required).toBe(true);
+      });
+
+      it("get_companies field shape mirrors get_contacts", () => {
+        const meta = hubspotActionMetas().find(
+          (m) => m.key === "hubspot:get_companies",
+        )!;
+        expect(meta.fields.map((f) => f.name)).toEqual([
+          "limit",
+          "after",
+          "properties",
+          "filterProperty",
+          "filterValue",
+        ]);
+      });
+
+      it("get_companies output marks companies sensitive; pagination scalars stay structural", () => {
+        const meta = hubspotActionMetas().find(
+          (m) => m.key === "hubspot:get_companies",
+        )!;
+        const byName = new Map(meta.outputs.map((o) => [o.name, o]));
+        expect(byName.get("companies")!.sensitive).toBe(true);
+        expect(byName.get("count")!.sensitive).toBeFalsy();
+        expect(byName.get("hasMore")!.sensitive).toBeFalsy();
+      });
+    });
+
+    it("no HubSpot output uses a banned secret name (defense in depth)", () => {
+      const banned = new Set([
+        "token",
+        "accessToken",
+        "refreshToken",
+        "clientSecret",
+        "secret",
+        "apiKey",
+        "webhookSecret",
+      ]);
+      for (const meta of hubspotActionMetas()) {
+        for (const o of meta.outputs) {
+          expect(banned.has(o.name)).toBe(false);
+        }
+      }
     });
   });
 

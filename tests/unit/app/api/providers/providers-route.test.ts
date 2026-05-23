@@ -143,7 +143,7 @@ describe("GET /api/providers", () => {
     expect(gsheets?.hasMetadata).toBe(true);
   });
 
-  it("marks providers still without any metadata (e.g. hubspot) as hasMetadata=false", async () => {
+  it("marks HubSpot as hasMetadata=true now that Slice 3.HUBSPOT-3 shipped the first 6 action metas", async () => {
     authedUser();
     const res = await getProviders();
     const body = (await res.json()) as {
@@ -151,7 +151,18 @@ describe("GET /api/providers", () => {
     };
     const hubspot = body.providers.find((p) => p.id === "hubspot");
     expect(hubspot).toBeDefined();
-    expect(hubspot?.hasMetadata).toBe(false);
+    expect(hubspot?.hasMetadata).toBe(true);
+  });
+
+  it("marks providers still without any metadata (e.g. airtable) as hasMetadata=false", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const airtable = body.providers.find((p) => p.id === "airtable");
+    expect(airtable).toBeDefined();
+    expect(airtable?.hasMetadata).toBe(false);
   });
 
   it("sorts providers by displayName", async () => {
@@ -409,6 +420,119 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
     expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
     expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+  });
+
+  it("returns the 6 HubSpot contact + company action metas in displayOrder as of Slice 3.HUBSPOT-3 (hubspot NOT yet in COVERED_PROVIDERS)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/hubspot/actions"), {
+      params: Promise.resolve({ id: "hubspot" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          defaultValue?: unknown;
+          numeric?: { min?: number; max?: number; integer?: boolean };
+          options?: Array<{ value: string; label: string }>;
+        }>;
+        outputs: Array<{ name: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("hubspot");
+    expect(body.actions).toHaveLength(6);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "hubspot:create_contact",
+      "hubspot:update_contact",
+      "hubspot:get_contacts",
+      "hubspot:create_company",
+      "hubspot:update_company",
+      "hubspot:get_companies",
+    ]);
+    expect(body.actions.every((a) => a.category === "crm")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+    expect(body.actions.every((a) => a.producesFileRef === false)).toBe(true);
+    expect(body.actions.every((a) => a.consumesFileRef === false)).toBe(true);
+
+    // Risk classifications round-trip through the JSON serializer.
+    for (const key of ["hubspot:create_contact", "hubspot:update_contact"]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.riskLevel).toBe("medium");
+      expect(action.isDestructive).toBe(false);
+      expect(action.requiresConfirmation).toBe(false);
+      expect(typeof action.riskDescription).toBe("string");
+      expect(action.riskDescription!.length).toBeGreaterThan(0);
+    }
+    for (const key of ["hubspot:get_contacts", "hubspot:get_companies"]) {
+      const action = body.actions.find((a) => a.key === key)!;
+      expect(action.riskLevel).toBe("low");
+      expect(action.isDestructive).toBe(false);
+    }
+
+    // duplicateHandling select serializes its 3 options + defaultValue.
+    const createContact = body.actions.find(
+      (a) => a.key === "hubspot:create_contact",
+    )!;
+    const duplicateHandling = createContact.fields.find(
+      (f) => f.name === "duplicateHandling",
+    )!;
+    expect(duplicateHandling.type).toBe("select");
+    expect(duplicateHandling.required).toBe(true);
+    expect(duplicateHandling.defaultValue).toBe("fail");
+    expect(duplicateHandling.options!.map((o) => o.value).sort()).toEqual([
+      "fail",
+      "skip",
+      "update",
+    ]);
+
+    // Sensitive flags round-trip for the CRM data outputs.
+    expect(
+      createContact.outputs.find((o) => o.name === "email")?.sensitive,
+    ).toBe(true);
+    expect(
+      createContact.outputs.find((o) => o.name === "properties")?.sensitive,
+    ).toBe(true);
+    expect(
+      createContact.outputs.find((o) => o.name === "contactId")?.sensitive,
+    ).toBeFalsy();
+
+    const getContacts = body.actions.find(
+      (a) => a.key === "hubspot:get_contacts",
+    )!;
+    expect(
+      getContacts.outputs.find((o) => o.name === "contacts")?.sensitive,
+    ).toBe(true);
+    expect(
+      getContacts.outputs.find((o) => o.name === "hasMore")?.sensitive,
+    ).toBeFalsy();
+
+    // get_contacts.limit serializes its numeric bounds.
+    const limit = getContacts.fields.find((f) => f.name === "limit")!;
+    expect(limit.type).toBe("number");
+    expect(limit.numeric?.min).toBe(1);
+    expect(limit.numeric?.max).toBe(100);
+    expect(limit.numeric?.integer).toBe(true);
+
+    // Numeric-string company fields serialize as TEXT (not number).
+    const createCompany = body.actions.find(
+      (a) => a.key === "hubspot:create_company",
+    )!;
+    for (const fname of ["annualrevenue", "numberofemployees"]) {
+      const f = createCompany.fields.find((x) => x.name === fname)!;
+      expect(f.type).toBe("text");
+    }
   });
 
   it("returns the full 12/12 Google Sheets action coverage in displayOrder as of Slice 3.GSHEETS-4 (google-sheets now in COVERED_PROVIDERS)", async () => {

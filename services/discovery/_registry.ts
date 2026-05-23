@@ -168,6 +168,30 @@ import { googleSheetsFormatRangeMeta } from "@/integrations/google-sheets/action
 import { googleSheetsNewWorksheetTriggerMeta } from "@/integrations/google-sheets/triggers/newWorksheet/newWorksheet.meta";
 import { googleSheetsRowChangedTriggerMeta } from "@/integrations/google-sheets/triggers/rowChanged/rowChanged.meta";
 
+// HubSpot action metadata (Slice 3.HUBSPOT-3 — first 6 of 26
+// actions). Contacts + companies surface — create / update / get
+// pairs. Resolver-first machinery from HUBSPOT-2 (`hubspot:owners` +
+// pipelines) is NOT consumed in this slice — none of the contact /
+// company schemas accept `hubspot_owner_id`. HUBSPOT-4 metas
+// (deals + tickets) are the first owners-resolver consumers.
+// HubSpot stays OUT of `COVERED_PROVIDERS` until all 26 actions +
+// the 1 trigger meta land in HUBSPOT-6.
+//
+// Meta files live under `integrations/hubspot/actions/meta/` rather
+// than colocated with handler+schema. The structural leaf-folder cap
+// (50 files per directory) forced this split at HUBSPOT-3 — the
+// parent `actions/` folder was at 45 files pre-slice; adding 6 metas
+// would push it to 51. The `meta/` subdir is the minimum-blast-
+// radius fix: handler + schema files stay put, only the new meta
+// files relocate, and the registry imports point at the new path.
+// HUBSPOT-4 / HUBSPOT-5 metas will land in the same subdir.
+import { hubspotCreateContactMeta } from "@/integrations/hubspot/actions/meta/createContact.meta";
+import { hubspotUpdateContactMeta } from "@/integrations/hubspot/actions/meta/updateContact.meta";
+import { hubspotGetContactsMeta } from "@/integrations/hubspot/actions/meta/getContacts.meta";
+import { hubspotCreateCompanyMeta } from "@/integrations/hubspot/actions/meta/createCompany.meta";
+import { hubspotUpdateCompanyMeta } from "@/integrations/hubspot/actions/meta/updateCompany.meta";
+import { hubspotGetCompaniesMeta } from "@/integrations/hubspot/actions/meta/getCompanies.meta";
+
 // Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
 // Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
 // shipped subscriptions + commerce (8) and flipped Stripe into
@@ -418,6 +442,18 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   googleSheetsDeleteRowMeta,
   googleSheetsBatchUpdateMeta,
   googleSheetsFormatRangeMeta,
+  // HubSpot contacts + companies (Slice 3.HUBSPOT-3 — first 6 of 26).
+  // Ordered to match displayOrder (10..60): create/update/get pair
+  // for contacts then companies. No `hubspot:owners` consumers in
+  // this slice — the contact/company schemas have no
+  // `hubspot_owner_id` field; the deal/ticket/engagement metas in
+  // HUBSPOT-4/5 are the first owners-resolver users.
+  hubspotCreateContactMeta,
+  hubspotUpdateContactMeta,
+  hubspotGetContactsMeta,
+  hubspotCreateCompanyMeta,
+  hubspotUpdateCompanyMeta,
+  hubspotGetCompaniesMeta,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
