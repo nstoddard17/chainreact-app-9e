@@ -129,6 +129,18 @@ import { getFile as getOneDriveFile } from "@/integrations/microsoft-onedrive/ac
 import { listItems as listOneDriveItems } from "@/integrations/microsoft-onedrive/actions/listItems";
 import { moveItem as moveOneDriveItem } from "@/integrations/microsoft-onedrive/actions/moveItem";
 import { uploadFile as uploadOneDriveFile } from "@/integrations/microsoft-onedrive/actions/uploadFile";
+import { copyPage as oneNoteCopyPage } from "@/integrations/microsoft-onenote/actions/copyPage";
+import { createNotebook as oneNoteCreateNotebook } from "@/integrations/microsoft-onenote/actions/createNotebook";
+import { createPage as oneNoteCreatePage } from "@/integrations/microsoft-onenote/actions/createPage";
+import { createSection as oneNoteCreateSection } from "@/integrations/microsoft-onenote/actions/createSection";
+import { deletePage as oneNoteDeletePage } from "@/integrations/microsoft-onenote/actions/deletePage";
+import { getNotebookDetails as oneNoteGetNotebookDetails } from "@/integrations/microsoft-onenote/actions/getNotebookDetails";
+import { getPageContent as oneNoteGetPageContent } from "@/integrations/microsoft-onenote/actions/getPageContent";
+import { getSectionDetails as oneNoteGetSectionDetails } from "@/integrations/microsoft-onenote/actions/getSectionDetails";
+import { listNotebooks as oneNoteListNotebooks } from "@/integrations/microsoft-onenote/actions/listNotebooks";
+import { listPages as oneNoteListPages } from "@/integrations/microsoft-onenote/actions/listPages";
+import { listSections as oneNoteListSections } from "@/integrations/microsoft-onenote/actions/listSections";
+import { updatePage as oneNoteUpdatePage } from "@/integrations/microsoft-onenote/actions/updatePage";
 import { getChannelDetails as teamsGetChannelDetails } from "@/integrations/microsoft-teams/actions/getChannelDetails";
 import { getTeamMembers as teamsGetTeamMembers } from "@/integrations/microsoft-teams/actions/getTeamMembers";
 import { replyToChannelMessage as teamsReplyToChannelMessage } from "@/integrations/microsoft-teams/actions/replyToChannelMessage";
@@ -416,6 +428,21 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-onedrive", type: "move_item", handler: moveOneDriveItem },
   { provider: "microsoft-onedrive", type: "copy_item", handler: copyOneDriveItem },
   { provider: "microsoft-onedrive", type: "list_items", handler: listOneDriveItems },
+  // Microsoft OneNote — Slice 3.ONENOTE-2 (12 actions). Trigger
+  // actions ship in ONENOTE-5 (polling triggers — Microsoft Graph
+  // deprecated OneNote subscriptions in May 2023).
+  { provider: "microsoft-onenote", type: "create_page", handler: oneNoteCreatePage },
+  { provider: "microsoft-onenote", type: "create_notebook", handler: oneNoteCreateNotebook },
+  { provider: "microsoft-onenote", type: "create_section", handler: oneNoteCreateSection },
+  { provider: "microsoft-onenote", type: "update_page", handler: oneNoteUpdatePage },
+  { provider: "microsoft-onenote", type: "get_page_content", handler: oneNoteGetPageContent },
+  { provider: "microsoft-onenote", type: "list_pages", handler: oneNoteListPages },
+  { provider: "microsoft-onenote", type: "copy_page", handler: oneNoteCopyPage },
+  { provider: "microsoft-onenote", type: "delete_page", handler: oneNoteDeletePage },
+  { provider: "microsoft-onenote", type: "list_notebooks", handler: oneNoteListNotebooks },
+  { provider: "microsoft-onenote", type: "list_sections", handler: oneNoteListSections },
+  { provider: "microsoft-onenote", type: "get_notebook_details", handler: oneNoteGetNotebookDetails },
+  { provider: "microsoft-onenote", type: "get_section_details", handler: oneNoteGetSectionDetails },
   { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
   { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },

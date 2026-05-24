@@ -13,6 +13,7 @@ import { googleDriveManifest } from "./google-drive/manifest";
 import { googleSheetsManifest } from "./google-sheets/manifest";
 import { microsoftExcelManifest } from "./microsoft-excel/manifest";
 import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
+import { microsoftOneNoteManifest } from "./microsoft-onenote/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
 import { microsoftTeamsManifest } from "./microsoft-teams/manifest";
@@ -122,6 +123,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOutlookManifest,
   microsoftOutlookCalendarManifest,
   microsoftOneDriveManifest,
+  microsoftOneNoteManifest,
   microsoftExcelManifest,
   microsoftTeamsManifest,
   notionManifest,
