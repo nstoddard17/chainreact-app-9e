@@ -176,6 +176,17 @@ describe("GET /api/providers", () => {
     expect(discord?.hasMetadata).toBe(true);
   });
 
+  it("marks Google Docs as hasMetadata=true now that Slice 3.GDOCS-4 shipped the 5 action metas (triggers deferred to GDOCS-5)", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const googleDocs = body.providers.find((p) => p.id === "google-docs");
+    expect(googleDocs).toBeDefined();
+    expect(googleDocs?.hasMetadata).toBe(true);
+  });
+
   it("marks providers still without any metadata (e.g. airtable) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -1089,6 +1100,145 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(roleField.optionsSource).toBe("discord:roles");
     expect(roleField.dependsOn).toBe("guildId");
   });
+
+  it("returns the 5 Google Docs action metas in displayOrder (Slice 3.GDOCS-4 — actions-only flip)", async () => {
+    authedUser();
+    const res = await getActions(new Request("http://x/google-docs/actions"), {
+      params: Promise.resolve({ id: "google-docs" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          optionsSource?: string;
+          dependsOn?: string;
+          defaultValue?: unknown;
+          options?: Array<{ value: string }>;
+        }>;
+        outputs: Array<{ name: string; type: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("google-docs");
+    expect(body.actions).toHaveLength(5);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "google-docs:create_document",
+      "google-docs:update_document",
+      "google-docs:share_document",
+      "google-docs:get_document",
+      "google-docs:export_document",
+    ]);
+    expect(body.actions.every((a) => a.category === "files")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+
+    const byKey = new Map(body.actions.map((a) => [a.key, a]));
+
+    // create_document — folderId wires google-drive:folders (cross-
+    // product resolver shipped in GDOCS-3).
+    const create = byKey.get("google-docs:create_document")!;
+    const folder = create.fields.find((f) => f.name === "folderId")!;
+    expect(folder.type).toBe("combobox");
+    expect(folder.optionsSource).toBe("google-drive:folders");
+    expect(folder.dependsOn).toBeUndefined();
+    expect(folder.required).toBe(false);
+    expect(create.producesFileRef).toBe(false);
+
+    // update_document — documentId wires google-docs:documents;
+    // insertLocation is required with NO default (Q11 honest-state).
+    const update = byKey.get("google-docs:update_document")!;
+    const docPicker = update.fields.find((f) => f.name === "documentId")!;
+    expect(docPicker.optionsSource).toBe("google-docs:documents");
+    const insertLocation = update.fields.find(
+      (f) => f.name === "insertLocation",
+    )!;
+    expect(insertLocation.type).toBe("select");
+    expect(insertLocation.required).toBe(true);
+    expect(insertLocation.defaultValue).toBeUndefined();
+    expect(insertLocation.options?.map((o) => o.value).sort()).toEqual([
+      "after_text",
+      "before_text",
+      "beginning",
+      "end",
+      "replace",
+    ]);
+
+    // share_document — destructive trio round-trips; sendNotification
+    // is Q11 required-explicit with NO default; permission enum is the
+    // Drive canonical set.
+    const share = byKey.get("google-docs:share_document")!;
+    expect(share.isDestructive).toBe(true);
+    expect(share.requiresConfirmation).toBe(true);
+    expect(share.riskLevel).toBe("high");
+    expect(share.riskDescription).toBeDefined();
+    const sendNotif = share.fields.find((f) => f.name === "sendNotification")!;
+    expect(sendNotif.type).toBe("boolean");
+    expect(sendNotif.required).toBe(true);
+    expect(sendNotif.defaultValue).toBeUndefined();
+    const shareWith = share.fields.find((f) => f.name === "shareWith")!;
+    expect(shareWith.type).toBe("string-array");
+    expect(shareWith.optionsSource).toBeUndefined();
+    const perm = share.fields.find((f) => f.name === "permission")!;
+    expect(perm.options?.map((o) => o.value).sort()).toEqual([
+      "commenter",
+      "owner",
+      "reader",
+      "writer",
+    ]);
+
+    // get_document — pure read; documentId is the only field.
+    const get = byKey.get("google-docs:get_document")!;
+    expect(get.fields.map((f) => f.name)).toEqual(["documentId"]);
+    expect(get.isDestructive).toBe(false);
+    expect(get.riskLevel).toBe("low");
+
+    // export_document — producesFileRef:true + 7-value exportFormat enum
+    // + no destination field (V1 rejected per D-GD3).
+    const exp = byKey.get("google-docs:export_document")!;
+    expect(exp.producesFileRef).toBe(true);
+    expect(exp.fields.map((f) => f.name)).toEqual([
+      "documentId",
+      "exportFormat",
+      "fileName",
+    ]);
+    const exportFmt = exp.fields.find((f) => f.name === "exportFormat")!;
+    expect(exportFmt.required).toBe(true);
+    expect(exportFmt.options?.map((o) => o.value).sort()).toEqual([
+      "docx",
+      "epub",
+      "html",
+      "odt",
+      "pdf",
+      "rtf",
+      "txt",
+    ]);
+    const fileOut = exp.outputs.find((o) => o.name === "file")!;
+    expect(fileOut.type).toBe("fileRef");
+
+    // Sensitive output round-trips through JSON for the keys the slice
+    // spec flagged.
+    expect(create.outputs.find((o) => o.name === "documentUrl")?.sensitive).toBe(true);
+    expect(create.outputs.find((o) => o.name === "title")?.sensitive).toBe(true);
+    expect(create.outputs.find((o) => o.name === "documentId")?.sensitive).toBeUndefined();
+    expect(get.outputs.find((o) => o.name === "content")?.sensitive).toBe(true);
+    expect(get.outputs.find((o) => o.name === "title")?.sensitive).toBe(true);
+    expect(get.outputs.find((o) => o.name === "documentUrl")?.sensitive).toBe(true);
+    expect(share.outputs.find((o) => o.name === "sharedWith")?.sensitive).toBe(true);
+    expect(share.outputs.find((o) => o.name === "documentUrl")?.sensitive).toBe(true);
+    expect(exp.outputs.find((o) => o.name === "fileName")?.sensitive).toBe(true);
+    expect(exp.outputs.find((o) => o.name === "fileSize")?.sensitive).toBeUndefined();
+  });
 });
 
 describe("GET /api/providers/[id]/triggers", () => {
@@ -1121,6 +1271,21 @@ describe("GET /api/providers/[id]/triggers", () => {
       params: Promise.resolve({ id: "ghost" }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it("returns an empty triggers array for Google Docs (Slice 3.GDOCS-4 ships actions only — triggers staged for GDOCS-5)", async () => {
+    authedUser();
+    const res = await getTriggers(
+      new Request("http://x/google-docs/triggers"),
+      { params: Promise.resolve({ id: "google-docs" }) },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      triggers: Array<{ key: string }>;
+    };
+    // Empty — GDOCS-5 will add `new_document` + `document_updated` via
+    // Drive files.watch push channel filtered by Docs mimeType.
+    expect(body.triggers).toEqual([]);
   });
 
   it("returns the GitHub new_commit trigger meta", async () => {

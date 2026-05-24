@@ -86,6 +86,19 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // gated under DISCORD-N-triggers and does not block this slice's
   // action-coverage flip.
   "discord",
+  // Google Docs added in Slice 3.GDOCS-4 with the actions-only scope
+  // accepted in the GDOCS arc plan. All 5 registered Google Docs
+  // action handlers (create_document, update_document, share_document,
+  // get_document, export_document) have a matching meta — 1:1 drift
+  // is enforced from here on. **Google Docs triggers are
+  // intentionally NOT shipped in this slice.** Google Docs has no
+  // native trigger surface; both planned triggers (`new_document` +
+  // `document_updated`) are implemented via Drive's `files.watch`
+  // push channel filtered by the Docs mimeType per GDOCS-1 §3.5
+  // D-GD2 and land in GDOCS-5. Trigger coverage is NOT enforced by
+  // this test (same precedent as Stripe / Discord); this is a
+  // deliberate staged provider arc, not an accidental gap.
+  "google-docs",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

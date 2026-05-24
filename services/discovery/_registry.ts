@@ -289,6 +289,16 @@ import {
   DISCORD_TRIGGER_METAS,
 } from "./providers/discord";
 
+// Google Docs (Slice 3.GDOCS-4) — 5 actions, 0 triggers. Trigger
+// metas (`new_document` + `document_updated`, both via Drive
+// files.watch push channel filtered by Docs mimeType) ship in
+// GDOCS-5. Intentional staged provider arc — see
+// providers/google-docs.ts header + GDOCS-1 §3.5 D-GD2.
+import {
+  GOOGLE_DOCS_ACTION_METAS,
+  GOOGLE_DOCS_TRIGGER_METAS,
+} from "./providers/google-docs";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -566,6 +576,11 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // COVERED_PROVIDERS flip lands in the same slice; see providers/
   // discord.ts header for the trigger-deferral rationale.
   ...DISCORD_ACTION_METAS,
+  // Google Docs (Slice 3.GDOCS-4) — 5 actions in displayOrder 10..50.
+  // COVERED_PROVIDERS flip lands in the same slice. Triggers
+  // (new_document / document_updated via Drive files.watch) ship in
+  // GDOCS-5 — see providers/google-docs.ts header.
+  ...GOOGLE_DOCS_ACTION_METAS,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -635,6 +650,12 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // `member_join` deferred (DISCORD-N-member-join) per
   // docs/slices/phase-3/discord-trigger-architecture-plan.md.
   ...DISCORD_TRIGGER_METAS,
+  // Google Docs (Slice 3.GDOCS-4) — currently empty. GDOCS-5 will
+  // populate this with `new_document` + `document_updated` (both via
+  // Drive files.watch push channel filtered by Docs mimeType). Spread
+  // pre-emptively so the GDOCS-5 PR is purely additive on the central
+  // registry side (no central spread edit needed there).
+  ...GOOGLE_DOCS_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
