@@ -20,14 +20,13 @@ import {
  * `docs/slices/phase-3/onenote-metadata-plan.md`.
  *
  * Capability flags follow the V2 honest-state convention — they flip
- * true only when a real handler/trigger lands. As of this commit
- * (Slice 3.ONENOTE-2 — manifest + OAuth + dispatcher + 12 action
- * handlers), `oauth` + `actions` are true. ONENOTE-5 (deferred) will
- * flip `pollingTrigger: true` once the two polling triggers ship.
- * `webhookTrigger` stays false **permanently** — Microsoft Graph
- * deprecated OneNote subscriptions in May 2023 (V1 manifest comment
- * + Microsoft Graph docs); the V2-native trigger architecture is
- * polling-only per ONENOTE-1 §4.2.
+ * true only when a real handler/trigger lands. As of ONENOTE-5,
+ * `oauth` + `actions` + `pollingTrigger` are all true (new_note +
+ * updated_note polling triggers shipped). `webhookTrigger` stays
+ * false **permanently** — Microsoft Graph deprecated OneNote
+ * subscriptions in May 2023 (V1 manifest comment + Microsoft Graph
+ * docs); the V2-native trigger architecture is polling-only per
+ * ONENOTE-1 §4.2.
  *
  * Scopes — exactly two (ONENOTE-1 §4.3 decision):
  *   - `offline_access` — required for the Microsoft v2 endpoint to
@@ -87,10 +86,13 @@ export const microsoftOneNoteManifest: ProviderManifest =
       // subscriptions in May 2023. V2-native triggers use polling
       // (see pollingTrigger flag) — ONENOTE-5 flips that one.
       webhookTrigger: false,
-      // False until ONENOTE-5 ships `new_note` + `updated_note`
-      // polling triggers via the shared Excel-style polling
-      // infrastructure.
-      pollingTrigger: false,
+      // True — ONENOTE-5 shipped `new_note` + `updated_note` section-
+      // scoped polling triggers via the shared
+      // `services/triggers/pollingRegistry` + 5-minute default cadence
+      // (services/cron/pollingIntervals). Snapshot shape:
+      // `{lastSeenCreatedDateTime}` for new_note,
+      // `{lastSeenModifiedDateTime}` for updated_note.
+      pollingTrigger: true,
       // True — 12 action handlers ship in this slice.
       actions: true,
     },

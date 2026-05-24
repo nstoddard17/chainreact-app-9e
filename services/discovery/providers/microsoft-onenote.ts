@@ -2,35 +2,47 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 /**
- * Microsoft OneNote discovery sub-registry — Slice 3.ONENOTE-4 (actions).
+ * Microsoft OneNote discovery sub-registry — Slice 3.ONENOTE-4
+ * (actions) + Slice 3.ONENOTE-5 (triggers).
  *
  * Per-provider extraction of the OneNote meta imports — mirrors
  * `services/discovery/providers/google-docs.ts` /
  * `services/discovery/providers/discord.ts` /
  * `services/discovery/providers/mailchimp.ts` pattern. Central registry
- * validation (`ActionMetaSchema.parse` + duplicate-key rejection) still
- * happens in `services/discovery/_registry.ts` — this file is purely
- * an import grouping.
+ * validation (`ActionMetaSchema.parse` + `TriggerMetaSchema.parse` +
+ * duplicate-key rejection) still happens in
+ * `services/discovery/_registry.ts` — this file is purely an import
+ * grouping.
  *
- * **Coverage:** 12 actions, 0 triggers (action-only flip in ONENOTE-4;
- * triggers in ONENOTE-5).
+ * **Coverage:** 12 actions, 2 triggers.
  *
- * **Trigger staging rationale (ONENOTE-5 vs ONENOTE-4):**
+ * **Trigger architecture (ONENOTE-5):**
  *   - Microsoft Graph **deprecated OneNote subscriptions in May 2023**
  *     — webhooks are not an option for OneNote (different from
  *     Outlook / Calendar / OneDrive which all carry Graph webhook
  *     subscriptions). The OneNote manifest's
  *     `capabilities.webhookTrigger` is permanently `false` per
  *     ONENOTE-1 §4.2.
- *   - V2-native OneNote triggers are **polling** via the shared
- *     Excel-style polling-trigger infrastructure (ONENOTE-1 §4.2).
- *     `new_note` + `updated_note` ship in ONENOTE-5 against
- *     `pollingTrigger: true` on the manifest.
- *   - The actions surface is fully usable without triggers — V2-v1
- *     workflows that REACT to non-OneNote events and write into
- *     OneNote work today. The staged trigger arc is a deliberate
- *     sequencing, not an accidental gap. Same precedent as Stripe /
- *     Discord / Google Docs's staged trigger arcs.
+ *   - Both triggers (`new_note` + `updated_note`) are V2-native
+ *     section-scoped polling via the shared
+ *     `services/triggers/pollingRegistry` + 5-minute default cadence
+ *     (`services/cron/pollingIntervals.DEFAULT_INTERVAL_MS`). Section-
+ *     scope matches the Discord per-channel polling precedent +
+ *     reuses the ONENOTE-3 cascade resolvers (notebookId →
+ *     sectionId).
+ *   - `new_note` snapshot: `{lastSeenCreatedDateTime, capturedAt}`.
+ *     Event-id namespace: `${pageId}:created`.
+ *   - `updated_note` snapshot: `{lastSeenModifiedDateTime,
+ *     capturedAt}`. Event-id namespace:
+ *     `${pageId}:${lastModifiedDateTime}` (composite key — multiple
+ *     updates of the same page over time fire once each, but a single
+ *     update fetched across two ticks dedups). Brand-new pages
+ *     excluded (`createdDateTime === lastModifiedDateTime`) so
+ *     `new_note` and `updated_note` don't double-fire on creation.
+ *   - Both triggers register `registerActivation("microsoft-onenote",
+ *     <type>, activate)` in their `index.ts` files —
+ *     trigger-meta-activation-invariant test is satisfied without
+ *     exemption.
  *
  * **Field-name preservation:** Field names mirror the ONENOTE-2 Zod
  * schemas verbatim (`notebookId`, `sectionId`, `pageId`,
@@ -64,6 +76,9 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *   - `microsoft-onenote:pages`     — backs `pageId` / `sourcePageId`
  *                                     pickers (depends on `sectionId`).
  */
+
+import { microsoftOneNoteNewNoteTriggerMeta } from "@/integrations/microsoft-onenote/triggers/newNote/newNote.meta";
+import { microsoftOneNoteUpdatedNoteTriggerMeta } from "@/integrations/microsoft-onenote/triggers/updatedNote/updatedNote.meta";
 
 import { microsoftOneNoteCreatePageMeta } from "@/integrations/microsoft-onenote/actions/createPage.meta";
 import { microsoftOneNoteUpdatePageMeta } from "@/integrations/microsoft-onenote/actions/updatePage.meta";
@@ -114,11 +129,24 @@ export const MICROSOFT_ONENOTE_ACTION_METAS: ReadonlyArray<ActionMeta> = [
 ];
 
 /**
- * No OneNote triggers in ONENOTE-4. Polling triggers (`new_note` +
- * `updated_note`) land in ONENOTE-5 via the shared Excel-style
- * polling-trigger infrastructure. Manifest's `pollingTrigger`
- * capability flips true in that slice; `webhookTrigger` stays false
- * permanently (Microsoft deprecated OneNote subscriptions in
+ * OneNote polling trigger metas in displayOrder (10..20).
+ *
+ *   10 - new_note      (low — observational; fires on page creation
+ *                       in the chosen section; snapshot keyed on
+ *                       createdDateTime)
+ *   20 - updated_note  (low — observational; fires on page updates
+ *                       in the chosen section, excluding brand-new
+ *                       pages; snapshot keyed on
+ *                       lastModifiedDateTime; optional pageId filter)
+ *
+ * Both register activation hooks in their respective `index.ts`
+ * files (`registerActivation("microsoft-onenote", <type>, activate)`)
+ * — the trigger-meta-activation-invariant test is satisfied without
+ * exemption. `webhookTrigger` stays false on the manifest
+ * permanently (Microsoft Graph deprecated OneNote subscriptions in
  * May 2023).
  */
-export const MICROSOFT_ONENOTE_TRIGGER_METAS: ReadonlyArray<TriggerMeta> = [];
+export const MICROSOFT_ONENOTE_TRIGGER_METAS: ReadonlyArray<TriggerMeta> = [
+  microsoftOneNoteNewNoteTriggerMeta,
+  microsoftOneNoteUpdatedNoteTriggerMeta,
+];

@@ -49,6 +49,15 @@ import "./microsoft-outlook/triggers/emailSent";
 import "./microsoft-outlook/triggers/emailFlagged";
 import "./microsoft-outlook-calendar/triggers/eventChanged";
 import "./microsoft-onedrive/triggers/fileChanged";
+// Slice 3.ONENOTE-5 — microsoft-onenote:new_note + :updated_note
+// section-scoped polling triggers. Activation hooks seed snapshots
+// (createdDateTime / lastModifiedDateTime) for first-poll-miss
+// protection; the polling-triggers cron polls every 5 min via
+// GET /me/onenote/sections/{id}/pages with $orderby + client-side
+// filter. Polling-only — Graph deprecated OneNote webhook
+// subscriptions May 2023.
+import "./microsoft-onenote/triggers/newNote";
+import "./microsoft-onenote/triggers/updatedNote";
 import "./microsoft-excel/triggers/newRow";
 import "./microsoft-excel/triggers/newTableRow";
 import "./microsoft-excel/triggers/newWorksheet";

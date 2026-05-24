@@ -66,21 +66,21 @@ describe("microsoft-onenote manifest", () => {
     expect(microsoftOneNoteManifest.accountIdField).toBe("email");
   });
 
-  it("declares ONENOTE-2 honest capabilities (oauth + actions; webhookTrigger false permanently; pollingTrigger false until ONENOTE-5)", () => {
+  it("declares ONENOTE-5 honest capabilities (oauth + actions + pollingTrigger; webhookTrigger false permanently)", () => {
     expect(microsoftOneNoteManifest.capabilities).toEqual({
       oauth: true,
       // False PERMANENTLY — Graph deprecated OneNote subscriptions in
-      // May 2023. V2-native triggers will use polling (pollingTrigger
-      // flag flips in ONENOTE-5).
+      // May 2023. V2-native triggers use polling, not webhooks.
       webhookTrigger: false,
-      // False until ONENOTE-5 ships new_note + updated_note polling.
-      pollingTrigger: false,
+      // True — ONENOTE-5 shipped new_note + updated_note section-scoped
+      // polling triggers via the shared pollingRegistry.
+      pollingTrigger: true,
       actions: true,
     });
     expect(providerSupports("microsoft-onenote", "oauth")).toBe(true);
     expect(providerSupports("microsoft-onenote", "actions")).toBe(true);
     expect(providerSupports("microsoft-onenote", "webhookTrigger")).toBe(false);
-    expect(providerSupports("microsoft-onenote", "pollingTrigger")).toBe(false);
+    expect(providerSupports("microsoft-onenote", "pollingTrigger")).toBe(true);
   });
 
   it("when actions: true, the action-handler registry contains all 12 OneNote actions", () => {

@@ -290,8 +290,7 @@ import { DISCORD_ACTION_METAS, DISCORD_TRIGGER_METAS } from "./providers/discord
 import { GOOGLE_DOCS_ACTION_METAS, GOOGLE_DOCS_TRIGGER_METAS } from "./providers/google-docs";
 
 // Microsoft OneNote — full rationale in providers/microsoft-onenote.ts.
-// Trigger spread re-added in ONENOTE-5 when polling triggers ship.
-import { MICROSOFT_ONENOTE_ACTION_METAS } from "./providers/microsoft-onenote";
+import { MICROSOFT_ONENOTE_ACTION_METAS, MICROSOFT_ONENOTE_TRIGGER_METAS } from "./providers/microsoft-onenote";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -642,9 +641,10 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // `member_join` deferred (DISCORD-N-member-join) per
   // docs/slices/phase-3/discord-trigger-architecture-plan.md.
   // Google Docs (GDOCS-5) — new_document + document_updated.
-  // OneNote triggers ship in ONENOTE-5 (polling — Graph deprecated
-  // OneNote subscriptions May 2023; webhookTrigger permanently false).
-  ...DISCORD_TRIGGER_METAS, ...GOOGLE_DOCS_TRIGGER_METAS,
+  // OneNote (ONENOTE-5) — new_note + updated_note (polling — Graph
+  // deprecated OneNote webhook subscriptions May 2023; webhookTrigger
+  // on manifest stays permanently false).
+  ...DISCORD_TRIGGER_METAS, ...GOOGLE_DOCS_TRIGGER_METAS, ...MICROSOFT_ONENOTE_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

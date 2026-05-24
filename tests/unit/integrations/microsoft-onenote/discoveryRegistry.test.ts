@@ -26,6 +26,7 @@
  */
 import {
   getActionMeta,
+  getTriggerMeta,
   listActionMetasForProvider,
   listTriggerMetasForProvider,
 } from "@/services/discovery/_registry";
@@ -55,9 +56,16 @@ describe("Microsoft OneNote action metas — registration", () => {
     expect(getActionMeta(key)).toBeDefined();
   });
 
-  it("registers 0 OneNote trigger metas in ONENOTE-4 (polling triggers ship in ONENOTE-5; Graph deprecated OneNote webhooks May 2023)", () => {
+  it("registers 2 OneNote trigger metas in ONENOTE-5 (new_note + updated_note polling; Graph deprecated OneNote webhooks May 2023)", () => {
     const triggers = listTriggerMetasForProvider("microsoft-onenote");
-    expect(triggers).toEqual([]);
+    expect(triggers).toHaveLength(2);
+    expect(triggers.map((t) => t.key)).toEqual([
+      "microsoft-onenote:new_note",
+      "microsoft-onenote:updated_note",
+    ]);
+    expect(triggers.every((t) => t.activation === "polling")).toBe(true);
+    expect(triggers.every((t) => t.requiresIntegration === true)).toBe(true);
+    expect(triggers.every((t) => t.category === "files")).toBe(true);
   });
 
   it("sorts OneNote actions by displayOrder 10..120 in 10-step increments", () => {
@@ -571,3 +579,129 @@ describe("OneNote meta secret-shape guards (defense-in-depth)", () => {
     }
   });
 });
+
+describe("new_note trigger meta (ONENOTE-5)", () => {
+  const meta = getTriggerMeta("microsoft-onenote:new_note")!;
+
+  it("activation: polling + requiresIntegration true + category files", () => {
+    expect(meta.activation).toBe("polling");
+    expect(meta.requiresIntegration).toBe(true);
+    expect(meta.category).toBe("files");
+  });
+
+  it("fields are notebookId + sectionId cascade (both required)", () => {
+    expect(meta.fields.map((f) => f.name)).toEqual(["notebookId", "sectionId"]);
+    const sec = meta.fields.find((f) => f.name === "sectionId")!;
+    expect(sec.dependsOn).toBe("notebookId");
+    expect(sec.optionsSource).toBe("microsoft-onenote:sections");
+    expect(sec.required).toBe(true);
+    const nb = meta.fields.find((f) => f.name === "notebookId")!;
+    expect(nb.optionsSource).toBe("microsoft-onenote:notebooks");
+    expect(nb.required).toBe(true);
+  });
+
+  it("payloadShape carries metadata only — NO body/content fields", () => {
+    const names = meta.payloadShape.map((p) => p.name);
+    expect(names).toEqual([
+      "changeKind",
+      "pageId",
+      "title",
+      "webUrl",
+      "contentUrl",
+      "notebookId",
+      "notebookName",
+      "sectionId",
+      "sectionName",
+      "createdDateTime",
+      "lastModifiedDateTime",
+    ]);
+    for (const banned of ["content", "body", "text", "messages", "snippet"]) {
+      expect(names).not.toContain(banned);
+    }
+  });
+
+  it("title / webUrl / contentUrl / notebookName / sectionName marked sensitive", () => {
+    const byName = new Map(meta.payloadShape.map((p) => [p.name, p]));
+    for (const k of ["title", "webUrl", "contentUrl", "notebookName", "sectionName"]) {
+      expect(byName.get(k)?.sensitive).toBe(true);
+    }
+    for (const k of [
+      "pageId",
+      "notebookId",
+      "sectionId",
+      "createdDateTime",
+      "lastModifiedDateTime",
+      "changeKind",
+    ]) {
+      expect(byName.get(k)?.sensitive).toBeUndefined();
+    }
+  });
+
+  it("description warns about polling architecture (no webhook subscriptions for OneNote)", () => {
+    expect(meta.description.toLowerCase()).toMatch(/polling|polls/);
+    expect(meta.description.toLowerCase()).toMatch(/deprecated|may 2023|polling.*architecture/);
+  });
+});
+
+describe("updated_note trigger meta (ONENOTE-5)", () => {
+  const meta = getTriggerMeta("microsoft-onenote:updated_note")!;
+
+  it("activation: polling + requiresIntegration true + category files", () => {
+    expect(meta.activation).toBe("polling");
+    expect(meta.requiresIntegration).toBe(true);
+    expect(meta.category).toBe("files");
+  });
+
+  it("fields are notebookId + sectionId + optional pageId (3-level cascade)", () => {
+    expect(meta.fields.map((f) => f.name)).toEqual([
+      "notebookId",
+      "sectionId",
+      "pageId",
+    ]);
+    const sec = meta.fields.find((f) => f.name === "sectionId")!;
+    expect(sec.dependsOn).toBe("notebookId");
+    expect(sec.required).toBe(true);
+    const pg = meta.fields.find((f) => f.name === "pageId")!;
+    expect(pg.optionsSource).toBe("microsoft-onenote:pages");
+    expect(pg.dependsOn).toBe("sectionId");
+    expect(pg.required).toBe(false); // pageId is the optional filter
+  });
+
+  it("payloadShape mirrors new_note (changeKind: 'updated')", () => {
+    const names = meta.payloadShape.map((p) => p.name);
+    expect(names).toEqual([
+      "changeKind",
+      "pageId",
+      "title",
+      "webUrl",
+      "contentUrl",
+      "notebookId",
+      "notebookName",
+      "sectionId",
+      "sectionName",
+      "createdDateTime",
+      "lastModifiedDateTime",
+    ]);
+    for (const banned of ["content", "body", "text", "messages", "snippet"]) {
+      expect(names).not.toContain(banned);
+    }
+  });
+
+  it("sensitive flags match new_note pattern", () => {
+    const byName = new Map(meta.payloadShape.map((p) => [p.name, p]));
+    for (const k of ["title", "webUrl", "contentUrl", "notebookName", "sectionName"]) {
+      expect(byName.get(k)?.sensitive).toBe(true);
+    }
+  });
+
+  it("description warns about brand-new-page exclusion (no double-fire with new_note)", () => {
+    expect(meta.description.toLowerCase()).toMatch(/brand.new|new note|don't fire|not fire/i);
+  });
+
+  it("description documents composite dedup key (multiple updates over time fire each)", () => {
+    expect(meta.description.toLowerCase()).toMatch(
+      /multiple updates|dedup|modification timestamp/i,
+    );
+  });
+});
+

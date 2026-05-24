@@ -1492,7 +1492,7 @@ describe("GET /api/providers/[id]/triggers", () => {
     });
   });
 
-  it("returns 0 Microsoft OneNote triggers in Slice 3.ONENOTE-4 (polling triggers staged for ONENOTE-5; Graph deprecated OneNote webhooks May 2023)", async () => {
+  it("returns 2 Microsoft OneNote polling triggers in Slice 3.ONENOTE-5 (new_note + updated_note; Graph deprecated OneNote webhooks May 2023)", async () => {
     authedUser();
     const res = await getTriggers(
       new Request("http://x/microsoft-onenote/triggers"),
@@ -1501,10 +1501,57 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       provider: string;
-      triggers: Array<{ key: string }>;
+      triggers: Array<{
+        key: string;
+        activation: string;
+        requiresIntegration: boolean;
+        category: string;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          optionsSource?: string;
+          dependsOn?: string;
+        }>;
+        payloadShape: Array<{ name: string; type: string; sensitive?: boolean }>;
+      }>;
     };
     expect(body.provider).toBe("microsoft-onenote");
-    expect(body.triggers).toEqual([]);
+    expect(body.triggers).toHaveLength(2);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "microsoft-onenote:new_note",
+      "microsoft-onenote:updated_note",
+    ]);
+    expect(body.triggers.every((t) => t.activation === "polling")).toBe(true);
+    expect(body.triggers.every((t) => t.requiresIntegration)).toBe(true);
+
+    // new_note: 2-field cascade (notebookId → sectionId).
+    const newNote = body.triggers.find((t) => t.key === "microsoft-onenote:new_note")!;
+    expect(newNote.fields.map((f) => f.name)).toEqual(["notebookId", "sectionId"]);
+    const newSec = newNote.fields.find((f) => f.name === "sectionId")!;
+    expect(newSec.dependsOn).toBe("notebookId");
+    expect(newSec.optionsSource).toBe("microsoft-onenote:sections");
+
+    // updated_note: 3-level cascade with optional pageId.
+    const updatedNote = body.triggers.find((t) => t.key === "microsoft-onenote:updated_note")!;
+    expect(updatedNote.fields.map((f) => f.name)).toEqual(["notebookId", "sectionId", "pageId"]);
+    const pg = updatedNote.fields.find((f) => f.name === "pageId")!;
+    expect(pg.dependsOn).toBe("sectionId");
+    expect(pg.optionsSource).toBe("microsoft-onenote:pages");
+    expect(pg.required).toBe(false);
+
+    // Sensitive output flags round-trip through JSON.
+    const newNoteBy = new Map(newNote.payloadShape.map((p) => [p.name, p]));
+    expect(newNoteBy.get("title")?.sensitive).toBe(true);
+    expect(newNoteBy.get("webUrl")?.sensitive).toBe(true);
+    expect(newNoteBy.get("pageId")?.sensitive).toBeUndefined();
+
+    // No body/content in either payload.
+    for (const t of body.triggers) {
+      const names = t.payloadShape.map((p) => p.name);
+      expect(names).not.toContain("content");
+      expect(names).not.toContain("body");
+    }
   });
 
   it("returns the 3 Gmail trigger metas registered in Slice 3.12, all polling-activated", async () => {

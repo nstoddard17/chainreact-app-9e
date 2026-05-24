@@ -67,10 +67,13 @@ describe("microsoft-onenote provider registry", () => {
     );
   });
 
-  it("providerSupports correctly reports OneNote capabilities", () => {
+  it("providerSupports correctly reports OneNote capabilities (ONENOTE-5: pollingTrigger now true)", () => {
     expect(providerSupports("microsoft-onenote", "oauth")).toBe(true);
     expect(providerSupports("microsoft-onenote", "actions")).toBe(true);
+    // webhookTrigger stays false permanently — Graph deprecated OneNote
+    // subscriptions May 2023.
     expect(providerSupports("microsoft-onenote", "webhookTrigger")).toBe(false);
-    expect(providerSupports("microsoft-onenote", "pollingTrigger")).toBe(false);
+    // pollingTrigger flipped true in ONENOTE-5 (new_note + updated_note).
+    expect(providerSupports("microsoft-onenote", "pollingTrigger")).toBe(true);
   });
 });
