@@ -154,6 +154,40 @@ import { microsoftOneNoteNotebooksResolver } from "@/integrations/microsoft-onen
 import { microsoftOneNoteSectionsResolver } from "@/integrations/microsoft-onenote/options/sections";
 import { microsoftOneNotePagesResolver } from "@/integrations/microsoft-onenote/options/pages";
 
+// Monday.com resolvers — Slice 3.MONDAY-3.
+//   - `monday:boards` — account-scoped top-level board picker. Backs
+//     the `boardId` cascade root on every Monday action meta
+//     (MONDAY-4). Sorted alphabetically by label client-side.
+//   - `monday:groups` (depends on `boardId`) — groups within a board.
+//     Backs the `groupId` field on `create_item` / `move_item`.
+//   - `monday:columns` (depends on `boardId`) — board columns. Backs
+//     the `columnId` field on `update_item`. Description carries the
+//     column type as a UX hint (the column-aware value editor is
+//     future polish — D-MON7).
+//   - `monday:items` (depends on `boardId`) — items in the board.
+//     Single page of 100 with `hasMore: cursor !== null`. Backs
+//     `itemId` / `parentItemId` cascade fields.
+//   - `monday:file_columns` (depends on `boardId`) — file-typed
+//     columns PLUS the V1-preserved virtual `__item_files__`
+//     sentinel. Sentinel value is preserved EXACTLY — workflow
+//     authors who configured V1's `add_file` for it would break
+//     otherwise.
+//   - `monday:users` — account-scoped user picker. Backs future
+//     column-aware assignee fields.
+//
+// Resolvers ship resolver-first per the standard MONDAY-2 → MONDAY-3
+// → MONDAY-4 order. Monday stays OUT of `COVERED_PROVIDERS` until
+// MONDAY-4 ActionMeta lands.
+//
+// Dep names preserved verbatim from V1 (camelCase): `boardId` (NOT
+// `board_id`). Matches the MONDAY-2 Zod schemas.
+import { mondayBoardsResolver } from "@/integrations/monday/options/boards";
+import { mondayGroupsResolver } from "@/integrations/monday/options/groups";
+import { mondayColumnsResolver } from "@/integrations/monday/options/columns";
+import { mondayItemsResolver } from "@/integrations/monday/options/items";
+import { mondayFileColumnsResolver } from "@/integrations/monday/options/fileColumns";
+import { mondayUsersResolver } from "@/integrations/monday/options/users";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -223,6 +257,16 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   microsoftOneNoteNotebooksResolver,
   microsoftOneNoteSectionsResolver,
   microsoftOneNotePagesResolver,
+  // Slice 3.MONDAY-3 — 6 Monday.com options resolvers (resolver-first
+  // ahead of MONDAY-4 action metas). Dep names preserved verbatim from
+  // V1 (`boardId` — camelCase, NOT snake_case). `monday:file_columns`
+  // preserves the V1 virtual `__item_files__` sentinel exactly.
+  mondayBoardsResolver,
+  mondayGroupsResolver,
+  mondayColumnsResolver,
+  mondayItemsResolver,
+  mondayFileColumnsResolver,
+  mondayUsersResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

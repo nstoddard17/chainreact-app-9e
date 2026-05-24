@@ -211,6 +211,79 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Monday.com resolvers (Slice 3.MONDAY-3)", () => {
+    it("getOptionsResolver resolves monday:boards (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("monday:boards");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:boards");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves monday:groups (dependsOn boardId — camelCase, V1-preserved)", () => {
+      const r = getOptionsResolver("monday:groups");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:groups");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      // `boardId` matches the MONDAY-2 schema field names verbatim
+      // (camelCase, NOT snake_case `board_id`).
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves monday:columns (dependsOn boardId)", () => {
+      const r = getOptionsResolver("monday:columns");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:columns");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves monday:items (dependsOn boardId)", () => {
+      const r = getOptionsResolver("monday:items");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:items");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves monday:file_columns (dependsOn boardId)", () => {
+      const r = getOptionsResolver("monday:file_columns");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:file_columns");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves monday:users (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("monday:users");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:users");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("registers all 6 Monday resolver keys", () => {
+      const mondaySources = listOptionsResolvers()
+        .filter((r) => r.provider === "monday")
+        .map((r) => r.source)
+        .sort();
+      expect(mondaySources).toEqual([
+        "monday:boards",
+        "monday:columns",
+        "monday:file_columns",
+        "monday:groups",
+        "monday:items",
+        "monday:users",
+      ]);
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });
