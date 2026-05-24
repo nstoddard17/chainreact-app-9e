@@ -7,6 +7,7 @@ import {
 import { decryptToken } from "@/core/encryption/tokens";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
 import { discordOAuth } from "@/integrations/discord/oauth";
+import { dropboxOAuth } from "@/integrations/dropbox/oauth";
 import { githubOAuth } from "@/integrations/github/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
 import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
@@ -77,6 +78,9 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // owned by integrations/_shared/discord/api/_base.ts and is NOT
   // touched by this OAuth implementation.
   discord: discordOAuth,
+  // Slice 3.DROPBOX-2 — Dropbox OAuth. Refreshable (token_access_type=
+  // offline), body-auth, no PKCE. See integrations/dropbox/oauth.ts.
+  dropbox: dropboxOAuth,
 });
 
 /**

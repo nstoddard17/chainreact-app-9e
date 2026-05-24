@@ -37,6 +37,11 @@ export const FILE_REF_SIZE_GUIDANCE = {
   // (Monday's documented default upload limit). add_file warns past this;
   // Monday enforces the hard cap at upload time.
   monday: 25 * MB,
+  // Slice 3.DROPBOX-2 — Dropbox single-shot /2/files/upload caps at
+  // 150 MB; larger files need the resumable upload_session flow (deferred
+  // to DROPBOX-N). upload_file warns past this; Dropbox enforces the hard
+  // cap at upload time.
+  dropbox: 150 * MB,
 } as const;
 
 export type FileRefSizeGuidanceProvider = keyof typeof FILE_REF_SIZE_GUIDANCE;

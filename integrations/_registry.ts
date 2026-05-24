@@ -5,6 +5,7 @@ import {
 } from "@/contracts/integration";
 import { airtableManifest } from "./airtable/manifest";
 import { discordManifest } from "./discord/manifest";
+import { dropboxManifest } from "./dropbox/manifest";
 import { githubManifest } from "./github/manifest";
 import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
@@ -162,6 +163,10 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // deferred per Slice 3.DISCORD-1 §2.3 decision D-DC1; manifest
   // declares capabilities.actions=true with webhook+polling=false.
   discordManifest,
+  // Slice 3.DROPBOX-2 — Dropbox runtime port (11 actions, no triggers).
+  // webhookTrigger flips true in DROPBOX-5 (app-level webhook + per-account
+  // cursor model). actions=true; oauth refreshable (token_access_type=offline).
+  dropboxManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

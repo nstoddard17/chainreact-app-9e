@@ -177,6 +177,20 @@ import { listGroups as mondayListGroups } from "@/integrations/monday/actions/bo
 import { listSubitems as mondayListSubitems } from "@/integrations/monday/actions/items/listSubitems";
 import { listUpdates as mondayListUpdates } from "@/integrations/monday/actions/updates/listUpdates";
 import { searchItems as mondaySearchItems } from "@/integrations/monday/actions/items/searchItems";
+// Slice 3.DROPBOX-2 — 11 Dropbox action handlers (full accepted surface).
+// Two-host Dropbox API; FileRef consumer (upload) + producers (download,
+// get_temporary_link). No triggers in this slice.
+import { copyFile as dropboxCopyFile } from "@/integrations/dropbox/actions/copyFile";
+import { createFolder as dropboxCreateFolder } from "@/integrations/dropbox/actions/createFolder";
+import { createSharedLink as dropboxCreateSharedLink } from "@/integrations/dropbox/actions/createSharedLink";
+import { deleteFile as dropboxDeleteFile } from "@/integrations/dropbox/actions/deleteFile";
+import { downloadFile as dropboxDownloadFile } from "@/integrations/dropbox/actions/downloadFile";
+import { getFileMetadata as dropboxGetFileMetadata } from "@/integrations/dropbox/actions/getFileMetadata";
+import { getTemporaryLink as dropboxGetTemporaryLink } from "@/integrations/dropbox/actions/getTemporaryLink";
+import { listFolder as dropboxListFolder } from "@/integrations/dropbox/actions/listFolder";
+import { moveFile as dropboxMoveFile } from "@/integrations/dropbox/actions/moveFile";
+import { searchFiles as dropboxSearchFiles } from "@/integrations/dropbox/actions/searchFiles";
+import { uploadFile as dropboxUploadFile } from "@/integrations/dropbox/actions/uploadFile";
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
@@ -503,6 +517,18 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "monday", type: "get_user", handler: mondayGetUser },
   { provider: "monday", type: "add_file", handler: mondayAddFile },
   { provider: "monday", type: "download_file", handler: mondayDownloadFile },
+  // Slice 3.DROPBOX-2 — 11 Dropbox actions (full accepted surface).
+  { provider: "dropbox", type: "upload_file", handler: dropboxUploadFile },
+  { provider: "dropbox", type: "download_file", handler: dropboxDownloadFile },
+  { provider: "dropbox", type: "get_file_metadata", handler: dropboxGetFileMetadata },
+  { provider: "dropbox", type: "list_folder", handler: dropboxListFolder },
+  { provider: "dropbox", type: "search_files", handler: dropboxSearchFiles },
+  { provider: "dropbox", type: "create_folder", handler: dropboxCreateFolder },
+  { provider: "dropbox", type: "move_file", handler: dropboxMoveFile },
+  { provider: "dropbox", type: "copy_file", handler: dropboxCopyFile },
+  { provider: "dropbox", type: "delete_file", handler: dropboxDeleteFile },
+  { provider: "dropbox", type: "create_shared_link", handler: dropboxCreateSharedLink },
+  { provider: "dropbox", type: "get_temporary_link", handler: dropboxGetTemporaryLink },
   { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
   { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },
