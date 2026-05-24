@@ -57,16 +57,28 @@ describe("create_subitem schema", () => {
     ).toThrow();
   });
 
-  it("does NOT require subitems boardId (D-MON6)", () => {
-    // Subitems board id is intentionally opaque — Monday resolves it
-    // from the parent. The schema should never carry a boardId field.
+  it("accepts optional boardId as a UI-scope narrower (MONDAY-6); subitems board stays opaque (D-MON6)", () => {
+    // MONDAY-6: `boardId` is the PARENT item's board — a UI-only
+    // scope-narrower so the builder's parentItemId picker (monday:items)
+    // can cascade. The handler ignores it; the SUBITEMS board id is
+    // still never exposed (D-MON6 preserved). The schema now allows
+    // boardId explicitly so strict mode doesn't reject persisted config.
+    const parsed = CreateSubitemConfigSchema.parse({
+      parentItemId: "p",
+      subitemName: "s",
+      boardId: "b",
+    });
+    expect(parsed.boardId).toBe("b");
+  });
+
+  it("still rejects genuinely unknown fields (strict mode retained)", () => {
     expect(() =>
       CreateSubitemConfigSchema.parse({
         parentItemId: "p",
         subitemName: "s",
-        boardId: "b",
+        subitemsBoardId: "sb",
       }),
-    ).toThrow(); // strict mode rejects unknown field
+    ).toThrow();
   });
 });
 

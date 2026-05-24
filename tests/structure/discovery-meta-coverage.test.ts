@@ -116,6 +116,19 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // (same precedent as Stripe / Discord / Google Docs); this is a
   // deliberate staged provider arc, not an accidental gap.
   "microsoft-onenote",
+  // Monday.com added in Slice 3.MONDAY-6 once all 24 registered Monday
+  // action handlers have a matching meta (10 core in MONDAY-2, the
+  // remaining 14 in MONDAY-4; metas + COVERED_PROVIDERS flip in
+  // MONDAY-6). 1:1 handler↔meta drift is enforced from here on.
+  // **Monday triggers are intentionally NOT shipped in this slice.**
+  // The 5 V1 webhook triggers (new_item, column_changed, item_moved,
+  // new_subitem, new_update) land in MONDAY-7 via Monday's
+  // `create_webhook` lifecycle (`capabilities.webhookTrigger` stays
+  // `false` on the manifest until then). Trigger coverage is NOT
+  // enforced by this test (same precedent as Stripe / Discord /
+  // Google Docs / OneNote); this is a deliberate staged provider arc,
+  // not an accidental gap.
+  "monday",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

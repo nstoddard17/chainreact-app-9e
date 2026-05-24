@@ -20,6 +20,11 @@ import { FileRefSchema } from "@/contracts/file";
  *     matches airtable:add_attachment, slack:upload_file).
  *   - `filename` (optional) — override for Monday's stored display name;
  *     defaults to the FileRef's own name.
+ *   - `boardId` (optional, UI-scope — MONDAY-6) — NOT used by the upload;
+ *     the handler ignores it. Present so the builder's `itemId` picker
+ *     (`monday:items`) and `columnId` file-column picker
+ *     (`monday:file_columns`) can cascade from a board. Mirrors the
+ *     OneNote `notebookId` scope pattern.
  */
 export const AddFileConfigSchema = z
   .object({
@@ -31,6 +36,7 @@ export const AddFileConfigSchema = z
       .min(1, "columnId is required."),
     file: FileRefSchema,
     filename: z.string().min(1).optional(),
+    boardId: z.string().min(1).optional(),
   })
   .strict();
 

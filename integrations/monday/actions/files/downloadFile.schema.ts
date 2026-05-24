@@ -11,7 +11,13 @@ import { z } from "zod";
  *     MONDAY-3 `monday:file_columns` resolver always offers the sentinel
  *     as a valid option, so the field is always pickable.
  *   - `fileId` (optional) — a specific asset id to download. Defaults to
- *     the first file found.
+ *     the first file found. Backed by the `monday:item_files` picker
+ *     (deps itemId + columnId).
+ *   - `boardId` (optional, UI-scope — MONDAY-6) — NOT used by the read;
+ *     the handler ignores it. Present so the builder's `itemId` picker
+ *     (`monday:items`) and `columnId` file-column picker
+ *     (`monday:file_columns`) can cascade from a board. Mirrors the
+ *     OneNote `notebookId` scope pattern.
  */
 export const DownloadFileConfigSchema = z
   .object({
@@ -22,6 +28,7 @@ export const DownloadFileConfigSchema = z
       .string({ required_error: "columnId is required." })
       .min(1, "columnId is required."),
     fileId: z.string().min(1).optional(),
+    boardId: z.string().min(1).optional(),
   })
   .strict();
 

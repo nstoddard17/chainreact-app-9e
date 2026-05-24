@@ -291,6 +291,8 @@ import { GOOGLE_DOCS_ACTION_METAS, GOOGLE_DOCS_TRIGGER_METAS } from "./providers
 
 // Microsoft OneNote — full rationale in providers/microsoft-onenote.ts.
 import { MICROSOFT_ONENOTE_ACTION_METAS, MICROSOFT_ONENOTE_TRIGGER_METAS } from "./providers/microsoft-onenote";
+// Monday.com (MONDAY-6) — 24 actions, 0 triggers (staged for MONDAY-7).
+import { MONDAY_ACTION_METAS } from "./providers/monday";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -572,6 +574,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // Google Docs (GDOCS-4) — 5 actions in displayOrder 10..50.
   // OneNote (ONENOTE-4) — 12 actions; see providers/microsoft-onenote.ts.
   ...GOOGLE_DOCS_ACTION_METAS, ...MICROSOFT_ONENOTE_ACTION_METAS,
+  ...MONDAY_ACTION_METAS, // Monday (MONDAY-6) — 24 actions, displayOrder 10..240.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
