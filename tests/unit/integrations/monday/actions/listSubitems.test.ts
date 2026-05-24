@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/subitemsList", () => ({
   subitemsList: (...args: unknown[]) => mockSubitemsList(...args),
 }));
 
-import { listSubitems } from "@/integrations/monday/actions/listSubitems";
-import { ListSubitemsConfigSchema } from "@/integrations/monday/actions/listSubitems.schema";
+import { listSubitems } from "@/integrations/monday/actions/items/listSubitems";
+import { ListSubitemsConfigSchema } from "@/integrations/monday/actions/items/listSubitems.schema";
 import { NotFoundError } from "@/integrations/_shared/monday/errors";
 
 beforeEach(() => {

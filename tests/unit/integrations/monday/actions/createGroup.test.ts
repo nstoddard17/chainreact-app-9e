@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/groupsCreate", () => ({
   groupsCreate: (...args: unknown[]) => mockGroupsCreate(...args),
 }));
 
-import { createGroup } from "@/integrations/monday/actions/createGroup";
-import { CreateGroupConfigSchema } from "@/integrations/monday/actions/createGroup.schema";
+import { createGroup } from "@/integrations/monday/actions/boards/createGroup";
+import { CreateGroupConfigSchema } from "@/integrations/monday/actions/boards/createGroup.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

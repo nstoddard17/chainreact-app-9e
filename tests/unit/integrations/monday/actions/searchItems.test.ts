@@ -21,8 +21,8 @@ jest.mock("@/integrations/_shared/monday/api/itemsSearchByColumnValues", () => (
     mockItemsSearchByColumnValues(...args),
 }));
 
-import { searchItems } from "@/integrations/monday/actions/searchItems";
-import { SearchItemsConfigSchema } from "@/integrations/monday/actions/searchItems.schema";
+import { searchItems } from "@/integrations/monday/actions/items/searchItems";
+import { SearchItemsConfigSchema } from "@/integrations/monday/actions/items/searchItems.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

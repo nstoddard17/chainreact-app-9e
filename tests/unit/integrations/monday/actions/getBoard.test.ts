@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/boardsGet", () => ({
   boardsGet: (...args: unknown[]) => mockBoardsGet(...args),
 }));
 
-import { getBoard } from "@/integrations/monday/actions/getBoard";
-import { GetBoardConfigSchema } from "@/integrations/monday/actions/getBoard.schema";
+import { getBoard } from "@/integrations/monday/actions/boards/getBoard";
+import { GetBoardConfigSchema } from "@/integrations/monday/actions/boards/getBoard.schema";
 import { NotFoundError } from "@/integrations/_shared/monday/errors";
 
 beforeEach(() => {

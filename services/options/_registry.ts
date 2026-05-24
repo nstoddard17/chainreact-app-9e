@@ -187,6 +187,12 @@ import { mondayColumnsResolver } from "@/integrations/monday/options/columns";
 import { mondayItemsResolver } from "@/integrations/monday/options/items";
 import { mondayFileColumnsResolver } from "@/integrations/monday/options/fileColumns";
 import { mondayUsersResolver } from "@/integrations/monday/options/users";
+// Slice 3.MONDAY-5 — `monday:item_files` (deps itemId + columnId). The
+// single resolver gap the MONDAY-5 audit found: backs the optional
+// `fileId` picker on `download_file`. The other 23 actions' picker
+// fields are covered by the 6 MONDAY-3 resolvers above (or are static
+// enums / free text).
+import { mondayItemFilesResolver } from "@/integrations/monday/options/itemFiles";
 
 /**
  * Hand-maintained options-source resolver registry.
@@ -267,6 +273,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   mondayItemsResolver,
   mondayFileColumnsResolver,
   mondayUsersResolver,
+  // Slice 3.MONDAY-5 — download_file fileId picker (deps itemId + columnId).
+  mondayItemFilesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

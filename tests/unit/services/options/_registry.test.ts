@@ -268,7 +268,17 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toBeUndefined();
     });
 
-    it("registers all 6 Monday resolver keys", () => {
+    it("getOptionsResolver resolves monday:item_files (MONDAY-5; dependsOn itemId + columnId)", () => {
+      const r = getOptionsResolver("monday:item_files");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("monday:item_files");
+      expect(r?.provider).toBe("monday");
+      expect(r?.requiresIntegration).toBe(true);
+      // Two-dep cascade matching download_file's asset resolution.
+      expect(r?.requiredDeps).toEqual(["itemId", "columnId"]);
+    });
+
+    it("registers all 7 Monday resolver keys (6 from MONDAY-3 + item_files from MONDAY-5)", () => {
       const mondaySources = listOptionsResolvers()
         .filter((r) => r.provider === "monday")
         .map((r) => r.source)
@@ -278,6 +288,7 @@ describe("options resolver registry", () => {
         "monday:columns",
         "monday:file_columns",
         "monday:groups",
+        "monday:item_files",
         "monday:items",
         "monday:users",
       ]);

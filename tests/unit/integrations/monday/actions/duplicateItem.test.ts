@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/itemsDuplicate", () => ({
   itemsDuplicate: (...args: unknown[]) => mockItemsDuplicate(...args),
 }));
 
-import { duplicateItem } from "@/integrations/monday/actions/duplicateItem";
-import { DuplicateItemConfigSchema } from "@/integrations/monday/actions/duplicateItem.schema";
+import { duplicateItem } from "@/integrations/monday/actions/items/duplicateItem";
+import { DuplicateItemConfigSchema } from "@/integrations/monday/actions/items/duplicateItem.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

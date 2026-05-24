@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/groupsList", () => ({
   groupsList: (...args: unknown[]) => mockGroupsList(...args),
 }));
 
-import { listGroups } from "@/integrations/monday/actions/listGroups";
-import { ListGroupsConfigSchema } from "@/integrations/monday/actions/listGroups.schema";
+import { listGroups } from "@/integrations/monday/actions/boards/listGroups";
+import { ListGroupsConfigSchema } from "@/integrations/monday/actions/boards/listGroups.schema";
 import { NotFoundError } from "@/integrations/_shared/monday/errors";
 
 beforeEach(() => {

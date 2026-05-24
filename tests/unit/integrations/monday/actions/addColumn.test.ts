@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/columnsCreate", () => ({
   columnsCreate: (...args: unknown[]) => mockColumnsCreate(...args),
 }));
 
-import { addColumn } from "@/integrations/monday/actions/addColumn";
-import { AddColumnConfigSchema } from "@/integrations/monday/actions/addColumn.schema";
+import { addColumn } from "@/integrations/monday/actions/boards/addColumn";
+import { AddColumnConfigSchema } from "@/integrations/monday/actions/boards/addColumn.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

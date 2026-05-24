@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/itemsDelete", () => ({
   itemsDelete: (...args: unknown[]) => mockItemsDelete(...args),
 }));
 
-import { deleteItem } from "@/integrations/monday/actions/deleteItem";
-import { DeleteItemConfigSchema } from "@/integrations/monday/actions/deleteItem.schema";
+import { deleteItem } from "@/integrations/monday/actions/items/deleteItem";
+import { DeleteItemConfigSchema } from "@/integrations/monday/actions/items/deleteItem.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

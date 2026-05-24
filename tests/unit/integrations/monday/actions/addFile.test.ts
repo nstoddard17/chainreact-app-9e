@@ -26,8 +26,8 @@ jest.mock("@/integrations/_shared/monday/api/addFileToColumn", () => ({
   addFileToColumn: (...args: unknown[]) => mockAddFileToColumn(...args),
 }));
 
-import { addFile, MondayAddFileConfigError } from "@/integrations/monday/actions/addFile";
-import { AddFileConfigSchema } from "@/integrations/monday/actions/addFile.schema";
+import { addFile, MondayAddFileConfigError } from "@/integrations/monday/actions/files/addFile";
+import { AddFileConfigSchema } from "@/integrations/monday/actions/files/addFile.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

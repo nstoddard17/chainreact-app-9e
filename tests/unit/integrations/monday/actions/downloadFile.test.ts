@@ -29,11 +29,11 @@ jest.mock("@/integrations/_shared/monday/api/assetsGet", () => ({
   assetsGet: (...args: unknown[]) => mockAssetsGet(...args),
 }));
 
-import { downloadFile } from "@/integrations/monday/actions/downloadFile";
+import { downloadFile } from "@/integrations/monday/actions/files/downloadFile";
 import {
   DownloadFileConfigSchema,
   ITEM_FILES_SENTINEL,
-} from "@/integrations/monday/actions/downloadFile.schema";
+} from "@/integrations/monday/actions/files/downloadFile.schema";
 import { NotFoundError } from "@/integrations/_shared/monday/errors";
 
 const stagedRef = {

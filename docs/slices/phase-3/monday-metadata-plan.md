@@ -74,6 +74,78 @@ blocked either action.
 **The accepted Monday action surface that MONDAY-6 metadata must cover is
 the full 24** (the 10 from MONDAY-2 + the 14 from MONDAY-4).
 
+### 0.1 MONDAY-5 (shipped 2026-05-24) — resolver gap audit + metadata structure prep
+
+**Part A — resolver gap audit (result: 6 existing resolvers + 1 new = 7 total).**
+Audited all 24 action schemas' picker fields against the 6 MONDAY-3
+resolvers. Findings:
+- `boardId` → `monday:boards`; `groupId`/`targetGroupId` → `monday:groups`;
+  `itemId`/`parentItemId` → `monday:items`; `columnId` →
+  `monday:columns` (update_item/search_items) or `monday:file_columns`
+  (add_file/download_file); `userId` → `monday:users`. **All covered.**
+- Static enums — **no resolver needed**: `boardKind`
+  (public/private/share), `duplicateType` (3 DuplicateBoardType values),
+  `kind` (listUsers UserKind), `columnType` (~30 Monday ColumnType values
+  — MONDAY-6 can use static options). `color` (createGroup) stays free
+  text (Monday's palette; static options are optional polish).
+- Free text / number / FileRef — no resolver: all name/title/body fields,
+  `columnValues`/`additionalColumns`/`defaults` (JSON textareas),
+  `limit`/`cursor`, `file` (FileRef input).
+- **Workspace picker: NOT needed.** `create_board`'s runtime schema has no
+  `workspaceId` (V1 parity — boards land in the user's default
+  workspace). No `monday:workspaces` resolver added; if a future slice
+  adds `workspaceId` to the runtime, the resolver lands with it.
+- **One genuine gap → fixed:** `download_file.fileId` (optional specific-
+  asset picker) had no resolver. Added **`monday:item_files`** (deps
+  `itemId` + `columnId`) — mirrors the `download_file` handler's asset
+  resolution (sentinel → item/update assets; file column → parse + 
+  `assets(ids:)`). Returns `assetId` → file name (+ extension), never a
+  file URL. Implemented now via the MONDAY-4 `itemFilesGet` + `assetsGet`
+  wrappers.
+
+**Item-only actions need a `boardId` UI-scope field in MONDAY-6.** Six
+actions carry `itemId`/`parentItemId` without a `boardId` in their runtime
+schema (`create_update`, `create_subitem`, `list_updates`, `list_subitems`,
+`add_file`, `download_file`). `monday:items` / `monday:file_columns`
+require `boardId` as their cascade parent, so MONDAY-6 metas add a
+`boardId` **UI-only scope-narrower** field (the handler ignores it) so the
+item / file-column pickers cascade — the exact pattern OneNote used for
+its `notebookId` scope field (see `create_page.schema.ts` header). This is
+a meta-layer concern; no runtime/schema change.
+
+**Final resolver list for MONDAY-6 metadata (7):** `monday:boards`,
+`monday:groups`, `monday:columns`, `monday:items`, `monday:file_columns`,
+`monday:users`, `monday:item_files`.
+
+**Part B — metadata structure prep (domain subfolders).**
+`integrations/monday/actions/` reached 48 files at MONDAY-4 (24 handlers +
+24 schemas). Adding 24 `.meta.ts` would breach the 50-file leaf limit. The
+leaf check counts files in **every** directory non-recursively, so files
+moved into subfolders no longer count against the parent. Following the
+V2 convention (Slack `channels/`/`files/`/`users/` co-locate handler +
+schema + meta in domain subfolders), MONDAY-5 moved all 24 handlers +
+schemas into **5 domain subfolders** — `actions/{items,boards,updates,users,files}/`:
+
+| Subfolder | Actions | Files now (handler+schema) | After MONDAY-6 metas (×3) |
+| --- | --- | --- | --- |
+| `items/` | 11 (create/update/createSubitem/delete/move/get/list/archive/duplicate/search/listSubitems item) | 22 | 33 |
+| `boards/` | 7 (createBoard/duplicateBoard/getBoard/listBoards/createGroup/listGroups/addColumn) | 14 | 21 |
+| `updates/` | 2 (createUpdate/listUpdates) | 4 | 6 |
+| `users/` | 2 (listUsers/getUser) | 4 | 6 |
+| `files/` | 2 (addFile/downloadFile) | 4 | 6 |
+
+`actions/` itself now has **0 direct files**; every leaf stays well under
+50 even after MONDAY-6 adds the 24 metas (max = `items/` at 33). Handler +
+schema content is unchanged (relative `./X.schema` imports survive because
+each handler moved with its schema); only the handler registry's 24 import
+paths and the 24 test files' import paths were updated. MONDAY-6 drops each
+`.meta.ts` alongside its handler in the same domain subfolder.
+
+**Monday completeness definition:** Monday is NOT complete until **24
+actions + 5 webhook triggers** are covered by metadata. After MONDAY-5:
+runtime actions 24/24 ✓, resolvers 7 ✓, ActionMeta 0/24 (MONDAY-6),
+triggers 0/5 (MONDAY-7), COVERED_PROVIDERS not yet (MONDAY-6).
+
 ---
 
 ## 1. Headline finding — Monday is GREEN-FIELD in V2 with the cleanest V1 source of any unported provider

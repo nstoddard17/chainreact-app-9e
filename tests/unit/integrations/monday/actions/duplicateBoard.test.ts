@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/boardsDuplicate", () => ({
   boardsDuplicate: (...args: unknown[]) => mockBoardsDuplicate(...args),
 }));
 
-import { duplicateBoard } from "@/integrations/monday/actions/duplicateBoard";
-import { DuplicateBoardConfigSchema } from "@/integrations/monday/actions/duplicateBoard.schema";
+import { duplicateBoard } from "@/integrations/monday/actions/boards/duplicateBoard";
+import { DuplicateBoardConfigSchema } from "@/integrations/monday/actions/boards/duplicateBoard.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

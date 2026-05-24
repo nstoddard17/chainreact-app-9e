@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/itemsGet", () => ({
   itemsGet: (...args: unknown[]) => mockItemsGet(...args),
 }));
 
-import { getItem } from "@/integrations/monday/actions/getItem";
-import { GetItemConfigSchema } from "@/integrations/monday/actions/getItem.schema";
+import { getItem } from "@/integrations/monday/actions/items/getItem";
+import { GetItemConfigSchema } from "@/integrations/monday/actions/items/getItem.schema";
 import { NotFoundError } from "@/integrations/_shared/monday/errors";
 
 beforeEach(() => {

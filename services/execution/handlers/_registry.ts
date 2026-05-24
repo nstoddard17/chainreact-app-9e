@@ -149,34 +149,34 @@ import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsof
 // Slice 3.MONDAY-2 — Monday.com runtime port (10 actions). GraphQL
 // API via `_shared/monday/api/_request.ts`. No webhook triggers in
 // this slice; MONDAY-5 ships the per-workflow webhook lifecycle.
-import { createItem as mondayCreateItem } from "@/integrations/monday/actions/createItem";
-import { createSubitem as mondayCreateSubitem } from "@/integrations/monday/actions/createSubitem";
-import { createUpdate as mondayCreateUpdate } from "@/integrations/monday/actions/createUpdate";
-import { deleteItem as mondayDeleteItem } from "@/integrations/monday/actions/deleteItem";
-import { getItem as mondayGetItem } from "@/integrations/monday/actions/getItem";
-import { listBoards as mondayListBoards } from "@/integrations/monday/actions/listBoards";
-import { listItems as mondayListItems } from "@/integrations/monday/actions/listItems";
-import { listUsers as mondayListUsers } from "@/integrations/monday/actions/listUsers";
-import { moveItem as mondayMoveItem } from "@/integrations/monday/actions/moveItem";
-import { updateItem as mondayUpdateItem } from "@/integrations/monday/actions/updateItem";
+import { createItem as mondayCreateItem } from "@/integrations/monday/actions/items/createItem";
+import { createSubitem as mondayCreateSubitem } from "@/integrations/monday/actions/items/createSubitem";
+import { createUpdate as mondayCreateUpdate } from "@/integrations/monday/actions/updates/createUpdate";
+import { deleteItem as mondayDeleteItem } from "@/integrations/monday/actions/items/deleteItem";
+import { getItem as mondayGetItem } from "@/integrations/monday/actions/items/getItem";
+import { listBoards as mondayListBoards } from "@/integrations/monday/actions/boards/listBoards";
+import { listItems as mondayListItems } from "@/integrations/monday/actions/items/listItems";
+import { listUsers as mondayListUsers } from "@/integrations/monday/actions/users/listUsers";
+import { moveItem as mondayMoveItem } from "@/integrations/monday/actions/items/moveItem";
+import { updateItem as mondayUpdateItem } from "@/integrations/monday/actions/items/updateItem";
 // Slice 3.MONDAY-4 — remaining 14 V1 Monday actions completed to the
 // updated provider-completion standard. All 14 ship (no real V2-native
 // blocker). Includes the two FileRef actions (add_file consumer,
 // download_file producer) via the P-S3 file contract.
-import { addColumn as mondayAddColumn } from "@/integrations/monday/actions/addColumn";
-import { addFile as mondayAddFile } from "@/integrations/monday/actions/addFile";
-import { archiveItem as mondayArchiveItem } from "@/integrations/monday/actions/archiveItem";
-import { createBoard as mondayCreateBoard } from "@/integrations/monday/actions/createBoard";
-import { createGroup as mondayCreateGroup } from "@/integrations/monday/actions/createGroup";
-import { downloadFile as mondayDownloadFile } from "@/integrations/monday/actions/downloadFile";
-import { duplicateBoard as mondayDuplicateBoard } from "@/integrations/monday/actions/duplicateBoard";
-import { duplicateItem as mondayDuplicateItem } from "@/integrations/monday/actions/duplicateItem";
-import { getBoard as mondayGetBoard } from "@/integrations/monday/actions/getBoard";
-import { getUser as mondayGetUser } from "@/integrations/monday/actions/getUser";
-import { listGroups as mondayListGroups } from "@/integrations/monday/actions/listGroups";
-import { listSubitems as mondayListSubitems } from "@/integrations/monday/actions/listSubitems";
-import { listUpdates as mondayListUpdates } from "@/integrations/monday/actions/listUpdates";
-import { searchItems as mondaySearchItems } from "@/integrations/monday/actions/searchItems";
+import { addColumn as mondayAddColumn } from "@/integrations/monday/actions/boards/addColumn";
+import { addFile as mondayAddFile } from "@/integrations/monday/actions/files/addFile";
+import { archiveItem as mondayArchiveItem } from "@/integrations/monday/actions/items/archiveItem";
+import { createBoard as mondayCreateBoard } from "@/integrations/monday/actions/boards/createBoard";
+import { createGroup as mondayCreateGroup } from "@/integrations/monday/actions/boards/createGroup";
+import { downloadFile as mondayDownloadFile } from "@/integrations/monday/actions/files/downloadFile";
+import { duplicateBoard as mondayDuplicateBoard } from "@/integrations/monday/actions/boards/duplicateBoard";
+import { duplicateItem as mondayDuplicateItem } from "@/integrations/monday/actions/items/duplicateItem";
+import { getBoard as mondayGetBoard } from "@/integrations/monday/actions/boards/getBoard";
+import { getUser as mondayGetUser } from "@/integrations/monday/actions/users/getUser";
+import { listGroups as mondayListGroups } from "@/integrations/monday/actions/boards/listGroups";
+import { listSubitems as mondayListSubitems } from "@/integrations/monday/actions/items/listSubitems";
+import { listUpdates as mondayListUpdates } from "@/integrations/monday/actions/updates/listUpdates";
+import { searchItems as mondaySearchItems } from "@/integrations/monday/actions/items/searchItems";
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";

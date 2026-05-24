@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/itemsList", () => ({
   itemsList: (...args: unknown[]) => mockItemsList(...args),
 }));
 
-import { listItems } from "@/integrations/monday/actions/listItems";
-import { ListItemsConfigSchema } from "@/integrations/monday/actions/listItems.schema";
+import { listItems } from "@/integrations/monday/actions/items/listItems";
+import { ListItemsConfigSchema } from "@/integrations/monday/actions/items/listItems.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();

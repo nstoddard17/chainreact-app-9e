@@ -16,8 +16,8 @@ jest.mock("@/integrations/_shared/monday/api/itemsArchive", () => ({
   itemsArchive: (...args: unknown[]) => mockItemsArchive(...args),
 }));
 
-import { archiveItem } from "@/integrations/monday/actions/archiveItem";
-import { ArchiveItemConfigSchema } from "@/integrations/monday/actions/archiveItem.schema";
+import { archiveItem } from "@/integrations/monday/actions/items/archiveItem";
+import { ArchiveItemConfigSchema } from "@/integrations/monday/actions/items/archiveItem.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
