@@ -1273,7 +1273,7 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns an empty triggers array for Google Docs (Slice 3.GDOCS-4 ships actions only — triggers staged for GDOCS-5)", async () => {
+  it("returns 2 Google Docs triggers (Slice 3.GDOCS-5 — new_document + document_updated via Drive files.watch)", async () => {
     authedUser();
     const res = await getTriggers(
       new Request("http://x/google-docs/triggers"),
@@ -1281,11 +1281,35 @@ describe("GET /api/providers/[id]/triggers", () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      triggers: Array<{ key: string }>;
+      triggers: Array<{
+        key: string;
+        activation: string;
+        requiresIntegration: boolean;
+        fields: Array<{ name: string; optionsSource?: string }>;
+      }>;
     };
-    // Empty — GDOCS-5 will add `new_document` + `document_updated` via
-    // Drive files.watch push channel filtered by Docs mimeType.
-    expect(body.triggers).toEqual([]);
+    expect(body.triggers).toHaveLength(2);
+    expect(body.triggers.map((t) => t.key)).toEqual([
+      "google-docs:new_document",
+      "google-docs:document_updated",
+    ]);
+    // Both are webhook-activated (Drive files.watch push channel).
+    expect(body.triggers.every((t) => t.activation === "webhook")).toBe(true);
+    expect(body.triggers.every((t) => t.requiresIntegration)).toBe(true);
+
+    // Resolver wiring round-trips through JSON.
+    const byKey = new Map(body.triggers.map((t) => [t.key, t]));
+    const newDoc = byKey.get("google-docs:new_document")!;
+    const folderField = newDoc.fields.find((f) => f.name === "folderId")!;
+    expect(folderField.optionsSource).toBe("google-drive:folders");
+
+    const updated = byKey.get("google-docs:document_updated")!;
+    expect(
+      updated.fields.find((f) => f.name === "documentId")?.optionsSource,
+    ).toBe("google-docs:documents");
+    expect(
+      updated.fields.find((f) => f.name === "folderId")?.optionsSource,
+    ).toBe("google-drive:folders");
   });
 
   it("returns the GitHub new_commit trigger meta", async () => {

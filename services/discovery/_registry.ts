@@ -285,9 +285,9 @@ import { MAILCHIMP_ACTION_METAS, MAILCHIMP_TRIGGER_METAS } from "./providers/mai
 // See providers/discord.ts + DISCORD-5 architecture doc.
 import { DISCORD_ACTION_METAS, DISCORD_TRIGGER_METAS } from "./providers/discord";
 
-// Google Docs (Slice 3.GDOCS-4) — actions only; triggers ship in
-// GDOCS-5. Rationale lives in providers/google-docs.ts header.
-import { GOOGLE_DOCS_ACTION_METAS } from "./providers/google-docs";
+// Google Docs (Slice 3.GDOCS-4 actions + 3.GDOCS-5 triggers).
+// Rationale lives in providers/google-docs.ts header.
+import { GOOGLE_DOCS_ACTION_METAS, GOOGLE_DOCS_TRIGGER_METAS } from "./providers/google-docs";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -637,8 +637,8 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // `member_join` deferred (DISCORD-N-member-join) per
   // docs/slices/phase-3/discord-trigger-architecture-plan.md.
   ...DISCORD_TRIGGER_METAS,
-  // Google Docs triggers (GDOCS-5) will spread in once shipped — see
-  // providers/google-docs.ts.
+  // Google Docs (Slice 3.GDOCS-5) — new_document + document_updated.
+  ...GOOGLE_DOCS_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

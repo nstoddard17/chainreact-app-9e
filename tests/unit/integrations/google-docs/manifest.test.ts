@@ -49,8 +49,8 @@ describe("google-docs manifest — capabilities", () => {
     expect(googleDocsManifest.capabilities.actions).toBe(true);
   });
 
-  it("DOES NOT enable webhookTrigger yet (flips in GDOCS-5 when Drive watch triggers ship)", () => {
-    expect(googleDocsManifest.capabilities.webhookTrigger).toBe(false);
+  it("enables webhookTrigger (Slice 3.GDOCS-5 — new_document + document_updated via Drive files.watch)", () => {
+    expect(googleDocsManifest.capabilities.webhookTrigger).toBe(true);
   });
 
   it("DOES NOT enable pollingTrigger — both triggers go through Drive watch", () => {

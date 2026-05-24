@@ -45,8 +45,16 @@ describe("Google Docs action metas — registration", () => {
     expect(getActionMeta(key)).toBeDefined();
   });
 
-  it("registers ZERO Google Docs trigger metas (deferred to GDOCS-5 — Drive files.watch arc)", () => {
-    expect(listTriggerMetasForProvider("google-docs")).toEqual([]);
+  it("registers exactly 2 Google Docs trigger metas (GDOCS-5 — new_document + document_updated)", () => {
+    const triggers = listTriggerMetasForProvider("google-docs");
+    expect(triggers).toHaveLength(2);
+    // Sorted by displayOrder (10 / 20).
+    expect(triggers.map((t) => t.key)).toEqual([
+      "google-docs:new_document",
+      "google-docs:document_updated",
+    ]);
+    expect(triggers.every((t) => t.activation === "webhook")).toBe(true);
+    expect(triggers.every((t) => t.requiresIntegration)).toBe(true);
   });
 
   it("sorts Google Docs actions by displayOrder (10..50)", () => {

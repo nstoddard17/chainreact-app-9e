@@ -33,6 +33,8 @@ import "./gmail/triggers/newLabeledEmail";
 // Gmail 2.3 Commit 4 — new_attachment polling trigger.
 import "./gmail/triggers/newAttachment";
 import "./google-calendar/triggers/eventChanged";
+import "./google-docs/triggers/newDocument";
+import "./google-docs/triggers/documentUpdated";
 import "./google-drive/triggers/fileChanged";
 import "./google-sheets/triggers/rowChanged";
 // Sheets 2.3 Commit 4 — new_worksheet watch-based push trigger.

@@ -74,12 +74,15 @@ export const googleDocsManifest: ProviderManifest =
     },
     capabilities: {
       oauth: true,
-      // False until GDOCS-5 ships the Drive files.watch triggers.
-      webhookTrigger: false,
+      // True — Slice 3.GDOCS-5 ships `new_document` + `document_updated`
+      // via Drive's `files.watch` push channel (filtered to Docs
+      // mimeType in normalize). Webhook receive route lives at
+      // `/api/webhooks/google-docs`.
+      webhookTrigger: true,
       // False — both Google Docs triggers go through Drive watch per
       // the GDOCS-5 architecture. No polling-shape trigger planned.
       pollingTrigger: false,
-      // True — 5 action handlers ship in this slice.
+      // True — 5 action handlers ship in GDOCS-2.
       actions: true,
     },
     healthCheckIntervalMs: 6 * 60 * 60 * 1000,
