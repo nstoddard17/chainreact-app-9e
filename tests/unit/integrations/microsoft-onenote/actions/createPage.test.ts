@@ -68,12 +68,26 @@ describe("create_page schema", () => {
     ).toThrow();
   });
 
-  it("rejects unknown fields (strict)", () => {
+  it("accepts optional notebookId as UI scope-narrower (ONENOTE-4 — handler ignores)", () => {
+    // ONENOTE-4 added `notebookId` as an OPTIONAL UI scope-narrower
+    // so the meta-cascade chain `notebookId` → `sectionId` works in
+    // the builder picker. The handler ignores it; this just verifies
+    // the schema accepts it without erroring.
     expect(() =>
       CreatePageConfigSchema.parse({
         sectionId: "s-1",
         title: "Hi",
-        notebookId: "n-1", // V1 had it; V2 dropped
+        notebookId: "n-1",
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects truly unknown fields (strict mode retained)", () => {
+    expect(() =>
+      CreatePageConfigSchema.parse({
+        sectionId: "s-1",
+        title: "Hi",
+        bogusField: "x",
       }),
     ).toThrow();
   });

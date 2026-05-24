@@ -34,6 +34,11 @@ export const ListPagesConfigSchema = z
       ])
       .default("lastModifiedDateTime desc"),
     top: z.number().int().min(1).max(100).default(20),
+    // ONENOTE-4 UI scope-narrower — handler ignores. The meta cascade
+    // requires the field to be literally named `notebookId` so the
+    // sections-resolver dep wiring works. See createPage.schema.ts
+    // header.
+    notebookId: z.string().min(1).optional(),
   })
   .strict();
 

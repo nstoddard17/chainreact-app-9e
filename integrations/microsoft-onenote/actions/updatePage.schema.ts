@@ -47,6 +47,14 @@ export const UpdatePageConfigSchema = z
       .min(1, "content is required."),
     target: z.string().min(1).optional(),
     position: UpdatePagePositionSchema.default("after"),
+    // ONENOTE-4 UI scope-narrowers — handler ignores. The meta
+    // declares a 3-level cascade `notebookId` → `sectionId` → `pageId`
+    // (pages-resolver requires `sectionId`; sections-resolver requires
+    // `notebookId`). Builder cascade wiring sends `deps[<parent-field-
+    // name>]` so the parent fields MUST be literally named
+    // `notebookId` / `sectionId`.
+    notebookId: z.string().min(1).optional(),
+    sectionId: z.string().min(1).optional(),
   })
   .strict()
   .superRefine((config, ctx) => {

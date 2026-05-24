@@ -13,6 +13,10 @@ export const GetSectionDetailsConfigSchema = z
     sectionId: z
       .string({ required_error: "sectionId is required." })
       .min(1, "sectionId is required."),
+    // ONENOTE-4 UI scope-narrower — handler ignores. Cascade
+    // `notebookId` → `sectionId` (sections-resolver requires
+    // `notebookId`). See createPage.schema.ts header.
+    notebookId: z.string().min(1).optional(),
   })
   .strict();
 

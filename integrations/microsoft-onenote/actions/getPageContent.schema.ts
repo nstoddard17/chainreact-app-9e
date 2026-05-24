@@ -25,6 +25,12 @@ export const GetPageContentConfigSchema = z
       .min(1, "pageId is required."),
     includeIDs: z.boolean().default(false),
     preGenerated: z.boolean().default(true),
+    // ONENOTE-4 UI scope-narrowers — handler ignores. Cascade chain
+    // `notebookId` → `sectionId` → `pageId` (pages-resolver requires
+    // `sectionId`). See createPage.schema.ts header for the dep-name
+    // rationale.
+    notebookId: z.string().min(1).optional(),
+    sectionId: z.string().min(1).optional(),
   })
   .strict();
 

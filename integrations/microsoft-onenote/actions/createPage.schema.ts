@@ -14,12 +14,17 @@ import { z } from "zod";
  *   - `content` defaults to empty string (empty body is valid — the
  *     resulting page has only the title).
  *
- * V1's optional `notebookId` field (used to auto-pick the default
- * section when sectionId was unset) is dropped — V2 requires an
- * explicit `sectionId`. Workflow authors compose with the section
- * picker / `microsoft-onenote:sections` resolver (ONENOTE-3).
+ * V1's optional `notebookId` field is **NOT a runtime input** — V2's
+ * Graph call only needs `sectionId`. ONENOTE-4 re-exposes `notebookId`
+ * as an OPTIONAL UI scope-narrower (the `microsoft-onenote:sections`
+ * resolver requires `notebookId` as a dep, and the builder's cascade
+ * wiring sends `deps[<parent-field-name>]` — so the parent field MUST
+ * be literally named `notebookId` for the picker to work). The
+ * handler ignores this field; it exists solely so the meta layer can
+ * declare the cascade chain `notebookId` → `sectionId`.
  *
- * Strict mode rejects unknown fields.
+ * Strict mode retained — unknown fields outside this enumeration are
+ * still rejected.
  */
 export const CreatePageConfigSchema = z
   .object({
@@ -33,6 +38,10 @@ export const CreatePageConfigSchema = z
     contentType: z
       .enum(["text/html", "text/plain", "application/xhtml+xml"])
       .default("text/html"),
+    // ONENOTE-4 UI scope-narrower — handler ignores; meta cascade
+    // requires the field to be literally named `notebookId` so the
+    // sections-resolver dep wiring works. See header.
+    notebookId: z.string().min(1).optional(),
   })
   .strict();
 

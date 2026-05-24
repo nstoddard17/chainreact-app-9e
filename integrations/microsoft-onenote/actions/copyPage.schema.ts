@@ -26,6 +26,18 @@ export const CopyPageConfigSchema = z
     targetSectionId: z
       .string({ required_error: "targetSectionId is required." })
       .min(1, "targetSectionId is required."),
+    // ONENOTE-4 UI scope-narrowers — handler ignores. Source-side
+    // cascade only: `notebookId` → `sectionId` → `sourcePageId`. The
+    // pages-resolver requires `sectionId` and the sections-resolver
+    // requires `notebookId`; builder cascade wiring sends
+    // `deps[<parent-field-name>]` so parent fields MUST be literally
+    // named `notebookId` / `sectionId`. Target side (`targetSectionId`)
+    // uses a text input — same-meta field-name uniqueness + the
+    // fixed resolver dep names mean a usable target picker would
+    // require new resolvers (`sections_by_target_notebook`); deferred
+    // to ONENOTE-N polish. The meta's description documents this.
+    notebookId: z.string().min(1).optional(),
+    sectionId: z.string().min(1).optional(),
   })
   .strict();
 

@@ -43,11 +43,26 @@ describe("delete_page schema", () => {
     expect(() => DeletePageConfigSchema.parse({})).toThrow();
   });
 
-  it("rejects unknown fields (strict)", () => {
+  it("accepts optional notebookId + sectionId as UI scope-narrowers (ONENOTE-4 — handler ignores)", () => {
+    // ONENOTE-4 added `notebookId` + `sectionId` as OPTIONAL UI
+    // scope-narrowers so the destructive-action meta cascade
+    // (`notebookId` → `sectionId` → `pageId`) works in the builder
+    // picker. The handler ignores them; this just verifies the
+    // schema accepts them without erroring.
     expect(() =>
       DeletePageConfigSchema.parse({
         pageId: "p",
-        notebookId: "n", // V1-style cascade parent, not allowed at runtime
+        notebookId: "n",
+        sectionId: "s",
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects truly unknown fields (strict mode retained)", () => {
+    expect(() =>
+      DeletePageConfigSchema.parse({
+        pageId: "p",
+        bogusField: "x",
       }),
     ).toThrow();
   });

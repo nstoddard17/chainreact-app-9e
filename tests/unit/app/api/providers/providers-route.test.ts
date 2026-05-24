@@ -187,6 +187,17 @@ describe("GET /api/providers", () => {
     expect(googleDocs?.hasMetadata).toBe(true);
   });
 
+  it("marks Microsoft OneNote as hasMetadata=true now that Slice 3.ONENOTE-4 shipped the 12 action metas (triggers deferred to ONENOTE-5)", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const onenote = body.providers.find((p) => p.id === "microsoft-onenote");
+    expect(onenote).toBeDefined();
+    expect(onenote?.hasMetadata).toBe(true);
+  });
+
   it("marks providers still without any metadata (e.g. airtable) as hasMetadata=false", async () => {
     authedUser();
     const res = await getProviders();
@@ -1239,6 +1250,159 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(exp.outputs.find((o) => o.name === "fileName")?.sensitive).toBe(true);
     expect(exp.outputs.find((o) => o.name === "fileSize")?.sensitive).toBeUndefined();
   });
+
+  it("returns the 12 Microsoft OneNote action metas in displayOrder (Slice 3.ONENOTE-4 — actions-only flip)", async () => {
+    authedUser();
+    const res = await getActions(
+      new Request("http://x/microsoft-onenote/actions"),
+      { params: Promise.resolve({ id: "microsoft-onenote" }) },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      actions: Array<{
+        key: string;
+        category: string;
+        requiresIntegration: boolean;
+        producesFileRef: boolean;
+        consumesFileRef: boolean;
+        isDestructive: boolean;
+        requiresConfirmation: boolean;
+        riskLevel: string;
+        riskDescription?: string;
+        displayOrder: number | null;
+        fields: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          optionsSource?: string;
+          dependsOn?: string;
+          defaultValue?: unknown;
+          options?: Array<{ value: string }>;
+          numeric?: {
+            min?: number;
+            max?: number;
+            integer?: boolean;
+            step?: number;
+          };
+        }>;
+        outputs: Array<{ name: string; type: string; sensitive?: boolean }>;
+      }>;
+    };
+    expect(body.provider).toBe("microsoft-onenote");
+    expect(body.actions).toHaveLength(12);
+    expect(body.actions.map((a) => a.key)).toEqual([
+      "microsoft-onenote:create_page",
+      "microsoft-onenote:update_page",
+      "microsoft-onenote:copy_page",
+      "microsoft-onenote:get_page_content",
+      "microsoft-onenote:list_pages",
+      "microsoft-onenote:delete_page",
+      "microsoft-onenote:create_section",
+      "microsoft-onenote:list_sections",
+      "microsoft-onenote:get_section_details",
+      "microsoft-onenote:create_notebook",
+      "microsoft-onenote:list_notebooks",
+      "microsoft-onenote:get_notebook_details",
+    ]);
+    expect(body.actions.map((a) => a.displayOrder)).toEqual([
+      10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120,
+    ]);
+    expect(body.actions.every((a) => a.category === "files")).toBe(true);
+    expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
+
+    const byKey = new Map(body.actions.map((a) => [a.key, a]));
+
+    // create_page — 3-field cascade + text/html default + medium risk.
+    const create = byKey.get("microsoft-onenote:create_page")!;
+    const nb = create.fields.find((f) => f.name === "notebookId")!;
+    expect(nb.optionsSource).toBe("microsoft-onenote:notebooks");
+    expect(nb.dependsOn).toBeUndefined();
+    const sec = create.fields.find((f) => f.name === "sectionId")!;
+    expect(sec.optionsSource).toBe("microsoft-onenote:sections");
+    expect(sec.dependsOn).toBe("notebookId");
+    const ct = create.fields.find((f) => f.name === "contentType")!;
+    expect(ct.defaultValue).toBe("text/html");
+    expect(ct.options?.map((o) => o.value).sort()).toEqual([
+      "application/xhtml+xml",
+      "text/html",
+      "text/plain",
+    ]);
+    expect(create.isDestructive).toBe(false);
+    expect(create.riskLevel).toBe("medium");
+
+    // update_page — 3-level cascade + replace warning in description.
+    const update = byKey.get("microsoft-onenote:update_page")!;
+    const pg = update.fields.find((f) => f.name === "pageId")!;
+    expect(pg.optionsSource).toBe("microsoft-onenote:pages");
+    expect(pg.dependsOn).toBe("sectionId");
+    const mode = update.fields.find((f) => f.name === "updateMode")!;
+    expect(mode.options?.map((o) => o.value).sort()).toEqual([
+      "append",
+      "insert",
+      "prepend",
+      "replace",
+    ]);
+    expect(mode.defaultValue).toBe("append");
+
+    // copy_page — source-side combobox cascade + target text input
+    // (dual-hierarchy picker limitation).
+    const copy = byKey.get("microsoft-onenote:copy_page")!;
+    const srcPg = copy.fields.find((f) => f.name === "sourcePageId")!;
+    expect(srcPg.type).toBe("combobox");
+    expect(srcPg.optionsSource).toBe("microsoft-onenote:pages");
+    expect(srcPg.dependsOn).toBe("sectionId");
+    const tgtSec = copy.fields.find((f) => f.name === "targetSectionId")!;
+    expect(tgtSec.type).toBe("text");
+    expect(tgtSec.optionsSource).toBeUndefined();
+    expect(copy.isDestructive).toBe(false);
+
+    // get_page_content — boolean fields preserved camelCase.
+    const get = byKey.get("microsoft-onenote:get_page_content")!;
+    const inc = get.fields.find((f) => f.name === "includeIDs")!;
+    expect(inc.type).toBe("boolean");
+    expect(inc.defaultValue).toBe(false);
+    const pre = get.fields.find((f) => f.name === "preGenerated")!;
+    expect(pre.type).toBe("boolean");
+    expect(pre.defaultValue).toBe(true);
+
+    // list_pages — top numeric bounds 1..100 default 20; orderBy enum;
+    // deferred OData filter absent.
+    const list = byKey.get("microsoft-onenote:list_pages")!;
+    const top = list.fields.find((f) => f.name === "top")!;
+    expect(top.type).toBe("number");
+    expect(top.numeric).toEqual({ min: 1, max: 100, integer: true, step: 1 });
+    expect(top.defaultValue).toBe(20);
+    const ob = list.fields.find((f) => f.name === "orderBy")!;
+    expect(ob.defaultValue).toBe("lastModifiedDateTime desc");
+    expect(list.fields.find((f) => f.name === "filter")).toBeUndefined();
+
+    // delete_page — destructive trio round-trips.
+    const del = byKey.get("microsoft-onenote:delete_page")!;
+    expect(del.isDestructive).toBe(true);
+    expect(del.requiresConfirmation).toBe(true);
+    expect(del.riskLevel).toBe("high");
+    expect(del.riskDescription).toBeDefined();
+    // No title/body/content surfaced on delete output.
+    expect(del.outputs.find((o) => o.name === "title")).toBeUndefined();
+    expect(del.outputs.find((o) => o.name === "content")).toBeUndefined();
+    expect(del.outputs.find((o) => o.name === "body")).toBeUndefined();
+
+    // create_notebook — single displayName field.
+    const cn = byKey.get("microsoft-onenote:create_notebook")!;
+    expect(cn.fields.map((f) => f.name)).toEqual(["displayName"]);
+    expect(cn.isDestructive).toBe(false);
+
+    // Sensitive output round-trips through JSON for the keys the slice
+    // spec flagged.
+    expect(create.outputs.find((o) => o.name === "title")?.sensitive).toBe(true);
+    expect(create.outputs.find((o) => o.name === "webUrl")?.sensitive).toBe(true);
+    expect(create.outputs.find((o) => o.name === "id")?.sensitive).toBeUndefined();
+    expect(get.outputs.find((o) => o.name === "content")?.sensitive).toBe(true);
+    expect(get.outputs.find((o) => o.name === "title")?.sensitive).toBe(true);
+    expect(list.outputs.find((o) => o.name === "pages")?.sensitive).toBe(true);
+    expect(list.outputs.find((o) => o.name === "count")?.sensitive).toBeUndefined();
+  });
 });
 
 describe("GET /api/providers/[id]/triggers", () => {
@@ -1326,6 +1490,21 @@ describe("GET /api/providers/[id]/triggers", () => {
       key: "github:new_commit",
       activation: "webhook",
     });
+  });
+
+  it("returns 0 Microsoft OneNote triggers in Slice 3.ONENOTE-4 (polling triggers staged for ONENOTE-5; Graph deprecated OneNote webhooks May 2023)", async () => {
+    authedUser();
+    const res = await getTriggers(
+      new Request("http://x/microsoft-onenote/triggers"),
+      { params: Promise.resolve({ id: "microsoft-onenote" }) },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{ key: string }>;
+    };
+    expect(body.provider).toBe("microsoft-onenote");
+    expect(body.triggers).toEqual([]);
   });
 
   it("returns the 3 Gmail trigger metas registered in Slice 3.12, all polling-activated", async () => {

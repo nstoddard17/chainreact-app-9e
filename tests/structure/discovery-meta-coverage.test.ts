@@ -99,6 +99,23 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // this test (same precedent as Stripe / Discord); this is a
   // deliberate staged provider arc, not an accidental gap.
   "google-docs",
+  // Microsoft OneNote added in Slice 3.ONENOTE-4 with the
+  // actions-only scope accepted in the ONENOTE arc plan. All 12
+  // registered OneNote action handlers (create_page, update_page,
+  // copy_page, get_page_content, list_pages, delete_page,
+  // create_section, list_sections, get_section_details,
+  // create_notebook, list_notebooks, get_notebook_details) have a
+  // matching meta — 1:1 drift is enforced from here on.
+  // **OneNote triggers are intentionally NOT shipped in this slice.**
+  // Microsoft Graph deprecated OneNote subscriptions in May 2023
+  // (no webhook option exists; the manifest's
+  // `capabilities.webhookTrigger` is permanently `false`). V2-native
+  // OneNote triggers ship as polling (`new_note` + `updated_note`)
+  // in ONENOTE-5 via the shared Excel-style polling-trigger
+  // infrastructure. Trigger coverage is NOT enforced by this test
+  // (same precedent as Stripe / Discord / Google Docs); this is a
+  // deliberate staged provider arc, not an accidental gap.
+  "microsoft-onenote",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

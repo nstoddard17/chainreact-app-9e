@@ -289,6 +289,12 @@ import { DISCORD_ACTION_METAS, DISCORD_TRIGGER_METAS } from "./providers/discord
 // Rationale lives in providers/google-docs.ts header.
 import { GOOGLE_DOCS_ACTION_METAS, GOOGLE_DOCS_TRIGGER_METAS } from "./providers/google-docs";
 
+// Microsoft OneNote (Slice 3.ONENOTE-4 actions only — 12 actions).
+// Triggers ship in ONENOTE-5 via polling (Graph deprecated OneNote
+// subscriptions in May 2023). Rationale + UI-scope-narrower
+// convention lives in providers/microsoft-onenote.ts header.
+import { MICROSOFT_ONENOTE_ACTION_METAS, MICROSOFT_ONENOTE_TRIGGER_METAS } from "./providers/microsoft-onenote";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -568,6 +574,12 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...DISCORD_ACTION_METAS,
   // Google Docs (Slice 3.GDOCS-4) — 5 actions in displayOrder 10..50.
   ...GOOGLE_DOCS_ACTION_METAS,
+  // Microsoft OneNote (Slice 3.ONENOTE-4) — 12 actions in
+  // displayOrder 10..120. Action-only flip; triggers staged for
+  // ONENOTE-5 (polling — Graph deprecated OneNote subscriptions
+  // May 2023). UI-scope-narrower convention documented in
+  // providers/microsoft-onenote.ts header.
+  ...MICROSOFT_ONENOTE_ACTION_METAS,
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -639,6 +651,14 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   ...DISCORD_TRIGGER_METAS,
   // Google Docs (Slice 3.GDOCS-5) — new_document + document_updated.
   ...GOOGLE_DOCS_TRIGGER_METAS,
+  // Microsoft OneNote (Slice 3.ONENOTE-4) — EMPTY in this slice;
+  // triggers ship in ONENOTE-5 (polling — Graph deprecated OneNote
+  // subscriptions May 2023, manifest.capabilities.webhookTrigger
+  // stays false permanently). Spread retained so adding the
+  // ONENOTE-5 triggers is a one-line change to
+  // services/discovery/providers/microsoft-onenote.ts without
+  // touching this file.
+  ...MICROSOFT_ONENOTE_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
