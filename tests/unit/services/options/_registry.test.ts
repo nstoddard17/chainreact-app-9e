@@ -177,6 +177,40 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Microsoft OneNote resolvers (Slice 3.ONENOTE-3)", () => {
+    it("getOptionsResolver resolves microsoft-onenote:notebooks (no deps)", () => {
+      const r = getOptionsResolver("microsoft-onenote:notebooks");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("microsoft-onenote:notebooks");
+      expect(r?.provider).toBe("microsoft-onenote");
+      expect(r?.requiresIntegration).toBe(true);
+      // Account-scoped picker; no parent field.
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves microsoft-onenote:sections (dependsOn notebookId — camelCase, V1-preserved)", () => {
+      const r = getOptionsResolver("microsoft-onenote:sections");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("microsoft-onenote:sections");
+      expect(r?.provider).toBe("microsoft-onenote");
+      expect(r?.requiresIntegration).toBe(true);
+      // `notebookId` matches the ONENOTE-2 schema field names verbatim
+      // (camelCase, NOT snake_case). Pinned here so the cascade wiring
+      // stays correctly parented when ONENOTE-4 action metas land.
+      expect(r?.requiredDeps).toEqual(["notebookId"]);
+    });
+
+    it("getOptionsResolver resolves microsoft-onenote:pages (dependsOn sectionId — camelCase, V1-preserved)", () => {
+      const r = getOptionsResolver("microsoft-onenote:pages");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("microsoft-onenote:pages");
+      expect(r?.provider).toBe("microsoft-onenote");
+      expect(r?.requiresIntegration).toBe(true);
+      // `sectionId` matches the ONENOTE-2 schema field names verbatim.
+      expect(r?.requiredDeps).toEqual(["sectionId"]);
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

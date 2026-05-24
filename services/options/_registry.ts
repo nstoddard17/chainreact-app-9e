@@ -121,6 +121,39 @@ import { discordRolesResolver } from "@/integrations/discord/options/roles";
 import { googleDocsDocumentsResolver } from "@/integrations/google-docs/options/documents";
 import { googleDriveFoldersResolver } from "@/integrations/google-drive/options/folders";
 
+// Microsoft OneNote resolvers — Slice 3.ONENOTE-3.
+//   - `microsoft-onenote:notebooks` — account-scoped notebook picker
+//     (no deps). Top-level picker that future notebook-targeted action
+//     metas (`create_section`, `get_notebook_details`, plus the
+//     `notebookId` step in `create_page` / `create_notebook` UX) hang
+//     off of. Sorted alphabetically by displayName via Graph
+//     `$orderby`.
+//   - `microsoft-onenote:sections` (depends on `notebookId`) — sections
+//     within the selected notebook. Backs `sectionId` on
+//     `create_page`, `get_section_details`, `list_pages` and the
+//     future `copy_page.targetSectionId` / `sourceSectionId` fields.
+//     Sorted alphabetically by displayName.
+//   - `microsoft-onenote:pages` (depends on `sectionId`) — pages in
+//     the selected section. Backs `pageId` on `update_page`,
+//     `get_page_content`, `delete_page` and the future
+//     `copy_page.sourcePageId` field. Sorted by lastModifiedDateTime
+//     desc (workflow authors usually want the most-recently-edited
+//     page).
+//
+// Resolvers ship resolver-first ahead of ONENOTE-4 action metas.
+// OneNote stays OUT of `COVERED_PROVIDERS` until those land. Dep
+// names preserved verbatim from the ONENOTE-2 Zod schemas:
+// `notebookId` / `sectionId` (camelCase, NOT snake_case).
+//
+// First Microsoft Graph options resolvers — patterns established
+// here (PAGE_SIZE=100, nextLink → hasMore, NotFoundError → empty
+// items cascade fallback) become the template for future Microsoft
+// provider option surfaces (Outlook folders, OneDrive folders,
+// Calendar pickers, etc.).
+import { microsoftOneNoteNotebooksResolver } from "@/integrations/microsoft-onenote/options/notebooks";
+import { microsoftOneNoteSectionsResolver } from "@/integrations/microsoft-onenote/options/sections";
+import { microsoftOneNotePagesResolver } from "@/integrations/microsoft-onenote/options/pages";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -181,6 +214,15 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // extended google-drive filesList wrapper.
   googleDocsDocumentsResolver,
   googleDriveFoldersResolver,
+  // Slice 3.ONENOTE-3 — Microsoft OneNote options resolvers
+  // (resolver-first ahead of ONENOTE-4 action metas). First Microsoft
+  // Graph options resolvers; pattern: PAGE_SIZE=100, nextLink →
+  // hasMore, NotFoundError → empty items cascade fallback. Dep names
+  // (`notebookId`, `sectionId`) match the ONENOTE-2 Zod schemas
+  // verbatim.
+  microsoftOneNoteNotebooksResolver,
+  microsoftOneNoteSectionsResolver,
+  microsoftOneNotePagesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
