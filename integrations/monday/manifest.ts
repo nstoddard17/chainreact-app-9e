@@ -76,8 +76,11 @@ import {
  *
  * Capabilities:
  *   - `oauth: true` — code-flow + refresh implemented.
- *   - `actions: true` — 10 action handlers ship in this slice.
- *   - `webhookTrigger: false` — flips true in MONDAY-5.
+ *   - `actions: true` — 24 action handlers ship (MONDAY-2/4/6).
+ *   - `webhookTrigger: true` — flipped in MONDAY-7. Monday's
+ *     `create_webhook` / `delete_webhook` per-workflow lifecycle backs
+ *     the 5 webhook triggers (new_item, column_changed, item_moved,
+ *     new_subitem, new_update).
  *   - `pollingTrigger: false` — Monday triggers are webhook-only
  *     (D-MON2). Polling never gets enabled for this provider.
  */
@@ -108,12 +111,12 @@ export const mondayManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    // Flips true in MONDAY-5 — Monday's `create_webhook` + delete_webhook
-    // lifecycle. Polling stays false permanently (D-MON2 — webhook-only).
-    webhookTrigger: false,
+    // True (MONDAY-7) — Monday's `create_webhook` + `delete_webhook`
+    // per-workflow lifecycle backs the 5 webhook triggers. Polling stays
+    // false permanently (D-MON2 — webhook-only).
+    webhookTrigger: true,
     pollingTrigger: false,
-    // True — 10 action handlers ship in MONDAY-2 (the remaining 14 are
-    // deferred to MONDAY-N polish per D-MON1).
+    // True — full 24-action Monday surface (MONDAY-2 10 + MONDAY-4 14).
     actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000,

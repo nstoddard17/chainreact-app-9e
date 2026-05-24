@@ -102,6 +102,16 @@ import "./discord/triggers/slashCommand";
 // messages every ~5 minutes via GET /channels/{id}/messages?after={id}.
 // Polling-only — no provider-side resource to renew.
 import "./discord/triggers/newMessage";
+// Slice 3.MONDAY-7 — 5 Monday board-webhook triggers. Each registers its
+// activation (create_webhook) + deactivation (delete_webhook) hooks at
+// module load. Strict-direct-lookup via ?workflowId=&nodeId= on the
+// notification URL; events arrive at /api/webhooks/monday. Monday
+// webhooks don't expire — no renewal/subscription-watch marker.
+import "./monday/triggers/newItem";
+import "./monday/triggers/columnChanged";
+import "./monday/triggers/itemMoved";
+import "./monday/triggers/newSubitem";
+import "./monday/triggers/newUpdate";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
@@ -143,9 +153,9 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   hubspotManifest,
   githubManifest,
   mailchimpManifest,
-  // Slice 3.MONDAY-2 — Monday.com runtime port (10 actions, no
-  // triggers). webhookTrigger flips when MONDAY-5 ships Monday's
-  // per-workflow webhook lifecycle.
+  // Slice 3.MONDAY — Monday.com (24 actions + 5 webhook triggers).
+  // webhookTrigger flipped true in MONDAY-7 (create_webhook /
+  // delete_webhook per-workflow lifecycle).
   mondayManifest,
   trelloManifest,
   // Slice 3.DISCORD-2 — Discord runtime port (actions only). Triggers

@@ -103,8 +103,8 @@ describe("monday provider registry", () => {
   it("providerSupports correctly reports Monday capabilities", () => {
     expect(providerSupports("monday", "oauth")).toBe(true);
     expect(providerSupports("monday", "actions")).toBe(true);
-    // webhookTrigger flips true in MONDAY-5.
-    expect(providerSupports("monday", "webhookTrigger")).toBe(false);
+    // webhookTrigger flipped true in MONDAY-7 (create_webhook lifecycle).
+    expect(providerSupports("monday", "webhookTrigger")).toBe(true);
     // pollingTrigger stays false permanently (D-MON2 — webhook-only).
     expect(providerSupports("monday", "pollingTrigger")).toBe(false);
   });

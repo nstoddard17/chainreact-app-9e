@@ -1,28 +1,29 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 /**
- * Monday.com discovery sub-registry — Slice 3.MONDAY-6.
+ * Monday.com discovery sub-registry — Slice 3.MONDAY-6 (actions) +
+ * MONDAY-7 (triggers).
  *
- * Per-provider grouping of the 24 Monday action meta imports — mirrors
+ * Per-provider grouping of the 24 Monday action meta imports + the 5
+ * webhook trigger meta imports — mirrors
  * `services/discovery/providers/google-docs.ts` /
  * `services/discovery/providers/microsoft-onenote.ts` /
  * `services/discovery/providers/mailchimp.ts`. Central registry
- * validation (`ActionMetaSchema.parse` + duplicate-key rejection) still
- * happens in `services/discovery/_registry.ts` — this file is purely an
- * import grouping.
+ * validation (`ActionMetaSchema.parse` / `TriggerMetaSchema.parse` +
+ * duplicate-key rejection) still happens in
+ * `services/discovery/_registry.ts` — this file is purely an import
+ * grouping.
  *
- * **Coverage:** 24 actions, 0 triggers.
+ * **Coverage:** 24 actions, 5 webhook triggers.
  *
- * **Staged-trigger rationale (intentional, NOT a gap):** Monday's full
- * 24-action surface is complete in MONDAY-6 and `monday` is flipped into
- * COVERED_PROVIDERS here. The 5 Monday webhook triggers (new_item,
- * column_changed, item_moved, new_subitem, new_update) land in MONDAY-7
- * via Monday's `create_webhook` lifecycle (`webhookTrigger` on the
- * manifest stays `false` until then). This is the same actions-first
- * staged arc Discord (DISCORD-4 actions → DISCORD-6/7 triggers) and
- * Google Docs (GDOCS-4 actions → GDOCS-5 triggers) followed — the
- * COVERED_PROVIDERS coverage test gates on 1:1 handler↔meta for ACTIONS
- * and does not require trigger metas.
+ * **Trigger arc (MONDAY-7):** the 5 Monday webhook triggers (new_item,
+ * column_changed, item_moved, new_subitem, new_update) ship via Monday's
+ * `create_webhook` / `delete_webhook` lifecycle. Each registers an
+ * activation + deactivation hook in its `triggers/<event>/index.ts`, so
+ * the `trigger-meta-activation-invariant` test is satisfied without an
+ * exemption. The manifest's `capabilities.webhookTrigger` flips `true`
+ * in the same slice.
  *
  * Action metas in displayOrder (10..240). Ordered so the library panel
  * surfaces item operations first (most-used), then updates, boards,
@@ -71,6 +72,13 @@ import { mondayGetUserMeta } from "@/integrations/monday/actions/users/getUser.m
 import { mondayAddFileMeta } from "@/integrations/monday/actions/files/addFile.meta";
 import { mondayDownloadFileMeta } from "@/integrations/monday/actions/files/downloadFile.meta";
 
+// triggers/ (MONDAY-7) — 5 webhook triggers in displayOrder 10..50.
+import { mondayNewItemTriggerMeta } from "@/integrations/monday/triggers/newItem/newItem.meta";
+import { mondayColumnChangedTriggerMeta } from "@/integrations/monday/triggers/columnChanged/columnChanged.meta";
+import { mondayItemMovedTriggerMeta } from "@/integrations/monday/triggers/itemMoved/itemMoved.meta";
+import { mondayNewSubitemTriggerMeta } from "@/integrations/monday/triggers/newSubitem/newSubitem.meta";
+import { mondayNewUpdateTriggerMeta } from "@/integrations/monday/triggers/newUpdate/newUpdate.meta";
+
 export const MONDAY_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   mondayCreateItemMeta,
   mondayUpdateItemMeta,
@@ -96,4 +104,18 @@ export const MONDAY_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   mondayGetUserMeta,
   mondayAddFileMeta,
   mondayDownloadFileMeta,
+];
+
+/**
+ * Monday webhook trigger metas (MONDAY-7) — displayOrder 10..50:
+ *   10  - new_item        40 - new_subitem
+ *   20  - column_changed   50 - new_update
+ *   30  - item_moved
+ */
+export const MONDAY_TRIGGER_METAS: ReadonlyArray<TriggerMeta> = [
+  mondayNewItemTriggerMeta,
+  mondayColumnChangedTriggerMeta,
+  mondayItemMovedTriggerMeta,
+  mondayNewSubitemTriggerMeta,
+  mondayNewUpdateTriggerMeta,
 ];

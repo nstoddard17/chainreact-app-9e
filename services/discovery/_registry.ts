@@ -291,8 +291,9 @@ import { GOOGLE_DOCS_ACTION_METAS, GOOGLE_DOCS_TRIGGER_METAS } from "./providers
 
 // Microsoft OneNote — full rationale in providers/microsoft-onenote.ts.
 import { MICROSOFT_ONENOTE_ACTION_METAS, MICROSOFT_ONENOTE_TRIGGER_METAS } from "./providers/microsoft-onenote";
-// Monday.com (MONDAY-6) — 24 actions, 0 triggers (staged for MONDAY-7).
-import { MONDAY_ACTION_METAS } from "./providers/monday";
+// Monday.com (MONDAY-6 actions + MONDAY-7 triggers) — 24 actions, 5
+// webhook triggers.
+import { MONDAY_ACTION_METAS, MONDAY_TRIGGER_METAS } from "./providers/monday";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -648,6 +649,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // deprecated OneNote webhook subscriptions May 2023; webhookTrigger
   // on manifest stays permanently false).
   ...DISCORD_TRIGGER_METAS, ...GOOGLE_DOCS_TRIGGER_METAS, ...MICROSOFT_ONENOTE_TRIGGER_METAS,
+  // Monday (MONDAY-7) — 5 webhook triggers (new_item, column_changed,
+  // item_moved, new_subitem, new_update), displayOrder 10..50. Each
+  // registers an activation + deactivation hook in its
+  // triggers/<event>/index.ts → registerActivation("monday", <type>, ...),
+  // so the trigger-meta-activation-invariant test is satisfied without an
+  // exemption.
+  ...MONDAY_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

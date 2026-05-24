@@ -68,8 +68,18 @@ describe("monday discovery — surface", () => {
     expect(metas.map((m) => m.key)).toEqual(EXPECTED_KEYS_IN_ORDER);
   });
 
-  it("registers NO Monday trigger metas yet (staged for MONDAY-7)", () => {
-    expect(listTriggerMetasForProvider("monday")).toEqual([]);
+  it("registers the 5 Monday webhook trigger metas (MONDAY-7)", () => {
+    // Detailed trigger assertions live in monday-triggers-discovery.test.ts;
+    // this pins the count + keys so the MONDAY-6 surface test stays honest
+    // after the MONDAY-7 trigger flip.
+    const triggers = listTriggerMetasForProvider("monday");
+    expect(triggers.map((t) => t.key)).toEqual([
+      "monday:new_item",
+      "monday:column_changed",
+      "monday:item_moved",
+      "monday:new_subitem",
+      "monday:new_update",
+    ]);
   });
 
   it("includes all 14 formerly-deferred actions", () => {

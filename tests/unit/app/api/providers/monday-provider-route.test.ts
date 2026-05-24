@@ -1,11 +1,13 @@
 /**
  * @jest-environment node
  *
- * Slice 3.MONDAY-6 — Monday provider-route coverage.
+ * Slice 3.MONDAY-6 (actions) + MONDAY-7 (triggers) — Monday
+ * provider-route coverage.
  *
  * GET /api/providers/monday/actions returns the 24 actions in display
- * order with the full wire shape; GET .../triggers returns [] (staged
- * for MONDAY-7); the providers index marks monday hasMetadata=true.
+ * order with the full wire shape; GET .../triggers returns the 5 webhook
+ * triggers (MONDAY-7) with activation=webhook + cascade + sensitive
+ * flags intact; the providers index marks monday hasMetadata=true.
  */
 
 const mockGetUser = jest.fn();
@@ -142,15 +144,76 @@ describe("GET /api/providers/monday/actions", () => {
   });
 });
 
+interface WireTriggerField {
+  name: string;
+  type: string;
+  required: boolean;
+  optionsSource?: string;
+  dependsOn?: string;
+}
+interface WirePayloadField {
+  name: string;
+  type: string;
+  sensitive?: boolean;
+}
+interface WireTrigger {
+  key: string;
+  type: string;
+  activation: string;
+  requiresIntegration: boolean;
+  fields: WireTriggerField[];
+  payloadShape: WirePayloadField[];
+}
+
+async function fetchMondayTriggers(): Promise<WireTrigger[]> {
+  const res = await getTriggers(new Request("http://x/monday/triggers"), {
+    params: Promise.resolve({ id: "monday" }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    provider: string;
+    triggers: WireTrigger[];
+  };
+  expect(body.provider).toBe("monday");
+  return body.triggers;
+}
+
 describe("GET /api/providers/monday/triggers", () => {
-  it("returns [] — triggers staged for MONDAY-7", async () => {
-    const res = await getTriggers(new Request("http://x/monday/triggers"), {
-      params: Promise.resolve({ id: "monday" }),
-    });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { provider: string; triggers: unknown[] };
-    expect(body.provider).toBe("monday");
-    expect(body.triggers).toEqual([]);
+  it("returns the 5 webhook triggers in display order (MONDAY-7)", async () => {
+    const triggers = await fetchMondayTriggers();
+    expect(triggers.map((t) => t.key)).toEqual([
+      "monday:new_item",
+      "monday:column_changed",
+      "monday:item_moved",
+      "monday:new_subitem",
+      "monday:new_update",
+    ]);
+  });
+
+  it("every trigger is activation=webhook + requiresIntegration", async () => {
+    for (const t of await fetchMondayTriggers()) {
+      expect(t.activation).toBe("webhook");
+      expect(t.requiresIntegration).toBe(true);
+    }
+  });
+
+  it("column_changed serializes the board → column cascade (optionsSource + dependsOn round-trip)", async () => {
+    const byKey = new Map((await fetchMondayTriggers()).map((t) => [t.key, t]));
+    const cc = byKey.get("monday:column_changed")!;
+    const board = cc.fields.find((f) => f.name === "boardId")!;
+    const column = cc.fields.find((f) => f.name === "columnId")!;
+    expect(board.optionsSource).toBe("monday:boards");
+    expect(board.dependsOn).toBeUndefined();
+    expect(column.optionsSource).toBe("monday:columns");
+    expect(column.dependsOn).toBe("boardId");
+    expect(column.required).toBe(false);
+  });
+
+  it("sensitive payload flags round-trip through the wire (new_update.body)", async () => {
+    const byKey = new Map((await fetchMondayTriggers()).map((t) => [t.key, t]));
+    const update = byKey.get("monday:new_update")!;
+    const body = update.payloadShape.find((p) => p.name === "body")!;
+    expect(body.sensitive).toBe(true);
   });
 });
 

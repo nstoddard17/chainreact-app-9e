@@ -51,19 +51,20 @@ describe("monday manifest", () => {
     expect(mondayManifest.accountIdField).toBe("email");
   });
 
-  it("declares MONDAY-2 honest capabilities (oauth + actions only)", () => {
+  it("declares MONDAY-7 capabilities (oauth + actions + webhookTrigger)", () => {
     expect(mondayManifest.capabilities).toEqual({
       oauth: true,
-      // Flips true in MONDAY-5 — Monday's per-workflow webhook lifecycle.
-      webhookTrigger: false,
-      // Stays false permanently — Monday triggers are webhook-only.
+      // Flipped true in MONDAY-7 — Monday's per-workflow create_webhook /
+      // delete_webhook lifecycle backs the 5 webhook triggers.
+      webhookTrigger: true,
+      // Stays false permanently — Monday triggers are webhook-only (D-MON2).
       pollingTrigger: false,
-      // True — 10 action handlers ship in MONDAY-2.
+      // True — full 24-action Monday surface.
       actions: true,
     });
     expect(providerSupports("monday", "oauth")).toBe(true);
     expect(providerSupports("monday", "actions")).toBe(true);
-    expect(providerSupports("monday", "webhookTrigger")).toBe(false);
+    expect(providerSupports("monday", "webhookTrigger")).toBe(true);
     expect(providerSupports("monday", "pollingTrigger")).toBe(false);
   });
 
