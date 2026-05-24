@@ -67,20 +67,36 @@ describe("monday manifest", () => {
     expect(providerSupports("monday", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, registers exactly the 10 MONDAY-2 action handlers", () => {
+  it("when actions: true, registers the full 24-action Monday surface (MONDAY-2 10 + MONDAY-4 14)", () => {
+    // MONDAY-4 completed the remaining 14 V1 actions under the updated
+    // provider-completion standard — all 24 V1 actions now ship.
     const registered = listRegisteredHandlers().filter(
       (h) => h.provider === "monday",
     );
     expect(registered.map((r) => r.type).sort()).toEqual([
+      "add_column",
+      "add_file",
+      "archive_item",
+      "create_board",
+      "create_group",
       "create_item",
       "create_subitem",
       "create_update",
       "delete_item",
+      "download_file",
+      "duplicate_board",
+      "duplicate_item",
+      "get_board",
       "get_item",
+      "get_user",
       "list_boards",
+      "list_groups",
       "list_items",
+      "list_subitems",
+      "list_updates",
       "list_users",
       "move_item",
+      "search_items",
       "update_item",
     ]);
   });

@@ -1,12 +1,15 @@
 /**
  * @jest-environment node
  *
- * Slice 3.MONDAY-2 — Monday.com handler-registry coverage.
+ * Slice 3.MONDAY-2 + MONDAY-4 — Monday.com handler-registry coverage.
+ *
+ * MONDAY-4 completed the remaining 14 V1 actions under the updated
+ * provider-completion standard — the registry now holds the full 24-
+ * action V1 parity surface.
  *
  * Pins:
- *   - All 10 MONDAY-2 action handlers register.
+ *   - All 24 V1 action handlers register.
  *   - No duplicates.
- *   - 14 deferred actions are NOT registered.
  *   - Provider manifest registry returns the Monday manifest.
  */
 import {
@@ -17,7 +20,8 @@ import {
 import { mondayManifest } from "@/integrations/monday/manifest";
 import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
-const EXPECTED_ACTION_TYPES = [
+// MONDAY-2 (10).
+const MONDAY_2_ACTION_TYPES = [
   "create_item",
   "update_item",
   "create_update",
@@ -28,9 +32,10 @@ const EXPECTED_ACTION_TYPES = [
   "list_items",
   "list_boards",
   "list_users",
-].sort();
+];
 
-const DEFERRED_ACTION_TYPES = [
+// MONDAY-4 (14) — every previously-deferred action now ships.
+const MONDAY_4_ACTION_TYPES = [
   "archive_item",
   "duplicate_item",
   "create_board",
@@ -47,28 +52,33 @@ const DEFERRED_ACTION_TYPES = [
   "download_file",
 ];
 
+const EXPECTED_ACTION_TYPES = [
+  ...MONDAY_2_ACTION_TYPES,
+  ...MONDAY_4_ACTION_TYPES,
+].sort();
+
 describe("monday handler registry", () => {
-  it("registers exactly 10 action handlers (MONDAY-2 subset, NOT all 24)", () => {
+  it("registers exactly 24 action handlers (full V1 parity after MONDAY-4)", () => {
     const handlers = listRegisteredHandlers().filter(
       (h) => h.provider === "monday",
     );
-    expect(handlers).toHaveLength(10);
+    expect(handlers).toHaveLength(24);
   });
 
-  it("registers every expected MONDAY-2 action type", () => {
+  it("registers every expected V1 action type (MONDAY-2 10 + MONDAY-4 14)", () => {
     const handlers = listRegisteredHandlers().filter(
       (h) => h.provider === "monday",
     );
     expect(handlers.map((h) => h.type).sort()).toEqual(EXPECTED_ACTION_TYPES);
   });
 
-  it("does NOT register any of the 14 deferred V1 Monday actions", () => {
+  it("registers all 14 previously-deferred actions (MONDAY-4 completion)", () => {
     const handlers = listRegisteredHandlers().filter(
       (h) => h.provider === "monday",
     );
     const registeredTypes = new Set(handlers.map((h) => h.type));
-    for (const deferred of DEFERRED_ACTION_TYPES) {
-      expect(registeredTypes.has(deferred)).toBe(false);
+    for (const shipped of MONDAY_4_ACTION_TYPES) {
+      expect(registeredTypes.has(shipped)).toBe(true);
     }
   });
 
@@ -90,7 +100,7 @@ describe("monday provider registry", () => {
     expect(listProviders().some((p) => p.id === "monday")).toBe(true);
   });
 
-  it("providerSupports correctly reports MONDAY-2 capabilities", () => {
+  it("providerSupports correctly reports Monday capabilities", () => {
     expect(providerSupports("monday", "oauth")).toBe(true);
     expect(providerSupports("monday", "actions")).toBe(true);
     // webhookTrigger flips true in MONDAY-5.

@@ -9,6 +9,73 @@ Every claim below was verified by reading live files. V1 paths cite `c:/Users/ma
 
 ---
 
+## 0. STATUS UPDATE — Revised provider-completion standard (post-MONDAY-3)
+
+> Added after MONDAY-3 acceptance. This section overrides any earlier
+> "10/14 subset" framing below.
+
+**Marcus's updated standard (applies to every provider going forward):**
+We are **no longer** using "prove it works" partial-provider slices as the
+default. For each provider we ship **all** actions and triggers that
+reasonably belong in the V2 provider **up front**, before moving to the
+next provider. Do **not** split actions off merely to keep a first slice
+smaller. Defer/reject an action **only** when the V2-native evaluation
+finds a real product / architecture / security / FileRef / API / UX
+blocker — with explicit rationale and a revisit condition.
+
+**Consequence for the §3/§4/§7 "10 ship + 14 defer" recommendation
+below:** that was a first-pass audit recommendation, **not** the final
+product-completeness decision. The 14 "deferred" actions were **not**
+kept out for any V2-native reason — only for slice size. Under the
+revised standard they ship.
+
+**Revised Monday sequence:**
+- MONDAY-2 (shipped) — 10 core action handlers + runtime foundation.
+- MONDAY-3 (shipped) — 6 OptionsSource resolvers.
+- **MONDAY-4 (shipped 2026-05-24) — remaining 14 actions completed.**
+  Re-evaluated all 14 previously-"deferred" actions under the revised
+  standard. **Decision: all 14 SHIP NOW** — no real V2-native blocker
+  was found for any of them, including the two FileRef actions
+  (`add_file` consumer, `download_file` producer), which map cleanly onto
+  the established P-S3 FileRef contract (Slack/Gmail/Airtable patterns).
+  **Monday runtime action surface after MONDAY-4 = 24 (full V1 parity).**
+- MONDAY-5 — any additional resolvers the completed surface needs (if any).
+- MONDAY-6 — ActionMeta for the **full 24-action surface** + COVERED_PROVIDERS flip.
+- MONDAY-7 — webhook triggers.
+
+**MONDAY-4 per-action decisions (all SHIP NOW):**
+
+| V1 action | Decision | Notes |
+| --- | --- | --- |
+| `archive_item` | SHIP | Recoverable (UI restore); structural-only output like delete. |
+| `duplicate_item` | SHIP | `withUpdates` flag. |
+| `create_board` | SHIP | `boardKind` REQUIRED (no hidden visibility default — Q11). |
+| `create_group` | SHIP | Optional color. |
+| `duplicate_board` | SHIP | `duplicateType` enum, structure-only safe default. |
+| `add_column` | SHIP | `defaults` raw-JSON passthrough; column-aware builder = D-MON7 polish. |
+| `search_items` | SHIP | column-value path + name-filter path. |
+| `list_subitems` | SHIP | Pure read. |
+| `list_updates` | SHIP | Pure read; update bodies sensitive (surfaced, not logged). |
+| `get_board` | SHIP | Pure read; columns + groups. |
+| `list_groups` | SHIP | Pure read; reuses extended `groupsList` wrapper. |
+| `get_user` | SHIP | Pure read. |
+| `add_file` | SHIP | FileRef consumer; multipart `/v2/file`; provider_url rejected w/ hint. |
+| `download_file` | SHIP | FileRef producer; stages bytes → FileRef(v2_storage). |
+
+**FileRef decision:** Both file actions ship now. `add_file` resolves the
+input FileRef to bytes (`fetchFileBytes` — Slack `upload_file` pattern,
+because Monday's `add_file_to_column` needs the bytes via multipart, not a
+URL) and rejects `kind=provider_url` with a structured unblock hint.
+`download_file` fetches the asset's temporary `public_url` and stages the
+bytes via `stageFileToStorage` → `FileRef(kind=v2_storage, provider=
+"monday")` (Slack/Gmail `download_file` pattern). No FileRef contract gap
+blocked either action.
+
+**The accepted Monday action surface that MONDAY-6 metadata must cover is
+the full 24** (the 10 from MONDAY-2 + the 14 from MONDAY-4).
+
+---
+
 ## 1. Headline finding — Monday is GREEN-FIELD in V2 with the cleanest V1 source of any unported provider
 
 A repo-wide scan confirms:

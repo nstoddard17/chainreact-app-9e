@@ -159,6 +159,24 @@ import { listItems as mondayListItems } from "@/integrations/monday/actions/list
 import { listUsers as mondayListUsers } from "@/integrations/monday/actions/listUsers";
 import { moveItem as mondayMoveItem } from "@/integrations/monday/actions/moveItem";
 import { updateItem as mondayUpdateItem } from "@/integrations/monday/actions/updateItem";
+// Slice 3.MONDAY-4 — remaining 14 V1 Monday actions completed to the
+// updated provider-completion standard. All 14 ship (no real V2-native
+// blocker). Includes the two FileRef actions (add_file consumer,
+// download_file producer) via the P-S3 file contract.
+import { addColumn as mondayAddColumn } from "@/integrations/monday/actions/addColumn";
+import { addFile as mondayAddFile } from "@/integrations/monday/actions/addFile";
+import { archiveItem as mondayArchiveItem } from "@/integrations/monday/actions/archiveItem";
+import { createBoard as mondayCreateBoard } from "@/integrations/monday/actions/createBoard";
+import { createGroup as mondayCreateGroup } from "@/integrations/monday/actions/createGroup";
+import { downloadFile as mondayDownloadFile } from "@/integrations/monday/actions/downloadFile";
+import { duplicateBoard as mondayDuplicateBoard } from "@/integrations/monday/actions/duplicateBoard";
+import { duplicateItem as mondayDuplicateItem } from "@/integrations/monday/actions/duplicateItem";
+import { getBoard as mondayGetBoard } from "@/integrations/monday/actions/getBoard";
+import { getUser as mondayGetUser } from "@/integrations/monday/actions/getUser";
+import { listGroups as mondayListGroups } from "@/integrations/monday/actions/listGroups";
+import { listSubitems as mondayListSubitems } from "@/integrations/monday/actions/listSubitems";
+import { listUpdates as mondayListUpdates } from "@/integrations/monday/actions/listUpdates";
+import { searchItems as mondaySearchItems } from "@/integrations/monday/actions/searchItems";
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
@@ -470,6 +488,21 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "monday", type: "list_items", handler: mondayListItems },
   { provider: "monday", type: "list_boards", handler: mondayListBoards },
   { provider: "monday", type: "list_users", handler: mondayListUsers },
+  // Slice 3.MONDAY-4 — remaining 14 actions (full V1 parity; 24 total).
+  { provider: "monday", type: "archive_item", handler: mondayArchiveItem },
+  { provider: "monday", type: "duplicate_item", handler: mondayDuplicateItem },
+  { provider: "monday", type: "create_board", handler: mondayCreateBoard },
+  { provider: "monday", type: "create_group", handler: mondayCreateGroup },
+  { provider: "monday", type: "duplicate_board", handler: mondayDuplicateBoard },
+  { provider: "monday", type: "add_column", handler: mondayAddColumn },
+  { provider: "monday", type: "search_items", handler: mondaySearchItems },
+  { provider: "monday", type: "list_subitems", handler: mondayListSubitems },
+  { provider: "monday", type: "list_updates", handler: mondayListUpdates },
+  { provider: "monday", type: "get_board", handler: mondayGetBoard },
+  { provider: "monday", type: "list_groups", handler: mondayListGroups },
+  { provider: "monday", type: "get_user", handler: mondayGetUser },
+  { provider: "monday", type: "add_file", handler: mondayAddFile },
+  { provider: "monday", type: "download_file", handler: mondayDownloadFile },
   { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
   { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },

@@ -32,6 +32,11 @@ export const FILE_REF_SIZE_GUIDANCE = {
   gmail: 25 * MB,
   "microsoft-onedrive": 4 * MB,
   outlook: 3 * MB,
+  // Slice 3.MONDAY-4 — Monday's per-file limit is 500 MB on paid plans
+  // but the advisory guidance mirrors the conservative free-tier ceiling
+  // (Monday's documented default upload limit). add_file warns past this;
+  // Monday enforces the hard cap at upload time.
+  monday: 25 * MB,
 } as const;
 
 export type FileRefSizeGuidanceProvider = keyof typeof FILE_REF_SIZE_GUIDANCE;
