@@ -99,6 +99,28 @@ import { discordMembersResolver } from "@/integrations/discord/options/members";
 import { discordMessagesResolver } from "@/integrations/discord/options/messages";
 import { discordRolesResolver } from "@/integrations/discord/options/roles";
 
+// Google Docs / Drive options resolvers — Slice 3.GDOCS-3.
+//   - `google-docs:documents` — backs the `documentId` picker on the
+//     four document-targeted Google Docs actions (`update_document`,
+//     `share_document`, `get_document`, `export_document`). Drive
+//     files.list filtered by Docs mimeType, sorted by modifiedTime
+//     desc, single-page 200 items.
+//   - `google-drive:folders` — account-scoped Drive folder picker.
+//     Intentionally cross-product (lives under `google-drive/options/`)
+//     so future Google Workspace metadata surfaces (Drive's own
+//     actions, Sheets / Docs / Slides create-into-folder pickers) can
+//     reuse the same resolver key. Drive files.list filtered by
+//     folder mimeType, sorted alphabetically, single-page 200 items.
+//
+// Both resolvers share the extended `integrations/google-drive/api/
+// filesList.ts` wrapper (this slice added optional `mimeType` +
+// `orderBy` inputs to that wrapper rather than duplicating Drive list
+// scaffolding per provider tree). Resolver-first ahead of GDOCS-4
+// action metas; Google Docs stays OUT of `COVERED_PROVIDERS` until
+// those land.
+import { googleDocsDocumentsResolver } from "@/integrations/google-docs/options/documents";
+import { googleDriveFoldersResolver } from "@/integrations/google-drive/options/folders";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -154,6 +176,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   discordBotMessagesResolver,
   discordMessagesResolver,
   discordRolesResolver,
+  // Slice 3.GDOCS-3 — Google Docs + Google Drive options resolvers
+  // (resolver-first ahead of GDOCS-4 action metas). Both share the
+  // extended google-drive filesList wrapper.
+  googleDocsDocumentsResolver,
+  googleDriveFoldersResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

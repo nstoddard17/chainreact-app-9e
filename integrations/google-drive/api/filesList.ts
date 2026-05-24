@@ -39,6 +39,31 @@ export interface FilesListInput {
    * surprise users.
    */
   includeTrashed?: boolean;
+  /**
+   * Optional Drive mimeType filter — appends `mimeType='<type>'` to the
+   * `q` clause. Slice 3.GDOCS-3 added this so the
+   * `google-docs:documents` and `google-drive:folders` options
+   * resolvers can share this wrapper instead of duplicating Drive
+   * list scaffolding per provider tree.
+   *
+   * The mimeType is treated as an opaque literal. Drive's `q` syntax
+   * uses single-quoted literals; the resolvers ship hard-coded values
+   * (`application/vnd.google-apps.document`,
+   * `application/vnd.google-apps.folder`) which contain no quotes, so
+   * the literal is interpolated without escaping. If a caller ever
+   * needs to pass a user-controlled mimeType, that input MUST be
+   * validated against the known Google Workspace mime types before
+   * reaching this wrapper.
+   */
+  mimeType?: string;
+  /**
+   * Optional Drive `orderBy` query param (Drive v3 syntax —
+   * `"modifiedTime desc"`, `"name"`, etc.). Slice 3.GDOCS-3 added this
+   * so the options resolvers can sort their single-page results
+   * server-side (Docs by recency, Folders alphabetically) rather than
+   * resorting client-side.
+   */
+  orderBy?: string;
 }
 
 export interface FilesListResult {
@@ -88,16 +113,21 @@ export async function filesList(
     String(input.supportsAllDrives ?? true),
   );
 
-  // Build q from the structured inputs. Two clauses we ever set:
+  // Build q from the structured inputs. Three clauses we ever set:
   //   - folder filter (`'<id>' in parents`)
   //   - trash filter (`trashed=false` unless includeTrashed)
+  //   - mimeType filter (`mimeType='<type>'`) — Slice 3.GDOCS-3
   const qClauses: string[] = [];
   if (input.folderId) {
     qClauses.push(`'${input.folderId.replace(/'/g, "\\'")}' in parents`);
   }
   if (!input.includeTrashed) qClauses.push("trashed=false");
+  if (input.mimeType) qClauses.push(`mimeType='${input.mimeType}'`);
   if (qClauses.length > 0) {
     url.searchParams.set("q", qClauses.join(" and "));
+  }
+  if (input.orderBy) {
+    url.searchParams.set("orderBy", input.orderBy);
   }
 
   const res = await fetch(url.toString(), {

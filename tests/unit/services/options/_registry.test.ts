@@ -152,6 +152,31 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Google Docs + Drive resolvers (Slice 3.GDOCS-3)", () => {
+    it("getOptionsResolver resolves google-docs:documents (no deps)", () => {
+      const r = getOptionsResolver("google-docs:documents");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("google-docs:documents");
+      expect(r?.provider).toBe("google-docs");
+      expect(r?.requiresIntegration).toBe(true);
+      // Account-scoped picker; no parent field.
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves google-drive:folders (no deps, cross-product)", () => {
+      const r = getOptionsResolver("google-drive:folders");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("google-drive:folders");
+      // Intentionally lives under google-drive (not google-docs) so
+      // future Google Workspace metadata surfaces (Drive's own
+      // actions, Sheets / Docs / Slides create-into-folder pickers)
+      // can reuse the same resolver key.
+      expect(r?.provider).toBe("google-drive");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });
