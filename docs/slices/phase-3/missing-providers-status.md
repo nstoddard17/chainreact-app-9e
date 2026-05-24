@@ -89,8 +89,8 @@ Optional follow-on slices (per-provider as needed):
 ### Monday — not started
 - Audit + scope plan needed (`monday-1`).
 
-### Dropbox — not started
-- Audit + scope plan needed (`dropbox-1`).
+### Dropbox — audit landed
+- DROPBOX-1: audit + V2-native port plan landed at `docs/slices/phase-3/dropbox-metadata-plan.md`. **Verdict: SHIP** — V2 is green-field; V1 was real-but-partial (1 `comingSoon` trigger) with two rot points (no webhook signature, base64/Supabase file handling), both already solved generically in V2 (HMAC-hex verifiers + P-S3 FileRef contract). Proposed V2 surface: 11 actions (split V1's 3 monoliths + promote inline behaviors + add move/copy/delete/folder/sharing) + 1 `new_file` webhook trigger (app-level webhook + per-account cursor reconciliation — shared-infra, NOT per-workflow). DROPBOX-2 (runtime) is next pending §9 open-decision sign-off.
 
 ### Facebook — not started
 - Audit + scope plan needed (`facebook-1`). Multiple Facebook products in V1 (Pages, Ads, Messenger) — audit will need to scope which subset ships.
