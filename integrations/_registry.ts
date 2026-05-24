@@ -19,6 +19,7 @@ import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/m
 import { microsoftTeamsManifest } from "./microsoft-teams/manifest";
 import { hubspotManifest } from "./hubspot/manifest";
 import { mailchimpManifest } from "./mailchimp/manifest";
+import { mondayManifest } from "./monday/manifest";
 import { notionManifest } from "./notion/manifest";
 import { shopifyManifest } from "./shopify/manifest";
 import { slackManifest } from "./slack/manifest";
@@ -142,6 +143,10 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   hubspotManifest,
   githubManifest,
   mailchimpManifest,
+  // Slice 3.MONDAY-2 — Monday.com runtime port (10 actions, no
+  // triggers). webhookTrigger flips when MONDAY-5 ships Monday's
+  // per-workflow webhook lifecycle.
+  mondayManifest,
   trelloManifest,
   // Slice 3.DISCORD-2 — Discord runtime port (actions only). Triggers
   // deferred per Slice 3.DISCORD-1 §2.3 decision D-DC1; manifest

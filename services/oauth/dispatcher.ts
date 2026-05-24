@@ -15,6 +15,7 @@ import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
 import { googleSheetsOAuth } from "@/integrations/google-sheets/oauth";
 import { hubspotOAuth } from "@/integrations/hubspot/oauth";
 import { mailchimpOAuth } from "@/integrations/mailchimp/oauth";
+import { mondayOAuth } from "@/integrations/monday/oauth";
 import { microsoftExcelOAuth } from "@/integrations/microsoft-excel/oauth";
 import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth";
 import { microsoftOneNoteOAuth } from "@/integrations/microsoft-onenote/oauth";
@@ -65,6 +66,10 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   hubspot: hubspotOAuth,
   github: githubOAuth,
   mailchimp: mailchimpOAuth,
+  // Slice 3.MONDAY-2 — Monday.com OAuth. Refreshable, body-auth, no
+  // PKCE. Mirrors HubSpot's wire-format shape. See
+  // integrations/monday/oauth.ts for the per-provider details.
+  monday: mondayOAuth,
   // Slice 3.DISCORD-2 — Discord identity OAuth. Refreshable (Discord
   // issues refresh tokens for user identity flows); bot install is a
   // side-effect of the inline `bot` scope picker on Discord's

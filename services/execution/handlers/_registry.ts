@@ -146,6 +146,19 @@ import { getTeamMembers as teamsGetTeamMembers } from "@/integrations/microsoft-
 import { replyToChannelMessage as teamsReplyToChannelMessage } from "@/integrations/microsoft-teams/actions/replyToChannelMessage";
 import { sendChannelMessage as teamsSendChannelMessage } from "@/integrations/microsoft-teams/actions/sendChannelMessage";
 import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsoft-teams/actions/sendChatMessage";
+// Slice 3.MONDAY-2 — Monday.com runtime port (10 actions). GraphQL
+// API via `_shared/monday/api/_request.ts`. No webhook triggers in
+// this slice; MONDAY-5 ships the per-workflow webhook lifecycle.
+import { createItem as mondayCreateItem } from "@/integrations/monday/actions/createItem";
+import { createSubitem as mondayCreateSubitem } from "@/integrations/monday/actions/createSubitem";
+import { createUpdate as mondayCreateUpdate } from "@/integrations/monday/actions/createUpdate";
+import { deleteItem as mondayDeleteItem } from "@/integrations/monday/actions/deleteItem";
+import { getItem as mondayGetItem } from "@/integrations/monday/actions/getItem";
+import { listBoards as mondayListBoards } from "@/integrations/monday/actions/listBoards";
+import { listItems as mondayListItems } from "@/integrations/monday/actions/listItems";
+import { listUsers as mondayListUsers } from "@/integrations/monday/actions/listUsers";
+import { moveItem as mondayMoveItem } from "@/integrations/monday/actions/moveItem";
+import { updateItem as mondayUpdateItem } from "@/integrations/monday/actions/updateItem";
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
@@ -443,6 +456,20 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-onenote", type: "list_sections", handler: oneNoteListSections },
   { provider: "microsoft-onenote", type: "get_notebook_details", handler: oneNoteGetNotebookDetails },
   { provider: "microsoft-onenote", type: "get_section_details", handler: oneNoteGetSectionDetails },
+  // Monday.com — Slice 3.MONDAY-2 (10 actions). The remaining 14 V1
+  // actions (archive / duplicate / search / file / board+group writes /
+  // single-resource gets) are deferred to MONDAY-N polish per D-MON1.
+  // Triggers ship in MONDAY-5 via Monday's create_webhook lifecycle.
+  { provider: "monday", type: "create_item", handler: mondayCreateItem },
+  { provider: "monday", type: "update_item", handler: mondayUpdateItem },
+  { provider: "monday", type: "create_update", handler: mondayCreateUpdate },
+  { provider: "monday", type: "create_subitem", handler: mondayCreateSubitem },
+  { provider: "monday", type: "delete_item", handler: mondayDeleteItem },
+  { provider: "monday", type: "move_item", handler: mondayMoveItem },
+  { provider: "monday", type: "get_item", handler: mondayGetItem },
+  { provider: "monday", type: "list_items", handler: mondayListItems },
+  { provider: "monday", type: "list_boards", handler: mondayListBoards },
+  { provider: "monday", type: "list_users", handler: mondayListUsers },
   { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
   { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },
