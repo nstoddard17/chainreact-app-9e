@@ -1,0 +1,184 @@
+/**
+ * @jest-environment node
+ *
+ * Tests for services/ai/tools/providerCatalog.ts (Slice 4.AI-2).
+ *
+ * These run against the REAL registries (no mocks) so they prove the catalog
+ * is grounded in actual metadata and invents nothing. Real keys are derived
+ * at runtime so the tests don't drift as providers are added.
+ */
+import {
+  getProviderCatalog,
+  getActionMeta,
+  getTriggerMeta,
+  getNodeSchema,
+} from "@/services/ai/tools/providerCatalog";
+import { isSecretKey } from "@/services/ai/tools/redact";
+import { listProviders } from "@/integrations/_registry";
+import {
+  listAllActionMetas,
+  listAllTriggerMetas,
+} from "@/services/discovery/_registry";
+import type { OutputMeta } from "@/contracts/actionMeta";
+
+function hasSensitiveOutput(outputs: readonly OutputMeta[]): boolean {
+  return outputs.some(
+    (o) => o.sensitive === true || (o.fields ? hasSensitiveOutput(o.fields) : false),
+  );
+}
+
+/** Recursively assert no OBJECT KEY in a result looks secret-bearing. */
+function assertNoSecretKeys(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach(assertNoSecretKeys);
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, val] of Object.entries(value)) {
+      expect(isSecretKey(key)).toBe(false);
+      assertNoSecretKeys(val);
+    }
+  }
+}
+
+describe("getProviderCatalog", () => {
+  it("returns only real registered providers (plus synthetic native), inventing none", () => {
+    const result = getProviderCatalog();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const realIds = new Set(listProviders().map((m) => m.id));
+    realIds.add("native");
+
+    expect(result.data.providers.length).toBeGreaterThan(0);
+    for (const p of result.data.providers) {
+      expect(realIds.has(p.id)).toBe(true);
+    }
+  });
+
+  it("is sorted by displayName and carries no secret-shaped keys", () => {
+    const result = getProviderCatalog();
+    if (!result.ok) throw new Error("expected ok");
+    const names = result.data.providers.map((p) => p.displayName);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    assertNoSecretKeys(result.data);
+  });
+
+  it("includes action keys sourced from the discovery registry", () => {
+    const sample = listAllActionMetas()[0];
+    expect(sample).toBeDefined();
+    const result = getProviderCatalog();
+    if (!result.ok) throw new Error("expected ok");
+
+    const entry = result.data.providers.find((p) => p.id === sample!.provider);
+    expect(entry).toBeDefined();
+    expect(entry!.actions.some((a) => a.key === sample!.key)).toBe(true);
+    // Every action key is provider-scoped — never a foreign provider's key.
+    for (const p of result.data.providers) {
+      for (const a of p.actions) expect(a.key.startsWith(`${p.id}:`)).toBe(true);
+      for (const t of p.triggers) expect(t.key.startsWith(`${p.id}:`)).toBe(true);
+    }
+  });
+});
+
+describe("getActionMeta", () => {
+  it("returns the full view for a real action key", () => {
+    const sample = listAllActionMetas()[0]!;
+    const result = getActionMeta(sample.key);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.key).toBe(sample.key);
+    expect(result.data.provider).toBe(sample.provider);
+    expect(Array.isArray(result.data.fields)).toBe(true);
+    expect(["low", "medium", "high"]).toContain(result.data.riskLevel);
+  });
+
+  it("returns INVALID_INPUT for a bare provider id (no colon)", () => {
+    const result = getActionMeta("slack");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("INVALID_INPUT");
+  });
+
+  it("returns NOT_FOUND for an unknown key (never invents a node)", () => {
+    const result = getActionMeta("madeup:does_not_exist");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("NOT_FOUND");
+  });
+
+  it("preserves sensitive output flags", () => {
+    const withSensitive = listAllActionMetas().find((m) => hasSensitiveOutput(m.outputs));
+    expect(withSensitive).toBeDefined();
+    const result = getActionMeta(withSensitive!.key);
+    if (!result.ok) throw new Error("expected ok");
+    expect(hasSensitiveOutput(result.data.outputs)).toBe(true);
+  });
+});
+
+describe("getTriggerMeta", () => {
+  it("returns the full view for a real trigger key", () => {
+    const sample = listAllTriggerMetas()[0]!;
+    const result = getTriggerMeta(sample.key);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.key).toBe(sample.key);
+    expect(["webhook", "polling", "manual", "scheduled"]).toContain(result.data.activation);
+    expect(Array.isArray(result.data.payloadShape)).toBe(true);
+  });
+
+  it("returns NOT_FOUND for an unknown trigger key", () => {
+    const result = getTriggerMeta("madeup:nope");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("getNodeSchema", () => {
+  it("returns an action schema view with required fields + risk + outputs", () => {
+    const sample = listAllActionMetas()[0]!;
+    const result = getNodeSchema(sample.key);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.kind).toBe("action");
+    expect(result.data.outputs).toBeDefined();
+    expect(result.data.payloadShape).toBeUndefined();
+    const expectedRequired = sample.fields.filter((f) => f.required).map((f) => f.name);
+    expect(result.data.requiredFieldNames).toEqual(expectedRequired);
+  });
+
+  it("returns a trigger schema view with payloadShape + default low risk", () => {
+    const sample = listAllTriggerMetas()[0]!;
+    const result = getNodeSchema(sample.key);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.kind).toBe("trigger");
+    expect(result.data.payloadShape).toBeDefined();
+    expect(result.data.risk).toEqual({
+      riskLevel: "low",
+      isDestructive: false,
+      requiresConfirmation: false,
+      riskDescription: null,
+    });
+  });
+
+  it("captures optionsSource dependencies when present", () => {
+    const withOptions = listAllActionMetas().find((m) =>
+      m.fields.some((f) => f.optionsSource),
+    );
+    if (!withOptions) return; // registry has no optionsSource action — skip
+    const result = getNodeSchema(withOptions.key);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.optionsSourceDeps.length).toBeGreaterThan(0);
+    for (const dep of result.data.optionsSourceDeps) {
+      expect(typeof dep.field).toBe("string");
+      expect(typeof dep.optionsSource).toBe("string");
+    }
+  });
+
+  it("returns NOT_FOUND for an unknown node type", () => {
+    const result = getNodeSchema("madeup:nope");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("NOT_FOUND");
+  });
+});
