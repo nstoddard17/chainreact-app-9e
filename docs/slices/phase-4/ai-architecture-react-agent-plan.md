@@ -23,7 +23,8 @@
 | **AI-6** | shipped | Confirmed WorkflowPatch apply service (`services/ai/apply/*`) — first mutating slice. See note below. |
 | **AI-6B** | shipped | Apply concurrency hardening (write-time guarded update) + AI-5 `currentRevision` surfacing. See note below. |
 | **AI-7** | shipped | Failed-run repair proposal service (`services/ai/repair/*`) — deterministic, proposes + previews, never applies. See note below. |
-| AI-8+ | future | Ground-up creation, optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
+| **AI-8A** | shipped | Model boundary (`core/ai/*`) + planner prompt/result contract (`services/ai/planner/*`). First model-backed infra; NO live model calls, NO workflow creation yet. See note below. |
+| AI-8B+ | future | Ground-up creation end-to-end (model → parse → AI-3 validate → AI-5 preview → confirm → AI-6 apply), optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -106,6 +107,26 @@ Failed-run repair proposal service under [`services/ai/repair/`](../../../servic
 **No-leak:** never surfaces raw step output, raw error messages, `error.details`, or PII — only the safe humanized classification + error code + value-free patch ops. **No apply:** asserted structurally (the service never imports `services/ai/apply`).
 
 **Tests:** [`tests/unit/services/ai/repair/*`](../../../tests/unit/services/ai/repair/) (17) — ownership/NOT_FOUND, not-failed, every category, preview-rejection downgrade, no-apply guarantee, no-leak, and live-registry grounding (real `getNodeSchema`).
+
+### AI-8A implementation note
+
+First model-backed AI infrastructure for V2 — but a **safe boundary only**. It adds centralized model config, a provider-agnostic model client abstraction, and a deterministic prompt/result contract for future ground-up workflow planning. It does **NOT** create workflows from a prompt, mutate/preview/apply anything, call live provider APIs, add chat UI or public routes, or make live model calls (including in tests). AI-8B connects a real model client and runs the parsed patch through the AI-3 validator + AI-5 preview before anything becomes usable.
+
+**Model boundary — [`core/ai/`](../../../core/ai/)** (pure; `core/` may import only from `contracts/`, so no provider SDK and no I/O live here):
+- **[`modelTypes.ts`](../../../core/ai/modelTypes.ts)** — `ModelTier` (`fast` | `strong`), `ModelProvider`, `AiFeature`, `ModelMessage`, `ModelGenerateInput`, the discriminated `ModelResult` (`ModelSuccess` | `ModelFailure` with a closed `ModelFailureCode` set), and the `ModelClient` interface (`generateStructuredJson`).
+- **[`models.ts`](../../../core/ai/models.ts)** — `MODELS` per-tier config (ids, vendor, token caps), `DEFAULT_MODEL_TIER`, `DEFAULT_MODEL_BUDGET` (timeout/retry), `FEATURE_DEFAULT_TIER`, `MODEL_API_KEY_ENV` (env var NAMES only — never values/keys), and pure selectors `getModelForTier` / `getModelForFeature` (safe fallback to default) / `getModelById` (undefined for unknown).
+- **[`modelClient.ts`](../../../core/ai/modelClient.ts)** — `createNotConfiguredModelClient()` (always resolves a `NOT_CONFIGURED` failure — the honest default until AI-8B wires a real adapter) and `createMockModelClient()` (deterministic in-memory client with a recorded `calls` log for tests). Neither performs network I/O; the real OpenAI/Anthropic adapter is deferred to AI-8B/AI-8C and lives OUTSIDE `core/`.
+
+**Planner contract — [`services/ai/planner/`](../../../services/ai/planner/)** (composes AI-2 + AI-3; no model call):
+- **[`buildWorkflowPlanPrompt.ts`](../../../services/ai/planner/buildWorkflowPlanPrompt.ts)** — PURE, deterministic. Given a user request + the AI-2 provider catalog + connected integrations, emits grounded system+user `ModelMessage[]`. Lists ONLY catalog providers/actions/triggers (pending providers with no metadata never appear; newly-covered providers appear automatically through the catalog), flags destructive/high-risk actions, includes the `PLANNER_CONSTRAINTS` (no invented providers/fields, JSON-only, AI_FIELD/requiredUserInput for missing values, never invent credentials, prefer low-risk, list unsupported), the `TEMPLATE_FUTURE_NOTE` (template-aware, zero template dependency), and an optional cost/risk-awareness section. Built from redacted AI-2 views → no secrets.
+- **[`buildWorkflowPlanRequest.ts`](../../../services/ai/planner/buildWorkflowPlanRequest.ts)** — async grounding seam: pulls the LIVE `getProviderCatalog()` + `getConnectedIntegrationsForAI(userId)`, then returns a `ModelGenerateInput` (feature `creation` → strong tier). Best-effort: a lookup failure degrades to empty, never throws. Does NOT call a model.
+- **[`parseWorkflowPlanResponse.ts`](../../../services/ai/planner/parseWorkflowPlanResponse.ts)** — strict parser that never trusts raw model text: `EMPTY_RESPONSE` → strip one markdown fence then strict JSON (surrounding prose → `NOT_JSON`) → refuse any literal secret-keyed value (`SECRET_IN_RESPONSE`; variable-reference tokens + numeric config allowed) → validate wrapper shape (`INVALID_SHAPE`; unknown top-level keys stripped) → validate `proposedPatch` (when present) against the AI-3 `WorkflowPatchSchema` (`INVALID_PATCH`). A null/absent patch is valid ("needs user input / nothing to apply").
+
+**Structured response shape:** `intentSummary`, `assumptions[]`, `requiredUserInput[]`, `proposedPatch` (AI-3 `WorkflowPatch` | null — never auto-applied here), `confidence`, `safetyNotes[]`, `unsupportedRequests[]`.
+
+**No-leak:** prompt + result are built from ids / display labels / field keys / capabilities only — no tokens, secrets, PII, message bodies, or file contents; the parser additionally refuses literal credentials and its error messages never echo the offending value.
+
+**Tests:** [`tests/unit/core/ai/*`](../../../tests/unit/core/ai/) + [`tests/unit/services/ai/planner/*`](../../../tests/unit/services/ai/planner/) (63) — config defaults/fallbacks/no-secrets, mock + NOT_CONFIGURED clients (no network), prompt grounding (catalog-only, pending absent, new-provider auto, constraints, template language, connected summary, no-leak), live-registry request grounding, and the full parser matrix (valid/null/absent patch, empty, non-JSON, fences, prose, shape, AI-3 patch violations, secret refusal).
 
 ---
 
