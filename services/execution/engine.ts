@@ -216,7 +216,13 @@ export class WorkflowEngine {
     // Billing gate (Slice 1N). Atomic deduct via deduct_tasks_if_available;
     // refusal aborts before any handler runs so a quota-exhausted user never
     // produces side effects.
-    const gateOutcome = await executionBillingGate(workflow.userId);
+    //
+    // COST-2A: test/dry-run runs skip deduction (the gate returns a skipped
+    // outcome without touching the repo). Real runs keep the flat 1-task
+    // charge unchanged.
+    const gateOutcome = await executionBillingGate(workflow.userId, {
+      testMode: isTest,
+    });
     if (!gateOutcome.ok) {
       const finishedAt = new Date().toISOString();
       log("execution.run.fatal", {
@@ -240,6 +246,10 @@ export class WorkflowEngine {
       };
       await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
       return fatalResult;
+    }
+    if ("skipped" in gateOutcome) {
+      // COST-2A — test/dry-run run proceeded without consuming a task.
+      log("execution.run.billing_skipped", { reason: gateOutcome.reason });
     }
 
     // The trigger event is exposed under both 'trigger' (canonical alias used

@@ -561,7 +561,7 @@ describe("WorkflowEngine — billing gate (Slice 1N)", () => {
     expect(result.fatalError?.message).toMatch(/100\/100/);
     expect(result.steps).toEqual([]);
     expect(handler).not.toHaveBeenCalled();
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1");
+    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
   });
 
   it("persists the failed run with humanized BILLING_EXHAUSTED classification (action=upgrade_plan)", async () => {
@@ -614,6 +614,27 @@ describe("WorkflowEngine — billing gate (Slice 1N)", () => {
 
     expect(result.status).toBe("succeeded");
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("COST-2A forwards testMode:true to the billing gate so test runs are not billed", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [trigger("t1")], edges: [] },
+    });
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+      triggeredBy: "test",
+    });
+
+    // Real-mode runs pass { testMode: false }; test runs pass true, which the
+    // gate uses to skip deduction (proven in executionBillingGate.test.ts).
+    expect(result.status).toBe("succeeded");
+    expect(result.isTest).toBe(true);
+    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
   });
 
   it("does NOT call the gate when the workflow itself is missing (no userId to attribute)", async () => {

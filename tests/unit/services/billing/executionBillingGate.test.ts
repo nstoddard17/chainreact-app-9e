@@ -47,4 +47,35 @@ describe("executionBillingGate", () => {
     mockDeductTasks.mockRejectedValueOnce(new Error("RPC down"));
     await expect(executionBillingGate("user-1")).rejects.toThrow(/RPC down/);
   });
+
+  // ── COST-2A — test/dry-run runs do not bill ──────────────────────────────
+
+  it("COST-2A skips deduction in test mode (ok=true, skipped, reason=test_mode)", async () => {
+    const outcome = await executionBillingGate("user-1", { testMode: true });
+    expect(outcome).toEqual({ ok: true, skipped: true, reason: "test_mode" });
+  });
+
+  it("COST-2A does NOT call deductTasks when testMode is true (no quota consumed, no DB write)", async () => {
+    await executionBillingGate("user-1", { testMode: true });
+    expect(mockDeductTasks).not.toHaveBeenCalled();
+  });
+
+  it("COST-2A still bills real runs when testMode is explicitly false", async () => {
+    mockDeductTasks.mockResolvedValueOnce({ ok: true, used: 6, limit: 100 });
+    const outcome = await executionBillingGate("user-1", { testMode: false });
+    expect(outcome).toEqual({ ok: true, used: 6, limit: 100 });
+    expect(mockDeductTasks).toHaveBeenCalledWith("user-1", 1);
+  });
+
+  it("COST-2A real-mode gate still fails closed when the quota is exhausted (testMode false)", async () => {
+    mockDeductTasks.mockResolvedValueOnce({ ok: false, used: 100, limit: 100 });
+    const outcome = await executionBillingGate("user-1", { testMode: false });
+    expect(outcome).toEqual({
+      ok: false,
+      reason: "limit_reached",
+      used: 100,
+      limit: 100,
+    });
+    expect(mockDeductTasks).toHaveBeenCalledWith("user-1", 1);
+  });
 });
