@@ -48,6 +48,24 @@ Crash recovery for the COST-15C lifecycle: a process that dies between `createWo
 
 ---
 
+## COST-15H — engine live reserve/reconcile behind the global flag (shipped, pre-launch)
+
+The engine now uses reserve/reconcile as the **live** billing path when `ENABLE_RESERVE_RECONCILE_BILLING=true`, with the flat gate as the disabled/rollback path. **No internal-user allowlist** — the app is pre-launch with no external users (decision 2026-05-25), so the global flag is the only switch. **This is the first balance-affecting reserve/reconcile engine integration.**
+
+- **Billing decision** (in `runWorkflow`, after `createWorkflowRunStart`): `reserveReconcileMode = !isTest && isReserveReconcileEnabled()`.
+  - **Flag off → flat** `executionBillingGate` / `deduct_tasks_if_available` — byte-for-byte today's behavior (the rollback path; never removed).
+  - **Flag on (real run) → reserve/reconcile:** estimate `estimateWorkflowTaskCost(def).estimatedTasksPerRun` → `createBillingReservation` (COST-13 service → `reserve_tasks_if_available`) **before any handler**. Reserve refused (insufficient / run_not_found / rpc_error) → **`BILLING_EXHAUSTED` before side effects** via the shared `failBeforeExecution` helper (the reserve RPC already stamped `billing_status='failed'` on insufficient). Reserve OK → execute → `reconcileBillingReservation(actual)` (charge `min(actual, reserved)`, refund the rest).
+  - **Test/dry-run → no billing in either mode** (`reserveReconcileMode` requires `!isTest`; flat branch returns the COST-2A skip). No reserve, no reconcile, no deduct, no billable ledger, no shadow.
+- **Reserve needs the pre-run row** (the RPC keys on it): in reserve mode the COST-15C create is **fail-CLOSED** — if `createWorkflowRunStart` failed, the run aborts with `BILLING_EXHAUSTED` rather than executing without a confirmed hold (flat mode stays fail-open).
+- **Reconcile-before-finalize** (deliberate ordering): the charge settles **before** the run-row finalize UPDATE, so the **balance is correct even if finalize later fails**. The alternative (finalize-first) risks a stuck `reserved` hold being released (charged 0) by the expiry sweep on a successful run — underbilling. The residual edge (reconcile OK + finalize fails → row `billing_status='reconciled'` but run status stale `running`) is reclaimed by the COST-15F sweep (billing fields preserved); balance stays correct.
+- **`reconcile(0)` is the release-equivalent:** `actual` counts only SUCCESSFUL billable nodes (`computeRunTaskUsage`), so a partial-failure run reconciles the succeeded portion + refunds the rest, and a zero-success run reconciles 0 (refund all). Execution always follows a successful reserve, so **no separate release call exists in the normal flow**; an engine crash between reserve and reconcile is the `release_expired_reservations` sweep's job (COST-12). Reconcile failure is **logged loudly** (`execution.run.billing_reconcile_failed`), never hidden, and never throws (the service returns `ok:false`).
+- **Task-usage ledger (Part F):** COST-3 `recordRunActuals` (the `task_usage_events` audit) still runs for real runs in **both** modes — `node_task_charged` rows remain the per-node actual-usage audit; the reserve/reconcile **RPCs own the balance mutation** + the `billing_status`/`reserved`/`reconciled` state on `workflow_runs`. No duplicated balance-affecting ledger writes.
+- **Shadow (Part G):** still gated solely by `ENABLE_RESERVE_RECONCILE_SHADOW`, **read-only**, never mutates a balance. In reserve mode `gateOutcome` is null, so shadow has no flat counters to fold (its `flatChargedTasks` stays the hypothetical 1 — a flat-vs-actual migration baseline). Test runs never shadow.
+- **Rollback:** flip `ENABLE_RESERVE_RECONCILE_BILLING=false` → the engine reverts to the flat gate immediately; `deduct_tasks_if_available` is intact. Not enabled in any committed env.
+- **Tests:** 9 new engine cases ([engine.test.ts](../../../tests/unit/services/execution/engine.test.ts) "live reserve/reconcile billing") — reserve+reconcile happy path (flat gate bypassed, actual passed to reconcile, COST-3 intact), reconcile-before-finalize ordering, insufficient→BILLING_EXHAUSTED (no handler/flat/reconcile), partial-failure reconcile(actual), zero-success reconcile(0), reconcile-failure fail-safe, pre-run-row-missing fail-closed, test-mode no-billing/no-shadow, flag-off rollback. Full suite green (12382 tests). **COST-15I should verify on the dev DB with the flag ON before any broader deployment.**
+
+---
+
 ## 1. Current `workflow_runs` lifecycle
 
 Source of truth: [`services/execution/engine.ts`](../../../services/execution/engine.ts) (`WorkflowEngine.runWorkflow` + `persistRun`), [`repositories/workflowRuns.ts`](../../../repositories/workflowRuns.ts), [`services/billing/executionBillingGate.ts`](../../../services/billing/executionBillingGate.ts), [`services/billing/taskUsageRecorder.ts`](../../../services/billing/taskUsageRecorder.ts).

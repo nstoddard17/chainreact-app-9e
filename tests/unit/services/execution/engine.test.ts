@@ -93,7 +93,27 @@ jest.mock("@/repositories/userBilling", () => ({
   getUsage: jest.fn(),
 }));
 
+// COST-15H — the engine calls the reserve/reconcile SERVICE when the live flag
+// is on. Mock the service so engine tests assert wiring (called / not-called /
+// args) without the RPC; the service internals are covered separately. The flag
+// itself is REAL (env-driven via BILLING_FLAG) so reserveReconcileMode gating is
+// exercised honestly.
+const mockCreateBillingReservation = jest.fn();
+const mockReconcileBillingReservation = jest.fn();
+jest.mock("@/services/billing/reserveReconcileBilling", () => ({
+  createBillingReservation: (...args: unknown[]) => mockCreateBillingReservation(...args),
+  reconcileBillingReservation: (...args: unknown[]) => mockReconcileBillingReservation(...args),
+}));
+
+// The engine estimates cost up-front for the reservation amount. Mock it so the
+// reserve amount is deterministic without loading the real estimator/registry.
+const mockEstimateWorkflowTaskCost = jest.fn();
+jest.mock("@/services/billing/workflowCostEstimator", () => ({
+  estimateWorkflowTaskCost: (...args: unknown[]) => mockEstimateWorkflowTaskCost(...args),
+}));
+
 const SHADOW_FLAG = "ENABLE_RESERVE_RECONCILE_SHADOW";
+const BILLING_FLAG = "ENABLE_RESERVE_RECONCILE_BILLING";
 
 import { WorkflowEngine } from "@/services/execution/engine";
 import { MissingVariableError } from "@/workflow-engine/variables/resolveValue";
@@ -208,11 +228,26 @@ beforeEach(() => {
   mockReserveTasks.mockReset();
   mockReconcileReservation.mockReset();
   mockReleaseReservation.mockReset();
+  // COST-15H — reserve/reconcile service + estimator defaults (happy path).
+  mockCreateBillingReservation.mockReset();
+  mockCreateBillingReservation.mockResolvedValue({
+    ok: true, skipped: false, status: "reserved", reason: "reserved",
+    used: 0, reserved: 3, limit: 100, amount: 3,
+  });
+  mockReconcileBillingReservation.mockReset();
+  mockReconcileBillingReservation.mockResolvedValue({
+    ok: true, skipped: false, status: "reconciled", reason: "reconciled",
+    used: 2, reserved: 0, limit: 100, charged: 2, refunded: 1,
+  });
+  mockEstimateWorkflowTaskCost.mockReset();
+  mockEstimateWorkflowTaskCost.mockReturnValue({ estimatedTasksPerRun: 3 });
   delete process.env[SHADOW_FLAG];
+  delete process.env[BILLING_FLAG];
 });
 
 afterAll(() => {
   delete process.env[SHADOW_FLAG];
+  delete process.env[BILLING_FLAG];
 });
 
 // Slice 3.SEC-2 — helper for the test-mode test block. Builds a minimally-
@@ -2427,5 +2462,200 @@ describe("WorkflowEngine — pre-run row lifecycle (Slice 4.COST-15C)", () => {
     expect(mockCreateWorkflowRunStart.mock.calls[0]![0].isTest).toBe(true);
     expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
     expect(mockReserveTasks).not.toHaveBeenCalled();
+  });
+});
+
+describe("WorkflowEngine — live reserve/reconcile billing (Slice 4.COST-15H)", () => {
+  const linearWf = () => ({
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [trigger("t1"), action("a1", "step_one")],
+      edges: [edge("e1", "t1", "a1")],
+    },
+  });
+  const usage = (estimated: number, actual: number) => ({
+    estimatedTaskCost: estimated,
+    actualTaskCost: actual,
+    policyVersion: "v1",
+    estimateSummary: {
+      billableNodeCount: actual,
+      nonBillableNodeCount: 0,
+      unknownNodeCount: 0,
+      warningCount: 0,
+    },
+    nodeEvents: [],
+  });
+  const run = (opts: { runId?: string; testMode?: boolean } = {}) =>
+    new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      ...opts,
+    });
+
+  it("flag ON (real run): reserves the estimate, reconciles actual, flat gate NOT called", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+    mockEstimateWorkflowTaskCost.mockReturnValue({ estimatedTasksPerRun: 3 });
+    mockComputeRunTaskUsage.mockReturnValueOnce(usage(3, 2));
+
+    const result = await run();
+
+    expect(result.status).toBe("succeeded");
+    expect(mockBillingGate).not.toHaveBeenCalled(); // flat gate bypassed
+    expect(mockCreateBillingReservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workflowId: "wf-1",
+        workflowRunId: result.runId,
+        estimatedTasks: 3,
+      }),
+    );
+    expect(mockReconcileBillingReservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workflowRunId: result.runId,
+        actualTasks: 2,
+      }),
+    );
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRunActuals).toHaveBeenCalledTimes(1); // COST-3 audit intact
+  });
+
+  it("reconciles BEFORE finalize (balance settled even if finalize later fails)", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+    mockComputeRunTaskUsage.mockReturnValueOnce(usage(3, 2));
+
+    await run();
+
+    expect(mockReconcileBillingReservation.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFinalizeWorkflowRun.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("insufficient tasks: reserve refused → no handler, BILLING_EXHAUSTED, no flat deduct, no reconcile", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    const handler = jest.fn(async () => ({ output: {} }));
+    mockGetActionHandler.mockReturnValue(handler);
+    mockCreateBillingReservation.mockResolvedValueOnce({
+      ok: false, skipped: false, status: "failed", reason: "insufficient_tasks",
+      used: 100, reserved: 0, limit: 100, amount: 3,
+    });
+
+    const result = await run();
+
+    expect(result.status).toBe("failed");
+    expect(result.fatalError?.code).toBe("BILLING_EXHAUSTED");
+    expect(handler).not.toHaveBeenCalled();
+    expect(mockBillingGate).not.toHaveBeenCalled();
+    expect(mockReconcileBillingReservation).not.toHaveBeenCalled();
+    // Pre-run row exists → marked failed by UPDATE (no duplicate INSERT).
+    expect(mockMarkWorkflowRunFailedBeforeExecution).toHaveBeenCalledTimes(1);
+  });
+
+  it("partial failure: reserve ok, one node succeeds + one fails → reconcile the succeeded actual, run failed", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one"), action("a2", "step_two")],
+        edges: [edge("e1", "t1", "a1"), edge("e2", "a1", "a2")],
+      },
+    });
+    mockGetActionHandler.mockImplementation((_p: string, t: string) =>
+      t === "step_one"
+        ? async () => ({ output: { ok: true } })
+        : async () => {
+            throw new Error("step_two boom");
+          },
+    );
+    mockComputeRunTaskUsage.mockReturnValueOnce(usage(2, 1)); // only a1 billable+succeeded
+
+    const result = await run();
+
+    expect(result.status).toBe("failed");
+    expect(mockReconcileBillingReservation).toHaveBeenCalledWith(
+      expect.objectContaining({ actualTasks: 1 }),
+    );
+  });
+
+  it("fully-failed run: reconcile(0) is the release-equivalent (charge 0, refund all)", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => {
+      throw new Error("first node boom");
+    });
+    mockComputeRunTaskUsage.mockReturnValueOnce(usage(3, 0));
+
+    const result = await run();
+
+    expect(result.status).toBe("failed");
+    expect(mockReconcileBillingReservation).toHaveBeenCalledWith(
+      expect.objectContaining({ actualTasks: 0 }),
+    );
+  });
+
+  it("reconcile failure is logged but the run still completes (fail-safe)", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+    mockComputeRunTaskUsage.mockReturnValueOnce(usage(3, 2));
+    mockReconcileBillingReservation.mockResolvedValueOnce({
+      ok: false, skipped: false, status: null, reason: "rpc_error", error: "db down",
+      used: null, reserved: null, limit: null, charged: null, refunded: null,
+    });
+
+    const result = await run();
+
+    expect(result.status).toBe("succeeded");
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("reserve mode requires the pre-run row: create failure → fail-closed BILLING_EXHAUSTED, no reserve, no execution", async () => {
+    process.env[BILLING_FLAG] = "true";
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    const handler = jest.fn(async () => ({ output: {} }));
+    mockGetActionHandler.mockReturnValue(handler);
+    mockCreateWorkflowRunStart.mockRejectedValueOnce(new Error("insert failed"));
+
+    const result = await run();
+
+    expect(result.status).toBe("failed");
+    expect(result.fatalError?.code).toBe("BILLING_EXHAUSTED");
+    expect(mockCreateBillingReservation).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("test mode + flag ON: no reserve, no reconcile, no billable ledger, no shadow", async () => {
+    process.env[BILLING_FLAG] = "true";
+    process.env[SHADOW_FLAG] = "true"; // even with shadow on, test mode writes none
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+
+    const result = await run({ testMode: true });
+
+    expect(result.isTest).toBe(true);
+    expect(mockCreateBillingReservation).not.toHaveBeenCalled();
+    expect(mockReconcileBillingReservation).not.toHaveBeenCalled();
+    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
+    expect(mockRecordRunActuals).not.toHaveBeenCalled();
+    expect(mockRecordShadow).not.toHaveBeenCalled();
+  });
+
+  it("rollback: flag OFF reverts to flat billing (gate called, no reserve/reconcile)", async () => {
+    // BILLING_FLAG unset (default off).
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+
+    const result = await run();
+
+    expect(result.status).toBe("succeeded");
+    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockCreateBillingReservation).not.toHaveBeenCalled();
+    expect(mockReconcileBillingReservation).not.toHaveBeenCalled();
   });
 });

@@ -15,13 +15,24 @@ import {
 } from "@/core/errors/humanizeActionError";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
-import { executionBillingGate } from "@/services/billing/executionBillingGate";
+import {
+  executionBillingGate,
+  type BillingGateOutcome,
+} from "@/services/billing/executionBillingGate";
 import {
   computeRunTaskUsage,
   recordRunActuals,
   type RunTaskUsage,
 } from "@/services/billing/taskUsageRecorder";
-import { isReserveReconcileShadowEnabled } from "@/services/billing/billingFeatureFlags";
+import {
+  isReserveReconcileShadowEnabled,
+  isReserveReconcileEnabled,
+} from "@/services/billing/billingFeatureFlags";
+import {
+  createBillingReservation,
+  reconcileBillingReservation,
+} from "@/services/billing/reserveReconcileBilling";
+import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
 import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
@@ -283,23 +294,16 @@ export class WorkflowEngine {
       log("execution.run.pre_run_row_failed", { error: (err as Error).message });
     }
 
-    // Billing gate (Slice 1N). Atomic deduct via deduct_tasks_if_available;
-    // refusal aborts before any handler runs so a quota-exhausted user never
-    // produces side effects.
-    //
-    // COST-2A: test/dry-run runs skip deduction (the gate returns a skipped
-    // outcome without touching the repo). Real runs keep the flat 1-task
-    // charge unchanged.
-    const gateOutcome = await executionBillingGate(workflow.userId, {
-      testMode: isTest,
-    });
-    if (!gateOutcome.ok) {
+    // COST-15C/15H — pre-execution failure helper. Marks the (already-created)
+    // pre-run row failed by UPDATE; falls back to a terminal INSERT if the
+    // pre-run row wasn't created. Never writes billing_status (the reserve RPC
+    // owns that). Used by both the flat and reserve billing-refusal paths so a
+    // quota-exhausted user never produces side effects.
+    const failBeforeExecution = async (
+      code: RunFailureCode,
+      message: string,
+    ): Promise<RunResult> => {
       const finishedAt = new Date().toISOString();
-      log("execution.run.fatal", {
-        code: "BILLING_EXHAUSTED",
-        used: gateOutcome.used,
-        limit: gateOutcome.limit,
-      });
       const fatalResult: RunResult = {
         runId,
         workflowId: input.workflowId,
@@ -307,44 +311,109 @@ export class WorkflowEngine {
         steps: [],
         startedAt,
         finishedAt,
-        fatalError: {
-          code: "BILLING_EXHAUSTED",
-          message: `Task quota exhausted: ${gateOutcome.used}/${gateOutcome.limit} tasks used this period.`,
-        },
+        fatalError: { code, message },
         isTest,
         triggeredBy,
       };
-      // COST-15C — the pre-run row already exists, so mark it failed by UPDATE
-      // (not a duplicate INSERT). markWorkflowRunFailedBeforeExecution never
-      // touches billing_status — no reservation was taken (flat mode). If the
-      // pre-run row creation had failed, fall back to the terminal INSERT.
-      const exhaustedClassification = classifyForPersistence(fatalResult);
+      const classification = classifyForPersistence(fatalResult);
       if (preRunRowCreated) {
         try {
           await workflowRunsRepo.markWorkflowRunFailedBeforeExecution({
             runId,
-            fatalError: fatalResult.fatalError!,
-            errorClassification: exhaustedClassification,
+            fatalError: { code, message },
+            errorClassification: classification,
             finishedAt,
           });
         } catch (err) {
           log("execution.run.persist_failed", { error: (err as Error).message });
         }
-        await notifyOnFailure(
-          fatalResult,
-          workflow.userId,
-          workflow.name,
-          log,
-          exhaustedClassification,
-        );
+        await notifyOnFailure(fatalResult, workflow.userId, workflow.name, log, classification);
       } else {
         await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
       }
       return fatalResult;
-    }
-    if ("skipped" in gateOutcome) {
-      // COST-2A — test/dry-run run proceeded without consuming a task.
-      log("execution.run.billing_skipped", { reason: gateOutcome.reason });
+    };
+
+    // COST-15H — billing path selection (pre-launch). The global flag
+    // ENABLE_RESERVE_RECONCILE_BILLING is the ONLY switch (no allowlist — the
+    // app is pre-launch with no external users). Flag off → flat
+    // deduct_tasks_if_available (Slice 1N, the rollback path). Flag on (real
+    // run) → reserve/reconcile. Test/dry-run runs skip billing in BOTH modes
+    // (COST-2A) because reserve mode requires `!isTest`.
+    //
+    // `gateOutcome` is only set in flat mode (the shadow block reads its
+    // counters); `reservationActive` tracks whether a hold was placed so the
+    // post-execution block reconciles it.
+    const reserveReconcileMode = !isTest && isReserveReconcileEnabled();
+    let gateOutcome: BillingGateOutcome | null = null;
+    let reservationActive = false;
+
+    if (reserveReconcileMode) {
+      // Reserve attaches to the pre-run row (the RPC keys on it). In flat mode a
+      // create failure is fail-OPEN; in reserve mode it is fail-CLOSED — never
+      // run billable side effects without a confirmed, durable hold.
+      if (!preRunRowCreated) {
+        log("execution.run.fatal", {
+          code: "BILLING_EXHAUSTED",
+          reason: "pre_run_row_missing",
+        });
+        return failBeforeExecution(
+          "BILLING_EXHAUSTED",
+          "Could not reserve tasks: the run row was not created.",
+        );
+      }
+      const estimatedTasks = estimateWorkflowTaskCost(def).estimatedTasksPerRun;
+      const reservation = await createBillingReservation({
+        userId: workflow.userId,
+        workflowId: input.workflowId,
+        workflowRunId: runId,
+        estimatedTasks,
+      });
+      if (!reservation.ok) {
+        // insufficient_tasks / run_not_found / rpc_error → abort BEFORE any
+        // handler runs. The reserve RPC already stamped billing_status='failed'
+        // on insufficient; failBeforeExecution sets the run status to failed.
+        log("execution.run.fatal", {
+          code: "BILLING_EXHAUSTED",
+          reason: reservation.reason,
+          reserved: reservation.reserved,
+          limit: reservation.limit,
+          ...(reservation.error ? { error: reservation.error } : {}),
+        });
+        return failBeforeExecution(
+          "BILLING_EXHAUSTED",
+          reservation.reason === "insufficient_tasks"
+            ? `Task quota exhausted: cannot reserve ${estimatedTasks} task(s) for this run.`
+            : `Could not reserve tasks for this run (${reservation.reason}).`,
+        );
+      }
+      reservationActive = true;
+      log("execution.run.billing_reserved", {
+        amount: reservation.amount,
+        reserved: reservation.reserved,
+        limit: reservation.limit,
+        reason: reservation.reason,
+      });
+    } else {
+      // Flat path (Slice 1N) — unchanged. Test/dry-run runs return a skipped
+      // outcome without touching the balance (COST-2A).
+      gateOutcome = await executionBillingGate(workflow.userId, {
+        testMode: isTest,
+      });
+      if (!gateOutcome.ok) {
+        log("execution.run.fatal", {
+          code: "BILLING_EXHAUSTED",
+          used: gateOutcome.used,
+          limit: gateOutcome.limit,
+        });
+        return failBeforeExecution(
+          "BILLING_EXHAUSTED",
+          `Task quota exhausted: ${gateOutcome.used}/${gateOutcome.limit} tasks used this period.`,
+        );
+      }
+      if ("skipped" in gateOutcome) {
+        log("execution.run.billing_skipped", { reason: gateOutcome.reason });
+      }
     }
 
     // The trigger event is exposed under both 'trigger' (canonical alias used
@@ -599,10 +668,42 @@ export class WorkflowEngine {
     const usage: RunTaskUsage | null = isTest
       ? null
       : computeRunTaskUsage(def, steps);
+
+    // COST-15H — reconcile the reservation (reserve mode only), BEFORE finalize
+    // so the BALANCE is correct even if finalize later fails. reconcile charges
+    // min(actual, reserved) and refunds the rest. `actual` counts only
+    // SUCCESSFUL billable nodes, so a partial/total failure refunds the unused
+    // portion — and reconcile(0) is the release-equivalent for a run where
+    // nothing billable succeeded. Reserve mode always reaches here after a
+    // successful reserve (execution always follows), so no separate release is
+    // needed in the normal flow; an engine crash between reserve and here is the
+    // expiry sweep's job. The service NEVER throws (returns ok:false on RPC
+    // error); a failure is logged loudly, not hidden.
+    if (reservationActive) {
+      const actualTasks = usage ? usage.actualTaskCost : 0;
+      const reconcile = await reconcileBillingReservation({
+        userId: workflow.userId,
+        workflowRunId: runId,
+        actualTasks,
+      });
+      if (reconcile.ok) {
+        log("execution.run.billing_reconciled", {
+          charged: reconcile.charged,
+          refunded: reconcile.refunded,
+          reason: reconcile.reason,
+        });
+      } else {
+        log("execution.run.billing_reconcile_failed", {
+          reason: reconcile.reason,
+          ...(reconcile.error ? { error: reconcile.error } : {}),
+        });
+      }
+    }
+
     // COST-15C — finalize by UPDATING the pre-run row (created at start). Falls
     // back to a recordRun INSERT if the pre-run row was never created (create
-    // failed earlier) so a run record is never lost. Flat billing already
-    // charged above; this only writes the run row + cost columns.
+    // failed earlier) so a run record is never lost. In reserve mode the charge
+    // already settled (above); this only writes the run row + cost columns.
     await finalizeRun(
       result,
       workflow.userId,
@@ -643,9 +744,12 @@ export class WorkflowEngine {
         workflowDefinition: def,
         flatChargedTasks: FLAT_TASKS_PER_RUN,
         actualUsage: usage,
-        gate: "used" in gateOutcome
-          ? { used: gateOutcome.used, limit: gateOutcome.limit }
-          : {},
+        // COST-15H — gateOutcome is null in reserve mode; shadow then has no
+        // flat counters to fold (flatChargedTasks stays the hypothetical 1).
+        gate:
+          gateOutcome && "used" in gateOutcome
+            ? { used: gateOutcome.used, limit: gateOutcome.limit }
+            : {},
         persist: recordBillingShadowComparison,
         log,
       }).catch((err) =>

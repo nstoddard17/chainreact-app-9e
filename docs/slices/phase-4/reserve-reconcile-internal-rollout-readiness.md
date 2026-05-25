@@ -2,7 +2,9 @@
 
 **Status:** planning / readiness only. **No code, no migration, no live-billing change ships in this slice.**
 
-**Purpose.** Define exactly what must be true before enabling **live** reserve/reconcile billing for **internal users only** (COST-15D / future COST-15I). This is the checklist + design the implementer works against. Live billing stays flat 1/run until Marcus approves the gates below.
+> **⚠️ Superseding decision (2026-05-25) — §7 allowlist is REJECTED.** ChainReactV2 is pre-launch with no external/public users, so an internal-user allowlist is unnecessary complexity. Live reserve/reconcile is gated by the **global flag `ENABLE_RESERVE_RECONCILE_BILLING` alone** (no `RESERVE_RECONCILE_INTERNAL_USER_IDS`, no public-vs-internal branching). **§7 (allowlist) is obsolete**; ignore it. The engine integration landed in **COST-15H** behind the global flag. Everything else in this doc — shadow-data thresholds (§4–6), ops/sweep plan (§9), observability (§10), rollback (§11), risks (§12) — **still stands** and gates flipping the flag in production.
+
+**Purpose.** Define what must be true before enabling **live** reserve/reconcile billing (now: flip the global flag; verify on dev in COST-15I). This is the checklist + design the implementer works against. Live billing stays flat 1/run until Marcus approves the gates below.
 
 Cross-refs: [reserve-reconcile-billing-design.md](./reserve-reconcile-billing-design.md) (COST-11 model + COST-12..15F status) · [pre-run-workflow-run-lifecycle-design.md](./pre-run-workflow-run-lifecycle-design.md) (COST-15A/B/C/F).
 
