@@ -22,7 +22,8 @@
 | **AI-5** | shipped | Deterministic WorkflowPatch preview service (`services/ai/preview/*`). See note below. |
 | **AI-6** | shipped | Confirmed WorkflowPatch apply service (`services/ai/apply/*`) — first mutating slice. See note below. |
 | **AI-6B** | shipped | Apply concurrency hardening (write-time guarded update) + AI-5 `currentRevision` surfacing. See note below. |
-| AI-7+ | future | Failed-run repair, ground-up creation, optimizer, cost/billing, observability dashboard, etc. (§13). |
+| **AI-7** | shipped | Failed-run repair proposal service (`services/ai/repair/*`) — deterministic, proposes + previews, never applies. See note below. |
+| AI-8+ | future | Ground-up creation, optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -90,6 +91,21 @@ Hardening of the two AI-6 handoff gaps — no model calls, no UI, no route, no p
 - **Revision token surfaced from preview.** `PatchPreviewResult` now carries `currentRevision` (the workflow's `updatedAt`, safe metadata). Callers MUST set `patch.baseRevision = currentRevision` before applying via AI-6. Present whenever the workflow loads; a NOT_FOUND surfaces as an `AiToolError`, not a result. A future route/UI passes this token through preview → patch → apply.
 
 **Tests:** [`tests/unit/repositories/workflows.test.ts`](../../../tests/unit/repositories/workflows.test.ts) (+3 — guarded update matches / returns-null / throws); AI-6 apply suite (+2 — guarded-update token wiring, write-time stale rejection); AI-5 preview suite (`currentRevision` asserted on valid + invalid paths).
+
+### AI-7 implementation note
+
+Failed-run repair proposal service under [`services/ai/repair/`](../../../services/ai/repair/) — DETERMINISTIC, READ-ONLY. Inspects a failed run, classifies the failure, and proposes a `WorkflowPatch` **only when safe**, running it through AI-5 preview. NO model calls, NO apply (does not import AI-6), NO mutation, NO provider API calls. Auth + billing failures become recommendations, not patches.
+
+- **[`suggestWorkflowRepair.ts`](../../../services/ai/repair/suggestWorkflowRepair.ts)** — `suggestWorkflowRepairForAI({ userId, workflowId, workflowRunId })`. Reads the run (`repositories/workflowRuns.getById`, ownership + workflow-match → `NOT_FOUND`), composes AI-2 graph/validation/variables, classifies into one category, and — for patch-producing categories — builds a `WorkflowPatch` (`baseRevision = graph.updatedAt`) and runs `previewWorkflowPatchForAI`. A rejected preview downgrades the result to `noSafeRepair` / `FAILED_PREVIEW` and drops the patch.
+- **[`repairStrategies.ts`](../../../services/ai/repair/repairStrategies.ts)** — per-category builders (grounded via the live registry's `getNodeSchema`).
+
+**Categories (v1, conservative):** missing required field → `{{AI_FIELD:…}}` placeholder **only for text/textarea** fields, else `needsUserInput` (never invents a value); invalid variable reference → `repairVariableReference` only when exactly one broken ref has exactly one matching upstream variable, else `needsUserInput`; downstream reference → `needsUserInput`; dangling edge → `removeEdge`; disconnected integration → reconnect recommendation (no patch, credentials never touched); unknown node metadata → `noSafeRepair` (invents nothing — newly-covered providers work automatically); billing limit → upgrade recommendation (billing never touched); missing trigger → `needsUserInput`; otherwise `noSafeRepair` / `NO_DETERMINISTIC_REPAIR`.
+
+**Output:** `ok`, `workflowId`, `workflowRunId`, `failureSummary` (value-free: status + failed nodeId + error code + the run's stored humanized classification), `repairability` (`repairable` | `needsUserInput` | `noSafeRepair`), `reasonCode`, `proposedPatch?` + `preview?` (only when valid), `requiredUserInput[]`, `recommendations[]`, `confidence`, `safetyNotes[]`, `noMutation: true`. A non-failed run returns `RUN_NOT_FAILED`; only an unreadable run/workflow returns `ok:false` (`NOT_FOUND` / `READ_FAILED`).
+
+**No-leak:** never surfaces raw step output, raw error messages, `error.details`, or PII — only the safe humanized classification + error code + value-free patch ops. **No apply:** asserted structurally (the service never imports `services/ai/apply`).
+
+**Tests:** [`tests/unit/services/ai/repair/*`](../../../tests/unit/services/ai/repair/) (17) — ownership/NOT_FOUND, not-failed, every category, preview-rejection downgrade, no-apply guarantee, no-leak, and live-registry grounding (real `getNodeSchema`).
 
 ---
 
