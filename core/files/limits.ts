@@ -42,6 +42,12 @@ export const FILE_REF_SIZE_GUIDANCE = {
   // to DROPBOX-N). upload_file warns past this; Dropbox enforces the hard
   // cap at upload time.
   dropbox: 150 * MB,
+  // Slice 3.FACEBOOK-2 — Facebook Page photo uploads cap around 10 MB;
+  // video uses the SIMPLE (non-resumable) /{pageId}/videos upload, suitable
+  // for typical short clips. Larger/long videos need Graph's chunked
+  // upload_session flow (deferred — FACEBOOK-N). upload_photo / upload_video
+  // warn past this conservative bound; Graph enforces the hard cap.
+  facebook: 25 * MB,
 } as const;
 
 export type FileRefSizeGuidanceProvider = keyof typeof FILE_REF_SIZE_GUIDANCE;

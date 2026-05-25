@@ -6,6 +6,7 @@ import {
 import { airtableManifest } from "./airtable/manifest";
 import { discordManifest } from "./discord/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
+import { facebookManifest } from "./facebook/manifest";
 import { githubManifest } from "./github/manifest";
 import { gmailManifest } from "./gmail/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
@@ -174,6 +175,12 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // webhookTrigger flips true in DROPBOX-5 (app-level webhook + per-account
   // cursor model). actions=true; oauth refreshable (token_access_type=offline).
   dropboxManifest,
+  // Slice 3.FACEBOOK-2 — Facebook runtime port (8 Pages actions, no
+  // triggers). webhookTrigger flips true in FACEBOOK-5 (app-level webhook +
+  // per-page subscribed_apps). actions=true; NOT refreshable (long-lived
+  // user token, no refresh token). Pages-only scope; Meta App Review gates
+  // external GA (Dev-Mode usable now).
+  facebookManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

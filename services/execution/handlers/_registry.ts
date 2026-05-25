@@ -191,6 +191,15 @@ import { listFolder as dropboxListFolder } from "@/integrations/dropbox/actions/
 import { moveFile as dropboxMoveFile } from "@/integrations/dropbox/actions/moveFile";
 import { searchFiles as dropboxSearchFiles } from "@/integrations/dropbox/actions/searchFiles";
 import { uploadFile as dropboxUploadFile } from "@/integrations/dropbox/actions/uploadFile";
+// Slice 3.FACEBOOK-2 — 8 Facebook Pages actions.
+import { createPost as facebookCreatePost } from "@/integrations/facebook/actions/createPost";
+import { updatePost as facebookUpdatePost } from "@/integrations/facebook/actions/updatePost";
+import { commentOnPost as facebookCommentOnPost } from "@/integrations/facebook/actions/commentOnPost";
+import { uploadPhoto as facebookUploadPhoto } from "@/integrations/facebook/actions/uploadPhoto";
+import { uploadVideo as facebookUploadVideo } from "@/integrations/facebook/actions/uploadVideo";
+import { getPageInsights as facebookGetPageInsights } from "@/integrations/facebook/actions/getPageInsights";
+import { sendMessage as facebookSendMessage } from "@/integrations/facebook/actions/sendMessage";
+import { deletePost as facebookDeletePost } from "@/integrations/facebook/actions/deletePost";
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
@@ -529,6 +538,15 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "dropbox", type: "delete_file", handler: dropboxDeleteFile },
   { provider: "dropbox", type: "create_shared_link", handler: dropboxCreateSharedLink },
   { provider: "dropbox", type: "get_temporary_link", handler: dropboxGetTemporaryLink },
+  // Slice 3.FACEBOOK-2 — 8 Facebook Pages actions (full accepted surface).
+  { provider: "facebook", type: "create_post", handler: facebookCreatePost },
+  { provider: "facebook", type: "update_post", handler: facebookUpdatePost },
+  { provider: "facebook", type: "comment_on_post", handler: facebookCommentOnPost },
+  { provider: "facebook", type: "upload_photo", handler: facebookUploadPhoto },
+  { provider: "facebook", type: "upload_video", handler: facebookUploadVideo },
+  { provider: "facebook", type: "get_page_insights", handler: facebookGetPageInsights },
+  { provider: "facebook", type: "send_message", handler: facebookSendMessage },
+  { provider: "facebook", type: "delete_post", handler: facebookDeletePost },
   { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
   { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },
