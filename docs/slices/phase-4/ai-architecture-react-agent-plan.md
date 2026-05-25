@@ -18,7 +18,8 @@
 | **AI-1** | shipped | This plan (doc-only). |
 | **AI-2** | shipped | Read-only metadata/context tool layer (`services/ai/tools/*`). |
 | **AI-3** | shipped | `WorkflowPatch` schema + deterministic validator. See note below. |
-| AI-4+ | future | Read-only explainer, preview, safe-apply, ground-up creation, etc. (§13). |
+| **AI-4** | shipped | Read-only workflow/node explainer (`services/ai/explain/*`). See note below. |
+| AI-5+ | future | Patch preview, safe-apply, failed-run repair, ground-up creation, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -39,6 +40,17 @@ Deterministic patch foundation under [`services/workflows/patch/`](../../../serv
 **Documented gaps (follow-ups):** config validation is FieldMeta-guided, not full handler-Zod (V2 has no clean `provider:type → schema` registry; the handler's strict schema is authoritative at apply/dispatch — undeclared fields are warnings, not errors); branch-label **route-membership** validation is deferred (a labeled edge from a non-branching node is a warning); `repairVariableReference.fieldPath` targets a top-level config key (nested paths deferred).
 
 **Tests:** [`tests/unit/services/workflows/patch/*`](../../../tests/unit/services/workflows/patch/) — schema, apply, registry grounding, config, variable refs, edges/triggers, risk, cost integration, no-leak.
+
+### AI-4 implementation note
+
+Read-only explainer under [`services/ai/explain/`](../../../services/ai/explain/). DETERMINISTIC — it composes the AI-2 context tools into grounded explanations. No model calls, no mutation, no DB writes, no UI. The eventual LLM narration layer is a later wrapper that consumes these structured facts.
+
+- **[`explainWorkflow.ts`](../../../services/ai/explain/explainWorkflow.ts)** — `explainWorkflowForAI(userId, workflowId)`: trigger (description + activation), ordered action steps (description + risk + integration need), data-flow edges, providers used, high-risk + unknown nodes, a best-effort validation section, plain-English `notes`, and a deterministic `summaryText`.
+- **[`explainNode.ts`](../../../services/ai/explain/explainNode.ts)** — `explainNodeForAI(userId, workflowId, nodeId)`: per-field config STATUS (`not_set` / `literal` / `variable_reference` / `ai_generated` / `redacted` / `list` / `structured`), risk, integration connectivity, and available upstream variables (schema only).
+
+**No-leak:** config is described by field KEY + STATUS, never by raw VALUE — a literal (e.g. an email) is reported as `literal` without echoing it; secret-keyed values arrive already redacted from AI-2; `{{nodeId.path}}` reference tokens are safe and surfaced. Ownership/NOT_FOUND propagate from the AI-2 tools; unknown node types get an honest "unrecognized type" answer.
+
+**Tests:** [`tests/unit/services/ai/explain/*`](../../../tests/unit/services/ai/explain/) (13) — composition, narration, no-leak, NOT_FOUND propagation, no-trigger, unknown-node, high-risk + disconnected-integration, degraded-validation.
 
 ---
 
