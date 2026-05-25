@@ -9,9 +9,10 @@
 
 interface ChainState {
   insertPayload?: unknown;
+  updatePayload?: unknown;
   filters: Array<{ op: string; args: unknown[] }>;
   resultData: unknown;
-  resultError: { message: string } | null;
+  resultError: { message: string; code?: string } | null;
   /** Single-row result for `.maybeSingle()`. Set per-test. */
   maybeSingleResult?: { data: unknown; error: { message: string } | null };
 }
@@ -22,6 +23,10 @@ function makeMockClient(state: ChainState) {
     select: jest.fn(() => builder),
     insert: jest.fn((payload: unknown) => {
       state.insertPayload = payload;
+      return builder;
+    }),
+    update: jest.fn((payload: unknown) => {
+      state.updatePayload = payload;
       return builder;
     }),
     eq: jest.fn((col: string, val: unknown) => {
@@ -54,7 +59,15 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
   getServiceRoleClient: jest.fn(() => mockServiceRole.current),
 }));
 
-import { getById, listByWorkflow, recordRun } from "@/repositories/workflowRuns";
+import {
+  getById,
+  listByWorkflow,
+  recordRun,
+  createWorkflowRunStart,
+  finalizeWorkflowRun,
+  markWorkflowRunFailedBeforeExecution,
+  getWorkflowRunForBilling,
+} from "@/repositories/workflowRuns";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
 const triggerEvent: TriggerEvent = {
@@ -290,5 +303,296 @@ describe("workflowRuns.getById", () => {
     };
     mockSSR.current = makeMockClient(state);
     await expect(getById("run-1")).rejects.toThrow(/boom/);
+  });
+});
+
+// ── Pre-run lifecycle (Slice 4.COST-15B) ─────────────────────────────────────
+
+describe("workflowRuns.createWorkflowRunStart", () => {
+  const baseInput = {
+    runId: "run-1",
+    workflowId: "wf-1",
+    userId: "user-1",
+    triggerNodeId: "t1",
+    triggerEvent,
+    startedAt: "2026-05-25T00:00:00Z",
+    isTest: false,
+    triggeredBy: "manual" as const,
+  };
+
+  it("INSERTs a 'running' row with finished_at NULL and billing_status unset", async () => {
+    const state: ChainState = { filters: [], resultData: null, resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await createWorkflowRunStart({
+      ...baseInput,
+      estimatedTaskCost: 3,
+      taskCostPolicyVersion: "v1",
+    });
+    expect(result).toEqual({ created: true });
+    const payload = state.insertPayload as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      id: "run-1",
+      workflow_id: "wf-1",
+      user_id: "user-1",
+      status: "running",
+      trigger_node_id: "t1",
+      finished_at: null,
+      is_test: false,
+      triggered_by: "manual",
+      estimated_task_cost: 3,
+      actual_task_cost: null,
+      task_cost_policy_version: "v1",
+    });
+    // No reservation is taken at create time.
+    expect("billing_status" in payload).toBe(false);
+  });
+
+  it("is duplicate-safe: PK conflict (23505) returns created:false and does not throw", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: { message: "duplicate key value", code: "23505" },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await createWorkflowRunStart(baseInput);
+    expect(result).toEqual({ created: false });
+  });
+
+  it("propagates non-conflict Supabase errors", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: { message: "connection reset" },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await expect(createWorkflowRunStart(baseInput)).rejects.toThrow(/connection reset/);
+  });
+});
+
+describe("workflowRuns.finalizeWorkflowRun", () => {
+  it("UPDATEs the existing row to succeeded and sets finished_at", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "run-1" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await finalizeWorkflowRun({
+      runId: "run-1",
+      status: "succeeded",
+      steps: [{ nodeId: "t1", status: "succeeded", output: {} }],
+      finishedAt: "2026-05-25T00:00:05Z",
+      actualTaskCost: 2,
+    });
+    expect(result).toEqual({ finalized: true });
+    const payload = state.updatePayload as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      status: "succeeded",
+      finished_at: "2026-05-25T00:00:05Z",
+      actual_task_cost: 2,
+    });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["id", "run-1"] });
+  });
+
+  it("UPDATEs the existing row to failed", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "run-1" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await finalizeWorkflowRun({
+      runId: "run-1",
+      status: "failed",
+      steps: [],
+      fatalError: { code: "HANDLER_FAILED", message: "boom" },
+      finishedAt: "2026-05-25T00:00:05Z",
+    });
+    expect(result).toEqual({ finalized: true });
+    const payload = state.updatePayload as Record<string, unknown>;
+    expect(payload.status).toBe("failed");
+    expect(payload.fatal_error).toMatchObject({ code: "HANDLER_FAILED" });
+  });
+
+  it("preserves billing/reservation fields (never writes them)", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "run-1" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await finalizeWorkflowRun({
+      runId: "run-1",
+      status: "succeeded",
+      steps: [],
+      finishedAt: "2026-05-25T00:00:05Z",
+    });
+    const payload = state.updatePayload as Record<string, unknown>;
+    for (const k of [
+      "billing_status",
+      "reserved_task_cost",
+      "reconciled_task_cost",
+      "reservation_id",
+      "reservation_expires_at",
+      "billing_reconciled_at",
+    ]) {
+      expect(k in payload).toBe(false);
+    }
+  });
+
+  it("does not write cost columns that were not supplied (undefined ⇒ untouched)", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "run-1" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await finalizeWorkflowRun({
+      runId: "run-1",
+      status: "succeeded",
+      steps: [],
+      finishedAt: "2026-05-25T00:00:05Z",
+    });
+    const payload = state.updatePayload as Record<string, unknown>;
+    expect("actual_task_cost" in payload).toBe(false);
+    expect("estimated_task_cost" in payload).toBe(false);
+    expect("task_cost_policy_version" in payload).toBe(false);
+  });
+
+  it("returns finalized:false when no row matched (no insert fallback)", async () => {
+    const state: ChainState = { filters: [], resultData: [], resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await finalizeWorkflowRun({
+      runId: "missing",
+      status: "succeeded",
+      steps: [],
+      finishedAt: "2026-05-25T00:00:05Z",
+    });
+    expect(result).toEqual({ finalized: false });
+    // It is an UPDATE, never an INSERT.
+    expect(state.insertPayload).toBeUndefined();
+  });
+
+  it("propagates Supabase errors", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: { message: "update failed" },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await expect(
+      finalizeWorkflowRun({
+        runId: "run-1",
+        status: "succeeded",
+        steps: [],
+        finishedAt: "x",
+      }),
+    ).rejects.toThrow(/update failed/);
+  });
+});
+
+describe("workflowRuns.markWorkflowRunFailedBeforeExecution", () => {
+  it("UPDATEs a running row to failed without touching billing fields", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "run-1" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await markWorkflowRunFailedBeforeExecution({
+      runId: "run-1",
+      fatalError: { code: "BILLING_EXHAUSTED", message: "quota" },
+      finishedAt: "2026-05-25T00:00:02Z",
+    });
+    expect(result).toEqual({ updated: true });
+    const payload = state.updatePayload as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      status: "failed",
+      fatal_error: { code: "BILLING_EXHAUSTED" },
+      finished_at: "2026-05-25T00:00:02Z",
+    });
+    expect("billing_status" in payload).toBe(false);
+  });
+
+  it("returns updated:false when no row matched", async () => {
+    const state: ChainState = { filters: [], resultData: [], resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await markWorkflowRunFailedBeforeExecution({
+      runId: "missing",
+      fatalError: { code: "BILLING_EXHAUSTED", message: "quota" },
+      finishedAt: "x",
+    });
+    expect(result).toEqual({ updated: false });
+  });
+});
+
+describe("workflowRuns.getWorkflowRunForBilling", () => {
+  it("maps reserve/reconcile + cost fields to camelCase and exposes no payloads", async () => {
+    const row = {
+      id: "run-1",
+      user_id: "user-1",
+      workflow_id: "wf-1",
+      status: "running" as const,
+      is_test: false,
+      billing_status: "reserved" as const,
+      reserved_task_cost: 3,
+      reconciled_task_cost: null,
+      estimated_task_cost: 3,
+      actual_task_cost: null,
+      reservation_id: "run-1",
+      reservation_expires_at: "2026-05-25T01:00:00Z",
+      billing_reconciled_at: null,
+      finished_at: null,
+    };
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: row, error: null },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await getWorkflowRunForBilling("run-1");
+    expect(result).toEqual({
+      id: "run-1",
+      userId: "user-1",
+      workflowId: "wf-1",
+      status: "running",
+      isTest: false,
+      billingStatus: "reserved",
+      reservedTaskCost: 3,
+      reconciledTaskCost: null,
+      estimatedTaskCost: 3,
+      actualTaskCost: null,
+      reservationId: "run-1",
+      reservationExpiresAt: "2026-05-25T01:00:00Z",
+      billingReconciledAt: null,
+      finishedAt: null,
+    });
+    // No raw payloads / secrets leak into the billing projection.
+    expect("triggerEvent" in (result as object)).toBe(false);
+    expect("steps" in (result as object)).toBe(false);
+    expect(state.filters).toContainEqual({ op: "eq", args: ["id", "run-1"] });
+  });
+
+  it("returns null when the row does not exist", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: null, error: null },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    expect(await getWorkflowRunForBilling("missing")).toBeNull();
+  });
+
+  it("propagates Supabase errors", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: null, error: { message: "kaboom" } },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await expect(getWorkflowRunForBilling("run-1")).rejects.toThrow(/kaboom/);
   });
 });

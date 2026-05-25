@@ -8,6 +8,17 @@
 
 ---
 
+## COST-15B — schema + repository foundation (shipped)
+
+The §5/§6 changes landed as the **data/repository layer only — the engine is NOT wired (that is COST-15C) and live billing is unchanged.**
+
+- **Migration** [`20260525000004_workflow_runs_pre_run_lifecycle.sql`](../../../supabase/migrations/20260525000004_workflow_runs_pre_run_lifecycle.sql): (1) `ALTER TYPE public.workflow_run_status ADD VALUE IF NOT EXISTS 'running'` (the non-terminal pre-run state); (2) `ALTER TABLE public.workflow_runs ALTER COLUMN finished_at DROP NOT NULL`. **No billing columns added** (COST-12 already has them); **no backfill** (existing terminal rows stay valid — a nullable column accepts every existing non-null value, and the `WHERE status='failed'` partial index is unaffected). **Applied to the confirmed dev DB** (`qcepijemjlkssfkvzlio`) via `npm run db:push` and functionally verified end-to-end (throwaway user → INSERT `running`/`finished_at=NULL` accepted → finalize UPDATE → cascade cleanup; 7/7 checks, 0 residue).
+- **Repository** [`repositories/workflowRuns.ts`](../../../repositories/workflowRuns.ts) gains four service-role methods + types: `createWorkflowRunStart` (INSERT pre-run row; PK conflict ⇒ `{created:false}`, no throw, no overwrite — duplicate-dispatch guard), `finalizeWorkflowRun` (UPDATE to terminal; **never touches `billing_status`/reservation/reconcile columns**; missing row ⇒ `{finalized:false}`, no insert fallback), `markWorkflowRunFailedBeforeExecution` (UPDATE → failed, no billing mutation), `getWorkflowRunForBilling` (billing/lifecycle projection — ids/status/cost/reservation only, **no `trigger_event`/`steps`/payloads**). New `WorkflowRunLifecycleStatus` (`running|succeeded|failed`) + `WorkflowRunBillingRecord` types.
+- **Compatibility:** `recordRun` (finalize-only INSERT) + `getById`/`listByWorkflow` and their display types (`WorkflowRunStatus`, `WorkflowRunRecord`) are **unchanged** — they serve the API/UI, which only ever read terminal rows until the engine is wired. Widening the display `status` to include `running` and making display `finishedAt` nullable is **deferred to COST-15C**, when running rows first become user-visible (it ripples into `WorkflowRunSummarySchema` + UI; out of scope here).
+- **Tests:** [`tests/unit/repositories/workflowRuns.test.ts`](../../../tests/unit/repositories/workflowRuns.test.ts) — 14 new cases (25 total): create-running/finished_at-null/billing-unset, duplicate-PK safe, finalize→succeeded/failed, **billing-field preservation**, unsupplied-cost-columns-untouched, finalize-no-row, mark-failed, billing projection mapping + no-payload-leak, error propagation.
+
+---
+
 ## 1. Current `workflow_runs` lifecycle
 
 Source of truth: [`services/execution/engine.ts`](../../../services/execution/engine.ts) (`WorkflowEngine.runWorkflow` + `persistRun`), [`repositories/workflowRuns.ts`](../../../repositories/workflowRuns.ts), [`services/billing/executionBillingGate.ts`](../../../services/billing/executionBillingGate.ts), [`services/billing/taskUsageRecorder.ts`](../../../services/billing/taskUsageRecorder.ts).
