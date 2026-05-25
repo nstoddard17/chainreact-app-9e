@@ -13,7 +13,7 @@ describe("facebook manifest", () => {
     expect(getProvider("facebook")).toBe(facebookManifest);
   });
 
-  it("declares the Pages-only scope set (no Ads / Groups / monetization)", () => {
+  it("declares the Pages-only scope set incl. the FACEBOOK-5 webhook scope (no Ads / Groups / monetization)", () => {
     expect(facebookManifest.scopes.required).toEqual([
       "pages_show_list",
       "pages_read_engagement",
@@ -21,6 +21,8 @@ describe("facebook manifest", () => {
       "pages_manage_engagement",
       "read_insights",
       "pages_messaging",
+      // FACEBOOK-5 — subscribe a Page to the app webhook (subscribed_apps).
+      "pages_manage_metadata",
     ]);
     expect(facebookManifest.scopes.optional).toEqual([]);
     for (const s of facebookManifest.scopes.required) {
@@ -42,16 +44,16 @@ describe("facebook manifest", () => {
     expect(facebookManifest.apiVersion).toMatch(/^v\d+\.\d+$/);
   });
 
-  it("declares FACEBOOK-2 capabilities (oauth + actions; no triggers yet)", () => {
+  it("declares FACEBOOK-5 capabilities (oauth + actions + webhookTrigger)", () => {
     expect(facebookManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("facebook", "oauth")).toBe(true);
     expect(providerSupports("facebook", "actions")).toBe(true);
-    expect(providerSupports("facebook", "webhookTrigger")).toBe(false);
+    expect(providerSupports("facebook", "webhookTrigger")).toBe(true);
     expect(providerSupports("facebook", "pollingTrigger")).toBe(false);
   });
 

@@ -36,11 +36,12 @@ import { GRAPH_API_VERSION } from "@/integrations/_shared/facebook/version";
  *   - `read_insights`         — Page insights metrics.
  *   - `pages_messaging`       — Messenger send (separate, stricter Messenger
  *                               Platform review track for GA — D-FB7).
- * The trigger subscription scope (`pages_manage_metadata`) is added in
- * FACEBOOK-5 when the webhook trigger lands — NOT requested here.
+ *   - `pages_manage_metadata` — subscribe a Page to the app's webhook
+ *                               (`subscribed_apps`) for the FACEBOOK-5
+ *                               new_post / new_comment triggers.
  *
- * Capabilities: oauth + actions. `webhookTrigger: false` (flips true in
- * FACEBOOK-5 — app-level webhook + per-page subscribed_apps). pollingTrigger
+ * Capabilities: oauth + actions + webhookTrigger. `webhookTrigger: true`
+ * (FACEBOOK-5 — app-level webhook + per-page subscribed_apps). pollingTrigger
  * false.
  *
  * Graph version pinned via the shared `GRAPH_API_VERSION` (see version.ts);
@@ -62,15 +63,17 @@ export const facebookManifest: ProviderManifest = ProviderManifestSchema.parse({
       "pages_manage_engagement",
       "read_insights",
       "pages_messaging",
+      "pages_manage_metadata",
     ],
     optional: [],
     deprecated: [],
   },
   capabilities: {
     oauth: true,
-    // Flips true in FACEBOOK-5 — app-level webhook + per-page
-    // subscribed_apps subscription (new_post / new_comment).
-    webhookTrigger: false,
+    // FACEBOOK-5 — app-level webhook + per-page subscribed_apps subscription
+    // (new_post / new_comment). One URL in the Meta App Dashboard; each Page
+    // is subscribed at workflow-activate time.
+    webhookTrigger: true,
     pollingTrigger: false,
     actions: true,
   },

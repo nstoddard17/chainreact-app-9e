@@ -121,6 +121,13 @@ import "./monday/triggers/newUpdate";
 // create_webhook (the app webhook is shared-infra and never expires), so
 // NO deactivation/renewal hook either.
 import "./dropbox/triggers/newFile";
+// Slice 3.FACEBOOK-5 — facebook:new_post / new_comment app-level webhook
+// triggers. Each registers its activation (subscribed_apps), reference-count-
+// safe deactivation, and per-trigger filter (pageId / optional postId) at
+// module load. Notifications arrive at /api/webhooks/facebook (app-level, one
+// URL in the Meta App Dashboard). Both subscribe the same Page `feed` field.
+import "./facebook/triggers/newPost";
+import "./facebook/triggers/newComment";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.

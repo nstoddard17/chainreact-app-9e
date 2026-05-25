@@ -44,8 +44,14 @@ describe("facebook discovery — surface", () => {
     expect(metas.map((m) => m.key)).toEqual(EXPECTED_KEYS_IN_ORDER);
   });
 
-  it("registers NO Facebook trigger metas yet (staged for FACEBOOK-5)", () => {
-    expect(listTriggerMetasForProvider("facebook")).toEqual([]);
+  it("registers the 2 Facebook webhook trigger metas (FACEBOOK-5)", () => {
+    // Detailed trigger assertions live in facebook-triggers-discovery.test.ts;
+    // this pins the count + keys so the FACEBOOK-4 surface test stays honest
+    // after the FACEBOOK-5 trigger flip.
+    expect(listTriggerMetasForProvider("facebook").map((t) => t.key)).toEqual([
+      "facebook:new_post",
+      "facebook:new_comment",
+    ]);
   });
 
   it("every key equals provider:type and provider is 'facebook'", () => {

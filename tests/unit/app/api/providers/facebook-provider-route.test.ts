@@ -140,15 +140,67 @@ describe("GET /api/providers/facebook/actions", () => {
   });
 });
 
+interface WireTriggerField {
+  name: string;
+  type: string;
+  required: boolean;
+  optionsSource?: string;
+  dependsOn?: string;
+}
+interface WireTrigger {
+  key: string;
+  type: string;
+  activation: string;
+  requiresIntegration: boolean;
+  category: string;
+  fields: WireTriggerField[];
+  payloadShape: Array<{ name: string; type: string; sensitive?: boolean }>;
+}
+
 describe("GET /api/providers/facebook/triggers", () => {
-  it("returns [] (triggers staged for FACEBOOK-5)", async () => {
+  async function fetchFacebookTriggers(): Promise<WireTrigger[]> {
     const res = await getTriggers(new Request("http://x/facebook/triggers"), {
       params: Promise.resolve({ id: "facebook" }),
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { provider: string; triggers: unknown[] };
+    const body = (await res.json()) as { provider: string; triggers: WireTrigger[] };
     expect(body.provider).toBe("facebook");
-    expect(body.triggers).toEqual([]);
+    return body.triggers;
+  }
+
+  it("returns the 2 Facebook webhook triggers (FACEBOOK-5) in display order", async () => {
+    const triggers = await fetchFacebookTriggers();
+    expect(triggers.map((t) => t.key)).toEqual([
+      "facebook:new_post",
+      "facebook:new_comment",
+    ]);
+    for (const t of triggers) {
+      expect(t.activation).toBe("webhook");
+      expect(t.requiresIntegration).toBe(true);
+    }
+  });
+
+  it("serializes the pageId picker on new_post + the pageId→postId cascade on new_comment", async () => {
+    const byKey = new Map((await fetchFacebookTriggers()).map((t) => [t.key, t]));
+    const newPost = byKey.get("facebook:new_post")!;
+    const page = newPost.fields.find((f) => f.name === "pageId")!;
+    expect(page.optionsSource).toBe("facebook:pages");
+    expect(page.dependsOn).toBeUndefined();
+
+    const newComment = byKey.get("facebook:new_comment")!;
+    const post = newComment.fields.find((f) => f.name === "postId")!;
+    expect(post.optionsSource).toBe("facebook:posts");
+    expect(post.dependsOn).toBe("pageId");
+    expect(post.required).toBe(false);
+  });
+
+  it("sensitive payload flags round-trip through the wire (message + fromId)", async () => {
+    const byKey = new Map((await fetchFacebookTriggers()).map((t) => [t.key, t]));
+    for (const key of ["facebook:new_post", "facebook:new_comment"]) {
+      const t = byKey.get(key)!;
+      expect(t.payloadShape.find((p) => p.name === "message")!.sensitive).toBe(true);
+      expect(t.payloadShape.find((p) => p.name === "fromId")!.sensitive).toBe(true);
+    }
   });
 });
 

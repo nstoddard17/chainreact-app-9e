@@ -1,25 +1,30 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 /**
- * Facebook discovery sub-registry — Slice 3.FACEBOOK-4 (actions only).
+ * Facebook discovery sub-registry — Slice 3.FACEBOOK-4 (actions) +
+ * Slice 3.FACEBOOK-5 (triggers).
  *
- * Per-provider grouping of the 8 Facebook action meta imports — mirrors
- * `services/discovery/providers/dropbox.ts` /
+ * Per-provider grouping of the 8 Facebook action meta imports + the 2
+ * webhook trigger metas — mirrors `services/discovery/providers/dropbox.ts` /
  * `services/discovery/providers/discord.ts`. Central registry validation
- * (`ActionMetaSchema.parse` + duplicate-key rejection) still happens in
- * `services/discovery/_registry.ts`; this file is purely an import grouping.
+ * (`ActionMetaSchema.parse` / `TriggerMetaSchema.parse` + duplicate-key
+ * rejection) still happens in `services/discovery/_registry.ts`; this file is
+ * purely an import grouping.
  *
- * **Coverage:** 8 actions, 0 triggers.
+ * **Coverage:** 8 actions, 2 triggers (`new_post`, `new_comment`).
  *
- * **Staged provider arc — triggers come in FACEBOOK-5.** This slice ships
- * the complete Facebook ACTION-metadata surface and flips `facebook` into
- * `COVERED_PROVIDERS`. The `new_post` / `new_comment` webhook triggers
- * (app-level webhook + per-page `subscribed_apps`) land in FACEBOOK-5; the
- * manifest's `capabilities.webhookTrigger` stays `false` until then. The
- * meta-coverage structural test enforces action↔handler 1:1 only — trigger
- * coverage is NOT enforced (precedent: Stripe / Discord / Google Docs /
- * OneNote / Monday / Dropbox). This is a deliberate staged arc, not a
- * missing-trigger gap.
+ * **Trigger arc (FACEBOOK-5).** Facebook's webhook is app-level — ONE URL in
+ * the Meta App Dashboard serves the whole app; per-Page opt-in happens via
+ * `POST /{pageId}/subscribed_apps` (`subscribed_fields=feed`) at workflow-
+ * activate time (`registerActivation("facebook", "new_post"|"new_comment",
+ * …)`), satisfying the `trigger-meta-activation-invariant` test WITHOUT a
+ * `SHARED_INFRA_EXEMPT_KEYS` entry. Inbound feed changes arrive at the global
+ * `/api/webhooks/facebook` route (X-Hub-Signature-256 verified), normalize,
+ * and dispatch through the per-trigger filter (pageId / optional postId).
+ * `subscribed_apps` is page-LEVEL, so deactivation is reference-count-safe
+ * (only unsubscribe when no other workflow watches the Page). The manifest's
+ * `capabilities.webhookTrigger` flips `true` in this slice.
  *
  * Action metas in displayOrder (10..80). Categories: messaging (publishing /
  * engagement / Messenger), files (media uploads), data (insights).
@@ -54,6 +59,10 @@ import { facebookGetPageInsightsMeta } from "@/integrations/facebook/actions/get
 import { facebookSendMessageMeta } from "@/integrations/facebook/actions/sendMessage.meta";
 import { facebookDeletePostMeta } from "@/integrations/facebook/actions/deletePost.meta";
 
+// triggers/ (FACEBOOK-5) — 2 app-level webhook triggers.
+import { facebookNewPostTriggerMeta } from "@/integrations/facebook/triggers/newPost/newPost.meta";
+import { facebookNewCommentTriggerMeta } from "@/integrations/facebook/triggers/newComment/newComment.meta";
+
 export const FACEBOOK_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   facebookCreatePostMeta,
   facebookUpdatePostMeta,
@@ -63,4 +72,15 @@ export const FACEBOOK_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   facebookGetPageInsightsMeta,
   facebookSendMessageMeta,
   facebookDeletePostMeta,
+];
+
+/**
+ * Facebook webhook trigger metas (FACEBOOK-5) — 2 triggers, displayOrder
+ * 10..20:
+ *   10 - new_post     (app-level webhook + per-page subscribed_apps)
+ *   20 - new_comment  (same subscription; optional local postId filter)
+ */
+export const FACEBOOK_TRIGGER_METAS: ReadonlyArray<TriggerMeta> = [
+  facebookNewPostTriggerMeta,
+  facebookNewCommentTriggerMeta,
 ];

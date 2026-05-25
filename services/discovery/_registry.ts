@@ -299,11 +299,11 @@ import { MONDAY_ACTION_METAS, MONDAY_TRIGGER_METAS } from "./providers/monday";
 // reconciliation, NOT per-workflow webhook creation). See
 // providers/dropbox.ts header for the architecture rationale.
 import { DROPBOX_ACTION_METAS, DROPBOX_TRIGGER_METAS } from "./providers/dropbox";
-// Facebook (FACEBOOK-4 actions only) — 8 actions, 0 triggers. The
-// `new_post` / `new_comment` webhook triggers are staged for FACEBOOK-5
-// (app-level webhook + per-page `subscribed_apps`); see
-// providers/facebook.ts header for the staged-arc rationale.
-import { FACEBOOK_ACTION_METAS } from "./providers/facebook";
+// Facebook (FACEBOOK-4 actions + FACEBOOK-5 triggers) — 8 actions, 2
+// webhook triggers (`new_post` / `new_comment`, app-level webhook + per-page
+// `subscribed_apps`). See providers/facebook.ts header for the architecture
+// rationale.
+import { FACEBOOK_ACTION_METAS, FACEBOOK_TRIGGER_METAS } from "./providers/facebook";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -676,6 +676,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // remote create_webhook (the app webhook is shared-infra, doesn't
   // expire, and needs no per-workflow subscription).
   ...DROPBOX_TRIGGER_METAS,
+  // Facebook (FACEBOOK-5) — 2 app-level webhook triggers (new_post,
+  // new_comment), displayOrder 10..20. ONE URL in the Meta App Dashboard;
+  // each Page is subscribed at activate time via subscribed_apps
+  // (registerActivation("facebook", <type>, …)), so the
+  // trigger-meta-activation-invariant test is satisfied without an exemption.
+  // Deactivation is reference-count-safe (shared page-level subscription).
+  ...FACEBOOK_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
