@@ -19,7 +19,8 @@
 | **AI-2** | shipped | Read-only metadata/context tool layer (`services/ai/tools/*`). |
 | **AI-3** | shipped | `WorkflowPatch` schema + deterministic validator. See note below. |
 | **AI-4** | shipped | Read-only workflow/node explainer (`services/ai/explain/*`). See note below. |
-| AI-5+ | future | Patch preview, safe-apply, failed-run repair, ground-up creation, etc. (§13). |
+| **AI-5** | shipped | Deterministic WorkflowPatch preview service (`services/ai/preview/*`). See note below. |
+| AI-6+ | future | Safe-apply (confirm + persist), failed-run repair, ground-up creation, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -51,6 +52,21 @@ Read-only explainer under [`services/ai/explain/`](../../../services/ai/explain/
 **No-leak:** config is described by field KEY + STATUS, never by raw VALUE — a literal (e.g. an email) is reported as `literal` without echoing it; secret-keyed values arrive already redacted from AI-2; `{{nodeId.path}}` reference tokens are safe and surfaced. Ownership/NOT_FOUND propagate from the AI-2 tools; unknown node types get an honest "unrecognized type" answer.
 
 **Tests:** [`tests/unit/services/ai/explain/*`](../../../tests/unit/services/ai/explain/) (13) — composition, narration, no-leak, NOT_FOUND propagation, no-trigger, unknown-node, high-risk + disconnected-integration, degraded-validation.
+
+### AI-5 implementation note
+
+Deterministic patch **preview** service under [`services/ai/preview/`](../../../services/ai/preview/). It composes AI-2 (load current definition), AI-3 (`validateWorkflowPatch`), and AI-4 (`explainWorkflowDefinition`) into a safe "what would change" view BEFORE any apply/save exists. No model calls, no DB writes, **no patch apply**, no workflow mutation, no UI, no billing deduction.
+
+- **[`previewWorkflowPatch.ts`](../../../services/ai/preview/previewWorkflowPatch.ts)** — `previewWorkflowPatchForAI({ userId, workflowId, patch })`. Loads the current definition via `getWorkflowGraphForAI` (ownership + NOT_FOUND + config redaction, no DB write), runs the AI-3 validator, builds the candidate in memory, and explains before/after.
+- **Pure in-memory explainer** added at [`services/ai/explain/explainDefinition.ts`](../../../services/ai/explain/explainDefinition.ts) (`explainWorkflowDefinition`) so the candidate is explained **without** being written to the DB.
+
+**Output:** `ok`, `workflowId`, `patchId`, `patchSummary`, `validation{ok,errors,warnings}`, `changes[]` (deterministic per-op descriptions), `affectedNodeIds`/`affectedEdgeIds`, `riskLevel`/`requiresConfirmation`/`riskReasons[]` (from AI-3 — model risk never trusted), `taskCostEstimate` (COST-2, no deduction), `beforeSummary`, `afterSummary?`/`candidateSummary?` (only when valid), `userFacingSummaryText`, `canApplyLater`, `blockedReason?`.
+
+**No-leak:** change descriptions use registry display labels + non-secret field KEY names + edge ids only — never config VALUES; secret-shaped config keys are filtered out of change summaries AND scrubbed from any surfaced validator message. Registry-grounded: a provider/action/trigger absent from the live metadata registry is rejected via AI-3, never invented — pending providers are not previewable until their metadata lands.
+
+**Future:** AI-6 adds the confirm + persist apply flow (which must load the UNREDACTED definition; this preview never persists its candidate).
+
+**Tests:** [`tests/unit/services/ai/preview/*`](../../../tests/unit/services/ai/preview/) (20) — ownership/NOT_FOUND, every valid op's change summary, invalid-patch families, deterministic risk + confirmation (incl. model-can't-downgrade), COST-2 cost + no-deduction, no-leak (values + secret key names), and live-registry grounding.
 
 ---
 
