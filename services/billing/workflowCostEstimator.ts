@@ -15,6 +15,7 @@ import {
   getTaskCostPolicyVersion,
   type ChargeOn,
   type TaskCostReason,
+  type TaskCostSource,
 } from "./taskCostPolicy";
 
 /**
@@ -65,6 +66,8 @@ export interface NodeCostBreakdown {
   estimatedTasks: number;
   reason: TaskCostReason;
   chargeOn: ChargeOn;
+  /** Where the cost decision came from — `override` for central-map entries. */
+  source: TaskCostSource;
   /** From ActionMeta when the node is a registered action. */
   riskLevel?: RiskLevel;
   /** From ActionMeta/TriggerMeta when known. */
@@ -122,6 +125,7 @@ export function estimateNodeTaskCost(node: WorkflowNode): NodeCostBreakdown {
     estimatedTasks: cost.baseTasks,
     reason: cost.reason,
     chargeOn: cost.chargeOn,
+    source: cost.source,
     riskLevel,
     category,
   };

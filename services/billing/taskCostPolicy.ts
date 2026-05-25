@@ -99,10 +99,60 @@ const NATIVE_ZERO_COST_ACTION_TYPES: ReadonlySet<string> = new Set([
   "format_transformer",
 ]);
 
-/** Native action types that perform real external egress → billed on success. */
-const NATIVE_BILLABLE_ACTION_TYPES: ReadonlySet<string> = new Set([
-  "http_request",
+/**
+ * Central cost-override map (Slice 4.COST-4).
+ *
+ * The SINGLE place a specific node's cost deviates from the category defaults
+ * — keyed by the stable `provider:type` node key. This is how future
+ * non-default nodes (bulk/loop with `perItemTasks`, file-heavy ops, premium
+ * provider actions, high-cost native utilities, AI nodes if they ever become
+ * WorkflowNodes) get their cost WITHOUT editing every provider metadata file.
+ *
+ * Today it holds exactly one entry: `native:http_request`. It is the one
+ * native node that performs real external egress, so it overrides the native
+ * default (0, in-process) to billable-1. Everything else flows through the
+ * category defaults in `classifyNodeTaskCost`. Adding a node here is the
+ * documented, reviewable way to introduce a non-default cost; NO product cost
+ * numbers beyond the accepted defaults are seeded.
+ *
+ * Triggers are never looked up here — `classifyNodeTaskCost` short-circuits
+ * `kind === "trigger"` to 0 before the override check, so an override can
+ * never make a trigger billable.
+ */
+export interface TaskCostOverride {
+  billable: boolean;
+  baseTasks: number;
+  /** Per-item cost for future bulk/loop nodes. Represented, not yet applied. */
+  perItemTasks?: number;
+  chargeOn: ChargeOn;
+  reason: TaskCostReason;
+}
+
+const TASK_COST_OVERRIDES: ReadonlyMap<string, TaskCostOverride> = new Map([
+  [
+    "native:http_request",
+    {
+      billable: true,
+      baseTasks: 1,
+      chargeOn: "success",
+      reason: "native_external_egress",
+    } satisfies TaskCostOverride,
+  ],
 ]);
+
+/**
+ * Look up an explicit cost override for a node. Returns `undefined` when the
+ * node uses the category default. Triggers never have an override (they are
+ * always free).
+ */
+export function getTaskCostOverride(
+  provider: string,
+  type: string,
+  kind: "trigger" | "action",
+): TaskCostOverride | undefined {
+  if (kind === "trigger") return undefined;
+  return TASK_COST_OVERRIDES.get(`${provider}:${type}`);
+}
 
 function nonBillable(reason: TaskCostReason): NodeTaskCost {
   return {
@@ -126,6 +176,18 @@ function billableOnSuccess(reason: TaskCostReason): NodeTaskCost {
   };
 }
 
+function fromOverride(o: TaskCostOverride): NodeTaskCost {
+  return {
+    billable: o.billable,
+    baseTasks: o.baseTasks,
+    ...(o.perItemTasks !== undefined ? { perItemTasks: o.perItemTasks } : {}),
+    chargeOn: o.chargeOn,
+    reason: o.reason,
+    policyVersion: TASK_COST_POLICY_VERSION,
+    source: "override",
+  };
+}
+
 /**
  * Classify one node's task cost.
  *
@@ -141,31 +203,36 @@ export function classifyNodeTaskCost(
   meta?: ActionMeta | TriggerMeta,
 ): NodeTaskCost {
   // 1. Triggers never bill — listening for / firing a trigger is free; the
-  //    billable action nodes inside the run carry the cost.
+  //    billable action nodes inside the run carry the cost. Checked BEFORE
+  //    the override map so an override can never make a trigger billable.
   if (node.kind === "trigger") {
     return nonBillable("trigger");
   }
 
-  // 2. Native actions are a closed in-repo set — classify by type directly.
+  // 2. Explicit central override wins over every category default
+  //    (e.g. native:http_request → billable; future bulk/premium nodes).
+  const override = getTaskCostOverride(node.provider, node.type, node.kind);
+  if (override) {
+    return fromOverride(override);
+  }
+
+  // 3. Native actions are a closed in-repo set — classify by type directly.
   if (node.provider === NATIVE_PROVIDER) {
-    if (NATIVE_BILLABLE_ACTION_TYPES.has(node.type)) {
-      return billableOnSuccess("native_external_egress");
-    }
     if (NATIVE_ZERO_COST_ACTION_TYPES.has(node.type)) {
       return nonBillable("native_control_flow");
     }
     // Unrecognized native type (e.g. transient empty type, or a native
-    // action not yet taught to the policy).
+    // action not yet taught to the policy / override map).
     return nonBillable("unknown_node");
   }
 
-  // 3. Provider actions — billable on success, but only when grounded by a
+  // 4. Provider actions — billable on success, but only when grounded by a
   //    registered meta. No meta ⇒ we cannot confirm it is a real action.
   if (meta) {
     return billableOnSuccess("provider_action");
   }
 
-  // 4. Ungrounded provider node — safe non-billable + unknown signal so the
+  // 5. Ungrounded provider node — safe non-billable + unknown signal so the
   //    estimator can surface a warning rather than silently charging.
   return nonBillable("unknown_node");
 }

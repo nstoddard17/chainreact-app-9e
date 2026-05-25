@@ -7,6 +7,7 @@ import {
   getTaskCostPolicyVersion,
   type ChargeOn,
   type TaskCostReason,
+  type TaskCostSource,
 } from "./taskCostPolicy";
 import { estimateWorkflowTaskCost } from "./workflowCostEstimator";
 
@@ -41,6 +42,8 @@ export interface NodeTaskUsage {
   tasksCharged: number;
   chargeOn: ChargeOn;
   costReason: TaskCostReason;
+  /** COST-4 — `override` when the cost came from the central override map. */
+  source: TaskCostSource;
 }
 
 export interface RunTaskUsage {
@@ -92,6 +95,7 @@ export function computeRunTaskUsage(
       tasksCharged: cost.baseTasks,
       chargeOn: cost.chargeOn,
       costReason: cost.reason,
+      source: cost.source,
     });
   }
 
@@ -158,6 +162,8 @@ export async function recordRunActuals(
       costReason: n.costReason,
       costPolicyVersion: usage.policyVersion,
       testMode: false,
+      // COST-4 — preserve cost provenance (enum only; never raw config).
+      metadata: { source: n.source },
     })),
   ];
 

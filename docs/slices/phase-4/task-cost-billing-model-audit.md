@@ -19,7 +19,7 @@
 | **COST-2A** | shipped (`1753f2cb2`) | Narrow safety fix: test/dry-run runs no longer deduct tasks ([executionBillingGate.ts](../../../services/billing/executionBillingGate.ts) `{ testMode }` → skipped outcome; engine passes `isTest`). Real runs unchanged (flat 1/run). |
 | **COST-2** | shipped | Central task cost policy + deterministic workflow cost estimator (read-only; nothing enforces them yet). See note below. |
 | **COST-3** | shipped | Ledger-only first: `task_usage_events` + per-run cost columns + actual-cost recording. Live billing still flat 1/run. Reserve/reconcile remains future. See note below. |
-| COST-4 | future | Optional `taskCost?` override slot on ActionMeta/TriggerMeta (only if defaults prove insufficient). |
+| **COST-4** | shipped | Central cost-override map in `taskCostPolicy.ts` (NO ActionMeta/TriggerMeta edits). `source: "override"` surfaced through estimator + ledger. See note below. |
 | COST-5 | future | Workflow preview cost API/UI (calls the COST-2 estimator). |
 | COST-6 | future | `ai_cost_events` ledger + AI credits. |
 | COST-7 | future | Owner/admin analytics. |
@@ -62,6 +62,23 @@ Two pure, deterministic, read-only services were added under `services/billing/`
 **What COST-3 did NOT change:** no per-node deduction, no reserve/reconcile, no change to flat 1/run customer billing, no UI, no AI cost events, no metadata edits. **Remaining (future):** COST-3.x reserve/reconcile (charge actual successful billable actions, handle mid-run insufficient balance + partial runs atomically); COST-6 AI cost events (separate ledger); COST-7 owner analytics reading this ledger; COST-5 preview surfacing estimate.
 
 Tests: [`taskUsageEvents.test.ts`](../../../tests/unit/repositories/taskUsageEvents.test.ts), [`taskUsageRecorder.test.ts`](../../../tests/unit/services/billing/taskUsageRecorder.test.ts), COST-3 block in [`engine.test.ts`](../../../tests/unit/services/execution/engine.test.ts).
+
+### COST-4 implementation note
+
+**Override strategy chosen: central override map only — NO metadata fields, NO provider mass-edits.** A metadata `taskCost?` slot on `ActionMeta`/`TriggerMeta` was evaluated and **rejected as premature**: it would invite per-provider edits and there is no node today whose cost can't be expressed centrally. The central map keeps cost a single-file concern, fully reviewable in one diff.
+
+[`taskCostPolicy.ts`](../../../services/billing/taskCostPolicy.ts) additions:
+- `TaskCostOverride` interface (`billable`, `baseTasks`, `perItemTasks?`, `chargeOn`, `reason`) + `TASK_COST_OVERRIDES` map keyed by `provider:type`.
+- `getTaskCostOverride(provider, type, kind) → TaskCostOverride | undefined` — pure lookup; returns `undefined` for triggers (they are always free).
+- `classifyNodeTaskCost` order: **trigger → 0** ⟶ **central override** (`source: "override"`) ⟶ native control-flow → 0 ⟶ native unknown → `unknown_node` ⟶ provider+meta → 1 ⟶ ungrounded → `unknown_node`.
+
+**The map holds exactly one entry today: `native:http_request` → billable 1** (`reason: native_external_egress`). It moved here from the COST-2 inline native-billable set — it is conceptually "the one native node that does external work overrides the native-default of 0." Behavior is identical (still 1 task); only its `source` is now `"override"`. No new product cost numbers were introduced. `perItemTasks` is representable on the override contract but **not applied** to any loop math (no bulk/loop node exists; the estimator never multiplies by it).
+
+**Supported future cases (mechanism only, none seeded):** bulk/loop (`perItemTasks`), file-heavy ops, premium provider actions, high-cost native utilities, AI nodes if they ever become WorkflowNodes. Each lands as one reviewable map entry; the default policy is untouched for everything else, and unknown/ungrounded nodes still resolve to `unknown_node` + non-billable.
+
+**Estimator / recorder / ledger:** `NodeCostBreakdown` (estimator) and `NodeTaskUsage` (recorder) now carry `source`; the recorder writes `metadata: { source }` (enum only — never raw override config) onto `node_task_charged` ledger events. `charge_on`, `cost_reason`, and `cost_policy_version` continue to be stored. No migration (source rides in the existing `metadata jsonb`).
+
+**Unchanged:** no metadata edits, no live per-node deduction, no reserve/reconcile, no AI cost events, no UI, policy version stays `"v1"`. Tests: override-wins / trigger-stays-0 / default-source / `getTaskCostOverride` in [`taskCostPolicy.test.ts`](../../../tests/unit/services/billing/taskCostPolicy.test.ts); source surfacing in [`workflowCostEstimator.test.ts`](../../../tests/unit/services/billing/workflowCostEstimator.test.ts) + [`taskUsageRecorder.test.ts`](../../../tests/unit/services/billing/taskUsageRecorder.test.ts).
 
 ---
 

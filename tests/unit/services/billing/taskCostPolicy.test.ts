@@ -14,6 +14,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import {
   TASK_COST_POLICY_VERSION,
   classifyNodeTaskCost,
+  getTaskCostOverride,
   getTaskCostPolicyVersion,
   isBillableNode,
 } from "@/services/billing/taskCostPolicy";
@@ -146,9 +147,11 @@ describe("taskCostPolicy — invariants", () => {
     }
   });
 
-  it("source is always default_policy in this slice (no override support yet)", () => {
-    const cost = classifyNodeTaskCost(actionNode("native", "http_request"));
-    expect(cost.source).toBe("default_policy");
+  it("default-policy nodes carry source 'default_policy'", () => {
+    expect(classifyNodeTaskCost(actionNode("native", "router")).source).toBe("default_policy");
+    expect(
+      classifyNodeTaskCost(actionNode("gmail", "send_email"), registeredAction).source,
+    ).toBe("default_policy");
   });
 
   it("isBillableNode mirrors classifyNodeTaskCost.billable", () => {
@@ -165,5 +168,46 @@ describe("taskCostPolicy — invariants", () => {
     expect(classifyNodeTaskCost(n, registeredAction)).toEqual(
       classifyNodeTaskCost(n, registeredAction),
     );
+  });
+});
+
+describe("taskCostPolicy — central cost overrides (COST-4)", () => {
+  it("a central override wins over the category default (native:http_request)", () => {
+    const cost = classifyNodeTaskCost(actionNode("native", "http_request"));
+    expect(cost.billable).toBe(true);
+    expect(cost.baseTasks).toBe(1);
+    expect(cost.reason).toBe("native_external_egress");
+    expect(cost.chargeOn).toBe("success");
+    expect(cost.source).toBe("override");
+  });
+
+  it("getTaskCostOverride returns the entry for an overridden action", () => {
+    const o = getTaskCostOverride("native", "http_request", "action");
+    expect(o).toMatchObject({ billable: true, baseTasks: 1, reason: "native_external_egress" });
+  });
+
+  it("getTaskCostOverride returns undefined for a default node", () => {
+    expect(getTaskCostOverride("gmail", "send_email", "action")).toBeUndefined();
+    expect(getTaskCostOverride("native", "router", "action")).toBeUndefined();
+  });
+
+  it("getTaskCostOverride never returns an override for a trigger", () => {
+    // Even if a provider:type collided with an override key, triggers are free.
+    expect(getTaskCostOverride("native", "http_request", "trigger")).toBeUndefined();
+  });
+
+  it("triggers stay 0 regardless of the override map", () => {
+    const cost = classifyNodeTaskCost(triggerNode("native", "http_request"));
+    expect(cost.billable).toBe(false);
+    expect(cost.reason).toBe("trigger");
+  });
+
+  it("the http_request override carries no perItemTasks (loop math not applied yet)", () => {
+    const o = getTaskCostOverride("native", "http_request", "action");
+    expect(o?.perItemTasks).toBeUndefined();
+    // The reserved perItemTasks field exists on the contract for future
+    // bulk/loop nodes but no override uses it and the estimator never
+    // multiplies by it in this slice.
+    expect(classifyNodeTaskCost(actionNode("native", "http_request")).perItemTasks).toBeUndefined();
   });
 });

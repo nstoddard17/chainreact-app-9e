@@ -142,6 +142,12 @@ describe("workflowCostEstimator — node breakdown + unknowns", () => {
     expect(b.displayName).toBeTruthy();
     expect(b.riskLevel).toBe("high"); // native:http_request meta is high-risk
   });
+
+  it("surfaces cost source: 'override' for an overridden node, 'default_policy' otherwise (COST-4)", () => {
+    expect(estimateNodeTaskCost(node("h", "action", "native", "http_request")).source).toBe("override");
+    expect(estimateNodeTaskCost(node("a1", "action", "gmail", "send_email", { to: ["x@y.com"] })).source).toBe("default_policy");
+    expect(estimateNodeTaskCost(node("r", "action", "native", "router")).source).toBe("default_policy");
+  });
 });
 
 describe("workflowCostEstimator — trigger-cadence warnings (no run-frequency guessing)", () => {

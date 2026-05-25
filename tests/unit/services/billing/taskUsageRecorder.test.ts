@@ -47,7 +47,7 @@ describe("computeRunTaskUsage", () => {
     };
     const usage = computeRunTaskUsage(def, [step("t", "succeeded"), step("h", "succeeded")]);
     expect(usage.actualTaskCost).toBe(1);
-    expect(usage.nodeEvents[0]).toMatchObject({ nodeId: "h", costReason: "native_external_egress" });
+    expect(usage.nodeEvents[0]).toMatchObject({ nodeId: "h", costReason: "native_external_egress", source: "override" });
   });
 
   it("does NOT record native control-flow as billable", () => {
@@ -123,7 +123,7 @@ describe("recordRunActuals", () => {
         actualTaskCost: 1,
         policyVersion: "v1",
         estimateSummary: { billableNodeCount: 2, nonBillableNodeCount: 1, unknownNodeCount: 0, warningCount: 1 },
-        nodeEvents: [{ nodeId: "a1", provider: "gmail", nodeType: "send_email", nodeKind: "action", tasksCharged: 1, chargeOn: "success", costReason: "provider_action" }],
+        nodeEvents: [{ nodeId: "a1", provider: "gmail", nodeType: "send_email", nodeKind: "action", tasksCharged: 1, chargeOn: "success", costReason: "provider_action", source: "default_policy" }],
       },
     });
     expect(mockInsertEvents).toHaveBeenCalledTimes(1);
@@ -133,6 +133,26 @@ describe("recordRunActuals", () => {
     expect(estimate).toMatchObject({ estimatedTasks: 2, actualTasks: 1, costPolicyVersion: "v1", testMode: false, billable: false });
     const charged = rows.find((r) => r.eventType === "node_task_charged")!;
     expect(charged).toMatchObject({ nodeId: "a1", billable: true, tasksCharged: 1, testMode: false, costPolicyVersion: "v1" });
+    // COST-4 — cost provenance preserved in ledger metadata (enum only).
+    expect(charged.metadata).toEqual({ source: "default_policy" });
+  });
+
+  it("preserves an 'override' source from the policy in ledger metadata", async () => {
+    await recordRunActuals({
+      runId: "run-3",
+      workflowId: "wf-1",
+      userId: "user-1",
+      usage: {
+        estimatedTaskCost: 1,
+        actualTaskCost: 1,
+        policyVersion: "v1",
+        estimateSummary: { billableNodeCount: 1, nonBillableNodeCount: 0, unknownNodeCount: 0, warningCount: 0 },
+        nodeEvents: [{ nodeId: "h", provider: "native", nodeType: "http_request", nodeKind: "action", tasksCharged: 1, chargeOn: "success", costReason: "native_external_egress", source: "override" }],
+      },
+    });
+    const rows = mockInsertEvents.mock.calls[0]![0] as Array<Record<string, unknown>>;
+    const charged = rows.find((r) => r.eventType === "node_task_charged")!;
+    expect(charged.metadata).toEqual({ source: "override" });
   });
 
   it("records test_mode=false (test runs never reach this path) and no secrets in rows", async () => {
