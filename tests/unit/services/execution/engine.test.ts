@@ -22,8 +22,16 @@ jest.mock("@/services/execution/handlers/_registry", () => ({
 }));
 
 const mockRecordRun = jest.fn();
+// COST-15C — engine now creates the run row at start + finalizes by UPDATE.
+const mockCreateWorkflowRunStart = jest.fn();
+const mockFinalizeWorkflowRun = jest.fn();
+const mockMarkWorkflowRunFailedBeforeExecution = jest.fn();
 jest.mock("@/repositories/workflowRuns", () => ({
   recordRun: (...args: unknown[]) => mockRecordRun(...args),
+  createWorkflowRunStart: (...args: unknown[]) => mockCreateWorkflowRunStart(...args),
+  finalizeWorkflowRun: (...args: unknown[]) => mockFinalizeWorkflowRun(...args),
+  markWorkflowRunFailedBeforeExecution: (...args: unknown[]) =>
+    mockMarkWorkflowRunFailedBeforeExecution(...args),
 }));
 
 const mockBillingGate = jest.fn();
@@ -156,6 +164,13 @@ beforeEach(() => {
   mockGetActionHandler.mockReset();
   mockRecordRun.mockReset();
   mockRecordRun.mockResolvedValue(undefined);
+  // COST-15C — pre-run create + finalize-update defaults (happy path).
+  mockCreateWorkflowRunStart.mockReset();
+  mockCreateWorkflowRunStart.mockResolvedValue({ created: true });
+  mockFinalizeWorkflowRun.mockReset();
+  mockFinalizeWorkflowRun.mockResolvedValue({ finalized: true });
+  mockMarkWorkflowRunFailedBeforeExecution.mockReset();
+  mockMarkWorkflowRunFailedBeforeExecution.mockResolvedValue({ updated: true });
   // Default: gate allows. Individual tests override for the refusal path.
   mockBillingGate.mockReset();
   mockBillingGate.mockResolvedValue({ ok: true, used: 1, limit: 100 });
@@ -511,15 +526,24 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
       triggerEvent,
     });
 
-    expect(mockRecordRun).toHaveBeenCalledTimes(1);
-    expect(mockRecordRun).toHaveBeenCalledWith(
+    // COST-15C — success persists via create-at-start + finalize-update, not
+    // the finalize-only recordRun INSERT.
+    expect(mockRecordRun).not.toHaveBeenCalled();
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: result.runId,
         workflowId: "wf-1",
         userId: "user-1",
-        status: "succeeded",
         triggerNodeId: "t1",
         triggerEvent,
+      }),
+    );
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: result.runId,
+        status: "succeeded",
         errorClassification: null,
         fatalError: null,
       }),
@@ -546,8 +570,9 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
       triggerEvent,
     });
 
-    expect(mockRecordRun).toHaveBeenCalledTimes(1);
-    const call = mockRecordRun.mock.calls[0]![0] as {
+    // COST-15C — a failure AFTER the pre-run row exists finalizes by UPDATE.
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    const call = mockFinalizeWorkflowRun.mock.calls[0]![0] as {
       status: string;
       errorClassification: { title: string; action?: string; severity: string };
     };
@@ -568,6 +593,9 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
       triggerEvent,
     });
 
+    // COST-15C — TRIGGER_NODE_NOT_FOUND is a pre-row structural fatal: terminal
+    // INSERT via recordRun, no pre-run row created.
+    expect(mockCreateWorkflowRunStart).not.toHaveBeenCalled();
     expect(mockRecordRun).toHaveBeenCalledTimes(1);
     const call = mockRecordRun.mock.calls[0]![0] as {
       status: string;
@@ -585,15 +613,18 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
       triggerNodeId: "t1",
       triggerEvent,
     });
+    // COST-15C — no row at all: no terminal INSERT and no pre-run row.
     expect(mockRecordRun).not.toHaveBeenCalled();
+    expect(mockCreateWorkflowRunStart).not.toHaveBeenCalled();
   });
 
-  it("swallows recordRun errors so the engine completes the run regardless", async () => {
+  it("swallows finalize-persist errors so the engine completes the run regardless", async () => {
     mockGetByIdServiceRole.mockResolvedValueOnce({
       ...baseWorkflow,
       draftDefinition: { nodes: [trigger("t1")], edges: [] },
     });
-    mockRecordRun.mockRejectedValueOnce(new Error("DB write failed"));
+    // COST-15C — success persists via finalizeWorkflowRun; make it throw.
+    mockFinalizeWorkflowRun.mockRejectedValueOnce(new Error("DB write failed"));
 
     const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
       workflowId: "wf-1",
@@ -601,7 +632,7 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
       triggerEvent,
     });
 
-    // Engine still returns a result; recordRun failure logged + swallowed.
+    // Engine still returns a result; persistence failure logged + swallowed.
     expect(result.status).toBe("succeeded");
   });
 });
@@ -655,13 +686,14 @@ describe("WorkflowEngine — billing gate (Slice 1N)", () => {
       triggerEvent,
     });
 
-    expect(mockRecordRun).toHaveBeenCalledTimes(1);
-    const call = mockRecordRun.mock.calls[0]![0] as {
-      status: string;
+    // COST-15C — the pre-run row exists by the time the gate refuses, so the
+    // BILLING_EXHAUSTED fatal marks it failed by UPDATE (no duplicate INSERT).
+    expect(mockRecordRun).not.toHaveBeenCalled();
+    expect(mockMarkWorkflowRunFailedBeforeExecution).toHaveBeenCalledTimes(1);
+    const call = mockMarkWorkflowRunFailedBeforeExecution.mock.calls[0]![0] as {
       fatalError: { code: string };
       errorClassification: { title: string; action?: string; severity: string };
     };
-    expect(call.status).toBe("failed");
     expect(call.fatalError.code).toBe("BILLING_EXHAUSTED");
     expect(call.errorClassification.action).toBe("upgrade_plan");
     expect(call.errorClassification.severity).toBe("warning");
@@ -1285,8 +1317,9 @@ describe("WorkflowEngine — label-aware branching (Engine Branching Commit 2 lo
       triggerEvent,
     });
 
-    expect(mockRecordRun).toHaveBeenCalledTimes(1);
-    const call = mockRecordRun.mock.calls[0]![0] as {
+    // COST-15C — INVALID_BRANCH fails mid-execution → finalize by UPDATE.
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    const call = mockFinalizeWorkflowRun.mock.calls[0]![0] as {
       status: string;
       errorClassification: { title: string; action?: string; severity: string };
     };
@@ -2023,8 +2056,9 @@ describe("WorkflowEngine — test mode (Slice 3.SEC-2)", () => {
       triggeredBy: "test",
     });
 
-    expect(mockRecordRun).toHaveBeenCalledTimes(1);
-    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({
+    // COST-15C — provenance (is_test / triggered_by) is written at create-start.
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+    expect(mockCreateWorkflowRunStart.mock.calls[0]![0]).toMatchObject({
       isTest: true,
       triggeredBy: "test",
     });
@@ -2053,8 +2087,8 @@ describe("WorkflowEngine — test mode (Slice 3.SEC-2)", () => {
       triggeredBy: "manual",
     });
 
-    expect(mockRecordRun).toHaveBeenCalledTimes(1);
-    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+    expect(mockCreateWorkflowRunStart.mock.calls[0]![0]).toMatchObject({
       isTest: false,
       triggeredBy: "manual",
     });
@@ -2082,7 +2116,7 @@ describe("WorkflowEngine — test mode (Slice 3.SEC-2)", () => {
       triggerEvent,
     });
 
-    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({
+    expect(mockCreateWorkflowRunStart.mock.calls[0]![0]).toMatchObject({
       triggeredBy: "unknown",
     });
   });
@@ -2197,14 +2231,15 @@ describe("WorkflowEngine — task usage recording (Slice 4.COST-3)", () => {
     expect(mockRecordRunActuals).toHaveBeenCalledWith(
       expect.objectContaining({ runId: result.runId, workflowId: "wf-1", userId: "user-1" }),
     );
-    const recordRunArg = mockRecordRun.mock.calls[0]![0] as {
+    // COST-15C — cost columns are written on the finalize UPDATE.
+    const finalizeArg = mockFinalizeWorkflowRun.mock.calls[0]![0] as {
       estimatedTaskCost: number;
       actualTaskCost: number;
       taskCostPolicyVersion: string;
     };
-    expect(recordRunArg.estimatedTaskCost).toBe(1);
-    expect(recordRunArg.actualTaskCost).toBe(1);
-    expect(recordRunArg.taskCostPolicyVersion).toBe("v1");
+    expect(finalizeArg.estimatedTaskCost).toBe(1);
+    expect(finalizeArg.actualTaskCost).toBe(1);
+    expect(finalizeArg.taskCostPolicyVersion).toBe("v1");
   });
 
   it("does NOT record task usage for a test run + leaves cost columns null", async () => {
@@ -2226,14 +2261,16 @@ describe("WorkflowEngine — task usage recording (Slice 4.COST-3)", () => {
 
     expect(mockComputeRunTaskUsage).not.toHaveBeenCalled();
     expect(mockRecordRunActuals).not.toHaveBeenCalled();
-    const recordRunArg = mockRecordRun.mock.calls[0]![0] as {
-      estimatedTaskCost: number | null;
-      actualTaskCost: number | null;
-      taskCostPolicyVersion: string | null;
+    // COST-15C — a test run has usage=null, so finalize OMITS the cost columns
+    // (undefined ⇒ not overwritten); the row keeps the create-time NULL.
+    const finalizeArg = mockFinalizeWorkflowRun.mock.calls[0]![0] as {
+      estimatedTaskCost?: number | null;
+      actualTaskCost?: number | null;
+      taskCostPolicyVersion?: string | null;
     };
-    expect(recordRunArg.estimatedTaskCost).toBeNull();
-    expect(recordRunArg.actualTaskCost).toBeNull();
-    expect(recordRunArg.taskCostPolicyVersion).toBeNull();
+    expect(finalizeArg.estimatedTaskCost).toBeUndefined();
+    expect(finalizeArg.actualTaskCost).toBeUndefined();
+    expect(finalizeArg.taskCostPolicyVersion).toBeUndefined();
   });
 
   it("is fail-open: a ledger write failure does not break the run", async () => {
@@ -2254,5 +2291,141 @@ describe("WorkflowEngine — task usage recording (Slice 4.COST-3)", () => {
     });
 
     expect(result.status).toBe("succeeded");
+  });
+});
+
+describe("WorkflowEngine — pre-run row lifecycle (Slice 4.COST-15C)", () => {
+  const linearWf = () => ({
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [trigger("t1"), action("a1", "step_one")],
+      edges: [edge("e1", "t1", "a1")],
+    },
+  });
+
+  it("creates the pre-run row at start, then finalizes the SAME runId (success)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun).not.toHaveBeenCalled();
+    // Same runId across create + finalize → exactly one row, never duplicated.
+    expect(mockCreateWorkflowRunStart.mock.calls[0]![0].runId).toBe(result.runId);
+    expect(mockFinalizeWorkflowRun.mock.calls[0]![0].runId).toBe(result.runId);
+  });
+
+  it("finalizes the same row to 'failed' on a mid-run handler failure", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => {
+      throw new Error("handler boom");
+    });
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeWorkflowRun.mock.calls[0]![0].status).toBe("failed");
+    expect(mockRecordRun).not.toHaveBeenCalled();
+  });
+
+  it("duplicate dispatch (created:false) does not execute, bill, or persist", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    const handler = jest.fn(async () => ({ output: {} }));
+    mockGetActionHandler.mockReturnValue(handler);
+    mockCreateWorkflowRunStart.mockResolvedValueOnce({ created: false });
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      runId: "dup-run",
+    });
+
+    expect(result.fatalError?.code).toBe("DUPLICATE_DISPATCH");
+    expect(handler).not.toHaveBeenCalled();
+    expect(mockBillingGate).not.toHaveBeenCalled();
+    expect(mockFinalizeWorkflowRun).not.toHaveBeenCalled();
+    expect(mockRecordRun).not.toHaveBeenCalled();
+    expect(mockMarkWorkflowRunFailedBeforeExecution).not.toHaveBeenCalled();
+  });
+
+  it("fail-open: pre-run row creation error → run still executes, finalize falls back to INSERT", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+    mockCreateWorkflowRunStart.mockRejectedValueOnce(new Error("insert failed"));
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    // Record is not lost: finalize falls back to recordRun INSERT.
+    expect(result.status).toBe("succeeded");
+    expect(mockFinalizeWorkflowRun).not.toHaveBeenCalled();
+    expect(mockRecordRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun.mock.calls[0]![0]).toMatchObject({ status: "succeeded" });
+  });
+
+  it("fail-safe: finalize finds no row (finalized:false) → falls back to INSERT", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+    mockFinalizeWorkflowRun.mockResolvedValueOnce({ finalized: false });
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun).toHaveBeenCalledTimes(1); // fallback INSERT
+  });
+
+  it("flat billing stays authoritative; no reserve/reconcile RPC is ever called (real run)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockReserveTasks).not.toHaveBeenCalled();
+    expect(mockReconcileReservation).not.toHaveBeenCalled();
+    expect(mockReleaseReservation).not.toHaveBeenCalled();
+  });
+
+  it("test run still creates the row (is_test=true), skips billing deduction, calls no reserve RPC", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(linearWf());
+    mockGetActionHandler.mockReturnValue(async () => ({ output: { ok: true } }));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+    expect(mockCreateWorkflowRunStart.mock.calls[0]![0].isTest).toBe(true);
+    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
+    expect(mockReserveTasks).not.toHaveBeenCalled();
   });
 });

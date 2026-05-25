@@ -33,6 +33,10 @@ function makeMockClient(state: ChainState) {
       state.filters.push({ op: "eq", args: [col, val] });
       return builder;
     }),
+    neq: jest.fn((col: string, val: unknown) => {
+      state.filters.push({ op: "neq", args: [col, val] });
+      return builder;
+    }),
     order: jest.fn(() => builder),
     limit: jest.fn(() => builder),
     maybeSingle: jest.fn(async () =>
@@ -230,6 +234,8 @@ describe("workflowRuns.listByWorkflow", () => {
       op: "eq",
       args: ["workflow_id", "wf-1"],
     });
+    // COST-15C — in-progress (running) rows are excluded from the UI list.
+    expect(state.filters).toContainEqual({ op: "neq", args: ["status", "running"] });
   });
 
   it("caps the limit at 100 even when the caller asks for more", async () => {
@@ -280,6 +286,9 @@ describe("workflowRuns.getById", () => {
     expect(result!.steps).toHaveLength(1);
     expect(result!.steps[0]?.output).toEqual({ ok: true });
     expect(state.filters).toContainEqual({ op: "eq", args: ["id", "run-1"] });
+    // COST-15C — a 'running' row is excluded so the detail surface stays
+    // terminal-only (an in-progress run reads as not-yet-available / null).
+    expect(state.filters).toContainEqual({ op: "neq", args: ["status", "running"] });
   });
 
   it("returns null when the row does not exist (RLS or missing)", async () => {

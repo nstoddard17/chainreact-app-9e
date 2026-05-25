@@ -79,6 +79,13 @@ export type RunFailureCode =
   | "MISSING_VARIABLE"
   | "HANDLER_FAILED"
   /**
+   * COST-15C — a run row already exists for this runId when the engine tried
+   * to create the pre-run row. The dispatch is a duplicate/replay; the engine
+   * refuses to re-execute (no double side effects / double billing). Not
+   * persisted — the original dispatch owns the row.
+   */
+  | "DUPLICATE_DISPATCH"
+  /**
    * Handler returned `branchTaken: "<label>"` but no outgoing edge on this
    * node has that label. The engine consumes this in Commit 2 (label-aware
    * traversal); Commit 1 only adds the code + humanizer support. See
@@ -228,6 +235,54 @@ export class WorkflowEngine {
       return fatalResult;
     }
 
+    // COST-15C — create the run row at the START of execution (status
+    // 'running', finished_at NULL) so finalize UPDATEs the SAME row. Flat
+    // billing stays authoritative; NO reservation is taken here. Ordering
+    // mirrors the COST-15A design (row before billing) so reserve mode
+    // (COST-15D) can attach a hold to an existing row. Created AFTER the
+    // no-row-needed structural fatals above (WORKFLOW_NOT_FOUND →
+    // FK-impossible; TRIGGER_NODE_NOT_FOUND → terminal INSERT via persistRun).
+    //
+    // Idempotent on runId: a duplicate dispatch (a row already exists for this
+    // runId) is refused WITHOUT re-executing — no double side effects, no
+    // double billing, and the existing row is not overwritten. Fail-open: an
+    // unexpected insert error does NOT abort the run; execution continues and
+    // finalize falls back to an INSERT so the record is never lost (no
+    // reservation depends on the row in flat mode).
+    let preRunRowCreated = false;
+    try {
+      const startOutcome = await workflowRunsRepo.createWorkflowRunStart({
+        runId,
+        workflowId: input.workflowId,
+        userId: workflow.userId,
+        triggerNodeId: input.triggerNodeId,
+        triggerEvent: input.triggerEvent,
+        startedAt,
+        isTest,
+        triggeredBy,
+      });
+      if (!startOutcome.created) {
+        log("execution.run.duplicate_dispatch", {});
+        return {
+          runId,
+          workflowId: input.workflowId,
+          status: "failed",
+          steps: [],
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          fatalError: {
+            code: "DUPLICATE_DISPATCH",
+            message: `A run row already exists for ${runId}; skipping duplicate execution.`,
+          },
+          isTest,
+          triggeredBy,
+        };
+      }
+      preRunRowCreated = true;
+    } catch (err) {
+      log("execution.run.pre_run_row_failed", { error: (err as Error).message });
+    }
+
     // Billing gate (Slice 1N). Atomic deduct via deduct_tasks_if_available;
     // refusal aborts before any handler runs so a quota-exhausted user never
     // produces side effects.
@@ -259,7 +314,32 @@ export class WorkflowEngine {
         isTest,
         triggeredBy,
       };
-      await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
+      // COST-15C — the pre-run row already exists, so mark it failed by UPDATE
+      // (not a duplicate INSERT). markWorkflowRunFailedBeforeExecution never
+      // touches billing_status — no reservation was taken (flat mode). If the
+      // pre-run row creation had failed, fall back to the terminal INSERT.
+      const exhaustedClassification = classifyForPersistence(fatalResult);
+      if (preRunRowCreated) {
+        try {
+          await workflowRunsRepo.markWorkflowRunFailedBeforeExecution({
+            runId,
+            fatalError: fatalResult.fatalError!,
+            errorClassification: exhaustedClassification,
+            finishedAt,
+          });
+        } catch (err) {
+          log("execution.run.persist_failed", { error: (err as Error).message });
+        }
+        await notifyOnFailure(
+          fatalResult,
+          workflow.userId,
+          workflow.name,
+          log,
+          exhaustedClassification,
+        );
+      } else {
+        await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
+      }
       return fatalResult;
     }
     if ("skipped" in gateOutcome) {
@@ -519,7 +599,19 @@ export class WorkflowEngine {
     const usage: RunTaskUsage | null = isTest
       ? null
       : computeRunTaskUsage(def, steps);
-    await persistRun(result, workflow.userId, workflow.name, input, log, usage);
+    // COST-15C — finalize by UPDATING the pre-run row (created at start). Falls
+    // back to a recordRun INSERT if the pre-run row was never created (create
+    // failed earlier) so a run record is never lost. Flat billing already
+    // charged above; this only writes the run row + cost columns.
+    await finalizeRun(
+      result,
+      workflow.userId,
+      workflow.name,
+      input,
+      log,
+      usage,
+      preRunRowCreated,
+    );
     if (usage) {
       try {
         await recordRunActuals({
@@ -610,12 +702,94 @@ async function persistRun(
     log("execution.run.persist_failed", { error: (err as Error).message });
   }
 
-  // Workflow-failure notification orchestrator. One classified event →
-  // atomic dedup claim → fan out to enabled channels. Slice 1 fans out to
-  // in-app only; Slice 2 adds email / Slack / Discord / SMS without
-  // changing this call site. Best-effort: orchestrator failures don't
-  // propagate (the run already persisted; the user can still see it on
-  // the workflow detail page).
+  await notifyOnFailure(result, userId, workflowName, log, errorClassification);
+}
+
+/**
+ * COST-15C — finalize a run by UPDATING the pre-run row created at start.
+ * Falls back to a `recordRun` INSERT when the pre-run row was never created
+ * (createWorkflowRunStart failed earlier) or has unexpectedly vanished, so a
+ * run record is never lost. Never writes billing_status / reservation columns
+ * (RPC-owned). Then runs the failure-notification fan-out. Fail-open: a
+ * persistence error is logged and swallowed.
+ */
+async function finalizeRun(
+  result: RunResult,
+  userId: string,
+  workflowName: string,
+  input: RunWorkflowInput,
+  log: (event: string, extra?: Record<string, unknown>) => void,
+  usage: RunTaskUsage | null,
+  preRunRowCreated: boolean,
+): Promise<void> {
+  const errorClassification = classifyForPersistence(result);
+  try {
+    let finalized = false;
+    if (preRunRowCreated) {
+      const outcome = await workflowRunsRepo.finalizeWorkflowRun({
+        runId: result.runId,
+        status: result.status,
+        steps: result.steps,
+        fatalError: result.fatalError ?? null,
+        errorClassification,
+        finishedAt: result.finishedAt,
+        // Only real runs have usage → cost columns. Test runs leave them as the
+        // create-time NULL (omitted ⇒ finalize does not overwrite).
+        ...(usage
+          ? {
+              estimatedTaskCost: usage.estimatedTaskCost,
+              actualTaskCost: usage.actualTaskCost,
+              taskCostPolicyVersion: usage.policyVersion,
+            }
+          : {}),
+      });
+      finalized = outcome.finalized;
+      if (!finalized) {
+        log("execution.run.finalize_no_row", { runId: result.runId });
+      }
+    }
+    if (!finalized) {
+      // No pre-run row (create failed) or it vanished — INSERT so the record
+      // isn't lost. This is the only path that can also INSERT at finalize.
+      await workflowRunsRepo.recordRun({
+        runId: result.runId,
+        workflowId: result.workflowId,
+        userId,
+        status: result.status,
+        triggerNodeId: input.triggerNodeId,
+        triggerEvent: input.triggerEvent,
+        steps: result.steps,
+        fatalError: result.fatalError ?? null,
+        errorClassification,
+        startedAt: result.startedAt,
+        finishedAt: result.finishedAt,
+        isTest: result.isTest,
+        triggeredBy: result.triggeredBy,
+        estimatedTaskCost: usage ? usage.estimatedTaskCost : null,
+        actualTaskCost: usage ? usage.actualTaskCost : null,
+        taskCostPolicyVersion: usage ? usage.policyVersion : null,
+      });
+    }
+  } catch (err) {
+    log("execution.run.persist_failed", { error: (err as Error).message });
+  }
+  await notifyOnFailure(result, userId, workflowName, log, errorClassification);
+}
+
+/**
+ * Workflow-failure notification fan-out — shared by the INSERT (persistRun),
+ * UPDATE (finalizeRun), and mark-failed (BILLING_EXHAUSTED) paths. One
+ * classified event → atomic dedup claim → enabled channels. Best-effort:
+ * orchestrator failures are logged, never propagated (the run already persisted;
+ * the user can still see it on the workflow detail page).
+ */
+async function notifyOnFailure(
+  result: RunResult,
+  userId: string,
+  workflowName: string,
+  log: (event: string, extra?: Record<string, unknown>) => void,
+  errorClassification: HumanizedError | null,
+): Promise<void> {
   if (result.status === "failed" && errorClassification) {
     try {
       const outcome = await notifyWorkflowFailure({

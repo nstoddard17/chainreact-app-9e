@@ -213,6 +213,11 @@ export async function getById(runId: string): Promise<WorkflowRunRecord | null> 
   const { data, error } = await supabase
     .from("workflow_runs")
     .select("*")
+    // COST-15C — hide in-progress (pre-run/crashed) rows from the UI detail
+    // surface. The display contract (WorkflowRunSummarySchema) is terminal-only
+    // (succeeded/failed); a 'running' row would fail response validation. An
+    // in-progress run reads as "not yet available" (null) until it finalizes.
+    .neq("status", "running")
     .eq("id", runId)
     .maybeSingle();
   if (error) {
@@ -232,6 +237,10 @@ export async function listByWorkflow(
     .from("workflow_runs")
     .select("*")
     .eq("workflow_id", workflowId)
+    // COST-15C — exclude in-progress (pre-run/crashed) rows from the run-history
+    // list. The display contract is terminal-only (succeeded/failed); the UI
+    // surfaces a run only once it finalizes, preserving pre-COST-15C UX.
+    .neq("status", "running")
     .order("started_at", { ascending: false })
     .limit(limit);
   if (error) {
