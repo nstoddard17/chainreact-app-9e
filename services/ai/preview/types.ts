@@ -53,6 +53,13 @@ export interface PatchPreviewResult {
   /** True iff the patch is valid and could be applied later. */
   readonly ok: boolean;
   readonly workflowId: string;
+  /**
+   * The workflow's current revision token (its `updatedAt`). Safe metadata.
+   * Callers MUST set `patch.baseRevision = currentRevision` before applying via
+   * AI-6 — apply rejects (`STALE_PATCH`) when they differ. Always present when
+   * the workflow loaded (a NOT_FOUND surfaces as an AiToolError, not here).
+   */
+  readonly currentRevision: string;
   readonly patchId: string;
   readonly patchSummary: string;
   readonly validation: PreviewValidation;

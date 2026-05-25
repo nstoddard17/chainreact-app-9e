@@ -168,6 +168,44 @@ export async function updateDraftDefinition(
   return rowToRecord(data);
 }
 
+export interface UpdateDraftDefinitionGuardedInput {
+  userId: string;
+  workflowId: string;
+  draftDefinition: WorkflowDefinition;
+  /** The `updatedAt` the caller validated against — the optimistic-lock token. */
+  expectedUpdatedAt: string;
+}
+
+/**
+ * Write-time optimistic-concurrency variant of `updateDraftDefinition`. The
+ * UPDATE only matches when (id, user_id, updated_at) all equal the caller's
+ * expectation, so a workflow that changed after the caller read + validated it
+ * is NOT overwritten. Returns `null` when nothing matched (stale revision) —
+ * mirrors `applyTransition`'s `.eq(state)` guard pattern.
+ *
+ * The `set_updated_at` trigger bumps `updated_at` on the matched row, so the
+ * returned record carries the NEW revision token. Used by the AI patch apply
+ * service (Slice 4.AI-6B); `updateDraftDefinition` stays unchanged for other
+ * callers that don't need the guard.
+ */
+export async function updateDraftDefinitionIfRevisionMatches(
+  input: UpdateDraftDefinitionGuardedInput,
+): Promise<WorkflowRecord | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .update({ draft_definition: input.draftDefinition })
+    .eq("id", input.workflowId)
+    .eq("user_id", input.userId)
+    .eq("updated_at", input.expectedUpdatedAt)
+    .select()
+    .maybeSingle<WorkflowsRow>();
+  if (error) {
+    throw new Error(`workflows.updateDraftDefinitionIfRevisionMatches failed: ${error.message}`);
+  }
+  return data ? rowToRecord(data) : null;
+}
+
 // ── workflow_revisions ─────────────────────────────────────────────────────
 
 export interface CreateRevisionInput {

@@ -226,6 +226,7 @@ export async function previewWorkflowPatchForAI(
     })),
   };
   const name = graphRes.data.name;
+  const currentRevision = graphRes.data.updatedAt;
 
   // 2. Deterministic validation (candidate, risk, cost) — never mutates input.
   const validation = validateWorkflowPatch(patch, currentDef);
@@ -277,6 +278,7 @@ export async function previewWorkflowPatchForAI(
   return aiToolOk({
     ok: validation.ok,
     workflowId,
+    currentRevision,
     patchId: patch.patchId,
     patchSummary: patch.summary,
     validation: {

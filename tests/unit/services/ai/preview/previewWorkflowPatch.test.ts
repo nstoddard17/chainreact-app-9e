@@ -95,6 +95,8 @@ describe("previewWorkflowPatchForAI — ownership / loading", () => {
     expect(res.data.beforeSummary).toBeDefined();
     expect(res.data.afterSummary).toBeDefined();
     expect(res.data.candidateSummary).toContain("node(s)");
+    // Revision token surfaced so callers can set patch.baseRevision for AI-6.
+    expect(res.data.currentRevision).toBe("2026-05-25T00:00:00Z");
   });
 });
 
@@ -158,6 +160,8 @@ describe("previewWorkflowPatchForAI — invalid patches", () => {
     expect(res.data.candidateSummary).toBeUndefined();
     expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_ACTION")).toBe(true);
     expect(res.data.blockedReason).toContain("UNKNOWN_ACTION");
+    // currentRevision is present even when the patch is invalid (workflow loaded).
+    expect(res.data.currentRevision).toBe("2026-05-25T00:00:00Z");
   });
 
   it("unknown trigger → ok:false", async () => {

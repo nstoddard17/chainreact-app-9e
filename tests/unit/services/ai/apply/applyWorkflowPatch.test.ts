@@ -8,12 +8,12 @@
  * COST-2 estimator all run for real, so apply is exercised end-to-end.
  */
 const mockGetById = jest.fn();
-const mockUpdateDraftDefinition = jest.fn();
+const mockGuardedUpdate = jest.fn();
 const mockDeductTasks = jest.fn();
 
 jest.mock("@/repositories/workflows", () => ({
   getById: (...a: unknown[]) => mockGetById(...a),
-  updateDraftDefinition: (...a: unknown[]) => mockUpdateDraftDefinition(...a),
+  updateDraftDefinitionIfRevisionMatches: (...a: unknown[]) => mockGuardedUpdate(...a),
 }));
 jest.mock("@/repositories/userBilling", () => ({
   deductTasks: (...a: unknown[]) => mockDeductTasks(...a),
@@ -64,16 +64,16 @@ function patch(operations: PatchOperation[], extra: Partial<WorkflowPatch> = {})
 const APPLY = { userId: "owner-1", workflowId: "wf1" };
 
 function persistedDef(): WorkflowDefinition {
-  return mockUpdateDraftDefinition.mock.calls[0]![1] as WorkflowDefinition;
+  return (mockGuardedUpdate.mock.calls[0]![0] as { draftDefinition: WorkflowDefinition }).draftDefinition;
 }
 
 beforeEach(() => {
   mockGetById.mockReset();
-  mockUpdateDraftDefinition.mockReset();
+  mockGuardedUpdate.mockReset();
   mockDeductTasks.mockReset();
   mockGetById.mockResolvedValue(makeRecord(baseDef()));
-  mockUpdateDraftDefinition.mockImplementation((_id: string, def: WorkflowDefinition) =>
-    Promise.resolve(makeRecord(def, { updatedAt: "rev-2" })),
+  mockGuardedUpdate.mockImplementation((input: { draftDefinition: WorkflowDefinition }) =>
+    Promise.resolve(makeRecord(input.draftDefinition, { updatedAt: "rev-2" })),
   );
 });
 
@@ -84,7 +84,7 @@ describe("applyWorkflowPatchForAI — ownership / loading", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.code).toBe("NOT_FOUND");
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 
   it("returns NOT_FOUND when the caller does not own the workflow", async () => {
@@ -93,14 +93,14 @@ describe("applyWorkflowPatchForAI — ownership / loading", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.code).toBe("NOT_FOUND");
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 
   it("loads + applies a valid low-risk patch", async () => {
     const res = await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 9, y: 9 } }]) });
     expect(res.ok).toBe(true);
     expect(mockGetById).toHaveBeenCalledWith("wf1");
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
+    expect(mockGuardedUpdate).toHaveBeenCalledTimes(1);
     if (!res.ok) return;
     expect(res.appliedOperationCount).toBe(1);
     expect(res.updatedAt).toBe("rev-2");
@@ -114,7 +114,7 @@ describe("applyWorkflowPatchForAI — validation (nothing persisted on failure)"
     if (res.ok) return;
     expect(res.code).toBe("VALIDATION_FAILED");
     expect(res.errors?.some((e) => e.code === "UNKNOWN_ACTION")).toBe(true);
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 
   it("does not mutate the original definition on failure", async () => {
@@ -133,7 +133,7 @@ describe("applyWorkflowPatchForAI — validation (nothing persisted on failure)"
   ])("rejects %s without persisting", async (_label, ops) => {
     const res = await applyWorkflowPatchForAI({ ...APPLY, patch: patch(ops) });
     expect(res.ok).toBe(false);
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 
   it("is all-or-nothing: a single bad op rejects the whole patch", async () => {
@@ -145,7 +145,7 @@ describe("applyWorkflowPatchForAI — validation (nothing persisted on failure)"
       ]),
     });
     expect(res.ok).toBe(false);
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -161,7 +161,7 @@ describe("applyWorkflowPatchForAI — confirmation", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.code).toBe("CONFIRMATION_REQUIRED");
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 
   it("applies a high-risk patch with explicit confirmation", async () => {
@@ -170,7 +170,7 @@ describe("applyWorkflowPatchForAI — confirmation", () => {
     if (!res.ok) return;
     expect(res.riskLevel).toBe("high");
     expect(res.requiresConfirmation).toBe(true);
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
+    expect(mockGuardedUpdate).toHaveBeenCalledTimes(1);
   });
 
   it("re-prompts when the accepted risk level does not match the validated risk", async () => {
@@ -195,7 +195,7 @@ describe("applyWorkflowPatchForAI — confirmation", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.code).toBe("VALIDATION_FAILED");
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -238,12 +238,30 @@ describe("applyWorkflowPatchForAI — persistence", () => {
 });
 
 describe("applyWorkflowPatchForAI — concurrency", () => {
-  it("rejects a stale patch whose baseRevision != the workflow revision", async () => {
+  it("rejects a read-time stale patch whose baseRevision != the workflow revision", async () => {
     const res = await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 1, y: 1 } }], { baseRevision: "old" }) });
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.code).toBe("STALE_PATCH");
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
+  });
+
+  it("persists via the guarded update with the workflow's revision token", async () => {
+    await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 1, y: 1 } }]) });
+    expect(mockGuardedUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "owner-1", workflowId: "wf1", expectedUpdatedAt: "rev-1" }),
+    );
+  });
+
+  it("rejects a WRITE-time stale patch when the guarded update matches no row", async () => {
+    // Read-time check passes (baseRevision === updatedAt), but the workflow
+    // changed between read and guarded write → the guard returns null.
+    mockGuardedUpdate.mockResolvedValue(null);
+    const res = await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 1, y: 1 } }]) });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.code).toBe("STALE_PATCH");
+    expect(mockGuardedUpdate).toHaveBeenCalledTimes(1);
   });
 });
 

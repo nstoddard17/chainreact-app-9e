@@ -15,11 +15,12 @@
  *
  * No model calls, no agent loop, no UI, no auto-apply, no billing deduction.
  *
- * Concurrency note: the workflows repo has no content-revision column and
- * `updateDraftDefinition` has no write-time guard, so this is READ-TIME
- * optimistic concurrency (compare `baseRevision` to `updatedAt` before write).
- * A write-time guarded update (`.eq("updated_at", …)`, mirroring
- * `applyTransition`) is a documented follow-up — see the AI-6 note in the plan.
+ * Concurrency note: the workflows repo has no content-revision column, so
+ * `updatedAt` is the optimistic-lock token. Apply checks it at READ time
+ * (compare `baseRevision` to `updatedAt`) AND at WRITE time via
+ * `updateDraftDefinitionIfRevisionMatches` (`.eq("updated_at", …)`, mirroring
+ * `applyTransition`) — a workflow that changed after our read is never
+ * overwritten; apply returns STALE_PATCH instead (hardened in Slice 4.AI-6B).
  *
  * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §6/§8.
  */
@@ -28,7 +29,7 @@ import type { WorkflowDefinition } from "@/contracts/workflow";
 import { isSecretKey } from "@/services/ai/tools/redact";
 import {
   getById,
-  updateDraftDefinition,
+  updateDraftDefinitionIfRevisionMatches,
   type WorkflowRecord,
 } from "@/repositories/workflows";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
@@ -157,12 +158,25 @@ export async function applyWorkflowPatchForAI(
     }
   }
 
-  // 7. Persist the candidate via the existing repository update method.
-  let updated: WorkflowRecord;
+  // 7. Persist via the write-time guarded update (optimistic concurrency).
+  //    A null result means the workflow changed after our read-time check —
+  //    the patch is stale. We do NOT pretend success or auto-rebase here.
+  let updated: WorkflowRecord | null;
   try {
-    updated = await updateDraftDefinition(workflowId, candidate);
+    updated = await updateDraftDefinitionIfRevisionMatches({
+      userId,
+      workflowId,
+      draftDefinition: candidate,
+      expectedUpdatedAt: record.updatedAt,
+    });
   } catch {
     return fail("UPDATE_FAILED", "Couldn't save the updated workflow. Try again.");
+  }
+  if (!updated) {
+    return fail(
+      "STALE_PATCH",
+      "The workflow changed while this patch was being applied. Re-preview against the latest and try again.",
+    );
   }
 
   const tasks = validation.taskCostEstimate?.estimatedTasksPerRun;

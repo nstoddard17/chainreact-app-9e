@@ -68,6 +68,7 @@ import {
   listByUser,
   updateName,
   updateDraftDefinition,
+  updateDraftDefinitionIfRevisionMatches,
   createRevision,
   setActiveRevision,
   applyTransition,
@@ -190,6 +191,49 @@ describe("repositories/workflows.updateDraftDefinition", () => {
     mockSupabase.current = makeMockClient(state);
     await updateDraftDefinition("wf-1", def);
     expect(state.updatePayload).toEqual({ draft_definition: def });
+  });
+});
+
+describe("repositories/workflows.updateDraftDefinitionIfRevisionMatches (AI-6B guarded)", () => {
+  const def = { nodes: [], edges: [] };
+
+  it("updates + returns the record when (id, user_id, updated_at) all match", async () => {
+    const state = freshState({ ...baseRow, draft_definition: def, updated_at: "2026-05-06T14:00:00Z" });
+    mockSupabase.current = makeMockClient(state);
+    const result = await updateDraftDefinitionIfRevisionMatches({
+      userId: "user-1",
+      workflowId: "wf-1",
+      draftDefinition: def,
+      expectedUpdatedAt: "2026-05-06T13:00:00Z",
+    });
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe("wf-1");
+    expect(result!.updatedAt).toBe("2026-05-06T14:00:00Z"); // trigger-bumped revision token
+    expect(state.updatePayload).toEqual({ draft_definition: def });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["id", "wf-1"] });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["user_id", "user-1"] });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["updated_at", "2026-05-06T13:00:00Z"] });
+  });
+
+  it("returns null when no row matches (stale revision / wrong owner)", async () => {
+    const state = freshState(null);
+    mockSupabase.current = makeMockClient(state);
+    const result = await updateDraftDefinitionIfRevisionMatches({
+      userId: "user-1",
+      workflowId: "wf-1",
+      draftDefinition: def,
+      expectedUpdatedAt: "stale",
+    });
+    expect(result).toBeNull();
+    expect(state.filters).toContainEqual({ op: "eq", args: ["updated_at", "stale"] });
+  });
+
+  it("throws on a supabase error", async () => {
+    const state: ChainState = { filters: [], resultData: null, resultError: { message: "boom" }, rejectIncludesDeleted: false };
+    mockSupabase.current = makeMockClient(state);
+    await expect(
+      updateDraftDefinitionIfRevisionMatches({ userId: "user-1", workflowId: "wf-1", draftDefinition: def, expectedUpdatedAt: "x" }),
+    ).rejects.toThrow(/boom/);
   });
 });
 
