@@ -1,4 +1,7 @@
-import { ProviderManifestSchema } from "@/contracts/integration";
+import {
+  ProviderManifestSchema,
+  TokenIngestVerificationError,
+} from "@/contracts/integration";
 
 const baseValid = {
   id: "slack",
@@ -74,5 +77,74 @@ describe("ProviderManifestSchema", () => {
     expect(
       ProviderManifestSchema.safeParse({ ...baseValid, healthCheckIntervalMs: -1 }).success,
     ).toBe(false);
+  });
+
+  it("defaults authFlow to 'code_callback' when omitted", () => {
+    const m = ProviderManifestSchema.parse(baseValid);
+    expect(m.authFlow).toBe("code_callback");
+  });
+
+  it("accepts authFlow: 'token_ingest' on non-refreshable user-scope providers", () => {
+    const r = ProviderManifestSchema.safeParse({
+      ...baseValid,
+      tokenScope: "user",
+      accountIdField: undefined,
+      authFlow: "token_ingest",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects authFlow values outside the enum", () => {
+    const r = ProviderManifestSchema.safeParse({
+      ...baseValid,
+      authFlow: "oauth1a",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects refreshable=true on token_ingest providers", () => {
+    const r = ProviderManifestSchema.safeParse({
+      ...baseValid,
+      tokenScope: "user",
+      accountIdField: undefined,
+      authFlow: "token_ingest",
+      refreshable: true,
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(
+        r.error.issues.some((i) => i.path.join(".") === "refreshable"),
+      ).toBe(true);
+    }
+  });
+
+  it("preserves pre-Slice-17 manifests through the new authFlow default (no migration needed)", () => {
+    const m = ProviderManifestSchema.parse({
+      id: "slack",
+      displayName: "Slack",
+      tokenScope: "workspace",
+      accountIdField: "team_id",
+      scopes: { required: ["chat:write"], optional: [], deprecated: [] },
+      capabilities: { oauth: true },
+      healthCheckIntervalMs: 60_000,
+      refreshable: false,
+    });
+    expect(m.authFlow).toBe("code_callback");
+  });
+});
+
+describe("TokenIngestVerificationError", () => {
+  it("constructs with provider + reason; carries reason as a field", () => {
+    const err = new TokenIngestVerificationError("trello", "invalid token");
+    expect(err.name).toBe("TokenIngestVerificationError");
+    expect(err.reason).toBe("invalid token");
+    expect(err.message).toContain("trello");
+    expect(err.message).toContain("invalid token");
+  });
+
+  it("is an Error instance for instanceof catch dispatch", () => {
+    const err = new TokenIngestVerificationError("trello", "rejected");
+    expect(err instanceof Error).toBe(true);
+    expect(err instanceof TokenIngestVerificationError).toBe(true);
   });
 });

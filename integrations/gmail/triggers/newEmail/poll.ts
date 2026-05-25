@@ -7,12 +7,12 @@ import { DEFAULT_INTERVAL_MS } from "@/services/cron/pollingIntervals";
 import {
   HistoryListStaleCursorError,
   usersHistoryList,
-  type GmailHistoryRecord,
 } from "../../api/usersHistoryList";
 import { usersGetProfile } from "../../api/usersGetProfile";
 import { usersMessagesGet } from "../../api/usersMessagesGet";
 import { advanceCheckpoint } from "./historyState";
 import { checkAndMarkSeen } from "./dedup";
+import { extractMessageEvents } from "./extractMessageEvents";
 import { matchesFilters } from "./filters";
 import { buildTriggerEvent } from "./messageHydration";
 import { GmailNewEmailConfigSchema } from "./schema";
@@ -143,8 +143,13 @@ async function poll(input: {
     }
 
     latestApiHistoryId = page.historyId;
-    for (const id of extractMessageIds(page.history)) {
-      collectedMessageIds.push(id);
+    // Gmail 2.3 Commit 2: walk tagged events. `new_email` consumes
+    // every event source (the labelsAdded entries flow through too —
+    // V1 historyTypes intent per usersHistoryList.ts:10-17). The
+    // tagged shape leaves per-source filtering to future triggers
+    // (new_labeled_email, new_attachment) without re-walking pages.
+    for (const ev of extractMessageEvents(page.history)) {
+      collectedMessageIds.push(ev.id);
     }
 
     if (!page.nextPageToken) break;
@@ -225,26 +230,6 @@ async function processOneMessage(input: {
     triggerNodeId: trigger.nodeId,
     event,
   });
-}
-
-function extractMessageIds(
-  history: readonly GmailHistoryRecord[],
-): string[] {
-  const ids: string[] = [];
-  for (const entry of history) {
-    if (entry.messagesAdded) {
-      for (const m of entry.messagesAdded) ids.push(m.message.id);
-    }
-    if (entry.labelsAdded) {
-      for (const m of entry.labelsAdded) ids.push(m.message.id);
-    }
-    // V1 also flattened entry.messages as a defensive fallback (V1
-    // gmail-processor.ts:885) — preserve that.
-    if (entry.messages) {
-      for (const m of entry.messages) ids.push(m.id);
-    }
-  }
-  return ids;
 }
 
 export const gmailNewEmailPollingHandler: PollingHandler = {

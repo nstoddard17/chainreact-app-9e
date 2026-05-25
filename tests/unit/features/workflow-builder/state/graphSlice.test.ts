@@ -244,3 +244,359 @@ describe("graphSlice.save", () => {
     await Promise.all([p1, p2]);
   });
 });
+
+// ─── Slice 3.2 extensions ────────────────────────────────────────────────────
+
+import type { ActionMeta } from "@/contracts/actionMeta";
+import { deriveDefaultConfig } from "@/features/workflow-builder/state/graphSlice";
+
+const httpRequestMeta: ActionMeta = {
+  key: "native:http_request",
+  provider: "native",
+  type: "http_request",
+  displayName: "HTTP Request",
+  description: "Make an HTTP request.",
+  category: "http",
+  requiresIntegration: false,
+  fields: [
+    {
+      name: "method",
+      label: "Method",
+      type: "select",
+      required: true,
+      options: [{ value: "GET", label: "GET" }],
+    },
+    {
+      name: "url",
+      label: "URL",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "timeoutSeconds",
+      label: "Timeout",
+      type: "number",
+      required: false,
+      defaultValue: 15,
+      numeric: { min: 1, max: 30, integer: true, step: 1 },
+    },
+  ],
+  outputs: [],
+  producesFileRef: false,
+  consumesFileRef: false,
+  displayOrder: 10,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "low",
+};
+
+describe("deriveDefaultConfig", () => {
+  it("returns only fields that declare a defaultValue", () => {
+    expect(deriveDefaultConfig(httpRequestMeta)).toEqual({ timeoutSeconds: 15 });
+  });
+});
+
+describe("graphSlice.addActionFromMeta", () => {
+  it("creates a node with provider/type from the meta and default config", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    expect(node).toMatchObject({
+      provider: "native",
+      type: "http_request",
+      config: { timeoutSeconds: 15 },
+      kind: "action",
+    });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("refuses to add an action before a trigger exists (delegates to addAction)", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    expect(() =>
+      useGraphSlice.getState().addActionFromMeta(httpRequestMeta),
+    ).toThrow(/trigger/i);
+  });
+});
+
+// ─── Slice 3.3 — trigger meta extension ──────────────────────────────────────
+
+import type { TriggerMeta } from "@/contracts/triggerMeta";
+
+const scheduledTriggerMeta: TriggerMeta = {
+  key: "native:schedule.fired",
+  provider: "native",
+  type: "schedule.fired",
+  displayName: "Scheduled Trigger",
+  description: "Fires on a cron expression.",
+  category: "scheduling",
+  activation: "scheduled",
+  requiresIntegration: false,
+  fields: [
+    {
+      name: "cronExpression",
+      label: "Cron Expression",
+      type: "cron",
+      required: true,
+      defaultValue: "0 9 * * 1-5",
+    },
+  ],
+  payloadShape: [],
+  displayOrder: 20,
+};
+
+const manualTriggerMeta: TriggerMeta = {
+  key: "native:manual.run",
+  provider: "native",
+  type: "manual.run",
+  displayName: "Manual Trigger",
+  description: "Runs when you click Run Now.",
+  category: "logic",
+  activation: "manual",
+  requiresIntegration: false,
+  fields: [],
+  payloadShape: [],
+  displayOrder: 10,
+};
+
+describe("deriveDefaultConfig — TriggerMeta variant", () => {
+  it("returns only fields that declare a defaultValue (scheduled trigger)", () => {
+    expect(deriveDefaultConfig(scheduledTriggerMeta)).toEqual({
+      cronExpression: "0 9 * * 1-5",
+    });
+  });
+
+  it("returns empty for fields-less manual trigger", () => {
+    expect(deriveDefaultConfig(manualTriggerMeta)).toEqual({});
+  });
+});
+
+describe("graphSlice.addTriggerFromMeta", () => {
+  it("creates a trigger node with provider/type from the meta and default config", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(scheduledTriggerMeta);
+    expect(node).toMatchObject({
+      kind: "trigger",
+      provider: "native",
+      type: "schedule.fired",
+      config: { cronExpression: "0 9 * * 1-5" },
+    });
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("creates a manual trigger with empty config", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(manualTriggerMeta);
+    expect(node).toMatchObject({
+      kind: "trigger",
+      provider: "native",
+      type: "manual.run",
+      config: {},
+    });
+  });
+
+  it("refuses to add a second trigger when one already exists (delegates to addTrigger)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    expect(() =>
+      useGraphSlice.getState().addTriggerFromMeta(manualTriggerMeta),
+    ).toThrow(/already has a trigger/i);
+    // No state mutation on rejection.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});
+
+describe("graphSlice.addTrigger — config passthrough (Slice 3.3)", () => {
+  it("uses the supplied config when provided", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice.getState().addTrigger({
+      provider: "native",
+      type: "schedule.fired",
+      config: { cronExpression: "*/30 * * * *" },
+    });
+    expect(node.config).toEqual({ cronExpression: "*/30 * * * *" });
+  });
+
+  it("defaults to empty config when not supplied (Slice 1I.2 behavior preserved)", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const node = useGraphSlice.getState().addTrigger({ provider: "slack" });
+    expect(node.config).toEqual({});
+  });
+});
+
+describe("graphSlice.updateNodeConfig", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+  });
+
+  it("replaces the named node's config and marks dirty", () => {
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    // Saving the node + clearing dirty is the caller's concern in real code;
+    // here we just compare before/after the update.
+    useGraphSlice.getState().updateNodeConfig(node.id, {
+      method: "POST",
+      url: "https://example.com",
+      timeoutSeconds: 30,
+    });
+    const updated = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === node.id);
+    expect(updated?.config).toEqual({
+      method: "POST",
+      url: "https://example.com",
+      timeoutSeconds: 30,
+    });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("no-op when the supplied config is shallow-equal to the existing one", () => {
+    const node = useGraphSlice.getState().addActionFromMeta(httpRequestMeta);
+    // First update with new values to flip dirty back to false would require a save;
+    // instead, snapshot pendingNodes reference and assert the second update doesn't
+    // produce a new reference.
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().updateNodeConfig(node.id, { timeoutSeconds: 15 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+
+  it("no-op when the nodeId is unknown", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().updateNodeConfig("ghost", { x: 1 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+});
+
+// ─── Slice 3.5 — canvas-driven actions ──────────────────────────────────────
+
+describe("graphSlice.updateNodePosition", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+  });
+
+  it("replaces the named node's position and flips dirty", () => {
+    useGraphSlice
+      .getState()
+      .updateNodePosition("t1", { x: 200, y: 80 });
+    const moved = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === "t1");
+    expect(moved?.position).toEqual({ x: 200, y: 80 });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("no-op when the position is shallow-equal (click without drag)", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice
+      .getState()
+      .updateNodePosition("t1", { x: 0, y: 0 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("no-op when the nodeId is unknown", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice
+      .getState()
+      .updateNodePosition("ghost", { x: 1, y: 2 });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("does not touch unrelated nodes", () => {
+    useGraphSlice.getState().addAction({ provider: "slack" });
+    const otherBefore = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id !== "t1")!;
+    useGraphSlice
+      .getState()
+      .updateNodePosition("t1", { x: 1, y: 2 });
+    const otherAfter = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id !== "t1")!;
+    expect(otherAfter).toBe(otherBefore);
+  });
+});
+
+describe("graphSlice.connectNodes", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack" });
+    useGraphSlice.getState().addAction({ provider: "gmail" });
+  });
+
+  it("adds an edge between two existing nodes and flips dirty", () => {
+    // addAction auto-stitches edges trigger→A→B, so we connect
+    // trigger→B (a non-adjacent pair) to exercise connectNodes without
+    // colliding with the existing auto-stitched edges.
+    const { pendingNodes, pendingEdges } = useGraphSlice.getState();
+    const from = pendingNodes[0]!.id;
+    const to = pendingNodes[2]!.id;
+    const initialEdgeCount = pendingEdges.length;
+    // Reset dirty after the addAction-driven flip so we measure connectNodes alone.
+    useGraphSlice.setState({ isDirty: false });
+    const edge = useGraphSlice.getState().connectNodes({ from, to });
+    expect(edge.from).toBe(from);
+    expect(edge.to).toBe(to);
+    const after = useGraphSlice.getState();
+    expect(after.pendingEdges).toHaveLength(initialEdgeCount + 1);
+    expect(after.pendingEdges).toContainEqual(edge);
+    expect(after.isDirty).toBe(true);
+  });
+
+  it("throws on self-loop", () => {
+    const id = useGraphSlice.getState().pendingNodes[0]!.id;
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from: id, to: id }),
+    ).toThrow(/self-loops/i);
+  });
+
+  it("throws when the source is unknown", () => {
+    const id = useGraphSlice.getState().pendingNodes[0]!.id;
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from: "ghost", to: id }),
+    ).toThrow(/unknown source node/i);
+  });
+
+  it("throws when the target is unknown", () => {
+    const id = useGraphSlice.getState().pendingNodes[0]!.id;
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from: id, to: "ghost" }),
+    ).toThrow(/unknown target node/i);
+  });
+
+  it("rejects duplicate unlabeled edges between the same (from, to)", () => {
+    // Use a non-adjacent pair so the first connectNodes succeeds (the
+    // auto-stitched edges already cover trigger→A and A→B).
+    const { pendingNodes } = useGraphSlice.getState();
+    const from = pendingNodes[0]!.id;
+    const to = pendingNodes[2]!.id;
+    useGraphSlice.getState().connectNodes({ from, to });
+    expect(() =>
+      useGraphSlice.getState().connectNodes({ from, to }),
+    ).toThrow(/already exists/i);
+  });
+});
+
+describe("graphSlice.removeEdge", () => {
+  it("removes the edge by id and flips dirty", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack" });
+    const edgeId = useGraphSlice.getState().pendingEdges[0]!.id;
+    useGraphSlice.setState({ isDirty: false });
+    useGraphSlice.getState().removeEdge(edgeId);
+    const s = useGraphSlice.getState();
+    expect(s.pendingEdges.find((e) => e.id === edgeId)).toBeUndefined();
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("no-op on unknown edge id (does not flip dirty)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const before = useGraphSlice.getState().pendingEdges;
+    useGraphSlice.getState().removeEdge("ghost");
+    expect(useGraphSlice.getState().pendingEdges).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});

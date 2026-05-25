@@ -50,6 +50,7 @@ export const sendChannelMessage: ActionHandler = async (input) => {
     botToken,
     channel: config.channel,
     text: config.text,
+    threadTs: config.threadTs,
   });
 
   return {

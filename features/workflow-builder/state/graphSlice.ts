@@ -1,9 +1,12 @@
 import { create } from "zustand";
+import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type {
   WorkflowDefinition,
   WorkflowEdge,
   WorkflowNode,
 } from "@/contracts/workflow";
+import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
 import {
   WorkflowApiError,
   updateWorkflow,
@@ -46,6 +49,8 @@ export interface GraphSliceState {
 export interface AddNodeInput {
   provider: string;
   type?: string;
+  /** Optional initial config (e.g. derived from ActionMeta.fields defaults). */
+  config?: Record<string, unknown>;
 }
 
 export interface GraphSliceActions {
@@ -53,8 +58,71 @@ export interface GraphSliceActions {
   reset(): void;
   addTrigger(input: AddNodeInput): WorkflowNode;
   addAction(input: AddNodeInput): WorkflowNode;
+  /**
+   * Slice 3.2 — add an action node by its ActionMeta. Derives the
+   * default config from `meta.fields[].defaultValue` so authors see
+   * the recommended starting values pre-populated in the config form.
+   */
+  addActionFromMeta(meta: ActionMeta): WorkflowNode;
+  /**
+   * Slice 3.3 — add a trigger node by its TriggerMeta. Symmetric to
+   * `addActionFromMeta`: derives the default config from
+   * `meta.fields[].defaultValue` so e.g. the scheduled trigger's
+   * cronExpression field can pre-populate a sensible placeholder.
+   * Same single-trigger-per-workflow guard as `addTrigger`.
+   */
+  addTriggerFromMeta(meta: TriggerMeta): WorkflowNode;
   removeNode(nodeId: string): void;
+  /**
+   * Slice 3.2 — replace the named node's config. Caller passes the
+   * full config object (typically the configSlice draft values for
+   * the node). Sets `isDirty: true` if the config changed.
+   */
+  updateNodeConfig(nodeId: string, config: Record<string, unknown>): void;
+  /**
+   * Slice 3.5 — replace the named node's position after a canvas drag.
+   * No-op if the position is shallow-equal to the current one (avoids
+   * flipping dirty on a click that doesn't move the node). No-op on
+   * unknown nodeId.
+   */
+  updateNodePosition(nodeId: string, position: WorkflowNodePosition): void;
+  /**
+   * Slice 3.5 — add an edge between two existing nodes (canvas connect
+   * handle). Returns the new edge. Throws when either endpoint is
+   * unknown, when from === to (self-loop), or when an unlabeled edge
+   * between the same (from, to) already exists. Label support is
+   * deferred — branching edits land with Slice 3.6 (router routes).
+   */
+  connectNodes(input: { from: string; to: string }): WorkflowEdge;
+  /**
+   * Slice 3.5 — remove an edge by id (canvas keyboard-delete on a
+   * selected edge). No-op on unknown edgeId.
+   */
+  removeEdge(edgeId: string): void;
   save(): Promise<void>;
+}
+
+/**
+ * Derive an initial config Record from a meta's field defaults.
+ *
+ * Slice 3.2 introduced this helper for ActionMeta; Slice 3.3 widens it
+ * to TriggerMeta — both shapes share the same `FieldMeta[]` contract,
+ * so a single helper covers both via a structural `{ fields }` param.
+ *
+ * Only fields whose `defaultValue` is explicitly set contribute; other
+ * fields are left absent so the schema's own defaults / requireds take
+ * effect when the workflow runs.
+ */
+export function deriveDefaultConfig(
+  meta: Pick<ActionMeta, "fields"> | Pick<TriggerMeta, "fields">,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const field of meta.fields) {
+    if (field.defaultValue !== undefined) {
+      out[field.name] = field.defaultValue;
+    }
+  }
+  return out;
 }
 
 export type GraphSlice = GraphSliceState & GraphSliceActions;
@@ -123,7 +191,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       kind: "trigger",
       provider: input.provider,
       type: input.type ?? "",
-      config: {},
+      config: input.config ?? {},
       position: { x: 0, y: 0 },
     };
     set({
@@ -145,7 +213,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       kind: "action",
       provider: input.provider,
       type: input.type ?? "",
-      config: {},
+      config: input.config ?? {},
       position: { x: 0, y: (pendingNodes.length) * 120 },
     };
     const newEdge: WorkflowEdge = {
@@ -162,6 +230,55 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     return node;
   },
 
+  addActionFromMeta(meta) {
+    // Delegates to addAction with metadata-derived defaults so the
+    // dirty-check + edge-creation behavior stays single-sourced.
+    return get().addAction({
+      provider: meta.provider,
+      type: meta.type,
+      config: deriveDefaultConfig(meta),
+    });
+  },
+
+  addTriggerFromMeta(meta) {
+    // Slice 3.3 — mirror of addActionFromMeta. Delegates to addTrigger
+    // so the single-trigger-per-workflow guard + dirty-check stay
+    // single-sourced. Same metadata-derived defaults policy as actions.
+    return get().addTrigger({
+      provider: meta.provider,
+      type: meta.type,
+      config: deriveDefaultConfig(meta),
+    });
+  },
+
+  updateNodeConfig(nodeId, config) {
+    const { pendingNodes } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return;
+    const current = pendingNodes[idx]!;
+    // Cheap shallow-equality short-circuit: if values match, no-op.
+    const currentKeys = Object.keys(current.config);
+    const nextKeys = Object.keys(config);
+    if (currentKeys.length === nextKeys.length) {
+      let same = true;
+      for (const k of currentKeys) {
+        if (current.config[k] !== config[k]) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return;
+    }
+    const updated: WorkflowNode = { ...current, config: { ...config } };
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updated;
+    set({
+      pendingNodes: nextNodes,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
   removeNode(nodeId) {
     const { pendingNodes, pendingEdges } = get();
     const remaining = pendingNodes.filter((n) => n.id !== nodeId);
@@ -172,6 +289,75 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     set({
       pendingNodes: remaining,
       pendingEdges: newEdges,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
+  updateNodePosition(nodeId, position) {
+    const { pendingNodes } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return;
+    const current = pendingNodes[idx]!;
+    if (
+      current.position.x === position.x &&
+      current.position.y === position.y
+    ) {
+      return; // shallow-equal — no dirty flip.
+    }
+    const updated: WorkflowNode = {
+      ...current,
+      position: { x: position.x, y: position.y },
+    };
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updated;
+    set({
+      pendingNodes: nextNodes,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
+  connectNodes({ from, to }) {
+    const { pendingNodes, pendingEdges } = get();
+    if (from === to) {
+      throw new Error("Self-loops are not allowed.");
+    }
+    if (!pendingNodes.some((n) => n.id === from)) {
+      throw new Error(`Unknown source node '${from}'.`);
+    }
+    if (!pendingNodes.some((n) => n.id === to)) {
+      throw new Error(`Unknown target node '${to}'.`);
+    }
+    // Dedup unlabeled edges. Labels are deferred to Slice 3.6.
+    if (
+      pendingEdges.some(
+        (e) => e.from === from && e.to === to && e.label === undefined,
+      )
+    ) {
+      throw new Error(
+        `An edge from '${from}' to '${to}' already exists.`,
+      );
+    }
+    const edge: WorkflowEdge = {
+      id: newEdgeId(),
+      from,
+      to,
+    };
+    set({
+      pendingEdges: [...pendingEdges, edge],
+      isDirty: true,
+      saveError: null,
+    });
+    return edge;
+  },
+
+  removeEdge(edgeId) {
+    const { pendingEdges } = get();
+    const remaining = pendingEdges.filter((e) => e.id !== edgeId);
+    if (remaining.length === pendingEdges.length) return;
+    set({
+      pendingEdges: remaining,
       isDirty: true,
       saveError: null,
     });

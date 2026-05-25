@@ -1,8 +1,36 @@
-import { type ProviderOAuth } from "@/contracts/integration";
+import {
+  type ProviderHint,
+  type ProviderOAuth,
+  type ProviderTokenIngestAuth,
+  TokenIngestVerificationError,
+} from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
+import { airtableOAuth } from "@/integrations/airtable/oauth";
+import { discordOAuth } from "@/integrations/discord/oauth";
+import { dropboxOAuth } from "@/integrations/dropbox/oauth";
+import { facebookOAuth } from "@/integrations/facebook/oauth";
+import { githubOAuth } from "@/integrations/github/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
+import { googleAnalyticsOAuth } from "@/integrations/google-analytics/oauth";
+import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
+import { googleDocsOAuth } from "@/integrations/google-docs/oauth";
+import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
+import { googleSheetsOAuth } from "@/integrations/google-sheets/oauth";
+import { hubspotOAuth } from "@/integrations/hubspot/oauth";
+import { mailchimpOAuth } from "@/integrations/mailchimp/oauth";
+import { mondayOAuth } from "@/integrations/monday/oauth";
+import { microsoftExcelOAuth } from "@/integrations/microsoft-excel/oauth";
+import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth";
+import { microsoftOneNoteOAuth } from "@/integrations/microsoft-onenote/oauth";
+import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
+import { microsoftOutlookCalendarOAuth } from "@/integrations/microsoft-outlook-calendar/oauth";
+import { microsoftTeamsOAuth } from "@/integrations/microsoft-teams/oauth";
+import { notionOAuth } from "@/integrations/notion/oauth";
+import { shopifyOAuth } from "@/integrations/shopify/oauth";
 import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
+import { stripeOAuth } from "@/integrations/stripe/oauth";
+import { trelloAuth } from "@/integrations/trello/auth";
 import {
   getActiveForExecution,
   updateTokens,
@@ -24,11 +52,73 @@ import { createState, consumeState, InvalidStateError } from "./state";
 const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze({
   slack: slackOAuth,
   gmail: gmailOAuth,
+  // Slice 3.GOOGLE-ANALYTICS-2 — GA4 OAuth. Refreshable, PKCE S256,
+  // OIDC-userinfo account identity. Reuses the shared Google OAuth helpers
+  // (same as Docs / Sheets / Drive / Calendar / Gmail).
+  "google-analytics": googleAnalyticsOAuth,
+  "google-calendar": googleCalendarOAuth,
+  "google-docs": googleDocsOAuth,
+  "google-drive": googleDriveOAuth,
+  "google-sheets": googleSheetsOAuth,
+  "microsoft-outlook": microsoftOutlookOAuth,
+  "microsoft-outlook-calendar": microsoftOutlookCalendarOAuth,
+  "microsoft-onedrive": microsoftOneDriveOAuth,
+  "microsoft-onenote": microsoftOneNoteOAuth,
+  "microsoft-excel": microsoftExcelOAuth,
+  "microsoft-teams": microsoftTeamsOAuth,
+  notion: notionOAuth,
+  airtable: airtableOAuth,
+  stripe: stripeOAuth,
+  shopify: shopifyOAuth,
+  hubspot: hubspotOAuth,
+  github: githubOAuth,
+  mailchimp: mailchimpOAuth,
+  // Slice 3.MONDAY-2 — Monday.com OAuth. Refreshable, body-auth, no
+  // PKCE. Mirrors HubSpot's wire-format shape. See
+  // integrations/monday/oauth.ts for the per-provider details.
+  monday: mondayOAuth,
+  // Slice 3.DISCORD-2 — Discord identity OAuth. Refreshable (Discord
+  // issues refresh tokens for user identity flows); bot install is a
+  // side-effect of the inline `bot` scope picker on Discord's
+  // authorize page. The deployment-level DISCORD_BOT_TOKEN env is
+  // owned by integrations/_shared/discord/api/_base.ts and is NOT
+  // touched by this OAuth implementation.
+  discord: discordOAuth,
+  // Slice 3.DROPBOX-2 — Dropbox OAuth. Refreshable (token_access_type=
+  // offline), body-auth, no PKCE. See integrations/dropbox/oauth.ts.
+  dropbox: dropboxOAuth,
+  // Slice 3.FACEBOOK-2 — Facebook OAuth. NOT refreshable (long-lived
+  // user token via fb_exchange_token, no refresh token); page tokens
+  // derived at runtime. See integrations/facebook/oauth.ts.
+  facebook: facebookOAuth,
 });
+
+/**
+ * Per-provider token-ingest registry. Empty at contract-introduction
+ * time; populated as each token-ingest provider lands (Trello first).
+ *
+ * Parallel to `OAUTH_BY_PROVIDER` — the dispatcher's `connect()` branches
+ * on `manifest.authFlow` to decide which registry to consult.
+ */
+const TOKEN_INGEST_BY_PROVIDER: Readonly<Record<string, ProviderTokenIngestAuth>> =
+  Object.freeze({
+    trello: trelloAuth,
+  });
 
 export interface ConnectInput {
   userId: string;
   provider: string;
+  /**
+   * Optional per-tenant provider hint (Slice 12). Set by the connect
+   * route from the request body for providers whose OAuth URL depends
+   * on user input (Shopify shop subdomain). The dispatcher validates
+   * the hint via the per-provider `validateProviderHint` hook BEFORE
+   * creating state, then binds it into the JWT payload AND forwards it
+   * to `buildAuthUrl`. Non-tenant providers omit the field; passing a
+   * hint to a provider that didn't declare `validateProviderHint`
+   * raises a typed error.
+   */
+  providerHint?: ProviderHint;
 }
 
 export interface ConnectOutput {
@@ -44,11 +134,55 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     throw new Error(`Provider '${input.provider}' does not support OAuth.`);
   }
 
+  // Token-ingest providers (Slice 17+) take a parallel path. They receive
+  // the token from the browser via URL fragment + client POST, not via a
+  // server callback with `code` + `state`. The dispatcher still owns
+  // state issuance — only the wire transport differs.
+  if (manifest.authFlow === "token_ingest") {
+    // Input validation (providerHint) FIRST — fails fast on bad input
+    // regardless of server-side registry config. A misconfigured server
+    // shouldn't mask a malformed client request.
+    if (input.providerHint !== undefined) {
+      throw new Error(
+        `Provider '${input.provider}' (token_ingest) does not accept providerHint.`,
+      );
+    }
+    const ingestAuth = TOKEN_INGEST_BY_PROVIDER[input.provider];
+    if (!ingestAuth) {
+      throw new Error(
+        `No token-ingest implementation registered for provider '${input.provider}'. Update services/oauth/dispatcher.ts.`,
+      );
+    }
+    const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
+    const { token: state } = await createState({
+      userId: input.userId,
+      provider: input.provider,
+      requestedScopes,
+    });
+    const redirectUrl = ingestAuth.buildAuthUrl(state, requestedScopes);
+    return { redirectUrl };
+  }
+
   const oauth = OAUTH_BY_PROVIDER[input.provider];
   if (!oauth) {
     throw new Error(
       `No OAuth implementation registered for provider '${input.provider}'. Update services/oauth/dispatcher.ts.`,
     );
+  }
+
+  // Slice 12: per-tenant providerHint validation. Runs BEFORE state
+  // creation so format errors fail at the start of the flow rather
+  // than at the callback (where the user has already authorized on
+  // the provider's UI). A providerHint passed to a provider without a
+  // `validateProviderHint` hook is a programming error — the only
+  // providers expecting hints are the ones that declared the hook.
+  if (input.providerHint !== undefined) {
+    if (!oauth.validateProviderHint) {
+      throw new Error(
+        `Provider '${input.provider}' does not accept providerHint inputs.`,
+      );
+    }
+    oauth.validateProviderHint(input.providerHint);
   }
 
   const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
@@ -71,6 +205,9 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
           },
         }
       : {}),
+    ...(input.providerHint !== undefined
+      ? { providerHint: input.providerHint }
+      : {}),
   });
   const redirectUrl = oauth.buildAuthUrl(
     state,
@@ -78,6 +215,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     pkceGen !== undefined
       ? { codeChallenge: pkceGen.codeChallenge, codeChallengeMethod: pkceGen.codeChallengeMethod }
       : null,
+    input.providerHint ?? null,
   );
   return { redirectUrl };
 }
@@ -108,7 +246,9 @@ export async function handleCallback(
   //
   // pkce is non-null only for providers whose connect path issued a PKCE
   // challenge (Gmail and future PKCE providers). Slack default v2 → null.
-  const { payload, pkce } = await consumeState(input.state);
+  // providerHint is non-null only for per-tenant providers (Slice 12 —
+  // Shopify) whose connect path supplied a hint. Other providers → null.
+  const { payload, pkce, providerHint } = await consumeState(input.state);
   if (payload.provider !== input.provider) {
     throw new InvalidStateError("provider mismatch between state and route");
   }
@@ -120,7 +260,90 @@ export async function handleCallback(
     );
   }
 
-  const { tokens, account } = await oauth.handleCallback(input.code, input.state, pkce);
+  const { tokens, account } = await oauth.handleCallback(
+    input.code,
+    input.state,
+    pkce,
+    providerHint,
+  );
+
+  const integration = await upsertActive({
+    userId: payload.userId,
+    provider: input.provider,
+    providerAccountId: account.providerAccountId,
+    displayName: account.displayName,
+    tokens,
+    accountMetadata: account.metadata,
+  });
+
+  return { integration };
+}
+
+/**
+ * Input for `handleTokenIngest` — the dispatcher operation that receives
+ * a token captured by the V2 client ingest page (Slice 17 onwards).
+ */
+export interface HandleTokenIngestInput {
+  userId: string;
+  provider: string;
+  state: string;
+  token: string;
+}
+
+/**
+ * Verify + persist a token-ingest provider's user token.
+ *
+ * Flow:
+ *   1. Validate inputs.
+ *   2. Look up the manifest; require `authFlow === "token_ingest"`.
+ *   3. Look up the provider's ingest implementation.
+ *   4. `consumeState(state)` — atomic JWT verify + DB delete-if-fresh.
+ *      State is consumed BEFORE the verify call so a failed verify
+ *      cannot leave a replayable state row behind.
+ *   5. Cross-check the JWT payload's provider AND userId against the
+ *      route-supplied values.
+ *   6. Provider's `verifyAndIngestToken` — calls the provider API to
+ *      confirm the token is valid AND fetches account info.
+ *   7. `upsertActive` — same persistence path OAuth callbacks use.
+ *
+ * NEVER logs the `token` value at any point.
+ */
+export async function handleTokenIngest(
+  input: HandleTokenIngestInput,
+): Promise<HandleCallbackOutput> {
+  if (!input.userId) throw new Error("handleTokenIngest: userId is required.");
+  if (!input.state) throw new InvalidStateError("missing state");
+  if (!input.token) {
+    throw new TokenIngestVerificationError(input.provider, "missing token");
+  }
+
+  const manifest = getProvider(input.provider);
+  if (!manifest) throw new Error(`Unknown provider: ${input.provider}`);
+  if (manifest.authFlow !== "token_ingest") {
+    throw new Error(
+      `Provider '${input.provider}' does not use token_ingest auth.`,
+    );
+  }
+
+  const ingestAuth = TOKEN_INGEST_BY_PROVIDER[input.provider];
+  if (!ingestAuth) {
+    throw new Error(
+      `No token-ingest implementation registered for provider '${input.provider}'.`,
+    );
+  }
+
+  const { payload } = await consumeState(input.state);
+  if (payload.provider !== input.provider) {
+    throw new InvalidStateError("provider mismatch between state and route");
+  }
+  if (payload.userId !== input.userId) {
+    throw new InvalidStateError("session/state user mismatch");
+  }
+
+  const { tokens, account } = await ingestAuth.verifyAndIngestToken({
+    token: input.token,
+    state: input.state,
+  });
 
   const integration = await upsertActive({
     userId: payload.userId,

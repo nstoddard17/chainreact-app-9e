@@ -22,11 +22,23 @@ import { ProviderManifestSchema, type ProviderManifest } from "@/contracts/integ
  *   - refreshable: true — Gmail's refreshToken is the first end-to-end
  *     refresh path against a real provider (Slice 2b infra).
  *
- * Scopes (Slice 2 Q6 confirmation — narrowest practical set):
+ * Scopes:
  *   - gmail.readonly: required for the polling trigger AND for the
  *     callback-time accountId lookup via users.getProfile.
  *   - gmail.send: required for the send action handler.
- *   - No gmail.modify, no openid/email/profile — userinfo lookup uses
+ *   - gmail.modify (Gmail 2.1 / P-G1): required for label add/remove,
+ *     mark read/unread, archive, trash, and labels-on-send on the
+ *     send_email expansion. Covers `users.messages.modify`,
+ *     `users.messages.trash`, `users.labels.create`.
+ *   - gmail.compose (Gmail 2.1 / P-G1): required for draft creation +
+ *     thread reply ports (createDraft, createDraftReply, replyToEmail).
+ *     Covers `users.drafts.create` and `users.messages.send` with
+ *     `threadId`. Re-consent required for existing users at next
+ *     connect — accepted trade-off per parity-gmail.md §10 (P-G1).
+ *   - No gmail.labels (covered by gmail.modify per Google docs).
+ *   - No gmail.settings.basic — updateSignature was a V1 orphan and is
+ *     skipped per parity-gmail.md §7.
+ *   - No openid/email/profile — userinfo lookup uses
  *     gmail.googleapis.com/v1/users/me/profile (covered by gmail.readonly),
  *     not the OAuth identity endpoint.
  *
@@ -46,6 +58,8 @@ export const gmailManifest: ProviderManifest = ProviderManifestSchema.parse({
     required: [
       "https://www.googleapis.com/auth/gmail.readonly",
       "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/gmail.compose",
     ],
     optional: [],
     deprecated: [],

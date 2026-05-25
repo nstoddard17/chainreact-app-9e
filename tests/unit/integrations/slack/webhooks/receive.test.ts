@@ -143,7 +143,11 @@ describe("receiveSlackWebhook — body parsing", () => {
       expect(result.events).toHaveLength(1);
       expect(result.events[0]).toMatchObject({
         provider: "slack",
-        eventType: "message",
+        // Per Slack 2.1 P-S2 (docs/slices/slack-2-1-messaging-reactions-plan.md
+        // §3): the normalizer namespaces canonical event types and resolves
+        // message channel-kind. Channel "C123" + no channel_type →
+        // C-prefix fallback → public channel.
+        eventType: "slack.message.channel",
         eventId: "Ev123",
         accountId: "T0001",
       });

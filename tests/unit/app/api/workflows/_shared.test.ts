@@ -23,12 +23,15 @@ import {
   requireUser,
   runLifecycle,
   toWorkflowDetail,
+  toWorkflowRunDetail,
   toWorkflowRunSummary,
   toWorkflowSummary,
 } from "@/app/api/workflows/_shared";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import type { WorkflowNode } from "@/contracts/workflowDefinition";
+import { REDACTED_SENTINEL } from "@/core/security/redactOutput";
 
 beforeEach(() => {
   mockGetUser.mockReset();
@@ -265,6 +268,8 @@ describe("toWorkflowRunSummary", () => {
     startedAt: "2026-05-07T00:00:00Z",
     finishedAt: "2026-05-07T00:00:01Z",
     createdAt: "2026-05-07T00:00:00Z",
+    isTest: false,
+    triggeredBy: "unknown",
   };
 
   it("strips userId / steps / triggerEvent / fatalError from the wire shape", () => {
@@ -291,5 +296,293 @@ describe("toWorkflowRunSummary", () => {
       action: "open_node",
       severity: "error",
     });
+  });
+});
+
+// ── Slice 3.SEC-7 — toWorkflowRunDetail redaction ───────────────────────────
+describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () => {
+  const triggerEvent: TriggerEvent = {
+    provider: "native",
+    eventType: "manual.run",
+    eventId: "ev-1",
+    occurredAt: "2026-05-22T00:00:00Z",
+    accountId: "system",
+    payload: { inputs: {} },
+  };
+
+  function makeRecord(
+    steps: WorkflowRunRecord["steps"],
+  ): WorkflowRunRecord {
+    return {
+      id: "11111111-1111-1111-1111-111111111111",
+      workflowId: "22222222-2222-2222-2222-222222222222",
+      userId: "user-1",
+      status: "succeeded",
+      triggerNodeId: "t1",
+      triggerEvent,
+      steps,
+      fatalError: null,
+      errorClassification: null,
+      startedAt: "2026-05-22T00:00:00Z",
+      finishedAt: "2026-05-22T00:00:01Z",
+      createdAt: "2026-05-22T00:00:00Z",
+      isTest: false,
+      triggeredBy: "unknown",
+    };
+  }
+
+  function makeNode(id: string, provider: string, type: string): WorkflowNode {
+    return {
+      id,
+      kind: "action",
+      provider,
+      type,
+      config: {},
+      position: { x: 0, y: 0 },
+    };
+  }
+
+  // Slice 3.SEC-8 — the original SEC-7 demos used Stripe `clientSecret`
+  // as the canonical "sensitive Stripe output." SEC-8 removed
+  // clientSecret from the handler projection entirely, so these tests
+  // now exercise redaction against `stripe:create_customer.email` (a
+  // sensitive output that still exists).
+  it("redacts a sensitive Stripe output (email) when nodes are supplied", () => {
+    const record = makeRecord([
+      {
+        nodeId: "cust-node",
+        status: "succeeded",
+        output: {
+          customerId: "cus_1",
+          email: "alice@example.com",
+          name: "Alice",
+        },
+      },
+    ]);
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    expect(detail.steps[0]!.output).toEqual({
+      customerId: "cus_1",
+      email: REDACTED_SENTINEL,
+      name: "Alice",
+    });
+  });
+
+  it("preserves non-sensitive Stripe outputs (customerId stays visible)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "cust-node",
+        status: "succeeded",
+        output: { customerId: "cus_1", email: "alice@example.com" },
+      },
+    ]);
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.customerId).toBe("cus_1");
+    expect(out.email).toBe(REDACTED_SENTINEL);
+  });
+
+  it("redacts http_request body + bodyJson when meta is wired", () => {
+    const record = makeRecord([
+      {
+        nodeId: "http-node",
+        status: "succeeded",
+        output: {
+          status: 200,
+          ok: true,
+          body: "secret-leaked-response",
+          bodyJson: { token: "leaked-token" },
+        },
+      },
+    ]);
+    const nodes = [makeNode("http-node", "native", "http_request")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.body).toBe(REDACTED_SENTINEL);
+    expect(out.bodyJson).toBe(REDACTED_SENTINEL);
+    // Non-sensitive fields stay.
+    expect(out.status).toBe(200);
+    expect(out.ok).toBe(true);
+  });
+
+  it("redacts a sensitive object output as a whole (Stripe findCustomer.customer)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "find-node",
+        status: "succeeded",
+        output: {
+          found: true,
+          customer: { customerId: "cus_1", email: "x@y.z", name: "Alice" },
+        },
+      },
+    ]);
+    const nodes = [makeNode("find-node", "stripe", "find_customer")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.found).toBe(true);
+    expect(out.customer).toBe(REDACTED_SENTINEL);
+  });
+
+  it("does NOT redact when workflowNodes is omitted (legacy behavior preserved)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "cust-node",
+        status: "succeeded",
+        output: { customerId: "cus_1", email: "alice@example.com" },
+      },
+    ]);
+    const detail = toWorkflowRunDetail(record);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.email).toBe("alice@example.com");
+  });
+
+  it("passes through steps whose nodeId is missing from workflowNodes (workflow edited post-run)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "deleted-node",
+        status: "succeeded",
+        output: { secret: "abc" },
+      },
+    ]);
+    // Workflow no longer has that node — fail-open: output unchanged.
+    const nodes: WorkflowNode[] = [];
+    const detail = toWorkflowRunDetail(record, nodes);
+    expect(detail.steps[0]!.output).toEqual({ secret: "abc" });
+  });
+
+  it("does NOT mutate the persisted record's output (immutability)", () => {
+    const originalOutput = {
+      customerId: "cus_1",
+      email: "alice@example.com",
+    };
+    const record = makeRecord([
+      { nodeId: "cust-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
+    toWorkflowRunDetail(record, nodes);
+    // Persisted record is unchanged.
+    expect(originalOutput.email).toBe("alice@example.com");
+    expect(record.steps[0]!.output).toBe(originalOutput);
+  });
+
+  it("redacts only the matching step when multiple steps with different actions are present", () => {
+    const record = makeRecord([
+      {
+        nodeId: "cust-node",
+        status: "succeeded",
+        output: { customerId: "cus_1", email: "alice@example.com" },
+      },
+      {
+        nodeId: "fmt-node",
+        status: "succeeded",
+        output: { formatted: "ok" },
+      },
+    ]);
+    const nodes = [
+      makeNode("cust-node", "stripe", "create_customer"),
+      makeNode("fmt-node", "native", "format_transformer"),
+    ];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const custOut = detail.steps[0]!.output as Record<string, unknown>;
+    const fmtOut = detail.steps[1]!.output as Record<string, unknown>;
+    expect(custOut.email).toBe(REDACTED_SENTINEL);
+    expect(fmtOut.formatted).toBe("ok");
+  });
+
+  // ─── Slice 3.POSTSEC-2 — newly-sensitive arrays/objects redact ────────────
+  //
+  // Cover the four POSTSEC-2 categories from the audit: a Stripe object
+  // projection (find_payment_intent), a Gmail messages array, a Slack
+  // messages array, and a Notion search results array. Each test confirms
+  // the previously-leaking output now redacts to REDACTED_SENTINEL AND
+  // the original persisted record is not mutated.
+  it("POSTSEC-2: stripe:find_payment_intent.paymentIntent redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      found: true,
+      paymentIntent: {
+        paymentIntentId: "pi_1",
+        amount: 2099,
+        receiptEmail: "alice@example.com",
+        metadata: { order_id: "ord_42" },
+      },
+    };
+    const record = makeRecord([
+      { nodeId: "find-pi-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("find-pi-node", "stripe", "find_payment_intent")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.found).toBe(true);
+    expect(out.paymentIntent).toBe(REDACTED_SENTINEL);
+    // Immutability — the persisted record still carries the original object.
+    expect(originalOutput.paymentIntent.receiptEmail).toBe("alice@example.com");
+  });
+
+  it("POSTSEC-2: gmail:search_emails.messages redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      query: "subject:invoice",
+      messages: [
+        { messageId: "m1", subject: "Invoice #1", from: "alice@example.com" },
+        { messageId: "m2", subject: "Invoice #2", from: "bob@example.com" },
+      ],
+      count: 2,
+      hasMore: false,
+    };
+    const record = makeRecord([
+      { nodeId: "search-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("search-node", "gmail", "search_emails")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.messages).toBe(REDACTED_SENTINEL);
+    // Non-sensitive siblings remain visible.
+    expect(out.query).toBe("subject:invoice");
+    expect(out.count).toBe(2);
+    expect(out.hasMore).toBe(false);
+    // Immutability — the original messages array still carries the data.
+    expect(originalOutput.messages).toHaveLength(2);
+  });
+
+  it("POSTSEC-2: slack:get_messages.messages redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      messages: [
+        { ts: "1700000001.000100", text: "secret-channel-message", user: "U1" },
+      ],
+      count: 1,
+      hasMore: false,
+      nextCursor: "",
+    };
+    const record = makeRecord([
+      { nodeId: "get-msg-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("get-msg-node", "slack", "get_messages")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.messages).toBe(REDACTED_SENTINEL);
+    expect(out.count).toBe(1);
+    expect(out.hasMore).toBe(false);
+    expect(out.nextCursor).toBe("");
+  });
+
+  it("POSTSEC-2: notion:search.results redacts to REDACTED_SENTINEL", () => {
+    const originalOutput = {
+      results: [
+        { id: "page-1", object: "page", url: "https://notion.so/abc" },
+        { id: "db-1", object: "database", url: "https://notion.so/def" },
+      ],
+      hasMore: false,
+      nextCursor: null,
+    };
+    const record = makeRecord([
+      { nodeId: "search-node", status: "succeeded", output: originalOutput },
+    ]);
+    const nodes = [makeNode("search-node", "notion", "search")];
+    const detail = toWorkflowRunDetail(record, nodes);
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.results).toBe(REDACTED_SENTINEL);
+    expect(out.hasMore).toBe(false);
+    expect(out.nextCursor).toBe(null);
+    expect(originalOutput.results).toHaveLength(2);
   });
 });

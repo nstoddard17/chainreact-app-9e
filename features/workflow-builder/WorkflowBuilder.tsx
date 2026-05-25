@@ -3,8 +3,15 @@
 import { useEffect, useState } from "react";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
+import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
+import { ConfigModalShell } from "./config-modal/ConfigModalShell";
 import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
+import { RunNowPanel } from "./panels/RunNowPanel";
+import { RunResultsPanel } from "./panels/RunResultsPanel";
+import { useConfigSlice } from "./state/configSlice";
 import { useGraphSlice } from "./state/graphSlice";
+import { useRunSlice } from "./state/runSlice";
+import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -36,14 +43,35 @@ export function WorkflowBuilder({
   const isSaving = useGraphSlice((s) => s.isSaving);
   const saveError = useGraphSlice((s) => s.saveError);
   const save = useGraphSlice((s) => s.save);
+  const resetConfigSlice = useConfigSlice((s) => s.reset);
+  const resetRunSlice = useRunSlice((s) => s.reset);
 
-  // Re-hydrate on workflow change (or initial mount).
+  // Re-hydrate on workflow change (or initial mount). Also clear the
+  // config + run slices so stale per-node drafts and stale latest-run
+  // pointers from a previous workflow never leak into the newly-loaded
+  // one. (Slice 3.8 added the runSlice reset to the same cleanup window
+  // graphSlice + configSlice already share.)
   useEffect(() => {
     hydrate(workflow.id, workflow.draftDefinition);
+    resetConfigSlice();
+    resetRunSlice();
     return () => {
       reset();
+      resetConfigSlice();
+      resetRunSlice();
     };
-  }, [workflow.id, workflow.draftDefinition, hydrate, reset]);
+  }, [
+    workflow.id,
+    workflow.draftDefinition,
+    hydrate,
+    reset,
+    resetConfigSlice,
+    resetRunSlice,
+  ]);
+
+  // Slice 3.8 — owns the 1s polling interval for the latest run. The
+  // hook self-cleans on workflow change / unmount / terminal status.
+  useLatestRunPolling();
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -63,7 +91,15 @@ export function WorkflowBuilder({
         triggerProviders={triggerProviders}
         actionProviders={actionProviders}
       />
-      <NodeList providerLabels={providerLabels} />
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
+          <WorkflowCanvas providerLabels={providerLabels} />
+          <NodeList providerLabels={providerLabels} />
+          <RunNowPanel />
+          <RunResultsPanel />
+        </div>
+        <ConfigModalShell />
+      </div>
       <div className="flex items-center gap-3">
         <button
           type="button"

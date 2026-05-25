@@ -17,7 +17,15 @@ import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { executionBillingGate } from "@/services/billing/executionBillingGate";
 import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
+import {
+  buildOutgoingEdgeMap,
+  selectActivatedEdges,
+} from "./branching";
 import { getActionHandler } from "./handlers/_registry";
+import {
+  buildTestModeMockOutput,
+  decideTestModeBlock,
+} from "./testModeGate";
 
 /**
  * Workflow execution engine.
@@ -54,7 +62,14 @@ export type RunFailureCode =
   | "BILLING_EXHAUSTED"
   | "MISSING_HANDLER"
   | "MISSING_VARIABLE"
-  | "HANDLER_FAILED";
+  | "HANDLER_FAILED"
+  /**
+   * Handler returned `branchTaken: "<label>"` but no outgoing edge on this
+   * node has that label. The engine consumes this in Commit 2 (label-aware
+   * traversal); Commit 1 only adds the code + humanizer support. See
+   * docs/slices/parity/engine-branching-plan.md §3.3 + §6.1.
+   */
+  | "INVALID_BRANCH";
 
 export interface RunStepResult {
   nodeId: string;
@@ -72,7 +87,36 @@ export interface RunResult {
   finishedAt: string;
   /** Top-level failure when the run never reached the per-step loop. */
   fatalError?: { code: RunFailureCode; message: string };
+  /** Slice 3.SEC-2 — true when engine ran in test mode (handlers gated). */
+  isTest: boolean;
+  /** Slice 3.SEC-2 — how the run was triggered. Persisted to workflow_runs. */
+  triggeredBy: RunTriggerSource;
 }
+
+/**
+ * How a run was started. Persisted into `workflow_runs.triggered_by` so
+ * post-mortems can attribute runs without inferring from `trigger_event`.
+ *
+ * - `manual`    — user clicked Run-now (real execution).
+ * - `test`      — user clicked Test (engine `testMode` true; external
+ *                 handlers short-circuited).
+ * - `webhook`   — provider webhook delivery dispatched the run.
+ * - `scheduled` — cron-triggered run.
+ * - `retry`     — a failed run was retried.
+ * - `unknown`   — pre-SEC-2 rows + any future entry path that hasn't
+ *                 declared its source yet.
+ *
+ * Kept as a TS literal union (not a Zod enum) because this is engine-
+ * internal — input validation happens at the route layer. The DB
+ * check constraint is the authoritative gate against drift.
+ */
+export type RunTriggerSource =
+  | "manual"
+  | "test"
+  | "webhook"
+  | "scheduled"
+  | "retry"
+  | "unknown";
 
 export interface RunWorkflowInput {
   workflowId: string;
@@ -80,6 +124,21 @@ export interface RunWorkflowInput {
   triggerEvent: TriggerEvent;
   /** Optional pre-assigned id (the dispatcher's enqueueRun supplies one). */
   runId?: string;
+  /**
+   * Slice 3.SEC-2 — when true, the engine consults the test-mode gate
+   * before invoking each handler and short-circuits external / high-risk
+   * actions. Default: `false` (real execution). Callers that want a safe
+   * preview MUST pass `true` explicitly — the engine never silently
+   * promotes a real run to test mode.
+   */
+  testMode?: boolean;
+  /**
+   * Slice 3.SEC-2 — how the run was kicked off. Persisted to
+   * `workflow_runs.triggered_by`. Defaults to `"unknown"` when omitted.
+   * Callers (run-now route, webhook dispatcher, cron) MUST supply their
+   * own source label.
+   */
+  triggeredBy?: RunTriggerSource;
 }
 
 export interface EngineDependencies {
@@ -93,12 +152,18 @@ export class WorkflowEngine {
   async runWorkflow(input: RunWorkflowInput): Promise<RunResult> {
     const runId = input.runId ?? randomUUID();
     const startedAt = new Date().toISOString();
+    // SEC-2: capture both provenance fields up-front so they thread into
+    // every exit path uniformly. Defaults match the SQL column defaults.
+    const isTest = input.testMode === true;
+    const triggeredBy: RunTriggerSource = input.triggeredBy ?? "unknown";
     const log = (event: string, extra: Record<string, unknown> = {}) =>
       console.info(
         JSON.stringify({
           event,
           runId,
           workflowId: input.workflowId,
+          isTest,
+          triggeredBy,
           ...extra,
         }),
       );
@@ -120,6 +185,8 @@ export class WorkflowEngine {
           code: "WORKFLOW_NOT_FOUND",
           message: `Workflow ${input.workflowId} not found.`,
         },
+        isTest,
+        triggeredBy,
       };
     }
 
@@ -139,6 +206,8 @@ export class WorkflowEngine {
           code: "TRIGGER_NODE_NOT_FOUND",
           message: `Trigger node ${input.triggerNodeId} not present in workflow definition.`,
         },
+        isTest,
+        triggeredBy,
       };
       await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
       return fatalResult;
@@ -166,6 +235,8 @@ export class WorkflowEngine {
           code: "BILLING_EXHAUSTED",
           message: `Task quota exhausted: ${gateOutcome.used}/${gateOutcome.limit} tasks used this period.`,
         },
+        isTest,
+        triggeredBy,
       };
       await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
       return fatalResult;
@@ -180,10 +251,29 @@ export class WorkflowEngine {
     };
 
     const order = bfsExecutionOrder(triggerNode.id, def);
+    // Outgoing-edge index keyed by `from` — used for label-aware activation
+    // after each node executes. Built once per run; O(edges).
+    const outgoingByNodeId = buildOutgoingEdgeMap(def.edges);
+    // Label-aware traversal: a node executes only if it is reachable via at
+    // least one ACTIVATED incoming edge. The trigger seeds the set. After
+    // each successful execution, outgoing edges are filtered through
+    // selectActivatedEdges() and their `to` ids are added. Nodes that
+    // appear in `order` but never become reachable are emitted as
+    // `status: "skipped"` step entries (no handler call, no variables).
+    // See docs/slices/parity/engine-branching-plan.md §4.
+    const reachable = new Set<string>([triggerNode.id]);
     const steps: RunStepResult[] = [];
     let runFailed = false;
 
     for (const node of order) {
+      // Skip nodes that no activated edge has reached. The trigger is
+      // always seeded as reachable, so the first iteration always runs.
+      if (!reachable.has(node.id)) {
+        steps.push({ nodeId: node.id, status: "skipped" });
+        log("execution.step.skipped", { nodeId: node.id });
+        continue;
+      }
+
       if (node.kind === "trigger") {
         // The trigger doesn't execute — its payload is the seed. Record
         // it as succeeded for visibility in run history (Slice 1M).
@@ -192,6 +282,16 @@ export class WorkflowEngine {
           status: "succeeded",
           output: { event: input.triggerEvent } as Readonly<Record<string, unknown>>,
         });
+        // Triggers have no handler and therefore no branchTaken; activate
+        // outgoing edges under the §6.2.a permissive default (unlabeled
+        // follow; labeled require explicit branchTaken, which a trigger
+        // never emits, so labeled edges out of a trigger never activate).
+        // A trigger by definition never produces an INVALID_BRANCH because
+        // its synthetic branchTaken is `undefined`, not a string.
+        const triggerEdges = outgoingByNodeId.get(node.id) ?? [];
+        for (const e of selectActivatedEdges(triggerEdges, undefined).activated) {
+          reachable.add(e);
+        }
         continue;
       }
 
@@ -258,6 +358,50 @@ export class WorkflowEngine {
         break;
       }
 
+      // 3a. Slice 3.SEC-2 — test-mode pre-call gate.
+      //
+      // When the engine is running in test mode, consult the gate before
+      // invoking the handler. Blocked actions are recorded as `succeeded`
+      // steps with a deterministic mock output (testMode/actionSkipped/
+      // reason/provider/type) and the engine moves on. Downstream nodes
+      // see the mock output via `{{nodeId.testMode}}` etc. — if a
+      // downstream node tries to read a real field like `{{nodeId.id}}`
+      // the strict resolver surfaces MISSING_VARIABLE with the actual
+      // path, which is a clearer signal than a fake id would be.
+      //
+      // Activated edges still propagate (the blocked step's outgoing
+      // edges are activated as if it had executed normally); branchTaken
+      // for blocked steps is `undefined`, matching the unlabeled-edge
+      // semantics §6.2.a.
+      const isTestMode = input.testMode === true;
+      if (isTestMode) {
+        const gateDecision = decideTestModeBlock(node.provider, node.type);
+        if (gateDecision.blocked) {
+          const mockOutput = buildTestModeMockOutput(
+            node.provider,
+            node.type,
+            gateDecision.reason!,
+          );
+          const outgoingForBlocked = outgoingByNodeId.get(node.id) ?? [];
+          for (const e of selectActivatedEdges(outgoingForBlocked, undefined).activated) {
+            reachable.add(e);
+          }
+          variables[node.id] = mockOutput;
+          steps.push({
+            nodeId: node.id,
+            status: "succeeded",
+            output: mockOutput as unknown as Readonly<Record<string, unknown>>,
+          });
+          log("execution.step.test_mode_skipped", {
+            nodeId: node.id,
+            provider: node.provider,
+            type: node.type,
+            reason: gateDecision.reason,
+          });
+          continue;
+        }
+      }
+
       // 3. Invoke handler.
       try {
         const result = await handler({
@@ -267,7 +411,40 @@ export class WorkflowEngine {
           nodeId: node.id,
           config: resolvedConfig,
           triggerEvent: input.triggerEvent,
+          testMode: isTestMode,
         });
+
+        // 4. Label-aware activation. Inspect outgoing edges and decide
+        // which ones the handler's branchTaken activates. Catches
+        // INVALID_BRANCH (handler returned a string label with no
+        // matching outgoing edge) BEFORE recording the step as succeeded
+        // — a malformed branch decision marks the node as failed.
+        // See engine-branching-plan.md §4.1 + §6.1.
+        const outgoing = outgoingByNodeId.get(node.id) ?? [];
+        const activation = selectActivatedEdges(outgoing, result.branchTaken);
+        if (activation.invalidBranch) {
+          const message = `Handler returned branchTaken='${result.branchTaken}' but no outgoing edge has that label.`;
+          steps.push({
+            nodeId: node.id,
+            status: "failed",
+            error: {
+              code: "INVALID_BRANCH",
+              message,
+              details: { branchTaken: result.branchTaken as string },
+            },
+          });
+          log("execution.step.failed", {
+            nodeId: node.id,
+            code: "INVALID_BRANCH",
+            branchTaken: result.branchTaken,
+          });
+          runFailed = true;
+          break;
+        }
+        for (const next of activation.activated) {
+          reachable.add(next);
+        }
+
         variables[node.id] = result.output;
         steps.push({ nodeId: node.id, status: "succeeded", output: result.output });
         log("execution.step.succeeded", {
@@ -305,6 +482,8 @@ export class WorkflowEngine {
       steps,
       startedAt,
       finishedAt,
+      isTest,
+      triggeredBy,
     };
     await persistRun(result, workflow.userId, workflow.name, input, log);
     return result;
@@ -342,6 +521,8 @@ async function persistRun(
       errorClassification,
       startedAt: result.startedAt,
       finishedAt: result.finishedAt,
+      isTest: result.isTest,
+      triggeredBy: result.triggeredBy,
     });
   } catch (err) {
     log("execution.run.persist_failed", { error: (err as Error).message });

@@ -38,6 +38,19 @@ export interface WorkflowRunErrorClassification {
   severity: "warning" | "error";
 }
 
+/**
+ * Slice 3.SEC-2 — `triggered_by` value set. Mirrors the CHECK constraint
+ * in `supabase/migrations/20260523000000_workflow_runs_test_mode.sql`.
+ * Adding a new source = migration + this union edit.
+ */
+export type WorkflowRunTriggeredBy =
+  | "manual"
+  | "test"
+  | "webhook"
+  | "scheduled"
+  | "retry"
+  | "unknown";
+
 export interface WorkflowRunRecord {
   id: string;
   workflowId: string;
@@ -51,6 +64,10 @@ export interface WorkflowRunRecord {
   startedAt: string;
   finishedAt: string;
   createdAt: string;
+  /** Slice 3.SEC-2 — true when engine ran in test mode. */
+  isTest: boolean;
+  /** Slice 3.SEC-2 — how the run was started. */
+  triggeredBy: WorkflowRunTriggeredBy;
 }
 
 interface WorkflowRunsRow {
@@ -66,6 +83,8 @@ interface WorkflowRunsRow {
   started_at: string;
   finished_at: string;
   created_at: string;
+  is_test: boolean;
+  triggered_by: WorkflowRunTriggeredBy;
 }
 
 function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
@@ -82,6 +101,8 @@ function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
+    isTest: row.is_test,
+    triggeredBy: row.triggered_by,
   };
 }
 
@@ -98,6 +119,13 @@ export interface RecordRunInput {
   errorClassification?: WorkflowRunErrorClassification | null;
   startedAt: string;
   finishedAt: string;
+  /**
+   * Slice 3.SEC-2 — provenance columns. Both are persisted to
+   * workflow_runs. The DB columns have defaults (false / 'unknown') so
+   * pre-SEC-2 rows survive, but the engine always supplies them.
+   */
+  isTest: boolean;
+  triggeredBy: WorkflowRunTriggeredBy;
 }
 
 export async function recordRun(input: RecordRunInput): Promise<void> {
@@ -116,6 +144,8 @@ export async function recordRun(input: RecordRunInput): Promise<void> {
     error_classification: input.errorClassification ?? null,
     started_at: input.startedAt,
     finished_at: input.finishedAt,
+    is_test: input.isTest,
+    triggered_by: input.triggeredBy,
   });
   if (error) {
     throw new Error(`workflow_runs.recordRun failed: ${error.message}`);
@@ -155,6 +185,29 @@ export async function claimNotificationFanout(runId: string): Promise<boolean> {
     throw new Error(`workflow_runs.claimNotificationFanout failed: ${error.message}`);
   }
   return (data?.length ?? 0) > 0;
+}
+
+/**
+ * Fetch a single run by id. Returns null when the row does not exist or
+ * RLS hides it from the current user. Used by the detail endpoint in
+ * Slice 3.8 (test-run output preview); the list endpoint stays
+ * `listByWorkflow` for cheap pagination.
+ *
+ * Reads via the SSR-cookie client so RLS gates per-user access — a
+ * runId that belongs to another user surfaces as `null`, not a leak.
+ */
+export async function getById(runId: string): Promise<WorkflowRunRecord | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("*")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`workflow_runs.getById failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return rowToRecord(data as WorkflowRunsRow);
 }
 
 export async function listByWorkflow(

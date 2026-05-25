@@ -15,10 +15,16 @@ describe("gmail manifest", () => {
     expect(getProvider("gmail")).toBe(gmailManifest);
   });
 
-  it("declares Gmail-required scopes exactly (Slice 2 Q6 narrow set)", () => {
+  it("declares Gmail-required scopes exactly (Slice 2 Q6 + Gmail 2.1 P-G1 expansion)", () => {
+    // Slice 2: gmail.readonly + gmail.send.
+    // Gmail 2.1 / P-G1 (decision 6 accepted 2026-05-12): + gmail.modify
+    // (label add/remove, mark read/unread, archive, trash, labels-on-send)
+    // + gmail.compose (drafts + thread reply).
     expect(gmailManifest.scopes.required).toEqual([
       "https://www.googleapis.com/auth/gmail.readonly",
       "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/gmail.compose",
     ]);
     expect(gmailManifest.scopes.optional).toEqual([]);
     expect(gmailManifest.scopes.deprecated).toEqual([]);

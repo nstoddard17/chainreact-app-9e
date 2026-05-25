@@ -25,6 +25,13 @@ export interface UsersMessagesSendInput {
    * `buildRfc5322Message` + `encodeBase64Url` from `../utils/rfc5322.ts`.
    */
   rawMessage: string;
+  /**
+   * Optional Gmail thread id. Gmail 2.1 Commit 3: required for the
+   * `reply_to_email` action so the new message lands inside the
+   * original conversation. Empty / undefined → no threadId in the
+   * body (Gmail starts a fresh thread inferred from headers).
+   */
+  threadId?: string;
 }
 
 export interface UsersMessagesSendResult {
@@ -44,6 +51,11 @@ interface GmailErrorPayload {
 export async function usersMessagesSend(
   input: UsersMessagesSendInput,
 ): Promise<UsersMessagesSendResult> {
+  const body: { raw: string; threadId?: string } = { raw: input.rawMessage };
+  if (input.threadId !== undefined && input.threadId.length > 0) {
+    body.threadId = input.threadId;
+  }
+
   const res = await fetch(
     `${gmailApiBase()}/gmail/v1/users/me/messages/send`,
     {
@@ -52,7 +64,7 @@ export async function usersMessagesSend(
         Authorization: `Bearer ${input.accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ raw: input.rawMessage }),
+      body: JSON.stringify(body),
     },
   );
 

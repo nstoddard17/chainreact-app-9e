@@ -14,6 +14,7 @@ const mockMarkSeen = jest.fn();
 const mockListForDispatch = jest.fn();
 const mockGetStateForDispatch = jest.fn();
 const mockEnqueueRun = jest.fn();
+const mockGetTriggerFilter = jest.fn();
 
 jest.mock("@/repositories/webhookEventDedup", () => ({
   markSeen: (...args: unknown[]) => mockMarkSeen(...args),
@@ -31,8 +32,13 @@ jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: (...args: unknown[]) => mockEnqueueRun(...args),
 }));
 
+jest.mock("@/core/triggers/filterRegistry", () => ({
+  getTriggerFilter: (...args: unknown[]) => mockGetTriggerFilter(...args),
+}));
+
 import { dispatchTriggerEvent } from "@/services/triggers/dispatch";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import type { FilterResult, TriggerFilter } from "@/core/triggers/filterContract";
 
 const event: TriggerEvent = {
   provider: "slack",
@@ -64,7 +70,23 @@ beforeEach(() => {
   mockListForDispatch.mockReset();
   mockGetStateForDispatch.mockReset();
   mockEnqueueRun.mockReset();
+  // Default: no filter registered for any (provider, eventType) — preserves
+  // pre-P-S2 match-all behavior so the existing tests below run unchanged.
+  mockGetTriggerFilter.mockReset();
+  mockGetTriggerFilter.mockReturnValue(null);
 });
+
+function makeFilter(overrides: Partial<TriggerFilter> = {}): TriggerFilter {
+  return {
+    provider: "slack",
+    eventType: "message",
+    parseConfig: (raw): unknown => raw,
+    evaluate: (_event: TriggerEvent, _config: unknown): FilterResult => ({
+      kind: "match",
+    }),
+    ...overrides,
+  };
+}
 
 describe("dispatchTriggerEvent — happy path", () => {
   it("dedups → looks up resources → checks state → enqueues", async () => {
@@ -173,5 +195,166 @@ describe("dispatchTriggerEvent — no matching resources", () => {
       duplicate: false,
       dedupOutage: false,
     });
+  });
+});
+
+describe("dispatchTriggerEvent — per-trigger filter (P-S2)", () => {
+  it("preserves existing behavior when no filter is registered for the (provider, eventType)", async () => {
+    // Default mockGetTriggerFilter returns null; existing tests rely on this
+    // path. Asserting it explicitly here documents the contract.
+    mockGetTriggerFilter.mockReturnValue(null);
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+    mockEnqueueRun.mockResolvedValueOnce({ runId: null, enqueuedAt: "" });
+
+    const result = await dispatchTriggerEvent(event);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    expect(result.enqueued).toBe(1);
+  });
+
+  it("enqueues when the registered filter returns match", async () => {
+    mockGetTriggerFilter.mockReturnValue(makeFilter());
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+    mockEnqueueRun.mockResolvedValueOnce({ runId: null, enqueuedAt: "" });
+
+    const result = await dispatchTriggerEvent(event);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    expect(result.matched).toBe(1);
+    expect(result.enqueued).toBe(1);
+  });
+
+  it("skips enqueue when the registered filter returns no-match", async () => {
+    mockGetTriggerFilter.mockReturnValue(
+      makeFilter({
+        evaluate: (): FilterResult => ({
+          kind: "no-match",
+          reason: "channel mismatch",
+        }),
+      }),
+    );
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+
+    const result = await dispatchTriggerEvent(event);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(result.matched).toBe(1);
+    expect(result.enqueued).toBe(0);
+  });
+
+  it("fails closed when the filter's evaluate throws — no enqueue", async () => {
+    mockGetTriggerFilter.mockReturnValue(
+      makeFilter({
+        evaluate: () => {
+          throw new Error("payload missing channel");
+        },
+      }),
+    );
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+
+    const result = await dispatchTriggerEvent(event);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(result.matched).toBe(1);
+    expect(result.enqueued).toBe(0);
+  });
+
+  it("fails closed when the filter's parseConfig throws — no enqueue", async () => {
+    mockGetTriggerFilter.mockReturnValue(
+      makeFilter({
+        parseConfig: () => {
+          throw new Error("invalid config: channelId must be a string");
+        },
+      }),
+    );
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+
+    const result = await dispatchTriggerEvent(event);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(result.matched).toBe(1);
+    expect(result.enqueued).toBe(0);
+  });
+
+  it("evaluates the filter independently per row — different configs produce different outcomes", async () => {
+    const wfA = { ...baseResource, workflowId: "wf-A", nodeId: "nA", config: { channelId: "C-keep" } };
+    const wfB = { ...baseResource, workflowId: "wf-B", nodeId: "nB", config: { channelId: "C-drop" } };
+    const wfC = { ...baseResource, workflowId: "wf-C", nodeId: "nC", config: { channelId: "C-keep" } };
+
+    mockGetTriggerFilter.mockReturnValue(
+      makeFilter({
+        parseConfig: (raw) => raw as { channelId?: string },
+        evaluate: (_event, parsed): FilterResult => {
+          const cfg = parsed as { channelId?: string };
+          return cfg.channelId === "C-keep"
+            ? { kind: "match" }
+            : { kind: "no-match", reason: "channelId not matched" };
+        },
+      }),
+    );
+
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([wfA, wfB, wfC]);
+    mockGetStateForDispatch
+      .mockResolvedValueOnce("active") // A
+      .mockResolvedValueOnce("active") // B
+      .mockResolvedValueOnce("active"); // C
+    mockEnqueueRun.mockResolvedValue({ runId: null, enqueuedAt: "" });
+
+    const result = await dispatchTriggerEvent(event);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(2);
+    expect(result.matched).toBe(3);
+    expect(result.enqueued).toBe(2);
+  });
+
+  it("does not call the filter when dedup says the event is duplicate", async () => {
+    const evaluate = jest.fn();
+    const parseConfig = jest.fn();
+    mockGetTriggerFilter.mockReturnValue(
+      makeFilter({ parseConfig, evaluate }),
+    );
+    mockMarkSeen.mockResolvedValueOnce({ fresh: false });
+
+    const result = await dispatchTriggerEvent(event);
+    expect(parseConfig).not.toHaveBeenCalled();
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(mockListForDispatch).not.toHaveBeenCalled();
+    expect(result.duplicate).toBe(true);
+  });
+
+  it("does not call the filter for inactive workflows — state gate runs first", async () => {
+    const evaluate = jest.fn();
+    mockGetTriggerFilter.mockReturnValue(makeFilter({ evaluate }));
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("paused");
+
+    const result = await dispatchTriggerEvent(event);
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(result.enqueued).toBe(0);
+  });
+
+  it("looks up the filter once per dispatch, regardless of how many resources match", async () => {
+    const wfA = { ...baseResource, workflowId: "wf-A", nodeId: "nA" };
+    const wfB = { ...baseResource, workflowId: "wf-B", nodeId: "nB" };
+    const wfC = { ...baseResource, workflowId: "wf-C", nodeId: "nC" };
+    mockGetTriggerFilter.mockReturnValue(makeFilter());
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([wfA, wfB, wfC]);
+    mockGetStateForDispatch
+      .mockResolvedValueOnce("active")
+      .mockResolvedValueOnce("active")
+      .mockResolvedValueOnce("active");
+    mockEnqueueRun.mockResolvedValue({ runId: null, enqueuedAt: "" });
+
+    await dispatchTriggerEvent(event);
+    expect(mockGetTriggerFilter).toHaveBeenCalledTimes(1);
+    expect(mockGetTriggerFilter).toHaveBeenCalledWith("slack", "message");
   });
 });

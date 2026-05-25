@@ -20,7 +20,17 @@ import type { WorkflowRecord } from "@/repositories/workflows";
  *   - `EMPTY_WORKFLOW`: zero nodes; the orchestrator can't activate nothing.
  *   - `INTEGRATION_NOT_CONNECTED`: one entry per missing provider, with a
  *     user-actionable message naming the provider.
+ *
+ * Non-OAuth pseudo-providers (per
+ * docs/slices/parity/native-nodes-1-tier-a-plan.md §7): `native` nodes
+ * (http_request / format_transformer / delay) ship without a
+ * ProviderManifest, OAuth dance, or `integrations` row. The activation
+ * gate must skip them — otherwise a workflow using ANY native node
+ * cannot be activated. The skip mirrors the structure-test exemption
+ * at tests/structure/integration-manifests.test.ts.
  */
+const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
+
 export async function checkActivationPreconditions(
   workflow: WorkflowRecord,
   transition: LifecycleTransition,
@@ -43,7 +53,13 @@ export async function checkActivationPreconditions(
   }
 
   const requiredProviders = new Set<string>();
-  for (const node of nodes) requiredProviders.add(node.provider);
+  for (const node of nodes) {
+    if (NON_OAUTH_PROVIDERS.has(node.provider)) continue;
+    requiredProviders.add(node.provider);
+  }
+
+  // If every node is native (no OAuth provider required), nothing to check.
+  if (requiredProviders.size === 0) return { ok: true };
 
   const activeIntegrations = await integrationsRepo.listActiveByUser(workflow.userId);
   const connectedProviders = new Set(activeIntegrations.map((i) => i.provider));

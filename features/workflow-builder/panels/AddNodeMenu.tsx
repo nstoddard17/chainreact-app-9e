@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { useGraphSlice } from "../state/graphSlice";
+import { useNativeActions } from "../hooks/useNativeActions";
+import { useNativeTriggers } from "../hooks/useNativeTriggers";
+import { ActionPicker } from "./ActionPicker";
+import { TriggerPicker } from "./TriggerPicker";
 
 export interface ProviderOption {
   id: string;
@@ -16,27 +22,55 @@ interface Props {
 type OpenMenu = "trigger" | "action" | null;
 
 /**
- * Picker for adding a trigger or action node to the workflow.
+ * Picker for adding a trigger or action node.
  *
- * 1I.2 minimum: pick a provider; the node is created with `type=""` and an
- * empty config. Per-provider action catalogs (e.g. Slack's "send_channel_message"
- * vs "create_channel") arrive with each provider's slice (1L+).
+ * Slice 3.4 — `AddNodeMenu` is now the top-level toggle shell. The
+ * trigger / action picker bodies live in `TriggerPicker.tsx` and
+ * `ActionPicker.tsx` so each can own its own state (provider drill-in,
+ * loading / error) without bloating this file past the 300-line
+ * target.
+ *
+ * Behavior summary:
+ *   - Trigger picker (Slice 3.3): Native triggers from metadata +
+ *     provider triggers from the bare `addTrigger({provider})` path.
+ *     Provider-trigger wrappers are deferred (see Slice 3.4 brief).
+ *   - Action picker (Slice 3.4): Native + Providers. Picking a
+ *     provider drills into that provider's action list (via
+ *     `useProviderActions`). Picking ANY action — native or provider
+ *     — dispatches `addActionFromMeta` with metadata-derived defaults.
+ *     The legacy bare `addAction({provider})` path is no longer
+ *     reachable through this UI (the slice action stays exported so
+ *     tests + future surfaces can still use it directly).
  */
 export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
-  const addTrigger = useGraphSlice((s) => s.addTrigger);
-  const addAction = useGraphSlice((s) => s.addAction);
+  const addActionFromMeta = useGraphSlice((s) => s.addActionFromMeta);
+  const addTriggerFromMeta = useGraphSlice((s) => s.addTriggerFromMeta);
   const [open, setOpen] = useState<OpenMenu>(null);
+
+  const nativeActions = useNativeActions();
+  const nativeTriggers = useNativeTriggers();
 
   const hasTrigger = pendingNodes.some((n) => n.kind === "trigger");
 
-  function handleAddTrigger(provider: ProviderOption) {
-    addTrigger({ provider: provider.id });
+  // Slice 3.10 — provider triggers now drill in like provider actions
+  // and pick a specific TriggerMeta. The legacy bare-add path
+  // (`addTrigger({provider})`) is no longer reachable through this UI;
+  // it stays exported on the slice so tests + future surfaces (e.g.
+  // an agent that builds a workflow from a prompt) can still use it
+  // directly.
+  function handlePickProviderTrigger(meta: TriggerMeta) {
+    addTriggerFromMeta(meta);
     setOpen(null);
   }
 
-  function handleAddAction(provider: ProviderOption) {
-    addAction({ provider: provider.id });
+  function handleAddNativeTrigger(meta: TriggerMeta) {
+    addTriggerFromMeta(meta);
+    setOpen(null);
+  }
+
+  function handlePickAction(meta: ActionMeta) {
+    addActionFromMeta(meta);
     setOpen(null);
   }
 
@@ -67,56 +101,24 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
         </button>
       </div>
       {open === "trigger" && (
-        <ProviderList
-          aria-label="Trigger providers"
-          providers={triggerProviders}
-          onPick={handleAddTrigger}
-          emptyMessage="No trigger providers available."
+        <TriggerPicker
+          nativeTriggers={nativeTriggers.triggers}
+          nativeLoading={nativeTriggers.loading}
+          nativeError={nativeTriggers.error}
+          triggerProviders={triggerProviders}
+          onPickNative={handleAddNativeTrigger}
+          onPickProviderTrigger={handlePickProviderTrigger}
         />
       )}
       {open === "action" && (
-        <ProviderList
-          aria-label="Action providers"
-          providers={actionProviders}
-          onPick={handleAddAction}
-          emptyMessage="No action providers available."
+        <ActionPicker
+          nativeActions={nativeActions.actions}
+          nativeLoading={nativeActions.loading}
+          nativeError={nativeActions.error}
+          actionProviders={actionProviders}
+          onPickAction={handlePickAction}
         />
       )}
     </div>
-  );
-}
-
-interface ProviderListProps {
-  providers: readonly ProviderOption[];
-  onPick: (provider: ProviderOption) => void;
-  emptyMessage: string;
-  "aria-label": string;
-}
-
-function ProviderList({
-  providers,
-  onPick,
-  emptyMessage,
-  ...rest
-}: ProviderListProps) {
-  if (providers.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground">{emptyMessage}</p>
-    );
-  }
-  return (
-    <ul aria-label={rest["aria-label"]} className="flex flex-wrap gap-2">
-      {providers.map((p) => (
-        <li key={p.id}>
-          <button
-            type="button"
-            onClick={() => onPick(p)}
-            className="rounded bg-muted px-3 py-1 text-sm"
-          >
-            {p.displayName}
-          </button>
-        </li>
-      ))}
-    </ul>
   );
 }

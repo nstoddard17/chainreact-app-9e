@@ -1,4 +1,5 @@
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import { getTriggerFilter } from "@/core/triggers/filterRegistry";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { getStateForDispatch } from "@/repositories/workflows";
 import * as dedup from "@/repositories/webhookEventDedup";
@@ -21,6 +22,17 @@ import { enqueueRun } from "@/services/execution/enqueue";
  * idempotency catches duplicate side effects further down the chain). When
  * markSeen throws, we log a structured outage marker and proceed with
  * dispatch.
+ *
+ * Per-trigger filter (P-S2, docs/slices/slack-2-1-messaging-reactions-plan.md):
+ *   - After lookup, before enqueue, the dispatcher checks the filter
+ *     registry for a `(provider, eventType)` filter. If registered:
+ *       * `parseConfig` throws → fail closed (skip enqueue, structured
+ *         warn log).
+ *       * `evaluate` throws → fail closed.
+ *       * `evaluate` returns no-match → silent skip with structured
+ *         debug log.
+ *   - If no filter is registered, behavior is match-all — preserves
+ *     pre-P-S2 behavior for any provider that hasn't opted in.
  */
 
 export interface DispatchResult {
@@ -75,7 +87,12 @@ export async function dispatchTriggerEvent(
     return { matched: 0, enqueued: 0, duplicate: false, dedupOutage };
   }
 
-  // 3. For each candidate, gate on workflow state and enqueue.
+  // 2.5 Look up the per-trigger filter once (it's the same for every
+  // candidate row of this event). null = no filter registered → match-all.
+  const filter = getTriggerFilter(event.provider, event.eventType);
+
+  // 3. For each candidate, gate on workflow state, evaluate the filter,
+  // and enqueue.
   let enqueued = 0;
   for (const resource of resources) {
     const state = await getStateForDispatch(resource.workflowId);
@@ -91,6 +108,54 @@ export async function dispatchTriggerEvent(
       );
       continue;
     }
+
+    if (filter) {
+      let parsedConfig: unknown;
+      try {
+        parsedConfig = filter.parseConfig(resource.config);
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            event: "webhook.dispatch.filter_parse_error",
+            workflowId: resource.workflowId,
+            provider: event.provider,
+            eventType: event.eventType,
+            error: (err as Error).message,
+          }),
+        );
+        continue;
+      }
+
+      let result;
+      try {
+        result = filter.evaluate(event, parsedConfig);
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            event: "webhook.dispatch.filter_eval_error",
+            workflowId: resource.workflowId,
+            provider: event.provider,
+            eventType: event.eventType,
+            error: (err as Error).message,
+          }),
+        );
+        continue;
+      }
+
+      if (result.kind === "no-match") {
+        console.debug(
+          JSON.stringify({
+            event: "webhook.dispatch.dropped_filtered",
+            workflowId: resource.workflowId,
+            provider: event.provider,
+            eventType: event.eventType,
+            reason: result.reason,
+          }),
+        );
+        continue;
+      }
+    }
+
     await enqueueRun({
       workflowId: resource.workflowId,
       triggerNodeId: resource.nodeId,

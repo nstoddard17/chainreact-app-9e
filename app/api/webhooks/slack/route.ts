@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { InvalidSignatureError } from "@/core/triggers/errors";
 import { receiveSlackWebhook } from "@/integrations/slack/webhooks/receive";
+// Slack 2.1 Commit 8 — side-effect import to register Slack trigger
+// filters with the P-S2 registry. Ensures filters are populated even on
+// a cold serverless invocation that hasn't loaded integrations/_registry
+// via the lifecycle path.
+import "@/integrations/slack/triggers";
 import { dispatchTriggerEvent } from "@/services/triggers/dispatch";
 
 /**

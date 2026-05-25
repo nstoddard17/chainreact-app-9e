@@ -180,6 +180,72 @@ export async function rewindTriggerPollingTimestamp(
 }
 
 /**
+ * Slice 13: read `hubspot_app_subscriptions` rows for a given app id.
+ * Used to assert the shared-subscription invariant: one row per
+ * (app_id, event_type, property_name) across all workflows.
+ */
+export async function getHubSpotAppSubscriptions(
+  appId: string,
+): Promise<readonly Record<string, unknown>[]> {
+  const { data, error } = await adminClient()
+    .from("hubspot_app_subscriptions")
+    .select("*")
+    .eq("app_id", appId);
+  if (error) throw new Error(`getHubSpotAppSubscriptions: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Slice 13: read `hubspot_subscription_refs` rows for a given user.
+ * Each row binds one workflow node to the app-level subscription via
+ * `app_subscription_id`. Multi-workflow activations against the same
+ * subscription type produce multiple ref rows pointing at the same
+ * `app_subscription_id`.
+ */
+export async function getHubSpotSubscriptionRefs(
+  userId: string,
+): Promise<readonly Record<string, unknown>[]> {
+  const { data, error } = await adminClient()
+    .from("hubspot_subscription_refs")
+    .select("*")
+    .eq("user_id", userId);
+  if (error) throw new Error(`getHubSpotSubscriptionRefs: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Slice 13: cleanup helper for the HubSpot shared-subscription tables.
+ *
+ * `hubspot_app_subscriptions` is a **system table** — rows are not scoped
+ * to a user. When `deleteTestUser` cascades the integration + workflows
+ * + refs, the parent `hubspot_app_subscriptions` row survives (no FK to
+ * user). Subsequent test runs against the same `app_id` then short-
+ * circuit on `findOrCreate` without calling HubSpot, breaking the mock-
+ * call count assertion in the activate path.
+ *
+ * Production cleanup of orphan rows belongs in a future reconciler cron
+ * (see slice-13-hubspot.md). E2e teardown wipes them by app_id so each
+ * test starts from a clean state.
+ *
+ * ON DELETE CASCADE on `hubspot_subscription_refs.app_subscription_id`
+ * cleans up any straggler refs automatically.
+ */
+export async function deleteHubSpotAppSubscriptionsForApp(
+  appId: string,
+): Promise<void> {
+  const { error } = await adminClient()
+    .from("hubspot_app_subscriptions")
+    .delete()
+    .eq("app_id", appId);
+  if (error) {
+    // Don't throw — teardown is best-effort. Log so the test runner shows it.
+    console.warn(
+      `[e2e cleanup] deleteHubSpotAppSubscriptionsForApp ${appId} failed: ${error.message}`,
+    );
+  }
+}
+
+/**
  * Poll until the predicate returns truthy or timeout. The execution engine
  * runs in a fire-and-forget Promise after the webhook returns 200, so the
  * test must wait for the workflow_runs row to appear.
@@ -203,4 +269,194 @@ export async function waitFor<T>(
       opts.description ? ` (${opts.description})` : ""
     }; last value: ${JSON.stringify(last)}`,
   );
+}
+
+// ── Slack 2.4 / P-S3 — workflow_files + storage helpers ────────────────
+//
+// The `workflow-files` bucket is normally created out-of-band per the
+// P-S3 migration header. For e2e we ensure it exists idempotently —
+// `createBucket` returns a `Bucket already exists` error we treat as
+// success. Seeded files use the canonical
+// `<userId>/<workflowId>/<runId>/<nodeId>/<filename>` path scheme so
+// the upload action's FileRef.storagePath round-trips cleanly.
+
+export const WORKFLOW_FILES_BUCKET = "workflow-files";
+
+/**
+ * Idempotently ensure the `workflow-files` bucket exists. Safe to call
+ * from every test setup. Reports the outcome so the spec can assert
+ * the bucket was usable.
+ */
+export async function ensureWorkflowFilesBucket(): Promise<void> {
+  const client = adminClient();
+  const { error } = await client.storage.createBucket(WORKFLOW_FILES_BUCKET, {
+    public: false,
+  });
+  if (!error) return;
+  // Supabase returns a structured error when the bucket exists; the
+  // exact message has shifted across versions. Treat any
+  // "already exists" / "duplicate"-style message as success.
+  const msg = error.message?.toLowerCase() ?? "";
+  if (
+    msg.includes("already exists") ||
+    msg.includes("duplicate") ||
+    msg.includes("conflict")
+  ) {
+    return;
+  }
+  throw new Error(
+    `ensureWorkflowFilesBucket: createBucket failed: ${error.message}`,
+  );
+}
+
+export interface SeededWorkflowFile {
+  /** Inserted `workflow_files` row id. */
+  id: string;
+  /** Canonical storage path within the workflow-files bucket. */
+  storagePath: string;
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}
+
+/**
+ * Upload bytes to the workflow-files bucket AND insert the matching
+ * metadata row. Used to seed a `FileRef(kind=v2_storage)` consumed by
+ * `slack:upload_file` in the e2e.
+ *
+ * The runId can be synthetic (no matching `workflow_runs` row exists)
+ * — `workflow_files.run_id` has no FK by P-S3 design.
+ */
+export async function seedWorkflowFile(input: {
+  userId: string;
+  workflowId: string;
+  runId: string;
+  nodeId: string;
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}): Promise<SeededWorkflowFile> {
+  await ensureWorkflowFilesBucket();
+  const storagePath = `${input.userId}/${input.workflowId}/${input.runId}/${input.nodeId}/${input.fileName}`;
+  const client = adminClient();
+
+  const { error: uploadErr } = await client.storage
+    .from(WORKFLOW_FILES_BUCKET)
+    .upload(storagePath, input.bytes, {
+      contentType: input.mimeType,
+      upsert: true,
+    });
+  if (uploadErr) {
+    throw new Error(
+      `seedWorkflowFile: storage upload failed: ${uploadErr.message}`,
+    );
+  }
+
+  const { data, error } = await client
+    .from("workflow_files")
+    .insert({
+      user_id: input.userId,
+      workflow_id: input.workflowId,
+      run_id: input.runId,
+      node_id: input.nodeId,
+      storage_path: storagePath,
+      file_name: input.fileName,
+      mime_type: input.mimeType,
+      size_bytes: input.bytes.byteLength,
+      metadata: { seedBy: "e2e" },
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) {
+    throw new Error(
+      `seedWorkflowFile: workflow_files insert failed: ${error?.message ?? "no row"}`,
+    );
+  }
+  return {
+    id: data.id,
+    storagePath,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    bytes: input.bytes,
+  };
+}
+
+/**
+ * Read every `workflow_files` row belonging to a user, ordered by
+ * created_at ASC so the test can pick the most-recently-staged file
+ * deterministically with `.at(-1)`.
+ */
+export async function getWorkflowFilesForUser(
+  userId: string,
+): Promise<readonly Record<string, unknown>[]> {
+  const { data, error } = await adminClient()
+    .from("workflow_files")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`getWorkflowFilesForUser: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Download a storage object as a Uint8Array. Used by tests that want
+ * to assert the staged bytes match what the mock served.
+ */
+export async function readWorkflowFileObject(
+  storagePath: string,
+): Promise<Uint8Array> {
+  const client = adminClient();
+  const { data, error } = await client.storage
+    .from(WORKFLOW_FILES_BUCKET)
+    .download(storagePath);
+  if (error || !data) {
+    throw new Error(
+      `readWorkflowFileObject: ${error?.message ?? "no data"} (path=${storagePath})`,
+    );
+  }
+  const buf = await data.arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+/**
+ * Best-effort cleanup of staged files between tests so the storage
+ * bucket doesn't accumulate per-test debris. Removes both the
+ * storage objects and the metadata rows. Per-user scoped.
+ */
+export async function cleanupWorkflowFilesForUser(
+  userId: string,
+): Promise<void> {
+  const client = adminClient();
+  const { data, error } = await client
+    .from("workflow_files")
+    .select("storage_path")
+    .eq("user_id", userId);
+  if (error) {
+    console.warn(
+      `[e2e cleanup] cleanupWorkflowFilesForUser select failed: ${error.message}`,
+    );
+    return;
+  }
+  const paths = (data ?? [])
+    .map((row) => (row as { storage_path?: string }).storage_path)
+    .filter((p): p is string => typeof p === "string" && p.length > 0);
+  if (paths.length > 0) {
+    const { error: rmErr } = await client.storage
+      .from(WORKFLOW_FILES_BUCKET)
+      .remove(paths);
+    if (rmErr) {
+      console.warn(
+        `[e2e cleanup] storage.remove failed: ${rmErr.message}`,
+      );
+    }
+  }
+  const { error: delErr } = await client
+    .from("workflow_files")
+    .delete()
+    .eq("user_id", userId);
+  if (delErr) {
+    console.warn(
+      `[e2e cleanup] workflow_files delete failed: ${delErr.message}`,
+    );
+  }
 }

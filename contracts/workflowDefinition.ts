@@ -46,6 +46,13 @@ export const WorkflowEdgeSchema = z.object({
   id: z.string().min(1),
   from: z.string().min(1),
   to: z.string().min(1),
+  /**
+   * Optional branch label. When present, the execution engine only follows
+   * this edge when the source node's handler returns a matching
+   * `branchTaken`. Unlabeled edges are always followed (legacy behavior).
+   * See docs/slices/parity/engine-branching-plan.md §3.1.
+   */
+  label: z.string().min(1).max(64).optional(),
 });
 export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>;
 
@@ -103,12 +110,19 @@ export const WorkflowDefinitionSchema = z
           message: `Edge '${edge.id}' references unknown node '${edge.to}'.`,
         });
       }
-      const key = `${edge.from}->${edge.to}`;
+      // Dedup keyed on (from, to, label ?? "") so a router/branch node may
+      // fan out same-labeled paths to different targets, and same-target
+      // pairs may differ by branch label. Same-source/same-target/same-label
+      // (or both unlabeled) is still rejected. See engine-branching-plan.md
+      // §3.5 (locked accept).
+      const key = `${edge.from}->${edge.to}::${edge.label ?? ""}`;
       if (seenEdgeKeys.has(key)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["edges", i],
-          message: `Duplicate edge between '${edge.from}' and '${edge.to}'.`,
+          message: edge.label
+            ? `Duplicate edge between '${edge.from}' and '${edge.to}' with label '${edge.label}'.`
+            : `Duplicate edge between '${edge.from}' and '${edge.to}'.`,
         });
       }
       seenEdgeKeys.add(key);

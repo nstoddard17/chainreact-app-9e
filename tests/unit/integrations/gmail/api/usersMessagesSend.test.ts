@@ -75,6 +75,49 @@ describe("usersMessagesSend — request shape", () => {
     });
   });
 
+  // Gmail 2.1 Commit 3 — optional threadId for reply_to_email path.
+
+  it("includes threadId in the body when provided (reply_to_email path)", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { id: "m", threadId: "thr-1" },
+    });
+
+    await usersMessagesSend({
+      accessToken: "x",
+      rawMessage: "raw",
+      threadId: "thr-1",
+    });
+
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    expect(JSON.parse(body)).toEqual({ raw: "raw", threadId: "thr-1" });
+  });
+
+  it("omits threadId when undefined (regular send path stays backwards-compatible)", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { id: "m", threadId: "thr-1" },
+    });
+
+    await usersMessagesSend({ accessToken: "x", rawMessage: "raw" });
+
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    expect(JSON.parse(body)).toEqual({ raw: "raw" });
+    expect(body).not.toContain("threadId");
+  });
+
+  it("omits threadId when empty string", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { id: "m", threadId: "thr-1" },
+    });
+
+    await usersMessagesSend({ accessToken: "x", rawMessage: "raw", threadId: "" });
+
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    expect(JSON.parse(body)).toEqual({ raw: "raw" });
+  });
+
   it("respects GMAIL_API_BASE override (e2e mock surface)", async () => {
     process.env.GMAIL_API_BASE = "http://127.0.0.1:9877";
     const fetchSpy = mockFetchOnce({

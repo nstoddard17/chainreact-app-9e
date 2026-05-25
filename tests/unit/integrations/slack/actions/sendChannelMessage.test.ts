@@ -98,11 +98,33 @@ describe("sendChannelMessage — happy path", () => {
       botToken: "xoxb-real-token",
       channel: "C123",
       text: "hello",
+      threadTs: undefined,
     });
     expect(result.output).toEqual({
       channel: "C123",
       ts: "1730000000.000123",
       message: { text: "hello", user: "U_BOT" },
+    });
+  });
+
+  it("forwards thread_ts through to chatPostMessage when supplied (Slack 2.1 expansion)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
+    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockChatPostMessage.mockResolvedValueOnce({
+      ts: "2.0",
+      channel: "C1",
+      message: { text: "reply" },
+    });
+
+    await sendChannelMessage(
+      makeInput({ channel: "C1", text: "reply", threadTs: "1.0" }),
+    );
+
+    expect(mockChatPostMessage).toHaveBeenCalledWith({
+      botToken: "xoxb-real",
+      channel: "C1",
+      text: "reply",
+      threadTs: "1.0",
     });
   });
 

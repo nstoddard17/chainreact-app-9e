@@ -32,11 +32,43 @@ export interface ActionHandlerInput {
   config: Readonly<Record<string, unknown>>;
   /** The original trigger event that started the run. */
   triggerEvent: TriggerEvent;
+  /**
+   * Slice 3.SEC-2 — test-mode flag threaded from engine entry.
+   *
+   * The engine's pre-call gate (services/execution/testModeGate.ts)
+   * already prevents high-risk and external-integration handlers from
+   * being invoked when `testMode === true`. This field reaches handlers
+   * ONLY for the small set of native logic / transform actions that are
+   * allowed to execute in test mode. They generally ignore it; the
+   * field exists so future handlers can branch (e.g. `native:delay`
+   * could short-circuit its sleep) without another plumbing pass.
+   *
+   * Optional in the type so existing handlers stay source-compatible.
+   * Engine ALWAYS supplies a boolean — never undefined — at runtime.
+   */
+  testMode?: boolean;
 }
 
 export interface ActionHandlerResult {
   /** Becomes `context.variables[nodeId]` for downstream nodes. */
   output: Readonly<Record<string, unknown>>;
+  /**
+   * Optional branch decision for label-aware engine traversal.
+   *
+   *   - `undefined` (default): no branch decision. The engine follows ALL
+   *     outgoing edges of this node, regardless of their label. Provider
+   *     and existing native handlers behave unchanged.
+   *   - `string`: only outgoing edges whose `label` matches this value are
+   *     activated. Unlabeled outgoing edges are still followed (treated as
+   *     unconditional "always-run" edges, e.g. cleanup steps).
+   *   - `null`: explicit short-circuit — no labeled outgoing edge is
+   *     activated. Unlabeled outgoing edges are still followed.
+   *
+   * The engine never reads this field in Commit 1 (contracts-only); the
+   * label-aware traversal lands in Commit 2. See
+   * docs/slices/parity/engine-branching-plan.md §3.2 + §4.1.
+   */
+  branchTaken?: string | null;
 }
 
 export type ActionHandler = (

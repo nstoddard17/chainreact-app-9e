@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { WorkflowDefinitionSchema } from "./workflowDefinition";
+import { TriggerEventSchema } from "./triggerEvent";
 
 /**
  * Cross-layer workflow contracts.
@@ -114,6 +115,55 @@ export const WorkflowRunSummarySchema = z.object({
   errorClassification: HumanizedErrorSchema.nullable(),
 });
 export type WorkflowRunSummary = z.infer<typeof WorkflowRunSummarySchema>;
+
+/**
+ * Wire shape for per-step results inside a WorkflowRunDetail. The engine
+ * already persists this exact shape into `workflow_runs.steps` (see
+ * `repositories/workflowRuns.ts:WorkflowRunStep`). The schema is mirrored
+ * here so the typed client can validate the response and so the UI doesn't
+ * have to import server-only repository types.
+ *
+ * Slice 3.8 surfaces per-step output for the latest test-run preview;
+ * authors need this to confirm what their downstream variable references
+ * will resolve to. The existing run summary endpoint strips `steps[]` and
+ * `triggerEvent` on purpose — keeping the list view light — so the detail
+ * endpoint exists as a separate, opt-in surface.
+ */
+export const WorkflowRunStepSchema = z.object({
+  nodeId: z.string(),
+  status: z.enum(["succeeded", "failed", "skipped"]),
+  output: z.record(z.string(), z.unknown()).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      details: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
+});
+export type WorkflowRunStep = z.infer<typeof WorkflowRunStepSchema>;
+
+export const WorkflowRunFatalErrorSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+});
+export type WorkflowRunFatalError = z.infer<typeof WorkflowRunFatalErrorSchema>;
+
+/**
+ * Detail shape returned by GET /api/workflows/[id]/runs/[runId]. Extends
+ * the summary with `steps[]`, `triggerEvent`, and `fatalError`. Used by
+ * Slice 3.8's RunResultsPanel to show per-step output for the latest run.
+ *
+ * Intentionally omits `userId` (RLS-gated; UI never needs it) and the
+ * raw `createdAt` (the engine writes `startedAt`/`finishedAt`; `createdAt`
+ * is a row-insert timestamp not a workflow-execution timestamp).
+ */
+export const WorkflowRunDetailSchema = WorkflowRunSummarySchema.extend({
+  triggerEvent: TriggerEventSchema,
+  steps: z.array(WorkflowRunStepSchema),
+  fatalError: WorkflowRunFatalErrorSchema.nullable(),
+});
+export type WorkflowRunDetail = z.infer<typeof WorkflowRunDetailSchema>;
 
 /**
  * PATCH /api/workflows/[id] body. Slice 1I extended this beyond name-only

@@ -35,6 +35,30 @@ export interface BuildRfc5322Input {
   cc?: string;
   bcc?: string;
   /**
+   * Optional `Reply-To:` header value. Gmail 2.1 Commit 2 expansion.
+   * Bare email or display-name form ("Name <a@b.com>") both pass
+   * through verbatim. Empty string or undefined → header omitted.
+   */
+  replyTo?: string;
+  /**
+   * Optional `In-Reply-To:` header value. Gmail 2.1 Commit 3 expansion
+   * for the reply / draft-reply paths. Carries the originating
+   * message's `Message-ID:` (the RFC-5322 header value, NOT Gmail's
+   * internal message id). Empty / undefined → header omitted.
+   *
+   * V1 reference: `createDraftReply.ts:76`, `replyToEmail.ts:97`.
+   */
+  inReplyTo?: string;
+  /**
+   * Optional `References:` header value. Same shape as `inReplyTo`.
+   * Gmail 2.1 Commit 3: for new replies we mirror V1 by setting
+   * References to the originating Message-ID. (A full thread would
+   * concatenate the prior References chain + the current Message-ID,
+   * but V1 only ported the single-Message-ID shape and we preserve
+   * that for parity.)
+   */
+  references?: string;
+  /**
    * Override boundary for tests. Production callers omit and the builder
    * generates a fresh random boundary.
    */
@@ -86,6 +110,15 @@ export function buildRfc5322Message(input: BuildRfc5322Input): string {
   }
   if (input.bcc !== undefined && input.bcc.length > 0) {
     headers.push(`Bcc: ${input.bcc}`);
+  }
+  if (input.replyTo !== undefined && input.replyTo.length > 0) {
+    headers.push(`Reply-To: ${input.replyTo}`);
+  }
+  if (input.inReplyTo !== undefined && input.inReplyTo.length > 0) {
+    headers.push(`In-Reply-To: ${input.inReplyTo}`);
+  }
+  if (input.references !== undefined && input.references.length > 0) {
+    headers.push(`References: ${input.references}`);
   }
   headers.push(`Subject: ${encodeRfc2047HeaderValue(input.subject)}`);
   headers.push("MIME-Version: 1.0");

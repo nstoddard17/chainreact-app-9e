@@ -65,6 +65,103 @@ describe("buildRfc5322Message — text/plain only", () => {
     expect(msgEmpty).not.toContain("Cc:");
   });
 
+  // Gmail 2.1 Commit 2 — Reply-To header
+
+  it("includes Reply-To when provided (Gmail 2.1 Commit 2)", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      replyTo: "noreply@example.com",
+    });
+    expect(msg).toContain("\r\nReply-To: noreply@example.com\r\n");
+  });
+
+  it("accepts a display-name-form Reply-To verbatim", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      replyTo: "Support <support@example.com>",
+    });
+    expect(msg).toContain(
+      "\r\nReply-To: Support <support@example.com>\r\n",
+    );
+  });
+
+  it("omits Reply-To when undefined or empty", () => {
+    const msgUndef = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+    });
+    const msgEmpty = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      replyTo: "",
+    });
+    expect(msgUndef).not.toContain("Reply-To:");
+    expect(msgEmpty).not.toContain("Reply-To:");
+  });
+
+  // Gmail 2.1 Commit 3 — reply headers (In-Reply-To + References)
+
+  it("includes In-Reply-To when provided (Gmail 2.1 Commit 3)", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "Re: S",
+      textBody: "B",
+      inReplyTo: "<original-msg-id@example.com>",
+    });
+    expect(msg).toContain(
+      "\r\nIn-Reply-To: <original-msg-id@example.com>\r\n",
+    );
+  });
+
+  it("includes References when provided", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "Re: S",
+      textBody: "B",
+      references: "<original-msg-id@example.com>",
+    });
+    expect(msg).toContain(
+      "\r\nReferences: <original-msg-id@example.com>\r\n",
+    );
+  });
+
+  it("includes both In-Reply-To and References together (typical reply shape)", () => {
+    const msg = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "Re: S",
+      textBody: "B",
+      inReplyTo: "<orig@example.com>",
+      references: "<orig@example.com>",
+    });
+    expect(msg).toContain("\r\nIn-Reply-To: <orig@example.com>\r\n");
+    expect(msg).toContain("\r\nReferences: <orig@example.com>\r\n");
+  });
+
+  it("omits In-Reply-To and References when undefined or empty", () => {
+    const msgUndef = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+    });
+    const msgEmpty = buildRfc5322Message({
+      to: "a@x.com",
+      subject: "S",
+      textBody: "B",
+      inReplyTo: "",
+      references: "",
+    });
+    expect(msgUndef).not.toContain("In-Reply-To:");
+    expect(msgUndef).not.toContain("References:");
+    expect(msgEmpty).not.toContain("In-Reply-To:");
+    expect(msgEmpty).not.toContain("References:");
+  });
+
   it("preserves CSV recipients verbatim into the To: line", () => {
     const msg = buildRfc5322Message({
       to: "alice@x.com, bob@x.com, carol@x.com",
