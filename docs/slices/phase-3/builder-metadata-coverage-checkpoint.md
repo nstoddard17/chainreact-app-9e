@@ -1,5 +1,7 @@
 # Phase 3 — Builder Metadata Coverage Checkpoint
 
+> **⚠️ SUPERSEDED snapshot — note added 2026-05-25 (Slice 4.PROVIDER-DOCS-1).** This is a point-in-time snapshot at **Slice 3.42 (6 covered providers)** and is now **out of date**. Current live state: **17 covered providers** (`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics`) and **9 pending-metadata launch-scope providers** (`microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`). Source of truth for "covered" = `COVERED_PROVIDERS` in `tests/structure/discovery-meta-coverage.test.ts`. The current, maintained tracker is [`../phase-4/provider-metadata-launch-gap-tracker.md`](../phase-4/provider-metadata-launch-gap-tracker.md). Read the §2–§5 counts below as historical.
+
 **Status:** Checkpoint snapshot as of `ffbe1fdda` (Slice 3.42 — Notion metadata-complete + COVERED_PROVIDERS flip). Doc-only.
 **Branch:** `v2-provider-port-local` (local-only; do not push).
 **Master plan:** [`docs/slices/phase-2-plan.md`](../phase-2-plan.md).

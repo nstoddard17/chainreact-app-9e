@@ -5,6 +5,8 @@
 
 This is a **product-direction update, not a correction** of the prior Phase 2 closeout. The previous closeout shipped exactly what was accepted at the time; the completeness bar is now being raised by the product owner.
 
+> **⚠️ Scope clarification — added 2026-05-25 (Slice 4.PROVIDER-DOCS-1; accepted by Marcus).** Two staleness notes: (1) The per-provider "not started" notes in §"Per-provider notes" below are **stale** — all 7 revived providers (Discord, Google Docs, OneNote, Monday, Dropbox, Facebook, Google Analytics) are now COMPLETE per [`provider-completion-closeout.md`](./provider-completion-closeout.md). (2) This doc only ever covered the **revived queue**. It does NOT cover the separate, still-open builder-metadata gap for the 9 original Phase-1 launch-scope providers (`microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`) — those are runtime-present but builder-invisible (`hasMetadata:false` → "coming soon") and tracked in [`../phase-4/provider-metadata-launch-gap-tracker.md`](../phase-4/provider-metadata-launch-gap-tracker.md).
+
 ---
 
 ## Decision

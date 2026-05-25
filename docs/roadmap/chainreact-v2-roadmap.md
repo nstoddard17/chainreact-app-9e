@@ -8,6 +8,8 @@ This roadmap defines eight phases. Phase 1 (provider foundation) is the only pha
 
 The intent is: stop adding providers on top of an unaudited foundation, lock down a roadmap, then execute it in order.
 
+> **⚠️ Status correction — added 2026-05-25 (Slice 4.PROVIDER-DOCS-1; accepted by Marcus).** This roadmap's 2026-05-10 snapshot is stale on the provider front. Verified-against-live-code current state: **provider runtime is essentially complete across 26 providers** (286 real, non-stubbed handlers; full Jest suite green — 12,382 passed / 7 skipped / 0 failures). The Phase-2 examples below (e.g. "Slack V1 has 14+ actions; V2 has 1") are **obsolete** — Slack now has 31 registered actions; runtime/parity is done. The real remaining provider gap is **builder metadata**: **17/26 providers** are Builder-visible; **9 launch-scope providers are runtime-present but builder-invisible** (`hasMetadata:false` → "coming soon"): `microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`. Corrected one-liner: *provider runtime is essentially complete, but provider metadata/builder launch readiness still has a 9-provider gap.* Live tracker: [`../slices/phase-4/provider-metadata-launch-gap-tracker.md`](../slices/phase-4/provider-metadata-launch-gap-tracker.md). Treat the Phase-1/Phase-2 narrative below as historical context, not current status.
+
 ---
 
 ## Operating principles

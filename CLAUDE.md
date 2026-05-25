@@ -159,6 +159,8 @@ E2E tests should use real V2 internals and mock only the external provider bound
 
 As of 2026-05-12, **Phase 1 (Provider foundation) is substantially complete locally** with 17 providers ported. See [`docs/roadmap/chainreact-v2-roadmap.md`](./docs/roadmap/chainreact-v2-roadmap.md) for the authoritative roadmap covering Phases 1–8.
 
+> **⚠️ Updated 2026-05-25 (Slice 4.PROVIDER-DOCS-1; accepted by Marcus).** Provider **runtime** is now essentially complete across **26 providers** (286 real, non-stubbed handlers; full Jest suite green: 12,382 passed / 7 skipped / 0 failures). Provider **builder/metadata** coverage = **17/26 providers**; **9 launch-scope providers are runtime-present but builder-invisible** (`hasMetadata:false` → "coming soon"): `microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`. Framing rule: *provider runtime is essentially complete, but provider metadata/builder launch readiness still has a 9-provider gap.* Do not call the provider foundation "fully complete / launch-ready" until those 9 are covered or product-deferred. Live tracker: [`docs/slices/phase-4/provider-metadata-launch-gap-tracker.md`](./docs/slices/phase-4/provider-metadata-launch-gap-tracker.md). The "17 providers ported" count below is the Phase-1 historical snapshot.
+
 **Completed locally (Phase 1):**
 - Slack (slice 1)
 - Gmail (slice 2)

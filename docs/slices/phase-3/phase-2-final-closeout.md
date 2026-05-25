@@ -6,6 +6,8 @@
 **Branch:** `v2-provider-port-local`
 **HEAD at authoring:** `68d352267` (NATIVE-NODES-1 audit)
 
+> **⚠️ Scope clarification — added 2026-05-25 (Slice 4.PROVIDER-DOCS-1; accepted by Marcus).** The completion claims below are accurate **for their stated scope** (runtime/parity + the revived-provider queue + native nodes) and are **not retracted**. They do **not** mean all 26 providers are Builder-ready. Corrected status: *provider runtime is essentially complete across 26 providers, but provider metadata/builder launch readiness still has a 9-provider gap.* Nine launch-scope providers are runtime-present but builder-metadata-incomplete (`hasMetadata:false` → "coming soon"): `microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`. Tracked in [`../phase-4/provider-metadata-launch-gap-tracker.md`](../phase-4/provider-metadata-launch-gap-tracker.md). Do not call the provider foundation "fully complete / launch-ready" until those 9 are covered or product-deferred.
+
 This is the umbrella closeout that ties together the two accepted Phase 2 completion artifacts so the project can move cleanly into its next major focus area. It adds no new findings — it ratifies the evidence already accepted in the provider-completion closeout and the native-nodes audit.
 
 ---

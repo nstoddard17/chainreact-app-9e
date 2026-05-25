@@ -6,6 +6,8 @@
 **Branch:** `v2-provider-port-local`
 **HEAD at authoring:** `4db26d0af` (GOOGLE-ANALYTICS-4 — the final provider-arc commit)
 
+> **⚠️ Scope clarification — added 2026-05-25 (Slice 4.PROVIDER-DOCS-1; accepted by Marcus).** This closeout is accurate **for the revived-7 provider queue** (Discord, Google Docs, OneNote, Monday, Dropbox, Facebook, Google Analytics) and is **not retracted**. It was never an "all 26 providers are Builder-ready" claim. Corrected overall status: *provider runtime is essentially complete across 26 providers, but provider metadata/builder launch readiness still has a 9-provider gap.* Nine original Phase-1 launch-scope providers are runtime-present but builder-metadata-incomplete (`hasMetadata:false` → "coming soon"): `microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`. That work is a separate track in [`../phase-4/provider-metadata-launch-gap-tracker.md`](../phase-4/provider-metadata-launch-gap-tracker.md). Do not call the provider foundation "fully complete / launch-ready" until those 9 are covered or product-deferred.
+
 This document confirms that the revived provider-completion work meets Marcus's "Phase 2 to my standards" bar. It is a verification and planning artifact, not implementation work. Every count, commit hash, and invariant claim below was checked against the working tree and `git log` at authoring time; nothing is inferred or invented.
 
 ---
