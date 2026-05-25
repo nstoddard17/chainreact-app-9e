@@ -17,6 +17,10 @@ Airtable is the **3rd** of the (now) 7 pending-metadata providers (after Shopify
 
 ---
 
+> **✅ AIRTABLE-META-2 shipped (2026-05-25).** All **5** resolvers are live and registered in `services/options/_registry.ts`: `airtable:bases` (no deps, value=base id), `airtable:tables` (dep `baseId`, value=table id), `airtable:fields` + `airtable:views` + `airtable:attachment_fields` (multi-parent dep `["baseId","tableIdOrName"]` via BUILDER-OPTIONS-1; values = field/view/field name). New `integrations/airtable/api/basesList.ts` helper (`GET /v0/meta/bases`, existing `schema.bases:read` scope — no reconnect); tables/fields/views/attachment_fields reuse `basesGetSchema`. Shared helper `integrations/airtable/options/_shared.ts` (integration/dep guards, sanitized error mapping, table lookup, q-filter). `airtable:records` **rejected** for v1 (asserted absent). Attachment filter matches `multipleAttachments` (+ `attachment` defensively). **Airtable is still NOT in `COVERED_PROVIDERS`** — ActionMeta/TriggerMeta land in **AIRTABLE-META-3** (next), which flips coverage. Tests: `tests/unit/integrations/airtable/options/*.test.ts` (5), `tests/unit/integrations/airtable/api/basesList.test.ts`, registry block in `tests/unit/services/options/_registry.test.ts`.
+
+---
+
 ## 1. Current Airtable runtime inventory
 
 **Manifest** ([`integrations/airtable/manifest.ts`](../../../integrations/airtable/manifest.ts)): id `airtable`, displayName "Airtable". OAuth v2 + PKCE, **refreshable with rotated refresh tokens** (`tokenScope: "user"`, `accountIdField: "userId"`, `apiVersion: "v0"`, `refreshable: true`, `healthCheckIntervalMs: 12h`). Scopes: `data.records:read`, `data.records:write`, `schema.bases:read`, `webhook:manage`. Capabilities `oauth/webhookTrigger/actions: true`, `pollingTrigger: false`. _(A manifest comment still says "8 action handlers" — **stale**; 11 are registered. Out of scope here; the capability flag `actions:true` is correct.)_

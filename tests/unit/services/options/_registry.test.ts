@@ -518,6 +518,73 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Airtable resolvers (Slice 4.AIRTABLE-META-2)", () => {
+    it("getOptionsResolver resolves airtable:bases (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("airtable:bases");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("airtable:bases");
+      expect(r?.provider).toBe("airtable");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves airtable:tables (dependsOn baseId — schema-verbatim)", () => {
+      const r = getOptionsResolver("airtable:tables");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("airtable");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["baseId"]);
+    });
+
+    it("getOptionsResolver resolves airtable:fields (multi-parent: baseId + tableIdOrName)", () => {
+      const r = getOptionsResolver("airtable:fields");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("airtable");
+      expect(r?.requiresIntegration).toBe(true);
+      // Multi-parent cascade unblocked by BUILDER-OPTIONS-1. Names pinned
+      // verbatim to the Airtable runtime Zod schemas.
+      expect(r?.requiredDeps).toEqual(["baseId", "tableIdOrName"]);
+    });
+
+    it("getOptionsResolver resolves airtable:views (multi-parent: baseId + tableIdOrName)", () => {
+      const r = getOptionsResolver("airtable:views");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("airtable");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["baseId", "tableIdOrName"]);
+    });
+
+    it("getOptionsResolver resolves airtable:attachment_fields (multi-parent: baseId + tableIdOrName)", () => {
+      const r = getOptionsResolver("airtable:attachment_fields");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("airtable");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["baseId", "tableIdOrName"]);
+    });
+
+    it("registers exactly the 5 AIRTABLE-META-2 resolver keys", () => {
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "airtable")
+        .map((r) => r.source)
+        .sort();
+      expect(sources).toEqual([
+        "airtable:attachment_fields",
+        "airtable:bases",
+        "airtable:fields",
+        "airtable:tables",
+        "airtable:views",
+      ]);
+    });
+
+    it("does NOT register airtable:records (record pickers rejected for v1)", () => {
+      expect(getOptionsResolver("airtable:records")).toBeUndefined();
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "airtable")
+        .map((r) => r.source);
+      expect(sources).not.toContain("airtable:records");
+    });
+  });
+
   it("OPTIONS_SOURCE_KEY_REGEX rejects malformed keys it should reject", () => {
     // Sanity on the regex used at module load.
     expect("slack:channels").toMatch(OPTIONS_SOURCE_KEY_REGEX);

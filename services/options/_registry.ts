@@ -280,6 +280,32 @@ import { microsoftExcelWorkbooksResolver } from "@/integrations/microsoft-excel/
 import { microsoftExcelWorksheetsResolver } from "@/integrations/microsoft-excel/options/worksheets";
 import { microsoftExcelTablesResolver } from "@/integrations/microsoft-excel/options/tables";
 
+// Airtable resolvers — Slice 4.AIRTABLE-META-2 (resolver-first ahead of
+// AIRTABLE-META-3 action/trigger metas; Airtable stays OUT of
+// `COVERED_PROVIDERS` until those land).
+//   - `airtable:bases` — account-scoped base picker (no deps). REQUIRED
+//     cascade root: `baseId` is an opaque `appXXX` id, not hand-typeable.
+//     Uses the NEW `basesList` helper (GET /v0/meta/bases, existing
+//     `schema.bases:read` scope — no reconnect). value = base id.
+//   - `airtable:tables` (deps: baseId) — value = table id (the trigger's
+//     `recordChangeScope` needs an id; actions accept id|name).
+//   - `airtable:fields` (deps: baseId + tableIdOrName) — value = field
+//     NAME (runtime keys the fields map / list_records.fields / formulas
+//     by name). Multi-parent — unblocked by BUILDER-OPTIONS-1.
+//   - `airtable:views` (deps: baseId + tableIdOrName) — value = view name.
+//   - `airtable:attachment_fields` (deps: baseId + tableIdOrName) —
+//     attachment-type fields only; backs add_attachment.fieldName.
+// tables/fields/views/attachment_fields reuse the existing
+// `basesGetSchema` helper; only `bases` needs the new `basesList`. Dep
+// names (`baseId`, `tableIdOrName`) are pinned verbatim to the Airtable
+// runtime Zod schemas. `airtable:records` is intentionally NOT
+// registered (record pickers are large/ambiguous — rejected for v1).
+import { airtableBasesResolver } from "@/integrations/airtable/options/bases";
+import { airtableTablesResolver } from "@/integrations/airtable/options/tables";
+import { airtableFieldsResolver } from "@/integrations/airtable/options/fields";
+import { airtableViewsResolver } from "@/integrations/airtable/options/views";
+import { airtableAttachmentFieldsResolver } from "@/integrations/airtable/options/attachmentFields";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -390,6 +416,18 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   microsoftExcelWorkbooksResolver,
   microsoftExcelWorksheetsResolver,
   microsoftExcelTablesResolver,
+  // Slice 4.AIRTABLE-META-2 — 5 Airtable resolvers (resolver-first ahead
+  // of AIRTABLE-META-3 metas). bases (root) → tables (dep: baseId) →
+  // fields / views / attachment_fields (deps: baseId + tableIdOrName,
+  // multi-parent via BUILDER-OPTIONS-1). `basesList` is the only new
+  // helper; the rest reuse `basesGetSchema`. `airtable:records` is
+  // intentionally absent (rejected for v1). Airtable stays OUT of
+  // COVERED_PROVIDERS until AIRTABLE-META-3.
+  airtableBasesResolver,
+  airtableTablesResolver,
+  airtableFieldsResolver,
+  airtableViewsResolver,
+  airtableAttachmentFieldsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
