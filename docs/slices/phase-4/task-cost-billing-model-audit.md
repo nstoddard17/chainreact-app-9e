@@ -21,7 +21,7 @@
 | **COST-3** | shipped | Ledger-only first: `task_usage_events` + per-run cost columns + actual-cost recording. Live billing still flat 1/run. Reserve/reconcile remains future. See note below. |
 | **COST-4** | shipped | Central cost-override map in `taskCostPolicy.ts` (NO ActionMeta/TriggerMeta edits). `source: "override"` surfaced through estimator + ledger. See note below. |
 | **COST-5** | shipped | Read-only workflow cost preview service + `GET /api/workflows/[id]/cost-preview`. Reuses the COST-2 estimator; no billing change, no ledger writes. See note below. |
-| COST-6 | future | `ai_cost_events` ledger + AI credits. |
+| **COST-6** | shipped | `ai_cost_events` observability ledger + recorder service (no AI behavior, no model calls). Separate from task_usage_events; AI credits as a distinct unit. See note below. |
 | COST-7 | future | Owner/admin analytics. |
 | COST-8 | future | Template cost-estimation hooks (reuse the COST-2 estimator). |
 
@@ -99,6 +99,28 @@ Tests: [`taskUsageEvents.test.ts`](../../../tests/unit/repositories/taskUsageEve
 **Consumers (future):** Builder UI cost chip, AI patch preview (calls the same deterministic surface — never guesses), template cost estimation — all reuse this. Live-billing reserve/reconcile remains future (COST-3.x).
 
 Tests: [`workflowCostPreview.test.ts`](../../../tests/unit/services/billing/workflowCostPreview.test.ts) (service) + [`cost-preview-route.test.ts`](../../../tests/unit/app/api/workflows/cost-preview-route.test.ts) (route).
+
+### COST-6 implementation note
+
+**AI cost / observability event FOUNDATION — no AI behavior, no model calls, no orchestrator, no UI.** A separate append-only ledger from `task_usage_events`: AI usage is not a workflow task, and gets its own unit (**AI credits**) so it stays attributable + capped independently. Future AI slices emit these events; future owner analytics read them (service-role); future templates + custom providers/nodes reuse the same model.
+
+**Migration** [`20260525000001_ai_cost_events.sql`](../../../supabase/migrations/20260525000001_ai_cost_events.sql): `ai_cost_events` — RLS enabled + `select_own` policy + explicit least-privilege GRANTs (authenticated SELECT only; service_role full incl. cross-user owner reads). Columns: ids (`user_id` FK CASCADE; `workflow_id`/`workflow_run_id` FK SET NULL so AI history outlives deleted workflows/runs; `patch_id`/`conversation_id` text, no FK — those tables don't exist yet), `feature` + `event_type` (both CHECK-constrained), model fields, token counts, `estimated_cost_micros` (USD millionths — integer, no float drift; supersedes the audit's earlier "cents" sketch because sub-cent token costs truncate to 0 in whole cents), `ai_credits_charged`, `latency_ms`, `tool_name`/`tool_status`, `validation_error_code`, `safety_block_reason`, tri-state `accepted`/`success`, redacted `metadata jsonb`. Indexes on user / workflow / feature. **No `workspace_id`** — V2 has no workspace model yet (confirmed); it rides in `metadata` until a workspace migration lands.
+
+**Repository** [`aiCostEvents.ts`](../../../repositories/aiCostEvents.ts): `insertEvent(event)` (service-role) + `listByWorkflow(workflowId)` (RLS). snake_case ↔ camelCase.
+
+**Service** [`services/billing/aiCostEvents.ts`](../../../services/billing/aiCostEvents.ts):
+- `recordAiCostEvent(event)` — general recorder; **sanitizes `metadata`** before persistence.
+- Typed wrappers: `recordAiModelCallCompleted` (computes `total_tokens`, `success:true`), `recordAiModelCallFailed`, `recordAiToolCalled` (→ `ai_tool_failed` when `toolStatus:"failed"`), `recordAiPatchOutcome` (proposed / validation_failed / previewed / applied / rejected → `accepted` for applied/rejected), `recordAiSafetyBlock`, `recordAiUserFeedback`.
+- `listAiCostEventsForWorkflow(workflowId)`; `summarizeAiCostEvents(events)` — **pure** roll-up (tokens / cost-micros / credits / accept-reject / byFeature / byEventType) the future owner dashboard folds rows into.
+- `sanitizeAiEventMetadata(metadata)` — key denylist (`token`/`secret`/`password`/`authorization`/`apikey`/`credential`/`prompt`/`completion`/`chain-of-thought`/`body`/`fileContent`/`config`/`raw…`) + 512-char cap + depth(3)/array(50) bounds. **Defense in depth** — callers must still pass redacted summaries.
+
+**Event types supported:** `ai_interaction_started`, `ai_model_call_completed`, `ai_model_call_failed`, `ai_tool_called`, `ai_tool_failed`, `ai_patch_{proposed,validation_failed,previewed,applied,rejected}`, `ai_safety_block_triggered`, `ai_user_feedback_submitted`, `ai_template_{recommended,instantiated}`, `ai_cost_recorded`. **Features:** workflow_creation/editing/repair/explanation, failed_run_analysis, provider_discovery, template_recommendation/customization, cost_preview, other.
+
+**Redaction:** NEVER stores raw prompts/completions/chain-of-thought/secrets/tokens/bodies/file-contents/configs (no-leak tested across `accessToken`/`refreshToken`/`apiSecret`/`clientSecret`/`webhookSecret`/`botToken`/`Authorization`/`rawPrompt`/`rawCompletion`/`chainOfThought`/`password`/`messageBody`/`fileContents`).
+
+**Template / custom-node future-readiness:** no first-class columns added (no such feature exists). `templateId` / `templateRecommendationShown` / `customProviderId` / `customNodeId` / `customNodeVersion` are NON-blocked metadata keys and survive sanitization (tested), so future slices can record them immediately; promote to columns only when justified.
+
+**Unchanged:** no AI implementation, no model calls, no live-billing change, no UI. Tests: [`aiCostEvents.test.ts`](../../../tests/unit/repositories/aiCostEvents.test.ts) (repo) + [`aiCostEvents.test.ts`](../../../tests/unit/services/billing/aiCostEvents.test.ts) (service: sanitize, recorders, summary, no-leak, future-readiness).
 
 ---
 
