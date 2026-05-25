@@ -20,7 +20,8 @@
 | **AI-3** | shipped | `WorkflowPatch` schema + deterministic validator. See note below. |
 | **AI-4** | shipped | Read-only workflow/node explainer (`services/ai/explain/*`). See note below. |
 | **AI-5** | shipped | Deterministic WorkflowPatch preview service (`services/ai/preview/*`). See note below. |
-| AI-6+ | future | Safe-apply (confirm + persist), failed-run repair, ground-up creation, etc. (§13). |
+| **AI-6** | shipped | Confirmed WorkflowPatch apply service (`services/ai/apply/*`) — first mutating slice. See note below. |
+| AI-7+ | future | Failed-run repair, ground-up creation, optimizer, cost/billing, observability dashboard, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -67,6 +68,18 @@ Deterministic patch **preview** service under [`services/ai/preview/`](../../../
 **Future:** AI-6 adds the confirm + persist apply flow (which must load the UNREDACTED definition; this preview never persists its candidate).
 
 **Tests:** [`tests/unit/services/ai/preview/*`](../../../tests/unit/services/ai/preview/) (20) — ownership/NOT_FOUND, every valid op's change summary, invalid-patch families, deterministic risk + confirmation (incl. model-can't-downgrade), COST-2 cost + no-deduction, no-leak (values + secret key names), and live-registry grounding.
+
+### AI-6 implementation note
+
+Confirmed apply service under [`services/ai/apply/`](../../../services/ai/apply/) — the FIRST AI slice that may mutate a saved workflow, so it is strict. No model calls, no agent loop, no UI, no auto-apply, no billing deduction.
+
+- **[`applyWorkflowPatch.ts`](../../../services/ai/apply/applyWorkflowPatch.ts)** — `applyWorkflowPatchForAI({ userId, workflowId, patch, confirmation? })`. Flow: load via `repositories/workflows.getById` (**UNREDACTED** definition; ownership enforced — missing/not-owned → `NOT_FOUND`) → **re-run `validateWorkflowPatch` at apply time** (never trusts a client preview) → reject invalid (nothing persisted) → optimistic-concurrency check → confirmation gate → persist the validator's candidate via the existing `updateDraftDefinition`.
+- **Confirmation:** when validation says `requiresConfirmation`, `confirmation.confirmed === true` is required; a supplied `acceptedRiskLevel` must match the recomputed risk (a stale low-risk confirmation can't authorize a high-risk patch). Confirmation never bypasses validation.
+- **Result:** `ok`, `workflowId`, `appliedPatchId`, `appliedOperationCount`, `affectedNodeIds`/`affectedEdgeIds`, deterministic `riskLevel`/`requiresConfirmation`/`riskReasons`, `taskCostEstimate` (no deduction), a value-free `workflow` summary (name/state/counts — never the definition/config), new `updatedAt`, `summaryText`. Failures carry a typed `code` (`NOT_FOUND` | `PATCH_INVALID` | `UNSUPPORTED_OPERATION` | `VALIDATION_FAILED` | `CONFIRMATION_REQUIRED` | `STALE_PATCH` | `UPDATE_FAILED`) + sanitized validation errors.
+- **No redacted candidate / secret preservation:** apply builds its candidate from the unredacted repo definition, so untouched secret config is preserved byte-for-byte (never persisted as `[REDACTED]`); the result output leaks neither values nor secret-shaped key names (validator messages scrubbed).
+- **Concurrency:** the workflows repo has no content-revision and `updateDraftDefinition` has no write-time guard, so this is **read-time** optimistic concurrency — `patch.baseRevision` must equal the workflow's current revision token (`updatedAt`), else `STALE_PATCH`. **Follow-up:** a write-time guarded update (`.eq("updated_at", …)`, mirroring `applyTransition`) closes the residual read→write TOCTOU window. Callers must set `patch.baseRevision = workflow.updatedAt` (AI-5 should surface that token — follow-up).
+
+**Tests:** [`tests/unit/services/ai/apply/*`](../../../tests/unit/services/ai/apply/) (25) — ownership/NOT_FOUND, revalidation (nothing persisted on failure, no input mutation, all-or-nothing), confirmation (block/allow, accepted-risk match, can't-bypass-invalid), persistence (add/update/remove/replaceTrigger; update called exactly once on success, never on failure), stale-patch rejection, no-redacted-candidate + secret preservation, deterministic risk + COST-2 + no-deduction, and no-leak (result values + secret key names).
 
 ---
 
