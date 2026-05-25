@@ -477,6 +477,47 @@ describe("options resolver registry", () => {
     }
   });
 
+  describe("Microsoft Excel resolvers (Slice 4.EXCEL-META-2)", () => {
+    it("getOptionsResolver resolves microsoft-excel:workbooks (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("microsoft-excel:workbooks");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("microsoft-excel:workbooks");
+      expect(r?.provider).toBe("microsoft-excel");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves microsoft-excel:worksheets (dependsOn workbookId — camelCase verbatim)", () => {
+      const r = getOptionsResolver("microsoft-excel:worksheets");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("microsoft-excel");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["workbookId"]);
+    });
+
+    it("getOptionsResolver resolves microsoft-excel:tables (dependsOn workbookId)", () => {
+      const r = getOptionsResolver("microsoft-excel:tables");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("microsoft-excel");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["workbookId"]);
+    });
+
+    it("registers exactly the 3 EXCEL-META-2 resolver keys (columns deferred)", () => {
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "microsoft-excel")
+        .map((r) => r.source)
+        .sort();
+      expect(sources).toEqual([
+        "microsoft-excel:tables",
+        "microsoft-excel:workbooks",
+        "microsoft-excel:worksheets",
+      ]);
+      // `columns` resolver intentionally deferred (hand-typed headers OK).
+      expect(getOptionsResolver("microsoft-excel:columns")).toBeUndefined();
+    });
+  });
+
   it("OPTIONS_SOURCE_KEY_REGEX rejects malformed keys it should reject", () => {
     // Sanity on the regex used at module load.
     expect("slack:channels").toMatch(OPTIONS_SOURCE_KEY_REGEX);

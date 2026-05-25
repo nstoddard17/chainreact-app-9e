@@ -68,7 +68,7 @@ Runtime counts from the handler registry + trigger tree. "Runtime triggers" coun
 | # | Provider | Runtime actions | Runtime triggers | Current builder status | Missing metadata / resolver work | Recommended arc | Priority |
 |---|---|---|---|---|---|---|---|
 | ~~1~~ | ~~**shopify**~~ | 11 | 1 | ✅ **COVERED (SHOPIFY-META-2)** — `hasMetadata:true` | DONE: 11 ActionMeta + 1 TriggerMeta + `services/discovery/providers/shopify.ts` + COVERED flip. Resolvers deferred to optional SHOPIFY-META-3. | — | done |
-| 1 | **microsoft-excel** | 10 | 5 (polling) | "coming soon" | 10 ActionMeta + 5 TriggerMeta. Optional `workbooks`/`worksheets` resolvers (deferrable; IDs typeable). | EXCEL-META | **1 (next)** |
+| 1 | **microsoft-excel** | 10 | 5 (polling) | "coming soon" — **resolvers shipped (EXCEL-META-2); metas pending** | ✅ EXCEL-META-2: `workbooks` + `worksheets` + `tables` resolvers + new `tablesList` helper. ⏳ EXCEL-META-3: 10 ActionMeta + 5 TriggerMeta + COVERED flip. (`workbookId` is an opaque Graph id → resolvers required, not optional.) `columns` resolver deferred. | EXCEL-META-3 | **1 (in progress)** |
 | 3 | **google-calendar** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. Optional `calendars` resolver (deferrable). | GCAL-META | 3 |
 | 4 | **microsoft-outlook-calendar** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. Mirror of GCAL. | OUTLOOK-CAL-META | 4 |
 | 5 | **google-drive** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. `folders` resolver **already exists** in options registry. | GDRIVE-META | 5 |

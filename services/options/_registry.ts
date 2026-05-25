@@ -264,6 +264,22 @@ import { googleAnalyticsPropertiesResolver } from "@/integrations/google-analyti
 import { googleAnalyticsDataStreamsResolver } from "@/integrations/google-analytics/options/dataStreams";
 import { googleAnalyticsConversionEventsResolver } from "@/integrations/google-analytics/options/conversionEvents";
 
+// Microsoft Excel resolvers — Slice 4.EXCEL-META-2 (resolver-first ahead
+// of EXCEL-META-3 action/trigger metas; Excel stays OUT of
+// `COVERED_PROVIDERS` until those land).
+//   - `microsoft-excel:workbooks` — account-scoped workbook picker (no
+//     deps). REQUIRED cascade root: `workbookId` is an opaque Graph
+//     DriveItem id, not hand-typeable. value = DriveItem id.
+//   - `microsoft-excel:worksheets` (depends on `workbookId`) — value is
+//     the worksheet NAME (handlers address worksheets by name).
+//   - `microsoft-excel:tables` (depends on `workbookId`) — value is the
+//     table NAME. Uses the new `tablesList` Graph helper.
+// Dep name `workbookId` preserved verbatim from the Excel Zod schemas
+// (camelCase). `columns` resolver deferred (hand-typed headers OK).
+import { microsoftExcelWorkbooksResolver } from "@/integrations/microsoft-excel/options/workbooks";
+import { microsoftExcelWorksheetsResolver } from "@/integrations/microsoft-excel/options/worksheets";
+import { microsoftExcelTablesResolver } from "@/integrations/microsoft-excel/options/tables";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -367,6 +383,13 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   googleAnalyticsPropertiesResolver,
   googleAnalyticsDataStreamsResolver,
   googleAnalyticsConversionEventsResolver,
+  // Slice 4.EXCEL-META-2 — 3 Microsoft Excel resolvers (resolver-first
+  // ahead of EXCEL-META-3 metas). workbooks (root) → worksheets / tables
+  // (dep: workbookId). columns deferred. Excel stays OUT of
+  // COVERED_PROVIDERS until EXCEL-META-3.
+  microsoftExcelWorkbooksResolver,
+  microsoftExcelWorksheetsResolver,
+  microsoftExcelTablesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

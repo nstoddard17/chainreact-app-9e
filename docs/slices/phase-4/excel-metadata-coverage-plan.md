@@ -13,6 +13,8 @@ Microsoft Excel is the **2nd** of the 8 pending-metadata providers (after Shopif
 
 ---
 
+> **✅ EXCEL-META-2 shipped (2026-05-25).** The 3 required resolvers are live: `microsoft-excel:workbooks` (no deps), `microsoft-excel:worksheets` + `microsoft-excel:tables` (both `dependsOn: workbookId`). New `tablesList` Graph helper added. The `columns` resolver remains deferred (hand-typed headers OK). Excel is **still NOT in `COVERED_PROVIDERS`** — ActionMeta/TriggerMeta land in **EXCEL-META-3** (next), which flips coverage. Files: `integrations/microsoft-excel/api/tablesList.ts`, `integrations/microsoft-excel/options/{workbooks,worksheets,tables}.ts`, registered in `services/options/_registry.ts`.
+
 ## 1. Current Excel runtime inventory
 
 **Manifest** (`integrations/microsoft-excel/manifest.ts`): id `microsoft-excel`, displayName "Microsoft Excel". OAuth Microsoft v2 (shared Azure app; `tokenScope: "user"`, `accountIdField: "email"`, refreshable). Scopes: `offline_access`, `Files.ReadWrite` (own-OneDrive workbooks; SharePoint/shared deferred). Capabilities `oauth/actions/pollingTrigger: true`, `webhookTrigger: false`. _(Note: a manifest comment still says "6 action handlers" — stale; 10 are registered. Out of scope here; the capability flag `actions:true` is correct.)_
