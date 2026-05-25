@@ -20,7 +20,7 @@
 | **COST-2** | shipped | Central task cost policy + deterministic workflow cost estimator (read-only; nothing enforces them yet). See note below. |
 | **COST-3** | shipped | Ledger-only first: `task_usage_events` + per-run cost columns + actual-cost recording. Live billing still flat 1/run. Reserve/reconcile remains future. See note below. |
 | **COST-4** | shipped | Central cost-override map in `taskCostPolicy.ts` (NO ActionMeta/TriggerMeta edits). `source: "override"` surfaced through estimator + ledger. See note below. |
-| COST-5 | future | Workflow preview cost API/UI (calls the COST-2 estimator). |
+| **COST-5** | shipped | Read-only workflow cost preview service + `GET /api/workflows/[id]/cost-preview`. Reuses the COST-2 estimator; no billing change, no ledger writes. See note below. |
 | COST-6 | future | `ai_cost_events` ledger + AI credits. |
 | COST-7 | future | Owner/admin analytics. |
 | COST-8 | future | Template cost-estimation hooks (reuse the COST-2 estimator). |
@@ -79,6 +79,26 @@ Tests: [`taskUsageEvents.test.ts`](../../../tests/unit/repositories/taskUsageEve
 **Estimator / recorder / ledger:** `NodeCostBreakdown` (estimator) and `NodeTaskUsage` (recorder) now carry `source`; the recorder writes `metadata: { source }` (enum only — never raw override config) onto `node_task_charged` ledger events. `charge_on`, `cost_reason`, and `cost_policy_version` continue to be stored. No migration (source rides in the existing `metadata jsonb`).
 
 **Unchanged:** no metadata edits, no live per-node deduction, no reserve/reconcile, no AI cost events, no UI, policy version stays `"v1"`. Tests: override-wins / trigger-stays-0 / default-source / `getTaskCostOverride` in [`taskCostPolicy.test.ts`](../../../tests/unit/services/billing/taskCostPolicy.test.ts); source surfacing in [`workflowCostEstimator.test.ts`](../../../tests/unit/services/billing/workflowCostEstimator.test.ts) + [`taskUsageRecorder.test.ts`](../../../tests/unit/services/billing/taskUsageRecorder.test.ts).
+
+### COST-5 implementation note
+
+**Read-only cost preview surface** over the COST-2 estimator. Side-effect free — no workflow mutation, no task deduction, no ledger writes, no provider/AI calls (asserted in tests via mocked `deductTasks` / `insertEvents`).
+
+- **Service** [`services/billing/workflowCostPreview.ts`](../../../services/billing/workflowCostPreview.ts):
+  - `getWorkflowCostPreview({ workflowId, userId })` — loads the workflow via the RLS-gated `workflows.getById` (+ defensive `userId` ownership check; returns `null` when missing/not-owned → route 404), runs `estimateWorkflowTaskCost`, and attaches a best-effort billing summary from `userBilling.getUsage` (a billing-read failure omits the summary, never fails the preview).
+  - `buildWorkflowCostPreview({ workflowId, estimate, billingSummary? })` — **pure** folder, so the future AI patch preview can build a preview from a candidate definition's estimate without re-loading.
+  - `buildBillingSummary(usage, estimatedTasksPerRun)` — `tasksRemaining = max(0, limit − used)`, `wouldExceedCurrentRemaining = estimate > remaining`.
+- **Route** [`app/api/workflows/[id]/cost-preview/route.ts`](../../../app/api/workflows/[id]/cost-preview/route.ts) — `GET`, `requireUser()` gate (401 if unauthenticated), 404 for missing/not-owned, sanitized 500. Follows the existing `[id]` param + `_shared.requireUser` convention.
+
+**Preview shape:** `{ workflowId, estimatedTasksPerRun, policyVersion, billableNodes[], nonBillableNodes[], unknownCostNodes[], warnings[], nodeBreakdown[], billing|null, isEstimate: true, note }`. Each `nodeBreakdown` entry carries `nodeId / provider / type / displayName? / kind / billable / estimatedTasks / reason / chargeOn / source / riskLevel? / category?` (policyVersion is top-level). `billing` = `{ tasksLimit, tasksUsed, tasksRemaining, wouldExceedCurrentRemaining }` when usage is available.
+
+**User-facing language is safe:** the `note` says only "Estimated workflow tasks per run. Actual usage may vary." Internal billing-state caveats (live billing is still flat 1/run; reserve/reconcile pending) are kept to THIS doc and never in the API payload (tested: the response contains no `flat 1/run` / `reserve` / `reconcile` / `temporary` strings).
+
+**Redaction by construction:** the preview is assembled only from the estimator's `NodeCostBreakdown` (node identity + registry metadata) — `node.config` is never read, so secrets cannot appear (no-leak tested across `accessToken`/`apiSecret`/`clientSecret`/`webhookSecret`/`botToken`/`Authorization`/raw body).
+
+**Consumers (future):** Builder UI cost chip, AI patch preview (calls the same deterministic surface — never guesses), template cost estimation — all reuse this. Live-billing reserve/reconcile remains future (COST-3.x).
+
+Tests: [`workflowCostPreview.test.ts`](../../../tests/unit/services/billing/workflowCostPreview.test.ts) (service) + [`cost-preview-route.test.ts`](../../../tests/unit/app/api/workflows/cost-preview-route.test.ts) (route).
 
 ---
 
