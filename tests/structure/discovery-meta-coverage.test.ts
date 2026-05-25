@@ -129,6 +129,21 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // Google Docs / OneNote); this is a deliberate staged provider arc,
   // not an accidental gap.
   "monday",
+  // Dropbox added in Slice 3.DROPBOX-4 once all 11 registered Dropbox
+  // action handlers have a matching meta (upload_file, download_file,
+  // get_file_metadata, list_folder, search_files, create_folder,
+  // move_file, copy_file, delete_file, create_shared_link,
+  // get_temporary_link — all ported in DROPBOX-2; metas +
+  // COVERED_PROVIDERS flip in DROPBOX-4). 1:1 handler↔meta drift is
+  // enforced from here on. **Dropbox triggers are intentionally NOT
+  // shipped in this slice.** The single `new_file` trigger lands in
+  // DROPBOX-5 via Dropbox's app-level webhook + per-account cursor
+  // reconciliation (NOT the per-workflow create_webhook pattern); the
+  // manifest's `capabilities.webhookTrigger` stays `false` until then.
+  // Trigger coverage is NOT enforced by this test (same precedent as
+  // Stripe / Discord / Google Docs / OneNote / Monday); this is a
+  // deliberate staged provider arc, not an accidental gap.
+  "dropbox",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

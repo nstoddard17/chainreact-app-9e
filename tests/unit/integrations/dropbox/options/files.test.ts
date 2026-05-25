@@ -50,7 +50,7 @@ function ctx(overrides: Partial<OptionsResolverContext> = {}): OptionsResolverCo
     userId: "user-1",
     integration,
     q: "",
-    deps: { path: "/Folder" },
+    deps: { folderPath: "/Folder" },
     ...overrides,
   };
 }
@@ -64,14 +64,14 @@ beforeEach(() => {
 });
 
 describe("dropboxFilesResolver — shape", () => {
-  it("declares requiredDeps=['path'] (parent folder path; no synthetic folderId)", () => {
+  it("declares requiredDeps=['folderPath'] (parent folder path; distinct from leaf file field 'path'; no synthetic folderId)", () => {
     expect(dropboxFilesResolver.source).toBe("dropbox:files");
     expect(dropboxFilesResolver.provider).toBe("dropbox");
     expect(dropboxFilesResolver.requiresIntegration).toBe(true);
-    expect(dropboxFilesResolver.requiredDeps).toEqual(["path"]);
+    expect(dropboxFilesResolver.requiredDeps).toEqual(["folderPath"]);
   });
 
-  it("MISSING_DEPENDENCY when path dep is absent", async () => {
+  it("MISSING_DEPENDENCY when folderPath dep is absent", async () => {
     await expect(
       dropboxFilesResolver.resolve(ctx({ deps: {} })),
     ).rejects.toMatchObject({ code: "MISSING_DEPENDENCY" });

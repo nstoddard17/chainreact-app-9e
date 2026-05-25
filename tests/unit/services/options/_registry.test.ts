@@ -305,15 +305,18 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toBeUndefined();
     });
 
-    it("getOptionsResolver resolves dropbox:files (dependsOn path — Dropbox is path-based, no synthetic folderId)", () => {
+    it("getOptionsResolver resolves dropbox:files (dependsOn folderPath — Dropbox is path-based, no synthetic folderId)", () => {
       const r = getOptionsResolver("dropbox:files");
       expect(r).toBeDefined();
       expect(r?.source).toBe("dropbox:files");
       expect(r?.provider).toBe("dropbox");
       expect(r?.requiresIntegration).toBe(true);
-      // Dep is the parent FOLDER path field (D-DB6 path-as-value); NOT a
-      // synthetic folderId.
-      expect(r?.requiredDeps).toEqual(["path"]);
+      // Dep VALUE is the parent FOLDER path (D-DB6 path-as-value); NOT a
+      // synthetic folderId. Dep NAME is `folderPath` (not `path`) so it
+      // doesn't collide with the leaf file field `path`/`fromPath` on the
+      // DROPBOX-4 action metas — the builder keys deps by parent field
+      // name, so the folder picker must have a distinct name to cascade.
+      expect(r?.requiredDeps).toEqual(["folderPath"]);
     });
 
     it("registers exactly the 2 Dropbox resolver keys", () => {

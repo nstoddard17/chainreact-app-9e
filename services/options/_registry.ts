@@ -201,12 +201,15 @@ import { mondayItemFilesResolver } from "@/integrations/monday/options/itemFiles
 //     deps). Prepends a synthetic Root option (value ""). Backs the
 //     destination-folder fields + the UI-scope folder parent for the
 //     files cascade. Single bounded page; sorted alphabetically.
-//   - `dropbox:files` (depends on `path`) — files inside the selected
-//     folder. Dep is named `path` (the parent folder path), NOT a
-//     synthetic folderId. NotFoundError → empty items (cascade
-//     fallback). Note: the options route drops empty deps, so the
-//     Dropbox root ("") can't be the parent — root files are typed
-//     directly; the picker covers nested folders.
+//   - `dropbox:files` (depends on `folderPath`) — files inside the
+//     selected folder. Dep VALUE is the parent folder path, NOT a
+//     synthetic folderId; dep NAME is `folderPath` (DROPBOX-4) so it
+//     doesn't collide with the leaf file field `path`/`fromPath` on the
+//     action metas (the builder keys deps by parent field name).
+//     NotFoundError → empty items (cascade fallback). Note: the options
+//     route drops empty deps, so the Dropbox root ("") can't be the
+//     parent — root files are typed directly; the picker covers nested
+//     folders.
 // Both reuse the DROPBOX-2 `filesListFolder` wrapper; no new transport.
 import { dropboxFoldersResolver } from "@/integrations/dropbox/options/folders";
 import { dropboxFilesResolver } from "@/integrations/dropbox/options/files";
@@ -293,8 +296,10 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // Slice 3.MONDAY-5 — download_file fileId picker (deps itemId + columnId).
   mondayItemFilesResolver,
   // Slice 3.DROPBOX-3 — 2 Dropbox path-based resolvers (resolver-first
-  // ahead of DROPBOX-4 action metas). `dropbox:files` deps on `path`
-  // (the parent folder path; Dropbox is path-based, no synthetic ids).
+  // ahead of DROPBOX-4 action metas). `dropbox:files` deps on `folderPath`
+  // (the parent folder path; Dropbox is path-based, no synthetic ids; dep
+  // renamed from `path` in DROPBOX-4 so it doesn't collide with the leaf
+  // file field).
   dropboxFoldersResolver,
   dropboxFilesResolver,
 ];

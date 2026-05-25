@@ -23,16 +23,25 @@ import { normalizeDropboxEntry } from "@/integrations/_shared/dropbox/api/_types
  * Dropbox path (`path_display`); `label` is the file name; `description`
  * surfaces size + modified date as a disambiguation hint.
  *
- * **Dependency: `path` (DROPBOX-1):** `requiredDeps: ["path"]` — the
- * parent FOLDER path field. Dep is named `path` (Dropbox is path-based;
- * NOT a synthetic `folderId`). The route validates `deps.path` is present
- * + non-empty BEFORE dispatch.
+ * **Dependency: `folderPath` (DROPBOX-1 / DROPBOX-4):** `requiredDeps:
+ * ["folderPath"]` — the parent FOLDER path field. Dropbox is path-based,
+ * so the dep VALUE is a folder path (NOT a synthetic `folderId`). The dep
+ * is NAMED `folderPath` (not `path`) because the consuming DROPBOX-4 action
+ * metas use the leaf field name `path`/`fromPath` for the FILE selection,
+ * and the builder keys deps by the parent field's NAME
+ * (`SchemaForm` → `deps = { [field.dependsOn]: parentValue }`). A `path`
+ * dep would therefore collide with the leaf file field — the cascade is
+ * only wirable when the parent folder field has a distinct name. The
+ * action metas declare an optional UI-scope `folderPath` picker
+ * (`dropbox:folders`) and point the file field's `dependsOn` at it. The
+ * route validates `deps.folderPath` is present + non-empty BEFORE dispatch.
  *
  * **Root limitation (documented):** the options route drops empty /
  * whitespace dep values, so the Dropbox **root** (path `""`) cannot be
- * passed as the `path` dep — the file picker requires a non-root folder.
- * Root-level files are reached by typing the file path directly into the
- * action's `path` field; the picker is a convenience for nested folders.
+ * passed as the `folderPath` dep — the file picker requires a non-root
+ * folder. Root-level files are reached by typing the file path directly
+ * into the action's `path` field; the picker is a convenience for nested
+ * folders.
  *
  * Architecture mirrors `monday:columns` (dep-based picker with cascade
  * fallback):
@@ -78,7 +87,7 @@ export const dropboxFilesResolver: OptionsResolver = {
   source: "dropbox:files",
   provider: "dropbox",
   requiresIntegration: true,
-  requiredDeps: ["path"],
+  requiredDeps: ["folderPath"],
   async resolve(ctx) {
     if (!ctx.integration) {
       throw new OptionsResolverError(
@@ -87,7 +96,7 @@ export const dropboxFilesResolver: OptionsResolver = {
       );
     }
 
-    const path = ctx.deps.path;
+    const path = ctx.deps.folderPath;
     if (typeof path !== "string") {
       // Belt-and-suspenders: the route already enforces requiredDeps.
       throw new OptionsResolverError(

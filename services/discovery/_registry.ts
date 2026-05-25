@@ -294,6 +294,11 @@ import { MICROSOFT_ONENOTE_ACTION_METAS, MICROSOFT_ONENOTE_TRIGGER_METAS } from 
 // Monday.com (MONDAY-6 actions + MONDAY-7 triggers) — 24 actions, 5
 // webhook triggers.
 import { MONDAY_ACTION_METAS, MONDAY_TRIGGER_METAS } from "./providers/monday";
+// Dropbox (DROPBOX-4 actions) — 11 actions, 0 triggers. The single
+// `new_file` trigger is staged for DROPBOX-5 (app-level webhook + cursor
+// reconciliation, not per-workflow webhook creation). See
+// providers/dropbox.ts header for the staged-arc rationale.
+import { DROPBOX_ACTION_METAS } from "./providers/dropbox";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -576,6 +581,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   // OneNote (ONENOTE-4) — 12 actions; see providers/microsoft-onenote.ts.
   ...GOOGLE_DOCS_ACTION_METAS, ...MICROSOFT_ONENOTE_ACTION_METAS,
   ...MONDAY_ACTION_METAS, // Monday (MONDAY-6) — 24 actions, displayOrder 10..240.
+  ...DROPBOX_ACTION_METAS, // Dropbox (DROPBOX-4) — 11 actions, displayOrder 10..110.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
