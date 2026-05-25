@@ -66,6 +66,17 @@ The engine now uses reserve/reconcile as the **live** billing path when `ENABLE_
 
 ---
 
+## COST-15I — dev-DB live reserve/reconcile engine verification (shipped)
+
+The COST-15H engine path was exercised **end-to-end against the real dev DB with `ENABLE_RESERVE_RECONCILE_BILLING=true`** — closing the gap that COST-15H's engine unit tests mock the service layer. **No bug found; no engine/RPC change.**
+
+- **Harness:** [`tests/integration/billing/reserveReconcileEngine.dev.test.ts`](../../../tests/integration/billing/reserveReconcileEngine.dev.test.ts) — gated (`ALLOW_DB_INTEGRATION_TESTS=true` + service-role env; self-skips under plain `npm test`/CI). Flag set **in-process only** (`beforeAll`, restored in `afterAll`); dev DB ref `qcepijemjlkssfkvzlio`; no `.env` committed; no production access. Drives the REAL engine; only the outside world is stubbed (mock handler — no provider API; deterministic meta — real `taskCostPolicy`; no-op notifier; cookie client throws). Reserve/reconcile services → repo wrappers → COST-12 RPCs → `user_billing`/`workflow_runs`/`task_usage_events` are all real.
+- **Cases (10/10 green, fresh user per case):** one-action reserve 1→reconcile 1; three-action 3→3; branching estimate 2→reconcile 1 (refund 1); trigger-only 0→0; partial-failure 3→reconcile 1 (run failed, `billing_status='reconciled'`); insufficient → `BILLING_EXHAUSTED` before any handler (`billing_status='failed'`, balances untouched, 0 ledger rows); test-mode (no billing/ledger/shadow); flag-OFF rollback (flat 1/run, no reserve/reconcile, COST-3 ledger still records); shadow-ON+reserve (reconcile still the only mutation, one shadow row).
+- **Findings:** `tasks_reserved` returned to **0** in every case; `tasks_used` moved by **exactly the reconciled charge** (flat `deduct` never called in reserve mode); refunds matched estimate−actual; `workflow_runs` billing columns + `billing_reconciled_at` correct; ledger wrote one `run_estimate_recorded` + one `node_task_charged` per successful billable node. The §7 failure-handling table — fatal-before-row, reservation failure, partial failure, test mode, duplicate dispatch — was confirmed against real RPC behavior. Engine logs confirmed live ordering: create-at-start → reserve RPC → execute → reconcile RPC → finalize → ledger insert. Cleanup left **0** residue.
+- **Gate:** the live engine reserve/reconcile path is **functionally correct on a real DB**. Remaining before pre-launch default: organic representative usage with the flag on + scheduled sweeps (COST-15K) so a crash between reserve and reconcile can't strand a hold. Not production-cutover-ready (that is COST-16). Full COST-15I write-up: [reserve-reconcile-billing-design.md](./reserve-reconcile-billing-design.md) COST-15I implementation note.
+
+---
+
 ## 1. Current `workflow_runs` lifecycle
 
 Source of truth: [`services/execution/engine.ts`](../../../services/execution/engine.ts) (`WorkflowEngine.runWorkflow` + `persistRun`), [`repositories/workflowRuns.ts`](../../../repositories/workflowRuns.ts), [`services/billing/executionBillingGate.ts`](../../../services/billing/executionBillingGate.ts), [`services/billing/taskUsageRecorder.ts`](../../../services/billing/taskUsageRecorder.ts).
