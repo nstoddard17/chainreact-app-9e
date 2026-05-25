@@ -16,6 +16,11 @@ import {
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { executionBillingGate } from "@/services/billing/executionBillingGate";
+import {
+  computeRunTaskUsage,
+  recordRunActuals,
+  type RunTaskUsage,
+} from "@/services/billing/taskUsageRecorder";
 import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
 import {
   buildOutgoingEdgeMap,
@@ -495,7 +500,30 @@ export class WorkflowEngine {
       isTest,
       triggeredBy,
     };
-    await persistRun(result, workflow.userId, workflow.name, input, log);
+
+    // COST-3 (ledger-only): record the COST-2 estimate + actual cost (sum of
+    // successful billable action nodes) for real runs. Live billing is
+    // UNCHANGED — the flat 1/run gate above already charged. Test/dry-run
+    // runs record nothing (usage = null). Recording is fail-open: a ledger
+    // failure must never break execution.
+    const usage: RunTaskUsage | null = isTest
+      ? null
+      : computeRunTaskUsage(def, steps);
+    await persistRun(result, workflow.userId, workflow.name, input, log, usage);
+    if (usage) {
+      try {
+        await recordRunActuals({
+          runId,
+          workflowId: input.workflowId,
+          userId: workflow.userId,
+          usage,
+        });
+      } catch (err) {
+        log("execution.run.task_usage_record_failed", {
+          error: (err as Error).message,
+        });
+      }
+    }
     return result;
   }
 }
@@ -516,6 +544,7 @@ async function persistRun(
   workflowName: string,
   input: RunWorkflowInput,
   log: (event: string, extra?: Record<string, unknown>) => void,
+  usage?: RunTaskUsage | null,
 ): Promise<void> {
   const errorClassification = classifyForPersistence(result);
   try {
@@ -533,6 +562,10 @@ async function persistRun(
       finishedAt: result.finishedAt,
       isTest: result.isTest,
       triggeredBy: result.triggeredBy,
+      // COST-3 — null for test runs + fatal-before-execution paths.
+      estimatedTaskCost: usage ? usage.estimatedTaskCost : null,
+      actualTaskCost: usage ? usage.actualTaskCost : null,
+      taskCostPolicyVersion: usage ? usage.policyVersion : null,
     });
   } catch (err) {
     log("execution.run.persist_failed", { error: (err as Error).message });

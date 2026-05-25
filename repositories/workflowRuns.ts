@@ -126,6 +126,15 @@ export interface RecordRunInput {
    */
   isTest: boolean;
   triggeredBy: WorkflowRunTriggeredBy;
+  /**
+   * Slice 4.COST-3 — per-run cost columns (ledger-only; live billing is
+   * still flat 1/run). Populated for real runs; null for test runs and
+   * fatal-before-execution paths. `taskCostPolicyVersion` pins the COST-2
+   * policy a run was costed under.
+   */
+  estimatedTaskCost?: number | null;
+  actualTaskCost?: number | null;
+  taskCostPolicyVersion?: string | null;
 }
 
 export async function recordRun(input: RecordRunInput): Promise<void> {
@@ -146,6 +155,9 @@ export async function recordRun(input: RecordRunInput): Promise<void> {
     finished_at: input.finishedAt,
     is_test: input.isTest,
     triggered_by: input.triggeredBy,
+    estimated_task_cost: input.estimatedTaskCost ?? null,
+    actual_task_cost: input.actualTaskCost ?? null,
+    task_cost_policy_version: input.taskCostPolicyVersion ?? null,
   });
   if (error) {
     throw new Error(`workflow_runs.recordRun failed: ${error.message}`);

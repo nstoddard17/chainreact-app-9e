@@ -18,7 +18,7 @@
 | **COST-1** | shipped (`6e67f1482`) | This audit/plan. Doc-only. |
 | **COST-2A** | shipped (`1753f2cb2`) | Narrow safety fix: test/dry-run runs no longer deduct tasks ([executionBillingGate.ts](../../../services/billing/executionBillingGate.ts) `{ testMode }` → skipped outcome; engine passes `isTest`). Real runs unchanged (flat 1/run). |
 | **COST-2** | shipped | Central task cost policy + deterministic workflow cost estimator (read-only; nothing enforces them yet). See note below. |
-| COST-3 | future | Actual-cost recorder + `task_usage_events` ledger + reserve/reconcile. |
+| **COST-3** | shipped | Ledger-only first: `task_usage_events` + per-run cost columns + actual-cost recording. Live billing still flat 1/run. Reserve/reconcile remains future. See note below. |
 | COST-4 | future | Optional `taskCost?` override slot on ActionMeta/TriggerMeta (only if defaults prove insufficient). |
 | COST-5 | future | Workflow preview cost API/UI (calls the COST-2 estimator). |
 | COST-6 | future | `ai_cost_events` ledger + AI credits. |
@@ -37,6 +37,31 @@ Two pure, deterministic, read-only services were added under `services/billing/`
 **What COST-2 did NOT change:** actual execution billing is still flat 1 task/run (Slice 1N) with the COST-2A test-mode skip — nothing consumes the policy/estimator yet. No `task_usage_events` ledger, no reserve/reconcile, no migrations, no UI, no AI cost events, no metadata edits. Tests: [`taskCostPolicy.test.ts`](../../../tests/unit/services/billing/taskCostPolicy.test.ts), [`workflowCostEstimator.test.ts`](../../../tests/unit/services/billing/workflowCostEstimator.test.ts).
 
 **Next:** AI-3's WorkflowPatch validator should call `estimateWorkflowTaskCost` (the AI never guesses cost); templates (COST-8) and workflow preview (COST-5) reuse the same estimator.
+
+### COST-3 implementation note
+
+**Approach: Option A (ledger-only first) from §5.** Live billing is **unchanged** — real runs still pay the flat 1-task pre-deduct gate (Slice 1N) with the COST-2A test-mode skip. COST-3 adds, *in parallel*, an append-only ledger + per-run cost columns + actual-cost recording so estimate-vs-actual is auditable and the future reserve/reconcile model has a foundation. **Nothing here deducts tasks.**
+
+**Migration** [`20260525000000_task_usage_events.sql`](../../../supabase/migrations/20260525000000_task_usage_events.sql):
+- New `task_usage_events` ledger — RLS enabled, `select_own` policy, explicit least-privilege GRANTs (authenticated SELECT only; service_role full). Columns: `user_id`, `workflow_id`, `workflow_run_id`, `node_id`, `provider`, `node_type`, `node_kind`, `event_type` (CHECK-constrained), `billable`, `tasks_charged`, `estimated_tasks`, `actual_tasks`, `charge_on`, `cost_reason`, `cost_policy_version`, `test_mode`, `metadata jsonb`, `created_at`. Indexes on run / user / workflow.
+- `workflow_runs` gains nullable `estimated_task_cost`, `actual_task_cost`, `task_cost_policy_version` (grandfathered table — no new GRANT).
+
+**Repository** [`taskUsageEvents.ts`](../../../repositories/taskUsageEvents.ts): `insertEvents(events)` (service-role, no-op on empty), `listByRun(runId)` (RLS). snake_case ↔ camelCase mapping.
+
+**Service** [`taskUsageRecorder.ts`](../../../services/billing/taskUsageRecorder.ts):
+- `computeRunTaskUsage(def, steps)` — **pure**: COST-2 estimate + actual cost (= sum of **successful billable action** nodes) + per-node billable events + redacted numeric summary. Never reads `node.config`.
+- `recordRunActuals({ runId, workflowId, userId, usage })` — writes one `run_estimate_recorded` + one `node_task_charged` per billable node.
+- `listTaskUsageForRun(runId)`.
+
+**Engine wiring** ([engine.ts](../../../services/execution/engine.ts)): post-run, real runs only — compute usage, write the run-row cost columns via `recordRun`, then `recordRunActuals` (**fail-open**: a ledger failure logs `execution.run.task_usage_record_failed` and never breaks the run). **Test/dry-run runs record nothing** (`usage = null`; run-row cost columns stay NULL) — the documented "skip the ledger in test mode" choice (§5).
+
+**Recording policy:** only SUCCESSFUL billable action nodes produce a `node_task_charged` event. Failed (handler failure / missing variable / invalid branch), skipped, trigger, and non-billable control-flow nodes record nothing billable. Fatal-before-execution runs (`WORKFLOW_NOT_FOUND` / `TRIGGER_NODE_NOT_FOUND` / `BILLING_EXHAUSTED`) record no usage and leave cost columns NULL.
+
+**No-leak:** the recorder receives only `RunTaskUsage` (ids + counts + classification), never config — secrets cannot reach the ledger by construction (no-leak tested).
+
+**What COST-3 did NOT change:** no per-node deduction, no reserve/reconcile, no change to flat 1/run customer billing, no UI, no AI cost events, no metadata edits. **Remaining (future):** COST-3.x reserve/reconcile (charge actual successful billable actions, handle mid-run insufficient balance + partial runs atomically); COST-6 AI cost events (separate ledger); COST-7 owner analytics reading this ledger; COST-5 preview surfacing estimate.
+
+Tests: [`taskUsageEvents.test.ts`](../../../tests/unit/repositories/taskUsageEvents.test.ts), [`taskUsageRecorder.test.ts`](../../../tests/unit/services/billing/taskUsageRecorder.test.ts), COST-3 block in [`engine.test.ts`](../../../tests/unit/services/execution/engine.test.ts).
 
 ---
 

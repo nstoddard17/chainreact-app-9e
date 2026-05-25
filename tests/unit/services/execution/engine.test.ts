@@ -45,6 +45,16 @@ jest.mock("@/services/discovery/_registry", () => ({
   getActionMeta: (...args: unknown[]) => mockGetActionMeta(...args),
 }));
 
+// Slice 4.COST-3 — the engine records actual task usage post-run. Mock the
+// recorder so engine tests stay isolated from the registry/estimator; the
+// real compute logic is covered in taskUsageRecorder.test.ts.
+const mockComputeRunTaskUsage = jest.fn();
+const mockRecordRunActuals = jest.fn();
+jest.mock("@/services/billing/taskUsageRecorder", () => ({
+  computeRunTaskUsage: (...args: unknown[]) => mockComputeRunTaskUsage(...args),
+  recordRunActuals: (...args: unknown[]) => mockRecordRunActuals(...args),
+}));
+
 import { WorkflowEngine } from "@/services/execution/engine";
 import { MissingVariableError } from "@/workflow-engine/variables/resolveValue";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -125,6 +135,23 @@ beforeEach(() => {
   // tests don't consult the gate at all so the default never matters.
   mockGetActionMeta.mockReset();
   mockGetActionMeta.mockReturnValue(undefined);
+  // COST-3 — default the recorder to a zero-cost usage so the engine's
+  // post-run recording path runs without touching the real estimator/DB.
+  mockComputeRunTaskUsage.mockReset();
+  mockComputeRunTaskUsage.mockReturnValue({
+    estimatedTaskCost: 0,
+    actualTaskCost: 0,
+    policyVersion: "v1",
+    estimateSummary: {
+      billableNodeCount: 0,
+      nonBillableNodeCount: 0,
+      unknownNodeCount: 0,
+      warningCount: 0,
+    },
+    nodeEvents: [],
+  });
+  mockRecordRunActuals.mockReset();
+  mockRecordRunActuals.mockResolvedValue(undefined);
 });
 
 // Slice 3.SEC-2 — helper for the test-mode test block. Builds a minimally-
@@ -1966,5 +1993,95 @@ describe("WorkflowEngine — test mode (Slice 3.SEC-2)", () => {
       provider: "stripe",
       type: "create_refund",
     });
+  });
+});
+
+describe("WorkflowEngine — task usage recording (Slice 4.COST-3)", () => {
+  it("records actual task usage on a real run + writes cost columns", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    mockGetActionHandler.mockReturnValue(jest.fn(async () => ({ output: { ok: true } })));
+    mockComputeRunTaskUsage.mockReturnValueOnce({
+      estimatedTaskCost: 1,
+      actualTaskCost: 1,
+      policyVersion: "v1",
+      estimateSummary: { billableNodeCount: 1, nonBillableNodeCount: 0, unknownNodeCount: 0, warningCount: 0 },
+      nodeEvents: [{ nodeId: "a1", provider: "slack", nodeType: "step_one", nodeKind: "action", tasksCharged: 1, chargeOn: "success", costReason: "provider_action" }],
+    });
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(mockComputeRunTaskUsage).toHaveBeenCalledTimes(1);
+    expect(mockRecordRunActuals).toHaveBeenCalledTimes(1);
+    expect(mockRecordRunActuals).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: result.runId, workflowId: "wf-1", userId: "user-1" }),
+    );
+    const recordRunArg = mockRecordRun.mock.calls[0]![0] as {
+      estimatedTaskCost: number;
+      actualTaskCost: number;
+      taskCostPolicyVersion: string;
+    };
+    expect(recordRunArg.estimatedTaskCost).toBe(1);
+    expect(recordRunArg.actualTaskCost).toBe(1);
+    expect(recordRunArg.taskCostPolicyVersion).toBe("v1");
+  });
+
+  it("does NOT record task usage for a test run + leaves cost columns null", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    mockGetActionHandler.mockReturnValue(jest.fn(async () => ({ output: { ok: true } })));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+
+    expect(mockComputeRunTaskUsage).not.toHaveBeenCalled();
+    expect(mockRecordRunActuals).not.toHaveBeenCalled();
+    const recordRunArg = mockRecordRun.mock.calls[0]![0] as {
+      estimatedTaskCost: number | null;
+      actualTaskCost: number | null;
+      taskCostPolicyVersion: string | null;
+    };
+    expect(recordRunArg.estimatedTaskCost).toBeNull();
+    expect(recordRunArg.actualTaskCost).toBeNull();
+    expect(recordRunArg.taskCostPolicyVersion).toBeNull();
+  });
+
+  it("is fail-open: a ledger write failure does not break the run", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    mockGetActionHandler.mockReturnValue(jest.fn(async () => ({ output: { ok: true } })));
+    mockRecordRunActuals.mockRejectedValueOnce(new Error("ledger down"));
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("succeeded");
   });
 });
