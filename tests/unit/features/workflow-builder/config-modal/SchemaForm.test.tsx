@@ -445,3 +445,131 @@ describe("SchemaForm dependsOn cascade — deps + enabled propagation to Combobo
     expect(mockUseOptionsSource).not.toHaveBeenCalled();
   });
 });
+
+// ─── Slice 4.BUILDER-OPTIONS-1 — multi-parent dependsOn ──────────────────────
+
+describe("SchemaForm multi-parent dependsOn (Slice 4.BUILDER-OPTIONS-1)", () => {
+  const multiParentFields: readonly FieldMeta[] = [
+    { name: "baseId", label: "Base", type: "text", required: true } as FieldMeta,
+    {
+      name: "tableIdOrName",
+      label: "Table",
+      type: "text",
+      required: true,
+    } as FieldMeta,
+    {
+      name: "fieldName",
+      label: "Field",
+      type: "combobox",
+      required: false,
+      dependsOn: ["baseId", "tableIdOrName"],
+      optionsSource: "native:examples",
+    } as FieldMeta,
+  ];
+
+  beforeEach(() => {
+    mockUseOptionsSource.mockReset();
+    mockUseOptionsSource.mockReturnValue({
+      state: { status: "ready", items: [], hasMore: false },
+      refetch: jest.fn(),
+    });
+  });
+
+  it("passes ALL parent values as deps once every parent has a value", () => {
+    render(
+      <SchemaForm
+        fields={multiParentFields}
+        values={{ baseId: "app1", tableIdOrName: "tbl1" }}
+        onChange={jest.fn()}
+      />,
+    );
+    const args = mockUseOptionsSource.mock.calls.find(
+      (c) => c[0]?.source === "native:examples",
+    );
+    expect(args).toBeDefined();
+    expect(args![0].deps).toEqual({ baseId: "app1", tableIdOrName: "tbl1" });
+    expect(args![0].enabled).not.toBe(false);
+  });
+
+  it("waits for the SECOND parent — passive trigger, no fetch, names the missing parent", () => {
+    render(
+      <SchemaForm
+        fields={multiParentFields}
+        values={{ baseId: "app1" }}
+        onChange={jest.fn()}
+      />,
+    );
+    const passive = screen.getByTestId("combobox-parent-missing");
+    expect(passive).toBeInTheDocument();
+    // Only the still-missing parent (Table) is named, not the satisfied one.
+    expect(passive).toHaveTextContent(/Select Table first/i);
+    expect(passive).not.toHaveTextContent(/Base/i);
+    const nativeCalls = mockUseOptionsSource.mock.calls.filter(
+      (c) => c[0]?.source === "native:examples",
+    );
+    expect(nativeCalls).toEqual([]);
+  });
+
+  it("waits for the FIRST parent too (order independent)", () => {
+    render(
+      <SchemaForm
+        fields={multiParentFields}
+        values={{ tableIdOrName: "tbl1" }}
+        onChange={jest.fn()}
+      />,
+    );
+    const passive = screen.getByTestId("combobox-parent-missing");
+    expect(passive).toHaveTextContent(/Select Base first/i);
+    expect(
+      mockUseOptionsSource.mock.calls.filter(
+        (c) => c[0]?.source === "native:examples",
+      ),
+    ).toEqual([]);
+  });
+
+  it("names BOTH parents when neither is set yet", () => {
+    render(
+      <SchemaForm
+        fields={multiParentFields}
+        values={{}}
+        onChange={jest.fn()}
+      />,
+    );
+    const passive = screen.getByTestId("combobox-parent-missing");
+    expect(passive).toHaveTextContent(/Select Base, Table first/i);
+  });
+
+  it("clears the multi-parent child when the FIRST parent changes", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <SchemaForm
+        fields={multiParentFields}
+        values={{ baseId: "app1", tableIdOrName: "tbl1", fieldName: "stale" }}
+        onChange={onChange}
+      />,
+    );
+    await user.type(screen.getByLabelText("Base"), "x");
+    const childClears = onChange.mock.calls.filter(
+      (c) => c[0] === "fieldName" && c[1] === undefined,
+    );
+    expect(childClears.length).toBeGreaterThan(0);
+  });
+
+  it("clears the multi-parent child when the SECOND parent changes", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <SchemaForm
+        fields={multiParentFields}
+        values={{ baseId: "app1", tableIdOrName: "tbl1", fieldName: "stale" }}
+        onChange={onChange}
+      />,
+    );
+    await user.type(screen.getByLabelText("Table"), "x");
+    const childClears = onChange.mock.calls.filter(
+      (c) => c[0] === "fieldName" && c[1] === undefined,
+    );
+    expect(childClears.length).toBeGreaterThan(0);
+  });
+});

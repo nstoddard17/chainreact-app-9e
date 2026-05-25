@@ -3,6 +3,7 @@ import {
   ActionCategorySchema,
   FieldMetaSchema,
   OutputMetaSchema,
+  normalizeDependsOn,
   type FieldMeta,
   type OutputMeta,
 } from "./actionMeta";
@@ -83,13 +84,14 @@ export const TriggerMetaSchema = z
       fieldNames.add(name);
     }
     for (let i = 0; i < meta.fields.length; i++) {
-      const dep = meta.fields[i]!.dependsOn;
-      if (dep && !fieldNames.has(dep)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["fields", i, "dependsOn"],
-          message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
-        });
+      for (const dep of normalizeDependsOn(meta.fields[i]!.dependsOn)) {
+        if (!fieldNames.has(dep)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "dependsOn"],
+            message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
+          });
+        }
       }
     }
   });

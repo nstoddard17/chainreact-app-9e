@@ -17,6 +17,7 @@ import {
   ActionMetaSchema,
   FieldMetaSchema,
   OutputMetaSchema,
+  normalizeDependsOn,
   type ActionMeta,
   type FieldMeta,
 } from "@/contracts/actionMeta";
@@ -128,6 +129,170 @@ describe("ActionMetaSchema — field-level invariants", () => {
         }),
       ),
     ).not.toThrow();
+  });
+});
+
+// ─── Slice 4.BUILDER-OPTIONS-1 — multi-parent dependsOn ──────────────────────
+
+describe("normalizeDependsOn helper", () => {
+  it("returns [] for undefined", () => {
+    expect(normalizeDependsOn(undefined)).toEqual([]);
+  });
+  it("wraps a single string into a one-element array", () => {
+    expect(normalizeDependsOn("baseId")).toEqual(["baseId"]);
+  });
+  it("passes an array through unchanged", () => {
+    expect(normalizeDependsOn(["baseId", "tableIdOrName"])).toEqual([
+      "baseId",
+      "tableIdOrName",
+    ]);
+  });
+});
+
+describe("FieldMetaSchema — dependsOn cardinality", () => {
+  it("accepts a single-string dependsOn (backward compatible)", () => {
+    const f = FieldMetaSchema.parse({
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: false,
+      dependsOn: "parent",
+      optionsSource: "x:y",
+    });
+    expect(f.dependsOn).toBe("parent");
+  });
+
+  it("accepts an array dependsOn with multiple parents", () => {
+    const f = FieldMetaSchema.parse({
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: false,
+      dependsOn: ["baseId", "tableIdOrName"],
+      optionsSource: "airtable:fields",
+    });
+    expect(f.dependsOn).toEqual(["baseId", "tableIdOrName"]);
+  });
+
+  it("rejects an empty dependsOn array", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: false,
+      dependsOn: [],
+      optionsSource: "x:y",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a dependsOn array above the 8-parent cap", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: false,
+      dependsOn: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+      optionsSource: "x:y",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty-string entry inside a dependsOn array", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: false,
+      dependsOn: ["baseId", ""],
+      optionsSource: "x:y",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects duplicate entries inside a dependsOn array", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "child",
+      label: "Child",
+      type: "combobox",
+      required: false,
+      dependsOn: ["baseId", "baseId"],
+      optionsSource: "x:y",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toMatch(/[Dd]uplicate/);
+    }
+  });
+
+  it("rejects a field that depends on itself (single)", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "self",
+      label: "Self",
+      type: "combobox",
+      required: false,
+      dependsOn: "self",
+      optionsSource: "x:y",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toMatch(/itself/);
+    }
+  });
+
+  it("rejects a field that depends on itself (inside an array)", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "self",
+      label: "Self",
+      type: "combobox",
+      required: false,
+      dependsOn: ["baseId", "self"],
+      optionsSource: "x:y",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("ActionMetaSchema — multi-parent dependsOn cross-field validation", () => {
+  it("accepts a field whose array dependsOn references known sibling fields", () => {
+    expect(() =>
+      ActionMetaSchema.parse(
+        validMeta({
+          fields: [
+            validField({ name: "baseId" }),
+            validField({ name: "tableIdOrName" }),
+            validField({
+              name: "fieldName",
+              type: "combobox",
+              dependsOn: ["baseId", "tableIdOrName"],
+              optionsSource: "airtable:fields",
+            }),
+          ],
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects an array dependsOn where one parent is an unknown field", () => {
+    const result = ActionMetaSchema.safeParse(
+      validMeta({
+        fields: [
+          validField({ name: "baseId" }),
+          validField({
+            name: "fieldName",
+            type: "combobox",
+            dependsOn: ["baseId", "ghostTable"],
+            optionsSource: "airtable:fields",
+          }),
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => /unknown field/.test(i.message)),
+      ).toBe(true);
+    }
   });
 });
 

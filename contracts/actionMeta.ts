@@ -105,6 +105,27 @@ export const FieldNumericBoundsSchema = z
   .strict();
 export type FieldNumericBounds = z.infer<typeof FieldNumericBoundsSchema>;
 
+/**
+ * Normalize a `dependsOn` value into a stable `string[]`.
+ *
+ * `dependsOn` accepts either a single parent field name (`"baseId"`) for
+ * the common single-parent cascade, or an array of parent field names
+ * (`["baseId", "tableIdOrName"]`) for fields whose options resolver needs
+ * more than one upstream value (Slice 4.BUILDER-OPTIONS-1). This helper is
+ * the ONE place every consumer funnels through — the SchemaForm cascade,
+ * the options-deps collection, the AI catalog, and contract validation —
+ * so single- and multi-parent are handled identically:
+ *   - `undefined`        → `[]`
+ *   - `"x"`              → `["x"]`
+ *   - `["a", "b"]`       → `["a", "b"]`
+ */
+export function normalizeDependsOn(
+  dependsOn: string | readonly string[] | undefined,
+): readonly string[] {
+  if (dependsOn === undefined) return [];
+  return typeof dependsOn === "string" ? [dependsOn] : dependsOn;
+}
+
 export const FieldMetaSchema = z
   .object({
     /** Stable field key matching the handler schema's property name. */
@@ -132,11 +153,29 @@ export const FieldMetaSchema = z
      */
     defaultValue: z.unknown().optional(),
     /**
-     * Name of another field in the same action whose value gates this
-     * field's options / visibility. When the parent changes, the
+     * Name(s) of other field(s) in the same action whose value(s) gate
+     * this field's options / visibility. When any parent changes, the
      * renderer clears this field's value and re-fetches its options.
+     *
+     * - Single parent: `dependsOn: "baseId"` (the common cascade).
+     * - Multiple parents: `dependsOn: ["baseId", "tableIdOrName"]`
+     *   (Slice 4.BUILDER-OPTIONS-1) — for resolvers whose `requiredDeps`
+     *   span more than one upstream field (e.g. `airtable:fields` needs
+     *   both the base and the table). The field stays gated until EVERY
+     *   parent has a value, and ALL parent values are passed to the
+     *   resolver. Backward compatible: a string is still valid and
+     *   behaves exactly as before.
+     *
+     * Use `normalizeDependsOn()` to read this uniformly as `string[]`.
+     * The array form is capped at 8 parents and rejects empties /
+     * duplicates / self-reference (see the superRefines below).
      */
-    dependsOn: z.string().min(1).max(128).optional(),
+    dependsOn: z
+      .union([
+        z.string().min(1).max(128),
+        z.array(z.string().min(1).max(128)).min(1).max(8),
+      ])
+      .optional(),
     /**
      * For dynamic select / combobox fields whose options are loaded from
      * the server (e.g. Slack channel list). The string is an
@@ -231,6 +270,26 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["fileArrayMaxItems"],
         message: "`fileArrayMaxItems` is only valid on `file-array` fields.",
+      });
+    }
+
+    // Slice 4.BUILDER-OPTIONS-1 — field-local dependsOn invariants
+    // (self-reference + duplicates). The cross-field "parent must be a
+    // known sibling" check lives in the meta-level superRefine, where
+    // the full field list is in scope.
+    const deps = normalizeDependsOn(field.dependsOn);
+    if (deps.includes(field.name)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOn"],
+        message: `Field '${field.name}' cannot depend on itself.`,
+      });
+    }
+    if (new Set(deps).size !== deps.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOn"],
+        message: "Duplicate entry in `dependsOn`.",
       });
     }
   });
@@ -449,13 +508,14 @@ export const ActionMetaSchema = z
       fieldNames.add(name);
     }
     for (let i = 0; i < meta.fields.length; i++) {
-      const dep = meta.fields[i]!.dependsOn;
-      if (dep && !fieldNames.has(dep)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["fields", i, "dependsOn"],
-          message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
-        });
+      for (const dep of normalizeDependsOn(meta.fields[i]!.dependsOn)) {
+        if (!fieldNames.has(dep)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "dependsOn"],
+            message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
+          });
+        }
       }
     }
 

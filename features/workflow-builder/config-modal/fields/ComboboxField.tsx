@@ -21,6 +21,7 @@ import { FieldShell } from "./FieldShell";
 import type { FieldRendererProps } from "./types";
 import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
 import type { OptionItem } from "@/lib/api/options";
+import { normalizeDependsOn } from "@/contracts/actionMeta";
 
 /**
  * `combobox` field renderer. Searchable single-select.
@@ -270,12 +271,16 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
   // branch and the async branch never coexist (the contract's
   // `superRefine` rejects metas declaring both).
   if (field.optionsSource) {
-    // dependsOn cascade — Slice 3.33. When SchemaForm signals
-    // `enabled === false` AND the meta declares a `dependsOn` parent,
-    // render a passive "Select <parentLabel> first" trigger and don't
-    // mount the async body (so the hook never fires).
-    if (enabled === false && field.dependsOn) {
-      const parentHint = parentLabel ?? field.dependsOn;
+    // dependsOn cascade — Slice 3.33; multi-parent in
+    // Slice 4.BUILDER-OPTIONS-1. When SchemaForm signals
+    // `enabled === false` AND the meta declares one or more `dependsOn`
+    // parents, render a passive "Select <parentLabel> first" trigger and
+    // don't mount the async body (so the hook never fires). `parentLabel`
+    // is supplied by SchemaForm (the still-missing parent labels, joined);
+    // the normalize fallback keeps this safe if it's ever omitted.
+    const dependsOnNames = normalizeDependsOn(field.dependsOn);
+    if (enabled === false && dependsOnNames.length > 0) {
+      const parentHint = parentLabel ?? dependsOnNames.join(", ");
       return (
         <FieldShell
           controlId={controlId}

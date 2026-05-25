@@ -20,6 +20,7 @@ import type {
   OutputMeta,
   RiskLevel,
 } from "@/contracts/actionMeta";
+import { normalizeDependsOn } from "@/contracts/actionMeta";
 import type { TriggerActivation, TriggerMeta } from "@/contracts/triggerMeta";
 import { listProviders } from "@/integrations/_registry";
 import {
@@ -259,8 +260,19 @@ export function getTriggerMeta(key: string): AiToolResult<TriggerMetaView> {
 export interface NodeOptionsSourceDep {
   readonly field: string;
   readonly optionsSource: string;
-  /** Parent field this options-source cascades from, or null if top-level. */
+  /**
+   * Legacy single-parent view: the sole parent field this options-source
+   * cascades from, or null when top-level OR when it has multiple parents
+   * (read `dependsOnFields` for the authoritative set).
+   */
   readonly dependsOn: string | null;
+  /**
+   * Authoritative parent list (Slice 4.BUILDER-OPTIONS-1). Empty for a
+   * top-level picker; one entry for the common single-parent cascade;
+   * multiple for resolvers whose `requiredDeps` span several upstream
+   * fields (e.g. `airtable:fields` → `["baseId", "tableIdOrName"]`).
+   */
+  readonly dependsOnFields: readonly string[];
 }
 
 export interface NodeRiskView {
@@ -291,10 +303,14 @@ function optionsSourceDeps(fields: readonly FieldMeta[]): NodeOptionsSourceDep[]
   const out: NodeOptionsSourceDep[] = [];
   for (const f of fields) {
     if (f.optionsSource) {
+      const deps = normalizeDependsOn(f.dependsOn);
       out.push({
         field: f.name,
         optionsSource: f.optionsSource,
-        dependsOn: f.dependsOn ?? null,
+        // Legacy single-parent field: only set when there's exactly one
+        // parent, so existing single-parent consumers are unchanged.
+        dependsOn: deps.length === 1 ? deps[0]! : null,
+        dependsOnFields: deps,
       });
     }
   }

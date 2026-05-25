@@ -24,12 +24,14 @@ export interface FieldRendererProps {
   disabled?: boolean;
   /**
    * dependsOn parent values keyed by parent field name. Populated by
-   * SchemaForm for fields whose `field.dependsOn` resolves to a non-
-   * empty parent value. Async-options renderers (ComboboxField) forward
-   * this to `useOptionsSource`. Non-async renderers ignore it.
+   * SchemaForm once EVERY declared parent has a non-empty value. Async-
+   * options renderers (ComboboxField) forward this to `useOptionsSource`.
+   * Non-async renderers ignore it.
    *
-   * Slice 3.33 — single-parent only (matches the FieldMeta.dependsOn
-   * contract).
+   * Slice 3.33 (single-parent) → Slice 4.BUILDER-OPTIONS-1 (multi-parent):
+   * a field whose `field.dependsOn` is an array (`["baseId", "tableId"]`)
+   * gets all parent values here once they're all present, matching the
+   * resolver's `requiredDeps`.
    */
   deps?: Readonly<Record<string, string>>;
   /**
@@ -43,12 +45,14 @@ export interface FieldRendererProps {
    */
   enabled?: boolean;
   /**
-   * Human-readable label of the `dependsOn` parent field. Async-options
-   * renderers use it to render the "Select <parentLabel> first" hint
-   * when `enabled === false`. SchemaForm looks up the parent field in
-   * the same fields[] list it received and passes its `.label`.
+   * Human-readable label(s) of the `dependsOn` parent field(s). Async-
+   * options renderers use it to render the "Select <parentLabel> first"
+   * hint when `enabled === false`. SchemaForm looks the parents up in the
+   * same fields[] list it received; for multiple parents it joins the
+   * still-missing parents' labels (e.g. "Base, Table"). For a single
+   * parent it is exactly that parent's `.label` (unchanged from 3.33).
    *
-   * Slice 3.33.
+   * Slice 3.33 → Slice 4.BUILDER-OPTIONS-1.
    */
   parentLabel?: string;
 }

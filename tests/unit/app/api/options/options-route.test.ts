@@ -179,6 +179,86 @@ describe("GET /api/options/[source] — required deps", () => {
   });
 });
 
+// ─── Slice 4.BUILDER-OPTIONS-1 — multi-parent required deps ─────────────────
+describe("GET /api/options/[source] — multiple required deps", () => {
+  // Synthetic resolver standing in for an Airtable-style field picker
+  // that needs BOTH a base and a table. requiresIntegration:false keeps
+  // the test focused on the dep-collection path (ctx.integration is null).
+  const multiDepResolver: OptionsResolver = {
+    source: "synthetic:multidep",
+    provider: "synthetic",
+    requiresIntegration: false,
+    requiredDeps: ["baseId", "tableIdOrName"],
+    resolve: jest.fn(),
+  };
+
+  beforeEach(() => {
+    mockGetOptionsResolver.mockReturnValue(multiDepResolver);
+    (multiDepResolver.resolve as jest.Mock).mockReset();
+    (multiDepResolver.resolve as jest.Mock).mockResolvedValue({
+      items: [{ value: "fldA", label: "Name" }],
+      hasMore: false,
+    });
+  });
+
+  it("short-circuits with MISSING_DEPENDENCY when only the first of two deps is present", async () => {
+    authedUser();
+    const res = await getOptions(
+      makeReq("http://x/api/options/synthetic:multidep?deps[baseId]=app1"),
+      paramsOf("synthetic:multidep"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(false);
+    if (!body.ok) {
+      expect(body.code).toBe("MISSING_DEPENDENCY");
+      expect(body.missingDependency).toBe("tableIdOrName");
+    }
+    // Resolver never runs while a required dep is missing.
+    expect(multiDepResolver.resolve).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits with MISSING_DEPENDENCY when only the second of two deps is present", async () => {
+    authedUser();
+    const res = await getOptions(
+      makeReq(
+        "http://x/api/options/synthetic:multidep?deps[tableIdOrName]=tbl1",
+      ),
+      paramsOf("synthetic:multidep"),
+    );
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(false);
+    if (!body.ok) {
+      expect(body.code).toBe("MISSING_DEPENDENCY");
+      expect(body.missingDependency).toBe("baseId");
+    }
+    expect(multiDepResolver.resolve).not.toHaveBeenCalled();
+  });
+
+  it("invokes the resolver with BOTH dep values once all required deps are present", async () => {
+    authedUser();
+    const res = await getOptions(
+      makeReq(
+        "http://x/api/options/synthetic:multidep?deps[baseId]=app1&deps[tableIdOrName]=tbl1&q=na",
+      ),
+      paramsOf("synthetic:multidep"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(true);
+    if (body.ok) {
+      expect(body.items).toEqual([{ value: "fldA", label: "Name" }]);
+    }
+    expect(multiDepResolver.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        q: "na",
+        deps: { baseId: "app1", tableIdOrName: "tbl1" },
+      }),
+    );
+  });
+});
+
 describe("GET /api/options/[source] — success path", () => {
   it("returns the fixture's filtered items for a valid query", async () => {
     authedUser();

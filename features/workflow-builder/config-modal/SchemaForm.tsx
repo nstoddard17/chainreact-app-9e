@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
+import { normalizeDependsOn } from "@/contracts/actionMeta";
 import { getFieldRenderer } from "./fields/_registry";
 
 /**
@@ -20,20 +21,26 @@ import { getFieldRenderer } from "./fields/_registry";
  *     a visible error rather than throwing so the rest of the form is
  *     usable while authors triage.
  *
- * Slice 3.33 — `dependsOn` cascade wiring.
+ * `dependsOn` cascade wiring (Slice 3.33; multi-parent in Slice
+ * 4.BUILDER-OPTIONS-1).
  *
- *   - For each field, if `field.dependsOn` resolves to a known parent
- *     field in the same `fields[]` list, SchemaForm computes:
- *       - `enabled = parentValue is a non-empty string`
- *       - `deps   = { [parent.name]: parentValue }` when present;
- *                  undefined otherwise.
- *       - `parentLabel = parent.label` (used by async-options renderers
- *                  to render "Select <parentLabel> first" hints).
+ *   - `field.dependsOn` may name a single parent (`"baseId"`) OR several
+ *     (`["baseId", "tableIdOrName"]`). SchemaForm normalizes via
+ *     `normalizeDependsOn` and, for the parents that resolve to known
+ *     fields in the same `fields[]` list, computes:
+ *       - `enabled = EVERY parent has a non-empty string value`
+ *       - `deps   = { [p1]: v1, [p2]: v2, … }` once ALL parents are
+ *                  present; undefined while any is still missing (so the
+ *                  resolver is never called with a partial dep set).
+ *       - `parentLabel = the label(s) of the still-missing parent(s)`
+ *                  (used by async-options renderers for the
+ *                  "Select <parentLabel> first" hint). For a single
+ *                  parent this is exactly the parent's label as before.
  *   - On every `onChange(name, value)` dispatch, SchemaForm also clears
- *     direct dependents (fields whose `dependsOn === name`) by
- *     dispatching `onChange(child, undefined)` to the same handler.
- *     This prevents stale child selections from outliving a parent
- *     change. Single-hop only — multi-level traversal is out of scope.
+ *     direct dependents (fields that list `name` among their parents) by
+ *     dispatching `onChange(child, undefined)`. A multi-parent child is
+ *     registered under EACH of its parents, so changing any one parent
+ *     clears it. Single-hop only — multi-level traversal is out of scope.
  *
  *   The wrapping handler is a stable per-render closure; it never
  *   re-enters itself because dependents are cleared via direct calls
@@ -55,9 +62,10 @@ export interface SchemaFormProps {
 
 /**
  * Build a `parent → [direct children]` map from the fields list. A
- * dependsOn pointing to a name not present in `fields` is silently
+ * dependsOn entry pointing to a name not present in `fields` is silently
  * ignored — the child renders as enabled=false and its value (if any)
- * stays as-is.
+ * stays as-is. A multi-parent child is registered under EACH of its
+ * known parents, so changing any one parent clears it.
  */
 function buildChildrenByParent(
   fields: readonly FieldMeta[],
@@ -65,11 +73,12 @@ function buildChildrenByParent(
   const knownNames = new Set(fields.map((f) => f.name));
   const map = new Map<string, string[]>();
   for (const f of fields) {
-    if (!f.dependsOn) continue;
-    if (!knownNames.has(f.dependsOn)) continue;
-    const bucket = map.get(f.dependsOn);
-    if (bucket) bucket.push(f.name);
-    else map.set(f.dependsOn, [f.name]);
+    for (const parent of normalizeDependsOn(f.dependsOn)) {
+      if (!knownNames.has(parent)) continue;
+      const bucket = map.get(parent);
+      if (bucket) bucket.push(f.name);
+      else map.set(parent, [f.name]);
+    }
   }
   return map;
 }
@@ -155,26 +164,35 @@ export function SchemaForm({
         const value = values[field.name];
         const error = errors?.[field.name];
 
-        // dependsOn cascade — Slice 3.33.
+        // dependsOn cascade — Slice 3.33; multi-parent in
+        // Slice 4.BUILDER-OPTIONS-1.
         let deps: Readonly<Record<string, string>> | undefined;
         let enabled: boolean | undefined;
         let parentLabel: string | undefined;
-        if (field.dependsOn) {
-          const parentField = fieldsByName.get(field.dependsOn);
-          // A dependsOn targeting an unknown field is treated as
-          // permanently-missing-parent — child renders disabled. This
-          // mirrors what would happen at runtime if the meta were
-          // mis-authored; surfacing it as a visible "select parent
-          // first" hint is more helpful than silently fetching.
-          const parentValue = readParentString(values[field.dependsOn]);
-          const hasParent = parentValue.length > 0;
-          enabled = hasParent;
-          if (hasParent) {
-            deps = { [field.dependsOn]: parentValue };
+        const parents = normalizeDependsOn(field.dependsOn);
+        if (parents.length > 0) {
+          // Resolve every declared parent to {name, label, value}. A
+          // parent targeting an unknown field is treated as a
+          // permanently-missing parent (can never have a value) — the
+          // child stays disabled, mirroring a mis-authored meta and
+          // surfacing a visible "select parent first" hint rather than
+          // silently fetching with an incomplete dep set.
+          const resolved = parents.map((name) => ({
+            name,
+            label: fieldsByName.get(name)?.label ?? name,
+            value: readParentString(values[name]),
+          }));
+          const missing = resolved.filter((p) => p.value.length === 0);
+          enabled = missing.length === 0;
+          if (enabled) {
+            // All parents present → pass the full dep set to the resolver.
+            deps = Object.fromEntries(resolved.map((p) => [p.name, p.value]));
           }
-          if (parentField) {
-            parentLabel = parentField.label;
-          }
+          // Hint names the still-missing parent(s); for a single parent
+          // this is exactly the parent's label as in Slice 3.33.
+          parentLabel = (missing.length > 0 ? missing : resolved)
+            .map((p) => p.label)
+            .join(", ");
         }
 
         return (
