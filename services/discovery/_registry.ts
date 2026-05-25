@@ -299,6 +299,11 @@ import { MONDAY_ACTION_METAS, MONDAY_TRIGGER_METAS } from "./providers/monday";
 // reconciliation, NOT per-workflow webhook creation). See
 // providers/dropbox.ts header for the architecture rationale.
 import { DROPBOX_ACTION_METAS, DROPBOX_TRIGGER_METAS } from "./providers/dropbox";
+// Facebook (FACEBOOK-4 actions only) — 8 actions, 0 triggers. The
+// `new_post` / `new_comment` webhook triggers are staged for FACEBOOK-5
+// (app-level webhook + per-page `subscribed_apps`); see
+// providers/facebook.ts header for the staged-arc rationale.
+import { FACEBOOK_ACTION_METAS } from "./providers/facebook";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -582,6 +587,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...GOOGLE_DOCS_ACTION_METAS, ...MICROSOFT_ONENOTE_ACTION_METAS,
   ...MONDAY_ACTION_METAS, // Monday (MONDAY-6) — 24 actions, displayOrder 10..240.
   ...DROPBOX_ACTION_METAS, // Dropbox (DROPBOX-4) — 11 actions, displayOrder 10..110.
+  ...FACEBOOK_ACTION_METAS, // Facebook (FACEBOOK-4) — 8 actions, displayOrder 10..80.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

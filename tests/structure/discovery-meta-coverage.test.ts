@@ -144,6 +144,20 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // Stripe / Discord / Google Docs / OneNote / Monday); this is a
   // deliberate staged provider arc, not an accidental gap.
   "dropbox",
+  // Facebook added in Slice 3.FACEBOOK-4 once all 8 registered Facebook
+  // action handlers have a matching meta (create_post, update_post,
+  // comment_on_post, upload_photo, upload_video, get_page_insights,
+  // send_message, delete_post — all ported in FACEBOOK-2; metas +
+  // COVERED_PROVIDERS flip in FACEBOOK-4). 1:1 handler↔meta drift is
+  // enforced from here on. **Facebook triggers are intentionally NOT
+  // shipped in this slice.** The 2 `new_post` / `new_comment` triggers
+  // land in FACEBOOK-5 via Facebook's app-level webhook + per-page
+  // `subscribed_apps` activation (the manifest's
+  // `capabilities.webhookTrigger` stays `false` until then). Trigger
+  // coverage is NOT enforced by this test (same precedent as Stripe /
+  // Discord / Google Docs / OneNote / Monday / Dropbox); this is a
+  // deliberate staged provider arc, not an accidental gap.
+  "facebook",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {
