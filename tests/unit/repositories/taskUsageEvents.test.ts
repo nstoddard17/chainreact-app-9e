@@ -34,6 +34,32 @@ function makeListClient(state: ListState) {
   return { from: jest.fn(() => builder) };
 }
 
+/**
+ * Thenable range-query mock: supabase query builders are awaited directly, so
+ * the chain methods all return the builder and `then` resolves the result.
+ * `calls` records which chain methods ran (for filter-wiring assertions).
+ */
+function makeRangeClient(state: ListState) {
+  const calls: Record<string, unknown[]> = {};
+  const builder: Record<string, unknown> = {};
+  const chain = (name: string) =>
+    jest.fn((...args: unknown[]) => {
+      calls[name] = args;
+      return builder;
+    });
+  Object.assign(builder, {
+    select: chain("select"),
+    gte: chain("gte"),
+    lte: chain("lte"),
+    eq: chain("eq"),
+    order: chain("order"),
+    limit: chain("limit"),
+    then: (resolve: (v: ListState) => unknown) =>
+      resolve({ data: state.data, error: state.error }),
+  });
+  return { client: { from: jest.fn(() => builder) }, calls };
+}
+
 const mockServiceRole: { current: ReturnType<typeof makeInsertClient> | null } = { current: null };
 const mockSSR: { current: ReturnType<typeof makeListClient> | null } = { current: null };
 
@@ -47,6 +73,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
 import {
   insertEvents,
   listByRun,
+  listEventsForAnalytics,
   type TaskUsageEventInsert,
 } from "@/repositories/taskUsageEvents";
 
@@ -136,5 +163,64 @@ describe("taskUsageEvents.listByRun", () => {
   it("throws on list error", async () => {
     mockSSR.current = makeListClient({ data: null, error: { message: "nope" } });
     await expect(listByRun("run-1")).rejects.toThrow(/task_usage_events.listByRun failed: nope/);
+  });
+});
+
+describe("taskUsageEvents.listEventsForAnalytics (owner/admin, service-role)", () => {
+  it("wires from/to/userId/workflowId/limit filters and maps rows", async () => {
+    const { client, calls } = makeRangeClient({
+      data: [
+        {
+          id: "evt-1",
+          user_id: "u9",
+          workflow_id: "wf-1",
+          workflow_run_id: "run-1",
+          node_id: "a1",
+          provider: "gmail",
+          node_type: "send_email",
+          node_kind: "action",
+          event_type: "node_task_charged",
+          billable: true,
+          tasks_charged: 1,
+          estimated_tasks: null,
+          actual_tasks: 1,
+          charge_on: "success",
+          cost_reason: "provider_action",
+          cost_policy_version: "v1",
+          test_mode: false,
+          metadata: {},
+          created_at: "2026-05-25T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+    mockServiceRole.current = client as unknown as ReturnType<typeof makeInsertClient>;
+    const records = await listEventsForAnalytics({
+      from: "2026-05-01",
+      to: "2026-05-31",
+      userId: "u9",
+      workflowId: "wf-1",
+      limit: 100,
+    });
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ id: "evt-1", userId: "u9", tasksCharged: 1 });
+    expect(calls.gte).toEqual(["created_at", "2026-05-01"]);
+    expect(calls.lte).toEqual(["created_at", "2026-05-31"]);
+    expect(calls.eq).toBeDefined();
+    expect(calls.limit).toEqual([100]);
+  });
+
+  it("works with no filters (returns []) and throws on error", async () => {
+    const empty = makeRangeClient({ data: [], error: null });
+    mockServiceRole.current = empty.client as unknown as ReturnType<typeof makeInsertClient>;
+    expect(await listEventsForAnalytics()).toEqual([]);
+    expect(empty.calls.gte).toBeUndefined();
+    expect(empty.calls.limit).toBeUndefined();
+
+    const failing = makeRangeClient({ data: null, error: { message: "down" } });
+    mockServiceRole.current = failing.client as unknown as ReturnType<typeof makeInsertClient>;
+    await expect(listEventsForAnalytics({ from: "A" })).rejects.toThrow(
+      /task_usage_events.listEventsForAnalytics failed: down/,
+    );
   });
 });

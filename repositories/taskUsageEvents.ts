@@ -147,3 +147,48 @@ export async function listByRun(
   }
   return (data ?? []).map((r) => rowToRecord(r as TaskUsageEventRow));
 }
+
+/** Filters for an owner/admin analytics range read (COST-7). */
+export interface TaskUsageAnalyticsQuery {
+  /** Inclusive lower bound on created_at (ISO timestamp). */
+  from?: string;
+  /** Inclusive upper bound on created_at (ISO timestamp). */
+  to?: string;
+  /** Optional single-user scope (owner viewing one user). */
+  userId?: string;
+  /** Optional single-workflow scope. */
+  workflowId?: string;
+  /** Optional row cap (defense against unbounded loads). */
+  limit?: number;
+}
+
+/**
+ * Owner/admin cross-user range read for analytics (COST-7).
+ *
+ * Uses the SERVICE-ROLE client and therefore BYPASSES RLS — it is for
+ * server-side owner/admin analytics ONLY. It must never be wired into a
+ * normal-user-facing path; per-user surfaces use the RLS-gated `listByRun`
+ * or pass an explicit `userId` filter here behind an admin authorization
+ * check at the call site.
+ */
+export async function listEventsForAnalytics(
+  q: TaskUsageAnalyticsQuery = {},
+): Promise<readonly TaskUsageEventRecord[]> {
+  const supabase = getServiceRoleClient(
+    "analytics: task_usage_events range read (owner/admin)",
+  );
+  let query = supabase.from("task_usage_events").select("*");
+  if (q.from) query = query.gte("created_at", q.from);
+  if (q.to) query = query.lte("created_at", q.to);
+  if (q.userId) query = query.eq("user_id", q.userId);
+  if (q.workflowId) query = query.eq("workflow_id", q.workflowId);
+  query = query.order("created_at", { ascending: false });
+  if (q.limit !== undefined) query = query.limit(q.limit);
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(
+      `task_usage_events.listEventsForAnalytics failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).map((r) => rowToRecord(r as TaskUsageEventRow));
+}

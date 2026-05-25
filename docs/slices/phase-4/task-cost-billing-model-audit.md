@@ -22,7 +22,7 @@
 | **COST-4** | shipped | Central cost-override map in `taskCostPolicy.ts` (NO ActionMeta/TriggerMeta edits). `source: "override"` surfaced through estimator + ledger. See note below. |
 | **COST-5** | shipped | Read-only workflow cost preview service + `GET /api/workflows/[id]/cost-preview`. Reuses the COST-2 estimator; no billing change, no ledger writes. See note below. |
 | **COST-6** | shipped | `ai_cost_events` observability ledger + recorder service (no AI behavior, no model calls). Separate from task_usage_events; AI credits as a distinct unit. See note below. |
-| COST-7 | future | Owner/admin analytics. |
+| **COST-7** | shipped | Read-only owner/admin analytics service layer over `task_usage_events` + `ai_cost_events`. No UI, no routes, no billing change. See note below. |
 | COST-8 | future | Template cost-estimation hooks (reuse the COST-2 estimator). |
 
 ### COST-2 implementation note
@@ -121,6 +121,28 @@ Tests: [`workflowCostPreview.test.ts`](../../../tests/unit/services/billing/work
 **Template / custom-node future-readiness:** no first-class columns added (no such feature exists). `templateId` / `templateRecommendationShown` / `customProviderId` / `customNodeId` / `customNodeVersion` are NON-blocked metadata keys and survive sanitization (tested), so future slices can record them immediately; promote to columns only when justified.
 
 **Unchanged:** no AI implementation, no model calls, no live-billing change, no UI. Tests: [`aiCostEvents.test.ts`](../../../tests/unit/repositories/aiCostEvents.test.ts) (repo) + [`aiCostEvents.test.ts`](../../../tests/unit/services/billing/aiCostEvents.test.ts) (service: sanitize, recorders, summary, no-leak, future-readiness).
+
+### COST-7 implementation note
+
+**Read-only owner/admin analytics SERVICE LAYER — no UI, no dashboard, no public routes, no AI model calls, no live-billing change, no reserve/reconcile, no templates, no custom nodes.** The foundation the future owner dashboard reads. Answers owner questions over the two existing ledgers (`task_usage_events` COST-3, `ai_cost_events` COST-6): how many tasks are used, which providers / node-types / workflows / users are most expensive, estimated vs actual usage, how much AI costs, which AI features / models are used most, which model/tool calls are slow/failing, patch acceptance, validation (hallucination-catch) + safety-block counts, and template / custom-node demand signals.
+
+**Repository extensions** (additive; no behavior change to existing reads):
+- [`taskUsageEvents.ts`](../../../repositories/taskUsageEvents.ts) `listEventsForAnalytics({ from?, to?, userId?, workflowId?, limit? })` — owner/admin cross-user range read via **service-role (BYPASSES RLS)**. `from`/`to` on `created_at`, optional user/workflow scope, ordered newest-first, optional row cap.
+- [`aiCostEvents.ts`](../../../repositories/aiCostEvents.ts) `listEventsForAnalytics({ from?, to?, userId?, feature?, limit? })` — same shape for the AI ledger.
+
+**Service layer** ([`services/analytics/`](../../../services/analytics/)) — two layers per file: PURE fold functions (no I/O, the unit-tested core) + thin async owner functions that load rows via the repo range read and fold them.
+- [`taskUsageStats.ts`](../../../services/analytics/taskUsageStats.ts): `summarizeTaskUsageEvents` (totals, estimated/actual, billable/non-billable, test-mode count, by event-type / charge-on / cost-reason / policy-version), `groupTaskUsageBy{Provider,NodeType,Workflow,User}` (`TaskGroupStat`: count + tasks + estimated + actual + billable), `rankTaskGroups`. Async: `getTaskUsageOverview`, `getTaskUsageBy{Provider,NodeType,Workflow}`, `getMostExpensiveWorkflows`, `getTaskUsageByUser`, `getTaskUsageForUser({ userId })`.
+- [`ownerAiStats.ts`](../../../services/analytics/ownerAiStats.ts): reuses COST-6's pure `summarizeAiCostEvents`; adds `summarizeAiUsage` (model-call completed/failed, total tokens, tool call/failure, safety-block count, latency avg + p95 nearest-rank), `groupAiByFeature`, `groupAiByModel` (per-model cost + latency), `getAiToolStats`, `getAiPatchOutcomeStats` (proposed/validation-failed/previewed/applied/rejected + acceptance rate), `getAiValidationFailureStats`, `getAiSafetyBlockStats`, `getAiFeedbackStats`, `getAiTemplateSignalStats`, `getAiCustomNodeSignalStats`. Matching async `get*` wrappers.
+
+**Owner/admin access model (documented, not enforced here):** the async `get*` functions read cross-user data via service-role and are **OWNER/ADMIN only**. A future admin route MUST gate them behind an admin authorization check; normal users must never reach the cross-user aggregates. Per-user surfaces pass an explicit `userId` (still owner-gated) or use the RLS-gated `listByRun`/`listByWorkflow` reads. No public/admin routes added this slice — routing is deferred until the admin-auth convention lands (avoids deciding admin auth now).
+
+**Security / redaction:** outputs contain ONLY ids, counts, providers, node types, task/credit/cost amounts, model/feature/tool names, token counts, latency, enums (event-type / charge-on / cost-reason / validation code / safety reason), policy versions, accept/reject flags, and timestamps. The fold functions **NEVER read `event.metadata` VALUES** — the template / custom-node signal counters check key PRESENCE only (allowlisted `templateId` / `customNodeId` / `customProviderId`) and emit counts, never values. So no raw config / prompt / completion / chain-of-thought / secret can leak into an aggregate by construction (no-leak tested across `accessToken`/`refreshToken`/`apiSecret`/`clientSecret`/`webhookSecret`/`botToken`/`Authorization`/`password`/`rawPrompt`/`rawCompletion`/`chainOfThought`/`messageBody`/`fileContents`/raw `config`).
+
+**Template / custom-node future-readiness:** template demand surfaces via the existing `ai_template_recommended` / `ai_template_instantiated` event types plus presence-only `templateId` metadata; custom-node demand via presence-only `customProviderId` / `customNodeId` metadata. When those systems ship, their analytics already have a home — no schema change required to start counting.
+
+**Aggregation strategy:** in-memory fold over a range query (matches COST-6's pure-summary precedent). DB-side aggregation / materialized views are a future optimization once volume justifies it; the pure fold functions stay the contract either way.
+
+**Unchanged:** no UI, no routes, no AI implementation, no model calls, no live-billing change. Tests: [`taskUsageStats.test.ts`](../../../tests/unit/services/analytics/taskUsageStats.test.ts) + [`ownerAiStats.test.ts`](../../../tests/unit/services/analytics/ownerAiStats.test.ts) (pure folds with synthetic events, async repo-wiring, empty-input zeros, no-leak) + range-read coverage appended to the two repo tests.
 
 ---
 

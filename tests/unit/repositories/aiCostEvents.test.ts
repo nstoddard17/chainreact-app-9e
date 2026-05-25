@@ -34,6 +34,32 @@ function makeListClient(state: ListState) {
   return { from: jest.fn(() => builder) };
 }
 
+/**
+ * Thenable range-query mock: the supabase builder is awaited directly, so all
+ * chain methods return the builder and `then` resolves the result. `calls`
+ * records the chain methods invoked for filter-wiring assertions.
+ */
+function makeRangeClient(state: ListState) {
+  const calls: Record<string, unknown[]> = {};
+  const builder: Record<string, unknown> = {};
+  const chain = (name: string) =>
+    jest.fn((...args: unknown[]) => {
+      calls[name] = args;
+      return builder;
+    });
+  Object.assign(builder, {
+    select: chain("select"),
+    gte: chain("gte"),
+    lte: chain("lte"),
+    eq: chain("eq"),
+    order: chain("order"),
+    limit: chain("limit"),
+    then: (resolve: (v: ListState) => unknown) =>
+      resolve({ data: state.data, error: state.error }),
+  });
+  return { client: { from: jest.fn(() => builder) }, calls };
+}
+
 const mockServiceRole: { current: ReturnType<typeof makeInsertClient> | null } = { current: null };
 const mockSSR: { current: ReturnType<typeof makeListClient> | null } = { current: null };
 
@@ -47,6 +73,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
 import {
   insertEvent,
   listByWorkflow,
+  listEventsForAnalytics,
   type AiCostEventInsert,
 } from "@/repositories/aiCostEvents";
 
@@ -150,5 +177,69 @@ describe("aiCostEvents.listByWorkflow", () => {
   it("throws on list error", async () => {
     mockSSR.current = makeListClient({ data: null, error: { message: "nope" } });
     await expect(listByWorkflow("wf-1")).rejects.toThrow(/ai_cost_events.listByWorkflow failed: nope/);
+  });
+});
+
+describe("aiCostEvents.listEventsForAnalytics (owner/admin, service-role)", () => {
+  it("wires from/to/userId/feature/limit filters and maps rows", async () => {
+    const { client, calls } = makeRangeClient({
+      data: [
+        {
+          id: "evt-1",
+          user_id: "u9",
+          workflow_id: "wf-1",
+          workflow_run_id: null,
+          patch_id: null,
+          conversation_id: null,
+          feature: "workflow_creation",
+          event_type: "ai_model_call_completed",
+          model_name: "claude-opus-4-7",
+          model_provider: "anthropic",
+          prompt_version: null,
+          input_tokens: 100,
+          output_tokens: 50,
+          total_tokens: 150,
+          estimated_cost_micros: 500,
+          ai_credits_charged: 1,
+          latency_ms: 10,
+          tool_name: null,
+          tool_status: null,
+          validation_error_code: null,
+          safety_block_reason: null,
+          accepted: null,
+          success: true,
+          metadata: {},
+          created_at: "2026-05-25T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+    mockServiceRole.current = client as unknown as ReturnType<typeof makeInsertClient>;
+    const records = await listEventsForAnalytics({
+      from: "2026-05-01",
+      to: "2026-05-31",
+      userId: "u9",
+      feature: "workflow_creation",
+      limit: 50,
+    });
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ id: "evt-1", userId: "u9", modelName: "claude-opus-4-7", totalTokens: 150 });
+    expect(calls.gte).toEqual(["created_at", "2026-05-01"]);
+    expect(calls.lte).toEqual(["created_at", "2026-05-31"]);
+    expect(calls.limit).toEqual([50]);
+  });
+
+  it("works with no filters (returns []) and throws on error", async () => {
+    const empty = makeRangeClient({ data: [], error: null });
+    mockServiceRole.current = empty.client as unknown as ReturnType<typeof makeInsertClient>;
+    expect(await listEventsForAnalytics()).toEqual([]);
+    expect(empty.calls.gte).toBeUndefined();
+    expect(empty.calls.limit).toBeUndefined();
+
+    const failing = makeRangeClient({ data: null, error: { message: "down" } });
+    mockServiceRole.current = failing.client as unknown as ReturnType<typeof makeInsertClient>;
+    await expect(listEventsForAnalytics({ feature: "other" })).rejects.toThrow(
+      /ai_cost_events.listEventsForAnalytics failed: down/,
+    );
   });
 });
