@@ -22,8 +22,10 @@ Cross-refs: [reserve-reconcile-billing-design.md](./reserve-reconcile-billing-de
 | Persisted shadow ledger `billing_shadow_comparisons` (COST-14C) | Exists; applied to dev DB (COST-14D) |
 | Dev shadow collection harness (COST-14E) | Works; produced 8 **synthetic** rows; aggregator verified |
 | Pre-run `workflow_runs` lifecycle (COST-15A/B/C) | Engine creates-at-start + finalize-update in **flat mode** |
-| Stale-running-run sweep (COST-15F) | Service + guarded script exist; dev-DB verified; **not scheduled** |
-| **Live reserve/reconcile** | **NOT enabled** (`ENABLE_RESERVE_RECONCILE_BILLING=false`, engine never calls reserve/reconcile RPCs) |
+| Stale-running-run sweep (COST-15F) | Service + guarded script exist; dev-DB verified; **scheduled (COST-15K)** — `/api/cron/sweep-stale-runs` every 10 min |
+| Expired-reservation sweep (COST-12 RPC / COST-13 service) | **scheduled (COST-15K)** — `/api/cron/release-expired-reservations` every 10 min (not flag-gated; janitor) |
+| Live reserve/reconcile ENGINE path (COST-15H) | Wired behind the global flag; **dev-DB verified end-to-end (COST-15I, 10/10)** |
+| **Live reserve/reconcile** | **NOT enabled by default** (`ENABLE_RESERVE_RECONCILE_BILLING=false`; correctness + ops-safety proven, awaiting organic-confidence decision) |
 
 **Net:** every building block exists and is independently verified. What is missing for COST-15D is **organic shadow evidence**, an **allowlist mechanism**, **engine wiring gated by it**, and an **ops/rollback plan** — this doc.
 
@@ -139,13 +141,15 @@ else  // flag on AND allowlisted:
 
 ## 9. Ops / sweep requirements
 
+> **✅ SCHEDULED (COST-15K, 2026-05-25).** Both sweeps are now wired as protected Vercel cron routes at `*/10 * * * *`, so the "must be scheduled for production" requirement below is satisfied. Manual scripts remain for ad-hoc/dev use.
+
 Two **independent** sweeps must be runnable (and eventually scheduled):
-- **Stale-running-run sweep** (COST-15F): `staleWorkflowRunSweep` service / `npm run sweep:stale-runs` (guarded). Finalizes runs left `running` by a crash. **Lifecycle only — no billing.**
-- **Expired-reservation sweep** (COST-12): `release_expired_reservations` RPC / `releaseExpiredBillingReservations` service. Reclaims `reserved` holds past `reservation_expires_at`. **Billing-hold cleanup.**
+- **Stale-running-run sweep** (COST-15F): `staleWorkflowRunSweep` service / `npm run sweep:stale-runs` (guarded). Finalizes runs left `running` by a crash. **Lifecycle only — no billing.** **Scheduled (COST-15K):** [`/api/cron/sweep-stale-runs`](../../../app/api/cron/sweep-stale-runs/route.ts), Bearer-`CRON_SECRET`, 60-min cutoff, batched (`?limit=`, default 500).
+- **Expired-reservation sweep** (COST-12): `release_expired_reservations` RPC / `releaseExpiredBillingReservations` service. Reclaims `reserved` holds past `reservation_expires_at`. **Billing-hold cleanup.** **Scheduled (COST-15K):** [`/api/cron/release-expired-reservations`](../../../app/api/cron/release-expired-reservations/route.ts), Bearer-`CRON_SECRET`, service_role, **not flag-gated** (a rollback can never strand holds).
 
-**For internal rollout:** manual/on-demand execution of both is acceptable **if documented and actually run** during the soak (e.g. operator runs them each work-day, and after any deploy/restart). **For production rollout:** both MUST be scheduled (cron/route) — non-negotiable.
+**For internal rollout:** manual/on-demand execution of both is acceptable **if documented and actually run** during the soak (e.g. operator runs them each work-day, and after any deploy/restart). **For production rollout:** both MUST be scheduled (cron/route) — non-negotiable. **(Done in COST-15K.)**
 
-**Recommended cadence (when scheduled):** stale-running sweep every **10 min**; expired-reservation sweep every **10 min** (≤ the reservation TTL so a crashed hold is reclaimed within one TTL). Set `reservation_expires_at` to a value comfortably above the longest expected run (e.g. 30–60 min) so the sweep never reclaims a live run. Revisit numbers against observed run durations.
+**Recommended cadence (when scheduled):** stale-running sweep every **10 min**; expired-reservation sweep every **10 min** (≤ the reservation TTL so a crashed hold is reclaimed within one TTL) — **both now wired at `*/10 * * * *` in `vercel.json` (COST-15K)**. Set `reservation_expires_at` to a value comfortably above the longest expected run (e.g. 30–60 min) so the sweep never reclaims a live run. Revisit numbers against observed run durations.
 
 ---
 

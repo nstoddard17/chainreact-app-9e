@@ -77,6 +77,16 @@ The COST-15H engine path was exercised **end-to-end against the real dev DB with
 
 ---
 
+## COST-15K — scheduled crash-recovery sweeps (shipped)
+
+Closes the §7 crash-recovery gap by **scheduling** the two cleanup sweeps (both were implemented + manually runnable; the gap was that cleanup must be scheduled, not only manual). **Ops/cron wiring only — no reserve/reconcile billing-logic change; flat rollback intact.**
+
+- **Stale-running sweep** ([`/api/cron/sweep-stale-runs`](../../../app/api/cron/sweep-stale-runs/route.ts) → COST-15F `sweepStaleRunningWorkflowRuns`) finalizes rows left `status='running'` by a crash between `createWorkflowRunStart` and finalize (§7 "engine crash before finalization" / "after reservation, before reconcile" run-row half). 60-min cutoff, batched (`?limit=`, default 500). **Lifecycle only — no billing fields touched.**
+- **Expired-reservation sweep** ([`/api/cron/release-expired-reservations`](../../../app/api/cron/release-expired-reservations/route.ts) → COST-13 `releaseExpiredBillingReservations` → COST-12 `release_expired_reservations`) reclaims `billing_status='reserved'` holds past `reservation_expires_at` (§7 "engine crash after reservation, before reconcile" billing-hold half). service_role; **not flag-gated** so a rollback can't strand holds.
+- **Schedule/auth:** both `*/10 * * * *` in [`vercel.json`](../../../vercel.json), `requireCronAuth` Bearer-`CRON_SECRET`. Together they make the §7 crash rows self-healing: the hold is released and the `running` row is finalized within one tick of the cutoff — the safety property reserve/reconcile needs before it can become the pre-launch default. Full write-up: [reserve-reconcile-billing-design.md](./reserve-reconcile-billing-design.md) COST-15K implementation note.
+
+---
+
 ## 1. Current `workflow_runs` lifecycle
 
 Source of truth: [`services/execution/engine.ts`](../../../services/execution/engine.ts) (`WorkflowEngine.runWorkflow` + `persistRun`), [`repositories/workflowRuns.ts`](../../../repositories/workflowRuns.ts), [`services/billing/executionBillingGate.ts`](../../../services/billing/executionBillingGate.ts), [`services/billing/taskUsageRecorder.ts`](../../../services/billing/taskUsageRecorder.ts).

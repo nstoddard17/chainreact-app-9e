@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/renew-watch-subscriptions",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/sweep-stale-runs",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/release-expired-reservations",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
