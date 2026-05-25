@@ -21,7 +21,8 @@
 | **COST-12C** | shipped | Migration applied to the confirmed dev/test DB; harness executed **green (64/64 assertions, 0 failures)** across all 15 cases. No bug found, no code change. Cleanup verified (0 leftover users/workflows). **COST-13 unblocked.** See note below. |
 | **COST-13** | shipped | Typed reserve/reconcile service layer (`reserveReconcileBilling.ts`) over the COST-12 repo wrappers, behind `ENABLE_RESERVE_RECONCILE_BILLING` (default off). **Engine NOT wired; live billing unchanged.** See note below. |
 | **COST-14** | shipped | Engine **shadow mode** (`reserveReconcileShadowMode.ts` + engine wiring) behind `ENABLE_RESERVE_RECONCILE_SHADOW` (default off). Computes + LOGS flat-vs-proposed comparison post-run; **no balance mutation, no reserve/reconcile RPC calls, flat gate authoritative**. See note below. |
-| COST-15 | future (unblocked) | Internal users (live reserve/reconcile for an allowlist). |
+| **COST-14B** | shipped | Pure shadow-metrics aggregator (`reserveReconcileShadowStats.ts`) — folds shadow comparisons into cutover-decision stats. No DB/table (logs are console-only); ingestion documented as offline/future. See note below. |
+| COST-15 | future (needs shadow data) | Internal users (live reserve/reconcile for an allowlist) — gate on aggregated shadow data first. |
 | COST-16 | future | Production cutover. |
 | COST-17 | future | Flat-gate cleanup. |
 
@@ -84,6 +85,17 @@ Missing any guard → it **skips with exit 0** and prints the exact run command.
 - **Comparison data location (Part F):** **structured log only** (`execution.run.billing_shadow`) — no schema change, no new migration, no user-facing output. This keeps shadow data out of the real billing analytics.
 - **Live billing untouched (Part E, tested):** `executionBillingGate` still called (`{ testMode:false }` real / `true` test); the flat `deductTasks` path is unchanged; reserve/reconcile RPC wrappers (`reserveTasks`/`reconcileReservation`/`releaseReservation`) are asserted **never called**; COST-3 actual recording still fires.
 - **Unchanged:** flat gate authoritative, no live reserve/reconcile, no UI, AI paused. Tests: [`reserveReconcileShadowMode.test.ts`](../../../tests/unit/services/billing/reserveReconcileShadowMode.test.ts) (delta math, clamp, warnings, balance mapping, no-leak) + COST-14 block in [`engine.test.ts`](../../../tests/unit/services/execution/engine.test.ts) (flag off/on, no-RPC guard, fail-open, test-mode, COST-3 intact). **Next: COST-15 internal-user live reserve/reconcile (requires creating the `workflow_runs` row at reserve time).**
+
+### COST-14B implementation note
+
+**Shadow metrics aggregation — a PURE aggregator so the COST-15 cutover decision is made from aggregate shadow data, not raw logs. No DB, no table, no UI, live billing unchanged.**
+
+- **Logging/metrics audit (Part A):** the engine's `log` is a local `console.info(JSON.stringify(...))` — shadow events (`execution.run.billing_shadow`) go to **stdout only; they are NOT persisted or in-app queryable**. No logger module, no log-ingestion path, no `billing_shadow` table. The actual-billing ledgers (`task_usage_events` / `ai_cost_events`) must stay actual-only — storing hypothetical shadow billing there would corrupt billing analytics.
+- **Chosen approach — Option A (pure aggregator), table deferred.** [`services/analytics/reserveReconcileShadowStats.ts`](../../../services/analytics/reserveReconcileShadowStats.ts) folds an array of `ReserveReconcileShadowComparison` objects into stats. No migration, no overbuild, reversible. A persisted `billing_shadow_comparisons` table is the **future option (COST-14C)** — added only if log export proves impractical / routine in-app aggregation is needed (and never in `task_usage_events`).
+- **Production ingestion (documented, not built):** export the `execution.run.billing_shadow` log lines, JSON-parse each payload into a comparison, and fold via this aggregator (offline / one-off analysis script). That is how shadow data gets evaluated before COST-15.
+- **APIs:** `summarizeShadowComparisons` (total, flat vs proposed totals, total/avg delta, higher/lower/same counts, estimated vs actual variance, refunds total, insufficient-balance count, warning-code breakdown, policy-version breakdown), `groupShadowByWorkflow`, `getShadowDeltaStats` (+ top positive/negative-delta workflows), `getShadowInsufficientBalanceStats` (+ recurring-affected workflows).
+- **Redaction:** comparisons carry only ids/counts/enums/warning codes (the estimator never reads config); the aggregator reads ONLY warning `code` (never `message`), so even a tainted message can't leak into an aggregate (no-leak tested).
+- **Unchanged:** no live billing, no balance mutation, no reserve/reconcile RPC wiring, no UI, no owner route. Tests: [`reserveReconcileShadowStats.test.ts`](../../../tests/unit/services/analytics/reserveReconcileShadowStats.test.ts). **Next: gather shadow data, then COST-15.**
 
 ---
 
