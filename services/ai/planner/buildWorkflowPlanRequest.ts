@@ -1,0 +1,57 @@
+/**
+ * Grounding helper: compose AI-2 context, then build the model request (AI-8A).
+ *
+ * `buildWorkflowPlanRequest` is the seam where the planner is grounded in LIVE
+ * registry metadata: it pulls the provider catalog (`getProviderCatalog`) and
+ * the caller's connected integrations (`getConnectedIntegrationsForAI`) from the
+ * AI-2 tools, then delegates to the pure {@link buildWorkflowPlanPrompt} and
+ * returns a {@link ModelGenerateInput} ready to hand to a {@link ModelClient}.
+ *
+ * It does NOT call a model, mutate, preview, or apply anything. Catalog /
+ * integration lookups are best-effort: a failure degrades to an empty list (the
+ * prompt then states nothing is available) rather than throwing.
+ *
+ * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §4.2.
+ */
+
+import { getModelForFeature, getModelForTier } from "@/core/ai/models";
+import type { ModelGenerateInput } from "@/core/ai/modelTypes";
+import { getConnectedIntegrationsForAI } from "@/services/ai/tools/integrations";
+import {
+  getProviderCatalog,
+  type ProviderCatalogView,
+} from "@/services/ai/tools/providerCatalog";
+import type { ConnectedIntegrationView } from "@/services/ai/tools/integrations";
+import { buildWorkflowPlanPrompt } from "./buildWorkflowPlanPrompt";
+import { WORKFLOW_PLAN_FEATURE, type WorkflowPlanRequestInput } from "./types";
+
+const EMPTY_CATALOG: ProviderCatalogView = { providers: [] };
+
+export async function buildWorkflowPlanRequest(
+  input: WorkflowPlanRequestInput,
+): Promise<ModelGenerateInput> {
+  const catalogRes = getProviderCatalog();
+  const catalog = catalogRes.ok ? catalogRes.data : EMPTY_CATALOG;
+
+  const integrationsRes = await getConnectedIntegrationsForAI(input.userId);
+  const connectedIntegrations: readonly ConnectedIntegrationView[] =
+    integrationsRes.ok ? integrationsRes.data.integrations : [];
+
+  const messages = buildWorkflowPlanPrompt({
+    userRequest: input.userRequest,
+    catalog,
+    connectedIntegrations,
+    ...(input.costAwareness ? { costAwareness: input.costAwareness } : {}),
+  });
+
+  const model = input.tier
+    ? getModelForTier(input.tier)
+    : getModelForFeature(WORKFLOW_PLAN_FEATURE);
+
+  return {
+    feature: WORKFLOW_PLAN_FEATURE,
+    tier: input.tier ?? model.tier,
+    messages,
+    maxOutputTokens: model.maxOutputTokens,
+  };
+}
