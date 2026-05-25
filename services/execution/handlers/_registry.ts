@@ -200,6 +200,13 @@ import { uploadVideo as facebookUploadVideo } from "@/integrations/facebook/acti
 import { getPageInsights as facebookGetPageInsights } from "@/integrations/facebook/actions/getPageInsights";
 import { sendMessage as facebookSendMessage } from "@/integrations/facebook/actions/sendMessage";
 import { deletePost as facebookDeletePost } from "@/integrations/facebook/actions/deletePost";
+// Slice 3.GOOGLE-ANALYTICS-2 — GA4 runtime (6 actions, no triggers).
+import { runReport as googleAnalyticsRunReport } from "@/integrations/google-analytics/actions/runReport";
+import { runPivotReport as googleAnalyticsRunPivotReport } from "@/integrations/google-analytics/actions/runPivotReport";
+import { getRealtimeData as googleAnalyticsGetRealtimeData } from "@/integrations/google-analytics/actions/getRealtimeData";
+import { findConversion as googleAnalyticsFindConversion } from "@/integrations/google-analytics/actions/findConversion";
+import { sendEvent as googleAnalyticsSendEvent } from "@/integrations/google-analytics/actions/sendEvent";
+import { createConversionEvent as googleAnalyticsCreateConversionEvent } from "@/integrations/google-analytics/actions/createConversionEvent";
 import { addCategories as addOutlookCategories } from "@/integrations/microsoft-outlook/actions/addCategories";
 import { createDraftEmail as createOutlookDraftEmail } from "@/integrations/microsoft-outlook/actions/createDraftEmail";
 import { deleteEmail as deleteOutlookEmail } from "@/integrations/microsoft-outlook/actions/deleteEmail";
@@ -547,6 +554,15 @@ const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "facebook", type: "get_page_insights", handler: facebookGetPageInsights },
   { provider: "facebook", type: "send_message", handler: facebookSendMessage },
   { provider: "facebook", type: "delete_post", handler: facebookDeletePost },
+  // Slice 3.GOOGLE-ANALYTICS-2 — GA4 runtime (6 actions, no triggers).
+  // create_measurement_secret + get_user_activity are intentionally NOT
+  // registered (deferred — D-GA1 audit §4).
+  { provider: "google-analytics", type: "run_report", handler: googleAnalyticsRunReport },
+  { provider: "google-analytics", type: "run_pivot_report", handler: googleAnalyticsRunPivotReport },
+  { provider: "google-analytics", type: "get_realtime_data", handler: googleAnalyticsGetRealtimeData },
+  { provider: "google-analytics", type: "find_conversion", handler: googleAnalyticsFindConversion },
+  { provider: "google-analytics", type: "send_event", handler: googleAnalyticsSendEvent },
+  { provider: "google-analytics", type: "create_conversion_event", handler: googleAnalyticsCreateConversionEvent },
   { provider: "microsoft-teams", type: "send_channel_message", handler: teamsSendChannelMessage },
   { provider: "microsoft-teams", type: "send_chat_message", handler: teamsSendChatMessage },
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },

@@ -9,6 +9,7 @@ import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
 import { githubManifest } from "./github/manifest";
 import { gmailManifest } from "./gmail/manifest";
+import { googleAnalyticsManifest } from "./google-analytics/manifest";
 import { googleCalendarManifest } from "./google-calendar/manifest";
 import { googleDocsManifest } from "./google-docs/manifest";
 import { googleDriveManifest } from "./google-drive/manifest";
@@ -188,6 +189,12 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // user token, no refresh token). Pages-only scope; Meta App Review gates
   // external GA (Dev-Mode usable now).
   facebookManifest,
+  // Slice 3.GOOGLE-ANALYTICS-2 — GA4 runtime port (6 actions, no triggers).
+  // Standard refreshable Google OAuth; GA4-only (Data + Admin API +
+  // Measurement Protocol). webhookTrigger/pollingTrigger false (triggers
+  // deferred — D-GA3). analytics.edit is a sensitive Google scope gated by
+  // OAuth app verification (internal launch-readiness, not user-facing).
+  googleAnalyticsManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

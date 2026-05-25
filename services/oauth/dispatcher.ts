@@ -11,6 +11,7 @@ import { dropboxOAuth } from "@/integrations/dropbox/oauth";
 import { facebookOAuth } from "@/integrations/facebook/oauth";
 import { githubOAuth } from "@/integrations/github/oauth";
 import { gmailOAuth } from "@/integrations/gmail/oauth";
+import { googleAnalyticsOAuth } from "@/integrations/google-analytics/oauth";
 import { googleCalendarOAuth } from "@/integrations/google-calendar/oauth";
 import { googleDocsOAuth } from "@/integrations/google-docs/oauth";
 import { googleDriveOAuth } from "@/integrations/google-drive/oauth";
@@ -51,6 +52,10 @@ import { createState, consumeState, InvalidStateError } from "./state";
 const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze({
   slack: slackOAuth,
   gmail: gmailOAuth,
+  // Slice 3.GOOGLE-ANALYTICS-2 — GA4 OAuth. Refreshable, PKCE S256,
+  // OIDC-userinfo account identity. Reuses the shared Google OAuth helpers
+  // (same as Docs / Sheets / Drive / Calendar / Gmail).
+  "google-analytics": googleAnalyticsOAuth,
   "google-calendar": googleCalendarOAuth,
   "google-docs": googleDocsOAuth,
   "google-drive": googleDriveOAuth,
