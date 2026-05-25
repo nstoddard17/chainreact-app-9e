@@ -11,6 +11,37 @@
 
 ---
 
+## Implementation status (living section — updated as AI-* slices ship)
+
+| Slice | Status | Notes |
+|---|---|---|
+| **AI-1** | shipped | This plan (doc-only). |
+| **AI-2** | shipped | Read-only metadata/context tool layer (`services/ai/tools/*`). |
+| **AI-3** | shipped | `WorkflowPatch` schema + deterministic validator. See note below. |
+| AI-4+ | future | Read-only explainer, preview, safe-apply, ground-up creation, etc. (§13). |
+
+> Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
+
+### AI-3 implementation note
+
+Deterministic patch foundation under [`services/workflows/patch/`](../../../services/workflows/patch/). No model calls, no DB writes, no workflow mutation, no apply-to-database (that is a later slice). The model **proposes** a `WorkflowPatch`; this code **validates** it before any preview/apply is permitted.
+
+- **[`types.ts`](../../../services/workflows/patch/types.ts)** — `WorkflowPatch` envelope (`patchId`, `workflowId|null`, `baseRevision`, `operations[]`, `summary`, `rationale`, advisory `riskLevel?`/`requiresConfirmation?`), the `PatchOperation` discriminated union, and `PatchValidationResult`.
+- **[`workflowPatchSchema.ts`](../../../services/workflows/patch/workflowPatchSchema.ts)** — Zod envelope + `.strict()` discriminated op union (reuses the canonical `WorkflowNode`/`WorkflowEdge` contracts).
+- **[`applyPatchToDefinition.ts`](../../../services/workflows/patch/applyPatchToDefinition.ts)** — pure, atomic, non-mutating apply onto a clone → candidate definition.
+- **[`checks.ts`](../../../services/workflows/patch/checks.ts)** — structural, registry-grounding, FieldMeta config, variable-reference, branch-label, and deterministic risk checks.
+- **[`validateWorkflowPatch.ts`](../../../services/workflows/patch/validateWorkflowPatch.ts)** — orchestrator: parse → baseRevision → apply → structure → registry/config → variable refs → branch labels → risk → COST-2 estimate.
+
+**Supported ops:** `addNode`, `updateNodeConfig`, `removeNode`, `addEdge`, `removeEdge`, `replaceEdge`, `moveNode`, `repairVariableReference`, `replaceTrigger`. **Deferred:** `renameNode` (WorkflowNode has no `label` field — see §14 open decision #14) and all template ops.
+
+**Deterministic guarantees:** the patch's proposed `riskLevel`/`requiresConfirmation` are advisory and recomputed (a model cannot downgrade risk — reuses `findConfirmationRequiredActions`); registry grounding rejects invented providers/actions/triggers; variable refs are checked for existence, upstream-only (`findUpstreamNodes`), and output-path existence (AI_FIELD is NOT treated as a missing variable); error/warning messages carry ids + field KEY names + registry metadata only — never config VALUES (no-leak tested).
+
+**Documented gaps (follow-ups):** config validation is FieldMeta-guided, not full handler-Zod (V2 has no clean `provider:type → schema` registry; the handler's strict schema is authoritative at apply/dispatch — undeclared fields are warnings, not errors); branch-label **route-membership** validation is deferred (a labeled edge from a non-branching node is a warning); `repairVariableReference.fieldPath` targets a top-level config key (nested paths deferred).
+
+**Tests:** [`tests/unit/services/workflows/patch/*`](../../../tests/unit/services/workflows/patch/) — schema, apply, registry grounding, config, variable refs, edges/triggers, risk, cost integration, no-leak.
+
+---
+
 ## 0. Executive summary
 
 **Recommendation: GO.** Build ChainReact's AI as a **grounded, tool-using ReAct agent that operates exclusively through a deterministic Workflow Patch layer** over the existing V2 metadata / graph / resolver / validation / execution systems. The model **proposes**; deterministic V2 code **validates and applies**. The agent never regenerates a whole-workflow JSON blob.
