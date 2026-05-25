@@ -8,6 +8,10 @@
 
 export { explainWorkflowForAI } from "./explainWorkflow";
 export { explainNodeForAI } from "./explainNode";
+export {
+  explainWorkflowDefinition,
+  type WorkflowDefinitionExplanation,
+} from "./explainDefinition";
 
 export type {
   WorkflowExplanation,

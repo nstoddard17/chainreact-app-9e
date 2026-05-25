@@ -1,0 +1,82 @@
+/**
+ * Types for the deterministic WorkflowPatch preview service (Slice 4.AI-5).
+ *
+ * The preview composes the AI-3 validator (`validateWorkflowPatch`) and the
+ * AI-4 explainer (`explainWorkflowDefinition`) into a safe, read-only "what
+ * would change" view BEFORE any apply/save exists. NO model calls, NO DB
+ * writes, NO mutation, NO UI.
+ *
+ * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §6.
+ *
+ * No-leak contract: every field below is built from ids, registry display
+ * labels, field KEY names, edge ids, risk metadata, and cost classification —
+ * NEVER from resolved config VALUES. Secret-shaped config keys are filtered
+ * out of change summaries entirely.
+ */
+
+import type { RiskLevel } from "@/contracts/actionMeta";
+import type { WorkflowCostEstimate } from "@/services/billing/workflowCostEstimator";
+import type {
+  PatchErrorCode,
+  PatchOperationKind,
+  PatchValidationError,
+  PatchValidationWarning,
+  RiskReason,
+  WorkflowPatch,
+} from "@/services/workflows/patch/types";
+import type { WorkflowDefinitionExplanation } from "@/services/ai/explain/explainDefinition";
+
+export interface PreviewWorkflowPatchInput {
+  readonly userId: string;
+  readonly workflowId: string;
+  readonly patch: WorkflowPatch;
+}
+
+/** One deterministic, value-free description of a single patch operation. */
+export interface PatchChangeSummary {
+  readonly op: PatchOperationKind;
+  /** Human-readable; never contains config VALUES. */
+  readonly description: string;
+  readonly nodeId?: string;
+  readonly edgeId?: string;
+  /** For config edits: the NON-secret field KEY names touched (no values). */
+  readonly fields?: readonly string[];
+}
+
+export interface PreviewValidation {
+  readonly ok: boolean;
+  readonly errors: readonly PatchValidationError[];
+  readonly warnings: readonly PatchValidationWarning[];
+}
+
+export interface PatchPreviewResult {
+  /** True iff the patch is valid and could be applied later. */
+  readonly ok: boolean;
+  readonly workflowId: string;
+  readonly patchId: string;
+  readonly patchSummary: string;
+  readonly validation: PreviewValidation;
+  readonly changes: readonly PatchChangeSummary[];
+  readonly affectedNodeIds: readonly string[];
+  readonly affectedEdgeIds: readonly string[];
+  /** Deterministic — from the AI-3 validator, never trusted from the patch. */
+  readonly riskLevel: RiskLevel;
+  readonly requiresConfirmation: boolean;
+  readonly riskReasons: readonly RiskReason[];
+  /** From the COST-2 estimator over the candidate. Undefined if it failed. */
+  readonly taskCostEstimate?: WorkflowCostEstimate;
+  /** Explanation of the current (pre-patch) workflow. */
+  readonly beforeSummary: WorkflowDefinitionExplanation;
+  /** Explanation of the candidate (post-patch) workflow — only when valid. */
+  readonly afterSummary?: WorkflowDefinitionExplanation;
+  /** One-line compact summary of the candidate — only when valid. */
+  readonly candidateSummary?: string;
+  /** Deterministic plain-English summary of the whole preview. */
+  readonly userFacingSummaryText: string;
+  /** Whether a future apply step (AI-6) would be permitted (== validation.ok). */
+  readonly canApplyLater: boolean;
+  /** Set when `ok` is false — the first blocking error, code + message. */
+  readonly blockedReason?: string;
+}
+
+export type { PatchErrorCode };
