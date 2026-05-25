@@ -19,8 +19,8 @@
 | **COST-12** | shipped | DB foundation: `user_billing.tasks_reserved`, `workflow_runs` reservation/reconcile columns + `billing_status` CHECK, `task_usage_events` partial-unique idempotency indexes, and the four atomic RPCs (`reserve_tasks_if_available`, `reconcile_task_reservation`, `release_task_reservation`, `release_expired_reservations`) + thin `userBilling` repo wrappers. **No engine wiring, no live-billing change, flat `deduct_tasks_if_available` left intact.** See note below. |
 | **COST-12B** | shipped | Real-DB RPC integration harness (`scripts/verify-reserve-reconcile-rpcs.mjs`) proving the COST-12 RPCs/constraints against an actual Postgres/Supabase. Opt-in + triple-guarded; skips without env. No RPC logic changed. See note below. |
 | **COST-12C** | shipped | Migration applied to the confirmed dev/test DB; harness executed **green (64/64 assertions, 0 failures)** across all 15 cases. No bug found, no code change. Cleanup verified (0 leftover users/workflows). **COST-13 unblocked.** See note below. |
-| COST-13 | future (unblocked) | Service layer behind `ENABLE_RESERVE_RECONCILE` (off). |
-| COST-14 | future | Engine shadow mode. |
+| **COST-13** | shipped | Typed reserve/reconcile service layer (`reserveReconcileBilling.ts`) over the COST-12 repo wrappers, behind `ENABLE_RESERVE_RECONCILE_BILLING` (default off). **Engine NOT wired; live billing unchanged.** See note below. |
+| COST-14 | future (unblocked) | Engine shadow mode. |
 | COST-15 | future | Internal users. |
 | COST-16 | future | Production cutover. |
 | COST-17 | future | Flat-gate cleanup. |
@@ -61,6 +61,17 @@ Missing any guard → it **skips with exit 0** and prints the exact run command.
 **Why required:** reserve/reconcile correctness depends on real DB semantics — row-level locking, atomic UPDATE predicates, CHECK constraints, partial unique indexes, idempotent state transitions, expiry release — none of which jest mocks exercise. This harness is the gate for COST-13 (service layer) and COST-14 (shadow-mode engine wiring) confidence.
 
 **Status (updated by COST-12C):** ✅ **executed green.** The COST-12 migration was applied to a confirmed disposable dev/test Supabase project (us-east-1) via `npm run db:push`, and the harness ran with `ALLOW_DB_INTEGRATION_TESTS=true` — **64/64 assertions passed, 0 failures** across all 15 cases (reserve success/insufficient/zero/idempotent, reconcile exact/under/over-clamp/idempotent, release + idempotent, expiry sweep, non-negativity, service-role-only grant rejection, `task_usage_events` partial unique indexes, and the flat `deduct_tasks_if_available` regression). No RPC/migration bug found → no code change. Cleanup verified: 0 leftover harness auth users / workflows (cascade delete). The reserve/reconcile DB foundation is now proven against a real database; **COST-13 is unblocked.**
+
+### COST-13 implementation note
+
+**Typed service layer over the COST-12 RPCs, behind a default-off flag — engine NOT wired, live billing unchanged.** The primitives COST-14 shadow mode will call.
+
+- **Feature flag** [`services/billing/billingFeatureFlags.ts`](../../../services/billing/billingFeatureFlags.ts): `ENABLE_RESERVE_RECONCILE_BILLING` (default **false**), read via `isReserveReconcileEnabled()` at call time. No existing flag module existed; this is the dedicated home. When false, the service mutates **no** balances.
+- **Repo wrappers (reused from COST-12, not duplicated):** `reserveTasks` / `reconcileReservation` / `releaseReservation` / `releaseExpiredReservations` in [`repositories/userBilling.ts`](../../../repositories/userBilling.ts) — call the exact RPC names, map snake_case→camelCase, preserve reasons (`already_reserved` / `already_reconciled` / `already_released` / `reconcile_over_reserve` / `insufficient_tasks` / `nothing_to_release` / `run_not_found`), throw on infra error.
+- **Service** [`services/billing/reserveReconcileBilling.ts`](../../../services/billing/reserveReconcileBilling.ts): `createBillingReservation`, `reconcileBillingReservation`, `releaseBillingReservation`, `releaseExpiredBillingReservations`, `isReserveReconcileEnabled`. Typed `BillingStatus` (`reserved|reconciled|released|failed|none`) + `BillingReason` (closed union incl. `test_mode` / `disabled` / `zero_reservation` / `rpc_error` / `not_reserved` / `unknown`) + result unions (`ReservationResult` / `ReconcileResult` / `ReleaseResult` / `SweepResult`).
+- **Behavior:** `testMode` → skipped (`test_mode`), no RPC. Flag off → skipped (`disabled`), no RPC, no mutation. `estimatedTasks === 0` → explicit idempotent `zero_reservation` (RPC still called with 0 so the run enters the reserved→reconciled lifecycle). Enabled+real → calls the wrapper, maps faithfully (over-reserve reason preserved). Infra/RPC throw → **caught and returned** as `{ ok:false, reason:'rpc_error', error }` so shadow mode can log without execution-breaking throws (operational error surfaced, not hidden). The **expiry sweep is NOT flag-gated** (janitor; safe anytime; a flag rollback can't strand holds).
+- **Redaction:** results carry only ids/counts/enums/amounts + an operational error string — no secrets/tokens/configs/Supabase internals (no-leak tested).
+- **Unchanged:** engine not wired, `executionBillingGate` live path untouched, flat `deduct_tasks_if_available` intact, no UI, AI paused. Tests: [`reserveReconcileBilling.test.ts`](../../../tests/unit/services/billing/reserveReconcileBilling.test.ts) (flag/test-mode gating, mapping, zero, over-reserve, rpc_error, ungated sweep, no-leak) + the COST-12 wrapper tests. **Next: COST-14 shadow-mode engine integration.**
 
 ---
 
