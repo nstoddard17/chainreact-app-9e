@@ -55,13 +55,20 @@ jest.mock("@/services/billing/taskUsageRecorder", () => ({
   recordRunActuals: (...args: unknown[]) => mockRecordRunActuals(...args),
 }));
 
-// Slice 4.COST-14 — shadow mode builds a flat-vs-proposed comparison post-run.
-// Mock the (pure) comparison builder so engine tests assert wiring (called /
-// not-called / fail-open) without running the real estimator. The shadow flag
-// is toggled via process.env (read at call time).
-const mockBuildShadow = jest.fn();
+// Slice 4.COST-14/14C — shadow mode builds + logs + persists a flat-vs-proposed
+// comparison post-run. Mock the orchestrator so engine tests assert wiring
+// (called / not-called / fail-open / persist injected) without running the real
+// estimator or DB. The shadow flag is toggled via process.env (read at call time).
+const mockRecordShadow = jest.fn();
 jest.mock("@/services/billing/reserveReconcileShadowMode", () => ({
-  buildShadowFromRun: (...args: unknown[]) => mockBuildShadow(...args),
+  recordShadowComparison: (...args: unknown[]) => mockRecordShadow(...args),
+}));
+
+// COST-14C — the engine injects the persistence service as `persist`. Mock it
+// so the engine import resolves without touching the repo/DB.
+const mockRecordBillingShadowComparison = jest.fn();
+jest.mock("@/services/billing/billingShadowComparisons", () => ({
+  recordBillingShadowComparison: (...args: unknown[]) => mockRecordBillingShadowComparison(...args),
 }));
 
 // Guard: the engine must NEVER call balance-mutating reserve/reconcile RPC
@@ -177,10 +184,12 @@ beforeEach(() => {
   });
   mockRecordRunActuals.mockReset();
   mockRecordRunActuals.mockResolvedValue(undefined);
-  // COST-14 — shadow comparison + RPC-guard mocks. Default: flag OFF so the
-  // shadow path is inert for every pre-existing test.
-  mockBuildShadow.mockReset();
-  mockBuildShadow.mockReturnValue({ billingMode: "shadow", status: "computed" });
+  // COST-14/14C — shadow orchestrator + persistence + RPC-guard mocks.
+  // Default: flag OFF so the shadow path is inert for every pre-existing test.
+  mockRecordShadow.mockReset();
+  mockRecordShadow.mockResolvedValue(undefined);
+  mockRecordBillingShadowComparison.mockReset();
+  mockRecordBillingShadowComparison.mockResolvedValue(undefined);
   mockReserveTasks.mockReset();
   mockReconcileReservation.mockReset();
   mockReleaseReservation.mockReset();
@@ -737,7 +746,7 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     mockGetActionHandler.mockReturnValueOnce(async () => ({ output: { ok: true } }));
   }
 
-  it("shadow flag OFF → no shadow comparison, flat gate still runs, run succeeds (regression)", async () => {
+  it("shadow flag OFF → no shadow record, flat gate still runs, run succeeds (regression)", async () => {
     oneActionWorkflow();
     const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
       workflowId: "wf-1",
@@ -745,11 +754,11 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
       triggerEvent,
     });
     expect(result.status).toBe("succeeded");
-    expect(mockBuildShadow).not.toHaveBeenCalled();
+    expect(mockRecordShadow).not.toHaveBeenCalled();
     expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
   });
 
-  it("shadow flag ON (real run) → builds comparison with flat=1 + pre-flat balance, flat gate untouched", async () => {
+  it("shadow flag ON (real run) → records comparison (flat=1, gate counters, persist injected), flat gate untouched", async () => {
     process.env[SHADOW_FLAG] = "true";
     oneActionWorkflow();
     mockBillingGate.mockResolvedValueOnce({ ok: true, used: 5, limit: 100 });
@@ -770,14 +779,15 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     expect(result.status).toBe("succeeded");
     // Flat billing path unchanged.
     expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
-    // Shadow comparison built once with the expected inputs. The gate's
-    // post-deduction counters are forwarded; the pre-flat-balance math lives in
-    // buildShadowFromRun (covered in reserveReconcileShadowMode.test.ts).
-    expect(mockBuildShadow).toHaveBeenCalledTimes(1);
-    const arg = mockBuildShadow.mock.calls[0]![0] as {
+    // Shadow orchestrator called once with the expected inputs. The pre-flat
+    // balance math + build/log/persist live in recordShadowComparison (covered
+    // in reserveReconcileShadowMode.test.ts).
+    expect(mockRecordShadow).toHaveBeenCalledTimes(1);
+    const arg = mockRecordShadow.mock.calls[0]![0] as {
       userId: string; workflowId: string; workflowRunId: string; flatChargedTasks: number;
       actualUsage: { actualTaskCost: number };
       gate: { used?: number; limit?: number };
+      persist: unknown; log: unknown;
     };
     expect(arg).toMatchObject({
       userId: "user-1",
@@ -787,6 +797,10 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     });
     expect(arg.actualUsage.actualTaskCost).toBe(2);
     expect(arg.gate).toEqual({ used: 5, limit: 100 });
+    // The persistence service + a logger are injected (so the shadow module
+    // imports no repo/RPC).
+    expect(typeof arg.persist).toBe("function");
+    expect(typeof arg.log).toBe("function");
   });
 
   it("shadow ON does NOT call any balance-mutating reserve/reconcile RPC wrapper", async () => {
@@ -813,12 +827,10 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     expect(mockRecordRunActuals).toHaveBeenCalledTimes(1);
   });
 
-  it("shadow comparison THROW is fail-open — the run still succeeds", async () => {
+  it("shadow orchestrator rejection is fail-open — the run still succeeds", async () => {
     process.env[SHADOW_FLAG] = "true";
     oneActionWorkflow();
-    mockBuildShadow.mockImplementationOnce(() => {
-      throw new Error("shadow boom");
-    });
+    mockRecordShadow.mockRejectedValueOnce(new Error("shadow boom"));
     const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
       workflowId: "wf-1",
       triggerNodeId: "t1",
@@ -841,7 +853,7 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
       triggeredBy: "test",
     });
     expect(result.isTest).toBe(true);
-    expect(mockBuildShadow).not.toHaveBeenCalled();
+    expect(mockRecordShadow).not.toHaveBeenCalled();
     expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
     expect(mockReserveTasks).not.toHaveBeenCalled();
   });

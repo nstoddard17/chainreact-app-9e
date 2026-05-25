@@ -14,6 +14,7 @@ jest.mock("@/services/billing/workflowCostEstimator", () => ({
 import {
   buildReserveReconcileShadowComparison,
   buildShadowFromRun,
+  recordShadowComparison,
 } from "@/services/billing/reserveReconcileShadowMode";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 
@@ -140,6 +141,48 @@ describe("buildShadowFromRun — gate → pre-flat balance mapping", () => {
       gate: {},
     });
     expect(r.wouldHaveHadEnoughBalance).toBeNull();
+  });
+});
+
+describe("recordShadowComparison — build + log + persist orchestration (fail-open)", () => {
+  function deps() {
+    const log = jest.fn();
+    const persist = jest.fn().mockResolvedValue(undefined);
+    return { log, persist };
+  }
+  const baseArgs = {
+    userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+    workflowDefinition: def, flatChargedTasks: 1,
+    actualUsage: { actualTaskCost: 2 },
+    gate: { used: 5, limit: 100 },
+  };
+
+  it("logs billing_shadow and persists the comparison + userId", async () => {
+    setEstimate(3, []);
+    const { log, persist } = deps();
+    await recordShadowComparison({ ...baseArgs, persist, log });
+    expect(log).toHaveBeenCalledWith("execution.run.billing_shadow", expect.objectContaining({ billingMode: "shadow" }));
+    expect(persist).toHaveBeenCalledTimes(1);
+    const [comparison, userId] = persist.mock.calls[0]!;
+    expect(userId).toBe("u1");
+    expect(comparison).toMatchObject({ workflowRunId: "run-1", estimatedTasksPerRun: 3, actualBillableTasks: 2 });
+  });
+
+  it("persist failure → logs billing_shadow_persist_failed, never throws", async () => {
+    setEstimate(3, []);
+    const { log } = deps();
+    const persist = jest.fn().mockRejectedValue(new Error("db down"));
+    await expect(recordShadowComparison({ ...baseArgs, persist, log })).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith("execution.run.billing_shadow", expect.anything());
+    expect(log).toHaveBeenCalledWith("execution.run.billing_shadow_persist_failed", expect.objectContaining({ error: expect.stringMatching(/db down/) }));
+  });
+
+  it("build failure (estimator throws) → logs billing_shadow_failed, does NOT persist, never throws", async () => {
+    mockEstimate.mockImplementationOnce(() => { throw new Error("est boom"); });
+    const { log, persist } = deps();
+    await expect(recordShadowComparison({ ...baseArgs, persist, log })).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith("execution.run.billing_shadow_failed", expect.objectContaining({ error: expect.stringMatching(/est boom/) }));
+    expect(persist).not.toHaveBeenCalled();
   });
 });
 

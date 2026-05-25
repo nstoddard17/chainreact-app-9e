@@ -133,3 +133,39 @@ export function buildShadowFromRun(args: {
       : null;
   return buildReserveReconcileShadowComparison({ ...args, billingSummary });
 }
+
+/**
+ * Engine orchestration: build the comparison, log it, and persist it — all
+ * FAIL-OPEN. `persist` + `log` are injected so this module imports only the
+ * pure estimator (no repo / no reserve-reconcile RPC → a balance-mutating path
+ * stays structurally unreachable). Never throws.
+ */
+export async function recordShadowComparison(args: {
+  userId: string;
+  workflowId: string;
+  workflowRunId: string;
+  workflowDefinition: WorkflowDefinition;
+  flatChargedTasks: number;
+  actualUsage: { actualTaskCost: number };
+  gate: { used?: number; limit?: number };
+  persist: (comparison: ReserveReconcileShadowComparison, userId: string) => Promise<void>;
+  log: (event: string, extra?: Record<string, unknown>) => void;
+}): Promise<void> {
+  let comparison: ReserveReconcileShadowComparison;
+  try {
+    comparison = buildShadowFromRun(args);
+  } catch (err) {
+    args.log("execution.run.billing_shadow_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+  args.log("execution.run.billing_shadow", { ...comparison });
+  try {
+    await args.persist(comparison, args.userId);
+  } catch (err) {
+    args.log("execution.run.billing_shadow_persist_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}

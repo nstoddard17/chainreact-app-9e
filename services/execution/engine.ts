@@ -22,7 +22,8 @@ import {
   type RunTaskUsage,
 } from "@/services/billing/taskUsageRecorder";
 import { isReserveReconcileShadowEnabled } from "@/services/billing/billingFeatureFlags";
-import { buildShadowFromRun } from "@/services/billing/reserveReconcileShadowMode";
+import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
+import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
 import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
 import {
   buildOutgoingEdgeMap,
@@ -534,32 +535,32 @@ export class WorkflowEngine {
       }
     }
 
-    // COST-14 shadow mode (flag-gated, default off). Computes what
-    // reserve/reconcile WOULD have billed vs the flat charge and LOGS it for
-    // comparison. NEVER mutates balances, never calls reserve/reconcile RPCs,
-    // uses only the FINAL run data (no pre-run row needed). Fail-open: a
-    // comparison error is logged and never breaks the run. Test runs have
-    // usage===null, so they never shadow.
+    // COST-14/14C shadow mode (flag-gated, default off). Builds what
+    // reserve/reconcile WOULD have billed vs the flat charge, LOGS it, and
+    // PERSISTS it to billing_shadow_comparisons (COST-14C). NEVER mutates
+    // balances, never calls reserve/reconcile RPCs; uses only the FINAL run
+    // data (no pre-run row needed). Orchestration is fail-open inside
+    // recordShadowComparison; the outer .catch is belt-and-suspenders so a
+    // bug there can never break the run. Test runs have usage===null → never
+    // shadow. Gated ONLY by the shadow flag (never the live billing flag).
     if (usage && isReserveReconcileShadowEnabled()) {
-      try {
-        const gate = "used" in gateOutcome
+      await recordShadowComparison({
+        userId: workflow.userId,
+        workflowId: input.workflowId,
+        workflowRunId: runId,
+        workflowDefinition: def,
+        flatChargedTasks: FLAT_TASKS_PER_RUN,
+        actualUsage: usage,
+        gate: "used" in gateOutcome
           ? { used: gateOutcome.used, limit: gateOutcome.limit }
-          : {};
-        const shadow = buildShadowFromRun({
-          userId: workflow.userId,
-          workflowId: input.workflowId,
-          workflowRunId: runId,
-          workflowDefinition: def,
-          flatChargedTasks: FLAT_TASKS_PER_RUN,
-          actualUsage: usage,
-          gate,
-        });
-        log("execution.run.billing_shadow", { ...shadow });
-      } catch (err) {
+          : {},
+        persist: recordBillingShadowComparison,
+        log,
+      }).catch((err) =>
         log("execution.run.billing_shadow_failed", {
           error: (err as Error).message,
-        });
-      }
+        }),
+      );
     }
 
     return result;
