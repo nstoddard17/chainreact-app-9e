@@ -11,6 +11,35 @@
 
 ---
 
+## Implementation status (living section — updated as COST-* slices ship)
+
+| Slice | Status | Notes |
+|---|---|---|
+| **COST-1** | shipped (`6e67f1482`) | This audit/plan. Doc-only. |
+| **COST-2A** | shipped (`1753f2cb2`) | Narrow safety fix: test/dry-run runs no longer deduct tasks ([executionBillingGate.ts](../../../services/billing/executionBillingGate.ts) `{ testMode }` → skipped outcome; engine passes `isTest`). Real runs unchanged (flat 1/run). |
+| **COST-2** | shipped | Central task cost policy + deterministic workflow cost estimator (read-only; nothing enforces them yet). See note below. |
+| COST-3 | future | Actual-cost recorder + `task_usage_events` ledger + reserve/reconcile. |
+| COST-4 | future | Optional `taskCost?` override slot on ActionMeta/TriggerMeta (only if defaults prove insufficient). |
+| COST-5 | future | Workflow preview cost API/UI (calls the COST-2 estimator). |
+| COST-6 | future | `ai_cost_events` ledger + AI credits. |
+| COST-7 | future | Owner/admin analytics. |
+| COST-8 | future | Template cost-estimation hooks (reuse the COST-2 estimator). |
+
+### COST-2 implementation note
+
+Two pure, deterministic, read-only services were added under `services/billing/` (placement follows the [executionBillingGate](../../../services/billing/executionBillingGate.ts) core-vs-ESLint precedent from §10):
+
+- **[`taskCostPolicy.ts`](../../../services/billing/taskCostPolicy.ts)** — the single source of "what does a node cost?" Pure function of `(node, meta?)`. API: `getTaskCostPolicyVersion()`, `classifyNodeTaskCost(node, meta?) → NodeTaskCost`, `isBillableNode(node, meta?)`, `TASK_COST_POLICY_VERSION = "v1"`. `NodeTaskCost = { billable, baseTasks, perItemTasks?, chargeOn, reason, policyVersion, source }`. Default rules (no per-provider metadata edits): provider action (grounded by registered meta) → 1 on success; `native:http_request` → 1; native control-flow (`if_then_condition`/`router`/`delay`/`format_transformer`) → 0; triggers → 0; ungrounded/unknown node → `unknown_node`, non-billable. `chargeOn: "ai_call"` is reserved for the future AI ledger and is **never** returned for a workflow node (AI ops are not WorkflowNodes). `source` is always `default_policy`; `override`/`future_metadata_override` are reserved for COST-4.
+- **[`workflowCostEstimator.ts`](../../../services/billing/workflowCostEstimator.ts)** — deterministic estimate over a `WorkflowDefinition`, grounded in the discovery registry + the policy. API: `estimateWorkflowTaskCost(def) → WorkflowCostEstimate`, `estimateNodeTaskCost(node) → NodeCostBreakdown`, `summarizeWorkflowCost(def) → WorkflowCostSummary`. Output: `{ estimatedTasksPerRun, billableNodes[], nonBillableNodes[], unknownCostNodes[], warnings[], policyVersion, nodeBreakdown[] }`; each breakdown carries `{ nodeId, provider, type, displayName?, kind, billable, estimatedTasks, reason, chargeOn, riskLevel?, category? }`. `estimatedTasksPerRun` is the sum of billable nodes (an **upper bound**; branch-aware min/max is a follow-up, flagged via a `BRANCHING_UPPER_BOUND` warning when labeled edges exist). Warnings also cover `EVENT_VOLUME_UNKNOWN` (webhook/polling), `SCHEDULE_ESTIMATE_UNAVAILABLE` (scheduled — monthly derivation deferred; no cron-frequency parser exists yet, only `isValidCronExpression`/`computeNextFireTime`), and `UNKNOWN_NODE_TYPE`.
+
+**Guarantees:** both services are side-effect free — no provider calls, no AI, no token reads, no DB writes, no billing deduction, no workflow mutation. The estimator reads node **identity + registry meta only** and never touches `node.config`, so secrets cannot leak into the estimate (covered by no-leak tests for `accessToken`/`refreshToken`/`apiSecret`/`clientSecret`/`webhookSecret`/`botToken`/`Authorization`/raw config values).
+
+**What COST-2 did NOT change:** actual execution billing is still flat 1 task/run (Slice 1N) with the COST-2A test-mode skip — nothing consumes the policy/estimator yet. No `task_usage_events` ledger, no reserve/reconcile, no migrations, no UI, no AI cost events, no metadata edits. Tests: [`taskCostPolicy.test.ts`](../../../tests/unit/services/billing/taskCostPolicy.test.ts), [`workflowCostEstimator.test.ts`](../../../tests/unit/services/billing/workflowCostEstimator.test.ts).
+
+**Next:** AI-3's WorkflowPatch validator should call `estimateWorkflowTaskCost` (the AI never guesses cost); templates (COST-8) and workflow preview (COST-5) reuse the same estimator.
+
+---
+
 ## 0. Executive summary
 
 **Finding in one line: V2 billing today is a flat, pre-execution charge of exactly 1 task per workflow run, with zero cost awareness in metadata, no per-node/per-provider/per-trigger accounting, no estimate-before-run, no actual-cost recording on the run row, and no user- or owner-facing cost surface.** It is the deliberate "minimum gate" from Slice 1N — it proves a quota can block the engine end-to-end, and explicitly defers everything richer.
