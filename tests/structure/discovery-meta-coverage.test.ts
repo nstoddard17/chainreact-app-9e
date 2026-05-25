@@ -189,6 +189,16 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // polling trigger metas ship in the same slice; trigger coverage is
   // enforced by trigger-meta-activation-invariant, not here.
   "microsoft-excel",
+  // Airtable added in Slice 4.AIRTABLE-META-3 once all 11 registered
+  // Airtable action handlers have a matching meta (records CRUD + find +
+  // batch + schema reads + add_attachment). From here on, adding a new
+  // Airtable handler without a meta (or vice-versa) fails this structural
+  // test. The 1 webhook trigger meta (`record_changed`) ships in the same
+  // slice; trigger coverage is enforced by trigger-meta-activation-invariant,
+  // not here. `delete_record` = high/destructive/requiresConfirmation
+  // (Marcus decision). `airtable:records` resolver intentionally absent
+  // (recordId stays typed).
+  "airtable",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

@@ -21,6 +21,10 @@ Airtable is the **3rd** of the (now) 7 pending-metadata providers (after Shopify
 
 ---
 
+> **✅ AIRTABLE-META-3 shipped (2026-05-25) — Airtable is now builder-visible.** All **11 ActionMeta** (co-located `integrations/airtable/actions/*.meta.ts`) + the **1 `record_changed` TriggerMeta** added; `services/discovery/providers/airtable.ts` sub-registry wired into `services/discovery/_registry.ts`; **`airtable` flipped into `COVERED_PROVIDERS`** → `/api/providers` reports `hasMetadata:true` (no longer "coming soon"). Wiring: `baseId`→airtable:bases; `tableIdOrName`→airtable:tables (dep baseId); `list_records.view`/`fields` + `add_attachment.fieldName`→airtable:views/fields/attachment_fields (multi-parent dep `["baseId","tableIdOrName"]`). `recordId` typed; create/update `fields` + batch `records` are textarea paste-JSON (no typed-field-map renderer). **`delete_record` = high/destructive/requiresConfirmation** (Marcus decision — permanent record loss). Record cell values (action outputs + trigger payload) marked sensitive; schema-metadata reads + ids are not. `airtable:records` stays absent. Covered providers 19 → **20/26**; pending 7 → **6**. Tests: `airtable-discovery.test.ts` + `airtable-triggers-discovery.test.ts` + `airtable-provider-route.test.ts`; structural invariants (discovery-meta-coverage with airtable in COVERED, trigger-meta-activation-invariant, sensitive-output-coverage) green.
+
+---
+
 ## 1. Current Airtable runtime inventory
 
 **Manifest** ([`integrations/airtable/manifest.ts`](../../../integrations/airtable/manifest.ts)): id `airtable`, displayName "Airtable". OAuth v2 + PKCE, **refreshable with rotated refresh tokens** (`tokenScope: "user"`, `accountIdField: "userId"`, `apiVersion: "v0"`, `refreshable: true`, `healthCheckIntervalMs: 12h`). Scopes: `data.records:read`, `data.records:write`, `schema.bases:read`, `webhook:manage`. Capabilities `oauth/webhookTrigger/actions: true`, `pollingTrigger: false`. _(A manifest comment still says "8 action handlers" — **stale**; 11 are registered. Out of scope here; the capability flag `actions:true` is correct.)_

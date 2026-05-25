@@ -315,6 +315,11 @@ import {
   MICROSOFT_EXCEL_ACTION_METAS,
   MICROSOFT_EXCEL_TRIGGER_METAS,
 } from "./providers/microsoft-excel";
+// Airtable (Slice 4.AIRTABLE-META-3) — 11 actions + 1 webhook trigger.
+import {
+  AIRTABLE_ACTION_METAS,
+  AIRTABLE_TRIGGER_METAS,
+} from "./providers/airtable";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -602,6 +607,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...GOOGLE_ANALYTICS_ACTION_METAS, // Google Analytics (GOOGLE-ANALYTICS-4) — 6 actions, displayOrder 10..60.
   ...SHOPIFY_ACTION_METAS, // Shopify (SHOPIFY-META-2) — 11 actions, displayOrder 10..110.
   ...MICROSOFT_EXCEL_ACTION_METAS, // Microsoft Excel (EXCEL-META-3) — 10 actions, displayOrder 10..100.
+  ...AIRTABLE_ACTION_METAS, // Airtable (AIRTABLE-META-3) — 11 actions, displayOrder 10..110.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -710,6 +716,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // <type>, ...), so the trigger-meta-activation-invariant test is
   // satisfied without an exemption.
   ...MICROSOFT_EXCEL_TRIGGER_METAS,
+  // Airtable (AIRTABLE-META-3) — 1 webhook trigger (`record_changed`,
+  // consolidated per-base subscription; workflows branch on
+  // payload.eventType). Activation registered in
+  // integrations/airtable/triggers/recordChanged/index.ts →
+  // registerActivation("airtable","record_changed",...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...AIRTABLE_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
