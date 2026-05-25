@@ -18,7 +18,8 @@
 | **COST-11** | shipped (`6d7e46a1f`) | This design (doc-only). |
 | **COST-12** | shipped | DB foundation: `user_billing.tasks_reserved`, `workflow_runs` reservation/reconcile columns + `billing_status` CHECK, `task_usage_events` partial-unique idempotency indexes, and the four atomic RPCs (`reserve_tasks_if_available`, `reconcile_task_reservation`, `release_task_reservation`, `release_expired_reservations`) + thin `userBilling` repo wrappers. **No engine wiring, no live-billing change, flat `deduct_tasks_if_available` left intact.** See note below. |
 | **COST-12B** | shipped | Real-DB RPC integration harness (`scripts/verify-reserve-reconcile-rpcs.mjs`) proving the COST-12 RPCs/constraints against an actual Postgres/Supabase. Opt-in + triple-guarded; skips without env. No RPC logic changed. See note below. |
-| COST-13 | future | Service layer behind `ENABLE_RESERVE_RECONCILE` (off). |
+| **COST-12C** | shipped | Migration applied to the confirmed dev/test DB; harness executed **green (64/64 assertions, 0 failures)** across all 15 cases. No bug found, no code change. Cleanup verified (0 leftover users/workflows). **COST-13 unblocked.** See note below. |
+| COST-13 | future (unblocked) | Service layer behind `ENABLE_RESERVE_RECONCILE` (off). |
 | COST-14 | future | Engine shadow mode. |
 | COST-15 | future | Internal users. |
 | COST-16 | future | Production cutover. |
@@ -59,7 +60,7 @@ Missing any guard → it **skips with exit 0** and prints the exact run command.
 
 **Why required:** reserve/reconcile correctness depends on real DB semantics — row-level locking, atomic UPDATE predicates, CHECK constraints, partial unique indexes, idempotent state transitions, expiry release — none of which jest mocks exercise. This harness is the gate for COST-13 (service layer) and COST-14 (shadow-mode engine wiring) confidence.
 
-**Status at authoring:** the harness was **not executed** in this slice — the COST-12 migration has not been applied to a database, and no isolated/confirmed-safe test DB was authorized for the destructive create/delete-user run. Reported skipped; run it against a migrated test DB to produce the verification.
+**Status (updated by COST-12C):** ✅ **executed green.** The COST-12 migration was applied to a confirmed disposable dev/test Supabase project (us-east-1) via `npm run db:push`, and the harness ran with `ALLOW_DB_INTEGRATION_TESTS=true` — **64/64 assertions passed, 0 failures** across all 15 cases (reserve success/insufficient/zero/idempotent, reconcile exact/under/over-clamp/idempotent, release + idempotent, expiry sweep, non-negativity, service-role-only grant rejection, `task_usage_events` partial unique indexes, and the flat `deduct_tasks_if_available` regression). No RPC/migration bug found → no code change. Cleanup verified: 0 leftover harness auth users / workflows (cascade delete). The reserve/reconcile DB foundation is now proven against a real database; **COST-13 is unblocked.**
 
 ---
 
