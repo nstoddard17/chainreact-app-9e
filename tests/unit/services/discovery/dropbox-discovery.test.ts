@@ -47,8 +47,13 @@ describe("dropbox discovery — surface", () => {
     expect(metas.map((m) => m.key)).toEqual(EXPECTED_KEYS_IN_ORDER);
   });
 
-  it("registers NO Dropbox trigger metas yet (staged for DROPBOX-5)", () => {
-    expect(listTriggerMetasForProvider("dropbox")).toEqual([]);
+  it("registers the 1 Dropbox webhook trigger meta (DROPBOX-5)", () => {
+    // Detailed trigger assertions live in dropbox-triggers-discovery.test.ts;
+    // this pins the count + key so the DROPBOX-4 surface test stays honest
+    // after the DROPBOX-5 trigger flip.
+    expect(listTriggerMetasForProvider("dropbox").map((t) => t.key)).toEqual([
+      "dropbox:new_file",
+    ]);
   });
 
   it("every key equals provider:type and provider is 'dropbox'", () => {

@@ -138,15 +138,60 @@ describe("GET /api/providers/dropbox/actions", () => {
   });
 });
 
+interface WireTriggerField {
+  name: string;
+  type: string;
+  required: boolean;
+  optionsSource?: string;
+  dependsOn?: string;
+}
+interface WirePayloadField {
+  name: string;
+  type: string;
+  sensitive?: boolean;
+}
+interface WireTrigger {
+  key: string;
+  type: string;
+  activation: string;
+  requiresIntegration: boolean;
+  category: string;
+  fields: WireTriggerField[];
+  payloadShape: WirePayloadField[];
+}
+
 describe("GET /api/providers/dropbox/triggers", () => {
-  it("returns [] — Dropbox triggers are staged for DROPBOX-5", async () => {
+  async function fetchDropboxTriggers(): Promise<WireTrigger[]> {
     const res = await getTriggers(new Request("http://x/dropbox/triggers"), {
       params: Promise.resolve({ id: "dropbox" }),
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { provider: string; triggers: unknown[] };
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: WireTrigger[];
+    };
     expect(body.provider).toBe("dropbox");
-    expect(body.triggers).toEqual([]);
+    return body.triggers;
+  }
+
+  it("returns the 1 new_file webhook trigger (DROPBOX-5)", async () => {
+    const triggers = await fetchDropboxTriggers();
+    expect(triggers.map((t) => t.key)).toEqual(["dropbox:new_file"]);
+    const t = triggers[0]!;
+    expect(t.activation).toBe("webhook");
+    expect(t.requiresIntegration).toBe(true);
+    expect(t.category).toBe("files");
+  });
+
+  it("serializes the folder picker (dropbox:folders) + sensitive payload flags", async () => {
+    const t = (await fetchDropboxTriggers())[0]!;
+    const path = t.fields.find((f) => f.name === "path")!;
+    expect(path.optionsSource).toBe("dropbox:folders");
+    expect(path.dependsOn).toBeUndefined();
+    const name = t.payloadShape.find((p) => p.name === "name")!;
+    expect(name.sensitive).toBe(true);
+    const pathField = t.payloadShape.find((p) => p.name === "path")!;
+    expect(pathField.sensitive).toBe(true);
   });
 });
 

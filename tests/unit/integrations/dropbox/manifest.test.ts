@@ -39,16 +39,17 @@ describe("dropbox manifest", () => {
     expect(dropboxManifest.accountIdField).toBe("account_id");
   });
 
-  it("declares DROPBOX-2 capabilities (oauth + actions; no triggers yet)", () => {
+  it("declares capabilities (oauth + actions + webhookTrigger after DROPBOX-5; no polling)", () => {
     expect(dropboxManifest.capabilities).toEqual({
       oauth: true,
-      webhookTrigger: false,
+      // DROPBOX-5 flipped this true — the new_file app-level webhook trigger.
+      webhookTrigger: true,
       pollingTrigger: false,
       actions: true,
     });
     expect(providerSupports("dropbox", "oauth")).toBe(true);
     expect(providerSupports("dropbox", "actions")).toBe(true);
-    expect(providerSupports("dropbox", "webhookTrigger")).toBe(false);
+    expect(providerSupports("dropbox", "webhookTrigger")).toBe(true);
     expect(providerSupports("dropbox", "pollingTrigger")).toBe(false);
   });
 

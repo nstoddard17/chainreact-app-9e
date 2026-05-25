@@ -1,26 +1,31 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 /**
- * Dropbox discovery sub-registry — Slice 3.DROPBOX-4 (actions only).
+ * Dropbox discovery sub-registry — Slice 3.DROPBOX-4 (actions) +
+ * DROPBOX-5 (trigger).
  *
- * Per-provider grouping of the 11 Dropbox action meta imports — mirrors
- * `services/discovery/providers/monday.ts` /
+ * Per-provider grouping of the 11 Dropbox action meta imports + the 1
+ * webhook trigger meta — mirrors `services/discovery/providers/monday.ts` /
  * `services/discovery/providers/microsoft-onenote.ts`. Central registry
- * validation (`ActionMetaSchema.parse` + duplicate-key rejection) still
- * happens in `services/discovery/_registry.ts`; this file is purely an
- * import grouping.
+ * validation (`ActionMetaSchema.parse` / `TriggerMetaSchema.parse` +
+ * duplicate-key rejection) still happens in
+ * `services/discovery/_registry.ts`; this file is purely an import
+ * grouping.
  *
- * **Coverage:** 11 actions, 0 triggers (staged for DROPBOX-5).
+ * **Coverage:** 11 actions, 1 webhook trigger (`new_file`).
  *
- * **Trigger arc (DROPBOX-5):** the single `new_file` trigger ships via
- * Dropbox's APP-LEVEL webhook + per-account cursor reconciliation — NOT
- * the per-workflow `create_webhook` pattern used by Monday/HubSpot. The
- * manifest's `capabilities.webhookTrigger` stays `false` until DROPBOX-5
- * flips it alongside the trigger meta + `/api/webhooks/dropbox` route.
- * This is a deliberate actions-first staged provider arc (same precedent
- * as Stripe / Discord / Google Docs / OneNote / Monday), NOT a missing
- * trigger gap. Trigger coverage is NOT enforced by
- * `tests/structure/discovery-meta-coverage.test.ts`.
+ * **Trigger arc (DROPBOX-5):** the `new_file` trigger ships via Dropbox's
+ * APP-LEVEL webhook + per-account cursor reconciliation — NOT the
+ * per-workflow `create_webhook` pattern used by Monday/HubSpot. One URL in
+ * the Dropbox App Console serves the whole app; the global
+ * `/api/webhooks/dropbox` route verifies `X-Dropbox-Signature` and
+ * reconciles per changed account. The activation hook
+ * (`registerActivation("dropbox", "new_file", …)`) seeds a `list_folder`
+ * cursor for first-poll-miss protection, satisfying the
+ * `trigger-meta-activation-invariant` test WITHOUT a
+ * `SHARED_INFRA_EXEMPT_KEYS` entry. The manifest's
+ * `capabilities.webhookTrigger` flips `true` in this slice.
  *
  * Action metas in displayOrder (10..110). All `category: "files"`,
  * `requiresIntegration: true`:
@@ -63,6 +68,9 @@ import { dropboxCreateSharedLinkMeta } from "@/integrations/dropbox/actions/crea
 import { dropboxGetTemporaryLinkMeta } from "@/integrations/dropbox/actions/getTemporaryLink.meta";
 import { dropboxDeleteFileMeta } from "@/integrations/dropbox/actions/deleteFile.meta";
 
+// triggers/ (DROPBOX-5) — 1 webhook trigger.
+import { dropboxNewFileTriggerMeta } from "@/integrations/dropbox/triggers/newFile/newFile.meta";
+
 export const DROPBOX_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   dropboxUploadFileMeta,
   dropboxDownloadFileMeta,
@@ -75,4 +83,12 @@ export const DROPBOX_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   dropboxCreateSharedLinkMeta,
   dropboxGetTemporaryLinkMeta,
   dropboxDeleteFileMeta,
+];
+
+/**
+ * Dropbox webhook trigger metas (DROPBOX-5) — 1 trigger, displayOrder 10:
+ *   10 - new_file (app-level webhook + per-account cursor reconciliation)
+ */
+export const DROPBOX_TRIGGER_METAS: ReadonlyArray<TriggerMeta> = [
+  dropboxNewFileTriggerMeta,
 ];

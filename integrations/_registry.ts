@@ -113,6 +113,13 @@ import "./monday/triggers/columnChanged";
 import "./monday/triggers/itemMoved";
 import "./monday/triggers/newSubitem";
 import "./monday/triggers/newUpdate";
+// Slice 3.DROPBOX-5 — dropbox:new_file webhook trigger. App-level webhook
+// (one URL in the Dropbox App Console) + per-account cursor reconciliation;
+// notifications arrive at /api/webhooks/dropbox. Activation seeds a
+// list_folder cursor (first-poll-miss protection) — NO remote
+// create_webhook (the app webhook is shared-infra and never expires), so
+// NO deactivation/renewal hook either.
+import "./dropbox/triggers/newFile";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.

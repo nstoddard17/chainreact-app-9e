@@ -46,9 +46,12 @@ import {
  * Capabilities:
  *   - oauth: true.
  *   - actions: true — 11 action handlers ship in DROPBOX-2.
- *   - webhookTrigger: false — flips true in DROPBOX-5 (Dropbox's
- *     app-level webhook + per-account cursor model; shared-infra, not the
- *     per-workflow create_webhook pattern).
+ *   - webhookTrigger: true — the `dropbox:new_file` trigger ships in
+ *     DROPBOX-5 via Dropbox's app-level webhook + per-account cursor
+ *     reconciliation (shared-infra; ONE URL in the App Console, NOT the
+ *     per-workflow create_webhook pattern). Activation seeds a
+ *     `list_folder` cursor; the global `/api/webhooks/dropbox` route
+ *     verifies `X-Dropbox-Signature` and reconciles per changed account.
  *   - pollingTrigger: false — Dropbox triggers are webhook-based.
  */
 export const dropboxManifest: ProviderManifest = ProviderManifestSchema.parse({
@@ -72,9 +75,10 @@ export const dropboxManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   capabilities: {
     oauth: true,
-    // Flips true in DROPBOX-5 — Dropbox app-level webhook + per-account
-    // cursor reconciliation. Polling stays false (webhook-based).
-    webhookTrigger: false,
+    // DROPBOX-5 — Dropbox app-level webhook + per-account cursor
+    // reconciliation (the `dropbox:new_file` trigger). Polling stays false
+    // (webhook-based).
+    webhookTrigger: true,
     pollingTrigger: false,
     actions: true,
   },

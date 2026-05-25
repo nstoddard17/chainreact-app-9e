@@ -294,11 +294,11 @@ import { MICROSOFT_ONENOTE_ACTION_METAS, MICROSOFT_ONENOTE_TRIGGER_METAS } from 
 // Monday.com (MONDAY-6 actions + MONDAY-7 triggers) — 24 actions, 5
 // webhook triggers.
 import { MONDAY_ACTION_METAS, MONDAY_TRIGGER_METAS } from "./providers/monday";
-// Dropbox (DROPBOX-4 actions) — 11 actions, 0 triggers. The single
-// `new_file` trigger is staged for DROPBOX-5 (app-level webhook + cursor
-// reconciliation, not per-workflow webhook creation). See
-// providers/dropbox.ts header for the staged-arc rationale.
-import { DROPBOX_ACTION_METAS } from "./providers/dropbox";
+// Dropbox (DROPBOX-4 actions + DROPBOX-5 trigger) — 11 actions, 1 webhook
+// trigger (`new_file`, app-level webhook + per-account cursor
+// reconciliation, NOT per-workflow webhook creation). See
+// providers/dropbox.ts header for the architecture rationale.
+import { DROPBOX_ACTION_METAS, DROPBOX_TRIGGER_METAS } from "./providers/dropbox";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -662,6 +662,14 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // so the trigger-meta-activation-invariant test is satisfied without an
   // exemption.
   ...MONDAY_TRIGGER_METAS,
+  // Dropbox (DROPBOX-5) — 1 webhook trigger (`new_file`). App-level
+  // webhook (one URL in the App Console) + per-account cursor
+  // reconciliation. The activation hook seeds a list_folder cursor
+  // (registerActivation("dropbox", "new_file", ...)), satisfying the
+  // trigger-meta-activation-invariant test without an exemption — no
+  // remote create_webhook (the app webhook is shared-infra, doesn't
+  // expire, and needs no per-workflow subscription).
+  ...DROPBOX_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
