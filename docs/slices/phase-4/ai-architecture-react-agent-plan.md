@@ -26,7 +26,8 @@
 | **AI-8A** | shipped | Model boundary (`core/ai/*`) + planner prompt/result contract (`services/ai/planner/*`). First model-backed infra; NO live model calls, NO workflow creation yet. See note below. |
 | **AI-8B** | shipped | Model-backed plan proposal + preview (`services/ai/planner/planWorkflowFromPrompt.ts`): prompt → injected model client → parse → AI-3/AI-5 preview. NO apply, NO mutation, NO UI. See note below. |
 | **AI-8C** | shipped | First real model adapter + runtime config (`services/ai/modelClients/*`): env-driven Anthropic adapter (fetch), fail-safe factory, planner default-client wiring. NO live calls in tests, NO apply/UI/routes. See note below. |
-| AI-8D+ | future | Route surface / chat UI, ground-up apply (confirm → AI-6 apply), additional provider adapters, optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
+| **AI-9A** | shipped | First app-facing AI route — `POST /api/workflows/[id]/ai/plan` (preview-only). Auth + body validation → `planWorkflowFromPromptForAI` → sanitized result. NO apply, NO mutation, NO UI, NO prompt/response persistence. See note below. |
+| AI-9B+ | future | Chat/builder UI consuming the plan route, ground-up apply (confirm → AI-6 apply), AI observability (`ai_events`), additional provider adapters, optimizer, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -159,6 +160,19 @@ First **real** model adapter + runtime configuration — still NO live calls in 
 - **Env:** `.env.example` documents `ANTHROPIC_API_KEY` (optional) as the runtime adapter key; `OPENAI_API_KEY` reserved.
 
 **Tests:** [`tests/unit/services/ai/modelClients/*`](../../../tests/unit/services/ai/modelClients/) — adapter (success/usage/finishReason/latency, request shape + `x-api-key`, full error mapping, no-leak, injected-fetch-only) + factory (missing-env → NOT_CONFIGURED, unsupported provider → CONFIGURATION_ERROR, configured → real adapter via mocked fetch, no key leak, no-throw). Planner: default runtime wiring (missing key → MODEL_FAILED, configured + mocked fetch → reaches preview, injected client still wins). No test makes a live network call.
+
+### AI-9A implementation note
+
+First **app-facing** AI route — and it stays PREVIEW-ONLY. [`app/api/workflows/[id]/ai/plan/route.ts`](../../../app/api/workflows/[id]/ai/plan/route.ts) — `POST`. It NEVER applies a patch, mutates the workflow/DB, or persists the prompt / model output. Thin handler (per the route-layer convention): auth → validate → call `planWorkflowFromPromptForAI` → format response.
+
+- **Auth:** `requireUser()` (shared) → 401 when unauthenticated; the planner is never called.
+- **Validation:** Zod body — `prompt` (required, trimmed, 1..8000 chars) + optional `modelTier` (`"fast" | "strong"` allow-list). Unknown keys are stripped (forward-compatible, so a future `feature`/etc. doesn't 400). Invalid body / non-JSON → 400. `feature` is server-controlled (the planner's `creation` default) — not client-settable.
+- **Wiring:** calls `planWorkflowFromPromptForAI({ userId, workflowId: id, prompt, modelTier? })`. The planner's default client is the env-configured runtime client (AI-8C), so with no `ANTHROPIC_API_KEY` the route safely returns the `MODEL_FAILED` / `NOT_CONFIGURED` structured result — never a 500.
+- **Status mapping:** 200 for any successful plan (incl. needs-input + preview-rejected — `ok` + `canApplyLater` carry the distinction); 404 when the workflow is not found / not owned (`PREVIEW_UNAVAILABLE` + `NOT_FOUND`, no existence leak); 503 for `MODEL_FAILED` (model unconfigured/failed); 502 for `PARSE_FAILED` / other `PREVIEW_UNAVAILABLE`; 500 only for an unexpected thrown error (sanitized).
+- **No-leak / no-persistence:** the response body is the already-sanitized `PlanWorkflowResult` (no secrets, no config values, no API key); nothing is written to the DB and no prompt/response is stored.
+- **Deferred:** chat/builder UI consuming this route, an apply route, and `ai_events` observability wrapping (AI-9B+).
+
+**Tests:** [`tests/unit/app/api/workflows/ai-plan-route.test.ts`](../../../tests/unit/app/api/workflows/ai-plan-route.test.ts) (18) — 401 unauth, 400 (missing/empty/too-long prompt, bad modelTier, non-JSON), unknown-key tolerance, planner wiring (userId/workflowId/prompt + modelTier + trim), 200 success + needs-input, 503 model-not-configured, 502 parse-failure, 404 NOT_FOUND, sanitized 500 on throw, no-apply/no-repo/no-adapter source assertion, and response no-leak. The planner service is mocked — no live model/network call.
 
 ---
 
