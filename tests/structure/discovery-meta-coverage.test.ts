@@ -182,6 +182,13 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // `webhook_received` trigger meta ships in the same slice; trigger
   // coverage is enforced by trigger-meta-activation-invariant, not here.
   "shopify",
+  // Microsoft Excel added in Slice 4.EXCEL-META-3 once all 10 registered
+  // Excel action handlers have a matching meta (rows, table rows,
+  // worksheet lifecycle, reads). From here on, adding a new Excel handler
+  // without a meta (or vice-versa) fails this structural test. The 5
+  // polling trigger metas ship in the same slice; trigger coverage is
+  // enforced by trigger-meta-activation-invariant, not here.
+  "microsoft-excel",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

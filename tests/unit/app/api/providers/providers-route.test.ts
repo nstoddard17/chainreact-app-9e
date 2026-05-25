@@ -220,6 +220,17 @@ describe("GET /api/providers", () => {
     expect(shopify?.hasMetadata).toBe(true);
   });
 
+  it("marks Microsoft Excel as hasMetadata=true now that Slice 4.EXCEL-META-3 shipped its action + trigger metas", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const excel = body.providers.find((p) => p.id === "microsoft-excel");
+    expect(excel).toBeDefined();
+    expect(excel?.hasMetadata).toBe(true);
+  });
+
   it("sorts providers by displayName", async () => {
     authedUser();
     const res = await getProviders();

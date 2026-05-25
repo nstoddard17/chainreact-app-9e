@@ -310,6 +310,11 @@ import { FACEBOOK_ACTION_METAS, FACEBOOK_TRIGGER_METAS } from "./providers/faceb
 import { GOOGLE_ANALYTICS_ACTION_METAS } from "./providers/google-analytics";
 // Shopify (Slice 4.SHOPIFY-META-2) — 11 actions + 1 webhook trigger.
 import { SHOPIFY_ACTION_METAS, SHOPIFY_TRIGGER_METAS } from "./providers/shopify";
+// Microsoft Excel (Slice 4.EXCEL-META-3) — 10 actions + 5 polling triggers.
+import {
+  MICROSOFT_EXCEL_ACTION_METAS,
+  MICROSOFT_EXCEL_TRIGGER_METAS,
+} from "./providers/microsoft-excel";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -596,6 +601,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...FACEBOOK_ACTION_METAS, // Facebook (FACEBOOK-4) — 8 actions, displayOrder 10..80.
   ...GOOGLE_ANALYTICS_ACTION_METAS, // Google Analytics (GOOGLE-ANALYTICS-4) — 6 actions, displayOrder 10..60.
   ...SHOPIFY_ACTION_METAS, // Shopify (SHOPIFY-META-2) — 11 actions, displayOrder 10..110.
+  ...MICROSOFT_EXCEL_ACTION_METAS, // Microsoft Excel (EXCEL-META-3) — 10 actions, displayOrder 10..100.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -697,6 +703,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("shopify", "webhook_received", activate), so the
   // trigger-meta-activation-invariant test is satisfied without an exemption.
   ...SHOPIFY_TRIGGER_METAS,
+  // Microsoft Excel (EXCEL-META-3) — 5 polling triggers (new_row,
+  // updated_row, new_table_row, updated_table_row, new_worksheet),
+  // displayOrder 10..50. Each registers an activation hook in its
+  // triggers/<event>/index.ts → registerActivation("microsoft-excel",
+  // <type>, ...), so the trigger-meta-activation-invariant test is
+  // satisfied without an exemption.
+  ...MICROSOFT_EXCEL_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
