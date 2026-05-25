@@ -14,10 +14,24 @@
  * without re-importing.
  */
 
-/** Env var name for the reserve/reconcile rollout flag. */
+/** Env var name for the reserve/reconcile LIVE rollout flag (balance-mutating). */
 export const RESERVE_RECONCILE_FLAG = "ENABLE_RESERVE_RECONCILE_BILLING";
 
 /** True only when ENABLE_RESERVE_RECONCILE_BILLING === "true". Default false. */
 export function isReserveReconcileEnabled(): boolean {
   return process.env[RESERVE_RECONCILE_FLAG] === "true";
+}
+
+/**
+ * Env var name for the reserve/reconcile SHADOW flag (COST-14).
+ *
+ * SEPARATE from the live flag above. Shadow mode only computes + LOGS a
+ * comparison of flat-vs-proposed billing; it NEVER mutates balances and never
+ * calls the reserve/reconcile RPCs. Default off → zero behavior change.
+ */
+export const RESERVE_RECONCILE_SHADOW_FLAG = "ENABLE_RESERVE_RECONCILE_SHADOW";
+
+/** True only when ENABLE_RESERVE_RECONCILE_SHADOW === "true". Default false. */
+export function isReserveReconcileShadowEnabled(): boolean {
+  return process.env[RESERVE_RECONCILE_SHADOW_FLAG] === "true";
 }

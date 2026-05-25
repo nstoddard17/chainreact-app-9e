@@ -21,6 +21,8 @@ import {
   recordRunActuals,
   type RunTaskUsage,
 } from "@/services/billing/taskUsageRecorder";
+import { isReserveReconcileShadowEnabled } from "@/services/billing/billingFeatureFlags";
+import { buildShadowFromRun } from "@/services/billing/reserveReconcileShadowMode";
 import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
 import {
   buildOutgoingEdgeMap,
@@ -31,6 +33,13 @@ import {
   buildTestModeMockOutput,
   decideTestModeBlock,
 } from "./testModeGate";
+
+/**
+ * Flat tasks charged per real run today (Slice 1N). Used by COST-14 shadow
+ * mode to compare flat-vs-proposed billing. NOT a new live-billing constant —
+ * the flat gate already deducts exactly this.
+ */
+const FLAT_TASKS_PER_RUN = 1;
 
 /**
  * Workflow execution engine.
@@ -524,6 +533,35 @@ export class WorkflowEngine {
         });
       }
     }
+
+    // COST-14 shadow mode (flag-gated, default off). Computes what
+    // reserve/reconcile WOULD have billed vs the flat charge and LOGS it for
+    // comparison. NEVER mutates balances, never calls reserve/reconcile RPCs,
+    // uses only the FINAL run data (no pre-run row needed). Fail-open: a
+    // comparison error is logged and never breaks the run. Test runs have
+    // usage===null, so they never shadow.
+    if (usage && isReserveReconcileShadowEnabled()) {
+      try {
+        const gate = "used" in gateOutcome
+          ? { used: gateOutcome.used, limit: gateOutcome.limit }
+          : {};
+        const shadow = buildShadowFromRun({
+          userId: workflow.userId,
+          workflowId: input.workflowId,
+          workflowRunId: runId,
+          workflowDefinition: def,
+          flatChargedTasks: FLAT_TASKS_PER_RUN,
+          actualUsage: usage,
+          gate,
+        });
+        log("execution.run.billing_shadow", { ...shadow });
+      } catch (err) {
+        log("execution.run.billing_shadow_failed", {
+          error: (err as Error).message,
+        });
+      }
+    }
+
     return result;
   }
 }
