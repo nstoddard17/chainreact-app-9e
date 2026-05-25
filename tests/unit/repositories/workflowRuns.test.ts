@@ -37,6 +37,18 @@ function makeMockClient(state: ChainState) {
       state.filters.push({ op: "neq", args: [col, val] });
       return builder;
     }),
+    is: jest.fn((col: string, val: unknown) => {
+      state.filters.push({ op: "is", args: [col, val] });
+      return builder;
+    }),
+    lt: jest.fn((col: string, val: unknown) => {
+      state.filters.push({ op: "lt", args: [col, val] });
+      return builder;
+    }),
+    in: jest.fn((col: string, val: unknown) => {
+      state.filters.push({ op: "in", args: [col, val] });
+      return builder;
+    }),
     order: jest.fn(() => builder),
     limit: jest.fn(() => builder),
     maybeSingle: jest.fn(async () =>
@@ -71,6 +83,7 @@ import {
   finalizeWorkflowRun,
   markWorkflowRunFailedBeforeExecution,
   getWorkflowRunForBilling,
+  sweepStaleRunningWorkflowRuns,
 } from "@/repositories/workflowRuns";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
@@ -603,5 +616,115 @@ describe("workflowRuns.getWorkflowRunForBilling", () => {
     };
     mockServiceRole.current = makeMockClient(state);
     await expect(getWorkflowRunForBilling("run-1")).rejects.toThrow(/kaboom/);
+  });
+});
+
+// ── Stale 'running' run sweep (Slice 4.COST-15F) ─────────────────────────────
+
+describe("workflowRuns.sweepStaleRunningWorkflowRuns", () => {
+  const cutoff = "2026-05-25T00:00:00Z";
+  const finishedAt = "2026-05-25T01:00:00Z";
+  const fatalError = { code: "EXECUTION_INTERRUPTED", message: "interrupted" };
+  const errorClassification = {
+    title: "Run interrupted",
+    description: "interrupted",
+    severity: "error" as const,
+  };
+
+  it("marks matching rows failed, sets finish/classification, preserves billing fields", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "r1" }, { id: "r2" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+
+    const result = await sweepStaleRunningWorkflowRuns({
+      cutoff,
+      fatalError,
+      errorClassification,
+      finishedAt,
+    });
+
+    expect(result).toEqual({ sweptCount: 2, runIds: ["r1", "r2"], cutoff });
+    const payload = state.updatePayload as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      status: "failed",
+      finished_at: finishedAt,
+      fatal_error: fatalError,
+      error_classification: errorClassification,
+    });
+    // Predicate: status=running, finished_at IS NULL, started_at < cutoff.
+    expect(state.filters).toContainEqual({ op: "eq", args: ["status", "running"] });
+    expect(state.filters).toContainEqual({ op: "is", args: ["finished_at", null] });
+    expect(state.filters).toContainEqual({ op: "lt", args: ["started_at", cutoff] });
+    // Billing/reservation fields are NEVER written by the sweep.
+    for (const k of [
+      "billing_status",
+      "reserved_task_cost",
+      "reconciled_task_cost",
+      "reservation_id",
+      "reservation_expires_at",
+      "billing_reconciled_at",
+    ]) {
+      expect(k in payload).toBe(false);
+    }
+  });
+
+  it("is idempotent: a re-run that matches no rows returns sweptCount 0", async () => {
+    const state: ChainState = { filters: [], resultData: [], resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await sweepStaleRunningWorkflowRuns({
+      cutoff,
+      fatalError,
+      errorClassification,
+      finishedAt,
+    });
+    expect(result).toEqual({ sweptCount: 0, runIds: [], cutoff });
+  });
+
+  it("honors a batch limit: pre-selects ids then UPDATEs scoped to them", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: [{ id: "r1" }],
+      resultError: null,
+    };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await sweepStaleRunningWorkflowRuns({
+      cutoff,
+      fatalError,
+      errorClassification,
+      finishedAt,
+      limit: 1,
+    });
+    expect(result.sweptCount).toBe(1);
+    // The UPDATE is scoped to the pre-selected ids.
+    expect(state.filters).toContainEqual({ op: "in", args: ["id", ["r1"]] });
+  });
+
+  it("limit path short-circuits when the pre-select finds nothing (no UPDATE)", async () => {
+    const state: ChainState = { filters: [], resultData: [], resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    const result = await sweepStaleRunningWorkflowRuns({
+      cutoff,
+      fatalError,
+      errorClassification,
+      finishedAt,
+      limit: 5,
+    });
+    expect(result).toEqual({ sweptCount: 0, runIds: [], cutoff });
+    expect(state.updatePayload).toBeUndefined();
+  });
+
+  it("propagates Supabase errors", async () => {
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: { message: "sweep boom" },
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await expect(
+      sweepStaleRunningWorkflowRuns({ cutoff, fatalError, errorClassification, finishedAt }),
+    ).rejects.toThrow(/sweep boom/);
   });
 });

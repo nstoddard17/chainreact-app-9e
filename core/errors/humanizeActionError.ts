@@ -120,6 +120,17 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
         action: "open_node",
         severity: "error",
       };
+    case "EXECUTION_INTERRUPTED":
+      // COST-15F — a run left in 'running' past the staleness cutoff and swept
+      // to failed (the engine process restarted between create + finalize).
+      return {
+        title: "Run interrupted",
+        description:
+          input.message ||
+          "This run was interrupted before it finished — the engine likely restarted mid-execution.",
+        hint: "Re-run the workflow; if this keeps happening, check engine/deploy health.",
+        severity: "error",
+      };
     case "HANDLER_FAILED":
       // Slack-ish messages get further refinement below.
       return null;

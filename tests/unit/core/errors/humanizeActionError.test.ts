@@ -112,6 +112,25 @@ describe("humanizeActionError — engine codes", () => {
     expect(result.action).toBe("open_node");
     expect(result.severity).toBe("error");
   });
+
+  it("EXECUTION_INTERRUPTED (COST-15F stale-run sweep) → 'Run interrupted', error, no CTA", () => {
+    const result = humanizeActionError({
+      code: "EXECUTION_INTERRUPTED",
+      message: "Run interrupted: still 'running' 60+ minutes after start.",
+    });
+    expect(result.title).toBe("Run interrupted");
+    expect(result.description).toContain("interrupted");
+    expect(result.hint).toMatch(/re-run|engine|deploy/i);
+    expect(result.severity).toBe("error");
+    expect(result.action).toBeUndefined();
+  });
+
+  it("EXECUTION_INTERRUPTED falls back to a generic description when message is empty", () => {
+    const result = humanizeActionError({ code: "EXECUTION_INTERRUPTED", message: "" });
+    expect(result.title).toBe("Run interrupted");
+    expect(result.description).toMatch(/interrupted|restarted/i);
+    expect(result.severity).toBe("error");
+  });
 });
 
 describe("humanizeActionError — Slack handler errors (HANDLER_FAILED routing)", () => {

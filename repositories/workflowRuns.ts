@@ -522,3 +522,97 @@ export async function getWorkflowRunForBilling(
     finishedAt: data.finished_at,
   };
 }
+
+// ── Stale 'running' run sweep (Slice 4.COST-15F) ─────────────────────────────
+//
+// Crash recovery for the COST-15C lifecycle: a process that dies between
+// createWorkflowRunStart and finalize leaves a row stuck in status='running'
+// (hidden from the UI by the running-row read filter). This marks such rows
+// failed after a staleness cutoff so they finalize like any other failed run.
+//
+// SEPARATE from the COST-12 release_expired_reservations RPC, which sweeps
+// reserved BILLING HOLDS. This sweep is about run-lifecycle state only — it
+// NEVER touches billing_status / reserved_task_cost / reconciled_task_cost /
+// reservation_id / reservation_expires_at / billing_reconciled_at, never
+// deducts/refunds tasks, and writes no task_usage_events.
+
+export interface SweepStaleRunningWorkflowRunsInput {
+  /** ISO timestamp; rows with `started_at` strictly before this are stale. */
+  cutoff: string;
+  /** Failure payload written to the swept rows (built by the sweep service). */
+  fatalError: WorkflowRunFatalError;
+  errorClassification: WorkflowRunErrorClassification;
+  finishedAt: string;
+  /** Optional batch cap. Omitted ⇒ sweep all matching rows in one UPDATE. */
+  limit?: number;
+}
+
+export interface SweepStaleRunningWorkflowRunsResult {
+  sweptCount: number;
+  runIds: string[];
+  cutoff: string;
+}
+
+/**
+ * Mark stale 'running' rows (started before `cutoff`, no finish time) as failed.
+ * Idempotent: the predicate (`status='running' AND finished_at IS NULL`) no
+ * longer matches a row once it is swept, so re-running finds nothing. Terminal
+ * (succeeded/failed) rows and not-yet-stale running rows are never touched.
+ *
+ * `limit` is honored via a pre-select of the oldest matching ids, then an UPDATE
+ * scoped to those ids that RE-APPLIES the full predicate (race-safe: a row
+ * finalized between the select and update is excluded).
+ */
+export async function sweepStaleRunningWorkflowRuns(
+  input: SweepStaleRunningWorkflowRunsInput,
+): Promise<SweepStaleRunningWorkflowRunsResult> {
+  const supabase = getServiceRoleClient(
+    `cron: sweepStaleRunningWorkflowRuns (cutoff ${input.cutoff})`,
+  );
+
+  let limitIds: string[] | null = null;
+  if (input.limit !== undefined) {
+    const sel = await supabase
+      .from("workflow_runs")
+      .select("id")
+      .eq("status", "running")
+      .is("finished_at", null)
+      .lt("started_at", input.cutoff)
+      .order("started_at", { ascending: true })
+      .limit(input.limit);
+    if (sel.error) {
+      throw new Error(
+        `workflow_runs.sweepStaleRunningWorkflowRuns (select) failed: ${sel.error.message}`,
+      );
+    }
+    limitIds = (sel.data ?? []).map((r) => (r as { id: string }).id);
+    if (limitIds.length === 0) {
+      return { sweptCount: 0, runIds: [], cutoff: input.cutoff };
+    }
+  }
+
+  let query = supabase
+    .from("workflow_runs")
+    .update({
+      status: "failed",
+      finished_at: input.finishedAt,
+      fatal_error: input.fatalError,
+      error_classification: input.errorClassification,
+      // NOTE: no billing_status / reserved_task_cost / reconciled_task_cost /
+      // reservation_* / billing_reconciled_at — billing state is left intact.
+    })
+    .eq("status", "running")
+    .is("finished_at", null)
+    .lt("started_at", input.cutoff);
+  if (limitIds !== null) {
+    query = query.in("id", limitIds);
+  }
+  const { data, error } = await query.select("id");
+  if (error) {
+    throw new Error(
+      `workflow_runs.sweepStaleRunningWorkflowRuns failed: ${error.message}`,
+    );
+  }
+  const runIds = (data ?? []).map((r) => (r as { id: string }).id);
+  return { sweptCount: runIds.length, runIds, cutoff: input.cutoff };
+}

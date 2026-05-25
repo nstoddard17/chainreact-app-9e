@@ -13,6 +13,7 @@
     "verify:reserve-reconcile": "node scripts/verify-reserve-reconcile-rpcs.mjs",
     "verify:shadow-comparisons": "node scripts/verify-billing-shadow-comparisons.mjs",
     "review:shadow-comparisons": "node scripts/review-reserve-reconcile-shadow-data.mjs",
+    "sweep:stale-runs": "node scripts/sweep-stale-workflow-runs.mjs",
     "db:push": "node scripts/db-push.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
