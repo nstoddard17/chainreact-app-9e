@@ -24,7 +24,8 @@
 | **AI-6B** | shipped | Apply concurrency hardening (write-time guarded update) + AI-5 `currentRevision` surfacing. See note below. |
 | **AI-7** | shipped | Failed-run repair proposal service (`services/ai/repair/*`) — deterministic, proposes + previews, never applies. See note below. |
 | **AI-8A** | shipped | Model boundary (`core/ai/*`) + planner prompt/result contract (`services/ai/planner/*`). First model-backed infra; NO live model calls, NO workflow creation yet. See note below. |
-| AI-8B+ | future | Ground-up creation end-to-end (model → parse → AI-3 validate → AI-5 preview → confirm → AI-6 apply), optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
+| **AI-8B** | shipped | Model-backed plan proposal + preview (`services/ai/planner/planWorkflowFromPrompt.ts`): prompt → injected model client → parse → AI-3/AI-5 preview. NO apply, NO mutation, NO UI. See note below. |
+| AI-8C+ | future | Real model adapter / route surface, ground-up apply (confirm → AI-6 apply), optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -127,6 +128,22 @@ First model-backed AI infrastructure for V2 — but a **safe boundary only**. It
 **No-leak:** prompt + result are built from ids / display labels / field keys / capabilities only — no tokens, secrets, PII, message bodies, or file contents; the parser additionally refuses literal credentials and its error messages never echo the offending value.
 
 **Tests:** [`tests/unit/core/ai/*`](../../../tests/unit/core/ai/) + [`tests/unit/services/ai/planner/*`](../../../tests/unit/services/ai/planner/) (63) — config defaults/fallbacks/no-secrets, mock + NOT_CONFIGURED clients (no network), prompt grounding (catalog-only, pending absent, new-provider auto, constraints, template language, connected summary, no-leak), live-registry request grounding, and the full parser matrix (valid/null/absent patch, empty, non-JSON, fences, prose, shape, AI-3 patch violations, secret refusal).
+
+### AI-8B implementation note
+
+First **model-backed** planning service — but still a READ-ONLY proposal pipeline. [`services/ai/planner/planWorkflowFromPrompt.ts`](../../../services/ai/planner/planWorkflowFromPrompt.ts) — `planWorkflowFromPromptForAI({ userId, workflowId, prompt, modelClient?, modelTier?, feature? })`. It does **NOT** apply (does not import AI-6 `services/ai/apply`), mutate/persist a workflow, persist model output, call provider APIs, add UI, or add public routes.
+
+**Pipeline:** `buildWorkflowPlanRequest` (AI-8A; live `getProviderCatalog` + connected integrations grounding) → injected `modelClient.generateStructuredJson` → `parseWorkflowPlanResponse` (AI-8A; strict, refuses literal secrets) → reconcile patch (`workflowId` forced to the requested target; `baseRevision` set to the live `getWorkflowGraphForAI().updatedAt`) → `previewWorkflowPatchForAI` (AI-5 → AI-3 validate + COST-2 + AI-4 explain).
+
+**Model client is dependency-injected** — default is `createNotConfiguredModelClient()`, so without a real adapter every call fails safe (`MODEL_FAILED` / `NOT_CONFIGURED`). No real OpenAI/Anthropic adapter ships here (deferred to AI-8C); tests use `createMockModelClient` — no live network calls.
+
+**Result shape:** `ok`, `intentSummary`, `assumptions[]`, `requiredUserInput[]`, `unsupportedRequests[]`, `safetyNotes[]`, `proposedPatch?`, `preview?`, `canApplyLater`, `blockedReason?`, `model` (`modelId`/`tier`/`feature`/`finishReason`/`usage?`/`latencyMs?`), `noMutation: true`. Hard failures return `ok:false` with `code` (`MODEL_FAILED` | `PARSE_FAILED` | `PREVIEW_UNAVAILABLE`) + `errors[]`.
+
+**`canApplyLater` semantics:** true ONLY when the model proposed a patch AND the deterministic preview validated it. A no-patch response (clarification / unsupported) is `ok:true, canApplyLater:false` with no preview. A structurally-valid-but-semantically-invalid patch (e.g. an invented provider) is `ok:true, canApplyLater:false` with `blockedReason` + the preview's validation errors surfaced — the plan is shown but is not apply-ready.
+
+**Safety:** model-proposed risk / cost / confirmation are ignored — the deterministic preview's recomputed values win (AI-3). A hallucinated provider/action/field cannot pass: the parser rejects literal secrets and structural violations, and the AI-5/AI-3 validator rejects unknown registry keys. Newly-covered providers become available automatically via the live catalog; nothing is hardcoded.
+
+**Tests:** [`tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) (15) — happy path (model called once, preview, `canApplyLater` true), baseRevision/workflowId reconciliation, model metadata, no-patch + unsupported (no preview), model failure (NOT_CONFIGURED + provider error), parse failure (non-JSON + prose), preview rejection of an invented provider (real validator), preview-unavailable (workflow NOT_FOUND), live-catalog prompt grounding, no-apply/no-repo-import (source assertion) + `noMutation`, and result no-leak.
 
 ---
 
