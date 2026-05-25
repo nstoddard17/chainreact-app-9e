@@ -1,0 +1,389 @@
+/**
+ * @jest-environment node
+ *
+ * Tests for services/ai/planner/planWorkflowFromPrompt.ts (Slice 4.AI-8B).
+ *
+ * The first model-backed planning service. The model client is INJECTED via
+ * createMockModelClient (no live calls); only getWorkflowGraphForAI + the
+ * integrations repo are mocked, so buildWorkflowPlanRequest's catalog grounding,
+ * the AI-8A parser, the AI-3 validator, and the AI-5 preview all run for real.
+ * These pin: happy path (preview + canApplyLater), no-patch/unsupported, model
+ * failure, parse failure, preview rejection, registry grounding (hallucination
+ * rejected), baseRevision reconciliation, no-mutation, and no-leak.
+ */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const mockGetWorkflowGraphForAI = jest.fn();
+const mockListActiveByUser = jest.fn();
+
+jest.mock("@/services/ai/tools/workflowContext", () => ({
+  getWorkflowGraphForAI: (...a: unknown[]) => mockGetWorkflowGraphForAI(...a),
+}));
+jest.mock("@/repositories/integrations", () => ({
+  listActiveByUser: (...a: unknown[]) => mockListActiveByUser(...a),
+}));
+jest.mock("@/repositories/userBilling", () => ({
+  deductTasks: jest.fn(),
+  getUsage: jest.fn(),
+}));
+
+import { planWorkflowFromPromptForAI } from "@/services/ai/planner/planWorkflowFromPrompt";
+import { createMockModelClient } from "@/core/ai/modelClient";
+import { MODELS } from "@/core/ai/models";
+import { getProviderCatalog } from "@/services/ai/tools/providerCatalog";
+
+const REVISION = "2026-05-25T00:00:00Z";
+const okR = <T>(data: T) => ({ ok: true as const, data });
+const errR = (code: string, message: string) => ({ ok: false as const, code, message });
+
+function gnode(
+  id: string,
+  kind: "trigger" | "action",
+  provider: string,
+  type: string,
+  config: Record<string, unknown> = {},
+) {
+  return { id, kind, provider, type, config, position: { x: 0, y: 0 } };
+}
+
+function graphResult(
+  nodes: ReturnType<typeof gnode>[],
+  edges: { id: string; from: string; to: string; label?: string }[] = [],
+  updatedAt = REVISION,
+) {
+  return okR({
+    workflowId: "wf1",
+    name: "WF",
+    state: "draft",
+    activeRevisionId: null,
+    updatedAt,
+    nodes,
+    edges,
+  });
+}
+
+function planResponse(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    intentSummary: "Plan summary",
+    assumptions: [],
+    requiredUserInput: [],
+    proposedPatch: null,
+    confidence: "high",
+    safetyNotes: [],
+    unsupportedRequests: [],
+    ...overrides,
+  });
+}
+
+/** moveNode patch: not config-affected, so it stays registry-agnostic + valid. */
+function movePatch() {
+  return {
+    patchId: "p1",
+    workflowId: "ignored-by-model",
+    baseRevision: "STALE-MODEL-REV",
+    operations: [{ op: "moveNode", nodeId: "n1", position: { x: 120, y: 240 } }],
+    summary: "Tidy layout",
+    rationale: "Move the node",
+  };
+}
+
+/** addNode of an invented provider — structurally valid, semantically rejected. */
+function inventedPatch() {
+  return {
+    patchId: "p2",
+    workflowId: "wf1",
+    baseRevision: "x",
+    operations: [
+      { op: "addNode", node: { id: "n9", kind: "action", provider: "fakeprovider", type: "fake_action" } },
+    ],
+    summary: "Add fake action",
+    rationale: "hallucinated",
+  };
+}
+
+function client(text: string) {
+  return createMockModelClient({ text });
+}
+
+beforeEach(() => {
+  mockGetWorkflowGraphForAI.mockReset();
+  mockListActiveByUser.mockReset();
+  mockListActiveByUser.mockResolvedValue([]);
+});
+
+describe("happy path — valid patch previewed", () => {
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+  });
+
+  it("calls the model once, parses, previews, and returns canApplyLater true", async () => {
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "Tidy up the layout",
+      modelClient: mc,
+    });
+
+    expect(mc.calls).toHaveLength(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.proposedPatch).toBeDefined();
+    expect(result.preview).toBeDefined();
+    expect(result.canApplyLater).toBe(true);
+    expect(result.blockedReason).toBeUndefined();
+    expect(result.intentSummary).toBe("Plan summary");
+    expect(result.noMutation).toBe(true);
+  });
+
+  it("reports deterministic model metadata", async () => {
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(planResponse({ proposedPatch: movePatch() })),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.model.modelId).toBe(MODELS.strong.id);
+    expect(result.model.tier).toBe("strong");
+    expect(result.model.feature).toBe("creation");
+    expect(result.model.finishReason).toBe("stop");
+  });
+
+  it("reconciles baseRevision to the live revision and forces the workflowId", async () => {
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(planResponse({ proposedPatch: movePatch() })),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok || !result.proposedPatch) return;
+    expect(result.proposedPatch.baseRevision).toBe(REVISION); // not the model's STALE-MODEL-REV
+    expect(result.proposedPatch.workflowId).toBe("wf1"); // not the model's "ignored-by-model"
+  });
+});
+
+describe("no patch — needs input / unsupported", () => {
+  it("returns requiredUserInput with no preview and canApplyLater false", async () => {
+    const mc = client(
+      planResponse({
+        requiredUserInput: [{ label: "Pick a channel", kind: "config_value", nodeId: "n2", field: "channel" }],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "post to slack",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(1);
+    expect(result.proposedPatch).toBeUndefined();
+    expect(result.preview).toBeUndefined();
+    expect(result.canApplyLater).toBe(false);
+    // Workflow was never loaded → preview was never reached.
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("surfaces unsupportedRequests without fabricating a patch", async () => {
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send a fax",
+      modelClient: client(planResponse({ unsupportedRequests: ["send a fax"] })),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.unsupportedRequests).toEqual(["send a fax"]);
+    expect(result.proposedPatch).toBeUndefined();
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+});
+
+describe("model failure", () => {
+  it("returns MODEL_FAILED for the default NOT_CONFIGURED client (no preview)", async () => {
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      // no modelClient → NOT_CONFIGURED default
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.stage).toBe("model");
+    expect(result.errors[0]!.code).toBe("NOT_CONFIGURED");
+    expect(result.model?.modelId).toBe(MODELS.strong.id);
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("returns MODEL_FAILED for a provider error result", async () => {
+    const mc = createMockModelClient({
+      respond: {
+        ok: false,
+        modelId: "m",
+        feature: "creation",
+        failureCode: "PROVIDER_ERROR",
+        message: "boom",
+      },
+    });
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.code).toBe("PROVIDER_ERROR");
+  });
+});
+
+describe("parse failure", () => {
+  it("returns PARSE_FAILED for non-JSON output (no preview)", async () => {
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client("I think you should add a Slack node."),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("PARSE_FAILED");
+    expect(result.errors[0]!.stage).toBe("parse");
+    expect(result.errors[0]!.code).toBe("NOT_JSON");
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("rejects prose wrapped around JSON per the AI-8A parser contract", async () => {
+    const noisy = "Sure!\n" + planResponse({ proposedPatch: movePatch() }) + "\nDone.";
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(noisy),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("PARSE_FAILED");
+  });
+});
+
+describe("preview rejection — registry grounding (hallucination)", () => {
+  it("surfaces the patch but marks it not apply-ready when the validator rejects an invented provider", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "add a fake node",
+      modelClient: client(planResponse({ proposedPatch: inventedPatch() })),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.canApplyLater).toBe(false);
+    expect(result.blockedReason).toBeDefined();
+    expect(result.proposedPatch).toBeDefined();
+    expect(result.preview).toBeDefined();
+    expect(result.preview!.validation.ok).toBe(false);
+    // The invented provider was rejected by the deterministic validator.
+    expect(result.preview!.validation.errors.some((e) => e.code === "UNKNOWN_ACTION")).toBe(true);
+  });
+});
+
+describe("preview unavailable", () => {
+  it("returns PREVIEW_UNAVAILABLE when the workflow is not found", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(errR("NOT_FOUND", "No workflow 'wf1'."));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(planResponse({ proposedPatch: movePatch() })),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("PREVIEW_UNAVAILABLE");
+    expect(result.errors[0]!.stage).toBe("preview");
+    expect(result.errors[0]!.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("registry grounding — prompt only carries real catalog providers", () => {
+  it("sends real catalog action keys and omits pending (metadata-less) providers", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "x", modelClient: mc });
+
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    const catalog = getProviderCatalog();
+    expect(catalog.ok).toBe(true);
+    if (!catalog.ok) return;
+
+    const usable = catalog.data.providers.find((p) => p.actions.length > 0 || p.triggers.length > 0);
+    const sampleKey = usable?.actions[0]?.key ?? usable?.triggers[0]?.key;
+    expect(sampleKey).toBeDefined();
+    expect(system).toContain(sampleKey!);
+
+    for (const p of catalog.data.providers.filter((x) => x.actions.length === 0 && x.triggers.length === 0)) {
+      expect(system).not.toContain(`(id: ${p.id})`);
+    }
+  });
+});
+
+describe("no mutation / no apply", () => {
+  it("does not import or call the apply service or a workflow-writing repo", () => {
+    const src = readFileSync(
+      resolve(process.cwd(), "services/ai/planner/planWorkflowFromPrompt.ts"),
+      "utf8",
+    );
+    // Behavior, not mentions: no import statement from the apply module, no
+    // call to the apply function, and no direct repository import (writes).
+    expect(src).not.toMatch(/from\s+["']@\/services\/ai\/apply/);
+    expect(src).not.toMatch(/applyWorkflowPatch\w*\s*\(/);
+    expect(src).not.toMatch(/from\s+["']@\/repositories\//);
+  });
+
+  it("marks every result noMutation: true", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+    const success = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(planResponse({ proposedPatch: movePatch() })),
+    });
+    const failure = await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "x" });
+    expect(success.noMutation).toBe(true);
+    expect(failure.noMutation).toBe(true);
+  });
+});
+
+describe("no-leak", () => {
+  it("the result exposes no secret-identifier substrings", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(planResponse({ proposedPatch: movePatch() })),
+    });
+    const serialized = JSON.stringify(result);
+    for (const needle of [
+      "accessToken",
+      "refreshToken",
+      "apiSecret",
+      "clientSecret",
+      "webhookSecret",
+      "botToken",
+      "Authorization",
+      "Bearer ",
+      "sk-ant-",
+      "ya29.",
+    ]) {
+      expect(serialized).not.toContain(needle);
+    }
+  });
+});

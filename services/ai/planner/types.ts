@@ -1,18 +1,27 @@
 /**
- * Types for the workflow-plan prompt/result contract (Slice 4.AI-8A).
+ * Types for the workflow planner (Slices 4.AI-8A + 4.AI-8B).
  *
- * AI-8 will eventually create workflows from a natural-language prompt. AI-8A
- * lays the SAFE boundary first: a deterministic prompt builder grounded only in
+ * AI-8A laid the SAFE boundary: a deterministic prompt builder grounded only in
  * real registry metadata, plus a strict parser/validator for the model's
- * structured response. AI-8A does NOT create, mutate, preview, or apply any
- * workflow, and makes NO live model calls.
+ * structured response. AI-8B adds the first model-backed planning service
+ * (`planWorkflowFromPromptForAI`): build request → call an injected model client
+ * → parse → run the proposed patch through the deterministic AI-3/AI-5 preview.
+ * Neither slice creates, mutates, persists, or applies any workflow (apply is
+ * AI-6); AI-8A itself makes no live model calls.
  *
  * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §4/§6.
  */
 
-import type { AiFeature, ModelTier } from "@/core/ai/modelTypes";
+import type {
+  AiFeature,
+  ModelClient,
+  ModelFinishReason,
+  ModelTier,
+  ModelTokenUsage,
+} from "@/core/ai/modelTypes";
 import type { ConnectedIntegrationView } from "@/services/ai/tools/integrations";
 import type { ProviderCatalogView } from "@/services/ai/tools/providerCatalog";
+import type { PatchPreviewResult } from "@/services/ai/preview/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
 
 // ─── Prompt-builder input ────────────────────────────────────────────────────
@@ -117,3 +126,81 @@ export interface ParseWorkflowPlanFailure {
 export type ParseWorkflowPlanResult =
   | ParseWorkflowPlanSuccess
   | ParseWorkflowPlanFailure;
+
+// ─── AI-8B: model-backed plan proposal + preview ─────────────────────────────
+//
+// `planWorkflowFromPromptForAI` connects the AI-8A contract to a model client:
+// build grounded request → call model → parse → reconcile patch revision →
+// run AI-5 preview. It NEVER applies, NEVER mutates a workflow, and NEVER
+// persists model output. Apply stays in AI-6.
+
+export interface PlanWorkflowFromPromptInput {
+  readonly userId: string;
+  readonly workflowId: string;
+  readonly prompt: string;
+  /** Injected model client. Defaults to the NOT_CONFIGURED client (fails safe). */
+  readonly modelClient?: ModelClient;
+  readonly modelTier?: ModelTier;
+  readonly feature?: AiFeature;
+}
+
+/** Model-call metadata surfaced on every plan result (deterministic, safe). */
+export interface PlanModelMetadata {
+  readonly modelId: string;
+  readonly tier: ModelTier;
+  readonly feature: AiFeature;
+  readonly finishReason?: ModelFinishReason;
+  readonly usage?: ModelTokenUsage;
+  readonly latencyMs?: number;
+}
+
+/** Which pipeline stage produced a hard failure. */
+export type PlanWorkflowStage = "model" | "parse" | "preview";
+
+export interface PlanWorkflowError {
+  readonly stage: PlanWorkflowStage;
+  /** The underlying code (model failureCode / parser code / AI-2 tool code). */
+  readonly code: string;
+  /** Caller-safe message — never echoes secrets / raw config values. */
+  readonly message: string;
+}
+
+export type PlanWorkflowFailureCode =
+  | "MODEL_FAILED" // model client returned a failure (incl. NOT_CONFIGURED)
+  | "PARSE_FAILED" // response could not be parsed into a valid plan
+  | "PREVIEW_UNAVAILABLE"; // workflow missing / preview tool could not run
+
+export interface PlanWorkflowSuccess {
+  readonly ok: true;
+  readonly intentSummary: string;
+  readonly assumptions: readonly string[];
+  readonly requiredUserInput: readonly PlanRequiredUserInput[];
+  readonly unsupportedRequests: readonly string[];
+  readonly safetyNotes: readonly string[];
+  /**
+   * The reconciled patch (workflowId + baseRevision set by this service). Present
+   * only when the model proposed one. NEVER applied here.
+   */
+  readonly proposedPatch?: WorkflowPatch;
+  /** The AI-5 preview of `proposedPatch`, when one was proposed and previewed. */
+  readonly preview?: PatchPreviewResult;
+  /** True only when a patch exists AND the deterministic preview validated it. */
+  readonly canApplyLater: boolean;
+  /** Set when a patch exists but the preview rejected it — why it's not apply-ready. */
+  readonly blockedReason?: string;
+  readonly model: PlanModelMetadata;
+  /** Always true — this service is read-only and never applies. */
+  readonly noMutation: true;
+}
+
+export interface PlanWorkflowFailure {
+  readonly ok: false;
+  readonly code: PlanWorkflowFailureCode;
+  readonly message: string;
+  /** Present once the model was called (model/parse failures). */
+  readonly model?: PlanModelMetadata;
+  readonly errors: readonly PlanWorkflowError[];
+  readonly noMutation: true;
+}
+
+export type PlanWorkflowResult = PlanWorkflowSuccess | PlanWorkflowFailure;

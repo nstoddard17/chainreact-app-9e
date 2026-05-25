@@ -16,6 +16,7 @@ export {
 } from "./buildWorkflowPlanPrompt";
 export { buildWorkflowPlanRequest } from "./buildWorkflowPlanRequest";
 export { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
+export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
   WORKFLOW_PLAN_FEATURE,
   type WorkflowPlanPromptInput,
@@ -29,4 +30,12 @@ export {
   type ParseWorkflowPlanSuccess,
   type ParseWorkflowPlanFailure,
   type PlanParseErrorCode,
+  type PlanWorkflowFromPromptInput,
+  type PlanModelMetadata,
+  type PlanWorkflowStage,
+  type PlanWorkflowError,
+  type PlanWorkflowFailureCode,
+  type PlanWorkflowSuccess,
+  type PlanWorkflowFailure,
+  type PlanWorkflowResult,
 } from "./types";
