@@ -158,6 +158,23 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // Discord / Google Docs / OneNote / Monday / Dropbox); this is a
   // deliberate staged provider arc, not an accidental gap.
   "facebook",
+  // Google Analytics added in Slice 3.GOOGLE-ANALYTICS-4 once all 6
+  // registered GA4 action handlers have a matching meta (run_report,
+  // run_pivot_report, get_realtime_data, find_conversion, send_event,
+  // create_conversion_event — all ported in GOOGLE-ANALYTICS-2; metas +
+  // COVERED_PROVIDERS flip in GOOGLE-ANALYTICS-4). 1:1 handler↔meta drift is
+  // enforced from here on. **Google Analytics triggers are intentionally NOT
+  // shipped — deferred/rejected (D-GA3).** GA4 has no clean push/webhook
+  // model for the accepted surface, and a polling metric-threshold trigger is
+  // fragile (processing latency, backfills, snapshot/dedup ambiguity); no
+  // weak trigger is invented to match a count. The manifest's
+  // `capabilities.webhookTrigger` / `pollingTrigger` stay `false`. Trigger
+  // coverage is NOT enforced by this test (same precedent as Stripe /
+  // Discord / Facebook); this is a deliberate actions-only provider, not an
+  // accidental gap. (create_measurement_secret + get_user_activity are
+  // intentionally NOT implemented — D-GA1 audit — so they have no handler
+  // and correctly require no meta.)
+  "google-analytics",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

@@ -304,6 +304,10 @@ import { DROPBOX_ACTION_METAS, DROPBOX_TRIGGER_METAS } from "./providers/dropbox
 // `subscribed_apps`). See providers/facebook.ts header for the architecture
 // rationale.
 import { FACEBOOK_ACTION_METAS, FACEBOOK_TRIGGER_METAS } from "./providers/facebook";
+// Google Analytics (GOOGLE-ANALYTICS-4 actions only) — 6 actions, 0
+// triggers. GA4 has no clean push/webhook model; triggers are
+// deferred/rejected (D-GA3). See providers/google-analytics.ts header.
+import { GOOGLE_ANALYTICS_ACTION_METAS } from "./providers/google-analytics";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -588,6 +592,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...MONDAY_ACTION_METAS, // Monday (MONDAY-6) — 24 actions, displayOrder 10..240.
   ...DROPBOX_ACTION_METAS, // Dropbox (DROPBOX-4) — 11 actions, displayOrder 10..110.
   ...FACEBOOK_ACTION_METAS, // Facebook (FACEBOOK-4) — 8 actions, displayOrder 10..80.
+  ...GOOGLE_ANALYTICS_ACTION_METAS, // Google Analytics (GOOGLE-ANALYTICS-4) — 6 actions, displayOrder 10..60.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
