@@ -328,6 +328,73 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Facebook resolvers (Slice 3.FACEBOOK-3)", () => {
+    it("getOptionsResolver resolves facebook:pages (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("facebook:pages");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("facebook:pages");
+      expect(r?.provider).toBe("facebook");
+      expect(r?.requiresIntegration).toBe(true);
+      // The cascade root every Facebook action's pageId hangs off.
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves facebook:posts (dependsOn pageId — verbatim)", () => {
+      const r = getOptionsResolver("facebook:posts");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("facebook:posts");
+      expect(r?.provider).toBe("facebook");
+      expect(r?.requiresIntegration).toBe(true);
+      // `pageId` matches the FACEBOOK-2 Zod schemas verbatim (NOT snake_case).
+      expect(r?.requiredDeps).toEqual(["pageId"]);
+    });
+
+    it("getOptionsResolver resolves facebook:albums (dependsOn pageId)", () => {
+      const r = getOptionsResolver("facebook:albums");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("facebook:albums");
+      expect(r?.provider).toBe("facebook");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["pageId"]);
+    });
+
+    it("getOptionsResolver resolves facebook:conversations (dependsOn pageId)", () => {
+      const r = getOptionsResolver("facebook:conversations");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("facebook:conversations");
+      expect(r?.provider).toBe("facebook");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["pageId"]);
+    });
+
+    it("registers exactly the 4 accepted Facebook resolver keys", () => {
+      const facebookSources = listOptionsResolvers()
+        .filter((r) => r.provider === "facebook")
+        .map((r) => r.source)
+        .sort();
+      expect(facebookSources).toEqual([
+        "facebook:albums",
+        "facebook:conversations",
+        "facebook:pages",
+        "facebook:posts",
+      ]);
+    });
+
+    it("does NOT register the rejected V1 Facebook resolver keys", () => {
+      // facebook_groups (no in-scope action; group publishing is
+      // Graph-deprecated) + facebook_monetization_eligibility (niche) were
+      // dropped per the FACEBOOK-1 plan §4. Asserted both as registered
+      // sources and as the V1 underscore key shape.
+      expect(getOptionsResolver("facebook:groups")).toBeUndefined();
+      expect(getOptionsResolver("facebook:monetization_eligibility")).toBeUndefined();
+      const facebookSources = listOptionsResolvers()
+        .filter((r) => r.provider === "facebook")
+        .map((r) => r.source);
+      expect(facebookSources).not.toContain("facebook:groups");
+      expect(facebookSources).not.toContain("facebook:monetization_eligibility");
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

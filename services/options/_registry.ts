@@ -214,6 +214,33 @@ import { mondayItemFilesResolver } from "@/integrations/monday/options/itemFiles
 import { dropboxFoldersResolver } from "@/integrations/dropbox/options/folders";
 import { dropboxFilesResolver } from "@/integrations/dropbox/options/files";
 
+// Facebook resolvers — Slice 3.FACEBOOK-3 (resolver-first ahead of the
+// FACEBOOK-4 action metas). The accepted surface is 4 resolvers; the V1
+// `facebook_groups` + `facebook_monetization_eligibility` resolvers are
+// REJECTED (no in-scope action consumes them; group publishing is
+// Graph-deprecated) and intentionally NOT registered.
+//   - `facebook:pages` — account-scoped Page picker (no deps). The cascade
+//     root every Facebook action's `pageId` hangs off (`GET /me/accounts`,
+//     same call as the runtime page-token derivation).
+//   - `facebook:posts` (depends on `pageId`) — recent Page posts. Backs the
+//     `postId` field on `comment_on_post` / `update_post` / `delete_post`.
+//   - `facebook:albums` (depends on `pageId`) — Page photo albums.
+//     Forward-looking: the `upload_photo` album field is a deferred
+//     FACEBOOK-2 follow-up; the resolver ships now as accepted surface.
+//   - `facebook:conversations` (depends on `pageId`) — Messenger
+//     conversations. Backs `send_message.recipientId`; value is
+//     `conversationId:psid` (the shape the FACEBOOK-2 handler splits).
+//
+// Dep name `pageId` is preserved verbatim (matches the FACEBOOK-2 Zod
+// schemas — NOT snake_case `page_id`). Page-scoped resolvers derive the Page
+// token at runtime (`getPageAccessToken`); no Page token is ever stored or
+// surfaced. Facebook stays OUT of `COVERED_PROVIDERS` until FACEBOOK-4
+// action metas land.
+import { facebookPagesResolver } from "@/integrations/facebook/options/pages";
+import { facebookPostsResolver } from "@/integrations/facebook/options/posts";
+import { facebookAlbumsResolver } from "@/integrations/facebook/options/albums";
+import { facebookConversationsResolver } from "@/integrations/facebook/options/conversations";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -302,6 +329,14 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // file field).
   dropboxFoldersResolver,
   dropboxFilesResolver,
+  // Slice 3.FACEBOOK-3 — 4 Facebook options resolvers (resolver-first ahead
+  // of FACEBOOK-4 action metas). Dep name `pageId` preserved verbatim. The
+  // rejected V1 `facebook_groups` / `facebook_monetization_eligibility`
+  // resolvers are intentionally absent.
+  facebookPagesResolver,
+  facebookPostsResolver,
+  facebookAlbumsResolver,
+  facebookConversationsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
