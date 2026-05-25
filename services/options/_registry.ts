@@ -306,6 +306,37 @@ import { airtableFieldsResolver } from "@/integrations/airtable/options/fields";
 import { airtableViewsResolver } from "@/integrations/airtable/options/views";
 import { airtableAttachmentFieldsResolver } from "@/integrations/airtable/options/attachmentFields";
 
+// Trello resolvers — Slice 4.TRELLO-META-2 (resolver-first ahead of
+// TRELLO-META-3 action/trigger metas; Trello stays OUT of
+// `COVERED_PROVIDERS` until those land).
+//   - `trello:boards` — account-scoped board picker (no deps). REQUIRED
+//     cascade root: a board id is an opaque 24-hex id, not hand-typeable.
+//     Uses the NEW `boardsList` helper (GET /1/members/me/boards, existing
+//     `read` scope — no reconnect). value = board id.
+//   - `trello:lists` (deps: boardId) — value = list id. Backs
+//     create_card.listId / move_card.idList / update_card.idList.
+//   - `trello:cards` (deps: boardId) — bounded single page (filter=open +
+//     cap + q filter). value = card id. NO card description/comment/
+//     attachment content is ever read or surfaced.
+//   - `trello:members` (deps: boardId) — value = member id; label =
+//     fullName→username. NO email read.
+//   - `trello:labels` (deps: boardId) — value = label id; label = name or
+//     color fallback.
+// Every child resolver is single-parent on `boardId` (Trello needs NO
+// multi-parent — the UI-scope `boardId` field added in TRELLO-META-3
+// makes the card-targeted pickers single-dep). Dep name `boardId` is
+// pinned verbatim to that field. Trello is non-refreshable, so resolvers
+// decrypt the stored token and call the read helpers directly (mirrors
+// the trigger `activate` + Slack pattern) rather than via
+// `refreshAndRetry`. `trello:checklists` / `trello:check_items` are
+// intentionally NOT registered — no V2 runtime consumes checklist /
+// check-item data (V1's checklist actions were not ported).
+import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
+import { trelloListsResolver } from "@/integrations/trello/options/lists";
+import { trelloCardsResolver } from "@/integrations/trello/options/cards";
+import { trelloMembersResolver } from "@/integrations/trello/options/members";
+import { trelloLabelsResolver } from "@/integrations/trello/options/labels";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -428,6 +459,20 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   airtableFieldsResolver,
   airtableViewsResolver,
   airtableAttachmentFieldsResolver,
+  // Slice 4.TRELLO-META-2 — 5 Trello resolvers (resolver-first ahead of
+  // TRELLO-META-3 metas). boards (root) → lists / cards / members /
+  // labels (dep: boardId, single-parent — no multi-parent needed). 5 new
+  // read helpers (boardsList / listsList / cardsList / membersList /
+  // labelsList); the existing `api/` helpers are mutation-only. Trello is
+  // non-refreshable (decrypt-direct auth, not refreshAndRetry).
+  // `trello:checklists` / `trello:check_items` intentionally absent (no
+  // runtime consumer). Trello stays OUT of COVERED_PROVIDERS until
+  // TRELLO-META-3.
+  trelloBoardsResolver,
+  trelloListsResolver,
+  trelloCardsResolver,
+  trelloMembersResolver,
+  trelloLabelsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

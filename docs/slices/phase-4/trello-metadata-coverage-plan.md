@@ -190,3 +190,58 @@ On completion, update [`provider-metadata-launch-gap-tracker.md`](./provider-met
 6. **`create_board.visibility=public`** — explicit required field (no hidden default); mild egress; kept medium. Open Marcus sign-off on confirmation.
 7. **All 8 actions are writes** (no reads) — each bills 1 task. Flagged, not changed.
 8. **Auth model** — Trello is token-ingest + non-refreshable; resolvers decrypt the stored token and call `trelloRequest` directly (not via `refreshAndRetry`). Confirm the exact resolver auth shape in META-2 against the handler/trigger decrypt pattern.
+
+---
+
+## 9. TRELLO-META-2 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 5 read helpers + 5 options resolvers + tests. **No** ActionMeta/TriggerMeta, **no** UI-scope `boardId` schema fields, **no** `COVERED_PROVIDERS` flip — those remain TRELLO-META-3. Trello is still `hasMetadata:false` ("coming soon") after this slice; resolver-first, matching the Excel/Airtable order.
+
+### 9.1 Read helpers added (`integrations/trello/api/`, new files — `api/` was mutation-only)
+
+| Helper | Endpoint | Fields requested | Notes |
+|---|---|---|---|
+| `boardsList({accessToken})` | `GET /1/members/me/boards` | `id,name,closed` | unpaginated → resolver `hasMore:false` |
+| `listsList({accessToken,boardId})` | `GET /1/boards/{boardId}/lists` | `id,name,closed` | board's lists in one page |
+| `cardsList({accessToken,boardId,limit})` | `GET /1/boards/{boardId}/cards` | `id,name,due,idList` + `filter=open` + `limit` | **bounded**; NO `desc`/comment fields |
+| `membersList({accessToken,boardId})` | `GET /1/boards/{boardId}/members` | `id,fullName,username` | **NO email** requested |
+| `labelsList({accessToken,boardId})` | `GET /1/boards/{boardId}/labels` | `id,name,color` + `limit=1000` (Trello max) | board's label set is tiny |
+
+All route through the existing shared `trelloRequest` (URL-param key+token auth; 401 → `Unauthorized401Error`, 404 → `TrelloNotFoundError`). No new transport. Read-only against the existing coarse `read` scope — no scope change / reconnect. The token never appears in any thrown error (method+path only).
+
+### 9.2 Resolvers added (`integrations/trello/options/`)
+
+| Source | requiredDeps | value | label | description | order | hasMore |
+|---|---|---|---|---|---|---|
+| `trello:boards` | — | board id | name → id | `"Archived"` if closed | **alpha sort** (root, Airtable-bases precedent) | `false` |
+| `trello:lists` | `["boardId"]` | list id | name → id | `"Archived"` if closed | preserve Trello column order | `false` |
+| `trello:cards` | `["boardId"]` | card id | name → id | `"Due <iso>"` if due | preserve Trello order | `true` when page truncated at cap (200) |
+| `trello:members` | `["boardId"]` | member id | fullName → username → id | username (when label=fullName) | preserve Trello order | `false` |
+| `trello:labels` | `["boardId"]` | label id | name → color → id | color | preserve Trello order | `false` |
+
+- **Dep name `boardId`** is pinned verbatim — it matches the UI-scope `boardId` field TRELLO-META-3 adds to the 6 card-targeted schemas, and `create_list.idBoard` cascades off the same `trello:boards` resolver. **Every child resolver is single-parent → BUILDER-OPTIONS-1 multi-parent NOT needed** (contrast Airtable).
+- **q filtering:** `boards`/`lists`/`cards` filter case-insensitively on `label`; `members` and `labels` filter on `label` **OR** `description` (so members match on full name OR username, labels on name OR color).
+- **Cards bounded:** `cardsList` sends `filter=open` + `limit=CARDS_PAGE_LIMIT` (200); the resolver also caps client-side and sets `hasMore` when truncated — bounded even if a Trello version ignores `limit`. **No card description/comment/attachment content is ever read or surfaced** (helper requests only `id,name,due,idList`; a regression test asserts a `desc` in the payload never reaches output).
+- **Privacy:** `membersList` requests `id,fullName,username` only — no email (regression test asserts an email in the payload never reaches output).
+
+### 9.3 Auth decision (confirmed — resolves Appendix item 8)
+
+Trello action handlers wrap their principal call in `refreshAndRetry` (which, for the non-refreshable Trello, just surfaces `IntegrationActionRequiredError` on 401). The resolvers instead follow the **trigger `activate` + Slack-resolver pattern**: `decryptToken(integration.accessTokenEncrypted)` → call the read helper directly — **no `refreshAndRetry`**, since there is no token to refresh. Both paths converge on the same UX: a 401 → `INTEGRATION_DISCONNECTED` ("reconnect Trello"). Centralized in `options/_shared.ts` (`requireTrelloIntegration` / `requireDep` / `mapTrelloOptionsError` / `filterByLabel` / `filterByLabelOrDescription`).
+
+### 9.4 Error sanitization
+
+`Unauthorized401Error` / `IntegrationActionRequiredError` → `INTEGRATION_DISCONNECTED`; missing/empty `boardId` → `MISSING_DEPENDENCY` (no decrypt, no API call); deleted/no-access parent board (`TrelloNotFoundError`) → **empty items** (cascade fallback, not an error); any other error → `PROVIDER_ERROR` with a static message. Sanitized strings never carry the token, raw Trello bodies, card descriptions/comments, attachment URLs, or request URLs (which embed `?key=`/`?token=`).
+
+### 9.5 Rejected resolvers (unchanged)
+
+`trello:checklists` / `trello:check_items` remain **REJECTED** — no V2 runtime action consumes checklist/check-item data (V1's checklist actions were not ported). The registry test asserts both stay absent.
+
+### 9.6 Tests
+
+- 5 helper tests (`tests/unit/integrations/trello/api/{boardsList,listsList,cardsList,membersList,labelsList}.test.ts`) — endpoint/method/query (incl. cards `filter=open`+`fields`+`limit`, members no-email, labels max limit), typed return, 401→`Unauthorized401Error`, 404→`TrelloNotFoundError(resource)`, no-token-in-error.
+- 5 resolver tests (`tests/unit/integrations/trello/options/*.test.ts`) — shape, decrypt-once, helper-call args, mapping value/label/description, q filtering, hasMore (incl. cards truncation), empty/id-less, `MISSING_DEPENDENCY`, cascade fallback, `INTEGRATION_DISCONNECTED` (null + auth), `PROVIDER_ERROR` no-leak, cards/members no-content-leak.
+- Registry block in `tests/unit/services/options/_registry.test.ts` — all 5 keys registered, deps verbatim, checklists/check_items absent.
+
+### 9.7 Carried to TRELLO-META-3
+
+8 ActionMeta + 6 UI-scope `boardId` schema additions + 6 TriggerMeta + discovery sub-registry + `COVERED_PROVIDERS` flip. (Marcus decision on `create_board.visibility=public`: keep **medium**, make visibility explicit with helper/warning text; do not block on field-level conditional confirmation.)

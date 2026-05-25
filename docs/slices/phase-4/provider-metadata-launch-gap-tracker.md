@@ -76,7 +76,7 @@ Runtime counts from the handler registry + trigger tree. "Runtime triggers" coun
 | 6 | **microsoft-onedrive** | 7 | 1 | "coming soon" | 7 ActionMeta + 1 TriggerMeta. Optional folder/item resolver. FileRef `provider_url` arm cross-refs here. | ONEDRIVE-META | 6 |
 | 7 | **microsoft-teams** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta + `teams`→`channels` cascade resolvers (team→channel is a real two-hop picker). | TEAMS-META | 7 |
 | ~~8~~ | ~~**airtable**~~ | 11 | 1 (webhook `record_changed`) | ✅ **COVERED (AIRTABLE-META-3)** — `hasMetadata:true` | DONE: AIRTABLE-META-2 resolvers (`bases`/`tables`/`fields`/`views`/`attachment_fields` + `basesList` helper) + AIRTABLE-META-3 (11 ActionMeta + 1 TriggerMeta + `services/discovery/providers/airtable.ts` + COVERED flip). `delete_record` = high/destructive/requiresConfirmation. `recordId` typed; field maps paste-JSON; `airtable:records` rejected. | — | done |
-| 9 | **trello** | 8 | 6 (tree present) | "coming soon" | 8 ActionMeta + TriggerMeta (verify activation wiring first) + `boards`→`lists` cascade resolvers. | TRELLO-META | 9 |
+| 9 | **trello** | 8 | 6 (tree present) | "coming soon" | **Resolvers DONE (TRELLO-META-2, 2026-05-25):** 5 resolvers (`boards`/`lists`/`cards`/`members`/`labels`) + 5 read helpers (`boardsList`/`listsList`/`cardsList`/`membersList`/`labelsList`); `checklists`/`check_items` rejected. **Remaining (TRELLO-META-3):** 8 ActionMeta + 6 UI-scope `boardId` schema fields + 6 TriggerMeta + sub-registry + COVERED flip. | TRELLO-META | 9 |
 
 Total pending: **35 runtime action handlers across 6 providers** (286 total − 251 covered = 35). _(67/9 → 56/8 after SHOPIFY-META-2 → 46/7 after EXCEL-META-3 → 35/6 after AIRTABLE-META-3.)_
 

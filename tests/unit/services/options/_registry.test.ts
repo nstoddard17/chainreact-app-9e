@@ -585,6 +585,77 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Trello resolvers (Slice 4.TRELLO-META-2)", () => {
+    it("getOptionsResolver resolves trello:boards (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("trello:boards");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("trello:boards");
+      expect(r?.provider).toBe("trello");
+      expect(r?.requiresIntegration).toBe(true);
+      // Cascade ROOT: a board id is an opaque 24-hex id, not hand-typeable.
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves trello:lists (dependsOn boardId — UI-scope field name verbatim)", () => {
+      const r = getOptionsResolver("trello:lists");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("trello");
+      expect(r?.requiresIntegration).toBe(true);
+      // `boardId` matches the UI-scope field added to the card-targeted
+      // schemas in TRELLO-META-3 + `create_list.idBoard` cascades off the
+      // same `trello:boards` resolver. Single-parent — no multi-parent.
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves trello:cards (dependsOn boardId)", () => {
+      const r = getOptionsResolver("trello:cards");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("trello");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves trello:members (dependsOn boardId)", () => {
+      const r = getOptionsResolver("trello:members");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("trello");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("getOptionsResolver resolves trello:labels (dependsOn boardId)", () => {
+      const r = getOptionsResolver("trello:labels");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("trello");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["boardId"]);
+    });
+
+    it("registers exactly the 5 TRELLO-META-2 resolver keys", () => {
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "trello")
+        .map((r) => r.source)
+        .sort();
+      expect(sources).toEqual([
+        "trello:boards",
+        "trello:cards",
+        "trello:labels",
+        "trello:lists",
+        "trello:members",
+      ]);
+    });
+
+    it("does NOT register trello:checklists / trello:check_items (no runtime consumer)", () => {
+      expect(getOptionsResolver("trello:checklists")).toBeUndefined();
+      expect(getOptionsResolver("trello:check_items")).toBeUndefined();
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "trello")
+        .map((r) => r.source);
+      expect(sources).not.toContain("trello:checklists");
+      expect(sources).not.toContain("trello:check_items");
+    });
+  });
+
   it("OPTIONS_SOURCE_KEY_REGEX rejects malformed keys it should reject", () => {
     // Sanity on the regex used at module load.
     expect("slack:channels").toMatch(OPTIONS_SOURCE_KEY_REGEX);
