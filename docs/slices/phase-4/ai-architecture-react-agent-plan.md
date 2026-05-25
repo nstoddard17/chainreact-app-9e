@@ -27,7 +27,8 @@
 | **AI-8B** | shipped | Model-backed plan proposal + preview (`services/ai/planner/planWorkflowFromPrompt.ts`): prompt → injected model client → parse → AI-3/AI-5 preview. NO apply, NO mutation, NO UI. See note below. |
 | **AI-8C** | shipped | First real model adapter + runtime config (`services/ai/modelClients/*`): env-driven Anthropic adapter (fetch), fail-safe factory, planner default-client wiring. NO live calls in tests, NO apply/UI/routes. See note below. |
 | **AI-9A** | shipped | First app-facing AI route — `POST /api/workflows/[id]/ai/plan` (preview-only). Auth + body validation → `planWorkflowFromPromptForAI` → sanitized result. NO apply, NO mutation, NO UI, NO prompt/response persistence. See note below. |
-| AI-9B+ | future | Chat/builder UI consuming the plan route, ground-up apply (confirm → AI-6 apply), AI observability (`ai_events`), additional provider adapters, optimizer, templates, etc. (§13). |
+| **AI-9B** | shipped | Confirmed apply route — `POST /api/workflows/[id]/ai/apply`. Auth + body validation → AI-6 `applyWorkflowPatchForAI` (re-validate + concurrency + confirmation gate inside the service). NO model call, NO auto-apply, NO mutation outside AI-6. See note below. |
+| AI-9C+ | future | Chat/builder UI consuming the plan + apply routes, AI observability (`ai_events`), additional provider adapters, optimizer, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -173,6 +174,19 @@ First **app-facing** AI route — and it stays PREVIEW-ONLY. [`app/api/workflows
 - **Deferred:** chat/builder UI consuming this route, an apply route, and `ai_events` observability wrapping (AI-9B+).
 
 **Tests:** [`tests/unit/app/api/workflows/ai-plan-route.test.ts`](../../../tests/unit/app/api/workflows/ai-plan-route.test.ts) (18) — 401 unauth, 400 (missing/empty/too-long prompt, bad modelTier, non-JSON), unknown-key tolerance, planner wiring (userId/workflowId/prompt + modelTier + trim), 200 success + needs-input, 503 model-not-configured, 502 parse-failure, 404 NOT_FOUND, sanitized 500 on throw, no-apply/no-repo/no-adapter source assertion, and response no-leak. The planner service is mocked — no live model/network call.
+
+### AI-9B implementation note
+
+The mutation-capable companion to the preview route — strict by construction. [`app/api/workflows/[id]/ai/apply/route.ts`](../../../app/api/workflows/[id]/ai/apply/route.ts) — `POST`. It delegates entirely to the AI-6 apply service; it makes NO model/planner call, never auto-applies, and never mutates outside `applyWorkflowPatchForAI`. The plan→preview→confirm→apply loop is: `POST …/ai/plan` → user reviews preview → user confirms if needed → `POST …/ai/apply`.
+
+- **Auth:** `requireUser()` → 401; the apply service is never called.
+- **Validation:** Zod body — `patch` required (must be a JSON object; full structural + semantic validation is the service's job) + optional `confirmation` (`{confirmed, confirmationToken?, acceptedRiskLevel?, acceptedAt?}`). Invalid body / non-JSON → 400. Unknown keys stripped.
+- **Wiring:** `applyWorkflowPatchForAI({ userId, workflowId: id, patch, confirmation? })`. The route never accepts a client preview as proof: the **service** re-loads the UNREDACTED definition, re-runs the AI-3 validator, checks `baseRevision` (read- and write-time), runs the confirmation gate, and performs the guarded persist. Client-supplied `riskLevel`/`requiresConfirmation` are ignored (recomputed).
+- **Confirmation:** high-risk/destructive patches need `confirmation.confirmed === true`; a supplied `acceptedRiskLevel` must match the validator's recomputed level (a stale low-risk confirmation can't authorize a high-risk patch). Confirmation can never bypass validation.
+- **Status mapping:** 200 success · 404 `NOT_FOUND` (no existence leak) · **428** `CONFIRMATION_REQUIRED` (precondition — distinct from stale) · **409** `STALE_PATCH` (incl. write-time concurrency miss) · 400 `PATCH_INVALID`/`UNSUPPORTED_OPERATION`/`VALIDATION_FAILED` · 500 `UPDATE_FAILED` (server-side persist/load error — the concurrency miss is already `STALE_PATCH`) and any unexpected throw (sanitized).
+- **No-leak:** the body is the already-sanitized `ApplyWorkflowPatchResult` (no secrets/config values/raw definition; AI-6 scrubs secret-shaped field names from validation messages).
+
+**Tests:** [`tests/unit/app/api/workflows/ai-apply-route.test.ts`](../../../tests/unit/app/api/workflows/ai-apply-route.test.ts) (18) — 401 unauth, 400 (missing/non-object patch, bad confirmation, non-JSON), apply wiring (userId/workflowId/patch + confirmation forwarding), 200 success, 404/428/409/400(×3)/500 status mapping, sanitized 500 on throw, no-model/no-planner/no-repo source assertion, and response no-leak. The apply service is mocked — no DB write, no model call.
 
 ---
 
