@@ -395,6 +395,64 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Google Analytics resolvers (Slice 3.GOOGLE-ANALYTICS-3)", () => {
+    it("getOptionsResolver resolves google-analytics:accounts (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("google-analytics:accounts");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("google-analytics");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves google-analytics:properties (dependsOn accountId — verbatim)", () => {
+      const r = getOptionsResolver("google-analytics:properties");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("google-analytics");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["accountId"]);
+    });
+
+    it("getOptionsResolver resolves google-analytics:data_streams (dependsOn propertyId)", () => {
+      const r = getOptionsResolver("google-analytics:data_streams");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("google-analytics");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["propertyId"]);
+    });
+
+    it("getOptionsResolver resolves google-analytics:conversion_events (dependsOn propertyId)", () => {
+      const r = getOptionsResolver("google-analytics:conversion_events");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("google-analytics");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["propertyId"]);
+    });
+
+    it("registers exactly the 4 accepted GA resolver keys", () => {
+      const gaSources = listOptionsResolvers()
+        .filter((r) => r.provider === "google-analytics")
+        .map((r) => r.source)
+        .sort();
+      expect(gaSources).toEqual([
+        "google-analytics:accounts",
+        "google-analytics:conversion_events",
+        "google-analytics:data_streams",
+        "google-analytics:properties",
+      ]);
+    });
+
+    it("does NOT register a measurement-secret or Universal-Analytics resolver", () => {
+      expect(getOptionsResolver("google-analytics:measurement_secrets")).toBeUndefined();
+      expect(getOptionsResolver("google-analytics:measurement_ids")).toBeUndefined();
+      expect(getOptionsResolver("google-analytics:views")).toBeUndefined();
+      const gaSources = listOptionsResolvers()
+        .filter((r) => r.provider === "google-analytics")
+        .map((r) => r.source);
+      expect(gaSources).not.toContain("google-analytics:measurement_secrets");
+      expect(gaSources).not.toContain("google-analytics:views");
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });

@@ -241,6 +241,29 @@ import { facebookPostsResolver } from "@/integrations/facebook/options/posts";
 import { facebookAlbumsResolver } from "@/integrations/facebook/options/albums";
 import { facebookConversationsResolver } from "@/integrations/facebook/options/conversations";
 
+// Google Analytics (GA4) resolvers — Slice 3.GOOGLE-ANALYTICS-3
+// (resolver-first ahead of the GA-4 action metas). The accepted surface is
+// 4 resolvers; NO measurement-secret resolver and NO Universal Analytics
+// resolvers are registered (D-GA1 audit).
+//   - `google-analytics:accounts` — account picker (no deps; Admin API
+//     `accountSummaries.list`). Cascade root for `:properties`.
+//   - `google-analytics:properties` (depends on `accountId`) — GA4 properties
+//     under the account (derived from the same accountSummaries call). Backs
+//     `propertyId` on every GA action.
+//   - `google-analytics:data_streams` (depends on `propertyId`) — WEB data
+//     streams; value is the `measurementId` (G-XXXX) for `send_event`. The
+//     Measurement Protocol api_secret is NEVER read or surfaced.
+//   - `google-analytics:conversion_events` (depends on `propertyId`) — backs
+//     `find_conversion.conversionEventName` (reuses the GA-2 wrapper).
+//
+// Dep names `accountId` / `propertyId` are preserved verbatim (match the
+// GA-2 Zod schemas). Google Analytics stays OUT of `COVERED_PROVIDERS` until
+// GA-4 action metas land.
+import { googleAnalyticsAccountsResolver } from "@/integrations/google-analytics/options/accounts";
+import { googleAnalyticsPropertiesResolver } from "@/integrations/google-analytics/options/properties";
+import { googleAnalyticsDataStreamsResolver } from "@/integrations/google-analytics/options/dataStreams";
+import { googleAnalyticsConversionEventsResolver } from "@/integrations/google-analytics/options/conversionEvents";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -337,6 +360,13 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   facebookPostsResolver,
   facebookAlbumsResolver,
   facebookConversationsResolver,
+  // Slice 3.GOOGLE-ANALYTICS-3 — 4 GA4 resolvers (resolver-first ahead of
+  // GA-4 action metas). Dep names `accountId` / `propertyId` preserved
+  // verbatim. No measurement-secret / Universal-Analytics resolvers.
+  googleAnalyticsAccountsResolver,
+  googleAnalyticsPropertiesResolver,
+  googleAnalyticsDataStreamsResolver,
+  googleAnalyticsConversionEventsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
