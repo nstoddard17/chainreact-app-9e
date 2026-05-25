@@ -21,6 +21,7 @@
 | **AI-4** | shipped | Read-only workflow/node explainer (`services/ai/explain/*`). See note below. |
 | **AI-5** | shipped | Deterministic WorkflowPatch preview service (`services/ai/preview/*`). See note below. |
 | **AI-6** | shipped | Confirmed WorkflowPatch apply service (`services/ai/apply/*`) — first mutating slice. See note below. |
+| **AI-6B** | shipped | Apply concurrency hardening (write-time guarded update) + AI-5 `currentRevision` surfacing. See note below. |
 | AI-7+ | future | Failed-run repair, ground-up creation, optimizer, cost/billing, observability dashboard, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
@@ -79,7 +80,16 @@ Confirmed apply service under [`services/ai/apply/`](../../../services/ai/apply/
 - **No redacted candidate / secret preservation:** apply builds its candidate from the unredacted repo definition, so untouched secret config is preserved byte-for-byte (never persisted as `[REDACTED]`); the result output leaks neither values nor secret-shaped key names (validator messages scrubbed).
 - **Concurrency:** the workflows repo has no content-revision and `updateDraftDefinition` has no write-time guard, so this is **read-time** optimistic concurrency — `patch.baseRevision` must equal the workflow's current revision token (`updatedAt`), else `STALE_PATCH`. **Follow-up:** a write-time guarded update (`.eq("updated_at", …)`, mirroring `applyTransition`) closes the residual read→write TOCTOU window. Callers must set `patch.baseRevision = workflow.updatedAt` (AI-5 should surface that token — follow-up).
 
-**Tests:** [`tests/unit/services/ai/apply/*`](../../../tests/unit/services/ai/apply/) (25) — ownership/NOT_FOUND, revalidation (nothing persisted on failure, no input mutation, all-or-nothing), confirmation (block/allow, accepted-risk match, can't-bypass-invalid), persistence (add/update/remove/replaceTrigger; update called exactly once on success, never on failure), stale-patch rejection, no-redacted-candidate + secret preservation, deterministic risk + COST-2 + no-deduction, and no-leak (result values + secret key names).
+**Tests:** [`tests/unit/services/ai/apply/*`](../../../tests/unit/services/ai/apply/) (27, incl. AI-6B) — ownership/NOT_FOUND, revalidation (nothing persisted on failure, no input mutation, all-or-nothing), confirmation (block/allow, accepted-risk match, can't-bypass-invalid), persistence (add/update/remove/replaceTrigger; update called exactly once on success, never on failure), stale-patch rejection, no-redacted-candidate + secret preservation, deterministic risk + COST-2 + no-deduction, and no-leak (result values + secret key names).
+
+### AI-6B implementation note
+
+Hardening of the two AI-6 handoff gaps — no model calls, no UI, no route, no provider/billing work.
+
+- **Write-time concurrency guard.** New repo method [`updateDraftDefinitionIfRevisionMatches`](../../../repositories/workflows.ts) updates only when `(id, user_id, updated_at)` all match the caller's expectation (mirrors `applyTransition`'s `.eq(state)` guard); returns `null` when nothing matched. `updateDraftDefinition` is unchanged for other callers. AI-6 apply now persists through this guard with `expectedUpdatedAt = record.updatedAt`, so a workflow changed between read and write is **never overwritten** — apply returns `STALE_PATCH` (it does not pretend success or auto-rebase). Concurrency is now enforced at BOTH read time (`baseRevision` vs `updatedAt`) and write time.
+- **Revision token surfaced from preview.** `PatchPreviewResult` now carries `currentRevision` (the workflow's `updatedAt`, safe metadata). Callers MUST set `patch.baseRevision = currentRevision` before applying via AI-6. Present whenever the workflow loads; a NOT_FOUND surfaces as an `AiToolError`, not a result. A future route/UI passes this token through preview → patch → apply.
+
+**Tests:** [`tests/unit/repositories/workflows.test.ts`](../../../tests/unit/repositories/workflows.test.ts) (+3 — guarded update matches / returns-null / throws); AI-6 apply suite (+2 — guarded-update token wiring, write-time stale rejection); AI-5 preview suite (`currentRevision` asserted on valid + invalid paths).
 
 ---
 
