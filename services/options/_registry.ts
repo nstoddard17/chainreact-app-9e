@@ -194,6 +194,23 @@ import { mondayUsersResolver } from "@/integrations/monday/options/users";
 // enums / free text).
 import { mondayItemFilesResolver } from "@/integrations/monday/options/itemFiles";
 
+// Dropbox resolvers — Slice 3.DROPBOX-3 (resolver-first ahead of
+// DROPBOX-4 action metas). Both are path-based (Dropbox D-DB6 — no
+// synthetic ids):
+//   - `dropbox:folders` — account-scoped recursive folder picker (no
+//     deps). Prepends a synthetic Root option (value ""). Backs the
+//     destination-folder fields + the UI-scope folder parent for the
+//     files cascade. Single bounded page; sorted alphabetically.
+//   - `dropbox:files` (depends on `path`) — files inside the selected
+//     folder. Dep is named `path` (the parent folder path), NOT a
+//     synthetic folderId. NotFoundError → empty items (cascade
+//     fallback). Note: the options route drops empty deps, so the
+//     Dropbox root ("") can't be the parent — root files are typed
+//     directly; the picker covers nested folders.
+// Both reuse the DROPBOX-2 `filesListFolder` wrapper; no new transport.
+import { dropboxFoldersResolver } from "@/integrations/dropbox/options/folders";
+import { dropboxFilesResolver } from "@/integrations/dropbox/options/files";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -275,6 +292,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   mondayUsersResolver,
   // Slice 3.MONDAY-5 — download_file fileId picker (deps itemId + columnId).
   mondayItemFilesResolver,
+  // Slice 3.DROPBOX-3 — 2 Dropbox path-based resolvers (resolver-first
+  // ahead of DROPBOX-4 action metas). `dropbox:files` deps on `path`
+  // (the parent folder path; Dropbox is path-based, no synthetic ids).
+  dropboxFoldersResolver,
+  dropboxFilesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

@@ -295,6 +295,36 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Dropbox resolvers (Slice 3.DROPBOX-3)", () => {
+    it("getOptionsResolver resolves dropbox:folders (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("dropbox:folders");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("dropbox:folders");
+      expect(r?.provider).toBe("dropbox");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves dropbox:files (dependsOn path — Dropbox is path-based, no synthetic folderId)", () => {
+      const r = getOptionsResolver("dropbox:files");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("dropbox:files");
+      expect(r?.provider).toBe("dropbox");
+      expect(r?.requiresIntegration).toBe(true);
+      // Dep is the parent FOLDER path field (D-DB6 path-as-value); NOT a
+      // synthetic folderId.
+      expect(r?.requiredDeps).toEqual(["path"]);
+    });
+
+    it("registers exactly the 2 Dropbox resolver keys", () => {
+      const dropboxSources = listOptionsResolvers()
+        .filter((r) => r.provider === "dropbox")
+        .map((r) => r.source)
+        .sort();
+      expect(dropboxSources).toEqual(["dropbox:files", "dropbox:folders"]);
+    });
+  });
+
   it("returns undefined for an unknown source", () => {
     expect(getOptionsResolver("ghost:nothing")).toBeUndefined();
   });
