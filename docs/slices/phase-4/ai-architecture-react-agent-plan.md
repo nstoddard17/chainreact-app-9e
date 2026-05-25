@@ -25,7 +25,8 @@
 | **AI-7** | shipped | Failed-run repair proposal service (`services/ai/repair/*`) — deterministic, proposes + previews, never applies. See note below. |
 | **AI-8A** | shipped | Model boundary (`core/ai/*`) + planner prompt/result contract (`services/ai/planner/*`). First model-backed infra; NO live model calls, NO workflow creation yet. See note below. |
 | **AI-8B** | shipped | Model-backed plan proposal + preview (`services/ai/planner/planWorkflowFromPrompt.ts`): prompt → injected model client → parse → AI-3/AI-5 preview. NO apply, NO mutation, NO UI. See note below. |
-| AI-8C+ | future | Real model adapter / route surface, ground-up apply (confirm → AI-6 apply), optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
+| **AI-8C** | shipped | First real model adapter + runtime config (`services/ai/modelClients/*`): env-driven Anthropic adapter (fetch), fail-safe factory, planner default-client wiring. NO live calls in tests, NO apply/UI/routes. See note below. |
+| AI-8D+ | future | Route surface / chat UI, ground-up apply (confirm → AI-6 apply), additional provider adapters, optimizer, cost/billing, observability dashboard, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -144,6 +145,20 @@ First **model-backed** planning service — but still a READ-ONLY proposal pipel
 **Safety:** model-proposed risk / cost / confirmation are ignored — the deterministic preview's recomputed values win (AI-3). A hallucinated provider/action/field cannot pass: the parser rejects literal secrets and structural violations, and the AI-5/AI-3 validator rejects unknown registry keys. Newly-covered providers become available automatically via the live catalog; nothing is hardcoded.
 
 **Tests:** [`tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) (15) — happy path (model called once, preview, `canApplyLater` true), baseRevision/workflowId reconciliation, model metadata, no-patch + unsupported (no preview), model failure (NOT_CONFIGURED + provider error), parse failure (non-JSON + prose), preview rejection of an invented provider (real validator), preview-unavailable (workflow NOT_FOUND), live-catalog prompt grounding, no-apply/no-repo-import (source assertion) + `noMutation`, and result no-leak.
+
+### AI-8C implementation note
+
+First **real** model adapter + runtime configuration — still NO live calls in tests, NO workflow mutation/apply, NO UI, NO public routes. The runtime client layer lives in [`services/ai/modelClients/`](../../../services/ai/modelClients/) (NOT `core/ai/`, which stays pure: no env/network/provider shapes). `core/ai/` keeps the model CONFIG + the abstract `ModelClient`/`ModelResult` contract; this layer implements it for real.
+
+- **Adapter strategy:** Anthropic first, via `fetch` (no provider SDK dependency added). Chosen because `core/ai/models.ts` already points both tiers at Anthropic Claude models — the default model must have a serving adapter. OpenAI remains reserved (no adapter yet → `CONFIGURATION_ERROR`).
+- **[`anthropicClient.ts`](../../../services/ai/modelClients/anthropicClient.ts)** — `createAnthropicModelClient({ apiKey, baseUrl?, timeoutMs?, fetchImpl?, anthropicVersion? })`. Resolves the model from `core/ai/models`, splits the AI-8A prompt into Anthropic's `system` + `messages`, enforces a timeout via `AbortController`, and maps outcomes: 429 → `RATE_LIMITED`, other non-2xx → `PROVIDER_ERROR`, unparseable 2xx → `INVALID_RESPONSE`, empty content → `EMPTY_RESPONSE`, abort → `TIMEOUT`, other throw → `NETWORK_ERROR`; `retryable` set for 429/5xx/network/timeout. `fetchImpl` is injectable so tests never touch the network.
+- **[`createModelClient.ts`](../../../services/ai/modelClients/createModelClient.ts)** — `createRuntimeModelClient({ feature, tier? })` reads the provider's API-key env var (names from `MODEL_API_KEY_ENV`) at call time and returns: the real adapter (Anthropic + key) / `createNotConfiguredModelClient()` (Anthropic, no key) / a `CONFIGURATION_ERROR` client (unsupported provider). Never throws on missing config. `createModelClientForModel(model, apiKey)` exposes the branch logic for direct testing; `createModelClientForFeature` is a convenience wrapper.
+- **Failure-code extension:** [`core/ai/modelTypes.ts`](../../../core/ai/modelTypes.ts) `ModelFailureCode` gains `CONFIGURATION_ERROR`, `NETWORK_ERROR`, `INVALID_RESPONSE`; `ModelFailure` gains optional `retryable`.
+- **Planner wiring:** [`planWorkflowFromPrompt.ts`](../../../services/ai/planner/planWorkflowFromPrompt.ts) default client is now `createRuntimeModelClient({ feature, tier })` instead of always-NOT_CONFIGURED. An injected `modelClient` still wins (no env required); with no key the planner still fails safe (`MODEL_FAILED` / `NOT_CONFIGURED`). The deterministic parse/preview safety flow is unchanged.
+- **No-leak:** the API key lives only in the closure + the `x-api-key` request header — never returned, logged, or echoed; provider error bodies are sanitized to a short, capped, key-free summary.
+- **Env:** `.env.example` documents `ANTHROPIC_API_KEY` (optional) as the runtime adapter key; `OPENAI_API_KEY` reserved.
+
+**Tests:** [`tests/unit/services/ai/modelClients/*`](../../../tests/unit/services/ai/modelClients/) — adapter (success/usage/finishReason/latency, request shape + `x-api-key`, full error mapping, no-leak, injected-fetch-only) + factory (missing-env → NOT_CONFIGURED, unsupported provider → CONFIGURATION_ERROR, configured → real adapter via mocked fetch, no key leak, no-throw). Planner: default runtime wiring (missing key → MODEL_FAILED, configured + mocked fetch → reaches preview, injected client still wins). No test makes a live network call.
 
 ---
 
