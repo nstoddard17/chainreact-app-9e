@@ -209,6 +209,17 @@ describe("GET /api/providers", () => {
     expect(airtable?.hasMetadata).toBe(false);
   });
 
+  it("marks Shopify as hasMetadata=true now that Slice 4.SHOPIFY-META-2 shipped its action + trigger metas", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const shopify = body.providers.find((p) => p.id === "shopify");
+    expect(shopify).toBeDefined();
+    expect(shopify?.hasMetadata).toBe(true);
+  });
+
   it("sorts providers by displayName", async () => {
     authedUser();
     const res = await getProviders();

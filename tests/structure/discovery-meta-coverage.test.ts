@@ -175,6 +175,13 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // intentionally NOT implemented — D-GA1 audit — so they have no handler
   // and correctly require no meta.)
   "google-analytics",
+  // Shopify added in Slice 4.SHOPIFY-META-2 once all 11 registered Shopify
+  // action handlers have a matching meta (orders, products + variants,
+  // customers, inventory). From here on, adding a new Shopify handler
+  // without a meta (or vice-versa) fails this structural test.
+  // `webhook_received` trigger meta ships in the same slice; trigger
+  // coverage is enforced by trigger-meta-activation-invariant, not here.
+  "shopify",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

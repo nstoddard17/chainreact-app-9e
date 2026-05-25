@@ -308,6 +308,8 @@ import { FACEBOOK_ACTION_METAS, FACEBOOK_TRIGGER_METAS } from "./providers/faceb
 // triggers. GA4 has no clean push/webhook model; triggers are
 // deferred/rejected (D-GA3). See providers/google-analytics.ts header.
 import { GOOGLE_ANALYTICS_ACTION_METAS } from "./providers/google-analytics";
+// Shopify (Slice 4.SHOPIFY-META-2) — 11 actions + 1 webhook trigger.
+import { SHOPIFY_ACTION_METAS, SHOPIFY_TRIGGER_METAS } from "./providers/shopify";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -593,6 +595,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...DROPBOX_ACTION_METAS, // Dropbox (DROPBOX-4) — 11 actions, displayOrder 10..110.
   ...FACEBOOK_ACTION_METAS, // Facebook (FACEBOOK-4) — 8 actions, displayOrder 10..80.
   ...GOOGLE_ANALYTICS_ACTION_METAS, // Google Analytics (GOOGLE-ANALYTICS-4) — 6 actions, displayOrder 10..60.
+  ...SHOPIFY_ACTION_METAS, // Shopify (SHOPIFY-META-2) — 11 actions, displayOrder 10..110.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -688,6 +691,12 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // trigger-meta-activation-invariant test is satisfied without an exemption.
   // Deactivation is reference-count-safe (shared page-level subscription).
   ...FACEBOOK_TRIGGER_METAS,
+  // Shopify (SHOPIFY-META-2) — 1 consolidated webhook trigger
+  // (`webhook_received`, 8-topic allowlist). Activation hook registered in
+  // integrations/shopify/triggers/webhookReceived/index.ts →
+  // registerActivation("shopify", "webhook_received", activate), so the
+  // trigger-meta-activation-invariant test is satisfied without an exemption.
+  ...SHOPIFY_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

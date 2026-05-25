@@ -30,19 +30,21 @@ What this means precisely:
 
 ---
 
-## 2. The 17 metadata/builder-COVERED providers
+## 2. The 18 metadata/builder-COVERED providers
+
+> **Update (Slice 4.SHOPIFY-META-2, 2026-05-25):** `shopify` flipped from pending → COVERED (11 ActionMeta + 1 TriggerMeta shipped). Count 17 → 18.
 
 Enforced 1:1 (every registered handler has a meta) by `COVERED_PROVIDERS` in `tests/structure/discovery-meta-coverage.test.ts`:
 
-`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics`
+`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics, shopify`
 
 These are builder-usable today. Drift (adding a handler without a meta, or vice-versa) fails the structural test.
 
-## 3. The 9 pending-metadata providers (launch-scope gap)
+## 3. The 8 pending-metadata providers (launch-scope gap)
 
-`microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`
+`microsoft-excel, airtable, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`
 
-All 9 are **launch-scope** (mainstream providers; 8 were in the original Phase-1 foundation 16; Trello is the Phase-3.17 token-ingest provider). **None** are future-expansion, rejected, or stale V1 artifacts. Each is **bucket A: a real provider-foundation gap at the metadata/builder layer.**
+All 8 are **launch-scope** (mainstream providers; 7 were in the original Phase-1 foundation 16; Trello is the Phase-3.17 token-ingest provider). **None** are future-expansion, rejected, or stale V1 artifacts. Each is **bucket A: a real provider-foundation gap at the metadata/builder layer.** (`shopify` was the 9th — shipped in SHOPIFY-META-2.)
 
 ---
 
@@ -65,8 +67,8 @@ Runtime counts from the handler registry + trigger tree. "Runtime triggers" coun
 
 | # | Provider | Runtime actions | Runtime triggers | Current builder status | Missing metadata / resolver work | Recommended arc | Priority |
 |---|---|---|---|---|---|---|---|
-| 1 | **shopify** | 11 | 1 (webhook `webhook_received`) | `hasMetadata:false` — "coming soon" | 11 ActionMeta + 1 TriggerMeta + discovery sub-registry + COVERED flip. Fields are flat scalars/IDs/enums → **no resolvers required for v1** (hand-typed IDs OK). | SHOPIFY-META (see `shopify-metadata-coverage-plan.md`) | **1 (cleanest — do first)** |
-| 2 | **microsoft-excel** | 10 | 5 (polling) | "coming soon" | 10 ActionMeta + 5 TriggerMeta. Optional `workbooks`/`worksheets` resolvers (deferrable; IDs typeable). | EXCEL-META | 2 |
+| ~~1~~ | ~~**shopify**~~ | 11 | 1 | ✅ **COVERED (SHOPIFY-META-2)** — `hasMetadata:true` | DONE: 11 ActionMeta + 1 TriggerMeta + `services/discovery/providers/shopify.ts` + COVERED flip. Resolvers deferred to optional SHOPIFY-META-3. | — | done |
+| 1 | **microsoft-excel** | 10 | 5 (polling) | "coming soon" | 10 ActionMeta + 5 TriggerMeta. Optional `workbooks`/`worksheets` resolvers (deferrable; IDs typeable). | EXCEL-META | **1 (next)** |
 | 3 | **google-calendar** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. Optional `calendars` resolver (deferrable). | GCAL-META | 3 |
 | 4 | **microsoft-outlook-calendar** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. Mirror of GCAL. | OUTLOOK-CAL-META | 4 |
 | 5 | **google-drive** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. `folders` resolver **already exists** in options registry. | GDRIVE-META | 5 |
@@ -75,7 +77,7 @@ Runtime counts from the handler registry + trigger tree. "Runtime triggers" coun
 | 8 | **airtable** | 11 | 1 (webhook `record_changed`) | "coming soon" | 11 ActionMeta + 1 TriggerMeta + `bases`→`tables`→`fields` three-hop cascade resolvers (heaviest). `add_attachment` meta gated on this batch. | AIRTABLE-META | 8 |
 | 9 | **trello** | 8 | 6 (tree present) | "coming soon" | 8 ActionMeta + TriggerMeta (verify activation wiring first) + `boards`→`lists` cascade resolvers. | TRELLO-META | 9 |
 
-Total pending: **67 runtime action handlers across 9 providers** (286 total − 219 covered = 67).
+Total pending: **56 runtime action handlers across 8 providers** (286 total − 230 covered = 56). _(Was 67 across 9 before SHOPIFY-META-2 shipped Shopify's 11.)_
 
 ---
 
@@ -108,7 +110,8 @@ When all 9 are covered (or formally deferred out of launch scope by product deci
 
 ```text
 RUNTIME:            26/26 providers, 286 handlers, real (non-stubbed), full suite green.
-BUILDER METADATA:   17/26 providers covered (219/286 handlers). 9 providers / 67 handlers pending.
-NEXT ARC:           SHOPIFY-META (cleanest; no resolvers needed for v1) — see shopify-metadata-coverage-plan.md.
+BUILDER METADATA:   18/26 providers covered (230/286 handlers). 8 providers / 56 handlers pending.
+                    (Shopify shipped in SHOPIFY-META-2, 2026-05-25.)
+NEXT ARC:           EXCEL-META (next) — see shopify-metadata-coverage-plan.md for the arc template.
 DO NOT CALL:        "provider foundation fully complete / launch-ready" until the 9 are covered or product-deferred.
 ```
