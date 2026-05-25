@@ -11,9 +11,10 @@
  *      validator + COST-2 estimate + AI-4 explanation).
  *
  * It NEVER applies (does not import AI-6 `services/ai/apply`), NEVER mutates or
- * persists a workflow, NEVER persists model output, and makes NO provider API
- * calls. The model client is dependency-injected; the default is the
- * NOT_CONFIGURED client, so without a real adapter every call fails safely.
+ * persists a workflow, and NEVER persists model output. The model client is
+ * dependency-injected; the default (AI-8C) is the env-configured runtime client
+ * (`createRuntimeModelClient`), which itself falls back to the NOT_CONFIGURED
+ * client when no API key is present — so the planner still fails safe.
  *
  * Safety: the model's proposed risk / cost / confirmation are IGNORED — the
  * deterministic preview's values win (it recomputes them). Literal secrets in
@@ -22,7 +23,6 @@
  * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §6/§9.
  */
 
-import { createNotConfiguredModelClient } from "@/core/ai/modelClient";
 import { getModelForFeature } from "@/core/ai/models";
 import type {
   ModelFailure,
@@ -31,6 +31,7 @@ import type {
   ModelSuccess,
   ModelTier,
 } from "@/core/ai/modelTypes";
+import { createRuntimeModelClient } from "@/services/ai/modelClients";
 import { previewWorkflowPatchForAI } from "@/services/ai/preview";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import type { AiToolError } from "@/services/ai/tools/types";
@@ -123,9 +124,11 @@ export async function planWorkflowFromPromptForAI(
   input: PlanWorkflowFromPromptInput,
 ): Promise<PlanWorkflowResult> {
   const { userId, workflowId, prompt } = input;
-  const client = input.modelClient ?? createNotConfiguredModelClient();
   const feature = input.feature ?? WORKFLOW_PLAN_FEATURE;
   const tier: ModelTier = input.modelTier ?? getModelForFeature(feature).tier;
+  // Default to the env-configured runtime client; with no API key it resolves to
+  // the NOT_CONFIGURED client, so the planner still fails safe (MODEL_FAILED).
+  const client = input.modelClient ?? createRuntimeModelClient({ feature, tier });
 
   // 1. Registry-grounded request (live catalog + connected integrations, AI-8A).
   const baseRequest = await buildWorkflowPlanRequest({

@@ -74,16 +74,19 @@ export type ModelFinishReason =
   | "unknown";
 
 /**
- * Closed set of model-call failure codes. `NOT_CONFIGURED` is the only one the
- * AI-8A adapters actually emit; the rest exist so AI-8B's real adapter and its
- * callers can exhaustively switch without a later type change.
+ * Closed set of model-call failure codes. `NOT_CONFIGURED` is the AI-8A default
+ * (no adapter wired); AI-8C's real adapter + runtime factory emit the rest.
+ * Callers can exhaustively switch without a later type change.
  */
 export type ModelFailureCode =
-  | "NOT_CONFIGURED" // no provider adapter / API key wired (AI-8A default)
-  | "TIMEOUT" // exceeded the budget timeout
+  | "NOT_CONFIGURED" // no provider adapter / API key wired (fail-safe default)
+  | "CONFIGURATION_ERROR" // config points at a provider with no implemented adapter
+  | "TIMEOUT" // exceeded the budget timeout (request aborted)
   | "RATE_LIMITED" // provider 429
-  | "PROVIDER_ERROR" // provider 5xx / network / SDK error (sanitized)
-  | "EMPTY_RESPONSE" // provider returned no content
+  | "PROVIDER_ERROR" // provider non-2xx (4xx/5xx), sanitized
+  | "NETWORK_ERROR" // fetch threw (DNS / connection / non-abort)
+  | "INVALID_RESPONSE" // 2xx but body could not be parsed into the expected shape
+  | "EMPTY_RESPONSE" // 2xx, parsed, but no text content
   | "INVALID_INPUT"; // malformed request (e.g. empty messages)
 
 export interface ModelSuccess {
@@ -104,6 +107,8 @@ export interface ModelFailure {
   readonly failureCode: ModelFailureCode;
   /** Caller-safe message. MUST NOT contain tokens, secrets, PII, or raw bodies. */
   readonly message: string;
+  /** Whether a retry could plausibly succeed (429 / 5xx / network / timeout). */
+  readonly retryable?: boolean;
   readonly latencyMs?: number;
 }
 

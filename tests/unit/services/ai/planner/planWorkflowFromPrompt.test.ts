@@ -106,10 +106,21 @@ function client(text: string) {
   return createMockModelClient({ text });
 }
 
+const ORIGINAL_ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+
 beforeEach(() => {
   mockGetWorkflowGraphForAI.mockReset();
   mockListActiveByUser.mockReset();
   mockListActiveByUser.mockResolvedValue([]);
+  // AI-8C: the default client is the env-configured runtime client. Clear keys so
+  // the no-injected-client path is deterministically NOT_CONFIGURED (and never
+  // makes a live call) regardless of the developer's shell env.
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+});
+afterAll(() => {
+  if (ORIGINAL_ANTHROPIC_KEY === undefined) delete process.env.ANTHROPIC_API_KEY;
+  else process.env.ANTHROPIC_API_KEY = ORIGINAL_ANTHROPIC_KEY;
 });
 
 describe("happy path — valid patch previewed", () => {
@@ -330,6 +341,68 @@ describe("registry grounding — prompt only carries real catalog providers", ()
 
     for (const p of catalog.data.providers.filter((x) => x.actions.length === 0 && x.triggers.length === 0)) {
       expect(system).not.toContain(`(id: ${p.id})`);
+    }
+  });
+});
+
+describe("default runtime client wiring (AI-8C)", () => {
+  it("with no injected client and no API key → MODEL_FAILED / NOT_CONFIGURED, no preview", async () => {
+    const result = await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "x" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.code).toBe("NOT_CONFIGURED");
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("with no injected client but a configured key + mocked fetch → reaches parse/preview", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+    process.env.ANTHROPIC_API_KEY = "sk-ant-RUNTIME-TEST";
+    const fetchSpy = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: [{ type: "text", text: planResponse({ proposedPatch: movePatch() }) }],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 1, output_tokens: 2 },
+      }),
+      text: async () => "{}",
+    } as unknown as Response);
+    const original = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = fetchSpy;
+    try {
+      const result = await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "tidy" });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.canApplyLater).toBe(true);
+      expect(result.preview).toBeDefined();
+      // The runtime key must never surface in the planner result.
+      expect(JSON.stringify(result)).not.toContain("sk-ant-RUNTIME-TEST");
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = original;
+    }
+  });
+
+  it("still uses an injected client even when a key is present (no env required)", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+    process.env.ANTHROPIC_API_KEY = "sk-ant-SHOULD-NOT-BE-USED";
+    const fetchSpy = jest.fn();
+    const original = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = fetchSpy;
+    try {
+      const mc = client(planResponse({ proposedPatch: movePatch() }));
+      const result = await planWorkflowFromPromptForAI({
+        userId: "u1",
+        workflowId: "wf1",
+        prompt: "x",
+        modelClient: mc,
+      });
+      expect(mc.calls).toHaveLength(1);
+      expect(fetchSpy).not.toHaveBeenCalled(); // injected client used, not the runtime adapter
+      expect(result.ok).toBe(true);
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = original;
     }
   });
 });
