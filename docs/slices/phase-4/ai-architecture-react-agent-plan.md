@@ -391,6 +391,7 @@ All new tables follow V2 conventions: `supabase/migrations/` (forward-only), **R
 | `ai_suggestion_feedback` | thumbs up/down on suggestions | trains ranking later |
 | `ai_run_analysis` | cached run-failure summaries | keyed by `run_id` |
 | `ai_cost_events` | AI task metering ledger | distinct from execution billing |
+| `ai_events` | append-only observability / eval event ledger (§16) | event type + ids + timings + costs + statuses; **no raw chain-of-thought, no secrets/PII** |
 | *(future)* template provenance | `created_from_template_id`, `saved_as_template_id` | columns on `workflows` |
 | *(future)* `template_recommendations` | recommendations shown + chosen | ranking telemetry |
 
@@ -444,6 +445,7 @@ Phase-4 production slices. Each is independently shippable, behind a feature fla
 | **4.AI-9** | Template-aware architecture stubs + `TemplateCatalog` interface (no template runtime yet). | AI-8 |
 | **4.AI-10** | Optimization/suggestion engine. | AI-8 |
 | **4.AI-11** | AI cost/billing integration (distinct AI task events + metering UI). | AI-2 |
+| **4.AI-12** | Owner AI observability — `ai_events` ledger + admin dashboards (§16). Event emission wired into the AI-4..AI-11 surfaces. | AI-4 |
 
 **Future template-specific slices (do NOT implement in Phase 4 AI track):**
 
@@ -477,6 +479,7 @@ Phase-4 production slices. Each is independently shippable, behind a feature fla
 13. **Should AI prefer templates over ground-up** when confidence is high — and what is the confidence threshold?
 14. **`renameNode` schema extension** — add `label?: string` to `WorkflowNode` (and surface in builder), or drop `renameNode` from v1? (Current `WorkflowNode` has no human label.)
 15. **Cost-preview for AI/execution** — V2 has no pre-execution cost preview today (post-execution deduction only). Do we add one as part of AI-11, since the agent will want to show estimated task cost before apply/run?
+16. **Observability access + retention** — who sees the AI dashboards (super_admin only vs all admins, via `core/admin/` capabilities), and what is the retention window for `ai_events` rows (§16)? Also: do we reuse a V1-style single `ai_events` table with typed event names, or split per concern?
 
 ---
 
@@ -497,6 +500,56 @@ This planning doc is accepted only if it:
 - [x] Includes **tests** — §12.
 - [x] Includes **phased implementation slices** — §13.
 - [x] **Identifies open product decisions** — §14.
+- [x] **Includes an owner/admin AI observability layer** (planned now, built later) — §16, slice 4.AI-12.
+
+---
+
+## 16. Owner AI observability & performance dashboard
+
+Marcus must be able to answer, at any time: **Is the AI working? Where is it failing? What is it costing? Which features are used? Which suggestions are accepted? What should we improve next?** The architecture therefore includes an owner/admin observability layer. It is **planned now so AI-2..AI-11 emit the right events from the start**; the full dashboard ships as slice **4.AI-12**. Nothing here changes the v1 critical path — emission is fire-and-forget and append-only.
+
+### 16.1 Principle — instrument the seams, not the model's mind
+Every event is emitted at a **deterministic seam** the agent already passes through (tool call, patch proposal/validation/preview/apply, safety block, model call completion, user feedback). This mirrors V1's `agent_eval_events` discipline: a single append-only ledger + typed event names + a client/server emitter, never ad-hoc inserts.
+
+**Redaction is mandatory and structural** (same rules as the AI tools in §0a/§8): events carry **event type, ids, timings, costs, statuses, enums, and aggregate counts only**. They MUST NOT contain raw hidden chain-of-thought, user secrets, tokens, PII, raw prompts, raw run-data values, or resolved node config. Where a free-text label is unavoidable (e.g. "most common unsupported request"), store a **redacted, length-capped summary**, never the raw user message.
+
+### 16.2 Event taxonomy (`ai_events` ledger)
+Append-only. Minimum columns: `id`, `user_id` (actor), `workspace_id?`, `workflow_id?`, `conversation_id?`, `event_type`, `feature` (creation | editing | repair | explanation | run_analysis | data_qa | discovery | template_*), `agent_version`, `model?`, `prompt_version?`, `status?`, `latency_ms?`, `tokens_in?`, `tokens_out?`, `cost_estimate?`, `cost_actual?`, `metadata jsonb` (redacted enums/ids/counts only), `created_at`.
+
+| Event | Fires when | Key redacted fields |
+|---|---|---|
+| `ai_interaction_started` | user opens/sends to an AI surface | feature, surface, intent_class |
+| `ai_tool_called` | agent invokes a §5 tool | tool_name, arg_shape (no values) |
+| `ai_tool_failed` | a tool returns a typed error | tool_name, error_code |
+| `ai_patch_proposed` | a `WorkflowPatch` is produced | op_types[], op_count, risk_level |
+| `ai_patch_validation_failed` | `validateWorkflowPatch` rejects | failure_code (unknown_provider/action/field, invalid_config, missing_integration, invalid_variable_reference, resolver_failure, billing_limit) |
+| `ai_patch_previewed` | preview rendered to user | risk_level, requires_confirmation |
+| `ai_patch_applied` | patch persisted | op_count, risk_level |
+| `ai_patch_rejected` | user rejects/abandons a proposal | reason_class (rejected/edited/abandoned) |
+| `ai_user_feedback_submitted` | thumbs up/down / "fixed my issue" | rating, feature |
+| `ai_safety_block_triggered` | confirmation required / destructive blocked / test-mode blocked / unsupported refused | block_type |
+| `ai_model_call_completed` | an LLM call returns | model, latency_ms, tokens, cost |
+| `ai_template_recommended` *(future)* | template suggested | template_id, match_score |
+| `ai_template_instantiated` *(future)* | template instantiated | template_id |
+
+**Hallucination catches** are derived, not a new event: a `ai_patch_validation_failed` with `failure_code ∈ {unknown_provider, unknown_action, unknown_field, invalid_variable_reference}` IS a hallucination catch by the deterministic validators (§9). The dashboard counts these directly — proof the grounding fence is holding.
+
+### 16.3 Metrics the dashboard derives
+Totals + by-feature usage; patch funnel (proposed → previewed → applied / rejected / edited / abandoned) and accept rate; validation failures by type; hallucination-catch rate; workflow-creation and repair success rates; failed-run-explanation usefulness (from feedback); feedback breakdown; model/prompt-version per request; tool-call volume + tool failure rates; token usage; estimated vs actual cost; latency by model/task; safety-block counts by type; most-common intents; most-common unsupported requests (product-gap signal); provider/action demand signals (what users ask for that doesn't exist yet); and, once templates land, template match rate, template-vs-ground-up ratio, and whether templates reduce cost / improve success.
+
+### 16.4 Recommended owner/admin dashboard views (slice 4.AI-12)
+Surfaced under `core/admin/` capability-gated admin UI (mirrors V1's `/admin` eval tab):
+1. **AI usage overview** — volume, by feature, active users.
+2. **Quality / success dashboard** — creation & repair success, accept rate, feedback.
+3. **Cost dashboard** — estimated vs actual, per feature/model, task metering.
+4. **Model performance dashboard** — latency, tokens, cost, success by model/prompt-version.
+5. **Validation-failure dashboard** — failures by type + hallucination-catch rate (fence health).
+6. **User-feedback dashboard** — thumbs, "fixed my issue", trend.
+7. **Unsupported-request / product-gap dashboard** — what users ask for that doesn't exist (provider/action demand).
+8. **Template effectiveness dashboard** *(future)* — match rate, template-vs-ground-up, cost/success delta.
+
+### 16.5 Build sequencing
+Define `ai_events` + the typed event-name union + a fire-and-forget emitter alongside the first agent surface (AI-4). Each later slice emits its events as it lands. The dashboards (4.AI-12) read aggregates only. The ledger is RLS-protected and admin-readable via `core/admin/` capabilities; retention window is an open decision (§14 #16).
 
 ---
 
