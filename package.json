@@ -10,6 +10,7 @@
     "lint:fix": "eslint . --fix",
     "lint:structure": "node scripts/check-leaf-folder-counts.mjs",
     "lint:migrations": "node scripts/check-migration-rls.mjs",
+    "verify:reserve-reconcile": "node scripts/verify-reserve-reconcile-rpcs.mjs",
     "db:push": "node scripts/db-push.mjs",
     "test": "jest",
     "test:watch": "jest --watch",

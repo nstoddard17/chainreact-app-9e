@@ -17,6 +17,7 @@
 |---|---|---|
 | **COST-11** | shipped (`6d7e46a1f`) | This design (doc-only). |
 | **COST-12** | shipped | DB foundation: `user_billing.tasks_reserved`, `workflow_runs` reservation/reconcile columns + `billing_status` CHECK, `task_usage_events` partial-unique idempotency indexes, and the four atomic RPCs (`reserve_tasks_if_available`, `reconcile_task_reservation`, `release_task_reservation`, `release_expired_reservations`) + thin `userBilling` repo wrappers. **No engine wiring, no live-billing change, flat `deduct_tasks_if_available` left intact.** See note below. |
+| **COST-12B** | shipped | Real-DB RPC integration harness (`scripts/verify-reserve-reconcile-rpcs.mjs`) proving the COST-12 RPCs/constraints against an actual Postgres/Supabase. Opt-in + triple-guarded; skips without env. No RPC logic changed. See note below. |
 | COST-13 | future | Service layer behind `ENABLE_RESERVE_RECONCILE` (off). |
 | COST-14 | future | Engine shadow mode. |
 | COST-15 | future | Internal users. |
@@ -39,6 +40,26 @@
 - **Period reset:** none exists in the DB today; a future reset job MUST also zero `tasks_reserved` / rely on the expiry sweep (documented in the migration header).
 - **Repo wrappers** added to [`repositories/userBilling.ts`](../../../repositories/userBilling.ts): `reserveTasks`, `reconcileReservation`, `releaseReservation`, `releaseExpiredReservations` — thin pass-throughs (RPC is the authoritative mutator; no read-then-write). Unit tests in [`userBilling.test.ts`](../../../tests/unit/repositories/userBilling.test.ts) cover wrapper mapping + error propagation. **RPC behavior** (atomicity, idempotency, clamping, non-negativity) requires a live-DB/pgTAP harness the repo does not have yet — deferred to that harness per §17.
 - **Unchanged:** no engine integration, no service layer, no feature flag, no live-billing change, no UI, AI paused.
+
+### COST-12B implementation note
+
+**Real-DB RPC integration harness — proves COST-12 behaves against an actual database (the jest suite only mocks the repo wrappers).** No RPC logic changed (no bug found). Harness: [`scripts/verify-reserve-reconcile-rpcs.mjs`](../../../scripts/verify-reserve-reconcile-rpcs.mjs); convenience script `npm run verify:reserve-reconcile`.
+
+**What it verifies (15-case matrix):** reserve success / insufficient / amount-0 / idempotent; reconcile exact / under / over-reserve-clamp / idempotent; release / release-idempotent; expiry sweep (releases expired, leaves active, no-op on re-run); non-negativity invariants; service-role-only grants (anon execution rejected, when an anon key is provided); `task_usage_events` partial unique indexes (run-level + node-level dup rejected, different `node_id` allowed, runless poll events not blocked); and that flat `deduct_tasks_if_available` still works.
+
+**How it runs:** uses `@supabase/supabase-js` with the service-role key to seed isolated throwaway auth users (`@chainreact-rpc-harness.invalid`) + workflows + runs, asserts RPC effects on the real counters/columns, then **cleans up via `auth.admin.deleteUser` (cascade)**. Deterministic; resets billing per scenario. Prints a pass/fail summary and exits non-zero on any failure.
+
+**Safety (triple-guarded — never runs in CI / never accidental):**
+1. `ALLOW_DB_INTEGRATION_TESTS=true` must be set explicitly (DESTRUCTIVE: creates/deletes auth users).
+2. `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` must be present.
+3. It is a standalone script — NOT part of `npm test`, so it can never run in the normal jest/CI path.
+Missing any guard → it **skips with exit 0** and prints the exact run command. `NEXT_PUBLIC_SUPABASE_ANON_KEY` (optional) enables the grant-rejection check. The COST-12 migration must be applied to the target DB first.
+
+**Run command:** `ALLOW_DB_INTEGRATION_TESTS=true node --env-file=.env.local scripts/verify-reserve-reconcile-rpcs.mjs` (PowerShell: `$env:ALLOW_DB_INTEGRATION_TESTS="true"; node --env-file=.env.local scripts/verify-reserve-reconcile-rpcs.mjs`).
+
+**Why required:** reserve/reconcile correctness depends on real DB semantics — row-level locking, atomic UPDATE predicates, CHECK constraints, partial unique indexes, idempotent state transitions, expiry release — none of which jest mocks exercise. This harness is the gate for COST-13 (service layer) and COST-14 (shadow-mode engine wiring) confidence.
+
+**Status at authoring:** the harness was **not executed** in this slice — the COST-12 migration has not been applied to a database, and no isolated/confirmed-safe test DB was authorized for the destructive create/delete-user run. Reported skipped; run it against a migrated test DB to produce the verification.
 
 ---
 
