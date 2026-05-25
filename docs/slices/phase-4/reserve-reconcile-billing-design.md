@@ -11,6 +11,37 @@
 
 ---
 
+## Implementation status
+
+| Slice | Status | Notes |
+|---|---|---|
+| **COST-11** | shipped (`6d7e46a1f`) | This design (doc-only). |
+| **COST-12** | shipped | DB foundation: `user_billing.tasks_reserved`, `workflow_runs` reservation/reconcile columns + `billing_status` CHECK, `task_usage_events` partial-unique idempotency indexes, and the four atomic RPCs (`reserve_tasks_if_available`, `reconcile_task_reservation`, `release_task_reservation`, `release_expired_reservations`) + thin `userBilling` repo wrappers. **No engine wiring, no live-billing change, flat `deduct_tasks_if_available` left intact.** See note below. |
+| COST-13 | future | Service layer behind `ENABLE_RESERVE_RECONCILE` (off). |
+| COST-14 | future | Engine shadow mode. |
+| COST-15 | future | Internal users. |
+| COST-16 | future | Production cutover. |
+| COST-17 | future | Flat-gate cleanup. |
+
+### COST-12 implementation note
+
+**Schema/RPC FOUNDATION only — nothing calls these yet.** Migration [`20260525000002_reserve_reconcile_billing.sql`](../../../supabase/migrations/20260525000002_reserve_reconcile_billing.sql):
+
+- **`user_billing.tasks_reserved int NOT NULL DEFAULT 0`** + `CHECK (>= 0)`. `available = tasks_limit − tasks_used − tasks_reserved`. The `used + reserved <= limit` invariant is enforced by the reserve RPC predicate (a real counter is required so the check is atomic under the row lock; ledger sums cannot prevent concurrent overspend). Existing users default to 0 — flat billing keeps working.
+- **`workflow_runs`** adds nullable `reserved_task_cost`, `reconciled_task_cost`, `billing_status` (CHECK `NULL | reserved | reconciled | released | failed`), `reservation_id`, `reservation_expires_at`, `billing_reconciled_at` + a partial sweep index. Existing/flat rows stay NULL and are NOT reinterpreted as reserve/reconcile billed. No backfill.
+- **`task_usage_events` idempotency:** two **partial** unique indexes — run-level `(user_id, workflow_run_id, event_type) WHERE node_id IS NULL` and node-level `(user_id, workflow_run_id, node_id, event_type) WHERE node_id IS NOT NULL`, both requiring `workflow_run_id IS NOT NULL`. Future `internal_poll_*` events lacking a run id are deliberately unconstrained (no natural key yet). Existing rows are already unique under these keys.
+- **RPCs** (all `SECURITY DEFINER`, `search_path = public`, `REVOKE` from public/anon/authenticated, `GRANT EXECUTE` to `service_role` — same posture as `deduct_tasks_if_available`, which is **left untouched** as the rollout fallback):
+  - `reserve_tasks_if_available(p_user_id, p_amount, p_run_id, p_expires_at?)` — atomic capacity hold; predicate `tasks_used + tasks_reserved + p_amount <= tasks_limit`; idempotent on `billing_status`; `p_amount = 0` reserves without a balance write; insufficient → marks run `failed`, `ok:false`.
+  - `reconcile_task_reservation(p_user_id, p_run_id, p_actual)` — `charge = least(actual, reserved)`, `refund = reserved − charge`; `tasks_used += charge`, `tasks_reserved -= reserved` (clamped `>= 0`); idempotent on `reconciled`; over-reserve clamped + `reason: reconcile_over_reserve`.
+  - `release_task_reservation(p_user_id, p_run_id)` — full release without charge; idempotent.
+  - `release_expired_reservations(p_now?)` — sweep `reserved` holds past expiry; idempotent; cron/service-intended.
+- **Caller contract:** a reservation **is** the run — RPCs mutate `workflow_runs` keyed by run id, so the caller (COST-14) MUST ensure the run row exists before reserving (today the engine writes it at finalize; creating it at reserve time is a documented COST-14 prerequisite).
+- **Period reset:** none exists in the DB today; a future reset job MUST also zero `tasks_reserved` / rely on the expiry sweep (documented in the migration header).
+- **Repo wrappers** added to [`repositories/userBilling.ts`](../../../repositories/userBilling.ts): `reserveTasks`, `reconcileReservation`, `releaseReservation`, `releaseExpiredReservations` — thin pass-throughs (RPC is the authoritative mutator; no read-then-write). Unit tests in [`userBilling.test.ts`](../../../tests/unit/repositories/userBilling.test.ts) cover wrapper mapping + error propagation. **RPC behavior** (atomicity, idempotency, clamping, non-negativity) requires a live-DB/pgTAP harness the repo does not have yet — deferred to that harness per §17.
+- **Unchanged:** no engine integration, no service layer, no feature flag, no live-billing change, no UI, AI paused.
+
+---
+
 ## 1. Executive summary
 
 **Recommendation: do NOT flip live billing directly from flat 1/run to per-node actual charges.** A naive "deduct after each successful node" model double-charges on retries, races concurrent runs into negative balance, and can perform external side effects the user can't pay for. Instead, adopt a **reserve → execute → reconcile** pipeline that reuses everything COST-1..7 already built.
