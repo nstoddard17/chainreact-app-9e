@@ -337,6 +337,25 @@ import { trelloCardsResolver } from "@/integrations/trello/options/cards";
 import { trelloMembersResolver } from "@/integrations/trello/options/members";
 import { trelloLabelsResolver } from "@/integrations/trello/options/labels";
 
+// Microsoft OneDrive resolvers — Slice 4.ONEDRIVE-META-2 (resolver-first
+// ahead of ONEDRIVE-META-3 metas; OneDrive stays OUT of COVERED_PROVIDERS
+// until those land).
+//   - `microsoft-onedrive:folders` — account-scoped ROOT folder picker (no
+//     deps). Backs the destination-folder fields (`parentItemId` on
+//     upload/create/list, `targetParentItemId` on move/copy). First pass is
+//     root-level only (Graph lists one level at a time; recursive cascade
+//     deferred). value = opaque DriveItem id.
+//   - `microsoft-onedrive:items` (dep: parentItemId) — files + folders in a
+//     chosen folder. Backs `itemId` (get/delete/move/copy) via the UI-scope
+//     parentItemId field added in ONEDRIVE-META-3.
+// Both REUSE the existing `api/driveItemsList` helper (no new read helper —
+// OneDrive's api/ is not mutation-only). Auth is refreshable → resolvers use
+// `refreshAndRetry` (Excel/OneNote pattern), NOT decrypt-direct.
+// `microsoft-onedrive:drives` is intentionally NOT registered (single
+// personal drive under Files.ReadWrite; no driveId in any schema).
+import { microsoftOneDriveFoldersResolver } from "@/integrations/microsoft-onedrive/options/folders";
+import { microsoftOneDriveItemsResolver } from "@/integrations/microsoft-onedrive/options/items";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -473,6 +492,14 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   trelloCardsResolver,
   trelloMembersResolver,
   trelloLabelsResolver,
+  // Slice 4.ONEDRIVE-META-2 — 2 Microsoft OneDrive resolvers
+  // (resolver-first ahead of ONEDRIVE-META-3 metas). folders (root, no dep)
+  // + items (dep: parentItemId). Both reuse api/driveItemsList; auth is
+  // refreshable (refreshAndRetry). `microsoft-onedrive:drives` intentionally
+  // absent (single personal drive). OneDrive stays OUT of COVERED_PROVIDERS
+  // until ONEDRIVE-META-3.
+  microsoftOneDriveFoldersResolver,
+  microsoftOneDriveItemsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

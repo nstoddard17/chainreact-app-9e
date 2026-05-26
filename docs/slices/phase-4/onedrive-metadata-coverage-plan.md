@@ -182,3 +182,44 @@ On completion, update [`provider-metadata-launch-gap-tracker.md`](./provider-met
 7. **Trigger has no config** — `file_changed` watches the whole drive root; `TriggerMeta.fields:[]`. Don't fabricate a folder filter the runtime can't honor.
 8. **`downloadUrl` is sensitive everywhere** (upload/get/list-nested/trigger) — `@microsoft.graph.downloadUrl` pre-signed URL + suspicious-name set. Must be marked or `sensitive-output-coverage` fails.
 9. **Auth = refreshable** — resolvers use `refreshAndRetry({provider:"microsoft-onedrive", accountId})` (Excel/OneNote pattern), NOT Trello's decrypt-direct.
+
+---
+
+## 9. ONEDRIVE-META-2 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 2 options resolvers + shared helpers + tests. **No** ActionMeta/TriggerMeta, **no** UI-scope `parentItemId` schema fields, **no** `COVERED_PROVIDERS` flip — those remain ONEDRIVE-META-3. OneDrive is still `hasMetadata:false` ("coming soon") after this slice; resolver-first, matching the Excel/Airtable/Trello order.
+
+### 9.1 Resolvers added (`integrations/microsoft-onedrive/options/`)
+
+| Source | requiredDeps | helper | value | label | description | order | hasMore |
+|---|---|---|---|---|---|---|---|
+| `microsoft-onedrive:folders` | — | **reuse `driveItemsList`** (root) + client folder-filter | DriveItem id | name → id | `Modified YYYY-MM-DD` | **alpha sort** (root picker) | `nextLink !== null` |
+| `microsoft-onedrive:items` | `["parentItemId"]` | **reuse `driveItemsList`** (parent's children) | DriveItem id | name → id | `"Folder"` / file `mimeType` / `"File"` | preserve Graph order | `nextLink !== null` |
+
+Shared helpers in `options/_shared.ts`: `PAGE_SIZE` (100), `requireOneDriveIntegration`, `requireDep`, `mapOneDriveOptionsError`, `filterByLabel`, `formatModified`.
+
+### 9.2 Helper reuse confirmed (no new read helper)
+
+Both resolvers reuse the **existing `api/driveItemsList`** wrapper (`GET /me/drive/root/children` for folders; `GET /me/drive/items/{parentItemId}/children` for items). **No new read helper was added** — OneDrive's `api/` already had a list helper (contrast Trello/Airtable, whose `api/` was mutation-only and needed new `*List` helpers). No transport / error-mapping duplicated. **No runtime handler behavior changed.**
+
+### 9.3 Dependency name + auth
+
+`microsoft-onedrive:items` depends on **`parentItemId`** (verbatim — the UI-scope field ONEDRIVE-META-3 adds to `getFile`/`deleteItem`/`moveItem`/`copyItem`). Single-parent cascade (no multi-parent). **Auth = refreshable** → both resolvers wrap the Graph read in `refreshAndRetry({provider:"microsoft-onedrive", accountId: providerAccountId})` (Excel/OneNote pattern), NOT decrypt-direct.
+
+### 9.4 Cascade fallback + error sanitization
+
+`microsoft-onedrive:items`: missing/empty `parentItemId` → `MISSING_DEPENDENCY` (no API call); deleted/no-access parent folder (`NotFoundError`) → **empty items** (not an error). `folders` (root) has no parent, so no NotFound cascade. Both: `IntegrationActionRequiredError`/`Unauthorized401Error` → `INTEGRATION_DISCONNECTED`; any other error → `PROVIDER_ERROR` with a static message. Sanitized strings never carry the token, raw Graph bodies, file contents, or `@microsoft.graph.downloadUrl` URLs (regression test: a downloadUrl in the payload never reaches resolver output).
+
+### 9.5 First-pass scope + rejected resolver (unchanged)
+
+`folders` lists **root-level** folders only (Graph lists one level at a time; a recursive/full-tree folder crawl is **deferred** — not built here). Deeper destinations typeable; `itemId` commonly trigger-fed. **`microsoft-onedrive:drives` remains REJECTED** (single personal drive; no `driveId` in any schema) — registry test asserts it stays absent.
+
+### 9.6 Tests
+
+- `tests/unit/integrations/microsoft-onedrive/options/folders.test.ts` — shape, refreshAndRetry-pinned-to-accountId, `driveItemsList(root, PAGE_SIZE)` call, folders-only filter, value/label/Modified-description mapping, alpha sort, q filter, hasMore from nextLink, integration-null/auth → `INTEGRATION_DISCONNECTED`, other → `PROVIDER_ERROR` no-leak.
+- `tests/unit/integrations/microsoft-onedrive/options/items.test.ts` — shape (dep `parentItemId`), call with parentItemId, files+folders mapping (Folder/mimeType/File), **no downloadUrl/content leak**, `MISSING_DEPENDENCY`, `NotFoundError` → empty items, q filter, hasMore, auth/provider-error sanitization.
+- Registry block in `tests/unit/services/options/_registry.test.ts` — both keys registered, deps verbatim, `microsoft-onedrive:drives` absent.
+
+### 9.7 Carried to ONEDRIVE-META-3
+
+7 ActionMeta + 4 UI-scope `parentItemId` schema additions (get/delete/move/copy) + 1 TriggerMeta (`fields:[]`) + discovery sub-registry + `COVERED_PROVIDERS` flip. (Marcus decisions locked: FileRef deferred — `content` textarea, `downloadUrl` sensitive string; `delete_item` = high/destructive/requiresConfirmation.)

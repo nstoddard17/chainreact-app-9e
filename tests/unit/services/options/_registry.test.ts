@@ -656,6 +656,47 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Microsoft OneDrive resolvers (Slice 4.ONEDRIVE-META-2)", () => {
+    it("getOptionsResolver resolves microsoft-onedrive:folders (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("microsoft-onedrive:folders");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("microsoft-onedrive:folders");
+      expect(r?.provider).toBe("microsoft-onedrive");
+      expect(r?.requiresIntegration).toBe(true);
+      // Root folder picker — no parent field.
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves microsoft-onedrive:items (dependsOn parentItemId)", () => {
+      const r = getOptionsResolver("microsoft-onedrive:items");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("microsoft-onedrive");
+      expect(r?.requiresIntegration).toBe(true);
+      // `parentItemId` matches the UI-scope field ONEDRIVE-META-3 adds to
+      // the item-targeted schemas. Single-parent — no multi-parent.
+      expect(r?.requiredDeps).toEqual(["parentItemId"]);
+    });
+
+    it("registers exactly the 2 ONEDRIVE-META-2 resolver keys", () => {
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "microsoft-onedrive")
+        .map((r) => r.source)
+        .sort();
+      expect(sources).toEqual([
+        "microsoft-onedrive:folders",
+        "microsoft-onedrive:items",
+      ]);
+    });
+
+    it("does NOT register microsoft-onedrive:drives (single personal drive; rejected for v1)", () => {
+      expect(getOptionsResolver("microsoft-onedrive:drives")).toBeUndefined();
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "microsoft-onedrive")
+        .map((r) => r.source);
+      expect(sources).not.toContain("microsoft-onedrive:drives");
+    });
+  });
+
   it("OPTIONS_SOURCE_KEY_REGEX rejects malformed keys it should reject", () => {
     // Sanity on the regex used at module load.
     expect("slack:channels").toMatch(OPTIONS_SOURCE_KEY_REGEX);
