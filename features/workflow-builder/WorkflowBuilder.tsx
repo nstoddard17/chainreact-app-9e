@@ -6,6 +6,7 @@ import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { ConfigModalShell } from "./config-modal/ConfigModalShell";
 import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
+import { BuilderAiPanel } from "./panels/BuilderAiPanel";
 import { RunNowPanel } from "./panels/RunNowPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
@@ -97,6 +98,7 @@ export function WorkflowBuilder({
           <NodeList providerLabels={providerLabels} />
           <RunNowPanel />
           <RunResultsPanel />
+          <BuilderAiPanel />
         </div>
         <ConfigModalShell />
       </div>
