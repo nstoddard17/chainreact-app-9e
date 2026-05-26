@@ -35,6 +35,20 @@ import { z } from "zod";
  *     optional. The `add_attendees` action exposes `attendeeType`
  *     explicitly for that.
  *
+ * Builder-friendly flat-time-fields shim (Slice 4.OUTLOOK-CAL-META-2):
+ *   FieldMetaSchema has no nested-object FieldType, so the builder cannot
+ *   reasonably ask workflow authors to hand-type `{"dateTime":"…","timeZone":"…"}`
+ *   JSON. Approach A adds an ADDITIVE, NARROW preprocess that accepts
+ *   the flat shape `{startDateTime, startTimeZone?, endDateTime, endTimeZone?}`
+ *   and normalizes it to the canonical nested shape BEFORE strict
+ *   validation. The handler is unchanged — it always receives the
+ *   nested shape after parse(). Direct nested-input callers (existing
+ *   handler tests, API consumers) continue to work without changes.
+ *
+ *   Decision: if BOTH nested and flat are present (e.g. mixed paste),
+ *   nested wins. Empty/whitespace-only flat strings are ignored (treated
+ *   as "field absent" — Q11 cross-field validation still fires).
+ *
  * Strict mode rejects unknown fields.
  */
 
@@ -64,7 +78,61 @@ const AttendeesField = z.union([
   z.array(z.string()),
 ]);
 
-export const CreateEventConfigSchema = z
+/**
+ * Approach-A normalizer: rewrites `{startDateTime, startTimeZone?, …}`
+ * (builder shape) into `{start: {dateTime, timeZone?}, end: …}` (runtime
+ * shape) before strict validation. Pass-through when only the nested
+ * shape is present (zero behavior change for existing callers). Mixed
+ * input (nested + flat) prefers nested.
+ */
+function normalizeFlatStartEnd(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as Record<string, unknown>;
+
+  const hasFlat =
+    "startDateTime" in r ||
+    "endDateTime" in r ||
+    "startTimeZone" in r ||
+    "endTimeZone" in r;
+  if (!hasFlat) return r;
+
+  const {
+    startDateTime,
+    startTimeZone,
+    endDateTime,
+    endTimeZone,
+    start: nestedStart,
+    end: nestedEnd,
+    ...rest
+  } = r;
+
+  const out: Record<string, unknown> = { ...rest };
+
+  // Nested wins on mixed input.
+  if (nestedStart !== undefined) {
+    out.start = nestedStart;
+  } else if (typeof startDateTime === "string" && startDateTime.trim().length > 0) {
+    const s: Record<string, unknown> = { dateTime: startDateTime };
+    if (typeof startTimeZone === "string" && startTimeZone.trim().length > 0) {
+      s.timeZone = startTimeZone;
+    }
+    out.start = s;
+  }
+
+  if (nestedEnd !== undefined) {
+    out.end = nestedEnd;
+  } else if (typeof endDateTime === "string" && endDateTime.trim().length > 0) {
+    const e: Record<string, unknown> = { dateTime: endDateTime };
+    if (typeof endTimeZone === "string" && endTimeZone.trim().length > 0) {
+      e.timeZone = endTimeZone;
+    }
+    out.end = e;
+  }
+
+  return out;
+}
+
+const RawCreateEventConfigSchema = z
   .object({
     /** Required, may be empty (Graph accepts no-subject events). */
     subject: z.string(),
@@ -99,5 +167,10 @@ export const CreateEventConfigSchema = z
       path: ["bodyContentType"],
     },
   );
+
+export const CreateEventConfigSchema = z.preprocess(
+  normalizeFlatStartEnd,
+  RawCreateEventConfigSchema,
+);
 
 export type CreateEventConfig = z.infer<typeof CreateEventConfigSchema>;

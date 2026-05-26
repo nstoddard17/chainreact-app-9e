@@ -272,6 +272,32 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // DEFERRED (fileId typeable/trigger-fed); `:items` / `:shared_drives`
   // REJECTED (no consumers) — none referenced.
   "google-drive",
+  // Microsoft Outlook Calendar added in Slice 4.OUTLOOK-CAL-META-2 — the
+  // FINAL launch-gap provider. All 5 registered runtime action handlers
+  // (create_event, list_events, update_event, delete_event, add_attendees)
+  // have a matching meta. From here on, adding a new Outlook Calendar
+  // handler without a meta (or vice-versa) fails this structural test.
+  // The 1 Graph-subscription webhook trigger meta (`event_changed`,
+  // `fields:[]` — no per-workflow filtering) ships in the same slice;
+  // trigger coverage is enforced by trigger-meta-activation-invariant,
+  // not here. `delete_event` = high/destructive/requiresConfirmation
+  // (Microsoft Graph auto-notifies attendees of cancellation per tenant
+  // mail-flow policy — no caller suppress knob). ZERO resolvers (no
+  // `calendarId` field anywhere — actions pinned to /me/events; no
+  // consumer for calendars / categories / timezones / events resolvers
+  // — all rejected-or-deferred, none referenced). Approach-A flat-time-
+  // fields shim on create_event + update_event schemas (additive Zod
+  // preprocess; nested shape still works — existing direct-handler tests
+  // unchanged). Sensitive (deliberate plan-marks + `body` FORCED by
+  // SUSPICIOUS_NAMES): attendees / organizer / events / attendeesAdded /
+  // attendeesAlreadyPresent / onlineMeetingUrl + trigger payload `body`.
+  // **Reaching this entry closes the launch-gap tracker (26/26) — but
+  // per the OUTLOOK-CAL-META-1 plan §10 closeout reminder, "26/26
+  // covered" ≠ "provider foundation fully complete." Deferred ≠ deleted
+  // (Stripe event_received trigger, Discord/Docs/OneNote/Monday/Dropbox/
+  // Facebook triggers, GCal-calendars-resolver, GDrive-files/share/export,
+  // OneDrive-FileRef, Teams-chats, Outlook-meetings — all backlog).**
+  "microsoft-outlook-calendar",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

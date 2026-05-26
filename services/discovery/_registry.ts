@@ -351,6 +351,16 @@ import {
   GOOGLE_DRIVE_ACTION_METAS,
   GOOGLE_DRIVE_TRIGGER_METAS,
 } from "./providers/google-drive";
+// Microsoft Outlook Calendar (Slice 4.OUTLOOK-CAL-META-2 — final
+// launch-gap provider). 5 actions + 1 Graph-subscription webhook
+// trigger. ZERO resolvers (no calendarId field anywhere — actions
+// pinned to /me/events; no per-trigger filtering). Approach-A flat-
+// time-fields shim on create_event + update_event schemas (additive
+// Zod preprocess; nested shape still works).
+import {
+  MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS,
+  MICROSOFT_OUTLOOK_CALENDAR_TRIGGER_METAS,
+} from "./providers/microsoft-outlook-calendar";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -644,6 +654,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...MICROSOFT_TEAMS_ACTION_METAS, // Microsoft Teams (TEAMS-META-3) — 5 actions, displayOrder 10..50.
   ...GOOGLE_CALENDAR_ACTION_METAS, // Google Calendar (GCAL-META-2) — 5 actions, displayOrder 10..50.
   ...GOOGLE_DRIVE_ACTION_METAS, // Google Drive (GDRIVE-META-2) — 5 actions, displayOrder 10..50.
+  ...MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS, // Microsoft Outlook Calendar (OUTLOOK-CAL-META-2) — 5 actions, displayOrder 10..50.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -791,6 +802,14 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("google-drive","file_changed",...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...GOOGLE_DRIVE_TRIGGER_METAS,
+  // Microsoft Outlook Calendar (OUTLOOK-CAL-META-2 — final launch-gap
+  // provider) — 1 Graph-subscription webhook trigger (event_changed;
+  // fields:[]; no per-workflow filtering). Activation registered in
+  // integrations/microsoft-outlook-calendar/triggers/eventChanged/index.ts
+  // → registerActivation("microsoft-outlook-calendar","event_changed",...),
+  // so the trigger-meta-activation-invariant test passes without an
+  // exemption.
+  ...MICROSOFT_OUTLOOK_CALENDAR_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

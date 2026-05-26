@@ -29,6 +29,17 @@ import { z } from "zod";
  * At least one mutable field beyond `eventId` must be provided —
  * otherwise the PATCH is a no-op that wastes a round-trip.
  *
+ * Builder-friendly flat-time-fields shim (Slice 4.OUTLOOK-CAL-META-2 —
+ * Approach A; same mechanism as `createEvent.schema.ts`): an ADDITIVE,
+ * NARROW preprocess accepts `{startDateTime, startTimeZone?, endDateTime,
+ * endTimeZone?}` and normalizes to the nested shape BEFORE strict
+ * validation. Both `start` and `end` are optional on update; the flat
+ * fields are therefore also all optional. Nested wins on mixed input.
+ * The "at least one mutable field" refine sees the post-normalize
+ * shape, so providing only `startDateTime` (without `endDateTime`)
+ * satisfies the refine but Graph still rejects the one-sided time edit
+ * — same documented behavior as before.
+ *
  * Strict mode rejects unknown fields.
  */
 
@@ -41,7 +52,59 @@ const DateTimeFieldSchema = z
 
 const AttendeesField = z.union([z.string(), z.array(z.string())]);
 
-export const UpdateEventConfigSchema = z
+/**
+ * Approach-A normalizer (update variant — both start and end are
+ * optional). Mirrors `createEvent.schema.ts`'s normalizer; difference is
+ * the schema accepts EITHER side independently (you can update just
+ * start without end, even though Graph will reject the one-sided edit).
+ */
+function normalizeFlatStartEnd(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as Record<string, unknown>;
+
+  const hasFlat =
+    "startDateTime" in r ||
+    "endDateTime" in r ||
+    "startTimeZone" in r ||
+    "endTimeZone" in r;
+  if (!hasFlat) return r;
+
+  const {
+    startDateTime,
+    startTimeZone,
+    endDateTime,
+    endTimeZone,
+    start: nestedStart,
+    end: nestedEnd,
+    ...rest
+  } = r;
+
+  const out: Record<string, unknown> = { ...rest };
+
+  if (nestedStart !== undefined) {
+    out.start = nestedStart;
+  } else if (typeof startDateTime === "string" && startDateTime.trim().length > 0) {
+    const s: Record<string, unknown> = { dateTime: startDateTime };
+    if (typeof startTimeZone === "string" && startTimeZone.trim().length > 0) {
+      s.timeZone = startTimeZone;
+    }
+    out.start = s;
+  }
+
+  if (nestedEnd !== undefined) {
+    out.end = nestedEnd;
+  } else if (typeof endDateTime === "string" && endDateTime.trim().length > 0) {
+    const e: Record<string, unknown> = { dateTime: endDateTime };
+    if (typeof endTimeZone === "string" && endTimeZone.trim().length > 0) {
+      e.timeZone = endTimeZone;
+    }
+    out.end = e;
+  }
+
+  return out;
+}
+
+const RawUpdateEventConfigSchema = z
   .object({
     eventId: z.string().min(1, "eventId is required."),
     subject: z.string().optional(),
@@ -83,5 +146,10 @@ export const UpdateEventConfigSchema = z
       path: ["bodyContentType"],
     },
   );
+
+export const UpdateEventConfigSchema = z.preprocess(
+  normalizeFlatStartEnd,
+  RawUpdateEventConfigSchema,
+);
 
 export type UpdateEventConfig = z.infer<typeof UpdateEventConfigSchema>;

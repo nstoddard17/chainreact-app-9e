@@ -198,21 +198,18 @@ describe("GET /api/providers", () => {
     expect(onenote?.hasMetadata).toBe(true);
   });
 
-  it("marks providers still without any metadata (e.g. microsoft-outlook-calendar) as hasMetadata=false", async () => {
-    // google-drive flipped to hasMetadata=true in Slice 4.GDRIVE-META-2, so
-    // microsoft-outlook-calendar is now the only still-pending launch-scope
-    // provider.
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const outlookCal = body.providers.find(
-      (p) => p.id === "microsoft-outlook-calendar",
-    );
-    expect(outlookCal).toBeDefined();
-    expect(outlookCal?.hasMetadata).toBe(false);
-  });
+  // Slice 4.OUTLOOK-CAL-META-2 (final launch-gap provider) closed the
+  // launch-gap tracker — `microsoft-outlook-calendar` flipped to
+  // hasMetadata=true. The prior "name a still-pending launch-scope
+  // provider" assertion is RETIRED rather than relocated to a deferred
+  // surface: per the OUTLOOK-CAL-META-1 plan §10 closeout reminder,
+  // "26/26 covered" ≠ "provider foundation fully complete," but the
+  // remaining backlog (Stripe event_received TriggerMeta, Discord /
+  // Docs / OneNote / Monday / Dropbox / Facebook triggers, deferred
+  // resolvers across GCal / GDrive / Teams / OneDrive) lives in distinct
+  // arc plans and shouldn't be inlined here as a single example. The
+  // positive `microsoft-outlook-calendar hasMetadata=true` assertion
+  // below replaces this block.
 
   it("marks Google Calendar as hasMetadata=true now that Slice 4.GCAL-META-2 shipped its action + trigger metas", async () => {
     authedUser();
@@ -234,6 +231,19 @@ describe("GET /api/providers", () => {
     const drive = body.providers.find((p) => p.id === "google-drive");
     expect(drive).toBeDefined();
     expect(drive?.hasMetadata).toBe(true);
+  });
+
+  it("marks Microsoft Outlook Calendar as hasMetadata=true now that Slice 4.OUTLOOK-CAL-META-2 shipped its action + trigger metas (FINAL launch-gap provider — tracker closes at 26/26)", async () => {
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const outlookCal = body.providers.find(
+      (p) => p.id === "microsoft-outlook-calendar",
+    );
+    expect(outlookCal).toBeDefined();
+    expect(outlookCal?.hasMetadata).toBe(true);
   });
 
   it("marks Microsoft Teams as hasMetadata=true now that Slice 4.TEAMS-META-3 shipped its action + trigger metas", async () => {

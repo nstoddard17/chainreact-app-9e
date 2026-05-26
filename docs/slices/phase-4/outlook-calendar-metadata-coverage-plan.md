@@ -302,3 +302,84 @@ On completion, update [`provider-metadata-launch-gap-tracker.md`](./provider-met
 9. **`providers-route.test.ts` after 26/26** — there is no remaining "still-pending example" to point at. META-2 should retire the assertion block OR pivot it to a known-deferred-trigger provider (e.g., assert "Stripe is COVERED but has no shipped trigger meta"). Plan suggests: retire the block, add a positive `microsoft-outlook-calendar hasMetadata:true` assertion.
 10. **`_registry.ts` will likely cross 462 lines** (pre-existing pattern: ~6 lines per provider via import + 2 spreads — was 456 after GDRIVE-META-2). Same pre-existing max-lines warning; refactor opportunity documented across all sibling closeouts.
 11. **Branch/worktree caution.** Authored on the shared `ai-12c-planner-json-only-hardening` branch with interleaved AI + provider commits; explicit-path staging only; verify branch topology before any push/PR.
+
+---
+
+## 11. OUTLOOK-CAL-META-2 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 5 ActionMeta + 1 TriggerMeta + discovery sub-registry + `COVERED_PROVIDERS` flip + Approach-A flat-time-fields schema shim + tests + docs. **Microsoft Outlook Calendar is now builder-visible — `/api/providers` reports `hasMetadata:true`.** Covered providers **25/26 → 26/26 — launch-gap tracker CLOSES.** **No new resolvers, no billing change, no FileRef runtime.** Single implementation slice — same 2-slice compression as GCAL-META / GDRIVE-META. **The Approach-A schema relaxation is the only runtime touch — narrow, additive, behavior-preserving** (existing direct-handler tests passing nested input continue to work unchanged; 161 existing Outlook Calendar tests + 295 targeted-slice tests + 10,119 broad-regression tests all pass).
+
+### 11.1 ActionMeta (5, displayOrder 10..50) — `integrations/microsoft-outlook-calendar/actions/<action>.meta.ts`
+
+`create_event` (10), `list_events` (20), `update_event` (30), `delete_event` (40), `add_attendees` (50). All `category:"calendar"`, `requiresIntegration:true`, all `producesFileRef:false`/`consumesFileRef:false`.
+
+- **Risk:** `create_event` / `update_event` / `add_attendees` **medium**; `list_events` **low**; **`delete_event` high + `isDestructive:true` + `requiresConfirmation:true`** (Microsoft Graph auto-notifies attendees per tenant mail-flow policy — no caller suppress knob; mirrors GCal/OneDrive/Airtable destructive trio). `riskDescription` explicitly says "no caller-side knob to suppress."
+- **Q11 required wired:** `create_event.{isAllDay, responseRequested}` required booleans; `add_attendees.attendeeType` required select(`required`/`optional`); `bodyContentType` lives as field-level optional with help text (cross-field rule enforced by schema refine).
+
+### 11.2 Approach-A flat-time-fields schema shim (the only runtime touch)
+
+`createEvent.schema.ts` and `updateEvent.schema.ts` now wrap their canonical strict schemas in `z.preprocess(normalizeFlatStartEnd, …)`. The normalizer:
+- Passes input through unchanged when only the nested `start`/`end` shape is present (zero behavior change for direct-handler callers / API consumers).
+- When flat fields are present (`startDateTime` / `startTimeZone` / `endDateTime` / `endTimeZone`), translates them into the nested shape before strict validation.
+- Empty / whitespace-only flat strings are treated as absent (the Q11 "both required" invariant still fires on create_event).
+- Mixed input prefers nested.
+- Strips the flat keys before strict validation, so the `.strict()` rejection of unknown fields is preserved.
+
+The meta exposes only the 4 flat fields (no nested `start`/`end` field) — the builder UX is honest text inputs; the handler receives the canonical nested shape after parse.
+
+### 11.3 No resolver wiring
+
+Zero `optionsSource` references anywhere on the 5 actions or the trigger (asserted by tests). `eventId` on update/delete/add_attendees is typeable text. `microsoft-outlook-calendar:calendars` / `:events` / `:timezones` / `:categories` all rejected-or-deferred per §3 — none referenced.
+
+### 11.4 TriggerMeta (1 Graph subscription webhook) — `triggers/eventChanged/eventChanged.meta.ts`
+
+`event_changed`: `activation:"webhook"`, `requiresIntegration:true`, `category:"calendar"`, **`fields:[]`** (runtime has no per-workflow filtering — mirrors OneDrive `file_changed`). 17-field payload (matches `normalize.ts` exactly).
+
+### 11.5 Discovery + COVERED + retired pending-example block
+
+New `services/discovery/providers/microsoft-outlook-calendar.ts` (`MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS` ×5 + `MICROSOFT_OUTLOOK_CALENDAR_TRIGGER_METAS` ×1), spread into `services/discovery/_registry.ts`. `microsoft-outlook-calendar` added to `COVERED_PROVIDERS` with an inline-comment §10 closeout reminder. **`providers-route.test.ts` "still-pending example" block RETIRED** (per slice instruction "prefer retiring") — replaced with a positive `microsoft-outlook-calendar hasMetadata:true` assertion that mirrors the Google Drive / Calendar / Teams positive assertions. The retired block's comment explains why (deferred items live in distinct arc plans, not inlined as a single example).
+
+### 11.6 Sensitive-output handling
+
+**`body` (trigger payload) FORCED sensitive by `sensitive-output-coverage` (name in SUSPICIOUS_NAMES)** — plan complies. **Plan-marked (deliberate, not blanket):**
+- `attendees` arrays on `create_event` / `update_event` outputs + the trigger payload (email PII; kept as flat `array` without nested `fields[]`).
+- `organizer` objects on `create_event` / `update_event` outputs + the trigger payload (organizer email PII; kept as flat `object` without nested `fields[]`).
+- `events` array on `list_events` (bulk read carrying attendee + organizer emails + onlineMeetingUrl).
+- `attendeesAdded` / `attendeesAlreadyPresent` arrays on `add_attendees`.
+- `onlineMeetingUrl` (trigger payload — Teams meeting join URL is access-bearing; mirror GCal `meetLink` Marcus decision).
+
+**NOT marked** (mirror precedent — ids / titles / location / dates / enums / `webLink` deeplink): `id` / `eventId`, `subject` (title-like — mirror Teams subject / GCal summary), `start`/`end` (date objects), `isAllDay`, `location` (string `displayName`), `webLink` (auth-gated deeplink — mirror OneDrive `webUrl` / GCal `htmlLink`), `count`, `hasMore`, `nextLink`, `deleted`, `alreadyMissing`, `attendeesTotal`, `importance`, `sensitivity` (the field, not the action-meta concept), `showAs`, `createdDateTime`, `lastModifiedDateTime`, `changeType`, `isOnlineMeeting`.
+
+### 11.7 Tests
+
+- `microsoft-outlook-calendar-discovery.test.ts` (action surface — 17 assertions across 5 describes).
+- `microsoft-outlook-calendar-triggers-discovery.test.ts` (trigger surface — 7 assertions including the `fields:[]` invariant + FORCED-`body` + plan-marked sensitive set).
+- `microsoft-outlook-calendar-provider-route.test.ts` (route — hasMetadata, action/trigger wire shape, Approach-A flat-time-fields visibility, NO-resolver-anywhere, destructive delete, sensitive marks).
+- **Schema-level Approach-A tests:** `createEvent.schema.test.ts` + `updateEvent.schema.test.ts` (8 + 8 assertions each: nested-passthrough regression guard, flat-normalization, omit-timeZone-when-absent, empty/whitespace-fails-required-pair, nested-wins-on-mixed, strict-mode-preserved, Q11-bodyContentType-refine-preserved, etc.).
+- `providers-route.test.ts` updated (pending-example block retired + positive Outlook Calendar assertion added).
+- Structure invariants: `discovery-meta-coverage` passes with `microsoft-outlook-calendar` in `COVERED_PROVIDERS` (1:1 handler↔meta, all 5); `trigger-meta-activation-invariant` passes (no exemption — already wired); `sensitive-output-coverage` passes (`body` FORCED, no nested `email` exposed).
+- **Targeted-slice: 295/295 across 27 suites. Broad regression: 10,119/10,119 across 896 suites** (full integrations/discovery/providers/contracts/structure).
+
+### 11.8 Acceptance criteria (§9) — met
+
+All 5 actions have ActionMeta; `event_changed` has TriggerMeta (`fields:[]`) + passing activation invariant; all resolvers explicitly deferred-or-rejected (none referenced); `/api/providers` Outlook Calendar `hasMetadata:true`; `microsoft-outlook-calendar` in `COVERED_PROVIDERS`; providers-route pending-example block retired (26/26 reached); structure invariants pass; targeted tests pass; **runtime handler behavior unchanged** — the Approach-A `z.preprocess` is narrow + additive (nested input → unchanged behavior); the Approach-A flat-time-fields decision + Marcus's destructive-delete / FileRef-deferred / `body`-FORCED-sensitive / `name`-not-sensitive / `onlineMeetingUrl`-sensitive decisions all signed off.
+
+### 11.9 Post-26/26 closeout reminder — the launch-gap tracker closes here BUT...
+
+**Per the OUTLOOK-CAL-META-1 plan §10, "26/26 covered" ≠ "provider foundation fully complete."** The launch-gap tracker closes with this slice, but several known follow-ups remain — captured in §10 of the plan doc + the tracker's status snapshot — and they are **deferred, not deleted**. A subsequent post-26/26 audit pass should walk the runtime handler registry, the trigger registrations, and every deferred item before declaring the provider foundation launch-ready. Known backlog:
+
+- **Stripe `event_received` TriggerMeta** — Stripe is COVERED for actions (16 metas) but its single webhook trigger has NO TriggerMeta. Future STRIPE-TRIGGER-META slice.
+- **Discord / Google Docs / OneNote / Monday / Dropbox / Facebook triggers** — actions COVERED, triggers in their own deferred arcs (DISCORD-5, GDOCS-5, ONENOTE-5, MONDAY-7, DROPBOX-5, FACEBOOK-5).
+- **Google Analytics triggers** — REJECTED per D-GA3 (no clean push/webhook; polling fragile). Actions-only is the accepted final state — distinct from "deferred."
+- **Shopify optional SHOPIFY-META-3 resolvers** — deferred.
+- **Excel `columns` resolver** — deferred.
+- **GCal `calendars` resolver** — deferred (scope-blocked; would force reconnect — optional GCAL-CALENDARS-RESOLVER follow-up).
+- **GCal `events` / `colors` resolvers** — deferred.
+- **GDrive `files` resolver** — deferred (optional GDRIVE-FILES-RESOLVER).
+- **GDrive FileRef** — deferred to future GDRIVE-FILEREF runtime slice.
+- **GDrive share / export actions** — `permissionsCreate` / `filesExport` API helpers exist (tested) but no action wires them; future GDRIVE-SHARE / GDRIVE-EXPORT.
+- **OneDrive FileRef** — deferred to future ONEDRIVE-FILEREF.
+- **Teams `chats` / `messages` resolvers** — deferred (chatId / messageId typeable / trigger-fed).
+- **Outlook Calendar online-meeting write toggle** — deferred to future OUTLOOK-CAL-MEETINGS runtime arc.
+
+**Rule going forward:** "Provider foundation launch-ready" requires a separate post-26/26 audit pass — not just `COVERED_PROVIDERS.size === 26`. Each deferred item still owns its definition-of-done; closing the tracker is a milestone, not a finish line.
