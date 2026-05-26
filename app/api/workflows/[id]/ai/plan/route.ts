@@ -4,6 +4,7 @@ import {
   planWorkflowFromPromptForAI,
   type PlanWorkflowFailureCode,
 } from "@/services/ai/planner";
+import { recordAiPlanOutcome } from "@/services/ai/events";
 import { parseJsonBody, requireUser } from "../../../_shared";
 
 /**
@@ -84,6 +85,15 @@ export async function POST(
       { error: "Failed to generate a workflow plan." },
       { status: 500 },
     );
+  }
+
+  // Fire-and-forget AI observability (AI-10). Fail-open: the recorder swallows
+  // its own errors; the extra try/catch is belt-and-suspenders so analytics can
+  // never affect the response. No raw prompt/config is recorded.
+  try {
+    await recordAiPlanOutcome({ userId: auth.userId, workflowId: id }, result);
+  } catch {
+    /* analytics must never break the route */
   }
 
   // Workflow not found / not owned → 404 (matches the route convention; no

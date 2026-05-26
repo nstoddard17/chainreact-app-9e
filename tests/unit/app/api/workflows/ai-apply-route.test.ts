@@ -23,6 +23,11 @@ jest.mock("@/services/ai/apply", () => ({
   applyWorkflowPatchForAI: (...a: unknown[]) => mockApply(...a),
 }));
 
+const mockRecordApply = jest.fn();
+jest.mock("@/services/ai/events", () => ({
+  recordAiApplyOutcome: (...a: unknown[]) => mockRecordApply(...a),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/apply/route";
 
 function call(id: string, body: unknown) {
@@ -71,6 +76,8 @@ beforeEach(() => {
   mockGetUser.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
   mockApply.mockReset();
+  mockRecordApply.mockReset();
+  mockRecordApply.mockResolvedValue(undefined);
 });
 
 describe("auth", () => {
@@ -192,6 +199,24 @@ describe("status mapping", () => {
     const body = await res.json();
     expect(JSON.stringify(body)).not.toContain("secret-connection-string");
     expect(body.error).toBe("Failed to apply the workflow patch.");
+  });
+});
+
+describe("AI-10 observability (fail-open)", () => {
+  it("records an apply event with the user/workflow/patchId + result", async () => {
+    mockApply.mockResolvedValueOnce(successResult);
+    await call("wf-1", { patch: samplePatch });
+    expect(mockRecordApply).toHaveBeenCalledWith(
+      { userId: "user-1", workflowId: "wf-1", patchId: "p1" },
+      expect.objectContaining({ ok: true }),
+    );
+  });
+
+  it("still returns 200 when event recording rejects (analytics never breaks the route)", async () => {
+    mockApply.mockResolvedValueOnce(successResult);
+    mockRecordApply.mockRejectedValueOnce(new Error("ledger down"));
+    const res = await call("wf-1", { patch: samplePatch });
+    expect(res.status).toBe(200);
   });
 });
 

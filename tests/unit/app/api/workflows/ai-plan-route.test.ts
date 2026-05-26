@@ -23,6 +23,11 @@ jest.mock("@/services/ai/planner", () => ({
   planWorkflowFromPromptForAI: (...a: unknown[]) => mockPlan(...a),
 }));
 
+const mockRecordPlan = jest.fn();
+jest.mock("@/services/ai/events", () => ({
+  recordAiPlanOutcome: (...a: unknown[]) => mockRecordPlan(...a),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/plan/route";
 
 function call(id: string, body: unknown) {
@@ -54,6 +59,8 @@ beforeEach(() => {
   mockGetUser.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
   mockPlan.mockReset();
+  mockRecordPlan.mockReset();
+  mockRecordPlan.mockResolvedValue(undefined);
 });
 
 describe("auth", () => {
@@ -208,6 +215,24 @@ describe("result mapping", () => {
     const body = await res.json();
     expect(JSON.stringify(body)).not.toContain("secret-connection-string");
     expect(body.error).toBe("Failed to generate a workflow plan.");
+  });
+});
+
+describe("AI-10 observability (fail-open)", () => {
+  it("records a plan event with the user/workflow + result", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", { prompt: "x" });
+    expect(mockRecordPlan).toHaveBeenCalledWith(
+      { userId: "user-1", workflowId: "wf-1" },
+      expect.objectContaining({ ok: true }),
+    );
+  });
+
+  it("still returns 200 when event recording rejects (analytics never breaks the route)", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    mockRecordPlan.mockRejectedValueOnce(new Error("ledger down"));
+    const res = await call("wf-1", { prompt: "x" });
+    expect(res.status).toBe(200);
   });
 });
 

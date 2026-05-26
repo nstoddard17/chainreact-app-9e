@@ -5,6 +5,7 @@ import {
   type ApplyErrorCode,
 } from "@/services/ai/apply";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
+import { recordAiApplyOutcome } from "@/services/ai/events";
 import { parseJsonBody, requireUser } from "../../../_shared";
 
 /**
@@ -94,6 +95,19 @@ export async function POST(
       { error: "Failed to apply the workflow patch." },
       { status: 500 },
     );
+  }
+
+  // Fire-and-forget AI observability (AI-10). Fail-open — never affects the
+  // response. No raw patch config is recorded (only ids / codes / counts).
+  const requestPatchId =
+    typeof body.data.patch.patchId === "string" ? body.data.patch.patchId : null;
+  try {
+    await recordAiApplyOutcome(
+      { userId: auth.userId, workflowId: id, patchId: requestPatchId },
+      result,
+    );
+  } catch {
+    /* analytics must never break the route */
   }
 
   const status = result.ok ? 200 : applyFailureStatus(result.code);
