@@ -63,11 +63,46 @@ export interface CatalogFieldOptions {
  *
  * Generic + metadata-driven: derived from `FieldMeta` on every node, no
  * per-provider logic.
+ *
+ * `multiple` (Slice 4.AI-16) is set when the field declares `multiple: true`
+ * on a `select` / `combobox` — its config VALUE must then be an array of
+ * option values (e.g. `enabledEvents: ["payment_intent.payment_failed"]`,
+ * NOT the scalar `"payment_intent.payment_failed"`). Omitted otherwise so
+ * single-pick fields stay lean in the catalog.
  */
 export interface CatalogConfigField {
   readonly name: string;
   readonly type: FieldType;
   readonly required: boolean;
+  /** Present only when the field is a multi-select (`select`/`combobox` with `multiple: true`). */
+  readonly multiple?: boolean;
+}
+
+/**
+ * Declared output grounding for one node (Slice 4.AI-16). Surfaces the EXACT
+ * top-level output names the model may use in `{{nodeId.<name>}}` /
+ * `{{trigger.<name>}}` variable references. Without this, the model
+ * hallucinates convenience outputs (e.g. `id`, `amount`, `currency`,
+ * `last_payment_error` on Stripe `event_received`) that the metadata
+ * never declared, and AI-3's variable-reference check rejects the patch
+ * as INVALID_VARIABLE_REFERENCE.
+ *
+ * `sensitive` is forwarded so the model can see that a container is
+ * opaque (the validator descends into `sensitive` / opaque object subtrees
+ * without name-checking — the model is steered to prefer top-level
+ * declared outputs anyway, but the flag explains why deeper paths are
+ * tolerated when needed).
+ *
+ * Nested `OutputMeta.fields[]` are deliberately NOT flattened here — keeps
+ * the compact catalog compact for the common case and forces the model to
+ * use declared top-level names. The full nested tree is still reachable
+ * via `getNodeSchema` for an explicit drill-down once the React-agent
+ * loop lands.
+ */
+export interface CatalogOutputField {
+  readonly name: string;
+  readonly type: string;
+  readonly sensitive?: boolean;
 }
 
 export interface CatalogActionEntry {
@@ -86,6 +121,13 @@ export interface CatalogActionEntry {
   readonly configFields: readonly CatalogConfigField[];
   /** Static-enum config fields, when any. Omitted when the node has none. */
   readonly configOptions?: readonly CatalogFieldOptions[];
+  /**
+   * The action's declared top-level output names — what downstream `{{...}}`
+   * variable references may safely use. Empty array when the action declares
+   * no outputs. Always present so the planner prompt can render a uniform
+   * outputs block (Slice 4.AI-16).
+   */
+  readonly outputs: readonly CatalogOutputField[];
 }
 
 export interface CatalogTriggerEntry {
@@ -102,6 +144,12 @@ export interface CatalogTriggerEntry {
   readonly configFields: readonly CatalogConfigField[];
   /** Static-enum config fields, when any. Omitted when the node has none. */
   readonly configOptions?: readonly CatalogFieldOptions[];
+  /**
+   * The trigger's declared top-level payload-shape names — what downstream
+   * `{{trigger.<name>}}` variable references may safely use. Empty array
+   * when the trigger declares no payload (Slice 4.AI-16).
+   */
+  readonly outputs: readonly CatalogOutputField[];
 }
 
 export interface ProviderCatalogEntry {
@@ -156,7 +204,8 @@ function extractStaticOptions(
  * Pull the declared config fields off a node's metadata (Slice 4.AI-12D).
  * Metadata-driven and provider-agnostic — every action / trigger gets exactly
  * the names + types + required flags declared in its `fields[]`, preserving
- * registry order.
+ * registry order. `multiple: true` is forwarded so the planner knows when a
+ * config value must be an ARRAY of option values (Slice 4.AI-16).
  */
 function extractConfigFields(
   fields: readonly FieldMeta[],
@@ -165,6 +214,23 @@ function extractConfigFields(
     name: f.name,
     type: f.type,
     required: f.required,
+    ...(f.multiple === true ? { multiple: true } : {}),
+  }));
+}
+
+/**
+ * Pull the declared TOP-LEVEL output names off a node's metadata (Slice
+ * 4.AI-16). Surfaces only `name` + `type` + (when set) `sensitive` — never
+ * descends into nested `fields[]`. The full nested tree stays available via
+ * `getNodeSchema` for an explicit drill-down once the React-agent loop lands.
+ */
+function extractOutputs(
+  outputs: readonly OutputMeta[],
+): readonly CatalogOutputField[] {
+  return outputs.map((o) => ({
+    name: o.name,
+    type: o.type,
+    ...(o.sensitive === true ? { sensitive: true } : {}),
   }));
 }
 
@@ -180,6 +246,7 @@ function toCatalogAction(m: ActionMeta): CatalogActionEntry {
     requiresIntegration: m.requiresIntegration,
     configFields: extractConfigFields(m.fields),
     ...(configOptions ? { configOptions } : {}),
+    outputs: extractOutputs(m.outputs),
   };
 }
 
@@ -193,6 +260,7 @@ function toCatalogTrigger(m: TriggerMeta): CatalogTriggerEntry {
     requiresIntegration: m.requiresIntegration,
     configFields: extractConfigFields(m.fields),
     ...(configOptions ? { configOptions } : {}),
+    outputs: extractOutputs(m.payloadShape),
   };
 }
 

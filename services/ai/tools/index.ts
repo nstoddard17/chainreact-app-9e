@@ -34,6 +34,7 @@ export {
   type ProviderCatalogEntry,
   type CatalogActionEntry,
   type CatalogConfigField,
+  type CatalogOutputField,
   type CatalogTriggerEntry,
   type ActionMetaView,
   type TriggerMetaView,

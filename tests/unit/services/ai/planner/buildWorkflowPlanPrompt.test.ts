@@ -15,6 +15,7 @@ import {
   PATCH_SHAPE_GUIDE,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
+  VALUE_SHAPE_RULES,
 } from "@/services/ai/planner/buildWorkflowPlanPrompt";
 import { SUPPORTED_OPERATION_KINDS } from "@/services/workflows/patch";
 import type { WorkflowPlanPromptInput } from "@/services/ai/planner/types";
@@ -45,6 +46,10 @@ function usableProvider(): ProviderCatalogEntry {
           { name: "channel", type: "combobox", required: true },
           { name: "text", type: "textarea", required: true },
         ],
+        outputs: [
+          { name: "channel", type: "string" },
+          { name: "ts", type: "string" },
+        ],
       },
       {
         key: "slack:delete_message",
@@ -58,6 +63,7 @@ function usableProvider(): ProviderCatalogEntry {
           { name: "channel", type: "combobox", required: true },
           { name: "ts", type: "text", required: true },
         ],
+        outputs: [],
       },
     ],
     triggers: [
@@ -69,6 +75,11 @@ function usableProvider(): ProviderCatalogEntry {
         requiresIntegration: true,
         configFields: [
           { name: "channel", type: "combobox", required: true },
+        ],
+        outputs: [
+          { name: "channel", type: "string" },
+          { name: "text", type: "string" },
+          { name: "user", type: "string" },
         ],
       },
     ],
@@ -155,6 +166,7 @@ describe("registry grounding", () => {
           requiresConfirmation: false,
           requiresIntegration: true,
           configFields: [],
+          outputs: [],
         },
       ],
       triggers: [],
@@ -245,6 +257,139 @@ describe("patch-shape grounding (AI-12B)", () => {
   });
 });
 
+describe("value-shape rules (AI-16)", () => {
+  it("includes the VALUE_SHAPE_RULES block verbatim in the system prompt", () => {
+    expect(joinPrompt(makeInput())).toContain(VALUE_SHAPE_RULES);
+  });
+
+  it("documents the per-type value shapes the runtime expects", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("text` / `textarea` — string");
+    expect(text).toContain("number` — number");
+    expect(text).toContain("boolean` — true or false");
+    expect(text).toContain("`select` (without `multi-select`)");
+    expect(text).toContain("`select` with `multi-select` — array");
+    expect(text).toContain("`combobox` (without `multi-select`)");
+    expect(text).toContain("`combobox` with `multi-select` — array");
+    expect(text).toContain("`keyvalue` — object");
+    expect(text).toContain("`string-array` — array of strings");
+  });
+
+  it("pins the Stripe enabledEvents-as-array example so the model has a concrete reference", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("enabledEvents: [\"payment_intent.payment_failed\"]");
+  });
+
+  it("instructs proposedPatch:null when a required field cannot be filled with the correct shape (no scalar↔array coercion)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("never coerce a scalar into an array or vice-versa");
+  });
+});
+
+describe("multi-select indicator (AI-16)", () => {
+  it("tags a `multiple: true` field with the `multi-select` indicator inline with the type", () => {
+    const provider: ProviderCatalogEntry = {
+      ...usableProvider(),
+      triggers: [
+        {
+          key: "demo:multi",
+          displayName: "Multi event",
+          category: "other",
+          activation: "webhook",
+          requiresIntegration: true,
+          configFields: [
+            { name: "events", type: "combobox", required: true, multiple: true },
+            { name: "label", type: "text", required: false },
+          ],
+          configOptions: [{ field: "events", values: ["a", "b"] }],
+          outputs: [],
+        },
+      ],
+      actions: [],
+    };
+    const text = joinPrompt(makeInput({ catalog: { providers: [provider] } }));
+    // Multi-select field rendered with the tag.
+    expect(text).toMatch(/events \(combobox, multi-select\)/);
+    // Single-select field NOT tagged.
+    expect(text).toMatch(/label \(text\)/);
+    expect(text).not.toMatch(/label \(text, multi-select\)/);
+  });
+});
+
+describe("outputs grounding (AI-16)", () => {
+  it("renders a per-node outputs block listing declared top-level output names + types", () => {
+    const text = joinPrompt(makeInput());
+    // Slack new-message trigger declares channel / text / user outputs.
+    expect(text).toMatch(/slack:new_message[\s\S]*?outputs: channel \(string\), text \(string\), user \(string\)/);
+  });
+
+  it("tags sensitive outputs so the model can see the container is opaque", () => {
+    const provider: ProviderCatalogEntry = {
+      ...usableProvider(),
+      triggers: [
+        {
+          key: "demo:event",
+          displayName: "Event",
+          category: "other",
+          activation: "webhook",
+          requiresIntegration: true,
+          configFields: [],
+          outputs: [
+            { name: "eventType", type: "string" },
+            { name: "data", type: "object", sensitive: true },
+          ],
+        },
+      ],
+      actions: [],
+    };
+    const text = joinPrompt(makeInput({ catalog: { providers: [provider] } }));
+    expect(text).toMatch(/eventType \(string\)/);
+    expect(text).toMatch(/data \(object, sensitive\)/);
+  });
+
+  it("omits the outputs block entirely when a node declares no outputs (keeps the prompt lean)", () => {
+    const provider: ProviderCatalogEntry = {
+      ...usableProvider(),
+      actions: [
+        {
+          key: "demo:silent",
+          displayName: "Silent",
+          category: "other",
+          riskLevel: "low",
+          isDestructive: false,
+          requiresConfirmation: false,
+          requiresIntegration: true,
+          configFields: [],
+          outputs: [],
+        },
+      ],
+      triggers: [],
+    };
+    const text = joinPrompt(makeInput({ catalog: { providers: [provider] } }));
+    expect(text).toContain("demo:silent");
+    expect(text).not.toMatch(/demo:silent[\s\S]*?outputs:/);
+  });
+
+  it("forbids inventing output keys not in the declared outputs block (AI-16 constraint)", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("Variable references `{{nodeId.field}}`");
+    expect(text).toContain("MUST use ONLY the output names declared");
+    expect(text).toContain("Do NOT invent output keys");
+    // Concrete worked example in the constraint.
+    expect(text).toMatch(/`id`, `amount`, `currency`, `last_payment_error`/);
+  });
+});
+
+describe("config-value-shape constraint (AI-16)", () => {
+  it("includes the array-vs-scalar shape-matching constraint in PLANNER_CONSTRAINTS", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("Match each config value's SHAPE");
+    expect(text).toContain("multi-select` field requires an ARRAY");
+    // The Stripe-shaped example anchors the rule.
+    expect(text).toContain("enabledEvents: [\"payment_intent.payment_failed\"]");
+  });
+});
+
 describe("JSON-only output rules (AI-12C)", () => {
   it("includes the JSON-only output rules verbatim", () => {
     expect(joinPrompt(makeInput())).toContain(JSON_OUTPUT_RULES);
@@ -300,6 +445,7 @@ describe("declared config-field grounding (AI-12D)", () => {
             { name: "primary", type: "text", required: true },
             { name: "extra", type: "text", required: false },
           ],
+          outputs: [],
         },
       ],
       triggers: [],
@@ -322,6 +468,7 @@ describe("declared config-field grounding (AI-12D)", () => {
           requiresConfirmation: false,
           requiresIntegration: true,
           configFields: [],
+          outputs: [],
         },
       ],
       triggers: [],
@@ -355,6 +502,7 @@ describe("static-enum config grounding (AI-12B)", () => {
           requiresIntegration: true,
           configFields: [{ name: "eventType", type: "select", required: true }],
           configOptions: [{ field: "eventType", values: ["created", "deleted"] }],
+          outputs: [],
         },
       ],
       triggers: [],

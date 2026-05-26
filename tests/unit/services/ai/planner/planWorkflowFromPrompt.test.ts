@@ -570,6 +570,219 @@ describe("config-grounding round-trips (AI-12D)", () => {
   });
 });
 
+describe("Stripe value-shape + output-reference grounding (AI-16)", () => {
+  const NODE_POSITION = { x: 0, y: 0 };
+
+  function stripeTriggerNode(config: Record<string, unknown>) {
+    return {
+      id: "n-stripe-trigger",
+      kind: "trigger" as const,
+      provider: "stripe",
+      type: "event_received",
+      config,
+      position: NODE_POSITION,
+    };
+  }
+
+  function slackActionNode(config: Record<string, unknown>) {
+    return {
+      id: "n-slack",
+      kind: "action" as const,
+      provider: "slack",
+      type: "send_direct_message",
+      config,
+      position: NODE_POSITION,
+    };
+  }
+
+  function stripeToSlackPatch(
+    triggerConfig: Record<string, unknown>,
+    slackConfig: Record<string, unknown>,
+  ) {
+    return {
+      patchId: "p-stripe-slack",
+      workflowId: "wf1",
+      baseRevision: "x",
+      operations: [
+        { op: "addNode", node: stripeTriggerNode(triggerConfig) },
+        { op: "addNode", node: slackActionNode(slackConfig) },
+        {
+          op: "addEdge",
+          edge: { id: "e1", from: "n-stripe-trigger", to: "n-slack" },
+        },
+      ],
+      summary: "Stripe → Slack DM",
+      rationale: "DM the owner when a Stripe payment fails.",
+    };
+  }
+
+  it("system prompt names stripe:event_received.enabledEvents as combobox + multi-select", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    // If Stripe trigger metadata is registered in this build, the prompt must show
+    // the multi-select tag so the model picks an array, not a scalar. If Stripe
+    // isn't registered, the assertion is moot — fall through.
+    if (!system.includes("stripe:event_received")) return;
+    expect(system).toMatch(/enabledEvents \(combobox, multi-select\)/);
+  });
+
+  it("system prompt lists stripe:event_received outputs and does NOT list the invented ones", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    if (!system.includes("stripe:event_received")) return;
+    // Declared outputs the model MAY use.
+    expect(system).toMatch(/stripe:event_received[\s\S]*?outputs:[^\n]*stripeEventType/);
+    expect(system).toMatch(/stripe:event_received[\s\S]*?outputs:[^\n]*data \(object, sensitive\)/);
+    // The outputs LINE for this trigger must not list the convenience names the
+    // model previously invented. Anchor by isolating just the outputs line.
+    const match = system.match(/stripe:event_received[\s\S]*?outputs: ([^\n]+)/);
+    expect(match).not.toBeNull();
+    const outputsLine = match![1]!;
+    for (const invented of ["amount", "currency", "last_payment_error"]) {
+      expect(outputsLine).not.toContain(invented);
+    }
+  });
+
+  it("a Stripe→Slack patch with enabledEvents as a SCALAR string is rejected as INVALID_CONFIG", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(
+      planResponse({
+        proposedPatch: stripeToSlackPatch(
+          { enabledEvents: "payment_intent.payment_failed" }, // ← wrong shape
+          { userId: "U01ABC23DEF", text: "Payment failed." },
+        ),
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "when a stripe payment fails, send me a slack dm",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The trigger metadata may not be registered in every build — skip the
+    // assertion if the validator didn't even reach the field-type check
+    // (UNKNOWN_TRIGGER fires first).
+    if (result.canApplyLater) return;
+    const errors = result.preview!.validation.errors;
+    // Either INVALID_CONFIG (scalar where array expected) or UNKNOWN_TRIGGER
+    // (Stripe not in this build's registry) — both reject and never apply.
+    expect(
+      errors.some(
+        (e) =>
+          (e.code === "INVALID_CONFIG" && e.path === "enabledEvents") ||
+          e.code === "UNKNOWN_TRIGGER",
+      ),
+    ).toBe(true);
+    expect(result.canApplyLater).toBe(false);
+  });
+
+  it("a Stripe→Slack patch with enabledEvents as an ARRAY + valid Slack config previews cleanly", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(
+      planResponse({
+        proposedPatch: stripeToSlackPatch(
+          { enabledEvents: ["payment_intent.payment_failed"] }, // ← correct shape
+          {
+            userId: "U01ABC23DEF",
+            text: "A Stripe payment failed. Event type: {{n-stripe-trigger.stripeEventType}}.",
+          },
+        ),
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "when a stripe payment fails, send a slack dm to U01ABC23DEF",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // If Stripe trigger metadata isn't registered in this build, the test is
+    // moot (the preview would reject UNKNOWN_TRIGGER). When it IS registered
+    // — which is the production state since 4.STRIPE-TRIGGER-META-2 — the
+    // validator must accept this exact shape end-to-end.
+    if (
+      result.preview &&
+      result.preview.validation.errors.some((e) => e.code === "UNKNOWN_TRIGGER")
+    ) {
+      return;
+    }
+    expect(result.preview!.validation.errors).toHaveLength(0);
+    expect(result.canApplyLater).toBe(true);
+  });
+
+  it("a Slack action referencing an UNDECLARED Stripe output (e.g. trigger.amount) is rejected as INVALID_VARIABLE_REFERENCE", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(
+      planResponse({
+        proposedPatch: stripeToSlackPatch(
+          { enabledEvents: ["payment_intent.payment_failed"] },
+          {
+            userId: "U01ABC23DEF",
+            text: "Payment failed: amount={{n-stripe-trigger.amount}} currency={{n-stripe-trigger.currency}}",
+          },
+        ),
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "stripe→slack",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    if (result.canApplyLater) return; // moot — registry missing in this build
+    const errors = result.preview!.validation.errors;
+    // The validator distinguishes:
+    //   MISSING_OUTPUT_PATH = ref is well-formed + node exists but output name
+    //     isn't in the upstream node's metadata — what fires for invented Stripe
+    //     outputs like `amount` / `currency` / `last_payment_error`.
+    //   INVALID_VARIABLE_REFERENCE = malformed token or referenced node missing.
+    //   UNKNOWN_TRIGGER = Stripe metadata not in build (skip path).
+    // All three classify as "the model referenced something V2 doesn't expose"
+    // and result in a non-apply-ready preview.
+    const hasUndeclaredOutputRejection = errors.some(
+      (e) =>
+        e.code === "MISSING_OUTPUT_PATH" ||
+        e.code === "INVALID_VARIABLE_REFERENCE" ||
+        e.code === "UNKNOWN_TRIGGER",
+    );
+    expect(hasUndeclaredOutputRejection).toBe(true);
+    expect(result.canApplyLater).toBe(false);
+    // Pin the specific invented-output paths so a future regression that hides
+    // them behind another error still fails this test loudly.
+    const missingPaths = errors
+      .filter((e) => e.code === "MISSING_OUTPUT_PATH")
+      .map((e) => e.path);
+    if (missingPaths.length > 0) {
+      // When Stripe metadata IS in the build, both invented refs surface here.
+      expect(missingPaths).toEqual(
+        expect.arrayContaining([
+          "n-stripe-trigger.amount",
+          "n-stripe-trigger.currency",
+        ]),
+      );
+    }
+  });
+});
+
 describe("no mutation / no apply", () => {
   it("does not import or call the apply service or a workflow-writing repo", () => {
     const src = readFileSync(

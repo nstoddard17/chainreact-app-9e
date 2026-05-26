@@ -163,6 +163,129 @@ describe("getProviderCatalog", () => {
       expect(ifThen.configFields.map((f) => f.name)).not.toContain("field");
     });
   });
+
+  describe("multi-select grounding (AI-16)", () => {
+    it("forwards `multiple: true` from FieldMeta onto CatalogConfigField", () => {
+      const meta = [...listAllActionMetas(), ...listAllTriggerMetas()].find((m) =>
+        m.fields.some((f) => f.multiple === true),
+      );
+      // If no registered node uses multi-select today, the assertion is moot;
+      // but at least Stripe's `stripe:event_received.enabledEvents` carries it
+      // and the contract must be honored if it exists.
+      if (!meta) return;
+      const field = meta.fields.find((f) => f.multiple === true)!;
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      const provider = result.data.providers.find((p) => p.id === meta.provider)!;
+      const entry = [...provider.actions, ...provider.triggers].find(
+        (e) => e.key === meta.key,
+      )!;
+      const surfaced = entry.configFields.find((f) => f.name === field.name)!;
+      expect(surfaced.multiple).toBe(true);
+    });
+
+    it("omits `multiple` on single-pick fields (lean by default)", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      // Find a single-pick field — any `text` field on any action.
+      for (const p of result.data.providers) {
+        for (const entry of [...p.actions, ...p.triggers]) {
+          for (const f of entry.configFields) {
+            if (f.type === "text" || f.type === "textarea" || f.type === "number") {
+              expect(f).not.toHaveProperty("multiple");
+              return;
+            }
+          }
+        }
+      }
+    });
+
+    it("pins stripe:event_received.enabledEvents as combobox + multi-select — the smoke-test fix", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      const stripe = result.data.providers.find((p) => p.id === "stripe");
+      if (!stripe) return; // stripe not registered in this build — moot
+      const eventReceived = stripe.triggers.find((t) => t.key === "stripe:event_received");
+      if (!eventReceived) return;
+      const enabledEvents = eventReceived.configFields.find((f) => f.name === "enabledEvents")!;
+      expect(enabledEvents).toBeDefined();
+      expect(enabledEvents.type).toBe("combobox");
+      expect(enabledEvents.required).toBe(true);
+      expect(enabledEvents.multiple).toBe(true); // ← the array-vs-scalar grounding fix
+    });
+  });
+
+  describe("outputs grounding (AI-16)", () => {
+    it("forwards declared payload-shape onto CatalogTriggerEntry.outputs (top-level names + types + sensitive flag)", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      for (const p of result.data.providers) {
+        for (const t of p.triggers) {
+          const meta = listAllTriggerMetas().find((m) => m.key === t.key)!;
+          expect(meta).toBeDefined();
+          expect(t.outputs.map((o) => o.name)).toEqual(meta.payloadShape.map((o) => o.name));
+          expect(t.outputs.map((o) => o.type)).toEqual(meta.payloadShape.map((o) => o.type));
+          // sensitive flag forwarded only when explicitly set
+          for (let i = 0; i < meta.payloadShape.length; i++) {
+            const declared = meta.payloadShape[i]!;
+            const surfaced = t.outputs[i]!;
+            if (declared.sensitive === true) {
+              expect(surfaced.sensitive).toBe(true);
+            } else {
+              expect(surfaced).not.toHaveProperty("sensitive");
+            }
+          }
+        }
+      }
+    });
+
+    it("forwards declared action outputs onto CatalogActionEntry.outputs", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      for (const p of result.data.providers) {
+        for (const a of p.actions) {
+          const meta = listAllActionMetas().find((m) => m.key === a.key)!;
+          expect(meta).toBeDefined();
+          expect(a.outputs.map((o) => o.name)).toEqual(meta.outputs.map((o) => o.name));
+        }
+      }
+    });
+
+    it("pins stripe:event_received outputs (stripeEventType / data / previousAttributes / created / livemode / account / apiVersion / request) — pins the no-invented-outputs fix", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      const stripe = result.data.providers.find((p) => p.id === "stripe");
+      if (!stripe) return;
+      const eventReceived = stripe.triggers.find((t) => t.key === "stripe:event_received");
+      if (!eventReceived) return;
+      const names = eventReceived.outputs.map((o) => o.name);
+      // Declared top-level names — the only valid {{trigger.X}} references.
+      expect(names).toContain("stripeEventType");
+      expect(names).toContain("data");
+      expect(names).toContain("previousAttributes");
+      // What the AI invented (must NOT appear at the top level).
+      for (const invented of ["id", "amount", "currency", "last_payment_error"]) {
+        expect(names).not.toContain(invented);
+      }
+      // `data` is declared sensitive (opaque container — validator descends).
+      const dataOut = eventReceived.outputs.find((o) => o.name === "data")!;
+      expect(dataOut.sensitive).toBe(true);
+      expect(dataOut.type).toBe("object");
+    });
+
+    it("pins slack:send_direct_message outputs include text-friendly scalars (channel, ts, userId) + sensitive `message`", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      const slack = result.data.providers.find((p) => p.id === "slack");
+      if (!slack) return;
+      const dm = slack.actions.find((a) => a.key === "slack:send_direct_message");
+      if (!dm) return;
+      const names = dm.outputs.map((o) => o.name);
+      expect(names).toEqual(expect.arrayContaining(["channel", "ts", "userId"]));
+      const messageOut = dm.outputs.find((o) => o.name === "message");
+      expect(messageOut?.sensitive).toBe(true);
+    });
+  });
 });
 
 describe("getActionMeta", () => {
