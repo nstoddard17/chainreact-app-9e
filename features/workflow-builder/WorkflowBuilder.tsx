@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ActionMeta } from "@/contracts/actionMeta";
+import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderHeader } from "./layout/BuilderHeader";
 import { BuilderRightDrawer } from "./layout/BuilderRightDrawer";
 import { BuilderShell } from "./layout/BuilderShell";
-import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
+import {
+  AddNodePanel,
+  type AddNodePanelMode,
+  type ProviderOption,
+} from "./panels/AddNodePanel";
 import { BuilderAiPanel } from "./panels/BuilderAiPanel";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunNowPanel } from "./panels/RunNowPanel";
@@ -17,6 +23,7 @@ import { useGraphSlice } from "./state/graphSlice";
 import { useRunSlice } from "./state/runSlice";
 import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
 import { useRightDrawer } from "./hooks/useRightDrawer";
+import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -25,20 +32,35 @@ interface Props {
 }
 
 /**
- * Workflow builder root. Composes the BuilderShell + BuilderHeader from
- * BUILDER-UI-SHELL-1, the polished canvas + node card + empty state from
- * BUILDER-CANVAS-1, and now (BUILDER-INSPECTOR-1) the right-side drawer
- * that hosts the node configuration inspector.
+ * Workflow builder root.
  *
- * Drawer sync model (BUILDER-INSPECTOR-1):
- *   - `useRightDrawer` owns one local `mode: "inspector" | "ai" | "results"
- *     | "validation" | null` field. Today only `inspector` is wired.
- *   - The inspector mode follows `configSlice.activeNodeId`: opening a
- *     node from the canvas / NodeList sets activeNodeId → an effect here
- *     opens the drawer in inspector mode. Closing the drawer drops
- *     activeNodeId so canvas selection and drawer stay in lock-step.
- *   - This is the only place that bridges configSlice ↔ drawer state.
- *     ConfigModalShell itself is unchanged.
+ * Slice 4.BUILDER-ADD-FLOW-1 replaces the inline AddNodeMenu toggle UI
+ * with a modal AddNodePanel. Entry points:
+ *   - The empty-canvas CTA opens it in `trigger` mode.
+ *   - A canvas-adjacent "+ Add action" button opens it in `action` mode
+ *     once the workflow has a trigger.
+ *   - The custom WorkflowEdge's plus-button opens it in `insertAction`
+ *     mode with the clicked edge's id.
+ *
+ * Mid-chain insertion composition (kept here, not in AddNodePanel /
+ * graphSlice, so the slice contract stays stable):
+ *   1. `addActionFromMeta(meta)` adds the node and auto-creates an
+ *      edge from the *current* last node to the new node.
+ *   2. That auto-edge is wrong for mid-chain insertion. We find and
+ *      remove it.
+ *   3. Remove the user-clicked edge (the A→B edge).
+ *   4. Connect A→new and new→B so the chain becomes A→new→B.
+ *   5. Position the new node at the midpoint of A and B for nicer UX.
+ *
+ * Other Builder UI surfaces unchanged:
+ *   - BUILDER-UI-SHELL-1 BuilderShell + BuilderHeader still own the
+ *     page chrome + Save shortcut.
+ *   - BUILDER-CANVAS-1 polished canvas + WorkflowNodeCard +
+ *     EmptyCanvasState still render. The temporary `triggerButtonRef`
+ *     bridge from CANVAS-1 is gone — the empty-state CTA now directly
+ *     opens AddNodePanel.
+ *   - BUILDER-INSPECTOR-1 right drawer + provider icons still wire as
+ *     before.
  */
 export function WorkflowBuilder({
   workflow,
@@ -82,16 +104,6 @@ export function WorkflowBuilder({
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
 
-  // Slice 4.BUILDER-CANVAS-1 — bridge the canvas's empty-state CTA to
-  // the existing AddNodeMenu "+ Add trigger" button without lifting
-  // AddNodeMenu's local `open` state. The ref + callback get removed in
-  // BUILDER-ADD-FLOW-1 when AddNodePanel replaces AddNodeMenu and the
-  // canvas wires the panel open directly.
-  const addTriggerButtonRef = useRef<HTMLButtonElement | null>(null);
-  const handleEmptyAddTrigger = useCallback(() => {
-    addTriggerButtonRef.current?.click();
-  }, []);
-
   // Slice 4.BUILDER-INSPECTOR-1 — right drawer state machine.
   const { mode, openDrawer, closeDrawer } = useRightDrawer();
 
@@ -116,20 +128,78 @@ export function WorkflowBuilder({
     closeDrawer();
   }, [mode, closeNode, closeDrawer]);
 
+  // Slice 4.BUILDER-ADD-FLOW-1 — AddNodePanel state machine.
+  const [addPanelMode, setAddPanelMode] = useState<AddNodePanelMode | null>(
+    null,
+  );
+  const openTriggerPicker = useCallback(() => {
+    setAddPanelMode({ kind: "trigger" });
+  }, []);
+  const openActionPicker = useCallback(() => {
+    setAddPanelMode({ kind: "action" });
+  }, []);
+  const closeAddPanel = useCallback(() => {
+    setAddPanelMode(null);
+  }, []);
+  const handleEdgePlusClick = useCallback((edgeId: string) => {
+    setAddPanelMode({ kind: "insertAction", edgeId });
+  }, []);
+
+  const handlePickTrigger = useCallback(
+    (meta: TriggerMeta) => {
+      useGraphSlice.getState().addTriggerFromMeta(meta);
+    },
+    [],
+  );
+  const handlePickAction = useCallback(
+    (meta: ActionMeta, insertContext: { edgeId: string } | null) => {
+      const slice = useGraphSlice.getState();
+      if (!insertContext) {
+        slice.addActionFromMeta(meta);
+        return;
+      }
+      insertActionAtEdge(insertContext.edgeId, meta);
+    },
+    [],
+  );
+
+  // Read pendingNodes to decide whether the "+ Add action" affordance
+  // is enabled (requires a trigger). Subscribed via selector so a slice
+  // change re-renders the button correctly.
+  const hasTrigger = useGraphSlice((s) =>
+    s.pendingNodes.some((n) => n.kind === "trigger"),
+  );
+
+  // Edge plus-click is a stable callback so canvas memoization doesn't
+  // thrash. Memoizing on `handleEdgePlusClick` keeps the
+  // `workflowEdgesToFlowEdges` memo cache stable across renders that
+  // don't touch this callback.
+  const memoizedEdgePlusClick = useMemo(
+    () => handleEdgePlusClick,
+    [handleEdgePlusClick],
+  );
+
   return (
     <BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>
       <div className="flex flex-col gap-4" aria-label="Workflow builder">
-        <AddNodeMenu
-          triggerProviders={triggerProviders}
-          actionProviders={actionProviders}
-          triggerButtonRef={addTriggerButtonRef}
-        />
+        <div className="flex items-center justify-end gap-2" aria-label="Canvas actions">
+          <button
+            type="button"
+            onClick={openActionPicker}
+            disabled={!hasTrigger}
+            title={!hasTrigger ? "Add a trigger before adding actions." : undefined}
+            className="rounded border border-input px-3 py-1.5 text-sm disabled:opacity-60"
+          >
+            + Add action
+          </button>
+        </div>
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             <WorkflowCanvas
               providerLabels={providerLabels}
               providerIcons={providerIcons}
-              onEmptyAddTrigger={handleEmptyAddTrigger}
+              onEmptyAddTrigger={openTriggerPicker}
+              onEdgePlusClick={memoizedEdgePlusClick}
             />
             <NodeList providerLabels={providerLabels} />
             <RunNowPanel />
@@ -145,6 +215,17 @@ export function WorkflowBuilder({
             </BuilderRightDrawer>
           ) : null}
         </div>
+        {addPanelMode !== null ? (
+          <AddNodePanel
+            mode={addPanelMode}
+            triggerProviders={triggerProviders}
+            actionProviders={actionProviders}
+            providerIcons={providerIcons}
+            onPickTrigger={handlePickTrigger}
+            onPickAction={handlePickAction}
+            onClose={closeAddPanel}
+          />
+        ) : null}
       </div>
     </BuilderShell>
   );
@@ -169,3 +250,4 @@ function buildProviderIconMap(
   for (const p of actions) if (p.iconUrl) map[p.id] = p.iconUrl;
   return map;
 }
+

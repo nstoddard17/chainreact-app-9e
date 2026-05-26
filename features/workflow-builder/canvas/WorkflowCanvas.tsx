@@ -18,6 +18,7 @@ import "@xyflow/react/dist/style.css";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import {
+  WORKFLOW_EDGE_TYPE,
   WORKFLOW_NODE_TYPE,
   flowNodePositionPatch,
   workflowEdgesToFlowEdges,
@@ -25,6 +26,7 @@ import {
   type WorkflowNodeData,
 } from "./adapters";
 import { EmptyCanvasState } from "./EmptyCanvasState";
+import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
 
 /**
@@ -74,16 +76,25 @@ interface Props {
    */
   providerIcons?: Readonly<Record<string, string>>;
   /**
-   * Invoked by the empty-state CTA. WorkflowBuilder wires this to the
-   * existing `+ Add trigger` button in `AddNodeMenu` via a ref so this
-   * slice doesn't duplicate the add-node flow. Optional — the empty
-   * state still renders without a handler.
+   * Invoked by the empty-state CTA (Slice 4.BUILDER-ADD-FLOW-1 —
+   * the ref-bridge from BUILDER-CANVAS-1 is gone; WorkflowBuilder now
+   * opens `AddNodePanel` directly via this callback).
    */
   onEmptyAddTrigger?: () => void;
+  /**
+   * Slice 4.BUILDER-ADD-FLOW-1 — fires when the user clicks the
+   * insert-plus button on an edge. WorkflowBuilder uses the edge id
+   * to open `AddNodePanel` in `insertAction` mode for that edge.
+   */
+  onEdgePlusClick?: (edgeId: string) => void;
 }
 
 const NODE_TYPES = {
   [WORKFLOW_NODE_TYPE]: WorkflowNodeCard,
+};
+
+const EDGE_TYPES = {
+  [WORKFLOW_EDGE_TYPE]: WorkflowEdge,
 };
 
 export function WorkflowCanvas(props: Props) {
@@ -100,6 +111,7 @@ function WorkflowCanvasInner({
   providerLabels,
   providerIcons,
   onEmptyAddTrigger,
+  onEdgePlusClick,
 }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -129,8 +141,8 @@ function WorkflowCanvasInner({
   }, [pendingNodes, providerLabels, providerIcons, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
-    () => workflowEdgesToFlowEdges(pendingEdges),
-    [pendingEdges],
+    () => workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),
+    [pendingEdges, onEdgePlusClick],
   );
 
   const handleNodeClick = useCallback<NodeMouseHandler>(
@@ -210,6 +222,7 @@ function WorkflowCanvasInner({
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}
         onConnect={handleConnect}

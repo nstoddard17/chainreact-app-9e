@@ -32,7 +32,7 @@ import type { ComponentProps } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActionPicker } from "@/features/workflow-builder/panels/ActionPicker";
-import type { ProviderOption } from "@/features/workflow-builder/panels/AddNodeMenu";
+import type { ProviderOption } from "@/features/workflow-builder/panels/AddNodePanel";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import type { ActionMeta } from "@/contracts/actionMeta";
 

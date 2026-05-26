@@ -17,9 +17,28 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
-const mockListNativeActions = jest.fn(async () => []);
-const mockListNativeTriggers = jest.fn(async () => []);
-const mockListProviderActions = jest.fn(async (_provider: string) => []);
+// Slice 4.BUILDER-ADD-FLOW-1 — ReactFlow's EdgeLabelRenderer mounts a
+// portal that jsdom can't initialize without real canvas dimensions.
+// Replace it with a passthrough so the WorkflowEdge plus-button
+// surfaces in the test DOM. Every other ReactFlow primitive stays real.
+jest.mock("@xyflow/react", () => {
+  const actual = jest.requireActual("@xyflow/react");
+  return {
+    ...actual,
+    EdgeLabelRenderer: ({ children }: { children: unknown }) => children,
+  };
+});
+
+const mockListNativeActions = jest.fn<Promise<readonly unknown[]>, []>(
+  async () => [],
+);
+const mockListNativeTriggers = jest.fn<Promise<readonly unknown[]>, []>(
+  async () => [],
+);
+const mockListProviderActions = jest.fn<
+  Promise<readonly unknown[]>,
+  [string]
+>(async (_provider: string) => []);
 const mockListProviderTriggers = jest.fn<
   Promise<readonly TriggerMeta[]>,
   [string]
@@ -110,11 +129,9 @@ describe("WorkflowBuilder", () => {
     expect(screen.getByText(/empty workflow/i)).toBeInTheDocument();
   });
 
-  // Slice 4.BUILDER-CANVAS-1 — verifies the ref bridge from the canvas
-  // empty-state CTA to the existing AddNodeMenu "+ Add trigger" button.
-  // Clicking the CTA must open the same trigger picker the toolbar button
-  // opens, without duplicating any add-node logic.
-  it("the empty-canvas-state 'Choose a trigger' CTA opens the AddNodeMenu trigger picker via the ref bridge", async () => {
+  // Slice 4.BUILDER-ADD-FLOW-1 — the empty-canvas-state CTA now opens
+  // the new AddNodePanel modal directly (the CANVAS-1 ref bridge is gone).
+  it("the empty-canvas-state 'Choose a trigger' CTA opens the AddNodePanel modal", async () => {
     const user = userEvent.setup();
     render(
       <WorkflowBuilder
@@ -125,21 +142,38 @@ describe("WorkflowBuilder", () => {
     );
     // Empty state overlay is present because pendingNodes is empty.
     expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
-    // Picker is not yet open.
-    expect(
-      screen.queryByRole("button", { name: /browse slack triggers/i }),
-    ).toBeNull();
-    // Click the CTA inside the empty state — same surface a user sees.
+    // Modal not yet open.
+    expect(screen.queryByTestId("add-node-panel")).toBeNull();
+    // Click the CTA inside the empty state.
     const cta = within(screen.getByTestId("empty-canvas-state")).getByRole(
       "button",
       { name: /choose a trigger/i },
     );
     await user.click(cta);
-    // TriggerPicker is now open via the AddNodeMenu's local state.
+    expect(screen.getByTestId("add-node-panel")).toBeInTheDocument();
+    // Modal is in trigger mode → TriggerPicker is mounted inside.
     expect(
       screen.getByRole("button", { name: /browse slack triggers/i }),
     ).toBeInTheDocument();
   });
+
+  // Reusable helper: open AddNodePanel, drill into Slack, pick the test trigger.
+  // Replaces the pre-ADD-FLOW path through the inline AddNodeMenu.
+  async function pickSlackTrigger(user: ReturnType<typeof userEvent.setup>) {
+    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
+    const cta = within(screen.getByTestId("empty-canvas-state")).getByRole(
+      "button",
+      { name: /choose a trigger/i },
+    );
+    await user.click(cta);
+    await user.click(
+      screen.getByRole("button", { name: /browse slack triggers/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Slack Message")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Slack Message"));
+  }
 
   it("Save is disabled when the slice is clean; enables once the user edits", async () => {
     const user = userEvent.setup();
@@ -151,15 +185,7 @@ describe("WorkflowBuilder", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
-    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
-    await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    await user.click(
-      screen.getByRole("button", { name: /browse slack triggers/i }),
-    );
-    await waitFor(() => {
-      expect(screen.getByText("Slack Message")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Slack Message"));
+    await pickSlackTrigger(user);
     expect(screen.getByRole("button", { name: /^save$/i })).toBeEnabled();
     expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
   });
@@ -177,15 +203,7 @@ describe("WorkflowBuilder", () => {
         actionProviders={actionProviders}
       />,
     );
-    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
-    await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    await user.click(
-      screen.getByRole("button", { name: /browse slack triggers/i }),
-    );
-    await waitFor(() => {
-      expect(screen.getByText("Slack Message")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Slack Message"));
+    await pickSlackTrigger(user);
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
@@ -214,15 +232,7 @@ describe("WorkflowBuilder", () => {
         actionProviders={actionProviders}
       />,
     );
-    mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
-    await user.click(screen.getByRole("button", { name: /add trigger/i }));
-    await user.click(
-      screen.getByRole("button", { name: /browse slack triggers/i }),
-    );
-    await waitFor(() => {
-      expect(screen.getByText("Slack Message")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Slack Message"));
+    await pickSlackTrigger(user);
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/failed to save/i);
     expect(useGraphSlice.getState().isDirty).toBe(true);
@@ -243,6 +253,60 @@ describe("WorkflowBuilder", () => {
     expect(s.workflowId).toBeNull();
     expect(s.pendingNodes).toEqual([]);
     expect(s.isHydrated).toBe(false);
+  });
+
+  // Slice 4.BUILDER-ADD-FLOW-1 — the "+ Add action" canvas-actions
+  // button is gated by hasTrigger. Once a trigger exists, the
+  // AddNodePanel opens in action mode and picking appends a node to
+  // the end of the chain via `addActionFromMeta`.
+  it("+ Add action canvas button gates on hasTrigger and appends an action via AddNodePanel", async () => {
+    const user = userEvent.setup();
+    const httpAction = {
+      key: "native:http.request",
+      provider: "native",
+      type: "http.request",
+      displayName: "HTTP Request",
+      description: "Make an HTTP request.",
+      fields: [],
+      payloadShape: [],
+      category: "data",
+      requiresIntegration: false,
+      hasSideEffects: true,
+      destructive: false,
+      riskLevel: "medium",
+      displayOrder: 10,
+    };
+    mockListNativeActions.mockResolvedValue([httpAction]);
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    // No trigger yet — Add action is disabled.
+    expect(
+      screen.getByRole("button", { name: /\+ add action/i }),
+    ).toBeDisabled();
+    // Add a trigger through the empty-state CTA.
+    await pickSlackTrigger(user);
+    // Add action is enabled. Click it → AddNodePanel opens in action mode.
+    const addActionBtn = screen.getByRole("button", {
+      name: /\+ add action/i,
+    });
+    expect(addActionBtn).toBeEnabled();
+    await user.click(addActionBtn);
+    expect(
+      screen.getByRole("heading", { name: /choose an action/i }),
+    ).toBeInTheDocument();
+    // Pick the native action.
+    await waitFor(() => screen.getByText("HTTP Request"));
+    await user.click(screen.getByText("HTTP Request"));
+    // Panel closes; the action is appended after the trigger.
+    expect(screen.queryByTestId("add-node-panel")).toBeNull();
+    const nodes = useGraphSlice.getState().pendingNodes;
+    expect(nodes).toHaveLength(2);
+    expect(nodes[1]!.type).toBe("http.request");
   });
 
   // Slice 4.BUILDER-INSPECTOR-1 — drawer mount / close round-trip.

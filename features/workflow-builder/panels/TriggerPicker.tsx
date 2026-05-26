@@ -3,7 +3,8 @@
 import { useState } from "react";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { useProviderTriggers } from "../hooks/useProviderTriggers";
-import type { ProviderOption } from "./AddNodeMenu";
+import type { ProviderOption } from "./AddNodePanel";
+import { ProviderChipIcon, filterMetasBySearch } from "./_pickerShared";
 
 /**
  * Trigger picker — Slice 3.3 surface; extended in Slice 3.4 (sibling
@@ -39,6 +40,23 @@ export interface TriggerPickerProps {
   onPickNative: (meta: TriggerMeta) => void;
   /** Slice 3.10 — fired when the user picks a provider trigger from the drill-in. */
   onPickProviderTrigger: (meta: TriggerMeta) => void;
+  /**
+   * Slice 4.BUILDER-ADD-FLOW-1 — optional case-insensitive query used by
+   * the searchable `AddNodePanel`. Filters the native list and (when
+   * drilled into a provider) the per-provider list by
+   * `displayName + description` match. Provider chips stay visible so
+   * the user can still discover providers whose label doesn't match.
+   * Default behavior unchanged when omitted.
+   */
+  searchQuery?: string;
+  /**
+   * Slice 4.BUILDER-ADD-FLOW-1 — optional map of provider id → SVG icon
+   * URL (from `providerIconUrl()` in the registry). When present, the
+   * provider chips render the icon next to the label and the drill-in
+   * header shows the icon next to the provider name. Absent providers
+   * keep text-only chips.
+   */
+  providerIcons?: Readonly<Record<string, string>>;
 }
 
 export function TriggerPicker({
@@ -48,6 +66,8 @@ export function TriggerPicker({
   triggerProviders,
   onPickNative,
   onPickProviderTrigger,
+  searchQuery,
+  providerIcons,
 }: TriggerPickerProps) {
   const [selectedProvider, setSelectedProvider] = useState<ProviderOption | null>(
     null,
@@ -57,11 +77,15 @@ export function TriggerPicker({
     return (
       <ProviderTriggersView
         provider={selectedProvider}
+        providerIcons={providerIcons}
+        searchQuery={searchQuery}
         onBack={() => setSelectedProvider(null)}
         onPick={onPickProviderTrigger}
       />
     );
   }
+
+  const filteredNative = filterMetasBySearch(nativeTriggers, searchQuery);
 
   return (
     <div className="flex flex-col gap-3 rounded border border-input p-3">
@@ -77,9 +101,11 @@ export function TriggerPicker({
           </p>
         ) : nativeTriggers.length === 0 ? (
           <p className="text-xs text-muted-foreground">No native triggers available.</p>
+        ) : filteredNative.length === 0 && searchQuery ? (
+          <p className="text-xs text-muted-foreground">No matches in native triggers.</p>
         ) : (
           <ul aria-label="Native triggers list" className="flex flex-col gap-1">
-            {nativeTriggers.map((meta) => (
+            {filteredNative.map((meta) => (
               <li key={meta.key}>
                 <button
                   type="button"
@@ -110,8 +136,13 @@ export function TriggerPicker({
                   type="button"
                   onClick={() => setSelectedProvider(p)}
                   aria-label={`Browse ${p.displayName} triggers`}
-                  className="rounded bg-muted px-3 py-1 text-sm"
+                  className="inline-flex items-center gap-1.5 rounded bg-muted px-3 py-1 text-sm"
                 >
+                  <ProviderChipIcon
+                    providerId={p.id}
+                    label={p.displayName}
+                    iconUrl={providerIcons?.[p.id]}
+                  />
                   {p.displayName}
                 </button>
               </li>
@@ -125,16 +156,21 @@ export function TriggerPicker({
 
 interface ProviderTriggersViewProps {
   provider: ProviderOption;
+  providerIcons?: Readonly<Record<string, string>>;
+  searchQuery?: string;
   onBack: () => void;
   onPick: (meta: TriggerMeta) => void;
 }
 
 function ProviderTriggersView({
   provider,
+  providerIcons,
+  searchQuery,
   onBack,
   onPick,
 }: ProviderTriggersViewProps) {
   const { triggers, loading, error } = useProviderTriggers(provider.id);
+  const filtered = filterMetasBySearch(triggers, searchQuery);
 
   return (
     <section
@@ -150,7 +186,12 @@ function ProviderTriggersView({
         >
           ← Back
         </button>
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <ProviderChipIcon
+            providerId={provider.id}
+            label={provider.displayName}
+            iconUrl={providerIcons?.[provider.id]}
+          />
           {provider.displayName}
         </h3>
       </header>
@@ -167,12 +208,16 @@ function ProviderTriggersView({
           {provider.displayName} hasn&rsquo;t shipped trigger metadata yet.
           Configurable triggers arrive in a later slice.
         </p>
+      ) : filtered.length === 0 && searchQuery ? (
+        <p className="text-xs text-muted-foreground">
+          No matches in {provider.displayName} triggers.
+        </p>
       ) : (
         <ul
           aria-label={`${provider.displayName} triggers list`}
           className="flex flex-col gap-1"
         >
-          {triggers.map((meta) => (
+          {filtered.map((meta) => (
             <li key={meta.key}>
               <button
                 type="button"

@@ -31,6 +31,7 @@ import type {
  */
 
 export const WORKFLOW_NODE_TYPE = "workflowNode" as const;
+export const WORKFLOW_EDGE_TYPE = "workflowEdge" as const;
 
 export interface WorkflowNodeData extends Record<string, unknown> {
   kind: "trigger" | "action";
@@ -61,6 +62,17 @@ export interface NodeConversionContext {
   providerIcons?: Readonly<Record<string, string>>;
 }
 
+export interface EdgeConversionContext {
+  /**
+   * Slice 4.BUILDER-ADD-FLOW-1 — optional callback the custom
+   * `WorkflowEdge` invokes when its plus-button is clicked. Receives
+   * the edge id so `WorkflowBuilder` can open `AddNodePanel` in
+   * insertAction mode for the right edge. Omitting it suppresses the
+   * plus-button (the edge still renders).
+   */
+  onEdgePlusClick?: (edgeId: string) => void;
+}
+
 export function workflowNodesToFlowNodes(
   nodes: readonly WorkflowNode[],
   ctx: NodeConversionContext = {},
@@ -81,9 +93,11 @@ export function workflowNodesToFlowNodes(
 
 export function workflowEdgesToFlowEdges(
   edges: readonly WorkflowEdge[],
+  ctx: EdgeConversionContext = {},
 ): FlowEdge[] {
   return edges.map((edge) => ({
     id: edge.id,
+    type: WORKFLOW_EDGE_TYPE,
     source: edge.from,
     target: edge.to,
     // Surface optional branch label as the edge label so authors can
@@ -91,6 +105,12 @@ export function workflowEdgesToFlowEdges(
     // surface that produces labeled edges; until then `label` is just
     // a passthrough display.
     ...(edge.label ? { label: edge.label } : {}),
+    // Slice 4.BUILDER-ADD-FLOW-1 — surface the plus-button click
+    // handler through edge `data`. The custom `WorkflowEdge` reads it
+    // and renders the plus only when a handler is supplied.
+    data: ctx.onEdgePlusClick
+      ? { onPlusClick: ctx.onEdgePlusClick }
+      : undefined,
   }));
 }
 

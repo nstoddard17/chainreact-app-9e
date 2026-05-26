@@ -3,7 +3,8 @@
 import { useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import { useProviderActions } from "../hooks/useProviderActions";
-import type { ProviderOption } from "./AddNodeMenu";
+import type { ProviderOption } from "./AddNodePanel";
+import { ProviderChipIcon, filterMetasBySearch } from "./_pickerShared";
 
 /**
  * Action picker — Slice 3.4 drill-in.
@@ -25,6 +26,13 @@ import type { ProviderOption } from "./AddNodeMenu";
  * Per docs/rules/workflow-builder-ui.md: presentational + delegating.
  * The picker does NOT call typed-client functions directly — that's
  * the hook's job.
+ *
+ * Slice 4.BUILDER-ADD-FLOW-1 adds two additive optional props consumed
+ * by `AddNodePanel`: `searchQuery` (case-insensitive filter against
+ * displayName + description for native + drilled-in lists) and
+ * `providerIcons` (provider id → SVG URL, rendered next to provider
+ * chips + in the drill-in header). Defaults preserve pre-slice
+ * behavior so the standalone ActionPicker tests stay green.
  */
 
 export interface ActionPickerProps {
@@ -34,6 +42,21 @@ export interface ActionPickerProps {
   actionProviders: readonly ProviderOption[];
   /** Fired when the user picks any action (native or provider). */
   onPickAction: (meta: ActionMeta) => void;
+  /**
+   * Slice 4.BUILDER-ADD-FLOW-1 — optional case-insensitive query.
+   * Filters the native list and (when drilled in) the per-provider list
+   * by `displayName + description` match. Provider chips stay visible
+   * regardless so users can still discover providers whose label
+   * doesn't match.
+   */
+  searchQuery?: string;
+  /**
+   * Slice 4.BUILDER-ADD-FLOW-1 — optional map of provider id → SVG icon
+   * URL (from `providerIconUrl()` in the registry). When present,
+   * provider chips render the icon next to the label and the drill-in
+   * header shows the icon next to the provider name.
+   */
+  providerIcons?: Readonly<Record<string, string>>;
 }
 
 export function ActionPicker({
@@ -42,6 +65,8 @@ export function ActionPicker({
   nativeError,
   actionProviders,
   onPickAction,
+  searchQuery,
+  providerIcons,
 }: ActionPickerProps) {
   const [selectedProvider, setSelectedProvider] = useState<ProviderOption | null>(
     null,
@@ -51,11 +76,15 @@ export function ActionPicker({
     return (
       <ProviderActionsView
         provider={selectedProvider}
+        providerIcons={providerIcons}
+        searchQuery={searchQuery}
         onBack={() => setSelectedProvider(null)}
         onPick={onPickAction}
       />
     );
   }
+
+  const filteredNative = filterMetasBySearch(nativeActions, searchQuery);
 
   return (
     <div className="flex flex-col gap-3 rounded border border-input p-3">
@@ -71,9 +100,11 @@ export function ActionPicker({
           </p>
         ) : nativeActions.length === 0 ? (
           <p className="text-xs text-muted-foreground">No native actions available.</p>
+        ) : filteredNative.length === 0 && searchQuery ? (
+          <p className="text-xs text-muted-foreground">No matches in native actions.</p>
         ) : (
           <ul aria-label="Native actions list" className="flex flex-col gap-1">
-            {nativeActions.map((meta) => (
+            {filteredNative.map((meta) => (
               <li key={meta.key}>
                 <button
                   type="button"
@@ -104,8 +135,13 @@ export function ActionPicker({
                   type="button"
                   onClick={() => setSelectedProvider(p)}
                   aria-label={`Browse ${p.displayName} actions`}
-                  className="rounded bg-muted px-3 py-1 text-sm"
+                  className="inline-flex items-center gap-1.5 rounded bg-muted px-3 py-1 text-sm"
                 >
+                  <ProviderChipIcon
+                    providerId={p.id}
+                    label={p.displayName}
+                    iconUrl={providerIcons?.[p.id]}
+                  />
                   {p.displayName}
                 </button>
               </li>
@@ -119,16 +155,21 @@ export function ActionPicker({
 
 interface ProviderActionsViewProps {
   provider: ProviderOption;
+  providerIcons?: Readonly<Record<string, string>>;
+  searchQuery?: string;
   onBack: () => void;
   onPick: (meta: ActionMeta) => void;
 }
 
 function ProviderActionsView({
   provider,
+  providerIcons,
+  searchQuery,
   onBack,
   onPick,
 }: ProviderActionsViewProps) {
   const { actions, loading, error } = useProviderActions(provider.id);
+  const filtered = filterMetasBySearch(actions, searchQuery);
 
   return (
     <section
@@ -144,7 +185,12 @@ function ProviderActionsView({
         >
           ← Back
         </button>
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <ProviderChipIcon
+            providerId={provider.id}
+            label={provider.displayName}
+            iconUrl={providerIcons?.[provider.id]}
+          />
           {provider.displayName}
         </h3>
       </header>
@@ -161,12 +207,16 @@ function ProviderActionsView({
           {provider.displayName} hasn&rsquo;t shipped action metadata yet.
           Configurable actions arrive in a later slice.
         </p>
+      ) : filtered.length === 0 && searchQuery ? (
+        <p className="text-xs text-muted-foreground">
+          No matches in {provider.displayName} actions.
+        </p>
       ) : (
         <ul
           aria-label={`${provider.displayName} actions list`}
           className="flex flex-col gap-1"
         >
-          {actions.map((meta) => (
+          {filtered.map((meta) => (
             <li key={meta.key}>
               <button
                 type="button"
