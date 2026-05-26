@@ -352,6 +352,151 @@ describe("preview unavailable", () => {
   });
 });
 
+// ─── Slice 4.AI-19 — forced tool-use structured output wiring ───────────────
+describe("structured-output wiring (AI-19)", () => {
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+  });
+
+  it("passes the propose_workflow_plan tool to the model client on every plan call", async () => {
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "tidy",
+      modelClient: mc,
+    });
+    expect(mc.calls).toHaveLength(1);
+    const req = mc.calls[0]!.input;
+    expect(req.responseTool).toBeDefined();
+    expect(req.responseTool!.name).toBe("propose_workflow_plan");
+    expect(req.responseTool!.description).toContain("workflow plan response");
+    // Schema is JSON Schema with the parser's fields.
+    const schema = req.responseTool!.inputSchema as Record<string, unknown>;
+    expect(schema.type).toBe("object");
+    const props = schema.properties as Record<string, unknown>;
+    expect(Object.keys(props)).toEqual(
+      expect.arrayContaining([
+        "intentSummary",
+        "assumptions",
+        "requiredUserInput",
+        "unsupportedRequests",
+        "safetyNotes",
+        "proposedPatch",
+        "confidence",
+      ]),
+    );
+    expect(schema.required).toEqual(
+      expect.arrayContaining(["intentSummary", "confidence"]),
+    );
+  });
+
+  it("does NOT loosen the parser — INVALID_PATCH still rejected even when tool returns a bad patch", async () => {
+    // Simulates Anthropic returning a malformed patch via tool_use. The
+    // adapter would stringify it; the parser MUST still reject it via the
+    // existing INVALID_PATCH path. AI-19 is a transport change, not a
+    // validation change.
+    const badPatchText = JSON.stringify({
+      intentSummary: "x",
+      assumptions: [],
+      requiredUserInput: [],
+      proposedPatch: { not: "a real patch" },
+      confidence: "high",
+      safetyNotes: [],
+      unsupportedRequests: [],
+    });
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: client(badPatchText),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("PARSE_FAILED");
+    expect(result.errors[0]!.code).toBe("INVALID_PATCH");
+  });
+
+  it("MODEL_FAILED still propagates when the structured-mode call returns INVALID_RESPONSE (forced tool not called)", async () => {
+    // Drive an explicit failure through the mock client — simulating the
+    // Anthropic adapter rejecting a text-only response under structured mode.
+    const failingClient = {
+      async generateStructuredJson() {
+        return {
+          ok: false as const,
+          modelId: MODELS.strong.id,
+          feature: "creation" as const,
+          failureCode: "INVALID_RESPONSE" as const,
+          message: "Anthropic response did not call the forced tool 'propose_workflow_plan'.",
+          retryable: true,
+        };
+      },
+    };
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: failingClient,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.stage).toBe("model");
+    expect(result.errors[0]!.code).toBe("INVALID_RESPONSE");
+    expect(result.noMutation).toBe(true);
+    // No mutation / preview attempted on a model failure.
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("end-to-end: simulated Anthropic tool_use response → reaches preview + canApplyLater", async () => {
+    // Drives the planner with the runtime client + a mocked fetch returning a
+    // tool_use block (the live shape under AI-19). Asserts the planner does
+    // not regress to the AI-18 PARSE_FAILED/NOT_JSON failure mode.
+    process.env.ANTHROPIC_API_KEY = "sk-ant-AI-19-TEST";
+    const fetchSpy = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: [
+          {
+            type: "tool_use",
+            id: "toolu_x",
+            name: "propose_workflow_plan",
+            input: JSON.parse(planResponse({ proposedPatch: movePatch() })),
+          },
+        ],
+        stop_reason: "tool_use",
+        usage: { input_tokens: 100, output_tokens: 50 },
+      }),
+      text: async () => "{}",
+    } as unknown as Response);
+    const original = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = fetchSpy;
+    try {
+      const result = await planWorkflowFromPromptForAI({
+        userId: "u1",
+        workflowId: "wf1",
+        prompt: "When a Stripe payment fails, send me a Slack DM.",
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      // The fetch body must include tools + tool_choice (the AI-19 contract).
+      const reqInit = fetchSpy.mock.calls[0]![1] as { body: string };
+      const body = JSON.parse(reqInit.body);
+      expect(body.tool_choice).toEqual({ type: "tool", name: "propose_workflow_plan" });
+      expect(body.tools[0].name).toBe("propose_workflow_plan");
+      // And the planner reached preview successfully (no PARSE_FAILED).
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.canApplyLater).toBe(true);
+      expect(result.preview).toBeDefined();
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = original;
+    }
+  });
+});
+
 describe("registry grounding — prompt only carries real catalog providers", () => {
   it("sends real catalog action keys and omits pending (metadata-less) providers", async () => {
     mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
@@ -385,14 +530,24 @@ describe("default runtime client wiring (AI-8C)", () => {
   });
 
   it("with no injected client but a configured key + mocked fetch → reaches parse/preview", async () => {
+    // Slice 4.AI-19 — the planner now passes `responseTool` so the Anthropic
+    // adapter forces tool-use. The mocked fetch must return a tool_use block,
+    // not a text block — otherwise the adapter (correctly) flags
+    // INVALID_RESPONSE because the model didn't call the forced tool.
     mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
     process.env.ANTHROPIC_API_KEY = "sk-ant-RUNTIME-TEST";
     const fetchSpy = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
-        content: [{ type: "text", text: planResponse({ proposedPatch: movePatch() }) }],
-        stop_reason: "end_turn",
+        content: [
+          {
+            type: "tool_use",
+            name: "propose_workflow_plan",
+            input: JSON.parse(planResponse({ proposedPatch: movePatch() })),
+          },
+        ],
+        stop_reason: "tool_use",
         usage: { input_tokens: 1, output_tokens: 2 },
       }),
       text: async () => "{}",

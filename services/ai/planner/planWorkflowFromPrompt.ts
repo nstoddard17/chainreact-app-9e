@@ -38,6 +38,7 @@ import type { AiToolError } from "@/services/ai/tools/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
 import { buildWorkflowPlanRequest } from "./buildWorkflowPlanRequest";
 import { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
+import { WORKFLOW_PLAN_TOOL } from "./workflowPlanTool";
 import {
   WORKFLOW_PLAN_FEATURE,
   type ParseWorkflowPlanFailure,
@@ -136,7 +137,16 @@ export async function planWorkflowFromPromptForAI(
     userRequest: prompt,
     tier,
   });
-  const request: ModelGenerateInput = { ...baseRequest, feature };
+  // Slice 4.AI-19 — force structured output via Anthropic tool-use so the
+  // model can never return prose that PARSE_FAILED/NOT_JSON's our parser.
+  // Adapters that don't understand `responseTool` (mock client,
+  // NOT_CONFIGURED, future non-Anthropic) IGNORE the field and behave
+  // exactly as before — the wiring is additive.
+  const request: ModelGenerateInput = {
+    ...baseRequest,
+    feature,
+    responseTool: WORKFLOW_PLAN_TOOL,
+  };
 
   // 2. Call the injected model client.
   const modelResult = await client.generateStructuredJson(request);

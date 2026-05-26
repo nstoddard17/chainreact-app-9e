@@ -179,6 +179,205 @@ describe("error mapping", () => {
   });
 });
 
+// ─── Slice 4.AI-19 — forced tool-use structured output ───────────────────────
+describe("structured output via forced tool-use", () => {
+  const TOOL = {
+    name: "propose_workflow_plan",
+    description: "Return the workflow plan response object.",
+    inputSchema: {
+      type: "object",
+      properties: { intentSummary: { type: "string" } },
+    },
+  } as const;
+
+  const toolInput = {
+    intentSummary: "post to slack",
+    assumptions: [],
+    requiredUserInput: [],
+    proposedPatch: null,
+    confidence: "high",
+    safetyNotes: [],
+    unsupportedRequests: [],
+  };
+
+  function toolUseBody(name: string = TOOL.name, payload: unknown = toolInput) {
+    return {
+      content: [{ type: "tool_use", id: "toolu_test", name, input: payload }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 5, output_tokens: 7 },
+    };
+  }
+
+  it("sends `tools` + `tool_choice` on the request body when responseTool is set", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: toolUseBody() }));
+    await client(fetchImpl).generateStructuredJson({ ...input, responseTool: TOOL });
+    const reqInit = fetchImpl.mock.calls[0]![1] as { body: string };
+    const body = JSON.parse(reqInit.body);
+    expect(body.tools).toEqual([
+      {
+        name: TOOL.name,
+        description: TOOL.description,
+        input_schema: TOOL.inputSchema,
+      },
+    ]);
+    expect(body.tool_choice).toEqual({ type: "tool", name: TOOL.name });
+    // Other fields still present.
+    expect(body.messages).toEqual([{ role: "user", content: "make a workflow" }]);
+  });
+
+  it("omits `tools` + `tool_choice` when responseTool is absent (backward-compatible)", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody() }));
+    await client(fetchImpl).generateStructuredJson(input);
+    const reqInit = fetchImpl.mock.calls[0]![1] as { body: string };
+    const body = JSON.parse(reqInit.body);
+    expect(body.tools).toBeUndefined();
+    expect(body.tool_choice).toBeUndefined();
+  });
+
+  it("returns ModelSuccess with JSON.stringify(tool_use.input) as text on tool_use response", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: toolUseBody() }));
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // text should be the canonical JSON serialization of the tool input.
+    expect(JSON.parse(result.text)).toEqual(toolInput);
+    expect(result.usage).toEqual({ inputTokens: 5, outputTokens: 7 });
+    // stop_reason: tool_use → finishReason: stop (per mapStopReason).
+    expect(result.finishReason).toBe("stop");
+  });
+
+  it("ignores text-only responses when responseTool was forced (INVALID_RESPONSE, retryable)", async () => {
+    // Model regression mode — returned prose instead of calling the tool. This
+    // is the exact failure forced tool-use solves; we deliberately do NOT
+    // fall back to text parsing.
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody("{\"intent\":\"x\"}") }));
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("INVALID_RESPONSE");
+    expect(result.retryable).toBe(true);
+    expect(result.message).toContain("propose_workflow_plan");
+  });
+
+  it("ignores a tool_use block whose name doesn't match (INVALID_RESPONSE)", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      mockResponse({
+        status: 200,
+        json: toolUseBody("some_other_tool"),
+      }),
+    );
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("INVALID_RESPONSE");
+  });
+
+  it("maps a tool_use block with no input to INVALID_RESPONSE", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      mockResponse({
+        status: 200,
+        json: {
+          content: [{ type: "tool_use", id: "toolu_test", name: TOOL.name }],
+          stop_reason: "tool_use",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      }),
+    );
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("INVALID_RESPONSE");
+    expect(result.message).toContain("no input payload");
+  });
+
+  it("returns INVALID_RESPONSE when the response content is missing entirely", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      mockResponse({
+        status: 200,
+        json: { stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 0 } },
+      }),
+    );
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("INVALID_RESPONSE");
+  });
+
+  it("preserves existing HTTP error mapping under structured mode (429 → RATE_LIMITED)", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      mockResponse({
+        status: 429,
+        text: '{"error":{"type":"rate_limit","message":"slow down"}}',
+      }),
+    );
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("RATE_LIMITED");
+    expect(result.retryable).toBe(true);
+  });
+
+  it("preserves AbortError → TIMEOUT mapping under structured mode", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("aborted"), { name: "AbortError" }));
+    const result = await client(fetchImpl).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("TIMEOUT");
+  });
+
+  it("never leaks the API key under structured mode (success or failure)", async () => {
+    const okFetch = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: toolUseBody() }));
+    const okResult = await client(okFetch).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    const errFetch = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody("oops") }));
+    const errResult = await client(errFetch).generateStructuredJson({
+      ...input,
+      responseTool: TOOL,
+    });
+    for (const serialized of [JSON.stringify(okResult), JSON.stringify(errResult)]) {
+      expect(serialized).not.toContain(API_KEY);
+      expect(serialized).not.toContain("sk-ant-");
+    }
+  });
+});
+
 describe("no live calls + no-leak", () => {
   it("uses the injected fetch, never global fetch", async () => {
     const fetchImpl = jest.fn().mockResolvedValue(mockResponse({ status: 200, json: successBody() }));

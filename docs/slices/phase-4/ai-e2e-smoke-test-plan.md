@@ -52,13 +52,17 @@ The 12 scenarios from the AI-15 brief, each mapped to the test(s) that prove the
 
 ### S2 — Parse failure / NOT_JSON safe UI
 
+> **Slice 4.AI-19 update.** Live smoke against Claude Sonnet 4.6 produced this exact failure (PARSE_FAILED / NOT_JSON, 36K input + 399 output tokens, `finishReason: "stop"`, content was prose). The fix is **forced Anthropic tool-use** (`responseTool` on `ModelGenerateInput` + `tools` / `tool_choice` in the request body + `tool_use` extraction in the response). Prompt-only enforcement (AI-12C) is no longer the live path; **the parser-layer tests below still guard the parse contract** for any case where a model somehow returns text instead of a tool_use block (the adapter now flags that case as `INVALID_RESPONSE` → `MODEL_FAILED` before parse is even attempted).
+
 | Layer | Test | Evidence |
 |---|---|---|
-| Parser | [`parseWorkflowPlanResponse.test.ts`](../../../tests/unit/services/ai/planner/parseWorkflowPlanResponse.test.ts) (4 AI-12C cases: preamble, trailing prose, `//` comment, trailing comma) | All → `NOT_JSON` |
-| Service | [`planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) `describe("parse failure")` | `PARSE_FAILED` no preview, no mutation |
-| Route | [`ai-plan-route.test.ts`](../../../tests/unit/app/api/workflows/ai-plan-route.test.ts) `it("returns 502 for a parse failure ...")` | 502 status |
+| Adapter (transport-layer guard) | [`anthropicClient.test.ts`](../../../tests/unit/services/ai/modelClients/anthropicClient.test.ts) `it("ignores text-only responses when responseTool was forced ...")` | Text-only response under structured mode → `INVALID_RESPONSE` (retryable). Adapter never falls back to text parsing — the bug forced tool-use solves. |
+| Adapter (happy path) | [`anthropicClient.test.ts`](../../../tests/unit/services/ai/modelClients/anthropicClient.test.ts) `it("returns ModelSuccess with JSON.stringify(tool_use.input) ...")` | `tool_use` block extracted, stringified, returned as `text` for the existing parser to validate |
+| Parser | [`parseWorkflowPlanResponse.test.ts`](../../../tests/unit/services/ai/planner/parseWorkflowPlanResponse.test.ts) (4 AI-12C cases: preamble, trailing prose, `//` comment, trailing comma) | All → `NOT_JSON`. Still a defense layer for any future provider / path that doesn't go through forced tool-use. |
+| Service | [`planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) `describe("parse failure")` + AI-19 wiring tests | `PARSE_FAILED` no preview, no mutation. AI-19: planner injects `WORKFLOW_PLAN_TOOL` on every call; downstream parser still rejects malformed patches via `INVALID_PATCH`. |
+| Route | [`ai-plan-route.test.ts`](../../../tests/unit/app/api/workflows/ai-plan-route.test.ts) `it("returns 502 for a parse failure ...")` | 502 status. Live-path failures now route through `MODEL_FAILED → 503` instead, but the parse-failure layer remains defended. |
 | UI (generic parse) | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("shows a format-error message + value-free detail on PARSE_FAILED")` | Generic "wrong format" copy + value-free detail |
-| UI (NOT_JSON specific) | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("shows a JSON-specific message + value-free detail on PARSE_FAILED / NOT_JSON (AI-12C)")` | "returned text instead of JSON" copy |
+| UI (NOT_JSON specific) | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("shows a JSON-specific message + value-free detail on PARSE_FAILED / NOT_JSON (AI-12C)")` | "returned text instead of JSON" copy (still relevant for the parser-layer fallback) |
 
 ### S3 — Needs-input response (planner)
 
@@ -272,7 +276,7 @@ If a future regression breaks any S1–S12 row, fix the regression in its own sl
 ## 7. When to revisit this plan
 
 - A new AI surface ships (chat panel, template recommendation, optimizer). Add a Surface row to §1, scenario rows as needed.
-- A new failure mode appears (e.g. forced tool_choice landing as the JSON enforcement, per the AI-12C revert note). Add a scenario row.
+- ~~A new failure mode appears (e.g. forced tool_choice landing as the JSON enforcement, per the AI-12C revert note). Add a scenario row.~~ **Done in AI-19** — forced tool_choice is now the live JSON enforcement; S2 updated to reflect the transport-layer guard.
 - The Stripe `event_received` TriggerMeta lands. Promote Stripe-failed-payment from S3/S4 to a S5/S6 happy-path smoke target in §5.
 - Playwright e2e for an AI flow is built. Add a top-level §8 covering it; remove the deferred decision in §3.
 

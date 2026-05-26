@@ -36,18 +36,35 @@ const MAX_ERROR_SNIPPET = 200;
 // Claude 4.x models (`claude-sonnet-4-6`, `claude-haiku-4-5`) REJECT it with
 // HTTP 400 `invalid_request_error: This model does not support assistant
 // message prefill. The conversation must end with a user message.` Removed.
-// JSON-only enforcement now lives entirely in the planner prompt
-// (`JSON_OUTPUT_RULES` + strengthened constraint). If the prompt-only approach
-// proves insufficient, the supported alternative is forced tool_choice
-// (Anthropic tool-use), not prefill.
+//
+// Slice 4.AI-19 — live smoke against Claude Sonnet 4.6 confirmed prompt-only
+// JSON enforcement is unreliable: the model returned an out-of-shape text
+// response causing PARSE_FAILED/NOT_JSON. The supported alternative is forced
+// tool_choice. When the caller passes `responseTool`, this adapter:
+//   - sends `tools: [responseTool]` + `tool_choice: { type: "tool", name }`
+//   - extracts the `tool_use` content block matching `responseTool.name`
+//   - returns `JSON.stringify(tool_use.input)` as `ModelSuccess.text`
+// so the downstream strict parser (`parseWorkflowPlanResponse`) stays the
+// source of truth. The existing text-prompt path is preserved for callers
+// that don't pass a `responseTool` (currently none in V2, but the boundary is
+// kept generic).
 
 interface AnthropicTextBlock {
   readonly type?: string;
   readonly text?: string;
 }
 
+interface AnthropicToolUseBlock {
+  readonly type?: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly input?: unknown;
+}
+
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock;
+
 interface AnthropicMessageResponse {
-  readonly content?: readonly AnthropicTextBlock[];
+  readonly content?: readonly AnthropicContentBlock[];
   readonly stop_reason?: string | null;
   readonly usage?: { readonly input_tokens?: number; readonly output_tokens?: number };
 }
@@ -69,9 +86,36 @@ function mapStopReason(reason: string | null | undefined): ModelFinishReason {
 function extractText(body: AnthropicMessageResponse): string {
   if (!Array.isArray(body.content)) return "";
   return body.content
-    .filter((b) => b?.type === "text" && typeof b.text === "string")
+    .filter(
+      (b): b is AnthropicTextBlock =>
+        b?.type === "text" && typeof (b as AnthropicTextBlock).text === "string",
+    )
     .map((b) => b.text as string)
     .join("");
+}
+
+/**
+ * Extract the FIRST `tool_use` content block whose `name` matches the forced
+ * tool. Returns `null` when no matching block exists (the planner maps this to
+ * INVALID_RESPONSE). The tool input itself is intentionally not type-narrowed
+ * here — the planner-side parser (`parseWorkflowPlanResponse`) re-validates
+ * the structure.
+ */
+function extractToolUse(
+  body: AnthropicMessageResponse,
+  toolName: string,
+): AnthropicToolUseBlock | null {
+  if (!Array.isArray(body.content)) return null;
+  for (const block of body.content) {
+    if (
+      block?.type === "tool_use" &&
+      typeof (block as AnthropicToolUseBlock).name === "string" &&
+      (block as AnthropicToolUseBlock).name === toolName
+    ) {
+      return block as AnthropicToolUseBlock;
+    }
+  }
+  return null;
 }
 
 /**
@@ -155,11 +199,30 @@ export function createAnthropicModelClient(
         };
       }
 
+      // Slice 4.AI-19 — when the caller provides a `responseTool`, force the
+      // model to call exactly that tool via `tool_choice`. This is the
+      // structured-output path Claude 4.x supports (assistant-prefill is
+      // rejected; tool-use is the recommended alternative for guaranteed JSON
+      // output). Otherwise fall through to plain text generation (preserved
+      // for callers that don't need structured output).
+      const tool = input.responseTool;
       const body = JSON.stringify({
         model: model.id,
         max_tokens: input.maxOutputTokens ?? model.maxOutputTokens,
         ...(system ? { system } : {}),
         messages: turns,
+        ...(tool
+          ? {
+              tools: [
+                {
+                  name: tool.name,
+                  description: tool.description,
+                  input_schema: tool.inputSchema,
+                },
+              ],
+              tool_choice: { type: "tool", name: tool.name },
+            }
+          : {}),
       });
 
       const controller = new AbortController();
@@ -203,6 +266,70 @@ export function createAnthropicModelClient(
             failureCode: "INVALID_RESPONSE",
             message: "Anthropic response was not valid JSON.",
             retryable: false,
+            latencyMs,
+          };
+        }
+
+        // Slice 4.AI-19 — when a `responseTool` was forced, the model MUST
+        // respond with a tool_use block whose `name` matches. Anything else
+        // (loose prose, wrong tool name, missing input) is an
+        // INVALID_RESPONSE — we deliberately do NOT fall back to freeform
+        // text parsing because that's the bug forced tool-use solves.
+        if (tool) {
+          const toolUse = extractToolUse(parsed, tool.name);
+          if (!toolUse) {
+            return {
+              ok: false,
+              modelId: model.id,
+              feature: input.feature,
+              failureCode: "INVALID_RESPONSE",
+              message: `Anthropic response did not call the forced tool '${tool.name}'.`,
+              retryable: true,
+              latencyMs,
+            };
+          }
+          if (toolUse.input === undefined || toolUse.input === null) {
+            return {
+              ok: false,
+              modelId: model.id,
+              feature: input.feature,
+              failureCode: "INVALID_RESPONSE",
+              message: `Anthropic tool_use for '${tool.name}' had no input payload.`,
+              retryable: true,
+              latencyMs,
+            };
+          }
+          // Stringify the structured object so it flows through the downstream
+          // strict parser unchanged — the parser remains the source of truth
+          // for schema / patch / secret validation.
+          let toolInputText: string;
+          try {
+            toolInputText = JSON.stringify(toolUse.input);
+          } catch {
+            return {
+              ok: false,
+              modelId: model.id,
+              feature: input.feature,
+              failureCode: "INVALID_RESPONSE",
+              message: `Anthropic tool_use input for '${tool.name}' was not serializable JSON.`,
+              retryable: false,
+              latencyMs,
+            };
+          }
+          return {
+            ok: true,
+            modelId: model.id,
+            feature: input.feature,
+            text: toolInputText,
+            finishReason: mapStopReason(parsed.stop_reason),
+            ...(parsed.usage
+              ? {
+                  usage: {
+                    inputTokens: parsed.usage.input_tokens ?? 0,
+                    outputTokens: parsed.usage.output_tokens ?? 0,
+                  },
+                }
+              : {}),
             latencyMs,
           };
         }

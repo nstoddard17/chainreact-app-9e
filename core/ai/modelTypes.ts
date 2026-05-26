@@ -43,9 +43,44 @@ export interface ModelMessage {
 }
 
 /**
+ * A provider-agnostic "force the model to emit a single JSON object matching
+ * this schema" descriptor (Slice 4.AI-19).
+ *
+ * Anthropic 4.x flatly refuses assistant-message JSON prefill (AI-12C
+ * regression), so prompt-only JSON enforcement is unreliable for Sonnet 4.6 +
+ * Haiku 4.5 in production. The supported alternative is forced tool-use: send
+ * a single tool with this input_schema, force `tool_choice` to that tool, and
+ * read the structured object out of the response's `tool_use.input` block.
+ *
+ * `inputSchema` is treated as a JSON Schema document (Draft 2020-12 subset)
+ * by the Anthropic adapter — kept opaque here so future provider adapters can
+ * translate it on their own terms. The caller MUST still re-validate the
+ * resulting JSON against its strict domain schema (Zod / WorkflowPatchSchema /
+ * etc.) — the tool-use mechanism is a delivery contract, not a trust boundary.
+ *
+ * No-leak: this object is sent with the request body. It MUST NOT contain
+ * secrets, API keys, or user data. Names + descriptions are part of the prompt
+ * the model receives.
+ */
+export interface ModelResponseTool {
+  /** Tool name — model uses this id to identify the call (e.g. propose_workflow_plan). */
+  readonly name: string;
+  /** Short description rendered to the model. NO secrets / user data. */
+  readonly description: string;
+  /** JSON Schema document describing the tool's input shape. */
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+}
+
+/**
  * One model generation request. `generateStructuredJson` always asks the model
  * for a single JSON object; the caller parses + validates the response itself
  * (e.g. `parseWorkflowPlanResponse`) — the boundary never trusts the text.
+ *
+ * When `responseTool` is set, providers that support tool-use (e.g. Anthropic)
+ * are expected to force the model to call that single tool and return the
+ * tool's `input` as the response. Providers that don't support tool-use, the
+ * NOT_CONFIGURED client, and the in-memory mock IGNORE the field and behave
+ * exactly as before — making the new path additive and safe.
  */
 export interface ModelGenerateInput {
   readonly feature: AiFeature;
@@ -54,6 +89,14 @@ export interface ModelGenerateInput {
   readonly messages: readonly ModelMessage[];
   /** Caller cap on response size. Clamped to the model's `maxOutputTokens`. */
   readonly maxOutputTokens?: number;
+  /**
+   * Forced structured-output descriptor (Slice 4.AI-19). Supported adapters
+   * MUST coerce the model into emitting a single tool_use call whose `input`
+   * matches this schema; the adapter returns the stringified input as
+   * {@link ModelSuccess.text} so existing strict parsers stay the source of
+   * truth. Optional for backward compatibility.
+   */
+  readonly responseTool?: ModelResponseTool;
   /**
    * Redacted enums / ids / counts only (for future `ai_events` correlation).
    * MUST NOT carry secrets, raw prompts, or resolved config values.
