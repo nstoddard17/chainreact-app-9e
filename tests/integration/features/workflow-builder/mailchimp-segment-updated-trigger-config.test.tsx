@@ -204,7 +204,7 @@ it("end-to-end: pick audience → segment picker activates and fetches scoped to
   );
 
   // 1. Open the trigger picker → Mailchimp → Segment Updated.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await user.click(
     screen.getByRole("button", { name: /browse mailchimp triggers/i }),
   );

@@ -153,7 +153,7 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   );
 
   // 1. Open the trigger picker.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
 
   // 2. Drill into the Gmail provider.
   await user.click(

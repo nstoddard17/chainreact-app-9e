@@ -176,7 +176,7 @@ it("end-to-end: Outlook send_email config round-trips chip arrays + required isH
   );
 
   // 1. Add a native manual trigger so the workflow is well-formed.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });

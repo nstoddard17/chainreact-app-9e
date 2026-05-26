@@ -139,7 +139,7 @@ it("end-to-end: add scheduled trigger, configure cron, save modal, save workflow
   );
 
   // 1. Open the trigger picker, wait for the Native section, pick Scheduled.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Scheduled Trigger")).toBeInTheDocument();
   });
@@ -221,7 +221,7 @@ it("end-to-end: add manual trigger, Run Now posts to runNowWorkflow", async () =
   );
 
   // 1. Pick the Manual Trigger from the Native section.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
   });

@@ -199,7 +199,7 @@ it("end-to-end: pick HubSpot Webhook Received → paste subscriptions JSON → M
   );
 
   // 1. Open the trigger picker.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
 
   // 2. Drill into HubSpot → Webhook Received.
   await user.click(

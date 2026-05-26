@@ -171,7 +171,7 @@ it("end-to-end: pick GitHub new_commit via drill-in, configure, save, downstream
   );
 
   // 1. Open the trigger picker.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
 
   // 2. Drill into the GitHub provider.
   await user.click(

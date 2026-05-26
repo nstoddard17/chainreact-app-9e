@@ -162,7 +162,7 @@ it("end-to-end: picker on a file-array field appends a canonical token chip + pe
   );
 
   // 1. Add the manual trigger so the action picker has an ancestor.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
   });
@@ -255,7 +255,7 @@ it("appending the same token twice produces only one chip (dedup parity with pas
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));
@@ -299,7 +299,7 @@ it("non-fileRef outputs picked into a file-array field also append as a chip (no
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));
@@ -340,7 +340,7 @@ it("file-array picker hides itself when there are no upstream sources (parity wi
   // alias path the picker uses — but with at least one node so the
   // workflow is well-formed. We then explicitly open the trigger
   // config; trigger nodes have no upstream sources by definition.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));
@@ -410,7 +410,7 @@ it("existing text-field picker behavior is unchanged: variable insertion still t
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
@@ -16,7 +16,6 @@ import {
 } from "./panels/AddNodePanel";
 import { BuilderAiPanel } from "./panels/BuilderAiPanel";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
-import { RunNowPanel } from "./panels/RunNowPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
 import { useGraphSlice } from "./state/graphSlice";
@@ -34,33 +33,27 @@ interface Props {
 /**
  * Workflow builder root.
  *
- * Slice 4.BUILDER-ADD-FLOW-1 replaces the inline AddNodeMenu toggle UI
- * with a modal AddNodePanel. Entry points:
- *   - The empty-canvas CTA opens it in `trigger` mode.
- *   - A canvas-adjacent "+ Add action" button opens it in `action` mode
- *     once the workflow has a trigger.
- *   - The custom WorkflowEdge's plus-button opens it in `insertAction`
- *     mode with the clicked edge's id.
+ * Slice 4.BUILDER-RUN-PANEL-1 — Test / Run controls live in the
+ * BuilderHeader (via `HeaderRunControls`) and RunResultsPanel +
+ * RunResultsRepairBlock now mount inside the right drawer's `results`
+ * mode. The below-canvas RunNowPanel + RunResultsPanel mounts are
+ * gone; there's exactly one of each visible at any time.
  *
- * Mid-chain insertion composition (kept here, not in AddNodePanel /
- * graphSlice, so the slice contract stays stable):
- *   1. `addActionFromMeta(meta)` adds the node and auto-creates an
- *      edge from the *current* last node to the new node.
- *   2. That auto-edge is wrong for mid-chain insertion. We find and
- *      remove it.
- *   3. Remove the user-clicked edge (the A→B edge).
- *   4. Connect A→new and new→B so the chain becomes A→new→B.
- *   5. Position the new node at the midpoint of A and B for nicer UX.
+ * Drawer mode is transitionally synchronized with two slice signals:
+ *   - `configSlice.activeNodeId` — user picked a node → inspector.
+ *   - `useRunSlice().runId` — a new run was dispatched → results.
  *
- * Other Builder UI surfaces unchanged:
- *   - BUILDER-UI-SHELL-1 BuilderShell + BuilderHeader still own the
- *     page chrome + Save shortcut.
- *   - BUILDER-CANVAS-1 polished canvas + WorkflowNodeCard +
- *     EmptyCanvasState still render. The temporary `triggerButtonRef`
- *     bridge from CANVAS-1 is gone — the empty-state CTA now directly
- *     opens AddNodePanel.
- *   - BUILDER-INSPECTOR-1 right drawer + provider icons still wire as
- *     before.
+ * Each effect compares the latest value to a ref-tracked previous
+ * value so steady-state matches don't fight each other. Earlier
+ * BUILDER-INSPECTOR-1 logic forced the drawer back to `inspector`
+ * any render where `activeNodeId !== null` — that would loop with
+ * the new run-state signal. Transition-based opens fix that.
+ *
+ * Drawer × handler:
+ *   - In `inspector` mode → also calls `closeNode()` to drop the
+ *     active selection (lock-step with the canvas highlight).
+ *   - In `results` mode → does NOT clear run state. The Latest Run
+ *     stays in `runSlice` for the next results-open.
  */
 export function WorkflowBuilder({
   workflow,
@@ -73,12 +66,12 @@ export function WorkflowBuilder({
   const resetRunSlice = useRunSlice((s) => s.reset);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const closeNode = useConfigSlice((s) => s.closeNode);
+  const runId = useRunSlice((s) => s.runId);
 
   // Re-hydrate on workflow change (or initial mount). Also clear the
   // config + run slices so stale per-node drafts and stale latest-run
   // pointers from a previous workflow never leak into the newly-loaded
-  // one. (Slice 3.8 added the runSlice reset to the same cleanup window
-  // graphSlice + configSlice already share.)
+  // one.
   useEffect(() => {
     hydrate(workflow.id, workflow.draftDefinition);
     resetConfigSlice();
@@ -97,32 +90,52 @@ export function WorkflowBuilder({
     resetRunSlice,
   ]);
 
-  // Slice 3.8 — owns the 1s polling interval for the latest run. The
-  // hook self-cleans on workflow change / unmount / terminal status.
+  // Slice 3.8 — owns the 1s polling interval for the latest run.
   useLatestRunPolling();
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
 
-  // Slice 4.BUILDER-INSPECTOR-1 — right drawer state machine.
+  // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
+  // state machine.
   const { mode, openDrawer, closeDrawer } = useRightDrawer();
 
-  // Sync drawer's inspector mode with configSlice.activeNodeId. Selecting
-  // a node anywhere (canvas, NodeList) → drawer opens in inspector mode.
-  // ConfigModalShell's own Cancel button calls closeNode() — the effect
-  // below sees activeNodeId go to null and closes the drawer.
+  // Transition refs — drawer mode changes are user-event-driven, so we
+  // only re-open the drawer when the relevant signal *transitions* from
+  // null → set (or set → different set). Steady-state passes are no-ops
+  // so the inspector effect doesn't fight the results effect.
+  const prevActiveNodeId = useRef<string | null>(activeNodeId);
+  const prevRunId = useRef<string | null>(runId);
+
   useEffect(() => {
-    if (activeNodeId !== null) {
-      if (mode !== "inspector") openDrawer("inspector");
-    } else {
-      if (mode === "inspector") closeDrawer();
+    const prevActive = prevActiveNodeId.current;
+    const activeSet = activeNodeId !== null && activeNodeId !== prevActive;
+    const activeCleared = activeNodeId === null && prevActive !== null;
+    prevActiveNodeId.current = activeNodeId;
+    if (activeSet) {
+      openDrawer("inspector");
+    } else if (activeCleared && mode === "inspector") {
+      closeDrawer();
     }
   }, [activeNodeId, mode, openDrawer, closeDrawer]);
 
-  // Drawer × / Esc handler: closing the inspector also drops the active
-  // node so the canvas selection stays in lock-step with what the drawer
-  // shows. Non-inspector modes (AI / Results / Validation) won't touch
-  // configSlice when they land in later slices.
+  useEffect(() => {
+    const prevRun = prevRunId.current;
+    const runSet = runId !== null && runId !== prevRun;
+    prevRunId.current = runId;
+    if (runSet) {
+      openDrawer("results");
+    }
+    // Note: do NOT auto-close results when runId becomes null — the
+    // run can transition to terminal (succeeded/failed) without runId
+    // changing, and the user may want to keep the results panel open
+    // for inspection. Drawer × closes results without touching runSlice.
+  }, [runId, openDrawer]);
+
+  // Drawer × / Esc handler:
+  //   - `inspector` mode also drops `activeNodeId` for canvas lock-step.
+  //   - `results` mode does NOT touch runSlice — the run is still
+  //     valuable history; the user may re-open it.
   const handleDrawerClose = useCallback(() => {
     if (mode === "inspector") closeNode();
     closeDrawer();
@@ -145,12 +158,9 @@ export function WorkflowBuilder({
     setAddPanelMode({ kind: "insertAction", edgeId });
   }, []);
 
-  const handlePickTrigger = useCallback(
-    (meta: TriggerMeta) => {
-      useGraphSlice.getState().addTriggerFromMeta(meta);
-    },
-    [],
-  );
+  const handlePickTrigger = useCallback((meta: TriggerMeta) => {
+    useGraphSlice.getState().addTriggerFromMeta(meta);
+  }, []);
   const handlePickAction = useCallback(
     (meta: ActionMeta, insertContext: { edgeId: string } | null) => {
       const slice = useGraphSlice.getState();
@@ -163,26 +173,30 @@ export function WorkflowBuilder({
     [],
   );
 
-  // Read pendingNodes to decide whether the "+ Add action" affordance
-  // is enabled (requires a trigger). Subscribed via selector so a slice
-  // change re-renders the button correctly.
   const hasTrigger = useGraphSlice((s) =>
     s.pendingNodes.some((n) => n.kind === "trigger"),
   );
 
-  // Edge plus-click is a stable callback so canvas memoization doesn't
-  // thrash. Memoizing on `handleEdgePlusClick` keeps the
-  // `workflowEdgesToFlowEdges` memo cache stable across renders that
-  // don't touch this callback.
   const memoizedEdgePlusClick = useMemo(
     () => handleEdgePlusClick,
     [handleEdgePlusClick],
   );
 
+  // Drawer rendering — one of two modes is active at a time. Inspector
+  // only renders when activeNodeId is set so the drawer doesn't show
+  // an empty form during a flicker. Results renders whenever the
+  // drawer is in results mode.
+  const drawerVisible =
+    (mode === "inspector" && activeNodeId !== null) || mode === "results";
+  const drawerTitle = mode === "results" ? "Run results" : "Node configuration";
+
   return (
     <BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>
       <div className="flex flex-col gap-4" aria-label="Workflow builder">
-        <div className="flex items-center justify-end gap-2" aria-label="Canvas actions">
+        <div
+          className="flex items-center justify-end gap-2"
+          aria-label="Canvas actions"
+        >
           <button
             type="button"
             onClick={openActionPicker}
@@ -202,16 +216,15 @@ export function WorkflowBuilder({
               onEdgePlusClick={memoizedEdgePlusClick}
             />
             <NodeList providerLabels={providerLabels} />
-            <RunNowPanel />
-            <RunResultsPanel />
             <BuilderAiPanel />
           </div>
-          {mode === "inspector" && activeNodeId !== null ? (
+          {drawerVisible ? (
             <BuilderRightDrawer
-              title="Node configuration"
+              title={drawerTitle}
               onClose={handleDrawerClose}
             >
-              <NodeInspectorPanel />
+              {mode === "inspector" ? <NodeInspectorPanel /> : null}
+              {mode === "results" ? <RunResultsPanel /> : null}
             </BuilderRightDrawer>
           ) : null}
         </div>
@@ -250,4 +263,3 @@ function buildProviderIconMap(
   for (const p of actions) if (p.iconUrl) map[p.id] = p.iconUrl;
   return map;
 }
-

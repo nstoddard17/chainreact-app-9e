@@ -139,7 +139,7 @@ it("end-to-end: insert a variable into a TextField, save modal, save workflow", 
   );
 
   // 1. Add manual trigger + HTTP action.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
   });
@@ -222,7 +222,7 @@ it("picker is hidden when there are no upstream sources (e.g. trigger node confi
   );
 
   // Only a trigger present.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
   });
@@ -265,7 +265,7 @@ it("soft warning surfaces for a free-typed missing reference but does NOT disabl
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));
@@ -308,7 +308,7 @@ it("picker click does NOT call updateWorkflow (no hidden save)", async () => {
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));
@@ -361,7 +361,7 @@ it("router row input + value fields get picker affordances and inserts produce r
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
 
@@ -439,7 +439,7 @@ it("textarea field also gets a picker affordance", async () => {
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));

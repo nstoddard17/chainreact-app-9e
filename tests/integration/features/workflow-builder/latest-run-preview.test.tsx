@@ -155,11 +155,16 @@ it("Run Now → polling 404 then 200 → RunResultsPanel renders step output", a
     />,
   );
 
-  // 1. Idle state by default — Run Now hasn't fired yet.
-  expect(screen.getByTestId("latest-run-idle")).toBeInTheDocument();
+  // 1. Slice 4.BUILDER-RUN-PANEL-1 — RunResultsPanel now lives inside
+  //    the right drawer's `results` mode, not below the canvas. The
+  //    drawer is closed until a run is dispatched, so the idle-state
+  //    testid is intentionally absent here. The original assertion was:
+  //    `expect(screen.getByTestId("latest-run-idle")).toBeInTheDocument()`.
+  //    The drawer auto-opens once Run Manually fires below.
+  expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
 
   // 2. Add the manual trigger.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
   });

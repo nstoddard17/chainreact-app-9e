@@ -141,7 +141,7 @@ it("end-to-end: Gmail new_email from[] + labelIds[] round-trip as real arrays vi
   );
 
   // 1. Open the trigger picker.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
 
   // 2. Drill into Gmail.
   await user.click(
@@ -258,7 +258,7 @@ it("silently dedupes exact-string duplicates and rejects whitespace-only input o
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await user.click(
     screen.getByRole("button", { name: /browse gmail triggers/i }),
   );

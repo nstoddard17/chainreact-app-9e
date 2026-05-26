@@ -159,7 +159,7 @@ it("end-to-end: variable-picker â†’ Outlook send_email.attachments file-array â†
   );
 
   // 1. Add the native manual trigger so the action has an upstream.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });

@@ -208,7 +208,9 @@ it("Stripe create_checkout_session meta declares mode select + paste-JSON lineIt
   }
 });
 
-it("end-to-end: choose Stripe Create Checkout Session → fill lineItems paste-JSON + mode + URLs + customerId + metadata → Modal Save (draft only) → Toolbar Save (persists once, lineItems stays string, metadata stays typed array, no hidden defaults)", async () => {
+it(
+  "end-to-end: choose Stripe Create Checkout Session → fill lineItems paste-JSON + mode + URLs + customerId + metadata → Modal Save (draft only) → Toolbar Save (persists once, lineItems stays string, metadata stays typed array, no hidden defaults)",
+  async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -223,7 +225,7 @@ it("end-to-end: choose Stripe Create Checkout Session → fill lineItems paste-J
   );
 
   // 1. Trigger.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });
@@ -371,4 +373,11 @@ it("end-to-end: choose Stripe Create Checkout Session → fill lineItems paste-J
   expect(persistedAction.config.customerEmail).toBeUndefined();
 
   expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
-});
+  },
+  // Slice 4.BUILDER-RUN-PANEL-1 — bumped past the 5s default because
+  // the test runs ~3.5-4s in isolation; under parallel-worker
+  // contention it tips over. Pre-existing fragility (the test exercises
+  // 16+ user interactions through the full Stripe config form); the
+  // RUN-PANEL-1 refactor doesn't change its execution path.
+  10_000,
+);

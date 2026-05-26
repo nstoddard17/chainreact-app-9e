@@ -174,7 +174,7 @@ it("end-to-end: drill into provider, pick action from metadata, configure, save 
   );
 
   // 1. Add a Slack trigger via the Slice 3.10 drill-in path.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(
       screen.getByRole("list", { name: /trigger providers/i }),
@@ -264,7 +264,7 @@ it("drill-in for a provider with no shipped metadata renders the empty-state hin
   );
 
   // Same Slack-trigger setup via the Slice 3.10 drill-in.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(
       screen.getByRole("list", { name: /trigger providers/i }),

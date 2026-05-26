@@ -198,7 +198,7 @@ it("end-to-end: variable-picker → Slack upload_file.file FileField chip → Mo
   );
 
   // 1. Add the native manual trigger so the action has an upstream.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });
@@ -365,7 +365,7 @@ it("FileField ✕ on the chip clears the value back to undefined (single-value r
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual")).toBeInTheDocument());
   await user.click(screen.getByText("Manual"));
   await user.click(screen.getByRole("button", { name: /add action/i }));

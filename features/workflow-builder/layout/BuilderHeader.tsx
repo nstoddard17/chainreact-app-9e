@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useGraphSlice } from "../state/graphSlice";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
+import { HeaderRunControls } from "./HeaderRunControls";
 
 interface Props {
   workflowName: string;
@@ -62,6 +63,7 @@ export function BuilderHeader({ workflowName }: Props) {
         <StatusPill status={status} saveError={saveError} />
       </div>
       <div className="flex items-center gap-2">
+        <HeaderRunControls />
         <button
           type="button"
           onClick={handleSave}

@@ -214,7 +214,7 @@ it("end-to-end: meta-derived defaults seed the draft → type subject → switch
   );
 
   // 1. Trigger.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });

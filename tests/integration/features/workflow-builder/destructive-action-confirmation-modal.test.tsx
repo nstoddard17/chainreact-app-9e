@@ -1,6 +1,6 @@
 /**
  * Slice 3.POSTSEC-5 integration test — destructive-action confirmation
- * modal end-to-end through the LifecycleActions + RunNowPanel mountings.
+ * modal end-to-end through the LifecycleActions + HeaderRunControls mountings.
  *
  * Per the existing builder integration-test pattern (see
  * `native-trigger-config-and-run-now.test.tsx`), this test mocks at the
@@ -35,7 +35,7 @@ jest.mock("next/navigation", () => ({
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LifecycleActions } from "@/features/workflow-builder/panels/LifecycleActions";
-import { RunNowPanel } from "@/features/workflow-builder/panels/RunNowPanel";
+import { HeaderRunControls } from "@/features/workflow-builder/layout/HeaderRunControls";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { WorkflowConfirmationRequiredError } from "@/lib/api/workflows";
 
@@ -153,7 +153,7 @@ describe("integration — Run Manually → CONFIRMATION_REQUIRED → modal → C
     );
     const user = userEvent.setup();
     bootWithManualTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     await user.click(screen.getByTestId("run-controls-run-manually-button"));
     await screen.findByTestId("destructive-action-confirmation-modal");
 
@@ -186,7 +186,7 @@ describe("integration — Run Manually → CONFIRMATION_REQUIRED → modal → C
       });
     const user = userEvent.setup();
     bootWithManualTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     await user.click(screen.getByTestId("run-controls-run-manually-button"));
     await screen.findByTestId("destructive-action-confirmation-modal");
     await user.type(
@@ -251,7 +251,7 @@ describe("integration — low-risk activation + run-now do NOT show the modal", 
     });
     const user = userEvent.setup();
     bootWithManualTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     await user.click(screen.getByTestId("run-controls-run-manually-button"));
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toHaveTextContent(
@@ -280,7 +280,7 @@ describe("integration — Test Workflow skips the confirmation modal (Slice 3.PO
     });
     const user = userEvent.setup();
     bootWithManualTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toHaveTextContent(
@@ -310,7 +310,7 @@ describe("integration — Test Workflow skips the confirmation modal (Slice 3.PO
     });
     const user = userEvent.setup();
     bootWithManualTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     await user.click(screen.getByTestId("run-controls-test-button"));
     await waitFor(() => {
       expect(screen.getByTestId("run-now-success")).toBeInTheDocument();
@@ -326,7 +326,7 @@ describe("integration — Test Workflow skips the confirmation modal (Slice 3.PO
 
   it("Both buttons are visible on manual workflows — the user always sees an explicit Test Workflow vs Run Manually choice", async () => {
     bootWithManualTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
     expect(
       screen.getByTestId("run-controls-run-manually-button"),
@@ -390,7 +390,7 @@ describe("integration — automated workflows expose only the test surface (Slic
 
   it("scheduled-trigger workflow does NOT expose Run Manually and renders Test Workflow disabled", () => {
     bootWithScheduledTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     // Automated panel is rendered, manual panel is not.
     expect(
       screen.getByTestId("run-controls-panel-automated"),
@@ -412,7 +412,7 @@ describe("integration — automated workflows expose only the test surface (Slic
 
   it("provider-event-trigger workflow does NOT expose Run Manually", () => {
     bootWithProviderEventTrigger();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     expect(
       screen.queryByTestId("run-controls-run-manually-button"),
     ).not.toBeInTheDocument();
@@ -424,7 +424,7 @@ describe("integration — automated workflows expose only the test surface (Slic
   it("automated panel never fires runNowWorkflow (the test button is disabled)", async () => {
     bootWithScheduledTrigger();
     const user = userEvent.setup();
-    render(<RunNowPanel />);
+    render(<HeaderRunControls />);
     await user.click(screen.getByTestId("run-controls-test-button"));
     expect(mockRunNowWorkflow).not.toHaveBeenCalled();
   });

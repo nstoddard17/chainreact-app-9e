@@ -179,7 +179,7 @@ it("end-to-end: pick channel + add two user ids via chips + toggle notification 
   );
 
   // 1. Trigger.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });

@@ -194,7 +194,7 @@ it("end-to-end: pick channel + paste Block Kit JSON + type notification text →
   );
 
   // 1. Trigger.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });

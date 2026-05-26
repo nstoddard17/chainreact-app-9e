@@ -159,7 +159,7 @@ it("end-to-end: add native action, configure, save modal, save workflow", async 
   );
 
   // 1. Add Slack trigger via the Slice 3.10 drill-in.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await user.click(
     screen.getByRole("button", { name: /browse slack triggers/i }),
   );

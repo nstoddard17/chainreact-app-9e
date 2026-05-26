@@ -174,7 +174,7 @@ it("end-to-end: async channel combobox → message textarea → Modal Save (draf
   );
 
   // 1. Trigger.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });

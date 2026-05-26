@@ -195,7 +195,7 @@ it("end-to-end: pick audience → add 2 event types via chip input → Modal Sav
   );
 
   // 1. Open trigger picker → Mailchimp → Audience Event.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await user.click(
     screen.getByRole("button", { name: /browse mailchimp triggers/i }),
   );

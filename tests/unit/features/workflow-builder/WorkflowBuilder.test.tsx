@@ -58,6 +58,7 @@ jest.mock("@/lib/api/discovery", () => ({
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
+import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
@@ -97,6 +98,7 @@ beforeEach(() => {
   __resetProviderTriggersCacheForTests();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
+  useRunSlice.getState().reset();
 });
 
 // Slice 3.10 — the picker now uses a drill-in for provider triggers.
@@ -353,6 +355,135 @@ describe("WorkflowBuilder", () => {
     await user.click(screen.getByRole("button", { name: /close drawer/i }));
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
     expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+  });
+
+  // Slice 4.BUILDER-RUN-PANEL-1 — drawer auto-opens in results mode
+  // when a new runId hits the runSlice. Verified through the public
+  // `startTracking` action that the run controls call after a
+  // successful runNowWorkflow.
+  it("dispatching a run auto-opens the BuilderRightDrawer in results mode (Run results drawer)", () => {
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    // No drawer initially (no run, no selected node).
+    expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+    // Dispatch a run by feeding the slice the same signal Run Manually
+    // produces — this is the public contract HeaderRunControls calls.
+    act(() => {
+      useRunSlice
+        .getState()
+        .startTracking({ workflowId: "wf-1", runId: "run-1" });
+    });
+    const drawer = screen.getByTestId("builder-right-drawer");
+    expect(drawer).toBeInTheDocument();
+    expect(drawer.getAttribute("aria-label")).toMatch(/run results/i);
+  });
+
+  // Drawer mode switches from inspector → results when a run dispatches
+  // mid-edit, and from results → inspector when the user clicks a node
+  // afterward. Both directions use the transition refs to avoid effect
+  // fights.
+  it("drawer mode switches inspector ↔ results based on user-initiated transitions", () => {
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    // Open inspector first.
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const triggerId = useGraphSlice.getState().pendingNodes[0]!.id;
+    act(() => {
+      useConfigSlice
+        .getState()
+        .openNode({ nodeId: triggerId, initialValues: {} });
+    });
+    expect(
+      screen.getByTestId("builder-right-drawer").getAttribute("aria-label"),
+    ).toMatch(/node configuration/i);
+    // Run dispatches → drawer flips to results.
+    act(() => {
+      useRunSlice
+        .getState()
+        .startTracking({ workflowId: "wf-1", runId: "run-1" });
+    });
+    expect(
+      screen.getByTestId("builder-right-drawer").getAttribute("aria-label"),
+    ).toMatch(/run results/i);
+    // Selecting a different node → drawer flips back to inspector.
+    useGraphSlice
+      .getState()
+      .addAction({ provider: "slack", type: "slack.send_message" });
+    const actionId = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.kind === "action")!.id;
+    act(() => {
+      useConfigSlice
+        .getState()
+        .openNode({ nodeId: actionId, initialValues: {} });
+    });
+    expect(
+      screen.getByTestId("builder-right-drawer").getAttribute("aria-label"),
+    ).toMatch(/node configuration/i);
+  });
+
+  // Closing the drawer in results mode must NOT clear runSlice — the
+  // user might re-open to inspect the same run later.
+  it("closing the results drawer does NOT clear runSlice", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    act(() => {
+      useRunSlice
+        .getState()
+        .startTracking({ workflowId: "wf-1", runId: "run-1" });
+    });
+    expect(useRunSlice.getState().runId).toBe("run-1");
+    await user.click(screen.getByRole("button", { name: /close drawer/i }));
+    expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+    // runSlice state is preserved.
+    expect(useRunSlice.getState().runId).toBe("run-1");
+    expect(useRunSlice.getState().workflowId).toBe("wf-1");
+  });
+
+  // No duplicate run-controls in the page — only the header set is
+  // rendered. The old below-canvas RunNowPanel mount is gone. Slack
+  // Message is an automated (webhook) trigger, so we expect the
+  // automated panel variant + exactly one Test Workflow button.
+  it("renders run-controls exactly once in the header and never below the canvas", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await pickSlackTrigger(user);
+    expect(
+      screen.getAllByTestId("run-controls-panel-automated"),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByTestId("run-controls-test-button"),
+    ).toHaveLength(1);
+    // Manual panel + Run Manually button are NOT rendered for an
+    // automated workflow.
+    expect(
+      screen.queryByTestId("run-controls-panel-manual"),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId("run-controls-run-manually-button"),
+    ).toBeNull();
   });
 
   it("resets configSlice on unmount so stale per-node drafts don't leak", () => {

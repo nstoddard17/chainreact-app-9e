@@ -197,7 +197,7 @@ it("end-to-end: pick campaign via mailchimp:campaigns → Modal Save → Toolbar
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual")).toBeInTheDocument());
   await user.click(screen.getByText("Manual"));
 

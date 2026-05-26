@@ -142,7 +142,7 @@ it("end-to-end: add router, configure routes via the new editor, save modal, sav
   );
 
   // 1. Manual trigger from the Native section.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => {
     expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
   });
@@ -253,7 +253,7 @@ it("modal Save stays disabled while the routes editor has any per-row validation
   );
 
   // Manual trigger + router.
-  await user.click(screen.getByRole("button", { name: /add trigger/i }));
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
   await waitFor(() => expect(screen.getByText("Manual Trigger")).toBeInTheDocument());
   await user.click(screen.getByText("Manual Trigger"));
   await user.click(screen.getByRole("button", { name: /add action/i }));
