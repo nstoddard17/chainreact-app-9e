@@ -436,6 +436,140 @@ describe("default runtime client wiring (AI-8C)", () => {
   });
 });
 
+describe("config-grounding round-trips (AI-12D)", () => {
+  const NODE_POSITION = { x: 0, y: 0 };
+
+  function slackDmPatch(config: Record<string, unknown>) {
+    return {
+      patchId: "p-slack-dm",
+      workflowId: "wf1",
+      baseRevision: "x",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n-slack",
+            kind: "action",
+            provider: "slack",
+            type: "send_direct_message",
+            config,
+            position: NODE_POSITION,
+          },
+        },
+      ],
+      summary: "Send a Slack DM",
+      rationale: "User asked for a DM on payment failure",
+    };
+  }
+
+  function ifThenPatch(config: Record<string, unknown>) {
+    return {
+      patchId: "p-if-then",
+      workflowId: "wf1",
+      baseRevision: "x",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n-if",
+            kind: "action",
+            provider: "native",
+            type: "if_then_condition",
+            config,
+            position: NODE_POSITION,
+          },
+        },
+      ],
+      summary: "Branch the flow",
+      rationale: "Inspect the payment status",
+    };
+  }
+
+  it("system prompt names slack:send_direct_message's required config fields (userId + text), pinning the message-vs-text fix", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "x", modelClient: mc });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    // The grounding block must surface the exact config keys, marked required.
+    expect(system).toContain("slack:send_direct_message");
+    expect(system).toMatch(/slack:send_direct_message[\s\S]*?required:[^\n]*userId/);
+    expect(system).toMatch(/slack:send_direct_message[\s\S]*?required:[^\n]*text \(textarea\)/);
+    // `threadTs` is the only declared optional config field for the Slack DM action.
+    expect(system).toMatch(/slack:send_direct_message[\s\S]*?optional:[^\n]*threadTs/);
+  });
+
+  it("system prompt names native:if_then_condition's required config fields (input + operator), pinning the field-vs-input fix", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "x", modelClient: mc });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    expect(system).toContain("native:if_then_condition");
+    expect(system).toMatch(/native:if_then_condition[\s\S]*?required:[^\n]*input \(text\)/);
+    expect(system).toMatch(/native:if_then_condition[\s\S]*?required:[^\n]*operator \(select\)/);
+  });
+
+  it("a Slack DM patch with the wrong key (`message`) is structurally valid but rejected by the validator as missing required fields", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: slackDmPatch({ message: "hello there" }) }));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send me a slack dm",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.canApplyLater).toBe(false);
+    expect(result.blockedReason).toBeDefined();
+    expect(result.preview).toBeDefined();
+    const errorCodes = result.preview!.validation.errors.map((e) => e.code);
+    // Both required fields are missing — userId AND text.
+    expect(errorCodes).toContain("MISSING_REQUIRED_FIELD");
+    const errorPaths = result.preview!.validation.errors
+      .filter((e) => e.code === "MISSING_REQUIRED_FIELD")
+      .map((e) => e.path);
+    expect(errorPaths).toEqual(expect.arrayContaining(["userId", "text"]));
+    // The `message` key surfaces as an UNKNOWN_CONFIG_FIELD warning.
+    expect(result.preview!.validation.warnings.some((w) => w.code === "UNKNOWN_CONFIG_FIELD")).toBe(true);
+  });
+
+  it("a Slack DM patch with the correct keys (userId + text) previews as apply-ready", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(
+      planResponse({
+        proposedPatch: slackDmPatch({ userId: "U01ABC23DEF", text: "A payment failed." }),
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send me a slack dm with userId U01ABC23DEF",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.preview).toBeDefined();
+    expect(result.preview!.validation.errors).toHaveLength(0);
+    expect(result.canApplyLater).toBe(true);
+  });
+
+  it("an If/Then patch with the wrong key (`field`) is rejected as missing required `input` and `operator`", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: ifThenPatch({ field: "{{trigger.status}}" }) }));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "branch on payment status",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.canApplyLater).toBe(false);
+    expect(result.preview!.validation.errors.some((e) => e.code === "MISSING_REQUIRED_FIELD" && e.path === "input")).toBe(true);
+    expect(result.preview!.validation.errors.some((e) => e.code === "MISSING_REQUIRED_FIELD" && e.path === "operator")).toBe(true);
+  });
+});
+
 describe("no mutation / no apply", () => {
   it("does not import or call the apply service or a workflow-writing repo", () => {
     const src = readFileSync(

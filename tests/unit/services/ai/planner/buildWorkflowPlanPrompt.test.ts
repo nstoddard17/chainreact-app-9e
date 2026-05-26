@@ -41,6 +41,10 @@ function usableProvider(): ProviderCatalogEntry {
         isDestructive: false,
         requiresConfirmation: false,
         requiresIntegration: true,
+        configFields: [
+          { name: "channel", type: "combobox", required: true },
+          { name: "text", type: "textarea", required: true },
+        ],
       },
       {
         key: "slack:delete_message",
@@ -50,6 +54,10 @@ function usableProvider(): ProviderCatalogEntry {
         isDestructive: true,
         requiresConfirmation: true,
         requiresIntegration: true,
+        configFields: [
+          { name: "channel", type: "combobox", required: true },
+          { name: "ts", type: "text", required: true },
+        ],
       },
     ],
     triggers: [
@@ -59,6 +67,9 @@ function usableProvider(): ProviderCatalogEntry {
         category: "messaging",
         activation: "webhook",
         requiresIntegration: true,
+        configFields: [
+          { name: "channel", type: "combobox", required: true },
+        ],
       },
     ],
   };
@@ -143,6 +154,7 @@ describe("registry grounding", () => {
           isDestructive: false,
           requiresConfirmation: false,
           requiresIntegration: true,
+          configFields: [],
         },
       ],
       triggers: [],
@@ -174,6 +186,27 @@ describe("safety constraints", () => {
     expect(text).toContain("never invent credentials");
     expect(text).toMatch(/ai_field/i);
     expect(text).toContain("requireduserinput");
+  });
+
+  it("forbids using a key derived from displayName / UI label / output / description (AI-12D)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("config object keys must come from");
+    expect(text).toContain("displayname");
+    expect(text).toContain("label");
+    expect(text).toContain("output name");
+  });
+
+  it("requires every required config field to appear on the node (AI-12D)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("every field listed under `required:`");
+    expect(text).toContain("must appear in that node's config");
+  });
+
+  it("forbids substituting manual.run for an event-driven trigger the user asked for (AI-12D)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("do not substitute a different trigger");
+    expect(text).toContain("native:manual.run");
+    expect(text).toContain("stand-in");
   });
 });
 
@@ -241,6 +274,72 @@ describe("JSON-only output rules (AI-12C)", () => {
   });
 });
 
+describe("declared config-field grounding (AI-12D)", () => {
+  it("lists each action's declared config keys with type + required flag", () => {
+    const text = joinPrompt(makeInput());
+    // slack:send_channel_message has required `channel` (combobox) + required `text` (textarea).
+    expect(text).toContain("slack:send_channel_message");
+    expect(text).toContain("config fields:");
+    expect(text).toMatch(/required:.*channel \(combobox\)/);
+    expect(text).toMatch(/required:.*text \(textarea\)/);
+  });
+
+  it("renders required and optional sub-lines distinctly", () => {
+    const provider: ProviderCatalogEntry = {
+      ...usableProvider(),
+      actions: [
+        {
+          key: "demo:thing_with_optionals",
+          displayName: "Thing",
+          category: "other",
+          riskLevel: "low",
+          isDestructive: false,
+          requiresConfirmation: false,
+          requiresIntegration: true,
+          configFields: [
+            { name: "primary", type: "text", required: true },
+            { name: "extra", type: "text", required: false },
+          ],
+        },
+      ],
+      triggers: [],
+    };
+    const text = joinPrompt(makeInput({ catalog: { providers: [provider] } }));
+    expect(text).toMatch(/required:\s*primary \(text\)/);
+    expect(text).toMatch(/optional:\s*extra \(text\)/);
+  });
+
+  it("uses <none> when a node has no required fields and omits the optional line when there are no optional ones", () => {
+    const provider: ProviderCatalogEntry = {
+      ...usableProvider(),
+      actions: [
+        {
+          key: "demo:no_fields",
+          displayName: "No fields",
+          category: "other",
+          riskLevel: "low",
+          isDestructive: false,
+          requiresConfirmation: false,
+          requiresIntegration: true,
+          configFields: [],
+        },
+      ],
+      triggers: [],
+    };
+    const text = joinPrompt(makeInput({ catalog: { providers: [provider] } }));
+    expect(text).toContain("demo:no_fields");
+    expect(text).toMatch(/required:\s*<none>/);
+    expect(text).not.toMatch(/demo:no_fields[\s\S]*?optional:/);
+  });
+
+  it("renders config-field block for triggers as well as actions", () => {
+    const text = joinPrompt(makeInput());
+    // slack:new_message has required `channel` (combobox).
+    expect(text).toContain("slack:new_message");
+    expect(text).toMatch(/slack:new_message[\s\S]*?required:\s*channel \(combobox\)/);
+  });
+});
+
 describe("static-enum config grounding (AI-12B)", () => {
   it("renders an action's static option values so the model picks a real enum", () => {
     const provider: ProviderCatalogEntry = {
@@ -254,6 +353,7 @@ describe("static-enum config grounding (AI-12B)", () => {
           isDestructive: false,
           requiresConfirmation: false,
           requiresIntegration: true,
+          configFields: [{ name: "eventType", type: "select", required: true }],
           configOptions: [{ field: "eventType", values: ["created", "deleted"] }],
         },
       ],

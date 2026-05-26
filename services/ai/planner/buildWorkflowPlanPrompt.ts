@@ -23,7 +23,9 @@ import type { ModelMessage } from "@/core/ai/modelTypes";
 import { SUPPORTED_OPERATION_KINDS } from "@/services/workflows/patch";
 import type {
   CatalogActionEntry,
+  CatalogConfigField,
   CatalogFieldOptions,
+  CatalogTriggerEntry,
   ProviderCatalogEntry,
 } from "@/services/ai/tools/providerCatalog";
 import type {
@@ -34,7 +36,10 @@ import type {
 /** Hard constraints the model must obey. Tests pin these exact intents. */
 export const PLANNER_CONSTRAINTS: readonly string[] = [
   "Use ONLY the providers, actions, and triggers listed in the catalog below. Never invent a provider, action, trigger, or field name.",
-  "Use field names exactly as they appear in the node metadata. Do not add fields that are not declared.",
+  "config object keys MUST come from the catalog's `config fields:` block for that node. Never use a key derived from the action/trigger displayName, the field's UI label, the field's description, or an output name — those are NOT config keys. Example: `slack:send_direct_message` has config field `text` (not `message`); `native:if_then_condition` has config field `input` (not `field`).",
+  "Every field listed under `required:` for a node MUST appear in that node's config — either as a literal value (only for static enums or known ids), an upstream `{{nodeId.field}}` variable reference, or an `{{AI_FIELD:fieldName}}` placeholder for free-text content. Do not omit a required field.",
+  "If a required field is an id, enum, selection, or recipient that you cannot derive from the catalog or an upstream node, set proposedPatch to null and add a requiredUserInput entry for it. A null patch with clear requiredUserInput is always better than an invalid one.",
+  "Do NOT substitute a different trigger for one the user explicitly asked for. If the user names a triggering event (e.g. \"when a Stripe payment fails\", \"on new Salesforce lead\") and no matching trigger key appears in the catalog, set proposedPatch to null, list the requested trigger under unsupportedRequests, and surface anything else still needed under requiredUserInput. `native:manual.run` is for user-initiated workflows ONLY — never use it as a stand-in for an event-driven trigger the user actually asked for.",
   "Respond with EXACTLY ONE JSON object that matches the response schema and nothing else — the first character must be { and the last must be }. No prose, no markdown, no ```json fences, no comments, and no trailing commas.",
   "When a value is unknown, do NOT guess: emit an AI_FIELD placeholder ({{AI_FIELD:fieldName}}) for free-text content, or add a requiredUserInput entry for anything else (ids, enums, selections).",
   "If you cannot build a COMPLETE, schema-valid WorkflowPatch — a required node id, enum value, recipient, or selection is unknown and has no upstream source — set proposedPatch to null and list what is still needed under requiredUserInput. NEVER emit a partial, approximate, or guessed patch; a null patch with clear requiredUserInput is always better than an invalid one.",
@@ -88,7 +93,7 @@ export const PATCH_SHAPE_GUIDE = [
   'Node shape: { "id": string (unique within the patch), "kind": "trigger" | "action", "provider": string, "type": string, "config": object, "position": { "x": number, "y": number } }.',
   "Catalog entries are written `provider:type` (e.g. `slack:send_direct_message`). In a node you MUST split that key: set provider to the part before the colon (\"slack\") and type to the part after it (\"send_direct_message\"). Never put the combined `provider:type` string into either field.",
   'Edge shape: { "id": string (unique within the patch), "from": string (source node id), "to": string (target node id), "label"?: string (optional branch label) }. The endpoint keys are "from" and "to" — never "source"/"target".',
-  "config maps a node's metadata field names to values. Use {{AI_FIELD:fieldName}} for unknown free-text; for an unknown id/enum/selection, omit the field and add a requiredUserInput entry. Never invent a config field name and never include a secret value.",
+  "config maps a node's declared `config fields:` (shown in the catalog above) to values. Keys MUST come from that per-node list — never from a displayName, the field's UI label, the field's description, or an output name. Every field shown under `required:` for the node must appear in config (a literal, an upstream {{nodeId.field}} reference, or an {{AI_FIELD:fieldName}} placeholder for free-text). For an unknown id/enum/selection, omit the field AND add a requiredUserInput entry; if a REQUIRED field still cannot be filled, set proposedPatch to null. Never invent a config field name and never include a secret value.",
   "A typical brand-new workflow is: one addNode for the trigger, one addNode per action, and addEdge operations linking them in order.",
 ].join("\n");
 
@@ -109,13 +114,12 @@ export const JSON_OUTPUT_RULES = [
   "- If you are unsure or cannot complete the plan, STILL return one JSON object with proposedPatch set to null and the gaps listed in requiredUserInput.",
 ].join("\n");
 
-function renderActionEntry(a: CatalogActionEntry): string {
+function renderActionFlags(a: CatalogActionEntry): string {
   const flags: string[] = [];
   if (a.isDestructive) flags.push("destructive");
   if (a.requiresConfirmation) flags.push("requires-confirmation");
   if (a.riskLevel !== "low") flags.push(`risk:${a.riskLevel}`);
-  const suffix = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
-  return `${a.key}${suffix}`;
+  return flags.length > 0 ? ` [${flags.join(", ")}]` : "";
 }
 
 /** A provider is usable only if metadata exposes at least one action or trigger. */
@@ -128,20 +132,45 @@ function renderFieldOptions(opts: readonly CatalogFieldOptions[]): string {
 }
 
 /**
- * Static-enum config grounding (Slice 4.AI-12B): for every action/trigger whose
- * metadata declares fixed `options` (select/combobox), surface the field's
- * allowed VALUES so the model picks a real enum instead of guessing. Generic and
- * metadata-driven — no provider-specific logic. Entries without static options
- * (the common case) produce nothing, keeping the compact catalog lean.
+ * Declared config-field grounding (Slice 4.AI-12D): for every action / trigger,
+ * print the EXACT config key names the planner must use, split into a
+ * `required:` and an `optional:` line, with each entry tagged by renderer type.
+ * Generic + metadata-driven — derived from the catalog's `configFields`, no
+ * provider-specific logic. Required is always present (may be empty); optional
+ * is omitted when the node declares none, to keep the prompt lean.
  */
-function renderNodeOptionLines(
-  entries: readonly { key: string; configOptions?: readonly CatalogFieldOptions[] }[],
-): string[] {
-  const lines: string[] = [];
-  for (const e of entries) {
-    if (e.configOptions && e.configOptions.length > 0) {
-      lines.push(`      ${e.key} — ${renderFieldOptions(e.configOptions)}`);
-    }
+function renderConfigFieldLines(fields: readonly CatalogConfigField[]): string[] {
+  const required = fields.filter((f) => f.required);
+  const optional = fields.filter((f) => !f.required);
+  const lines: string[] = ["      config fields:"];
+  const fmt = (f: CatalogConfigField) => `${f.name} (${f.type})`;
+  lines.push(
+    `        required: ${required.length > 0 ? required.map(fmt).join(", ") : "<none>"}`,
+  );
+  if (optional.length > 0) {
+    lines.push(`        optional: ${optional.map(fmt).join(", ")}`);
+  }
+  return lines;
+}
+
+function renderTriggerEntry(t: CatalogTriggerEntry): string[] {
+  const lines: string[] = [`    - ${t.key}`];
+  lines.push(...renderConfigFieldLines(t.configFields));
+  if (t.configOptions && t.configOptions.length > 0) {
+    lines.push(
+      `        config options (use these exact values): ${renderFieldOptions(t.configOptions)}`,
+    );
+  }
+  return lines;
+}
+
+function renderActionEntryLines(a: CatalogActionEntry): string[] {
+  const lines: string[] = [`    - ${a.key}${renderActionFlags(a)}`];
+  lines.push(...renderConfigFieldLines(a.configFields));
+  if (a.configOptions && a.configOptions.length > 0) {
+    lines.push(
+      `        config options (use these exact values): ${renderFieldOptions(a.configOptions)}`,
+    );
   }
   return lines;
 }
@@ -149,18 +178,12 @@ function renderNodeOptionLines(
 function renderProvider(p: ProviderCatalogEntry): string {
   const lines: string[] = [`- ${p.displayName} (id: ${p.id})`];
   if (p.triggers.length > 0) {
-    lines.push(`    triggers: ${p.triggers.map((t) => t.key).join(", ")}`);
+    lines.push("  triggers:");
+    for (const t of p.triggers) lines.push(...renderTriggerEntry(t));
   }
   if (p.actions.length > 0) {
-    lines.push(`    actions: ${p.actions.map(renderActionEntry).join(", ")}`);
-  }
-  const optionLines = [
-    ...renderNodeOptionLines(p.triggers),
-    ...renderNodeOptionLines(p.actions),
-  ];
-  if (optionLines.length > 0) {
-    lines.push("    config options (use these exact values):");
-    lines.push(...optionLines);
+    lines.push("  actions:");
+    for (const a of p.actions) lines.push(...renderActionEntryLines(a));
   }
   return lines.join("\n");
 }

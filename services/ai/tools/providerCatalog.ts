@@ -17,6 +17,7 @@ import type {
   ActionCategory,
   ActionMeta,
   FieldMeta,
+  FieldType,
   OutputMeta,
   RiskLevel,
 } from "@/contracts/actionMeta";
@@ -51,6 +52,24 @@ export interface CatalogFieldOptions {
   readonly values: readonly string[];
 }
 
+/**
+ * Declared config-field grounding for one node (Slice 4.AI-12D). Surfaces the
+ * EXACT config key the planner must use, its renderer type (so the model knows
+ * whether free-text / id / enum / etc. is expected), and whether it is required.
+ * The compact catalog includes this for every action / trigger so the model
+ * cannot guess a key from `displayName`, a field's UI `label`, or an output
+ * name (which would otherwise produce structurally invalid patches like
+ * `message: ...` on `slack:send_direct_message` where the real key is `text`).
+ *
+ * Generic + metadata-driven: derived from `FieldMeta` on every node, no
+ * per-provider logic.
+ */
+export interface CatalogConfigField {
+  readonly name: string;
+  readonly type: FieldType;
+  readonly required: boolean;
+}
+
 export interface CatalogActionEntry {
   readonly key: string;
   readonly displayName: string;
@@ -59,6 +78,12 @@ export interface CatalogActionEntry {
   readonly isDestructive: boolean;
   readonly requiresConfirmation: boolean;
   readonly requiresIntegration: boolean;
+  /**
+   * The action's declared config fields in metadata order, with required flag
+   * and renderer type. Empty array when the action declares no config fields.
+   * Always present so the planner prompt can render a uniform per-node block.
+   */
+  readonly configFields: readonly CatalogConfigField[];
   /** Static-enum config fields, when any. Omitted when the node has none. */
   readonly configOptions?: readonly CatalogFieldOptions[];
 }
@@ -69,6 +94,12 @@ export interface CatalogTriggerEntry {
   readonly category: ActionCategory;
   readonly activation: TriggerActivation;
   readonly requiresIntegration: boolean;
+  /**
+   * The trigger's declared config fields in metadata order, with required flag
+   * and renderer type. Empty array when the trigger declares no config fields
+   * (e.g. `native:manual.run`).
+   */
+  readonly configFields: readonly CatalogConfigField[];
   /** Static-enum config fields, when any. Omitted when the node has none. */
   readonly configOptions?: readonly CatalogFieldOptions[];
 }
@@ -121,6 +152,22 @@ function extractStaticOptions(
   return out.length > 0 ? out : undefined;
 }
 
+/**
+ * Pull the declared config fields off a node's metadata (Slice 4.AI-12D).
+ * Metadata-driven and provider-agnostic — every action / trigger gets exactly
+ * the names + types + required flags declared in its `fields[]`, preserving
+ * registry order.
+ */
+function extractConfigFields(
+  fields: readonly FieldMeta[],
+): readonly CatalogConfigField[] {
+  return fields.map((f) => ({
+    name: f.name,
+    type: f.type,
+    required: f.required,
+  }));
+}
+
 function toCatalogAction(m: ActionMeta): CatalogActionEntry {
   const configOptions = extractStaticOptions(m.fields);
   return {
@@ -131,6 +178,7 @@ function toCatalogAction(m: ActionMeta): CatalogActionEntry {
     isDestructive: m.isDestructive,
     requiresConfirmation: m.requiresConfirmation,
     requiresIntegration: m.requiresIntegration,
+    configFields: extractConfigFields(m.fields),
     ...(configOptions ? { configOptions } : {}),
   };
 }
@@ -143,6 +191,7 @@ function toCatalogTrigger(m: TriggerMeta): CatalogTriggerEntry {
     category: m.category,
     activation: m.activation,
     requiresIntegration: m.requiresIntegration,
+    configFields: extractConfigFields(m.fields),
     ...(configOptions ? { configOptions } : {}),
   };
 }

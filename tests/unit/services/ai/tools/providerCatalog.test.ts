@@ -102,6 +102,67 @@ describe("getProviderCatalog", () => {
       for (const t of p.triggers) expect(t.key.startsWith(`${p.id}:`)).toBe(true);
     }
   });
+
+  describe("configFields grounding (AI-12D)", () => {
+    it("includes every action's declared config fields in metadata order with required + type", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      for (const p of result.data.providers) {
+        for (const a of p.actions) {
+          const meta = listAllActionMetas().find((m) => m.key === a.key)!;
+          expect(meta).toBeDefined();
+          expect(a.configFields).toBeDefined();
+          expect(a.configFields.map((f) => f.name)).toEqual(meta.fields.map((f) => f.name));
+          expect(a.configFields.map((f) => f.type)).toEqual(meta.fields.map((f) => f.type));
+          expect(a.configFields.map((f) => f.required)).toEqual(meta.fields.map((f) => f.required));
+        }
+      }
+    });
+
+    it("includes every trigger's declared config fields in metadata order (empty array for fields-less triggers)", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      for (const p of result.data.providers) {
+        for (const t of p.triggers) {
+          const meta = listAllTriggerMetas().find((m) => m.key === t.key)!;
+          expect(meta).toBeDefined();
+          expect(t.configFields).toBeDefined();
+          expect(t.configFields.map((f) => f.name)).toEqual(meta.fields.map((f) => f.name));
+        }
+      }
+    });
+
+    it("uses the exact field names from slack:send_direct_message (userId, text required; threadTs optional) — pins the message-vs-text fix", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      const slack = result.data.providers.find((p) => p.id === "slack");
+      // If Slack is not registered in this build, the assertion is moot.
+      if (!slack) return;
+      const dm = slack.actions.find((a) => a.key === "slack:send_direct_message");
+      if (!dm) return;
+      const required = dm.configFields.filter((f) => f.required).map((f) => f.name);
+      const optional = dm.configFields.filter((f) => !f.required).map((f) => f.name);
+      expect(required).toContain("userId");
+      expect(required).toContain("text");
+      // `message` is an OUTPUT, not a config key — the catalog must not expose it as a field.
+      expect(dm.configFields.map((f) => f.name)).not.toContain("message");
+      expect(optional).toContain("threadTs");
+    });
+
+    it("uses the exact field names from native:if_then_condition (input, operator required) — pins the field-vs-input fix", () => {
+      const result = getProviderCatalog();
+      if (!result.ok) throw new Error("expected ok");
+      const native = result.data.providers.find((p) => p.id === "native");
+      if (!native) return;
+      const ifThen = native.actions.find((a) => a.key === "native:if_then_condition");
+      if (!ifThen) return;
+      const required = ifThen.configFields.filter((f) => f.required).map((f) => f.name);
+      expect(required).toContain("input");
+      expect(required).toContain("operator");
+      // `field` is what the model invented for input — must never appear as a config key.
+      expect(ifThen.configFields.map((f) => f.name)).not.toContain("field");
+    });
+  });
 });
 
 describe("getActionMeta", () => {
