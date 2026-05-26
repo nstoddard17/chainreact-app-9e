@@ -2,7 +2,7 @@
 
 **Slice:** 4.BUILDER-UI-V1-AUDIT-1
 **Type:** Doc-only audit/planning slice. **No runtime/source/test/metadata files modified.**
-**Date:** 2026-05-25
+**Date:** 2026-05-25 (corrected 2026-05-26 — see §0 Correction history)
 **Branch:** `builder-ui-v1-audit-1`
 **HEAD at authoring:** `e919c83f6` (chore: docs/slices reorg into phase-1/phase-2/parity)
 **V1 reference repo:** `chainreact-app-9e` @ `marcus_dev` (HEAD `faebdeed0`)
@@ -10,6 +10,36 @@
 > **Scope guardrail.** Audit + decisions only. This slice does **not** move, rename, or rewrite any builder UI code. The implementation work is enumerated in §8 and lands across follow-up slices (BUILDER-UI-SHELL-1 … BUILDER-UI-CLOSEOUT). No backend / provider metadata / billing / AI-service changes anywhere in this track.
 
 > **Reference policy.** V1 is reference, not truth. For every V1 pattern this doc classifies it as: **copy**, **adapt**, **replace**, **reject**, or **defer**. The goal is to use what worked in V1 while preserving V2's cleaner architecture (Zustand slices, schema-driven config, deterministic AI services, no monolithic component files).
+
+---
+
+## 0. Correction history
+
+### 2026-05-26 — Layout correction (BUILDER-LAYOUT-CORRECTION-1)
+
+**What changed.** The original §4 decision put the AI panel into the **right drawer** alongside the inspector (mutually exclusive). After reviewing V1 target screenshots, that direction was wrong: V1 keeps the React Agent assistant as a persistent **left rail**, and the right rail is dedicated to node-contextual surfaces. The corrected layout is **four-zone**:
+
+```
+header / left React Agent rail / center canvas / right drawer (inspector | results | validation)
+```
+
+**Why it matters.** The React Agent is a workflow-builder-scoped *assistant* the user converses with **while** editing — it needs persistent visibility, not modal-style on/off toggling. The right drawer is contextual to whatever the user just clicked (a node → inspector; a run → results; the validation pill → summary). Sharing one drawer between AI and inspector forces the user to choose between "see my chat with the agent" and "see the node I'm editing" — exactly the wrong tradeoff for an agent-driven UX.
+
+**What this correction touches.** Only the plan in this doc. No source files moved, no tests changed, no shipped slices unwound. Specifically:
+
+- §4 — four-zone layout replaces three-zone; left rail = React Agent.
+- §5 — `BuilderLeftAgentRail.tsx` + `useLeftAgentRail.ts` added; `BuilderRightDrawer` keeps only inspector / results / validation.
+- §6 — visual design picks up V1's 420px left rail with collapsible toggle.
+- §7 — Flow C updates to left-rail mount.
+- §8 — `BUILDER-AI-PANEL-1` (move AI to right drawer) **removed**; replaced by `BUILDER-LEFT-AGENT-1` (move AI to left rail).
+- Appendix C — slice sequence updated.
+
+**Out of scope for this correction (still non-goals across the entire track).**
+- General app-level help assistant — not built here. The left rail is workflow-builder scoped only.
+- Chat / thread persistence — not added now. AI panel keeps its existing single-request contract (AI-11/11B).
+- Right drawer becoming an AI host — explicit non-goal. Right drawer is for node-contextual surfaces only.
+- AI backend behavior, provider metadata, billing/tasks, workflow execution — unchanged.
+- Push to `origin/*` — not from this correction.
 
 ---
 
@@ -187,27 +217,28 @@ V1 is the existing production builder in `chainreact-app-9e`. It is **visually p
 
 The questions in the brief, answered:
 
-### Three-zone layout? — **Yes.**
+### Four-zone layout (corrected 2026-05-26) — **Yes.**
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  BuilderHeader (h-12)  title · status · undo/redo · Test · Publish · ⋯  │
-├──────────────┬──────────────────────────────────────────┬───────────────┤
-│              │                                          │               │
-│              │                                          │  Inspector OR │
-│              │             WorkflowCanvas               │  AI panel OR  │
-│              │           (full remaining height)        │  Run results  │
-│              │                                          │  (right       │
-│              │                                          │   drawer,     │
-│              │                                          │   mutually    │
-│              │                                          │   exclusive)  │
-└──────────────┴──────────────────────────────────────────┴───────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  BuilderHeader (h-12)  title · status · undo/redo · Test · Publish · ⋯         │
+├───────────────┬──────────────────────────────────────────┬─────────────────────┤
+│               │                                          │                     │
+│  React Agent  │                                          │  Inspector OR       │
+│  (left rail,  │             WorkflowCanvas               │  Run results OR     │
+│   ~420px,     │           (full remaining height)        │  Validation summary │
+│   collapsible,│                                          │  (right drawer,     │
+│   default-on  │                                          │   mutually          │
+│   on desktop) │                                          │   exclusive)        │
+│               │                                          │                     │
+└───────────────┴──────────────────────────────────────────┴─────────────────────┘
 ```
 
-- **Header** owns workflow identity (title + status), structural actions (undo/redo, view), execution (Test, Run-now via header dropdown), and lifecycle (Publish → `ActivationReviewDialog` → activate / pause / resume). Save lives here too.
+- **Header** owns workflow identity (title + status), structural actions (undo/redo, view), execution (Test, Run-now via header dropdown), and lifecycle (Publish → `ActivationReviewDialog` → activate / pause / resume). Save lives here too. **Left-rail toggle** lives here as an icon button (collapses / restores the React Agent rail).
+- **Left rail = React Agent (workflow-builder-scoped AI).** Mirrors V1's 420px left AI panel. Mounts `BuilderAiPanel` (AI-11 / AI-11B contract — preview-then-apply, risk ack, no auto-apply, no raw values exposed). **Visible by default on desktop**, collapsible via the header toggle and via the rail's own ✕. Collapsed state persists per-user in localStorage. **Scope guardrail:** this is the *workflow-builder* assistant only — not the general app help assistant. There is no chat/thread persistence in this slice; the panel keeps its existing single-request contract.
 - **Canvas** is the visual focus, full remaining height. ReactFlow with Dots background, custom edges with plus-button, MiniMap optional.
-- **Right drawer** is one-of-three: **Inspector** (when a node is selected), **AI panel** (when toggled from header), **Run results** (when a run completes). They are mutually exclusive — opening one closes the others. Drawer width ~420px default, resizable.
-- **No persistent left panel.** V1's left AI panel competes with canvas; V2 should not duplicate that. AI lives in the right drawer alongside the inspector.
+- **Right drawer** is one-of-three node-contextual surfaces: **Inspector** (when a node is selected), **Run results** (when a run completes), **Validation summary** (when the header pill is clicked). They are mutually exclusive — opening one closes the others. **AI does NOT mount here.** Drawer width ~420px default, resizable. Right drawer state is independent of left rail state — both can be open simultaneously.
+- **Why a persistent left rail (and not a toggled drawer) for AI.** The React Agent is a conversational assistant the user works **alongside** while editing. Hiding it behind a toggle creates the same friction as V1's old modal-style AI (Phase 2 user feedback). Persistent left placement also matches user mental models from Linear's AI sidebar, Notion AI, and Cursor — workflow-builder agents live in the chrome, not behind a click.
 
 ### Node config — **right inspector drawer.** Already the V2 direction.
 
@@ -250,9 +281,10 @@ features/workflow-builder/
 ├── WorkflowBuilderPage.tsx                  new        — server-component page entry (replaces stacked layout in app/workflows/[id]/page.tsx)
 ├── WorkflowBuilder.tsx                       polish    — thin shell; composes layout components
 ├── layout/
-│   ├── BuilderShell.tsx                      new       — 3-zone grid (header / canvas / right drawer)
-│   ├── BuilderHeader.tsx                     new       — title, status, undo/redo, Test, Run, Publish, History, More
-│   └── BuilderRightDrawer.tsx                new       — one-of: inspector | ai | results | validation
+│   ├── BuilderShell.tsx                      polish    — 4-zone grid (header / left rail / canvas / right drawer). SHELL-1 shipped a 2-zone (header/content) foundation; LEFT-AGENT-1 extends it.
+│   ├── BuilderHeader.tsx                     new       — title, status, undo/redo, Test, Run, Publish, History, More, **left-rail toggle**
+│   ├── BuilderRightDrawer.tsx                new       — one-of: inspector | results | validation. **AI excluded** — left rail owns it.
+│   └── BuilderLeftAgentRail.tsx              new       — left rail container hosting BuilderAiPanel; ~420px; collapsible; default-expanded on desktop; collapsed state persisted to localStorage
 ├── canvas/
 │   ├── WorkflowCanvas.tsx                    polish    — full-height container, Dots background
 │   ├── WorkflowNodeCard.tsx                  new       — replaces WorkflowNodeView; provider icon, status badge, hover/selected states
@@ -263,7 +295,7 @@ features/workflow-builder/
 ├── panels/
 │   ├── AddNodePanel.tsx                      new       — slide-in side panel with search + categories
 │   ├── NodeInspectorPanel.tsx                polish    — wraps ConfigModalShell for drawer mount
-│   ├── BuilderAiPanel.tsx                    polish    — relocated to right drawer; copy/structure unchanged (AI-11/11B contract preserved)
+│   ├── BuilderAiPanel.tsx                    polish    — relocated to **LEFT rail** (not right drawer); copy/structure unchanged (AI-11/11B contract preserved); no chat/thread persistence in this slice
 │   ├── RunPanel.tsx                          polish    — extract trigger-mode branching from RunNowPanel; header-mounted
 │   ├── RunResultsPanel.tsx                   polish    — relocated to right drawer; better step formatting
 │   ├── RunResultsRepairBlock.tsx             keep      — AI-13 contract preserved
@@ -274,7 +306,8 @@ features/workflow-builder/
 ├── state/                                    keep      — graphSlice / configSlice / runSlice unchanged
 ├── hooks/
 │   ├── useBuilderShortcuts.ts                new       — Cmd+S save, Cmd+Z undo, Cmd+Shift+Z redo, Esc close drawer
-│   ├── useRightDrawer.ts                     new       — drawer state machine (which surface is open)
+│   ├── useRightDrawer.ts                     new       — right drawer state machine (inspector | results | validation). **AI is not a drawer state.**
+│   ├── useLeftAgentRail.ts                   new       — left rail collapsed/expanded state; reads/writes localStorage key `chainreact:builder:leftAgentRail:collapsed`
 │   ├── useBuilderAi.ts                       keep      — AI-11 contract preserved
 │   ├── useLatestRunPolling.ts                keep      — unchanged
 │   └── useNativeActions / useProviderActions keep      — metadata fetchers unchanged
@@ -289,6 +322,8 @@ features/workflow-builder/
 - No provider-specific branches in any of these files. Provider differences come from ActionMeta / TriggerMeta only.
 - `ConfigModalShell` and its `fields/*` tree stay where they are — they are already production-ready.
 - Existing tests under `tests/` keep passing without changes wherever possible; new tests cover new layout components.
+- **Right drawer is for node-contextual surfaces only** (inspector / results / validation). `useRightDrawer.ts` MUST NOT gain an `"ai"` mode. AI's mount point is the left rail.
+- **Left rail is workflow-builder scoped.** Do not mount any general app-level assistant here. If a general help surface is added later, it lives outside the builder shell.
 
 ---
 
@@ -303,6 +338,7 @@ features/workflow-builder/
 ### Spacing / size tokens
 
 - Header height: **48px** (h-12) — matches V1.
+- **Left rail width: 420px** (matches V1's `--agent-pane-width`), no resize handle in this slice. Collapsed state is icon-only (no fixed width).
 - Right drawer width: **420px** default, resizable down to 320px.
 - Node card width: **300–340px** (smaller than V1's 360 — V2 nodes have less inline content). Rounded `lg` (12px).
 - Edge stroke: **1.5px** at rest, **2px** on hover/selected. Color matches V1's `#d0d6e0` → `#9ca3af`.
@@ -319,14 +355,14 @@ features/workflow-builder/
 ### What to modernize
 
 - Node card with subtler shadow + cleaner spacing.
-- Drawer-based right rail (V1 has both a 420 left + 380 right, V2 has one 420 right). Simpler, scales better.
+- **Left rail = 420px (V1 parity); right drawer = 420px and node-contextual only.** V1 had a 420 left + 380 right both visible; V2 keeps the 420 left for the React Agent and uses the right as a mutually-exclusive drawer (inspector / results / validation) rather than a third persistent column. Simpler middle-canvas footprint than V1 on 1280-wide laptops while still preserving the persistent agent surface.
 - No always-visible variable picker panel — popover only.
 - Validation summary as a header-launched drawer, not a modal.
 
 ### What to reject as dated / cluttered
 
 - V1's header density — too many secondary buttons (Cloud API, Versions, Comments) crowding primary actions. Move secondaries into the More menu.
-- V1's left + right + canvas tri-panel — pushes canvas into a tiny middle column on common 1280-wide laptops.
+- V1's **always-visible right inspector panel layered on top of an always-visible left AI panel** — pushes canvas into a tiny middle column on 1280-wide laptops. V2 keeps the left rail persistent but makes the right drawer mutually-exclusive (only one of inspector/results/validation visible at a time, and the user can close it). Left rail collapse recovers the full canvas width when the user wants it.
 - Color-rotation paths beyond 2-3 colors — visually noisy. Defer multi-color until router UI lands.
 
 ### Where V2 should be simpler than V1
@@ -363,14 +399,19 @@ features/workflow-builder/
 
 ### Flow C — AI-assisted build (AI-11 / AI-11B contract preserved)
 
+> **Corrected 2026-05-26.** Original target placed AI in the right drawer. Corrected target: **React Agent is the persistent left rail** — visible by default on desktop, collapsible via header toggle.
+
 | Step | Today | Target |
 |---|---|---|
-| User opens AI | AI panel below canvas in left column | Header **AI button** opens right drawer with the AI panel inside |
-| User types a prompt | Textarea + char counter | Same |
-| User clicks Plan with AI | Preview render | Same — preview structure unchanged (counts + risks + warnings + cost) |
-| Required input missing | `AiRequiredInputList` shown | Same |
-| Risk gate | Risk ack checkbox required | Same |
-| Apply | Apply button calls AI-9B route | Same; on success, drawer flips to inspector for the first changed node |
+| User enters builder | AI panel below canvas in left column | **React Agent left rail** is already visible (default-expanded on desktop). Collapsed users restore via header icon. |
+| User toggles rail | n/a | Header left-rail icon collapses/restores; preference persists per-user in localStorage. |
+| User types a prompt | Textarea + char counter | Same; lives in the left rail. |
+| User clicks Plan with AI | Preview render | Same — preview structure unchanged (counts + risks + warnings + cost). |
+| Required input missing | `AiRequiredInputList` shown | Same. |
+| Risk gate | Risk ack checkbox required | Same. |
+| Apply | Apply button calls AI-9B route | Same; on success, the **right drawer** opens to the inspector for the first changed node. Left rail stays visible so the user can keep iterating with the agent. |
+
+**No chat / thread persistence in this slice.** The panel keeps its single-request contract — opening / closing the rail or refreshing the page does not preserve a multi-turn conversation history. Persistence is a follow-up track outside this UI port.
 
 ### Flow D — failed-run repair (AI-13 contract preserved)
 
@@ -394,8 +435,9 @@ features/workflow-builder/
 | **BUILDER-INSPECTOR-1** *(shipped)* | New `BuilderRightDrawer` + `useRightDrawer` + `NodeInspectorPanel`. ConfigModalShell mounted inside the drawer (internals untouched); drawer state syncs to `configSlice.activeNodeId`; Esc / × close drops both drawer and selection. Real V1 SVG provider logos copied into `public/integrations/`; `providerIconUrl()` registry helper exposes the URL; threaded through ProviderOption → adapter context → `WorkflowNodeData.providerIcon`; WorkflowNodeCard renders `<img>` with `<img onError>` initials fallback. No per-provider branches in Builder UI. | `layout/BuilderRightDrawer.tsx` (new), `hooks/useRightDrawer.ts` (new), `panels/NodeInspectorPanel.tsx` (new), `WorkflowBuilder.tsx`, `canvas/WorkflowCanvas.tsx` (+ providerIcons), `canvas/adapters.ts` (+ providerIcons context, + providerIcon data field), `canvas/WorkflowNodeCard.tsx` (img-or-initials avatar), `panels/AddNodeMenu.tsx` (+ optional iconUrl on ProviderOption), `integrations/_registry.ts` (+ `providerIconUrl()` helper), `app/workflows/[id]/page.tsx` (passes iconUrl), 25 SVG assets under `public/integrations/` | Low — mount move + additive metadata; existing canvas-config-sync + ConfigModalShell tests pass unchanged | drawer mounts/unmounts in lock-step with `activeNodeId`; Esc/× close; provider icon renders + falls back; `providerIconUrl()` round-trip; no provider-specific branches | Optional metadata helper only (`providerIconUrl`); no backend / billing / AI behavior changes |
 | **BUILDER-ADD-FLOW-1** *(shipped)* | New `AddNodePanel` modal with search input + provider icons in chips + drill-in. Replaces inline `AddNodeMenu` (deleted). Picks reuse `addTriggerFromMeta` / `addActionFromMeta`. Custom `WorkflowEdge` with midpoint plus-button; `insertActionAtEdge` composition (extracted to `utils/`) rewires A→B into A→N→B by composing existing graphSlice ops (no slice contract change). Temporary CANVAS-1 `triggerButtonRef` bridge removed. `TriggerPicker` / `ActionPicker` extended additively with optional `searchQuery` + `providerIcons` props. `ProviderOption` interface relocated to AddNodePanel. | `panels/AddNodePanel.tsx` (new), `panels/_pickerShared.tsx` (new), `canvas/WorkflowEdge.tsx` (new), `utils/shouldShowPlusButton.ts` (new), `utils/insertActionAtEdge.ts` (new), `panels/TriggerPicker.tsx` (+ optional props), `panels/ActionPicker.tsx` (+ optional props), `canvas/WorkflowCanvas.tsx` (+ EDGE_TYPES, onEdgePlusClick), `canvas/adapters.ts` (+ WORKFLOW_EDGE_TYPE, onEdgePlusClick context), `WorkflowBuilder.tsx` (AddNodePanel state machine + insertActionAtEdge wire), `panels/AddNodeMenu.tsx` (deleted), `tests/unit/.../panels/AddNodeMenu.test.tsx` (deleted) | Medium — replaces the picker; insertion composition adds 4 graphSlice calls per edge insert | search filters by metadata; clicking item dispatches addTriggerFromMeta/addActionFromMeta as before; edge plus-button opens panel with insert context; insertActionAtEdge produces A→N→B topology + midpoint position | No |
 | **BUILDER-RUN-PANEL-1** *(shipped)* | Test / Run buttons lifted into BuilderHeader via new `HeaderRunControls` (consumes new `useRunControls` hook — extracted state machine from the deleted `RunNowPanel`). `RunResultsPanel` + `RunResultsRepairBlock` mount inside the existing `BuilderRightDrawer` `mode: "results"` slot. Drawer mode now transitions between `inspector` and `results` based on which slice signal (`configSlice.activeNodeId` vs `runSlice.runId`) most recently changed — refs detect transitions so the two effects don't fight. Closing the drawer in results mode does NOT clear `runSlice`. Old below-canvas mounts removed. The 45 integration tests broken by ADD-FLOW-1's `AddNodeMenu` deletion were also migrated (`/add trigger/i` → `/choose a trigger/i`). | `hooks/useRunControls.ts` (new), `layout/HeaderRunControls.tsx` (new), `layout/BuilderHeader.tsx` (mounts HeaderRunControls), `WorkflowBuilder.tsx` (transition-refs sync + drawer body switch + drop below-canvas mounts), `panels/RunNowPanel.tsx` (deleted), `tests/unit/.../panels/RunNowPanel.test.tsx` (moved → `tests/unit/.../layout/HeaderRunControls.test.tsx`), 45 integration tests migrated (`/add trigger/i` → `/choose a trigger/i` bulk replace) | Medium — drawer state machine + run-panel relocation, but `useRunControls` keeps the existing testid + behavior contract verbatim | Test mode runs from header; results drawer auto-opens on new `runId`; back to inspector on node click; drawer × in results doesn't clear `runSlice`; repair block still renders on failed runs; all 33 migrated HeaderRunControls tests pass | No |
-| **BUILDER-AI-PANEL-1** | `BuilderAiPanel` mounts inside `BuilderRightDrawer`. Trigger from header AI button. Contract unchanged (preview-then-apply, risk ack, no auto-apply). | `panels/BuilderAiPanel.tsx` (polish), `layout/BuilderHeader.tsx` | Low — mounting move only | AI panel renders; preview / apply flow unchanged; no raw values exposed | No |
-| **BUILDER-VALIDATION-1** | `ValidationSummary` drawer surface. Header pill shows error/warning count. Inline node "Not configured" chip. Pre-publish `ActivationReviewDialog` reads same data. | `validation/ValidationSummary.tsx` (new), `canvas/WorkflowNodeCard.tsx` (chip), `layout/BuilderHeader.tsx` (pill) | Low — surfaces existing validation data; no new validation logic | pill counts match; clicking jumps to node; node chip renders when fields missing | No |
+| **BUILDER-LAYOUT-CORRECTION-1** *(2026-05-26, this revision — plan-only)* | Correct §4 layout direction: AI moves to **left rail** (matches V1 target screenshots), not right drawer. Revises §0/§4/§5/§6/§7/§8/§9/§10/App-C. No source files touched; no shipped slices unwound. Replaces former `BUILDER-AI-PANEL-1` with `BUILDER-LEFT-AGENT-1` below. | `docs/slices/phase-4/builder-ui-v1-port-plan.md` only | None | None | No |
+| **BUILDER-LEFT-AGENT-1** *(replaces former BUILDER-AI-PANEL-1)* | Introduce `BuilderLeftAgentRail` and mount `BuilderAiPanel` inside it (move from the current below-canvas slot in `WorkflowBuilder.tsx`). Header gains a left-rail toggle icon. `BuilderShell` extends from 2-zone (header/content) → 4-zone (header / left rail / canvas-and-rest / right drawer). Collapse state persists via `useLeftAgentRail` → localStorage. **Remove `"ai"` from `RightDrawerMode` union in `useRightDrawer.ts`** (and update `useRightDrawer.test.tsx` to assert the 3-mode union: `inspector | results | validation`). Right drawer cannot host AI by construction after this slice. AI contract unchanged: AI-11/11B preview-then-apply, risk ack, no auto-apply, no raw values exposed, **no chat/thread persistence**. | `layout/BuilderLeftAgentRail.tsx` (new), `layout/BuilderShell.tsx` (extend to 4-zone), `layout/BuilderHeader.tsx` (toggle button), `hooks/useLeftAgentRail.ts` (new), `hooks/useRightDrawer.ts` (drop `"ai"` mode), `WorkflowBuilder.tsx` (mount move from below-canvas to left rail), `panels/BuilderAiPanel.tsx` (no internal changes; mount-point move only) | Low — mounting move + new wrapper; AI contract untouched; `RightDrawerMode` union narrowing is a typed change (TS catches all call sites) | Left rail renders by default on desktop; toggle collapses/restores; collapse state persists across reloads; AI preview/apply flow unchanged at new mount point; no raw values exposed; right drawer state remains independent; `RightDrawerMode` typed-union assertion test: union is `"inspector" \| "results" \| "validation"` (no `"ai"`); 6 existing `useRightDrawer` tests updated to drop the ai-mode case | No |
+| **BUILDER-VALIDATION-1** | `ValidationSummary` drawer surface. Header pill shows error/warning count. Inline node "Not configured" chip. Pre-publish `ActivationReviewDialog` reads same data. **Mounts in right drawer alongside inspector/results** — not the left rail. | `validation/ValidationSummary.tsx` (new), `canvas/WorkflowNodeCard.tsx` (chip), `layout/BuilderHeader.tsx` (pill) | Low — surfaces existing validation data; no new validation logic | pill counts match; clicking jumps to node; node chip renders when fields missing | No |
 | **BUILDER-RESPONSIVE-1** | Responsive collapse: header → More menu on narrow widths; right drawer → sheet on mobile. Dark-mode end-to-end pass. Accessibility pass (aria roles, focus management on drawer open). | All layout + panel files | Low — additive | dark-mode snapshot; responsive breakpoint tests; focus-trap on drawer | No |
 | **BUILDER-UI-CLOSEOUT** | Tests + screenshots + outcomes doc. Optional Playwright walkthrough if e2e structure exists. | `docs/slices/phase-4/builder-ui-port-outcomes.md` (new) | None | Smoke playthrough | No |
 
@@ -426,7 +468,7 @@ Layout foundation only. **No panel relocation in this slice** — every existing
 
 - **LifecycleActions placement.** Currently still mounted in the page header (`app/workflows/[id]/page.tsx`). Moving it requires either deleting the page-header h1 (visible regression risk) or accepting visible duplication. Deferred to a follow-up slice that resolves the page-header h1 question (likely folded into BUILDER-CANVAS-1 once the canvas takes full-bleed, or pulled out into its own micro-slice).
 - **Test / Run controls in header.** `RunNowPanel` still renders below canvas. Owner: **BUILDER-RUN-PANEL-1**.
-- **AI panel in header / right drawer.** `BuilderAiPanel` still renders in-flow below `RunResultsPanel`. Owner: **BUILDER-AI-PANEL-1**.
+- **AI panel into left rail.** `BuilderAiPanel` still renders in-flow below `RunResultsPanel`. Owner: **BUILDER-LEFT-AGENT-1** (corrected 2026-05-26 — see §0). The previous BUILDER-AI-PANEL-1 plan (move to right drawer) is superseded.
 - **Inspector in right drawer.** `ConfigModalShell` still renders as a right-side `aside` inside `WorkflowBuilder`. Owner: **BUILDER-INSPECTOR-1**.
 - **`AddNodePanel` slide-in.** `AddNodeMenu` inline drill-in still in place. Owner: **BUILDER-ADD-FLOW-1**.
 - **Custom edges + plus-button + empty canvas state + node card.** Owner: **BUILDER-CANVAS-1** / **BUILDER-ADD-FLOW-1**.
@@ -476,7 +518,7 @@ Visual-only slice. **No panel relocation.** Same `WorkflowNodeData` shape, same 
 - **Custom edges + edge plus-button.** Owner: **BUILDER-ADD-FLOW-1**.
 - **MiniMap.** Skipped — would clutter the canvas before page-shell expansion.
 - **True full-bleed canvas height.** Needs page-shell + parent-container changes (e.g. removing `max-w-3xl` on `app/workflows/[id]/page.tsx`) that risk regressing the surrounding controls. Modest 560px bump shipped instead.
-- **Inspector drawer / AI drawer / Run results drawer.** Owners: **BUILDER-INSPECTOR-1** / **BUILDER-AI-PANEL-1** / **BUILDER-RUN-PANEL-1** respectively.
+- **Inspector drawer / AI left rail / Run results drawer.** Owners: **BUILDER-INSPECTOR-1** / **BUILDER-LEFT-AGENT-1** (corrected 2026-05-26 — AI moves to left rail, not right drawer) / **BUILDER-RUN-PANEL-1** respectively.
 - **`AddNodePanel` slide-in replacement.** Owner: **BUILDER-ADD-FLOW-1**. (When it lands the temporary `triggerButtonRef` prop on `AddNodeMenu` + the canvas's `onEmptyAddTrigger` callback collapse into a direct panel-open call.)
 - **Real provider iconography.** No `/integrations/{provider}.svg` convention exists in V2 today (verified — `public/` doesn't exist in this repo). Initials-avatar fallback ships now; SVG asset adoption is a separate metadata concern handled later.
 - **Removing NodeList.** Still rendered below the canvas as a defensive secondary view. Removal lands once the canvas card surface is stable and the inspector lives in the drawer.
@@ -553,7 +595,7 @@ Two-part slice. **Part A** moves the node-configuration inspector into a real ri
 
 - **AddNodePanel slide-in replacement.** Owner: **BUILDER-ADD-FLOW-1**.
 - **Custom edges + edge plus-button.** Owner: **BUILDER-ADD-FLOW-1**.
-- **AI panel into right drawer.** Owner: **BUILDER-AI-PANEL-1**. (The `mode: "ai"` slot is reserved.)
+- **AI panel into left rail.** Owner: **BUILDER-LEFT-AGENT-1** (corrected 2026-05-26 — was BUILDER-AI-PANEL-1 / right drawer; see §0). **The `mode: "ai"` slot in `RightDrawerMode` reserved here is forfeit** — LEFT-AGENT-1 removes `"ai"` from the union. The 6 `useRightDrawer` tests that exercise the ai-mode mutual-exclusion case migrate to the 3-mode union (`inspector | results | validation`).
 - **Run results into right drawer.** Owner: **BUILDER-RUN-PANEL-1**. (The `mode: "results"` slot is reserved.)
 - **ValidationSummary into right drawer.** Owner: **BUILDER-VALIDATION-1**. (The `mode: "validation"` slot is reserved.)
 - **Run-state animations** (running shimmer / listening ring / paused pulse). Owner: a follow-up slice after per-node run-state projection lands.
@@ -620,7 +662,7 @@ The biggest single UX upgrade in the track. Replaces the inline drill-in `AddNod
 **Intentionally deferred:**
 
 - **Run panel move** → BUILDER-RUN-PANEL-1.
-- **AI panel into drawer** → BUILDER-AI-PANEL-1.
+- **AI panel into left rail** → BUILDER-LEFT-AGENT-1 (corrected 2026-05-26 — see §0; was "AI panel into drawer" / BUILDER-AI-PANEL-1).
 - **Validation drawer + header pill** → BUILDER-VALIDATION-1.
 - **Responsive pass + dark-mode end-to-end** → BUILDER-RESPONSIVE-1.
 - **Templates / custom nodes** → outside the Builder UI track.
@@ -675,7 +717,7 @@ The final layout-relocation slice before the responsive/dark-mode/a11y closeout.
 
 **Intentionally deferred:**
 
-- **AI panel drawer move** → BUILDER-AI-PANEL-1. (`mode: "ai"` slot reserved.)
+- **AI panel into left rail** → BUILDER-LEFT-AGENT-1 (corrected 2026-05-26 — see §0; was "AI panel drawer move" / BUILDER-AI-PANEL-1). The `mode: "ai"` slot reservation noted here is **forfeit**: LEFT-AGENT-1 removes `"ai"` from `RightDrawerMode`. The right drawer stays inspector/results/validation only.
 - **Validation drawer + header pill** → BUILDER-VALIDATION-1. (`mode: "validation"` slot reserved.)
 - **Responsive + dark-mode + a11y pass** → BUILDER-RESPONSIVE-1.
 - **Per-step output formatting polish** (V1's expand-row UX, copy-clipboard, syntax-highlighted JSON). The `RunResultsPanel` body shipped as-is from BUILDER-INSPECTOR-1 era — the slice scope was the relocation, not the result-rendering polish. Owner: a follow-up post-CLOSEOUT polish slice if needed.
@@ -689,7 +731,8 @@ The final layout-relocation slice before the responsive/dark-mode/a11y closeout.
 
 ### Component / unit (Jest + RTL — extend `tests/`)
 
-- **Shell.** `BuilderShell` renders the 3 zones; `BuilderHeader` composes title + status + actions; `BuilderRightDrawer` mounts exactly one of inspector / ai / results / validation.
+- **Shell.** `BuilderShell` renders the 4 zones (header / left rail / canvas-and-rest / right drawer); `BuilderHeader` composes title + status + actions + left-rail toggle; `BuilderRightDrawer` mounts exactly one of `inspector | results | validation` (**no `ai` mode** — the union is narrowed in BUILDER-LEFT-AGENT-1).
+- **Left rail (BUILDER-LEFT-AGENT-1).** `BuilderLeftAgentRail` mounts `BuilderAiPanel`; visible by default on desktop; collapse toggle reverses visibility; collapsed state survives a remount (read from `useLeftAgentRail` / localStorage); right drawer state is independent of left rail state (both can be open simultaneously).
 - **Empty state.** `EmptyCanvasState` renders when no nodes; CTA dispatches the right add-trigger action.
 - **Node card.** `WorkflowNodeCard` renders provider label + display name + status; selected state styles; "Not configured" chip when required FieldMeta is missing.
 - **Edge plus-button.** `WorkflowEdge` plus-button appears on hover; click opens `AddNodePanel` with insert context.
@@ -697,9 +740,9 @@ The final layout-relocation slice before the responsive/dark-mode/a11y closeout.
 - **Inspector mount.** Selecting a node opens the drawer; closing returns focus to the node.
 - **Run panel header.** Test button runs in test mode; Run is hidden for automated triggers; 409 still opens the confirmation modal.
 - **Results drawer.** Failed run shows step pills + repair block.
-- **AI drawer.** Preview / apply contract unchanged (re-use existing AI-11/11B tests at the new mount point).
+- **AI left rail.** Preview / apply contract unchanged (re-use existing AI-11/11B tests at the new mount point — left rail instead of right drawer).
 - **Validation summary.** Pill count matches; clicking issue jumps to node.
-- **Keyboard.** Cmd+S triggers save; Esc closes drawer; Cmd+Z / Cmd+Shift+Z dispatch undo/redo.
+- **Keyboard.** Cmd+S triggers save; Esc closes drawer (does NOT collapse left rail — Esc is for transient surfaces, the rail is persistent); Cmd+Z / Cmd+Shift+Z dispatch undo/redo.
 
 ### Pure unit (Jest)
 
@@ -735,6 +778,9 @@ Run scope per slice: only the touched component tests. Full suite at CLOSEOUT.
 6. **Large files returning.** A polished header tends to grow. Mitigation: enforce splits (`HeaderTitle.tsx`, `HeaderActions.tsx`, `HeaderRunControls.tsx`) if `BuilderHeader.tsx` >400 lines.
 7. **`graphSlice` / `configSlice` / `runSlice` contract drift.** A new layout might want to read state from slices in new ways. Mitigation: no slice signature changes during this track; new selectors only.
 8. **Auto-save vs explicit-save inconsistency.** A half-introduced auto-save creates a worse UX than either pure mode. Mitigation: commit to explicit-save with dirty pill (decision in §4); revisit auto-save as a separate slice if ever.
+9. **Right drawer as AI host (regression to pre-correction direction).** Easy to add a `"ai"` mode back to `RightDrawerMode` when implementing some future feature ("just show the agent in the drawer for X case"). Mitigation: BUILDER-LEFT-AGENT-1 explicitly removes `"ai"` from the union and lands a typed-union assertion test; any reintroduction must update that test and explain why. Default answer: the React Agent lives in the left rail; the right drawer is node-contextual only.
+10. **Mounting a general app-level help assistant in the builder left rail.** Tempting because the rail is visible and AI-shaped. Mitigation: scope guard — the rail is workflow-builder scoped and mounts only `BuilderAiPanel` (AI-11/11B service). A general help surface lives outside the builder shell.
+11. **Adding chat / thread persistence inside BUILDER-LEFT-AGENT-1.** The visible left rail makes multi-turn chat a tempting next step. Mitigation: explicit non-goal in §0. Persistence is a follow-up track with its own service contract.
 
 ### Non-goals (re-stating the brief)
 
@@ -804,13 +850,16 @@ components/workflows/ai-builder/AIWorkflowBuilderChat.tsx
 
 ## Appendix C — Recommended slice sequence (one-line summary)
 
-1. **BUILDER-UI-V1-AUDIT-1** — this doc.
-2. **BUILDER-UI-SHELL-1** — 3-zone shell + header.
-3. **BUILDER-CANVAS-1** — node card + empty state + full-height canvas.
-4. **BUILDER-INSPECTOR-1** — config moves into right drawer.
-5. **BUILDER-ADD-FLOW-1** — `AddNodePanel` + edge plus-button.
-6. **BUILDER-RUN-PANEL-1** — Run / Test in header; results into drawer.
-7. **BUILDER-AI-PANEL-1** — AI panel into right drawer.
-8. **BUILDER-VALIDATION-1** — `ValidationSummary` drawer + header pill.
-9. **BUILDER-RESPONSIVE-1** — responsive + dark mode + a11y pass.
-10. **BUILDER-UI-CLOSEOUT** — outcomes doc + (optional) Playwright walkthrough.
+> **Corrected 2026-05-26.** Sequence #7 changed from `BUILDER-AI-PANEL-1` (move AI to right drawer) to `BUILDER-LEFT-AGENT-1` (move AI to left rail). See §0 Correction history for rationale.
+
+1. **BUILDER-UI-V1-AUDIT-1** — this doc. *(shipped)*
+2. **BUILDER-UI-SHELL-1** — header + content shell. *(shipped — 2-zone foundation; 4-zone grid extension lands in #7)*
+3. **BUILDER-CANVAS-1** — node card + empty state + full-height canvas. *(shipped)*
+4. **BUILDER-INSPECTOR-1** — config moves into right drawer. *(shipped)*
+5. **BUILDER-ADD-FLOW-1** — `AddNodePanel` + edge plus-button. *(shipped)*
+6. **BUILDER-RUN-PANEL-1** — Run / Test in header; results into drawer. *(shipped)*
+7. **BUILDER-LAYOUT-CORRECTION-1** — plan-only correction: AI → left rail (not right drawer). *(this revision — 2026-05-26)*
+8. **BUILDER-LEFT-AGENT-1** — `BuilderLeftAgentRail` hosts `BuilderAiPanel`; header gains rail toggle; `BuilderShell` extends to 4-zone; `useRightDrawer` drops `"ai"` mode.
+9. **BUILDER-VALIDATION-1** — `ValidationSummary` drawer + header pill.
+10. **BUILDER-RESPONSIVE-1** — responsive + dark mode + a11y pass.
+11. **BUILDER-UI-CLOSEOUT** — outcomes doc + (optional) Playwright walkthrough.
