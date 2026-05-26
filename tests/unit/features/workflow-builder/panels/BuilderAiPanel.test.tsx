@@ -127,6 +127,22 @@ describe("plan states", () => {
     expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
   });
 
+  it("shows a JSON-specific message + value-free detail on PARSE_FAILED / NOT_JSON (AI-12C)", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ok: false,
+      code: "PARSE_FAILED",
+      message: "unparseable",
+      errors: [{ stage: "parse", code: "NOT_JSON", message: "The model response was not valid JSON." }],
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    const failure = await screen.findByTestId("builder-ai-plan-failure");
+    expect(failure).toHaveTextContent(/text instead of the required JSON/i);
+    expect(screen.getByTestId("builder-ai-plan-failure-detail")).toHaveTextContent("parse / NOT_JSON");
+    expect(document.body.textContent).not.toContain("The model response was not valid JSON.");
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+  });
+
   it("shows needs-input and no apply button when the plan needs more info", async () => {
     mockPlan.mockResolvedValueOnce({
       ...planApplyReady,

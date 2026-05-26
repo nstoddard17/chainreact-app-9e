@@ -35,7 +35,7 @@ import type {
 export const PLANNER_CONSTRAINTS: readonly string[] = [
   "Use ONLY the providers, actions, and triggers listed in the catalog below. Never invent a provider, action, trigger, or field name.",
   "Use field names exactly as they appear in the node metadata. Do not add fields that are not declared.",
-  "Respond with a SINGLE JSON object that matches the response schema and nothing else — no prose, no markdown, no code fences.",
+  "Respond with EXACTLY ONE JSON object that matches the response schema and nothing else — the first character must be { and the last must be }. No prose, no markdown, no ```json fences, no comments, and no trailing commas.",
   "When a value is unknown, do NOT guess: emit an AI_FIELD placeholder ({{AI_FIELD:fieldName}}) for free-text content, or add a requiredUserInput entry for anything else (ids, enums, selections).",
   "If you cannot build a COMPLETE, schema-valid WorkflowPatch — a required node id, enum value, recipient, or selection is unknown and has no upstream source — set proposedPatch to null and list what is still needed under requiredUserInput. NEVER emit a partial, approximate, or guessed patch; a null patch with clear requiredUserInput is always better than an invalid one.",
   "Follow the WorkflowPatch shape below EXACTLY (envelope keys, operation vocabulary, node shape, edge shape). A patch with the wrong shape, an unknown operation, or an extra key is rejected before it can be reviewed.",
@@ -90,6 +90,23 @@ export const PATCH_SHAPE_GUIDE = [
   'Edge shape: { "id": string (unique within the patch), "from": string (source node id), "to": string (target node id), "label"?: string (optional branch label) }. The endpoint keys are "from" and "to" — never "source"/"target".',
   "config maps a node's metadata field names to values. Use {{AI_FIELD:fieldName}} for unknown free-text; for an unknown id/enum/selection, omit the field and add a requiredUserInput entry. Never invent a config field name and never include a secret value.",
   "A typical brand-new workflow is: one addNode for the trigger, one addNode per action, and addEdge operations linking them in order.",
+].join("\n");
+
+/**
+ * JSON-only output contract (Slice 4.AI-12C). Rendered LAST so it is the final
+ * instruction before generation (recency), reinforcing the constraint near the
+ * top. Paired with the Anthropic adapter's assistant-`{` prefill, this is the
+ * fix for `parse/NOT_JSON` (model returning prose / a fenced block instead of a
+ * bare JSON object). The parser stays strict — it is NOT a broad JSON extractor.
+ */
+export const JSON_OUTPUT_RULES = [
+  "OUTPUT FORMAT — follow exactly:",
+  "- Return EXACTLY ONE JSON object and nothing else.",
+  "- The FIRST character of your response must be { and the LAST character must be }.",
+  "- Do NOT use markdown. Do NOT wrap the JSON in ```json or ``` code fences.",
+  "- Do NOT write any prose, preamble, explanation, or commentary before or after the JSON object.",
+  "- Do NOT include comments or trailing commas — it must be strict, parseable JSON.",
+  "- If you are unsure or cannot complete the plan, STILL return one JSON object with proposedPatch set to null and the gaps listed in requiredUserInput.",
 ].join("\n");
 
 function renderActionEntry(a: CatalogActionEntry): string {
@@ -199,6 +216,7 @@ export function buildWorkflowPlanPrompt(
 
   sections.push(`Response format:\n${RESPONSE_SCHEMA_DESCRIPTION}`);
   sections.push(PATCH_SHAPE_GUIDE);
+  sections.push(JSON_OUTPUT_RULES);
 
   return [
     { role: "system", content: sections.join("\n\n") },

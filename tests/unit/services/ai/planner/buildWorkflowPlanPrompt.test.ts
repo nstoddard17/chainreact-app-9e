@@ -11,6 +11,7 @@
  */
 import {
   buildWorkflowPlanPrompt,
+  JSON_OUTPUT_RULES,
   PATCH_SHAPE_GUIDE,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
@@ -208,6 +209,35 @@ describe("patch-shape grounding (AI-12B)", () => {
     expect(text).toContain("set proposedpatch to null");
     expect(text).toContain("requireduserinput");
     expect(text).toContain("never emit a partial");
+  });
+});
+
+describe("JSON-only output rules (AI-12C)", () => {
+  it("includes the JSON-only output rules verbatim", () => {
+    expect(joinPrompt(makeInput())).toContain(JSON_OUTPUT_RULES);
+  });
+
+  it("instructs returning exactly one JSON object", () => {
+    expect(joinPrompt(makeInput())).toContain("EXACTLY ONE JSON object");
+  });
+
+  it("forbids markdown / code fences", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toMatch(/do not use markdown/i);
+    expect(text).toContain("```json");
+    expect(text).toMatch(/do not wrap the json/i);
+  });
+
+  it("pins the first { and last } character requirement", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("first character of your response must be {");
+    expect(text).toContain("last character must be }");
+  });
+
+  it("forbids prose before/after the JSON and bans comments/trailing commas", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("before or after the json");
+    expect(text).toContain("comments or trailing commas");
   });
 });
 

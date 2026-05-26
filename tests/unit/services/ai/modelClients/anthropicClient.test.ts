@@ -88,8 +88,63 @@ describe("success", () => {
     const body = JSON.parse(reqInit.body);
     expect(body.model).toBe(MODELS.strong.id);
     expect(body.system).toBe("You are a planner.");
-    expect(body.messages).toEqual([{ role: "user", content: "make a workflow" }]);
+    // AI-12C: a trailing assistant "{" prefill forces a JSON-object start.
+    expect(body.messages).toEqual([
+      { role: "user", content: "make a workflow" },
+      { role: "assistant", content: "{" },
+    ]);
     expect(body.max_tokens).toBe(MODELS.strong.maxOutputTokens);
+  });
+});
+
+describe("JSON prefill (AI-12C)", () => {
+  it("re-attaches the prefill to a mid-object continuation (provider strips the '{')", async () => {
+    // Real prefill: the Messages API returns ONLY the continuation, which begins
+    // mid-object (the first key), never with "{".
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody('"intentSummary":"x"}') }));
+    const result = await client(fetchImpl).generateStructuredJson(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.text).toBe('{"intentSummary":"x"}');
+  });
+
+  it("does not double-prefix when the continuation already starts with '{'", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody('{"a":1}') }));
+    const result = await client(fetchImpl).generateStructuredJson(input);
+    expect(result.ok && result.text).toBe('{"a":1}');
+  });
+
+  it("treats a blank continuation as EMPTY_RESPONSE, not a lone '{'", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody("   ") }));
+    const result = await client(fetchImpl).generateStructuredJson(input);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("EMPTY_RESPONSE");
+  });
+
+  it("skips prefill when the conversation already ends on an assistant turn", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(mockResponse({ status: 200, json: successBody('{"a":1}') }));
+    await client(fetchImpl).generateStructuredJson({
+      feature: "creation",
+      messages: [
+        { role: "system", content: "sys" },
+        { role: "user", content: "u" },
+        { role: "assistant", content: "prior" },
+      ],
+    });
+    const body = JSON.parse((fetchImpl.mock.calls[0]![1] as { body: string }).body);
+    expect(body.messages).toEqual([
+      { role: "user", content: "u" },
+      { role: "assistant", content: "prior" },
+    ]);
   });
 });
 

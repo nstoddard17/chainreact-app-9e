@@ -130,6 +130,30 @@ describe("markdown fences and surrounding prose", () => {
     const result = parseWorkflowPlanResponse(noisy);
     expect(result).toMatchObject({ ok: false, code: "NOT_JSON" });
   });
+
+  it("rejects a preamble before the JSON as NOT_JSON", () => {
+    const result = parseWorkflowPlanResponse("Here you go:\n" + JSON.stringify(validResponse()));
+    expect(result).toMatchObject({ ok: false, code: "NOT_JSON" });
+  });
+
+  it("rejects trailing prose after the JSON as NOT_JSON", () => {
+    const result = parseWorkflowPlanResponse(JSON.stringify(validResponse()) + "\nLet me know if that works!");
+    expect(result).toMatchObject({ ok: false, code: "NOT_JSON" });
+  });
+});
+
+describe("non-strict JSON (comments / trailing commas)", () => {
+  it("rejects JSON with a // comment as NOT_JSON", () => {
+    const withComment =
+      "{\n  // here is the intent\n  " + JSON.stringify(validResponse()).slice(1);
+    expect(parseWorkflowPlanResponse(withComment)).toMatchObject({ ok: false, code: "NOT_JSON" });
+  });
+
+  it("rejects JSON with a trailing comma as NOT_JSON", () => {
+    // Inject a trailing comma before the closing brace.
+    const trailing = JSON.stringify(validResponse()).replace(/}$/, ",}");
+    expect(parseWorkflowPlanResponse(trailing)).toMatchObject({ ok: false, code: "NOT_JSON" });
+  });
 });
 
 describe("shape validation", () => {

@@ -279,7 +279,9 @@ function PlanFailure({ failure }: { failure: AiPlanFailure }) {
     failure.code === "MODEL_FAILED"
       ? "The AI assistant isn’t available right now. An administrator may still need to finish setting it up — please try again later."
       : failure.code === "PARSE_FAILED"
-        ? "The AI returned a plan in the wrong format. Please try again, or add more detail about the apps and steps you want."
+        ? failure.errors?.[0]?.code === "NOT_JSON"
+          ? "The AI returned text instead of the required JSON plan. Please try again."
+          : "The AI returned a plan in the wrong format. Please try again, or add more detail about the apps and steps you want."
         : "Couldn’t preview a plan against this workflow. Please try again.";
   // Value-free diagnostic only (stage + code) — never the raw model output or the
   // detailed parser message, which could echo model-supplied text.
