@@ -31,15 +31,15 @@ const DEFAULT_BASE_URL = "https://api.anthropic.com";
 const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
 const MAX_ERROR_SNIPPET = 200;
 
-/**
- * Assistant-message prefill (Slice 4.AI-12C). Seeding the assistant turn with a
- * bare "{" forces the model to begin its completion INSIDE a JSON object — it
- * structurally cannot emit a "Sure, here's the plan:" preamble or a ```json
- * fence, which were the dominant cause of `parse/NOT_JSON`. The Messages API
- * returns ONLY the model's continuation (never the prefill), so the adapter
- * re-attaches it via {@link reattachJsonPrefill} before returning.
- */
-const JSON_OBJECT_PREFILL = "{";
+// NOTE (Slice 4.AI-12C, reverted): an earlier revision of this adapter appended
+// a trailing assistant `{` "prefill" turn to force a JSON-object start. The
+// Claude 4.x models (`claude-sonnet-4-6`, `claude-haiku-4-5`) REJECT it with
+// HTTP 400 `invalid_request_error: This model does not support assistant
+// message prefill. The conversation must end with a user message.` Removed.
+// JSON-only enforcement now lives entirely in the planner prompt
+// (`JSON_OUTPUT_RULES` + strengthened constraint). If the prompt-only approach
+// proves insufficient, the supported alternative is forced tool_choice
+// (Anthropic tool-use), not prefill.
 
 interface AnthropicTextBlock {
   readonly type?: string;
@@ -72,20 +72,6 @@ function extractText(body: AnthropicMessageResponse): string {
     .filter((b) => b?.type === "text" && typeof b.text === "string")
     .map((b) => b.text as string)
     .join("");
-}
-
-/**
- * Re-attach the JSON prefill so the returned text is a complete object. With
- * prefill, the provider strips the leading "{" from its response, so a real
- * continuation begins mid-object (whitespace or the first `"key"`), never with
- * "{". The guard avoids a double-"{" when a caller (or a mocked provider in
- * tests) already returned a full object — keeping the returned text valid in
- * both shapes without parsing it here.
- */
-function reattachJsonPrefill(continuation: string): string {
-  return continuation.trimStart().startsWith("{")
-    ? continuation
-    : JSON_OBJECT_PREFILL + continuation;
 }
 
 /**
@@ -157,16 +143,6 @@ export function createAnthropicModelClient(
         };
       }
 
-      // Force a JSON-object start via assistant prefill (Slice 4.AI-12C). Only
-      // when the conversation already ends on a user turn — appending a second
-      // assistant turn after an assistant turn is an illegal Anthropic request,
-      // so a future multi-turn caller degrades to prompt-only instead. The
-      // planner is always single-shot ([system, user]), so prefill applies.
-      const prefilled = turns[turns.length - 1]!.role === "user";
-      const requestTurns = prefilled
-        ? [...turns, { role: "assistant" as const, content: JSON_OBJECT_PREFILL }]
-        : turns;
-
       const doFetch = options.fetchImpl ?? globalThis.fetch;
       if (typeof doFetch !== "function") {
         return {
@@ -183,7 +159,7 @@ export function createAnthropicModelClient(
         model: model.id,
         max_tokens: input.maxOutputTokens ?? model.maxOutputTokens,
         ...(system ? { system } : {}),
-        messages: requestTurns,
+        messages: turns,
       });
 
       const controller = new AbortController();
@@ -231,11 +207,8 @@ export function createAnthropicModelClient(
           };
         }
 
-        // Empty-check the raw continuation BEFORE re-attaching the prefill, so a
-        // genuinely empty completion is EMPTY_RESPONSE — not a lone "{" that
-        // would later mis-report as a parse failure.
-        const continuation = extractText(parsed);
-        if (continuation.trim() === "") {
+        const text = extractText(parsed);
+        if (text.trim() === "") {
           return {
             ok: false,
             modelId: model.id,
@@ -246,7 +219,6 @@ export function createAnthropicModelClient(
             latencyMs,
           };
         }
-        const text = prefilled ? reattachJsonPrefill(continuation) : continuation;
 
         return {
           ok: true,
