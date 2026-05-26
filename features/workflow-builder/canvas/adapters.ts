@@ -39,11 +39,26 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   type: string;
   /** Optional provider-friendly label (e.g. "Slack" instead of "slack"). */
   providerLabel?: string;
+  /**
+   * Optional public SVG icon URL for the provider. Sourced from
+   * `integrations/_registry:providerIconUrl(id)` and threaded through
+   * `NodeConversionContext.providerIcons`. When present,
+   * `WorkflowNodeCard` renders an `<img>`; when missing or on
+   * `<img onError>` it falls back to its initials avatar. No
+   * per-provider branches anywhere.
+   */
+  providerIcon?: string;
 }
 
 export interface NodeConversionContext {
   /** Optional map of provider id → display label. Same map as NodeList. */
   providerLabels?: Readonly<Record<string, string>>;
+  /**
+   * Optional map of provider id → public SVG icon URL. Built by
+   * WorkflowBuilder from the `iconUrl` field on `ProviderOption`. Missing
+   * entries leave the node card on the initials-avatar fallback.
+   */
+  providerIcons?: Readonly<Record<string, string>>;
 }
 
 export function workflowNodesToFlowNodes(
@@ -59,6 +74,7 @@ export function workflowNodesToFlowNodes(
       provider: node.provider,
       type: node.type,
       providerLabel: ctx.providerLabels?.[node.provider],
+      providerIcon: ctx.providerIcons?.[node.provider],
     },
   }));
 }

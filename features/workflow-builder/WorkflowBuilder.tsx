@@ -4,17 +4,19 @@ import { useCallback, useEffect, useRef } from "react";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
-import { ConfigModalShell } from "./config-modal/ConfigModalShell";
 import { BuilderHeader } from "./layout/BuilderHeader";
+import { BuilderRightDrawer } from "./layout/BuilderRightDrawer";
 import { BuilderShell } from "./layout/BuilderShell";
 import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
 import { BuilderAiPanel } from "./panels/BuilderAiPanel";
+import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunNowPanel } from "./panels/RunNowPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
 import { useGraphSlice } from "./state/graphSlice";
 import { useRunSlice } from "./state/runSlice";
 import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
+import { useRightDrawer } from "./hooks/useRightDrawer";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -23,20 +25,20 @@ interface Props {
 }
 
 /**
- * Shell that hosts the Slice 1I.2 minimum builder, now composed inside the
- * BUILDER-UI-SHELL-1 layout shell. The new BuilderHeader owns Save +
- * status pill (lifted out of the previous footer row); every other panel
- * stays mounted exactly where it was. Panel relocations land across the
- * later BUILDER-UI-* slices (see docs/slices/phase-4/builder-ui-v1-port-plan.md).
+ * Workflow builder root. Composes the BuilderShell + BuilderHeader from
+ * BUILDER-UI-SHELL-1, the polished canvas + node card + empty state from
+ * BUILDER-CANVAS-1, and now (BUILDER-INSPECTOR-1) the right-side drawer
+ * that hosts the node configuration inspector.
  *
- * Hydration: on mount (and whenever the workflowId prop changes — e.g. user
- * navigates from one workflow to another via the in-app router), the slice
- * is hydrated from the server-fetched WorkflowDetail. On unmount the slice
- * resets so a stale graph never leaks into the next workflow open.
- *
- * Per workflow-state-store.md: the slice is the single source of truth.
- * Components read via selectors and dispatch via slice actions. No fetch
- * here; save() lives in the slice.
+ * Drawer sync model (BUILDER-INSPECTOR-1):
+ *   - `useRightDrawer` owns one local `mode: "inspector" | "ai" | "results"
+ *     | "validation" | null` field. Today only `inspector` is wired.
+ *   - The inspector mode follows `configSlice.activeNodeId`: opening a
+ *     node from the canvas / NodeList sets activeNodeId → an effect here
+ *     opens the drawer in inspector mode. Closing the drawer drops
+ *     activeNodeId so canvas selection and drawer stay in lock-step.
+ *   - This is the only place that bridges configSlice ↔ drawer state.
+ *     ConfigModalShell itself is unchanged.
  */
 export function WorkflowBuilder({
   workflow,
@@ -47,6 +49,8 @@ export function WorkflowBuilder({
   const reset = useGraphSlice((s) => s.reset);
   const resetConfigSlice = useConfigSlice((s) => s.reset);
   const resetRunSlice = useRunSlice((s) => s.reset);
+  const activeNodeId = useConfigSlice((s) => s.activeNodeId);
+  const closeNode = useConfigSlice((s) => s.closeNode);
 
   // Re-hydrate on workflow change (or initial mount). Also clear the
   // config + run slices so stale per-node drafts and stale latest-run
@@ -76,6 +80,7 @@ export function WorkflowBuilder({
   useLatestRunPolling();
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
+  const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
 
   // Slice 4.BUILDER-CANVAS-1 — bridge the canvas's empty-state CTA to
   // the existing AddNodeMenu "+ Add trigger" button without lifting
@@ -87,6 +92,30 @@ export function WorkflowBuilder({
     addTriggerButtonRef.current?.click();
   }, []);
 
+  // Slice 4.BUILDER-INSPECTOR-1 — right drawer state machine.
+  const { mode, openDrawer, closeDrawer } = useRightDrawer();
+
+  // Sync drawer's inspector mode with configSlice.activeNodeId. Selecting
+  // a node anywhere (canvas, NodeList) → drawer opens in inspector mode.
+  // ConfigModalShell's own Cancel button calls closeNode() — the effect
+  // below sees activeNodeId go to null and closes the drawer.
+  useEffect(() => {
+    if (activeNodeId !== null) {
+      if (mode !== "inspector") openDrawer("inspector");
+    } else {
+      if (mode === "inspector") closeDrawer();
+    }
+  }, [activeNodeId, mode, openDrawer, closeDrawer]);
+
+  // Drawer × / Esc handler: closing the inspector also drops the active
+  // node so the canvas selection stays in lock-step with what the drawer
+  // shows. Non-inspector modes (AI / Results / Validation) won't touch
+  // configSlice when they land in later slices.
+  const handleDrawerClose = useCallback(() => {
+    if (mode === "inspector") closeNode();
+    closeDrawer();
+  }, [mode, closeNode, closeDrawer]);
+
   return (
     <BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>
       <div className="flex flex-col gap-4" aria-label="Workflow builder">
@@ -96,9 +125,10 @@ export function WorkflowBuilder({
           triggerButtonRef={addTriggerButtonRef}
         />
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <div className="flex-1 min-w-0 flex flex-col gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
             <WorkflowCanvas
               providerLabels={providerLabels}
+              providerIcons={providerIcons}
               onEmptyAddTrigger={handleEmptyAddTrigger}
             />
             <NodeList providerLabels={providerLabels} />
@@ -106,7 +136,14 @@ export function WorkflowBuilder({
             <RunResultsPanel />
             <BuilderAiPanel />
           </div>
-          <ConfigModalShell />
+          {mode === "inspector" && activeNodeId !== null ? (
+            <BuilderRightDrawer
+              title="Node configuration"
+              onClose={handleDrawerClose}
+            >
+              <NodeInspectorPanel />
+            </BuilderRightDrawer>
+          ) : null}
         </div>
       </div>
     </BuilderShell>
@@ -120,5 +157,15 @@ function buildProviderLabelMap(
   const map: Record<string, string> = {};
   for (const p of triggers) map[p.id] = p.displayName;
   for (const p of actions) map[p.id] = p.displayName;
+  return map;
+}
+
+function buildProviderIconMap(
+  triggers: readonly ProviderOption[],
+  actions: readonly ProviderOption[],
+): Readonly<Record<string, string>> {
+  const map: Record<string, string> = {};
+  for (const p of triggers) if (p.iconUrl) map[p.id] = p.iconUrl;
+  for (const p of actions) if (p.iconUrl) map[p.id] = p.iconUrl;
   return map;
 }

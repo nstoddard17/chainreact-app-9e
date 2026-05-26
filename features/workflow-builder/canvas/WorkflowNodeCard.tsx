@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { WorkflowNodeData } from "./adapters";
 import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus";
@@ -70,7 +71,11 @@ export function WorkflowNodeCard({
         />
       ) : null}
       <div className="flex items-center gap-2">
-        <ProviderInitialsAvatar provider={data.provider} label={providerLabel} />
+        <ProviderAvatar
+          provider={data.provider}
+          label={providerLabel}
+          iconUrl={data.providerIcon}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <span
             className="truncate text-sm font-semibold leading-tight"
@@ -100,18 +105,52 @@ export function WorkflowNodeCard({
 }
 
 /**
- * Generic provider avatar: 1-2 letter initials inside a deterministic
- * color swatch derived from a hash of the provider key. No per-provider
- * branches — when V2 ships real SVG assets the avatar swaps to using them
- * via the metadata layer, not via additional branches here.
+ * Provider avatar (Slice 4.BUILDER-INSPECTOR-1):
+ *   - When `iconUrl` resolves successfully, renders the SVG inside a
+ *     neutral rounded tile.
+ *   - When `iconUrl` is absent OR the `<img>` errors (asset missing /
+ *     network failure / SVG malformed), falls back to a deterministic
+ *     initials avatar with a hash-derived background color.
+ *
+ * No per-provider branches anywhere — the icon URL itself comes from the
+ * metadata layer (`integrations/_registry:providerIconUrl()`); this
+ * component just renders or falls back.
  */
-function ProviderInitialsAvatar({
+function ProviderAvatar({
   provider,
   label,
+  iconUrl,
 }: {
   provider: string;
   label: string;
+  iconUrl?: string;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = !!iconUrl && !imageFailed;
+
+  if (showImage) {
+    return (
+      <span
+        aria-hidden="true"
+        data-testid="provider-icon"
+        data-provider={provider}
+        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted"
+      >
+        {/* Provider logos are small static SVGs that don't benefit from
+            next/image optimization; plain <img> avoids the extra
+            domain-allowlist + sharp dependency that next/image requires
+            and keeps SSR straightforward. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={iconUrl}
+          alt=""
+          className="h-5 w-5 object-contain"
+          onError={() => setImageFailed(true)}
+        />
+      </span>
+    );
+  }
+
   const initials = computeInitials(label || provider);
   const colorClass = provider
     ? AVATAR_PALETTE[hashToBucket(provider, AVATAR_PALETTE.length)]

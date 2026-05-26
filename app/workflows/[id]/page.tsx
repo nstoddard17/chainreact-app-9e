@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { displayStatus } from "@/core/workflows/projections";
-import { listProviders } from "@/integrations/_registry";
+import { listProviders, providerIconUrl } from "@/integrations/_registry";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { toWorkflowRunSummary } from "@/app/api/workflows/_shared";
@@ -44,10 +44,18 @@ export default async function WorkflowDetailPage({ params }: Props) {
   const providers = listProviders();
   const triggerProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.webhookTrigger)
-    .map((p) => ({ id: p.id, displayName: p.displayName }));
+    .map((p) => ({
+      id: p.id,
+      displayName: p.displayName,
+      iconUrl: providerIconUrl(p.id),
+    }));
   const actionProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.actions)
-    .map((p) => ({ id: p.id, displayName: p.displayName }));
+    .map((p) => ({
+      id: p.id,
+      displayName: p.displayName,
+      iconUrl: providerIconUrl(p.id),
+    }));
 
   const runRecords = await workflowRunsRepo.listByWorkflow(workflow.id);
   const runs = runRecords.map(toWorkflowRunSummary);

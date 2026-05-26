@@ -12,6 +12,14 @@ import { TriggerPicker } from "./TriggerPicker";
 export interface ProviderOption {
   id: string;
   displayName: string;
+  /**
+   * Public SVG URL for the provider's logo, sourced from
+   * `integrations/_registry:providerIconUrl(id)`. Optional so non-V1
+   * providers (and tests that don't care about iconography) keep working.
+   * Builder UI renders an initials-avatar fallback when absent or on
+   * `<img onError>`.
+   */
+  iconUrl?: string;
 }
 
 interface Props {

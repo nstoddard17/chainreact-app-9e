@@ -66,6 +66,14 @@ import { WorkflowNodeCard } from "./WorkflowNodeCard";
 interface Props {
   providerLabels?: Readonly<Record<string, string>>;
   /**
+   * Optional map of provider id → public SVG icon URL. Slice 4.BUILDER-INSPECTOR-1
+   * — WorkflowBuilder builds this from the `iconUrl` field on each
+   * ProviderOption (sourced from `providerIconUrl()` in the registry).
+   * WorkflowNodeCard renders an `<img>` when present and falls back to
+   * its initials avatar on `<img onError>` or when absent.
+   */
+  providerIcons?: Readonly<Record<string, string>>;
+  /**
    * Invoked by the empty-state CTA. WorkflowBuilder wires this to the
    * existing `+ Add trigger` button in `AddNodeMenu` via a ref so this
    * slice doesn't duplicate the add-node flow. Optional — the empty
@@ -88,7 +96,11 @@ export function WorkflowCanvas(props: Props) {
   );
 }
 
-function WorkflowCanvasInner({ providerLabels, onEmptyAddTrigger }: Props) {
+function WorkflowCanvasInner({
+  providerLabels,
+  providerIcons,
+  onEmptyAddTrigger,
+}: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const updateNodePosition = useGraphSlice((s) => s.updateNodePosition);
@@ -102,16 +114,19 @@ function WorkflowCanvasInner({ providerLabels, onEmptyAddTrigger }: Props) {
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
 
   // Derived ReactFlow shapes. Recompute only when the slice values
-  // (or provider label map) change.
+  // (or provider label / icon maps) change.
   const flowNodes = useMemo<FlowNode<WorkflowNodeData>[]>(() => {
-    const base = workflowNodesToFlowNodes(pendingNodes, { providerLabels });
+    const base = workflowNodesToFlowNodes(pendingNodes, {
+      providerLabels,
+      providerIcons,
+    });
     if (!activeNodeId) return base;
     // Mirror the configSlice's active selection onto the canvas so a
     // node Configure'd from NodeList is highlighted here too.
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [pendingNodes, providerLabels, activeNodeId]);
+  }, [pendingNodes, providerLabels, providerIcons, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
     () => workflowEdgesToFlowEdges(pendingEdges),

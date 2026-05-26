@@ -5,7 +5,7 @@
  * mocked typed client. Verify hydration, the add → save round-trip, and the
  * dirty / saved indicator.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateWorkflow = jest.fn();
@@ -243,6 +243,52 @@ describe("WorkflowBuilder", () => {
     expect(s.workflowId).toBeNull();
     expect(s.pendingNodes).toEqual([]);
     expect(s.isHydrated).toBe(false);
+  });
+
+  // Slice 4.BUILDER-INSPECTOR-1 — drawer mount / close round-trip.
+  it("opening a node mounts the BuilderRightDrawer with NodeInspectorPanel inside", () => {
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    // No drawer until a node is opened.
+    expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+    // Open one through the slice (same path canvas + NodeList both use).
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const triggerNodeId = useGraphSlice.getState().pendingNodes[0]!.id;
+    act(() => {
+      useConfigSlice
+        .getState()
+        .openNode({ nodeId: triggerNodeId, initialValues: {} });
+    });
+    expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+    expect(screen.getByTestId("node-inspector-panel")).toBeInTheDocument();
+  });
+
+  it("drawer close button drops activeNodeId AND unmounts the drawer (lock-step contract)", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    useGraphSlice.getState().addTrigger({ provider: "slack" });
+    const triggerNodeId = useGraphSlice.getState().pendingNodes[0]!.id;
+    act(() => {
+      useConfigSlice
+        .getState()
+        .openNode({ nodeId: triggerNodeId, initialValues: {} });
+    });
+    expect(useConfigSlice.getState().activeNodeId).toBe(triggerNodeId);
+    expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /close drawer/i }));
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
+    expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
   });
 
   it("resets configSlice on unmount so stale per-node drafts don't leak", () => {

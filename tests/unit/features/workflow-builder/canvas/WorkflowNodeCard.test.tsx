@@ -16,7 +16,7 @@
  *   - "Not configured" amber badge when type === "".
  *   - Type subtitle shown when configured.
  */
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import {
   WorkflowNodeCard,
@@ -200,6 +200,83 @@ describe("WorkflowNodeCard — initials avatar fallback", () => {
     expect(screen.getByTestId("provider-initials-avatar").textContent).toBe(
       "GI",
     );
+  });
+});
+
+describe("WorkflowNodeCard — provider icon rendering (Slice 4.BUILDER-INSPECTOR-1)", () => {
+  it("renders the provider SVG <img> when providerIcon is supplied", () => {
+    renderCard({
+      data: {
+        kind: "action",
+        provider: "slack",
+        type: "slack.message.channel",
+        providerLabel: "Slack",
+        providerIcon: "/integrations/slack.svg",
+      },
+    });
+    const iconWrap = screen.getByTestId("provider-icon");
+    expect(iconWrap).toBeInTheDocument();
+    expect(iconWrap.getAttribute("data-provider")).toBe("slack");
+    const img = iconWrap.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("src")).toBe("/integrations/slack.svg");
+    // Initials avatar is NOT rendered when the icon path is active.
+    expect(screen.queryByTestId("provider-initials-avatar")).toBeNull();
+  });
+
+  it("falls back to the initials avatar when the icon <img> fires onError (missing or malformed asset)", () => {
+    renderCard({
+      data: {
+        kind: "action",
+        provider: "slack",
+        type: "x",
+        providerLabel: "Slack",
+        providerIcon: "/integrations/slack.svg",
+      },
+    });
+    // Start with the icon mounted...
+    const img = screen.getByTestId("provider-icon").querySelector("img")!;
+    expect(img).not.toBeNull();
+    // ...then simulate an asset load failure.
+    act(() => {
+      fireEvent.error(img);
+    });
+    // The card flips to the initials avatar without unmounting.
+    expect(screen.queryByTestId("provider-icon")).toBeNull();
+    expect(screen.getByTestId("provider-initials-avatar")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-initials-avatar").textContent).toBe(
+      "SL",
+    );
+  });
+
+  it("renders the initials fallback when providerIcon is absent (legacy / unknown provider)", () => {
+    renderCard({
+      data: {
+        kind: "action",
+        provider: "unknown-provider",
+        type: "x",
+        providerLabel: "Unknown",
+      },
+    });
+    expect(screen.queryByTestId("provider-icon")).toBeNull();
+    expect(screen.getByTestId("provider-initials-avatar")).toBeInTheDocument();
+  });
+
+  it("has no per-provider string branches in the rendered output (icon URL drives everything)", () => {
+    // Sanity check: passing an icon URL for a totally fictional provider
+    // still renders the <img> with that URL — the card does NOT switch
+    // behavior based on the provider key.
+    renderCard({
+      data: {
+        kind: "action",
+        provider: "totally-fictional",
+        type: "x",
+        providerLabel: "Totally Fictional",
+        providerIcon: "/integrations/totally-fictional.svg",
+      },
+    });
+    const img = screen.getByTestId("provider-icon").querySelector("img")!;
+    expect(img.getAttribute("src")).toBe("/integrations/totally-fictional.svg");
   });
 });
 

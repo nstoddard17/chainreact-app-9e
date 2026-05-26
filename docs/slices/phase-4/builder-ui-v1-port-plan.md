@@ -391,7 +391,7 @@ features/workflow-builder/
 | **BUILDER-UI-V1-AUDIT-1** *(shipped)* | Audit + plan | `docs/slices/phase-4/builder-ui-v1-port-plan.md` | None | None | No |
 | **BUILDER-UI-SHELL-1** *(shipped)* | New `BuilderShell` + `BuilderHeader` + `useBuilderShortcuts` (Cmd/Ctrl+S). Save lifted from footer into header. `BuilderRightDrawer` + `useRightDrawer` + LifecycleActions move deferred. Behavior preserved. | `WorkflowBuilder.tsx` (composes shell), `layout/BuilderShell.tsx` (new), `layout/BuilderHeader.tsx` (new), `hooks/useBuilderShortcuts.ts` (new) | Low — layout-only; no state contracts changed | shell renders; header lifts Save + status; existing WorkflowBuilder test contract preserved | No |
 | **BUILDER-CANVAS-1** *(shipped)* | Canvas polish (560px container, `rounded-lg`, Dots background, `relative overflow-hidden` for empty-state overlay), new `WorkflowNodeCard` (initials avatar, kind chip, provider label, type subtitle, "Not configured" amber badge, `data-status`, hover/selected polish — `WorkflowNodeView` deleted), new `EmptyCanvasState` overlay wired via ref bridge through `AddNodeMenu`'s "+ Add trigger" button. Run-state animations + custom edges + multi-color routes deferred. | `canvas/WorkflowCanvas.tsx`, `canvas/WorkflowNodeCard.tsx` (new), `canvas/EmptyCanvasState.tsx` (new), `utils/classifyNodeStatus.ts` (new), `WorkflowBuilder.tsx` (threads ref + callback), `panels/AddNodeMenu.tsx` (optional `triggerButtonRef`), `canvas/nodes/WorkflowNodeView.tsx` (deleted) | Low — visual-only; existing canvas-config-sync integration test preserved | node card renders metadata + status; empty state renders when 0 nodes; CTA opens trigger picker via ref bridge; classifyNodeStatus pure unit tests | No |
-| **BUILDER-INSPECTOR-1** | Mount `ConfigModalShell` inside `BuilderRightDrawer`. Remove right-aside layout in `WorkflowBuilder`. | `WorkflowBuilder.tsx`, `panels/NodeInspectorPanel.tsx` (new), `layout/BuilderRightDrawer.tsx` | Low — mounting move only | inspector opens when node selected; closes via Esc / × ; mutually exclusive with AI/results | No |
+| **BUILDER-INSPECTOR-1** *(shipped)* | New `BuilderRightDrawer` + `useRightDrawer` + `NodeInspectorPanel`. ConfigModalShell mounted inside the drawer (internals untouched); drawer state syncs to `configSlice.activeNodeId`; Esc / × close drops both drawer and selection. Real V1 SVG provider logos copied into `public/integrations/`; `providerIconUrl()` registry helper exposes the URL; threaded through ProviderOption → adapter context → `WorkflowNodeData.providerIcon`; WorkflowNodeCard renders `<img>` with `<img onError>` initials fallback. No per-provider branches in Builder UI. | `layout/BuilderRightDrawer.tsx` (new), `hooks/useRightDrawer.ts` (new), `panels/NodeInspectorPanel.tsx` (new), `WorkflowBuilder.tsx`, `canvas/WorkflowCanvas.tsx` (+ providerIcons), `canvas/adapters.ts` (+ providerIcons context, + providerIcon data field), `canvas/WorkflowNodeCard.tsx` (img-or-initials avatar), `panels/AddNodeMenu.tsx` (+ optional iconUrl on ProviderOption), `integrations/_registry.ts` (+ `providerIconUrl()` helper), `app/workflows/[id]/page.tsx` (passes iconUrl), 25 SVG assets under `public/integrations/` | Low — mount move + additive metadata; existing canvas-config-sync + ConfigModalShell tests pass unchanged | drawer mounts/unmounts in lock-step with `activeNodeId`; Esc/× close; provider icon renders + falls back; `providerIconUrl()` round-trip; no provider-specific branches | Optional metadata helper only (`providerIconUrl`); no backend / billing / AI behavior changes |
 | **BUILDER-ADD-FLOW-1** | New `AddNodePanel` slide-in with search + categorized providers. Replaces inline `AddNodeMenu`. Reuses `useNativeActions` / `useProviderActions` / `addTriggerFromMeta` / `addActionFromMeta`. Adds edge plus-button (custom `WorkflowEdge`). | `panels/AddNodePanel.tsx` (new), `canvas/WorkflowEdge.tsx` (new), `utils/shouldShowPlusButton.ts` (new), `AddNodeMenu.tsx` (delete after replacement) | Medium — replaces the picker; selection semantics must match for existing tests | search filters by metadata; clicking item dispatches addTriggerFromMeta/addActionFromMeta as before; edge plus-button opens panel with insert context | No |
 | **BUILDER-RUN-PANEL-1** | Move Run + Test controls into header. `RunResultsPanel` becomes drawer-mounted. Per-step output formatting (key:value pairs in addition to JSON). | `panels/RunPanel.tsx` (extracted from RunNowPanel), `panels/RunResultsPanel.tsx` (polish), `layout/BuilderHeader.tsx` | Medium — trigger-kind branching must move with the controls | test mode runs from header; results drawer auto-opens; repair block still renders on failed runs | No |
 | **BUILDER-AI-PANEL-1** | `BuilderAiPanel` mounts inside `BuilderRightDrawer`. Trigger from header AI button. Contract unchanged (preview-then-apply, risk ack, no auto-apply). | `panels/BuilderAiPanel.tsx` (polish), `layout/BuilderHeader.tsx` | Low — mounting move only | AI panel renders; preview / apply flow unchanged; no raw values exposed | No |
@@ -489,6 +489,80 @@ Visual-only slice. **No panel relocation.** Same `WorkflowNodeData` shape, same 
 - `tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx` — 1 new test ("the empty-canvas-state 'Choose a trigger' CTA opens the AddNodeMenu trigger picker via the ref bridge"). Verifies the ref bridge end-to-end without duplicating add-node logic.
 
 **Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · 52 workflow-builder unit suites / 732 tests pass (+3 suites +21 tests vs. SHELL-1) · full unit run: 1107 suites / 13153 tests pass.
+
+### BUILDER-INSPECTOR-1 outcomes (shipped)
+
+Two-part slice. **Part A** moves the node-configuration inspector into a real right-side drawer (first payload of the future drawer modal-exclusion state machine). **Part B** ports V1's provider SVG logos into V2 and exposes them through the registry — `WorkflowNodeCard` now renders real provider iconography, no per-provider branches.
+
+#### Part A — Drawer + Inspector
+
+**Added:**
+
+- [`features/workflow-builder/hooks/useRightDrawer.ts`](../../../features/workflow-builder/hooks/useRightDrawer.ts) — 56-line pure local state hook. `mode: "inspector" | "ai" | "results" | "validation" | null`. `openDrawer` / `closeDrawer` / `toggleDrawer` are `useCallback`-stable across renders so consumers can safely list them in effect deps. Mutual exclusion via single `mode` field — opening any mode replaces the previous.
+- [`features/workflow-builder/layout/BuilderRightDrawer.tsx`](../../../features/workflow-builder/layout/BuilderRightDrawer.tsx) — 75-line presentational chrome (`role="region"` with `aria-label="Workflow builder drawer: {title}"` to avoid colliding with ConfigModalShell's existing `role="complementary"` landmark name; 420px wide on md+; full-width on small screens; header + × close + scrollable content region; Esc-to-close at document level, respects `event.defaultPrevented` so nested popovers / autocompletes can swallow Esc first; listener removed on unmount).
+- [`features/workflow-builder/panels/NodeInspectorPanel.tsx`](../../../features/workflow-builder/panels/NodeInspectorPanel.tsx) — 30-line wrapper around `ConfigModalShell`. Adds `data-testid="node-inspector-panel"` for parent-drawer integration; ConfigModalShell internals (`SchemaForm`, field renderers, metadata lookup, Save / Cancel, router-routes validator) untouched.
+
+**Wired:**
+
+- [`features/workflow-builder/WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) — composes `useRightDrawer` and bridges it to `configSlice.activeNodeId`:
+  - When `activeNodeId !== null` and `mode !== "inspector"` → `openDrawer("inspector")`.
+  - When `activeNodeId === null` and `mode === "inspector"` → `closeDrawer()`.
+  - Drawer × / Esc handler also calls `closeNode()` when in inspector mode so canvas selection and drawer stay in lock-step. Future modes (AI / Results / Validation) won't touch configSlice when they land in later slices.
+  - The old right-column `<ConfigModalShell />` aside is gone; the drawer mounts conditionally on `mode === "inspector" && activeNodeId !== null`.
+
+**ConfigModalShell drawer integration summary:** zero diff to `ConfigModalShell.tsx`, `SchemaForm.tsx`, or any field renderer. The drawer wraps the existing shell with chrome and threads `activeNodeId` changes through the right-drawer state machine. Cancel + Save behaviors inside ConfigModalShell are unchanged; the integration test `canvas-config-sync.test.tsx` (which finds the shell via `getByRole("complementary", { name: /node configuration/i })`) passes unchanged because the drawer deliberately uses `role="region"` with a distinct label.
+
+**Behavior preserved (verified):**
+
+- All 6 `canvas-config-sync.test.tsx` integration tests pass unchanged: canvas + NodeList still see the same nodes; canvas click → opens the same inspector NodeList Configure does; canvas click does NOT call `updateWorkflow`; NodeList Remove propagates to canvas; toolbar Save calls `updateWorkflow` with the full pending definition.
+- All 9 `WorkflowBuilder.test.tsx` tests pass (6 pre-SHELL/CANVAS + 1 CANVAS-1 ref bridge + 2 new INSPECTOR-1 drawer-mount tests).
+- 52 unit + 1 integration workflow-builder suites all green.
+
+#### Part B — Metadata-driven provider icons
+
+**Added:**
+
+- `providerIconUrl(id)` helper in [`integrations/_registry.ts`](../../../integrations/_registry.ts) — 17-line registry helper. Convention: `/integrations/{providerId}.svg`. Returns `undefined` for unknown providers (so `getByRole` doesn't render broken `<img>`). Asset existence is NOT validated at build time — `WorkflowNodeCard` falls back to its initials avatar via `<img onError>` when a file is missing.
+- 25 V1 provider SVG assets ported into `public/integrations/`:
+  - Direct copies (23): airtable, discord, dropbox, facebook, github, gmail, google-analytics, google-calendar, google-docs, google-drive, google-sheets, hubspot, mailchimp, microsoft-excel, microsoft-onenote, microsoft-outlook, microsoft-teams, monday, notion, shopify, slack, stripe, trello.
+  - Renamed on copy (2): V1's `onedrive.svg` → `microsoft-onedrive.svg`; V1's `microsoft-outlook.svg` also copied as `microsoft-outlook-calendar.svg` (Microsoft Outlook product family shares iconography in V1).
+
+**Plumbed:**
+
+- [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx) — derives `iconUrl` from `providerIconUrl(p.id)` when building `triggerProviders` / `actionProviders`.
+- [`features/workflow-builder/panels/AddNodeMenu.tsx`](../../../features/workflow-builder/panels/AddNodeMenu.tsx) — `ProviderOption` now has optional `iconUrl?: string`.
+- [`features/workflow-builder/WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) — adds `buildProviderIconMap` (mirror of `buildProviderLabelMap`) and passes it through to `WorkflowCanvas`.
+- [`features/workflow-builder/canvas/WorkflowCanvas.tsx`](../../../features/workflow-builder/canvas/WorkflowCanvas.tsx) — accepts `providerIcons?` prop and forwards through `workflowNodesToFlowNodes` context.
+- [`features/workflow-builder/canvas/adapters.ts`](../../../features/workflow-builder/canvas/adapters.ts) — `NodeConversionContext` adds `providerIcons?`; `WorkflowNodeData` adds optional `providerIcon?: string`.
+- [`features/workflow-builder/canvas/WorkflowNodeCard.tsx`](../../../features/workflow-builder/canvas/WorkflowNodeCard.tsx) — old `ProviderInitialsAvatar` replaced with `ProviderAvatar`: renders `<img src={iconUrl}>` when present, falls back to initials avatar on `<img onError>` or when icon is absent. **No per-provider branches** — the icon URL flows in from metadata; the card just renders or falls back.
+
+**Icon metadata field name:** `iconUrl` (string) on `ProviderOption` and `providerIcon` (string) on `WorkflowNodeData`. The registry helper is `providerIconUrl(id)`. The asset itself lives at `/integrations/{providerId}.svg`.
+
+**Initials fallback behavior:** unchanged from CANVAS-1 — the same deterministic 1–2 letter initials with hash-derived `bg-sky / emerald / violet / amber / rose / indigo` palette. Triggered when the metadata layer doesn't supply an icon OR when the `<img>` errors at runtime (missing / malformed SVG, network failure).
+
+**Tests added:**
+
+- [`tests/unit/features/workflow-builder/hooks/useRightDrawer.test.tsx`](../../../tests/unit/features/workflow-builder/hooks/useRightDrawer.test.tsx) — 6 tests (initial closed; openDrawer; mutual exclusion across all 4 modes; closeDrawer; toggleDrawer open/close/switch; stable callbacks across renders).
+- [`tests/unit/features/workflow-builder/layout/BuilderRightDrawer.test.tsx`](../../../tests/unit/features/workflow-builder/layout/BuilderRightDrawer.test.tsx) — 6 tests (testid + role + dynamic aria-label + title + children; close button; Esc closes; Esc with `defaultPrevented` does NOT close; listener removed on unmount; title prop updates aria-label).
+- [`tests/unit/features/workflow-builder/panels/NodeInspectorPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/NodeInspectorPanel.test.tsx) — 3 tests (testid wrapper; ConfigModalShell stays null when no active node; ConfigModalShell renders after `openNode`).
+- [`tests/unit/integrations/providerIconUrl.test.ts`](../../../tests/unit/integrations/providerIconUrl.test.ts) — 3 tests (known-provider URLs; unknown id → undefined; every manifest in `listProviders()` resolves).
+- `tests/unit/features/workflow-builder/canvas/WorkflowNodeCard.test.tsx` — 4 new tests (renders `<img>` when `providerIcon` supplied; falls back to initials on `<img onError>`; falls back when `providerIcon` absent; fictional-provider URL passes through to `<img src>` — no per-provider branches).
+- `tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx` — 2 new tests (drawer mounts when node opened; drawer × drops `activeNodeId` AND unmounts drawer).
+
+**Intentionally deferred:**
+
+- **AddNodePanel slide-in replacement.** Owner: **BUILDER-ADD-FLOW-1**.
+- **Custom edges + edge plus-button.** Owner: **BUILDER-ADD-FLOW-1**.
+- **AI panel into right drawer.** Owner: **BUILDER-AI-PANEL-1**. (The `mode: "ai"` slot is reserved.)
+- **Run results into right drawer.** Owner: **BUILDER-RUN-PANEL-1**. (The `mode: "results"` slot is reserved.)
+- **ValidationSummary into right drawer.** Owner: **BUILDER-VALIDATION-1**. (The `mode: "validation"` slot is reserved.)
+- **Run-state animations** (running shimmer / listening ring / paused pulse). Owner: a follow-up slice after per-node run-state projection lands.
+- **Provider-icon visibility in the trigger/action picker rows.** Today the icons only render on the canvas node card; the `AddNodeMenu` picker items still render text-only. Will fold into **BUILDER-ADD-FLOW-1** when `AddNodePanel` replaces the inline picker.
+- **MiniMap.** Skipped until page-shell takes full-bleed.
+- **LifecycleActions move into header.** Still in the page-header.
+- **`AddNodeMenu` deletion / replacement.** Still hosts the legacy inline picker plus the new `triggerButtonRef` ref bridge.
+
+**Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · 56 workflow-builder unit suites / 760 tests pass (+4 suites +28 tests vs CANVAS-1) · full unit run: 1111 suites / 13177 tests pass (+4 suites +24 tests vs CANVAS-1) · canvas-config-sync integration: 6 tests pass unchanged.
 
 ---
 

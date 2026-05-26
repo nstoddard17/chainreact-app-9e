@@ -229,3 +229,23 @@ export function providerSupports(id: string, capability: ProviderCapability): bo
   if (!m) return false;
   return m.capabilities[capability] === true;
 }
+
+/**
+ * Public SVG icon URL for a provider (Slice 4.BUILDER-INSPECTOR-1).
+ *
+ * Convention: `/integrations/{providerId}.svg`. Assets live under
+ * `public/integrations/` and were ported from V1 in this slice. The
+ * mapping intentionally lives here (registry / discovery layer) so the
+ * Builder UI never carries per-provider iconography branches.
+ *
+ * Returns `undefined` for unknown provider ids (i.e. not in the
+ * manifest registry). For known providers the URL is returned
+ * unconditionally — asset existence is not validated at build time;
+ * `WorkflowNodeCard` falls back to its initials avatar via `<img onError>`
+ * if a file happens to be missing for a given provider. This lets us
+ * ship without per-provider opt-out logic.
+ */
+export function providerIconUrl(id: string): string | undefined {
+  if (!byId.has(id)) return undefined;
+  return `/integrations/${id}.svg`;
+}
