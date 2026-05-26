@@ -110,7 +110,7 @@ The track was complete when, for **all 9 providers** in the original launch-gap 
 - [x] `discovery-meta-coverage` + `trigger-meta-activation-invariant` + `sensitive-output-coverage` pass;
 - [x] per-provider targeted tests pass; **no runtime handler behavior changed** unless explicitly required and documented (OUTLOOK-CAL-META-2 ships a narrow additive Zod preprocess on create_event / update_event schemas — the Approach-A flat-time-fields shim — which is behavior-preserving for existing nested-input callers).
 
-**This tracker is CLOSED as of OUTLOOK-CAL-META-2 (2026-05-25).** ⚠️ Closing the tracker does NOT make the provider foundation "launch-ready" — see §9 for the post-26/26 backlog that still owes work.
+**This tracker is CLOSED as of OUTLOOK-CAL-META-2 (2026-05-25).** ⚠️ Closing the tracker does NOT make the provider foundation "launch-ready" — see §9 for the post-26/26 backlog that still owes work. **The post-26/26 completeness audit (PROVIDER-AUDIT-1) ran 2026-05-25 and identifies exactly ONE launch blocker:** Stripe `event_received` TriggerMeta is missing (runtime registered + full implementation shipped; no meta file → Builder cannot surface the trigger; AI cannot ground Stripe-failed-payment-style workflows). Full audit findings at [`provider-runtime-metadata-completeness-audit.md`](./provider-runtime-metadata-completeness-audit.md).
 
 ---
 
@@ -123,14 +123,14 @@ BUILDER METADATA:   26/26 providers covered (286/286 handlers). 0 providers / 0 
                      Trello → TRELLO-META-3; Microsoft OneDrive → ONEDRIVE-META-3; Microsoft Teams →
                      TEAMS-META-3; Google Calendar → GCAL-META-2; Google Drive → GDRIVE-META-2;
                      Microsoft Outlook Calendar → OUTLOOK-CAL-META-2, 2026-05-25.)
-NEXT ARC:           launch-gap tracker is CLOSED. Subsequent work moves to the post-26/26 backlog (§9) —
-                    Stripe event_received TriggerMeta, deferred trigger arcs for Discord/Docs/OneNote/
-                    Monday/Dropbox/Facebook, deferred resolvers across GCal/GDrive/Teams/OneDrive, FileRef
-                    runtime work, Outlook online-meeting write toggle.
-DO NOT CALL:        "provider foundation fully complete / launch-ready" yet. 26/26 covered ≠ everything
-                    done. A post-26/26 audit pass that walks the runtime handler registry, trigger
-                    registrations, and every deferred item in §9 is required before declaring launch-ready.
-                    DEFERRED ≠ DELETED.
+POST-AUDIT:         PROVIDER-AUDIT-1 ran 2026-05-25 (provider-runtime-metadata-completeness-audit.md).
+                    Confirmed: 286/286 actions covered (1:1); 59/60 runtime triggers covered. ONE GAP —
+                    Stripe event_received TriggerMeta missing (runtime SHIPPED, meta absent). All other
+                    backlog items are post-launch (resolvers / FileRef / Outlook meeting toggle / etc.).
+NEXT ARC:           STRIPE-TRIGGER-META — 2-slice arc (audit/plan + implementation). After it ships, the
+                    provider foundation is launch-ready by every criterion in audit §7.
+DO NOT CALL:        "provider foundation fully complete / launch-ready" until Stripe trigger meta lands.
+                    DEFERRED ≠ DELETED — the audit §6 backlog table is the single owner record going forward.
 ```
 
 ---
