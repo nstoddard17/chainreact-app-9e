@@ -335,6 +335,95 @@ describe("AI-11B UX hardening", () => {
   });
 });
 
+// ─── Slice 4.AI-20 — apply-readiness gate for unresolved required input ──────
+describe("apply-readiness gate (AI-20)", () => {
+  it("hides the Apply button + renders the required-input block when the AI returns a patch alongside non-empty requiredUserInput", async () => {
+    // Live regression case: the AI returned a structurally-valid patch
+    // AND a requiredUserInput list. Pre-AI-20 the UI surfaced Apply
+    // (because preview.canApplyLater was true). AI-20 gates the panel on
+    // requiredUserInput being empty.
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      requiredUserInput: [
+        { label: "Which Slack channel should the message be sent to?", kind: "config_value" },
+        { label: "What should the message say?", kind: "config_value" },
+      ],
+      canApplyLater: false, // service contract — AI-20 service gate
+      blockedReason: "More information is still needed — answer the questions above and run Plan with AI again.",
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    // Required-input list still renders (existing UX) so the user sees
+    // what's missing.
+    expect(await screen.findByTestId("builder-ai-needs-input")).toBeInTheDocument();
+    // The new AI-20 callout tells the user how to proceed.
+    expect(screen.getByTestId("builder-ai-required-input-block")).toHaveTextContent(
+      /Provide the missing details above.*Plan with AI/i,
+    );
+    // Apply controls hidden.
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-ai-risk-ack-checkbox")).not.toBeInTheDocument();
+  });
+
+  it("apply() is never called when a plan has unresolved requiredUserInput (defense in depth)", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      requiredUserInput: [{ label: "Which channel?", kind: "config_value" }],
+      canApplyLater: false,
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    await screen.findByTestId("builder-ai-required-input-block");
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("hides the Apply button even if canApplyLater is (incorrectly) true while requiredUserInput is non-empty (UI defense in depth against contract drift)", async () => {
+    // Belt-and-suspenders: even if a future service-layer regression
+    // re-leaks canApplyLater:true alongside non-empty requiredUserInput,
+    // the UI must still refuse Apply. The live-smoke bug was exactly
+    // this combination — keep both gates in place.
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      requiredUserInput: [{ label: "Which channel?", kind: "config_value" }],
+      canApplyLater: true, // deliberately wrong — UI must NOT trust it.
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    await screen.findByTestId("builder-ai-required-input-block");
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+  });
+
+  it("still renders the Apply button when requiredUserInput is empty AND canApplyLater is true (happy path preserved)", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    expect(await screen.findByTestId("builder-ai-apply-button")).toBeEnabled();
+    expect(
+      screen.queryByTestId("builder-ai-required-input-block"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does NOT render the AI-20 callout when the patch is preview-rejected for non-required-input reasons (existing not-applyable copy still renders)", async () => {
+    // The pre-AI-20 "This plan can't be applied as-is" copy is preserved
+    // for preview-rejected patches (no requiredUserInput).
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      canApplyLater: false,
+      blockedReason: "Preview rejected the proposed plan.",
+      requiredUserInput: [],
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    expect(
+      await screen.findByTestId("builder-ai-not-applyable"),
+    ).toHaveTextContent(/can.+t be applied as-is/i);
+    expect(
+      screen.queryByTestId("builder-ai-required-input-block"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+  });
+});
+
 describe("no-leak", () => {
   it("never renders raw patch config values", async () => {
     mockPlan.mockResolvedValueOnce({

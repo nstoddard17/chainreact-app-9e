@@ -244,6 +244,93 @@ describe("no patch — needs input / unsupported", () => {
   });
 });
 
+// ─── Slice 4.AI-20 — apply-readiness gate for unresolved required input ──────
+describe("apply-readiness gate (AI-20)", () => {
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+  });
+
+  it("gates canApplyLater to false when the AI returns BOTH a structurally-valid patch AND non-empty requiredUserInput (live regression fix)", async () => {
+    // This is the exact live failure mode AI-19 surfaced: the AI returned
+    // a structurally-valid Manual Trigger → Slack patch (the preview
+    // would happily accept it because AI_FIELD placeholders are
+    // schema-valid) AND a requiredUserInput list ("Which channel?",
+    // "What should the message say?"). Pre-AI-20 the planner trusted
+    // preview.canApplyLater → the UI surfaced an enabled Apply button
+    // alongside "More information is needed". AI-20 closes that.
+    const mc = client(
+      planResponse({
+        proposedPatch: movePatch(),
+        requiredUserInput: [
+          { label: "Which Slack channel should the message be sent to?", kind: "config_value" },
+          { label: "What should the message say?", kind: "config_value" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "Create a workflow that sends a Slack message when I manually run it.",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The preview still ran — cost / risk / validation are still
+    // available — but the planner refuses to flag it apply-ready.
+    expect(result.preview).toBeDefined();
+    expect(result.proposedPatch).toBeDefined();
+    expect(result.requiredUserInput).toHaveLength(2);
+    expect(result.canApplyLater).toBe(false);
+    expect(result.blockedReason).toMatch(/answer the questions above.+plan with ai again/i);
+  });
+
+  it("STILL returns canApplyLater:true when the patch is valid AND there is no required input (happy-path unchanged)", async () => {
+    // Defensive: make sure AI-20's gate didn't regress the apply-ready
+    // happy path.
+    const mc = client(
+      planResponse({
+        proposedPatch: movePatch(),
+        requiredUserInput: [],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "Tidy up the layout",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.canApplyLater).toBe(true);
+    expect(result.blockedReason).toBeUndefined();
+  });
+
+  it("preserves the existing preview-rejected blockedReason when the patch fails validation AND requiredUserInput is empty", async () => {
+    // The preview-rejected branch still surfaces preview.blockedReason —
+    // AI-20's new gate only fires when requiredUserInput is the cause.
+    const mc = client(
+      planResponse({
+        proposedPatch: inventedPatch(),
+        requiredUserInput: [],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.canApplyLater).toBe(false);
+    // The blockedReason should NOT be the AI-20 required-input copy —
+    // it's a preview rejection.
+    expect(result.blockedReason).not.toMatch(/answer the questions above/i);
+  });
+});
+
 describe("model failure", () => {
   it("returns MODEL_FAILED for the default NOT_CONFIGURED client (no preview)", async () => {
     const result = await planWorkflowFromPromptForAI({

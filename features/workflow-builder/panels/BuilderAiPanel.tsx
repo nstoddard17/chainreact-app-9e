@@ -70,10 +70,27 @@ export function BuilderAiPanel() {
   const applyResult = ai.applyResult;
   const appliedOk = applyResult?.ok === true;
 
+  // Slice 4.AI-20 — Apply-readiness gate. `showApplyControls` requires the
+  // service to have flagged `canApplyLater: true` AND for there to be no
+  // outstanding `requiredUserInput`. The service-side gate
+  // (planWorkflowFromPrompt) already coerces canApplyLater→false when
+  // requiredUserInput is non-empty; this UI check is belt-and-suspenders
+  // so a future contract drift can't re-surface the live-smoke bug (Apply
+  // enabled while "More information is needed" was rendered).
+  const requiredInputCount = planOk?.requiredUserInput.length ?? 0;
+  const hasUnresolvedRequiredInput = requiredInputCount > 0;
   const showApplyControls =
-    !!planOk && planOk.canApplyLater && !!planOk.proposedPatch && !appliedOk;
+    !!planOk &&
+    planOk.canApplyLater &&
+    !!planOk.proposedPatch &&
+    !hasUnresolvedRequiredInput &&
+    !appliedOk;
   const canApply =
     showApplyControls && (!requiresConfirmation || riskAcknowledged) && !applying;
+  // A patch was generated but the AI flagged outstanding required input —
+  // render a guidance callout instead of an Apply button.
+  const showRequiredInputBlock =
+    !!planOk && !!planOk.proposedPatch && hasUnresolvedRequiredInput && !appliedOk;
   const hasResult = plan !== null || applyResult !== null || ai.error !== null;
 
   async function handlePlan(): Promise<void> {
@@ -242,12 +259,28 @@ export function BuilderAiPanel() {
 
           {preview && <PreviewSection preview={preview} />}
 
-          {!planOk.canApplyLater && planOk.proposedPatch && (
-            <p className="text-xs text-muted-foreground" data-testid="builder-ai-not-applyable">
-              This plan can&rsquo;t be applied as-is — please adjust your request and try again.
-              {planOk.blockedReason ? ` (${planOk.blockedReason})` : ""}
+          {showRequiredInputBlock && (
+            <p
+              className="text-xs"
+              data-testid="builder-ai-required-input-block"
+              role="status"
+              style={{ color: "var(--builder-warn)" }}
+            >
+              The agent drafted a plan, but {requiredInputCount === 1 ? "one detail is" : "some details are"} still
+              missing. Provide the missing details above, then run{" "}
+              <span className="font-medium">Plan with AI</span> again — the agent
+              won&rsquo;t apply an incomplete patch.
             </p>
           )}
+
+          {!planOk.canApplyLater &&
+            !hasUnresolvedRequiredInput &&
+            planOk.proposedPatch && (
+              <p className="text-xs text-muted-foreground" data-testid="builder-ai-not-applyable">
+                This plan can&rsquo;t be applied as-is — please adjust your request and try again.
+                {planOk.blockedReason ? ` (${planOk.blockedReason})` : ""}
+              </p>
+            )}
 
           {showApplyControls && (
             <div className="flex flex-col gap-2">

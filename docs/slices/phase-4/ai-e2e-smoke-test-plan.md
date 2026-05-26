@@ -66,11 +66,24 @@ The 12 scenarios from the AI-15 brief, each mapped to the test(s) that prove the
 
 ### S3 — Needs-input response (planner)
 
+> **Slice 4.AI-20 update.** Live smoke surfaced a second variant of "needs input": the AI returns a *valid patch* AND non-empty `requiredUserInput`. Pre-AI-20 the preview's `canApplyLater: true` leaked through and the UI showed Apply alongside "More information is needed." AI-20 closes that — `canApplyLater` is now gated on `requiredUserInput.length === 0` at both the service layer and the UI layer. The two variants below are now both covered.
+
+**Variant A — null patch (existing).** The model returns `proposedPatch: null` + `requiredUserInput`. Preview never runs.
+
 | Layer | Test | Evidence |
 |---|---|---|
 | Service | [`planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) `describe("no patch — needs input / unsupported")` + the Stripe-DM degradation case | `proposedPatch: undefined`, `canApplyLater: false`, preview never reached |
 | Route | [`ai-plan-route.test.ts`](../../../tests/unit/app/api/workflows/ai-plan-route.test.ts) `it("returns 200 for a no-patch (needs-input) result")` | 200 status (NOT 4xx) |
 | UI | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("shows needs-input and no apply button when the plan needs more info")` | Needs-input list rendered, apply button absent |
+
+**Variant B — valid patch + non-empty requiredUserInput (AI-20 live-regression fix).** The model returns a structurally-valid patch with `AI_FIELD` placeholders AND lists outstanding questions. Preview runs (cost / risk / validation projected), but apply is blocked.
+
+| Layer | Test | Evidence |
+|---|---|---|
+| Service | [`planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) `describe("apply-readiness gate (AI-20)")` | Patch + `requiredUserInput` → `canApplyLater: false` + AI-20 `blockedReason` ("More information is still needed — answer the questions above and run Plan with AI again."). Preview still runs (cost / risk projected). |
+| UI (callout) | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("hides the Apply button + renders the required-input block ...")` | `builder-ai-required-input-block` renders the guidance copy; Apply + risk-ack hidden. |
+| UI (defense in depth) | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("hides the Apply button even if canApplyLater is (incorrectly) true ...")` | UI gate holds even if a future service regression re-leaks `canApplyLater: true`. |
+| UI (apply guard) | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `it("apply() is never called when a plan has unresolved requiredUserInput ...")` | `mockApply` never invoked under the blocked state. |
 
 ### S4 — Unsupported provider/trigger response
 

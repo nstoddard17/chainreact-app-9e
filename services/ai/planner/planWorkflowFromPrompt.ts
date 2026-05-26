@@ -190,6 +190,30 @@ export async function planWorkflowFromPromptForAI(
   }
   const preview = previewRes.data;
 
+  // Slice 4.AI-20 — Apply-readiness gate for unresolved required input.
+  //
+  // The deterministic preview validates the patch's SHAPE (schema, cost,
+  // risk) and can return `canApplyLater: true` when the patch is
+  // structurally valid even though it contains `{{AI_FIELD:fieldName}}`
+  // placeholders. Live smoke after AI-19 surfaced the resulting
+  // contradiction: a plan with non-empty `requiredUserInput` (e.g. "Which
+  // Slack channel?" / "What should the message say?") was rendered next
+  // to an enabled Apply button because the patch shape validated.
+  //
+  // Rule (planner contract source of truth): `canApplyLater` is true ONLY
+  // when the preview accepted the patch AND the AI flagged no outstanding
+  // user input. The deterministic preview still runs and its
+  // `validation`/`riskLevel`/`taskCostEstimate` still flow through — only
+  // the apply gate is tightened. UI applies an identical guard as defense
+  // in depth.
+  const requiredInputBlocking = response.requiredUserInput.length > 0;
+  const canApplyLater = preview.canApplyLater && !requiredInputBlocking;
+  const blockedReason = canApplyLater
+    ? undefined
+    : requiredInputBlocking
+      ? "More information is still needed — answer the questions above and run Plan with AI again."
+      : (preview.blockedReason ?? "Preview rejected the proposed plan.");
+
   return {
     ok: true,
     intentSummary: response.intentSummary,
@@ -199,10 +223,8 @@ export async function planWorkflowFromPromptForAI(
     safetyNotes: response.safetyNotes,
     proposedPatch: patch,
     preview,
-    canApplyLater: preview.canApplyLater,
-    ...(preview.canApplyLater
-      ? {}
-      : { blockedReason: preview.blockedReason ?? "Preview rejected the proposed plan." }),
+    canApplyLater,
+    ...(blockedReason ? { blockedReason } : {}),
     model,
     noMutation: true,
   };

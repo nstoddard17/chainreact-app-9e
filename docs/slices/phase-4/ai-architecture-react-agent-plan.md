@@ -42,7 +42,8 @@
 | **AI-17** | shipped | Connected-integration awareness + "me" resolution for AI planning. Closes the next smoke gap (user has only Slack connected; AI proposed a Stripe→Slack workflow without flagging that Stripe needed to be connected, and asked for a Slack `userId` even though OAuth already captured the installing user's Slack id). `ConnectedIntegrationView` now forwards optional `currentUserId` from per-provider OAuth metadata (Slack → `accountMetadata.authedUserId`, the public U-prefixed id, never the bot id, never a token). Prompt renders the integration line as `- slack (account: ..., scope: workspace, me=U01ABC23DEF)`, the connected-integrations header now explicitly states "any provider NOT listed below is DISCONNECTED — every action/trigger from a disconnected provider requires connecting it first," and two new `PLANNER_CONSTRAINTS` cover (a) emit `requiredUserInput` with `kind: "select_integration"` for every disconnected provider used, never substitute a connected one; (b) resolve "me" from `me=` when present, ask via `requiredUserInput` otherwise, NEVER guess a user id, use a bot id as a human recipient, or use a channel id where a user id is required. Strict schema + validator + Slack OAuth flow unchanged. See note below. |
 | **AI-18** | shipped | React Agent live-smoke + builder-design integration verification (docs-only). Followed BUILDER-DESIGN-PARITY-1; ran 1634 tests across builder UI + AI services + AI routes against the restyled chrome; confirmed AI-11 / AI-11B / AI-13 contracts hold end-to-end, no leaks, no regressions. Identified one new live-smoke issue (PARSE_FAILED/NOT_JSON against Claude Sonnet 4.6 in production) which is addressed by AI-19. See note below + `builder-ui-v1-port-plan.md` §AI-18. |
 | **AI-19** | shipped | Anthropic forced tool-use structured planner output. Replaces prompt-only JSON enforcement (insufficient against Sonnet 4.6 — produced PARSE_FAILED/NOT_JSON in production smoke) with a forced single tool call. Assistant prefill stays reverted (Claude 4.x rejects it — AI-12C history). `ModelGenerateInput.responseTool` (`core/ai/modelTypes.ts`) is the provider-agnostic seam; the Anthropic adapter (`services/ai/modelClients/anthropicClient.ts`) sends `tools: [{name, description, input_schema}]` + `tool_choice: { type: "tool", name }`, extracts the matching `tool_use` content block, and returns `JSON.stringify(tool_use.input)` as `ModelSuccess.text` so the existing `parseWorkflowPlanResponse` (and downstream `WorkflowPatchSchema`) remain the source of truth. The planner (`services/ai/planner/planWorkflowFromPrompt.ts`) injects `WORKFLOW_PLAN_TOOL` on every plan call. Missing/mismatched/empty tool_use → `INVALID_RESPONSE` (retryable). Builder UI / provider metadata / workflow execution / billing / chat persistence all unchanged. See note below. |
-| AI-20+ | future | Owner/admin analytics route (needs an admin/owner auth gate) + dashboard UI, conversational/multi-turn UX, additional provider adapters, optimizer, templates, etc. (§13). |
+| **AI-20** | shipped | React Agent apply-readiness gate for unresolved required input. Live smoke after AI-19 surfaced a contract gap: the deterministic preview happily flagged a structurally-valid patch as `canApplyLater: true` even when the AI also returned non-empty `requiredUserInput` (e.g. "Which Slack channel?" / "What should the message say?"). The UI rendered both the required-input list AND an enabled Apply button — contradictory + risky. Fix is two-layer (defense in depth): **service** (`services/ai/planner/planWorkflowFromPrompt.ts`) overrides `canApplyLater → false` and sets `blockedReason: "More information is still needed — answer the questions above and run Plan with AI again."` whenever `requiredUserInput.length > 0`; **UI** (`features/workflow-builder/panels/BuilderAiPanel.tsx`) tightens `showApplyControls` to also require `requiredUserInput.length === 0`, hides Apply + risk-ack when blocked, and renders a new `builder-ai-required-input-block` callout. Preview still runs (cost / risk / validation projected); only the apply gate moves. Multi-turn inline required-input filling is explicitly deferred. See note below. |
+| AI-21+ | future | Owner/admin analytics route (needs an admin/owner auth gate) + dashboard UI, conversational/multi-turn UX (incl. AI-20 follow-up: inline required-input answers fed back into the plan), additional provider adapters, optimizer, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -466,6 +467,55 @@ The planner sees adapter `INVALID_RESPONSE` as `MODEL_FAILED` (existing mapping)
 **Tests.** Adapter (`tests/unit/services/ai/modelClients/anthropicClient.test.ts`): +10 — body shape with `tools` + `tool_choice`, body shape without (backward compat), `tool_use` → `ModelSuccess`, text-only response under structured mode → `INVALID_RESPONSE` (the regression guard), mismatched tool name, missing input payload, missing content array, HTTP 429 preserved under structured mode, AbortError → TIMEOUT preserved, no-leak under structured mode. Planner (`tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts`): +4 — planner injects `WORKFLOW_PLAN_TOOL` on every call, parser still rejects malformed patches (`INVALID_PATCH` still fires), adapter `INVALID_RESPONSE` propagates as planner `MODEL_FAILED` with `noMutation: true` and no preview attempted, end-to-end against a mocked Anthropic returning `tool_use` reaches preview with `canApplyLater: true`. Plus the existing AI-8C "runtime client + mocked fetch" test updated to use `tool_use` shape — the planner's structured-mode contract is now the live path.
 
 **Live verification.** Not run from this environment (no live Anthropic key + no running dev server attached to this assistant). The fix is exercised by 14 new tests + the existing 141 adapter + planner tests, including a regression-guard test that asserts text-only responses under structured mode return `INVALID_RESPONSE` (the exact failure mode the live smoke surfaced). User-side live smoke against the same prompt that triggered AI-18's PARSE_FAILED is the remaining confirmation step.
+
+### AI-20 implementation note
+
+**React Agent apply-readiness gate for unresolved required input.** AI-19's live smoke confirmed structured tool-use works (the model returned a structured plan, no PARSE_FAILED). The same smoke surfaced the next bug: the model returned a *valid plan with a structurally-valid patch AND non-empty `requiredUserInput`* — and the UI rendered an enabled Apply button next to "More information is needed before this can be built." Live trace:
+
+- Prompt: `"Create a workflow that sends a Slack message when I manually run it."`
+- AI returned a `proposedPatch` (Manual Trigger → Slack Send Channel Message, structurally valid with `AI_FIELD` placeholders for `channelId` + `text`).
+- AI also returned `requiredUserInput: ["Which Slack channel should the message be sent to?", "What should the message say?"]`.
+- Preview accepted the patch (it's schema-valid — `AI_FIELD` placeholders pass the AI-3 validator) → `canApplyLater: true`.
+- UI: rendered the needs-input list, the medium-risk badge, **and** an enabled Apply button. Contradictory.
+
+**Root cause.** The planner returned `canApplyLater: preview.canApplyLater` without considering whether the AI flagged outstanding user input. The deterministic preview's job is to validate the PATCH SHAPE — it doesn't know what the AI thought it didn't know. Two facts had to be unified at the planner boundary.
+
+**Final apply-readiness rule** (locked in across service + UI):
+
+> A plan is apply-ready when ALL of:
+> 1. `result.ok === true`
+> 2. `result.proposedPatch` is present
+> 3. `result.preview.canApplyLater === true` (deterministic patch validator approved)
+> 4. **`result.requiredUserInput.length === 0`** ← NEW
+
+**Service fix.** [`services/ai/planner/planWorkflowFromPrompt.ts`](../../../services/ai/planner/planWorkflowFromPrompt.ts) — after running the preview, the planner now derives:
+
+```ts
+const requiredInputBlocking = response.requiredUserInput.length > 0;
+const canApplyLater = preview.canApplyLater && !requiredInputBlocking;
+const blockedReason = canApplyLater
+  ? undefined
+  : requiredInputBlocking
+    ? "More information is still needed — answer the questions above and run Plan with AI again."
+    : (preview.blockedReason ?? "Preview rejected the proposed plan.");
+```
+
+`canApplyLater` becomes the unified gate. The preview still runs (cost / risk level / validation errors / required-input shape all still flow through), so the UI keeps its rich preview block — only the apply gate is tightened. The `blockedReason` distinguishes "missing required input" from "preview rejected" so the UI can render the right callout.
+
+**UI fix.** [`features/workflow-builder/panels/BuilderAiPanel.tsx`](../../../features/workflow-builder/panels/BuilderAiPanel.tsx):
+
+- `showApplyControls` extended with `!hasUnresolvedRequiredInput`. Even if a future service-layer regression re-leaks `canApplyLater: true` while `requiredUserInput` is non-empty, the UI refuses to surface Apply. Defense in depth — the live smoke proved this was the failure mode worth doubly defending against.
+- New `builder-ai-required-input-block` callout renders whenever `proposedPatch` exists AND `requiredUserInput.length > 0` AND apply hasn't succeeded: *"The agent drafted a plan, but {one detail is / some details are} still missing. Provide the missing details above, then run **Plan with AI** again — the agent won't apply an incomplete patch."* (Pluralization-aware.) Uses `--builder-warn` color so it reads alongside the BUILDER-DESIGN-PARITY-1 chrome.
+- Existing `builder-ai-not-applyable` copy ("This plan can't be applied as-is — please adjust your request and try again.") still renders for preview-rejected patches **when `requiredUserInput` is empty**. The two callouts are now mutually exclusive — required-input blocking takes precedence.
+- Risk acknowledgment checkbox is hidden alongside Apply when the plan is blocked on required input (it would be incongruous to ask the user to acknowledge risk for a plan that can't be applied yet).
+
+**Boundaries honored.** No changes under `lib/billing/`, `services/billing/`, `workflow-engine/`, `integrations/`, `app/api/workflows/[id]/ai/`, `app/api/ai/`, `features/workflow-builder/canvas/*`, or any provider metadata. The AI-9B apply route is unchanged (its server-side validation already rejects malformed patches; AI-20 just prevents the client from sending a useless apply request). `WorkflowPatchSchema` unchanged. `parseWorkflowPlanResponse` unchanged. Multi-turn inline required-input answers are explicitly deferred (would be AI-21+).
+
+**Tests.** Planner ([`planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts)): +3 — live regression case (patch + non-empty requiredUserInput → `canApplyLater: false` + AI-20 blockedReason), happy-path preserved (empty requiredUserInput + valid patch → `canApplyLater: true`), existing preview-rejected blockedReason preserved (invented provider patch → not the AI-20 copy). UI ([`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx)): +5 — required-input callout renders + Apply hidden, `apply()` never called when blocked, defense-in-depth (UI gate holds even if service incorrectly reports `canApplyLater: true`), happy path preserved (Apply still renders when truly apply-ready), preview-rejected copy preserved (the existing "can't be applied as-is" message + no AI-20 callout). 1677 tests pass across the full AI + builder sweep (was 1669 → +8 new AI-20 tests).
+
+**Live verification.** Not run from this environment. Covered by the 8 new tests + the existing 30 BuilderAiPanel tests + the 39 planner tests, which together pin every state transition. User-side live smoke against the same `"Create a workflow that sends a Slack message when I manually run it."` prompt is the remaining confirmation step — the expected behavior is now: required-input list renders, the new callout renders ("Provide the missing details above, then run Plan with AI again"), Apply does NOT render. Re-running the plan after revising the prompt (e.g. "...send the message 'Hi' to #alerts when I manually run it") should produce an apply-ready plan.
+
+**Out of scope (deferred).** Inline answering of `requiredUserInput` items (multi-turn UX) — the design would replace the "re-plan" loop with a guided field-fill that feeds the answers back into the next `plan()` call. Worth doing once the React Agent grows beyond single-shot.
 
 ---
 
