@@ -547,6 +547,94 @@ describe("connected integrations summary", () => {
     expect(text).toContain("Acme Workspace");
     expect(text).toContain("workspace");
   });
+
+  it("makes the disconnected-providers rule explicit in the header (AI-17)", () => {
+    const connected: ConnectedIntegrationView[] = [
+      {
+        provider: "slack",
+        connected: true,
+        accountLabel: "Acme Workspace",
+        accountScope: "workspace",
+        scopeCount: 5,
+      },
+    ];
+    const text = joinPrompt(makeInput({ connectedIntegrations: connected }));
+    expect(text).toContain("any provider NOT listed below is DISCONNECTED");
+    expect(text).toContain("requires connecting it first");
+  });
+
+  it("renders `me=<id>` inline when the provider's installing-user identity is captured (AI-17)", () => {
+    const connected: ConnectedIntegrationView[] = [
+      {
+        provider: "slack",
+        connected: true,
+        accountLabel: "Acme Workspace",
+        accountScope: "workspace",
+        scopeCount: 5,
+        currentUserId: "U01ABC23DEF",
+      },
+    ];
+    const text = joinPrompt(makeInput({ connectedIntegrations: connected }));
+    expect(text).toMatch(/slack \(account: Acme Workspace, scope: workspace, me=U01ABC23DEF\)/);
+  });
+
+  it("omits the `me=` segment from the integration line when the provider has no captured installing-user identity (AI-17)", () => {
+    const connected: ConnectedIntegrationView[] = [
+      {
+        provider: "gmail",
+        connected: true,
+        accountLabel: "user@example.com",
+        accountScope: "user",
+        scopeCount: 3,
+      },
+    ];
+    const text = joinPrompt(makeInput({ connectedIntegrations: connected }));
+    expect(text).toContain("gmail");
+    // The integration LINE itself must not contain `me=`. The me-resolution
+    // CONSTRAINT block elsewhere in the prompt contains `me=U01ABC23DEF` as a
+    // worked example — that's intentional, so we scope the negation to the
+    // gmail line.
+    expect(text).toMatch(/- gmail \(account: user@example\.com, scope: user\)\n/);
+    const gmailLineMatch = text.match(/- gmail \([^)]*\)/);
+    expect(gmailLineMatch).not.toBeNull();
+    expect(gmailLineMatch![0]).not.toContain("me=");
+  });
+});
+
+describe("connected-integration awareness + me-resolution constraints (AI-17)", () => {
+  it("includes the disconnected-provider awareness constraint with select_integration kind + concrete example", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("connected-integration awareness");
+    expect(text).toContain("`kind: \"select_integration\"`");
+    expect(text).toContain("\"connect stripe\"");
+    expect(text).toContain("do not say a provider is connected when it isn't");
+    expect(text).toContain("do not silently substitute a different connected provider");
+  });
+
+  it("instructs NOT to add select_integration for providers that ARE in the connected list", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("when a provider is in the connected list, do not add a `select_integration` entry for it");
+  });
+
+  it("includes the me-resolution constraint with the Slack worked example", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain('"me" resolution');
+    expect(text).toContain("slack:send_direct_message.userid");
+    expect(text).toContain("me=u01abc23def");
+  });
+
+  it("instructs to ask for the recipient via requiredUserInput when no me= is present", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("which slack user should receive the dm?");
+    expect(text).toContain('kind: "config_value"');
+  });
+
+  it("forbids guessing user ids, using bot ids as recipients, or substituting channel ids", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("never guess a user id");
+    expect(text).toContain("never use a bot user id as the human recipient");
+    expect(text).toContain("never use a channel id where a user id is required");
+  });
 });
 
 describe("cost awareness", () => {

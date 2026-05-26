@@ -37,20 +37,57 @@ export interface ConnectedIntegrationView {
   readonly accountScope: TokenScope | null;
   /** Count of granted OAuth scopes (the scope strings themselves are omitted to stay compact). */
   readonly scopeCount: number;
+  /**
+   * The installing-user's identity INSIDE this provider, when the OAuth flow
+   * captures it (Slice 4.AI-17). Used by the planner to resolve "me" in
+   * phrases like "send me a Slack DM" → the actual Slack user id, instead of
+   * asking the user for an id they shouldn't have to type. Provider-specific
+   * source map:
+   *
+   *   - `slack`: `accountMetadata.authedUserId` — the `authed_user.id` field
+   *     Slack returns from `oauth.v2.access`. NOT the bot user id, NOT the
+   *     team id, NOT a token. Public Slack id (U-prefixed); the same id the
+   *     user types into the Send DM action's `userId` field manually.
+   *
+   * Other providers populate this only as their OAuth captures the field
+   * (Gmail's `providerAccountId` is already the email, so a future iteration
+   * may surface it here for consistency). Omitted when unknown — the planner
+   * then asks via `requiredUserInput`.
+   */
+  readonly currentUserId?: string;
 }
 
 export interface ConnectedIntegrationsView {
   readonly integrations: readonly ConnectedIntegrationView[];
 }
 
+/**
+ * Per-provider mapping of the installing user's in-provider identity
+ * (Slice 4.AI-17). Read-only allow-list — only documented metadata fields
+ * are reachable, and only ones that are public identifiers (no tokens).
+ * Returns undefined when the provider doesn't yet have a "me" capture
+ * path, so the planner falls back to `requiredUserInput`.
+ */
+function extractCurrentUserId(
+  record: IntegrationRecord,
+): string | undefined {
+  if (record.provider === "slack") {
+    const id = record.accountMetadata?.["authedUserId"];
+    return typeof id === "string" && id.length > 0 ? id : undefined;
+  }
+  return undefined;
+}
+
 function toView(record: IntegrationRecord): ConnectedIntegrationView {
   const manifest = getProvider(record.provider);
+  const currentUserId = extractCurrentUserId(record);
   return {
     provider: record.provider,
     connected: true,
     accountLabel: record.displayName,
     accountScope: manifest?.tokenScope ?? null,
     scopeCount: record.scopes.length,
+    ...(currentUserId ? { currentUserId } : {}),
   };
 }
 

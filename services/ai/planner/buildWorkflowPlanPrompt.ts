@@ -43,6 +43,8 @@ export const PLANNER_CONSTRAINTS: readonly string[] = [
   "If a required field is an id, enum, selection, or recipient that you cannot derive from the catalog or an upstream node, set proposedPatch to null and add a requiredUserInput entry for it. A null patch with clear requiredUserInput is always better than an invalid one.",
   "Variable references `{{nodeId.field}}` (or `{{trigger.field}}` when nodeId is the trigger) MUST use ONLY the output names declared in that node's `outputs:` block. Do NOT invent output keys (e.g. `id`, `amount`, `currency`, `last_payment_error`) from a provider's public API documentation, the displayName, or general knowledge — if metadata doesn't list it, V2 doesn't expose it and the patch is rejected. For opaque object outputs (e.g. an event's `data` payload) you MAY descend into nested paths, but values inside are NOT metadata-validated — prefer top-level declared outputs (e.g. `{{trigger.stripeEventType}}`) for message bodies and use `{{AI_FIELD:fieldName}}` or `requiredUserInput` when no declared output fits.",
   "Do NOT substitute a different trigger for one the user explicitly asked for. If the user names a triggering event (e.g. \"when a Stripe payment fails\", \"on new Salesforce lead\") and no matching trigger key appears in the catalog, set proposedPatch to null, list the requested trigger under unsupportedRequests, and surface anything else still needed under requiredUserInput. `native:manual.run` is for user-initiated workflows ONLY — never use it as a stand-in for an event-driven trigger the user actually asked for.",
+  "Connected-integration awareness: every action/trigger you propose for a provider that does NOT appear in the connected-integrations list above MUST be accompanied by a `requiredUserInput` entry with `kind: \"select_integration\"` naming that provider — e.g. `{ label: \"Connect Stripe\", kind: \"select_integration\" }`. Do NOT claim the workflow is ready, do NOT say a provider is connected when it isn't, and do NOT silently substitute a different connected provider's trigger/action for the user's requested one. You MAY still propose the patch as a draft so the user can review the shape; the missing-connection requirement is what the UI surfaces as the blocker. Conversely: when a provider IS in the connected list, do not add a `select_integration` entry for it.",
+  "\"Me\" resolution: when the user refers to themselves (\"me\" / \"myself\" / \"I\" / \"send me\") as a per-user recipient — typically the `userId` on a DM action — resolve it from the connected integration's `me=<id>` value when present. Example: for `slack:send_direct_message.userId`, if the connected slack entry shows `me=U01ABC23DEF`, set `userId: \"U01ABC23DEF\"`. If the connected provider has NO `me=` value, add a `requiredUserInput` entry asking for the recipient (e.g. `{ label: \"Which Slack user should receive the DM?\", kind: \"config_value\", field: \"userId\" }`) and use `{{AI_FIELD:userId}}` is NOT correct here — recipient ids are not free text. NEVER guess a user id, NEVER use a bot user id as the human recipient, NEVER use a channel id where a user id is required.",
   "Respond with EXACTLY ONE JSON object that matches the response schema and nothing else — the first character must be { and the last must be }. No prose, no markdown, no ```json fences, no comments, and no trailing commas.",
   "When a value is unknown, do NOT guess: emit an AI_FIELD placeholder ({{AI_FIELD:fieldName}}) for free-text content, or add a requiredUserInput entry for anything else (ids, enums, selections).",
   "If you cannot build a COMPLETE, schema-valid WorkflowPatch — a required node id, enum value, recipient, or selection is unknown and has no upstream source — set proposedPatch to null and list what is still needed under requiredUserInput. NEVER emit a partial, approximate, or guessed patch; a null patch with clear requiredUserInput is always better than an invalid one.",
@@ -253,9 +255,16 @@ function renderConnectedIntegrations(input: WorkflowPlanPromptInput): string {
   const lines = input.connectedIntegrations.map((i) => {
     const account = i.accountLabel ? `account: ${i.accountLabel}` : "account: default";
     const scope = i.accountScope ? `, scope: ${i.accountScope}` : "";
-    return `- ${i.provider} (${account}${scope})`;
+    // Slice 4.AI-17: surface the installing-user's in-provider identity so the
+    // planner can resolve "me" without asking. Omitted when the provider didn't
+    // capture it during OAuth (the planner then asks via requiredUserInput).
+    const meId = i.currentUserId ? `, me=${i.currentUserId}` : "";
+    return `- ${i.provider} (${account}${scope}${meId})`;
   });
-  return ["The user has connected these integrations:", ...lines].join("\n");
+  return [
+    "The user has connected these integrations (any provider NOT listed below is DISCONNECTED — every action/trigger from a disconnected provider requires connecting it first):",
+    ...lines,
+  ].join("\n");
 }
 
 function renderCostAwareness(cost: WorkflowPlanCostAwareness | undefined): string | null {

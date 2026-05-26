@@ -783,6 +783,201 @@ describe("Stripe value-shape + output-reference grounding (AI-16)", () => {
   });
 });
 
+describe("connected-integration + me-resolution grounding (AI-17)", () => {
+  function slackConnected(currentUserId?: string) {
+    return [
+      {
+        id: "int-slack",
+        userId: "u1",
+        provider: "slack",
+        providerAccountId: "T-POISON-TEAM-ID",
+        displayName: "Acme Workspace",
+        accessTokenEncrypted: "ENC-POISON-ACCESS-TOKEN",
+        refreshTokenEncrypted: null,
+        accessTokenExpiresAt: null,
+        scopes: ["chat:write", "im:write"],
+        accountMetadata: {
+          teamId: "T-POISON-TEAM-ID",
+          teamName: "Acme",
+          botUserId: "B999POISONBOT",
+          ...(currentUserId ? { authedUserId: currentUserId } : {}),
+        },
+        disconnectedAt: null,
+        createdAt: "2026-05-25T00:00:00Z",
+        updatedAt: "2026-05-25T00:00:00Z",
+      },
+    ];
+  }
+
+  it("system prompt explicitly states the disconnected-providers rule + lists connected providers", async () => {
+    mockListActiveByUser.mockResolvedValue(slackConnected("U01ABC23DEF"));
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    // Connected entry rendered, includes me=
+    expect(system).toMatch(/slack \(account: Acme Workspace[^)]*me=U01ABC23DEF\)/);
+    // Disconnected-providers rule explicit in the header
+    expect(system).toContain("any provider NOT listed below is DISCONNECTED");
+    // Stripe is NOT in the connected list — the model has to infer disconnected.
+    // The actual catalog block (rendered separately) will still list stripe as an
+    // available trigger; the disconnected awareness comes from this rule.
+  });
+
+  it("system prompt omits the me= segment when Slack OAuth didn't capture authedUserId", async () => {
+    // No authedUserId in the account metadata.
+    mockListActiveByUser.mockResolvedValue(slackConnected(undefined));
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    expect(system).toContain("slack (account: Acme Workspace, scope: workspace)");
+    expect(system).not.toMatch(/slack \([^)]*me=/);
+  });
+
+  it("system prompt carries the AI-17 me-resolution + disconnected-awareness rules to the model", async () => {
+    mockListActiveByUser.mockResolvedValue(slackConnected("U01ABC23DEF"));
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    expect(system).toContain("Connected-integration awareness");
+    expect(system).toContain('kind: "select_integration"');
+    expect(system).toContain('"Me" resolution');
+    expect(system).toContain("`me=U01ABC23DEF`"); // anchor of the worked example
+  });
+
+  it("no-leak: connected-integration context never carries tokens or non-allow-listed metadata into the system prompt", async () => {
+    mockListActiveByUser.mockResolvedValue(slackConnected("U01ABC23DEF"));
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(planResponse({ proposedPatch: movePatch() }));
+    await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    const system = mc.calls[0]!.input.messages.find((m) => m.role === "system")!.content;
+    // Tokens never reach the prompt.
+    expect(system).not.toContain("ENC-POISON-ACCESS-TOKEN");
+    // The bot id is not the human "me" — it must never surface as the resolved
+    // identity. (The bot id `B999POISONBOT` was deliberately put in the fixture
+    // as a poison value — if AI-17 ever wires it to `currentUserId`, this test
+    // catches the regression.)
+    expect(system).not.toContain("B999POISONBOT");
+    expect(system).not.toContain("authedUserId"); // the source key isn't echoed
+    // Team id is not relevant to "me" resolution.
+    expect(system).not.toContain("T-POISON-TEAM-ID");
+  });
+
+  it("a model response that fills slack:send_direct_message.userId from the resolved Slack me-id + AI_FIELD text previews as apply-ready (Stripe-connected case)", async () => {
+    mockListActiveByUser.mockResolvedValue(slackConnected("U01ABC23DEF"));
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const NODE_POSITION = { x: 0, y: 0 };
+    const mc = client(
+      planResponse({
+        proposedPatch: {
+          patchId: "p-me",
+          workflowId: "wf1",
+          baseRevision: "x",
+          operations: [
+            {
+              op: "addNode",
+              node: {
+                id: "t-stripe",
+                kind: "trigger",
+                provider: "stripe",
+                type: "event_received",
+                config: { enabledEvents: ["payment_intent.payment_failed"] },
+                position: NODE_POSITION,
+              },
+            },
+            {
+              op: "addNode",
+              node: {
+                id: "a-slack",
+                kind: "action",
+                provider: "slack",
+                type: "send_direct_message",
+                config: {
+                  userId: "U01ABC23DEF", // resolved from connected slack.me=
+                  text: "A Stripe payment failed: {{t-stripe.stripeEventType}}",
+                },
+                position: NODE_POSITION,
+              },
+            },
+            {
+              op: "addEdge",
+              edge: { id: "e1", from: "t-stripe", to: "a-slack" },
+            },
+          ],
+          summary: "Stripe→Slack DM to me",
+          rationale: "Resolve 'me' to the installing Slack user.",
+        },
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "when a stripe payment fails, send me a slack dm",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    if (
+      result.preview &&
+      result.preview.validation.errors.some((e) => e.code === "UNKNOWN_TRIGGER")
+    ) {
+      return; // Stripe metadata not in this build — moot.
+    }
+    expect(result.preview!.validation.errors).toHaveLength(0);
+    expect(result.canApplyLater).toBe(true);
+  });
+
+  it("a needs-input response asking for the Slack recipient is a clean 200 (Slack-me unknown case)", async () => {
+    mockListActiveByUser.mockResolvedValue(slackConnected(undefined));
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([]));
+    const mc = client(
+      planResponse({
+        requiredUserInput: [
+          {
+            label: "Which Slack user should receive the DM?",
+            kind: "config_value",
+            field: "userId",
+          },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send me a slack dm",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(1);
+    expect(result.requiredUserInput[0]!.field).toBe("userId");
+    expect(result.proposedPatch).toBeUndefined();
+    expect(result.canApplyLater).toBe(false);
+  });
+});
+
 describe("no mutation / no apply", () => {
   it("does not import or call the apply service or a workflow-writing repo", () => {
     const src = readFileSync(

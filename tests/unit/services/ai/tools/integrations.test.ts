@@ -117,4 +117,94 @@ describe("getConnectedIntegrationsForAI", () => {
     expect(result.code).toBe("SERVER_ERROR");
     expect(result.message).not.toContain("db down");
   });
+
+  describe("currentUserId resolution (AI-17)", () => {
+    it("exposes Slack's authedUserId as currentUserId on the view (and only that field — never the team id, never the bot id, never tokens)", async () => {
+      mockListActiveByUser.mockResolvedValue([
+        makeRecord({
+          provider: "slack",
+          accountMetadata: {
+            teamId: "T123",
+            teamName: "Acme Workspace",
+            botUserId: "B999BOT",
+            appId: "A000APP",
+            authedUserId: "U01ABC23DEF",
+          },
+        }),
+      ]);
+      const result = await getConnectedIntegrationsForAI("u1");
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.integrations).toHaveLength(1);
+      const slack = result.data.integrations[0]!;
+      expect(slack.currentUserId).toBe("U01ABC23DEF");
+      // The other metadata fields must NOT leak — only the authed-user id is
+      // mapped, and it's mapped to a generic field name, NOT carried as a
+      // free-form metadata blob.
+      const serialized = JSON.stringify(result.data);
+      expect(serialized).not.toContain("T123");
+      expect(serialized).not.toContain("B999BOT");
+      expect(serialized).not.toContain("A000APP");
+      expect(serialized).not.toContain("authedUserId"); // the source key isn't echoed
+    });
+
+    it("omits currentUserId when Slack's authed_user.id wasn't captured (pre-AI-17 rows / re-auth-from-app context)", async () => {
+      mockListActiveByUser.mockResolvedValue([
+        makeRecord({
+          provider: "slack",
+          accountMetadata: {
+            teamId: "T123",
+            teamName: "Acme",
+            botUserId: "B999BOT",
+            // authedUserId intentionally absent
+          },
+        }),
+      ]);
+      const result = await getConnectedIntegrationsForAI("u1");
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.integrations[0]).not.toHaveProperty("currentUserId");
+    });
+
+    it("omits currentUserId when Slack's authedUserId is an empty string (defensive — never propagates invalid ids)", async () => {
+      mockListActiveByUser.mockResolvedValue([
+        makeRecord({
+          provider: "slack",
+          accountMetadata: { authedUserId: "" },
+        }),
+      ]);
+      const result = await getConnectedIntegrationsForAI("u1");
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.integrations[0]).not.toHaveProperty("currentUserId");
+    });
+
+    it("does NOT expose currentUserId for non-Slack providers today (Gmail / GitHub / Notion / etc. — until each gets a per-provider mapping)", async () => {
+      mockListActiveByUser.mockResolvedValue([
+        makeRecord({
+          provider: "gmail",
+          accountMetadata: {
+            email: "owner@example.com",
+            authedUserId: "should-not-surface-from-non-slack-provider",
+          },
+        }),
+      ]);
+      const result = await getConnectedIntegrationsForAI("u1");
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.integrations[0]).not.toHaveProperty("currentUserId");
+    });
+
+    it("the currentUserId never has a secret-shaped key in its surrounding structure", async () => {
+      mockListActiveByUser.mockResolvedValue([
+        makeRecord({
+          provider: "slack",
+          accountMetadata: { authedUserId: "U01ABC23DEF", botToken: "BOT_SECRET" },
+        }),
+      ]);
+      const result = await getConnectedIntegrationsForAI("u1");
+      if (!result.ok) throw new Error("expected ok");
+      for (const key of collectKeys(result.data)) {
+        expect(isSecretKey(key)).toBe(false);
+      }
+      const serialized = JSON.stringify(result.data);
+      expect(serialized).not.toContain("BOT_SECRET");
+    });
+  });
 });
