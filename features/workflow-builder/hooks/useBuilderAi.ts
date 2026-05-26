@@ -54,16 +54,33 @@ export interface UseBuilderAi {
    * plan / chain completion.
    */
   readonly followUpMode: boolean;
-  plan(prompt: string, modelTier?: "fast" | "strong"): Promise<void>;
+  /**
+   * Run a fresh plan request. Returns the resulting `AiPlanResult` on a
+   * successful round-trip (incl. handled failures like `PARSE_FAILED`), or
+   * `null` when the transport itself failed (the hook sets `error` in that
+   * case). The chat-layout panel uses the return value to append an
+   * assistant message in lockstep with the user message (Slice 4.AI-21B).
+   */
+  plan(prompt: string, modelTier?: "fast" | "strong"): Promise<AiPlanResult | null>;
   /**
    * Submit a follow-up answer for the in-progress required-input chain.
    * Reconstructs the planner prompt internally (original + asked labels +
    * prior answers + this answer) and routes through the standard plan path.
    * No-op when there is no in-progress chain or no unresolved questions on
-   * the latest plan.
+   * the latest plan. Returns the resulting `AiPlanResult` on success, or
+   * `null` on transport failure or when the no-op guards refuse the call.
    */
-  submitFollowUp(answer: string, modelTier?: "fast" | "strong"): Promise<void>;
-  apply(): Promise<void>;
+  submitFollowUp(
+    answer: string,
+    modelTier?: "fast" | "strong",
+  ): Promise<AiPlanResult | null>;
+  /**
+   * Run the apply call against the latest plan's `proposedPatch`. Returns
+   * the `AiApplyResult` on a successful round-trip (incl. handled failures
+   * like `STALE_PATCH`), or `null` when the transport failed or the guards
+   * refused (no current apply-ready plan).
+   */
+  apply(): Promise<AiApplyResult | null>;
   reset(): void;
 }
 
@@ -100,9 +117,9 @@ export function useBuilderAi({
   const [originalPrompt, setOriginalPrompt] = useState<string | null>(null);
   const [priorFollowUpAnswers, setPriorFollowUpAnswers] = useState<readonly string[]>([]);
 
-  const plan = useCallback(
-    async (prompt: string, modelTier?: "fast" | "strong") => {
-      if (!workflowId) return;
+  const plan = useCallback<UseBuilderAi["plan"]>(
+    async (prompt, modelTier) => {
+      if (!workflowId) return null;
       setStatus("planning");
       setError(null);
       setPlanResult(null);
@@ -121,25 +138,27 @@ export function useBuilderAi({
         if (planNeedsMoreInput(result)) {
           setOriginalPrompt(prompt);
         }
+        return result;
       } catch (err) {
         setError(friendlyError(err, "The AI assistant is unavailable right now."));
         setStatus("idle");
+        return null;
       }
     },
     [workflowId],
   );
 
-  const submitFollowUp = useCallback(
-    async (answer: string, modelTier?: "fast" | "strong") => {
-      if (!workflowId) return;
+  const submitFollowUp = useCallback<UseBuilderAi["submitFollowUp"]>(
+    async (answer, modelTier) => {
+      if (!workflowId) return null;
       // Guard: there must be an in-progress chain with outstanding questions
       // on the latest plan. If not, the panel should be calling `plan()`.
-      if (!originalPrompt) return;
+      if (!originalPrompt) return null;
       if (!planResult || !planResult.ok || planResult.requiredUserInput.length === 0) {
-        return;
+        return null;
       }
       const trimmedAnswer = answer.trim();
-      if (trimmedAnswer.length === 0) return;
+      if (trimmedAnswer.length === 0) return null;
 
       const requiredInputLabels = planResult.requiredUserInput.map((r) => r.label);
       const reconstructed = composeFollowUpPrompt({
@@ -170,21 +189,23 @@ export function useBuilderAi({
           setOriginalPrompt(null);
           setPriorFollowUpAnswers([]);
         }
+        return result;
       } catch (err) {
         // Transport failure — leave chain state intact so the user can retry
         // the same follow-up answer.
         setError(friendlyError(err, "The AI assistant is unavailable right now."));
         setStatus("idle");
+        return null;
       }
     },
     [workflowId, originalPrompt, planResult, priorFollowUpAnswers],
   );
 
-  const apply = useCallback(async () => {
-    if (!workflowId) return;
+  const apply = useCallback<UseBuilderAi["apply"]>(async () => {
+    if (!workflowId) return null;
     // Guard: only an apply-ready plan with a proposed patch may be applied.
     if (!planResult || !planResult.ok || !planResult.proposedPatch || !planResult.canApplyLater) {
-      return;
+      return null;
     }
     const requiresConfirmation = planResult.preview?.requiresConfirmation === true;
     const confirmation: AiApplyConfirmation | undefined = requiresConfirmation
@@ -206,9 +227,11 @@ export function useBuilderAi({
       setApplyResult(result);
       setStatus("applied");
       if (result.ok && onApplied) await onApplied();
+      return result;
     } catch (err) {
       setError(friendlyError(err, "Couldn’t apply the change. Please try again."));
       setStatus("planned");
+      return null;
     }
   }, [workflowId, planResult, onApplied]);
 

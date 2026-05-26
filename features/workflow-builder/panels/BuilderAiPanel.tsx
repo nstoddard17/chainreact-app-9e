@@ -1,43 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { getWorkflow } from "@/lib/api/workflows";
-import { AiBulletList, AiRequiredInputList } from "../ai";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
 import {
-  PlanFailure,
-  PreviewSection,
-} from "./_BuilderAiPanelPreview";
+  AssistantBubble,
+  PlanResultBody,
+  UserBubble,
+  nextChatMessageId,
+  type ChatMessage,
+  type ChatMessageId,
+  type UserChatMessage,
+} from "./_BuilderAiPanelChat";
 
 /**
- * Minimal Builder AI assistant panel (Slice 4.AI-11, UX-hardened in 4.AI-11B).
+ * Builder AI assistant panel — React Agent rail chat (Slice 4.AI-21B).
  *
- * A single prompt box + result panel driving the backend plan → preview →
- * confirm → apply loop (AI-9A/9B). NOT a chat product — no thread, no history,
- * no prompt/response persistence. It NEVER calls a model from the client, NEVER
- * auto-applies, NEVER bypasses preview or confirmation, and mutates the workflow
- * ONLY through the AI-9B apply route. It renders a value-free view — no raw patch
- * JSON, config values, secrets, raw model responses, or raw provider errors.
+ * Chat layout: messages scroll above a pinned composer footer; user prompts
+ * + follow-up answers render as user bubbles, plan results / errors / apply
+ * outcomes render as assistant bubbles. The latest assistant plan_result
+ * hosts the existing AI-11B / AI-20 assumptions / needs-input / preview /
+ * risk-ack / Apply UI verbatim (same testIds — full back-compat); older
+ * plan_results collapse to `intentSummary`. Subcomponents + chat message
+ * types live in the sibling [`_BuilderAiPanelChat.tsx`](./_BuilderAiPanelChat.tsx).
  *
- * AI-11B hardening: clearer per-state copy, a readable "What AI plans to change"
- * preview (counts + risk + risk reasons + cost + errors/warnings, required input
- * shown separately from errors), an explicit risk-acknowledgement gate that
- * resets on every new plan, stale-patch recovery with a one-click re-plan (never
- * auto-reapply), friendly model-unavailable copy, a character counter near the
- * limit, and a clear-result control. The prompt is kept after planning so the
- * user can revise.
- *
- * AI-21 — session-local follow-up. When a plan returns unresolved
- * `requiredUserInput`, the composer switches into follow-up mode: the helper
- * copy tells the user to reply with the missing details, the submit button
- * becomes "Send details", and the next submit calls `submitFollowUp` (hook
- * reconstructs the planner prompt from the original prompt + asked labels +
- * prior answers + this answer). The local textarea is cleared after a
- * follow-up submit so the next answer is typed fresh. Clear / Plan-another
- * resets the chain via the hook's `reset()`.
+ * Scope guardrail — workflow-builder React Agent only. NOT the general
+ * app help assistant. NO DB persistence (session-local message state).
+ * The follow-up prompt is still sent through `POST /api/workflows/[id]/ai/plan`
+ * unchanged. All AI-11B / AI-20 / AI-21 no-leak / apply-readiness / no-auto-
+ * apply / strict-schema invariants are preserved.
  */
 
 const MAX_PROMPT_LENGTH = 8_000;
@@ -48,6 +42,8 @@ export function BuilderAiPanel() {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
+  const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  const listEndRef = useRef<HTMLDivElement>(null);
 
   const ai = useBuilderAi({
     workflowId,
@@ -62,6 +58,14 @@ export function BuilderAiPanel() {
     },
   });
 
+  // Auto-scroll to the bottom whenever the message list grows or the agent
+  // status transitions (planning / applying / planned / applied). JSDOM
+  // doesn't implement `scrollIntoView` — guard the call so unit tests don't
+  // need to polyfill.
+  useEffect(() => {
+    listEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
+  }, [messages.length, ai.status]);
+
   if (!workflowId) return null;
 
   const trimmed = prompt.trim();
@@ -70,62 +74,136 @@ export function BuilderAiPanel() {
   const busy = planning || applying;
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
   const canSubmit = trimmed.length > 0 && !tooLong && !busy;
-  // AI-21 — follow-up mode is driven by hook state (`originalPrompt !== null`).
-  // The composer's submit behavior swaps from `plan` → `submitFollowUp` while
-  // the chain is active.
   const followUpMode = ai.followUpMode;
+  const hasMessages = messages.length > 0;
 
-  const plan = ai.planResult;
-  const planOk = plan && plan.ok ? plan : null;
-  const planFail = plan && !plan.ok ? plan : null;
-  const preview = planOk?.preview;
-  const requiresConfirmation = preview?.requiresConfirmation === true;
-  const applyResult = ai.applyResult;
-  const appliedOk = applyResult?.ok === true;
-
-  // Slice 4.AI-20 — Apply-readiness gate. `showApplyControls` requires the
-  // service to have flagged `canApplyLater: true` AND for there to be no
-  // outstanding `requiredUserInput`. The service-side gate
-  // (planWorkflowFromPrompt) already coerces canApplyLater→false when
-  // requiredUserInput is non-empty; this UI check is belt-and-suspenders
-  // so a future contract drift can't re-surface the live-smoke bug (Apply
-  // enabled while "More information is needed" was rendered).
-  const requiredInputCount = planOk?.requiredUserInput.length ?? 0;
-  const hasUnresolvedRequiredInput = requiredInputCount > 0;
-  const showApplyControls =
-    !!planOk &&
-    planOk.canApplyLater &&
-    !!planOk.proposedPatch &&
-    !hasUnresolvedRequiredInput &&
-    !appliedOk;
-  const canApply =
-    showApplyControls && (!requiresConfirmation || riskAcknowledged) && !applying;
-  // A patch was generated but the AI flagged outstanding required input —
-  // render a guidance callout instead of an Apply button.
-  const showRequiredInputBlock =
-    !!planOk && !!planOk.proposedPatch && hasUnresolvedRequiredInput && !appliedOk;
-  const hasResult = plan !== null || applyResult !== null || ai.error !== null;
-
-  async function handlePlan(): Promise<void> {
-    setRiskAcknowledged(false); // every new plan starts unconfirmed
-    await ai.plan(trimmed);
-  }
-
-  async function handleSubmit(): Promise<void> {
-    // AI-21 — route to follow-up when the chain is active; otherwise behave
-    // exactly like a fresh plan. The hook owns the routing decision via
-    // `followUpMode`. The local prompt text is retained after submit (same
-    // as the normal plan flow per AI-11B); the user can revise via Clear.
-    setRiskAcknowledged(false);
-    if (followUpMode) {
-      await ai.submitFollowUp(trimmed);
-    } else {
-      await ai.plan(trimmed);
+  // The latest plan_result message owns the full breakdown (assumptions,
+  // needs-input, preview, apply controls) AND the back-compat testIds.
+  // Older plan_results collapse to their `intentSummary`.
+  let latestPlanMessageId: ChatMessageId | null = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role === "assistant" && m.kind === "plan_result") {
+      latestPlanMessageId = m.id;
+      break;
     }
   }
 
-  function handleClear(): void {
+  function appendMessage(message: ChatMessage): void {
+    setMessages((prev) => [...prev, message]);
+  }
+
+  async function handleSubmit(): Promise<void> {
+    if (!canSubmit) return;
     setRiskAcknowledged(false);
+    const content = trimmed;
+    const userKind: UserChatMessage["kind"] = followUpMode ? "followup" : "prompt";
+    appendMessage({
+      id: nextChatMessageId(),
+      role: "user",
+      kind: userKind,
+      content,
+    });
+    // Clear the composer immediately so the user-message bubble is the
+    // single live view of their input while the agent works — same UX as
+    // any normal chat. Per AI-21B this replaces the AI-11B "keep prompt
+    // after planning" behavior; Clear is now the way to reset state.
+    setPrompt("");
+
+    const result = followUpMode
+      ? await ai.submitFollowUp(content)
+      : await ai.plan(content);
+
+    if (result === null) {
+      // Transport-layer failure. The hook also surfaces `ai.error`; we
+      // additionally append an assistant error bubble so the failure has
+      // a stable place in the conversation.
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "error",
+        // The hook owns the friendly message; we re-derive a generic
+        // fallback here because the user-supplied `prompt` /
+        // requiredInput labels never reach this branch.
+        content: "The AI assistant is unavailable right now. Please try again in a moment.",
+      });
+      return;
+    }
+    appendMessage({
+      id: nextChatMessageId(),
+      role: "assistant",
+      kind: "plan_result",
+      result,
+    });
+  }
+
+  async function handleApply(): Promise<void> {
+    const result = await ai.apply();
+    if (result === null) return; // transport error — `ai.error` flips, no message appended for this branch (avoids double-render with the standard error path)
+    if (result.ok) {
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "applied",
+        result,
+      });
+    } else {
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "apply_failure",
+        result,
+      });
+    }
+  }
+
+  async function handleRerunPlan(): Promise<void> {
+    // AI-21B STALE_PATCH recovery — re-plan from the most recent "prompt"
+    // user message in the chat history (not whatever happens to be in the
+    // composer textarea, which has been cleared after submit per the chat
+    // pattern). STALE_PATCH only fires post-apply, after the chain
+    // completed, so the prior user prompt is the right starting point.
+    let originalUserPrompt: string | null = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (m.role === "user" && m.kind === "prompt") {
+        originalUserPrompt = m.content;
+        break;
+      }
+    }
+    if (originalUserPrompt === null) return;
+    setRiskAcknowledged(false);
+    appendMessage({
+      id: nextChatMessageId(),
+      role: "user",
+      kind: "prompt",
+      content: originalUserPrompt,
+    });
+    const result = await ai.plan(originalUserPrompt);
+    if (result === null) {
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "error",
+        content: "The AI assistant is unavailable right now. Please try again in a moment.",
+      });
+      return;
+    }
+    appendMessage({
+      id: nextChatMessageId(),
+      role: "assistant",
+      kind: "plan_result",
+      result,
+    });
+  }
+
+  function handleClear(): void {
+    // AI-21B — Clear resets the whole conversation: messages, composer
+    // text, risk-ack, and hook chain state. "Plan another change" calls
+    // this same handler post-apply for the same reason.
+    setRiskAcknowledged(false);
+    setMessages([]);
+    setPrompt("");
     ai.reset();
   }
 
@@ -133,264 +211,266 @@ export function BuilderAiPanel() {
     <section
       aria-label="AI assistant"
       data-testid="builder-ai-panel"
-      className="flex flex-col gap-3"
+      className="flex h-full min-h-0 flex-col gap-2"
       style={{ color: "var(--builder-text)" }}
     >
-      <p
-        className="px-1 text-[11.5px] leading-relaxed"
-        style={{ color: "var(--builder-muted)" }}
-      >
-        Describe a change in plain English — e.g. &ldquo;post a Slack message
-        to #alerts when a new email arrives&rdquo;. The agent proposes a
-        preview; nothing is applied until you review and confirm.
-      </p>
-
+      {/* Message list — scrolls independently above the pinned composer. */}
       <div
-        className="flex flex-col gap-0 rounded-md"
-        style={{
-          background: "var(--builder-panel-2)",
-          border: "1px solid var(--builder-border)",
-        }}
+        data-testid="builder-ai-message-list"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1 pt-1"
       >
-        <Textarea
-          aria-label={followUpMode ? "Reply with the missing details" : "Describe the workflow change"}
-          data-testid="builder-ai-prompt"
-          placeholder={
-            followUpMode
-              ? "Reply with the missing details — e.g. ‘Use #general and say Test from ChainReact AI.’"
-              : "Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
-          }
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          disabled={busy}
-          maxLength={MAX_PROMPT_LENGTH + 100}
-          aria-invalid={tooLong || undefined}
-          rows={3}
-          className="resize-none border-0 bg-transparent text-[12.5px] leading-[1.45] shadow-none focus-visible:ring-0"
-        />
-        <div
-          className="flex items-center justify-between gap-2 px-2 pb-2 pt-1"
-          style={{ borderTop: "0" }}
-        >
-          <span
-            className="builder-mono text-[10.5px]"
+        {!hasMessages && !busy && (
+          <p
+            data-testid="builder-ai-intro"
+            className="px-1 pt-1 text-[11.5px] leading-relaxed"
             style={{ color: "var(--builder-muted)" }}
           >
-            <kbd
-              className="rounded-[3px] px-1.5 py-px text-[9.5px]"
-              style={{
-                background: "var(--builder-panel)",
-                border: "1px solid var(--builder-border)",
-                color: "var(--builder-muted)",
-              }}
+            Describe a change in plain English — e.g. &ldquo;post a Slack
+            message to #alerts when a new email arrives&rdquo;. The agent
+            proposes a preview; nothing is applied until you review and
+            confirm.
+          </p>
+        )}
+
+        {messages.map((message) => {
+          if (message.role === "user") {
+            return (
+              <UserBubble
+                key={message.id}
+                kind={message.kind}
+                content={message.content}
+              />
+            );
+          }
+          if (message.kind === "plan_result") {
+            const isLatest = message.id === latestPlanMessageId;
+            return (
+              <AssistantBubble key={message.id}>
+                <PlanResultBody
+                  result={message.result}
+                  isLatest={isLatest}
+                  applying={applying}
+                  riskAcknowledged={riskAcknowledged}
+                  onRiskAcknowledgeChange={setRiskAcknowledged}
+                  onApply={handleApply}
+                />
+              </AssistantBubble>
+            );
+          }
+          if (message.kind === "applied") {
+            return (
+              <AssistantBubble key={message.id}>
+                <div
+                  className="flex flex-col gap-2"
+                  data-testid="builder-ai-apply-success"
+                >
+                  <p
+                    role="status"
+                    className="text-xs text-emerald-700 dark:text-emerald-400"
+                  >
+                    ✓ {message.result.summaryText}
+                  </p>
+                  <div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleClear}
+                      data-testid="builder-ai-plan-another-button"
+                    >
+                      Plan another change
+                    </Button>
+                  </div>
+                </div>
+              </AssistantBubble>
+            );
+          }
+          if (message.kind === "apply_failure") {
+            return (
+              <AssistantBubble key={message.id}>
+                <div
+                  data-testid="builder-ai-apply-failure"
+                  className="flex flex-col gap-2"
+                >
+                  <p role="alert" className="text-xs text-destructive">
+                    {message.result.code === "STALE_PATCH"
+                      ? "This workflow changed after the plan was created, so it wasn’t applied. Re-run the plan to work from the latest version."
+                      : message.result.code === "CONFIRMATION_REQUIRED"
+                        ? "This change needs your explicit confirmation before it can be applied."
+                        : message.result.message}
+                  </p>
+                  {message.result.code === "STALE_PATCH" && (
+                    <div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRerunPlan}
+                        disabled={busy}
+                        data-testid="builder-ai-rerun-button"
+                      >
+                        Re-run plan
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </AssistantBubble>
+            );
+          }
+          // error
+          return (
+            <AssistantBubble key={message.id}>
+              <p
+                role="alert"
+                className="text-xs text-destructive"
+                data-testid="builder-ai-error-message"
+              >
+                {message.content}
+              </p>
+            </AssistantBubble>
+          );
+        })}
+
+        {planning && (
+          <AssistantBubble>
+            <p
+              role="status"
+              className="text-xs text-muted-foreground"
+              data-testid="builder-ai-planning"
             >
-              ⌘
-            </kbd>
-            <kbd
-              className="ml-0.5 rounded-[3px] px-1.5 py-px text-[9.5px]"
-              style={{
-                background: "var(--builder-panel)",
-                border: "1px solid var(--builder-border)",
-                color: "var(--builder-muted)",
-              }}
-            >
-              ↵
-            </kbd>
-            <span className="ml-1.5">{followUpMode ? "send" : "plan"}</span>
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            data-testid="builder-ai-plan-button"
-            className="h-7 px-2.5 text-[12px]"
-            style={{
-              background: "var(--builder-text)",
-              color: "var(--builder-panel)",
-              border: "1px solid var(--builder-text)",
-            }}
+              Planning your change…
+            </p>
+          </AssistantBubble>
+        )}
+
+        {/* Top-level transport error (e.g. 401/404) — back-compat with
+            the AI-11B inline error rendering. The assistant error bubble
+            (above) covers the chat copy; this surfaces the friendly
+            sign-in / not-found copy without duplicating into messages. */}
+        {ai.error && (
+          <p
+            role="alert"
+            className="px-1 text-xs text-destructive"
+            data-testid="builder-ai-error"
           >
-            {planning ? "Thinking…" : followUpMode ? "Send details" : "Plan with AI"}
-          </Button>
-        </div>
+            {ai.error}
+          </p>
+        )}
+
+        <div ref={listEndRef} aria-hidden />
       </div>
 
-      {(prompt.length >= COUNTER_THRESHOLD || tooLong) && (
-        <p
-          data-testid="builder-ai-char-count"
-          className="builder-mono px-1 text-[11px]"
-          style={{
-            color: tooLong ? "var(--builder-danger)" : "var(--builder-muted)",
-          }}
-        >
-          {prompt.length}/{MAX_PROMPT_LENGTH}
-          {tooLong ? " — too long, please shorten your request." : ""}
-        </p>
-      )}
-
-      {hasResult && !busy ? (
-        <div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={handleClear}
-            data-testid="builder-ai-clear-button"
-            className="h-7 px-2.5 text-[12px]"
-          >
-            Clear
-          </Button>
-        </div>
-      ) : null}
-
-      {planning && (
-        <p role="status" className="text-xs text-muted-foreground" data-testid="builder-ai-planning">
-          Planning your change…
-        </p>
-      )}
-
-      {ai.error && (
-        <p role="alert" className="text-xs text-destructive" data-testid="builder-ai-error">
-          {ai.error}
-        </p>
-      )}
-
-      {planFail && <PlanFailure failure={planFail} />}
-
-      {planOk && (
-        <div className="flex flex-col gap-2" data-testid="builder-ai-plan-result">
-          <p className="text-sm font-medium">{planOk.intentSummary}</p>
-
-          <AiBulletList
-            title="Assumptions"
-            items={planOk.assumptions}
-            testId="builder-ai-assumptions"
-          />
-
-          <AiRequiredInputList
-            title="More information is needed before this can be built:"
-            items={planOk.requiredUserInput}
-            testId="builder-ai-needs-input"
-            variant="card"
-          />
-
-          <AiBulletList
-            title="Not supported yet"
-            items={planOk.unsupportedRequests}
-            testId="builder-ai-unsupported"
-          />
-
-          <AiBulletList
-            title="Please review"
-            items={planOk.safetyNotes}
-            testId="builder-ai-safety"
-          />
-
-          {preview && <PreviewSection preview={preview} />}
-
-          {showRequiredInputBlock && (
-            <p
-              className="text-xs"
-              data-testid="builder-ai-required-input-block"
-              role="status"
-              style={{ color: "var(--builder-warn)" }}
-            >
-              The agent drafted a plan, but {requiredInputCount === 1 ? "one detail is" : "some details are"} still
-              missing. Reply with the missing details below and hit{" "}
-              <span className="font-medium">Send details</span> — the agent will
-              re-plan and won&rsquo;t apply an incomplete patch.
-            </p>
-          )}
-
-          {!planOk.canApplyLater &&
-            !hasUnresolvedRequiredInput &&
-            planOk.proposedPatch && (
-              <p className="text-xs text-muted-foreground" data-testid="builder-ai-not-applyable">
-                This plan can&rsquo;t be applied as-is — please adjust your request and try again.
-                {planOk.blockedReason ? ` (${planOk.blockedReason})` : ""}
-              </p>
-            )}
-
-          {showApplyControls && (
-            <div className="flex flex-col gap-2">
-              {requiresConfirmation && (
-                <label className="flex items-start gap-2 text-xs" data-testid="builder-ai-risk-ack">
-                  <input
-                    type="checkbox"
-                    checked={riskAcknowledged}
-                    onChange={(e) => setRiskAcknowledged(e.target.checked)}
-                    data-testid="builder-ai-risk-ack-checkbox"
-                  />
-                  <span>
-                    I understand this is a{" "}
-                    <span className="font-medium">{preview?.riskLevel}-risk</span> change and want
-                    to apply it to my workflow.
-                  </span>
-                </label>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                variant={requiresConfirmation ? "destructive" : "default"}
-                onClick={() => ai.apply()}
-                disabled={!canApply}
-                data-testid="builder-ai-apply-button"
-              >
-                {applying ? "Applying…" : requiresConfirmation ? "Confirm & apply" : "Apply change"}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {applyResult && applyResult.ok && (
-        <div className="flex flex-col gap-2" data-testid="builder-ai-apply-success">
-          <p role="status" className="text-xs text-emerald-700 dark:text-emerald-400">
-            ✓ {applyResult.summaryText}
-          </p>
+      {/* Composer — pinned bottom. */}
+      <footer
+        data-testid="builder-ai-composer"
+        className="shrink-0 flex flex-col gap-1"
+      >
+        {hasMessages && !busy ? (
           <div>
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={handleClear}
-              data-testid="builder-ai-plan-another-button"
+              data-testid="builder-ai-clear-button"
+              className="h-6 px-2 text-[11px]"
             >
-              Plan another change
+              Clear conversation
+            </Button>
+          </div>
+        ) : null}
+
+        <div
+          className="flex flex-col gap-0 rounded-md"
+          style={{
+            background: "var(--builder-panel-2)",
+            border: "1px solid var(--builder-border)",
+          }}
+        >
+          <Textarea
+            aria-label={
+              followUpMode
+                ? "Reply with the missing details"
+                : "Describe the workflow change"
+            }
+            data-testid="builder-ai-prompt"
+            placeholder={
+              followUpMode
+                ? "Reply with the missing details — e.g. ‘Use #general and say Test from ChainReact AI.’"
+                : "Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
+            }
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            disabled={busy}
+            maxLength={MAX_PROMPT_LENGTH + 100}
+            aria-invalid={tooLong || undefined}
+            rows={3}
+            className="resize-none border-0 bg-transparent text-[12.5px] leading-[1.45] shadow-none focus-visible:ring-0"
+          />
+          <div
+            className="flex items-center justify-between gap-2 px-2 pb-2 pt-1"
+            style={{ borderTop: "0" }}
+          >
+            <span
+              className="builder-mono text-[10.5px]"
+              style={{ color: "var(--builder-muted)" }}
+            >
+              <kbd
+                className="rounded-[3px] px-1.5 py-px text-[9.5px]"
+                style={{
+                  background: "var(--builder-panel)",
+                  border: "1px solid var(--builder-border)",
+                  color: "var(--builder-muted)",
+                }}
+              >
+                ⌘
+              </kbd>
+              <kbd
+                className="ml-0.5 rounded-[3px] px-1.5 py-px text-[9.5px]"
+                style={{
+                  background: "var(--builder-panel)",
+                  border: "1px solid var(--builder-border)",
+                  color: "var(--builder-muted)",
+                }}
+              >
+                ↵
+              </kbd>
+              <span className="ml-1.5">{followUpMode ? "send" : "plan"}</span>
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              data-testid="builder-ai-plan-button"
+              className="h-7 px-2.5 text-[12px]"
+              style={{
+                background: "var(--builder-text)",
+                color: "var(--builder-panel)",
+                border: "1px solid var(--builder-text)",
+              }}
+            >
+              {planning ? "Thinking…" : followUpMode ? "Send details" : "Plan with AI"}
             </Button>
           </div>
         </div>
-      )}
 
-      {applyResult && !applyResult.ok && (
-        <div data-testid="builder-ai-apply-failure" className="flex flex-col gap-2">
-          <p role="alert" className="text-xs text-destructive">
-            {applyResult.code === "STALE_PATCH"
-              ? "This workflow changed after the plan was created, so it wasn’t applied. Re-run the plan to work from the latest version."
-              : applyResult.code === "CONFIRMATION_REQUIRED"
-                ? "This change needs your explicit confirmation before it can be applied."
-                : applyResult.message}
+        {(prompt.length >= COUNTER_THRESHOLD || tooLong) && (
+          <p
+            data-testid="builder-ai-char-count"
+            className="builder-mono px-1 text-[11px]"
+            style={{
+              color: tooLong ? "var(--builder-danger)" : "var(--builder-muted)",
+            }}
+          >
+            {prompt.length}/{MAX_PROMPT_LENGTH}
+            {tooLong ? " — too long, please shorten your request." : ""}
           </p>
-          {applyResult.code === "STALE_PATCH" && (
-            <div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handlePlan}
-                disabled={!canSubmit}
-                data-testid="builder-ai-rerun-button"
-              >
-                Re-run plan
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </footer>
     </section>
   );
 }
-
-
-

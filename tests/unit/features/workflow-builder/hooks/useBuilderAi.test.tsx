@@ -261,6 +261,63 @@ describe("useBuilderAi — follow-up chain (AI-21)", () => {
     await waitFor(() => expect(result.current.error).not.toBeNull());
   });
 
+  it("plan() returns the AiPlanResult on success (AI-21B chat-layout requirement)", async () => {
+    mockPlan.mockResolvedValueOnce(applyReadyResponse);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    let captured: unknown = undefined;
+    await act(async () => {
+      captured = await result.current.plan("send a slack dm");
+    });
+    expect(captured).toEqual(applyReadyResponse);
+  });
+
+  it("plan() returns null on a transport-layer rejection (AI-21B chat-layout requirement)", async () => {
+    mockPlan.mockRejectedValueOnce(new Error("network gone"));
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.plan("send a slack dm");
+    });
+    expect(captured).toBeNull();
+  });
+
+  it("submitFollowUp() returns the AiPlanResult on success and null on transport failure", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    mockPlan.mockResolvedValueOnce(applyReadyResponse);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("send a slack dm");
+    });
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.submitFollowUp("use #general and say hi");
+    });
+    expect(captured).toEqual(applyReadyResponse);
+
+    // Retry with a transport failure on the next round.
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    mockPlan.mockRejectedValueOnce(new Error("network gone"));
+    const { result: result2 } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result2.current.plan("send a slack dm");
+    });
+    let captured2: unknown = "unset";
+    await act(async () => {
+      captured2 = await result2.current.submitFollowUp("use #general");
+    });
+    expect(captured2).toBeNull();
+  });
+
+  it("submitFollowUp() returns null when called with no chain in progress (AI-21B chat-layout requirement)", async () => {
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.submitFollowUp("anything");
+    });
+    expect(captured).toBeNull();
+    expect(mockPlan).not.toHaveBeenCalled();
+  });
+
   it("does not include raw patch / config in the reconstructed prompt", async () => {
     // The planner response carries a proposedPatch with config — the hook
     // must NOT echo it into the reconstructed prompt. Only labels +

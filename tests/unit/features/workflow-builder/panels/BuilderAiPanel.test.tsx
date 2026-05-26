@@ -274,14 +274,25 @@ describe("AI-11B UX hardening", () => {
     await screen.findByTestId("builder-ai-plan-result");
   });
 
-  it("clears the result with the Clear button but keeps the prompt", async () => {
+  it("clears the conversation (messages + composer text) with the Clear button (AI-21B: chat-style reset)", async () => {
+    // AI-21B — Clear is now a "new conversation" affordance. It resets
+    // the chat messages, the composer textarea, the hook chain state,
+    // and the risk-ack. (The AI-11B "keep the prompt after Clear"
+    // contract is intentionally retired — the composer auto-clears after
+    // every send per standard chat UX, so retaining text on Clear would
+    // surprise the user.)
     mockPlan.mockResolvedValueOnce(planApplyReady);
     render(<BuilderAiPanel />);
     const user = await typeAndPlan("Post to Slack");
     await screen.findByTestId("builder-ai-plan-result");
+    // Sanity: the chat-pattern auto-clear already emptied the textarea
+    // when the user message was appended.
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("");
     await user.click(screen.getByTestId("builder-ai-clear-button"));
     expect(screen.queryByTestId("builder-ai-plan-result")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("Post to Slack");
+    expect(screen.queryByTestId("builder-ai-message-user")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-ai-message-assistant")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("");
   });
 
   it("shows a character counter near the limit and disables submit when too long", () => {
@@ -295,14 +306,22 @@ describe("AI-11B UX hardening", () => {
   });
 
   it("resets the risk acknowledgement when a new plan is requested", async () => {
+    // AI-21B — composer auto-clears after submit, so triggering a second
+    // plan turn requires re-typing (same as any normal chat). The
+    // behavior being pinned is unchanged: every new plan starts with the
+    // risk-ack unchecked and the Apply button disabled.
     mockPlan.mockResolvedValue(planHighRisk);
     render(<BuilderAiPanel />);
     const user = await typeAndPlan();
     await user.click(await screen.findByTestId("builder-ai-risk-ack-checkbox"));
     expect(screen.getByTestId("builder-ai-apply-button")).toBeEnabled();
-    // New plan resets confirmation.
+    // Type a new prompt (composer empty after previous send) and submit.
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.type(textarea, "tweak the slack post copy");
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    // The newest plan_result message owns the risk-ack checkbox — older
+    // plan_results collapse to summary in the AI-21B chat layout.
     expect(screen.getByTestId("builder-ai-risk-ack-checkbox")).not.toBeChecked();
     expect(screen.getByTestId("builder-ai-apply-button")).toBeDisabled();
   });
@@ -531,20 +550,25 @@ describe("follow-up composer (AI-21)", () => {
   });
 
   it("Clear resets the follow-up chain — next submit acts as a fresh plan, not a follow-up", async () => {
+    // AI-21B — Clear is a full reset (messages + composer + hook state).
+    // After Clear the user must type a brand-new prompt; submitting it
+    // must produce a fresh, NOT-reconstructed planner prompt.
     mockPlan.mockResolvedValueOnce(needsInputPlan);
     mockPlan.mockResolvedValueOnce(planApplyReady);
     render(<BuilderAiPanel />);
     const user = await typeAndPlan("Create a Slack workflow");
     await screen.findByTestId("builder-ai-required-input-block");
-    // Clear resets state — the next submit is a fresh plan with the
-    // current textarea text (retained per the AI-11B contract).
     await user.click(screen.getByTestId("builder-ai-clear-button"));
     expect(screen.queryByTestId("builder-ai-required-input-block")).not.toBeInTheDocument();
     expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+    // Composer is empty after Clear — typing a fresh prompt is required.
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    expect(textarea).toHaveValue("");
+    await user.type(textarea, "totally different prompt");
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
     const [, secondBody] = mockPlan.mock.calls[1]!;
-    // Fresh plan — not a reconstructed follow-up prompt.
+    expect((secondBody as { prompt: string }).prompt).toBe("totally different prompt");
     expect((secondBody as { prompt: string }).prompt).not.toContain("Original request:");
   });
 
@@ -625,6 +649,259 @@ describe("follow-up composer (AI-21)", () => {
       "Send details",
     );
     expect(screen.getByTestId("builder-ai-error")).toBeInTheDocument();
+  });
+});
+
+// ─── Slice 4.AI-21B — chat layout + pinned composer ─────────────────────────
+describe("chat layout (AI-21B)", () => {
+  it("renders a message list above a pinned composer (composer follows the list in DOM order)", () => {
+    render(<BuilderAiPanel />);
+    const panel = screen.getByTestId("builder-ai-panel");
+    const list = screen.getByTestId("builder-ai-message-list");
+    const composer = screen.getByTestId("builder-ai-composer");
+    expect(panel.contains(list)).toBe(true);
+    expect(panel.contains(composer)).toBe(true);
+    // DOM order: list first, then composer footer (the pinned-bottom
+    // placement is implemented via the flex-1 / shrink-0 split rather
+    // than position:absolute, so checking DOM order pins the contract).
+    const panelChildren = Array.from(panel.children) as HTMLElement[];
+    const listIdx = panelChildren.indexOf(list);
+    const composerIdx = panelChildren.indexOf(composer);
+    expect(listIdx).toBeGreaterThanOrEqual(0);
+    expect(composerIdx).toBeGreaterThanOrEqual(0);
+    expect(composerIdx).toBeGreaterThan(listIdx);
+  });
+
+  it("renders the intro hint before any messages and removes it once the conversation starts", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ok: true,
+      intentSummary: "x",
+      assumptions: [],
+      requiredUserInput: [],
+      unsupportedRequests: [],
+      safetyNotes: [],
+      proposedPatch: { patchId: "p1", operations: [], summary: "s" },
+      preview: planApplyReady.preview,
+      canApplyLater: true,
+      model: planApplyReady.model,
+    });
+    render(<BuilderAiPanel />);
+    expect(screen.getByTestId("builder-ai-intro")).toBeInTheDocument();
+    await typeAndPlan("Send a Slack DM");
+    await screen.findByTestId("builder-ai-plan-result");
+    expect(screen.queryByTestId("builder-ai-intro")).not.toBeInTheDocument();
+  });
+
+  it("appends a user message bubble on submit (newest at the bottom of the list)", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Send a Slack DM");
+    const userMessages = await screen.findAllByTestId("builder-ai-message-user");
+    expect(userMessages).toHaveLength(1);
+    expect(userMessages[0]).toHaveTextContent("Send a Slack DM");
+  });
+
+  it("appends an assistant plan_result message after the planner returns (in correct order: user → assistant)", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Send a Slack DM");
+    await screen.findByTestId("builder-ai-plan-result");
+    const list = screen.getByTestId("builder-ai-message-list");
+    const messages = list.querySelectorAll<HTMLElement>(
+      "[data-testid='builder-ai-message-user'], [data-testid='builder-ai-message-assistant']",
+    );
+    expect(messages).toHaveLength(2);
+    expect(messages[0]!.getAttribute("data-testid")).toBe("builder-ai-message-user");
+    expect(messages[1]!.getAttribute("data-testid")).toBe("builder-ai-message-assistant");
+  });
+
+  it("clears the composer textarea immediately after submit so the user-message bubble is the single live view", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Send a Slack DM");
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("");
+  });
+
+  it("renders required-input results as the body of the latest assistant plan_result message", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      requiredUserInput: [{ label: "Which Slack channel?", kind: "config_value" }],
+      canApplyLater: false,
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Send a Slack DM");
+    const assistantMessages = await screen.findAllByTestId(
+      "builder-ai-message-assistant",
+    );
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]!).toContainElement(
+      screen.getByTestId("builder-ai-needs-input"),
+    );
+    expect(assistantMessages[0]!).toContainElement(
+      screen.getByTestId("builder-ai-required-input-block"),
+    );
+  });
+
+  it("follow-up answer renders as a 'followup' user message (data-kind=followup), and the new assistant plan_result follows", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      requiredUserInput: [{ label: "Which Slack channel?", kind: "config_value" }],
+      canApplyLater: false,
+    });
+    mockPlan.mockResolvedValueOnce(planApplyReady); // chain completes
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Send a Slack DM");
+    await screen.findByTestId("builder-ai-required-input-block");
+    // Send follow-up answer.
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.type(textarea, "Use #general");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    const userMessages = screen.getAllByTestId("builder-ai-message-user");
+    expect(userMessages).toHaveLength(2);
+    // First user message is the original prompt; second is the follow-up
+    // answer. The followup is tagged via data-kind so the UI / future
+    // hooks can distinguish them without parsing content.
+    expect(userMessages[0]!.getAttribute("data-kind")).toBe("prompt");
+    expect(userMessages[0]).toHaveTextContent("Send a Slack DM");
+    expect(userMessages[1]!.getAttribute("data-kind")).toBe("followup");
+    expect(userMessages[1]).toHaveTextContent("Use #general");
+  });
+
+  it("collapses older plan_result messages to their intent summary so the latest message owns the apply UI", async () => {
+    const intentA = "Add a Slack post (asking for channel)";
+    const intentB = "Add a Slack post";
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      intentSummary: intentA,
+      requiredUserInput: [{ label: "Which Slack channel?", kind: "config_value" }],
+      canApplyLater: false,
+    });
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      intentSummary: intentB,
+    });
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Send a Slack DM");
+    await screen.findByTestId("builder-ai-required-input-block");
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.type(textarea, "Use #general");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    // Older plan_result collapses to summary (no apply button on it).
+    const previous = screen.getByTestId("builder-ai-plan-result-previous");
+    expect(previous).toHaveTextContent(intentA);
+    // Latest plan_result has the full breakdown + the apply button.
+    const latest = screen.getByTestId("builder-ai-plan-result");
+    expect(latest).toHaveTextContent(intentB);
+    expect(screen.getByTestId("builder-ai-apply-button")).toBeEnabled();
+  });
+
+  it("composer stays rendered after the assistant responds (pinned bottom)", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    expect(screen.getByTestId("builder-ai-composer")).toBeInTheDocument();
+    await typeAndPlan("Send a Slack DM");
+    await screen.findByTestId("builder-ai-plan-result");
+    // After the response, composer is still rendered — it's pinned, not
+    // disposed when a plan completes.
+    expect(screen.getByTestId("builder-ai-composer")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-prompt")).toBeInTheDocument();
+  });
+
+  it("apply success renders as a new assistant message — chat-style — without exposing raw patch / config", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      proposedPatch: {
+        patchId: "p1",
+        operations: [
+          { op: "addNode", node: { id: "n2", config: { accessToken: "ya29.LEAKED-SECRET" } } },
+        ],
+        summary: "s",
+      },
+    });
+    mockApply.mockResolvedValueOnce({
+      ok: true,
+      appliedPatchId: "p1",
+      summaryText: "Applied 1 change to \"Workflow\".",
+      updatedAt: "t",
+      workflowId: "wf-1",
+      appliedOperationCount: 1,
+      riskLevel: "low",
+      requiresConfirmation: false,
+    });
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Send a Slack DM");
+    await user.click(await screen.findByTestId("builder-ai-apply-button"));
+    const success = await screen.findByTestId("builder-ai-apply-success");
+    expect(success).toHaveTextContent("Applied 1 change");
+    // Success is INSIDE an assistant message bubble (chat-style).
+    const assistantMessages = screen.getAllByTestId("builder-ai-message-assistant");
+    const containingBubble = assistantMessages.find((m) => m.contains(success));
+    expect(containingBubble).toBeDefined();
+    // No raw secret leaked through the chat-rendered apply success.
+    expect(document.body.textContent).not.toContain("ya29.LEAKED-SECRET");
+    expect(document.body.textContent).not.toContain("accessToken");
+  });
+
+  it("STALE_PATCH renders as an assistant apply_failure bubble with a Re-run button that re-plans from the original prompt", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    mockApply.mockResolvedValueOnce({ ok: false, code: "STALE_PATCH", message: "stale" });
+    mockPlan.mockResolvedValueOnce(planApplyReady); // re-run resolves
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Send a Slack DM");
+    await user.click(await screen.findByTestId("builder-ai-apply-button"));
+    const failureBubble = await screen.findByTestId("builder-ai-apply-failure");
+    expect(failureBubble).toHaveTextContent(/workflow changed/i);
+    const rerun = screen.getByTestId("builder-ai-rerun-button");
+    // Re-run does NOT depend on the composer textarea (it's empty post-
+    // submit per AI-21B chat pattern); it pulls the most recent user
+    // prompt message and re-plans against that.
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("");
+    expect(rerun).toBeEnabled();
+    await user.click(rerun);
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    // The reconstructed (well, the re-sent fresh) call uses the prior prompt.
+    const [, secondCallBody] = mockPlan.mock.calls[1]!;
+    expect((secondCallBody as { prompt: string }).prompt).toBe("Send a Slack DM");
+  });
+
+  it("appends an assistant error bubble when a follow-up call fails at the transport layer (chain stays active)", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      requiredUserInput: [{ label: "Which Slack channel?", kind: "config_value" }],
+      canApplyLater: false,
+    });
+    mockPlan.mockRejectedValueOnce(new Error("network gone"));
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Send a Slack DM");
+    await screen.findByTestId("builder-ai-required-input-block");
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.type(textarea, "Use #general");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    // The error appears as an assistant chat bubble.
+    expect(
+      await screen.findByTestId("builder-ai-error-message"),
+    ).toHaveTextContent(/unavailable right now|please try again/i);
+    // Composer is still in follow-up mode — the chain is preserved by
+    // the hook (AI-21 contract).
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Send details");
+  });
+
+  it("does NOT render the AI-11B inline error twice with the chat-bubble error (top-level builder-ai-error still surfaces 401/404 nuance)", async () => {
+    // 401 / 404 nuance — the hook's friendlyError surfaces the specific
+    // sign-in / not-found copy via `ai.error`. The top-level
+    // `builder-ai-error` line keeps that nuance; the chat-bubble error
+    // carries the generic in-conversation copy. Both can coexist; this
+    // pins the 401 nuance specifically.
+    const ApiErrorCtor = jest.requireMock("@/lib/api/ai").AiApiError;
+    mockPlan.mockRejectedValueOnce(new ApiErrorCtor("unauth", 401));
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Send a Slack DM");
+    expect(await screen.findByTestId("builder-ai-error")).toHaveTextContent(
+      /please sign in/i,
+    );
   });
 });
 
