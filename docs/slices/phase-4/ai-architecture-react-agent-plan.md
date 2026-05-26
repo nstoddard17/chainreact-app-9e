@@ -30,6 +30,7 @@
 | **AI-9B** | shipped | Confirmed apply route — `POST /api/workflows/[id]/ai/apply`. Auth + body validation → AI-6 `applyWorkflowPatchForAI` (re-validate + concurrency + confirmation gate inside the service). NO model call, NO auto-apply, NO mutation outside AI-6. See note below. |
 | **AI-10** | shipped | AI observability EMISSION — wires the live plan/apply routes into the existing COST-6 `ai_cost_events` ledger (`services/ai/events/*`), fail-open. Reuses COST-6 recorder/sanitizer + COST-7 owner analytics; NO new table, NO UI. See note below. |
 | **AI-11** | shipped | Minimal Builder AI panel — first user-facing AI surface (`features/workflow-builder/panels/BuilderAiPanel.tsx` + `hooks/useBuilderAi.ts` + `lib/api/ai.ts`). Prompt → preview → explicit confirm → apply, via the AI-9A/9B routes. NO chat, NO auto-apply, NO model-from-client, NO mutation outside AI-9B. See note below. |
+| **AI-11B** | shipped | Builder AI panel UX hardening — clearer per-state copy, readable "What AI plans to change" preview (counts + risk reasons + warnings + cost), safer confirmation (resets per plan), stale-patch re-run (never auto-reapply), char counter, clear/plan-another. UI-only; no new behavior. See note below. |
 | AI-12+ | future | Owner AI dashboard UI (reads COST-7 analytics), conversational/multi-turn UX, additional provider adapters, optimizer, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
@@ -212,6 +213,20 @@ The first **user-facing** AI surface — a MINIMAL Builder panel, not a chat pro
 - **No-leak:** renders only ids/labels/codes/value-free preview text — never raw patch JSON, config values, secrets, the raw workflow definition, or raw model/provider errors; nothing is logged.
 
 **Tests:** [`tests/unit/lib/api/ai.test.ts`](../../../tests/unit/lib/api/ai.test.ts) (13, fetch mocked) + [`tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) (11, API mocked) — render/submit, loading, model-not-configured, needs-input/unsupported (no apply), preview-invalid (no apply), apply-ready, high-risk requires explicit confirm before apply, apply forwards patch + confirmation, success → refresh + success message, STALE_PATCH re-run message, **no-auto-apply**, and no-raw-config-leak.
+
+### AI-11B implementation note
+
+UI/UX hardening of the AI-11 Builder panel — NO new model behavior, NO chat thread, NO persistence, NO auto-apply, NO mutation outside the AI-9B route, NO hardcoded providers. Touches [`BuilderAiPanel.tsx`](../../../features/workflow-builder/panels/BuilderAiPanel.tsx) (rewrite) + [`lib/api/ai.ts`](../../../lib/api/ai.ts) (adds `AiRiskReason` to the `AiPreview` view type) only.
+
+- **Clearer state copy:** distinct, plain-English messaging for idle / planning (a `role="status"` "Planning your change…" indicator) / plan-success / needs-input / unsupported / preview-invalid / confirmation-required / applying / applied / stale-patch / model-unavailable / generic error. The user always learns what happened and the next step.
+- **Readable preview** ("What AI plans to change"): value-free change descriptions, affected node/edge counts, emphasized risk level, confirmation indicator, **risk reasons** (from AI-3, surfaced via the new `riskReasons` field), task-cost estimate, and validation **errors** ("Problems to fix") shown separately from **warnings** and from **required user input** (rendered in its own callout, never mixed with errors).
+- **Safer confirmation:** an explicit "I understand this is {risk}-risk" checkbox gates the Apply button; the acknowledgement **resets on every new plan** (and on Clear), so a stale confirmation can't carry over.
+- **Stale-patch recovery:** a clear "the workflow changed after the plan was created" message plus a one-click **Re-run plan** button that re-plans with the retained prompt — it NEVER auto-reapplies.
+- **Model unavailable:** friendly "AI assistant isn't available right now…" copy, no apply button, no raw provider error.
+- **Prompt usability:** a character counter that appears near the 8000-char limit (destructive styling + "too long" when exceeded), example placeholder, submit disabled while invalid/busy, the prompt is kept after planning so the user can revise, and a **Clear** / **Plan another change** control resets the result.
+- **No-leak (unchanged guarantee):** still renders only ids/labels/codes/value-free text — no raw patch JSON, config values, secrets, raw model responses, raw provider errors, or raw workflow definition; nothing logged.
+
+**Tests:** [`tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) grows to 17 (+ 13 client) — planning indicator, clear-keeps-prompt, char-counter + too-long-disables-submit, confirmation-resets-on-new-plan, risk-reasons + warnings rendering, stale-patch re-run (no auto-reapply), plan-another-change after success, plus the retained AI-11 state/no-leak/no-auto-apply cases.
 
 ---
 
