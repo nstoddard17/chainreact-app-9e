@@ -186,3 +186,49 @@ On completion, update [`provider-metadata-launch-gap-tracker.md`](./provider-met
 7. **Sensitive outputs** — `get_channel_details.email`, `get_team_members.members[].email`, trigger `bodyPreview` are FORCED by the suspicious-name set; `bodyContent` (message text) marked by plan. Must be marked or `sensitive-output-coverage` fails.
 8. **Auth = refreshable** — resolvers use `refreshAndRetry({provider:"microsoft-teams", accountId})` (Excel/OneDrive pattern), NOT decrypt-direct.
 9. **Multi-parent available but unused in v1** — a future `messages` resolver would be `dependsOn:["teamId","channelId"]` (BUILDER-OPTIONS-1); not needed for the first pass.
+
+---
+
+## 9. TEAMS-META-2 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 2 read helpers + 2 options resolvers + shared helpers + tests. **No** ActionMeta/TriggerMeta, **no** `COVERED_PROVIDERS` flip — those remain TEAMS-META-3. Teams is still `hasMetadata:false` ("coming soon") after this slice; resolver-first, matching the Excel/Airtable/Trello/OneDrive order.
+
+### 9.1 Read helpers added (`integrations/microsoft-teams/api/`, new files)
+
+| Helper | Endpoint | Fields ($select) | Notes |
+|---|---|---|---|
+| `teamsList({accessToken})` | `GET /v1.0/me/joinedTeams` | `id,displayName,description` | NEW — `api/` had no team-list helper |
+| `channelsList({accessToken,teamId})` | `GET /v1.0/teams/{teamId}/channels` | `id,displayName,description,membershipType` (**no `email`**) | NEW — `channelGet` is single-fetch only |
+
+Both mirror the existing `teamMembersList` Graph transport (direct `fetch` + `Authorization: Bearer` + 401→`Unauthorized401Error`, 404→`NotFoundError`, else generic `Error` via `surfaceGraphError`). Read-only against the existing `Team.ReadBasic.All` / `Channel.ReadBasic.All` scopes — no scope change / reconnect. `channelsList` deliberately omits the sensitive channel `email` from `$select`. No transport/error-mapping duplicated; no runtime handler behavior changed.
+
+### 9.2 Resolvers added (`integrations/microsoft-teams/options/`)
+
+| Source | requiredDeps | helper | value | label | description | order | hasMore |
+|---|---|---|---|---|---|---|---|
+| `microsoft-teams:teams` | — | `teamsList` | team id | displayName → id | team `description` (trimmed/capped 160) | **alpha sort** (root) | `nextLink !== null` |
+| `microsoft-teams:channels` | `["teamId"]` | `channelsList` | channel id | displayName → id | channel `description` else `membershipType` | preserve Graph order (General first) | `nextLink !== null` |
+
+Shared helpers in `options/_shared.ts`: `requireTeamsIntegration`, `requireDep`, `mapTeamsOptionsError`, `filterByLabelOrDescription`, `safeDescription`.
+
+### 9.3 Dependency name + auth
+
+`microsoft-teams:channels` depends on **`teamId`** (verbatim — already a real field on every consumer, so **NO UI-scope addition** needed). Single-parent cascade. **Auth = refreshable** → both resolvers wrap the Graph read in `refreshAndRetry({provider:"microsoft-teams", accountId: providerAccountId})` (Excel/OneDrive pattern), NOT decrypt-direct.
+
+### 9.4 Mapping / cascade fallback / sanitization
+
+value = opaque Graph id; q filters on `label` OR `description` (display names collide — e.g. many "General" channels). `channels`: missing/empty `teamId` → `MISSING_DEPENDENCY` (no API call); deleted/no-access team (`NotFoundError`) → **empty items** (cascade fallback). Both: `IntegrationActionRequiredError`/`Unauthorized401Error` → `INTEGRATION_DISCONNECTED`; other → `PROVIDER_ERROR` (static message). No token / raw Graph body / **channel email** / **message content** leakage (regression test: a channel `email` in the payload never reaches resolver output).
+
+### 9.5 Rejected / deferred resolvers (unchanged)
+
+`microsoft-teams:members` REJECTED (no input consumer); `microsoft-teams:chats` DEFERRED (Marcus decision — chatId typeable v1); `microsoft-teams:messages` DEFERRED (messageId trigger-fed/typeable). Registry test asserts all three stay absent.
+
+### 9.6 Tests
+
+- `tests/unit/integrations/microsoft-teams/api/{teamsList,channelsList}.test.ts` — endpoint/method/`$select`/Bearer (channels: no `email` in `$select`; teamId URL-encoded), typed return + nextLink, 401→`Unauthorized401Error`, 404→`NotFoundError(resource)`, no-token-in-error.
+- `tests/unit/integrations/microsoft-teams/options/{teams,channels}.test.ts` — shape, refreshAndRetry-pinned-to-accountId, helper-call args, mapping value/label/description, alpha sort (teams) / order-preserved (channels), q filter (label OR description), hasMore, `MISSING_DEPENDENCY` (channels), `NotFoundError`→empty (channels), **no channel-email leak**, auth → `INTEGRATION_DISCONNECTED`, other → `PROVIDER_ERROR` no-leak.
+- Registry block in `tests/unit/services/options/_registry.test.ts` — both keys registered, deps verbatim, `members`/`chats`/`messages` absent.
+
+### 9.7 Carried to TEAMS-META-3
+
+5 ActionMeta + 1 TriggerMeta (team+channel pickers) + discovery sub-registry + `COVERED_PROVIDERS` flip. **No schema files touched** (no UI-scope fields). Sensitive: `get_channel_details.email` + `get_team_members.members[].email` + trigger `bodyPreview` (forced) + `bodyContent` (plan). category `messaging`; no destructive action.

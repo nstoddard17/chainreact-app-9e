@@ -697,6 +697,51 @@ describe("options resolver registry", () => {
     });
   });
 
+  describe("Microsoft Teams resolvers (Slice 4.TEAMS-META-2)", () => {
+    it("getOptionsResolver resolves microsoft-teams:teams (account-scoped, no deps)", () => {
+      const r = getOptionsResolver("microsoft-teams:teams");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("microsoft-teams:teams");
+      expect(r?.provider).toBe("microsoft-teams");
+      expect(r?.requiresIntegration).toBe(true);
+      // Cascade root — no parent field.
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+
+    it("getOptionsResolver resolves microsoft-teams:channels (dependsOn teamId)", () => {
+      const r = getOptionsResolver("microsoft-teams:channels");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("microsoft-teams");
+      expect(r?.requiresIntegration).toBe(true);
+      // `teamId` matches the real runtime field on every consumer; NO
+      // UI-scope field needed. Single-parent — no multi-parent.
+      expect(r?.requiredDeps).toEqual(["teamId"]);
+    });
+
+    it("registers exactly the 2 TEAMS-META-2 resolver keys", () => {
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "microsoft-teams")
+        .map((r) => r.source)
+        .sort();
+      expect(sources).toEqual([
+        "microsoft-teams:channels",
+        "microsoft-teams:teams",
+      ]);
+    });
+
+    it("does NOT register members / chats / messages (rejected or deferred for v1)", () => {
+      expect(getOptionsResolver("microsoft-teams:members")).toBeUndefined();
+      expect(getOptionsResolver("microsoft-teams:chats")).toBeUndefined();
+      expect(getOptionsResolver("microsoft-teams:messages")).toBeUndefined();
+      const sources = listOptionsResolvers()
+        .filter((r) => r.provider === "microsoft-teams")
+        .map((r) => r.source);
+      expect(sources).not.toContain("microsoft-teams:members");
+      expect(sources).not.toContain("microsoft-teams:chats");
+      expect(sources).not.toContain("microsoft-teams:messages");
+    });
+  });
+
   it("OPTIONS_SOURCE_KEY_REGEX rejects malformed keys it should reject", () => {
     // Sanity on the regex used at module load.
     expect("slack:channels").toMatch(OPTIONS_SOURCE_KEY_REGEX);

@@ -356,6 +356,22 @@ import { trelloLabelsResolver } from "@/integrations/trello/options/labels";
 import { microsoftOneDriveFoldersResolver } from "@/integrations/microsoft-onedrive/options/folders";
 import { microsoftOneDriveItemsResolver } from "@/integrations/microsoft-onedrive/options/items";
 
+// Microsoft Teams resolvers — Slice 4.TEAMS-META-2 (resolver-first ahead of
+// TEAMS-META-3 metas; Teams stays OUT of COVERED_PROVIDERS until those land).
+//   - `microsoft-teams:teams` — account-scoped team picker (no deps).
+//     REQUIRED cascade root: `teamId` is an opaque Graph id. Uses the NEW
+//     `teamsList` helper (GET /me/joinedTeams). value = team id.
+//   - `microsoft-teams:channels` (dep: teamId) — channels of the selected
+//     team. Uses the NEW `channelsList` helper (GET /teams/{id}/channels).
+// Both auth via refreshAndRetry (refreshable, Excel/OneDrive pattern), NOT
+// decrypt-direct. NO UI-scope schema fields needed — teamId/channelId are
+// already real runtime fields. `microsoft-teams:members` REJECTED (no action
+// consumes a member-id input); `microsoft-teams:chats` +
+// `microsoft-teams:messages` DEFERRED (chatId/messageId typeable/trigger-fed
+// for v1) — none registered.
+import { microsoftTeamsTeamsResolver } from "@/integrations/microsoft-teams/options/teams";
+import { microsoftTeamsChannelsResolver } from "@/integrations/microsoft-teams/options/channels";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -500,6 +516,13 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // until ONEDRIVE-META-3.
   microsoftOneDriveFoldersResolver,
   microsoftOneDriveItemsResolver,
+  // Slice 4.TEAMS-META-2 — 2 Microsoft Teams resolvers (resolver-first ahead
+  // of TEAMS-META-3 metas). teams (root, no dep) + channels (dep: teamId).
+  // New read helpers teamsList + channelsList (api/ had no list helper).
+  // Auth refreshable (refreshAndRetry). members rejected; chats/messages
+  // deferred. Teams stays OUT of COVERED_PROVIDERS until TEAMS-META-3.
+  microsoftTeamsTeamsResolver,
+  microsoftTeamsChannelsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
