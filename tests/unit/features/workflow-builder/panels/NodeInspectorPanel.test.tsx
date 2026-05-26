@@ -85,4 +85,25 @@ describe("NodeInspectorPanel", () => {
       screen.getByRole("complementary", { name: /node configuration/i }),
     ).toBeInTheDocument();
   });
+
+  // Slice 4.BUILDER-DESIGN-PARITY-1 — the inspector now surfaces the
+  // design's Setup / Advanced / Test / Variables tab strip. V2 only
+  // wires Setup today; the rest render as disabled placeholders.
+  it("renders the Setup / Advanced / Test / Variables tab strip with only Setup active", () => {
+    render(<NodeInspectorPanel />);
+    const strip = screen.getByTestId("node-inspector-tabs");
+    const tabs = Array.from(strip.querySelectorAll('[role="tab"]'));
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      "Setup",
+      "Advanced",
+      "Test",
+      "Variables",
+    ]);
+    expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
+    expect(tabs[0]!).not.toBeDisabled();
+    for (const t of tabs.slice(1)) {
+      expect(t.getAttribute("aria-selected")).toBe("false");
+      expect(t).toBeDisabled();
+    }
+  });
 });

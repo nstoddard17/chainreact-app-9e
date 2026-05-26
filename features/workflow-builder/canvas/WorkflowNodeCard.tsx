@@ -6,40 +6,35 @@ import type { WorkflowNodeData } from "./adapters";
 import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus";
 
 /**
- * Builder node card (Slice 4.BUILDER-CANVAS-1).
+ * Builder node card (Slice 4.BUILDER-CANVAS-1, restyled in
+ * 4.BUILDER-DESIGN-PARITY-1).
  *
- * Replaces `WorkflowNodeView` (Slice 3.5) as the canvas's custom node
- * renderer. Visual upgrade only — same `data` shape (`WorkflowNodeData`),
- * same `Handle` topology (triggers omit the top target handle; actions
- * have both), same testid surface so the existing
- * `canvas-config-sync` integration tests still find this surface by
- * `data-testid="workflow-node-view"` and `data-selected`.
+ * Adopts the Anthropic ChainV2 dense node-card aesthetic:
  *
- * Card layout:
- *   - 320px wide bordered card, rounded-lg, soft shadow, subtle
- *     hover-lift, primary-color ring when selected.
- *   - Header row: provider initials avatar + provider label + kind chip.
- *   - Type subtitle (or "(unconfigured)").
- *   - "Not configured" amber chip when `type === ""` (i.e. the node was
- *     added via the bare `addTrigger({provider})` path and never picked a
- *     specific TriggerMeta / ActionMeta).
+ *   ┌─┬────────────────────────────────────────────┐
+ *   │ │  [brand]   [KIND chip]  #handle            │ ← head
+ *   │S│           Title                            │
+ *   │T│           subtitle (mono)                  │
+ *   │A│                                            │
+ *   │T│  description (mono · single-line)          │ ← meta
+ *   │U├────────────────────────────────────────────┤
+ *   │S│  [Not configured / status badges]          │ ← foot
+ *   └─┴────────────────────────────────────────────┘
  *
- * Intentionally NOT in this slice (see follow-up slices):
- *   - Run-state animations (running shimmer / listening ring / paused
- *     pulse) — defer until run-state projection lands (BUILDER-RUN-PANEL-1).
- *   - Expandable config preview, Test-this-step button, more menu, drag
- *     handle (would conflict with ReactFlow drag) — V1 features deliberately
- *     not ported.
- *   - Provider-specific iconography — no `/integrations/{provider}.svg`
- *     convention exists in V2 today; we use a deterministic initials
- *     avatar fallback with no per-provider branches. Real SVG assets are
- *     a metadata concern handled later.
+ * The 3px left status rail is the design's signature node detail —
+ * green for triggers, orange for unconfigured, red for error states.
  *
- * Boundary rules:
- *   - Presentational. No slice reads, no fetch, no provider-specific
- *     string branches.
- *   - `data` stays narrow per the `WorkflowNodeData` contract — do NOT
- *     widen to the full WorkflowNode (would break single-source-of-truth).
+ * Behavior contract preserved:
+ *   - Same `WorkflowNodeData` shape (read-only).
+ *   - Same `Handle` topology (trigger nodes omit the top target handle).
+ *   - Same testid surface (`workflow-node-view`, `data-selected`,
+ *     `data-kind`, `data-status`) so `canvas-config-sync` and the
+ *     existing card unit tests find nodes unchanged.
+ *   - Same `Not configured` chip on unconfigured nodes (test contract
+ *     in `WorkflowNodeCard.test.tsx`).
+ *
+ * Per-node run stats (runs / last) are deferred — V2 doesn't surface
+ * that data yet (see slice doc §Deferred).
  */
 export function WorkflowNodeCard({
   data,
@@ -49,6 +44,11 @@ export function WorkflowNodeCard({
   const providerLabel = data.providerLabel ?? data.provider;
   const status: NodeStatus = classifyNodeStatus({ type: data.type });
   const isUnconfigured = status === "unconfigured";
+  const railColor = isTrigger
+    ? "var(--builder-success)"
+    : isUnconfigured
+      ? "var(--builder-warn)"
+      : "var(--builder-accent)";
 
   return (
     <div
@@ -56,66 +56,121 @@ export function WorkflowNodeCard({
       data-kind={data.kind}
       data-selected={selected ? "true" : undefined}
       data-status={status}
-      className={
-        selected
-          ? "group flex w-[320px] flex-col gap-2 rounded-lg border-2 border-primary bg-card p-3 shadow-md transition"
-          : "group flex w-[320px] flex-col gap-2 rounded-lg border border-input bg-card p-3 shadow-sm transition hover:border-foreground/20 hover:shadow-md"
-      }
+      className="relative w-[280px] overflow-hidden rounded-[6px] transition-colors"
+      style={{
+        background: "var(--builder-panel)",
+        border: `1px solid ${selected ? "var(--builder-accent)" : "var(--builder-border)"}`,
+        boxShadow: selected
+          ? "0 0 0 2px var(--builder-accent-soft), var(--builder-shadow-md)"
+          : "var(--builder-shadow-sm)",
+      }}
     >
+      <span
+        aria-hidden
+        className="absolute left-0 top-0 h-full w-[3px]"
+        style={{ background: railColor }}
+      />
       {!isTrigger ? (
         <Handle
           type="target"
           position={Position.Top}
           isConnectableStart={false}
           aria-label="Incoming edge target"
+          style={{
+            width: 8,
+            height: 8,
+            background: "var(--builder-panel)",
+            border: `1.5px solid ${selected ? "var(--builder-accent)" : "var(--builder-border-strong)"}`,
+          }}
         />
       ) : null}
-      <div className="flex items-center gap-2">
+
+      <div className="flex gap-2.5 px-3 pb-1.5 pt-2.5">
         <ProviderAvatar
           provider={data.provider}
           label={providerLabel}
           iconUrl={data.providerIcon}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <span
-            className="truncate text-sm font-semibold leading-tight"
+          <div className="flex items-center gap-1.5">
+            <KindChip kind={data.kind} />
+            <code
+              className="builder-mono text-[9.5px]"
+              style={{ color: "var(--builder-muted-2)" }}
+            >
+              #{data.kind === "trigger" ? "trigger" : "action"}
+            </code>
+          </div>
+          <div
+            className="mt-0.5 truncate text-[12.5px] font-semibold leading-tight"
             title={providerLabel}
+            style={{ color: "var(--builder-text)" }}
           >
             {providerLabel}
-          </span>
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {data.kind}
-          </span>
+          </div>
+          <div
+            className="builder-mono mt-0.5 truncate text-[10.5px] leading-tight"
+            style={{ color: "var(--builder-muted)" }}
+            title={data.type || undefined}
+          >
+            {data.type ? data.type : "(unconfigured)"}
+          </div>
         </div>
-        {isUnconfigured ? <NotConfiguredBadge /> : null}
       </div>
-      <span
-        className="truncate text-xs text-muted-foreground"
-        title={data.type || undefined}
+
+      <div
+        className="flex items-center justify-end gap-1 px-3 py-1.5"
+        style={{
+          background: "var(--builder-panel-2)",
+          borderTop: "1px dashed var(--builder-border)",
+        }}
       >
-        {data.type ? data.type : "(unconfigured)"}
-      </span>
+        {isUnconfigured ? <NotConfiguredBadge /> : <ReadyBadge />}
+      </div>
+
       <Handle
         type="source"
         position={Position.Bottom}
         aria-label="Outgoing edge source"
+        style={{
+          width: 8,
+          height: 8,
+          background: "var(--builder-panel)",
+          border: `1.5px solid ${selected ? "var(--builder-accent)" : "var(--builder-border-strong)"}`,
+        }}
       />
     </div>
   );
 }
 
-/**
- * Provider avatar (Slice 4.BUILDER-INSPECTOR-1):
- *   - When `iconUrl` resolves successfully, renders the SVG inside a
- *     neutral rounded tile.
- *   - When `iconUrl` is absent OR the `<img>` errors (asset missing /
- *     network failure / SVG malformed), falls back to a deterministic
- *     initials avatar with a hash-derived background color.
- *
- * No per-provider branches anywhere — the icon URL itself comes from the
- * metadata layer (`integrations/_registry:providerIconUrl()`); this
- * component just renders or falls back.
- */
+function KindChip({ kind }: { kind: WorkflowNodeData["kind"] }) {
+  const cfg =
+    kind === "trigger"
+      ? {
+          bg: "var(--builder-success-soft)",
+          fg: "var(--builder-success)",
+          border: "var(--builder-success)",
+        }
+      : {
+          bg: "var(--builder-accent-soft)",
+          fg: "var(--builder-accent)",
+          border: "var(--builder-accent)",
+        };
+  return (
+    <span
+      className="builder-mono inline-flex items-center rounded-[3px] px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em]"
+      style={{
+        background: cfg.bg,
+        color: cfg.fg,
+        border: `1px solid ${cfg.border}`,
+        lineHeight: 1.5,
+      }}
+    >
+      {kind}
+    </span>
+  );
+}
+
 function ProviderAvatar({
   provider,
   label,
@@ -134,17 +189,18 @@ function ProviderAvatar({
         aria-hidden="true"
         data-testid="provider-icon"
         data-provider={provider}
-        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted"
+        className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[4px]"
+        style={{
+          background: "var(--builder-panel-2)",
+          border: "1px solid var(--builder-border)",
+          marginTop: 1,
+        }}
       >
-        {/* Provider logos are small static SVGs that don't benefit from
-            next/image optimization; plain <img> avoids the extra
-            domain-allowlist + sharp dependency that next/image requires
-            and keeps SSR straightforward. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={iconUrl}
           alt=""
-          className="h-5 w-5 object-contain"
+          className="h-4 w-4 object-contain"
           onError={() => setImageFailed(true)}
         />
       </span>
@@ -159,7 +215,8 @@ function ProviderAvatar({
     <span
       aria-hidden="true"
       data-testid="provider-initials-avatar"
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ${colorClass}`}
+      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[4px] text-[10px] font-semibold ${colorClass}`}
+      style={{ marginTop: 1 }}
     >
       {initials}
     </span>
@@ -170,9 +227,29 @@ function NotConfiguredBadge() {
   return (
     <span
       data-testid="not-configured-badge"
-      className="shrink-0 rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-300"
+      className="builder-mono inline-flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[9.5px] font-medium"
+      style={{
+        background: "var(--builder-warn-soft)",
+        color: "var(--builder-warn)",
+        border: "1px solid var(--builder-warn)",
+      }}
     >
       Not configured
+    </span>
+  );
+}
+
+function ReadyBadge() {
+  return (
+    <span
+      className="builder-mono inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[9.5px]"
+      style={{
+        background: "var(--builder-panel)",
+        color: "var(--builder-muted)",
+        border: "1px solid var(--builder-border)",
+      }}
+    >
+      ready
     </span>
   );
 }
@@ -193,8 +270,7 @@ export function computeInitials(input: string): string {
 
 /**
  * Deterministic, salt-free bucket selector. Used only for the avatar
- * background — never for anything security-sensitive. Stable across
- * runs / SSR / dark-mode toggles.
+ * background — never for anything security-sensitive.
  */
 function hashToBucket(input: string, buckets: number): number {
   if (buckets <= 0) return 0;

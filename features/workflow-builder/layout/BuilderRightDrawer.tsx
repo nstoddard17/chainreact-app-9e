@@ -1,63 +1,33 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 interface Props {
-  /**
-   * Drawer title shown in the header. Each mode supplies its own
-   * (e.g. "Node configuration" for the inspector, "Workflow AI" for the
-   * AI panel later).
-   */
   title: string;
-  /**
-   * Called when the user dismisses the drawer via the × button or the
-   * Esc keyboard shortcut. The parent decides what "close" means for
-   * the current mode (e.g. inspector close also drops the active node
-   * selection in configSlice).
-   */
   onClose: () => void;
-  /**
-   * The drawer payload. WorkflowBuilder picks which panel based on the
-   * current `useRightDrawer` mode and renders it as children.
-   */
   children: ReactNode;
 }
 
 /**
- * Builder right drawer (Slice 4.BUILDER-INSPECTOR-1).
+ * Builder right drawer (Slice 4.BUILDER-INSPECTOR-1, restyled in
+ * 4.BUILDER-DESIGN-PARITY-1).
  *
- * Presentational region for the right-side drawer. Renders chrome only
- * — header (title + close), Esc-to-close, and a scrollable content
- * region. The mode-specific payload (NodeInspectorPanel today, AI /
- * Run results / Validation in later slices) is passed in as children.
+ * Anthropic ChainV2 inspector chrome — left border divider, dense
+ * header strip (title + close × button), scrollable content region.
+ * The previous shadcn-card framing (rounded box w/ shadow) is gone;
+ * the drawer now sits edge-to-edge against the canvas with a single
+ * vertical 1px divider — the design's "right dock" look.
  *
- * Why a separate component rather than rendering chrome inside each
- * panel: keeps each future panel focused on its own UX while the
- * drawer chrome stays consistent across modes.
- *
- * Mounting model:
- *   - WorkflowBuilder mounts this conditionally (only when the drawer
- *     is open) — there's no `open` prop on this component. Conditional
- *     mount keeps initial render cheap and makes the Esc-to-close
- *     contract trivial (the listener is only attached when the drawer
- *     is visible).
- *   - The container width is fixed at 420px on md+ screens to match the
- *     port plan §6 "right drawer width: 420px default". Below md, the
- *     drawer takes full width; responsive sheet treatment is owned by
- *     BUILDER-RESPONSIVE-1.
+ * Width: 380px md+ (matches design's 380px), full-width below md.
+ * Mode-specific payload (NodeInspectorPanel / RunResultsPanel /
+ * ValidationSummary) is passed in as children.
  */
 export function BuilderRightDrawer({ title, onClose, children }: Props) {
-  const headerRef = useRef<HTMLDivElement | null>(null);
-
-  // Esc closes the drawer. Mirrors V1 / Linear / Notion drawer UX. We
-  // bind on document so the listener fires even when focus is inside a
-  // nested form field (ConfigModalShell text inputs etc.).
+  // Esc closes the drawer. Bind on document so the listener fires even
+  // when focus is inside a nested form field.
   useEffect(() => {
     function handler(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      // Don't steal Esc from native dialogs / popovers / autocomplete
-      // menus the user might be inside. defaultPrevented signals one of
-      // those layers already handled the key.
       if (event.defaultPrevented) return;
       event.preventDefault();
       onClose();
@@ -67,34 +37,52 @@ export function BuilderRightDrawer({ title, onClose, children }: Props) {
   }, [onClose]);
 
   return (
-    // Intentionally `role="region"` rather than `complementary` because
-    // the inspector payload (ConfigModalShell) is itself a `complementary`
-    // landmark with its own aria-label ("Node configuration"). Two nested
-    // complementaries with the same accessible name would break
-    // `getByRole("complementary", ...)` lookups in existing tests.
     <section
       data-testid="builder-right-drawer"
       role="region"
       aria-label={`Workflow builder drawer: ${title}`}
-      className="flex w-full flex-col gap-0 rounded-lg border border-input bg-card shadow-sm md:w-[420px] md:shrink-0"
+      className="flex w-full shrink-0 flex-col md:w-[380px]"
+      style={{
+        background: "var(--builder-panel)",
+        borderLeft: "1px solid var(--builder-border)",
+        minHeight: 0,
+      }}
     >
       <header
-        ref={headerRef}
-        className="flex items-center justify-between gap-3 border-b border-border px-4 py-3"
+        className="flex items-center justify-between gap-3 px-3 py-2.5"
+        style={{ borderBottom: "1px solid var(--builder-border)" }}
       >
-        <h2 className="truncate text-sm font-semibold" title={title}>
+        <h2
+          className="truncate text-[13px] font-semibold"
+          title={title}
+          style={{ color: "var(--builder-text)" }}
+        >
           {title}
         </h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close drawer"
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-[4px] text-[14px] transition-colors"
+          style={{ color: "var(--builder-muted)" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--builder-bg)";
+            e.currentTarget.style.color = "var(--builder-text)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--builder-muted)";
+          }}
         >
           ×
         </button>
       </header>
-      <div className="flex flex-1 flex-col overflow-y-auto p-3">{children}</div>
+      <div
+        className="flex flex-1 flex-col overflow-y-auto"
+        style={{ minHeight: 0 }}
+      >
+        {children}
+      </div>
     </section>
   );
 }

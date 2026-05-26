@@ -552,7 +552,13 @@ describe("WorkflowBuilder", () => {
       expect(screen.getAllByTestId("builder-ai-panel")).toHaveLength(1);
     });
 
-    it("header toggle collapses the rail (BuilderAiPanel + rail container both unmount)", async () => {
+    // Slice 4.BUILDER-DESIGN-PARITY-1 — collapsed rail now renders a 40px
+    // vertical spine (rotated label + expand button) rather than fully
+    // vacating the layout column. The critical invariant — BuilderAiPanel
+    // (and its state / effects) must NOT mount while collapsed — is
+    // preserved and asserted below. Rail presence is now identified by
+    // `data-collapsed="true"`.
+    it("header toggle collapses the rail (BuilderAiPanel unmounts; spine remains)", async () => {
       const user = userEvent.setup();
       render(
         <WorkflowBuilder
@@ -567,10 +573,12 @@ describe("WorkflowBuilder", () => {
         screen.getByTestId("builder-header-left-rail-toggle"),
       );
       expect(
-        screen.queryByTestId("builder-left-agent-rail"),
-      ).toBeNull();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
       // The panel disappears with the rail — its state / effects don't
-      // run while collapsed.
+      // run while collapsed. This is the load-bearing invariant.
       expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
     });
 
@@ -583,13 +591,20 @@ describe("WorkflowBuilder", () => {
           actionProviders={actionProviders}
         />,
       );
-      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      expect(
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("false");
       await user.click(
         screen.getByTestId("builder-left-agent-rail-collapse"),
       );
       expect(
-        screen.queryByTestId("builder-left-agent-rail"),
-      ).toBeNull();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
+      expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
     });
 
     it("header toggle is bidirectional — clicking again restores the rail", async () => {
@@ -605,13 +620,18 @@ describe("WorkflowBuilder", () => {
       // Collapse.
       await user.click(toggle);
       expect(
-        screen.queryByTestId("builder-left-agent-rail"),
-      ).toBeNull();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
       // Re-expand.
       await user.click(toggle);
       expect(
-        screen.getByTestId("builder-left-agent-rail"),
-      ).toBeInTheDocument();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("false");
+      expect(screen.getByTestId("builder-ai-panel")).toBeInTheDocument();
     });
 
     it("collapsed state persists to localStorage so a refreshed page stays collapsed", async () => {
@@ -627,8 +647,10 @@ describe("WorkflowBuilder", () => {
         screen.getByTestId("builder-header-left-rail-toggle"),
       );
       expect(
-        screen.queryByTestId("builder-left-agent-rail"),
-      ).toBeNull();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
       first.unmount();
 
       // Re-mount (simulates a navigation / refresh).
@@ -640,8 +662,11 @@ describe("WorkflowBuilder", () => {
         />,
       );
       expect(
-        screen.queryByTestId("builder-left-agent-rail"),
-      ).toBeNull();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
+      expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
     });
 
     // Independence — drawer state and rail state never affect each other.
@@ -706,10 +731,12 @@ describe("WorkflowBuilder", () => {
       await user.click(
         screen.getByTestId("builder-header-left-rail-toggle"),
       );
-      // Rail gone, drawer still open.
+      // Rail collapsed to spine, drawer still open.
       expect(
-        screen.queryByTestId("builder-left-agent-rail"),
-      ).toBeNull();
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
       expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
     });
 

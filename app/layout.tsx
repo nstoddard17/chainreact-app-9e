@@ -1,6 +1,27 @@
 import type { Metadata } from "next";
+import { Geist, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+
+// Builder typography (4.BUILDER-DESIGN-PARITY-1). Geist + JetBrains Mono
+// are loaded via `next/font/google` so Next can self-host them, avoid
+// the `@next/next/no-page-custom-font` lint warning, and dodge a
+// runtime fetch to `fonts.googleapis.com`. The CSS variables exposed
+// here are referenced by `globals.css` (`.builder-mono`, default body
+// stack) and by inline `var(--font-*)` in components.
+const fontSans = Geist({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const fontMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "ChainReact",
@@ -13,7 +34,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${fontSans.variable} ${fontMono.variable}`}>
       {/*
         suppressHydrationWarning on <body> only — silences the false-positive
         hydration mismatch caused by browser extensions (Grammarly, LastPass,

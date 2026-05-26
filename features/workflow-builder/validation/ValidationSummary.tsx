@@ -58,12 +58,15 @@ export function ValidationSummary({ onOpenNode }: Props) {
       <div
         data-testid="validation-summary"
         data-state="ready"
-        className="flex flex-col items-start gap-2 text-sm"
+        className="flex flex-col items-start gap-2 p-3 text-[13px]"
       >
-        <p className="font-medium text-emerald-700 dark:text-emerald-300">
+        <p
+          className="font-semibold"
+          style={{ color: "var(--builder-success)" }}
+        >
           Ready to run
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[11.5px]" style={{ color: "var(--builder-muted)" }}>
           No builder validation issues detected.
         </p>
       </div>

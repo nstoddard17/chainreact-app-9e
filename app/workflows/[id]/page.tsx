@@ -74,6 +74,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
   return (
     <main
       data-testid="workflow-builder-route"
+      data-builder-surface
       className="flex h-screen flex-col overflow-hidden"
     >
       <WorkflowBuilder

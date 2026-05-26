@@ -5,16 +5,16 @@
 /**
  * ChainReact tokens.
  *
- * Per docs/slices/phase-3-builder-ui-plan.md §"V1 look-and-feel preservation":
- *   - Blue primary #2563EB (HSL 217 91% 60%) — V1's brand.
- *   - Slate neutrals — V1's chrome.
- *   - Red destructive — V1's failed state.
- *   - Green success / amber warning — V1's state indicators for running /
- *     paused / incomplete (consumed by the canvas + library panel in
- *     later slices; declared now so the token surface is stable).
+ * Slice 4.BUILDER-DESIGN-PARITY-1 rebases the builder surface on the
+ * Anthropic ChainV2 design palette (dense / technical, sky-blue accent,
+ * stone-warm neutrals). The shadcn-consumed `--primary` / `--destructive`
+ * / etc. tokens stay HSL-compatible so the rest of the app (auth pages,
+ * dialogs, buttons outside the builder) continues to render unchanged.
  *
- * shadcn/ui primitives consume these CSS variables — overriding here
- * themes the whole library against V1 at once.
+ * `--builder-*` tokens added below are scoped to the builder workspace
+ * and follow the design's raw-hex palette so density-driven surfaces
+ * (header strip, rail chrome, node cards, edge color) match the Anthropic
+ * reference 1:1 without going through HSL conversion noise.
  */
 
 @layer base {
@@ -57,6 +57,33 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 217 91% 60%;
     --radius: 0.5rem;
+
+    /* Builder design tokens (4.BUILDER-DESIGN-PARITY-1). Raw hex per the
+       Anthropic ChainV2 reference. Scoped via the --builder-* prefix so
+       they never collide with shadcn's HSL tokens. */
+    --builder-bg: #f6f6f5;
+    --builder-panel: #ffffff;
+    --builder-panel-2: #fafaf9;
+    --builder-border: #e7e5e4;
+    --builder-border-strong: #d6d3d1;
+    --builder-text: #1c1917;
+    --builder-text-2: #44403c;
+    --builder-muted: #78716c;
+    --builder-muted-2: #a8a29e;
+    --builder-accent: #0284c7;
+    --builder-accent-soft: #e0f2fe;
+    --builder-accent-strong: #075985;
+    --builder-success: #16a34a;
+    --builder-success-soft: #dcfce7;
+    --builder-warn: #d97706;
+    --builder-warn-soft: #fef3c7;
+    --builder-danger: #dc2626;
+    --builder-danger-soft: #fee2e2;
+    --builder-grid: rgba(0, 0, 0, 0.05);
+    --builder-grid-strong: rgba(0, 0, 0, 0.09);
+    --builder-shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --builder-shadow-md: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+    --builder-shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -92,6 +119,31 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 217 91% 60%;
+
+    /* Builder design tokens — dark variant (4.BUILDER-DESIGN-PARITY-1). */
+    --builder-bg: #0c0c0d;
+    --builder-panel: #131316;
+    --builder-panel-2: #18181b;
+    --builder-border: #26262a;
+    --builder-border-strong: #34343a;
+    --builder-text: #f4f4f5;
+    --builder-text-2: #d4d4d8;
+    --builder-muted: #9c9ca3;
+    --builder-muted-2: #6c6c74;
+    --builder-accent: #38bdf8;
+    --builder-accent-soft: rgba(56, 189, 248, 0.12);
+    --builder-accent-strong: #7dd3fc;
+    --builder-success: #34d399;
+    --builder-success-soft: rgba(52, 211, 153, 0.12);
+    --builder-warn: #f59e0b;
+    --builder-warn-soft: rgba(245, 158, 11, 0.12);
+    --builder-danger: #f87171;
+    --builder-danger-soft: rgba(248, 113, 113, 0.14);
+    --builder-grid: rgba(255, 255, 255, 0.06);
+    --builder-grid-strong: rgba(255, 255, 255, 0.10);
+    --builder-shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
+    --builder-shadow-md: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+    --builder-shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -101,5 +153,33 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Builder workspace re-themes the route container with the dense
+     Anthropic palette. Children opt into the palette by reading the
+     --builder-* tokens — see features/workflow-builder/**. */
+  [data-builder-surface] {
+    background: var(--builder-bg);
+    color: var(--builder-text);
+    font-feature-settings: "ss01", "cv11";
+  }
+}
+
+/* Builder utility classes (4.BUILDER-DESIGN-PARITY-1). Hand-rolled rather
+   than registered via Tailwind theme so they stay namespaced to the
+   builder workspace and don't bleed into other surfaces. */
+@layer components {
+  .builder-mono {
+    font-family: var(--font-mono), "JetBrains Mono", ui-monospace, "SF Mono",
+      monospace;
+    font-feature-settings: normal;
+  }
+  .builder-dot-grid {
+    background-color: var(--builder-bg);
+    background-image:
+      radial-gradient(var(--builder-grid) 1px, transparent 1px),
+      radial-gradient(var(--builder-grid-strong) 1.2px, transparent 1.2px);
+    background-size: 18px 18px, 90px 90px;
+    background-position: 0 0, 9px 9px;
   }
 }

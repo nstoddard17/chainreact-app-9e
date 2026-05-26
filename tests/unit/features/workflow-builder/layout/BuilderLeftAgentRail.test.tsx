@@ -62,17 +62,40 @@ describe("BuilderLeftAgentRail — expanded state", () => {
 });
 
 describe("BuilderLeftAgentRail — collapsed state", () => {
-  it("renders nothing when collapsed (rail vacates the layout column)", () => {
-    const { container } = render(
+  it("renders a slim 40px spine and does not mount its children", async () => {
+    // Slice 4.BUILDER-DESIGN-PARITY-1 — the Anthropic ChainV2 design
+    // keeps a vertical 40px spine in the collapsed state (rotated
+    // "REACT AGENT" label + expand button) rather than fully vacating
+    // the column. The critical invariant — children must NOT mount in
+    // collapsed mode so BuilderAiPanel doesn't fire its state effects
+    // / network calls — is preserved.
+    render(
       <BuilderLeftAgentRail isCollapsed onCollapse={() => undefined}>
         <div data-testid="payload">payload body</div>
       </BuilderLeftAgentRail>,
     );
-    expect(container.firstChild).toBeNull();
-    // Critical: collapsed rail must NOT render its children — the
-    // BuilderAiPanel is not mounted in collapsed mode, so its
-    // state / effects / network calls don't run.
+    const rail = screen.getByTestId("builder-left-agent-rail");
+    expect(rail).toBeInTheDocument();
+    expect(rail.getAttribute("data-collapsed")).toBe("true");
+    // Children must NOT mount in collapsed mode.
     expect(screen.queryByTestId("payload")).toBeNull();
-    expect(screen.queryByTestId("builder-left-agent-rail")).toBeNull();
+    // Expand affordance is reachable.
+    expect(
+      screen.getByRole("button", { name: /expand react agent/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking the spine expand button fires onCollapse exactly once", async () => {
+    const user = userEvent.setup();
+    const onCollapse = jest.fn();
+    render(
+      <BuilderLeftAgentRail isCollapsed onCollapse={onCollapse}>
+        <span>x</span>
+      </BuilderLeftAgentRail>,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /expand react agent/i }),
+    );
+    expect(onCollapse).toHaveBeenCalledTimes(1);
   });
 });

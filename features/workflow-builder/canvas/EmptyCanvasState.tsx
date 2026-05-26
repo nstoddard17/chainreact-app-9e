@@ -2,75 +2,170 @@
 
 interface Props {
   /**
-   * Invoked when the user clicks the "Choose a trigger" CTA. The empty
-   * state is purely presentational — it does NOT know how to add a
-   * trigger itself. WorkflowBuilder owns the wiring: today the callback
-   * focuses + clicks the "+ Add trigger" button in `AddNodeMenu`; once
-   * BUILDER-ADD-FLOW-1 replaces that menu with `AddNodePanel`, the
-   * callback will open the panel directly.
-   *
-   * Optional so the component is also testable in isolation without a
-   * handler — the button stays clickable, the click just no-ops.
+   * Invoked when the user clicks the "Choose a trigger" CTA.
+   * WorkflowBuilder owns the wiring — the callback opens AddNodePanel
+   * in trigger mode.
    */
   onAddTrigger?: () => void;
 }
 
 /**
- * Empty workflow canvas state (Slice 4.BUILDER-CANVAS-1).
+ * Empty workflow canvas state (Slice 4.BUILDER-CANVAS-1, restyled in
+ * 4.BUILDER-DESIGN-PARITY-1).
  *
- * Rendered as an absolutely-positioned overlay inside the canvas
- * container when `pendingNodes.length === 0`. ReactFlow still mounts
- * underneath (so Background dots / Controls render normally); this
- * overlay just sits on top with a centered CTA.
+ * Adopts the Anthropic ChainV2 empty card aesthetic — diagonal-rule
+ * frame strip across the top, mono uppercase tag ("EMPTY · NO TRIGGER
+ * · NO ACTIONS"), large title, subtitle with the ⌘K hint, and an
+ * action row with the primary "Choose a trigger" CTA plus disabled
+ * "Describe to AI" / "Import from template" placeholders.
  *
- * Notes:
- *   - `pointer-events-none` on the wrapper + `pointer-events-auto` on
- *     the inner card so the canvas itself stays interactive everywhere
- *     except the card region (drag-to-pan still works around the CTA).
- *   - No slice reads — this is a leaf presentational component.
- *   - Copy is intentionally workflow-product-generic; provider-specific
- *     wording is out of scope.
+ * The placeholder buttons render as disabled — V2 doesn't have those
+ * flows wired inside the builder shell yet (AI plan-from-blank uses
+ * the left rail; templates live on a separate page). They exist so
+ * the visual layout reads correctly without faking interactions.
+ *
+ * "Recent triggers" list is deferred — V2 doesn't surface per-workspace
+ * recency yet (see slice doc §Deferred).
  */
 export function EmptyCanvasState({ onAddTrigger }: Props) {
   return (
     <div
       data-testid="empty-canvas-state"
       aria-label="Empty workflow canvas"
-      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6"
     >
-      <div className="pointer-events-auto flex max-w-sm flex-col items-center gap-3 rounded-lg border border-dashed border-input bg-card/95 p-6 text-center shadow-sm">
-        <span
-          aria-hidden="true"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
+      <div
+        className="pointer-events-auto w-full max-w-[560px] overflow-hidden rounded-[8px]"
+        style={{
+          background: "var(--builder-panel)",
+          border: "1px solid var(--builder-border)",
+          boxShadow: "var(--builder-shadow-md)",
+        }}
+      >
+        <div
+          aria-hidden
+          className="h-[22px]"
+          style={{
+            background:
+              "repeating-linear-gradient(-45deg, var(--builder-panel-2) 0 6px, transparent 6px 12px)",
+            borderBottom: "1px solid var(--builder-border)",
+          }}
+        />
+        <div className="px-5 pb-4 pt-5">
+          <div
+            className="builder-mono mb-2 text-[10px] tracking-[0.12em]"
+            style={{ color: "var(--builder-muted)" }}
           >
-            <path d="M13 2L4.09 12.97a1 1 0 0 0 .76 1.65H11l-1 7.38L19.91 11.03a1 1 0 0 0-.76-1.65H13l1-7.38z" />
-          </svg>
-        </span>
-        <div className="flex flex-col gap-1">
-          <h3 className="text-base font-semibold">Choose a trigger</h3>
-          <p className="text-xs text-muted-foreground">
-            Every workflow starts with a trigger. Pick the event that should
-            kick this workflow off.
+            EMPTY · NO TRIGGER · NO ACTIONS
+          </div>
+          <h3
+            className="mb-1 text-[18px] font-semibold"
+            style={{ color: "var(--builder-text)" }}
+          >
+            Choose a trigger to start.
+          </h3>
+          <p
+            className="mb-4 max-w-[460px] text-[12.5px] leading-relaxed"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            Every workflow begins with a trigger — an event that wakes it up.
+            Pick one from the picker, or describe what you want in the React
+            Agent rail.
           </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onAddTrigger}
+              data-testid="empty-canvas-choose-trigger"
+              className="inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-[12px] font-medium"
+              style={{
+                background: "var(--builder-accent)",
+                color: "white",
+                border: "1px solid var(--builder-accent)",
+              }}
+            >
+              <BoltIcon />
+              Choose a trigger
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Describe in the React Agent rail (coming soon as a direct entry point)"
+              className="inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                background: "var(--builder-panel)",
+                color: "var(--builder-text-2)",
+                border: "1px solid var(--builder-border)",
+              }}
+            >
+              <SparkleIcon />
+              Describe to AI
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Templates live on the workflows index — direct in-builder import is coming soon"
+              className="inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                background: "var(--builder-panel)",
+                color: "var(--builder-text-2)",
+                border: "1px solid var(--builder-border)",
+              }}
+            >
+              <CodeIcon />
+              Import from template
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={onAddTrigger}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
-        >
-          Choose a trigger
-        </button>
       </div>
     </div>
   );
 }
+
+const BoltIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
+  </svg>
+);
+const SparkleIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
+    <path d="M19 14l.7 1.9L21.5 17l-1.9.7L19 19.5l-.7-1.9L16.5 17l1.9-.7z" />
+  </svg>
+);
+const CodeIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <polyline points="16 18 22 12 16 6" />
+    <polyline points="8 6 2 12 8 18" />
+  </svg>
+);

@@ -204,6 +204,12 @@ export function WorkflowBuilder({
   const hasTrigger = useGraphSlice((s) =>
     s.pendingNodes.some((n) => n.kind === "trigger"),
   );
+  const triggerNode = useGraphSlice((s) =>
+    s.pendingNodes.find((n) => n.kind === "trigger"),
+  );
+  const triggerTagText = triggerNode
+    ? `trigger: ${triggerNode.type || triggerNode.provider}`
+    : undefined;
 
   const memoizedEdgePlusClick = useMemo(
     () => handleEdgePlusClick,
@@ -232,6 +238,7 @@ export function WorkflowBuilder({
       header={
         <BuilderHeader
           workflowName={workflow.name}
+          workflowId={workflow.id}
           leftRail={{
             isCollapsed: leftRail.isCollapsed,
             onToggle: leftRail.toggle,
@@ -262,29 +269,18 @@ export function WorkflowBuilder({
       }
     >
       <div
-        className="flex min-h-0 flex-1 flex-col gap-2"
+        className="flex min-h-0 flex-1 flex-col"
         aria-label="Workflow builder"
         data-testid="builder-center-workspace"
       >
-        <div
-          className="flex shrink-0 items-center justify-end gap-2"
-          aria-label="Canvas actions"
-        >
-          <button
-            type="button"
-            onClick={openActionPicker}
-            disabled={!hasTrigger}
-            title={!hasTrigger ? "Add a trigger before adding actions." : undefined}
-            className="rounded border border-input px-3 py-1.5 text-sm disabled:opacity-60"
-          >
-            + Add action
-          </button>
-        </div>
         <WorkflowCanvas
           providerLabels={providerLabels}
           providerIcons={providerIcons}
           onEmptyAddTrigger={openTriggerPicker}
           onEdgePlusClick={memoizedEdgePlusClick}
+          onAddAction={openActionPicker}
+          canAddAction={hasTrigger}
+          triggerTagText={triggerTagText}
         />
         {addPanelMode !== null ? (
           <AddNodePanel

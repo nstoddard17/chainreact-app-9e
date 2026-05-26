@@ -4,7 +4,13 @@ import { useState } from "react";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { useProviderTriggers } from "../hooks/useProviderTriggers";
 import type { ProviderOption } from "./AddNodePanel";
-import { ProviderChipIcon, filterMetasBySearch } from "./_pickerShared";
+import {
+  PickerRow,
+  PickerSectionHeader,
+  ProviderCard,
+  ProviderChipIcon,
+  filterMetasBySearch,
+} from "./_pickerShared";
 
 /**
  * Trigger picker — Slice 3.3 surface; extended in Slice 3.4 (sibling
@@ -88,63 +94,88 @@ export function TriggerPicker({
   const filteredNative = filterMetasBySearch(nativeTriggers, searchQuery);
 
   return (
-    <div className="flex flex-col gap-3 rounded border border-input p-3">
+    <div className="flex flex-col gap-3">
       <section aria-label="Native triggers" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Native
-        </h3>
+        <PickerSectionHeader label="Native triggers" count={filteredNative.length} />
         {nativeLoading ? (
-          <p className="text-xs text-muted-foreground">Loading native triggers…</p>
+          <p
+            className="px-2 text-[11.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            Loading native triggers…
+          </p>
         ) : nativeError ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p
+            role="alert"
+            className="px-2 text-[11.5px]"
+            style={{ color: "var(--builder-danger)" }}
+          >
             {nativeError}
           </p>
         ) : nativeTriggers.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No native triggers available.</p>
+          <p
+            className="px-2 text-[11.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            No native triggers available.
+          </p>
         ) : filteredNative.length === 0 && searchQuery ? (
-          <p className="text-xs text-muted-foreground">No matches in native triggers.</p>
+          <p
+            className="px-2 text-[11.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            No matches in native triggers.
+          </p>
         ) : (
-          <ul aria-label="Native triggers list" className="flex flex-col gap-1">
-            {filteredNative.map((meta) => (
-              <li key={meta.key}>
-                <button
-                  type="button"
+          <ul
+            aria-label="Native triggers list"
+            className="flex flex-col overflow-hidden rounded-[5px]"
+            style={{ border: "1px solid var(--builder-border)" }}
+          >
+            {filteredNative.map((meta, i) => (
+              <li
+                key={meta.key}
+                style={{
+                  borderBottom:
+                    i === filteredNative.length - 1
+                      ? "0"
+                      : "1px solid var(--builder-border)",
+                }}
+              >
+                <PickerRow
+                  title={meta.displayName}
+                  description={meta.description}
+                  metaKey={meta.key}
                   onClick={() => onPickNative(meta)}
-                  className="flex w-full flex-col gap-0.5 rounded border border-transparent bg-muted/50 px-3 py-2 text-left hover:border-input hover:bg-muted"
-                >
-                  <span className="text-sm font-medium">{meta.displayName}</span>
-                  <span className="text-xs text-muted-foreground line-clamp-2">
-                    {meta.description}
-                  </span>
-                </button>
+                />
               </li>
             ))}
           </ul>
         )}
       </section>
       <section aria-label="Provider triggers" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Providers
-        </h3>
+        <PickerSectionHeader label="Providers" count={triggerProviders.length} />
         {triggerProviders.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No trigger providers available.</p>
+          <p
+            className="px-2 text-[11.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            No trigger providers available.
+          </p>
         ) : (
-          <ul aria-label="Trigger providers" className="flex flex-wrap gap-2">
+          <ul
+            aria-label="Trigger providers"
+            className="grid grid-cols-2 gap-1.5"
+          >
             {triggerProviders.map((p) => (
               <li key={p.id}>
-                <button
-                  type="button"
+                <ProviderCard
+                  providerId={p.id}
+                  label={p.displayName}
+                  iconUrl={providerIcons?.[p.id]}
                   onClick={() => setSelectedProvider(p)}
-                  aria-label={`Browse ${p.displayName} triggers`}
-                  className="inline-flex items-center gap-1.5 rounded bg-muted px-3 py-1 text-sm"
-                >
-                  <ProviderChipIcon
-                    providerId={p.id}
-                    label={p.displayName}
-                    iconUrl={providerIcons?.[p.id]}
-                  />
-                  {p.displayName}
-                </button>
+                  ariaLabel={`Browse ${p.displayName} triggers`}
+                />
               </li>
             ))}
           </ul>
@@ -153,6 +184,7 @@ export function TriggerPicker({
     </div>
   );
 }
+
 
 interface ProviderTriggersViewProps {
   provider: ProviderOption;
@@ -174,61 +206,96 @@ function ProviderTriggersView({
 
   return (
     <section
-      className="flex flex-col gap-3 rounded border border-input p-3"
+      className="flex flex-col gap-2"
       aria-label={`${provider.displayName} triggers`}
     >
-      <header className="flex items-center justify-between gap-2">
+      <header className="flex items-center gap-2 px-1">
         <button
           type="button"
           onClick={onBack}
           aria-label="Back to trigger picker"
-          className="rounded border border-input px-2 py-0.5 text-xs"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-[4px]"
+          style={{
+            background: "transparent",
+            color: "var(--builder-muted)",
+            border: "1px solid var(--builder-border)",
+          }}
+          title="Back"
         >
-          ← Back
+          ←
         </button>
-        <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2">
           <ProviderChipIcon
             providerId={provider.id}
             label={provider.displayName}
             iconUrl={providerIcons?.[provider.id]}
           />
-          {provider.displayName}
-        </h3>
+          <span
+            className="truncate text-[13px] font-semibold"
+            style={{ color: "var(--builder-text)" }}
+          >
+            {provider.displayName}
+          </span>
+          <span
+            className="builder-mono text-[10.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            · triggers
+          </span>
+        </div>
       </header>
       {loading ? (
-        <p className="text-xs text-muted-foreground">
+        <p
+          className="px-2 text-[11.5px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
           Loading {provider.displayName} triggers…
         </p>
       ) : error ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p
+          role="alert"
+          className="px-2 text-[11.5px]"
+          style={{ color: "var(--builder-danger)" }}
+        >
           {error}
         </p>
       ) : triggers.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p
+          className="px-2 text-[11.5px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
           {provider.displayName} hasn&rsquo;t shipped trigger metadata yet.
           Configurable triggers arrive in a later slice.
         </p>
       ) : filtered.length === 0 && searchQuery ? (
-        <p className="text-xs text-muted-foreground">
+        <p
+          className="px-2 text-[11.5px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
           No matches in {provider.displayName} triggers.
         </p>
       ) : (
         <ul
           aria-label={`${provider.displayName} triggers list`}
-          className="flex flex-col gap-1"
+          className="flex flex-col overflow-hidden rounded-[5px]"
+          style={{ border: "1px solid var(--builder-border)" }}
         >
-          {filtered.map((meta) => (
-            <li key={meta.key}>
-              <button
-                type="button"
+          {filtered.map((meta, i) => (
+            <li
+              key={meta.key}
+              style={{
+                borderBottom:
+                  i === filtered.length - 1
+                    ? "0"
+                    : "1px solid var(--builder-border)",
+              }}
+            >
+              <PickerRow
+                title={meta.displayName}
+                description={meta.description}
+                metaKey={meta.key}
                 onClick={() => onPick(meta)}
-                className="flex w-full flex-col gap-0.5 rounded border border-transparent bg-muted/50 px-3 py-2 text-left hover:border-input hover:bg-muted"
-              >
-                <span className="text-sm font-medium">{meta.displayName}</span>
-                <span className="text-xs text-muted-foreground line-clamp-2">
-                  {meta.description}
-                </span>
-              </button>
+              />
             </li>
           ))}
         </ul>

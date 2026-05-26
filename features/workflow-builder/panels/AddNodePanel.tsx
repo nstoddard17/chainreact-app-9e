@@ -145,36 +145,68 @@ export function AddNodePanel({
   return (
     <div
       data-testid="add-node-panel"
-      // Modal overlay: full-page backdrop, centered card. Click-outside
-      // the card closes; clicks inside don't propagate so they don't
+      // Modal overlay (4.BUILDER-DESIGN-PARITY-1): backdrop blur + dim
+      // matching the Anthropic ChainV2 `.picker-overlay`. Click-outside
+      // closes; clicks inside the card don't propagate so they don't
       // accidentally trigger close. role="dialog" lives on the inner
-      // card so `getByRole("dialog")` resolves the actual panel, not
-      // the backdrop.
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+      // card so `getByRole("dialog")` resolves the actual panel.
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[90px]"
+      style={{
+        background: "rgba(0, 0, 0, 0.35)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+      }}
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex max-h-[80vh] w-full max-w-2xl flex-col gap-3 rounded-lg border border-input bg-card shadow-xl"
+        className="flex w-full max-w-[720px] flex-col overflow-hidden rounded-[8px]"
+        style={{
+          maxHeight: "calc(100vh - 180px)",
+          background: "var(--builder-panel)",
+          border: "1px solid var(--builder-border)",
+          boxShadow: "var(--builder-shadow-lg)",
+        }}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+        <header
+          className="flex items-start justify-between gap-3 px-3 py-2.5"
+          style={{ borderBottom: "1px solid var(--builder-border)" }}
+        >
           <div className="flex min-w-0 flex-col gap-0.5">
-            <h2 className="truncate text-base font-semibold">{title}</h2>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+            <h2
+              className="truncate text-[13px] font-semibold"
+              style={{ color: "var(--builder-text)" }}
+            >
+              {title}
+            </h2>
+            <p
+              className="builder-mono text-[10.5px]"
+              style={{ color: "var(--builder-muted)" }}
+            >
+              {subtitle}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close add-node panel"
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-[4px] text-[14px]"
+            style={{ color: "var(--builder-muted)" }}
           >
             ×
           </button>
         </header>
-        <div className="px-4">
+        <div
+          className="flex items-center gap-2 px-3 py-2"
+          style={{
+            background: "var(--builder-panel-2)",
+            borderBottom: "1px solid var(--builder-border)",
+          }}
+        >
+          <SearchIcon />
           <input
             ref={inputRef}
             type="search"
@@ -182,14 +214,25 @@ export function AddNodePanel({
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={
               mode.kind === "trigger"
-                ? "Search triggers…"
-                : "Search actions…"
+                ? "Search providers, triggers — or describe what you want"
+                : "Search providers, actions — or describe what you want"
             }
             aria-label="Search add-node panel"
-            className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="flex-1 bg-transparent text-[13px] outline-none"
+            style={{ color: "var(--builder-text)" }}
           />
+          <code
+            className="builder-mono rounded-[3px] px-1.5 py-0.5 text-[9.5px]"
+            style={{
+              background: "var(--builder-panel)",
+              border: "1px solid var(--builder-border)",
+              color: "var(--builder-muted)",
+            }}
+          >
+            esc
+          </code>
         </div>
-        <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-4">
+        <div className="flex flex-1 flex-col overflow-y-auto px-3 py-2.5">
           {mode.kind === "trigger" ? (
             <TriggerPicker
               nativeTriggers={nativeTriggers.triggers}
@@ -217,3 +260,21 @@ export function AddNodePanel({
     </div>
   );
 }
+
+const SearchIcon = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+    style={{ color: "var(--builder-muted)" }}
+  >
+    <circle cx="11" cy="11" r="7" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);

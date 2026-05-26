@@ -94,3 +94,127 @@ export function ProviderChipIcon({
     </span>
   );
 }
+
+/**
+ * Mono uppercase section header + count chip used in both TriggerPicker
+ * and ActionPicker (4.BUILDER-DESIGN-PARITY-1). Mirrors the
+ * `.picker-section-h` style from the Anthropic ChainV2 design.
+ */
+export function PickerSectionHeader({
+  label,
+  count,
+}: {
+  label: string;
+  count: number;
+}) {
+  return (
+    <div className="flex items-center justify-between px-2 py-1">
+      <span
+        className="builder-mono text-[10px] uppercase tracking-[0.05em]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        {label}
+      </span>
+      <code
+        className="builder-mono text-[10px]"
+        style={{ color: "var(--builder-muted-2)" }}
+      >
+        {count}
+      </code>
+    </div>
+  );
+}
+
+/**
+ * Row inside a picker list (native triggers / native actions / drilled-in
+ * per-provider list). Renders title + description + meta-key chip.
+ */
+export function PickerRow({
+  title,
+  description,
+  metaKey,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  metaKey: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors"
+      style={{
+        background: "var(--builder-panel)",
+        color: "var(--builder-text)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--builder-panel-2)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "var(--builder-panel)";
+      }}
+    >
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-[12.5px] font-medium">{title}</span>
+        <span
+          className="line-clamp-1 text-[11px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {description}
+        </span>
+      </div>
+      <code
+        className="builder-mono shrink-0 text-[10px]"
+        style={{ color: "var(--builder-muted-2)" }}
+      >
+        {metaKey}
+      </code>
+    </button>
+  );
+}
+
+/**
+ * 2-column provider grid card — clicking drills into the picker for
+ * that provider's actions / triggers.
+ */
+export function ProviderCard({
+  providerId,
+  label,
+  iconUrl,
+  onClick,
+  ariaLabel,
+}: {
+  providerId: string;
+  label: string;
+  iconUrl?: string;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex w-full items-center gap-2 rounded-[5px] px-2.5 py-2 text-left transition-colors"
+      style={{
+        background: "var(--builder-panel)",
+        color: "var(--builder-text)",
+        border: "1px solid var(--builder-border)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--builder-accent)";
+        e.currentTarget.style.background =
+          "color-mix(in oklab, var(--builder-accent) 4%, var(--builder-panel))";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--builder-border)";
+        e.currentTarget.style.background = "var(--builder-panel)";
+      }}
+    >
+      <ProviderChipIcon providerId={providerId} label={label} iconUrl={iconUrl} />
+      <span className="truncate text-[12.5px] font-medium">{label}</span>
+    </button>
+  );
+}

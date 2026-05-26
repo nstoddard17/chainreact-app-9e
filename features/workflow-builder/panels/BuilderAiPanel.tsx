@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { AiPlanFailure, AiPreview } from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
 import { AiBulletList, AiRequiredInputList } from "../ai";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
+import {
+  PlanFailure,
+  PreviewSection,
+} from "./_BuilderAiPanelPreview";
 
 /**
  * Minimal Builder AI assistant panel (Slice 4.AI-11, UX-hardened in 4.AI-11B).
@@ -87,59 +90,112 @@ export function BuilderAiPanel() {
     <section
       aria-label="AI assistant"
       data-testid="builder-ai-panel"
-      className="flex flex-col gap-3 rounded border border-input bg-card p-3"
+      className="flex flex-col gap-3"
+      style={{ color: "var(--builder-text)" }}
     >
-      <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium">AI assistant</h3>
-        <p className="text-xs text-muted-foreground">
-          Describe a change in plain English — e.g. &ldquo;post a Slack message to
-          #alerts when a new email arrives&rdquo;. The AI proposes a preview;
-          nothing is applied until you review and confirm.
-        </p>
-      </header>
+      <p
+        className="px-1 text-[11.5px] leading-relaxed"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        Describe a change in plain English — e.g. &ldquo;post a Slack message
+        to #alerts when a new email arrives&rdquo;. The agent proposes a
+        preview; nothing is applied until you review and confirm.
+      </p>
 
-      <Textarea
-        aria-label="Describe the workflow change"
-        data-testid="builder-ai-prompt"
-        placeholder="e.g. When a Stripe payment fails, send me a Slack DM"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        disabled={busy}
-        maxLength={MAX_PROMPT_LENGTH + 100}
-        aria-invalid={tooLong || undefined}
-      />
+      <div
+        className="flex flex-col gap-0 rounded-md"
+        style={{
+          background: "var(--builder-panel-2)",
+          border: "1px solid var(--builder-border)",
+        }}
+      >
+        <Textarea
+          aria-label="Describe the workflow change"
+          data-testid="builder-ai-prompt"
+          placeholder="Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          disabled={busy}
+          maxLength={MAX_PROMPT_LENGTH + 100}
+          aria-invalid={tooLong || undefined}
+          rows={3}
+          className="resize-none border-0 bg-transparent text-[12.5px] leading-[1.45] shadow-none focus-visible:ring-0"
+        />
+        <div
+          className="flex items-center justify-between gap-2 px-2 pb-2 pt-1"
+          style={{ borderTop: "0" }}
+        >
+          <span
+            className="builder-mono text-[10.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            <kbd
+              className="rounded-[3px] px-1.5 py-px text-[9.5px]"
+              style={{
+                background: "var(--builder-panel)",
+                border: "1px solid var(--builder-border)",
+                color: "var(--builder-muted)",
+              }}
+            >
+              ⌘
+            </kbd>
+            <kbd
+              className="ml-0.5 rounded-[3px] px-1.5 py-px text-[9.5px]"
+              style={{
+                background: "var(--builder-panel)",
+                border: "1px solid var(--builder-border)",
+                color: "var(--builder-muted)",
+              }}
+            >
+              ↵
+            </kbd>
+            <span className="ml-1.5">plan</span>
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handlePlan}
+            disabled={!canSubmit}
+            data-testid="builder-ai-plan-button"
+            className="h-7 px-2.5 text-[12px]"
+            style={{
+              background: "var(--builder-text)",
+              color: "var(--builder-panel)",
+              border: "1px solid var(--builder-text)",
+            }}
+          >
+            {planning ? "Thinking…" : "Plan with AI"}
+          </Button>
+        </div>
+      </div>
+
       {(prompt.length >= COUNTER_THRESHOLD || tooLong) && (
         <p
           data-testid="builder-ai-char-count"
-          className={`text-xs ${tooLong ? "text-destructive" : "text-muted-foreground"}`}
+          className="builder-mono px-1 text-[11px]"
+          style={{
+            color: tooLong ? "var(--builder-danger)" : "var(--builder-muted)",
+          }}
         >
           {prompt.length}/{MAX_PROMPT_LENGTH}
           {tooLong ? " — too long, please shorten your request." : ""}
         </p>
       )}
 
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          onClick={handlePlan}
-          disabled={!canSubmit}
-          data-testid="builder-ai-plan-button"
-        >
-          {planning ? "Thinking…" : "Plan with AI"}
-        </Button>
-        {hasResult && !busy && (
+      {hasResult && !busy ? (
+        <div>
           <Button
             type="button"
             size="sm"
             variant="outline"
             onClick={handleClear}
             data-testid="builder-ai-clear-button"
+            className="h-7 px-2.5 text-[12px]"
           >
             Clear
           </Button>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       {planning && (
         <p role="status" className="text-xs text-muted-foreground" data-testid="builder-ai-planning">
@@ -273,99 +329,5 @@ export function BuilderAiPanel() {
   );
 }
 
-function PlanFailure({ failure }: { failure: AiPlanFailure }) {
-  const message =
-    failure.code === "MODEL_FAILED"
-      ? "The AI assistant isn’t available right now. An administrator may still need to finish setting it up — please try again later."
-      : failure.code === "PARSE_FAILED"
-        ? failure.errors?.[0]?.code === "NOT_JSON"
-          ? "The AI returned text instead of the required JSON plan. Please try again."
-          : "The AI returned a plan in the wrong format. Please try again, or add more detail about the apps and steps you want."
-        : "Couldn’t preview a plan against this workflow. Please try again.";
-  // Value-free diagnostic only (stage + code) — never the raw model output or the
-  // detailed parser message, which could echo model-supplied text.
-  const detail = failure.errors?.[0];
-  return (
-    <div role="status" data-testid="builder-ai-plan-failure" className="text-xs text-muted-foreground">
-      <p>{message}</p>
-      {detail && (
-        <p
-          data-testid="builder-ai-plan-failure-detail"
-          className="mt-1 text-[11px] text-muted-foreground/80"
-        >
-          Planner error: {detail.stage} / {detail.code}
-        </p>
-      )}
-    </div>
-  );
-}
 
-function PreviewSection({ preview }: { preview: AiPreview }) {
-  const nodeCount = preview.affectedNodeIds?.length ?? 0;
-  const edgeCount = preview.affectedEdgeIds?.length ?? 0;
-  const errors = preview.validation?.errors ?? [];
-  const warnings = preview.validation?.warnings ?? [];
-  return (
-    <div className="flex flex-col gap-1 rounded border border-input bg-background p-2 text-xs" data-testid="builder-ai-preview">
-      <p className="font-medium">What AI plans to change</p>
-
-      {preview.changes && preview.changes.length > 0 ? (
-        <ul className="list-disc pl-4 text-muted-foreground" data-testid="builder-ai-changes">
-          {preview.changes.map((c, i) => (
-            <li key={`${c.op}-${i}`}>{c.description}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-muted-foreground">No structural changes detected.</p>
-      )}
-
-      {(nodeCount > 0 || edgeCount > 0) && (
-        <p className="text-muted-foreground">
-          Affects {nodeCount} node(s) and {edgeCount} connection(s).
-        </p>
-      )}
-
-      <p>
-        Risk: <span className="font-medium">{preview.riskLevel}</span>
-        {preview.requiresConfirmation ? " · confirmation required" : ""}
-      </p>
-
-      {preview.riskReasons && preview.riskReasons.length > 0 && (
-        <ul className="list-disc pl-4 text-muted-foreground" data-testid="builder-ai-risk-reasons">
-          {preview.riskReasons.map((r, i) => (
-            <li key={`${r.code}-${i}`}>{r.message}</li>
-          ))}
-        </ul>
-      )}
-
-      {preview.taskCostEstimate && (
-        <p className="text-muted-foreground">
-          Estimated cost: ~{preview.taskCostEstimate.estimatedTasksPerRun} task(s) per run.
-        </p>
-      )}
-
-      {errors.length > 0 && (
-        <div data-testid="builder-ai-validation-errors">
-          <p className="font-medium text-destructive">Problems to fix:</p>
-          <ul className="list-disc pl-4 text-destructive">
-            {errors.map((e, i) => (
-              <li key={`${e.code}-${i}`}>{e.message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {warnings.length > 0 && (
-        <div data-testid="builder-ai-validation-warnings">
-          <p className="font-medium">Warnings:</p>
-          <ul className="list-disc pl-4 text-muted-foreground">
-            {warnings.map((w, i) => (
-              <li key={`${w.code}-${i}`}>{w.message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
 

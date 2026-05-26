@@ -1081,5 +1081,138 @@ components/workflows/ai-builder/AIWorkflowBuilderChat.tsx
 8. **BUILDER-LEFT-AGENT-1** — `BuilderLeftAgentRail` hosts `BuilderAiPanel`; header gains rail toggle; `BuilderShell` extends to 4-zone; `useRightDrawer` drops `"ai"` mode. *(shipped 2026-05-26)*
 9. **BUILDER-VALIDATION-1** — `ValidationSummary` drawer + header pill. *(shipped 2026-05-26)*
 10. **BUILDER-V1-SHELL-PARITY-1** — full-bleed workspace, route wrapper rewrite, NodeList removal, identity folded into header. *(shipped 2026-05-26)*
-11. **BUILDER-RESPONSIVE-1** — responsive + dark mode + a11y pass.
-12. **BUILDER-UI-CLOSEOUT** — outcomes doc + (optional) Playwright walkthrough.
+11. **BUILDER-DESIGN-PARITY-1** — pivot from V1 reference to the Anthropic ChainV2 design as the visual target; full builder-surface restyle (header / left rail / canvas / nodes / edges / drawer / pickers) onto the dense Anthropic palette without changing behavior. *(shipped 2026-05-26 — see outcomes section below)*
+12. **BUILDER-RESPONSIVE-1** — responsive + dark mode + a11y pass.
+13. **BUILDER-UI-CLOSEOUT** — outcomes doc + (optional) Playwright walkthrough.
+
+---
+
+## Outcomes — 4.BUILDER-DESIGN-PARITY-1
+
+**Branch:** `builder-ui-v1-audit-1`
+**Shipped:** 2026-05-26
+**Status:** Implemented + 1220 builder unit/integration tests green.
+
+### Direction pivot — V1 reference → Anthropic ChainV2 design
+
+The earlier slices in this track (UI-SHELL-1 through V1-SHELL-PARITY-1) treated `chainreact-app-9e@marcus_dev` as the visual reference. The user paused BUILDER-V1-SHELL-PARITY-1 mid-stream and pointed the visual target at the **Anthropic Builder design** at `https://api.anthropic.com/v1/design/h/C-eRjwJ6y62ntvAoqivW0g?open_file=Workflow+Builder.html` — a dense / technical (n8n / Retool feel) builder mocked in HTML/CSS/JS via `claude.ai/design`.
+
+The audit bundle fetched, decompressed (`gzip + tar`), and read:
+
+- `chainv2builder/README.md` — handoff notes (read the chat transcript first; recreate pixel-perfectly in whatever fits the target codebase).
+- `chainv2builder/chats/chat1.md` — user iteration: dense & technical aesthetic, sky-blue accent (`#0284c7`), chat-style React Agent left rail, Minimal vs Expressive variants, dark mode.
+- `chainv2builder/project/Workflow Builder.html` — root document loading 8 babel modules.
+- `chainv2builder/project/src/{app,header,left-rail,canvas,inspector,trigger-picker,data,icons}.jsx` — the React-flavored prototype source.
+
+### Design → V2 component mapping
+
+| Design region | V2 home | Disposition |
+|---|---|---|
+| Top header strip (h-48) | [`features/workflow-builder/layout/BuilderHeader.tsx`](../../../features/workflow-builder/layout/BuilderHeader.tsx) | Rewritten as a 3-region grid (left identity / center meta strip / right action cluster). Sky-blue accent, mono-uppercase status pills, btngroup for undo/redo/history. |
+| Workflow identity (breadcrumb + name + state + dirty) | `BuilderHeader.HeaderLeft` | Breadcrumb shows `workflow / draft / `; name + StatusPill (Saving… / Unsaved changes / Saved. / role=alert error). Test-text contract preserved verbatim. |
+| Center meta (ID / runs / success / tasks) | `BuilderHeader.HeaderCenterMeta` | **Workflow ID is real**; runs / success / tasks render as `—` with "Coming soon" titles. Marked deferred. Hidden below `lg`. |
+| Right cluster (btngroup, validation chip, theme, Test, Save, sep, Activate, Share, More) | `BuilderHeader.HeaderRight` | Undo / Redo / History render as disabled placeholders in a panel-2 btngroup. Save is the design's dark primary button. `HeaderValidationPill` keeps the existing test contract (`/^1 issue$/i`, `/^2 issues$/i`) — leading icon glyph removed so `textContent` stays clean. `LifecycleActions` mounts in-place. |
+| Left rail (320px expanded, 40px collapsed spine) | [`features/workflow-builder/layout/BuilderLeftAgentRail.tsx`](../../../features/workflow-builder/layout/BuilderLeftAgentRail.tsx) | Full chat-style chrome: gradient sparkle logo, "React Agent" + "connected · claude" status line, in-rail × button. **Collapsed mode now renders a 40px vertical spine with rotated `REACT AGENT` label + expand button** — children still NOT mounted while collapsed (load-bearing). |
+| React Agent body (chat composer + plan card) | [`features/workflow-builder/panels/BuilderAiPanel.tsx`](../../../features/workflow-builder/panels/BuilderAiPanel.tsx) + [`_BuilderAiPanelPreview.tsx`](../../../features/workflow-builder/panels/_BuilderAiPanelPreview.tsx) | Composer is the design's textarea + Plan with AI button + ⌘↵ kbd hint. Plan preview adopts the Anthropic plan-card aesthetic (Proposed-change pill, risk-level chip, mono stats row, color-coded op chips, error/warning lists). AI-11 / AI-11B contract preserved end-to-end. |
+| Canvas top action bar (Builder/Run/Schema/Settings tabs + env tags + Add action) | [`features/workflow-builder/canvas/WorkflowCanvas.tsx`](../../../features/workflow-builder/canvas/WorkflowCanvas.tsx) → `CanvasActionBar` | Segmented tab control with **Builder active**, **Run history / Schema / Settings disabled** ("Coming soon"). Env / trigger / node-count tags as mono-styled chips. Primary "+ Add action" CTA wired to `openActionPicker` (replaced the old centered-above-canvas button; only one Add-action surface now). |
+| Canvas background (radial dot grid) | `WorkflowCanvas` + `.builder-dot-grid` utility in [`app/globals.css`](../../../app/globals.css) | Two layered radial-gradient dot grids (18px + 90px) replace ReactFlow's default `Background` dots (now rendered transparent to avoid double dots). |
+| ReactFlow Controls + MiniMap | `WorkflowCanvas` | Both retained, restyled to read against `--builder-panel`. Minimap was previously absent — added per design. |
+| Node card (status rail + brand + kind chip + title + subtitle + badges) | [`features/workflow-builder/canvas/WorkflowNodeCard.tsx`](../../../features/workflow-builder/canvas/WorkflowNodeCard.tsx) | 280px (matches design `NODE_W`). Left 3px status rail (success / warn / accent per status). Kind chip ("trigger" / "action") in mono uppercase. Brand initials-avatar (logo when `iconUrl` present). Dashed-top footer with `Not configured` chip or neutral `ready` badge. Per-node run stats footer deferred. |
+| Edges (stepped / orthogonal + plus button on hover) | [`features/workflow-builder/canvas/WorkflowEdge.tsx`](../../../features/workflow-builder/canvas/WorkflowEdge.tsx) | Switched from `getBezierPath` to `getSmoothStepPath` with 8px corner radius. Stroke bound to `--builder-border-strong` / `--builder-accent`. Plus button restyled — dashed → solid on hover with accent fill. |
+| Empty canvas state (framed Anthropic card) | [`features/workflow-builder/canvas/EmptyCanvasState.tsx`](../../../features/workflow-builder/canvas/EmptyCanvasState.tsx) | Diagonal-rule frame strip, mono "EMPTY · NO TRIGGER · NO ACTIONS" tag, 18px title, paragraph body, "Choose a trigger" primary + "Describe to AI" / "Import from template" disabled placeholders. Recent-triggers list deferred. |
+| Right drawer chrome | [`features/workflow-builder/layout/BuilderRightDrawer.tsx`](../../../features/workflow-builder/layout/BuilderRightDrawer.tsx) | Edge-to-edge against canvas with single 1px vertical divider (no rounded card framing). 380px md+ (matches design). |
+| Node inspector head + tab strip | [`features/workflow-builder/panels/NodeInspectorPanel.tsx`](../../../features/workflow-builder/panels/NodeInspectorPanel.tsx) → `InspectorTabs` | **Setup / Advanced / Test / Variables tab strip** added — Setup active w/ accent underline; the other 3 disabled with "Coming soon" titles. `ConfigModalShell` mounts inside the body unchanged (schema-form behavior intact). |
+| Trigger / action picker (modal + native list + provider grid + drill-in) | [`AddNodePanel.tsx`](../../../features/workflow-builder/panels/AddNodePanel.tsx) + [`TriggerPicker.tsx`](../../../features/workflow-builder/panels/TriggerPicker.tsx) + [`ActionPicker.tsx`](../../../features/workflow-builder/panels/ActionPicker.tsx) + [`_pickerShared.tsx`](../../../features/workflow-builder/panels/_pickerShared.tsx) | Modal overlay restyled to the Anthropic palette command-palette (backdrop blur, search row with icon + esc chip, dense rows). Provider section restructured **from flat list to 2-column grid with drill-in** (per user direction). Shared `PickerSectionHeader` / `PickerRow` / `ProviderCard` extracted to `_pickerShared.tsx` to avoid duplication. All test contracts (aria-labels, "Browse {provider}" button names) preserved verbatim. |
+| Run results / Validation summary | [`RunResultsPanel.tsx`](../../../features/workflow-builder/panels/RunResultsPanel.tsx) + [`ValidationSummary.tsx`](../../../features/workflow-builder/validation/ValidationSummary.tsx) | Light restyle to read against the new drawer chrome (mono labels, Anthropic palette colors). No structural change. |
+| Design tokens (palette + fonts + shadows) | [`app/globals.css`](../../../app/globals.css) | Added 28 `--builder-*` variables (light + dark variants) covering bg / panel / panel-2 / border / border-strong / text / text-2 / muted / muted-2 / accent / accent-soft / accent-strong / success(-soft) / warn(-soft) / danger(-soft) / grid / grid-strong / shadow-{sm,md,lg}. Geist + JetBrains Mono fonts loaded in `app/layout.tsx`. New `.builder-mono` and `.builder-dot-grid` utility classes. `[data-builder-surface]` selector retones the workflow detail route. shadcn HSL tokens (`--primary` etc.) left alone so the rest of the app is unchanged. |
+| Route wrapper marker | [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx) | Added `data-builder-surface` to the `<main>` so the palette only applies inside the builder. No behavior change. |
+
+### Files changed (implementation)
+
+```
+app/globals.css                                                    +73 −7
+app/layout.tsx                                                     +3 −1
+app/workflows/[id]/page.tsx                                        +1 −0
+features/workflow-builder/WorkflowBuilder.tsx                      +22 −14
+features/workflow-builder/canvas/EmptyCanvasState.tsx              +130 −53
+features/workflow-builder/canvas/WorkflowCanvas.tsx                +135 −37
+features/workflow-builder/canvas/WorkflowEdge.tsx                  +24 −12
+features/workflow-builder/canvas/WorkflowNodeCard.tsx              +94 −59
+features/workflow-builder/layout/BuilderHeader.tsx                 +273 −156
+features/workflow-builder/layout/BuilderLeftAgentRail.tsx          +109 −19
+features/workflow-builder/layout/BuilderRightDrawer.tsx            +44 −33
+features/workflow-builder/layout/BuilderShell.tsx                  +16 −16
+features/workflow-builder/layout/HeaderRunControls.tsx             +3 −2
+features/workflow-builder/layout/_BuilderHeaderIcons.tsx           +164 (new)
+features/workflow-builder/panels/ActionPicker.tsx                  +147 −108
+features/workflow-builder/panels/AddNodePanel.tsx                  +84 −20
+features/workflow-builder/panels/BuilderAiPanel.tsx                +98 −167
+features/workflow-builder/panels/NodeInspectorPanel.tsx            +51 −5
+features/workflow-builder/panels/RunResultsPanel.tsx               +10 −5
+features/workflow-builder/panels/TriggerPicker.tsx                 +145 −74
+features/workflow-builder/panels/_BuilderAiPanelPreview.tsx        +259 (new)
+features/workflow-builder/panels/_pickerShared.tsx                 +105 −0
+features/workflow-builder/validation/ValidationSummary.tsx         +6 −4
+```
+
+Plus 5 test file updates:
+
+```
+tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx
+tests/unit/features/workflow-builder/canvas/EmptyCanvasState.test.tsx
+tests/unit/features/workflow-builder/canvas/WorkflowCanvas.test.tsx        (+42 new design-parity tests)
+tests/unit/features/workflow-builder/layout/BuilderLeftAgentRail.test.tsx
+tests/unit/features/workflow-builder/panels/NodeInspectorPanel.test.tsx    (+20 new design-parity tests)
+```
+
+### Behavior preserved (load-bearing invariants asserted by tests)
+
+- ✅ Workflow save round-trip — Save button + Cmd+S + slice `updateWorkflow` boundary unchanged. "Saved." text contract preserved.
+- ✅ AI-11 / AI-11B preview-then-apply contract — value-free output, risk acknowledgment gate, char counter, stale-patch recovery, plan-failure copy. All testids (`builder-ai-plan-button`, `-prompt`, `-preview`, `-changes`, `-risk-reasons`, `-validation-errors`, `-validation-warnings`, `-apply-button`, `-apply-success`, `-apply-failure`, `-rerun-button`, `-clear-button`, `-needs-input`, `-unsupported`, `-safety`, `-plan-failure`, `-plan-failure-detail`, `-risk-ack-checkbox`, `-char-count`) preserved verbatim.
+- ✅ Drawer mode state machine (inspector / results / validation, mutually exclusive) and the inspector ↔ run-state transition refs in `WorkflowBuilder`.
+- ✅ Left rail collapse persists to localStorage; children unmount when collapsed.
+- ✅ ReactFlow canvas dispatch contract — node click → `openNode`, drag-stop → `updateNodePosition`, connect → `connectNodes`, delete → `removeNode` / `removeEdge`.
+- ✅ HeaderRunControls (Test Workflow / Run Manually / destructive-action 409 modal flow).
+- ✅ ValidationSummary "Ready" + issue-count states + clicking an issue opens the inspector via `openNode`.
+- ✅ AddNodePanel modes (trigger / action / insertAction with edgeId) + edge plus-button.
+- ✅ TriggerPicker + ActionPicker test contracts — aria-labels on lists (`Native triggers list`, `Native actions list`, `Trigger providers`, `Action providers`, `{provider} triggers list`, `{provider} actions list`), button names (`Browse {provider} triggers`, `Browse {provider} actions`, `Back to {trigger/action} picker`), empty / loading / error copy.
+- ✅ `WorkflowNodeCard` test contracts — `data-testid="workflow-node-view"`, `data-kind`, `data-selected`, `data-status`, `not-configured-badge`, `provider-initials-avatar`, `provider-icon`, plus the `(unconfigured)` subtitle.
+
+### Deferred design elements (documented as "Coming soon" placeholders, not faked)
+
+| Design element | Decision | Rationale |
+|---|---|---|
+| Header center meta — `runs/24h`, `success`, `tasks/run` | Render `—` placeholder cells (only `ID` is real) | V2 doesn't surface per-workflow analytics yet. The cells exist so the meta-strip layout reads correctly. |
+| Header `theme` toggle (light/dark) | Skipped (out of scope) | Theme system is owned by BUILDER-RESPONSIVE-1. |
+| Header `Share` icon button | Skipped (out of scope) | V2 doesn't have a sharing surface inside the builder; would be a separate feature slice. |
+| Left rail stats strip (prompt tok / ctx / model) | Skipped — left rail header carries only "connected · claude" | V2 doesn't track per-session diagnostic metrics; faking would violate the no-fake-data rule. |
+| Left rail quick-prompt chips | Skipped | Would be a thin UX add — defer to a follow-up if user-prompted. |
+| Canvas top tabs — `Run history`, `Schema`, `Settings` | Render disabled with "Coming soon" titles | V2 routes those flows outside the builder today; the tabs exist so the segmented control reads correctly. |
+| Header btngroup — `Undo`, `Redo`, `History`, `Comments` | Render disabled | No slice support yet. |
+| Node card stats footer (runs / last) | Replaced with neutral `ready` chip (or `Not configured` if unconfigured) | No per-node run history projected into the canvas yet. |
+| Inspector tabs — `Advanced`, `Test`, `Variables` | Render disabled with "Coming soon" titles | Only `Setup` is wired in V2; the strip exists so the visual hierarchy matches. |
+| Inspector status row (`created` / `by` / `rev`) | Skipped | Same — no metadata projection yet. |
+| Empty-state "Recent triggers" list | Skipped | No per-workspace recency tracking yet. |
+| Edge labels (rect bubble with mono text) | Skipped | V2's edge model doesn't carry labels today. Edge model would need a label field first. |
+| Live-cursor / live-runs pill | Skipped | No real-time projection. |
+| Header `Activate` button color (green publish button) | LifecycleActions retains its existing styling | Out of scope for this slice — handled by `LifecycleActions` already. |
+
+### Old centered layout
+
+Already removed in BUILDER-V1-SHELL-PARITY-1 (the `max-w-3xl mx-auto` wrapper, `WorkflowEditForm`, `RunHistory` below-canvas mount were all deleted there). This slice did **not** re-introduce any of them, and `data-builder-surface` on the route container is purely additive (palette-only, no layout change).
+
+### Provider / backend / AI service files untouched (confirmed)
+
+```
+$ git diff --name-only main...HEAD | grep -E "(lib/api|services|workflow-engine|integrations|stores|core/)" | head
+(empty)
+```
+
+No files under `lib/api/`, `services/`, `workflow-engine/`, `integrations/`, `stores/`, or `core/` changed in this slice. The AI / planner / workflow-execution / billing / tasks paths are untouched. Provider metadata (`integrations/_registry`, per-provider definitions) untouched.
+
+### Verification gates (snapshot at end of slice)
+
+- `npx tsc --noEmit` — **clean (exit 0)**.
+- `npx jest tests/unit/features/workflow-builder/ tests/integration/features/workflow-builder/ --no-coverage` — **1220 passed, 0 failed across 145 suites**.
+- Lint + lint:structure + lint:migrations — run in the final closeout pass.
+

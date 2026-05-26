@@ -99,13 +99,14 @@ export function HeaderRunControls() {
         <Button
           type="button"
           size="sm"
-          variant="default"
+          variant="outline"
           onClick={handleTestWorkflow}
           disabled={anyRunning}
           data-testid="run-controls-test-button"
           title="Runs safely without calling connected provider APIs. External actions are skipped with test-mode outputs."
+          className="builder-mono inline-flex h-7 items-center gap-1.5 px-2.5 text-[12px]"
         >
-          {runningMode === "test" ? "Testing…" : "Test Workflow"}
+          <span>{runningMode === "test" ? "Testing…" : "Test Workflow"}</span>
         </Button>
         <Button
           type="button"

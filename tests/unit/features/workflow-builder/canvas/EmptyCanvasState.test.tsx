@@ -20,8 +20,12 @@ describe("EmptyCanvasState", () => {
     expect(
       screen.getByRole("heading", { name: /choose a trigger/i }),
     ).toBeInTheDocument();
+    // Slice 4.BUILDER-DESIGN-PARITY-1 — copy reads "begins with a trigger"
+    // per the Anthropic ChainV2 empty-state body (was "starts with a
+    // trigger" in CANVAS-1). The regex is loose enough to survive minor
+    // copy iteration without spurious failures.
     expect(
-      screen.getByText(/every workflow starts with a trigger/i),
+      screen.getByText(/every workflow begins with a trigger/i),
     ).toBeInTheDocument();
   });
 

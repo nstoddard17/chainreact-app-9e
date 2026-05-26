@@ -1,0 +1,151 @@
+"use client";
+
+/**
+ * Status + validation pills for the builder header
+ * (4.BUILDER-DESIGN-PARITY-1).
+ *
+ * Extracted out of `BuilderHeader.tsx` so the main header file stays
+ * under the project's 400-line ESLint max. Both pills are
+ * presentational — no slice reads, no event dispatch beyond the
+ * `onOpen` callback wired by the header.
+ *
+ * Text-content contracts are preserved verbatim from BUILDER-UI-SHELL-1 /
+ * BUILDER-VALIDATION-1:
+ *   - StatusPill renders "Saved.", "Unsaved changes", "Saving…", or a
+ *     `role="alert"` element containing the slice's `saveError`.
+ *     idle → null.
+ *   - HeaderValidationPill renders "Ready" or "N issue" / "N issues"
+ *     with `data-state="ready"|"warning"|"error"` and
+ *     `data-error-count` / `data-warning-count` attributes the
+ *     BuilderHeader tests assert on.
+ */
+
+export type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
+
+export function HeaderValidationPill({
+  counts,
+  onOpen,
+}: {
+  counts: { errorCount: number; warningCount: number; totalCount: number };
+  onOpen: () => void;
+}) {
+  const { errorCount, warningCount, totalCount } = counts;
+  const state: "ready" | "warning" | "error" =
+    errorCount > 0 ? "error" : warningCount > 0 ? "warning" : "ready";
+  const label =
+    state === "ready"
+      ? "Ready"
+      : `${totalCount} ${totalCount === 1 ? "issue" : "issues"}`;
+  const style =
+    state === "error"
+      ? {
+          background: "var(--builder-danger-soft)",
+          color: "var(--builder-danger)",
+          borderColor: "var(--builder-danger)",
+        }
+      : state === "warning"
+        ? {
+            background: "var(--builder-warn-soft)",
+            color: "var(--builder-warn)",
+            borderColor: "var(--builder-warn)",
+          }
+        : {
+            background: "var(--builder-success-soft)",
+            color: "var(--builder-success)",
+            borderColor: "var(--builder-success)",
+          };
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="Open validation summary"
+      data-testid="builder-header-validation-pill"
+      data-state={state}
+      data-error-count={errorCount}
+      data-warning-count={warningCount}
+      className="inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium"
+      style={{
+        border: "1px solid",
+        ...style,
+      }}
+      title="Open validation summary"
+    >
+      {label}
+    </button>
+  );
+}
+
+export function StatusPill({
+  status,
+  saveError,
+}: {
+  status: SaveStatus;
+  saveError: string | null;
+}) {
+  if (status === "idle") return null;
+  if (status === "error") {
+    return (
+      <span
+        role="alert"
+        data-testid="builder-header-status-pill"
+        data-status="error"
+        className="builder-mono inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+        style={{
+          border: "1px solid var(--builder-danger)",
+          background: "var(--builder-danger-soft)",
+          color: "var(--builder-danger)",
+        }}
+      >
+        <span
+          aria-hidden
+          className="inline-block h-1.5 w-1.5 rounded-full"
+          style={{ background: "var(--builder-danger)" }}
+        />
+        {saveError ?? "Failed to save."}
+      </span>
+    );
+  }
+  const cfg =
+    status === "saving"
+      ? {
+          label: "Saving…",
+          dot: "var(--builder-accent)",
+          fg: "var(--builder-accent)",
+          bg: "var(--builder-accent-soft)",
+          border: "var(--builder-accent)",
+        }
+      : status === "unsaved"
+        ? {
+            label: "Unsaved changes",
+            dot: "var(--builder-warn)",
+            fg: "var(--builder-warn)",
+            bg: "var(--builder-warn-soft)",
+            border: "var(--builder-warn)",
+          }
+        : {
+            label: "Saved.",
+            dot: "var(--builder-success)",
+            fg: "var(--builder-success)",
+            bg: "var(--builder-success-soft)",
+            border: "var(--builder-success)",
+          };
+  return (
+    <span
+      data-testid="builder-header-status-pill"
+      data-status={status}
+      className="builder-mono inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+      style={{
+        border: `1px solid ${cfg.border}`,
+        background: cfg.bg,
+        color: cfg.fg,
+      }}
+    >
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ background: cfg.dot }}
+      />
+      {cfg.label}
+    </span>
+  );
+}

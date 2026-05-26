@@ -9,74 +9,65 @@ import {
   collectBuilderValidationIssues,
   countBuilderValidationIssues,
 } from "../validation/collectBuilderValidationIssues";
+import {
+  BuilderIconButton,
+  ChevronLeftIcon,
+  HistoryIcon,
+  LayersIcon,
+  RedoIcon,
+  UndoIcon,
+} from "./_BuilderHeaderIcons";
+import {
+  HeaderValidationPill,
+  StatusPill,
+  type SaveStatus,
+} from "./_BuilderHeaderPills";
 import { HeaderRunControls } from "./HeaderRunControls";
 
 interface Props {
   workflowName: string;
   /**
-   * Left React Agent rail state. When supplied, the header renders a
-   * collapse/expand toggle on the left side of the action area. The
-   * toggle is purely a presentational lever — the parent owns the
-   * actual state via `useLeftAgentRail`. Slice 4.BUILDER-LEFT-AGENT-1.
-   *
-   * Optional so the SHELL-1 unit tests (which render BuilderHeader in
-   * isolation with no rail context) keep passing unchanged.
+   * The workflow's database id — surfaced as a mono code chip in the
+   * header center meta strip (4.BUILDER-DESIGN-PARITY-1). Optional so
+   * existing focused tests (BuilderHeader rendered in isolation) keep
+   * passing unchanged.
    */
+  workflowId?: string;
   leftRail?: {
     isCollapsed: boolean;
     onToggle: () => void;
   };
-  /**
-   * Validation pill state. When supplied, the header renders a small
-   * pill showing the current error/warning count or a "Ready" pill
-   * when the graph is clean. Clicking the pill fires `onOpen` — the
-   * parent flips the right drawer mode to `validation`. Slice 4.
-   * BUILDER-VALIDATION-1.
-   *
-   * Optional so the SHELL-1 / LEFT-AGENT-1 unit tests that render
-   * BuilderHeader in isolation keep passing unchanged.
-   */
   validation?: {
     onOpen: () => void;
   };
-  /**
-   * Lifecycle actions (Activate / Pause / Resume). When supplied, the
-   * header mounts `<LifecycleActions>` next to the Save button. Slice
-   * 4.BUILDER-V1-SHELL-PARITY-1 lifted these out of the page-header
-   * `<header>` block so the builder workspace owns the full chrome.
-   *
-   * Optional so the SHELL-1 / LEFT-AGENT-1 / VALIDATION-1 unit tests
-   * that render BuilderHeader in isolation keep passing unchanged.
-   */
   lifecycle?: {
     workflowId: string;
     state: WorkflowState;
   };
 }
 
-type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
-
 /**
- * Builder header (Slice 4.BUILDER-UI-SHELL-1, extended in
- * Slice 4.BUILDER-LEFT-AGENT-1).
+ * Builder header (Slice 4.BUILDER-UI-SHELL-1, extended through
+ * 4.BUILDER-LEFT-AGENT-1 / VALIDATION-1, restyled in
+ * 4.BUILDER-DESIGN-PARITY-1).
  *
- * 48px compact strip that owns workflow identity (read-only name), the
- * save status pill + Save button, the header run controls (Test / Run),
- * and the React Agent left-rail toggle. Wires Cmd/Ctrl+S to the same
- * save action.
+ * Three-region 48px strip mirroring the Anthropic ChainV2 design:
  *
- * Intentionally NOT in this slice (see follow-up slices in the port plan):
- *   - LifecycleActions stays in the page header (a dedicated
- *     lifecycle-move slice).
- *   - History pill + ValidationSummary pill (BUILDER-VALIDATION-1).
- *   - Undo / redo (requires slice support that does not exist yet).
+ *   [ left toggle · breadcrumb · name · state · dirty ]  [ center meta ]  [ btngroup · chip · Test · Save · Activate ]
  *
- * The header reads save state straight from the graph slice — same pattern
- * `LifecycleActions` already uses — so it composes anywhere inside a
- * mounted builder without prop threading.
+ * Behavior is unchanged from prior slices — same isDirty / isSaving
+ * Zustand reads, same Cmd/Ctrl+S shortcut, same validation count
+ * derivation, same `LifecycleActions` mount path. Only the visual
+ * arrangement and chrome moved.
+ *
+ * Center meta strip surfaces what V2 actually knows (workflow id);
+ * runs-per-24h / success-rate / tasks-per-run cells render as `—`
+ * placeholders, marked as deferred in the slice doc. They're rendered
+ * (rather than skipped) so the layout reads correctly on wide screens.
  */
 export function BuilderHeader({
   workflowName,
+  workflowId,
   leftRail,
   validation,
   lifecycle,
@@ -89,9 +80,6 @@ export function BuilderHeader({
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
-  // Slice 4.BUILDER-VALIDATION-1 — validation pill counts are derived
-  // from the same pure helper the ValidationSummary drawer body uses,
-  // so the pill count and the drawer list never disagree.
   const validationCounts = validation
     ? countBuilderValidationIssues(
         collectBuilderValidationIssues({ pendingNodes, pendingEdges }),
@@ -115,107 +103,212 @@ export function BuilderHeader({
   return (
     <header
       aria-label="Workflow builder header"
-      className="flex h-12 items-center justify-between gap-3 border-b border-border px-3"
+      data-testid="builder-header"
+      className="grid h-12 shrink-0 items-center gap-3 px-2"
+      style={{
+        gridTemplateColumns: "1fr auto 1fr",
+        background: "var(--builder-panel)",
+        borderBottom: "1px solid var(--builder-border)",
+      }}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        {leftRail ? (
-          <LeftRailToggle
-            isCollapsed={leftRail.isCollapsed}
-            onToggle={leftRail.onToggle}
-          />
-        ) : null}
-        <h2 className="truncate text-sm font-semibold" title={workflowName}>
-          {workflowName}
-        </h2>
-        <StatusPill status={status} saveError={saveError} />
-      </div>
-      <div className="flex items-center gap-2">
-        {validation && validationCounts ? (
-          <HeaderValidationPill
-            counts={validationCounts}
-            onOpen={validation.onOpen}
-          />
-        ) : null}
-        <HeaderRunControls />
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!isDirty || isSaving}
-          className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {isSaving ? "Saving…" : "Save"}
-        </button>
-        {lifecycle ? (
-          <LifecycleActions
-            workflowId={lifecycle.workflowId}
-            state={lifecycle.state}
-          />
-        ) : null}
-      </div>
+      <HeaderLeft
+        workflowName={workflowName}
+        leftRail={leftRail}
+        status={status}
+        saveError={saveError}
+      />
+      <HeaderCenterMeta workflowId={workflowId} />
+      <HeaderRight
+        isDirty={isDirty}
+        isSaving={isSaving}
+        onSave={handleSave}
+        validation={validation}
+        validationCounts={validationCounts}
+        lifecycle={lifecycle}
+      />
     </header>
   );
 }
 
-function HeaderValidationPill({
-  counts,
-  onOpen,
+function HeaderLeft({
+  workflowName,
+  leftRail,
+  status,
+  saveError,
 }: {
-  counts: { errorCount: number; warningCount: number; totalCount: number };
-  onOpen: () => void;
+  workflowName: string;
+  leftRail?: { isCollapsed: boolean; onToggle: () => void };
+  status: SaveStatus;
+  saveError: string | null;
 }) {
-  const { errorCount, warningCount, totalCount } = counts;
-  const state: "ready" | "warning" | "error" =
-    errorCount > 0 ? "error" : warningCount > 0 ? "warning" : "ready";
-  const label =
-    state === "ready"
-      ? "Ready"
-      : `${totalCount} ${totalCount === 1 ? "issue" : "issues"}`;
-  const className =
-    state === "error"
-      ? "border border-destructive/40 bg-destructive/10 text-destructive"
-      : state === "warning"
-        ? "border border-amber-300/50 bg-amber-50 text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300"
-        : "border border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300";
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label="Open validation summary"
-      data-testid="builder-header-validation-pill"
-      data-state={state}
-      data-error-count={errorCount}
-      data-warning-count={warningCount}
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
-      title="Open validation summary"
-    >
-      {label}
-    </button>
+    <div className="flex min-w-0 items-center gap-1.5">
+      <BuilderIconButton ariaLabel="Back" title="Back" disabled>
+        <ChevronLeftIcon />
+      </BuilderIconButton>
+      {leftRail ? (
+        <BuilderIconButton
+          ariaLabel={
+            leftRail.isCollapsed ? "Expand React Agent" : "Collapse React Agent"
+          }
+          title={
+            leftRail.isCollapsed ? "Show assistant" : "Hide assistant"
+          }
+          onClick={leftRail.onToggle}
+          testId="builder-header-left-rail-toggle"
+          dataAttrs={{
+            "data-collapsed": leftRail.isCollapsed ? "true" : "false",
+            "aria-pressed": String(!leftRail.isCollapsed),
+          }}
+        >
+          <LayersIcon />
+        </BuilderIconButton>
+      ) : null}
+      <div className="ml-1 flex min-w-0 flex-col gap-0.5">
+        <div
+          className="builder-mono flex items-center gap-1.5 text-[10.5px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          <span>workflow</span>
+          <span style={{ color: "var(--builder-muted-2)" }}>/</span>
+          <span>draft</span>
+          <span style={{ color: "var(--builder-muted-2)" }}>/</span>
+        </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <h2
+            className="max-w-[340px] truncate text-[13px] font-semibold"
+            title={workflowName}
+            style={{ color: "var(--builder-text)" }}
+          >
+            {workflowName}
+          </h2>
+          <StatusPill status={status} saveError={saveError} />
+        </div>
+      </div>
+    </div>
   );
 }
 
-function LeftRailToggle({
-  isCollapsed,
-  onToggle,
-}: {
-  isCollapsed: boolean;
-  onToggle: () => void;
-}) {
-  const label = isCollapsed ? "Expand React Agent" : "Collapse React Agent";
+function HeaderCenterMeta({ workflowId }: { workflowId?: string }) {
+  if (!workflowId) return <div />;
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={label}
-      aria-pressed={!isCollapsed}
-      data-testid="builder-header-left-rail-toggle"
-      data-collapsed={isCollapsed ? "true" : "false"}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-input text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-      title={label}
+    <div
+      data-testid="builder-header-meta-strip"
+      className="hidden items-center gap-3.5 rounded-md px-2.5 py-1 lg:flex"
+      style={{
+        background: "var(--builder-panel-2)",
+        border: "1px solid var(--builder-border)",
+      }}
     >
-      <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
-    </button>
+      <MetaPair label="ID" value={workflowId} />
+      <MetaPair label="runs/24h" value="—" deferred />
+      <MetaPair label="success" value="—" deferred />
+      <MetaPair label="tasks/run" value="—" deferred />
+    </div>
   );
 }
+
+function MetaPair({
+  label,
+  value,
+  deferred,
+}: {
+  label: string;
+  value: string;
+  deferred?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className="text-[10px] uppercase tracking-[0.05em]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        {label}
+      </span>
+      <code
+        className="builder-mono text-[11.5px]"
+        style={{
+          color: deferred ? "var(--builder-muted-2)" : "var(--builder-text-2)",
+        }}
+        title={deferred ? "Coming soon — not surfaced in V2 yet" : value}
+      >
+        {value}
+      </code>
+    </div>
+  );
+}
+
+function HeaderRight({
+  isDirty,
+  isSaving,
+  onSave,
+  validation,
+  validationCounts,
+  lifecycle,
+}: {
+  isDirty: boolean;
+  isSaving: boolean;
+  onSave: () => void;
+  validation?: { onOpen: () => void };
+  validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
+  lifecycle?: { workflowId: string; state: WorkflowState };
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <div
+        className="flex items-center gap-0.5 rounded-md p-0.5"
+        style={{
+          background: "var(--builder-panel-2)",
+          border: "1px solid var(--builder-border)",
+        }}
+      >
+        <BuilderIconButton ariaLabel="Undo" title="Undo (coming soon)" disabled size="sm">
+          <UndoIcon />
+        </BuilderIconButton>
+        <BuilderIconButton ariaLabel="Redo" title="Redo (coming soon)" disabled size="sm">
+          <RedoIcon />
+        </BuilderIconButton>
+        <BuilderIconButton ariaLabel="History" title="Run history (coming soon)" disabled size="sm">
+          <HistoryIcon />
+        </BuilderIconButton>
+      </div>
+      {validation && validationCounts ? (
+        <HeaderValidationPill
+          counts={validationCounts}
+          onOpen={validation.onOpen}
+        />
+      ) : null}
+      <HeaderRunControls />
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={!isDirty || isSaving}
+        className="inline-flex h-7 items-center gap-1.5 rounded-[5px] px-3 text-[12px] font-medium disabled:opacity-50"
+        style={{
+          background: "var(--builder-text)",
+          color: "var(--builder-panel)",
+          border: "1px solid var(--builder-text)",
+        }}
+        title="Save (⌘S)"
+      >
+        {isSaving ? "Saving…" : "Save"}
+      </button>
+      <span
+        aria-hidden
+        className="mx-0.5 inline-block h-5 w-px"
+        style={{ background: "var(--builder-border)" }}
+      />
+      {lifecycle ? (
+        <LifecycleActions
+          workflowId={lifecycle.workflowId}
+          state={lifecycle.state}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+
 
 function deriveStatus(input: {
   isDirty: boolean;
@@ -230,47 +323,3 @@ function deriveStatus(input: {
   return "idle";
 }
 
-function StatusPill({
-  status,
-  saveError,
-}: {
-  status: SaveStatus;
-  saveError: string | null;
-}) {
-  if (status === "idle") return null;
-  if (status === "error") {
-    return (
-      <span
-        role="alert"
-        className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
-      >
-        {saveError ?? "Save failed."}
-      </span>
-    );
-  }
-  const label = STATUS_LABEL[status];
-  const className = STATUS_CLASSES[status];
-  return (
-    <span
-      data-status={status}
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-const STATUS_LABEL: Record<Exclude<SaveStatus, "idle" | "error">, string> = {
-  saving: "Saving…",
-  unsaved: "Unsaved changes",
-  saved: "Saved.",
-};
-
-const STATUS_CLASSES: Record<Exclude<SaveStatus, "idle" | "error">, string> = {
-  saving:
-    "border border-blue-300/40 bg-blue-50 text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300",
-  unsaved:
-    "border border-amber-300/50 bg-amber-50 text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300",
-  saved:
-    "border border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300",
-};

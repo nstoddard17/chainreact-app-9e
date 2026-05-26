@@ -121,6 +121,49 @@ describe("WorkflowCanvas — node click dispatches configSlice.openNode", () => 
   });
 });
 
+describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () => {
+  it("renders the canvas action bar above the canvas with Builder active + secondaries disabled", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    const bar = screen.getByTestId("canvas-action-bar");
+    expect(bar).toBeInTheDocument();
+    const tabs = within(bar).getAllByRole("tab");
+    // Builder / Run history / Schema / Settings.
+    expect(tabs).toHaveLength(4);
+    expect(tabs[0]!.textContent).toMatch(/^Builder$/);
+    expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
+    // Secondary tabs are present-but-disabled placeholders (V2 doesn't
+    // surface those flows inside the builder yet — documented as
+    // deferred in the slice doc).
+    for (const t of tabs.slice(1)) {
+      expect(t).toBeDisabled();
+      expect(t.getAttribute("aria-selected")).toBe("false");
+    }
+  });
+
+  it("Add action canvas button fires the supplied callback when enabled, disabled otherwise", () => {
+    const onAddAction = jest.fn();
+    const { rerender } = render(
+      <WorkflowCanvas
+        providerLabels={providerLabels}
+        onAddAction={onAddAction}
+        canAddAction={false}
+      />,
+    );
+    const btn = screen.getByTestId("canvas-add-action-button");
+    expect(btn).toBeDisabled();
+    rerender(
+      <WorkflowCanvas
+        providerLabels={providerLabels}
+        onAddAction={onAddAction}
+        canAddAction
+      />,
+    );
+    expect(screen.getByTestId("canvas-add-action-button")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("canvas-add-action-button"));
+    expect(onAddAction).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("WorkflowCanvas — never persists to backend", () => {
   it("does not call updateWorkflow on mount", () => {
     render(<WorkflowCanvas providerLabels={providerLabels} />);

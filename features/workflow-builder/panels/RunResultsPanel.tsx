@@ -37,13 +37,20 @@ export function RunResultsPanel() {
   return (
     <section
       aria-label="Latest run results"
-      className="flex flex-col gap-2 rounded border border-input bg-card p-3"
+      className="flex flex-col gap-2 p-3"
       data-status={status}
+      style={{ background: "var(--builder-panel)" }}
     >
       <header className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">Latest run</h3>
+        <h3 className="text-[13px] font-semibold" style={{ color: "var(--builder-text)" }}>
+          Latest run
+        </h3>
         {runId ? (
-          <code className="text-xs text-muted-foreground" data-testid="run-id">
+          <code
+            className="builder-mono text-[10.5px]"
+            data-testid="run-id"
+            style={{ color: "var(--builder-muted)" }}
+          >
             {runId}
           </code>
         ) : null}
