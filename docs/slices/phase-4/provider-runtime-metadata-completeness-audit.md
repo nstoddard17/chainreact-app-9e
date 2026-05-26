@@ -245,6 +245,8 @@ A provider foundation is **launch-ready** when ALL of the following hold:
 
 **Net:** one ❌ blocks "launch-ready" — **Stripe `event_received` TriggerMeta.** After it ships, the foundation is launch-ready by every criterion above.
 
+> **🎯 UPDATE (2026-05-25 — STRIPE-TRIGGER-META-2 shipped):** the lone ❌ is now ✅. Stripe `event_received` TriggerMeta + sub-registry refactor landed at commit (see `stripe-trigger-meta-plan.md` §9). `/api/providers/stripe/triggers` now returns the trigger with `enabledEvents` config + 18 static options including the 3 failed-payment events. **Provider foundation is launch-ready by every criterion in §7.** Subsequent provider work pulls from §6's post-launch backlog by product priority.
+
 ---
 
 ## 8. Recommended next implementation slice

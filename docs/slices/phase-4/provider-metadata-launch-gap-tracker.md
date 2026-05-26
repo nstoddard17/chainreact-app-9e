@@ -125,12 +125,20 @@ BUILDER METADATA:   26/26 providers covered (286/286 handlers). 0 providers / 0 
                      Microsoft Outlook Calendar → OUTLOOK-CAL-META-2, 2026-05-25.)
 POST-AUDIT:         PROVIDER-AUDIT-1 ran 2026-05-25 (provider-runtime-metadata-completeness-audit.md).
                     Confirmed: 286/286 actions covered (1:1); 59/60 runtime triggers covered. ONE GAP —
-                    Stripe event_received TriggerMeta missing (runtime SHIPPED, meta absent). All other
-                    backlog items are post-launch (resolvers / FileRef / Outlook meeting toggle / etc.).
-NEXT ARC:           STRIPE-TRIGGER-META — 2-slice arc (audit/plan + implementation). After it ships, the
-                    provider foundation is launch-ready by every criterion in audit §7.
-DO NOT CALL:        "provider foundation fully complete / launch-ready" until Stripe trigger meta lands.
-                    DEFERRED ≠ DELETED — the audit §6 backlog table is the single owner record going forward.
+                    Stripe event_received TriggerMeta missing (runtime SHIPPED, meta absent).
+STRIPE-TRIGGER:     STRIPE-TRIGGER-META-2 shipped 2026-05-25 (stripe-trigger-meta-plan.md §9). Stripe
+                    event_received TriggerMeta + Stripe sub-registry refactor landed. 60/60 runtime
+                    triggers now covered. /api/providers/stripe/triggers returns the trigger with 18
+                    static event options (incl. payment_intent.payment_failed, charge.failed,
+                    invoice.payment_failed). All 26 providers now use the per-provider sub-registry
+                    pattern — _registry.ts dropped back under 400 lines.
+LAUNCH STATUS:      🎯 PROVIDER FOUNDATION IS LAUNCH-READY by every criterion in audit §7.
+NEXT ARC:           Post-launch backlog (audit §6 / tracker §9) — product-prioritized work. No
+                    launch-blocking provider metadata gaps remain.
+DO NOT CALL:        "all provider work done" — the §9 backlog (Stripe-trigger now done; remaining items
+                    are resolvers / FileRef / Outlook meeting toggle / deferred trigger arcs for Discord/
+                    Docs/OneNote/Monday/Dropbox/Facebook) still own their definition-of-done. DEFERRED ≠
+                    DELETED. But none of them block launch.
 ```
 
 ---
@@ -143,7 +151,7 @@ The launch-gap tracker closed at 26/26 on 2026-05-25 (OUTLOOK-CAL-META-2). The k
 
 | Provider | Trigger work | Tracking arc | Notes |
 |---|---|---|---|
-| `stripe` | `event_received` TriggerMeta | STRIPE-TRIGGER-META (future) | COVERED test deliberately doesn't enforce trigger coverage (precedent set in Slice 3.46). Real builder-UX gap. |
+| ~~`stripe`~~ | ~~`event_received` TriggerMeta~~ | ✅ **STRIPE-TRIGGER-META-2 (shipped 2026-05-25)** | Closed. Sub-registry refactor at the same time — all 26 providers now use the same per-provider sub-registry pattern. |
 | `discord` | trigger metas | DISCORD-5 | Actions COVERED, triggers deferred per D-DC1. |
 | `google-docs` | trigger metas | GDOCS-5 | Actions COVERED, no triggers shipped (deliberate staged arc). |
 | `microsoft-onenote` | polling trigger metas | ONENOTE-5 | Graph deprecated OneNote subscriptions May 2023; polling via shared Excel-style infra. |

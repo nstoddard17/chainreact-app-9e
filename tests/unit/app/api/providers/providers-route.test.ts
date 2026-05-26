@@ -246,6 +246,22 @@ describe("GET /api/providers", () => {
     expect(outlookCal?.hasMetadata).toBe(true);
   });
 
+  it("exposes Stripe event_received TriggerMeta now that Slice 4.STRIPE-TRIGGER-META-2 shipped (closes PROVIDER-AUDIT-1's launch blocker — Stripe failed-payment → Slack DM is catalog-grounded)", async () => {
+    authedUser();
+    const res = await getTriggers(new Request("http://x/stripe/triggers"), {
+      params: Promise.resolve({ id: "stripe" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      provider: string;
+      triggers: Array<{ key: string; activation: string }>;
+    };
+    expect(body.provider).toBe("stripe");
+    expect(body.triggers.map((t) => t.key)).toContain("stripe:event_received");
+    const trigger = body.triggers.find((t) => t.key === "stripe:event_received")!;
+    expect(trigger.activation).toBe("webhook");
+  });
+
   it("marks Microsoft Teams as hasMetadata=true now that Slice 4.TEAMS-META-3 shipped its action + trigger metas", async () => {
     authedUser();
     const res = await getProviders();

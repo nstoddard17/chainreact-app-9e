@@ -236,32 +236,17 @@ import { hubspotUpdateLineItemMeta } from "@/integrations/hubspot/actions/meta/u
 import { hubspotGetLineItemsMeta } from "@/integrations/hubspot/actions/meta/getLineItems.meta";
 import { hubspotRemoveLineItemMeta } from "@/integrations/hubspot/actions/meta/removeLineItem.meta";
 
-// Stripe action metadata (Slices 3.45 + 3.46 — full 16/16 coverage).
-// Slice 3.45 shipped customer + payment lifecycle (8); Slice 3.46
-// shipped subscriptions + commerce (8) and flipped Stripe into
-// `COVERED_PROVIDERS` in tests/structure/discovery-meta-coverage.test.ts
-// — 1:1 handler↔meta coverage is enforced from here on. Trigger meta
-// (`stripe:event_received`) is deferred to a follow-up slice — see
-// stripe-action-metadata-plan §3.
-import { stripeCreateCustomerMeta } from "@/integrations/stripe/actions/createCustomer.meta";
-import { stripeUpdateCustomerMeta } from "@/integrations/stripe/actions/updateCustomer.meta";
-import { stripeFindCustomerMeta } from "@/integrations/stripe/actions/findCustomer.meta";
-import { stripeCreatePaymentIntentMeta } from "@/integrations/stripe/actions/createPaymentIntent.meta";
-import { stripeConfirmPaymentIntentMeta } from "@/integrations/stripe/actions/confirmPaymentIntent.meta";
-import { stripeCapturePaymentIntentMeta } from "@/integrations/stripe/actions/capturePaymentIntent.meta";
-import { stripeCreateRefundMeta } from "@/integrations/stripe/actions/createRefund.meta";
-import { stripeFindPaymentIntentMeta } from "@/integrations/stripe/actions/findPaymentIntent.meta";
-// Slice 3.46 — Stripe subscriptions + commerce surfaces (8 actions).
-// Closes Stripe action coverage at 16/16; same slice flips Stripe into
-// `COVERED_PROVIDERS` so 1:1 handler↔meta drift is enforced from here on.
-import { stripeCreateSubscriptionMeta } from "@/integrations/stripe/actions/createSubscription.meta";
-import { stripeUpdateSubscriptionMeta } from "@/integrations/stripe/actions/updateSubscription.meta";
-import { stripeCancelSubscriptionMeta } from "@/integrations/stripe/actions/cancelSubscription.meta";
-import { stripeFindSubscriptionMeta } from "@/integrations/stripe/actions/findSubscription.meta";
-import { stripeCreateCheckoutSessionMeta } from "@/integrations/stripe/actions/createCheckoutSession.meta";
-import { stripeCreatePaymentLinkMeta } from "@/integrations/stripe/actions/createPaymentLink.meta";
-import { stripeCreateInvoiceMeta } from "@/integrations/stripe/actions/createInvoice.meta";
-import { stripeGetPaymentsMeta } from "@/integrations/stripe/actions/getPayments.meta";
+// Stripe (Slice 4.STRIPE-TRIGGER-META-2 — 16 actions + 1 consolidated
+// webhook trigger). Refactored to the per-provider sub-registry pattern;
+// closes the last direct-import provider so all 26 providers now use the
+// same template. Trigger meta (`stripe:event_received`) closes the single
+// launch blocker identified by PROVIDER-AUDIT-1 — `enabledEvents` config
+// field with 18 static options from `STRIPE_ALLOWED_EVENT_TYPES`, including
+// the 3 failed-payment events the Stripe → Slack DM use case needs.
+import {
+  STRIPE_ACTION_METAS,
+  STRIPE_TRIGGER_METAS,
+} from "./providers/stripe";
 
 // HubSpot trigger metadata (Slice 3.HUBSPOT-6 — closes HubSpot at
 // 26/26 actions + 1/1 triggers). Single consolidated `webhook_received`
@@ -530,40 +515,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   notionListCommentsMeta,
   notionGetUserMeta,
   notionListUsersMeta,
-  // Stripe customer + payment lifecycle (Slice 3.45 — 8 of 16).
-  // Money-moving actions; every meta carries unit-anchored
-  // descriptions (DOLLARS vs CENTS) per the metadata plan §8.
-  // `metadata` fields use `keyvalue` (Record<string,string> contract
-  // fit); enums use `select` with static options. Ordered to match
-  // displayOrder (10..80).
-  stripeCreateCustomerMeta,
-  stripeUpdateCustomerMeta,
-  stripeFindCustomerMeta,
-  stripeCreatePaymentIntentMeta,
-  stripeConfirmPaymentIntentMeta,
-  stripeCapturePaymentIntentMeta,
-  stripeCreateRefundMeta,
-  stripeFindPaymentIntentMeta,
-  // Stripe subscriptions + commerce surfaces (Slice 3.46 — closes
-  // Stripe at 16/16). Same slice flips Stripe into `COVERED_PROVIDERS`
-  // in tests/structure/discovery-meta-coverage.test.ts so the 1:1
-  // handler↔meta invariant is enforced from here on.
-  // Money/subscription-changing actions; descriptions explicitly call
-  // out money-moving / destructive / cancellation-risk semantics.
-  // Nested objects (`lineItems`, `automaticTax`, `afterCompletion`)
-  // use textarea paste-JSON (mirrors `slack:post_interactive_blocks.blocks`
-  // and the Notion paste-JSON pattern). Enums (`mode`, `payment_behavior`,
-  // `proration_behavior`, `collection_method`) use `select` with static
-  // options and NO defaultValue per Q11. Ordered to match displayOrder
-  // (90..160).
-  stripeCreateSubscriptionMeta,
-  stripeUpdateSubscriptionMeta,
-  stripeCancelSubscriptionMeta,
-  stripeFindSubscriptionMeta,
-  stripeCreateCheckoutSessionMeta,
-  stripeCreatePaymentLinkMeta,
-  stripeCreateInvoiceMeta,
-  stripeGetPaymentsMeta,
+  ...STRIPE_ACTION_METAS, // Stripe (STRIPE-TRIGGER-META-2 sub-registry refactor) — 16 actions, displayOrder 10..160 (8 customer + payment lifecycle from Slice 3.45 then 8 subscriptions + commerce from Slice 3.46).
   // Google Sheets — first 8 of 12 actions (Slice 3.GSHEETS-3).
   // Consumes the GSHEETS-2 `google-sheets:spreadsheets` /
   // `google-sheets:sheets` resolvers. Google Sheets remains OUT of
@@ -810,6 +762,14 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // so the trigger-meta-activation-invariant test passes without an
   // exemption.
   ...MICROSOFT_OUTLOOK_CALENDAR_TRIGGER_METAS,
+  // Stripe (STRIPE-TRIGGER-META-2 — closes PROVIDER-AUDIT-1's single
+  // launch blocker) — 1 consolidated webhook trigger (event_received;
+  // enabledEvents combobox+multiple+required with 18 static options from
+  // STRIPE_ALLOWED_EVENT_TYPES). Activation registered in
+  // integrations/stripe/triggers/eventReceived/index.ts →
+  // registerActivation("stripe","event_received",...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...STRIPE_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

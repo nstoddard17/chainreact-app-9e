@@ -301,3 +301,82 @@ After this, the **provider foundation is launch-ready** by every criterion in PR
 8. **`endpointSecret` lives in `trigger_resources.config`, NOT in the meta's `payloadShape`** — explicit guard in the test that no secret-shaped output name appears on the meta surface.
 9. **Branch/worktree caution.** Authored on the shared `ai-12c-planner-json-only-hardening` branch with interleaved AI + provider commits; explicit-path staging only; verify branch topology before any push/PR.
 10. **This is the LAST audit/plan slice in the launch-gap arc.** After STRIPE-TRIGGER-META-2 ships, the provider foundation is launch-ready and subsequent work pulls from the post-launch backlog (PROVIDER-AUDIT-1 §6).
+
+---
+
+## 9. STRIPE-TRIGGER-META-2 outcomes (shipped 2026-05-25) — 🎯 launch blocker CLOSED
+
+**Scope delivered:** 1 TriggerMeta + Stripe sub-registry refactor + `services/discovery/_registry.ts` wire + tests + docs. **PROVIDER-AUDIT-1's single launch blocker is CLOSED** — `/api/providers/stripe/triggers` now returns `event_received`; the canonical Stripe-failed-payment → Slack DM use case is catalog-grounded. **Provider foundation is launch-ready by every criterion in PROVIDER-AUDIT-1 §7.**
+
+### 9.1 TriggerMeta — `integrations/stripe/triggers/eventReceived/eventReceived.meta.ts`
+
+`stripe:event_received`: `activation:"webhook"`, `category:"commerce"`, `requiresIntegration:true`, `displayOrder:10`. Single config field `enabledEvents` (verbatim runtime name) — `combobox + multiple:true + required:true` with **18 static options derived directly from `STRIPE_ALLOWED_EVENT_TYPES`** (drift-proof — the meta imports the runtime constant, doesn't redeclare; the test asserts `optionValues === [...STRIPE_ALLOWED_EVENT_TYPES]`). Each option carries a one-line humanized `description` (the AI planner uses these for prompt → event-type matching). 8-field payload mirrors `normalize.ts` exactly. `data` + `previousAttributes` plan-marked sensitive (Stripe resource snapshot + diff); kept FLAT to avoid SUSPICIOUS_NAMES recursion on `customer` / `paymentIntent` / `subscription`.
+
+### 9.2 Sub-registry refactor — `services/discovery/providers/stripe.ts`
+
+**Refactor closes the last direct-import provider — all 26 providers now use the same per-provider sub-registry pattern.** New `services/discovery/providers/stripe.ts` exports `STRIPE_ACTION_METAS` (16 in displayOrder 10..160) + `STRIPE_TRIGGER_METAS` (1). `services/discovery/_registry.ts`: removed the 26-line Stripe import block (lines 239-264) + the 34-line spread block (lines 518-551); added a single 4-line import + spread. **`_registry.ts` line count dropped from 462 to under 400 — the max-lines warning that crept up with every provider addition is now gone.**
+
+### 9.3 Provider route behavior
+
+| Endpoint | Before STRIPE-TRIGGER-META-2 | After |
+|---|---|---|
+| `/api/providers` → stripe.hasMetadata | `true` (already, from action coverage) | `true` (preserved — regression-guarded by the new test) |
+| `/api/providers/stripe/actions` | 16 actions in displayOrder 10..160 | 16 actions in displayOrder 10..160 (preserved — regression-guarded) |
+| `/api/providers/stripe/triggers` | **`[]`** ❌ | **`[event_received]`** with full wire shape ✅ |
+
+### 9.4 Failed-payment options catalog-visible
+
+The three failed-payment events shipped in the meta's static options with humanized descriptions:
+- `payment_intent.payment_failed` — "A PaymentIntent failed (e.g. card declined, insufficient funds)."
+- `charge.failed` — "A Charge failed (legacy direct-charge flow)."
+- `invoice.payment_failed` — "An Invoice's automatic payment failed (typically a subscription renewal)."
+- (+ `charge.dispute.created` — "A dispute (chargeback) was opened on a previously-succeeded Charge.")
+
+After this, the prompt **"when a stripe payment fails, i want it to send me a slack dm"** is catalog-grounded — the AI planner sees `stripe:event_received` in the provider catalog, sees the 18 `enabledEvents` options with descriptions, can pattern-match "payment fails" → `payment_intent.payment_failed`, and wire `stripe:event_received` + `slack:send_direct_message`. (The planner may still need to ask for Slack userId + DM text — those are inputs the workflow author must supply.)
+
+### 9.5 Tests added/updated
+
+| File | Status | Coverage |
+|---|---|---|
+| `tests/unit/services/discovery/stripe-trigger-discovery.test.ts` | **NEW** (14 assertions) | TriggerMeta surface: key/provider/type/activation/category/displayOrder; `enabledEvents` field hygiene (combobox+multiple+required, NO resolver); options EXACTLY match `STRIPE_ALLOWED_EVENT_TYPES` (drift guard); option labels = raw event types (Marcus UX choice); failed-payment options present with descriptions; 8-field payload; data + previousAttributes sensitive; other 6 NOT marked; flat-object guard (no nested fields[]); no secret-shaped names. |
+| `tests/unit/app/api/providers/stripe-provider-route.test.ts` | **NEW** (8 assertions) | Sub-registry refactor regression guard: 16 actions still returned in displayOrder; all 16 expected keys present; category commerce + requiresIntegration; trigger returned with full wire shape (combobox+multiple+required + 18 options + 3 failed-payment options); data + previousAttributes serialize sensitive; stripe.hasMetadata preserved. |
+| `tests/unit/app/api/providers/providers-route.test.ts` | EDIT | Added positive Stripe trigger assertion mirroring the OUTLOOK-CAL / GDRIVE / GCAL pattern. |
+| `tests/structure/discovery-meta-coverage.test.ts` | EXISTING (no change) | Continues passing — Stripe action 1:1 invariant unchanged. |
+| `tests/structure/trigger-meta-activation-invariant.test.ts` | EXISTING (no change) | Continues passing — the new TriggerMeta has a registered activation (already wired), no exemption needed. |
+| `tests/structure/sensitive-output-coverage.test.ts` | EXISTING (no change) | Continues passing — no new SUSPICIOUS_NAMES names exposed; `data` + `previousAttributes` plan-marked. |
+
+**Targeted-slice: 101/101 across 6 suites. Broad regression: 1935/1935 across 95 suites** (full Stripe + discovery + providers + contracts + structure).
+
+### 9.6 Acceptance criteria (§7) — met
+
+- [x] Exact config field name verified + used (`enabledEvents` verbatim).
+- [x] Allowed event options match `STRIPE_ALLOWED_EVENT_TYPES` (direct-import drift guard in test).
+- [x] Failed-payment events identified + catalog-visible.
+- [x] Output shape mapped (8 fields, matches `normalize.ts`).
+- [x] Sensitive fields decided (`data` + `previousAttributes`; others not).
+- [x] Discovery wiring decided + executed (sub-registry refactor; all 26 providers now consistent).
+- [x] Tests added (3 files modified/created).
+- [x] No runtime behavior changed (meta-only addition + import refactor).
+- [x] Marcus UX choice for option labels: raw event type strings + humanized `option.description` (per §2.2 recommendation).
+
+### 9.7 Gate results
+
+- `npx tsc --noEmit` → **clean (0)**.
+- `npm run lint` → **0 errors, 5 pre-existing warnings** (none mine; `_registry.ts` warning is GONE — Stripe refactor dropped it back under 400 lines).
+- `npm run lint:structure` → **OK**.
+- `npm run lint:migrations` → **OK**.
+
+### 9.8 Provider foundation status: 🎯 LAUNCH-READY
+
+By every criterion in PROVIDER-AUDIT-1 §7:
+
+- ✅ All 286 launch-scope runtime action handlers have matching ActionMeta (1:1 enforced).
+- ✅ **All 60 launch-scope runtime triggers have matching TriggerMeta** (was 59/60; Stripe closes the gap → 60/60).
+- ✅ All required `optionsSource` keys exist; no orphan resolvers.
+- ✅ Static enum options exposed where field types need them.
+- ✅ Sensitive outputs marked.
+- ✅ Provider route metadata matches reality for actions AND triggers across all 26 providers.
+- ✅ AI catalog can see all launch-intended nodes including the Stripe trigger + 18 event-type options.
+- ✅ Known deferred items have owners (PROVIDER-AUDIT-1 §6 backlog table).
+
+**Subsequent provider work pulls from the post-launch backlog** (PROVIDER-AUDIT-1 §6 — GCal `:calendars` resolver, GDrive `:files`/FileRef/share/export, OneDrive FileRef, Teams `:chats`/`:messages`, Excel `:columns`, Outlook Cal online-meeting write toggle, Shopify optional resolvers). All product-prioritized; none launch-blocking.
