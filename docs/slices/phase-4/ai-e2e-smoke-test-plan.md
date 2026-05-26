@@ -89,6 +89,8 @@ The 12 scenarios from the AI-15 brief, each mapped to the test(s) that prove the
 
 > **Slice 4.AI-21B update.** The follow-up *behavior* shipped in AI-21, but the panel was still form-shaped. AI-21B re-renders the rail as a proper chat — transcript above, composer pinned below, user prompts + follow-up answers as right-aligned bubbles, plan / applied / error results as left-aligned assistant bubbles. The apply-readiness rule + follow-up state machine + no-leak invariants are all preserved; what moved is the layout.
 
+> **Slice 4.AI-21C update.** Refactor-only. The chat rendering is now split across three siblings (`_BuilderAiPanelChat.tsx`, `_BuilderAiPanelComposer.tsx`, `_BuilderAiPanelMessageList.tsx`) for maintainability — `BuilderAiPanel.tsx` is now a 216-line orchestration shell. All testIds + behavior preserved. **Live follow-up smoke status:** PENDING — to be run by Marcus per §5.1 steps 6 → 7e below. The automated regression net (71 AI-21-area tests + the 1306-test full sweep) is the coverage backstop.
+
 > **Scope guardrail.** Workflow-builder React Agent only. The reconstructed prompt lives only in `useBuilderAi` state — no DB persistence, no chat / thread storage, no general app help assistant introduced.
 
 | Layer | Test | Evidence |
