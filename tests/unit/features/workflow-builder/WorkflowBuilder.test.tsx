@@ -5,7 +5,7 @@
  * mocked typed client. Verify hydration, the add → save round-trip, and the
  * dirty / saved indicator.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateWorkflow = jest.fn();
@@ -108,6 +108,37 @@ describe("WorkflowBuilder", () => {
     expect(useGraphSlice.getState().workflowId).toBe("wf-1");
     expect(useGraphSlice.getState().isHydrated).toBe(true);
     expect(screen.getByText(/empty workflow/i)).toBeInTheDocument();
+  });
+
+  // Slice 4.BUILDER-CANVAS-1 — verifies the ref bridge from the canvas
+  // empty-state CTA to the existing AddNodeMenu "+ Add trigger" button.
+  // Clicking the CTA must open the same trigger picker the toolbar button
+  // opens, without duplicating any add-node logic.
+  it("the empty-canvas-state 'Choose a trigger' CTA opens the AddNodeMenu trigger picker via the ref bridge", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    // Empty state overlay is present because pendingNodes is empty.
+    expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
+    // Picker is not yet open.
+    expect(
+      screen.queryByRole("button", { name: /browse slack triggers/i }),
+    ).toBeNull();
+    // Click the CTA inside the empty state — same surface a user sees.
+    const cta = within(screen.getByTestId("empty-canvas-state")).getByRole(
+      "button",
+      { name: /choose a trigger/i },
+    );
+    await user.click(cta);
+    // TriggerPicker is now open via the AddNodeMenu's local state.
+    expect(
+      screen.getByRole("button", { name: /browse slack triggers/i }),
+    ).toBeInTheDocument();
   });
 
   it("Save is disabled when the slice is clean; enables once the user edits", async () => {

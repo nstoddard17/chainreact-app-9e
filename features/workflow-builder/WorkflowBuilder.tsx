@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
@@ -77,16 +77,30 @@ export function WorkflowBuilder({
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
 
+  // Slice 4.BUILDER-CANVAS-1 — bridge the canvas's empty-state CTA to
+  // the existing AddNodeMenu "+ Add trigger" button without lifting
+  // AddNodeMenu's local `open` state. The ref + callback get removed in
+  // BUILDER-ADD-FLOW-1 when AddNodePanel replaces AddNodeMenu and the
+  // canvas wires the panel open directly.
+  const addTriggerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const handleEmptyAddTrigger = useCallback(() => {
+    addTriggerButtonRef.current?.click();
+  }, []);
+
   return (
     <BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>
       <div className="flex flex-col gap-4" aria-label="Workflow builder">
         <AddNodeMenu
           triggerProviders={triggerProviders}
           actionProviders={actionProviders}
+          triggerButtonRef={addTriggerButtonRef}
         />
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
           <div className="flex-1 min-w-0 flex flex-col gap-4">
-            <WorkflowCanvas providerLabels={providerLabels} />
+            <WorkflowCanvas
+              providerLabels={providerLabels}
+              onEmptyAddTrigger={handleEmptyAddTrigger}
+            />
             <NodeList providerLabels={providerLabels} />
             <RunNowPanel />
             <RunResultsPanel />

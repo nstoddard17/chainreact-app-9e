@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { useGraphSlice } from "../state/graphSlice";
@@ -17,6 +17,14 @@ export interface ProviderOption {
 interface Props {
   triggerProviders: readonly ProviderOption[];
   actionProviders: readonly ProviderOption[];
+  /**
+   * Optional ref to the "+ Add trigger" button. Used by the empty-state
+   * CTA in `WorkflowCanvas` (Slice 4.BUILDER-CANVAS-1) to programmatically
+   * open the trigger picker without lifting the local `open` state out of
+   * this component. The ref bridge is removed once
+   * BUILDER-ADD-FLOW-1 replaces this surface with `AddNodePanel`.
+   */
+  triggerButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 type OpenMenu = "trigger" | "action" | null;
@@ -42,7 +50,11 @@ type OpenMenu = "trigger" | "action" | null;
  *     reachable through this UI (the slice action stays exported so
  *     tests + future surfaces can still use it directly).
  */
-export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
+export function AddNodeMenu({
+  triggerProviders,
+  actionProviders,
+  triggerButtonRef,
+}: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const addActionFromMeta = useGraphSlice((s) => s.addActionFromMeta);
   const addTriggerFromMeta = useGraphSlice((s) => s.addTriggerFromMeta);
@@ -78,6 +90,7 @@ export function AddNodeMenu({ triggerProviders, actionProviders }: Props) {
     <div className="flex flex-col gap-2" aria-label="Add node">
       <div className="flex gap-2">
         <button
+          ref={triggerButtonRef}
           type="button"
           onClick={() => setOpen(open === "trigger" ? null : "trigger")}
           disabled={hasTrigger}

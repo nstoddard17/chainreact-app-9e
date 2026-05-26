@@ -390,7 +390,7 @@ features/workflow-builder/
 |---|---|---|---|---|---|
 | **BUILDER-UI-V1-AUDIT-1** *(shipped)* | Audit + plan | `docs/slices/phase-4/builder-ui-v1-port-plan.md` | None | None | No |
 | **BUILDER-UI-SHELL-1** *(shipped)* | New `BuilderShell` + `BuilderHeader` + `useBuilderShortcuts` (Cmd/Ctrl+S). Save lifted from footer into header. `BuilderRightDrawer` + `useRightDrawer` + LifecycleActions move deferred. Behavior preserved. | `WorkflowBuilder.tsx` (composes shell), `layout/BuilderShell.tsx` (new), `layout/BuilderHeader.tsx` (new), `hooks/useBuilderShortcuts.ts` (new) | Low — layout-only; no state contracts changed | shell renders; header lifts Save + status; existing WorkflowBuilder test contract preserved | No |
-| **BUILDER-CANVAS-1** | Full-height canvas, Dots background, new `WorkflowNodeCard` (provider icon, status badge, hover/selected, run-state hint), `EmptyCanvasState`. Default edges still. | `canvas/WorkflowCanvas.tsx`, `canvas/WorkflowNodeCard.tsx` (new), `canvas/EmptyCanvasState.tsx` (new), `utils/classifyNodeStatus.ts` (new) | Low — visual-only | node card renders metadata + state; empty state renders when 0 nodes; classifyNodeStatus pure unit tests | No |
+| **BUILDER-CANVAS-1** *(shipped)* | Canvas polish (560px container, `rounded-lg`, Dots background, `relative overflow-hidden` for empty-state overlay), new `WorkflowNodeCard` (initials avatar, kind chip, provider label, type subtitle, "Not configured" amber badge, `data-status`, hover/selected polish — `WorkflowNodeView` deleted), new `EmptyCanvasState` overlay wired via ref bridge through `AddNodeMenu`'s "+ Add trigger" button. Run-state animations + custom edges + multi-color routes deferred. | `canvas/WorkflowCanvas.tsx`, `canvas/WorkflowNodeCard.tsx` (new), `canvas/EmptyCanvasState.tsx` (new), `utils/classifyNodeStatus.ts` (new), `WorkflowBuilder.tsx` (threads ref + callback), `panels/AddNodeMenu.tsx` (optional `triggerButtonRef`), `canvas/nodes/WorkflowNodeView.tsx` (deleted) | Low — visual-only; existing canvas-config-sync integration test preserved | node card renders metadata + status; empty state renders when 0 nodes; CTA opens trigger picker via ref bridge; classifyNodeStatus pure unit tests | No |
 | **BUILDER-INSPECTOR-1** | Mount `ConfigModalShell` inside `BuilderRightDrawer`. Remove right-aside layout in `WorkflowBuilder`. | `WorkflowBuilder.tsx`, `panels/NodeInspectorPanel.tsx` (new), `layout/BuilderRightDrawer.tsx` | Low — mounting move only | inspector opens when node selected; closes via Esc / × ; mutually exclusive with AI/results | No |
 | **BUILDER-ADD-FLOW-1** | New `AddNodePanel` slide-in with search + categorized providers. Replaces inline `AddNodeMenu`. Reuses `useNativeActions` / `useProviderActions` / `addTriggerFromMeta` / `addActionFromMeta`. Adds edge plus-button (custom `WorkflowEdge`). | `panels/AddNodePanel.tsx` (new), `canvas/WorkflowEdge.tsx` (new), `utils/shouldShowPlusButton.ts` (new), `AddNodeMenu.tsx` (delete after replacement) | Medium — replaces the picker; selection semantics must match for existing tests | search filters by metadata; clicking item dispatches addTriggerFromMeta/addActionFromMeta as before; edge plus-button opens panel with insert context | No |
 | **BUILDER-RUN-PANEL-1** | Move Run + Test controls into header. `RunResultsPanel` becomes drawer-mounted. Per-step output formatting (key:value pairs in addition to JSON). | `panels/RunPanel.tsx` (extracted from RunNowPanel), `panels/RunResultsPanel.tsx` (polish), `layout/BuilderHeader.tsx` | Medium — trigger-kind branching must move with the controls | test mode runs from header; results drawer auto-opens; repair block still renders on failed runs | No |
@@ -442,6 +442,53 @@ Layout foundation only. **No panel relocation in this slice** — every existing
 - [`tests/unit/features/workflow-builder/hooks/useBuilderShortcuts.test.tsx`](../../../tests/unit/features/workflow-builder/hooks/useBuilderShortcuts.test.tsx) — 9 tests covering Cmd+S / Ctrl+S; Shift / Alt + S rejected; other keys with modifier rejected; plain S rejected; `preventDefault` fires; unmount removes listener; safe without `onSave`.
 
 **Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · 49 workflow-builder unit suites / 711 tests pass.
+
+### BUILDER-CANVAS-1 outcomes (shipped)
+
+Visual-only slice. **No panel relocation.** Same `WorkflowNodeData` shape, same `Handle` topology, same `data-testid="workflow-node-view"` selector contract, same node click → `configSlice.openNode` → inspector path. Everything still hangs together through the unchanged graphSlice + adapters layer.
+
+**Added:**
+
+- [`features/workflow-builder/utils/classifyNodeStatus.ts`](../../../features/workflow-builder/utils/classifyNodeStatus.ts) — 38-line pure helper. Today emits `configured` / `unconfigured` based on `type !== ""`. The full `NodeStatus` union (`running` / `passed` / `failed` / `listening` / `paused`) is declared and the helper accepts an optional `runStatus` pass-through so future per-node run-state projection lands without rewiring call sites or extending the type union.
+- [`features/workflow-builder/canvas/WorkflowNodeCard.tsx`](../../../features/workflow-builder/canvas/WorkflowNodeCard.tsx) — 165-line replacement for `WorkflowNodeView`. 320px card, `rounded-lg`, soft shadow, primary-ring on selected, subtle hover-lift. Header row: provider initials avatar + provider label + kind chip + "Not configured" amber badge when `type === ""`. Type subtitle. Same handle topology (triggers omit top target). Same testid + data-attributes — adds `data-status` for future run-state styling.
+- [`features/workflow-builder/canvas/EmptyCanvasState.tsx`](../../../features/workflow-builder/canvas/EmptyCanvasState.tsx) — 67-line absolutely-positioned overlay. Centered card with heading "Choose a trigger", supporting copy, and a primary CTA button. `pointer-events-none` wrapper + `pointer-events-auto` card so the rest of the canvas stays interactive everywhere except the card region. Optional `onAddTrigger` callback.
+
+**Wired:**
+
+- [`features/workflow-builder/canvas/WorkflowCanvas.tsx`](../../../features/workflow-builder/canvas/WorkflowCanvas.tsx) — `NODE_TYPES` now maps to `WorkflowNodeCard`. Container height 480 → 560 (modest bump; true full-bleed needs page-shell changes, deferred). Container class `rounded border-input` → `relative overflow-hidden rounded-lg border-input` so the empty-state overlay can position absolutely without clipping. `Background` upgraded to `BackgroundVariant.Dots`. `EmptyCanvasState` rendered when `pendingNodes.length === 0` with an `onAddTrigger` prop threaded through.
+- [`features/workflow-builder/panels/AddNodeMenu.tsx`](../../../features/workflow-builder/panels/AddNodeMenu.tsx) — adds an optional `triggerButtonRef?: RefObject<HTMLButtonElement | null>` prop forwarded onto the "+ Add trigger" `<button>`. Surface is non-breaking; all existing tests still pass.
+- [`features/workflow-builder/WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) — creates the ref and a `handleEmptyAddTrigger` callback that calls `addTriggerButtonRef.current?.click()`. Passes the ref into `AddNodeMenu` and the callback into `WorkflowCanvas`. **No state lifting** — `AddNodeMenu`'s local `open: OpenMenu` stays exactly as it was. The ref bridge is temporary; it disappears in BUILDER-ADD-FLOW-1 when `AddNodePanel` replaces `AddNodeMenu`.
+
+**Deleted:**
+
+- `features/workflow-builder/canvas/nodes/WorkflowNodeView.tsx` (66 lines) — superseded by `WorkflowNodeCard`. Git history preserves it.
+
+**Behavior preserved (verified):**
+
+- `tests/integration/features/workflow-builder/canvas-config-sync.test.tsx` — 6 tests unchanged. Canvas still renders 2 nodes from `graphSlice`, NodeList renders the same 2, clicking a canvas node still opens the inspector via `configSlice.openNode`, NodeList Configure still mirrors selection onto the canvas, canvas click does NOT call `updateWorkflow`, NodeList Remove still propagates, toolbar Save still calls `updateWorkflow` with the full pending definition.
+- `tests/unit/features/workflow-builder/canvas/NodeList.test.tsx` — unchanged, all passing.
+- `tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx` — 7 tests (6 pre-existing + 1 new ref-bridge test). The original `/empty workflow/i` text from `NodeList`'s empty state still renders below the canvas; the new `EmptyCanvasState` heading "Choose a trigger" overlays the canvas. Two empty-state surfaces coexist temporarily (NodeList is slated for removal in a later slice when the canvas takes over fully).
+
+**Intentionally deferred (called out per the brief):**
+
+- **Run-state animations.** Running shimmer / listening ring / paused pulse / running-node primary-color glow. The `classifyNodeStatus` helper and `WorkflowNodeCard`'s `data-status` attribute are designed to host these later. Owner: a follow-up slice after per-node run-state projection lands (currently `runSlice` only carries workflow-level `LatestRunStatus`).
+- **Multi-color route rotation** for branching flows. Owner: a router/branching UX slice.
+- **Custom edges + edge plus-button.** Owner: **BUILDER-ADD-FLOW-1**.
+- **MiniMap.** Skipped — would clutter the canvas before page-shell expansion.
+- **True full-bleed canvas height.** Needs page-shell + parent-container changes (e.g. removing `max-w-3xl` on `app/workflows/[id]/page.tsx`) that risk regressing the surrounding controls. Modest 560px bump shipped instead.
+- **Inspector drawer / AI drawer / Run results drawer.** Owners: **BUILDER-INSPECTOR-1** / **BUILDER-AI-PANEL-1** / **BUILDER-RUN-PANEL-1** respectively.
+- **`AddNodePanel` slide-in replacement.** Owner: **BUILDER-ADD-FLOW-1**. (When it lands the temporary `triggerButtonRef` prop on `AddNodeMenu` + the canvas's `onEmptyAddTrigger` callback collapse into a direct panel-open call.)
+- **Real provider iconography.** No `/integrations/{provider}.svg` convention exists in V2 today (verified — `public/` doesn't exist in this repo). Initials-avatar fallback ships now; SVG asset adoption is a separate metadata concern handled later.
+- **Removing NodeList.** Still rendered below the canvas as a defensive secondary view. Removal lands once the canvas card surface is stable and the inspector lives in the drawer.
+
+**Tests added:**
+
+- [`tests/unit/features/workflow-builder/utils/classifyNodeStatus.test.ts`](../../../tests/unit/features/workflow-builder/utils/classifyNodeStatus.test.ts) — 3 tests (configured / unconfigured / runStatus passthrough across all 5 future branches).
+- [`tests/unit/features/workflow-builder/canvas/WorkflowNodeCard.test.tsx`](../../../tests/unit/features/workflow-builder/canvas/WorkflowNodeCard.test.tsx) — 12 tests covering testid preservation, kind/provider/type rendering, providerLabel fallback to provider id, `data-kind` for trigger vs action, selected vs unselected, `data-status` + "Not configured" badge, initials avatar (no per-provider branches), `computeInitials` helper edge cases.
+- [`tests/unit/features/workflow-builder/canvas/EmptyCanvasState.test.tsx`](../../../tests/unit/features/workflow-builder/canvas/EmptyCanvasState.test.tsx) — 4 tests (CTA + heading + copy render; `onAddTrigger` fires on click; safe without handler; testid + landmark).
+- `tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx` — 1 new test ("the empty-canvas-state 'Choose a trigger' CTA opens the AddNodeMenu trigger picker via the ref bridge"). Verifies the ref bridge end-to-end without duplicating add-node logic.
+
+**Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · 52 workflow-builder unit suites / 732 tests pass (+3 suites +21 tests vs. SHELL-1) · full unit run: 1107 suites / 13153 tests pass.
 
 ---
 

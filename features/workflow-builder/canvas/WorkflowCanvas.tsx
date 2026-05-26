@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import {
   Background,
+  BackgroundVariant,
   Controls,
   ReactFlow,
   ReactFlowProvider,
@@ -23,7 +24,8 @@ import {
   workflowNodesToFlowNodes,
   type WorkflowNodeData,
 } from "./adapters";
-import { WorkflowNodeView } from "./nodes/WorkflowNodeView";
+import { EmptyCanvasState } from "./EmptyCanvasState";
+import { WorkflowNodeCard } from "./WorkflowNodeCard";
 
 /**
  * ReactFlow canvas surface for the workflow builder.
@@ -63,10 +65,17 @@ import { WorkflowNodeView } from "./nodes/WorkflowNodeView";
 
 interface Props {
   providerLabels?: Readonly<Record<string, string>>;
+  /**
+   * Invoked by the empty-state CTA. WorkflowBuilder wires this to the
+   * existing `+ Add trigger` button in `AddNodeMenu` via a ref so this
+   * slice doesn't duplicate the add-node flow. Optional — the empty
+   * state still renders without a handler.
+   */
+  onEmptyAddTrigger?: () => void;
 }
 
 const NODE_TYPES = {
-  [WORKFLOW_NODE_TYPE]: WorkflowNodeView,
+  [WORKFLOW_NODE_TYPE]: WorkflowNodeCard,
 };
 
 export function WorkflowCanvas(props: Props) {
@@ -79,7 +88,7 @@ export function WorkflowCanvas(props: Props) {
   );
 }
 
-function WorkflowCanvasInner({ providerLabels }: Props) {
+function WorkflowCanvasInner({ providerLabels, onEmptyAddTrigger }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const updateNodePosition = useGraphSlice((s) => s.updateNodePosition);
@@ -168,14 +177,19 @@ function WorkflowCanvasInner({ providerLabels }: Props) {
     [removeEdge],
   );
 
+  const isEmpty = pendingNodes.length === 0;
+
   return (
     <div
       aria-label="Workflow canvas"
       data-testid="workflow-canvas"
       // jsdom returns 0 for getBoundingClientRect — explicit dimensions
-      // keep React Flow rendering predictably in tests too.
-      style={{ width: "100%", height: 480 }}
-      className="rounded border border-input bg-background"
+      // keep React Flow rendering predictably in tests too. The bump
+      // from 480 → 560 is a modest "feels closer to full-height" step;
+      // true full-bleed needs page-shell changes that are out of scope
+      // for BUILDER-CANVAS-1 (documented in the port plan).
+      style={{ width: "100%", height: 560 }}
+      className="relative overflow-hidden rounded-lg border border-input bg-background"
     >
       <ReactFlow
         nodes={flowNodes}
@@ -189,9 +203,10 @@ function WorkflowCanvasInner({ providerLabels }: Props) {
         fitView
         proOptions={{ hideAttribution: true }}
       >
-        <Background />
+        <Background variant={BackgroundVariant.Dots} />
         <Controls showInteractive={false} />
       </ReactFlow>
+      {isEmpty ? <EmptyCanvasState onAddTrigger={onEmptyAddTrigger} /> : null}
     </div>
   );
 }
