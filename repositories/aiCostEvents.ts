@@ -193,6 +193,44 @@ export async function listByWorkflow(
   return (data ?? []).map((r) => rowToRecord(r as AiCostEventRow));
 }
 
+export interface ListByUserOptions {
+  /** Inclusive lower bound on created_at (ISO timestamp). */
+  from?: string;
+  /** Inclusive upper bound on created_at (ISO timestamp). */
+  to?: string;
+  /** Optional row cap (defense against unbounded loads). */
+  limit?: number;
+}
+
+/**
+ * List the caller's OWN AI events for current-user analytics (Slice 4.AI-12).
+ *
+ * Uses the SSR-cookie client, so RLS scopes the read to the caller's own rows —
+ * a normal user can NEVER read another user's AI events through this path (the
+ * explicit `user_id` filter is belt-and-suspenders on top of RLS). Owner/admin
+ * CROSS-user analytics still go through the service-role `listEventsForAnalytics`
+ * and require an admin gate that does not yet exist in V2.
+ */
+export async function listByUser(
+  userId: string,
+  opts: ListByUserOptions = {},
+): Promise<readonly AiCostEventRecord[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("ai_cost_events")
+    .select("*")
+    .eq("user_id", userId);
+  if (opts.from) query = query.gte("created_at", opts.from);
+  if (opts.to) query = query.lte("created_at", opts.to);
+  query = query.order("created_at", { ascending: false });
+  if (opts.limit !== undefined) query = query.limit(opts.limit);
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`ai_cost_events.listByUser failed: ${error.message}`);
+  }
+  return (data ?? []).map((r) => rowToRecord(r as AiCostEventRow));
+}
+
 /** Filters for an owner/admin AI analytics range read (COST-7). */
 export interface AiCostAnalyticsQuery {
   /** Inclusive lower bound on created_at (ISO timestamp). */
