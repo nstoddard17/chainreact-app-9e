@@ -14,6 +14,13 @@ import { z } from "zod";
  */
 export const GetFileConfigSchema = z
   .object({
+    // UI-scope `parentItemId` (ONEDRIVE-META-3) — NOT used by the handler.
+    // Present so the persisted Builder config validates: the `itemId`
+    // picker cascades off this source-folder field (microsoft-onedrive:folders
+    // → microsoft-onedrive:items). Mirrors the Trello `boardId` / OneNote
+    // `notebookId` / Dropbox `folderPath` UI-scope pattern. `.strict()` still
+    // rejects genuinely-unknown fields.
+    parentItemId: z.string().optional(),
     itemId: z.string().min(1, "itemId is required."),
   })
   .strict();

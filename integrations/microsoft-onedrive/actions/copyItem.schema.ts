@@ -18,6 +18,11 @@ import { z } from "zod";
  */
 export const CopyItemConfigSchema = z
   .object({
+    // UI-scope `parentItemId` (ONEDRIVE-META-3) — NOT used by the handler.
+    // Present so the `itemId` picker cascades off this SOURCE-folder field
+    // (distinct from `targetParentItemId`, the required destination).
+    // Handler-ignored; mirrors the Trello `boardId` UI-scope pattern.
+    parentItemId: z.string().optional(),
     itemId: z.string().min(1, "itemId is required."),
     targetParentItemId: z
       .string()

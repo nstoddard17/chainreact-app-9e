@@ -213,6 +213,19 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // inline helper text). `trello:checklists` / `trello:check_items`
   // resolvers intentionally absent (no runtime consumer).
   "trello",
+  // Microsoft OneDrive added in Slice 4.ONEDRIVE-META-3 once all 7
+  // registered OneDrive action handlers have a matching meta (upload_file,
+  // get_file, create_folder, delete_item, move_item, copy_item,
+  // list_items). From here on, adding a new OneDrive handler without a meta
+  // (or vice-versa) fails this structural test. The 1 whole-drive webhook
+  // trigger meta (`file_changed`, empty fields) ships in the same slice;
+  // trigger coverage is enforced by trigger-meta-activation-invariant, not
+  // here. `delete_item` = high/destructive/requiresConfirmation (Marcus
+  // decision — folder delete cascades). FileRef DEFERRED (content=textarea,
+  // downloadUrl=sensitive string; producesFileRef/consumesFileRef=false).
+  // `microsoft-onedrive:drives` resolver intentionally absent (single
+  // personal drive; no driveId in any schema).
+  "microsoft-onedrive",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

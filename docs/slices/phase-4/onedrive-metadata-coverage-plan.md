@@ -223,3 +223,40 @@ Both resolvers reuse the **existing `api/driveItemsList`** wrapper (`GET /me/dri
 ### 9.7 Carried to ONEDRIVE-META-3
 
 7 ActionMeta + 4 UI-scope `parentItemId` schema additions (get/delete/move/copy) + 1 TriggerMeta (`fields:[]`) + discovery sub-registry + `COVERED_PROVIDERS` flip. (Marcus decisions locked: FileRef deferred — `content` textarea, `downloadUrl` sensitive string; `delete_item` = high/destructive/requiresConfirmation.)
+
+---
+
+## 10. ONEDRIVE-META-3 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 7 ActionMeta + 1 TriggerMeta + 4 UI-scope `parentItemId` schema additions + discovery sub-registry + `COVERED_PROVIDERS` flip + tests. **OneDrive is now builder-visible — `/api/providers` reports `hasMetadata:true`.** Covered providers **21/26 → 22/26**; pending **5 → 4**.
+
+### 10.1 ActionMeta (7, displayOrder 10..70) — `integrations/microsoft-onedrive/actions/<action>.meta.ts`
+
+`list_items` (10), `get_file` (20), `upload_file` (30), `create_folder` (40), `move_item` (50), `copy_item` (60), `delete_item` (70). All `category:"files"`, `requiresIntegration:true`, **all `producesFileRef:false` / `consumesFileRef:false`** (every literal sets the 4 risk/FileRef flags explicitly).
+
+- **Risk:** `get_file` / `list_items` **low** (reads); `upload_file` / `create_folder` / `move_item` / `copy_item` **medium**; **`delete_item` high + isDestructive + requiresConfirmation** (Marcus decision — folder delete cascades to children; recycle-bin recovery time-limited; `riskDescription` says so).
+- **FileRef deferred (Marcus decision):** `upload_file.content` is a **textarea** (raw utf8/base64 string), NOT a `file` field; `consumesFileRef:false`. `downloadUrl` outputs (`upload_file`, `get_file`, nested `list_items.items[].downloadUrl`) are **sensitive**. A future ONEDRIVE-FILEREF runtime slice can add FileRef producer/consumer support.
+
+### 10.2 UI-scope `parentItemId` schema additions (4 item-targeted schemas)
+
+Added optional `parentItemId: z.string().optional()` to `getFile` / `deleteItem` / `moveItem` / `copyItem`. **Handler-ignored** (Trello `boardId` / Monday / OneNote / Dropbox precedent); `.strict()` still rejects unknowns. In `moveItem` it is NOT counted by the cross-field refine, so a `parentItemId`-only config still fails the "at least one of `targetParentItemId`/`newName`" rule. It is the SOURCE folder (distinct from `targetParentItemId`, the destination on move/copy). `upload_file`/`create_folder`/`list_items` already have a real `parentItemId`. **No runtime handler behavior changed** (test-verified: `get_file` never forwards `parentItemId`).
+
+### 10.3 optionsSource / dependsOn wiring (resolvers from META-2)
+
+`parentItemId` (real on upload/create/list; UI-scope on get/delete/move/copy) + `targetParentItemId` (move/copy) → `microsoft-onedrive:folders` (no dep). `itemId` → `microsoft-onedrive:items` (dep `parentItemId`). **All single-parent on `parentItemId` — no multi-parent.** No field references `microsoft-onedrive:drives`.
+
+### 10.4 TriggerMeta (1 webhook) — `triggers/fileChanged/fileChanged.meta.ts`
+
+`file_changed`: `activation:"webhook"`, `requiresIntegration:true`, `category:"files"`, **`fields:[]`** (whole-drive watch; no per-trigger config). Payload `downloadUrl` sensitive; ids/names/dates/kind/changeType/source/parentReference/deleted structural. Activation already registered → `trigger-meta-activation-invariant` passes with no exemption.
+
+### 10.5 Discovery + COVERED
+
+New `services/discovery/providers/microsoft-onedrive.ts` (`MICROSOFT_ONEDRIVE_ACTION_METAS` ×7 + `MICROSOFT_ONEDRIVE_TRIGGER_METAS` ×1), spread into `services/discovery/_registry.ts`. `microsoft-onedrive` added to `COVERED_PROVIDERS` in `tests/structure/discovery-meta-coverage.test.ts` (1:1 handler↔meta now enforced).
+
+### 10.6 Tests
+
+`microsoft-onedrive-discovery.test.ts` (action surface), `microsoft-onedrive-triggers-discovery.test.ts` (trigger surface), `microsoft-onedrive-provider-route.test.ts` (route `hasMetadata`/actions/triggers wire shape), `uiScopeParentItemId.test.ts` (4 schemas accept+preserve `parentItemId`, reject unknowns, move_item refine unaffected, handler ignores `parentItemId`). Structure invariants pass: `discovery-meta-coverage`, `trigger-meta-activation-invariant`, `sensitive-output-coverage`.
+
+### 10.7 Acceptance criteria (§8) — met
+
+All 7 actions have ActionMeta; `file_changed` has TriggerMeta + passing activation invariant; `folders`/`items` resolvers exist (META-2); `:drives` rejected; reused `driveItemsList`; 4 UI-scope `parentItemId` additions in place + handler tests still pass; `/api/providers` OneDrive `hasMetadata:true`; `microsoft-onedrive` in `COVERED_PROVIDERS`; structure invariants pass; targeted tests pass; **no runtime handler behavior changed** (FileRef deferred); `delete_item` confirmation signed off.

@@ -325,6 +325,12 @@ import {
   TRELLO_ACTION_METAS,
   TRELLO_TRIGGER_METAS,
 } from "./providers/trello";
+// Microsoft OneDrive (Slice 4.ONEDRIVE-META-3) — 7 actions + 1 whole-drive
+// webhook trigger.
+import {
+  MICROSOFT_ONEDRIVE_ACTION_METAS,
+  MICROSOFT_ONEDRIVE_TRIGGER_METAS,
+} from "./providers/microsoft-onedrive";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -614,6 +620,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...MICROSOFT_EXCEL_ACTION_METAS, // Microsoft Excel (EXCEL-META-3) — 10 actions, displayOrder 10..100.
   ...AIRTABLE_ACTION_METAS, // Airtable (AIRTABLE-META-3) — 11 actions, displayOrder 10..110.
   ...TRELLO_ACTION_METAS, // Trello (TRELLO-META-3) — 8 actions, displayOrder 10..80.
+  ...MICROSOFT_ONEDRIVE_ACTION_METAS, // Microsoft OneDrive (ONEDRIVE-META-3) — 7 actions, displayOrder 10..70.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -736,6 +743,12 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("trello", <type>, ...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...TRELLO_TRIGGER_METAS,
+  // Microsoft OneDrive (ONEDRIVE-META-3) — 1 whole-drive webhook trigger
+  // (file_changed; empty fields). Activation registered in
+  // integrations/microsoft-onedrive/triggers/fileChanged/index.ts →
+  // registerActivation("microsoft-onedrive","file_changed",...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...MICROSOFT_ONEDRIVE_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
