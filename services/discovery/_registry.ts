@@ -337,6 +337,12 @@ import {
   MICROSOFT_TEAMS_ACTION_METAS,
   MICROSOFT_TEAMS_TRIGGER_METAS,
 } from "./providers/microsoft-teams";
+// Google Calendar (Slice 4.GCAL-META-2) — 5 actions + 1 watch-based webhook
+// trigger. No resolvers (calendarId=primary/typeable; eventId trigger-fed).
+import {
+  GOOGLE_CALENDAR_ACTION_METAS,
+  GOOGLE_CALENDAR_TRIGGER_METAS,
+} from "./providers/google-calendar";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -628,6 +634,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...TRELLO_ACTION_METAS, // Trello (TRELLO-META-3) — 8 actions, displayOrder 10..80.
   ...MICROSOFT_ONEDRIVE_ACTION_METAS, // Microsoft OneDrive (ONEDRIVE-META-3) — 7 actions, displayOrder 10..70.
   ...MICROSOFT_TEAMS_ACTION_METAS, // Microsoft Teams (TEAMS-META-3) — 5 actions, displayOrder 10..50.
+  ...GOOGLE_CALENDAR_ACTION_METAS, // Google Calendar (GCAL-META-2) — 5 actions, displayOrder 10..50.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -762,6 +769,12 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("microsoft-teams","new_channel_message",...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...MICROSOFT_TEAMS_TRIGGER_METAS,
+  // Google Calendar (GCAL-META-2) — 1 watch-based webhook trigger
+  // (event_changed; single calendarId field). Activation registered in
+  // integrations/google-calendar/triggers/eventChanged/index.ts →
+  // registerActivation("google-calendar","event_changed",...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...GOOGLE_CALENDAR_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

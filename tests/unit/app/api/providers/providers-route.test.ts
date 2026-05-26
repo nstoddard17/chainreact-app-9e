@@ -198,9 +198,20 @@ describe("GET /api/providers", () => {
     expect(onenote?.hasMetadata).toBe(true);
   });
 
-  it("marks providers still without any metadata (e.g. google-calendar) as hasMetadata=false", async () => {
-    // microsoft-teams flipped to hasMetadata=true in Slice 4.TEAMS-META-3, so
-    // google-calendar is now the example of a still-pending provider.
+  it("marks providers still without any metadata (e.g. google-drive) as hasMetadata=false", async () => {
+    // google-calendar flipped to hasMetadata=true in Slice 4.GCAL-META-2, so
+    // google-drive is now the example of a still-pending provider.
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const drive = body.providers.find((p) => p.id === "google-drive");
+    expect(drive).toBeDefined();
+    expect(drive?.hasMetadata).toBe(false);
+  });
+
+  it("marks Google Calendar as hasMetadata=true now that Slice 4.GCAL-META-2 shipped its action + trigger metas", async () => {
     authedUser();
     const res = await getProviders();
     const body = (await res.json()) as {
@@ -208,7 +219,7 @@ describe("GET /api/providers", () => {
     };
     const cal = body.providers.find((p) => p.id === "google-calendar");
     expect(cal).toBeDefined();
-    expect(cal?.hasMetadata).toBe(false);
+    expect(cal?.hasMetadata).toBe(true);
   });
 
   it("marks Microsoft Teams as hasMetadata=true now that Slice 4.TEAMS-META-3 shipped its action + trigger metas", async () => {

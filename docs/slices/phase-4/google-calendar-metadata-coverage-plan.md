@@ -219,3 +219,46 @@ On completion, update [`provider-metadata-launch-gap-tracker.md`](./provider-met
 8. **Trigger key is `event_changed`** (snake_case), not `eventChanged` (the directory name). Metas/tests must use `event_changed`. Activation already wired at `integrations/_registry.ts:40` → invariant passes with no exemption.
 9. **`providers-route.test.ts` currently uses `google-calendar` as the canonical "pending" example** (line 201) — GCAL-META-2 must move it to `google-drive` (or `microsoft-outlook-calendar`) to avoid a self-contradicting test.
 10. **Branch/worktree caution.** Authored on the shared `ai-12b-planner-patch-shape-hardening` branch with interleaved AI + provider commits; explicit-path staging only; verify branch topology before any push/PR.
+
+---
+
+## 9. GCAL-META-2 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 5 ActionMeta + 1 TriggerMeta + discovery sub-registry + `COVERED_PROVIDERS` flip + tests. **Google Calendar is now builder-visible — `/api/providers` reports `hasMetadata:true`.** Covered providers **23/26 → 24/26**; pending **3 → 2**. **No runtime/schema files touched** (calendarId/eventId are already real fields — pure additive metadata). **No resolvers, no scope change, no reconnect, no billing change.** Single implementation slice (no resolver slice), as planned in §6.
+
+### 9.1 ActionMeta (5, displayOrder 10..50) — `integrations/google-calendar/actions/<action>.meta.ts`
+
+`create_event` (10), `list_events` (20), `update_event` (30), `delete_event` (40), `add_attendees` (50). All `category:"calendar"`, `requiresIntegration:true`, all `producesFileRef:false`/`consumesFileRef:false`.
+
+- **Risk:** `create_event` / `update_event` / `add_attendees` **medium**; `list_events` **low**; **`delete_event` high + `isDestructive:true` + `requiresConfirmation:true`** (irreversible delete + attendee cancellation emails — Marcus decision; mirrors Airtable/Excel/OneDrive deletes).
+- **Q11 required fields wired:** `sendNotifications` (select all/externalOnly/none) required on all 4 writes; `guestsCanInviteOthers` / `guestsCanSeeOtherGuests` required on `create_event`.
+- **Field types:** `calendarId`/`eventId` → text; `attendees` → string-array; `description` → textarea; enums → select; `maxResults` → number(1–2500); `allDay`/`googleMeet`/guests-* → boolean; date/time fields → text (ISO / YYYY-MM-DD).
+
+### 9.2 No optionsSource / no UI-scope additions (resolvers deferred per §3)
+
+`calendarId` → **typeable text, `defaultValue:"primary"`, no `optionsSource`** on all 5 actions + the trigger (the `calendars` picker stays scope-blocked — no `calendarList` scope, no reconnect). `eventId` → **typeable text, no `optionsSource`** (trigger/upstream-fed). No field references `google-calendar:calendars` / `:events` / `:timezones` / `:colors` (asserted by tests). **NO UI-scope schema additions** — calendarId/eventId are already real fields.
+
+### 9.3 TriggerMeta (1 webhook) — `triggers/eventChanged/eventChanged.meta.ts`
+
+`event_changed`: `activation:"webhook"`, `requiresIntegration:true`, `category:"calendar"`, single config field `calendarId` (text, default `"primary"`, no resolver — the watch anchor). **Reconciliation note:** the slice instruction said "calendarId required" but the runtime `activate` treats it as optional (falls back to `"primary"`); the meta follows the runtime (`required:false`) — honest to behavior, matching the accepted GCAL-META-1 plan. Payload = the 12 normalized fields. Activation already registered at `integrations/_registry.ts:40` → `trigger-meta-activation-invariant` passes with no exemption.
+
+### 9.4 Discovery + COVERED
+
+New `services/discovery/providers/google-calendar.ts` (`GOOGLE_CALENDAR_ACTION_METAS` ×5 + `GOOGLE_CALENDAR_TRIGGER_METAS` ×1), spread into `services/discovery/_registry.ts`. `google-calendar` added to `COVERED_PROVIDERS`. `providers-route.test.ts` "still-pending" example moved `google-calendar` → `google-drive` (+ added a positive Google Calendar `hasMetadata:true` assertion).
+
+### 9.5 Sensitive-output handling
+
+**Deliberate plan-marks** (none forced by the structural test — gcal's PII names aren't in `SUSPICIOUS_NAMES`): attendee email arrays `attendees` (create/update/add_attendees outputs + trigger) + `addedAttendees` + `alreadyInvited`; the `events` bulk read (list_events); the `meetLink` Meet URL (create_event); event `description` bodies (update_event output + trigger payload — **upgraded to sensitive per the GCAL-META-2 slice instruction**, refining GCAL-META-1's lean). NOT marked: ids / `summary` titles / `location` / `htmlLink` / dates / counts / pagination cursors. Arrays kept as plain `type:"array"` (no nested `email` field) — so nothing is force-failed and nothing is over-marked.
+
+### 9.6 Tests
+
+`google-calendar-discovery.test.ts` (action surface), `google-calendar-triggers-discovery.test.ts` (trigger surface), `google-calendar-provider-route.test.ts` (route `hasMetadata`/actions/triggers wire shape). Structure invariants pass: `discovery-meta-coverage` (google-calendar in COVERED, 1:1 handler↔meta), `trigger-meta-activation-invariant` (no exemption), `sensitive-output-coverage`. `providers-route.test.ts` updated. Targeted + broad regression: **1498/1498 across 68 suites** (calendar + discovery + providers + contracts + structure).
+
+### 9.7 Acceptance criteria (§8) — met
+
+All 5 actions have ActionMeta; `event_changed` has TriggerMeta (calendarId field) + passing activation invariant; all resolvers explicitly deferred/rejected (none referenced); `/api/providers` Calendar `hasMetadata:true`; `google-calendar` in `COVERED_PROVIDERS`; providers-route pending example moved to google-drive; structure invariants pass; targeted tests pass; **no runtime handler behavior changed** (no schema/resolver/billing touch); `calendars` deferral + `meetLink`-sensitive + `delete_event`-destructive decisions all signed off by Marcus.
+
+### 9.8 Follow-ups
+
+- **`_registry.ts` is at 450 lines** (max-lines warning, pre-existing — was 444 before this slice). Every provider addition bumps it via the import+spread; the metas themselves live in the sub-registry. A future refactor could group the sub-registry imports/spreads into an array-of-arrays to drop back under 400.
+- **`GCAL-CALENDARS-RESOLVER`** (optional, product-gated) — the `calendarList` scope + reconnect + `calendars` picker, only if product approves. Out of launch-critical path.

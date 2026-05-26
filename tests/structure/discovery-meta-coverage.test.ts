@@ -239,6 +239,21 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // consumer); `microsoft-teams:chats` + `microsoft-teams:messages` DEFERRED
   // (chatId/messageId typeable/trigger-fed) — none referenced.
   "microsoft-teams",
+  // Google Calendar added in Slice 4.GCAL-META-2 once all 5 registered
+  // Calendar action handlers have a matching meta (create_event, list_events,
+  // update_event, delete_event, add_attendees). From here on, adding a new
+  // Calendar handler without a meta (or vice-versa) fails this structural
+  // test. The 1 watch-based webhook trigger meta (`event_changed`, single
+  // calendarId field) ships in the same slice; trigger coverage is enforced
+  // by trigger-meta-activation-invariant, not here. `delete_event` =
+  // high/destructive/requiresConfirmation (Marcus decision — irreversible +
+  // attendee cancellation emails). NO resolvers (the `google-calendar:
+  // calendars` picker is scope-blocked — manifest has `calendar.events` only;
+  // calendarId ships as typeable text default "primary"; eventId is
+  // trigger/upstream-fed). NO UI-scope schema additions (calendarId/eventId
+  // already real fields). `google-calendar:events` / `:timezones` / `:colors`
+  // resolvers deferred/rejected — none referenced.
+  "google-calendar",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {
