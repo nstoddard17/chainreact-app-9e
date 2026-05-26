@@ -126,6 +126,70 @@ describe("BuilderHeader — Save behavior", () => {
   });
 });
 
+describe("BuilderHeader — left rail toggle (LEFT-AGENT-1)", () => {
+  it("does NOT render the rail toggle when the leftRail prop is omitted (SHELL-1 baseline)", () => {
+    render(<BuilderHeader workflowName="x" />);
+    expect(
+      screen.queryByTestId("builder-header-left-rail-toggle"),
+    ).toBeNull();
+  });
+
+  it("renders the toggle with 'Collapse React Agent' when leftRail is expanded", () => {
+    render(
+      <BuilderHeader
+        workflowName="x"
+        leftRail={{ isCollapsed: false, onToggle: () => undefined }}
+      />,
+    );
+    const toggle = screen.getByTestId("builder-header-left-rail-toggle");
+    expect(toggle).toBeInTheDocument();
+    expect(toggle.getAttribute("aria-label")).toMatch(
+      /collapse react agent/i,
+    );
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(toggle.getAttribute("data-collapsed")).toBe("false");
+  });
+
+  it("renders the toggle with 'Expand React Agent' when leftRail is collapsed", () => {
+    render(
+      <BuilderHeader
+        workflowName="x"
+        leftRail={{ isCollapsed: true, onToggle: () => undefined }}
+      />,
+    );
+    const toggle = screen.getByTestId("builder-header-left-rail-toggle");
+    expect(toggle.getAttribute("aria-label")).toMatch(/expand react agent/i);
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(toggle.getAttribute("data-collapsed")).toBe("true");
+  });
+
+  it("clicking the toggle fires onToggle exactly once", async () => {
+    const user = userEvent.setup();
+    const onToggle = jest.fn();
+    render(
+      <BuilderHeader
+        workflowName="x"
+        leftRail={{ isCollapsed: false, onToggle }}
+      />,
+    );
+    await user.click(screen.getByTestId("builder-header-left-rail-toggle"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not mention a general / app-level assistant on the toggle (scope guardrail)", () => {
+    render(
+      <BuilderHeader
+        workflowName="x"
+        leftRail={{ isCollapsed: false, onToggle: () => undefined }}
+      />,
+    );
+    const toggle = screen.getByTestId("builder-header-left-rail-toggle");
+    expect(toggle.getAttribute("aria-label") ?? "").not.toMatch(
+      /help assistant/i,
+    );
+  });
+});
+
 describe("BuilderHeader — Cmd+S keyboard wiring", () => {
   it("Cmd+S triggers Save when the slice is dirty", async () => {
     const user = userEvent.setup();

@@ -7,30 +7,43 @@ import { HeaderRunControls } from "./HeaderRunControls";
 
 interface Props {
   workflowName: string;
+  /**
+   * Left React Agent rail state. When supplied, the header renders a
+   * collapse/expand toggle on the left side of the action area. The
+   * toggle is purely a presentational lever — the parent owns the
+   * actual state via `useLeftAgentRail`. Slice 4.BUILDER-LEFT-AGENT-1.
+   *
+   * Optional so the SHELL-1 unit tests (which render BuilderHeader in
+   * isolation with no rail context) keep passing unchanged.
+   */
+  leftRail?: {
+    isCollapsed: boolean;
+    onToggle: () => void;
+  };
 }
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
 
 /**
- * Builder header (Slice 4.BUILDER-UI-SHELL-1).
+ * Builder header (Slice 4.BUILDER-UI-SHELL-1, extended in
+ * Slice 4.BUILDER-LEFT-AGENT-1).
  *
- * 48px compact strip that owns workflow identity (read-only name) and the
- * save status pill + Save button, lifted out of the previous footer row.
- * Wires Cmd/Ctrl+S to the same save action.
+ * 48px compact strip that owns workflow identity (read-only name), the
+ * save status pill + Save button, the header run controls (Test / Run),
+ * and the React Agent left-rail toggle. Wires Cmd/Ctrl+S to the same
+ * save action.
  *
  * Intentionally NOT in this slice (see follow-up slices in the port plan):
- *   - LifecycleActions stays in the page header (BUILDER-RUN-PANEL-1 / a
- *     dedicated lifecycle-move slice).
- *   - Test / Run / Publish controls (BUILDER-RUN-PANEL-1).
+ *   - LifecycleActions stays in the page header (a dedicated
+ *     lifecycle-move slice).
  *   - History pill + ValidationSummary pill (BUILDER-VALIDATION-1).
- *   - AI panel toggle (BUILDER-AI-PANEL-1).
  *   - Undo / redo (requires slice support that does not exist yet).
  *
  * The header reads save state straight from the graph slice — same pattern
  * `LifecycleActions` already uses — so it composes anywhere inside a
  * mounted builder without prop threading.
  */
-export function BuilderHeader({ workflowName }: Props) {
+export function BuilderHeader({ workflowName, leftRail }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
   const saveError = useGraphSlice((s) => s.saveError);
@@ -57,6 +70,12 @@ export function BuilderHeader({ workflowName }: Props) {
       className="flex h-12 items-center justify-between gap-3 border-b border-border px-3"
     >
       <div className="flex min-w-0 items-center gap-3">
+        {leftRail ? (
+          <LeftRailToggle
+            isCollapsed={leftRail.isCollapsed}
+            onToggle={leftRail.onToggle}
+          />
+        ) : null}
         <h2 className="truncate text-sm font-semibold" title={workflowName}>
           {workflowName}
         </h2>
@@ -74,6 +93,30 @@ export function BuilderHeader({ workflowName }: Props) {
         </button>
       </div>
     </header>
+  );
+}
+
+function LeftRailToggle({
+  isCollapsed,
+  onToggle,
+}: {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
+  const label = isCollapsed ? "Expand React Agent" : "Collapse React Agent";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      aria-pressed={!isCollapsed}
+      data-testid="builder-header-left-rail-toggle"
+      data-collapsed={isCollapsed ? "true" : "false"}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-input text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+      title={label}
+    >
+      <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
+    </button>
   );
 }
 

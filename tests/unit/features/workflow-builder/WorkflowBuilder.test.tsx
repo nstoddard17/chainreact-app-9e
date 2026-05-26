@@ -503,4 +503,224 @@ describe("WorkflowBuilder", () => {
     expect(useConfigSlice.getState().drafts).toEqual({});
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
+
+  // Slice 4.BUILDER-LEFT-AGENT-1 — React Agent left rail mount + state.
+  describe("Slice 4.BUILDER-LEFT-AGENT-1 — React Agent left rail", () => {
+    beforeEach(() => {
+      // Ensure each test starts with the rail expanded (clear any leftover
+      // persisted state from earlier suites).
+      window.localStorage.clear();
+    });
+
+    it("mounts the BuilderAiPanel inside the left rail by default on desktop", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const rail = screen.getByTestId("builder-left-agent-rail");
+      expect(rail).toBeInTheDocument();
+      const panel = screen.getByTestId("builder-ai-panel");
+      expect(panel).toBeInTheDocument();
+      expect(rail.contains(panel)).toBe(true);
+    });
+
+    it("renders BuilderAiPanel exactly once (no duplicate below-canvas mount)", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.getAllByTestId("builder-ai-panel")).toHaveLength(1);
+    });
+
+    it("header toggle collapses the rail (BuilderAiPanel + rail container both unmount)", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-ai-panel")).toBeInTheDocument();
+      await user.click(
+        screen.getByTestId("builder-header-left-rail-toggle"),
+      );
+      expect(
+        screen.queryByTestId("builder-left-agent-rail"),
+      ).toBeNull();
+      // The panel disappears with the rail — its state / effects don't
+      // run while collapsed.
+      expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
+    });
+
+    it("in-rail × button collapses the rail (alternative to the header toggle)", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      await user.click(
+        screen.getByTestId("builder-left-agent-rail-collapse"),
+      );
+      expect(
+        screen.queryByTestId("builder-left-agent-rail"),
+      ).toBeNull();
+    });
+
+    it("header toggle is bidirectional — clicking again restores the rail", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const toggle = screen.getByTestId("builder-header-left-rail-toggle");
+      // Collapse.
+      await user.click(toggle);
+      expect(
+        screen.queryByTestId("builder-left-agent-rail"),
+      ).toBeNull();
+      // Re-expand.
+      await user.click(toggle);
+      expect(
+        screen.getByTestId("builder-left-agent-rail"),
+      ).toBeInTheDocument();
+    });
+
+    it("collapsed state persists to localStorage so a refreshed page stays collapsed", async () => {
+      const user = userEvent.setup();
+      const first = render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      await user.click(
+        screen.getByTestId("builder-header-left-rail-toggle"),
+      );
+      expect(
+        screen.queryByTestId("builder-left-agent-rail"),
+      ).toBeNull();
+      first.unmount();
+
+      // Re-mount (simulates a navigation / refresh).
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(
+        screen.queryByTestId("builder-left-agent-rail"),
+      ).toBeNull();
+    });
+
+    // Independence — drawer state and rail state never affect each other.
+    it("opening a node inspector does NOT affect the left rail", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const railBefore = screen.getByTestId("builder-left-agent-rail");
+      expect(railBefore).toBeInTheDocument();
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+      const triggerId = useGraphSlice.getState().pendingNodes[0]!.id;
+      act(() => {
+        useConfigSlice
+          .getState()
+          .openNode({ nodeId: triggerId, initialValues: {} });
+      });
+      // Drawer mounted + rail still mounted simultaneously.
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+    });
+
+    it("dispatching a run does NOT affect the left rail", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      act(() => {
+        useRunSlice
+          .getState()
+          .startTracking({ workflowId: "wf-1", runId: "run-1" });
+      });
+      // Drawer in results mode + rail still mounted.
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+    });
+
+    it("collapsing the rail does NOT close an open right drawer", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+      const triggerId = useGraphSlice.getState().pendingNodes[0]!.id;
+      act(() => {
+        useConfigSlice
+          .getState()
+          .openNode({ nodeId: triggerId, initialValues: {} });
+      });
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+      await user.click(
+        screen.getByTestId("builder-header-left-rail-toggle"),
+      );
+      // Rail gone, drawer still open.
+      expect(
+        screen.queryByTestId("builder-left-agent-rail"),
+      ).toBeNull();
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+    });
+
+    it("closing the right drawer does NOT collapse the left rail", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+      const triggerId = useGraphSlice.getState().pendingNodes[0]!.id;
+      act(() => {
+        useConfigSlice
+          .getState()
+          .openNode({ nodeId: triggerId, initialValues: {} });
+      });
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /close drawer/i }));
+      // Drawer gone, rail still mounted.
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+    });
+  });
 });

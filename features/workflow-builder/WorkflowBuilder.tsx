@@ -7,6 +7,7 @@ import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderHeader } from "./layout/BuilderHeader";
+import { BuilderLeftAgentRail } from "./layout/BuilderLeftAgentRail";
 import { BuilderRightDrawer } from "./layout/BuilderRightDrawer";
 import { BuilderShell } from "./layout/BuilderShell";
 import {
@@ -21,6 +22,7 @@ import { useConfigSlice } from "./state/configSlice";
 import { useGraphSlice } from "./state/graphSlice";
 import { useRunSlice } from "./state/runSlice";
 import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
+import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
 import { useRightDrawer } from "./hooks/useRightDrawer";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 
@@ -38,6 +40,15 @@ interface Props {
  * RunResultsRepairBlock now mount inside the right drawer's `results`
  * mode. The below-canvas RunNowPanel + RunResultsPanel mounts are
  * gone; there's exactly one of each visible at any time.
+ *
+ * Slice 4.BUILDER-LEFT-AGENT-1 — the React Agent (BuilderAiPanel)
+ * moved from the below-canvas slot into the new
+ * `BuilderLeftAgentRail`, a persistent left rail that is visible by
+ * default on desktop and collapsible via the header toggle. The right
+ * drawer is now strictly node-contextual (inspector / results /
+ * validation) — AI does NOT mount there. Left rail collapse state is
+ * persisted to localStorage via `useLeftAgentRail`. The drawer state
+ * is independent of the rail state — both can be open simultaneously.
  *
  * Drawer mode is transitionally synchronized with two slice signals:
  *   - `configSlice.activeNodeId` — user picked a node → inspector.
@@ -99,6 +110,11 @@ export function WorkflowBuilder({
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
   // state machine.
   const { mode, openDrawer, closeDrawer } = useRightDrawer();
+
+  // Slice 4.BUILDER-LEFT-AGENT-1: left React Agent rail collapse state
+  // (persisted to localStorage via useLeftAgentRail). The header
+  // exposes a toggle; the rail itself exposes an in-rail × button.
+  const leftRail = useLeftAgentRail();
 
   // Transition refs — drawer mode changes are user-event-driven, so we
   // only re-open the drawer when the relevant signal *transitions* from
@@ -191,7 +207,36 @@ export function WorkflowBuilder({
   const drawerTitle = mode === "results" ? "Run results" : "Node configuration";
 
   return (
-    <BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>
+    <BuilderShell
+      header={
+        <BuilderHeader
+          workflowName={workflow.name}
+          leftRail={{
+            isCollapsed: leftRail.isCollapsed,
+            onToggle: leftRail.toggle,
+          }}
+        />
+      }
+      leftRail={
+        <BuilderLeftAgentRail
+          isCollapsed={leftRail.isCollapsed}
+          onCollapse={leftRail.collapse}
+        >
+          <BuilderAiPanel />
+        </BuilderLeftAgentRail>
+      }
+      rightDrawer={
+        drawerVisible ? (
+          <BuilderRightDrawer
+            title={drawerTitle}
+            onClose={handleDrawerClose}
+          >
+            {mode === "inspector" ? <NodeInspectorPanel /> : null}
+            {mode === "results" ? <RunResultsPanel /> : null}
+          </BuilderRightDrawer>
+        ) : null
+      }
+    >
       <div className="flex flex-col gap-4" aria-label="Workflow builder">
         <div
           className="flex items-center justify-end gap-2"
@@ -207,27 +252,13 @@ export function WorkflowBuilder({
             + Add action
           </button>
         </div>
-        <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
-            <WorkflowCanvas
-              providerLabels={providerLabels}
-              providerIcons={providerIcons}
-              onEmptyAddTrigger={openTriggerPicker}
-              onEdgePlusClick={memoizedEdgePlusClick}
-            />
-            <NodeList providerLabels={providerLabels} />
-            <BuilderAiPanel />
-          </div>
-          {drawerVisible ? (
-            <BuilderRightDrawer
-              title={drawerTitle}
-              onClose={handleDrawerClose}
-            >
-              {mode === "inspector" ? <NodeInspectorPanel /> : null}
-              {mode === "results" ? <RunResultsPanel /> : null}
-            </BuilderRightDrawer>
-          ) : null}
-        </div>
+        <WorkflowCanvas
+          providerLabels={providerLabels}
+          providerIcons={providerIcons}
+          onEmptyAddTrigger={openTriggerPicker}
+          onEdgePlusClick={memoizedEdgePlusClick}
+        />
+        <NodeList providerLabels={providerLabels} />
         {addPanelMode !== null ? (
           <AddNodePanel
             mode={addPanelMode}

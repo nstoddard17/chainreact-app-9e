@@ -3,20 +3,28 @@
 import { useCallback, useState } from "react";
 
 /**
- * Modes the builder right-drawer can mount today (BUILDER-INSPECTOR-1)
- * and in upcoming slices:
+ * Modes the builder right-drawer can mount (BUILDER-INSPECTOR-1,
+ * narrowed in BUILDER-LEFT-AGENT-1):
  *
- *   - `inspector`  → node configuration form (this slice).
- *   - `ai`         → BuilderAiPanel (BUILDER-AI-PANEL-1).
+ *   - `inspector`  → node configuration form (BUILDER-INSPECTOR-1).
  *   - `results`    → RunResultsPanel (BUILDER-RUN-PANEL-1).
  *   - `validation` → ValidationSummary list (BUILDER-VALIDATION-1).
  *
+ * **The right drawer is node-contextual only.** AI does NOT mount here
+ * — the React Agent lives in the persistent left rail
+ * (`BuilderLeftAgentRail`). This decision is locked in
+ * docs/slices/phase-4/builder-ui-v1-port-plan.md §0 (Correction
+ * history) and §4 (decision text). The previously-reserved `"ai"` mode
+ * was removed in Slice 4.BUILDER-LEFT-AGENT-1; any future reintroduction
+ * must update the typed-union test in
+ * `tests/unit/features/workflow-builder/hooks/useRightDrawer.test.tsx`
+ * and explain why.
+ *
  * Mutual exclusion is enforced by the hook: a single `mode` field, so
  * opening any mode closes whichever was previously open. This is the
- * "one right panel at a time" decision from
- * docs/slices/phase-4/builder-ui-v1-port-plan.md §4.
+ * "one right panel at a time" decision from §4 of the port plan.
  */
-export type RightDrawerMode = "inspector" | "ai" | "results" | "validation";
+export type RightDrawerMode = "inspector" | "results" | "validation";
 
 export interface UseRightDrawerResult {
   mode: RightDrawerMode | null;

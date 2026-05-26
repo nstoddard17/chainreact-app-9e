@@ -1,13 +1,17 @@
 /**
  * Tests for features/workflow-builder/hooks/useRightDrawer.
  *
- * Pure local-state hook (Slice 4.BUILDER-INSPECTOR-1). Covers the mode
- * union, mutual exclusion, and the stable-callback contract that lets
- * consumers list openDrawer/closeDrawer in useEffect deps.
+ * Pure local-state hook (Slice 4.BUILDER-INSPECTOR-1, narrowed in
+ * Slice 4.BUILDER-LEFT-AGENT-1). Covers the mode union, mutual
+ * exclusion, the stable-callback contract that lets consumers list
+ * openDrawer/closeDrawer in useEffect deps, and the typed-union
+ * assertion that the drawer cannot host AI (the React Agent lives in
+ * the left rail; see port plan §0 / §4).
  */
 import { act, render } from "@testing-library/react";
 import {
   useRightDrawer,
+  type RightDrawerMode,
   type UseRightDrawerResult,
 } from "@/features/workflow-builder/hooks/useRightDrawer";
 
@@ -42,8 +46,6 @@ describe("useRightDrawer", () => {
     render(<Harness onState={(s) => (last = s)} />);
     act(() => last.openDrawer("inspector"));
     expect(last.mode).toBe("inspector");
-    act(() => last.openDrawer("ai"));
-    expect(last.mode).toBe("ai");
     act(() => last.openDrawer("results"));
     expect(last.mode).toBe("results");
     act(() => last.openDrawer("validation"));
@@ -68,10 +70,39 @@ describe("useRightDrawer", () => {
     // same mode → close
     act(() => last.toggleDrawer("inspector"));
     expect(last.mode).toBeNull();
-    // open inspector, then toggle to ai → switch
+    // open inspector, then toggle to results → switch (different mode)
     act(() => last.openDrawer("inspector"));
-    act(() => last.toggleDrawer("ai"));
-    expect(last.mode).toBe("ai");
+    act(() => last.toggleDrawer("results"));
+    expect(last.mode).toBe("results");
+  });
+
+  it("RightDrawerMode union does NOT include 'ai' — the React Agent lives in the left rail (LEFT-AGENT-1)", () => {
+    // Compile-time + structural guard. The union must be exactly
+    // 'inspector' | 'results' | 'validation' (in some order). Any
+    // future reintroduction of an `"ai"` mode would break this test
+    // and must be paired with a port-plan update explaining why.
+    const sample: RightDrawerMode[] = ["inspector", "results", "validation"];
+    // Building this list mechanically by exhausting the union forces
+    // TS to fail if a mode is added without the test being updated.
+    const exhaust = (m: RightDrawerMode): RightDrawerMode => {
+      switch (m) {
+        case "inspector":
+          return "inspector";
+        case "results":
+          return "results";
+        case "validation":
+          return "validation";
+      }
+    };
+    expect(sample.map(exhaust)).toEqual(["inspector", "results", "validation"]);
+    // Runtime check: any string literal that compiles to RightDrawerMode
+    // must be one of these three. The compile-time guard above is what
+    // catches a new mode being added; this assertion just documents intent.
+    const allowed = new Set(sample);
+    expect(allowed.has("inspector")).toBe(true);
+    expect(allowed.has("results")).toBe(true);
+    expect(allowed.has("validation")).toBe(true);
+    expect(allowed.has("ai" as unknown as RightDrawerMode)).toBe(false);
   });
 
   it("callbacks are stable across renders (so consumers can list them in useEffect deps)", () => {
