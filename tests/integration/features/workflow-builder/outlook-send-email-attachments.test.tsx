@@ -53,6 +53,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -182,9 +183,7 @@ it("end-to-end: variable-picker â†’ Outlook send_email.attachments file-array â†
 
   // 3. Open the action config rail. attachments renders alongside the
   //    pre-existing send_email fields.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^to$/i })).toBeInTheDocument();
   });

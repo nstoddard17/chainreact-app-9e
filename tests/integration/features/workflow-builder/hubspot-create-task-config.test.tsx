@@ -53,6 +53,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -243,9 +244,7 @@ it("end-to-end: meta-derived defaults seed the draft → type subject → switch
   expect(action.config.hs_task_type).toBe("TODO");
 
   // 3. Open config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("textbox", { name: /^subject$/i }),

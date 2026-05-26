@@ -33,6 +33,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -157,9 +158,7 @@ it("end-to-end: insert a variable into a TextField, save modal, save workflow", 
   expect(actionNode).toBeDefined();
 
   // 2. Configure the HTTP action.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("URL")).toBeInTheDocument();
   });
@@ -243,9 +242,7 @@ it("picker is hidden when there are no upstream sources (e.g. trigger node confi
     expect(screen.getByText("HTTP Request")).toBeInTheDocument();
   });
   await user.click(screen.getByText("HTTP Request"));
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("URL")).toBeInTheDocument();
   });
@@ -271,9 +268,7 @@ it("soft warning surfaces for a free-typed missing reference but does NOT disabl
   await user.click(screen.getByRole("button", { name: /add action/i }));
   await waitFor(() => expect(screen.getByText("HTTP Request")).toBeInTheDocument());
   await user.click(screen.getByText("HTTP Request"));
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
 
   // Free-type a missing-node reference. user-event v14 escapes `{`
@@ -314,9 +309,7 @@ it("picker click does NOT call updateWorkflow (no hidden save)", async () => {
   await user.click(screen.getByRole("button", { name: /add action/i }));
   await waitFor(() => expect(screen.getByText("HTTP Request")).toBeInTheDocument());
   await user.click(screen.getByText("HTTP Request"));
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
 
   await user.click(screen.getByTestId("text-url-picker-trigger"));
@@ -370,9 +363,7 @@ it("router row input + value fields get picker affordances and inserts produce r
   await waitFor(() => expect(screen.getByText("Router")).toBeInTheDocument());
   await user.click(screen.getByText("Router"));
 
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() =>
     expect(screen.getByTestId("router-routes-field")).toBeInTheDocument(),
   );
@@ -445,9 +436,7 @@ it("textarea field also gets a picker affordance", async () => {
   await user.click(screen.getByRole("button", { name: /add action/i }));
   await waitFor(() => expect(screen.getByText("HTTP Request")).toBeInTheDocument());
   await user.click(screen.getByText("HTTP Request"));
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
 
   await waitFor(() => expect(screen.getByLabelText("Body")).toBeInTheDocument());
   const bodyTextarea = screen.getByLabelText("Body") as HTMLTextAreaElement;

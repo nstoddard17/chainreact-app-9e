@@ -45,6 +45,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -175,9 +176,7 @@ it("end-to-end: type blockId + set pageSize=25 → Modal Save (draft only) → T
 
   // 3. Open config rail. Verify both expected controls render and
   //    startCursor is NOT in the form.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("textbox", { name: /^block \/ page id$/i }),

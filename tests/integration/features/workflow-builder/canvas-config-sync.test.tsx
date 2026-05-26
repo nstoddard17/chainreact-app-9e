@@ -1,11 +1,19 @@
 /**
- * Slice 3.5 integration test — canvas + list + config rail
- * synchronization.
+ * Slice 3.5 integration test — canvas + config rail synchronization.
  *
  * Verifies the architectural promise from the slice brief: the canvas
- * and the list/rail are different views of the same graphSlice +
- * configSlice. Selecting a node in EITHER view must highlight it in
- * BOTH, and editing through the config modal must reflect on BOTH.
+ * and the inspector are different views of the same graphSlice +
+ * configSlice. Selecting a node on the canvas opens the inspector
+ * with that node's draft; the config modal saves back through the
+ * same slice; the canvas re-renders.
+ *
+ * Slice 4.BUILDER-V1-SHELL-PARITY-1 — the legacy `NodeList` is no
+ * longer mounted in the builder route. Setup paths that used to drive
+ * NodeList ("Configure action node" button / "Remove action node"
+ * button) now drive the underlying slice actions directly
+ * (`configSlice.openNode` / `graphSlice.removeNode`), which are the
+ * same actions the canvas click + future inspector-Remove button
+ * dispatch. The "single source of truth" promise is unchanged.
  *
  * Also pins the boundary that Run Now / toolbar Save remain the only
  * paths that talk to the workflows API; canvas mount + click + select
@@ -20,6 +28,13 @@ jest.mock("@/lib/api/workflows", () => {
     updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
   };
 });
+
+// Slice 4.BUILDER-V1-SHELL-PARITY-1 — LifecycleActions (lifted into
+// BuilderHeader) calls `useRouter`. Only `refresh()` is invoked.
+const mockRouterRefresh = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mockRouterRefresh }),
+}));
 
 const mockListNativeActions = jest.fn(async () => []);
 const mockListNativeTriggers = jest.fn(async () => []);
@@ -37,7 +52,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -102,8 +117,8 @@ beforeEach(() => {
   useConfigSlice.getState().reset();
 });
 
-describe("Slice 3.5 — canvas + list + rail synchronization", () => {
-  it("canvas renders the same nodes the NodeList renders (single source of truth)", () => {
+describe("Slice 3.5 — canvas + rail synchronization (NodeList removed in V1-SHELL-PARITY-1)", () => {
+  it("canvas renders both pending nodes from graphSlice (single source of truth)", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -114,13 +129,12 @@ describe("Slice 3.5 — canvas + list + rail synchronization", () => {
     const canvas = screen.getByTestId("workflow-canvas");
     const canvasViews = within(canvas).getAllByTestId("workflow-node-view");
     expect(canvasViews).toHaveLength(2);
-
-    // NodeList renders its own rows. Both views share graphSlice.
-    const list = screen.getByRole("list", { name: /workflow nodes/i });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    // The legacy NodeList is no longer mounted; graphSlice is the
+    // single source of truth and the canvas is the single view.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
   });
 
-  it("clicking a canvas node opens the SAME config rail as the NodeList Configure button", async () => {
+  it("clicking a canvas node opens the inspector rail with that node's draft", async () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -144,7 +158,7 @@ describe("Slice 3.5 — canvas + list + rail synchronization", () => {
     });
   });
 
-  it("opening a node via the NodeList Configure button highlights it on the canvas (selection mirroring)", async () => {
+  it("opening a node via configSlice.openNode (slice-level) highlights it on the canvas (selection mirroring)", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -152,14 +166,12 @@ describe("Slice 3.5 — canvas + list + rail synchronization", () => {
         actionProviders={actionProviders}
       />,
     );
-    const user = userEvent.setup();
-    const list = screen.getByRole("list", { name: /workflow nodes/i });
-    const actionRow = within(list)
-      .getAllByRole("listitem")
-      .find((li) => li.textContent?.includes("GitHub"))!;
-    await user.click(
-      within(actionRow).getByRole("button", { name: /configure action node/i }),
-    );
+    // Setup path the canvas click also uses internally.
+    act(() => {
+      useConfigSlice
+        .getState()
+        .openNode({ nodeId: "act", initialValues: { repository: "octocat/x" } });
+    });
 
     const canvas = screen.getByTestId("workflow-canvas");
     const views = within(canvas).getAllByTestId("workflow-node-view");
@@ -184,7 +196,7 @@ describe("Slice 3.5 — canvas + list + rail synchronization", () => {
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("removing a node via NodeList Remove also clears the canvas (canvas re-renders from graphSlice)", async () => {
+  it("removing a node via graphSlice.removeNode (slice-level) re-renders the canvas with one fewer node", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -192,14 +204,14 @@ describe("Slice 3.5 — canvas + list + rail synchronization", () => {
         actionProviders={actionProviders}
       />,
     );
-    const user = userEvent.setup();
-    const list = screen.getByRole("list", { name: /workflow nodes/i });
-    const actionRow = within(list)
-      .getAllByRole("listitem")
-      .find((li) => li.textContent?.includes("GitHub"))!;
-    await user.click(
-      within(actionRow).getByRole("button", { name: /remove action node/i }),
-    );
+    // The visible remove affordance landed via NodeList in earlier
+    // slices; SHELL-PARITY-1 drops that mount. Removal in production
+    // is via ReactFlow's keyboard-delete (which calls
+    // graphSlice.removeNode under the hood); the slice action is the
+    // single source of truth and is what we exercise here.
+    act(() => {
+      useGraphSlice.getState().removeNode("act");
+    });
 
     const canvas = screen.getByTestId("workflow-canvas");
     const remaining = within(canvas).getAllByTestId("workflow-node-view");

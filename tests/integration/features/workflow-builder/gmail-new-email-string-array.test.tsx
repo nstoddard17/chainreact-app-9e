@@ -46,6 +46,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -165,9 +166,7 @@ it("end-to-end: Gmail new_email from[] + labelIds[] round-trip as real arrays vi
   expect(trigger!.config.labelIds).toEqual(["INBOX"]);
 
   // 4. Open the trigger config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   // The chip renderer's Add button's aria-label substring also matches
   // the field label, so query the textbox role directly to avoid the
   // ambiguity.
@@ -266,9 +265,7 @@ it("silently dedupes exact-string duplicates and rejects whitespace-only input o
     expect(screen.getByText("New Email")).toBeInTheDocument();
   });
   await user.click(screen.getByText("New Email"));
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(
       screen.getByRole("textbox", { name: /from \(optional\)/i }),

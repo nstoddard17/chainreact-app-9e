@@ -53,6 +53,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -203,9 +204,7 @@ it("end-to-end: pick Remove Line Item action → fill lineItemId → Modal Save 
   expect(action.type).toBe("remove_line_item");
 
   // 3. Open config rail. Expected single text input.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("textbox", { name: /^line item id$/i }),

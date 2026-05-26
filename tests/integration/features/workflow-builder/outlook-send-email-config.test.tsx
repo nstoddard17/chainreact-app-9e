@@ -72,6 +72,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -204,9 +205,7 @@ it("end-to-end: Outlook send_email config round-trips chip arrays + required isH
   //    field renders. Use scoped textbox/switch/combobox queries — the
   //    StringArrayField's Add-button aria-label substring overlaps the
   //    field label (Slice 3.13 lesson).
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^to$/i })).toBeInTheDocument();
   });

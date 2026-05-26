@@ -54,6 +54,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -308,9 +309,7 @@ it("end-to-end: type subject → pick hs_pipeline → stage picker activates and
   expect(action.type).toBe("create_ticket");
 
   // 3. Open config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^subject$/i })).toBeInTheDocument();
   });

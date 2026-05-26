@@ -57,6 +57,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -257,9 +258,7 @@ it("end-to-end: pick audience (mailchimp:audiences) → fill email + pick status
   expect(action.type).toBe("add_subscriber");
 
   // 3. Open config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("combobox", { name: /^audience$/i })).toBeInTheDocument();
   });

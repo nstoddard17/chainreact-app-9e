@@ -51,6 +51,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -180,9 +181,7 @@ it("end-to-end: picker on a file-array field appends a canonical token chip + pe
   expect(action).toBeDefined();
 
   // 3. Open the action config.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("Attachments")).toBeInTheDocument();
   });
@@ -264,9 +263,7 @@ it("appending the same token twice produces only one chip (dedup parity with pas
   const action = useGraphSlice
     .getState()
     .pendingNodes.find((n) => n.kind === "action")!;
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => expect(screen.getByLabelText("Attachments")).toBeInTheDocument());
 
   // First pick → one chip.
@@ -308,9 +305,7 @@ it("non-fileRef outputs picked into a file-array field also append as a chip (no
   const action = useGraphSlice
     .getState()
     .pendingNodes.find((n) => n.kind === "action")!;
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => expect(screen.getByLabelText("Attachments")).toBeInTheDocument());
 
   await user.click(screen.getByTestId("file-array-attachments-picker-trigger"));
@@ -346,9 +341,7 @@ it("file-array picker hides itself when there are no upstream sources (parity wi
   await user.click(screen.getByRole("button", { name: /add action/i }));
   await waitFor(() => expect(screen.getByText("Attach Files (test)")).toBeInTheDocument());
   await user.click(screen.getByText("Attach Files (test)"));
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => expect(screen.getByLabelText("Attachments")).toBeInTheDocument());
 
   // Picker IS visible here (action has the trigger as an ancestor).
@@ -419,9 +412,7 @@ it("existing text-field picker behavior is unchanged: variable insertion still t
   const action = useGraphSlice
     .getState()
     .pendingNodes.find((n) => n.kind === "action")!;
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
 
   const urlInput = screen.getByLabelText("URL") as HTMLInputElement;

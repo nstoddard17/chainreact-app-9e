@@ -28,6 +28,13 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
+// Slice 4.BUILDER-V1-SHELL-PARITY-1 — LifecycleActions (lifted into
+// BuilderHeader) calls `useRouter`. Only `refresh()` is invoked.
+const mockRouterRefresh = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mockRouterRefresh }),
+}));
+
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
 const mockListProviderActions = jest.fn(async (_p: string) => []);
@@ -42,7 +49,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -161,14 +168,17 @@ it("end-to-end: add router, configure routes via the new editor, save modal, sav
   expect(routerNode).toBeDefined();
 
   // 3. Configure the router node.
-  // Two Configure buttons exist (trigger + action). Locate the action
-  // row via the NodeList accessible name.
-  // Only one action node exists (the router); the "Configure action
-  // node" button is unique to it. The trigger row's button is
-  // "Configure trigger node".
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  // Slice 4.BUILDER-V1-SHELL-PARITY-1 — NodeList no longer mounts, so
+  // there's no "Configure action node" button anymore. The canvas
+  // click path (which jsdom can drive via ReactFlow) is the production
+  // path; here we call `configSlice.openNode` directly with the same
+  // payload the canvas click would dispatch (single source of truth).
+  act(() => {
+    useConfigSlice.getState().openNode({
+      nodeId: routerNode!.id,
+      initialValues: routerNode!.config,
+    });
+  });
 
   await waitFor(() => {
     expect(screen.getByTestId("router-routes-field")).toBeInTheDocument();
@@ -260,12 +270,18 @@ it("modal Save stays disabled while the routes editor has any per-row validation
   await waitFor(() => expect(screen.getByText("Router")).toBeInTheDocument());
   await user.click(screen.getByText("Router"));
 
-  // Only one action node exists (the router); the "Configure action
-  // node" button is unique to it. The trigger row's button is
-  // "Configure trigger node".
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  // Slice 4.BUILDER-V1-SHELL-PARITY-1 — NodeList no longer mounts.
+  // Open the router config rail via the slice action (canvas click path).
+  const routerNode2 = useGraphSlice
+    .getState()
+    .pendingNodes.find((n) => n.provider === "native" && n.type === "router");
+  expect(routerNode2).toBeDefined();
+  act(() => {
+    useConfigSlice.getState().openNode({
+      nodeId: routerNode2!.id,
+      initialValues: routerNode2!.config,
+    });
+  });
 
   await waitFor(() =>
     expect(screen.getByTestId("router-routes-field")).toBeInTheDocument(),

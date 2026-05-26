@@ -1,20 +1,35 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { displayStatus } from "@/core/workflows/projections";
 import { listProviders, providerIconUrl } from "@/integrations/_registry";
 import * as workflowsRepo from "@/repositories/workflows";
-import * as workflowRunsRepo from "@/repositories/workflowRuns";
-import { toWorkflowRunSummary } from "@/app/api/workflows/_shared";
-import { WorkflowEditForm } from "@/features/workflows/WorkflowEditForm";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
-import { LifecycleActions } from "@/features/workflow-builder/panels/LifecycleActions";
-import { RunHistory } from "@/features/workflow-builder/panels/RunHistory";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Workflow detail / builder route.
+ *
+ * Slice 4.BUILDER-V1-SHELL-PARITY-1 — full-bleed workspace. The route's
+ * job is now just authentication + data fetch + provider metadata
+ * lookup; the entire visual surface (header, identity, save, lifecycle
+ * controls, canvas, AI rail, inspector, run results, validation) is
+ * owned by `<WorkflowBuilder>`. The previous detail-page chrome (the
+ * "← All workflows" link, the `<header>` with h1 + status badge, the
+ * `<WorkflowEditForm>` rename block, the `<RunHistory>` recent-runs
+ * list, the `max-w-3xl mx-auto` centering wrapper) is gone — see §0
+ * Correction history in docs/slices/phase-4/builder-ui-v1-port-plan.md.
+ *
+ * The route container is `h-screen flex-col overflow-hidden` so the
+ * builder fills the browser height. `WorkflowBuilder` and its shell
+ * chain `h-full` / `flex-1 min-h-0` so the canvas grows to fill
+ * whatever space the rail + drawer + header don't claim.
+ *
+ * Workflow rename is currently deferred — `WorkflowEditForm` is no
+ * longer mounted on this route. Re-introducing it as an in-header
+ * edit-in-place affordance is a follow-up slice (see plan doc).
+ */
 export default async function WorkflowDetailPage({ params }: Props) {
   const supabase = await createClient();
   const {
@@ -39,7 +54,6 @@ export default async function WorkflowDetailPage({ params }: Props) {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
-  const status = displayStatus(workflow);
 
   const providers = listProviders();
   const triggerProviders = providers
@@ -57,40 +71,16 @@ export default async function WorkflowDetailPage({ params }: Props) {
       iconUrl: providerIconUrl(p.id),
     }));
 
-  const runRecords = await workflowRunsRepo.listByWorkflow(workflow.id);
-  const runs = runRecords.map(toWorkflowRunSummary);
-
   return (
-    <main className="flex min-h-screen flex-col items-center p-8">
-      <div className="flex w-full max-w-3xl flex-col gap-6">
-        <Link
-          href="/workflows"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← All workflows
-        </Link>
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-bold">{workflow.name}</h1>
-            {status && (
-              <span
-                data-status-kind={status.kind}
-                className="self-start rounded bg-muted px-2 py-1 text-xs font-medium"
-              >
-                {status.label}
-              </span>
-            )}
-          </div>
-          <LifecycleActions workflowId={workflow.id} state={workflow.state} />
-        </header>
-        <WorkflowEditForm workflow={workflow} />
-        <WorkflowBuilder
-          workflow={workflow}
-          triggerProviders={triggerProviders}
-          actionProviders={actionProviders}
-        />
-        <RunHistory runs={runs} />
-      </div>
+    <main
+      data-testid="workflow-builder-route"
+      className="flex h-screen flex-col overflow-hidden"
+    >
+      <WorkflowBuilder
+        workflow={workflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />
     </main>
   );
 }

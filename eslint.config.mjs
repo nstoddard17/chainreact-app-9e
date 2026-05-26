@@ -246,8 +246,11 @@ export default [
   },
 
   // Test files: Jest globals + relax max-lines and `any`.
+  // Slice 4.BUILDER-V1-SHELL-PARITY-1 — `jest.setup.ts` lives at the
+  // repo root (not under `tests/`) but uses jest globals for the
+  // global `next/navigation` default mock; include it explicitly.
   {
-    files: ["tests/**/*.{ts,tsx}", "**/*.test.{ts,tsx}"],
+    files: ["tests/**/*.{ts,tsx}", "**/*.test.{ts,tsx}", "jest.setup.ts"],
     languageOptions: {
       globals: { ...globals.jest, ...globals.node },
     },

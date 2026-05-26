@@ -17,6 +17,15 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
+// Slice 4.BUILDER-V1-SHELL-PARITY-1 — LifecycleActions (lifted into
+// BuilderHeader) calls `useRouter`. The full app-router mock isn't
+// required for these tests — only `refresh()` is invoked, and only
+// on a successful lifecycle action.
+const mockRouterRefresh = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mockRouterRefresh }),
+}));
+
 // Slice 4.BUILDER-ADD-FLOW-1 — ReactFlow's EdgeLabelRenderer mounts a
 // portal that jsdom can't initialize without real canvas dimensions.
 // Replace it with a passthrough so the WorkflowEdge plus-button
@@ -118,7 +127,7 @@ const slackTriggerMeta = {
 };
 
 describe("WorkflowBuilder", () => {
-  it("hydrates the slice on mount and shows the empty-state when no nodes", () => {
+  it("hydrates the slice on mount and shows the canvas empty-state overlay when no nodes", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -128,7 +137,12 @@ describe("WorkflowBuilder", () => {
     );
     expect(useGraphSlice.getState().workflowId).toBe("wf-1");
     expect(useGraphSlice.getState().isHydrated).toBe(true);
-    expect(screen.getByText(/empty workflow/i)).toBeInTheDocument();
+    // Slice 4.BUILDER-V1-SHELL-PARITY-1 — the below-canvas NodeList
+    // mount that previously rendered "Empty workflow. Add a trigger
+    // to get started." is gone. The empty-state CTA inside the canvas
+    // ("Choose a trigger") is now the only empty-state surface.
+    expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
+    expect(screen.queryByText(/empty workflow/i)).toBeNull();
   });
 
   // Slice 4.BUILDER-ADD-FLOW-1 — the empty-canvas-state CTA now opens
@@ -872,6 +886,92 @@ describe("WorkflowBuilder", () => {
       await user.click(screen.getByTestId("builder-header-validation-pill"));
       expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
       expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+    });
+  });
+
+  // Slice 4.BUILDER-V1-SHELL-PARITY-1 — full-bleed workspace.
+  describe("Slice 4.BUILDER-V1-SHELL-PARITY-1 — full-bleed workspace", () => {
+    it("renders the BuilderShell as the only top-level workspace wrapper (no centered detail-page block above it)", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const shell = screen.getByTestId("builder-shell");
+      expect(shell).toBeInTheDocument();
+      // BuilderShell owns the workspace row.
+      expect(
+        screen.getByTestId("builder-workspace-row"),
+      ).toBeInTheDocument();
+      // Center workspace column landmark.
+      expect(
+        screen.getByTestId("builder-center-workspace"),
+      ).toBeInTheDocument();
+    });
+
+    it("does NOT mount the legacy below-canvas NodeList (Empty workflow text gone)", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.queryByText(/empty workflow/i)).toBeNull();
+      expect(
+        screen.queryByRole("list", { name: /workflow nodes/i }),
+      ).toBeNull();
+    });
+
+    it("mounts LifecycleActions inside the BuilderHeader (lifted from the page header)", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const header = screen.getByRole("banner", {
+        name: /workflow builder header/i,
+      });
+      // The draft workflow's only lifecycle action is "Activate".
+      const activate = within(header).getByRole("button", {
+        name: /^activate$/i,
+      });
+      expect(activate).toBeInTheDocument();
+    });
+
+    it("renders exactly one Save button (no duplicate from the old page-header / WorkflowEditForm)", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(
+        screen.getAllByRole("button", { name: /^save$/i }),
+      ).toHaveLength(1);
+    });
+
+    it("canvas container drops the fixed 560px height and uses a flexible min-h floor instead", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const canvas = screen.getByTestId("workflow-canvas");
+      // Pre-parity: `style="height: 560px"`. Post-parity: no fixed
+      // height in inline style; the Tailwind class chain provides
+      // `h-full min-h-[560px] flex-1` so the canvas grows into the
+      // workspace.
+      expect(canvas.style.height).toBe("");
+      expect(canvas.className).toMatch(/min-h-\[560px\]/);
+      expect(canvas.className).toMatch(/flex-1/);
     });
   });
 });

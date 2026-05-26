@@ -51,6 +51,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -207,9 +208,7 @@ it("end-to-end: drill into provider, pick action from metadata, configure, save 
   expect(action!.type).toBe("add_comment");
 
   // 4. Open the modal via Configure.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("Repository")).toBeInTheDocument();
   });

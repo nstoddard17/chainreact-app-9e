@@ -62,6 +62,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -218,9 +219,7 @@ it("end-to-end: variable-picker → Slack upload_file.file FileField chip → Mo
   expect(action.type).toBe("upload_file");
 
   // 3. Open the action config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     // Slice 3.32: channel is now an async combobox (no longer a textbox).
     expect(
@@ -375,9 +374,7 @@ it("FileField ✕ on the chip clears the value back to undefined (single-value r
   const action = useGraphSlice
     .getState()
     .pendingNodes.find((n) => n.kind === "action")!;
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() =>
     expect(screen.getByTestId("file-file-picker-trigger")).toBeInTheDocument(),
   );

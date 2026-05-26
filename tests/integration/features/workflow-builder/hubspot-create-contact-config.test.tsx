@@ -56,6 +56,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -230,9 +231,7 @@ it("end-to-end: type email + names + phone + lifecyclestage → switch duplicate
 
   // 3. Open config rail. Expected controls: email + name fields + a few
   //    optionals + duplicateHandling select.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^email$/i })).toBeInTheDocument();
   });

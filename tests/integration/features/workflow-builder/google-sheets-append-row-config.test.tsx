@@ -53,6 +53,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -226,9 +227,7 @@ it("end-to-end: pick spreadsheet → type range → paste values JSON → pick v
 
   // 3. Open config rail. Expected controls: spreadsheet combobox +
   //    range text + values textarea + 2 selects.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("combobox", { name: /^spreadsheet$/i }),

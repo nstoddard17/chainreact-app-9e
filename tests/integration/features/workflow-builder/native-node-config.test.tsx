@@ -38,6 +38,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -184,9 +185,7 @@ it("end-to-end: add native action, configure, save modal, save workflow", async 
   expect(action!.config).toEqual({ timeoutSeconds: 15 });
 
   // 4. Click Configure to open the modal.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("URL")).toBeInTheDocument();
   });

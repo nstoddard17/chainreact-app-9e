@@ -49,6 +49,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -224,9 +225,7 @@ it("end-to-end: trigger picker → spreadsheet → sheet (cascade) → headerRow
   expect(trigger.config.snapshotRowLimit).toBe(1000);
 
   // 3. Open the trigger config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(
       screen.getByRole("combobox", { name: /^spreadsheet$/i }),

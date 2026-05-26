@@ -43,6 +43,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -196,9 +197,7 @@ it("end-to-end: pick GitHub new_commit via drill-in, configure, save, downstream
   expect(trigger!.type).not.toBe("");
 
   // 5. Open the trigger config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(screen.getByLabelText("Repository")).toBeInTheDocument();
   });
@@ -253,9 +252,7 @@ it("end-to-end: pick GitHub new_commit via drill-in, configure, save, downstream
   });
   await user.click(screen.getByText("HTTP Request"));
 
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("URL")).toBeInTheDocument();
   });

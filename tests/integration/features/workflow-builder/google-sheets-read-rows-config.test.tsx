@@ -50,6 +50,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -208,9 +209,7 @@ it("end-to-end: async spreadsheet combobox → range text → Modal Save (draft 
 
   // 3. Open config rail. Verify spreadsheet combobox + range text both
   //    render. sheetName is intentionally absent from the meta.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("combobox", { name: /^spreadsheet$/i }),

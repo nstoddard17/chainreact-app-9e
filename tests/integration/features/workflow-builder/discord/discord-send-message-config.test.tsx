@@ -55,6 +55,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "../helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -228,9 +229,7 @@ it("end-to-end: pick guild → channel cascade → fill message → Modal Save �
   // renders as the cascade's "Select Server first" passive trigger
   // (data-testid="combobox-parent-missing") until guild is picked.
   // Pattern matches hubspot-create-deal-config.test.tsx line 308-311.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("combobox", { name: /^server$/i })).toBeInTheDocument();
   });

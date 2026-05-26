@@ -56,6 +56,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -165,9 +166,7 @@ it("end-to-end: Gmail send_email config round-trips chip arrays through modal Sa
   expect(action!.type).toBe("send_email");
 
   // 4. Open the action config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
 
   // Every SchemaForm field from the shipped sendEmailMeta must render.
   // Use scoped textbox/button queries — StringArrayField's Add button

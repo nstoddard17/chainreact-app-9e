@@ -51,6 +51,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -177,9 +178,7 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   expect(trigger!.type).toBe("new_labeled_email");
 
   // 5. Open the trigger config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(screen.getByLabelText(/label id/i)).toBeInTheDocument();
   });
@@ -236,9 +235,7 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   });
   await user.click(screen.getByText("HTTP Request"));
 
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByLabelText("URL")).toBeInTheDocument();
   });

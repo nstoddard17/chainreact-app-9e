@@ -210,13 +210,15 @@ function WorkflowCanvasInner({
     <div
       aria-label="Workflow canvas"
       data-testid="workflow-canvas"
-      // jsdom returns 0 for getBoundingClientRect — explicit dimensions
-      // keep React Flow rendering predictably in tests too. The bump
-      // from 480 → 560 is a modest "feels closer to full-height" step;
-      // true full-bleed needs page-shell changes that are out of scope
-      // for BUILDER-CANVAS-1 (documented in the port plan).
-      style={{ width: "100%", height: 560 }}
-      className="relative overflow-hidden rounded-lg border border-input bg-background"
+      // Slice 4.BUILDER-V1-SHELL-PARITY-1 — flexible-height container.
+      // `flex-1 min-h-[560px]` lets the canvas grow into whatever
+      // workspace height BuilderShell gives it (the route now uses
+      // `h-screen` end-to-end), while keeping a 560px floor so jsdom
+      // (which returns 0 for getBoundingClientRect) still has explicit
+      // dimensions for React Flow to render predictably in unit tests.
+      // Width is 100% so it fills the center column.
+      style={{ width: "100%" }}
+      className="relative h-full min-h-[560px] flex-1 overflow-hidden rounded-lg border border-input bg-background"
     >
       <ReactFlow
         nodes={flowNodes}

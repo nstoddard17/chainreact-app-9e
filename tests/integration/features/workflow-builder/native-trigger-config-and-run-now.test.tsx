@@ -42,6 +42,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -152,9 +153,7 @@ it("end-to-end: add scheduled trigger, configure cron, save modal, save workflow
   expect(trigger!.type).toBe("schedule.fired");
 
   // 3. Click Configure to open the modal.
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(screen.getByLabelText("Cron Expression")).toBeInTheDocument();
   });

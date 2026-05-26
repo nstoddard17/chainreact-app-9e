@@ -1,6 +1,34 @@
 import "@testing-library/jest-dom";
 
 /**
+ * Default `next/navigation` mock (Slice 4.BUILDER-V1-SHELL-PARITY-1).
+ *
+ * `LifecycleActions` now mounts inside `BuilderHeader` (lifted out of
+ * the legacy page-header in the workflow detail route), so every test
+ * that renders `<WorkflowBuilder>` indirectly mounts `useRouter()`.
+ * Without a default mock, the Next.js app router invariant throws
+ * (`expected app router to be mounted`).
+ *
+ * This default returns a stable `refresh: jest.fn()` and is safe to
+ * override per test — local `jest.mock("next/navigation", ...)` calls
+ * win over this setup-file default. Tests that need to assert on
+ * router calls (e.g. `LifecycleActions.test.tsx`, `WorkflowEditForm
+ * .test.tsx`) keep their own mocks.
+ */
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    refresh: jest.fn(),
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+/**
  * jsdom polyfills required by `@xyflow/react` (Slice 3.5).
  *
  * `@xyflow/react` invokes `ResizeObserver`, `DOMMatrixReadOnly`, and

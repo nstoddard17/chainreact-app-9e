@@ -60,6 +60,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -220,9 +221,7 @@ it("end-to-end: pick audience → segment picker activates and fetches scoped to
   expect(trigger.type).toBe("segment_updated");
 
   // 2. Open the trigger config rail.
-  await user.click(
-    screen.getByRole("button", { name: /configure trigger node/i }),
-  );
+  await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(screen.getByRole("combobox", { name: /^audience$/i })).toBeInTheDocument();
   });

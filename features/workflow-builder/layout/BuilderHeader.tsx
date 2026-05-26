@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import type { WorkflowState } from "@/contracts/workflow";
 import { useGraphSlice } from "../state/graphSlice";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
+import { LifecycleActions } from "../panels/LifecycleActions";
 import {
   collectBuilderValidationIssues,
   countBuilderValidationIssues,
@@ -37,6 +39,19 @@ interface Props {
   validation?: {
     onOpen: () => void;
   };
+  /**
+   * Lifecycle actions (Activate / Pause / Resume). When supplied, the
+   * header mounts `<LifecycleActions>` next to the Save button. Slice
+   * 4.BUILDER-V1-SHELL-PARITY-1 lifted these out of the page-header
+   * `<header>` block so the builder workspace owns the full chrome.
+   *
+   * Optional so the SHELL-1 / LEFT-AGENT-1 / VALIDATION-1 unit tests
+   * that render BuilderHeader in isolation keep passing unchanged.
+   */
+  lifecycle?: {
+    workflowId: string;
+    state: WorkflowState;
+  };
 }
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
@@ -60,7 +75,12 @@ type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
  * `LifecycleActions` already uses — so it composes anywhere inside a
  * mounted builder without prop threading.
  */
-export function BuilderHeader({ workflowName, leftRail, validation }: Props) {
+export function BuilderHeader({
+  workflowName,
+  leftRail,
+  validation,
+  lifecycle,
+}: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
   const saveError = useGraphSlice((s) => s.saveError);
@@ -125,6 +145,12 @@ export function BuilderHeader({ workflowName, leftRail, validation }: Props) {
         >
           {isSaving ? "Saving…" : "Save"}
         </button>
+        {lifecycle ? (
+          <LifecycleActions
+            workflowId={lifecycle.workflowId}
+            state={lifecycle.state}
+          />
+        ) : null}
       </div>
     </header>
   );

@@ -50,6 +50,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -213,9 +214,7 @@ it("end-to-end: pick campaign via mailchimp:campaigns → Modal Save → Toolbar
   expect(action.provider).toBe("mailchimp");
   expect(action.type).toBe("get_campaign");
 
-  await user.click(
-    screen.getByRole("button", { name: /configure action node/i }),
-  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(screen.getByRole("combobox", { name: /^campaign$/i })).toBeInTheDocument();
   });

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
-import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderHeader } from "./layout/BuilderHeader";
 import { BuilderLeftAgentRail } from "./layout/BuilderLeftAgentRail";
@@ -238,6 +237,7 @@ export function WorkflowBuilder({
             onToggle: leftRail.toggle,
           }}
           validation={{ onOpen: handleOpenValidation }}
+          lifecycle={{ workflowId: workflow.id, state: workflow.state }}
         />
       }
       leftRail={
@@ -261,9 +261,13 @@ export function WorkflowBuilder({
         ) : null
       }
     >
-      <div className="flex flex-col gap-4" aria-label="Workflow builder">
+      <div
+        className="flex min-h-0 flex-1 flex-col gap-2"
+        aria-label="Workflow builder"
+        data-testid="builder-center-workspace"
+      >
         <div
-          className="flex items-center justify-end gap-2"
+          className="flex shrink-0 items-center justify-end gap-2"
           aria-label="Canvas actions"
         >
           <button
@@ -282,7 +286,6 @@ export function WorkflowBuilder({
           onEmptyAddTrigger={openTriggerPicker}
           onEdgePlusClick={memoizedEdgePlusClick}
         />
-        <NodeList providerLabels={providerLabels} />
         {addPanelMode !== null ? (
           <AddNodePanel
             mode={addPanelMode}

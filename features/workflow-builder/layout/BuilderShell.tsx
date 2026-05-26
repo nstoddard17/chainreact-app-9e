@@ -57,12 +57,25 @@ export function BuilderShell({
   return (
     <section
       aria-label="Workflow builder shell"
-      className="flex flex-col gap-4"
+      data-testid="builder-shell"
+      // Full-bleed workspace (Slice 4.BUILDER-V1-SHELL-PARITY-1) —
+      // `h-full` makes the shell inherit the route container's height
+      // (`<main className="flex h-screen flex-col">` on the workflow
+      // detail route); `overflow-hidden` keeps the inner workspace
+      // row from inducing scroll at this level. The inner row gets
+      // `flex-1 min-h-0` so its children (canvas etc.) can shrink and
+      // scroll without breaking out of the viewport.
+      className="flex h-full flex-col overflow-hidden"
     >
       {header}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+      <div
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:flex-row md:items-stretch"
+        data-testid="builder-workspace-row"
+      >
         {leftRail}
-        <div className="flex min-w-0 flex-1 flex-col gap-4">{children}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+          {children}
+        </div>
         {rightDrawer}
       </div>
     </section>
