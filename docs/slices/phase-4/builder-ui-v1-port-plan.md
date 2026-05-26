@@ -388,8 +388,8 @@ features/workflow-builder/
 
 | Slice | Goal | Files | Behavior risk | Tests | Backend touched? |
 |---|---|---|---|---|---|
-| **BUILDER-UI-V1-AUDIT-1** *(this slice)* | Audit + plan | `docs/slices/phase-4/builder-ui-v1-port-plan.md` | None | None | No |
-| **BUILDER-UI-SHELL-1** | New `BuilderShell` + `BuilderHeader` + `BuilderRightDrawer`. Lifts `LifecycleActions` + Save into the header. Behavior unchanged. | `WorkflowBuilder.tsx` (refactor to compose shell), `layout/*` (new), `hooks/useRightDrawer.ts` (new), `hooks/useBuilderShortcuts.ts` (new) | Low — layout-only; no state contracts changed | shell renders; header lifts existing actions; right drawer mutual exclusion; Cmd+S triggers save | No |
+| **BUILDER-UI-V1-AUDIT-1** *(shipped)* | Audit + plan | `docs/slices/phase-4/builder-ui-v1-port-plan.md` | None | None | No |
+| **BUILDER-UI-SHELL-1** *(shipped)* | New `BuilderShell` + `BuilderHeader` + `useBuilderShortcuts` (Cmd/Ctrl+S). Save lifted from footer into header. `BuilderRightDrawer` + `useRightDrawer` + LifecycleActions move deferred. Behavior preserved. | `WorkflowBuilder.tsx` (composes shell), `layout/BuilderShell.tsx` (new), `layout/BuilderHeader.tsx` (new), `hooks/useBuilderShortcuts.ts` (new) | Low — layout-only; no state contracts changed | shell renders; header lifts Save + status; existing WorkflowBuilder test contract preserved | No |
 | **BUILDER-CANVAS-1** | Full-height canvas, Dots background, new `WorkflowNodeCard` (provider icon, status badge, hover/selected, run-state hint), `EmptyCanvasState`. Default edges still. | `canvas/WorkflowCanvas.tsx`, `canvas/WorkflowNodeCard.tsx` (new), `canvas/EmptyCanvasState.tsx` (new), `utils/classifyNodeStatus.ts` (new) | Low — visual-only | node card renders metadata + state; empty state renders when 0 nodes; classifyNodeStatus pure unit tests | No |
 | **BUILDER-INSPECTOR-1** | Mount `ConfigModalShell` inside `BuilderRightDrawer`. Remove right-aside layout in `WorkflowBuilder`. | `WorkflowBuilder.tsx`, `panels/NodeInspectorPanel.tsx` (new), `layout/BuilderRightDrawer.tsx` | Low — mounting move only | inspector opens when node selected; closes via Esc / × ; mutually exclusive with AI/results | No |
 | **BUILDER-ADD-FLOW-1** | New `AddNodePanel` slide-in with search + categorized providers. Replaces inline `AddNodeMenu`. Reuses `useNativeActions` / `useProviderActions` / `addTriggerFromMeta` / `addActionFromMeta`. Adds edge plus-button (custom `WorkflowEdge`). | `panels/AddNodePanel.tsx` (new), `canvas/WorkflowEdge.tsx` (new), `utils/shouldShowPlusButton.ts` (new), `AddNodeMenu.tsx` (delete after replacement) | Medium — replaces the picker; selection semantics must match for existing tests | search filters by metadata; clicking item dispatches addTriggerFromMeta/addActionFromMeta as before; edge plus-button opens panel with insert context | No |
@@ -402,6 +402,46 @@ features/workflow-builder/
 **Order rationale:** SHELL first (skeleton), CANVAS second (visible improvement quickly), INSPECTOR third (mount move), ADD-FLOW fourth (highest UX leverage). RUN / AI / VALIDATION can interleave. RESPONSIVE last (touches everything; needs everything stable). CLOSEOUT documents.
 
 **Out of scope across the entire track:** backend execution, provider metadata, billing/tasks, AI service behavior, templates, custom nodes, teams/workspaces, full AI chat persistence.
+
+### BUILDER-UI-SHELL-1 outcomes (shipped)
+
+Layout foundation only. **No panel relocation in this slice** — every existing surface (canvas, AddNodeMenu, ConfigModalShell aside, BuilderAiPanel, RunNowPanel, RunResultsPanel, RunResultsRepairBlock, LifecycleActions on the page header) stays mounted where it is. The only behavioral change is that the previous footer Save row is now lifted into the new header strip.
+
+**Added:**
+
+- [`features/workflow-builder/layout/BuilderShell.tsx`](../../../features/workflow-builder/layout/BuilderShell.tsx) — 27-line shell. Composes `header` + `children` regions; landmark `role="region" aria-label="Workflow builder shell"`. No state, no behavior.
+- [`features/workflow-builder/layout/BuilderHeader.tsx`](../../../features/workflow-builder/layout/BuilderHeader.tsx) — 135-line compact 48px strip. Reads `isDirty / isSaving / saveError / save` straight from `useGraphSlice`; owns Save button + status pill (Saved / Saving… / Unsaved changes / `role="alert"` save-error). Renders workflow display name (read-only) on the left. Wires Cmd/Ctrl+S via `useBuilderShortcuts`.
+- [`features/workflow-builder/hooks/useBuilderShortcuts.ts`](../../../features/workflow-builder/hooks/useBuilderShortcuts.ts) — 36-line hook. Currently only Cmd/Ctrl+S → `onSave` with `preventDefault` always. Modifier guards reject Shift / Alt combos. Designed to extend with Esc + undo/redo in later slices.
+
+**Integrated:** [`features/workflow-builder/WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) now composes `<BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>` around the existing AddNodeMenu + 2-column canvas/inspector body. The footer Save row + duplicate `savedAt` local state were removed (lifted into `BuilderHeader`). Net: 139 → 105 lines, well under the 500-line guardrail.
+
+**Behavior preserved (verified by `tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx` — 6 existing tests pass unchanged):**
+
+- Hydration on mount + slice reset on unmount.
+- `addTrigger` / `addAction` round-trips through the same `AddNodeMenu` flow.
+- Save button still has accessible name `/^Save$/i`, still disabled when clean, still dispatches `updateWorkflow` with the pending definition, still shows "Saved." after success and `role="alert"` with "failed to save" on error.
+- `LifecycleActions` continues to read `useGraphSlice.isDirty` from the page header.
+
+**Intentionally deferred (called out per the brief):**
+
+- **LifecycleActions placement.** Currently still mounted in the page header (`app/workflows/[id]/page.tsx`). Moving it requires either deleting the page-header h1 (visible regression risk) or accepting visible duplication. Deferred to a follow-up slice that resolves the page-header h1 question (likely folded into BUILDER-CANVAS-1 once the canvas takes full-bleed, or pulled out into its own micro-slice).
+- **Test / Run controls in header.** `RunNowPanel` still renders below canvas. Owner: **BUILDER-RUN-PANEL-1**.
+- **AI panel in header / right drawer.** `BuilderAiPanel` still renders in-flow below `RunResultsPanel`. Owner: **BUILDER-AI-PANEL-1**.
+- **Inspector in right drawer.** `ConfigModalShell` still renders as a right-side `aside` inside `WorkflowBuilder`. Owner: **BUILDER-INSPECTOR-1**.
+- **`AddNodePanel` slide-in.** `AddNodeMenu` inline drill-in still in place. Owner: **BUILDER-ADD-FLOW-1**.
+- **Custom edges + plus-button + empty canvas state + node card.** Owner: **BUILDER-CANVAS-1** / **BUILDER-ADD-FLOW-1**.
+- **ValidationSummary pill.** Owner: **BUILDER-VALIDATION-1**.
+- **`BuilderRightDrawer` + `useRightDrawer`.** Skipped in this slice — adding the drawer container without anything to mount inside it would be dead scaffolding. First payload (config inspector) lands in **BUILDER-INSPECTOR-1**.
+- **Undo / redo + Esc shortcuts.** Slice support doesn't exist yet; `useBuilderShortcuts` deliberately only handles Cmd/Ctrl+S today.
+- **Page-header h1 + status badge duplication with `BuilderHeader`.** Both currently render the workflow name; resolved when LifecycleActions migrates (see above).
+
+**Tests added:**
+
+- [`tests/unit/features/workflow-builder/layout/BuilderShell.test.tsx`](../../../tests/unit/features/workflow-builder/layout/BuilderShell.test.tsx) — 3 tests (regions render; landmark present; header precedes content in DOM order).
+- [`tests/unit/features/workflow-builder/layout/BuilderHeader.test.tsx`](../../../tests/unit/features/workflow-builder/layout/BuilderHeader.test.tsx) — 8 tests covering: landmark + name; Save button accessible-name preservation; idle/unsaved/saving/saved/error pill states (error driven through the slice's real save() path); Save dispatch via `updateWorkflow` mock; Cmd+S triggers save when dirty; Cmd+S is a no-op when clean.
+- [`tests/unit/features/workflow-builder/hooks/useBuilderShortcuts.test.tsx`](../../../tests/unit/features/workflow-builder/hooks/useBuilderShortcuts.test.tsx) — 9 tests covering Cmd+S / Ctrl+S; Shift / Alt + S rejected; other keys with modifier rejected; plain S rejected; `preventDefault` fires; unmount removes listener; safe without `onSave`.
+
+**Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · 49 workflow-builder unit suites / 711 tests pass.
 
 ---
 

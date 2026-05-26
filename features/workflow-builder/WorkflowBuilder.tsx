@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { NodeList } from "./canvas/NodeList";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { ConfigModalShell } from "./config-modal/ConfigModalShell";
+import { BuilderHeader } from "./layout/BuilderHeader";
+import { BuilderShell } from "./layout/BuilderShell";
 import { AddNodeMenu, type ProviderOption } from "./panels/AddNodeMenu";
 import { BuilderAiPanel } from "./panels/BuilderAiPanel";
 import { RunNowPanel } from "./panels/RunNowPanel";
@@ -21,8 +23,11 @@ interface Props {
 }
 
 /**
- * Shell that hosts the Slice 1I.2 minimum builder: a vertical node list,
- * the add-trigger / add-action picker, and a Save button.
+ * Shell that hosts the Slice 1I.2 minimum builder, now composed inside the
+ * BUILDER-UI-SHELL-1 layout shell. The new BuilderHeader owns Save +
+ * status pill (lifted out of the previous footer row); every other panel
+ * stays mounted exactly where it was. Panel relocations land across the
+ * later BUILDER-UI-* slices (see docs/slices/phase-4/builder-ui-v1-port-plan.md).
  *
  * Hydration: on mount (and whenever the workflowId prop changes — e.g. user
  * navigates from one workflow to another via the in-app router), the slice
@@ -40,10 +45,6 @@ export function WorkflowBuilder({
 }: Props) {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
-  const isDirty = useGraphSlice((s) => s.isDirty);
-  const isSaving = useGraphSlice((s) => s.isSaving);
-  const saveError = useGraphSlice((s) => s.saveError);
-  const save = useGraphSlice((s) => s.save);
   const resetConfigSlice = useConfigSlice((s) => s.reset);
   const resetRunSlice = useRunSlice((s) => s.reset);
 
@@ -75,55 +76,26 @@ export function WorkflowBuilder({
   useLatestRunPolling();
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-
-  async function handleSave() {
-    try {
-      await save();
-      setSavedAt(Date.now());
-    } catch {
-      // Error already captured into slice.saveError; no extra UI work here.
-    }
-  }
 
   return (
-    <div className="flex flex-col gap-4" aria-label="Workflow builder">
-      <AddNodeMenu
-        triggerProviders={triggerProviders}
-        actionProviders={actionProviders}
-      />
-      <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="flex-1 min-w-0 flex flex-col gap-4">
-          <WorkflowCanvas providerLabels={providerLabels} />
-          <NodeList providerLabels={providerLabels} />
-          <RunNowPanel />
-          <RunResultsPanel />
-          <BuilderAiPanel />
+    <BuilderShell header={<BuilderHeader workflowName={workflow.name} />}>
+      <div className="flex flex-col gap-4" aria-label="Workflow builder">
+        <AddNodeMenu
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />
+        <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
+            <WorkflowCanvas providerLabels={providerLabels} />
+            <NodeList providerLabels={providerLabels} />
+            <RunNowPanel />
+            <RunResultsPanel />
+            <BuilderAiPanel />
+          </div>
+          <ConfigModalShell />
         </div>
-        <ConfigModalShell />
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!isDirty || isSaving}
-          className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {isSaving ? "Saving…" : "Save"}
-        </button>
-        {!isDirty && savedAt !== null && !saveError && (
-          <span className="text-xs text-muted-foreground">Saved.</span>
-        )}
-        {isDirty && (
-          <span className="text-xs text-muted-foreground">Unsaved changes.</span>
-        )}
-        {saveError && (
-          <span role="alert" className="text-xs text-destructive">
-            {saveError}
-          </span>
-        )}
-      </div>
-    </div>
+    </BuilderShell>
   );
 }
 
