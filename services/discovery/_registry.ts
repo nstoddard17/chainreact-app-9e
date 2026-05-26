@@ -331,6 +331,12 @@ import {
   MICROSOFT_ONEDRIVE_ACTION_METAS,
   MICROSOFT_ONEDRIVE_TRIGGER_METAS,
 } from "./providers/microsoft-onedrive";
+// Microsoft Teams (Slice 4.TEAMS-META-3) — 5 actions + 1 per-(team,channel)
+// webhook trigger.
+import {
+  MICROSOFT_TEAMS_ACTION_METAS,
+  MICROSOFT_TEAMS_TRIGGER_METAS,
+} from "./providers/microsoft-teams";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -621,6 +627,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...AIRTABLE_ACTION_METAS, // Airtable (AIRTABLE-META-3) — 11 actions, displayOrder 10..110.
   ...TRELLO_ACTION_METAS, // Trello (TRELLO-META-3) — 8 actions, displayOrder 10..80.
   ...MICROSOFT_ONEDRIVE_ACTION_METAS, // Microsoft OneDrive (ONEDRIVE-META-3) — 7 actions, displayOrder 10..70.
+  ...MICROSOFT_TEAMS_ACTION_METAS, // Microsoft Teams (TEAMS-META-3) — 5 actions, displayOrder 10..50.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -749,6 +756,12 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("microsoft-onedrive","file_changed",...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...MICROSOFT_ONEDRIVE_TRIGGER_METAS,
+  // Microsoft Teams (TEAMS-META-3) — 1 per-(team,channel) webhook trigger
+  // (new_channel_message). Activation registered in
+  // integrations/microsoft-teams/triggers/newChannelMessage/index.ts →
+  // registerActivation("microsoft-teams","new_channel_message",...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...MICROSOFT_TEAMS_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

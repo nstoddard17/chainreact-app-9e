@@ -232,3 +232,40 @@ value = opaque Graph id; q filters on `label` OR `description` (display names co
 ### 9.7 Carried to TEAMS-META-3
 
 5 ActionMeta + 1 TriggerMeta (team+channel pickers) + discovery sub-registry + `COVERED_PROVIDERS` flip. **No schema files touched** (no UI-scope fields). Sensitive: `get_channel_details.email` + `get_team_members.members[].email` + trigger `bodyPreview` (forced) + `bodyContent` (plan). category `messaging`; no destructive action.
+
+---
+
+## 10. TEAMS-META-3 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 5 ActionMeta + 1 TriggerMeta + discovery sub-registry + `COVERED_PROVIDERS` flip + tests. **Teams is now builder-visible — `/api/providers` reports `hasMetadata:true`.** Covered providers **22/26 → 23/26**; pending **4 → 3**. **No runtime/schema files touched** (teamId/channelId are already real fields — pure additive metadata).
+
+### 10.1 ActionMeta (5, displayOrder 10..50) — `integrations/microsoft-teams/actions/<action>.meta.ts`
+
+`send_channel_message` (10), `reply_to_channel_message` (20), `send_chat_message` (30), `get_channel_details` (40), `get_team_members` (50). All `category:"messaging"`, `requiresIntegration:true`, all `producesFileRef:false`/`consumesFileRef:false`.
+
+- **Risk:** the 3 message writes **medium**; `get_channel_details` / `get_team_members` **low**. **NO destructive action** (no delete/archive in the surface) → no `isDestructive` / `requiresConfirmation` anywhere.
+- **`content` → textarea, `contentType` → select(html/text, default html), `top` → number(1–999).**
+
+### 10.2 optionsSource / dependsOn wiring (resolvers from TEAMS-META-2)
+
+`teamId` → `microsoft-teams:teams` (no dep); `channelId` → `microsoft-teams:channels` (`dependsOn:"teamId"`). **NO UI-scope schema additions** — `teamId`/`channelId` are already real fields. `send_chat_message.chatId` + `reply_to_channel_message.messageId` stay **typeable text** (deferred `chats`/`messages` resolvers never referenced; chatId help text points at where to obtain it). `get_team_members.teamId` → teams.
+
+### 10.3 TriggerMeta (1 webhook) — `triggers/newChannelMessage/newChannelMessage.meta.ts`
+
+`new_channel_message`: `activation:"webhook"`, `requiresIntegration:true`, `category:"messaging"`, config `teamId` (→teams, required) + `channelId` (→channels, dep teamId, required) — the per-(team,channel) subscription anchors. Payload `bodyContent` + `bodyPreview` sensitive. Activation already registered → `trigger-meta-activation-invariant` passes with no exemption.
+
+### 10.4 Discovery + COVERED
+
+New `services/discovery/providers/microsoft-teams.ts` (`MICROSOFT_TEAMS_ACTION_METAS` ×5 + `MICROSOFT_TEAMS_TRIGGER_METAS` ×1), spread into `services/discovery/_registry.ts`. `microsoft-teams` added to `COVERED_PROVIDERS`. `providers-route.test.ts` "still-pending" example moved from `microsoft-teams` → `google-calendar`.
+
+### 10.5 Sensitive-output handling
+
+`bodyContent` (3 message-action outputs + trigger) sensitive (message text); `get_channel_details.email` + nested `get_team_members.members[].email` sensitive (forced — `email` ∈ suspicious set); trigger `bodyPreview` sensitive (forced). Ids / display names / `webUrl` / `fromUserId` / `userId` / dates / `subject` / `membershipType` not marked.
+
+### 10.6 Tests
+
+`microsoft-teams-discovery.test.ts` (action surface), `microsoft-teams-triggers-discovery.test.ts` (trigger surface), `microsoft-teams-provider-route.test.ts` (route `hasMetadata`/actions/triggers wire shape). Structure invariants pass: `discovery-meta-coverage`, `trigger-meta-activation-invariant`, `sensitive-output-coverage`. `providers-route.test.ts` updated (teams now hasMetadata:true; google-calendar is the new pending example).
+
+### 10.7 Acceptance criteria (§8) — met
+
+All 5 actions have ActionMeta; `new_channel_message` has TriggerMeta (team+channel pickers) + passing activation invariant; `teams`/`channels` resolvers exist (META-2); `members`/`chats`/`messages` rejected/deferred (none referenced); `/api/providers` Teams `hasMetadata:true`; `microsoft-teams` in `COVERED_PROVIDERS`; structure invariants pass; targeted tests pass; **no runtime handler behavior changed** (no schema additions); `chats` deferral signed off (Marcus).

@@ -30,25 +30,26 @@ What this means precisely:
 
 ---
 
-## 2. The 22 metadata/builder-COVERED providers
+## 2. The 23 metadata/builder-COVERED providers
 
 > **Update (Slice 4.SHOPIFY-META-2):** `shopify` flipped pending → COVERED (17 → 18).
 > **Update (Slice 4.EXCEL-META-3, 2026-05-25):** `microsoft-excel` flipped pending → COVERED — 10 ActionMeta + 5 polling TriggerMeta (resolvers shipped in EXCEL-META-2). Count 18 → 19.
 > **Update (Slice 4.AIRTABLE-META-3, 2026-05-25):** `airtable` flipped pending → COVERED — 11 ActionMeta + 1 webhook TriggerMeta (resolvers shipped in AIRTABLE-META-2). Count 19 → 20.
 > **Update (Slice 4.TRELLO-META-3, 2026-05-25):** `trello` flipped pending → COVERED — 8 ActionMeta + 6 per-board webhook TriggerMeta + 6 UI-scope `boardId` schema additions (resolvers shipped in TRELLO-META-2). Count 20 → 21.
 > **Update (Slice 4.ONEDRIVE-META-3, 2026-05-25):** `microsoft-onedrive` flipped pending → COVERED — 7 ActionMeta + 1 whole-drive webhook TriggerMeta (`file_changed`, empty fields) + 4 UI-scope `parentItemId` schema additions (resolvers shipped in ONEDRIVE-META-2). FileRef deferred; `delete_item` high/destructive/confirm. Count 21 → 22.
+> **Update (Slice 4.TEAMS-META-3, 2026-05-25):** `microsoft-teams` flipped pending → COVERED — 5 ActionMeta + 1 per-(team,channel) webhook TriggerMeta (`new_channel_message`) (resolvers shipped in TEAMS-META-2). NO UI-scope additions (teamId/channelId already real fields); no destructive action; chats/messages/members deferred-or-rejected. Count 22 → 23.
 
 Enforced 1:1 (every registered handler has a meta) by `COVERED_PROVIDERS` in `tests/structure/discovery-meta-coverage.test.ts`:
 
-`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics, shopify, microsoft-excel, airtable, trello, microsoft-onedrive`
+`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics, shopify, microsoft-excel, airtable, trello, microsoft-onedrive, microsoft-teams`
 
 These are builder-usable today. Drift (adding a handler without a meta, or vice-versa) fails the structural test.
 
-## 3. The 4 pending-metadata providers (launch-scope gap)
+## 3. The 3 pending-metadata providers (launch-scope gap)
 
-`microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`
+`google-calendar, google-drive, microsoft-outlook-calendar`
 
-All 4 are **launch-scope** mainstream providers from the original Phase-1 foundation. **None** are future-expansion, rejected, or stale V1 artifacts. Each is **bucket A: a real provider-foundation gap at the metadata/builder layer.** (`shopify` shipped in SHOPIFY-META-2; `microsoft-excel` in EXCEL-META-3; `airtable` in AIRTABLE-META-3; `trello` in TRELLO-META-3; `microsoft-onedrive` in ONEDRIVE-META-3.)
+All 3 are **launch-scope** mainstream providers from the original Phase-1 foundation. **None** are future-expansion, rejected, or stale V1 artifacts. Each is **bucket A: a real provider-foundation gap at the metadata/builder layer.** (`shopify` shipped in SHOPIFY-META-2; `microsoft-excel` in EXCEL-META-3; `airtable` in AIRTABLE-META-3; `trello` in TRELLO-META-3; `microsoft-onedrive` in ONEDRIVE-META-3; `microsoft-teams` in TEAMS-META-3.)
 
 ---
 
@@ -77,11 +78,11 @@ Runtime counts from the handler registry + trigger tree. "Runtime triggers" coun
 | 4 | **microsoft-outlook-calendar** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. Mirror of GCAL. | OUTLOOK-CAL-META | 4 |
 | 5 | **google-drive** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta. `folders` resolver **already exists** in options registry. | GDRIVE-META | 5 |
 | ~~6~~ | ~~**microsoft-onedrive**~~ | 7 | 1 | ✅ **COVERED (ONEDRIVE-META-3)** — `hasMetadata:true` | DONE: ONEDRIVE-META-2 resolvers (`folders`/`items`, reuse `driveItemsList`, no new helper) + ONEDRIVE-META-3 (7 ActionMeta + 1 `file_changed` webhook TriggerMeta (`fields:[]`) + 4 UI-scope `parentItemId` schema fields + `services/discovery/providers/microsoft-onedrive.ts` + COVERED flip). `delete_item`=high/destructive/confirm. **FileRef deferred** (content=textarea, downloadUrl=sensitive string; producesFileRef/consumesFileRef=false) — future ONEDRIVE-FILEREF runtime slice. `:drives` rejected. | — | done |
-| 7 | **microsoft-teams** | 5 | 1 | "coming soon" | **Resolvers DONE (TEAMS-META-2, 2026-05-25):** `microsoft-teams:teams` (root, no dep) + `:channels` (dep teamId) + 2 NEW read helpers (`teamsList` GET /me/joinedTeams + `channelsList` GET /teams/{id}/channels — api/ had no list helper); `members` rejected, `chats`/`messages` deferred. **Remaining (TEAMS-META-3):** 5 ActionMeta + 1 TriggerMeta + sub-registry + COVERED flip. NO UI-scope schema fields (teamId/channelId already real); no destructive action. | TEAMS-META | 7 |
+| ~~7~~ | ~~**microsoft-teams**~~ | 5 | 1 | ✅ **COVERED (TEAMS-META-3)** — `hasMetadata:true` | DONE: TEAMS-META-2 resolvers (`teams`/`channels` + 2 NEW read helpers `teamsList`/`channelsList`) + TEAMS-META-3 (5 ActionMeta + 1 `new_channel_message` webhook TriggerMeta (team+channel pickers) + `services/discovery/providers/microsoft-teams.ts` + COVERED flip). **NO UI-scope schema fields** (teamId/channelId already real); **no destructive action** (message writes recoverable). `members` rejected; `chats`/`messages` deferred (chatId/messageId typeable). | — | done |
 | ~~8~~ | ~~**airtable**~~ | 11 | 1 (webhook `record_changed`) | ✅ **COVERED (AIRTABLE-META-3)** — `hasMetadata:true` | DONE: AIRTABLE-META-2 resolvers (`bases`/`tables`/`fields`/`views`/`attachment_fields` + `basesList` helper) + AIRTABLE-META-3 (11 ActionMeta + 1 TriggerMeta + `services/discovery/providers/airtable.ts` + COVERED flip). `delete_record` = high/destructive/requiresConfirmation. `recordId` typed; field maps paste-JSON; `airtable:records` rejected. | — | done |
 | ~~9~~ | ~~**trello**~~ | 8 | 6 | ✅ **COVERED (TRELLO-META-3)** — `hasMetadata:true` | DONE: TRELLO-META-2 resolvers (`boards`/`lists`/`cards`/`members`/`labels` + 5 read helpers) + TRELLO-META-3 (8 ActionMeta + 6 webhook TriggerMeta + 6 UI-scope `boardId` schema fields + `services/discovery/providers/trello.ts` + COVERED flip). NO destructive action (archive_card reversible; no deletes). `create_board` medium + explicit visibility w/ public warning. `checklists`/`check_items` rejected. | — | done |
 
-Total pending: **20 runtime action handlers across 4 providers** (286 total − 266 covered = 20). _(67/9 → 56/8 after SHOPIFY-META-2 → 46/7 after EXCEL-META-3 → 35/6 after AIRTABLE-META-3 → 27/5 after TRELLO-META-3 → 20/4 after ONEDRIVE-META-3.)_
+Total pending: **15 runtime action handlers across 3 providers** (286 total − 271 covered = 15). _(67/9 → 56/8 after SHOPIFY-META-2 → 46/7 after EXCEL-META-3 → 35/6 after AIRTABLE-META-3 → 27/5 after TRELLO-META-3 → 20/4 after ONEDRIVE-META-3 → 15/3 after TEAMS-META-3.)_
 
 ---
 
@@ -114,9 +115,10 @@ When all 9 are covered (or formally deferred out of launch scope by product deci
 
 ```text
 RUNTIME:            26/26 providers, 286 handlers, real (non-stubbed), full suite green.
-BUILDER METADATA:   22/26 providers covered (266/286 handlers). 4 providers / 20 handlers pending.
+BUILDER METADATA:   23/26 providers covered (271/286 handlers). 3 providers / 15 handlers pending.
                     (Shopify → SHOPIFY-META-2; Microsoft Excel → EXCEL-META-3; Airtable → AIRTABLE-META-3;
-                     Trello → TRELLO-META-3; Microsoft OneDrive → ONEDRIVE-META-3, 2026-05-25.)
-NEXT ARC:           one of the remaining 4 — microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar. (google-drive's `folders` resolver already exists; calendars need light or no resolvers; teams needs a team→channel cascade resolver.)
-DO NOT CALL:        "provider foundation fully complete / launch-ready" until the 4 are covered or product-deferred.
+                     Trello → TRELLO-META-3; Microsoft OneDrive → ONEDRIVE-META-3; Microsoft Teams →
+                     TEAMS-META-3, 2026-05-25.)
+NEXT ARC:           one of the remaining 3 — google-calendar, google-drive, microsoft-outlook-calendar. (google-drive's `folders` resolver already exists; calendars need light or no resolvers.)
+DO NOT CALL:        "provider foundation fully complete / launch-ready" until the 3 are covered or product-deferred.
 ```

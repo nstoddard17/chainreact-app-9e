@@ -226,6 +226,19 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // `microsoft-onedrive:drives` resolver intentionally absent (single
   // personal drive; no driveId in any schema).
   "microsoft-onedrive",
+  // Microsoft Teams added in Slice 4.TEAMS-META-3 once all 5 registered
+  // Teams action handlers have a matching meta (send_channel_message,
+  // reply_to_channel_message, send_chat_message, get_channel_details,
+  // get_team_members). From here on, adding a new Teams handler without a
+  // meta (or vice-versa) fails this structural test. The 1 per-(team,channel)
+  // webhook trigger meta (`new_channel_message`) ships in the same slice;
+  // trigger coverage is enforced by trigger-meta-activation-invariant, not
+  // here. NO destructive action (message writes are recoverable; reads are
+  // low). NO UI-scope schema additions (teamId/channelId are already real
+  // fields). `microsoft-teams:members` REJECTED (no member-id input
+  // consumer); `microsoft-teams:chats` + `microsoft-teams:messages` DEFERRED
+  // (chatId/messageId typeable/trigger-fed) — none referenced.
+  "microsoft-teams",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

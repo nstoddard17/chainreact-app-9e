@@ -198,9 +198,20 @@ describe("GET /api/providers", () => {
     expect(onenote?.hasMetadata).toBe(true);
   });
 
-  it("marks providers still without any metadata (e.g. microsoft-teams) as hasMetadata=false", async () => {
-    // trello flipped to hasMetadata=true in Slice 4.TRELLO-META-3, so
-    // microsoft-teams is now the example of a still-pending provider.
+  it("marks providers still without any metadata (e.g. google-calendar) as hasMetadata=false", async () => {
+    // microsoft-teams flipped to hasMetadata=true in Slice 4.TEAMS-META-3, so
+    // google-calendar is now the example of a still-pending provider.
+    authedUser();
+    const res = await getProviders();
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+    const cal = body.providers.find((p) => p.id === "google-calendar");
+    expect(cal).toBeDefined();
+    expect(cal?.hasMetadata).toBe(false);
+  });
+
+  it("marks Microsoft Teams as hasMetadata=true now that Slice 4.TEAMS-META-3 shipped its action + trigger metas", async () => {
     authedUser();
     const res = await getProviders();
     const body = (await res.json()) as {
@@ -208,7 +219,7 @@ describe("GET /api/providers", () => {
     };
     const teams = body.providers.find((p) => p.id === "microsoft-teams");
     expect(teams).toBeDefined();
-    expect(teams?.hasMetadata).toBe(false);
+    expect(teams?.hasMetadata).toBe(true);
   });
 
   it("marks Trello as hasMetadata=true now that Slice 4.TRELLO-META-3 shipped its action + trigger metas", async () => {
