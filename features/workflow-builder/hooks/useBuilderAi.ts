@@ -7,16 +7,25 @@ import {
   type AiApplyResult,
   type AiPlanResult,
 } from "@/lib/api/ai";
+import { composeFollowUpPrompt } from "@/features/workflow-builder/ai";
 
 /**
  * Plan → preview → confirm → apply state machine for the Builder AI panel
- * (Slice 4.AI-11).
+ * (Slice 4.AI-11; follow-up conversational state added in Slice 4.AI-21).
  *
  * Wraps the `lib/api/ai` client. NEVER calls a model directly, NEVER mutates the
  * workflow except via the AI-9B apply route, and NEVER auto-applies (the panel
  * must call `apply()` from an explicit user action). Confirmation is attached
  * only when the deterministic preview says `requiresConfirmation`, carrying the
  * preview's recomputed risk level (never a client-invented one).
+ *
+ * Slice 4.AI-21 — session-local follow-up state. When a planner response has
+ * unresolved `requiredUserInput`, the panel can call `submitFollowUp(answer)`
+ * to send a reconstructed prompt (original + asked labels + prior answers +
+ * the new answer) back through the normal `planWorkflow` path. Nothing is
+ * persisted server-side; the chain lives only in this hook's state and is
+ * cleared on `reset()`, a fresh `plan()`, or chain completion (a response
+ * with empty `requiredUserInput`).
  */
 
 export type BuilderAiStatus =
@@ -38,7 +47,22 @@ export interface UseBuilderAi {
   readonly applyResult: AiApplyResult | null;
   /** Transport/auth error message (401/404/500) — never a raw provider error. */
   readonly error: string | null;
+  /**
+   * True when the panel should treat the next submit as a follow-up answer to
+   * a prior plan that returned unresolved `requiredUserInput`. Derived from
+   * internal chain state (`originalPrompt !== null`). Cleared on reset / fresh
+   * plan / chain completion.
+   */
+  readonly followUpMode: boolean;
   plan(prompt: string, modelTier?: "fast" | "strong"): Promise<void>;
+  /**
+   * Submit a follow-up answer for the in-progress required-input chain.
+   * Reconstructs the planner prompt internally (original + asked labels +
+   * prior answers + this answer) and routes through the standard plan path.
+   * No-op when there is no in-progress chain or no unresolved questions on
+   * the latest plan.
+   */
+  submitFollowUp(answer: string, modelTier?: "fast" | "strong"): Promise<void>;
   apply(): Promise<void>;
   reset(): void;
 }
@@ -51,6 +75,15 @@ function friendlyError(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Whether a planner result represents an in-progress chain (the AI asked for
+ * more information). Used to decide whether to start / extend / complete a
+ * follow-up chain.
+ */
+function planNeedsMoreInput(result: AiPlanResult): boolean {
+  return result.ok === true && result.requiredUserInput.length > 0;
+}
+
 export function useBuilderAi({
   workflowId,
   onApplied,
@@ -59,6 +92,13 @@ export function useBuilderAi({
   const [planResult, setPlanResult] = useState<AiPlanResult | null>(null);
   const [applyResult, setApplyResult] = useState<AiApplyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Slice 4.AI-21 — session-local follow-up chain. `originalPrompt` is the
+  // first prompt of the chain; `priorFollowUpAnswers` accumulates answers from
+  // prior follow-up turns within the same chain. Both are cleared on
+  // `reset()`, a fresh `plan()`, or chain completion (response with empty
+  // requiredUserInput).
+  const [originalPrompt, setOriginalPrompt] = useState<string | null>(null);
+  const [priorFollowUpAnswers, setPriorFollowUpAnswers] = useState<readonly string[]>([]);
 
   const plan = useCallback(
     async (prompt: string, modelTier?: "fast" | "strong") => {
@@ -67,6 +107,9 @@ export function useBuilderAi({
       setError(null);
       setPlanResult(null);
       setApplyResult(null);
+      // Fresh prompts always start a new chain — clear any prior follow-up state.
+      setOriginalPrompt(null);
+      setPriorFollowUpAnswers([]);
       try {
         const result = await planWorkflow(workflowId, {
           prompt,
@@ -74,12 +117,67 @@ export function useBuilderAi({
         });
         setPlanResult(result);
         setStatus("planned");
+        // Start a new chain if the response asked for more info.
+        if (planNeedsMoreInput(result)) {
+          setOriginalPrompt(prompt);
+        }
       } catch (err) {
         setError(friendlyError(err, "The AI assistant is unavailable right now."));
         setStatus("idle");
       }
     },
     [workflowId],
+  );
+
+  const submitFollowUp = useCallback(
+    async (answer: string, modelTier?: "fast" | "strong") => {
+      if (!workflowId) return;
+      // Guard: there must be an in-progress chain with outstanding questions
+      // on the latest plan. If not, the panel should be calling `plan()`.
+      if (!originalPrompt) return;
+      if (!planResult || !planResult.ok || planResult.requiredUserInput.length === 0) {
+        return;
+      }
+      const trimmedAnswer = answer.trim();
+      if (trimmedAnswer.length === 0) return;
+
+      const requiredInputLabels = planResult.requiredUserInput.map((r) => r.label);
+      const reconstructed = composeFollowUpPrompt({
+        originalPrompt,
+        requiredInputLabels,
+        priorFollowUpAnswers,
+        followUp: trimmedAnswer,
+      });
+
+      setStatus("planning");
+      setError(null);
+      setApplyResult(null);
+      try {
+        const result = await planWorkflow(workflowId, {
+          prompt: reconstructed,
+          ...(modelTier ? { modelTier } : {}),
+        });
+        setPlanResult(result);
+        setStatus("planned");
+        if (planNeedsMoreInput(result)) {
+          // Chain continues — remember this answer for the next turn so the
+          // model can see the full set of prior responses.
+          setPriorFollowUpAnswers((prev) => [...prev, trimmedAnswer]);
+        } else {
+          // Chain complete (or response shape doesn't continue it — e.g. a
+          // failure or an unsupported result). Drop chain state; the user
+          // can apply or start a new prompt.
+          setOriginalPrompt(null);
+          setPriorFollowUpAnswers([]);
+        }
+      } catch (err) {
+        // Transport failure — leave chain state intact so the user can retry
+        // the same follow-up answer.
+        setError(friendlyError(err, "The AI assistant is unavailable right now."));
+        setStatus("idle");
+      }
+    },
+    [workflowId, originalPrompt, planResult, priorFollowUpAnswers],
   );
 
   const apply = useCallback(async () => {
@@ -119,7 +217,19 @@ export function useBuilderAi({
     setPlanResult(null);
     setApplyResult(null);
     setError(null);
+    setOriginalPrompt(null);
+    setPriorFollowUpAnswers([]);
   }, []);
 
-  return { status, planResult, applyResult, error, plan, apply, reset };
+  return {
+    status,
+    planResult,
+    applyResult,
+    error,
+    followUpMode: originalPrompt !== null,
+    plan,
+    submitFollowUp,
+    apply,
+    reset,
+  };
 }

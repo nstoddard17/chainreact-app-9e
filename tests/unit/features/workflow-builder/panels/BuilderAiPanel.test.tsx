@@ -356,9 +356,11 @@ describe("apply-readiness gate (AI-20)", () => {
     // Required-input list still renders (existing UX) so the user sees
     // what's missing.
     expect(await screen.findByTestId("builder-ai-needs-input")).toBeInTheDocument();
-    // The new AI-20 callout tells the user how to proceed.
+    // The AI-20 callout tells the user how to proceed (AI-21 reworded it to
+    // route the user through the follow-up composer affordance: "Reply with
+    // the missing details below and hit Send details").
     expect(screen.getByTestId("builder-ai-required-input-block")).toHaveTextContent(
-      /Provide the missing details above.*Plan with AI/i,
+      /Reply with the missing details below.*Send details/i,
     );
     // Apply controls hidden.
     expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
@@ -421,6 +423,208 @@ describe("apply-readiness gate (AI-20)", () => {
       screen.queryByTestId("builder-ai-required-input-block"),
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+  });
+});
+
+// ─── Slice 4.AI-21 — session-local follow-up composer ───────────────────────
+describe("follow-up composer (AI-21)", () => {
+  const needsInputPlan = {
+    ...planApplyReady,
+    requiredUserInput: [
+      { label: "Which Slack channel should the message be sent to?", kind: "config_value" },
+      { label: "What should the message say?", kind: "config_value" },
+    ],
+    canApplyLater: false,
+    blockedReason: "More information is still needed — answer the questions above and run Plan with AI again.",
+  };
+
+  const stillNeedsMessage = {
+    ...needsInputPlan,
+    requiredUserInput: [
+      { label: "What should the message say?", kind: "config_value" },
+    ],
+  };
+
+  it("switches the composer button copy + hint to follow-up mode when required input is unresolved", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Create a workflow that sends a Slack message when I manually run it.");
+    await screen.findByTestId("builder-ai-required-input-block");
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Send details");
+    // The hotkey hint flips from "plan" → "send".
+    expect(screen.getByTestId("builder-ai-panel")).toHaveTextContent("send");
+  });
+
+  it("submitting in follow-up mode sends a reconstructed prompt to planWorkflow (original + asked labels + user answer)", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan);
+    mockPlan.mockResolvedValueOnce(planApplyReady); // chain completes
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a workflow that sends a Slack message when I manually run it.");
+    await screen.findByTestId("builder-ai-required-input-block");
+    // Replace the prompt with the follow-up answer and submit.
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.clear(textarea);
+    await user.type(textarea, "Use #general and say Test from ChainReact AI.");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    const [, secondBody] = mockPlan.mock.calls[1]!;
+    const reconstructed = (secondBody as { prompt: string }).prompt;
+    expect(reconstructed).toContain("Original request:");
+    expect(reconstructed).toContain("Create a workflow that sends a Slack message when I manually run it.");
+    expect(reconstructed).toContain("The agent asked for:");
+    expect(reconstructed).toContain("- Which Slack channel should the message be sent to?");
+    expect(reconstructed).toContain("- What should the message say?");
+    expect(reconstructed).toContain("User follow-up:");
+    expect(reconstructed).toContain("Use #general and say Test from ChainReact AI.");
+  });
+
+  it("Apply remains hidden during the follow-up chain and only appears after the chain completes", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan); // turn 1 — chain starts
+    mockPlan.mockResolvedValueOnce(planApplyReady); // turn 2 — chain completes
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-required-input-block")).toBeInTheDocument();
+    // Submit the follow-up.
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.clear(textarea);
+    await user.type(textarea, "Use #general and say hi");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    // After the chain completes, Apply reappears + the callout is gone.
+    expect(await screen.findByTestId("builder-ai-apply-button")).toBeEnabled();
+    expect(
+      screen.queryByTestId("builder-ai-required-input-block"),
+    ).not.toBeInTheDocument();
+    // Button copy returns to "Plan with AI" now that the chain is complete.
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+  });
+
+  it("supports multi-turn chains — composer stays in follow-up mode when one question is still unresolved", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan); // turn 1 — 2 questions
+    mockPlan.mockResolvedValueOnce(stillNeedsMessage); // turn 2 — 1 question remains
+    mockPlan.mockResolvedValueOnce(planApplyReady); // turn 3 — complete
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    const textarea = screen.getByTestId("builder-ai-prompt");
+
+    // Turn 2 — answer one question, chain still active.
+    await user.clear(textarea);
+    await user.type(textarea, "Use #general");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    expect(await screen.findByTestId("builder-ai-required-input-block")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Send details");
+
+    // Turn 3 — answer remaining question, chain completes.
+    await user.clear(textarea);
+    await user.type(textarea, "Say hi");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(3));
+
+    // Turn 3's reconstructed prompt cites turn 2's answer in the "Previous follow-up answers" section.
+    const [, thirdBody] = mockPlan.mock.calls[2]!;
+    const thirdPrompt = (thirdBody as { prompt: string }).prompt;
+    expect(thirdPrompt).toContain("Previous follow-up answers:");
+    expect(thirdPrompt).toContain("- Use #general");
+    expect(thirdPrompt).toContain("User follow-up:");
+    expect(thirdPrompt).toContain("Say hi");
+  });
+
+  it("Clear resets the follow-up chain — next submit acts as a fresh plan, not a follow-up", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan);
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    await screen.findByTestId("builder-ai-required-input-block");
+    // Clear resets state — the next submit is a fresh plan with the
+    // current textarea text (retained per the AI-11B contract).
+    await user.click(screen.getByTestId("builder-ai-clear-button"));
+    expect(screen.queryByTestId("builder-ai-required-input-block")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    const [, secondBody] = mockPlan.mock.calls[1]!;
+    // Fresh plan — not a reconstructed follow-up prompt.
+    expect((secondBody as { prompt: string }).prompt).not.toContain("Original request:");
+  });
+
+  it("Plan-another-change after a successful apply resets the follow-up chain", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan);
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    mockApply.mockResolvedValueOnce({
+      ok: true,
+      appliedPatchId: "p1",
+      summaryText: "Applied.",
+      updatedAt: "t",
+      workflowId: "wf-1",
+      appliedOperationCount: 1,
+      riskLevel: "low",
+      requiresConfirmation: false,
+    });
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.clear(textarea);
+    await user.type(textarea, "Use #general and say hi");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await screen.findByTestId("builder-ai-apply-button");
+    await user.click(screen.getByTestId("builder-ai-apply-button"));
+    await screen.findByTestId("builder-ai-apply-success");
+    // Plan another change resets state.
+    await user.click(screen.getByTestId("builder-ai-plan-another-button"));
+    expect(screen.queryByTestId("builder-ai-apply-success")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-ai-plan-result")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+  });
+
+  it("does NOT include raw patch / config / secrets in the reconstructed follow-up prompt", async () => {
+    // The planner response carries a patch with a secret-shaped config value.
+    // The hook (AI-21) only reads labels + the user's text — never the patch
+    // contents. Defense-in-depth no-leak test for the prompt-reconstruction
+    // seam.
+    mockPlan.mockResolvedValueOnce({
+      ...needsInputPlan,
+      proposedPatch: {
+        patchId: "p1",
+        operations: [
+          { op: "addNode", node: { id: "n1", config: { accessToken: "ya29.LEAKED-SECRET" } } },
+        ],
+        summary: "needs info",
+      },
+    });
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    await screen.findByTestId("builder-ai-required-input-block");
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.clear(textarea);
+    await user.type(textarea, "Use #general");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    const [, secondBody] = mockPlan.mock.calls[1]!;
+    const reconstructed = (secondBody as { prompt: string }).prompt;
+    expect(reconstructed).not.toContain("accessToken");
+    expect(reconstructed).not.toContain("ya29.LEAKED-SECRET");
+    expect(reconstructed).not.toContain("patchId");
+    expect(reconstructed).not.toContain("operations");
+  });
+
+  it("preserves the chain when the follow-up plan call returns an unhandled transport error (user can retry without re-typing the original prompt)", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputPlan); // turn 1 — starts chain
+    mockPlan.mockRejectedValueOnce(new Error("network gone")); // turn 2 — fails
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    await user.clear(textarea);
+    await user.type(textarea, "Use #general");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    // Even after transport failure, the chain is still active so the user
+    // can retry — composer stays in follow-up mode.
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent(
+      "Send details",
+    );
+    expect(screen.getByTestId("builder-ai-error")).toBeInTheDocument();
   });
 });
 

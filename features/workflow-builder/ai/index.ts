@@ -29,3 +29,6 @@ export type {
   AiRequiredInputListProps,
   AiRequiredInputVariant,
 } from "./AiRequiredInputList";
+
+export { composeFollowUpPrompt } from "./composeFollowUpPrompt";
+export type { ComposeFollowUpPromptInput } from "./composeFollowUpPrompt";

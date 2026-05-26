@@ -29,6 +29,15 @@ import {
  * auto-reapply), friendly model-unavailable copy, a character counter near the
  * limit, and a clear-result control. The prompt is kept after planning so the
  * user can revise.
+ *
+ * AI-21 — session-local follow-up. When a plan returns unresolved
+ * `requiredUserInput`, the composer switches into follow-up mode: the helper
+ * copy tells the user to reply with the missing details, the submit button
+ * becomes "Send details", and the next submit calls `submitFollowUp` (hook
+ * reconstructs the planner prompt from the original prompt + asked labels +
+ * prior answers + this answer). The local textarea is cleared after a
+ * follow-up submit so the next answer is typed fresh. Clear / Plan-another
+ * resets the chain via the hook's `reset()`.
  */
 
 const MAX_PROMPT_LENGTH = 8_000;
@@ -61,6 +70,10 @@ export function BuilderAiPanel() {
   const busy = planning || applying;
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
   const canSubmit = trimmed.length > 0 && !tooLong && !busy;
+  // AI-21 — follow-up mode is driven by hook state (`originalPrompt !== null`).
+  // The composer's submit behavior swaps from `plan` → `submitFollowUp` while
+  // the chain is active.
+  const followUpMode = ai.followUpMode;
 
   const plan = ai.planResult;
   const planOk = plan && plan.ok ? plan : null;
@@ -98,6 +111,19 @@ export function BuilderAiPanel() {
     await ai.plan(trimmed);
   }
 
+  async function handleSubmit(): Promise<void> {
+    // AI-21 — route to follow-up when the chain is active; otherwise behave
+    // exactly like a fresh plan. The hook owns the routing decision via
+    // `followUpMode`. The local prompt text is retained after submit (same
+    // as the normal plan flow per AI-11B); the user can revise via Clear.
+    setRiskAcknowledged(false);
+    if (followUpMode) {
+      await ai.submitFollowUp(trimmed);
+    } else {
+      await ai.plan(trimmed);
+    }
+  }
+
   function handleClear(): void {
     setRiskAcknowledged(false);
     ai.reset();
@@ -127,9 +153,13 @@ export function BuilderAiPanel() {
         }}
       >
         <Textarea
-          aria-label="Describe the workflow change"
+          aria-label={followUpMode ? "Reply with the missing details" : "Describe the workflow change"}
           data-testid="builder-ai-prompt"
-          placeholder="Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
+          placeholder={
+            followUpMode
+              ? "Reply with the missing details — e.g. ‘Use #general and say Test from ChainReact AI.’"
+              : "Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
+          }
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           disabled={busy}
@@ -166,12 +196,12 @@ export function BuilderAiPanel() {
             >
               ↵
             </kbd>
-            <span className="ml-1.5">plan</span>
+            <span className="ml-1.5">{followUpMode ? "send" : "plan"}</span>
           </span>
           <Button
             type="button"
             size="sm"
-            onClick={handlePlan}
+            onClick={handleSubmit}
             disabled={!canSubmit}
             data-testid="builder-ai-plan-button"
             className="h-7 px-2.5 text-[12px]"
@@ -181,7 +211,7 @@ export function BuilderAiPanel() {
               border: "1px solid var(--builder-text)",
             }}
           >
-            {planning ? "Thinking…" : "Plan with AI"}
+            {planning ? "Thinking…" : followUpMode ? "Send details" : "Plan with AI"}
           </Button>
         </div>
       </div>
@@ -267,9 +297,9 @@ export function BuilderAiPanel() {
               style={{ color: "var(--builder-warn)" }}
             >
               The agent drafted a plan, but {requiredInputCount === 1 ? "one detail is" : "some details are"} still
-              missing. Provide the missing details above, then run{" "}
-              <span className="font-medium">Plan with AI</span> again — the agent
-              won&rsquo;t apply an incomplete patch.
+              missing. Reply with the missing details below and hit{" "}
+              <span className="font-medium">Send details</span> — the agent will
+              re-plan and won&rsquo;t apply an incomplete patch.
             </p>
           )}
 
