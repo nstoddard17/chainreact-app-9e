@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { WorkflowSummary } from "@/contracts/workflow";
 import { displayStatus } from "@/core/workflows/projections";
 
@@ -30,22 +31,24 @@ export function WorkflowsList({ workflows }: Props) {
         // filters those out, so this branch is a defense-in-depth.
         if (!status) return null;
         return (
-          <li
-            key={wf.id}
-            className="flex items-center justify-between rounded border border-input p-4"
-          >
-            <div className="flex flex-col">
-              <span className="font-medium">{wf.name}</span>
-              <span className="text-xs text-muted-foreground">
-                Updated {formatTimestamp(wf.updatedAt)}
-              </span>
-            </div>
-            <span
-              data-status-kind={status.kind}
-              className="rounded bg-muted px-2 py-1 text-xs font-medium"
+          <li key={wf.id}>
+            <Link
+              href={`/workflows/${wf.id}`}
+              className="flex items-center justify-between rounded border border-input p-4 transition hover:bg-accent"
             >
-              {status.label}
-            </span>
+              <div className="flex flex-col">
+                <span className="font-medium">{wf.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  Updated {formatTimestamp(wf.updatedAt)}
+                </span>
+              </div>
+              <span
+                data-status-kind={status.kind}
+                className="rounded bg-muted px-2 py-1 text-xs font-medium"
+              >
+                {status.label}
+              </span>
+            </Link>
           </li>
         );
       })}

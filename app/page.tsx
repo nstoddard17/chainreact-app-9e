@@ -33,6 +33,12 @@ export default async function HomePage() {
                 Manage integrations
               </Link>
               <Link
+                href="/workflows"
+                className="rounded border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                Workflows
+              </Link>
+              <Link
                 href="/notifications"
                 className="relative rounded border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
               >

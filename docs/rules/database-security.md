@@ -11,6 +11,7 @@ Security is part of the schema, not a layer above it.
 **Locked for Slice 1:**
 - **RLS enabled on every user-data and tenant-data table.** No exceptions. The migration that creates such a table MUST enable RLS and define at least one policy in the **same migration**.
 - **Default-deny.** RLS-enabled tables with no policies = no access. Policies are written per-operation (SELECT / INSERT / UPDATE / DELETE) with the narrowest scope that satisfies the use case.
+- **Explicit GRANTs on every public table.** Supabase is removing the implicit Data API exposure for tables in `public` (new projects: May 30, 2026; all projects: October 30, 2026). Every migration that creates a table in `public` MUST include explicit GRANTs to the roles that legitimately need access — usually `authenticated` (CRUD per RLS) and `service_role` (full access for cron/system writes). Public-read tables additionally GRANT `SELECT` to `anon`. System tables GRANT to `service_role` only.
 - **Application-layer encryption for sensitive columns.** OAuth access tokens, refresh tokens, signing secrets, webhook secrets, and any user-supplied API keys in the `integrations` table (and equivalents) are encrypted with AES-256 using `TOKEN_ENCRYPTION_KEY` **before** being written. RLS is defense-in-depth; encryption is the primary control.
 - **Service-role access is server-side only.** `SUPABASE_SERVICE_ROLE_KEY` never has a `NEXT_PUBLIC_` prefix and never reaches the client bundle. The service-role Supabase client is constructed in a single helper (`repositories/supabase/serviceRoleClient.ts`); repositories that legitimately need RLS bypass (cron tables, system writes, admin tools) request it explicitly per call.
 - **Tenant scope via membership join.** Tables involving workspaces / teams include a `workspace_id` column; RLS policies join through `team_members` to verify the caller is a member.
@@ -52,6 +53,12 @@ CREATE TABLE public.<table> (
 
 ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;
 
+-- Data API exposure: required after Supabase removes implicit grants
+-- (new projects May 30, 2026; existing projects October 30, 2026).
+-- RLS still gates row visibility — these grants only let the role TOUCH the table.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO service_role;
+
 CREATE POLICY "<table>_select_own" ON public.<table>
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -67,6 +74,20 @@ CREATE POLICY "<table>_delete_own" ON public.<table>
 CREATE TRIGGER <table>_set_updated_at
   BEFORE UPDATE ON public.<table>
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+```
+
+**System-table variant** (no user RLS scope; service-role only) — GRANT to `service_role` only:
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<system_table> TO service_role;
+```
+
+**Public-read variant** (predefined templates, public docs) — additionally GRANT `SELECT` to `anon`:
+
+```sql
+GRANT SELECT ON public.<public_read_table> TO anon;
+GRANT SELECT ON public.<public_read_table> TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<public_read_table> TO service_role;
 ```
 
 Tenant-scoped tables substitute the user-id check with a workspace membership join:
@@ -128,6 +149,7 @@ Repositories that need it call `getServiceRoleClient("renew-microsoft-graph-subs
 
 - Creating a user-data table without RLS in the same migration.
 - Defining RLS but no policies and shipping the table — that's "deny everything, no one can use it" (which is a different bug, also caught in CI).
+- Creating a table in `public` without explicit `GRANT` statements for the roles that need it. After May 30 / October 30, 2026 the table will be invisible to the Data API and `supabase-js` calls return `42501`.
 - Using `auth.role() = 'authenticated'` as the only check on a user-data table. Authenticated users can still see other users' rows that way. Always include an ownership / membership check.
 - Letting `SUPABASE_SERVICE_ROLE_KEY` reach client code (no `NEXT_PUBLIC_` prefix; ESLint rule blocks importing from env on the client side).
 - Constructing a service-role Supabase client outside `repositories/supabase/serviceRoleClient.ts`.
@@ -163,7 +185,7 @@ Integration tests in `tests/integration/security/`:
 
 CI checks (lint-style):
 
-7. **Migration RLS lint.** A linter scans every migration file for `CREATE TABLE` and verifies the same migration contains `ENABLE ROW LEVEL SECURITY` and at least one `CREATE POLICY` for the table — unless the migration declares the table as a system table with a header comment that justifies it.
+7. **Migration RLS + GRANT lint.** A linter scans every migration file for `CREATE TABLE` and verifies the same migration contains (a) `ENABLE ROW LEVEL SECURITY`, (b) at least one `CREATE POLICY`, and (c) at least one `GRANT ... ON public.<table> TO ...` for the table — unless the migration declares the table as a system table with a header comment that justifies it (in which case the GRANT must go to `service_role` only).
 8. **Service-role import guard.** ESLint rule restricts `createClient` calls with `SERVICE_ROLE_KEY` to `repositories/supabase/serviceRoleClient.ts`.
 
 ## V1 behavior to preserve
