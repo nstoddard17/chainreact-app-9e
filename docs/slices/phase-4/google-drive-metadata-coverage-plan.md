@@ -225,3 +225,63 @@ On completion, update [`provider-metadata-launch-gap-tracker.md`](./provider-met
 9. **Trigger payload `name` not marked sensitive** (lean — title-like, mirror Teams `subject` / GCal `summary`). Flag for Marcus sign-off if product wants file names redacted in run-details.
 10. **No scope blocker** (contrast Calendar) — manifest already grants `drive` (full) which covers every resolver and every action we'd plausibly add. No reconnect prompt looming.
 11. **Branch/worktree caution.** Authored on the shared `ai-12c-planner-json-only-hardening` branch with interleaved AI + provider commits; explicit-path staging only; verify branch topology before any push/PR.
+
+---
+
+## 9. GDRIVE-META-2 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 5 ActionMeta + 1 TriggerMeta + discovery sub-registry + `COVERED_PROVIDERS` flip + tests. **Google Drive is now builder-visible — `/api/providers` reports `hasMetadata:true`.** Covered providers **24/26 → 25/26**; pending **2 → 1** (only `microsoft-outlook-calendar` remains). **No runtime/schema files touched** (parentFolderId/folderId/newParentFolderId/fileId are already real fields — pure additive metadata). **No new resolvers, no scope change, no reconnect, no billing change, no FileRef runtime.** Single implementation slice (no resolver slice), as planned in §7 — same 2-slice compression as GCAL-META.
+
+### 9.1 ActionMeta (5, displayOrder 10..50) — `integrations/google-drive/actions/<action>.meta.ts`
+
+`upload_file` (10), `create_folder` (20), `list_files` (30), `move_file` (40), `delete_file` (50). All `category:"files"`, `requiresIntegration:true`, all `producesFileRef:false`/`consumesFileRef:false` (FileRef deferred — mirror OneDrive).
+
+- **Risk:** `upload_file` / `create_folder` / `move_file` **medium**; `list_files` **low**; **`delete_file` high + `isDestructive:true` + `requiresConfirmation:true`** in BOTH `permanent` modes (irreversible perm OR auto-purged-after-~30-days trash — Marcus decision; mirrors OneDrive/Airtable/GCal deletes). `riskDescription` explicitly covers both modes.
+- **Q11 required wired:** `delete_file.permanent` is a required boolean (no default — author makes the choice).
+- **Field types:** `parentFolderId`/`folderId`/`newParentFolderId` → combobox + `optionsSource:"google-drive:folders"`; `fileId` → text; `content` → textarea; `contentEncoding` → static select(utf8/base64, default utf8); `pageSize` → number(1–1000, default 100); `permanent`/`includeTrashed` → boolean.
+
+### 9.2 Resolver wiring (REUSE the already-shipped `google-drive:folders` — no new code)
+
+All 5 folder-shaped picker fields wire to the existing resolver:
+- `upload_file.parentFolderId`, `create_folder.parentFolderId` (no dep, optional)
+- `list_files.folderId` (no dep, optional)
+- `move_file.newParentFolderId` (no dep, REQUIRED)
+- Trigger `fileId` (watch target, default `"root"`) + trigger `folderId` (post-fetch filter)
+
+`fileId` on `move_file`/`delete_file` → typeable text (no `google-drive:files` resolver referenced). No field references `google-drive:files` / `:items` / `:shared_drives` (asserted by tests). **NO UI-scope schema additions** — every picker parent is already a real field. The existing resolver test ([`tests/unit/integrations/google-drive/options/folders.test.ts`](../../../tests/unit/integrations/google-drive/options/folders.test.ts)) stays untouched.
+
+### 9.3 TriggerMeta (1 webhook) — `triggers/fileChanged/fileChanged.meta.ts`
+
+`file_changed`: `activation:"webhook"`, `requiresIntegration:true`, `category:"files"`. **Two folder-shaped config fields with distinct help text** (runtime owns the names — both runtime-real, both meaningful):
+- `fileId` (combobox → `google-drive:folders`, optional, `defaultValue:"root"`) — the WATCH TARGET. Drive subscribes to changes on this folder. Default `"root"` = entire Drive.
+- `folderId` (combobox → `google-drive:folders`, optional) — POST-FETCH FILTER. Only emit changes whose file is a direct child of this folder. Independent of `fileId`.
+
+Payload = the 10 normalized fields. **No payload field is marked sensitive in v1** (Marcus decision — file `name` is title-like, mirror Teams `subject` / GCal `summary`). Test asserts the all-non-sensitive invariant explicitly. Activation already registered at `integrations/_registry.ts` → `trigger-meta-activation-invariant` passes with no exemption.
+
+### 9.4 Discovery + COVERED
+
+New `services/discovery/providers/google-drive.ts` (`GOOGLE_DRIVE_ACTION_METAS` ×5 + `GOOGLE_DRIVE_TRIGGER_METAS` ×1), spread into `services/discovery/_registry.ts`. `google-drive` added to `COVERED_PROVIDERS`. `providers-route.test.ts` "still-pending" example moved `google-drive` → `microsoft-outlook-calendar` (+ added a positive Google Drive `hasMetadata:true` assertion alongside the Google Calendar one).
+
+### 9.5 Sensitive-output handling
+
+**Deliberate plan-marks (Marcus-aligned, not blanket):**
+- `list_files.files` sensitive — bulk Drive metadata may carry owner emails (mirrors Notion `results` / Gmail `messages` / GCal `events` precedent).
+- Nothing else marked. `fileId` / `folderId` / `name` / `mimeType` / `parents` / `webViewLink` (auth-gated deeplink, not signed) / `size` / `createdTime` / `modifiedTime` / `nextPageToken` / `incompleteSearch` / `previousParents` / `mode` / `alreadyDeleted` / `trashed` are structural.
+- **No `downloadUrl` exposed** (unlike OneDrive's Graph signed URL). Test asserts `downloadUrl` is in the banned-name set across both action outputs and trigger payload (regression guard if a future slice adds it without `sensitive:true`).
+- Trigger `name` deliberately NOT marked (title-like; sign-off documented).
+
+### 9.6 Tests
+
+`google-drive-discovery.test.ts` (action surface), `google-drive-triggers-discovery.test.ts` (trigger surface — includes the "fileId vs folderId have distinct descriptions" + "no payload sensitive in v1" assertions), `google-drive-provider-route.test.ts` (route `hasMetadata`/actions/triggers wire shape, FileRef-deferred, sensitive `files`, destructive delete). Structure invariants pass: `discovery-meta-coverage` (google-drive in COVERED, 1:1 handler↔meta), `trigger-meta-activation-invariant` (no exemption), `sensitive-output-coverage`. `providers-route.test.ts` updated. **Targeted+broad regression: 1549/1549 across 68 suites** (drive/discovery/providers/contracts/structure). Existing `google-drive:folders` resolver test stays untouched + passing.
+
+### 9.7 Acceptance criteria (§9) — met
+
+All 5 actions have ActionMeta; `file_changed` has TriggerMeta (fileId + folderId, both → folders) + passing activation invariant; the existing `folders` resolver is REUSED (no new code); `files`/`items`/`shared_drives` deferred-or-rejected (none referenced); FileRef deferred (mirror OneDrive); `/api/providers` Drive `hasMetadata:true`; `google-drive` in `COVERED_PROVIDERS`; providers-route pending example moved to `microsoft-outlook-calendar`; structure invariants pass; targeted tests pass; **no runtime handler behavior changed** (no schema/resolver/billing/FileRef touch); `delete_file`-destructive-in-both-modes + `name`-not-sensitive + `files`-sensitive decisions all signed off by Marcus.
+
+### 9.8 Follow-ups
+
+- **`_registry.ts` is at 456 lines** (max-lines warning, pre-existing — was 450 after GCAL-META-2, 444 before that). Every provider addition bumps it by ~6 lines via the import+spread; the metas themselves live in the sub-registry. A future refactor could group the sub-registry imports/spreads into an array-of-arrays to drop back under 400.
+- **`GDRIVE-FILES-RESOLVER`** (optional, product-gated) — `google-drive:files` picker if real workflow authors ask for one. Reuses `filesList` w/o folder-mimeType filter; potentially multi-parent `dependsOn:["folderId"]`.
+- **`GDRIVE-FILEREF`** (optional, future) — promote `upload_file` to consume FileRef and add a `download_file` / `get_file` action that produces FileRef. Runtime + meta both update.
+- **`GDRIVE-SHARE` / `GDRIVE-EXPORT`** (optional, future) — wire the existing `permissionsCreate` / `filesExport` API helpers (tested but unused today) into real action handlers.
+- **One pending provider remains** — `microsoft-outlook-calendar` (the Graph mirror of GCal). After OUTLOOK-CAL-META the launch-gap tracker closes (26/26 covered).

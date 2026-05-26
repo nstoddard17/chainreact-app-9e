@@ -254,6 +254,24 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // already real fields). `google-calendar:events` / `:timezones` / `:colors`
   // resolvers deferred/rejected — none referenced.
   "google-calendar",
+  // Google Drive added in Slice 4.GDRIVE-META-2 once all 5 registered Drive
+  // action handlers have a matching meta (upload_file, create_folder,
+  // list_files, move_file, delete_file). From here on, adding a new Drive
+  // handler without a meta (or vice-versa) fails this structural test. The
+  // 1 watch-based webhook trigger meta (`file_changed`, fileId watch-target +
+  // folderId post-fetch filter) ships in the same slice; trigger coverage is
+  // enforced by trigger-meta-activation-invariant, not here. `delete_file` =
+  // high/destructive/requiresConfirmation in BOTH permanent and trash modes
+  // (Marcus decision — irreversible perm OR auto-purged-after-~30-days trash;
+  // mirrors OneDrive `delete_item`). Reuses the already-shipped
+  // `google-drive:folders` resolver — NO new resolver work (parentFolderId /
+  // folderId / newParentFolderId / trigger fileId / trigger folderId all wire
+  // to it). NO UI-scope schema additions (every picker parent already real).
+  // FileRef DEFERRED (mirror OneDrive: content=textarea string;
+  // producesFileRef/consumesFileRef=false on all 5). `google-drive:files`
+  // DEFERRED (fileId typeable/trigger-fed); `:items` / `:shared_drives`
+  // REJECTED (no consumers) — none referenced.
+  "google-drive",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

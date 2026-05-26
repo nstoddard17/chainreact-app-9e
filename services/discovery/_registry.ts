@@ -343,6 +343,14 @@ import {
   GOOGLE_CALENDAR_ACTION_METAS,
   GOOGLE_CALENDAR_TRIGGER_METAS,
 } from "./providers/google-calendar";
+// Google Drive (Slice 4.GDRIVE-META-2) — 5 actions + 1 watch-based webhook
+// trigger. Reuses the existing google-drive:folders resolver; no new
+// resolver work. delete_file = high/destructive/requiresConfirmation in both
+// permanent/trash modes. FileRef deferred (mirror OneDrive).
+import {
+  GOOGLE_DRIVE_ACTION_METAS,
+  GOOGLE_DRIVE_TRIGGER_METAS,
+} from "./providers/google-drive";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -635,6 +643,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...MICROSOFT_ONEDRIVE_ACTION_METAS, // Microsoft OneDrive (ONEDRIVE-META-3) — 7 actions, displayOrder 10..70.
   ...MICROSOFT_TEAMS_ACTION_METAS, // Microsoft Teams (TEAMS-META-3) — 5 actions, displayOrder 10..50.
   ...GOOGLE_CALENDAR_ACTION_METAS, // Google Calendar (GCAL-META-2) — 5 actions, displayOrder 10..50.
+  ...GOOGLE_DRIVE_ACTION_METAS, // Google Drive (GDRIVE-META-2) — 5 actions, displayOrder 10..50.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -775,6 +784,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("google-calendar","event_changed",...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...GOOGLE_CALENDAR_TRIGGER_METAS,
+  // Google Drive (GDRIVE-META-2) — 1 watch-based webhook trigger
+  // (file_changed; fileId watch-target + folderId post-fetch filter, both
+  // → google-drive:folders). Activation registered in
+  // integrations/google-drive/triggers/fileChanged/index.ts →
+  // registerActivation("google-drive","file_changed",...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...GOOGLE_DRIVE_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on
