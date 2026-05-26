@@ -22,6 +22,14 @@ import { z } from "zod";
  */
 export const CreateCardConfigSchema = z
   .object({
+    // UI-scope `boardId` (TRELLO-META-3) — NOT used by the handler.
+    // Present so the persisted Builder config validates: the `listId` /
+    // `idMembers` / `idLabels` pickers cascade off this board field
+    // (trello:boards → trello:lists / trello:members / trello:labels).
+    // Mirrors the Dropbox `folderPath` / OneNote `notebookId` / Monday
+    // `boardId` UI-scope pattern. `.strict()` still rejects genuinely-
+    // unknown fields.
+    boardId: z.string().optional(),
     listId: z.string().min(1),
     name: z.string().min(1),
     desc: z.string().optional(),

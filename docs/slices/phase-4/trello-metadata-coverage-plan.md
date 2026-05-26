@@ -245,3 +245,40 @@ Trello action handlers wrap their principal call in `refreshAndRetry` (which, fo
 ### 9.7 Carried to TRELLO-META-3
 
 8 ActionMeta + 6 UI-scope `boardId` schema additions + 6 TriggerMeta + discovery sub-registry + `COVERED_PROVIDERS` flip. (Marcus decision on `create_board.visibility=public`: keep **medium**, make visibility explicit with helper/warning text; do not block on field-level conditional confirmation.)
+
+---
+
+## 10. TRELLO-META-3 outcomes (shipped 2026-05-25)
+
+**Scope delivered:** 8 ActionMeta + 6 TriggerMeta + 6 UI-scope `boardId` schema additions + discovery sub-registry + `COVERED_PROVIDERS` flip + tests. **Trello is now builder-visible — `/api/providers` reports `hasMetadata:true`.** Covered providers **20/26 → 21/26**; pending **6 → 5**.
+
+### 10.1 ActionMeta (8, displayOrder 10..80) — `integrations/trello/actions/<action>.meta.ts`
+
+`create_card` (10), `update_card` (20), `move_card` (30), `archive_card` (40), `add_comment` (50), `add_label_to_card` (60), `create_list` (70), `create_board` (80). All `category:"data"`, `requiresIntegration:true`, **`riskLevel:"medium"`, none destructive / no confirmation** (every literal sets `producesFileRef`/`consumesFileRef`/`isDestructive`/`requiresConfirmation` explicitly per the AIRTABLE-META-3 learning).
+
+- **`archive_card` is medium, NOT destructive** — reversible (`closed:false` unarchives); no delete actions exist, so Trello has no destructive trio (contrast Airtable `delete_record` / Excel `delete_worksheet`).
+- **`create_board.visibility`** — required static `select` (`private`/`workspace`/`public`), **no `defaultValue`** (Q11). Stays **medium** with the public-visibility warning as **inline helper text** ("⚠ Public = anyone with the URL … outside your workspace") — NOT a field-level conditional confirmation (the contract doesn't model that yet). Per Marcus's decision.
+
+### 10.2 UI-scope `boardId` schema additions (6 card-targeted strict schemas)
+
+Added optional `boardId: z.string().optional()` to `createCard` / `updateCard` / `moveCard` / `archiveCard` / `addComment` / `addLabelToCard` schemas. **Handler-ignored** (Monday `boardId` / OneNote `notebookId` / Dropbox `folderPath` precedent); `.strict()` still rejects genuinely-unknown fields. In `updateCard`, `boardId` is NOT in the superRefine `mutable` list, so a `boardId`-only config still fails the "at least one mutable field" rule. `create_list.idBoard` is a real field (not UI-scope); `create_board` takes no board field. **No runtime handler behavior changed** (verified by test: `create_card` never forwards `boardId` to the API).
+
+### 10.3 optionsSource / dependsOn wiring (resolvers from META-2)
+
+`boardId` (UI-scope, **optional** — Dropbox precedent so a trigger-fed `cardId` still validates) / `create_list.idBoard` (real, required) → `trello:boards` (no dep). `listId`/`idList` → `trello:lists` (dep `boardId`). `cardId` → `trello:cards` (dep `boardId`). `idMembers` → `trello:members` (dep `boardId`, multiple). `labelId` + `idLabels` → `trello:labels` (dep `boardId`; `idLabels` multiple). **All single-parent on `boardId` — no multi-parent.** All 6 triggers' `boardId` → `trello:boards` (required, no dep).
+
+### 10.4 TriggerMeta (6 webhook, displayOrder 10..60) — `integrations/trello/triggers/<trigger>/<trigger>.meta.ts`
+
+`new_card`, `card_updated`, `card_moved`, `comment_added`, `member_changed`, `card_archived`. Each `activation:"webhook"`, `requiresIntegration:true`, `category:"data"`, single `boardId` config field. **One shared `payloadShape`** (`triggers/_shared/payloadShape.ts`, spread per-meta) — sensitive: `cardDesc`, `commentText`, `oldValues`, `body` (`body` also forced by the suspicious-name set). Activation already registered in each `triggers/<trigger>/index.ts` → `trigger-meta-activation-invariant` passes with no exemption.
+
+### 10.5 Discovery + COVERED
+
+New `services/discovery/providers/trello.ts` (`TRELLO_ACTION_METAS` ×8 + `TRELLO_TRIGGER_METAS` ×6), spread into `services/discovery/_registry.ts`. `trello` added to `COVERED_PROVIDERS` in `tests/structure/discovery-meta-coverage.test.ts` (1:1 handler↔meta now enforced).
+
+### 10.6 Tests
+
+`trello-discovery.test.ts` (action surface), `trello-triggers-discovery.test.ts` (trigger surface), `trello-provider-route.test.ts` (route `hasMetadata`/actions/triggers wire shape), `uiScopeBoardId.test.ts` (6 schemas accept+preserve `boardId`, reject unknowns, update_card mutable rule, handler ignores `boardId`). Structure invariants pass: `discovery-meta-coverage`, `trigger-meta-activation-invariant`, `sensitive-output-coverage`.
+
+### 10.7 Acceptance criteria (§8) — met
+
+All 8 actions have ActionMeta; all 6 triggers have TriggerMeta + passing activation invariant; `trello:boards`/`lists` (+ cards/members/labels) resolvers exist (META-2); checklists rejected; 6 UI-scope `boardId` additions in place + handler tests still pass; `/api/providers` Trello `hasMetadata:true`; `trello` in `COVERED_PROVIDERS`; structure invariants pass; targeted tests pass; **no runtime handler behavior changed**; `create_board` public-visibility decision signed off (medium + warning text).

@@ -16,6 +16,13 @@ import { z } from "zod";
  */
 export const UpdateCardConfigSchema = z
   .object({
+    // UI-scope `boardId` (TRELLO-META-3) — NOT used by the handler.
+    // Present so the persisted Builder config validates: the `cardId` /
+    // `idList` pickers cascade off this board field. Handler-ignored;
+    // it is NOT in the superRefine `mutable` list, so a config with only
+    // `boardId` set still fails the "at least one mutable field" check.
+    // Mirrors the Dropbox `folderPath` / Monday `boardId` UI-scope pattern.
+    boardId: z.string().optional(),
     cardId: z.string().min(1),
     name: z.string().min(1).optional(),
     desc: z.string().optional(),

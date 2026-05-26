@@ -320,6 +320,11 @@ import {
   AIRTABLE_ACTION_METAS,
   AIRTABLE_TRIGGER_METAS,
 } from "./providers/airtable";
+// Trello (Slice 4.TRELLO-META-3) — 8 actions + 6 per-board webhook triggers.
+import {
+  TRELLO_ACTION_METAS,
+  TRELLO_TRIGGER_METAS,
+} from "./providers/trello";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -608,6 +613,7 @@ const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...SHOPIFY_ACTION_METAS, // Shopify (SHOPIFY-META-2) — 11 actions, displayOrder 10..110.
   ...MICROSOFT_EXCEL_ACTION_METAS, // Microsoft Excel (EXCEL-META-3) — 10 actions, displayOrder 10..100.
   ...AIRTABLE_ACTION_METAS, // Airtable (AIRTABLE-META-3) — 11 actions, displayOrder 10..110.
+  ...TRELLO_ACTION_METAS, // Trello (TRELLO-META-3) — 8 actions, displayOrder 10..80.
 ];
 
 const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -723,6 +729,13 @@ const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("airtable","record_changed",...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...AIRTABLE_TRIGGER_METAS,
+  // Trello (TRELLO-META-3) — 6 per-board webhook triggers (new_card,
+  // card_updated, card_moved, comment_added, member_changed,
+  // card_archived). Each registers an activation hook in its
+  // integrations/trello/triggers/<event>/index.ts →
+  // registerActivation("trello", <type>, ...), so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...TRELLO_TRIGGER_METAS,
 ];
 
 // Validate each meta against its contract at module load. parse() throws on

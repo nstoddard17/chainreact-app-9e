@@ -16,6 +16,10 @@ import { z } from "zod";
  */
 export const MoveCardConfigSchema = z
   .object({
+    // UI-scope `boardId` (TRELLO-META-3) — NOT used by the handler.
+    // Present so the `cardId` / `idList` pickers cascade off this board
+    // field. Handler-ignored; mirrors the Monday `boardId` UI-scope pattern.
+    boardId: z.string().optional(),
     cardId: z.string().min(1),
     idList: z.string().min(1),
     pos: z

@@ -18,6 +18,10 @@ import { z } from "zod";
  */
 export const ArchiveCardConfigSchema = z
   .object({
+    // UI-scope `boardId` (TRELLO-META-3) — NOT used by the handler.
+    // Present so the `cardId` picker cascades off this board field.
+    // Handler-ignored; mirrors the Monday `boardId` UI-scope pattern.
+    boardId: z.string().optional(),
     cardId: z.string().min(1),
     closed: z.boolean().default(true),
   })

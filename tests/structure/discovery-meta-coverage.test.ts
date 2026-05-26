@@ -199,6 +199,20 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // (Marcus decision). `airtable:records` resolver intentionally absent
   // (recordId stays typed).
   "airtable",
+  // Trello added in Slice 4.TRELLO-META-3 once all 8 registered Trello
+  // action handlers have a matching meta (create/update/move/archive card,
+  // add_comment, add_label_to_card, create_list, create_board). From here
+  // on, adding a new Trello handler without a meta (or vice-versa) fails
+  // this structural test. The 6 per-board webhook trigger metas (new_card,
+  // card_updated, card_moved, comment_added, member_changed, card_archived)
+  // ship in the same slice; trigger coverage is enforced by
+  // trigger-meta-activation-invariant, not here. NO action is destructive
+  // (archive_card is reversible; no delete actions exist) — Trello has no
+  // destructive trio (contrast Airtable delete_record). `create_board`
+  // stays medium with explicit visibility (public-visibility warning is
+  // inline helper text). `trello:checklists` / `trello:check_items`
+  // resolvers intentionally absent (no runtime consumer).
+  "trello",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

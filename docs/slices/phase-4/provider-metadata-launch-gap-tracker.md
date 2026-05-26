@@ -30,22 +30,24 @@ What this means precisely:
 
 ---
 
-## 2. The 19 metadata/builder-COVERED providers
+## 2. The 21 metadata/builder-COVERED providers
 
 > **Update (Slice 4.SHOPIFY-META-2):** `shopify` flipped pending → COVERED (17 → 18).
 > **Update (Slice 4.EXCEL-META-3, 2026-05-25):** `microsoft-excel` flipped pending → COVERED — 10 ActionMeta + 5 polling TriggerMeta (resolvers shipped in EXCEL-META-2). Count 18 → 19.
+> **Update (Slice 4.AIRTABLE-META-3, 2026-05-25):** `airtable` flipped pending → COVERED — 11 ActionMeta + 1 webhook TriggerMeta (resolvers shipped in AIRTABLE-META-2). Count 19 → 20.
+> **Update (Slice 4.TRELLO-META-3, 2026-05-25):** `trello` flipped pending → COVERED — 8 ActionMeta + 6 per-board webhook TriggerMeta + 6 UI-scope `boardId` schema additions (resolvers shipped in TRELLO-META-2). Count 20 → 21.
 
 Enforced 1:1 (every registered handler has a meta) by `COVERED_PROVIDERS` in `tests/structure/discovery-meta-coverage.test.ts`:
 
-`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics, shopify, microsoft-excel, airtable`
+`native, github, gmail, microsoft-outlook, slack, notion, stripe, google-sheets, hubspot, mailchimp, discord, google-docs, microsoft-onenote, monday, dropbox, facebook, google-analytics, shopify, microsoft-excel, airtable, trello`
 
 These are builder-usable today. Drift (adding a handler without a meta, or vice-versa) fails the structural test.
 
-## 3. The 6 pending-metadata providers (launch-scope gap)
+## 3. The 5 pending-metadata providers (launch-scope gap)
 
-`trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`
+`microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`
 
-All 6 are **launch-scope** (mainstream providers; 5 were in the original Phase-1 foundation 16; Trello is the Phase-3.17 token-ingest provider). **None** are future-expansion, rejected, or stale V1 artifacts. Each is **bucket A: a real provider-foundation gap at the metadata/builder layer.** (`shopify` shipped in SHOPIFY-META-2; `microsoft-excel` in EXCEL-META-3; `airtable` in AIRTABLE-META-3.)
+All 5 are **launch-scope** mainstream providers from the original Phase-1 foundation. **None** are future-expansion, rejected, or stale V1 artifacts. Each is **bucket A: a real provider-foundation gap at the metadata/builder layer.** (`shopify` shipped in SHOPIFY-META-2; `microsoft-excel` in EXCEL-META-3; `airtable` in AIRTABLE-META-3; `trello` in TRELLO-META-3.)
 
 ---
 
@@ -76,9 +78,9 @@ Runtime counts from the handler registry + trigger tree. "Runtime triggers" coun
 | 6 | **microsoft-onedrive** | 7 | 1 | "coming soon" | 7 ActionMeta + 1 TriggerMeta. Optional folder/item resolver. FileRef `provider_url` arm cross-refs here. | ONEDRIVE-META | 6 |
 | 7 | **microsoft-teams** | 5 | 1 | "coming soon" | 5 ActionMeta + 1 TriggerMeta + `teams`→`channels` cascade resolvers (team→channel is a real two-hop picker). | TEAMS-META | 7 |
 | ~~8~~ | ~~**airtable**~~ | 11 | 1 (webhook `record_changed`) | ✅ **COVERED (AIRTABLE-META-3)** — `hasMetadata:true` | DONE: AIRTABLE-META-2 resolvers (`bases`/`tables`/`fields`/`views`/`attachment_fields` + `basesList` helper) + AIRTABLE-META-3 (11 ActionMeta + 1 TriggerMeta + `services/discovery/providers/airtable.ts` + COVERED flip). `delete_record` = high/destructive/requiresConfirmation. `recordId` typed; field maps paste-JSON; `airtable:records` rejected. | — | done |
-| 9 | **trello** | 8 | 6 (tree present) | "coming soon" | **Resolvers DONE (TRELLO-META-2, 2026-05-25):** 5 resolvers (`boards`/`lists`/`cards`/`members`/`labels`) + 5 read helpers (`boardsList`/`listsList`/`cardsList`/`membersList`/`labelsList`); `checklists`/`check_items` rejected. **Remaining (TRELLO-META-3):** 8 ActionMeta + 6 UI-scope `boardId` schema fields + 6 TriggerMeta + sub-registry + COVERED flip. | TRELLO-META | 9 |
+| ~~9~~ | ~~**trello**~~ | 8 | 6 | ✅ **COVERED (TRELLO-META-3)** — `hasMetadata:true` | DONE: TRELLO-META-2 resolvers (`boards`/`lists`/`cards`/`members`/`labels` + 5 read helpers) + TRELLO-META-3 (8 ActionMeta + 6 webhook TriggerMeta + 6 UI-scope `boardId` schema fields + `services/discovery/providers/trello.ts` + COVERED flip). NO destructive action (archive_card reversible; no deletes). `create_board` medium + explicit visibility w/ public warning. `checklists`/`check_items` rejected. | — | done |
 
-Total pending: **35 runtime action handlers across 6 providers** (286 total − 251 covered = 35). _(67/9 → 56/8 after SHOPIFY-META-2 → 46/7 after EXCEL-META-3 → 35/6 after AIRTABLE-META-3.)_
+Total pending: **27 runtime action handlers across 5 providers** (286 total − 259 covered = 27). _(67/9 → 56/8 after SHOPIFY-META-2 → 46/7 after EXCEL-META-3 → 35/6 after AIRTABLE-META-3 → 27/5 after TRELLO-META-3.)_
 
 ---
 
@@ -111,8 +113,9 @@ When all 9 are covered (or formally deferred out of launch scope by product deci
 
 ```text
 RUNTIME:            26/26 providers, 286 handlers, real (non-stubbed), full suite green.
-BUILDER METADATA:   20/26 providers covered (251/286 handlers). 6 providers / 35 handlers pending.
-                    (Shopify → SHOPIFY-META-2; Microsoft Excel → EXCEL-META-3; Airtable → AIRTABLE-META-3, 2026-05-25.)
-NEXT ARC:           one of the remaining 6 — trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar. (google-drive's `folders` resolver already exists; calendars/onedrive need light or no resolvers; teams + trello need cascade resolvers.)
-DO NOT CALL:        "provider foundation fully complete / launch-ready" until the 9 are covered or product-deferred.
+BUILDER METADATA:   21/26 providers covered (259/286 handlers). 5 providers / 27 handlers pending.
+                    (Shopify → SHOPIFY-META-2; Microsoft Excel → EXCEL-META-3; Airtable → AIRTABLE-META-3;
+                     Trello → TRELLO-META-3, 2026-05-25.)
+NEXT ARC:           one of the remaining 5 — microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar. (google-drive's `folders` resolver already exists; calendars/onedrive need light or no resolvers; teams needs a team→channel cascade resolver.)
+DO NOT CALL:        "provider foundation fully complete / launch-ready" until the 5 are covered or product-deferred.
 ```
