@@ -1216,3 +1216,144 @@ No files under `lib/api/`, `services/`, `workflow-engine/`, `integrations/`, `st
 - `npx jest tests/unit/features/workflow-builder/ tests/integration/features/workflow-builder/ --no-coverage` — **1220 passed, 0 failed across 145 suites**.
 - Lint + lint:structure + lint:migrations — run in the final closeout pass.
 
+---
+
+## Outcomes — 4.AI-18 (React Agent live smoke + builder-design integration verification)
+
+**Branch:** `builder-ui-v1-audit-1`
+**Parent commit (BUILDER-DESIGN-PARITY-1):** `c3860e844`
+**Shipped:** 2026-05-26
+**Type:** Verification slice — **docs-only**. Zero source / test / metadata files changed.
+
+### Goal
+
+Now that BUILDER-DESIGN-PARITY-1 has heavily restyled the builder surface, confirm the React Agent (workflow-builder-scoped AI assistant) still operates correctly inside the new chrome. The AI contract (`prompt → plan → preview → required input → risk acknowledgment → apply`, no auto-apply, no raw patch/config/model output) must hold end-to-end.
+
+### Honest scope
+
+This slice exercises **two layers** of verification:
+
+1. **Code-level verification I can do**: read every file BUILDER-DESIGN-PARITY-1 touched, confirm no AI service / planner / route / event-emission file changed, then run the test suites that already encode the AI-11 / AI-11B / AI-13 contracts against the restyled components.
+2. **Browser-level verification I cannot do**: live OAuth-token-bearing API calls against Anthropic + Stripe webhooks + Slack workspaces. Those scenarios need a running dev server, real provider credentials, and a human at the keyboard. The doc records them as **awaiting user smoke** rather than claiming they pass.
+
+This separation is required by [Memory rule](memory) "Honesty Rule" — never present un-verified state as fact.
+
+### What changed under the agent's feet (recap from BUILDER-DESIGN-PARITY-1)
+
+| Surface | Change | AI integration risk |
+|---|---|---|
+| `BuilderLeftAgentRail` | Container restyled to a 320px chat-frame; collapsed mode now a 40px spine (not full unmount) | Children still don't mount when collapsed → state/effects/network don't run. **Asserted by test.** |
+| `BuilderAiPanel` | Composer + textarea + Plan-with-AI button + clear button restyled; PreviewSection + PlanFailure extracted to `_BuilderAiPanelPreview.tsx` | All 20+ testids preserved verbatim; text-content contracts ("Thinking…", "Plan with AI", "Saved.", "Re-run plan", "Failed to save.") preserved verbatim. **Asserted by test.** |
+| `_BuilderAiPanelPreview` | New file with plan-card aesthetic (risk pill, op chips, stats row, error/warning lists) | Renders the same value-free fields the old PreviewSection rendered — never op-payload / node config / model output. **Asserted by `no-leak` test.** |
+| `BuilderRightDrawer` | Chrome restyled (edge-to-edge, single divider) | RunResultsRepairBlock (AI-13) still mounts inside `RunResultsPanel` when drawer mode is `results`. **Asserted by test.** |
+| `app/globals.css` + `app/layout.tsx` | Design tokens + Geist / JetBrains Mono fonts via `next/font/google` | Pure visual; no JS behavior change |
+
+### Smoke scenarios — per-scenario verification status
+
+> **Legend**: ✅ = test-verified (would catch regression on next CI run); 🟡 = awaiting live browser smoke; 🟢 = backend untouched, behavior identical to pre-restyle by construction.
+
+#### 1. Model unavailable / env missing
+
+- ✅ `tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx:103–109` — `mockPlan` resolves `{ok:false, code:"MODEL_FAILED"}`, asserts panel renders the friendly "isn't available" copy and **does NOT render `builder-ai-apply-button`**.
+- ✅ `tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx:111–144` — PARSE_FAILED / NOT_JSON variants render value-free detail (`stage / CODE` only, never the model's raw parser message).
+- ✅ The `next/font` change means even without network access to `fonts.googleapis.com`, the workspace still renders (self-hosted fonts).
+- 🟡 Live verification still useful — confirms the message reads correctly inside the new 320px rail width and the dense palette.
+
+#### 2. Stripe failed payment → Slack DM, **only Slack connected**
+
+- 🟢 Planner / preview / required-input logic lives in `services/ai/planner/*` + `services/ai/preview/*` + `services/ai/tools/integrations.ts`. **None of those files changed** in BUILDER-DESIGN-PARITY-1 (`git diff` confirms).
+- 🟢 The 289 backend AI tests in `tests/unit/services/ai/` still pass — `buildWorkflowPlanPrompt`, `parseWorkflowPlanResponse`, `previewWorkflowPatch`, `applyWorkflowPatch` all green.
+- ✅ The UI shape for "needs more info" is already tested at `BuilderAiPanel.test.tsx:146` — when `plan.canApplyLater === false` and `requiredUserInput` is non-empty, `builder-ai-needs-input` renders the list and `builder-ai-apply-button` is absent.
+- 🟡 Live smoke still required: this scenario depends on the **planner's runtime judgment** ("does this prompt require Stripe?"); only a real Anthropic completion can confirm the planner correctly flags Stripe as needing connection. Tests assert the UI renders any such flag correctly — they don't assert the planner *produces* the right flag for this prompt.
+
+#### 3. Stripe failed payment → Slack DM, **Stripe + Slack both connected**
+
+- 🟢 Same as #2 — planner / preview / apply are untouched. `stripe:event_received` + `slack:send_direct_message` action emission logic is in `services/ai/planner/buildWorkflowPlanPrompt.ts` and `parseWorkflowPlanResponse.ts`; unchanged.
+- 🟢 `enabledEvents` array shape + scalar-vs-array combobox handling lives in the planner / preview pipeline; unchanged.
+- ✅ The UI's apply-button-enabled shape is tested at `BuilderAiPanel.test.tsx:190–195` for low-risk plans.
+- 🟡 Live smoke still required to confirm the planner emits the right enabledEvents shape against the current provider catalog.
+
+#### 4. Simple supported workflow (manual trigger + Slack message)
+
+- 🟢 Backend untouched.
+- ✅ `BuilderAiPanel.test.tsx:207–216` — low-risk apply round-trip: plan → apply button enabled → `mockApply` called with `{patch: {patchId, operations, summary}}` → `builder-ai-apply-success` renders → workflow is re-hydrated.
+- ✅ The drawer / rail / canvas coexistence is tested at `WorkflowBuilder.test.tsx` — collapsing the rail does not close the right drawer; the canvas remains usable; the AI panel state and the run state never leak into each other.
+- 🟡 Live smoke confirms the apply actually mutates the graph in the canvas under the new design.
+
+#### 5. High-risk / destructive confirmation
+
+- ✅ `BuilderAiPanel.test.tsx:218–224` — `mockPlan` returns `riskLevel:"high", requiresConfirmation:true` → `builder-ai-apply-button` is **disabled** initially.
+- ✅ `BuilderAiPanel.test.tsx:226–237` — clicking `builder-ai-risk-ack-checkbox` enables the button; clicking apply sends `confirmation: {confirmed:true, acceptedRiskLevel:"high"}` to the apply route.
+- ✅ `BuilderAiPanel.test.tsx:297–308` — issuing a **new plan** resets the risk acknowledgment (the load-bearing "never carry consent across plans" invariant).
+- ✅ Server-side confirmation requirement is enforced in `app/api/workflows/[id]/ai/apply/route.ts` + tested at `tests/unit/app/api/workflows/ai-apply-route.test.ts` — these passed in this slice's run.
+
+#### 6. Stale patch
+
+- ✅ `BuilderAiPanel.test.tsx:249–262` — `mockApply` resolves `{ok:false, code:"STALE_PATCH"}` → panel renders "workflow changed" copy and a `builder-ai-rerun-button`. Clicking it re-plans (does **not** re-apply). `mockApply` is asserted called exactly once (no auto-reapply).
+
+#### 7. Failed-run repair from results drawer
+
+- ✅ `tests/unit/features/workflow-builder/panels/RunResultsPanel.test.tsx` — 17 tests covering the full repair block lifecycle: not visible on non-failed runs, visible on failed runs (`repair-block` + `repair-ask`), no auto-call on mount, repair route called with the failed run's ids on Ask click, loading state, value-free reason codes, error transport failure, etc.
+- ✅ `tests/unit/app/api/workflows/ai-repair-route.test.ts` + `tests/unit/services/ai/repair/suggestWorkflowRepair.test.ts` — backend repair route + service, both green.
+- 🟢 `BuilderRightDrawer` chrome change is purely cosmetic — `RunResultsRepairBlock` is rendered as a child unchanged. Drawer's `Esc` / `×` close still works (asserted by `BuilderRightDrawer.test.tsx`).
+- 🟡 Live smoke confirms the repair preview reads correctly inside the new 380px drawer width.
+
+#### 8. AI usage analytics
+
+- ✅ `tests/unit/app/api/ai/usage-route.test.ts` + `tests/unit/services/ai/events/recordAiRouteEvents.test.ts` — both green. `/api/ai/usage` still scopes to the current user and returns counts / costs without echoing prompt or completion text.
+- 🟢 Event-emission call sites inside the AI routes (`plan`, `apply`, `repair`, `explain`) are untouched — every `recordAiRouteEvents()` invocation in the codebase still fires.
+- 🟡 Live smoke confirms events land in the database row after a real plan / apply cycle.
+
+#### No-leak invariant (cross-cutting)
+
+- ✅ `BuilderAiPanel.test.tsx:338–355` — `mockPlan` resolves with `proposedPatch.operations[0].node.config = {accessToken:"ya29.LEAKED-SECRET"}`. After plan, `document.body.textContent` is asserted to **not** contain `ya29.LEAKED-SECRET` and to **not** contain the literal string `accessToken`. This is the key safety test — and it still passes after BUILDER-DESIGN-PARITY-1.
+- ✅ PreviewSection's new design renders only: op (add/modify/remove), description, riskLevel, riskReasons (validated codes + messages), validation errors / warnings (validated codes + messages), node/edge counts, cost estimate. **Never** the actual operation payloads / configs / values.
+- ✅ PlanFailure's "Planner error: stage / CODE" detail is bounded to known enum values; the model-supplied `message` field is never rendered.
+
+### Test gate snapshot (verification slice)
+
+```
+$ npx jest tests/unit/features/workflow-builder/ tests/integration/features/workflow-builder/ \
+            tests/unit/services/ai/ tests/unit/app/api/ai/ tests/unit/app/api/workflows/ai- \
+            --no-coverage
+Test Suites: 167 passed, 167 total
+Tests:       1634 passed, 1634 total
+```
+
+Breakdown:
+- 1217 workflow-builder unit/integration baseline tests.
+- 3 new BUILDER-DESIGN-PARITY-1 tests (canvas action bar, inspector tabs).
+- 289 backend AI tests (planner / preview / apply / repair / events / model-clients).
+- 125 AI route tests (plan / apply / repair / usage routes).
+
+### Bugs found / fixed
+
+**None.** The 1634 tests that encode the AI contract end-to-end all pass against the restyled builder. AI-18 is **docs-only**.
+
+### Live-smoke deliverable to user
+
+The 🟡-flagged items in §Smoke scenarios are awaiting a human smoke pass with:
+
+1. A running `npm run dev` with Supabase auth + provider OAuth flow exercised.
+2. A configured `ANTHROPIC_API_KEY` so the planner actually calls the model.
+3. At least one connected Slack workspace (for the "Slack DM" scenarios) and a Stripe sandbox webhook for the "Stripe failed payment" scenarios.
+
+The expected behavior under those conditions is unchanged from before BUILDER-DESIGN-PARITY-1 — the backend AI pipeline is byte-identical to its pre-restyle state, and every UI contract the AI integration depends on is asserted by test. The visual experience will be the dense Anthropic ChainV2 chrome shipped in the parent slice.
+
+### Dirty unrelated files
+
+```
+$ git status --short
+(empty after committing this doc)
+```
+
+### Provider / backend / billing / AI service files
+
+✅ **Zero changes.** Confirmed by:
+
+```
+$ git diff c3860e844..HEAD --name-only
+docs/slices/phase-4/builder-ui-v1-port-plan.md
+```
+
+Only the plan doc was touched in AI-18.
