@@ -25,6 +25,7 @@ import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
 import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
 import { useRightDrawer } from "./hooks/useRightDrawer";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
+import { ValidationSummary } from "./validation/ValidationSummary";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -152,10 +153,22 @@ export function WorkflowBuilder({
   //   - `inspector` mode also drops `activeNodeId` for canvas lock-step.
   //   - `results` mode does NOT touch runSlice — the run is still
   //     valuable history; the user may re-open it.
+  //   - `validation` mode is purely read-only with respect to graph
+  //     state; closing it just closes the drawer.
   const handleDrawerClose = useCallback(() => {
     if (mode === "inspector") closeNode();
     closeDrawer();
   }, [mode, closeNode, closeDrawer]);
+
+  // Slice 4.BUILDER-VALIDATION-1 — header pill opens the right
+  // drawer in validation mode (replacing whichever surface was
+  // previously open via useRightDrawer's mutual-exclusion contract).
+  // Clicking an issue inside the summary calls configSlice.openNode,
+  // which already triggers the inspector-mode transition via the
+  // ref-tracked effect above.
+  const handleOpenValidation = useCallback(() => {
+    openDrawer("validation");
+  }, [openDrawer]);
 
   // Slice 4.BUILDER-ADD-FLOW-1 — AddNodePanel state machine.
   const [addPanelMode, setAddPanelMode] = useState<AddNodePanelMode | null>(
@@ -198,13 +211,22 @@ export function WorkflowBuilder({
     [handleEdgePlusClick],
   );
 
-  // Drawer rendering — one of two modes is active at a time. Inspector
-  // only renders when activeNodeId is set so the drawer doesn't show
-  // an empty form during a flicker. Results renders whenever the
-  // drawer is in results mode.
+  // Drawer rendering — one of three modes is active at a time.
+  // Inspector only renders when activeNodeId is set so the drawer
+  // doesn't show an empty form during a flicker. Results renders
+  // whenever the drawer is in results mode. Validation renders
+  // whenever the drawer is in validation mode (Slice 4.BUILDER-
+  // VALIDATION-1).
   const drawerVisible =
-    (mode === "inspector" && activeNodeId !== null) || mode === "results";
-  const drawerTitle = mode === "results" ? "Run results" : "Node configuration";
+    (mode === "inspector" && activeNodeId !== null) ||
+    mode === "results" ||
+    mode === "validation";
+  const drawerTitle =
+    mode === "results"
+      ? "Run results"
+      : mode === "validation"
+        ? "Validation"
+        : "Node configuration";
 
   return (
     <BuilderShell
@@ -215,6 +237,7 @@ export function WorkflowBuilder({
             isCollapsed: leftRail.isCollapsed,
             onToggle: leftRail.toggle,
           }}
+          validation={{ onOpen: handleOpenValidation }}
         />
       }
       leftRail={
@@ -233,6 +256,7 @@ export function WorkflowBuilder({
           >
             {mode === "inspector" ? <NodeInspectorPanel /> : null}
             {mode === "results" ? <RunResultsPanel /> : null}
+            {mode === "validation" ? <ValidationSummary /> : null}
           </BuilderRightDrawer>
         ) : null
       }

@@ -190,6 +190,98 @@ describe("BuilderHeader — left rail toggle (LEFT-AGENT-1)", () => {
   });
 });
 
+describe("BuilderHeader — validation pill (VALIDATION-1)", () => {
+  it("does NOT render the validation pill when the validation prop is omitted (SHELL-1 baseline)", () => {
+    render(<BuilderHeader workflowName="x" />);
+    expect(
+      screen.queryByTestId("builder-header-validation-pill"),
+    ).toBeNull();
+  });
+
+  it("renders a 'Ready' pill when there are no issues (configured trigger present)", () => {
+    // Hydrate has already run in beforeEach. Add a configured trigger.
+    act(() => {
+      useGraphSlice.getState().addTriggerFromMeta({
+        key: "slack:slack.message",
+        provider: "slack",
+        type: "slack:message",
+        displayName: "Slack Message",
+        description: "x",
+        category: "messaging",
+        activation: "webhook",
+        requiresIntegration: true,
+        fields: [],
+        payloadShape: [],
+        displayOrder: 10,
+      });
+    });
+    render(
+      <BuilderHeader
+        workflowName="x"
+        validation={{ onOpen: () => undefined }}
+      />,
+    );
+    const pill = screen.getByTestId("builder-header-validation-pill");
+    expect(pill.getAttribute("data-state")).toBe("ready");
+    expect(pill.textContent).toMatch(/ready/i);
+  });
+
+  it("renders an issue count when validation errors exist (no_trigger on empty workflow)", () => {
+    // beforeEach hydrates with no nodes → no_trigger error fires.
+    render(
+      <BuilderHeader
+        workflowName="x"
+        validation={{ onOpen: () => undefined }}
+      />,
+    );
+    const pill = screen.getByTestId("builder-header-validation-pill");
+    expect(pill.getAttribute("data-state")).toBe("error");
+    expect(pill.getAttribute("data-error-count")).toBe("1");
+    expect(pill.textContent).toMatch(/^1 issue$/i);
+  });
+
+  it("pluralizes 'issues' when there is more than one", () => {
+    act(() => {
+      // No trigger + an unconfigured action → 2 errors.
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+      useGraphSlice.getState().addAction({ provider: "slack" });
+    });
+    render(
+      <BuilderHeader
+        workflowName="x"
+        validation={{ onOpen: () => undefined }}
+      />,
+    );
+    const pill = screen.getByTestId("builder-header-validation-pill");
+    expect(pill.textContent).toMatch(/^2 issues$/i);
+  });
+
+  it("clicking the pill fires onOpen exactly once", async () => {
+    const user = userEvent.setup();
+    const onOpen = jest.fn();
+    render(
+      <BuilderHeader
+        workflowName="x"
+        validation={{ onOpen }}
+      />,
+    );
+    await user.click(screen.getByTestId("builder-header-validation-pill"));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses aria-label 'Open validation summary' on the pill", () => {
+    render(
+      <BuilderHeader
+        workflowName="x"
+        validation={{ onOpen: () => undefined }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /open validation summary/i }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("BuilderHeader — Cmd+S keyboard wiring", () => {
   it("Cmd+S triggers Save when the slice is dirty", async () => {
     const user = userEvent.setup();

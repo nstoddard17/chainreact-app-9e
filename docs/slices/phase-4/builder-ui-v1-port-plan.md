@@ -437,7 +437,7 @@ features/workflow-builder/
 | **BUILDER-RUN-PANEL-1** *(shipped)* | Test / Run buttons lifted into BuilderHeader via new `HeaderRunControls` (consumes new `useRunControls` hook — extracted state machine from the deleted `RunNowPanel`). `RunResultsPanel` + `RunResultsRepairBlock` mount inside the existing `BuilderRightDrawer` `mode: "results"` slot. Drawer mode now transitions between `inspector` and `results` based on which slice signal (`configSlice.activeNodeId` vs `runSlice.runId`) most recently changed — refs detect transitions so the two effects don't fight. Closing the drawer in results mode does NOT clear `runSlice`. Old below-canvas mounts removed. The 45 integration tests broken by ADD-FLOW-1's `AddNodeMenu` deletion were also migrated (`/add trigger/i` → `/choose a trigger/i`). | `hooks/useRunControls.ts` (new), `layout/HeaderRunControls.tsx` (new), `layout/BuilderHeader.tsx` (mounts HeaderRunControls), `WorkflowBuilder.tsx` (transition-refs sync + drawer body switch + drop below-canvas mounts), `panels/RunNowPanel.tsx` (deleted), `tests/unit/.../panels/RunNowPanel.test.tsx` (moved → `tests/unit/.../layout/HeaderRunControls.test.tsx`), 45 integration tests migrated (`/add trigger/i` → `/choose a trigger/i` bulk replace) | Medium — drawer state machine + run-panel relocation, but `useRunControls` keeps the existing testid + behavior contract verbatim | Test mode runs from header; results drawer auto-opens on new `runId`; back to inspector on node click; drawer × in results doesn't clear `runSlice`; repair block still renders on failed runs; all 33 migrated HeaderRunControls tests pass | No |
 | **BUILDER-LAYOUT-CORRECTION-1** *(2026-05-26, this revision — plan-only)* | Correct §4 layout direction: AI moves to **left rail** (matches V1 target screenshots), not right drawer. Revises §0/§4/§5/§6/§7/§8/§9/§10/App-C. No source files touched; no shipped slices unwound. Replaces former `BUILDER-AI-PANEL-1` with `BUILDER-LEFT-AGENT-1` below. | `docs/slices/phase-4/builder-ui-v1-port-plan.md` only | None | None | No |
 | **BUILDER-LEFT-AGENT-1** *(shipped 2026-05-26; replaces former BUILDER-AI-PANEL-1)* | Introduce `BuilderLeftAgentRail` and mount `BuilderAiPanel` inside it (moved from the below-canvas slot in `WorkflowBuilder.tsx`). Header gains a left-rail toggle icon. `BuilderShell` extends from 2-zone (header/content) → 4-zone (header / left rail / canvas-and-rest / right drawer). Collapse state persists via `useLeftAgentRail` → localStorage. **Removed `"ai"` from `RightDrawerMode` union in `useRightDrawer.ts`** (updated `useRightDrawer.test.tsx` to assert the 3-mode union: `inspector \| results \| validation`). Right drawer cannot host AI by construction after this slice. AI contract unchanged: AI-11/11B preview-then-apply, risk ack, no auto-apply, no raw values exposed, **no chat/thread persistence**. | `layout/BuilderLeftAgentRail.tsx` (new, 55 lines), `layout/BuilderShell.tsx` (extended to 4-zone, 67 lines), `layout/BuilderHeader.tsx` (toggle button + private `LeftRailToggle` subcomponent, 159 lines), `hooks/useLeftAgentRail.ts` (new, 76 lines), `hooks/useRightDrawer.ts` (`RightDrawerMode` narrowed), `WorkflowBuilder.tsx` (mount move from below-canvas to left rail, 296 lines), `panels/BuilderAiPanel.tsx` (no internal changes; mount-point move only) | Low — mounting move + new wrapper; AI contract untouched; `RightDrawerMode` narrowing is a typed change (TS confirmed zero call sites passing `"ai"`) | All gates passed: typecheck OK · 60 workflow-builder unit suites / 811 tests pass (+2 suites + 39 tests) · 83 integration suites / 363 tests pass (zero regressions) · 23 BuilderAiPanel tests pass unchanged at new mount point · new `RightDrawerMode` typed-union assertion test (no `"ai"`) | No |
-| **BUILDER-VALIDATION-1** | `ValidationSummary` drawer surface. Header pill shows error/warning count. Inline node "Not configured" chip. Pre-publish `ActivationReviewDialog` reads same data. **Mounts in right drawer alongside inspector/results** — not the left rail. | `validation/ValidationSummary.tsx` (new), `canvas/WorkflowNodeCard.tsx` (chip), `layout/BuilderHeader.tsx` (pill) | Low — surfaces existing validation data; no new validation logic | pill counts match; clicking jumps to node; node chip renders when fields missing | No |
+| **BUILDER-VALIDATION-1** *(shipped 2026-05-26)* | `ValidationSummary` drawer surface + header `ValidationPill` + node-clicking-flips-to-inspector flow. Conservative helper covers `no_trigger` + `unconfigured_node` + `router_routes_invalid` (re-uses `_routesValidator`); field-level-required-missing beyond router + disconnected-integration + unreachable-node deferred to follow-up slices. Inline `WorkflowNodeCard.NotConfiguredBadge` from CANVAS-1 untouched (defers richer per-node issue counts). `ActivationReviewDialog` does NOT exist in V2 yet — `LifecycleActions` uses the SEC-4B `DestructiveActionConfirmationModal` for activation; pre-publish review wiring is documented as a follow-up. **Mounts in right drawer alongside inspector/results.** | `validation/collectBuilderValidationIssues.ts` (new, 132 lines), `validation/ValidationSummary.tsx` (new, 178 lines), `layout/BuilderHeader.tsx` (+ `HeaderValidationPill` private subcomponent, 250 lines total), `WorkflowBuilder.tsx` (+ `handleOpenValidation` + validation drawer-mode wiring, 320 lines) | Low — pure additive; no graph mutation; no slice-contract changes; helper is pure | All gates passed: typecheck OK · 62 workflow-builder unit suites / 848 tests pass (+2 suites + 37 tests) · 83 integration suites / 363 tests pass (zero regressions) · pill count agrees with summary list (one source of truth via the helper) · provider-agnostic (test with fictional provider) · drawer/rail independence preserved · validation drawer is read-only with respect to graphSlice | No |
 | **BUILDER-RESPONSIVE-1** | Responsive collapse: header → More menu on narrow widths; right drawer → sheet on mobile. Dark-mode end-to-end pass. Accessibility pass (aria roles, focus management on drawer open). | All layout + panel files | Low — additive | dark-mode snapshot; responsive breakpoint tests; focus-trap on drawer | No |
 | **BUILDER-UI-CLOSEOUT** | Tests + screenshots + outcomes doc. Optional Playwright walkthrough if e2e structure exists. | `docs/slices/phase-4/builder-ui-port-outcomes.md` (new) | None | Smoke playthrough | No |
 
@@ -791,6 +791,70 @@ Implements the corrected V1 target layout from §0: the React Agent (`BuilderAiP
 
 **Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · workflow-builder unit suite: **60 suites / 811 tests pass** (+2 suites + 39 tests vs RUN-PANEL-1) · canvas-config-sync integration: 6 tests pass unchanged · full workflow-builder integration suite: 83 suites / 363 tests pass (zero regressions).
 
+### BUILDER-VALIDATION-1 outcomes (shipped 2026-05-26)
+
+Builder-level validation surface: a header pill that shows the current error / warning count and a right-drawer summary that lists each issue with a click-to-fix route into the inspector. The helper that powers both is pure, conservative (only checks with a reliable client-side signal today), and provider-agnostic.
+
+**Added:**
+
+- [`features/workflow-builder/validation/collectBuilderValidationIssues.ts`](../../../features/workflow-builder/validation/collectBuilderValidationIssues.ts) — 132-line pure helper. Three issue codes:
+  - `no_trigger` (error, graph-level) — fires when the workflow has zero trigger nodes.
+  - `unconfigured_node` (error, per-node) — fires when a node's `type === ""` (the same signal `classifyNodeStatus` already emits as `"unconfigured"` and the node card surfaces with the amber "Not configured" chip — no second source of truth).
+  - `router_routes_invalid` (error, per-node, field `routes`) — re-uses `validateRoutesValue` from `_routesValidator.ts` so the per-modal save-gate and the builder-level signal stay aligned.
+  Each issue has a stable `id`, optional `nodeId` (graph-level issues omit it), and optional `fieldName`. Includes a `countBuilderValidationIssues` aggregate for the header pill.
+- [`features/workflow-builder/validation/ValidationSummary.tsx`](../../../features/workflow-builder/validation/ValidationSummary.tsx) — 178-line drawer body. Subscribes to `pendingNodes` + `pendingEdges` from `useGraphSlice`, computes issues, renders either a "Ready to run" state (emerald) or a grouped-by-severity issue list. Each clickable issue (one with `nodeId`) opens that node's inspector via `configSlice.openNode({ nodeId, initialValues: node.config })` — same path the canvas click and `NodeList.Configure` use. Graph-level issues (`no_trigger`) render as plain rows, not buttons, so clicking doesn't dispatch openNode against a non-existent node.
+
+**Extended:**
+
+- [`features/workflow-builder/layout/BuilderHeader.tsx`](../../../features/workflow-builder/layout/BuilderHeader.tsx) — adds optional `validation?: { onOpen }` prop. When supplied, renders a `HeaderValidationPill` private subcomponent next to the run controls. Pill state machine:
+  - `ready` (emerald) — 0 errors + 0 warnings, label "Ready".
+  - `warning` (amber) — 0 errors + 1+ warnings, label `"{n} warning(s)"`.
+  - `error` (destructive) — 1+ errors, label `"{n} issue(s)"`.
+  Aria-label is always `"Open validation summary"`. The pill subscribes to the same `useGraphSlice` selectors the rest of the header uses (`pendingNodes` + `pendingEdges`) and runs the **same** helper the drawer body runs, so the count and the list never disagree. 250 lines total (under the 500-line guardrail).
+- [`features/workflow-builder/WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) — wires `handleOpenValidation = () => openDrawer("validation")` and passes it to `BuilderHeader` as the `validation.onOpen` callback. Extends the drawer state machine: `drawerVisible` now also fires for `mode === "validation"`; `drawerTitle` maps `validation → "Validation"`; the drawer body renders `<ValidationSummary />` when `mode === "validation"`. `handleDrawerClose` is unchanged — validation drawer close is read-only with respect to graphSlice. The existing `activeNodeId` transition-ref effect handles the validation → inspector flip when the user clicks an issue (no new effect needed).
+
+**Decisions:**
+
+- **`useRightDrawer.RightDrawerMode` is unchanged** — the `"validation"` slot was reserved by INSPECTOR-1 and is now wired live. No mode added or removed.
+- **Inline `WorkflowNodeCard` badge unchanged.** The "Not configured" amber chip from CANVAS-1 already encodes the `unconfigured_node` issue at the node level. Threading per-node issue counts through `adapters.ts` would require widening the `WorkflowNodeData` shape and isn't necessary for first-pass UX; deferred to a follow-up that also adds router-routes-error chips and run-state chips together. Documented as the right follow-up boundary.
+- **No `ActivationReviewDialog` exists in V2.** `LifecycleActions` uses the SEC-4B `DestructiveActionConfirmationModal` for activation (the server returns `WorkflowConfirmationRequiredError`, the modal asks the user to type the confirmation phrase). Wiring `ValidationSummary` into a pre-publish review would require building a new dialog component first, which is a separate slice. Today, the activation button is already disabled when `hasUnsavedChanges` and the server-side activation route is the authoritative guard; surfacing builder-level validation pre-click is a follow-up.
+
+**Issue types intentionally deferred** (each documented in the helper jsdoc + here):
+
+- **Required-field-missing errors beyond router.** Would require loading `ActionMeta` / `TriggerMeta` for every node into the builder client state — today only the *active* node's metadata is loaded by `ConfigModalShell` via the existing meta-fetch hooks. A future slice can add a builder-scoped metadata cache (read-only by-key fetch on hydrate) and extend the helper.
+- **Disconnected-integration warnings.** Would require fetching the user's integration connection state into the builder, which would be a new client read this slice deliberately avoids. Document as the right follow-up; the integration page already shows connection state.
+- **Unreachable-node warnings.** Doable via graph traversal but the edge cases around branching / router routes deserve their own slice scope.
+- **Per-node issue count chip on the node card.** Today the card shows the binary `Not configured` chip (CANVAS-1). Surfacing per-node issue counts (e.g. "3 problems") needs the adapter-data widening above.
+- **Pre-publish activation review dialog.** No V2 `ActivationReviewDialog` exists. A future slice can introduce one that reads from this helper.
+
+**Drawer × rail independence (verified):**
+
+| User action | Rail visible? | Drawer mode |
+|---|---|---|
+| Open validation pill | unchanged | validation |
+| Run dispatched while on validation | unchanged | results (replaces validation) |
+| Click node issue inside validation | unchanged | inspector (replaces validation) |
+| Drawer × on validation | unchanged | closed; graphSlice + activeNodeId untouched |
+| Open node A while on validation | unchanged | inspector (replaces validation) |
+| Collapse rail while on validation | flips | unchanged (validation stays) |
+
+**Tests added / updated:**
+
+- [`tests/unit/features/workflow-builder/validation/collectBuilderValidationIssues.test.ts`](../../../tests/unit/features/workflow-builder/validation/collectBuilderValidationIssues.test.ts) — 15 tests covering all three issue codes, plural / singular copy for trigger vs action unconfigured, router-routes delegation to `_routesValidator`, no router-routes validation on non-router nodes, no router validation on unconfigured router nodes, stable issue ids, provider-agnostic (fictional provider returns no provider-specific issues), and `countBuilderValidationIssues` math.
+- [`tests/unit/features/workflow-builder/validation/ValidationSummary.test.tsx`](../../../tests/unit/features/workflow-builder/validation/ValidationSummary.test.tsx) — 9 tests covering the ready state (no issues), has-issues state (no_trigger + per-node), the `data-state` attribute, plural "X issues" header, provider · type label rendering, issue click round-trip through `configSlice.openNode`, `onOpenNode` callback firing, graph-level issues rendering as non-buttons (no nodeId), no graphSlice mutation on click (read-only with respect to graph), and provider-agnostic rendering for fictional providers.
+- [`tests/unit/features/workflow-builder/layout/BuilderHeader.test.tsx`](../../../tests/unit/features/workflow-builder/layout/BuilderHeader.test.tsx) — 7 new tests in the "validation pill" group covering no-render-without-prop baseline, ready state with configured trigger, error count for empty workflow, plural / singular ("issue" vs "issues"), click fires `onOpen`, aria-label.
+- [`tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx`](../../../tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx) — 7 new tests in the "validation summary" group covering: header pill renders with issue count for empty workflow, clicking pill opens validation drawer, validation drawer doesn't mutate graphSlice, closing validation drawer leaves graphSlice + activeNodeId untouched, clicking a node-bearing issue flips drawer to inspector, dispatching a run flips drawer to results, opening validation drawer doesn't collapse the left rail.
+
+**Behavior preserved (verified):**
+
+- All 14 pre-existing WorkflowBuilder tests + 10 LEFT-AGENT-1 tests still pass.
+- All 13 pre-existing BuilderHeader tests (SHELL-1 + LEFT-AGENT-1) still pass.
+- All 23 BuilderAiPanel tests pass at the unchanged left-rail mount point.
+- `canvas-config-sync` 6 integration tests pass unchanged.
+- `_routesValidator` is the single source of truth for router-route validation (no duplication).
+
+**Gate results:** typecheck OK · lint OK (5 pre-existing warnings unrelated) · lint:structure OK · lint:migrations OK · workflow-builder unit suite: **62 suites / 848 tests pass** (+2 suites + 37 tests vs LEFT-AGENT-1) · full workflow-builder integration suite: 83 suites / 363 tests pass (zero regressions).
+
 ---
 
 ## 9. Tests required
@@ -926,6 +990,6 @@ components/workflows/ai-builder/AIWorkflowBuilderChat.tsx
 6. **BUILDER-RUN-PANEL-1** — Run / Test in header; results into drawer. *(shipped)*
 7. **BUILDER-LAYOUT-CORRECTION-1** — plan-only correction: AI → left rail (not right drawer). *(shipped 2026-05-26)*
 8. **BUILDER-LEFT-AGENT-1** — `BuilderLeftAgentRail` hosts `BuilderAiPanel`; header gains rail toggle; `BuilderShell` extends to 4-zone; `useRightDrawer` drops `"ai"` mode. *(shipped 2026-05-26)*
-9. **BUILDER-VALIDATION-1** — `ValidationSummary` drawer + header pill.
+9. **BUILDER-VALIDATION-1** — `ValidationSummary` drawer + header pill. *(shipped 2026-05-26)*
 10. **BUILDER-RESPONSIVE-1** — responsive + dark mode + a11y pass.
 11. **BUILDER-UI-CLOSEOUT** — outcomes doc + (optional) Playwright walkthrough.

@@ -3,6 +3,10 @@
 import { useCallback, useState } from "react";
 import { useGraphSlice } from "../state/graphSlice";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
+import {
+  collectBuilderValidationIssues,
+  countBuilderValidationIssues,
+} from "../validation/collectBuilderValidationIssues";
 import { HeaderRunControls } from "./HeaderRunControls";
 
 interface Props {
@@ -19,6 +23,19 @@ interface Props {
   leftRail?: {
     isCollapsed: boolean;
     onToggle: () => void;
+  };
+  /**
+   * Validation pill state. When supplied, the header renders a small
+   * pill showing the current error/warning count or a "Ready" pill
+   * when the graph is clean. Clicking the pill fires `onOpen` — the
+   * parent flips the right drawer mode to `validation`. Slice 4.
+   * BUILDER-VALIDATION-1.
+   *
+   * Optional so the SHELL-1 / LEFT-AGENT-1 unit tests that render
+   * BuilderHeader in isolation keep passing unchanged.
+   */
+  validation?: {
+    onOpen: () => void;
   };
 }
 
@@ -43,12 +60,23 @@ type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
  * `LifecycleActions` already uses — so it composes anywhere inside a
  * mounted builder without prop threading.
  */
-export function BuilderHeader({ workflowName, leftRail }: Props) {
+export function BuilderHeader({ workflowName, leftRail, validation }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
   const saveError = useGraphSlice((s) => s.saveError);
   const save = useGraphSlice((s) => s.save);
+  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
+  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Slice 4.BUILDER-VALIDATION-1 — validation pill counts are derived
+  // from the same pure helper the ValidationSummary drawer body uses,
+  // so the pill count and the drawer list never disagree.
+  const validationCounts = validation
+    ? countBuilderValidationIssues(
+        collectBuilderValidationIssues({ pendingNodes, pendingEdges }),
+      )
+    : null;
 
   const handleSave = useCallback(async () => {
     if (!isDirty || isSaving) return;
@@ -82,6 +110,12 @@ export function BuilderHeader({ workflowName, leftRail }: Props) {
         <StatusPill status={status} saveError={saveError} />
       </div>
       <div className="flex items-center gap-2">
+        {validation && validationCounts ? (
+          <HeaderValidationPill
+            counts={validationCounts}
+            onOpen={validation.onOpen}
+          />
+        ) : null}
         <HeaderRunControls />
         <button
           type="button"
@@ -93,6 +127,43 @@ export function BuilderHeader({ workflowName, leftRail }: Props) {
         </button>
       </div>
     </header>
+  );
+}
+
+function HeaderValidationPill({
+  counts,
+  onOpen,
+}: {
+  counts: { errorCount: number; warningCount: number; totalCount: number };
+  onOpen: () => void;
+}) {
+  const { errorCount, warningCount, totalCount } = counts;
+  const state: "ready" | "warning" | "error" =
+    errorCount > 0 ? "error" : warningCount > 0 ? "warning" : "ready";
+  const label =
+    state === "ready"
+      ? "Ready"
+      : `${totalCount} ${totalCount === 1 ? "issue" : "issues"}`;
+  const className =
+    state === "error"
+      ? "border border-destructive/40 bg-destructive/10 text-destructive"
+      : state === "warning"
+        ? "border border-amber-300/50 bg-amber-50 text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300"
+        : "border border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="Open validation summary"
+      data-testid="builder-header-validation-pill"
+      data-state={state}
+      data-error-count={errorCount}
+      data-warning-count={warningCount}
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
+      title="Open validation summary"
+    >
+      {label}
+    </button>
   );
 }
 

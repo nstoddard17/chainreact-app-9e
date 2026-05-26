@@ -1,0 +1,317 @@
+/**
+ * Tests for features/workflow-builder/validation/collectBuilderValidationIssues.
+ *
+ * Pure helper (Slice 4.BUILDER-VALIDATION-1). Conservative issue
+ * coverage: no_trigger, unconfigured_node, router_routes_invalid.
+ * Re-uses the existing `_routesValidator` for router config — no
+ * second source of truth.
+ */
+import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
+import {
+  collectBuilderValidationIssues,
+  countBuilderValidationIssues,
+} from "@/features/workflow-builder/validation/collectBuilderValidationIssues";
+
+function makeNode(partial: Partial<WorkflowNode> & Pick<WorkflowNode, "id" | "kind">): WorkflowNode {
+  return {
+    id: partial.id,
+    kind: partial.kind,
+    provider: partial.provider ?? "slack",
+    type: partial.type ?? "",
+    config: partial.config ?? {},
+    position: partial.position ?? { x: 0, y: 0 },
+  };
+}
+
+const NO_EDGES: readonly WorkflowEdge[] = [];
+
+describe("collectBuilderValidationIssues — no_trigger", () => {
+  it("returns a no_trigger error when the workflow has no nodes", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [],
+      pendingEdges: NO_EDGES,
+    });
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      code: "no_trigger",
+      severity: "error",
+    });
+    expect(issues[0]!.nodeId).toBeUndefined();
+  });
+
+  it("returns a no_trigger error when only actions exist", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "a1", kind: "action", type: "slack:send_message" }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const codes = issues.map((i) => i.code);
+    expect(codes).toContain("no_trigger");
+  });
+
+  it("does NOT return no_trigger when a trigger node exists (even unconfigured)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [makeNode({ id: "t1", kind: "trigger", type: "" })],
+      pendingEdges: NO_EDGES,
+    });
+    const codes = issues.map((i) => i.code);
+    expect(codes).not.toContain("no_trigger");
+  });
+});
+
+describe("collectBuilderValidationIssues — unconfigured_node", () => {
+  it("emits an unconfigured_node error for every node with empty type", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "" }),
+        makeNode({ id: "a1", kind: "action", type: "" }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const unconfigured = issues.filter((i) => i.code === "unconfigured_node");
+    expect(unconfigured).toHaveLength(2);
+    expect(unconfigured.map((i) => i.nodeId)).toEqual(["t1", "a1"]);
+  });
+
+  it("uses different copy for trigger vs action unconfigured nodes", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "" }),
+        makeNode({ id: "a1", kind: "action", type: "" }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const triggerIssue = issues.find(
+      (i) => i.code === "unconfigured_node" && i.nodeId === "t1",
+    );
+    const actionIssue = issues.find(
+      (i) => i.code === "unconfigured_node" && i.nodeId === "a1",
+    );
+    expect(triggerIssue?.message).toMatch(/trigger/i);
+    expect(actionIssue?.message).toMatch(/action/i);
+  });
+
+  it("does NOT emit unconfigured_node when type is set (even when other issues exist)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "slack:message" }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const codes = issues.map((i) => i.code);
+    expect(codes).not.toContain("unconfigured_node");
+  });
+});
+
+describe("collectBuilderValidationIssues — router_routes_invalid", () => {
+  it("flags a router node with no routes value", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "r1",
+          kind: "action",
+          provider: "native",
+          type: "native:router",
+          config: {},
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const routerIssue = issues.find((i) => i.code === "router_routes_invalid");
+    expect(routerIssue).toBeDefined();
+    expect(routerIssue?.severity).toBe("error");
+    expect(routerIssue?.nodeId).toBe("r1");
+    expect(routerIssue?.fieldName).toBe("routes");
+  });
+
+  it("flags a router with duplicate route labels (delegates to _routesValidator)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "r1",
+          kind: "action",
+          provider: "native",
+          type: "native:router",
+          config: {
+            routes: [
+              {
+                label: "yes",
+                condition: { input: "x", operator: "equals", value: 1 },
+              },
+              {
+                label: "yes",
+                condition: { input: "x", operator: "equals", value: 2 },
+              },
+            ],
+          },
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const routerIssue = issues.find((i) => i.code === "router_routes_invalid");
+    expect(routerIssue).toBeDefined();
+  });
+
+  it("does NOT emit router_routes_invalid when routes are valid", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "t1",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack:message",
+        }),
+        makeNode({
+          id: "r1",
+          kind: "action",
+          provider: "native",
+          type: "native:router",
+          config: {
+            routes: [
+              {
+                label: "match",
+                condition: { input: "x", operator: "equals", value: 1 },
+              },
+            ],
+          },
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    expect(
+      issues.find((i) => i.code === "router_routes_invalid"),
+    ).toBeUndefined();
+  });
+
+  it("does NOT validate routes on a non-router node, even if the config has a routes field", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "t1",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack:message",
+        }),
+        makeNode({
+          id: "a1",
+          kind: "action",
+          provider: "slack",
+          type: "slack:send_message",
+          config: { routes: "garbage" },
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    expect(
+      issues.find((i) => i.code === "router_routes_invalid"),
+    ).toBeUndefined();
+  });
+
+  it("skips router validation when the router node itself is unconfigured (type empty)", () => {
+    // Node added by `+ Add action` with provider `native` but never
+    // picked the specific router action — type is "". Don't try to
+    // validate its routes; the unconfigured_node error is the
+    // actionable signal.
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "t1",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack:message",
+        }),
+        makeNode({
+          id: "r1",
+          kind: "action",
+          provider: "native",
+          type: "",
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    expect(
+      issues.find((i) => i.code === "router_routes_invalid"),
+    ).toBeUndefined();
+    expect(
+      issues.find((i) => i.code === "unconfigured_node" && i.nodeId === "r1"),
+    ).toBeDefined();
+  });
+});
+
+describe("collectBuilderValidationIssues — stable ids + provider-agnostic", () => {
+  it("emits stable ids that distinguish issues on the same node", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "t1",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack:message",
+        }),
+        makeNode({
+          id: "r1",
+          kind: "action",
+          provider: "native",
+          type: "native:router",
+          config: {},
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    const ids = issues.map((i) => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain("router_routes_invalid:r1");
+  });
+
+  it("does not branch on provider strings other than the documented native router type", () => {
+    // Sanity check: feeding a fictional provider with a non-router type
+    // returns no provider-specific issues — only the generic checks fire.
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({
+          id: "t1",
+          kind: "trigger",
+          provider: "fictional-provider",
+          type: "fictional:trigger",
+        }),
+        makeNode({
+          id: "a1",
+          kind: "action",
+          provider: "fictional-provider",
+          type: "fictional:action",
+        }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    expect(issues).toHaveLength(0);
+  });
+});
+
+describe("countBuilderValidationIssues", () => {
+  it("counts errors and warnings separately", () => {
+    const counts = countBuilderValidationIssues([
+      {
+        id: "x",
+        code: "no_trigger",
+        severity: "error",
+        message: "x",
+      },
+      {
+        id: "y",
+        code: "router_routes_invalid",
+        severity: "error",
+        message: "y",
+      },
+    ]);
+    expect(counts).toEqual({ errorCount: 2, warningCount: 0, totalCount: 2 });
+  });
+
+  it("returns zeroes for an empty issue list", () => {
+    expect(countBuilderValidationIssues([])).toEqual({
+      errorCount: 0,
+      warningCount: 0,
+      totalCount: 0,
+    });
+  });
+});

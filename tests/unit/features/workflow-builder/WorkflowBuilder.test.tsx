@@ -723,4 +723,155 @@ describe("WorkflowBuilder", () => {
       expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
     });
   });
+
+  // Slice 4.BUILDER-VALIDATION-1 — header pill + validation drawer mode.
+  describe("Slice 4.BUILDER-VALIDATION-1 — validation summary", () => {
+    it("renders the header validation pill with an issue count for an empty workflow", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const pill = screen.getByTestId("builder-header-validation-pill");
+      expect(pill).toBeInTheDocument();
+      // Empty workflow → 1 error (no_trigger).
+      expect(pill.getAttribute("data-state")).toBe("error");
+      expect(pill.getAttribute("data-error-count")).toBe("1");
+    });
+
+    it("clicking the pill opens the right drawer in validation mode", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      const drawer = screen.getByTestId("builder-right-drawer");
+      expect(drawer).toBeInTheDocument();
+      expect(drawer.getAttribute("aria-label")).toMatch(/validation/i);
+      expect(
+        screen.getByTestId("validation-summary"),
+      ).toBeInTheDocument();
+    });
+
+    it("opening validation drawer does NOT mutate graphSlice", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      const nodesBefore = useGraphSlice.getState().pendingNodes;
+      const dirtyBefore = useGraphSlice.getState().isDirty;
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      expect(useGraphSlice.getState().pendingNodes).toBe(nodesBefore);
+      expect(useGraphSlice.getState().isDirty).toBe(dirtyBefore);
+    });
+
+    it("closing the validation drawer leaves graphSlice + activeNodeId untouched", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+      // configSlice.activeNodeId must stay null since validation isn't
+      // a node-selection mode.
+      expect(useConfigSlice.getState().activeNodeId).toBeNull();
+      await user.click(screen.getByRole("button", { name: /close drawer/i }));
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+      expect(useConfigSlice.getState().activeNodeId).toBeNull();
+    });
+
+    it("clicking a node-bearing issue switches the drawer from validation → inspector", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      // Set up: trigger + unconfigured action so we have a clickable issue.
+      act(() => {
+        useGraphSlice.getState().addTrigger({ provider: "slack" });
+        useGraphSlice.getState().addAction({ provider: "slack" });
+      });
+      const actionId = useGraphSlice
+        .getState()
+        .pendingNodes.find((n) => n.kind === "action")!.id;
+
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      const drawerEl = screen.getByTestId("builder-right-drawer");
+      expect(drawerEl.getAttribute("aria-label")).toMatch(/validation/i);
+      // Click the action-node issue. The drawer mode flips to
+      // inspector via the same transition-ref machinery that the
+      // canvas click uses.
+      const issueBtn = screen
+        .getAllByTestId("validation-summary-issue")
+        .find((el) => el.getAttribute("data-node-id") === actionId);
+      expect(issueBtn).toBeDefined();
+      await user.click(issueBtn!);
+      expect(
+        screen
+          .getByTestId("builder-right-drawer")
+          .getAttribute("aria-label"),
+      ).toMatch(/node configuration/i);
+      expect(useConfigSlice.getState().activeNodeId).toBe(actionId);
+    });
+
+    it("dispatching a run switches the drawer from validation → results", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      expect(
+        screen
+          .getByTestId("builder-right-drawer")
+          .getAttribute("aria-label"),
+      ).toMatch(/validation/i);
+      act(() => {
+        useRunSlice
+          .getState()
+          .startTracking({ workflowId: "wf-1", runId: "run-1" });
+      });
+      expect(
+        screen
+          .getByTestId("builder-right-drawer")
+          .getAttribute("aria-label"),
+      ).toMatch(/run results/i);
+    });
+
+    it("opening validation drawer does NOT collapse the left React Agent rail", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+    });
+  });
 });
