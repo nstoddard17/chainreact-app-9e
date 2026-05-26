@@ -1,12 +1,14 @@
 /**
- * Tests for features/workflow-builder/panels/BuilderAiPanel (Slice 4.AI-11).
+ * Tests for features/workflow-builder/panels/BuilderAiPanel (Slice 4.AI-11,
+ * UX-hardened in 4.AI-11B).
  *
  * RTL component tests with the AI + workflows API clients mocked (no fetch, no
- * network). These pin the plan → preview → confirm → apply flow, the safe
- * display states, no-auto-apply, stale-patch handling, and the no-leak guarantee
- * (raw patch config is never rendered).
+ * network). These pin the plan → preview → confirm → apply flow, the per-state
+ * user-facing copy, the planning indicator, the character counter, confirmation
+ * reset on a new plan, stale-patch recovery (re-run, never auto-reapply), clear,
+ * no-auto-apply, and the no-leak guarantee (raw patch config is never rendered).
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockPlan = jest.fn();
@@ -209,13 +211,92 @@ describe("confirmation + apply", () => {
     await waitFor(() => expect(mockGetWorkflow).toHaveBeenCalledWith("wf-1"));
   });
 
-  it("shows a re-run message on STALE_PATCH", async () => {
-    mockPlan.mockResolvedValueOnce(planApplyReady);
+  it("shows a re-run message and a Re-run plan button on STALE_PATCH (no auto-reapply)", async () => {
+    mockPlan.mockResolvedValue(planApplyReady);
     mockApply.mockResolvedValueOnce({ ok: false, code: "STALE_PATCH", message: "stale" });
     render(<BuilderAiPanel />);
     const user = await typeAndPlan();
     await user.click(await screen.findByTestId("builder-ai-apply-button"));
-    expect(await screen.findByTestId("builder-ai-apply-failure")).toHaveTextContent(/changed since the plan/i);
+    expect(await screen.findByTestId("builder-ai-apply-failure")).toHaveTextContent(/workflow changed/i);
+    const rerun = screen.getByTestId("builder-ai-rerun-button");
+    expect(mockApply).toHaveBeenCalledTimes(1); // not auto-reapplied
+    // Re-run re-plans (does not re-apply).
+    await user.click(rerun);
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    expect(mockApply).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AI-11B UX hardening", () => {
+  it("shows a planning indicator while the plan request is in flight", async () => {
+    let resolvePlan: ((v: unknown) => void) | undefined;
+    mockPlan.mockImplementationOnce(() => new Promise((res) => { resolvePlan = res; }));
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    expect(screen.getByTestId("builder-ai-planning")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Thinking…");
+    resolvePlan?.(planApplyReady);
+    await screen.findByTestId("builder-ai-plan-result");
+  });
+
+  it("clears the result with the Clear button but keeps the prompt", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Post to Slack");
+    await screen.findByTestId("builder-ai-plan-result");
+    await user.click(screen.getByTestId("builder-ai-clear-button"));
+    expect(screen.queryByTestId("builder-ai-plan-result")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("Post to Slack");
+  });
+
+  it("shows a character counter near the limit and disables submit when too long", () => {
+    render(<BuilderAiPanel />);
+    const textarea = screen.getByTestId("builder-ai-prompt");
+    fireEvent.change(textarea, { target: { value: "a".repeat(6500) } });
+    expect(screen.getByTestId("builder-ai-char-count")).toBeInTheDocument();
+    fireEvent.change(textarea, { target: { value: "a".repeat(8001) } });
+    expect(screen.getByTestId("builder-ai-char-count")).toHaveTextContent(/too long/i);
+    expect(screen.getByTestId("builder-ai-plan-button")).toBeDisabled();
+  });
+
+  it("resets the risk acknowledgement when a new plan is requested", async () => {
+    mockPlan.mockResolvedValue(planHighRisk);
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan();
+    await user.click(await screen.findByTestId("builder-ai-risk-ack-checkbox"));
+    expect(screen.getByTestId("builder-ai-apply-button")).toBeEnabled();
+    // New plan resets confirmation.
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("builder-ai-risk-ack-checkbox")).not.toBeChecked();
+    expect(screen.getByTestId("builder-ai-apply-button")).toBeDisabled();
+  });
+
+  it("renders risk reasons and validation warnings readably", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      preview: {
+        ...planApplyReady.preview,
+        riskReasons: [{ code: "removes_user_work", message: "Removes existing nodes." }],
+        validation: { ok: true, errors: [], warnings: [{ code: "COST_WARNING", message: "This may be costly." }] },
+      },
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    expect(await screen.findByTestId("builder-ai-risk-reasons")).toHaveTextContent("Removes existing nodes.");
+    expect(screen.getByTestId("builder-ai-validation-warnings")).toHaveTextContent("This may be costly.");
+  });
+
+  it("offers a Plan-another-change button after a successful apply", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    mockApply.mockResolvedValueOnce({ ok: true, appliedPatchId: "p1", summaryText: "Applied.", updatedAt: "t", workflowId: "wf-1", appliedOperationCount: 1, riskLevel: "low", requiresConfirmation: false });
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan();
+    await user.click(await screen.findByTestId("builder-ai-apply-button"));
+    const another = await screen.findByTestId("builder-ai-plan-another-button");
+    await user.click(another);
+    expect(screen.queryByTestId("builder-ai-apply-success")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-ai-plan-result")).not.toBeInTheDocument();
   });
 });
 

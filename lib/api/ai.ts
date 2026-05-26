@@ -59,11 +59,19 @@ export interface AiPreviewValidationIssue {
   readonly message: string;
 }
 
+/** Why a change is risky (from AI-3, recomputed deterministically; value-free). */
+export interface AiRiskReason {
+  readonly code: string;
+  readonly message: string;
+  readonly nodeId?: string;
+}
+
 /** The subset of the AI-5 preview the Builder renders. Extra fields are ignored. */
 export interface AiPreview {
   readonly ok: boolean;
   readonly riskLevel: string;
   readonly requiresConfirmation: boolean;
+  readonly riskReasons?: readonly AiRiskReason[];
   readonly affectedNodeIds?: readonly string[];
   readonly affectedEdgeIds?: readonly string[];
   readonly changes?: readonly AiChangeSummary[];
