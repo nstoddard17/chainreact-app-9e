@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { AiPlanFailure, AiPreview } from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
+import { AiBulletList, AiRequiredInputList } from "../ai";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
 
@@ -158,32 +159,30 @@ export function BuilderAiPanel() {
         <div className="flex flex-col gap-2" data-testid="builder-ai-plan-result">
           <p className="text-sm font-medium">{planOk.intentSummary}</p>
 
-          {planOk.assumptions.length > 0 && (
-            <BulletList title="Assumptions" items={planOk.assumptions} testid="builder-ai-assumptions" />
-          )}
+          <AiBulletList
+            title="Assumptions"
+            items={planOk.assumptions}
+            testId="builder-ai-assumptions"
+          />
 
-          {planOk.requiredUserInput.length > 0 && (
-            <div data-testid="builder-ai-needs-input" className="rounded border border-input bg-background p-2 text-xs">
-              <p className="font-medium">More information is needed before this can be built:</p>
-              <ul className="mt-1 list-disc pl-4 text-muted-foreground">
-                {planOk.requiredUserInput.map((r, i) => (
-                  <li key={`${r.label}-${i}`}>{r.label}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <AiRequiredInputList
+            title="More information is needed before this can be built:"
+            items={planOk.requiredUserInput}
+            testId="builder-ai-needs-input"
+            variant="card"
+          />
 
-          {planOk.unsupportedRequests.length > 0 && (
-            <BulletList
-              title="Not supported yet"
-              items={planOk.unsupportedRequests}
-              testid="builder-ai-unsupported"
-            />
-          )}
+          <AiBulletList
+            title="Not supported yet"
+            items={planOk.unsupportedRequests}
+            testId="builder-ai-unsupported"
+          />
 
-          {planOk.safetyNotes.length > 0 && (
-            <BulletList title="Please review" items={planOk.safetyNotes} testid="builder-ai-safety" />
-          )}
+          <AiBulletList
+            title="Please review"
+            items={planOk.safetyNotes}
+            testId="builder-ai-safety"
+          />
 
           {preview && <PreviewSection preview={preview} />}
 
@@ -370,23 +369,3 @@ function PreviewSection({ preview }: { preview: AiPreview }) {
   );
 }
 
-function BulletList({
-  title,
-  items,
-  testid,
-}: {
-  title: string;
-  items: readonly string[];
-  testid: string;
-}) {
-  return (
-    <div className="text-xs" data-testid={testid}>
-      <p className="font-medium">{title}</p>
-      <ul className="list-disc pl-4 text-muted-foreground">
-        {items.map((item, i) => (
-          <li key={`${item}-${i}`}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}

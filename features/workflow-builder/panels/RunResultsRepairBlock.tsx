@@ -9,6 +9,7 @@ import {
   type AiRepairResult,
   type AiRepairSuccess,
 } from "@/lib/api/ai";
+import { AiBulletList, AiRequiredInputList } from "../ai";
 
 /**
  * Slice 4.AI-13 — failed-run repair entry point.
@@ -197,38 +198,14 @@ function RepairResult({
         {humanReasonCode(result.reasonCode)}
       </p>
 
-      {result.recommendations.length > 0 ? (
-        <ul
-          className="ml-4 list-disc text-xs text-muted-foreground"
-          data-testid="repair-recommendations"
-        >
-          {result.recommendations.map((r, i) => (
-            <li key={i}>{r}</li>
-          ))}
-        </ul>
-      ) : null}
+      <AiBulletList items={result.recommendations} testId="repair-recommendations" />
 
-      {result.requiredUserInput.length > 0 ? (
-        <div
-          className="flex flex-col gap-1"
-          data-testid="repair-required-input"
-        >
-          <p className="text-xs font-medium">Need from you:</p>
-          <ul className="ml-4 list-disc text-xs text-muted-foreground">
-            {result.requiredUserInput.map((r, i) => (
-              <li key={i}>
-                {r.label}
-                {r.field ? (
-                  <span className="text-muted-foreground/70">
-                    {" "}
-                    (field: {r.field})
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <AiRequiredInputList
+        title="Need from you:"
+        items={result.requiredUserInput}
+        testId="repair-required-input"
+        showFieldHint
+      />
 
       {preview?.changes && preview.changes.length > 0 ? (
         <details
@@ -248,16 +225,11 @@ function RepairResult({
         </details>
       ) : null}
 
-      {result.safetyNotes.length > 0 ? (
-        <ul
-          className="ml-4 list-disc text-xs text-amber-700 dark:text-amber-300"
-          data-testid="repair-safety-notes"
-        >
-          {result.safetyNotes.map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ul>
-      ) : null}
+      <AiBulletList
+        items={result.safetyNotes}
+        severity="warning"
+        testId="repair-safety-notes"
+      />
 
       {applyError ? (
         <p
