@@ -29,12 +29,19 @@ import {
 } from "@/services/billing/aiCostEvents";
 import type { ApplyWorkflowPatchResult } from "@/services/ai/apply";
 import type { PlanWorkflowResult } from "@/services/ai/planner";
+import type { RepairSuggestionResult } from "@/services/ai/repair";
 
 export interface AiRouteEventScope {
   readonly userId: string;
   readonly workflowId?: string | null;
   /** The request's patch id (apply route) — used for failure events. */
   readonly patchId?: string | null;
+}
+
+export interface AiRepairRouteEventScope {
+  readonly userId: string;
+  readonly workflowId: string;
+  readonly workflowRunId: string;
 }
 
 /** Registry provider for a model id (analytics dimension); undefined if unknown. */
@@ -155,6 +162,100 @@ export async function recordAiApplyOutcome(
     }
     await recordAiPatchOutcome(scope, "validation_failed", {
       validationErrorCode: result.code,
+    });
+  } catch {
+    // Fail-open: analytics never breaks the AI flow.
+  }
+}
+
+/**
+ * Emit the event sequence for a repair-route outcome (Slice 4.AI-13).
+ *
+ * AI-7's repair service is deterministic (no model call) and read-only, so the
+ * emitted shape is narrower than plan/apply — no model events. The sequence is:
+ *
+ *   1. `ai_interaction_started` (funnel denominator; feature `workflow_repair`,
+ *      scope carries the failed `workflowRunId`).
+ *   2. Patch events for the repairability outcome:
+ *      - `repairable` (patch proposed AND AI-5 preview validated) →
+ *        `ai_patch_proposed` then `ai_patch_previewed`.
+ *      - `repairable` but `reasonCode === "FAILED_PREVIEW"` (the strategy
+ *        proposed a patch but preview rejected it; outcome is downgraded) →
+ *        `ai_patch_validation_failed` with the code.
+ *      - `needsUserInput` → `ai_safety_block_triggered` with reason
+ *        `needs_user_input` (so the funnel can distinguish "we asked the
+ *        user" from "we found nothing safe").
+ *      - `noSafeRepair` → `ai_safety_block_triggered` with the reasonCode
+ *        (e.g. `disconnected_integration`, `billing_limit`).
+ *   3. NOT_FOUND / READ_FAILED service failures emit a single
+ *      `ai_patch_validation_failed` with the failure code so dashboards can
+ *      count repair calls that never reached classification.
+ *
+ * FAIL-OPEN. No raw classification text / config values / variable values are
+ * persisted — only ids, codes, counts. The repository's existing
+ * `sanitizeAiEventMetadata` runs on every metadata blob as defense in depth.
+ */
+export async function recordAiRepairOutcome(
+  input: AiRepairRouteEventScope,
+  result: RepairSuggestionResult,
+): Promise<void> {
+  try {
+    const patchId = result.ok ? result.proposedPatch?.patchId ?? null : null;
+    const scope: AiEventScope = {
+      userId: input.userId,
+      feature: "workflow_repair",
+      workflowId: input.workflowId,
+      workflowRunId: input.workflowRunId,
+      patchId,
+    };
+
+    if (!result.ok) {
+      // Service-level failure (NOT_FOUND / READ_FAILED) — never reached
+      // classification. Surface as a validation_failed so the funnel can
+      // count "repair requested but couldn't read".
+      await recordAiPatchOutcome(scope, "validation_failed", {
+        validationErrorCode: result.code,
+      });
+      return;
+    }
+
+    // 1. The repair interaction itself (funnel denominator).
+    await recordAiCostEvent({ ...scope, eventType: "ai_interaction_started" });
+
+    // 2. Outcome.
+    if (result.repairability === "repairable" && result.proposedPatch) {
+      await recordAiPatchOutcome(scope, "proposed", {
+        metadata: {
+          opCount: result.proposedPatch.operations.length,
+          reasonCode: result.reasonCode,
+        },
+      });
+      await recordAiPatchOutcome(scope, "previewed", {
+        metadata: { reasonCode: result.reasonCode },
+      });
+      return;
+    }
+
+    if (result.reasonCode === "FAILED_PREVIEW") {
+      // The strategy produced operations but AI-5 preview rejected them; the
+      // service downgrades to noSafeRepair. Surface as validation_failed so
+      // the funnel can distinguish it from "no deterministic repair found".
+      await recordAiPatchOutcome(scope, "validation_failed", {
+        validationErrorCode: result.reasonCode,
+      });
+      return;
+    }
+
+    if (result.repairability === "needsUserInput") {
+      await recordAiSafetyBlock(scope, "needs_user_input", {
+        reasonCode: result.reasonCode,
+      });
+      return;
+    }
+
+    // repairability === "noSafeRepair"
+    await recordAiSafetyBlock(scope, "no_safe_repair", {
+      reasonCode: result.reasonCode,
     });
   } catch {
     // Fail-open: analytics never breaks the AI flow.

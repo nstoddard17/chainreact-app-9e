@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { WorkflowRunStep } from "@/contracts/workflow";
 import { useRunSlice } from "../state/runSlice";
+import { RunResultsRepairBlock } from "./RunResultsRepairBlock";
 
 /**
  * Slice 3.8 — Test Run / Latest Run Output Preview.
@@ -110,6 +111,9 @@ function Body({
         <ClassifiedErrorBlock classification={detail.errorClassification} />
       ) : null}
       <Steps steps={detail.steps} />
+      {detail.status === "failed" ? (
+        <RunResultsRepairBlock workflowId={detail.workflowId} runId={detail.id} />
+      ) : null}
     </>
   );
 }

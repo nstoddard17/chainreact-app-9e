@@ -10,5 +10,7 @@
 export {
   recordAiPlanOutcome,
   recordAiApplyOutcome,
+  recordAiRepairOutcome,
   type AiRouteEventScope,
+  type AiRepairRouteEventScope,
 } from "./recordAiRouteEvents";
