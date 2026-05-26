@@ -200,6 +200,35 @@ describe("no patch — needs input / unsupported", () => {
     expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
   });
 
+  it("models the Stripe-DM case: missing Slack userId returns requiredUserInput, not a parse failure", async () => {
+    // The AI-12B intended degradation. Rather than emit a guessed/partial patch
+    // (a 502 PARSE_FAILED), the model returns a null patch + a clear
+    // requiredUserInput — a 200 "needs input" the user can act on. Preview is
+    // never reached because there is no patch.
+    const mc = client(
+      planResponse({
+        intentSummary: "Send a Slack DM when a Stripe payment fails",
+        assumptions: ["Will DM the user once a Slack recipient is provided"],
+        requiredUserInput: [
+          { label: "Which Slack user should receive the DM?", kind: "config_value", field: "userId" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "when a stripe payment fails, i want it to send me a slack dm",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(1);
+    expect(result.requiredUserInput[0]!.field).toBe("userId");
+    expect(result.proposedPatch).toBeUndefined();
+    expect(result.canApplyLater).toBe(false);
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
   it("surfaces unsupportedRequests without fabricating a patch", async () => {
     const result = await planWorkflowFromPromptForAI({
       userId: "u1",

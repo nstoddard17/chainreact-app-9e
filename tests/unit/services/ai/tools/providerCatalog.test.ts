@@ -64,6 +64,29 @@ describe("getProviderCatalog", () => {
     assertNoSecretKeys(result.data);
   });
 
+  it("surfaces static-enum config options on the compact catalog entry (AI-12B)", () => {
+    const all = [...listAllActionMetas(), ...listAllTriggerMetas()];
+    const withStatic = all.find((m) =>
+      m.fields.some((f) => f.options && f.options.length > 0),
+    );
+    if (!withStatic) return; // registry has no static-options node yet — skip
+
+    const result = getProviderCatalog();
+    if (!result.ok) throw new Error("expected ok");
+    const provider = result.data.providers.find((p) => p.id === withStatic.provider)!;
+    const entry = [...provider.actions, ...provider.triggers].find(
+      (e) => e.key === withStatic.key,
+    )!;
+    expect(entry.configOptions).toBeDefined();
+    expect(entry.configOptions!.length).toBeGreaterThan(0);
+
+    const field = withStatic.fields.find((f) => f.options && f.options.length > 0)!;
+    const surfaced = entry.configOptions!.find((c) => c.field === field.name)!;
+    expect(surfaced).toBeDefined();
+    // Mirrors the metadata's option VALUES, capped at 24.
+    expect(surfaced.values).toEqual(field.options!.slice(0, 24).map((o) => o.value));
+  });
+
   it("includes action keys sourced from the discovery registry", () => {
     const sample = listAllActionMetas()[0];
     expect(sample).toBeDefined();

@@ -40,6 +40,17 @@ const NATIVE_PROVIDER_ID = "native";
 
 // ─── Compact catalog views ───────────────────────────────────────────────────
 
+/**
+ * Static-enum grounding for one config field (Slice 4.AI-12B). `values` are the
+ * fixed `options[]` VALUES declared in the field's metadata — surfaced compactly
+ * so the AI planner picks a real enum value instead of guessing one. Only fields
+ * with static options appear; dynamic (`optionsSource`) fields never do.
+ */
+export interface CatalogFieldOptions {
+  readonly field: string;
+  readonly values: readonly string[];
+}
+
 export interface CatalogActionEntry {
   readonly key: string;
   readonly displayName: string;
@@ -48,6 +59,8 @@ export interface CatalogActionEntry {
   readonly isDestructive: boolean;
   readonly requiresConfirmation: boolean;
   readonly requiresIntegration: boolean;
+  /** Static-enum config fields, when any. Omitted when the node has none. */
+  readonly configOptions?: readonly CatalogFieldOptions[];
 }
 
 export interface CatalogTriggerEntry {
@@ -56,6 +69,8 @@ export interface CatalogTriggerEntry {
   readonly category: ActionCategory;
   readonly activation: TriggerActivation;
   readonly requiresIntegration: boolean;
+  /** Static-enum config fields, when any. Omitted when the node has none. */
+  readonly configOptions?: readonly CatalogFieldOptions[];
 }
 
 export interface ProviderCatalogEntry {
@@ -78,7 +93,36 @@ export interface ProviderCatalogView {
   readonly providers: readonly ProviderCatalogEntry[];
 }
 
+/**
+ * Cap on how many enum values per field are surfaced to the planner — keeps the
+ * compact catalog compact even for a field with a long allowlist. The model can
+ * still drill into the full field via `getNodeSchema` when the agent loop lands.
+ */
+const MAX_STATIC_OPTION_VALUES = 24;
+
+/**
+ * Pull the static-enum (`options[]`) config fields from a node's metadata.
+ * Dynamic (`optionsSource`) fields are skipped — their values aren't known
+ * without a live resolver call. Returns `undefined` when the node declares no
+ * static-option field, so the entry stays lean.
+ */
+function extractStaticOptions(
+  fields: readonly FieldMeta[],
+): readonly CatalogFieldOptions[] | undefined {
+  const out: CatalogFieldOptions[] = [];
+  for (const f of fields) {
+    if (f.options && f.options.length > 0) {
+      out.push({
+        field: f.name,
+        values: f.options.slice(0, MAX_STATIC_OPTION_VALUES).map((o) => o.value),
+      });
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 function toCatalogAction(m: ActionMeta): CatalogActionEntry {
+  const configOptions = extractStaticOptions(m.fields);
   return {
     key: m.key,
     displayName: m.displayName,
@@ -87,16 +131,19 @@ function toCatalogAction(m: ActionMeta): CatalogActionEntry {
     isDestructive: m.isDestructive,
     requiresConfirmation: m.requiresConfirmation,
     requiresIntegration: m.requiresIntegration,
+    ...(configOptions ? { configOptions } : {}),
   };
 }
 
 function toCatalogTrigger(m: TriggerMeta): CatalogTriggerEntry {
+  const configOptions = extractStaticOptions(m.fields);
   return {
     key: m.key,
     displayName: m.displayName,
     category: m.category,
     activation: m.activation,
     requiresIntegration: m.requiresIntegration,
+    ...(configOptions ? { configOptions } : {}),
   };
 }
 

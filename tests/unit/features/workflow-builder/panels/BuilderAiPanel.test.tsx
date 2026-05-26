@@ -108,6 +108,25 @@ describe("plan states", () => {
     expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
   });
 
+  it("shows a format-error message + value-free detail on PARSE_FAILED (no raw parser message)", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ok: false,
+      code: "PARSE_FAILED",
+      message: "unparseable",
+      errors: [
+        { stage: "parse", code: "INVALID_PATCH", message: "proposedPatch failed schema validation: ..." },
+      ],
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    const failure = await screen.findByTestId("builder-ai-plan-failure");
+    expect(failure).toHaveTextContent(/wrong format/i);
+    expect(screen.getByTestId("builder-ai-plan-failure-detail")).toHaveTextContent("parse / INVALID_PATCH");
+    // The raw (model-derived) parser message must never be rendered.
+    expect(document.body.textContent).not.toContain("proposedPatch failed schema validation");
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+  });
+
   it("shows needs-input and no apply button when the plan needs more info", async () => {
     mockPlan.mockResolvedValueOnce({
       ...planApplyReady,

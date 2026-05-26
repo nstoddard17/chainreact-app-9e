@@ -181,6 +181,37 @@ describe("patch validation (AI-3 schema)", () => {
     );
     expect(result).toMatchObject({ ok: false, code: "INVALID_PATCH" });
   });
+
+  it("rejects an addNode whose node is missing kind/provider as INVALID_PATCH", () => {
+    // The exact AI-12B failure mode: a node with only {id, type} (no separate
+    // kind/provider) — what a model emits when it isn't told the node shape.
+    const patch = {
+      ...validPatch(),
+      operations: [{ op: "addNode", node: { id: "n1", type: "slack:send_direct_message" } }],
+    };
+    const result = parseWorkflowPlanResponse(
+      JSON.stringify(validResponse({ proposedPatch: patch })),
+    );
+    expect(result).toMatchObject({ ok: false, code: "INVALID_PATCH" });
+  });
+
+  it("rejects an operation carrying an extra key as INVALID_PATCH (.strict ops)", () => {
+    const patch = {
+      ...validPatch(),
+      operations: [
+        {
+          op: "moveNode",
+          nodeId: "n1",
+          position: { x: 1, y: 2 },
+          surprise: "extra-key-not-in-schema",
+        },
+      ],
+    };
+    const result = parseWorkflowPlanResponse(
+      JSON.stringify(validResponse({ proposedPatch: patch })),
+    );
+    expect(result).toMatchObject({ ok: false, code: "INVALID_PATCH" });
+  });
 });
 
 describe("secret refusal (no-leak)", () => {

@@ -184,16 +184,20 @@ describe("result mapping", () => {
     expect(body).toMatchObject({ ok: false, code: "MODEL_FAILED" });
   });
 
-  it("returns 502 for a parse failure", async () => {
+  it("returns 502 for a parse failure and surfaces the parse stage/code in the body", async () => {
     mockPlan.mockResolvedValueOnce({
       ok: false,
       code: "PARSE_FAILED",
       message: "unparseable",
-      errors: [{ stage: "parse", code: "NOT_JSON", message: "bad" }],
+      errors: [{ stage: "parse", code: "INVALID_PATCH", message: "bad" }],
       noMutation: true,
     });
     const res = await call("wf-1", { prompt: "x" });
     expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "PARSE_FAILED" });
+    expect(body.errors[0].stage).toBe("parse");
+    expect(body.errors[0].code).toBe("INVALID_PATCH");
   });
 
   it("maps a service NOT_FOUND (PREVIEW_UNAVAILABLE) to 404", async () => {

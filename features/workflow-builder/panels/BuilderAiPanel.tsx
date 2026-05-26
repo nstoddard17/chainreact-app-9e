@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { AiPreview } from "@/lib/api/ai";
+import type { AiPlanFailure, AiPreview } from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
@@ -152,7 +152,7 @@ export function BuilderAiPanel() {
         </p>
       )}
 
-      {planFail && <PlanFailure code={planFail.code} />}
+      {planFail && <PlanFailure failure={planFail} />}
 
       {planOk && (
         <div className="flex flex-col gap-2" data-testid="builder-ai-plan-result">
@@ -274,17 +274,28 @@ export function BuilderAiPanel() {
   );
 }
 
-function PlanFailure({ code }: { code: string }) {
+function PlanFailure({ failure }: { failure: AiPlanFailure }) {
   const message =
-    code === "MODEL_FAILED"
+    failure.code === "MODEL_FAILED"
       ? "The AI assistant isn’t available right now. An administrator may still need to finish setting it up — please try again later."
-      : code === "PARSE_FAILED"
-        ? "The AI couldn’t produce a usable plan. Try rephrasing your request, or be more specific about the apps and steps you want."
+      : failure.code === "PARSE_FAILED"
+        ? "The AI returned a plan in the wrong format. Please try again, or add more detail about the apps and steps you want."
         : "Couldn’t preview a plan against this workflow. Please try again.";
+  // Value-free diagnostic only (stage + code) — never the raw model output or the
+  // detailed parser message, which could echo model-supplied text.
+  const detail = failure.errors?.[0];
   return (
-    <p role="status" data-testid="builder-ai-plan-failure" className="text-xs text-muted-foreground">
-      {message}
-    </p>
+    <div role="status" data-testid="builder-ai-plan-failure" className="text-xs text-muted-foreground">
+      <p>{message}</p>
+      {detail && (
+        <p
+          data-testid="builder-ai-plan-failure-detail"
+          className="mt-1 text-[11px] text-muted-foreground/80"
+        >
+          Planner error: {detail.stage} / {detail.code}
+        </p>
+      )}
+    </div>
   );
 }
 

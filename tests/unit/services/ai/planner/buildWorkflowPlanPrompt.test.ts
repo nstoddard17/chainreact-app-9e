@@ -11,9 +11,11 @@
  */
 import {
   buildWorkflowPlanPrompt,
+  PATCH_SHAPE_GUIDE,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
 } from "@/services/ai/planner/buildWorkflowPlanPrompt";
+import { SUPPORTED_OPERATION_KINDS } from "@/services/workflows/patch";
 import type { WorkflowPlanPromptInput } from "@/services/ai/planner/types";
 import type {
   ProviderCatalogEntry,
@@ -171,6 +173,69 @@ describe("safety constraints", () => {
     expect(text).toContain("never invent credentials");
     expect(text).toMatch(/ai_field/i);
     expect(text).toContain("requireduserinput");
+  });
+});
+
+describe("patch-shape grounding (AI-12B)", () => {
+  it("includes the patch-shape guide verbatim in the system prompt", () => {
+    expect(joinPrompt(makeInput())).toContain(PATCH_SHAPE_GUIDE);
+  });
+
+  it("lists the exact supported operation vocabulary (sourced from the schema)", () => {
+    const text = joinPrompt(makeInput());
+    for (const op of SUPPORTED_OPERATION_KINDS) {
+      expect(text).toContain(op);
+    }
+  });
+
+  it("describes the required node fields and the provider:type split", () => {
+    const text = joinPrompt(makeInput());
+    for (const field of ["id", "kind", "provider", "type", "config", "position"]) {
+      expect(text).toContain(`"${field}"`);
+    }
+    // The provider:type → (provider, type) split is the core AI-12B grounding fix.
+    expect(text.toLowerCase()).toContain("split");
+  });
+
+  it("describes the edge shape with from/to (never source/target)", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain('"from"');
+    expect(text).toContain('"to"');
+  });
+
+  it("instructs a null patch + requiredUserInput when a complete patch can't be built", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("set proposedpatch to null");
+    expect(text).toContain("requireduserinput");
+    expect(text).toContain("never emit a partial");
+  });
+});
+
+describe("static-enum config grounding (AI-12B)", () => {
+  it("renders an action's static option values so the model picks a real enum", () => {
+    const provider: ProviderCatalogEntry = {
+      ...usableProvider(),
+      actions: [
+        {
+          key: "demo:pick_event",
+          displayName: "Pick event",
+          category: "other",
+          riskLevel: "low",
+          isDestructive: false,
+          requiresConfirmation: false,
+          requiresIntegration: true,
+          configOptions: [{ field: "eventType", values: ["created", "deleted"] }],
+        },
+      ],
+      triggers: [],
+    };
+    const text = joinPrompt(makeInput({ catalog: { providers: [provider] } }));
+    expect(text).toContain("config options");
+    expect(text).toContain("eventType: [created, deleted]");
+  });
+
+  it("omits the config-options block for nodes without static options", () => {
+    expect(joinPrompt(makeInput())).not.toContain("config options (use these exact values)");
   });
 });
 

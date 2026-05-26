@@ -20,8 +20,10 @@
  */
 
 import type { ModelMessage } from "@/core/ai/modelTypes";
+import { SUPPORTED_OPERATION_KINDS } from "@/services/workflows/patch";
 import type {
   CatalogActionEntry,
+  CatalogFieldOptions,
   ProviderCatalogEntry,
 } from "@/services/ai/tools/providerCatalog";
 import type {
@@ -35,6 +37,8 @@ export const PLANNER_CONSTRAINTS: readonly string[] = [
   "Use field names exactly as they appear in the node metadata. Do not add fields that are not declared.",
   "Respond with a SINGLE JSON object that matches the response schema and nothing else — no prose, no markdown, no code fences.",
   "When a value is unknown, do NOT guess: emit an AI_FIELD placeholder ({{AI_FIELD:fieldName}}) for free-text content, or add a requiredUserInput entry for anything else (ids, enums, selections).",
+  "If you cannot build a COMPLETE, schema-valid WorkflowPatch — a required node id, enum value, recipient, or selection is unknown and has no upstream source — set proposedPatch to null and list what is still needed under requiredUserInput. NEVER emit a partial, approximate, or guessed patch; a null patch with clear requiredUserInput is always better than an invalid one.",
+  "Follow the WorkflowPatch shape below EXACTLY (envelope keys, operation vocabulary, node shape, edge shape). A patch with the wrong shape, an unknown operation, or an extra key is rejected before it can be reviewed.",
   "Never include secrets, API keys, access tokens, passwords, or auth-header values. Never invent credentials — connecting an integration is the user's job.",
   "Prefer low-risk, non-destructive actions. Avoid destructive or confirmation-required actions unless the user explicitly asked for them, and note them in safetyNotes.",
   "If part of the request cannot be satisfied with the available metadata, list it under unsupportedRequests instead of approximating it.",
@@ -60,6 +64,34 @@ const RESPONSE_SCHEMA_DESCRIPTION = [
   '- "unsupportedRequests" (string[]): parts of the request you could not satisfy with available metadata; [] if none.',
 ].join("\n");
 
+/**
+ * Exact structural contract for `proposedPatch` (Slice 4.AI-12B). The strict
+ * AI-3 `WorkflowPatchSchema` rejects any patch whose envelope, operation, node,
+ * or edge shape drifts from this — so a valid request would otherwise fail
+ * parsing (INVALID_PATCH) before the deterministic preview ever runs. The
+ * operation vocabulary is sourced from `SUPPORTED_OPERATION_KINDS`, so this guide
+ * can never drift from the schema it describes.
+ */
+export const PATCH_SHAPE_GUIDE = [
+  "WorkflowPatch shape (the value of proposedPatch). Match it EXACTLY — a missing key, an extra key, or an unknown operation is rejected before review.",
+  'Envelope keys (all required): "patchId" (any unique string), "workflowId" (set to null — the system fills it in), "baseRevision" (set to "" — the system fills it in), "operations" (array with at least one entry), "summary" (string), "rationale" (string).',
+  `Each operations[] entry has an "op" that is EXACTLY one of: ${SUPPORTED_OPERATION_KINDS.join(", ")}. An operation object may contain ONLY the keys listed for its op below — any extra key fails validation.`,
+  '- addNode: { "op": "addNode", "node": <Node> } — add a trigger or action node.',
+  '- addEdge: { "op": "addEdge", "edge": <Edge> } — connect two nodes.',
+  '- updateNodeConfig: { "op": "updateNodeConfig", "nodeId": string, "config": object, "replace"?: boolean }.',
+  '- removeNode: { "op": "removeNode", "nodeId": string }.',
+  '- removeEdge: { "op": "removeEdge", "edgeId": string }.',
+  '- replaceEdge: { "op": "replaceEdge", "edgeId": string, "edge": <Edge> }.',
+  '- moveNode: { "op": "moveNode", "nodeId": string, "position": { "x": number, "y": number } }.',
+  '- repairVariableReference: { "op": "repairVariableReference", "nodeId": string, "fieldPath": string, "newReference": string }.',
+  '- replaceTrigger: { "op": "replaceTrigger", "node": <Node> }.',
+  'Node shape: { "id": string (unique within the patch), "kind": "trigger" | "action", "provider": string, "type": string, "config": object, "position": { "x": number, "y": number } }.',
+  "Catalog entries are written `provider:type` (e.g. `slack:send_direct_message`). In a node you MUST split that key: set provider to the part before the colon (\"slack\") and type to the part after it (\"send_direct_message\"). Never put the combined `provider:type` string into either field.",
+  'Edge shape: { "id": string (unique within the patch), "from": string (source node id), "to": string (target node id), "label"?: string (optional branch label) }. The endpoint keys are "from" and "to" — never "source"/"target".',
+  "config maps a node's metadata field names to values. Use {{AI_FIELD:fieldName}} for unknown free-text; for an unknown id/enum/selection, omit the field and add a requiredUserInput entry. Never invent a config field name and never include a secret value.",
+  "A typical brand-new workflow is: one addNode for the trigger, one addNode per action, and addEdge operations linking them in order.",
+].join("\n");
+
 function renderActionEntry(a: CatalogActionEntry): string {
   const flags: string[] = [];
   if (a.isDestructive) flags.push("destructive");
@@ -74,6 +106,29 @@ function isUsableProvider(p: ProviderCatalogEntry): boolean {
   return p.actions.length > 0 || p.triggers.length > 0;
 }
 
+function renderFieldOptions(opts: readonly CatalogFieldOptions[]): string {
+  return opts.map((o) => `${o.field}: [${o.values.join(", ")}]`).join("; ");
+}
+
+/**
+ * Static-enum config grounding (Slice 4.AI-12B): for every action/trigger whose
+ * metadata declares fixed `options` (select/combobox), surface the field's
+ * allowed VALUES so the model picks a real enum instead of guessing. Generic and
+ * metadata-driven — no provider-specific logic. Entries without static options
+ * (the common case) produce nothing, keeping the compact catalog lean.
+ */
+function renderNodeOptionLines(
+  entries: readonly { key: string; configOptions?: readonly CatalogFieldOptions[] }[],
+): string[] {
+  const lines: string[] = [];
+  for (const e of entries) {
+    if (e.configOptions && e.configOptions.length > 0) {
+      lines.push(`      ${e.key} — ${renderFieldOptions(e.configOptions)}`);
+    }
+  }
+  return lines;
+}
+
 function renderProvider(p: ProviderCatalogEntry): string {
   const lines: string[] = [`- ${p.displayName} (id: ${p.id})`];
   if (p.triggers.length > 0) {
@@ -81,6 +136,14 @@ function renderProvider(p: ProviderCatalogEntry): string {
   }
   if (p.actions.length > 0) {
     lines.push(`    actions: ${p.actions.map(renderActionEntry).join(", ")}`);
+  }
+  const optionLines = [
+    ...renderNodeOptionLines(p.triggers),
+    ...renderNodeOptionLines(p.actions),
+  ];
+  if (optionLines.length > 0) {
+    lines.push("    config options (use these exact values):");
+    lines.push(...optionLines);
   }
   return lines.join("\n");
 }
@@ -135,6 +198,7 @@ export function buildWorkflowPlanPrompt(
   if (costSection) sections.push(costSection);
 
   sections.push(`Response format:\n${RESPONSE_SCHEMA_DESCRIPTION}`);
+  sections.push(PATCH_SHAPE_GUIDE);
 
   return [
     { role: "system", content: sections.join("\n\n") },

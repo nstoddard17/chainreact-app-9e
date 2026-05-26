@@ -143,15 +143,20 @@ describe("recordAiPlanOutcome — mapping", () => {
     expect(recordAiPatchOutcome).not.toHaveBeenCalled();
   });
 
-  it("maps PARSE_FAILED to a failed model call with stage=parse", async () => {
+  it("maps PARSE_FAILED to a failed model call with stage=parse and NO completed event", async () => {
     await recordAiPlanOutcome(
       { userId: "u1", workflowId: "wf1" },
-      planFail("PARSE_FAILED", [{ stage: "parse", code: "NOT_JSON" }]) as never,
+      planFail("PARSE_FAILED", [{ stage: "parse", code: "INVALID_PATCH" }]) as never,
     );
     expect(recordAiModelCallFailed).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ metadata: expect.objectContaining({ stage: "parse" }) }),
+      expect.objectContaining({ metadata: expect.objectContaining({ stage: "parse", code: "INVALID_PATCH" }) }),
     );
+    // Locks the two-line log fingerprint the diagnosis relies on: a parse
+    // failure NEVER emits ai_model_call_completed (that would imply 502 via
+    // PREVIEW_UNAVAILABLE, not PARSE_FAILED) and never a patch event.
+    expect(recordAiModelCallCompleted).not.toHaveBeenCalled();
+    expect(recordAiPatchOutcome).not.toHaveBeenCalled();
   });
 
   it("maps PREVIEW_UNAVAILABLE to model_completed + validation_failed", async () => {
