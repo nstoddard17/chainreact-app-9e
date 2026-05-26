@@ -31,7 +31,8 @@
 | **AI-10** | shipped | AI observability EMISSION — wires the live plan/apply routes into the existing COST-6 `ai_cost_events` ledger (`services/ai/events/*`), fail-open. Reuses COST-6 recorder/sanitizer + COST-7 owner analytics; NO new table, NO UI. See note below. |
 | **AI-11** | shipped | Minimal Builder AI panel — first user-facing AI surface (`features/workflow-builder/panels/BuilderAiPanel.tsx` + `hooks/useBuilderAi.ts` + `lib/api/ai.ts`). Prompt → preview → explicit confirm → apply, via the AI-9A/9B routes. NO chat, NO auto-apply, NO model-from-client, NO mutation outside AI-9B. See note below. |
 | **AI-11B** | shipped | Builder AI panel UX hardening — clearer per-state copy, readable "What AI plans to change" preview (counts + risk reasons + warnings + cost), safer confirmation (resets per plan), stale-patch re-run (never auto-reapply), char counter, clear/plan-another. UI-only; no new behavior. See note below. |
-| AI-12+ | future | Owner AI dashboard UI (reads COST-7 analytics), conversational/multi-turn UX, additional provider adapters, optimizer, templates, etc. (§13). |
+| **AI-12** | shipped | AI analytics API surface — `GET /api/ai/usage` (CURRENT-USER scoped, read-only) over COST-6 `ai_cost_events` + COST-7 folds (`services/analytics/aiAnalyticsReport.ts`). Owner-wide route BLOCKED pending an admin gate. See note below. |
+| AI-13+ | future | Owner/admin analytics route (needs an admin/owner auth gate) + dashboard UI, conversational/multi-turn UX, additional provider adapters, optimizer, templates, etc. (§13). |
 
 > Cost dependency satisfied: AI-3's validator integrates the COST-2 deterministic estimator (`services/billing/workflowCostEstimator.ts`). The AI never guesses cost — `validateWorkflowPatch` calls `estimateWorkflowTaskCost` on the candidate definition. See [task-cost-billing-model-audit.md](./task-cost-billing-model-audit.md).
 
@@ -227,6 +228,19 @@ UI/UX hardening of the AI-11 Builder panel — NO new model behavior, NO chat th
 - **No-leak (unchanged guarantee):** still renders only ids/labels/codes/value-free text — no raw patch JSON, config values, secrets, raw model responses, raw provider errors, or raw workflow definition; nothing logged.
 
 **Tests:** [`tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) grows to 17 (+ 13 client) — planning indicator, clear-keeps-prompt, char-counter + too-long-disables-submit, confirmation-resets-on-new-plan, risk-reasons + warnings rendering, stale-patch re-run (no auto-reapply), plan-another-change after success, plus the retained AI-11 state/no-leak/no-auto-apply cases.
+
+### AI-12 implementation note
+
+AI analytics API surface — backend, READ-ONLY. It exposes the existing AI observability data (COST-6 `ai_cost_events` + COST-7 `ownerAiStats` folds) over a protected route. No new table, no model call, no ledger write, no UI.
+
+**Auth/scope decision (honest):** V2 has **no admin/owner authorization convention** (confirmed by audit — the only "admin" reference is COST-7's own docstring deferring the gate; there is no `requireAdmin`, role/capability column, or `app/api/admin`). So AI-12 ships **only a current-user-scoped route** and does **NOT** expose owner-wide cross-user analytics behind `requireUser` (which would be unsafe). The owner/admin route (`GET /api/admin/ai/analytics` over the service-role `listEventsForAnalytics`) is **BLOCKED** until an admin gate exists; it is documented in the route file and here.
+
+- **[`GET /api/ai/usage`](../../../app/api/ai/usage/route.ts)** — `requireUser` (the generic `@/app/api/providers/_shared`). Query params: `from`/`to` (ISO), `days` (1..365), `limit` (1..5000); default range last 30 days. Validation → 400 (bad date, `from`>`to`, non-integer/out-of-range days/limit). Returns `{ range, scope: "current_user", ...report }`. Service throw → sanitized 500.
+- **[`repositories/aiCostEvents.ts` `listByUser`](../../../repositories/aiCostEvents.ts)** — RLS-gated SSR-client read (mirrors `listByWorkflow`); a user can only ever read their OWN events (explicit `user_id` filter is belt-and-suspenders on top of RLS). Cross-user reads still require the service-role `listEventsForAnalytics` + an admin gate.
+- **[`services/analytics/aiAnalyticsReport.ts`](../../../services/analytics/aiAnalyticsReport.ts)** — `buildAiAnalyticsReport(events)` (pure) composes ALL COST-7 folds into one report (overview, byFeature, byModel, patchOutcomes, toolStats, validationFailures, safetyBlocks, feedback, template/custom-node signals); `getAiAnalyticsForUser` loads via `listByUser` + folds. COST-7 is reused, not modified.
+- **No-leak:** the report carries only counts / enums / model+feature names / token+latency+cost numbers / ranges — the COST-7 folds read metadata KEY-presence only, never metadata VALUES, so no raw prompt / completion / config / secret can surface (tested: a secret in event metadata never appears in the report).
+
+**Tests:** [`tests/unit/services/analytics/aiAnalyticsReport.test.ts`](../../../tests/unit/services/analytics/aiAnalyticsReport.test.ts) (5) — fold composition, empty-data zeros, user-scoped load wiring, metadata-value no-leak; [`tests/unit/app/api/ai/usage-route.test.ts`](../../../tests/unit/app/api/ai/usage-route.test.ts) (20) — 401, default/`days` range, all query-validation 400s, user-scoped service call, full shape, empty data, sanitized 500, read-only (no planner/apply/model/event-write import) + response no-leak. Service mocked — no DB read, no model call.
 
 ---
 
