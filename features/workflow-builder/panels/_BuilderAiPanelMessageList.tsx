@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import type { RequiredInputAnswer } from "../ai";
 import {
   AssistantBubble,
   PlanResultBody,
@@ -54,6 +55,17 @@ interface Props {
    * the status changes (e.g. planning → planned).
    */
   readonly aiStatus: string;
+  /**
+   * AI-22 — staged required-input answers keyed by `requiredInputKey(input)`.
+   * Passed straight through to the latest plan_result message's body so the
+   * interactive `RequiredInputControl`s can render their current values + see
+   * sibling staged answers for `dependsOn` resolution.
+   */
+  readonly stagedAnswers: ReadonlyMap<string, RequiredInputAnswer>;
+  readonly onStagedAnswerChange: (
+    key: string,
+    answer: RequiredInputAnswer | undefined,
+  ) => void;
 }
 
 export function BuilderAiPanelMessageList({
@@ -69,6 +81,8 @@ export function BuilderAiPanelMessageList({
   onRerunPlan,
   onReset,
   aiStatus,
+  stagedAnswers,
+  onStagedAnswerChange,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +145,8 @@ export function BuilderAiPanelMessageList({
                 riskAcknowledged={riskAcknowledged}
                 onRiskAcknowledgeChange={onRiskAcknowledgeChange}
                 onApply={onApply}
+                stagedAnswers={stagedAnswers}
+                onStagedAnswerChange={onStagedAnswerChange}
               />
             </AssistantBubble>
           );

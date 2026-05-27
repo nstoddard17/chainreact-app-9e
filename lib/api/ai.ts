@@ -30,11 +30,45 @@ export class AiApiError extends Error {
   }
 }
 
+/**
+ * Slice 4.AI-22 — optional server-enriched metadata so the React Agent
+ * can render an interactive control per missing field (dropdown / async
+ * picker / text fallback). All fields are optional; the existing
+ * `label` + `kind` + `nodeId` + `field` consumers from AI-11 → AI-21C
+ * still work unchanged.
+ *
+ * No-leak: these fields carry only display labels, FieldType enums,
+ * static option `{label, value}` pairs declared in metadata, and the
+ * `optionsSource` registry key (e.g. `slack:channels`). Live resolver
+ * results, secrets, tokens, and raw config are never embedded here.
+ */
 export interface AiRequiredUserInput {
   readonly label: string;
   readonly nodeId?: string;
   readonly field?: string;
   readonly kind: string;
+  /** Provider id (e.g. `slack`) — derived server-side from the patch's node metadata. */
+  readonly provider?: string;
+  /** Node type within the provider (e.g. `send_channel_message`). */
+  readonly nodeType?: string;
+  /** Human-readable node display name. */
+  readonly nodeLabel?: string;
+  /** Human-readable field label. */
+  readonly fieldLabel?: string;
+  /** FieldMeta renderer type — `text` / `select` / `combobox` / `textarea` / etc. */
+  readonly fieldType?: string;
+  /** Multi-select toggle (forwarded from FieldMeta.multiple). */
+  readonly multiple?: boolean;
+  /** Static-enum options. Mutually exclusive with `optionsSource`. */
+  readonly options?: ReadonlyArray<{ readonly label: string; readonly value: string }>;
+  /** Dynamic options resolver key, e.g. `slack:channels`. */
+  readonly optionsSource?: string;
+  /** dependsOn parent field names for the optionsSource resolver. */
+  readonly dependsOn?: ReadonlyArray<string>;
+  /** Whether the user can type a free-text value instead of picking. */
+  readonly allowFreeText?: boolean;
+  /** FieldMeta placeholder — UX hint only. */
+  readonly placeholder?: string;
 }
 
 export interface AiModelMeta {

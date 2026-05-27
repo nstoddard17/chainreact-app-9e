@@ -307,6 +307,102 @@ describe("apply-readiness gate (AI-20)", () => {
     expect(result.blockedReason).toBeUndefined();
   });
 
+  // ─── Slice 4.AI-22 — server enrichment of requiredUserInput ─────────
+  it("enriches requiredUserInput with FieldMeta hints (provider / nodeType / nodeLabel / fieldLabel / fieldType / optionsSource) when a patch is present", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+    // The model returns a patch that adds a `slack:send_channel_message` node
+    // AND lists `channel` + `text` as still-required. The service should
+    // enrich those entries from the live registry's FieldMeta.
+    const slackPatch = {
+      patchId: "p1",
+      workflowId: "wf1",
+      baseRevision: "x",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n_slack",
+            kind: "action",
+            provider: "slack",
+            type: "send_channel_message",
+            config: {
+              channel: "{{AI_FIELD:channel}}",
+              text: "{{AI_FIELD:text}}",
+            },
+            position: { x: 0, y: 0 },
+          },
+        },
+      ],
+      summary: "Add Slack post",
+      rationale: "User asked for a Slack message.",
+    };
+    const mc = client(
+      planResponse({
+        proposedPatch: slackPatch,
+        requiredUserInput: [
+          {
+            label: "Which Slack channel?",
+            nodeId: "n_slack",
+            field: "channel",
+            kind: "config_value",
+          },
+          {
+            label: "What should the message say?",
+            nodeId: "n_slack",
+            field: "text",
+            kind: "config_value",
+          },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send a slack message when i run manually",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(2);
+    const channelEntry = result.requiredUserInput.find((r) => r.field === "channel");
+    const textEntry = result.requiredUserInput.find((r) => r.field === "text");
+    expect(channelEntry?.provider).toBe("slack");
+    expect(channelEntry?.nodeType).toBe("send_channel_message");
+    expect(channelEntry?.fieldLabel).toBe("Channel");
+    expect(channelEntry?.fieldType).toBe("combobox");
+    expect(channelEntry?.optionsSource).toBe("slack:channels");
+    expect(textEntry?.fieldLabel).toBe("Message");
+    expect(textEntry?.fieldType).toBe("textarea");
+    expect(textEntry?.allowFreeText).toBe(true);
+  });
+
+  it("leaves no-field entries unenriched (e.g. select_integration / clarification) so the existing fallback bullet renders", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+    const mc = client(
+      planResponse({
+        requiredUserInput: [
+          { label: "Connect Stripe", kind: "select_integration" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "when stripe fails, dm me",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const entry = result.requiredUserInput[0]!;
+    expect(entry.provider).toBeUndefined();
+    expect(entry.fieldLabel).toBeUndefined();
+    expect(entry.label).toBe("Connect Stripe");
+  });
+
   it("preserves the existing preview-rejected blockedReason when the patch fails validation AND requiredUserInput is empty", async () => {
     // The preview-rejected branch still surfaces preview.blockedReason —
     // AI-20's new gate only fires when requiredUserInput is the cause.

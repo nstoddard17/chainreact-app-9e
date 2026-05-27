@@ -32,6 +32,14 @@ interface Props {
   readonly planning: boolean;
   readonly busy: boolean;
   readonly hasMessages: boolean;
+  /**
+   * AI-22 — when true (any staged required-input answers exist), the
+   * submit button is enabled even with an empty composer textarea. The
+   * user can fill the controls and click Send details with no extra
+   * typed text. Defaults to false so pre-AI-22 single-prompt flow is
+   * unaffected.
+   */
+  readonly hasStagedAnswers?: boolean;
 }
 
 export function BuilderAiPanelComposer({
@@ -43,10 +51,12 @@ export function BuilderAiPanelComposer({
   planning,
   busy,
   hasMessages,
+  hasStagedAnswers,
 }: Props) {
   const trimmed = prompt.trim();
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
-  const canSubmit = trimmed.length > 0 && !tooLong && !busy;
+  const hasContent = trimmed.length > 0 || hasStagedAnswers === true;
+  const canSubmit = hasContent && !tooLong && !busy;
   const showCounter = prompt.length >= COUNTER_THRESHOLD || tooLong;
 
   return (

@@ -1,8 +1,10 @@
 /**
- * Compose a reconstructed planner prompt for a follow-up turn (Slice 4.AI-21).
+ * Compose a reconstructed planner prompt for a follow-up turn (Slice 4.AI-21,
+ * extended in 4.AI-22 for structured required-input answers).
  *
  * Session-local — never persisted. Built from user-supplied text (the original
- * prompt + the user's typed follow-up answer) and server-sanitized
+ * prompt + the user's typed follow-up answer + any structured answers from the
+ * interactive `RequiredInputControl`s) and server-sanitized
  * `AiRequiredUserInput.label` strings only. No raw config / patch values /
  * secrets reach this function; the planner result's `requiredUserInput` labels
  * are already value-free by the AI-9A/AI-3/AI-5 contract.
@@ -13,19 +15,57 @@
  * see what the user has already answered. Labels are taken from the LATEST
  * planner round (i.e. the questions still unanswered when the user typed
  * `followUp`).
+ *
+ * AI-22 — structured answers (`{label, value?, display}`) render as
+ * `- {label}: {display}{ (value: <value>) when distinct}`. The model sees
+ * both the human-meaningful display (e.g. `#general`) AND the machine value
+ * (e.g. `C123456`) when the user picked from a resolver-backed dropdown,
+ * so it can produce a complete, valid patch without the user having to
+ * type the id manually.
  */
+export interface ComposeFollowUpStructuredAnswer {
+  /** The field's human label (e.g. "Slack channel"). */
+  readonly label: string;
+  /** The display-friendly value (e.g. "#general"). */
+  readonly display: string;
+  /** Machine value when the user picked an option (e.g. "C123456"). Optional. */
+  readonly value?: string;
+}
+
 export interface ComposeFollowUpPromptInput {
   readonly originalPrompt: string;
   /** Required-input labels from the most recent planner response. */
   readonly requiredInputLabels: readonly string[];
   /** Answers given in prior follow-up turns within this same session chain. */
   readonly priorFollowUpAnswers: readonly string[];
-  /** The user's freshly-typed follow-up answer for this turn. */
+  /** The user's freshly-typed follow-up answer for this turn. May be empty when only structured answers were supplied. */
   readonly followUp: string;
+  /**
+   * Structured answers from the React Agent's interactive required-input
+   * controls. Each entry carries a human label + display string + optional
+   * machine value (when the user picked from a dropdown / picker rather
+   * than typed free text). Optional — pre-AI-22 callers can omit it.
+   */
+  readonly structuredAnswers?: readonly ComposeFollowUpStructuredAnswer[];
+}
+
+function formatStructuredAnswer(a: ComposeFollowUpStructuredAnswer): string {
+  const label = a.label.trim();
+  const display = a.display.trim();
+  if (a.value && a.value !== display) {
+    return `- ${label}: ${display} (value: ${a.value})`;
+  }
+  return `- ${label}: ${display}`;
 }
 
 export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string {
-  const { originalPrompt, requiredInputLabels, priorFollowUpAnswers, followUp } = input;
+  const {
+    originalPrompt,
+    requiredInputLabels,
+    priorFollowUpAnswers,
+    followUp,
+    structuredAnswers,
+  } = input;
   const sections: string[] = [];
 
   sections.push(`Original request:\n${originalPrompt.trim()}`);
@@ -42,7 +82,16 @@ export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string
     );
   }
 
-  sections.push(`User follow-up:\n${followUp.trim()}`);
+  if (structuredAnswers && structuredAnswers.length > 0) {
+    sections.push(
+      `User provided:\n${structuredAnswers.map(formatStructuredAnswer).join("\n")}`,
+    );
+  }
+
+  const trimmedFollowUp = followUp.trim();
+  if (trimmedFollowUp.length > 0) {
+    sections.push(`User follow-up:\n${trimmedFollowUp}`);
+  }
   sections.push(
     "Create the workflow using the original request and the follow-up details.",
   );

@@ -220,6 +220,30 @@ describe("safety constraints", () => {
     expect(text).toContain("native:manual.run");
     expect(text).toContain("stand-in");
   });
+
+  // ─── Slice 4.AI-22 — required-field discipline ────────────────────────
+  it("forbids silently defaulting / guessing required fields to make a patch apply-ready (AI-22)", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("Required-field discipline");
+    expect(text.toLowerCase()).toContain("never silently default");
+    expect(text.toLowerCase()).toContain("guess");
+    expect(text.toLowerCase()).toContain("invent a required field's value");
+    expect(text).toContain("(a)"); // the bulleted allowlist of safe fill sources
+    expect(text).toContain("(b)");
+    expect(text).toContain("(c)");
+    expect(text).toContain("(d)");
+    expect(text).toContain("(e)");
+  });
+
+  it("forbids treating a display label as an opaque id (AI-22)", () => {
+    const text = joinPrompt(makeInput());
+    expect(text.toLowerCase()).toContain("never treat a display label as an opaque id");
+    expect(text.toLowerCase()).toContain("renderer type `text`/`textarea`");
+    expect(text.toLowerCase()).toContain("connected resolver result");
+    expect(text.toLowerCase()).toContain("c123456"); // example fake id called out
+    expect(text.toLowerCase()).toContain("u01abc23def");
+    expect(text.toLowerCase()).toContain("react agent's required-input control");
+  });
 });
 
 describe("patch-shape grounding (AI-12B)", () => {

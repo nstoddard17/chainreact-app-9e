@@ -7,7 +7,10 @@ import {
   type AiApplyResult,
   type AiPlanResult,
 } from "@/lib/api/ai";
-import { composeFollowUpPrompt } from "@/features/workflow-builder/ai";
+import {
+  composeFollowUpPrompt,
+  type RequiredInputAnswer,
+} from "@/features/workflow-builder/ai";
 
 /**
  * Plan → preview → confirm → apply state machine for the Builder AI panel
@@ -41,6 +44,16 @@ export interface UseBuilderAiOptions {
   readonly onApplied?: () => void | Promise<void>;
 }
 
+/**
+ * AI-22 — structured input to `submitFollowUp`. Either field may be
+ * empty individually, but at least one of them must contribute a value;
+ * a call with `freeText: ""` AND empty `structuredAnswers` is a no-op.
+ */
+export interface SubmitFollowUpInput {
+  readonly freeText?: string;
+  readonly structuredAnswers?: readonly RequiredInputAnswer[];
+}
+
 export interface UseBuilderAi {
   readonly status: BuilderAiStatus;
   readonly planResult: AiPlanResult | null;
@@ -69,9 +82,14 @@ export interface UseBuilderAi {
    * No-op when there is no in-progress chain or no unresolved questions on
    * the latest plan. Returns the resulting `AiPlanResult` on success, or
    * `null` on transport failure or when the no-op guards refuse the call.
+   *
+   * Accepts EITHER a free-text string (legacy AI-21 shape) OR a structured
+   * `{ freeText?, structuredAnswers? }` object (AI-22) carrying answers
+   * collected from the interactive `RequiredInputControl`s. Both end up
+   * inside `composeFollowUpPrompt` so the model sees them together.
    */
   submitFollowUp(
-    answer: string,
+    answer: string | SubmitFollowUpInput,
     modelTier?: "fast" | "strong",
   ): Promise<AiPlanResult | null>;
   /**
@@ -157,16 +175,41 @@ export function useBuilderAi({
       if (!planResult || !planResult.ok || planResult.requiredUserInput.length === 0) {
         return null;
       }
-      const trimmedAnswer = answer.trim();
-      if (trimmedAnswer.length === 0) return null;
+      // AI-22 — normalize to {freeText, structuredAnswers}. Legacy string-only
+      // callers stay equivalent to `{ freeText: <string> }`.
+      const normalized: SubmitFollowUpInput =
+        typeof answer === "string"
+          ? { freeText: answer }
+          : answer;
+      const freeText = (normalized.freeText ?? "").trim();
+      const structuredAnswers = normalized.structuredAnswers ?? [];
+      // No-op when both inputs are empty after trim.
+      if (freeText.length === 0 && structuredAnswers.length === 0) return null;
 
       const requiredInputLabels = planResult.requiredUserInput.map((r) => r.label);
       const reconstructed = composeFollowUpPrompt({
         originalPrompt,
         requiredInputLabels,
         priorFollowUpAnswers,
-        followUp: trimmedAnswer,
+        followUp: freeText,
+        structuredAnswers: structuredAnswers.map((a) => ({
+          label: a.descriptor.fieldLabel ?? a.descriptor.label,
+          display: a.display,
+          ...(a.value !== undefined ? { value: a.value } : {}),
+        })),
       });
+      // Single per-turn summary string for the prior-answers history.
+      // Mixes free-text and the most-meaningful display value(s) so subsequent
+      // turns can cite them succinctly without re-attaching the full structure.
+      const turnSummary = [
+        freeText,
+        ...structuredAnswers.map((a) => {
+          const fieldLabel = a.descriptor.fieldLabel ?? a.descriptor.label;
+          return `${fieldLabel}: ${a.display}`;
+        }),
+      ]
+        .filter((s) => s.length > 0)
+        .join(" / ");
 
       setStatus("planning");
       setError(null);
@@ -179,9 +222,9 @@ export function useBuilderAi({
         setPlanResult(result);
         setStatus("planned");
         if (planNeedsMoreInput(result)) {
-          // Chain continues — remember this answer for the next turn so the
-          // model can see the full set of prior responses.
-          setPriorFollowUpAnswers((prev) => [...prev, trimmedAnswer]);
+          // Chain continues — remember this turn's summary for the next turn
+          // so the model can see the full set of prior responses.
+          setPriorFollowUpAnswers((prev) => [...prev, turnSummary]);
         } else {
           // Chain complete (or response shape doesn't continue it — e.g. a
           // failure or an unsupported result). Drop chain state; the user

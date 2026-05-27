@@ -2,8 +2,13 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import type { AiPlanResult } from "@/lib/api/ai";
-import { AiBulletList, AiRequiredInputList } from "../ai";
+import type { AiPlanResult, AiRequiredUserInput } from "@/lib/api/ai";
+import {
+  AiBulletList,
+  RequiredInputControl,
+  requiredInputKey,
+  type RequiredInputAnswer,
+} from "../ai";
 import { PlanFailure, PreviewSection } from "./_BuilderAiPanelPreview";
 
 /**
@@ -133,6 +138,59 @@ export function AssistantBubble({
   );
 }
 
+// ─── Required-input controls block (Slice 4.AI-22) ──────────────────────────
+
+function RequiredInputControlsBlock({
+  inputs,
+  stagedAnswers,
+  onStagedAnswerChange,
+}: {
+  readonly inputs: readonly AiRequiredUserInput[];
+  readonly stagedAnswers: ReadonlyMap<string, RequiredInputAnswer>;
+  readonly onStagedAnswerChange: (
+    key: string,
+    answer: RequiredInputAnswer | undefined,
+  ) => void;
+}) {
+  // Split: entries with a field reference render as interactive controls;
+  // entries without one (`select_integration`, `clarification`) keep the
+  // bullet-list affordance so the user still sees what's missing.
+  const controls = inputs.filter((i) => !!i.field && !!i.nodeId);
+  const bulletInputs = inputs.filter((i) => !i.field || !i.nodeId);
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded border p-2 text-xs"
+      data-testid="builder-ai-needs-input"
+      style={{ borderColor: "var(--builder-border)" }}
+    >
+      <p className="font-medium" style={{ color: "var(--builder-text)" }}>
+        More information is needed before this can be built:
+      </p>
+      {bulletInputs.length > 0 && (
+        <ul className="list-disc pl-4" style={{ color: "var(--builder-muted)" }}>
+          {bulletInputs.map((i, idx) => (
+            <li key={`${i.label}-${idx}`}>{i.label}</li>
+          ))}
+        </ul>
+      )}
+      {controls.map((input) => {
+        const key = requiredInputKey(input);
+        return (
+          <RequiredInputControl
+            key={key}
+            input={input}
+            inputKey={key}
+            answer={stagedAnswers.get(key)}
+            onChange={(next) => onStagedAnswerChange(key, next)}
+            stagedAnswers={stagedAnswers}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Plan-result body (latest = full breakdown; older = summary) ───────────
 
 /**
@@ -150,6 +208,8 @@ export function PlanResultBody({
   riskAcknowledged,
   onRiskAcknowledgeChange,
   onApply,
+  stagedAnswers,
+  onStagedAnswerChange,
 }: {
   readonly result: AiPlanResult;
   readonly isLatest: boolean;
@@ -157,6 +217,17 @@ export function PlanResultBody({
   readonly riskAcknowledged: boolean;
   readonly onRiskAcknowledgeChange: (next: boolean) => void;
   readonly onApply: () => void;
+  /**
+   * AI-22 — staged required-input answers keyed by `requiredInputKey(input)`.
+   * Only the LATEST plan_result message renders interactive controls; older
+   * collapsed messages don't read this. Passed read-only so the
+   * `RequiredInputControl` can read sibling staged answers for dependsOn.
+   */
+  readonly stagedAnswers: ReadonlyMap<string, RequiredInputAnswer>;
+  readonly onStagedAnswerChange: (
+    key: string,
+    answer: RequiredInputAnswer | undefined,
+  ) => void;
 }) {
   if (!isLatest) {
     if (result.ok) {
@@ -216,12 +287,21 @@ export function PlanResultBody({
         testId="builder-ai-assumptions"
       />
 
-      <AiRequiredInputList
-        title="More information is needed before this can be built:"
-        items={planOk.requiredUserInput}
-        testId="builder-ai-needs-input"
-        variant="card"
-      />
+      {/*
+        AI-22 — interactive required-input controls. The latest plan_result
+        renders a dropdown (static options) / async picker (optionsSource) /
+        text input (free-text fallback) per missing field, plus retains the
+        AiRequiredInputList header bullet list for the entries that have
+        no field reference (`select_integration`, `clarification`) — the
+        controls block only renders for entries with `nodeId+field`.
+      */}
+      {planOk.requiredUserInput.length > 0 && (
+        <RequiredInputControlsBlock
+          inputs={planOk.requiredUserInput}
+          stagedAnswers={stagedAnswers}
+          onStagedAnswerChange={onStagedAnswerChange}
+        />
+      )}
 
       <AiBulletList
         title="Not supported yet"

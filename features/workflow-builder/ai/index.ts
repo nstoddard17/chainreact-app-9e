@@ -31,4 +31,10 @@ export type {
 } from "./AiRequiredInputList";
 
 export { composeFollowUpPrompt } from "./composeFollowUpPrompt";
-export type { ComposeFollowUpPromptInput } from "./composeFollowUpPrompt";
+export type {
+  ComposeFollowUpPromptInput,
+  ComposeFollowUpStructuredAnswer,
+} from "./composeFollowUpPrompt";
+
+export { RequiredInputControl, requiredInputKey } from "./RequiredInputControl";
+export type { RequiredInputAnswer } from "./RequiredInputControl";

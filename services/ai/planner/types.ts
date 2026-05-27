@@ -75,7 +75,54 @@ export type PlanRequiredUserInputKind =
   | "variable_reference"
   | "clarification";
 
-export interface PlanRequiredUserInput {
+/**
+ * Slice 4.AI-22 — server-enriched metadata that lets the React Agent
+ * render an interactive control for the missing field (dropdown for
+ * static options, async picker for `optionsSource`, text fallback
+ * otherwise). All fields are derived from the live catalog + the
+ * patch's node references; the model NEVER fills these — the parser
+ * strips any model-emitted values for these keys, and the service
+ * enriches the entries via `enrichRequiredUserInputs` after parse.
+ *
+ * Backward compatible: every field is optional, so the AI-9A route /
+ * AI-12 / AI-21 / AI-21B / AI-21C consumers that only read `label` /
+ * `kind` / `nodeId` / `field` still work unchanged.
+ *
+ * No-leak: only display labels, field names, FieldType enum, and the
+ * `optionsSource` registry key (`<provider>:<resource>`) are surfaced —
+ * never option values from a live resolver, never secret-shaped config,
+ * never tokens.
+ */
+export interface PlanRequiredUserInputMetadata {
+  /** Provider id this missing field belongs to (e.g. `slack`). Derived from the node's metadata. */
+  readonly provider?: string;
+  /** Node type within that provider (e.g. `send_channel_message`). */
+  readonly nodeType?: string;
+  /** Human-readable node display name from ActionMeta / TriggerMeta. */
+  readonly nodeLabel?: string;
+  /** Human-readable field label from FieldMeta. */
+  readonly fieldLabel?: string;
+  /** FieldMeta renderer type — `text` / `select` / `combobox` / etc. */
+  readonly fieldType?: string;
+  /** Multi-select toggle (forwarded from FieldMeta.multiple). */
+  readonly multiple?: boolean;
+  /** Static-enum options from FieldMeta.options. Empty / absent when the field uses optionsSource or is free-text. */
+  readonly options?: ReadonlyArray<{ readonly label: string; readonly value: string }>;
+  /** Dynamic options resolver key (e.g. `slack:channels`). Mutually exclusive with `options`. */
+  readonly optionsSource?: string;
+  /**
+   * dependsOn parent field names for the optionsSource resolver. Empty
+   * when the resolver has no deps (e.g. `slack:channels`). The control
+   * uses this to know which prior staged answers to pass through.
+   */
+  readonly dependsOn?: ReadonlyArray<string>;
+  /** Should the user also be able to type a free-text value? True for text-typeable fields. */
+  readonly allowFreeText?: boolean;
+  /** FieldMeta placeholder (UX hint only — never used as a default value). */
+  readonly placeholder?: string;
+}
+
+export interface PlanRequiredUserInput extends PlanRequiredUserInputMetadata {
   readonly label: string;
   readonly nodeId?: string;
   readonly field?: string;

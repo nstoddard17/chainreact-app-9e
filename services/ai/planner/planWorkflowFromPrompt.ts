@@ -37,6 +37,7 @@ import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import type { AiToolError } from "@/services/ai/tools/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
 import { buildWorkflowPlanRequest } from "./buildWorkflowPlanRequest";
+import { enrichRequiredUserInputs } from "./enrichRequiredUserInputs";
 import { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 import { WORKFLOW_PLAN_TOOL } from "./workflowPlanTool";
 import {
@@ -112,7 +113,11 @@ function noPatchResult(
     ok: true,
     intentSummary: response.intentSummary,
     assumptions: response.assumptions,
-    requiredUserInput: response.requiredUserInput,
+    // Slice 4.AI-22 — enrich with FieldMeta hints even when there's no
+    // patch. Entries without nodeId/field (e.g. `select_integration`,
+    // `clarification`) pass through unchanged; the helper degrades
+    // gracefully when the patch is null.
+    requiredUserInput: enrichRequiredUserInputs(response.requiredUserInput, null),
     unsupportedRequests: response.unsupportedRequests,
     safetyNotes: response.safetyNotes,
     canApplyLater: false,
@@ -218,7 +223,11 @@ export async function planWorkflowFromPromptForAI(
     ok: true,
     intentSummary: response.intentSummary,
     assumptions: response.assumptions,
-    requiredUserInput: response.requiredUserInput,
+    // Slice 4.AI-22 — enrich with FieldMeta hints derived from the patch's
+    // `addNode` operations so the React Agent can render an interactive
+    // RequiredInputControl per missing field (dropdown for static options,
+    // async picker for `optionsSource`, text fallback otherwise).
+    requiredUserInput: enrichRequiredUserInputs(response.requiredUserInput, patch),
     unsupportedRequests: response.unsupportedRequests,
     safetyNotes: response.safetyNotes,
     proposedPatch: patch,

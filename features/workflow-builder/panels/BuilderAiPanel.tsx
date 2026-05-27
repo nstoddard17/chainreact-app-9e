@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getWorkflow } from "@/lib/api/workflows";
+import type { RequiredInputAnswer } from "../ai";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
 import {
@@ -45,6 +46,12 @@ export function BuilderAiPanel() {
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  // AI-22 — staged required-input answers from the interactive controls.
+  // Keyed by `requiredInputKey(input)` (i.e. `nodeId::field`). Drained
+  // into the structured follow-up on submit; cleared on Clear / Plan-another.
+  const [stagedAnswers, setStagedAnswers] = useState<
+    ReadonlyMap<string, RequiredInputAnswer>
+  >(() => new Map());
 
   const ai = useBuilderAi({
     workflowId,
@@ -72,26 +79,53 @@ export function BuilderAiPanel() {
     setMessages((prev) => [...prev, message]);
   }
 
+  function handleStagedAnswerChange(
+    key: string,
+    answer: RequiredInputAnswer | undefined,
+  ): void {
+    setStagedAnswers((prev) => {
+      const next = new Map(prev);
+      if (answer === undefined) next.delete(key);
+      else next.set(key, answer);
+      return next;
+    });
+  }
+
   async function handleSubmit(): Promise<void> {
     setRiskAcknowledged(false);
-    const content = trimmed;
-    if (!content) return;
+    // AI-22 — gather any staged required-input answers from the interactive
+    // controls. They're cleared synchronously here so the user message bubble
+    // (which renders them as part of its display text) doesn't render twice.
+    const stagedSnapshot = Array.from(stagedAnswers.values());
+    const hasStagedAnswers = stagedSnapshot.length > 0;
+    setStagedAnswers(new Map());
+
+    const composerContent = trimmed;
+    // Composer can be empty when the user filled controls only — in that case
+    // a follow-up submission is still valid. A brand-new plan (no chain in
+    // progress) still requires composer text, because there are no controls
+    // to fill yet.
+    if (!composerContent && !(followUpMode && hasStagedAnswers)) return;
+
+    // Build the user-bubble display text. When the user supplied both staged
+    // answers + free-text, both are rendered for transparency. When only
+    // staged answers were supplied, the bubble lists each {label: value}.
+    const userDisplay = buildUserBubbleDisplay(composerContent, stagedSnapshot);
     const userKind: UserChatMessage["kind"] = followUpMode ? "followup" : "prompt";
     appendMessage({
       id: nextChatMessageId(),
       role: "user",
       kind: userKind,
-      content,
+      content: userDisplay,
     });
-    // Clear the composer immediately so the user-message bubble is the
-    // single live view of their input while the agent works — same UX as
-    // any normal chat. Replaces the AI-11B "keep prompt after planning"
-    // behavior; Clear is now the way to reset state.
     setPrompt("");
 
     const result = followUpMode
-      ? await ai.submitFollowUp(content)
-      : await ai.plan(content);
+      ? await ai.submitFollowUp({
+          freeText: composerContent,
+          structuredAnswers: stagedSnapshot,
+        })
+      : await ai.plan(composerContent);
 
     if (result === null) {
       appendMessage({
@@ -172,12 +206,35 @@ export function BuilderAiPanel() {
 
   function handleClear(): void {
     // Clear resets the whole conversation: messages, composer text,
-    // risk-ack, and hook chain state. "Plan another change" calls this
-    // same handler post-apply for the same reason.
+    // risk-ack, the hook chain state, AND the staged required-input
+    // answers (AI-22). "Plan another change" calls this same handler
+    // post-apply for the same reason.
     setRiskAcknowledged(false);
     setMessages([]);
     setPrompt("");
+    setStagedAnswers(new Map());
     ai.reset();
+  }
+
+  /**
+   * AI-22 — build the user-message bubble's display text from the
+   * composer's free-text + any staged required-input answers. Renders
+   * structured answers as a labeled list under the typed text (or alone
+   * when no free text was provided). Pure presentation — the actual
+   * planner-side prompt is constructed by `composeFollowUpPrompt`.
+   */
+  function buildUserBubbleDisplay(
+    freeText: string,
+    answers: readonly RequiredInputAnswer[],
+  ): string {
+    if (answers.length === 0) return freeText;
+    const lines = answers.map((a) => {
+      const fieldLabel = a.descriptor.fieldLabel ?? a.descriptor.label;
+      return `${fieldLabel}: ${a.display}`;
+    });
+    return freeText.length > 0
+      ? `${freeText}\n\n${lines.join("\n")}`
+      : lines.join("\n");
   }
 
   return (
@@ -200,6 +257,8 @@ export function BuilderAiPanel() {
         onRerunPlan={handleRerunPlan}
         onReset={handleClear}
         aiStatus={ai.status}
+        stagedAnswers={stagedAnswers}
+        onStagedAnswerChange={handleStagedAnswerChange}
       />
       <BuilderAiPanelComposer
         prompt={prompt}
@@ -210,6 +269,7 @@ export function BuilderAiPanel() {
         planning={planning}
         busy={busy}
         hasMessages={hasMessages}
+        hasStagedAnswers={stagedAnswers.size > 0}
       />
     </section>
   );

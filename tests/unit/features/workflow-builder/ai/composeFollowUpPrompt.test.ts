@@ -86,6 +86,73 @@ describe("composeFollowUpPrompt — multi-turn chain (AI-21)", () => {
   });
 });
 
+describe("composeFollowUpPrompt — structured answers (AI-22)", () => {
+  it("renders structured answers under 'User provided:' with label + display", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send a Slack message when I run.",
+      requiredInputLabels: ["Which Slack channel?", "What should the message say?"],
+      priorFollowUpAnswers: [],
+      followUp: "",
+      structuredAnswers: [
+        { label: "Channel", display: "#general", value: "C123456" },
+        { label: "Message", display: "Test from ChainReact AI" },
+      ],
+    });
+    expect(out).toContain("User provided:");
+    expect(out).toContain("- Channel: #general (value: C123456)");
+    expect(out).toContain("- Message: Test from ChainReact AI");
+  });
+
+  it("omits the '(value: …)' suffix when value === display (no redundant id echo)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "x",
+      requiredInputLabels: [],
+      priorFollowUpAnswers: [],
+      followUp: "",
+      structuredAnswers: [{ label: "Channel", display: "#general", value: "#general" }],
+    });
+    expect(out).toContain("- Channel: #general");
+    expect(out).not.toMatch(/value:\s*#general/);
+  });
+
+  it("works with only structured answers and an empty followUp text", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send a Slack message",
+      requiredInputLabels: ["Channel?"],
+      priorFollowUpAnswers: [],
+      followUp: "",
+      structuredAnswers: [{ label: "Channel", display: "#general", value: "C123" }],
+    });
+    expect(out).toContain("User provided:");
+    expect(out).not.toContain("User follow-up:");
+    expect(out).toContain("Create the workflow using the original request");
+  });
+
+  it("renders both 'User provided' and 'User follow-up' sections when both are present", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "x",
+      requiredInputLabels: [],
+      priorFollowUpAnswers: [],
+      followUp: "also retry once on 5xx",
+      structuredAnswers: [{ label: "Channel", display: "#general", value: "C123" }],
+    });
+    expect(out).toContain("User provided:");
+    expect(out).toContain("- Channel: #general");
+    expect(out).toContain("User follow-up:\nalso retry once on 5xx");
+  });
+
+  it("omits the 'User provided' section when no structured answers are passed (backwards compatible)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "x",
+      requiredInputLabels: [],
+      priorFollowUpAnswers: [],
+      followUp: "answer",
+    });
+    expect(out).not.toContain("User provided:");
+    expect(out).toContain("User follow-up:\nanswer");
+  });
+});
+
 describe("composeFollowUpPrompt — trimming / safety (AI-21)", () => {
   it("trims surrounding whitespace on the original prompt and the follow-up", () => {
     const out = composeFollowUpPrompt({

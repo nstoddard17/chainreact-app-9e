@@ -652,6 +652,153 @@ describe("follow-up composer (AI-21)", () => {
   });
 });
 
+// ─── Slice 4.AI-22 — interactive required-input controls + structured follow-up
+describe("required-input controls + structured follow-up (AI-22)", () => {
+  // The planner-enriched needs-input response a real Slack-flavored
+  // plan would produce: a patch with a Slack action + two
+  // requiredUserInput entries, the channel one carrying the
+  // optionsSource hint, the text one carrying the textarea hint.
+  const enrichedNeedsInput = {
+    ...planApplyReady,
+    requiredUserInput: [
+      {
+        label: "Which Slack channel should the message be sent to?",
+        nodeId: "n_slack",
+        field: "channel",
+        kind: "config_value",
+        provider: "slack",
+        nodeType: "send_channel_message",
+        nodeLabel: "Send Channel Message",
+        fieldLabel: "Channel",
+        fieldType: "combobox",
+        optionsSource: "slack:channels",
+        allowFreeText: true,
+      },
+      {
+        label: "What should the message say?",
+        nodeId: "n_slack",
+        field: "text",
+        kind: "config_value",
+        provider: "slack",
+        nodeType: "send_channel_message",
+        nodeLabel: "Send Channel Message",
+        fieldLabel: "Message",
+        fieldType: "textarea",
+        allowFreeText: true,
+      },
+    ],
+    canApplyLater: false,
+  };
+
+  it("renders an interactive control per required-input entry (combobox for channel, text for message)", async () => {
+    mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Create a Slack workflow");
+    const controls = await screen.findAllByTestId("builder-ai-required-input-control");
+    expect(controls).toHaveLength(2);
+    // One is the combobox (optionsSource branch), one is the text input.
+    const variants = controls.map((c) => c.getAttribute("data-variant")).sort();
+    expect(variants).toEqual(["options-source", "text"]);
+  });
+
+  it("typing in the channel combobox + text input stages structured answers without submitting", async () => {
+    mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Create a Slack workflow");
+    await screen.findAllByTestId("builder-ai-required-input-control");
+    const textInput = screen.getByTestId("builder-ai-required-input-text") as HTMLInputElement;
+    fireEvent.change(textInput, { target: { value: "Test from ChainReact AI" } });
+    // Only the initial plan call so far — staging answers does NOT auto-submit.
+    expect(mockPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("submitting after staging structured answers sends a reconstructed prompt with 'User provided:' and Apply re-renders after chain completes", async () => {
+    mockPlan.mockResolvedValueOnce(enrichedNeedsInput); // turn 1
+    mockPlan.mockResolvedValueOnce(planApplyReady); // turn 2 — chain completes
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    await screen.findAllByTestId("builder-ai-required-input-control");
+    // Stage a free-text answer for the Message field (the only text-branch control).
+    const textInput = screen.getByTestId("builder-ai-required-input-text") as HTMLInputElement;
+    fireEvent.change(textInput, { target: { value: "Test from ChainReact AI" } });
+    // Click submit (composer button) — no need to type into the composer; the
+    // submission carries the staged answer alone.
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    const [, secondBody] = mockPlan.mock.calls[1]!;
+    const reconstructed = (secondBody as { prompt: string }).prompt;
+    expect(reconstructed).toContain("User provided:");
+    expect(reconstructed).toContain("Message: Test from ChainReact AI");
+    expect(reconstructed).toContain("Original request:");
+    // Chain completed → Apply renders.
+    expect(await screen.findByTestId("builder-ai-apply-button")).toBeEnabled();
+  });
+
+  it("renders the user-message bubble with the staged answers (so the conversation transcript shows what was sent)", async () => {
+    mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    await screen.findAllByTestId("builder-ai-required-input-control");
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+      target: { value: "Test from ChainReact AI" },
+    });
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
+    // After submit, the second user-message bubble carries the staged answers.
+    const userBubbles = screen.getAllByTestId("builder-ai-message-user");
+    expect(userBubbles).toHaveLength(2);
+    expect(userBubbles[1]).toHaveTextContent(/Message:\s*Test from ChainReact AI/i);
+  });
+
+  it("Clear conversation resets staged answers (controls reset to empty)", async () => {
+    mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan("Create a Slack workflow");
+    await screen.findAllByTestId("builder-ai-required-input-control");
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+      target: { value: "Test from ChainReact AI" },
+    });
+    expect(screen.getByTestId("builder-ai-required-input-text")).toHaveValue(
+      "Test from ChainReact AI",
+    );
+    await user.click(screen.getByTestId("builder-ai-clear-button"));
+    // After Clear, the entire conversation (incl. the controls block) is gone.
+    expect(screen.queryByTestId("builder-ai-required-input-control")).not.toBeInTheDocument();
+  });
+
+  it("preserves the AI-20 apply-readiness gate — Apply is hidden while requiredUserInput is non-empty even with enriched controls present", async () => {
+    mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Create a Slack workflow");
+    await screen.findAllByTestId("builder-ai-required-input-control");
+    expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument();
+  });
+
+  it("no-leak: the controls block never renders raw patch / config / secret values when the patch carries them", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...enrichedNeedsInput,
+      proposedPatch: {
+        patchId: "p1",
+        operations: [
+          {
+            op: "addNode",
+            node: {
+              id: "n_slack",
+              config: { accessToken: "xoxb-LEAKED-SECRET" },
+            },
+          },
+        ],
+      },
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Create a Slack workflow");
+    await screen.findAllByTestId("builder-ai-required-input-control");
+    expect(document.body.textContent).not.toContain("xoxb-LEAKED-SECRET");
+    expect(document.body.textContent).not.toContain("accessToken");
+  });
+});
+
 // ─── Slice 4.AI-21B — chat layout + pinned composer ─────────────────────────
 describe("chat layout (AI-21B)", () => {
   it("renders a message list above a pinned composer (composer follows the list in DOM order)", () => {
