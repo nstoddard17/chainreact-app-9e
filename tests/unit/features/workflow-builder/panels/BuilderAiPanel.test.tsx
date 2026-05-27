@@ -326,6 +326,22 @@ describe("AI-11B UX hardening", () => {
     expect(screen.getByTestId("builder-ai-apply-button")).toBeDisabled();
   });
 
+  it("labels the chat-rendered preview as 'Preview only · not applied yet' with an explicit 'click Apply change' disclaimer (AI-22 follow-up)", async () => {
+    // Live testing after AI-22 surfaced a user-perception risk: the
+    // chat-rendered PreviewSection (counts + risk + change descriptions)
+    // can resemble the canvas at a glance. The disclaimer below the
+    // header makes the read-only nature unambiguous.
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    const header = await screen.findByTestId("builder-ai-preview-header");
+    expect(header).toHaveTextContent(/Preview only/i);
+    expect(header).toHaveTextContent(/not applied yet/i);
+    const disclaimer = screen.getByTestId("builder-ai-preview-disclaimer");
+    expect(disclaimer).toHaveTextContent(/Nothing is saved to your workflow/i);
+    expect(disclaimer).toHaveTextContent(/Apply change/);
+  });
+
   it("renders risk reasons and validation warnings readably", async () => {
     mockPlan.mockResolvedValueOnce({
       ...planApplyReady,

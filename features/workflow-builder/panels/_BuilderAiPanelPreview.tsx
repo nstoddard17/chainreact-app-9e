@@ -89,8 +89,9 @@ export function PreviewSection({ preview }: { preview: AiPreview }) {
         <span
           className="builder-mono text-[10.5px] font-semibold uppercase tracking-[0.04em]"
           style={{ color: "var(--builder-accent)" }}
+          data-testid="builder-ai-preview-header"
         >
-          Proposed change
+          Preview only · not applied yet
         </span>
         <span
           className="builder-mono inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px]"
@@ -103,6 +104,24 @@ export function PreviewSection({ preview }: { preview: AiPreview }) {
           {preview.riskLevel}-risk
         </span>
       </div>
+      {/*
+        AI-22 follow-up — explicit preview disclaimer. The chat-rendered
+        preview can visually resemble the canvas at a glance (it lists the
+        same node + edge counts and "Adds 'X'" change descriptions). This
+        one-liner makes the read-only nature unambiguous so the user
+        doesn't mistake a plan for an applied change.
+      */}
+      <p
+        className="text-[11px]"
+        style={{ color: "var(--builder-muted)" }}
+        data-testid="builder-ai-preview-disclaimer"
+      >
+        Nothing is saved to your workflow until you click{" "}
+        <span className="font-semibold" style={{ color: "var(--builder-text)" }}>
+          Apply change
+        </span>
+        .
+      </p>
 
       {(nodeCount > 0 || edgeCount > 0 || preview.taskCostEstimate) && (
         <div
