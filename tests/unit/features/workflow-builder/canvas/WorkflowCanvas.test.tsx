@@ -164,6 +164,15 @@ describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () 
   });
 });
 
+// ─── Slice 4.BUILDER-NODE-DELETE-2 — keyboard-delete uses the safe path ─────
+
+describe("WorkflowCanvas — safe keyboard-delete dialog mounts", () => {
+  it("does NOT render the delete dialog by default (no pending delete)", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(screen.queryByTestId("delete-node-confirm-dialog")).toBeNull();
+  });
+});
+
 describe("WorkflowCanvas — never persists to backend", () => {
   it("does not call updateWorkflow on mount", () => {
     render(<WorkflowCanvas providerLabels={providerLabels} />);

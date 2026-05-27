@@ -7,27 +7,28 @@ import type { DeleteNodeFromGraphResult } from "../utils/deleteNodeFromGraph";
 
 /**
  * Slice 4.BUILDER-NODE-DELETE-1 — confirmation dialog for the inspector's
- * "Delete node" button.
+ * "Delete node" button. Slice 4.BUILDER-NODE-DELETE-2 extended with an
+ * optional `multiSelectCount` prop the canvas keyboard-delete path uses
+ * when the user selects 2+ nodes (blocked v1 — "select one at a time").
  *
- * Two modes, derived from a `preview` we get by calling the pure
- * `deleteNodeFromGraph` helper on current graph state BEFORE committing:
+ * Three rendering modes:
  *
- *   1. `preview.ok === false` (blocked) — informational. Renders the
- *      blocked reason / message and offers a single "Close" button.
- *      No Confirm button; the user cannot force-delete a multi-edge node
- *      from here.
+ *   1. **Multi-select blocked** (`multiSelectCount` set + > 1) — wins over
+ *      single-node mode. Shows a "Delete N nodes?" title + body explaining
+ *      that v1 supports one-at-a-time deletion. Single Close button. No
+ *      Confirm. `node` / `preview` / `onConfirm` props are ignored in this
+ *      mode (still accepted so the API stays uniform — callers always
+ *      pass a `preview`/`node` even when adding `multiSelectCount`).
  *
- *   2. `preview.ok === true` (allowed) — Cancel + Delete buttons. Copy
- *      adapts to the node kind:
- *        - Trigger → "Delete trigger?" + warning that the workflow will
- *          have no trigger until a replacement is added.
- *        - Action with rewire → "Delete action?" + one-line topology
- *          summary ("Edges A→B and B→C will be replaced with A→C").
- *        - Action without rewire (standalone / last / first) → "Delete
- *          action?" + summary of the dropped edges (or "no connected
- *          edges").
- *        - Action with a `warning` field (would self-loop / duplicate) →
- *          extra hint line.
+ *   2. **Single-node blocked** (`preview.ok === false`) — informational.
+ *      Renders the blocked reason / message and offers a single "Close"
+ *      button. No Confirm. The user cannot force-delete a multi-edge node
+ *      from here; they must disconnect manually first.
+ *
+ *   3. **Single-node allowed** (`preview.ok === true`) — Cancel + Delete
+ *      buttons. Copy adapts to the node kind + rewire / drop / standalone
+ *      / warning sub-cases (trigger, action with rewire, action without
+ *      rewire, action with self-loop or duplicate warning).
  *
  * Deliberately lighter than `DestructiveActionConfirmationModal` (no
  * type-the-phrase echo) — Q11-style server-side high-risk surfaces are
@@ -38,23 +39,38 @@ import type { DeleteNodeFromGraphResult } from "../utils/deleteNodeFromGraph";
  * Accessibility:
  *   - `role="dialog"` + `aria-modal="true"` + labelled-by title id.
  *   - Initial focus moves to the Confirm button when allowed; to the
- *     Close button when blocked.
+ *     Close button when blocked (single-node OR multi-select).
  *   - Escape closes via the parent's `onCancel`.
  */
 
 export interface DeleteNodeConfirmDialogProps {
-  /** The node being targeted. Pulled from graphSlice by the caller. */
-  node: WorkflowNode;
+  /**
+   * The node being targeted. Pulled from graphSlice by the caller. Ignored
+   * when `multiSelectCount` is set (the multi-select view doesn't render
+   * any per-node detail).
+   */
+  node?: WorkflowNode;
   /**
    * Output of `deleteNodeFromGraph` called on the current pending state.
-   * Drives the dialog content. Passing this in (rather than recomputing
-   * inside the dialog) keeps the dialog presentational and easy to test.
+   * Drives the dialog content. Required for single-node modes; ignored
+   * when `multiSelectCount` is set.
    */
-  preview: DeleteNodeFromGraphResult;
-  onConfirm(): void;
+  preview?: DeleteNodeFromGraphResult;
+  /**
+   * Called when the user clicks the Delete button in the single-node
+   * allowed mode. Ignored otherwise.
+   */
+  onConfirm?(): void;
   onCancel(): void;
   /** Disable the Confirm button while a parent-side action is in flight. */
   busy?: boolean;
+  /**
+   * Slice 4.BUILDER-NODE-DELETE-2 — when set and > 1, the dialog renders
+   * a multi-select blocked view. The keyboard-delete path uses this so
+   * selecting 2+ nodes and pressing Delete shows clear feedback instead
+   * of either nothing happening or fanning out N rewires.
+   */
+  multiSelectCount?: number;
 }
 
 export function DeleteNodeConfirmDialog({
@@ -63,17 +79,25 @@ export function DeleteNodeConfirmDialog({
   onConfirm,
   onCancel,
   busy = false,
+  multiSelectCount,
 }: DeleteNodeConfirmDialogProps): React.ReactElement {
   const confirmButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
+  const isMultiBlocked =
+    typeof multiSelectCount === "number" && multiSelectCount > 1;
+
   React.useEffect(() => {
-    if (preview.ok) {
+    if (isMultiBlocked) {
+      closeButtonRef.current?.focus();
+      return;
+    }
+    if (preview?.ok) {
       confirmButtonRef.current?.focus();
     } else {
       closeButtonRef.current?.focus();
     }
-  }, [preview.ok]);
+  }, [isMultiBlocked, preview?.ok]);
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Escape") {
@@ -84,12 +108,14 @@ export function DeleteNodeConfirmDialog({
 
   const titleId = "delete-node-confirm-title";
   const bodyId = "delete-node-confirm-body";
-  const isTrigger = node.kind === "trigger";
-  const title = preview.ok
-    ? isTrigger
-      ? "Delete trigger?"
-      : "Delete action?"
-    : "Can't delete this node yet";
+  const isTrigger = node?.kind === "trigger";
+  const title = isMultiBlocked
+    ? `Delete ${multiSelectCount} nodes?`
+    : preview?.ok
+      ? isTrigger
+        ? "Delete trigger?"
+        : "Delete action?"
+      : "Can't delete this node yet";
 
   return (
     <div
@@ -111,12 +137,22 @@ export function DeleteNodeConfirmDialog({
             className="text-sm text-muted-foreground"
             data-testid="delete-node-confirm-body"
           >
-            {renderBody({ node, preview })}
+            {renderBody({ node, preview, multiSelectCount })}
           </p>
         </header>
 
         <footer className="flex justify-end gap-2">
-          {preview.ok ? (
+          {isMultiBlocked || !preview || !preview.ok ? (
+            <Button
+              ref={closeButtonRef}
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              data-testid="delete-node-confirm-close"
+            >
+              Close
+            </Button>
+          ) : (
             <>
               <Button
                 type="button"
@@ -142,16 +178,6 @@ export function DeleteNodeConfirmDialog({
                     : "Delete action"}
               </Button>
             </>
-          ) : (
-            <Button
-              ref={closeButtonRef}
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              data-testid="delete-node-confirm-close"
-            >
-              Close
-            </Button>
           )}
         </footer>
       </div>
@@ -162,10 +188,26 @@ export function DeleteNodeConfirmDialog({
 function renderBody({
   node,
   preview,
+  multiSelectCount,
 }: {
-  node: WorkflowNode;
-  preview: DeleteNodeFromGraphResult;
+  node?: WorkflowNode;
+  preview?: DeleteNodeFromGraphResult;
+  multiSelectCount?: number;
 }): React.ReactNode {
+  if (typeof multiSelectCount === "number" && multiSelectCount > 1) {
+    return (
+      <span>
+        You've selected {multiSelectCount} nodes. Delete one node at a time
+        so we can safely rewire the surrounding edges and surface any nodes
+        we can't auto-rewire.
+      </span>
+    );
+  }
+
+  if (!preview) {
+    return null;
+  }
+
   if (!preview.ok) {
     if (preview.reason === "cannot_rewire_multi_edge") {
       return (
@@ -176,6 +218,10 @@ function renderBody({
       );
     }
     return <span>{preview.message}</span>;
+  }
+
+  if (!node) {
+    return null;
   }
 
   const droppedCount = preview.removedEdgeIds.length;

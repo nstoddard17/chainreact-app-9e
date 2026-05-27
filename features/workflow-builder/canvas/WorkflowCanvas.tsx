@@ -18,6 +18,8 @@ import "@xyflow/react/dist/style.css";
 
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
+import { useCanvasNodeDeletion } from "../hooks/useCanvasNodeDeletion";
+import { DeleteNodeConfirmDialog } from "../panels/DeleteNodeConfirmDialog";
 import {
   WORKFLOW_EDGE_TYPE,
   WORKFLOW_NODE_TYPE,
@@ -120,13 +122,27 @@ function WorkflowCanvasInner({
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const updateNodePosition = useGraphSlice((s) => s.updateNodePosition);
   const connectNodes = useGraphSlice((s) => s.connectNodes);
-  const removeNode = useGraphSlice((s) => s.removeNode);
   const removeEdge = useGraphSlice((s) => s.removeEdge);
 
   const openNode = useConfigSlice((s) => s.openNode);
-  const closeNode = useConfigSlice((s) => s.closeNode);
-  const dropNodeConfigDraft = useConfigSlice((s) => s.dropNode);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
+
+  // Slice 4.BUILDER-NODE-DELETE-2 — keyboard-delete state machine. Owns
+  // the dialog state + the onBeforeDelete handler that gates ReactFlow's
+  // auto-delete. Replaces the previous handleNodesDelete which dispatched
+  // graphSlice.removeNode directly (no rewire, no confirmation, no
+  // multi-edge guard).
+  const {
+    pendingDelete,
+    handleBeforeDelete,
+    handleConfirm: handleConfirmDelete,
+    handleCancel: handleCancelDelete,
+  } = useCanvasNodeDeletion();
+
+  const pendingDeleteNode =
+    pendingDelete?.kind === "single"
+      ? pendingNodes.find((n) => n.id === pendingDelete.nodeId)
+      : undefined;
 
   const flowNodes = useMemo<FlowNode<WorkflowNodeData>[]>(() => {
     const base = workflowNodesToFlowNodes(pendingNodes, {
@@ -173,22 +189,6 @@ function WorkflowCanvasInner({
     [connectNodes],
   );
 
-  const handleNodesDelete = useCallback(
-    (deleted: FlowNode[]) => {
-      for (const node of deleted) {
-        dropNodeConfigDraft(node.id);
-        removeNode(node.id);
-      }
-      if (
-        activeNodeId &&
-        deleted.some((n) => n.id === activeNodeId)
-      ) {
-        closeNode();
-      }
-    },
-    [removeNode, dropNodeConfigDraft, activeNodeId, closeNode],
-  );
-
   const handleEdgesDelete = useCallback(
     (deleted: FlowEdge[]) => {
       for (const edge of deleted) {
@@ -227,7 +227,7 @@ function WorkflowCanvasInner({
           onNodeClick={handleNodeClick}
           onNodeDragStop={handleNodeDragStop}
           onConnect={handleConnect}
-          onNodesDelete={handleNodesDelete}
+          onBeforeDelete={handleBeforeDelete}
           onEdgesDelete={handleEdgesDelete}
           fitView
           proOptions={{ hideAttribution: true }}
@@ -262,6 +262,18 @@ function WorkflowCanvasInner({
         </ReactFlow>
         {isEmpty ? <EmptyCanvasState onAddTrigger={onEmptyAddTrigger} /> : null}
       </div>
+      {pendingDelete !== null ? (
+        <DeleteNodeConfirmDialog
+          {...(pendingDelete.kind === "single"
+            ? {
+                node: pendingDeleteNode,
+                preview: pendingDelete.preview,
+              }
+            : { multiSelectCount: pendingDelete.count })}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
+      ) : null}
     </div>
   );
 }

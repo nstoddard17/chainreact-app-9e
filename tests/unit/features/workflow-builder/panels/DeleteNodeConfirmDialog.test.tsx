@@ -235,6 +235,92 @@ describe("DeleteNodeConfirmDialog — allowed (ok) path", () => {
   });
 });
 
+describe("DeleteNodeConfirmDialog — multi-select blocked (NODE-DELETE-2)", () => {
+  it("renders 'Delete N nodes?' title + multi-select body + single Close button", () => {
+    render(
+      <DeleteNodeConfirmDialog
+        multiSelectCount={3}
+        onCancel={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: /delete 3 nodes\?/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("delete-node-confirm-body"),
+    ).toHaveTextContent(/delete one node at a time/i);
+    expect(screen.getByTestId("delete-node-confirm-close")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("delete-node-confirm-confirm"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("delete-node-confirm-cancel"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("multi-select wins over an allowed single-node preview (defensive: caller passed both)", () => {
+    render(
+      <DeleteNodeConfirmDialog
+        node={actionNode}
+        preview={okWithRewire}
+        multiSelectCount={2}
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: /delete 2 nodes\?/i }),
+    ).toBeInTheDocument();
+    // Confirm path suppressed when multiSelectCount wins.
+    expect(
+      screen.queryByTestId("delete-node-confirm-confirm"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Close button calls onCancel in multi-select mode", async () => {
+    const user = userEvent.setup();
+    const onCancel = jest.fn();
+    render(
+      <DeleteNodeConfirmDialog
+        multiSelectCount={4}
+        onCancel={onCancel}
+      />,
+    );
+    await user.click(screen.getByTestId("delete-node-confirm-close"));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("focuses the Close button on mount in multi-select mode", () => {
+    render(
+      <DeleteNodeConfirmDialog
+        multiSelectCount={2}
+        onCancel={() => {}}
+      />,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByTestId("delete-node-confirm-close"),
+    );
+  });
+
+  it("multiSelectCount === 1 falls through to single-node mode (defensive)", () => {
+    render(
+      <DeleteNodeConfirmDialog
+        node={actionNode}
+        preview={okWithRewire}
+        multiSelectCount={1}
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: /delete action\?/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("delete-node-confirm-confirm"),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("DeleteNodeConfirmDialog — blocked path", () => {
   it("renders the blocked title + multi-edge-specific copy + single Close button", () => {
     render(

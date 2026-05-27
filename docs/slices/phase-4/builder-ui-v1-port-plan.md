@@ -1476,3 +1476,103 @@ $ npx jest tests/integration/features/workflow-builder/canvas-config-sync.test.t
 
 ✅ **Zero changes.** This slice only modifies `features/workflow-builder/`, `tests/unit/features/workflow-builder/`, and `docs/slices/phase-4/builder-ui-v1-port-plan.md`. No `app/`, `lib/`, `integrations/`, `services/`, `repositories/`, `contracts/`, or `supabase/migrations/` files touched.
 
+### BUILDER-NODE-DELETE-2 outcomes (shipped 2026-05-26)
+
+Unifies every user-facing node-delete path through the safe rewire-aware action introduced in NODE-DELETE-1. The previous slice left a gap: ReactFlow's keyboard-delete still routed through `graphSlice.removeNode` (raw drop, no rewire, no confirmation, no multi-edge guard). This slice intercepts that path via `onBeforeDelete` and feeds it into the same dialog + slice action the inspector uses. Backend / provider metadata / billing / AI service files: zero changes.
+
+**Audit summary — every node-delete code path in the repo:**
+
+| Path | Pre-NODE-DELETE-2 | Post-NODE-DELETE-2 |
+|---|---|---|
+| Inspector "Delete node" button | safe (`deleteNodeAndRewire` via dialog) | unchanged |
+| Canvas keyboard delete (Delete/Backspace) | unsafe — `removeNode` per node, no confirmation, no rewire | **safe** — `onBeforeDelete` → same dialog → `deleteNodeAndRewire` |
+| `NodeList.Remove` button | direct `removeNode` | unchanged — `NodeList` is no longer mounted in production (V1-SHELL-PARITY-1); file + tests preserved as a low-level surface |
+| `useUpstreamVariables` test helper | direct `removeNode` for graph manipulation | unchanged — test-utility usage of the low-level primitive |
+| `canvas-config-sync` integration test | direct `removeNode` in the slice-level assertion | unchanged — the test deliberately verifies the low-level slice action still works |
+| Server-side AI patch ops (`services/workflows/patch/*`, `services/ai/preview/*`) | separate namespace (`op: "removeNode"` patch ops, not the slice action) | unchanged — different system |
+
+**Decisions:**
+
+- **Keep `graphSlice.removeNode` as a low-level primitive.** It's used by `NodeList` (preserved-but-unmounted), test helpers, and the canvas-config-sync integration test as the slice-level mutation contract. Removing it would break 3+ test files for no behavior gain. The new safety perimeter sits at the canvas-keyboard layer, not at the slice layer.
+- **Canvas keyboard delete routes through `onBeforeDelete`** (ReactFlow 12+ async-cancel hook). The handler returns `false` to cancel ReactFlow's auto-delete and opens our dialog instead — so the slice is only mutated after the user confirms.
+- **Multi-select policy v1: blocked with a "Select one node at a time" dialog.** Better UX than silently doing nothing — the user gets clear feedback that the action was understood and why it isn't being applied. Fan-out rewire across multiple nodes is order-dependent and ambiguous; deferred until a real product need surfaces.
+- **Edges-only deletion lets through.** When the keyboard delete intent affects zero nodes (only edges selected), `onBeforeDelete` returns `true` and `onEdgesDelete` fires normally — no dialog, since edge deletion has no rewire concept.
+- **`onNodesDelete` prop is gone from the canvas.** With `onBeforeDelete` always returning `false` for node deletions, `onNodesDelete` would never fire. Removing the dead callback prevents future confusion.
+- **No new toast layer.** The canvas mounts the same `DeleteNodeConfirmDialog` the inspector uses (now with an optional `multiSelectCount` prop). Single source of UI truth for delete confirmation across both surfaces.
+
+**Added:**
+
+- [`features/workflow-builder/utils/computeKeyboardDeleteIntent.ts`](../../../features/workflow-builder/utils/computeKeyboardDeleteIntent.ts) — 60-line pure classifier. Takes `{ selectedNodeIds, pendingNodes, pendingEdges }` and returns one of three discriminated outcomes: `{ kind: "proceed" }`, `{ kind: "multi", count }`, or `{ kind: "single", nodeId, preview }`. The single-node case calls `deleteNodeFromGraph` for the dry-run preview so the dialog has everything it needs. Pure — no slice reads, no I/O, no React Flow dependency.
+- [`features/workflow-builder/hooks/useCanvasNodeDeletion.ts`](../../../features/workflow-builder/hooks/useCanvasNodeDeletion.ts) — 117-line state machine. Owns `pendingDelete` state + `handleBeforeDelete` / `handleConfirm` / `handleCancel` callbacks. `handleBeforeDelete` matches ReactFlow's `OnBeforeDelete` signature (async, returns `Promise<boolean>`). On confirm: dispatches `graphSlice.deleteNodeAndRewire` and (on success) `configSlice.dropNode` to drop the per-node draft + clear `activeNodeId` — same path the inspector uses. Pure local state, no Zustand slice, follows the existing pattern from `useRightDrawer` / `useLeftAgentRail` / `useRunControls`.
+
+**Extended:**
+
+- [`features/workflow-builder/panels/DeleteNodeConfirmDialog.tsx`](../../../features/workflow-builder/panels/DeleteNodeConfirmDialog.tsx) — `node` + `preview` + `onConfirm` props become optional; new optional `multiSelectCount?: number` prop. When `multiSelectCount > 1`, the dialog renders a "Delete N nodes?" title + body explaining v1 supports one-at-a-time deletion, with a single Close button (no Confirm). Inspector callers pass `node`/`preview`/`onConfirm` and don't pass `multiSelectCount` → unchanged behavior. Canvas callers pass `multiSelectCount` for the multi-select case and `node`/`preview` for single-node. 200 lines total (was 168), well under the 500-line guardrail.
+- [`features/workflow-builder/canvas/WorkflowCanvas.tsx`](../../../features/workflow-builder/canvas/WorkflowCanvas.tsx) — `handleNodesDelete` callback deleted; `onNodesDelete={...}` removed from `<ReactFlow>`; `onBeforeDelete={handleBeforeDelete}` added. `removeNode` / `closeNode` / `dropNodeConfigDraft` slice selectors removed (the hook owns them). `useCanvasNodeDeletion()` hook mounted at the inner-canvas root. `DeleteNodeConfirmDialog` mounted conditionally when `pendingDelete !== null`, with the right prop shape for single vs multi modes. Net: -16 lines (the hook + dialog code is more concise than the inline handler + the previous selectors).
+
+**Drawer × dialog × graph behavior (verified):**
+
+| User action on canvas | onBeforeDelete result | Dialog shown | Graph after confirm | Drawer behavior |
+|---|---|---|---|---|
+| Press Delete with linear middle action selected | false (cancel) | single-node, rewire preview | A→C rewire created, B + A→B + B→C dropped | inspector closes (`activeNodeId` clears via `dropNode`) |
+| Press Delete with last action selected | false (cancel) | single-node, drop-only preview | tail dropped + incoming edge gone | inspector closes if that node was active |
+| Press Delete with router action selected | false (cancel) | single-node, BLOCKED preview ("cannot_rewire_multi_edge") | no mutation on confirm | inspector stays |
+| Press Delete with trigger selected | false (cancel) | single-node, trigger confirmation copy | trigger + outgoing edges dropped (no cascade) | inspector closes; validation surfaces `no_trigger` |
+| Press Delete with 2+ nodes selected | false (cancel) | multi-blocked ("Select one node at a time") | no mutation | no change |
+| Press Delete with only edge(s) selected | true (proceed) | none | edges dropped via `onEdgesDelete` → `removeEdge` | no change |
+| Press Delete with no selection | true (proceed) | none | no mutation | no change |
+| Inspector "Delete node" button → confirm | n/a — bypasses keyboard path | single-node (existing inspector dialog) | same rewire semantics | inspector closes |
+
+**Tests added / updated — 24 new tests:**
+
+- [`tests/unit/features/workflow-builder/utils/computeKeyboardDeleteIntent.test.ts`](../../../tests/unit/features/workflow-builder/utils/computeKeyboardDeleteIntent.test.ts) — **7 tests**: edges-only proceed, multi-select with count, 3+ select count, single linear rewire preview, single multi-edge router blocked preview, single standalone (no rewire / no warning), single unknown_node blocked preview.
+- [`tests/unit/features/workflow-builder/hooks/useCanvasNodeDeletion.test.tsx`](../../../tests/unit/features/workflow-builder/hooks/useCanvasNodeDeletion.test.tsx) — **9 tests** in 4 groups: classification (edges-only → proceed, multi-select → false + multi pendingDelete, single linear → false + single pendingDelete with rewire preview, router-style → false + single blocked preview), handleConfirm (single confirm calls `deleteNodeAndRewire` + drops draft + clears activeNodeId, multi confirm is a no-op on the graph, blocked single confirm doesn't mutate), handleCancel (clears state without mutation), and the regression-guard: **`graphSlice.removeNode` is never called from the keyboard-delete path**.
+- [`tests/unit/features/workflow-builder/panels/DeleteNodeConfirmDialog.test.tsx`](../../../tests/unit/features/workflow-builder/panels/DeleteNodeConfirmDialog.test.tsx) — **5 new tests** in a "multi-select blocked (NODE-DELETE-2)" group: title + body + single Close button, multi-select wins over an allowed single-node preview (defensive check when caller passes both), Close calls onCancel, initial focus on Close, `multiSelectCount === 1` falls through to single-node mode.
+- [`tests/unit/features/workflow-builder/canvas/WorkflowCanvas.test.tsx`](../../../tests/unit/features/workflow-builder/canvas/WorkflowCanvas.test.tsx) — **1 new baseline test**: dialog is NOT in the DOM by default (gated on `pendingDelete` state).
+- The 15 existing `DeleteNodeConfirmDialog` tests + 10 existing `NodeInspectorPanel` tests + 6 existing `WorkflowCanvas` tests + 46 existing `graphSlice` tests + 15 existing `deleteNodeFromGraph` tests — all unchanged, all pass.
+
+**Behavior preserved (verified):**
+
+- 71/71 workflow-builder unit suites pass; **1014 tests** (+8 vs NODE-DELETE-1).
+- 83/83 workflow-builder integration suites pass; 363 tests (zero regressions). Includes the existing `canvas-config-sync` integration test which **deliberately** continues to exercise `graphSlice.removeNode` directly to assert the low-level slice contract.
+- Inspector "Delete node" flow unchanged: 5 inspector affordance tests + 15 dialog tests pass without modification.
+- Add / insert behavior unchanged: 16 `AddNodePanel` tests + 5 `insertActionAtEdge` tests + 6 `WorkflowEdge` tests pass.
+- All `useUpstreamVariables` tests pass (they use `removeNode` as a graph-manipulation primitive for upstream-variable invariants).
+
+**Intentionally deferred (each documented in the helper jsdoc + here):**
+
+- **Multi-select delete with cascade.** Today multi-select is blocked. A future slice could add a "Delete N nodes" preview that shows which downstream rewires would happen across multiple nodes — but the order ambiguity needs UX work first (delete-then-rewire-then-delete-next vs delete-all-then-rewire-by-id-set).
+- **Unifying `NodeList.Remove` through the safe path.** `NodeList` is no longer mounted in production (V1-SHELL-PARITY-1). Its remove-button still calls `removeNode` raw, but it's only reachable via the preserved unit test. When `NodeList` is fully retired, the button + the file go away — no migration needed in the meantime.
+- **Toast layer for blocked / warning outcomes.** Today the blocked / warning state is communicated entirely through the modal. A toast layer would let the canvas surface success/failure briefly without modal interruption; deferred until a toast primitive is added.
+- **Deleting `graphSlice.removeNode` entirely.** Kept for low-level test helpers, the preserved `NodeList`, and the AI patch system parallel. Removing it would require a new "raw drop" primitive for `useUpstreamVariables` test scaffolding. Not worth the churn — the safety perimeter sits at the canvas layer, not the slice layer.
+
+**Gate results:**
+
+```
+$ git status --short
+ M docs/slices/phase-4/builder-ui-v1-port-plan.md
+ M features/workflow-builder/canvas/WorkflowCanvas.tsx
+ M features/workflow-builder/panels/DeleteNodeConfirmDialog.tsx
+ M tests/unit/features/workflow-builder/canvas/WorkflowCanvas.test.tsx
+ M tests/unit/features/workflow-builder/panels/DeleteNodeConfirmDialog.test.tsx
+?? features/workflow-builder/hooks/useCanvasNodeDeletion.ts
+?? features/workflow-builder/utils/computeKeyboardDeleteIntent.ts
+?? tests/unit/features/workflow-builder/hooks/useCanvasNodeDeletion.test.tsx
+?? tests/unit/features/workflow-builder/utils/computeKeyboardDeleteIntent.test.ts
+
+$ npx tsc --noEmit                          — OK (clean)
+$ npm run lint                              — OK (0 errors; 5 pre-existing warnings unrelated)
+$ npm run lint:structure                    — OK
+$ npm run lint:migrations                   — OK
+$ npx jest tests/unit/features/workflow-builder
+  Test Suites: 71 passed, 71 total
+  Tests:       1014 passed, 1014 total
+$ npx jest tests/integration/features/workflow-builder
+  Test Suites: 83 passed, 83 total
+  Tests:       363 passed, 363 total
+```
+
+### Provider / backend / billing / AI service files
+
+✅ **Zero changes.** Files touched are confined to `features/workflow-builder/`, `tests/unit/features/workflow-builder/`, and `docs/slices/phase-4/builder-ui-v1-port-plan.md`. No `app/`, `lib/`, `integrations/`, `services/`, `repositories/`, `contracts/`, or `supabase/migrations/` files modified.
+
