@@ -6,6 +6,10 @@ import {
   sanitizeAgentMessageForPersist,
   SanitizeAgentMessageError,
 } from "@/services/ai/builderAgent/sanitizeAgentMessage";
+import {
+  buildPersistenceErrorBody,
+  formatPersistenceErrorForDev,
+} from "@/core/ai/builderAgentPersistenceDiagnostics";
 import { parseJsonBody, requireUser } from "../../../../_shared";
 
 /**
@@ -89,6 +93,10 @@ export async function POST(
     );
   }
 
+  // AI-25 follow-up — log a dev-friendly diagnostic on persistence
+  // failure (missing AI-23 migration in local dev surfaces as a
+  // schema-cache error here). Return a structured 500 so the client
+  // can distinguish persistence failures from auth / validation.
   let record;
   try {
     record = await appendMessageForWorkflow({
@@ -96,9 +104,17 @@ export async function POST(
       workflowId: id,
       message: sanitized,
     });
-  } catch {
+  } catch (err) {
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+      console.error(
+        formatPersistenceErrorForDev(err, {
+          route: "POST /api/workflows/[id]/ai/thread/messages",
+          op: "append",
+        }),
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to persist Builder Agent message." },
+      buildPersistenceErrorBody(err, "Failed to persist Builder Agent message."),
       { status: 500 },
     );
   }

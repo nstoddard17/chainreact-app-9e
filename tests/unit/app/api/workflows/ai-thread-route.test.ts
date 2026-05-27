@@ -390,3 +390,111 @@ describe("POST /api/workflows/[id]/ai/thread/messages", () => {
     expect(body.error).not.toMatch(/boom/);
   });
 });
+
+// ─── Slice 4.AI-25 follow-up — missing-migration dev visibility ──────────────
+//
+// Marcus's 2026-05-27 smoke: AI-23 migration not applied locally, so the
+// repo throws "Could not find the table 'public.builder_agent_threads' in
+// the schema cache". The route now returns a structured 500 with
+// `code: "PERSISTENCE_UNAVAILABLE"` + a `migrationHint` so the client can
+// surface the supabase-db-push remediation in dev console output.
+
+describe("AI-25 follow-up — schema-cache 500 carries migrationHint", () => {
+  const schemaCacheError = new Error(
+    "Could not find the table 'public.builder_agent_threads' in the schema cache",
+  );
+  let consoleErrorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("GET /ai/thread — schema-cache miss returns 500 with PERSISTENCE_UNAVAILABLE + migrationHint", async () => {
+    mockGetById.mockResolvedValueOnce(ownedWorkflow);
+    mockGetOrCreateThread.mockRejectedValueOnce(schemaCacheError);
+    const res = await callGet("wf-1");
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as {
+      error: string;
+      code: string;
+      migrationHint?: string;
+    };
+    expect(body.code).toBe("PERSISTENCE_UNAVAILABLE");
+    expect(body.migrationHint).toContain("supabase db push");
+    expect(body.migrationHint).toContain("public.builder_agent_threads");
+    // The user-facing `error` field stays generic — it does NOT echo the
+    // raw Postgres / PostgREST text into the `error` field. (The
+    // `migrationHint` field intentionally mentions "schema cache" as
+    // part of the remediation copy — that's dev-time guidance, separate
+    // from the user-facing error.)
+    expect(body.error).toBe("Failed to load Builder Agent thread.");
+    expect(body.error).not.toContain("schema cache");
+    expect(body.error).not.toMatch(/\bSQLSTATE\b/);
+  });
+
+  it("GET /ai/thread — schema-cache miss logs a dev-friendly diagnostic via console.error", async () => {
+    mockGetById.mockResolvedValueOnce(ownedWorkflow);
+    mockGetOrCreateThread.mockRejectedValueOnce(schemaCacheError);
+    await callGet("wf-1");
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const logged = consoleErrorSpy.mock.calls[0]![0] as string;
+    expect(logged).toContain("route=GET /api/workflows/[id]/ai/thread");
+    expect(logged).toContain("op=load");
+    expect(logged).toContain("Could not find the table");
+    expect(logged).toContain("supabase db push");
+  });
+
+  it("GET /ai/thread — unrelated error still 500 but WITHOUT migrationHint", async () => {
+    mockGetById.mockResolvedValueOnce(ownedWorkflow);
+    mockGetOrCreateThread.mockRejectedValueOnce(new Error("connection refused"));
+    const res = await callGet("wf-1");
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as {
+      code: string;
+      migrationHint?: string;
+    };
+    expect(body.code).toBe("PERSISTENCE_UNAVAILABLE");
+    expect(body.migrationHint).toBeUndefined();
+  });
+
+  it("DELETE /ai/thread — schema-cache miss returns 500 + migrationHint", async () => {
+    mockGetById.mockResolvedValueOnce(ownedWorkflow);
+    mockClearThread.mockRejectedValueOnce(schemaCacheError);
+    const res = await callDelete("wf-1");
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as {
+      code: string;
+      migrationHint?: string;
+    };
+    expect(body.code).toBe("PERSISTENCE_UNAVAILABLE");
+    expect(body.migrationHint).toContain("supabase db push");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    const logged = consoleErrorSpy.mock.calls[0]![0] as string;
+    expect(logged).toContain("route=DELETE /api/workflows/[id]/ai/thread");
+    expect(logged).toContain("op=clear");
+  });
+
+  it("POST /ai/thread/messages — schema-cache miss returns 500 + migrationHint", async () => {
+    mockGetById.mockResolvedValueOnce(ownedWorkflow);
+    mockAppendMessage.mockRejectedValueOnce(schemaCacheError);
+    const res = await callAppend("wf-1", {
+      role: "user",
+      kind: "prompt",
+      content: "x",
+    });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as {
+      code: string;
+      migrationHint?: string;
+    };
+    expect(body.code).toBe("PERSISTENCE_UNAVAILABLE");
+    expect(body.migrationHint).toContain("supabase db push");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    const logged = consoleErrorSpy.mock.calls[0]![0] as string;
+    expect(logged).toContain("route=POST /api/workflows/[id]/ai/thread/messages");
+    expect(logged).toContain("op=append");
+  });
+});

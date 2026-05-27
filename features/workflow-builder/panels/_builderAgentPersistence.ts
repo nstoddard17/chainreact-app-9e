@@ -21,12 +21,58 @@
  */
 
 import {
+  AiApiError,
   appendBuilderAgentMessage,
   type AiApplyResult,
   type AiPlanResult,
   type AppendBuilderAgentMessageInput,
   type BuilderAgentPersistedMessage,
 } from "@/lib/api/ai";
+import {
+  isMissingTableError,
+  MIGRATION_HINT,
+} from "@/core/ai/builderAgentPersistenceDiagnostics";
+
+/**
+ * AI-25 follow-up — when a Builder Agent persistence API call fails,
+ * emit a dev-friendly console.warn that augments the raw error with the
+ * `supabase db push` remediation hint IFF the message looks like a
+ * PostgREST schema-cache / missing-table miss. The product UX is
+ * unchanged — fail-open behavior (no user-facing toast) is preserved.
+ */
+export function warnPersistenceFailureForDev(
+  context: string,
+  err: unknown,
+): void {
+  if (typeof console === "undefined" || typeof console.warn !== "function") return;
+  // `AiApiError` from `lib/api/ai.fetchJson` carries the server's
+  // `error` string in its message; for missing-table 500s that's the
+  // route's fallback copy ("Failed to load Builder Agent thread."),
+  // NOT the raw Postgres text — so detection from the AiApiError
+  // message alone is best-effort. We still look at `.cause` and the
+  // generic stringified error in case a future caller bubbles up the
+  // raw error.
+  const rawMessage =
+    err instanceof Error ? err.message : String(err);
+  const causeMessage =
+    err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
+  const httpStatus = err instanceof AiApiError ? err.status : undefined;
+  const looksLikeMissingTable =
+    isMissingTableError(rawMessage) ||
+    isMissingTableError(causeMessage) ||
+    // 500 from `/ai/thread/*` with no explicit body code IS suggestive in
+    // dev — the route now returns a structured 500 with `migrationHint`,
+    // but client-side fetch helpers swallow the JSON body when throwing
+    // AiApiError. Treat any 500 from this surface as a dev-time hint
+    // candidate (false-positive cost: a one-line extra log; no user UX
+    // impact since this is dev console-only).
+    httpStatus === 500;
+  if (looksLikeMissingTable) {
+    console.warn(`${context}:`, err, `\n  ${MIGRATION_HINT}`);
+  } else {
+    console.warn(`${context}:`, err);
+  }
+}
 
 export function buildPlanResultSafePayload(
   result: AiPlanResult,
@@ -117,10 +163,10 @@ export async function persistMessageBestEffort(
     return await appendBuilderAgentMessage(workflowId, input);
   } catch (err) {
     // Fail-open: persistence failure must NEVER block planning / applying.
-    // Logged at warn for dev visibility — no user-facing toast.
-    if (typeof console !== "undefined" && typeof console.warn === "function") {
-      console.warn("Builder Agent message persistence failed:", err);
-    }
+    // Logged at warn for dev visibility — no user-facing toast. AI-25
+    // follow-up augments the warn with a `supabase db push` migration
+    // hint when the error pattern matches PostgREST schema-cache miss.
+    warnPersistenceFailureForDev("Builder Agent message persistence failed", err);
     return null;
   }
 }

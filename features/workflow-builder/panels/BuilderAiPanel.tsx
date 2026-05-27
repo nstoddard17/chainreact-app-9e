@@ -21,6 +21,7 @@ import {
   buildApplySuccessSafePayload,
   buildPlanResultSafePayload,
   persistMessageBestEffort,
+  warnPersistenceFailureForDev,
 } from "./_builderAgentPersistence";
 import { BuilderAiPanelComposer } from "./_BuilderAiPanelComposer";
 import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
@@ -132,9 +133,7 @@ export function BuilderAiPanel() {
           .filter((m): m is ChatMessage => m !== null);
         if (rehydrated.length > 0) setMessages(rehydrated);
       } catch (err) {
-        if (typeof console !== "undefined" && typeof console.warn === "function") {
-          console.warn("Builder Agent thread load failed:", err);
-        }
+        warnPersistenceFailureForDev("Builder Agent thread load failed", err);
       }
     })();
     return () => {
@@ -370,9 +369,7 @@ export function BuilderAiPanel() {
     setStagedAnswers(new Map());
     ai.reset();
     void clearBuilderAgentThread(wfId).catch((err) => {
-      if (typeof console !== "undefined" && typeof console.warn === "function") {
-        console.warn("Builder Agent thread clear failed:", err);
-      }
+      warnPersistenceFailureForDev("Builder Agent thread clear failed", err);
     });
   }
 

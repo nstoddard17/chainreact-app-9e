@@ -779,6 +779,46 @@ Existing tests: the AI-20 / AI-21 / AI-21B / AI-21C / AI-22 panel + hook + helpe
 
 **Out of scope (deferred).** A dedicated "Retry" button on the error bubble (the spec mentioned it as a possibility — current UX is "click Send details again with restored state", which works without new UI surface). Different friendly-error copy per failure code (current copy says "unavailable right now", same as transport throw — adequate for RATE_LIMITED). Preserving composer on structured initial-plan failures (intentional trade-off documented above). General app help assistant (still not built; same scope guard as AI-23/AI-24).
 
+### AI-25 follow-up — missing-migration dev visibility
+
+**Live observation (Marcus, 2026-05-27).** The React Agent chat appeared to "clear on refresh" in local dev. Audit traced the cause to the AI-23 migration not being applied locally: `getOrCreateThreadForWorkflow` threw `Could not find the table 'public.builder_agent_threads' in the schema cache`, the route surfaced a generic 500 with no server log, and the client's fail-open `console.warn` showed only the raw error. A developer running the app for the first time after AI-23 had no obvious signal that the fix was `supabase db push`. The AI-23 fail-open behavior is correct for product UX (no crash, no toast), but the dev/debug path needed work.
+
+**Diagnostic helper** ([`core/ai/builderAgentPersistenceDiagnostics.ts`](../../../core/ai/builderAgentPersistenceDiagnostics.ts)). Pure module, no DB / Next / Node deps. Lives in `core/` per the V2 module-boundary rule — `features/` may import VALUES from `core/` but not from `services/`, and the diagnostic helper is consumed by both server (route) and client (`features/workflow-builder/panels/_builderAgentPersistence.ts`). Owns:
+
+- `isMissingTableError(message)` — pattern-matches PostgREST schema-cache messages (`Could not find the table … in the schema cache`, `PGRST205`), Postgres SQLSTATE `42P01`, and supabase-js `relation … does not exist`.
+- `MIGRATION_HINT` — stable string naming both tables + recommending `supabase db push` / `supabase migration up` + the dev-server restart fallback.
+- `formatPersistenceErrorForDev(err, { route, op })` — dev-friendly log line for server `console.error`. Includes the route + op prefix and (only on missing-table matches) the migration hint.
+- `buildPersistenceErrorBody(err, fallbackMessage)` — structured 500 body: `{ error, code: "PERSISTENCE_UNAVAILABLE", migrationHint? }`. `migrationHint` is non-null ONLY when the error matches a missing-table pattern. The `error` field stays generic — raw Postgres / table names / SQLSTATE never reach the user-facing error string, only `migrationHint` (dev-time only).
+
+**Route wiring** ([`/api/workflows/[id]/ai/thread/route.ts`](../../../app/api/workflows/%5Bid%5D/ai/thread/route.ts) + [`/api/workflows/[id]/ai/thread/messages/route.ts`](../../../app/api/workflows/%5Bid%5D/ai/thread/messages/route.ts)). All three repo paths (thread GET, thread DELETE, messages POST) now wrap their persistence calls in `try/catch`. On failure: log via `formatPersistenceErrorForDev` (server-side `console.error`), return `buildPersistenceErrorBody` as a structured 500. The user-facing `error` field stays the same generic copy as before — no info leak in the response.
+
+**Client warn wiring** ([`features/workflow-builder/panels/_builderAgentPersistence.ts`](../../../features/workflow-builder/panels/_builderAgentPersistence.ts) + [`BuilderAiPanel.tsx`](../../../features/workflow-builder/panels/BuilderAiPanel.tsx)). New `warnPersistenceFailureForDev(context, err)` helper. Detection looks at: (a) the raw error message via `isMissingTableError`, (b) `err.cause.message` for wrapped errors, (c) `AiApiError.status === 500` for the route-side schema-cache 500 (the `fetchJson` helper throws an `AiApiError` carrying only the server's `error` field — not the raw `migrationHint` — so HTTP status is the most reliable signal client-side). When any matches, the `console.warn` gets the `MIGRATION_HINT` appended as a third arg. False-positive cost: a one-line extra log on legitimate 500s; zero user-facing UX impact since this is dev-console-only. Replaced all three existing `console.warn` sites (thread load, thread clear, message persist) to use the new helper.
+
+**No product UX change.** Fail-open contract preserved — persistence failures still don't crash the panel, don't toast the user, don't block plan/apply. Only the dev console + server log get the new hint.
+
+**Local dev setup runbook** (added here so future developers don't repeat Marcus's debug session):
+
+1. Apply pending migrations: `supabase db push` (or `supabase migration up`).
+2. Verify the tables exist in the local DB:
+   ```sql
+   SELECT relname FROM pg_class
+   WHERE relname IN ('builder_agent_threads', 'builder_agent_messages');
+   ```
+3. If PostgREST's schema cache still reports the tables as missing after a successful migration apply, restart the local dev server (PostgREST caches the schema at process start). With the Supabase CLI: `supabase stop && supabase start`.
+4. Re-open a workflow in the Builder. The React Agent rail should load `GET /api/workflows/[id]/ai/thread` with a 200, persist new messages on submit, restore them on refresh, and DELETE them on Clear conversation.
+
+If you see the dev-console `MIGRATION_HINT` line ("Builder Agent persistence is unavailable — the public.builder_agent_threads / public.builder_agent_messages tables are missing. Run `supabase db push` …"), step 1 hasn't completed for this DB instance.
+
+**Tests added (29 new across 3 files).**
+
+- Diagnostic helper ([`builderAgentPersistenceDiagnostics.test.ts`](../../../tests/unit/core/ai/builderAgentPersistenceDiagnostics.test.ts)) — 15 cases: 7 detection cases (Marcus's exact PostgREST message, messages-table variant, bare "schema cache", PGRST205, SQLSTATE 42P01, supabase-js `relation does not exist`, unrelated-error false-cases incl. empty/undefined/null inputs); 4 format cases (with hint, without hint, non-Error throws, omits context prefix when no route/op); 3 body cases (includes hint, omits hint, never leaks Postgres detail into the user-facing `error` field); 1 MIGRATION_HINT content sanity (names both tables, recommends `supabase db push`, recommends restart).
+- Routes ([`ai-thread-route.test.ts`](../../../tests/unit/app/api/workflows/ai-thread-route.test.ts)) — 5 cases under `AI-25 follow-up — schema-cache 500 carries migrationHint`: GET schema-cache miss → 500 + PERSISTENCE_UNAVAILABLE + migrationHint (with no schema-cache / SQLSTATE leak in the `error` field); GET schema-cache miss → console.error includes route + op + supabase-db-push; GET unrelated error → 500 + PERSISTENCE_UNAVAILABLE but NO migrationHint; DELETE schema-cache miss; POST schema-cache miss.
+- Client helper ([`_builderAgentPersistence.test.ts`](../../../tests/unit/features/workflow-builder/panels/_builderAgentPersistence.test.ts)) — 9 cases: unrelated error → plain warn (no third hint arg); raw schema-cache pattern → hint appended; AiApiError(500) → hint appended (the route-side schema-cache 500 path); AiApiError(401/404) → no hint; err.cause inspection (wrapped errors); console-undefined no-op guard; `persistMessageBestEffort` success → no warn; persist 500 → warn-with-hint + returns null; persist generic error → plain warn + returns null.
+
+Existing tests unchanged: AI-23 route + repository + panel persistence suites still pass; the existing `returns 500 when persistence fails` test from AI-23 was kept (asserts the generic 500 path) — the new AI-25 cases extend it with the structured-body assertions.
+
+**Out of scope (deferred).** A dev-mode banner inside the panel itself surfacing the migration hint visually (current solution is console-only). A `lib/utils/logger`-style structured logger replacing the bare `console.error` in the routes (`logger` exists in `lib/utils/logger` for V2 but most routes still use `console`; refactor is its own slice). Detection of OTHER classes of dev-only errors (RLS-permission-denied for forgotten policies, encryption-key-missing, etc.) — easy to extend `persistenceDiagnostics` with more patterns when those surface in dev.
+
 ---
 
 ## 0. Executive summary

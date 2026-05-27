@@ -5,6 +5,10 @@ import {
   getOrCreateThreadForWorkflow,
   listMessagesForWorkflow,
 } from "@/repositories/builderAgentThreads";
+import {
+  buildPersistenceErrorBody,
+  formatPersistenceErrorForDev,
+} from "@/core/ai/builderAgentPersistenceDiagnostics";
 import { requireUser } from "../../../_shared";
 
 /**
@@ -43,11 +47,33 @@ export async function GET(
     return NextResponse.json({ error: "Workflow not found." }, { status: 404 });
   }
 
-  const thread = await getOrCreateThreadForWorkflow({
-    userId: auth.userId,
-    workflowId: id,
-  });
-  const messages = await listMessagesForWorkflow(auth.userId, id);
+  // AI-25 follow-up — repo can throw if the AI-23 migration hasn't been
+  // applied to the local DB ("Could not find the table … in the schema
+  // cache"). Log a dev-friendly diagnostic so the missing-migration cause
+  // is obvious in server output, and return a structured 500 the client
+  // can recognize (separate from auth / not-found).
+  let thread;
+  let messages;
+  try {
+    thread = await getOrCreateThreadForWorkflow({
+      userId: auth.userId,
+      workflowId: id,
+    });
+    messages = await listMessagesForWorkflow(auth.userId, id);
+  } catch (err) {
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+      console.error(
+        formatPersistenceErrorForDev(err, {
+          route: "GET /api/workflows/[id]/ai/thread",
+          op: "load",
+        }),
+      );
+    }
+    return NextResponse.json(
+      buildPersistenceErrorBody(err, "Failed to load Builder Agent thread."),
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json(
     {
@@ -87,7 +113,24 @@ export async function DELETE(
     return NextResponse.json({ error: "Workflow not found." }, { status: 404 });
   }
 
-  const result = await clearThreadForWorkflow(auth.userId, id);
+  // AI-25 follow-up — same dev-visibility treatment as GET.
+  let result;
+  try {
+    result = await clearThreadForWorkflow(auth.userId, id);
+  } catch (err) {
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+      console.error(
+        formatPersistenceErrorForDev(err, {
+          route: "DELETE /api/workflows/[id]/ai/thread",
+          op: "clear",
+        }),
+      );
+    }
+    return NextResponse.json(
+      buildPersistenceErrorBody(err, "Failed to clear Builder Agent thread."),
+      { status: 500 },
+    );
+  }
   return NextResponse.json(
     { ok: true, deletedCount: result.deletedCount },
     { status: 200 },
