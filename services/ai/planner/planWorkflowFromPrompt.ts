@@ -36,7 +36,7 @@ import { previewWorkflowPatchForAI } from "@/services/ai/preview";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import type { AiToolError } from "@/services/ai/tools/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
-import { buildWorkflowPlanRequest } from "./buildWorkflowPlanRequest";
+import { buildWorkflowPlanRequestWithAttribution } from "./buildWorkflowPlanRequest";
 import { enrichRequiredUserInputs } from "./enrichRequiredUserInputs";
 import { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 import { WORKFLOW_PLAN_TOOL } from "./workflowPlanTool";
@@ -44,6 +44,7 @@ import {
   WORKFLOW_PLAN_FEATURE,
   type ParseWorkflowPlanFailure,
   type PlanModelMetadata,
+  type PlannerPromptAttribution,
   type PlanWorkflowFailure,
   type PlanWorkflowFromPromptInput,
   type PlanWorkflowResult,
@@ -65,12 +66,17 @@ function buildModelMeta(result: ModelResult, tier: ModelTier): PlanModelMetadata
   };
 }
 
-function modelFailure(result: ModelFailure, tier: ModelTier): PlanWorkflowFailure {
+function modelFailure(
+  result: ModelFailure,
+  tier: ModelTier,
+  prompt: PlannerPromptAttribution,
+): PlanWorkflowFailure {
   return {
     ok: false,
     code: "MODEL_FAILED",
     message: `The model did not return a plan (${result.failureCode}).`,
     model: buildModelMeta(result, tier),
+    prompt,
     errors: [{ stage: "model", code: result.failureCode, message: result.message }],
     noMutation: true,
   };
@@ -79,12 +85,14 @@ function modelFailure(result: ModelFailure, tier: ModelTier): PlanWorkflowFailur
 function parseFailure(
   parsed: ParseWorkflowPlanFailure,
   model: PlanModelMetadata,
+  prompt: PlannerPromptAttribution,
 ): PlanWorkflowFailure {
   return {
     ok: false,
     code: "PARSE_FAILED",
     message: "The model response could not be parsed into a valid plan.",
     model,
+    prompt,
     errors: [{ stage: "parse", code: parsed.code, message: parsed.message }],
     noMutation: true,
   };
@@ -93,12 +101,14 @@ function parseFailure(
 function previewUnavailable(
   err: AiToolError,
   model: PlanModelMetadata,
+  prompt: PlannerPromptAttribution,
 ): PlanWorkflowFailure {
   return {
     ok: false,
     code: "PREVIEW_UNAVAILABLE",
     message: "The proposed plan could not be previewed against the workflow.",
     model,
+    prompt,
     errors: [{ stage: "preview", code: err.code, message: err.message }],
     noMutation: true,
   };
@@ -108,6 +118,7 @@ function previewUnavailable(
 function noPatchResult(
   response: WorkflowPlanResponse,
   model: PlanModelMetadata,
+  prompt: PlannerPromptAttribution,
 ): PlanWorkflowResult {
   return {
     ok: true,
@@ -122,6 +133,7 @@ function noPatchResult(
     safetyNotes: response.safetyNotes,
     canApplyLater: false,
     model,
+    prompt,
     noMutation: true,
   };
 }
@@ -141,7 +153,13 @@ export async function planWorkflowFromPromptForAI(
   //    canvas snapshot is the authoritative picture of what the user has RIGHT
   //    NOW — the server-saved `draftDefinition` may lag (e.g. user deleted
   //    nodes locally without saving).
-  const baseRequest = await buildWorkflowPlanRequest({
+  //
+  //    Slice 4.AI-28 — the WithAttribution sibling also returns a
+  //    `PlannerPromptAttribution` projection (per-section chars + structural
+  //    counts) that we thread into every result shape so `recordAiPlanOutcome`
+  //    can include it in `ai_cost_events.metadata`. No raw prompt content
+  //    leaves this function via the attribution channel.
+  const { request: baseRequest, attribution } = await buildWorkflowPlanRequestWithAttribution({
     userId,
     userRequest: prompt,
     tier,
@@ -161,20 +179,20 @@ export async function planWorkflowFromPromptForAI(
   // 2. Call the injected model client.
   const modelResult = await client.generateStructuredJson(request);
   if (!modelResult.ok) {
-    return modelFailure(modelResult, tier);
+    return modelFailure(modelResult, tier, attribution);
   }
   const model = buildModelMeta(modelResult as ModelSuccess, tier);
 
   // 3. Parse + validate the structured response (never trusts raw text).
   const parsed = parseWorkflowPlanResponse(modelResult.text);
   if (!parsed.ok) {
-    return parseFailure(parsed, model);
+    return parseFailure(parsed, model, attribution);
   }
   const response = parsed.response;
 
   // 4. No patch → surface clarification / unsupported, no preview.
   if (!response.proposedPatch) {
-    return noPatchResult(response, model);
+    return noPatchResult(response, model, attribution);
   }
 
   // 5. Reconcile target + revision: load the live workflow (ownership + NOT_FOUND
@@ -185,7 +203,7 @@ export async function planWorkflowFromPromptForAI(
   //    a PATCH_CONFLICT at AI-6 apply time, not here.
   const graphRes = await getWorkflowGraphForAI(userId, workflowId);
   if (!graphRes.ok) {
-    return previewUnavailable(graphRes, model);
+    return previewUnavailable(graphRes, model, attribution);
   }
   const patch: WorkflowPatch = {
     ...response.proposedPatch,
@@ -196,7 +214,7 @@ export async function planWorkflowFromPromptForAI(
   // 6. Deterministic preview (AI-3 validate + risk/cost + AI-4 explain).
   const previewRes = await previewWorkflowPatchForAI({ userId, workflowId, patch });
   if (!previewRes.ok) {
-    return previewUnavailable(previewRes, model);
+    return previewUnavailable(previewRes, model, attribution);
   }
   const preview = previewRes.data;
 
@@ -240,6 +258,7 @@ export async function planWorkflowFromPromptForAI(
     canApplyLater,
     ...(blockedReason ? { blockedReason } : {}),
     model,
+    prompt: attribution,
     noMutation: true,
   };
 }

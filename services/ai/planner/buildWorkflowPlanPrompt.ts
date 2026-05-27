@@ -29,9 +29,11 @@ import type {
   CatalogTriggerEntry,
   ProviderCatalogEntry,
 } from "@/services/ai/tools/providerCatalog";
-import type {
-  WorkflowPlanCostAwareness,
-  WorkflowPlanPromptInput,
+import {
+  PLANNER_PACKET_VERSION,
+  type PlannerPromptAttribution,
+  type WorkflowPlanCostAwareness,
+  type WorkflowPlanPromptInput,
 } from "./types";
 
 /** Hard constraints the model must obey. Tests pin these exact intents. */
@@ -325,17 +327,49 @@ function renderCostAwareness(cost: WorkflowPlanCostAwareness | undefined): strin
 /**
  * Build the deterministic system+user messages for a ground-up workflow plan.
  * Returns `ModelMessage[]` ready to drop into `ModelGenerateInput.messages`.
+ *
+ * Back-compat wrapper around {@link buildWorkflowPlanPromptWithAttribution}
+ * (Slice 4.AI-28). Callers that need per-section size attribution for
+ * `ai_cost_events` should use the sibling directly.
  */
 export function buildWorkflowPlanPrompt(
   input: WorkflowPlanPromptInput,
 ): ModelMessage[] {
+  return buildWorkflowPlanPromptWithAttribution(input).messages;
+}
+
+/**
+ * Slice 4.AI-28 — same deterministic output as
+ * {@link buildWorkflowPlanPrompt} plus a side-channel
+ * {@link PlannerPromptAttribution} the planner threads into
+ * `recordAiPlanOutcome` so dashboards can decompose where the input-token
+ * bill goes (catalog vs rules vs connected-integrations vs canvas vs user
+ * request) without persisting any raw prompt text.
+ *
+ * The attribution carries CHAR counts (exact, deterministic) + structural
+ * inventory counts (provider / action / trigger / field / output / canvas).
+ * NO secrets, NO raw user text, NO raw catalog content — only sizes +
+ * counts + the packet version label. Safe against the existing
+ * `sanitizeAiEventMetadata` denylist (every field name avoids
+ * `/token|secret|password|authorization|prompt|config|body|raw/i`).
+ */
+export function buildWorkflowPlanPromptWithAttribution(
+  input: WorkflowPlanPromptInput,
+): { readonly messages: ModelMessage[]; readonly attribution: PlannerPromptAttribution } {
+  const preamble =
+    "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
+  const rulesSection = `Rules:\n${PLANNER_CONSTRAINTS.map((c) => `- ${c}`).join("\n")}`;
+  const catalogSection = `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(input)}`;
+  const connectedSection = renderConnectedIntegrations(input);
+  const canvasSection = renderCurrentGraph(input);
+
   const sections: string[] = [
-    "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.",
-    `Rules:\n${PLANNER_CONSTRAINTS.map((c) => `- ${c}`).join("\n")}`,
+    preamble,
+    rulesSection,
     TEMPLATE_FUTURE_NOTE,
-    `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(input)}`,
-    renderConnectedIntegrations(input),
-    renderCurrentGraph(input),
+    catalogSection,
+    connectedSection,
+    canvasSection,
   ];
 
   const costSection = renderCostAwareness(input.costAwareness);
@@ -346,8 +380,49 @@ export function buildWorkflowPlanPrompt(
   sections.push(VALUE_SHAPE_RULES);
   sections.push(JSON_OUTPUT_RULES);
 
-  return [
-    { role: "system", content: sections.join("\n\n") },
-    { role: "user", content: input.userRequest },
+  const systemContent = sections.join("\n\n");
+  const userContent = input.userRequest;
+
+  const messages: ModelMessage[] = [
+    { role: "system", content: systemContent },
+    { role: "user", content: userContent },
   ];
+
+  const usable = input.catalog.providers.filter(isUsableProvider);
+  const catalogActionCount = usable.reduce((n, p) => n + p.actions.length, 0);
+  const catalogTriggerCount = usable.reduce((n, p) => n + p.triggers.length, 0);
+  const catalogFieldCount = usable.reduce(
+    (n, p) =>
+      n +
+      p.actions.reduce((m, a) => m + a.configFields.length, 0) +
+      p.triggers.reduce((m, t) => m + t.configFields.length, 0),
+    0,
+  );
+  const catalogOutputFieldCount = usable.reduce(
+    (n, p) =>
+      n +
+      p.actions.reduce((m, a) => m + a.outputs.length, 0) +
+      p.triggers.reduce((m, t) => m + t.outputs.length, 0),
+    0,
+  );
+
+  const attribution: PlannerPromptAttribution = {
+    packetVersion: PLANNER_PACKET_VERSION,
+    totalPacketChars: systemContent.length + userContent.length,
+    catalogChars: catalogSection.length,
+    rulesChars: rulesSection.length,
+    connectedIntegrationsChars: connectedSection.length,
+    currentCanvasChars: canvasSection.length,
+    userRequestChars: userContent.length,
+    catalogProviderCount: usable.length,
+    catalogActionCount,
+    catalogTriggerCount,
+    catalogFieldCount,
+    catalogOutputFieldCount,
+    connectedIntegrationCount: input.connectedIntegrations.length,
+    currentCanvasNodeCount: input.currentGraph?.nodes.length ?? 0,
+    currentCanvasEdgeCount: input.currentGraph?.edges.length ?? 0,
+  };
+
+  return { messages, attribution };
 }

@@ -819,6 +819,45 @@ Existing tests unchanged: AI-23 route + repository + panel persistence suites st
 
 **Out of scope (deferred).** A dev-mode banner inside the panel itself surfacing the migration hint visually (current solution is console-only). A `lib/utils/logger`-style structured logger replacing the bare `console.error` in the routes (`logger` exists in `lib/utils/logger` for V2 but most routes still use `console`; refactor is its own slice). Detection of OTHER classes of dev-only errors (RLS-permission-denied for forgotten policies, encryption-key-missing, etc.) — easy to extend `persistenceDiagnostics` with more patterns when those surface in dev.
 
+### AI-27 + AI-28 — Planner prompt packet audit + cost attribution observability
+
+**AI-27 (2026-05-27)** ([`docs/slices/phase-4/planner-prompt-packet-audit.md`](./planner-prompt-packet-audit.md)). Audit-only. Measured live planner prompt → **38,035 input tokens per plan call**, with the provider catalog accounting for **88.3%** of that (33,584 tokens across 26 providers / 286 actions / 62 triggers / 1,339 config fields / 2,250 outputs). Marcus's observed ~36k input tokens is confirmed within tokenizer variance. The single high-leverage cost lever is **provider narrowing** (deferred to AI-30); rule-compression savings are <3% and not worth touching the safety wording for. No reliability bugs, no contradictions in the no-substitution / required-field / disconnected-provider rule pairings. Recommended sequence: AI-28 (observability) → AI-29 (structured packet, no behavior change) → AI-30 (provider narrowing) → AI-31 (model-tier routing) → AI-32 (catalog cache + Anthropic prompt caching).
+
+**AI-28 (2026-05-27).** Observability-only slice. Adds per-section attribution to every plan call's `ai_cost_events` row so AI-29 / AI-30 / AI-31 / AI-32 can be measured against a hard before/after baseline.
+
+**New types** ([`services/ai/planner/types.ts`](../../../services/ai/planner/types.ts)):
+- `PLANNER_PACKET_VERSION = "workflow-planner-v1"` — bumped on any planner packet refactor so dashboards can attribute cost / quality regressions to a specific version.
+- `PlannerPromptAttribution` — `{ packetVersion, totalPacketChars, catalogChars, rulesChars, connectedIntegrationsChars, currentCanvasChars, userRequestChars, catalogProviderCount, catalogActionCount, catalogTriggerCount, catalogFieldCount, catalogOutputFieldCount, connectedIntegrationCount, currentCanvasNodeCount, currentCanvasEdgeCount }`. Char counts are exact (`String#length`); tokens are NOT stored — dashboards compute them as `inputTokens × (sectionChars / totalPacketChars)` against the authoritative top-level `inputTokens` column the model SDK already populates.
+- `estimateTokensFromChars(chars)` — heuristic helper for situations where the model API hasn't returned `inputTokens` yet (range 3.5–4.2 chars/token for Anthropic English+JSON). Used for the audit script and dev tooling; production attribution uses real `inputTokens`.
+
+**Why chars and not tokens.** The existing `sanitizeAiEventMetadata` denylist ([`services/billing/aiCostEvents.ts`](../../../services/billing/aiCostEvents.ts)) drops any metadata key matching `/token|secret|password|authorization|prompt|config|body|raw/i` as defense in depth against accidental access-token leakage. Naming a metadata field `catalogTokens` would silently drop it. Char counts have the same information content (linear in tokens, exact), avoid the denylist, and never tempt anyone to weaken the sanitizer to chase a label.
+
+**Pipeline wiring.**
+- [`buildWorkflowPlanPromptWithAttribution`](../../../services/ai/planner/buildWorkflowPlanPrompt.ts) — new sibling of `buildWorkflowPlanPrompt`; returns `{ messages, attribution }`. The original `buildWorkflowPlanPrompt` becomes a one-line wrapper for back-compat.
+- [`buildWorkflowPlanRequestWithAttribution`](../../../services/ai/planner/buildWorkflowPlanRequest.ts) — new sibling of `buildWorkflowPlanRequest`; returns `{ request, attribution }`. Original stays as a wrapper.
+- [`planWorkflowFromPromptForAI`](../../../services/ai/planner/planWorkflowFromPrompt.ts) — calls the WithAttribution variant; threads `attribution` into every result shape (`PlanWorkflowSuccess` + every `PlanWorkflowFailure` branch — `MODEL_FAILED`, `PARSE_FAILED`, `PREVIEW_UNAVAILABLE`, no-patch).
+- [`recordAiPlanOutcome`](../../../services/ai/events/recordAiRouteEvents.ts) — reads `result.prompt`, forwards `packetVersion` as the top-level `promptVersion` column (already supported by `recordAiModelCallCompleted`) AND folds the full attribution shape into the metadata blob via `promptAttributionMetadata(prompt)`. Wired on the completed-call path AND on both failed-call paths (so MODEL_FAILED and PARSE_FAILED also carry the prompt size that produced them).
+
+**No-leak guarantees.**
+- Attribution carries only NUMBERS + the version string. Zero raw user text, zero raw catalog payload, zero secret-shaped values.
+- Every attribution field name is verified against the sanitizer denylist by [`tests/unit/services/ai/planner/buildWorkflowPlanPrompt.attribution.test.ts`](../../../tests/unit/services/ai/planner/buildWorkflowPlanPrompt.attribution.test.ts) — a future rename that introduces a `token`/`secret`/`prompt`/`config` substring fails the test.
+- `recordAiPlanOutcome` tests assert the dump never contains `ya29.` / `Bearer ` / `xox[bpsr]-` / `sk-ant-` / `accessToken` / `refreshToken` / `access_token` substrings even when attribution is present.
+
+**No behavior change.** Same prompt content, same model selection, same provider catalog, same safety rules. Only the event ledger gets richer.
+
+**Tests added (29 across 2 files).**
+- `tests/unit/services/ai/planner/buildWorkflowPlanPrompt.attribution.test.ts` — 21 cases. Shape / determinism / sanitizer-safety / no-leak / estimator heuristic.
+- `tests/unit/services/ai/events/recordAiRouteEvents.test.ts` — 8 cases under `AI-28 — prompt packet attribution`. promptVersion top-level column, metadata fold on completed + MODEL_FAILED + PARSE_FAILED, back-compat path (absent attribution), denylist guard.
+- Pre-existing 173 planner tests + 27 recorder tests unchanged + still pass (back-compat verified).
+
+**Dashboard queries (post-AI-28, ready to run).** Reproduced in [`planner-prompt-packet-audit.md`](./planner-prompt-packet-audit.md) §I — examples:
+- Average input tokens per plan call by `promptVersion` (track refactor impact across AI-29 / AI-30 versions).
+- Per-section token share: `metadata->>'catalogChars' / metadata->>'totalPacketChars'`.
+- Catalog provider count distribution (sanity check after AI-30 narrowing lands).
+- Cost per successful apply (funnel-aware: divide cumulative plan cost by apply count).
+
+**Boundaries preserved.** No DB migration. No prompt content change. No provider catalog change. No model selection change. No billing / task accounting change. No workflow execution change. No general app help assistant. AI-26 persisted-thread surface unchanged. AI-AUDIT-1 contracts unchanged. `sanitizeAiEventMetadata` denylist unchanged.
+
 ### AI-AUDIT-1 + AI-26 — Strict Mode thread-load race + visibility
 
 **AI-AUDIT-1 (2026-05-27)** ([`docs/slices/phase-4/react-agent-end-to-end-audit.md`](./react-agent-end-to-end-audit.md)). End-to-end audit of the React Agent triggered by Marcus's "chat clears on refresh" report. The audit traced the bug to one logic error in `BuilderAiPanel.tsx`'s thread-load `useEffect`: `loadedForWorkflowRef.current = workflowId` was assigned BEFORE the `getBuilderAgentThread` promise resolved. In React Strict Mode dev (`next.config.mjs` has `reactStrictMode: true`), the simulated unmount cleanup flipped `cancelled = true` on the first effect's in-flight fetch, and the simulated re-mount effect saw `ref === workflowId` and early-returned without re-fetching — the cancelled fetch eventually resolved but skipped `setMessages`. The audit verdict: persistence architecture is sound (planner doesn't see persisted history, persisted plan_results render read-only, sanitization is defense-in-depth, RLS is correct, no contradictions in the no-substitution / required-field / disconnected-provider rules); the only P0 was this one effect's ref ordering.

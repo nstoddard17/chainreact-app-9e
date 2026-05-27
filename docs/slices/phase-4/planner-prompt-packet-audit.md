@@ -5,6 +5,17 @@
 **Date:** 2026-05-27
 **Audit-only.** No source / test changes. Adds one one-off measurement script under `scripts/trash/` per CLAUDE.md trash convention.
 
+> **Status update (2026-05-27, AI-28 shipped on this same branch):** the §J
+> recommendation for AI-28 (prompt packet instrumentation) has landed. Every
+> plan call now emits a `PlannerPromptAttribution` projection into
+> `ai_cost_events` — per-section char counts + structural catalog counts +
+> the `packetVersion = "workflow-planner-v1"` label, on both completed and
+> failed (MODEL_FAILED / PARSE_FAILED) calls. See [`ai-architecture-react-agent-plan.md`](./ai-architecture-react-agent-plan.md)
+> § "AI-27 + AI-28" for the implementation note. The §I dashboard queries
+> are now runnable against live data. AI-29 / AI-30 / AI-31 / AI-32 remain
+> queued; each will bump `PLANNER_PACKET_VERSION` so dashboards can A/B by
+> version.
+
 ---
 
 ## A. Executive Summary

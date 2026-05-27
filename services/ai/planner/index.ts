@@ -11,14 +11,21 @@
 
 export {
   buildWorkflowPlanPrompt,
+  buildWorkflowPlanPromptWithAttribution,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
 } from "./buildWorkflowPlanPrompt";
-export { buildWorkflowPlanRequest } from "./buildWorkflowPlanRequest";
+export {
+  buildWorkflowPlanRequest,
+  buildWorkflowPlanRequestWithAttribution,
+} from "./buildWorkflowPlanRequest";
 export { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
   WORKFLOW_PLAN_FEATURE,
+  PLANNER_PACKET_VERSION,
+  estimateTokensFromChars,
+  type PlannerPromptAttribution,
   type WorkflowPlanPromptInput,
   type WorkflowPlanRequestInput,
   type WorkflowPlanCostAwareness,

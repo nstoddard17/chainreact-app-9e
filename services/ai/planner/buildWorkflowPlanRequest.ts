@@ -22,14 +22,43 @@ import {
   type ProviderCatalogView,
 } from "@/services/ai/tools/providerCatalog";
 import type { ConnectedIntegrationView } from "@/services/ai/tools/integrations";
-import { buildWorkflowPlanPrompt } from "./buildWorkflowPlanPrompt";
-import { WORKFLOW_PLAN_FEATURE, type WorkflowPlanRequestInput } from "./types";
+import { buildWorkflowPlanPromptWithAttribution } from "./buildWorkflowPlanPrompt";
+import {
+  WORKFLOW_PLAN_FEATURE,
+  type PlannerPromptAttribution,
+  type WorkflowPlanRequestInput,
+} from "./types";
 
 const EMPTY_CATALOG: ProviderCatalogView = { providers: [] };
 
+/**
+ * Back-compat wrapper around
+ * {@link buildWorkflowPlanRequestWithAttribution} that returns the request
+ * only. Existing callers (AI-9A test paths and any non-orchestrator
+ * consumer) stay unchanged. The orchestrator
+ * (`planWorkflowFromPromptForAI`) uses the sibling so it can thread
+ * per-section attribution into `recordAiPlanOutcome` (Slice 4.AI-28).
+ */
 export async function buildWorkflowPlanRequest(
   input: WorkflowPlanRequestInput,
 ): Promise<ModelGenerateInput> {
+  return (await buildWorkflowPlanRequestWithAttribution(input)).request;
+}
+
+/**
+ * Slice 4.AI-28 — same registry-grounded `ModelGenerateInput` as
+ * {@link buildWorkflowPlanRequest} plus a {@link PlannerPromptAttribution}
+ * side-channel for cost observability. Single source of truth for the
+ * prompt being sent: the attribution is computed from the SAME section
+ * strings that get serialized into `messages[0].content`, so dashboards
+ * decomposing the input-token bill see exact char counts per section.
+ */
+export async function buildWorkflowPlanRequestWithAttribution(
+  input: WorkflowPlanRequestInput,
+): Promise<{
+  readonly request: ModelGenerateInput;
+  readonly attribution: PlannerPromptAttribution;
+}> {
   const catalogRes = getProviderCatalog();
   const catalog = catalogRes.ok ? catalogRes.data : EMPTY_CATALOG;
 
@@ -37,7 +66,7 @@ export async function buildWorkflowPlanRequest(
   const connectedIntegrations: readonly ConnectedIntegrationView[] =
     integrationsRes.ok ? integrationsRes.data.integrations : [];
 
-  const messages = buildWorkflowPlanPrompt({
+  const { messages, attribution } = buildWorkflowPlanPromptWithAttribution({
     userRequest: input.userRequest,
     catalog,
     connectedIntegrations,
@@ -52,10 +81,12 @@ export async function buildWorkflowPlanRequest(
     ? getModelForTier(input.tier)
     : getModelForFeature(WORKFLOW_PLAN_FEATURE);
 
-  return {
+  const request: ModelGenerateInput = {
     feature: WORKFLOW_PLAN_FEATURE,
     tier: input.tier ?? model.tier,
     messages,
     maxOutputTokens: model.maxOutputTokens,
   };
+
+  return { request, attribution };
 }

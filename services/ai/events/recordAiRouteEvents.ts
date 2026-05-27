@@ -28,7 +28,10 @@ import {
   type AiEventScope,
 } from "@/services/billing/aiCostEvents";
 import type { ApplyWorkflowPatchResult } from "@/services/ai/apply";
-import type { PlanWorkflowResult } from "@/services/ai/planner";
+import type {
+  PlannerPromptAttribution,
+  PlanWorkflowResult,
+} from "@/services/ai/planner";
 import type { RepairSuggestionResult } from "@/services/ai/repair";
 
 export interface AiRouteEventScope {
@@ -47,6 +50,41 @@ export interface AiRepairRouteEventScope {
 /** Registry provider for a model id (analytics dimension); undefined if unknown. */
 function providerOf(modelId: string | undefined): string | undefined {
   return modelId ? getModelById(modelId)?.provider : undefined;
+}
+
+/**
+ * Slice 4.AI-28 — fold per-section attribution into the metadata blob
+ * `recordAiModelCallCompleted` / `recordAiModelCallFailed` already write.
+ * Each key is intentionally free of the `sanitizeAiEventMetadata`
+ * denylist patterns (`/token|secret|password|authorization|prompt|config|body|raw/i`)
+ * so the sanitizer passes them through. Tokens-per-section are NOT stored
+ * — dashboards compute them as `inputTokens × (sectionChars / totalPacketChars)`
+ * against the authoritative top-level `inputTokens` column. See
+ * `docs/slices/phase-4/planner-prompt-packet-audit.md` §I.
+ *
+ * Returns `{}` when no attribution is available (legacy paths). Never
+ * throws; every value is a primitive number or string.
+ */
+function promptAttributionMetadata(
+  prompt: PlannerPromptAttribution | undefined,
+): Record<string, unknown> {
+  if (!prompt) return {};
+  return {
+    catalogChars: prompt.catalogChars,
+    rulesChars: prompt.rulesChars,
+    connectedIntegrationsChars: prompt.connectedIntegrationsChars,
+    currentCanvasChars: prompt.currentCanvasChars,
+    userRequestChars: prompt.userRequestChars,
+    totalPacketChars: prompt.totalPacketChars,
+    catalogProviderCount: prompt.catalogProviderCount,
+    catalogActionCount: prompt.catalogActionCount,
+    catalogTriggerCount: prompt.catalogTriggerCount,
+    catalogFieldCount: prompt.catalogFieldCount,
+    catalogOutputFieldCount: prompt.catalogOutputFieldCount,
+    connectedIntegrationCount: prompt.connectedIntegrationCount,
+    currentCanvasNodeCount: prompt.currentCanvasNodeCount,
+    currentCanvasEdgeCount: prompt.currentCanvasEdgeCount,
+  };
 }
 
 /**
@@ -73,6 +111,14 @@ export async function recordAiPlanOutcome(
     const model = result.model;
     const modelName = model?.modelId;
     const modelProvider = providerOf(modelName);
+    // Slice 4.AI-28 — per-section attribution. Present on every result
+    // produced after the request was built (so all PlanWorkflowResult paths
+    // except an exception thrown before `buildWorkflowPlanRequestWithAttribution`
+    // resolves). Folded into the model-call metadata blob; the top-level
+    // `promptVersion` column is set from `prompt.packetVersion`.
+    const prompt = result.prompt;
+    const promptVersion = prompt?.packetVersion;
+    const promptMeta = promptAttributionMetadata(prompt);
 
     // 2. Model event. A model-API failure and an unparseable response are both
     //    "no usable model output" — recorded as a failed call, distinguished by
@@ -82,7 +128,12 @@ export async function recordAiPlanOutcome(
         ...(modelName ? { modelName } : {}),
         ...(modelProvider ? { modelProvider } : {}),
         ...(model?.latencyMs !== undefined ? { latencyMs: model.latencyMs } : {}),
-        metadata: { stage: "model", code: result.errors[0]?.code ?? "unknown" },
+        metadata: {
+          stage: "model",
+          code: result.errors[0]?.code ?? "unknown",
+          ...(promptVersion ? { packetVersion: promptVersion } : {}),
+          ...promptMeta,
+        },
       });
       return;
     }
@@ -91,7 +142,12 @@ export async function recordAiPlanOutcome(
         ...(modelName ? { modelName } : {}),
         ...(modelProvider ? { modelProvider } : {}),
         ...(model?.latencyMs !== undefined ? { latencyMs: model.latencyMs } : {}),
-        metadata: { stage: "parse", code: result.errors[0]?.code ?? "unknown" },
+        metadata: {
+          stage: "parse",
+          code: result.errors[0]?.code ?? "unknown",
+          ...(promptVersion ? { packetVersion: promptVersion } : {}),
+          ...promptMeta,
+        },
       });
       return;
     }
@@ -101,9 +157,15 @@ export async function recordAiPlanOutcome(
       await recordAiModelCallCompleted(scope, {
         modelName: model.modelId,
         ...(modelProvider ? { modelProvider } : {}),
+        ...(promptVersion ? { promptVersion } : {}),
         ...(model.usage ? { inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens } : {}),
         ...(model.latencyMs !== undefined ? { latencyMs: model.latencyMs } : {}),
-        metadata: { tier: model.tier, finishReason: model.finishReason ?? "unknown" },
+        metadata: {
+          tier: model.tier,
+          finishReason: model.finishReason ?? "unknown",
+          ...(promptVersion ? { packetVersion: promptVersion } : {}),
+          ...promptMeta,
+        },
       });
     }
 

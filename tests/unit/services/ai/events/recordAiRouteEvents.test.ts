@@ -230,6 +230,175 @@ describe("fail-open", () => {
   });
 });
 
+describe("AI-28 — prompt packet attribution", () => {
+  const promptAttribution = {
+    packetVersion: "workflow-planner-v1",
+    totalPacketChars: 140767,
+    catalogChars: 124261,
+    rulesChars: 10021,
+    connectedIntegrationsChars: 252,
+    currentCanvasChars: 74,
+    userRequestChars: 50,
+    catalogProviderCount: 26,
+    catalogActionCount: 286,
+    catalogTriggerCount: 62,
+    catalogFieldCount: 1339,
+    catalogOutputFieldCount: 2250,
+    connectedIntegrationCount: 2,
+    currentCanvasNodeCount: 0,
+    currentCanvasEdgeCount: 0,
+  } as const;
+
+  it("forwards packetVersion as the top-level promptVersion column on a completed call", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttribution }) as never,
+    );
+    expect(recordAiModelCallCompleted).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ promptVersion: "workflow-planner-v1" }),
+    );
+  });
+
+  it("folds per-section chars + structural counts into ai_model_call_completed metadata", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttribution }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).toMatchObject({
+      packetVersion: "workflow-planner-v1",
+      catalogChars: 124261,
+      rulesChars: 10021,
+      connectedIntegrationsChars: 252,
+      currentCanvasChars: 74,
+      userRequestChars: 50,
+      totalPacketChars: 140767,
+      catalogProviderCount: 26,
+      catalogActionCount: 286,
+      catalogTriggerCount: 62,
+      catalogFieldCount: 1339,
+      catalogOutputFieldCount: 2250,
+      connectedIntegrationCount: 2,
+      currentCanvasNodeCount: 0,
+      currentCanvasEdgeCount: 0,
+      // Pre-AI-28 fields still present (regression guard).
+      tier: "strong",
+      finishReason: "stop",
+    });
+  });
+
+  it("folds attribution + packetVersion into ai_model_call_failed metadata on MODEL_FAILED", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]) as never &
+        { prompt?: typeof promptAttribution },
+    );
+    // The legacy helper omits `prompt` from planFail — re-call with one
+    // present so we cover both branches.
+    recordAiModelCallFailed.mockClear();
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      { ...planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]), prompt: promptAttribution } as never,
+    );
+    expect(recordAiModelCallFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          stage: "model",
+          code: "NOT_CONFIGURED",
+          packetVersion: "workflow-planner-v1",
+          catalogChars: 124261,
+          totalPacketChars: 140767,
+        }),
+      }),
+    );
+  });
+
+  it("folds attribution into ai_model_call_failed metadata on PARSE_FAILED", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      { ...planFail("PARSE_FAILED", [{ stage: "parse", code: "INVALID_PATCH" }]), prompt: promptAttribution } as never,
+    );
+    expect(recordAiModelCallFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          stage: "parse",
+          code: "INVALID_PATCH",
+          packetVersion: "workflow-planner-v1",
+          catalogChars: 124261,
+        }),
+      }),
+    );
+  });
+
+  it("works when prompt attribution is absent (back-compat — legacy callers)", async () => {
+    // A plan result with no `prompt` field (pre-AI-28 shape) must still
+    // record cleanly — no thrown error, no NaN, no undefined keys.
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess() as never,
+    );
+    const completedCall = recordAiModelCallCompleted.mock.calls[0]![1] as Record<string, unknown>;
+    expect(completedCall).not.toHaveProperty("promptVersion");
+    const metadata = (completedCall as { metadata: Record<string, unknown> }).metadata;
+    expect(metadata).not.toHaveProperty("packetVersion");
+    expect(metadata).not.toHaveProperty("catalogChars");
+    // Pre-AI-28 fields still recorded.
+    expect(metadata).toMatchObject({ tier: "strong", finishReason: "stop" });
+  });
+
+  it("never forwards raw prompt text or catalog content via the attribution channel", async () => {
+    // Even though planSuccess doesn't accept user-prompt content, prove
+    // that the recorder never echoes secret-shaped substrings even if a
+    // future caller stuffed a value-shaped string into prompt.* by
+    // mistake. (The attribution shape is numeric — this guard catches
+    // any future drift.)
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttribution }) as never,
+    );
+    expect(allCallArgs()).not.toMatch(/xox[bpsr]-|Bearer\s|ya29\.|sk-ant-|accessToken|refreshToken|access_token/);
+  });
+
+  it("attribution metadata keys do NOT match the sanitizer denylist", async () => {
+    // Forward-compat: assert each emitted metadata key passes the same
+    // denylist the COST-6 sanitizer enforces. A regression that renamed
+    // an attribution field to e.g. `catalogTokens` would silently drop
+    // the data; this test makes that visible.
+    const BLOCKED = [
+      /token/i,
+      /secret/i,
+      /password/i,
+      /authorization/i,
+      /api[-_]?key/i,
+      /credential/i,
+      /prompt/i,
+      /completion/i,
+      /body/i,
+      /config/i,
+      /\braw/i,
+    ];
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttribution }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    for (const key of Object.keys(metadata)) {
+      for (const re of BLOCKED) {
+        if (re.test(key)) {
+          throw new Error(
+            `Metadata key '${key}' matches sanitizer denylist /${re.source}/${re.flags} — sanitizeAiEventMetadata would drop it.`,
+          );
+        }
+      }
+    }
+  });
+});
+
 describe("no-leak", () => {
   it("never forwards raw patch config values to the recorder", async () => {
     const withSecret = planSuccess({

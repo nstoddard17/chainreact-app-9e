@@ -101,6 +101,87 @@ export interface WorkflowPlanRequestInput {
 /** The AI feature this planner emits requests under (for tier + future events). */
 export const WORKFLOW_PLAN_FEATURE: AiFeature = "creation";
 
+// ─── Slice 4.AI-28: prompt packet attribution ────────────────────────────────
+
+/**
+ * Stable identifier for the planner packet shape. Bump on any change to the
+ * `buildWorkflowPlanPrompt` section layout / rule wording / catalog
+ * rendering that would invalidate cross-version comparisons in
+ * `ai_cost_events`. AI-29 / AI-30 / AI-31 / AI-32 each bump this so cost +
+ * quality regressions can be attributed to a specific packet version.
+ */
+export const PLANNER_PACKET_VERSION = "workflow-planner-v1";
+
+/**
+ * Slice 4.AI-28 — per-section character attribution + structural counts for
+ * one planner prompt. Computed deterministically by
+ * `buildWorkflowPlanPromptWithAttribution` from the same sections that ship
+ * to the model. **NO secrets, NO raw user text, NO raw catalog content.**
+ * Each field is either a non-negative integer or a short version label.
+ *
+ * Tokens are NOT stored here because (a) the existing `ai_cost_events`
+ * metadata sanitizer drops any key matching `/token/i` as defense in depth
+ * against accidental access-token leakage, and (b) Anthropic's response
+ * already populates the authoritative `inputTokens` on
+ * `ai_model_call_completed`. Dashboards can compute per-section token
+ * attribution via `inputTokens × (sectionChars / totalPacketChars)` —
+ * exact rather than estimated.
+ *
+ * Chars are exact (`String#length`, UTF-16 code units). Anthropic's
+ * tokenization averages ~3.5–4.2 chars/token for English+JSON; the conversion
+ * is documented in
+ * `docs/slices/phase-4/planner-prompt-packet-audit.md` §M.
+ */
+export interface PlannerPromptAttribution {
+  /** Packet shape version — `PLANNER_PACKET_VERSION`. */
+  readonly packetVersion: string;
+  /** Total chars across system + user message content. */
+  readonly totalPacketChars: number;
+  /** Chars in the rendered provider catalog section. */
+  readonly catalogChars: number;
+  /** Chars in the rendered `Rules:` section (`PLANNER_CONSTRAINTS`). */
+  readonly rulesChars: number;
+  /** Chars in the rendered connected-integrations section. */
+  readonly connectedIntegrationsChars: number;
+  /** Chars in the rendered current-canvas section. */
+  readonly currentCanvasChars: number;
+  /** Chars in the user request message (verbatim user prompt). */
+  readonly userRequestChars: number;
+  /** Count of providers actually rendered in the catalog (`hasMetadata && (actions || triggers)`). */
+  readonly catalogProviderCount: number;
+  /** Total action entries rendered across all providers. */
+  readonly catalogActionCount: number;
+  /** Total trigger entries rendered across all providers. */
+  readonly catalogTriggerCount: number;
+  /** Total config-field entries (across all actions + triggers in the catalog). */
+  readonly catalogFieldCount: number;
+  /** Total declared output-field entries (across all actions + triggers in the catalog). */
+  readonly catalogOutputFieldCount: number;
+  /** Count of connected integrations rendered in the connected-integrations section. */
+  readonly connectedIntegrationCount: number;
+  /** Count of nodes in the current-canvas snapshot. */
+  readonly currentCanvasNodeCount: number;
+  /** Count of edges in the current-canvas snapshot. */
+  readonly currentCanvasEdgeCount: number;
+}
+
+/**
+ * Approximate Anthropic English/JSON tokens from an exact char count.
+ * **Heuristic only.** Use the authoritative `inputTokens` from
+ * `result.model.usage.inputTokens` for billing comparisons; use this
+ * function only for section-attribution where the model API returns a
+ * single aggregate count.
+ *
+ * Anthropic English+JSON averages ~3.7 chars/token; range observed
+ * 3.5–4.2. AI-27 measurement: 38,059 estimated vs 36,000 observed → ~6%
+ * over-count (conservative). See
+ * `docs/slices/phase-4/planner-prompt-packet-audit.md` §M.
+ */
+export function estimateTokensFromChars(chars: number): number {
+  if (!Number.isFinite(chars) || chars <= 0) return 0;
+  return Math.round(chars / 3.7);
+}
+
 // ─── Structured model response ───────────────────────────────────────────────
 
 export type PlanConfidence = "high" | "medium" | "low";
@@ -280,6 +361,14 @@ export interface PlanWorkflowSuccess {
   /** Set when a patch exists but the preview rejected it — why it's not apply-ready. */
   readonly blockedReason?: string;
   readonly model: PlanModelMetadata;
+  /**
+   * Slice 4.AI-28 — per-section character + structural attribution for the
+   * prompt that was sent to the model. Present whenever a request was built
+   * (so always on success; on failure too when the failure stage is `model`
+   * / `parse` / `preview`). Surfaced into `ai_cost_events` by
+   * `recordAiPlanOutcome`.
+   */
+  readonly prompt?: PlannerPromptAttribution;
   /** Always true — this service is read-only and never applies. */
   readonly noMutation: true;
 }
@@ -290,6 +379,11 @@ export interface PlanWorkflowFailure {
   readonly message: string;
   /** Present once the model was called (model/parse failures). */
   readonly model?: PlanModelMetadata;
+  /**
+   * Slice 4.AI-28 — per-section attribution. Always populated on failure
+   * because the request was built before the model call.
+   */
+  readonly prompt?: PlannerPromptAttribution;
   readonly errors: readonly PlanWorkflowError[];
   readonly noMutation: true;
 }
