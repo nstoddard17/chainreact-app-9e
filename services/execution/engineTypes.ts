@@ -1,0 +1,110 @@
+import type { TriggerEvent } from "@/contracts/triggerEvent";
+import type { ResolveContext } from "@/workflow-engine/variables/resolveValue";
+
+/**
+ * Public types for the workflow execution engine. Extracted from
+ * `engine.ts` (max-lines lint cleanup, AI-28 follow-up).
+ *
+ * No behavior change — `engine.ts` re-exports every type from this module
+ * so existing `import { RunResult, ... } from "@/services/execution/engine"`
+ * call sites stay working. Engine internals (the `WorkflowEngine` class,
+ * the standalone helpers in `runPersistence.ts` / `executionOrder.ts`)
+ * consume these types directly from this file.
+ */
+
+export type RunFailureCode =
+  | "WORKFLOW_NOT_FOUND"
+  | "TRIGGER_NODE_NOT_FOUND"
+  | "BILLING_EXHAUSTED"
+  | "MISSING_HANDLER"
+  | "MISSING_VARIABLE"
+  | "HANDLER_FAILED"
+  /**
+   * COST-15C — a run row already exists for this runId when the engine tried
+   * to create the pre-run row. The dispatch is a duplicate/replay; the engine
+   * refuses to re-execute (no double side effects / double billing). Not
+   * persisted — the original dispatch owns the row.
+   */
+  | "DUPLICATE_DISPATCH"
+  /**
+   * Handler returned `branchTaken: "<label>"` but no outgoing edge on this
+   * node has that label. The engine consumes this in Commit 2 (label-aware
+   * traversal); Commit 1 only adds the code + humanizer support. See
+   * docs/slices/parity/engine-branching-plan.md §3.3 + §6.1.
+   */
+  | "INVALID_BRANCH";
+
+export interface RunStepResult {
+  nodeId: string;
+  status: "succeeded" | "failed" | "skipped";
+  output?: Readonly<Record<string, unknown>>;
+  error?: { code: RunFailureCode; message: string; details?: Record<string, unknown> };
+}
+
+export interface RunResult {
+  runId: string;
+  workflowId: string;
+  status: "succeeded" | "failed";
+  steps: readonly RunStepResult[];
+  startedAt: string;
+  finishedAt: string;
+  /** Top-level failure when the run never reached the per-step loop. */
+  fatalError?: { code: RunFailureCode; message: string };
+  /** Slice 3.SEC-2 — true when engine ran in test mode (handlers gated). */
+  isTest: boolean;
+  /** Slice 3.SEC-2 — how the run was triggered. Persisted to workflow_runs. */
+  triggeredBy: RunTriggerSource;
+}
+
+/**
+ * How a run was started. Persisted into `workflow_runs.triggered_by` so
+ * post-mortems can attribute runs without inferring from `trigger_event`.
+ *
+ * - `manual`    — user clicked Run-now (real execution).
+ * - `test`      — user clicked Test (engine `testMode` true; external
+ *                 handlers short-circuited).
+ * - `webhook`   — provider webhook delivery dispatched the run.
+ * - `scheduled` — cron-triggered run.
+ * - `retry`     — a failed run was retried.
+ * - `unknown`   — pre-SEC-2 rows + any future entry path that hasn't
+ *                 declared its source yet.
+ *
+ * Kept as a TS literal union (not a Zod enum) because this is engine-
+ * internal — input validation happens at the route layer. The DB
+ * check constraint is the authoritative gate against drift.
+ */
+export type RunTriggerSource =
+  | "manual"
+  | "test"
+  | "webhook"
+  | "scheduled"
+  | "retry"
+  | "unknown";
+
+export interface RunWorkflowInput {
+  workflowId: string;
+  triggerNodeId: string;
+  triggerEvent: TriggerEvent;
+  /** Optional pre-assigned id (the dispatcher's enqueueRun supplies one). */
+  runId?: string;
+  /**
+   * Slice 3.SEC-2 — when true, the engine consults the test-mode gate
+   * before invoking each handler and short-circuits external / high-risk
+   * actions. Default: `false` (real execution). Callers that want a safe
+   * preview MUST pass `true` explicitly — the engine never silently
+   * promotes a real run to test mode.
+   */
+  testMode?: boolean;
+  /**
+   * Slice 3.SEC-2 — how the run was kicked off. Persisted to
+   * `workflow_runs.triggered_by`. Defaults to `"unknown"` when omitted.
+   * Callers (run-now route, webhook dispatcher, cron) MUST supply their
+   * own source label.
+   */
+  triggeredBy?: RunTriggerSource;
+}
+
+export interface EngineDependencies {
+  /** Injected so this slice can ship before Slice 1K.1's resolver lands. */
+  resolveStrict: (value: unknown, context: ResolveContext) => unknown;
+}

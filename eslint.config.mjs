@@ -259,4 +259,46 @@ export default [
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
+
+  // AI-28 follow-up — per-file max-lines exceptions.
+  //
+  // Hand-maintained data inventories: one entry per registered
+  // action / trigger / handler. These files exist specifically so the rest
+  // of the registry can stay small; splitting them further by alphabetical
+  // halves hurts review (the reviewer reads a single PR diff to see exactly
+  // which providers a slice covers — that's the whole point of explicit
+  // hand-maintained registration). Capped at 800 LOC to leave headroom for
+  // future providers without auto-allowing unbounded growth.
+  {
+    files: [
+      "services/discovery/_metaInventory.ts",
+      "services/execution/handlers/_handlerInventory.ts",
+    ],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 800, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
+  // services/execution/engine.ts — the canonical execution engine.
+  // After AI-28 extracted types (engineTypes.ts), persistence helpers
+  // (runPersistence.ts), and traversal helpers (executionOrder.ts), the
+  // remaining body is the WorkflowEngine class itself — a single
+  // ~500-LOC orchestrator method. Splitting that method into named phases
+  // is a real refactor that belongs in the v2-canonical-execution-engine
+  // consolidation plan (see CLAUDE.md → "v2 canonical execution engine
+  // plan"); doing it as part of a lint sweep risks subtle regressions in
+  // billing reservation / test-mode gating / failure classification.
+  // Capped at 550 to make further drift visible.
+  {
+    files: ["services/execution/engine.ts"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 550, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
 ];

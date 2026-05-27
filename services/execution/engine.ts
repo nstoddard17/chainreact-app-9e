@@ -1,18 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { TriggerEvent } from "@/contracts/triggerEvent";
-import type {
-  WorkflowDefinition,
-  WorkflowEdge,
-  WorkflowNode,
-} from "@/contracts/workflow";
-import {
-  MissingVariableError,
-  type ResolveContext,
-} from "@/workflow-engine/variables/resolveValue";
-import {
-  humanizeActionError,
-  type HumanizedError,
-} from "@/core/errors/humanizeActionError";
+import { MissingVariableError } from "@/workflow-engine/variables/resolveValue";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import {
@@ -35,7 +22,6 @@ import {
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
-import { notifyWorkflowFailure } from "@/services/notifications/notifyWorkflowFailure";
 import {
   buildOutgoingEdgeMap,
   selectActivatedEdges,
@@ -45,6 +31,33 @@ import {
   buildTestModeMockOutput,
   decideTestModeBlock,
 } from "./testModeGate";
+import {
+  classifyForPersistence,
+  finalizeRun,
+  notifyOnFailure,
+  persistRun,
+} from "./runPersistence";
+import { bfsExecutionOrder } from "./executionOrder";
+import type {
+  EngineDependencies,
+  RunFailureCode,
+  RunResult,
+  RunStepResult,
+  RunTriggerSource,
+  RunWorkflowInput,
+} from "./engineTypes";
+// Re-export the engine types so external callers can keep using
+// `import { RunResult, ... } from "@/services/execution/engine"` (no
+// caller-site change needed). The actual definitions live in
+// `engineTypes.ts` for max-lines lint hygiene.
+export type {
+  EngineDependencies,
+  RunFailureCode,
+  RunResult,
+  RunStepResult,
+  RunTriggerSource,
+  RunWorkflowInput,
+} from "./engineTypes";
 
 /**
  * Flat tasks charged per real run today (Slice 1N). Used by COST-14 shadow
@@ -81,104 +94,6 @@ const FLAT_TASKS_PER_RUN = 1;
  * error_classification (Slice 1M). Persistence failures are logged but
  * never propagate — the engine completes the run regardless.
  */
-
-export type RunFailureCode =
-  | "WORKFLOW_NOT_FOUND"
-  | "TRIGGER_NODE_NOT_FOUND"
-  | "BILLING_EXHAUSTED"
-  | "MISSING_HANDLER"
-  | "MISSING_VARIABLE"
-  | "HANDLER_FAILED"
-  /**
-   * COST-15C — a run row already exists for this runId when the engine tried
-   * to create the pre-run row. The dispatch is a duplicate/replay; the engine
-   * refuses to re-execute (no double side effects / double billing). Not
-   * persisted — the original dispatch owns the row.
-   */
-  | "DUPLICATE_DISPATCH"
-  /**
-   * Handler returned `branchTaken: "<label>"` but no outgoing edge on this
-   * node has that label. The engine consumes this in Commit 2 (label-aware
-   * traversal); Commit 1 only adds the code + humanizer support. See
-   * docs/slices/parity/engine-branching-plan.md §3.3 + §6.1.
-   */
-  | "INVALID_BRANCH";
-
-export interface RunStepResult {
-  nodeId: string;
-  status: "succeeded" | "failed" | "skipped";
-  output?: Readonly<Record<string, unknown>>;
-  error?: { code: RunFailureCode; message: string; details?: Record<string, unknown> };
-}
-
-export interface RunResult {
-  runId: string;
-  workflowId: string;
-  status: "succeeded" | "failed";
-  steps: readonly RunStepResult[];
-  startedAt: string;
-  finishedAt: string;
-  /** Top-level failure when the run never reached the per-step loop. */
-  fatalError?: { code: RunFailureCode; message: string };
-  /** Slice 3.SEC-2 — true when engine ran in test mode (handlers gated). */
-  isTest: boolean;
-  /** Slice 3.SEC-2 — how the run was triggered. Persisted to workflow_runs. */
-  triggeredBy: RunTriggerSource;
-}
-
-/**
- * How a run was started. Persisted into `workflow_runs.triggered_by` so
- * post-mortems can attribute runs without inferring from `trigger_event`.
- *
- * - `manual`    — user clicked Run-now (real execution).
- * - `test`      — user clicked Test (engine `testMode` true; external
- *                 handlers short-circuited).
- * - `webhook`   — provider webhook delivery dispatched the run.
- * - `scheduled` — cron-triggered run.
- * - `retry`     — a failed run was retried.
- * - `unknown`   — pre-SEC-2 rows + any future entry path that hasn't
- *                 declared its source yet.
- *
- * Kept as a TS literal union (not a Zod enum) because this is engine-
- * internal — input validation happens at the route layer. The DB
- * check constraint is the authoritative gate against drift.
- */
-export type RunTriggerSource =
-  | "manual"
-  | "test"
-  | "webhook"
-  | "scheduled"
-  | "retry"
-  | "unknown";
-
-export interface RunWorkflowInput {
-  workflowId: string;
-  triggerNodeId: string;
-  triggerEvent: TriggerEvent;
-  /** Optional pre-assigned id (the dispatcher's enqueueRun supplies one). */
-  runId?: string;
-  /**
-   * Slice 3.SEC-2 — when true, the engine consults the test-mode gate
-   * before invoking each handler and short-circuits external / high-risk
-   * actions. Default: `false` (real execution). Callers that want a safe
-   * preview MUST pass `true` explicitly — the engine never silently
-   * promotes a real run to test mode.
-   */
-  testMode?: boolean;
-  /**
-   * Slice 3.SEC-2 — how the run was kicked off. Persisted to
-   * `workflow_runs.triggered_by`. Defaults to `"unknown"` when omitted.
-   * Callers (run-now route, webhook dispatcher, cron) MUST supply their
-   * own source label.
-   */
-  triggeredBy?: RunTriggerSource;
-}
-
-export interface EngineDependencies {
-  /** Injected so this slice can ship before Slice 1K.1's resolver lands. */
-  resolveStrict: (value: unknown, context: ResolveContext) => unknown;
-}
-
 export class WorkflowEngine {
   constructor(private readonly deps: EngineDependencies) {}
 
@@ -773,208 +688,3 @@ export class WorkflowEngine {
  * the UI's "show what went wrong" surface; per-step error details remain
  * available inside the steps[] payload for deeper diagnostics.
  */
-async function persistRun(
-  result: RunResult,
-  userId: string,
-  workflowName: string,
-  input: RunWorkflowInput,
-  log: (event: string, extra?: Record<string, unknown>) => void,
-  usage?: RunTaskUsage | null,
-): Promise<void> {
-  const errorClassification = classifyForPersistence(result);
-  try {
-    await workflowRunsRepo.recordRun({
-      runId: result.runId,
-      workflowId: result.workflowId,
-      userId,
-      status: result.status,
-      triggerNodeId: input.triggerNodeId,
-      triggerEvent: input.triggerEvent,
-      steps: result.steps,
-      fatalError: result.fatalError ?? null,
-      errorClassification,
-      startedAt: result.startedAt,
-      finishedAt: result.finishedAt,
-      isTest: result.isTest,
-      triggeredBy: result.triggeredBy,
-      // COST-3 — null for test runs + fatal-before-execution paths.
-      estimatedTaskCost: usage ? usage.estimatedTaskCost : null,
-      actualTaskCost: usage ? usage.actualTaskCost : null,
-      taskCostPolicyVersion: usage ? usage.policyVersion : null,
-    });
-  } catch (err) {
-    log("execution.run.persist_failed", { error: (err as Error).message });
-  }
-
-  await notifyOnFailure(result, userId, workflowName, log, errorClassification);
-}
-
-/**
- * COST-15C — finalize a run by UPDATING the pre-run row created at start.
- * Falls back to a `recordRun` INSERT when the pre-run row was never created
- * (createWorkflowRunStart failed earlier) or has unexpectedly vanished, so a
- * run record is never lost. Never writes billing_status / reservation columns
- * (RPC-owned). Then runs the failure-notification fan-out. Fail-open: a
- * persistence error is logged and swallowed.
- */
-async function finalizeRun(
-  result: RunResult,
-  userId: string,
-  workflowName: string,
-  input: RunWorkflowInput,
-  log: (event: string, extra?: Record<string, unknown>) => void,
-  usage: RunTaskUsage | null,
-  preRunRowCreated: boolean,
-): Promise<void> {
-  const errorClassification = classifyForPersistence(result);
-  try {
-    let finalized = false;
-    if (preRunRowCreated) {
-      const outcome = await workflowRunsRepo.finalizeWorkflowRun({
-        runId: result.runId,
-        status: result.status,
-        steps: result.steps,
-        fatalError: result.fatalError ?? null,
-        errorClassification,
-        finishedAt: result.finishedAt,
-        // Only real runs have usage → cost columns. Test runs leave them as the
-        // create-time NULL (omitted ⇒ finalize does not overwrite).
-        ...(usage
-          ? {
-              estimatedTaskCost: usage.estimatedTaskCost,
-              actualTaskCost: usage.actualTaskCost,
-              taskCostPolicyVersion: usage.policyVersion,
-            }
-          : {}),
-      });
-      finalized = outcome.finalized;
-      if (!finalized) {
-        log("execution.run.finalize_no_row", { runId: result.runId });
-      }
-    }
-    if (!finalized) {
-      // No pre-run row (create failed) or it vanished — INSERT so the record
-      // isn't lost. This is the only path that can also INSERT at finalize.
-      await workflowRunsRepo.recordRun({
-        runId: result.runId,
-        workflowId: result.workflowId,
-        userId,
-        status: result.status,
-        triggerNodeId: input.triggerNodeId,
-        triggerEvent: input.triggerEvent,
-        steps: result.steps,
-        fatalError: result.fatalError ?? null,
-        errorClassification,
-        startedAt: result.startedAt,
-        finishedAt: result.finishedAt,
-        isTest: result.isTest,
-        triggeredBy: result.triggeredBy,
-        estimatedTaskCost: usage ? usage.estimatedTaskCost : null,
-        actualTaskCost: usage ? usage.actualTaskCost : null,
-        taskCostPolicyVersion: usage ? usage.policyVersion : null,
-      });
-    }
-  } catch (err) {
-    log("execution.run.persist_failed", { error: (err as Error).message });
-  }
-  await notifyOnFailure(result, userId, workflowName, log, errorClassification);
-}
-
-/**
- * Workflow-failure notification fan-out — shared by the INSERT (persistRun),
- * UPDATE (finalizeRun), and mark-failed (BILLING_EXHAUSTED) paths. One
- * classified event → atomic dedup claim → enabled channels. Best-effort:
- * orchestrator failures are logged, never propagated (the run already persisted;
- * the user can still see it on the workflow detail page).
- */
-async function notifyOnFailure(
-  result: RunResult,
-  userId: string,
-  workflowName: string,
-  log: (event: string, extra?: Record<string, unknown>) => void,
-  errorClassification: HumanizedError | null,
-): Promise<void> {
-  if (result.status === "failed" && errorClassification) {
-    try {
-      const outcome = await notifyWorkflowFailure({
-        userId,
-        workflowId: result.workflowId,
-        workflowName,
-        runId: result.runId,
-        errorClassification,
-      });
-      if (!outcome.claimed) {
-        log("execution.run.notify_skipped", { reason: outcome.reason });
-      }
-    } catch (err) {
-      log("execution.run.notify_failed", { error: (err as Error).message });
-    }
-  }
-}
-
-function classifyForPersistence(result: RunResult): HumanizedError | null {
-  if (result.status === "succeeded") return null;
-
-  // Prefer the first failed step (per-node specificity); fall back to the
-  // run-level fatal when no step ran.
-  const firstFailed = result.steps.find((s) => s.status === "failed");
-  if (firstFailed?.error) {
-    return humanizeActionError({
-      code: firstFailed.error.code,
-      message: firstFailed.error.message,
-      ...(firstFailed.error.details !== undefined
-        ? { details: firstFailed.error.details }
-        : {}),
-    });
-  }
-  if (result.fatalError) {
-    return humanizeActionError({
-      code: result.fatalError.code,
-      message: result.fatalError.message,
-    });
-  }
-  return null;
-}
-
-/**
- * Breadth-first execution order starting at the trigger node. The visited
- * set bounds traversal to one visit per node id, so a graph with cycles
- * still terminates (each node executes at most once per run).
- */
-function bfsExecutionOrder(
-  triggerNodeId: string,
-  def: WorkflowDefinition,
-): readonly WorkflowNode[] {
-  const adjacency = buildAdjacency(def.edges);
-  const nodesById = new Map(def.nodes.map((n) => [n.id, n]));
-  const visited = new Set<string>();
-  const order: WorkflowNode[] = [];
-  const queue: string[] = [triggerNodeId];
-
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (visited.has(id)) continue;
-    visited.add(id);
-    const node = nodesById.get(id);
-    if (node) order.push(node);
-    for (const next of adjacency.get(id) ?? []) {
-      if (!visited.has(next)) queue.push(next);
-    }
-  }
-  return order;
-}
-
-function buildAdjacency(
-  edges: readonly WorkflowEdge[],
-): ReadonlyMap<string, readonly string[]> {
-  const map = new Map<string, string[]>();
-  for (const edge of edges) {
-    let bucket = map.get(edge.from);
-    if (!bucket) {
-      bucket = [];
-      map.set(edge.from, bucket);
-    }
-    bucket.push(edge.to);
-  }
-  return map;
-}

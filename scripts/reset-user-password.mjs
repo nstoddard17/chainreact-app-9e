@@ -51,7 +51,7 @@ if (updErr) { console.error(updErr); process.exit(1); }
 
 console.log("Password updated. Verifying via signInWithPassword...");
 const anon = createClient(url, anonKey);
-const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({
+const { error: signInErr } = await anon.auth.signInWithPassword({
   email: TARGET_EMAIL,
   password: NEW_PASSWORD,
 });
