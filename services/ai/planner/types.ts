@@ -104,13 +104,23 @@ export const WORKFLOW_PLAN_FEATURE: AiFeature = "creation";
 // ─── Slice 4.AI-28: prompt packet attribution ────────────────────────────────
 
 /**
- * Stable identifier for the planner packet shape. Bump on any change to the
- * `buildWorkflowPlanPrompt` section layout / rule wording / catalog
- * rendering that would invalidate cross-version comparisons in
+ * Stable identifier for the CURRENT planner packet shape. Bump on any
+ * change to the `buildWorkflowPlanPrompt` section layout / rule wording /
+ * catalog rendering that would invalidate cross-version comparisons in
  * `ai_cost_events`. AI-29 / AI-30 / AI-31 / AI-32 each bump this so cost +
  * quality regressions can be attributed to a specific packet version.
+ *
+ * AI-29 (2026-05-27) bumped v1 → v2: structured CONTEXT PACKET JSON block
+ * + grouped CRITICAL RULES (R1..R8 named groups). Catalog rendering,
+ * connected-integrations rendering, current-canvas rendering, patch shape
+ * guide, value shape rules, and JSON output rules are unchanged from v1.
+ * Every PLANNER_CONSTRAINTS string is preserved verbatim inside its
+ * grouped rule block. Rollback to v1 via `ENABLE_STRUCTURED_PROMPT_PACKET=false`.
  */
-export const PLANNER_PACKET_VERSION = "workflow-planner-v1";
+export const PLANNER_PACKET_VERSION = "workflow-planner-v2";
+
+/** Prior packet version, kept for fallback + the rollback path. */
+export const PLANNER_PACKET_VERSION_V1 = "workflow-planner-v1";
 
 /**
  * Slice 4.AI-28 — per-section character attribution + structural counts for

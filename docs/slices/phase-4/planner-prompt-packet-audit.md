@@ -9,12 +9,25 @@
 > recommendation for AI-28 (prompt packet instrumentation) has landed. Every
 > plan call now emits a `PlannerPromptAttribution` projection into
 > `ai_cost_events` — per-section char counts + structural catalog counts +
-> the `packetVersion = "workflow-planner-v1"` label, on both completed and
-> failed (MODEL_FAILED / PARSE_FAILED) calls. See [`ai-architecture-react-agent-plan.md`](./ai-architecture-react-agent-plan.md)
+> the `packetVersion` label, on both completed and failed (MODEL_FAILED /
+> PARSE_FAILED) calls. See [`ai-architecture-react-agent-plan.md`](./ai-architecture-react-agent-plan.md)
 > § "AI-27 + AI-28" for the implementation note. The §I dashboard queries
-> are now runnable against live data. AI-29 / AI-30 / AI-31 / AI-32 remain
-> queued; each will bump `PLANNER_PACKET_VERSION` so dashboards can A/B by
-> version.
+> are now runnable against live data.
+>
+> **Status update (2026-05-27, AI-29 shipped on this same branch):** the §J
+> recommendation for AI-29 (structured packet refactor) has landed.
+> `PLANNER_PACKET_VERSION` bumped to `workflow-planner-v2`. Every plan call
+> renders a CONTEXT PACKET JSON envelope at the top of the system message
+> + groups the 19 PLANNER_CONSTRAINTS into 8 named R1..R8 rule blocks
+> (no-substitution stays in R1 for prominence). Catalog / canvas /
+> connected-integrations renderers + downstream parser / `WorkflowPatchSchema`
+> / AI-5 preview / AI-20 gate / forced tool-use are all byte-identical to
+> v1. Measured size impact: **+317 tokens (+0.83%)** vs v1 — the cost of
+> machine scannability. AI-30 remains the big cost-saving lever (provider
+> narrowing → ~70% reduction). Rollback path: `ENABLE_STRUCTURED_PROMPT_PACKET=false`
+> in env → routes to v1 builder. See § "AI-29" in the same doc for the
+> full implementation note. AI-30 / AI-31 / AI-32 remain queued; each will
+> bump `PLANNER_PACKET_VERSION` further so dashboards can A/B by version.
 
 ---
 

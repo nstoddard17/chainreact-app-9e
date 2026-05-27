@@ -819,6 +819,73 @@ Existing tests unchanged: AI-23 route + repository + panel persistence suites st
 
 **Out of scope (deferred).** A dev-mode banner inside the panel itself surfacing the migration hint visually (current solution is console-only). A `lib/utils/logger`-style structured logger replacing the bare `console.error` in the routes (`logger` exists in `lib/utils/logger` for V2 but most routes still use `console`; refactor is its own slice). Detection of OTHER classes of dev-only errors (RLS-permission-denied for forgotten policies, encryption-key-missing, etc.) — easy to extend `persistenceDiagnostics` with more patterns when those surface in dev.
 
+### AI-29 — Structured packet refactor, no behavior change
+
+**AI-29 (2026-05-27).** Reorganized the v1 prose-heavy system message into a structured packet — same catalog, same safety semantics, same downstream validation, same forced tool-use. Bumps `PLANNER_PACKET_VERSION` from `"workflow-planner-v1"` to `"workflow-planner-v2"` so AI-28 cost dashboards can A/B by version. No provider narrowing (that lands in AI-30).
+
+**Section layout (v2 system message):**
+
+1. Preamble.
+2. **CONTEXT PACKET (JSON, machine-readable)** — `{ task, promptVersion, mode, currentCanvas: {nodeCount,edgeCount}, connectedIntegrationCount, catalog: {providersIncluded, providersTotal}, constraints: {noSubstitution, noRequiredFieldGuessing, noMutationDuringPlan, nullPatchWhenBlocked, outputNamesMustBeDeclared, neverInventCredentials} }`. Counts only — no raw user request, no raw catalog payload, no integration account labels, no canvas node ids. Sanitizer-safe by construction.
+3. **CRITICAL RULES (R1..R8 named groups)** — wraps every `PLANNER_CONSTRAINTS` string verbatim:
+   - **R1** — SAFETY-CRITICAL (catalog-only + no-substitution; the no-substitution rule remains in the first group for prominence).
+   - **R2** — CURRENT CANVAS GROUNDING.
+   - **R3** — CONFIG GROUNDING (keys / value shapes / required-fill / display-label-vs-id).
+   - **R4** — VARIABLE REFERENCES MUST USE DECLARED OUTPUTS.
+   - **R5** — CONNECTED INTEGRATIONS (awareness + me-resolution).
+   - **R6** — OUTPUT FORMAT (strict JSON via tool-use).
+   - **R7** — UNKNOWN VALUES (`AI_FIELD` / `requiredUserInput` / null-over-partial).
+   - **R8** — SAFETY HYGIENE (no secrets / low-risk bias / unsupported surfaced / no echo).
+4. `TEMPLATE_FUTURE_NOTE` (unchanged from v1).
+5. Provider catalog (`renderCatalog` — **byte-identical to v1**; all 26 providers).
+6. Connected integrations (`renderConnectedIntegrations` — byte-identical to v1).
+7. Current canvas (`renderCurrentGraph` — byte-identical to v1).
+8. Optional cost awareness (unchanged).
+9. Response schema description (same content as v1, kept locally in v2 file).
+10. `PATCH_SHAPE_GUIDE` (unchanged).
+11. `VALUE_SHAPE_RULES` (unchanged).
+12. `JSON_OUTPUT_RULES` (unchanged).
+
+**Files (new + modified):**
+- [`services/ai/planner/buildWorkflowPlanPromptV2.ts`](../../../services/ai/planner/buildWorkflowPlanPromptV2.ts) — new file. Renders the CONTEXT PACKET JSON + grouped rules + reuses the v1 renderers verbatim. Returns the same `{ messages, attribution }` shape.
+- [`services/ai/planner/buildWorkflowPlanPrompt.ts`](../../../services/ai/planner/buildWorkflowPlanPrompt.ts) — v1 implementation preserved + renamed entry point to `buildWorkflowPlanPromptV1WithAttribution`. New dispatcher `buildWorkflowPlanPromptWithAttribution` routes to v2 by default; falls back to v1 when `ENABLE_STRUCTURED_PROMPT_PACKET=false`. Internal renderers (`renderCatalog`, `renderConnectedIntegrations`, `renderCurrentGraph`, `renderCostAwareness`, `isUsableProvider`, `renderActionFlags`) promoted to `export` so v2 can reuse them — single source of truth for catalog/canvas/integration shape across both versions.
+- [`services/ai/planner/types.ts`](../../../services/ai/planner/types.ts) — `PLANNER_PACKET_VERSION` bumped to `"workflow-planner-v2"`; new exported `PLANNER_PACKET_VERSION_V1 = "workflow-planner-v1"` for rollback identification.
+- [`services/ai/planner/index.ts`](../../../services/ai/planner/index.ts) — re-exports the v2 entry point + the V1 constant.
+
+**Safety preservation (the load-bearing claim):**
+- `PLANNER_CONSTRAINTS` array is unchanged; v2 just renders it as 8 named groups instead of 19 flat bullets. Every constraint string appears verbatim inside its group.
+- The no-substitution rule remains at array index 1 (within first 4) — the existing `PLANNER_CONSTRAINTS[i]` position assertion in `buildWorkflowPlanPrompt.test.ts` passes unchanged.
+- Catalog content is byte-identical (`renderCatalog` is shared).
+- Connected integrations: byte-identical render. Account labels + `me=<id>` still surface in the detailed section; CONTEXT PACKET JSON carries only the count.
+- Current canvas: byte-identical render. Node ids + provider:type pairs still surface in the detailed section; CONTEXT PACKET JSON carries only `{nodeCount, edgeCount}`.
+- `WorkflowPatchSchema`, `parseWorkflowPlanResponse`, AI-5 preview, AI-20 apply-readiness gate, AI-22 required-input enrichment — all unchanged.
+- `propose_workflow_plan` forced tool-use schema unchanged.
+
+**Cost / token impact (measured against live catalog with `scripts/trash/measure-planner-prompt.ts`):**
+
+| Scenario | v1 chars | v2 chars | Δ chars | Δ ~tokens |
+|---|---:|---:|---:|---:|
+| S0 — no integrations, empty canvas | 140,729 | 141,904 | +1,175 | +317 (+0.83%) |
+| S1 — Slack+Gmail, empty canvas | 140,767 | 141,942 | +1,175 | +317 |
+| S2 — Slack+Gmail, 2-node canvas | 140,979 | 142,152 | +1,173 | +317 |
+| S3 — 3 connected, 3-node canvas | 141,072 | 142,245 | +1,173 | +317 |
+
+**~+0.83% delta** — the cost of the CONTEXT PACKET JSON (~10 lines), R1..R8 group titles, and the "user request follows" pointer. Expected; AI-29 trades a small token bump for machine scannability. **AI-30 remains the big cost-saving lever** (~70% reduction via provider narrowing).
+
+**Attribution compatibility (AI-28 still works):**
+- Same `PlannerPromptAttribution` shape (no fields added or removed).
+- `packetVersion: "workflow-planner-v2"` on every v2 emission; `packetVersion: "workflow-planner-v1"` on rollback. `ai_cost_events.prompt_version` (top-level column) + `metadata.packetVersion` both populate.
+- Catalog / canvas / connected counts identical to v1 for the same input (proven by an explicit cross-version assertion in `buildWorkflowPlanPromptV2.test.ts`).
+- Per-section chars now reflect the v2 layout — `catalogChars` / `connectedIntegrationsChars` / `currentCanvasChars` unchanged (same renderers); `rulesChars` ~unchanged (same strings, different headers add ~600 chars); `totalPacketChars` bumped by ~1,175.
+
+**Rollback path.** Single env flag: `ENABLE_STRUCTURED_PROMPT_PACKET=false` → routes through `buildWorkflowPlanPromptV1WithAttribution`. v1 implementation lives in the codebase through one slice (AI-30); AI-30 will delete it once v2 is observed in production. No DB migration to undo. No prompt content change to revert.
+
+**Tests added (30 new in [`buildWorkflowPlanPromptV2.test.ts`](../../../tests/unit/services/ai/planner/buildWorkflowPlanPromptV2.test.ts)).** Packet version constants (2); CONTEXT PACKET JSON shape + counts + constraint flags + mode=create-vs-edit + providersIncluded==providersTotal (5); R1..R8 group titles + prominence of no-substitution + verbatim preservation of required-field discipline + display-label-vs-id + variable references + me-resolution (6); attribution.packetVersion + char-sum bound + catalog count parity vs v1 + canvas/connected count parity + determinism (5); env dispatch — default→v2, true→v2, false→v1, invalid→v2 (5); no-leak — CONTEXT PACKET never carries raw user text / account labels / canvas node ids + no secret-shaped substrings (4); v1 grounding sections preserved verbatim (3).
+
+**Pre-existing tests all still pass.** 65/65 in `buildWorkflowPlanPrompt.test.ts` (the v1 substring assertions hold against v2 rendering because PLANNER_CONSTRAINTS strings are preserved); 20/20 in `buildWorkflowPlanPrompt.attribution.test.ts` (attribution shape unchanged; the version assertion uses the `PLANNER_PACKET_VERSION` constant which now resolves to v2); 28/28 in `recordAiRouteEvents.test.ts` (fixture-provided packetVersion strings round-trip cleanly).
+
+**Boundaries preserved.** No DB migration. No prompt rule weakening. No catalog change. No model selection change. No billing / task accounting change. No workflow execution change. No general app help assistant. No provider narrowing — that's AI-30. AI-26 persisted-thread surface untouched. AI-AUDIT-1 contracts intact. `sanitizeAiEventMetadata` denylist unchanged. `WorkflowPatchSchema` + `parseWorkflowPlanResponse` + AI-5 preview + AI-20 gate + AI-22 enrichment + AI-25 retryable failures + AI-28 attribution + AI-9B apply — all unchanged.
+
 ### AI-27 + AI-28 — Planner prompt packet audit + cost attribution observability
 
 **AI-27 (2026-05-27)** ([`docs/slices/phase-4/planner-prompt-packet-audit.md`](./planner-prompt-packet-audit.md)). Audit-only. Measured live planner prompt → **38,035 input tokens per plan call**, with the provider catalog accounting for **88.3%** of that (33,584 tokens across 26 providers / 286 actions / 62 triggers / 1,339 config fields / 2,250 outputs). Marcus's observed ~36k input tokens is confirmed within tokenizer variance. The single high-leverage cost lever is **provider narrowing** (deferred to AI-30); rule-compression savings are <3% and not worth touching the safety wording for. No reliability bugs, no contradictions in the no-substitution / required-field / disconnected-provider rule pairings. Recommended sequence: AI-28 (observability) → AI-29 (structured packet, no behavior change) → AI-30 (provider narrowing) → AI-31 (model-tier routing) → AI-32 (catalog cache + Anthropic prompt caching).

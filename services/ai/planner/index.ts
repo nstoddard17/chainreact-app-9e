@@ -12,9 +12,11 @@
 export {
   buildWorkflowPlanPrompt,
   buildWorkflowPlanPromptWithAttribution,
+  buildWorkflowPlanPromptV1WithAttribution,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
 } from "./buildWorkflowPlanPrompt";
+export { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
 export {
   buildWorkflowPlanRequest,
   buildWorkflowPlanRequestWithAttribution,
@@ -24,6 +26,7 @@ export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
   WORKFLOW_PLAN_FEATURE,
   PLANNER_PACKET_VERSION,
+  PLANNER_PACKET_VERSION_V1,
   estimateTokensFromChars,
   type PlannerPromptAttribution,
   type WorkflowPlanPromptInput,

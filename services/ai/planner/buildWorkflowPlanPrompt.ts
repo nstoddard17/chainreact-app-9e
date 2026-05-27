@@ -30,11 +30,12 @@ import type {
   ProviderCatalogEntry,
 } from "@/services/ai/tools/providerCatalog";
 import {
-  PLANNER_PACKET_VERSION,
+  PLANNER_PACKET_VERSION_V1,
   type PlannerPromptAttribution,
   type WorkflowPlanCostAwareness,
   type WorkflowPlanPromptInput,
 } from "./types";
+import { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
 
 /** Hard constraints the model must obey. Tests pin these exact intents. */
 export const PLANNER_CONSTRAINTS: readonly string[] = [
@@ -160,7 +161,7 @@ export const JSON_OUTPUT_RULES = [
   "- If you are unsure or cannot complete the plan, STILL return one JSON object with proposedPatch set to null and the gaps listed in requiredUserInput.",
 ].join("\n");
 
-function renderActionFlags(a: CatalogActionEntry): string {
+export function renderActionFlags(a: CatalogActionEntry): string {
   const flags: string[] = [];
   if (a.isDestructive) flags.push("destructive");
   if (a.requiresConfirmation) flags.push("requires-confirmation");
@@ -169,7 +170,7 @@ function renderActionFlags(a: CatalogActionEntry): string {
 }
 
 /** A provider is usable only if metadata exposes at least one action or trigger. */
-function isUsableProvider(p: ProviderCatalogEntry): boolean {
+export function isUsableProvider(p: ProviderCatalogEntry): boolean {
   return p.actions.length > 0 || p.triggers.length > 0;
 }
 
@@ -255,7 +256,7 @@ function renderProvider(p: ProviderCatalogEntry): string {
   return lines.join("\n");
 }
 
-function renderCatalog(input: WorkflowPlanPromptInput): string {
+export function renderCatalog(input: WorkflowPlanPromptInput): string {
   const usable = input.catalog.providers.filter(isUsableProvider);
   if (usable.length === 0) {
     return "No providers with usable metadata are available. Only built-in logic may be used.";
@@ -263,7 +264,7 @@ function renderCatalog(input: WorkflowPlanPromptInput): string {
   return usable.map(renderProvider).join("\n");
 }
 
-function renderConnectedIntegrations(input: WorkflowPlanPromptInput): string {
+export function renderConnectedIntegrations(input: WorkflowPlanPromptInput): string {
   if (input.connectedIntegrations.length === 0) {
     return "The user has no connected integrations yet. Any action or trigger that requires an integration will need the user to connect it first — surface that via requiredUserInput (kind: select_integration) and safetyNotes.";
   }
@@ -293,7 +294,7 @@ function renderConnectedIntegrations(input: WorkflowPlanPromptInput): string {
  * canvas is empty — that prevents the model from inferring "well there must
  * have been something there before" and substituting a placeholder.
  */
-function renderCurrentGraph(input: WorkflowPlanPromptInput): string {
+export function renderCurrentGraph(input: WorkflowPlanPromptInput): string {
   const graph = input.currentGraph;
   if (!graph || graph.nodes.length === 0) {
     return "Current workflow on the canvas: (empty — no nodes on the canvas right now)";
@@ -313,7 +314,7 @@ function renderCurrentGraph(input: WorkflowPlanPromptInput): string {
   ].join("\n");
 }
 
-function renderCostAwareness(cost: WorkflowPlanCostAwareness | undefined): string | null {
+export function renderCostAwareness(cost: WorkflowPlanCostAwareness | undefined): string | null {
   if (!cost) return null;
   const parts: string[] = [];
   if (typeof cost.estimatedTasksPerRunHint === "number") {
@@ -346,6 +347,14 @@ export function buildWorkflowPlanPrompt(
  * bill goes (catalog vs rules vs connected-integrations vs canvas vs user
  * request) without persisting any raw prompt text.
  *
+ * Slice 4.AI-29 — dispatches to the structured v2 builder by default; falls
+ * back to the v1 builder when `ENABLE_STRUCTURED_PROMPT_PACKET=false` is
+ * set in the environment. Both implementations are deterministic + share
+ * the same renderers (`renderCatalog`, `renderConnectedIntegrations`,
+ * `renderCurrentGraph`, `renderCostAwareness`); only the section
+ * orchestration + rule grouping differs. The attribution shape is
+ * identical across versions — only `packetVersion` distinguishes them.
+ *
  * The attribution carries CHAR counts (exact, deterministic) + structural
  * inventory counts (provider / action / trigger / field / output / canvas).
  * NO secrets, NO raw user text, NO raw catalog content — only sizes +
@@ -354,6 +363,27 @@ export function buildWorkflowPlanPrompt(
  * `/token|secret|password|authorization|prompt|config|body|raw/i`).
  */
 export function buildWorkflowPlanPromptWithAttribution(
+  input: WorkflowPlanPromptInput,
+): { readonly messages: ModelMessage[]; readonly attribution: PlannerPromptAttribution } {
+  // AI-29 — opt-out via env. Default (env unset OR any value other than the
+  // literal string "false") is v2. The flag is read at call-time so unit
+  // tests can toggle it via `process.env.ENABLE_STRUCTURED_PROMPT_PACKET = …`
+  // without a module reload. Documented rollback path: set to "false" to
+  // restore the v1 prompt for one slice while AI-30 stabilizes.
+  if (process.env.ENABLE_STRUCTURED_PROMPT_PACKET === "false") {
+    return buildWorkflowPlanPromptV1WithAttribution(input);
+  }
+  return buildWorkflowPlanPromptV2WithAttribution(input);
+}
+
+/**
+ * Slice 4.AI-29 — the original v1 prose builder preserved for rollback +
+ * documentation. The dispatcher (`buildWorkflowPlanPromptWithAttribution`)
+ * routes to this implementation when `ENABLE_STRUCTURED_PROMPT_PACKET=false`.
+ * v2's structural changes never altered the semantic guarantees, so this
+ * path remains safe; AI-30 will delete it once v2 is observed in production.
+ */
+export function buildWorkflowPlanPromptV1WithAttribution(
   input: WorkflowPlanPromptInput,
 ): { readonly messages: ModelMessage[]; readonly attribution: PlannerPromptAttribution } {
   const preamble =
@@ -407,7 +437,7 @@ export function buildWorkflowPlanPromptWithAttribution(
   );
 
   const attribution: PlannerPromptAttribution = {
-    packetVersion: PLANNER_PACKET_VERSION,
+    packetVersion: PLANNER_PACKET_VERSION_V1,
     totalPacketChars: systemContent.length + userContent.length,
     catalogChars: catalogSection.length,
     rulesChars: rulesSection.length,
