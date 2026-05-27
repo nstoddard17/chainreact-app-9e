@@ -27,6 +27,7 @@ jest.mock("@/lib/api/discovery", () => ({
 }));
 
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NodeInspectorPanel } from "@/features/workflow-builder/panels/NodeInspectorPanel";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
@@ -105,5 +106,187 @@ describe("NodeInspectorPanel", () => {
       expect(t.getAttribute("aria-selected")).toBe("false");
       expect(t).toBeDisabled();
     }
+  });
+});
+
+// ─── Slice 4.BUILDER-NODE-DELETE-1 — delete affordance ──────────────────────
+
+function hydrateChainABC(): void {
+  useGraphSlice.getState().hydrate("wf-1", {
+    nodes: [
+      {
+        id: "a",
+        kind: "trigger",
+        provider: "slack",
+        type: "slack.message",
+        config: {},
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: "b",
+        kind: "action",
+        provider: "native",
+        type: "noop",
+        config: {},
+        position: { x: 100, y: 100 },
+      },
+      {
+        id: "c",
+        kind: "action",
+        provider: "native",
+        type: "noop",
+        config: {},
+        position: { x: 200, y: 200 },
+      },
+    ],
+    edges: [
+      { id: "e-a-b", from: "a", to: "b" },
+      { id: "e-b-c", from: "b", to: "c" },
+    ],
+  });
+}
+
+describe("NodeInspectorPanel — delete affordance", () => {
+  it("does NOT render the Delete row when no node is active", () => {
+    render(<NodeInspectorPanel />);
+    expect(screen.queryByTestId("node-inspector-delete-row")).toBeNull();
+    expect(screen.queryByTestId("node-inspector-delete-button")).toBeNull();
+  });
+
+  it("renders the Delete button once a node is hydrated + opened", () => {
+    hydrateChainABC();
+    render(<NodeInspectorPanel />);
+    act(() => {
+      useConfigSlice.getState().openNode({ nodeId: "b", initialValues: {} });
+    });
+    expect(screen.getByTestId("node-inspector-delete-button")).toBeInTheDocument();
+  });
+
+  it("clicking Delete opens the confirmation dialog with a rewire-aware preview", async () => {
+    const user = userEvent.setup();
+    hydrateChainABC();
+    render(<NodeInspectorPanel />);
+    act(() => {
+      useConfigSlice.getState().openNode({ nodeId: "b", initialValues: {} });
+    });
+    await user.click(screen.getByTestId("node-inspector-delete-button"));
+    expect(screen.getByTestId("delete-node-confirm-dialog")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("delete-node-confirm-body"),
+    ).toHaveTextContent(/new edge will be created/i);
+  });
+
+  it("Cancel closes the dialog and leaves the graph untouched", async () => {
+    const user = userEvent.setup();
+    hydrateChainABC();
+    render(<NodeInspectorPanel />);
+    act(() => {
+      useConfigSlice.getState().openNode({ nodeId: "b", initialValues: {} });
+    });
+    await user.click(screen.getByTestId("node-inspector-delete-button"));
+    await user.click(screen.getByTestId("delete-node-confirm-cancel"));
+    expect(screen.queryByTestId("delete-node-confirm-dialog")).toBeNull();
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id).sort()).toEqual(["a", "b", "c"]);
+    expect(s.pendingEdges.map((e) => e.id).sort()).toEqual(["e-a-b", "e-b-c"]);
+    expect(useConfigSlice.getState().activeNodeId).toBe("b");
+  });
+
+  it("Confirm deletes the node, rewires A→C, drops the draft, and clears activeNodeId", async () => {
+    const user = userEvent.setup();
+    hydrateChainABC();
+    render(<NodeInspectorPanel />);
+    act(() => {
+      useConfigSlice
+        .getState()
+        .openNode({ nodeId: "b", initialValues: { hello: "world" } });
+    });
+    // Sanity: draft + activeNodeId set.
+    expect(useConfigSlice.getState().activeNodeId).toBe("b");
+    expect(useConfigSlice.getState().drafts.b).toBeDefined();
+
+    await user.click(screen.getByTestId("node-inspector-delete-button"));
+    await user.click(screen.getByTestId("delete-node-confirm-confirm"));
+
+    expect(screen.queryByTestId("delete-node-confirm-dialog")).toBeNull();
+    const graph = useGraphSlice.getState();
+    expect(graph.pendingNodes.map((n) => n.id).sort()).toEqual(["a", "c"]);
+    // One rewire edge replacing both original edges.
+    expect(graph.pendingEdges).toHaveLength(1);
+    expect(graph.pendingEdges[0]).toMatchObject({ from: "a", to: "c" });
+    expect(graph.isDirty).toBe(true);
+    // Config draft + active node both cleared via dropNode.
+    const cfg = useConfigSlice.getState();
+    expect(cfg.drafts.b).toBeUndefined();
+    expect(cfg.activeNodeId).toBeNull();
+  });
+
+  it("blocked multi-edge node shows the blocked dialog and does NOT mutate state on Close", async () => {
+    const user = userEvent.setup();
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        {
+          id: "trig",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack.message",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "alt",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 0, y: 50 },
+        },
+        {
+          id: "mid",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 100, y: 100 },
+        },
+        {
+          id: "c",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 200, y: 200 },
+        },
+      ],
+      edges: [
+        { id: "e-trig-mid", from: "trig", to: "mid" },
+        { id: "e-alt-mid", from: "alt", to: "mid" },
+        { id: "e-mid-c", from: "mid", to: "c" },
+      ],
+    });
+    render(<NodeInspectorPanel />);
+    act(() => {
+      useConfigSlice.getState().openNode({ nodeId: "mid", initialValues: {} });
+    });
+    await user.click(screen.getByTestId("node-inspector-delete-button"));
+    expect(
+      screen.getByRole("heading", { name: /can't delete this node yet/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("delete-node-confirm-close")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("delete-node-confirm-confirm"),
+    ).toBeNull();
+    await user.click(screen.getByTestId("delete-node-confirm-close"));
+    expect(screen.queryByTestId("delete-node-confirm-dialog")).toBeNull();
+    // No mutation.
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id).sort()).toEqual([
+      "alt",
+      "c",
+      "mid",
+      "trig",
+    ]);
+    expect(s.pendingEdges).toHaveLength(3);
+    expect(useConfigSlice.getState().activeNodeId).toBe("mid");
   });
 });

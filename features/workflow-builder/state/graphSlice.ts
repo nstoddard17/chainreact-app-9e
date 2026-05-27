@@ -11,6 +11,11 @@ import {
   WorkflowApiError,
   updateWorkflow,
 } from "@/lib/api/workflows";
+import {
+  deleteNodeFromGraph,
+  type DeleteNodeBlockedReason,
+  type DeleteNodeWarning,
+} from "../utils/deleteNodeFromGraph";
 
 /**
  * Builder graph slice.
@@ -99,8 +104,53 @@ export interface GraphSliceActions {
    * selected edge). No-op on unknown edgeId.
    */
   removeEdge(edgeId: string): void;
+  /**
+   * Slice 4.BUILDER-NODE-DELETE-1 — safe delete with edge-rewire. Delegates
+   * to the pure `deleteNodeFromGraph` helper:
+   *
+   *   - Standalone / last / first node → drop the node + its connected edges.
+   *   - Linear middle (1 in, 1 out) → drop node + both edges, create A → C
+   *     rewire (suppressed with `warning` if it would self-loop or duplicate
+   *     an existing unlabeled edge).
+   *   - Multi-edge with both sides present (≥2 in OR ≥2 out) → blocked.
+   *     State is NOT mutated; the inspector surfaces the reason and asks the
+   *     user to disconnect manually first.
+   *
+   * Trigger deletion is allowed by this action (the caller — typically the
+   * inspector's confirmation dialog — gates it behind a confirmation step).
+   * Validation surfaces `no_trigger` afterward.
+   *
+   * Returns an outcome record so the caller can react without re-reading
+   * slice state. Never throws.
+   */
+  deleteNodeAndRewire(nodeId: string): DeleteNodeOutcome;
   save(): Promise<void>;
 }
+
+/**
+ * Outcome of `deleteNodeAndRewire`. Three shapes:
+ *
+ *   - `{ ok: true }` — node deleted; pendingNodes/pendingEdges updated;
+ *     `isDirty` flipped on. `warning` is set when the linear-rewire branch
+ *     chose to skip the rewire (self-loop or duplicate); the node was still
+ *     deleted in that case.
+ *   - `{ ok: false, reason: "unknown_node" }` — silent no-op; no state change.
+ *   - `{ ok: false, reason: "cannot_rewire_multi_edge" }` — no state change;
+ *     caller renders the `message` so the user can disconnect edges manually.
+ */
+export type DeleteNodeOutcome =
+  | {
+      readonly ok: true;
+      readonly deletedNodeId: string;
+      readonly removedEdgeIds: readonly string[];
+      readonly rewiredEdgeId: string | null;
+      readonly warning: DeleteNodeWarning | null;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: DeleteNodeBlockedReason;
+      readonly message: string;
+    };
 
 /**
  * Derive an initial config Record from a meta's field defaults.
@@ -361,6 +411,32 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       isDirty: true,
       saveError: null,
     });
+  },
+
+  deleteNodeAndRewire(nodeId) {
+    const { pendingNodes, pendingEdges } = get();
+    const result = deleteNodeFromGraph({
+      nodes: pendingNodes,
+      edges: pendingEdges,
+      nodeId,
+      newEdgeId,
+    });
+    if (!result.ok) {
+      return { ok: false, reason: result.reason, message: result.message };
+    }
+    set({
+      pendingNodes: result.nodes,
+      pendingEdges: result.edges,
+      isDirty: true,
+      saveError: null,
+    });
+    return {
+      ok: true,
+      deletedNodeId: result.deletedNode.id,
+      removedEdgeIds: result.removedEdgeIds,
+      rewiredEdgeId: result.rewiredEdgeId,
+      warning: result.warning,
+    };
   },
 
   async save() {

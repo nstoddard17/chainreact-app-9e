@@ -580,6 +580,297 @@ describe("graphSlice.connectNodes", () => {
   });
 });
 
+// ─── Slice 4.BUILDER-NODE-DELETE-1 — safe delete + rewire ────────────────────
+
+describe("graphSlice.deleteNodeAndRewire", () => {
+  function seedABC(): { aId: string; bId: string; cId: string } {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        {
+          id: "a",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack.message",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "b",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 100, y: 100 },
+        },
+        {
+          id: "c",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 200, y: 200 },
+        },
+      ],
+      edges: [
+        { id: "e-a-b", from: "a", to: "b" },
+        { id: "e-b-c", from: "b", to: "c" },
+      ],
+    });
+    return { aId: "a", bId: "b", cId: "c" };
+  }
+
+  it("deletes a middle action, rewires A → C, drops the bracketing edges, and flips dirty", () => {
+    seedABC();
+    const out = useGraphSlice.getState().deleteNodeAndRewire("b");
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.deletedNodeId).toBe("b");
+    expect(out.rewiredEdgeId).not.toBeNull();
+    expect(new Set(out.removedEdgeIds)).toEqual(new Set(["e-a-b", "e-b-c"]));
+    expect(out.warning).toBeNull();
+
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id).sort()).toEqual(["a", "c"]);
+    expect(s.pendingEdges).toHaveLength(1);
+    expect(s.pendingEdges[0]).toMatchObject({
+      from: "a",
+      to: "c",
+      id: out.rewiredEdgeId!,
+    });
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("deletes a last action with no outgoing edges, drops only the incoming edge", () => {
+    seedABC();
+    useGraphSlice.setState({ isDirty: false });
+    const out = useGraphSlice.getState().deleteNodeAndRewire("c");
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.rewiredEdgeId).toBeNull();
+    expect(out.removedEdgeIds).toEqual(["e-b-c"]);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id)).toEqual(["a", "b"]);
+    expect(s.pendingEdges.map((e) => e.id)).toEqual(["e-a-b"]);
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("deletes a standalone unconnected node — no edge changes", () => {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        {
+          id: "trig",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack.message",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "orphan",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 200, y: 200 },
+        },
+      ],
+      edges: [],
+    });
+    useGraphSlice.setState({ isDirty: false });
+    const out = useGraphSlice.getState().deleteNodeAndRewire("orphan");
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.removedEdgeIds).toEqual([]);
+    expect(out.rewiredEdgeId).toBeNull();
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id)).toEqual(["trig"]);
+    expect(s.pendingEdges).toEqual([]);
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("deletes a trigger with one outgoing edge — drops trigger + the outgoing edge (no rewire)", () => {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        {
+          id: "trig",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack.message",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "a",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 100, y: 100 },
+        },
+      ],
+      edges: [{ id: "e-trig-a", from: "trig", to: "a" }],
+    });
+    const out = useGraphSlice.getState().deleteNodeAndRewire("trig");
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.rewiredEdgeId).toBeNull();
+    expect(out.removedEdgeIds).toEqual(["e-trig-a"]);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id)).toEqual(["a"]);
+    expect(s.pendingEdges).toEqual([]);
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("blocks a multi-edge fan-in node with downstream — no state mutation", () => {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        {
+          id: "trig",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack.message",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "alt",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 0, y: 50 },
+        },
+        {
+          id: "mid",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 100, y: 100 },
+        },
+        {
+          id: "c",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 200, y: 200 },
+        },
+      ],
+      edges: [
+        { id: "e-trig-mid", from: "trig", to: "mid" },
+        { id: "e-alt-mid", from: "alt", to: "mid" },
+        { id: "e-mid-c", from: "mid", to: "c" },
+      ],
+    });
+    useGraphSlice.setState({ isDirty: false });
+    const beforeNodes = useGraphSlice.getState().pendingNodes;
+    const beforeEdges = useGraphSlice.getState().pendingEdges;
+
+    const out = useGraphSlice.getState().deleteNodeAndRewire("mid");
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.reason).toBe("cannot_rewire_multi_edge");
+    expect(out.message).toMatch(/multiple paths/i);
+
+    // No state change on blocked outcome.
+    expect(useGraphSlice.getState().pendingNodes).toBe(beforeNodes);
+    expect(useGraphSlice.getState().pendingEdges).toBe(beforeEdges);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("returns unknown_node on a ghost id — no state mutation", () => {
+    seedABC();
+    useGraphSlice.setState({ isDirty: false });
+    const beforeNodes = useGraphSlice.getState().pendingNodes;
+    const beforeEdges = useGraphSlice.getState().pendingEdges;
+    const out = useGraphSlice.getState().deleteNodeAndRewire("ghost");
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.reason).toBe("unknown_node");
+    expect(useGraphSlice.getState().pendingNodes).toBe(beforeNodes);
+    expect(useGraphSlice.getState().pendingEdges).toBe(beforeEdges);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("save() round-trips after a rewire-delete (serialization compatibility)", async () => {
+    seedABC();
+    useGraphSlice.getState().deleteNodeAndRewire("b");
+    const pending = useGraphSlice.getState().pendingNodes;
+    const pendingEdges = useGraphSlice.getState().pendingEdges;
+    mockUpdateWorkflow.mockResolvedValueOnce({
+      id: "wf-1",
+      name: "x",
+      state: "draft",
+      disabledReason: null,
+      disabledContext: null,
+      activeRevisionId: null,
+      draftDefinition: { nodes: pending, edges: pendingEdges },
+      deletedAt: null,
+      createdAt: "2026-05-06T00:00:00Z",
+      updatedAt: "2026-05-06T00:01:00Z",
+    });
+    await useGraphSlice.getState().save();
+    expect(mockUpdateWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      expect.objectContaining({
+        draftDefinition: expect.objectContaining({
+          nodes: pending,
+          edges: pendingEdges,
+        }),
+      }),
+    );
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+    expect(useGraphSlice.getState().saveError).toBeNull();
+  });
+
+  it("surfaces a warning when rewire would create a duplicate but still deletes the node", () => {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        {
+          id: "trig",
+          kind: "trigger",
+          provider: "slack",
+          type: "slack.message",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "mid",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 100, y: 100 },
+        },
+        {
+          id: "c",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 200, y: 200 },
+        },
+      ],
+      edges: [
+        { id: "e-trig-mid", from: "trig", to: "mid" },
+        { id: "e-mid-c", from: "mid", to: "c" },
+        { id: "e-trig-c", from: "trig", to: "c" },
+      ],
+    });
+    const out = useGraphSlice.getState().deleteNodeAndRewire("mid");
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.warning).toBe("rewire_would_duplicate");
+    expect(out.rewiredEdgeId).toBeNull();
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id).sort()).toEqual(["c", "trig"]);
+    expect(s.pendingEdges.map((e) => e.id)).toEqual(["e-trig-c"]);
+    expect(s.isDirty).toBe(true);
+  });
+});
+
 describe("graphSlice.removeEdge", () => {
   it("removes the edge by id and flips dirty", () => {
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);

@@ -1357,3 +1357,122 @@ docs/slices/phase-4/builder-ui-v1-port-plan.md
 ```
 
 Only the plan doc was touched in AI-18.
+
+### BUILDER-NODE-DELETE-1 outcomes (shipped 2026-05-26)
+
+Adds a safe "Delete node" affordance to the right-drawer inspector. The previous V2 builder had no in-UI delete path other than ReactFlow's keyboard-delete (selection + `Delete` key) — discoverable only to power users and incapable of rewiring around a deleted middle node, which left dangling chains. This slice closes that gap with a pure helper + slice action + inspector button + confirmation dialog. Backend / provider metadata / billing / AI service files: zero changes.
+
+**Decisions:**
+
+- **Action node — linear case (≤1 in, ≤1 out).** Rewire A → C when both sides exist; otherwise drop the node + connected edges. Two suppression cases produce a non-blocking `warning` and still delete the node:
+  - `rewire_would_self_loop` — A === C (back-edge / cycle through the deleted node). Skipping the rewire breaks the cycle, which is the intent.
+  - `rewire_would_duplicate` — an unlabeled A → C edge already exists. Mirrors `graphSlice.connectNodes`'s dedup rule; the existing edge keeps the chain connected.
+- **Action node — multi-edge case (≥2 in AND ≥1 out, OR ≥1 in AND ≥2 out).** Blocked with `cannot_rewire_multi_edge`. The user is asked to disconnect extras manually before retrying. Rationale: silently fanning out N×M rewire edges may drop branch labels (router routes), produce duplicates, or change graph semantics in ways no UI copy can summarize.
+- **Trigger node.** Allowed via the same path; confirmation copy makes the consequence explicit ("Your workflow will have no trigger until you add a replacement"). No cascade-delete of downstream actions — `collectBuilderValidationIssues` already surfaces `no_trigger`, and the user can either add a new trigger or delete the orphaned actions one by one. Cascade-delete is intentionally out of scope for v1; it would require its own confirmation flow and a "would delete N nodes" preview.
+- **Branching / router nodes.** Treated under the multi-edge rule — a router with ≥2 labeled outgoing branches blocks automatically. The user disconnects branches manually first.
+- **UI affordance.** Lives in `NodeInspectorPanel`'s footer (one place; rendered only when a node is active). Always opens a confirmation dialog — no inline "instant delete" path. Confirmation copy adapts to (a) kind, (b) whether rewire happens, (c) whether a suppression warning fired, (d) blocked-multi-edge.
+- **Canvas keyboard-delete path is unchanged.** ReactFlow's `onNodesDelete` still routes through `graphSlice.removeNode` (raw drop). Keyboard-delete is selection-driven and acceptable for the "power user" path; the inspector "Delete node" button is the safe path. Unifying them is documented as a follow-up.
+
+**Added:**
+
+- [`features/workflow-builder/utils/deleteNodeFromGraph.ts`](../../../features/workflow-builder/utils/deleteNodeFromGraph.ts) — 175-line pure helper. Inputs: `{ nodes, edges, nodeId, newEdgeId? }`. Returns a discriminated union: `{ ok: true, nodes, edges, deletedNode, removedEdgeIds, rewiredEdgeId, warning }` or `{ ok: false, reason, message }`. Pure: no slice reads, no I/O, no provider-specific branches, input arrays not mutated. `newEdgeId` defaults to `crypto.randomUUID()` with a timestamp fallback (mirrors `graphSlice`'s own pattern). Tests inject deterministic generators.
+- [`features/workflow-builder/panels/DeleteNodeConfirmDialog.tsx`](../../../features/workflow-builder/panels/DeleteNodeConfirmDialog.tsx) — 168-line presentational dialog. Two modes (allowed / blocked) driven by the `DeleteNodeFromGraphResult` `preview` prop the caller passes in. `role="dialog"` + `aria-modal="true"` + labelled-by title + describedby body. Initial focus moves to Confirm when allowed, Close when blocked. Escape calls `onCancel`. Cancel + Confirm + Close `data-testid` surface. `busy` flag disables both buttons and renames Confirm to "Deleting…".
+
+**Extended:**
+
+- [`features/workflow-builder/state/graphSlice.ts`](../../../features/workflow-builder/state/graphSlice.ts) — adds `deleteNodeAndRewire(nodeId)` action + `DeleteNodeOutcome` type. Delegates to the pure helper; on success, writes `pendingNodes` / `pendingEdges` and flips `isDirty: true`. On blocked outcomes (`unknown_node` / `cannot_rewire_multi_edge`), returns the blocked record WITHOUT mutating state. The existing `removeNode` action stays — keyboard-delete and `NodeList.Remove`-style raw-drop paths keep working. 423 lines total, well under the 500-line guardrail.
+- [`features/workflow-builder/panels/NodeInspectorPanel.tsx`](../../../features/workflow-builder/panels/NodeInspectorPanel.tsx) — adds a `DeleteNodeAffordance` private subcomponent rendered below `ConfigModalShell`. The row hosts a destructive `Delete node` button and mounts `DeleteNodeConfirmDialog` when a delete is pending. Confirmed delete dispatches `graphSlice.deleteNodeAndRewire(activeNodeId)` then `configSlice.dropNode(deletedId)` — the latter both drops the per-node draft and clears `activeNodeId`. The pre-existing `WorkflowBuilder` transition-ref effect (LEFT-AGENT-1 era) closes the right drawer when `activeNodeId` clears, so we don't touch drawer state directly. 168 lines.
+
+**Drawer × config state behavior (verified):**
+
+| User action | activeNodeId | drawer mode | configSlice draft for deleted node |
+|---|---|---|---|
+| Click Delete in inspector → confirm | X → null | inspector → closed | dropped |
+| Click Delete → blocked → Close | X (unchanged) | inspector (unchanged) | unchanged |
+| Click Delete → confirm rewire | X → null | inspector → closed | dropped |
+| Run results currently shown when delete dispatched | unchanged | unchanged (results) | n/a — inspector wasn't the active surface |
+
+No crash when ConfigModalShell is open during delete: dialog mounts over the inspector content; on confirm, the slice action runs synchronously, the configSlice clears `activeNodeId`, the parent's effect closes the drawer in the next render — the deleted node's draft is gone by the time ConfigModalShell would re-render, so it returns `null` cleanly.
+
+**Tests added / updated:**
+
+- [`tests/unit/features/workflow-builder/utils/deleteNodeFromGraph.test.ts`](../../../tests/unit/features/workflow-builder/utils/deleteNodeFromGraph.test.ts) — **15 tests** covering every documented branch:
+  - blocked: unknown_node, multi-edge fan-in with downstream, multi-edge fan-out (router-style with labels), allowed when one side empty.
+  - standalone: removes only the node.
+  - last action: drops node + incoming edges, no rewire.
+  - first action after trigger: rewires Trigger → B.
+  - trigger with outgoing edges: drops trigger + all outgoing, no rewire.
+  - linear middle: rewires A → C with fresh id.
+  - linear with self-loop: suppression, warning="rewire_would_self_loop".
+  - linear with duplicate: suppression, warning="rewire_would_duplicate".
+  - labeled-sibling duplicate guard: unlabeled rewire still proceeds.
+  - position preservation byte-for-byte.
+  - purity: input arrays not mutated.
+  - default id generator uses `crypto.randomUUID()`.
+- [`tests/unit/features/workflow-builder/state/graphSlice.test.ts`](../../../tests/unit/features/workflow-builder/state/graphSlice.test.ts) — **8 new tests** in a `graphSlice.deleteNodeAndRewire` describe block:
+  - middle action rewire + dirty flip.
+  - last action drop-only + dirty flip.
+  - standalone delete + dirty flip.
+  - trigger delete drops outgoing edge, no rewire.
+  - multi-edge block — state untouched, `isDirty` not flipped.
+  - unknown_node block — state untouched.
+  - save() round-trips after rewire (serialization compatibility — the rewire output passes `WorkflowDefinitionSchema`'s superRefine).
+  - warning surfaces when rewire would duplicate, node still deleted.
+- [`tests/unit/features/workflow-builder/panels/DeleteNodeConfirmDialog.test.tsx`](../../../tests/unit/features/workflow-builder/panels/DeleteNodeConfirmDialog.test.tsx) — **15 tests** covering chrome (testid / role / aria), allowed path (trigger vs action copy, rewire-aware body, standalone "no connected edges", duplicate-warning hint, Cancel / Confirm wiring, initial focus on Confirm, busy flag disables both buttons), blocked path (title + body copy, single Close button, no Confirm/Cancel, Close fires onCancel, initial focus on Close), and Escape closes via onCancel.
+- [`tests/unit/features/workflow-builder/panels/NodeInspectorPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/NodeInspectorPanel.test.tsx) — **5 new tests** in a "delete affordance" describe block:
+  - no Delete row when no active node.
+  - Delete button renders once a node is opened.
+  - clicking Delete opens the confirmation dialog with rewire-aware preview.
+  - Cancel closes the dialog without mutating graph or activeNodeId.
+  - Confirm deletes + rewires + drops draft + clears activeNodeId.
+  - blocked multi-edge node shows blocked dialog + Close path doesn't mutate.
+
+**Intentionally deferred:**
+
+- **Unifying canvas keyboard-delete with the safe-rewire path.** Today ReactFlow's `onNodesDelete` still routes through `graphSlice.removeNode` (raw drop). A future slice can have it route through `deleteNodeAndRewire` and surface blocked-multi-edge as a toast — but that requires a toast layer the builder doesn't have yet. Documented as the right follow-up boundary.
+- **"Force delete with cascade" mode for multi-edge nodes.** The blocked path is conservative on purpose. If a real user need surfaces (e.g. an AI agent that wants to bulk-prune a workflow), a cascade option can be added — but it needs its own confirmation flow showing the "would delete N downstream nodes" preview.
+- **Node-card context menu / hover Delete affordance.** Decided not to ship a second affordance in v1 — the inspector button is enough. Adding a context-menu later can re-use the same dialog + slice action.
+- **Undo for deletes.** Out of scope for this slice. Unsaved-edit recovery is the existing model: the user hasn't saved, so closing the tab or navigating away "undoes" the delete. A real Cmd+Z stack is a separate undo-redo slice.
+- **Bulk multi-select delete.** Out of scope. Each delete confirms one node.
+- **Wiring `BUILDER-NODE-DELETE-1` into the §8 slice table.** Deferred to a doc-only follow-up.
+
+**Behavior preserved (verified):**
+
+- All 46 `graphSlice` tests pass (38 pre-existing + 8 new).
+- All 10 `NodeInspectorPanel` tests pass (5 pre-existing + 5 new). The 4 pre-existing tests + the 1 new tab-strip test from BUILDER-DESIGN-PARITY-1 still pass — the new affordance lives below the shell, not inside it.
+- All `WorkflowBuilder` / `BuilderHeader` / `BuilderShell` / `BuilderRightDrawer` / drawer-state-machine / left-rail-state tests pass unchanged.
+- Provider-agnostic by construction — the helper, slice action, dialog, and inspector affordance contain zero provider-specific branches.
+- Workflow save serialization is compatible: `save()` round-trip after a rewire produces a definition that passes `WorkflowDefinitionSchema`'s no-self-loop + no-duplicate-edge + no-orphan-edge superRefine (verified by the new graphSlice test).
+
+**Gate results:**
+
+```
+$ git status --short
+ M docs/slices/phase-4/builder-ui-v1-port-plan.md
+ M features/workflow-builder/panels/NodeInspectorPanel.tsx
+ M features/workflow-builder/state/graphSlice.ts
+ M tests/unit/features/workflow-builder/panels/NodeInspectorPanel.test.tsx
+ M tests/unit/features/workflow-builder/state/graphSlice.test.ts
+?? features/workflow-builder/panels/DeleteNodeConfirmDialog.tsx
+?? features/workflow-builder/utils/deleteNodeFromGraph.ts
+?? tests/unit/features/workflow-builder/panels/DeleteNodeConfirmDialog.test.tsx
+?? tests/unit/features/workflow-builder/utils/deleteNodeFromGraph.test.ts
+
+$ npx tsc --noEmit                       — OK (clean)
+$ npm run lint                            — see closeout block
+$ npm run lint:structure                  — see closeout block
+$ npm run lint:migrations                 — see closeout block
+$ npx jest tests/unit/features/workflow-builder
+  Test Suites: 70 passed, 70 total
+  Tests:       1006 passed, 1006 total
+$ npx jest tests/integration/features/workflow-builder/canvas-config-sync.test.tsx
+  Test Suites: 1 passed, 1 total
+  Tests:       6 passed, 6 total
+```
+
+(See post-implementation closeout block for the lint / lint:structure / lint:migrations numbers — captured below at commit time.)
+
+### Provider / backend / billing / AI service files
+
+✅ **Zero changes.** This slice only modifies `features/workflow-builder/`, `tests/unit/features/workflow-builder/`, and `docs/slices/phase-4/builder-ui-v1-port-plan.md`. No `app/`, `lib/`, `integrations/`, `services/`, `repositories/`, `contracts/`, or `supabase/migrations/` files touched.
+
