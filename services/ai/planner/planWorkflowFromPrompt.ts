@@ -136,11 +136,16 @@ export async function planWorkflowFromPromptForAI(
   // the NOT_CONFIGURED client, so the planner still fails safe (MODEL_FAILED).
   const client = input.modelClient ?? createRuntimeModelClient({ feature, tier });
 
-  // 1. Registry-grounded request (live catalog + connected integrations, AI-8A).
+  // 1. Registry-grounded request (live catalog + connected integrations, AI-8A;
+  //    AI-24 adds the current builder-canvas snapshot from the client). The
+  //    canvas snapshot is the authoritative picture of what the user has RIGHT
+  //    NOW — the server-saved `draftDefinition` may lag (e.g. user deleted
+  //    nodes locally without saving).
   const baseRequest = await buildWorkflowPlanRequest({
     userId,
     userRequest: prompt,
     tier,
+    ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
   });
   // Slice 4.AI-19 — force structured output via Anthropic tool-use so the
   // model can never return prose that PARSE_FAILED/NOT_JSON's our parser.

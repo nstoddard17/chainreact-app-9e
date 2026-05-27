@@ -172,9 +172,33 @@ export interface AiApplyFailure {
 
 export type AiApplyResult = AiApplySuccess | AiApplyFailure;
 
+/**
+ * Slice 4.AI-24 — value-free snapshot of the user's current builder canvas
+ * (pending / unsaved). Sent with every plan request so the planner sees
+ * what the user has RIGHT NOW (the server-saved `draftDefinition` may
+ * lag — e.g. user deleted nodes locally without saving). Deliberately
+ * minimal: provider:type pairs + edges only. NO config, NO position, NO
+ * secrets.
+ */
+export interface CurrentGraphSnapshot {
+  readonly nodes: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: "trigger" | "action";
+    readonly provider: string;
+    readonly type: string;
+  }>;
+  readonly edges: ReadonlyArray<{
+    readonly id: string;
+    readonly from: string;
+    readonly to: string;
+  }>;
+}
+
 export interface PlanWorkflowRequest {
   readonly prompt: string;
   readonly modelTier?: "fast" | "strong";
+  /** Slice 4.AI-24 — current builder-canvas snapshot. See {@link CurrentGraphSnapshot}. */
+  readonly currentGraph?: CurrentGraphSnapshot;
 }
 
 export interface ApplyWorkflowPatchRequest {

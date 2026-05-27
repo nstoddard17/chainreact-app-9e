@@ -214,11 +214,14 @@ describe("safety constraints", () => {
     expect(text).toContain("must appear in that node's config");
   });
 
-  it("forbids substituting manual.run for an event-driven trigger the user asked for (AI-12D)", () => {
+  it("forbids substituting manual.run for an event-driven trigger the user asked for (AI-12D, AI-24 hardened)", () => {
+    // AI-24 promotes the AI-12D rule into a comprehensive HARD RULE near the
+    // top of the constraint list, covering trigger / action / provider
+    // substitution. The original AI-12D intents are still pinned here.
     const text = joinPrompt(makeInput()).toLowerCase();
-    expect(text).toContain("do not substitute a different trigger");
+    expect(text).toContain("never substitute a different provider, action, or trigger");
     expect(text).toContain("native:manual.run");
-    expect(text).toContain("stand-in");
+    expect(text).toContain("only when the user explicitly asked for manual");
   });
 
   // ─── Slice 4.AI-22 — required-field discipline ────────────────────────
@@ -627,12 +630,19 @@ describe("connected integrations summary", () => {
 
 describe("connected-integration awareness + me-resolution constraints (AI-17)", () => {
   it("includes the disconnected-provider awareness constraint with select_integration kind + concrete example", () => {
+    // AI-24 — the "do not silently substitute a different connected provider"
+    // language moved up into the top-of-list HARD substitution rule (covers
+    // trigger + action + provider). The connected-integration rule keeps the
+    // select_integration + "Connect Stripe" + "do not say a provider is
+    // connected when it isn't" intents; substitution prohibition is asserted
+    // separately in the AI-24 test below.
     const text = joinPrompt(makeInput()).toLowerCase();
     expect(text).toContain("connected-integration awareness");
     expect(text).toContain("`kind: \"select_integration\"`");
     expect(text).toContain("\"connect stripe\"");
     expect(text).toContain("do not say a provider is connected when it isn't");
-    expect(text).toContain("do not silently substitute a different connected provider");
+    // AI-24 — substitution prohibition lives in the top-of-list HARD rule:
+    expect(text).toContain("never substitute a different provider, action, or trigger");
   });
 
   it("instructs NOT to add select_integration for providers that ARE in the connected list", () => {
@@ -706,5 +716,142 @@ describe("no-leak", () => {
     for (const needle of forbidden) {
       expect(text).not.toContain(needle);
     }
+  });
+});
+
+// ─── Slice 4.AI-24 — no-substitution + current-canvas grounding ──────────────
+
+describe("no-substitution HARD RULE (AI-24)", () => {
+  it("appears near the top of PLANNER_CONSTRAINTS so the model sees it before the long-tail rules", () => {
+    // The rule MUST live in the first 4 entries so it has prominence over
+    // the secondary fill-discipline / id-handling / variable rules.
+    const indexes = PLANNER_CONSTRAINTS.map((c, i) =>
+      c.toLowerCase().includes("never substitute a different provider")
+        ? i
+        : -1,
+    ).filter((i) => i >= 0);
+    expect(indexes).toHaveLength(1);
+    expect(indexes[0]).toBeLessThanOrEqual(3);
+  });
+
+  it("forbids trigger substitution: Manual Trigger is not a stand-in for an event trigger", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("native:manual.run");
+    expect(text).toContain("only when the user explicitly asked for manual");
+  });
+
+  it("calls out HTTP / webhook trigger as off-limits unless explicitly requested", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("http / webhook triggers are allowed only when");
+  });
+
+  it("calls out Schedule trigger as off-limits unless explicitly requested", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("schedule / cron triggers are allowed only when");
+  });
+
+  it("forbids ACTION substitution within a provider (Slack DM != Slack channel message)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    // The rule names the Slack DM vs channel-message example verbatim so
+    // the model can't claim ignorance of the distinction.
+    expect(text).toContain("slack:send_direct_message");
+    expect(text).toContain("not `slack:send_channel_message`");
+  });
+
+  it("forbids PROVIDER substitution across providers (Gmail != Outlook)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("gmail → outlook");
+    expect(text).toContain("slack → discord");
+    expect(text).toContain("stripe → square");
+    expect(text).toContain("google drive → onedrive");
+  });
+
+  it("requires null patch + unsupportedRequests + select_integration when the requested capability is missing/disconnected", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("set proposedpatch to null");
+    expect(text).toContain("unsupportedrequests");
+    expect(text).toContain("\"connect gmail\"");
+  });
+
+  it("declares the rule non-negotiable (overrides preference for non-null patches)", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("non-negotiable");
+    expect(text).toContain("a null patch with a clear unsupported / required-setup explanation is always the right answer");
+  });
+});
+
+describe("current-workflow-on-canvas section (AI-24)", () => {
+  it("emits the explicit empty-canvas line when no currentGraph is supplied", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain(
+      "Current workflow on the canvas: (empty — no nodes on the canvas right now)",
+    );
+  });
+
+  it("emits the explicit empty-canvas line when currentGraph has zero nodes", () => {
+    const text = joinPrompt(makeInput({ currentGraph: { nodes: [], edges: [] } }));
+    expect(text).toContain(
+      "Current workflow on the canvas: (empty — no nodes on the canvas right now)",
+    );
+  });
+
+  it("renders provider:type pairs for canvas nodes WITHOUT config / position / secrets", () => {
+    const text = joinPrompt(
+      makeInput({
+        currentGraph: {
+          nodes: [
+            { id: "trig-1", kind: "trigger", provider: "native", type: "manual.run" },
+            { id: "act-1", kind: "action", provider: "slack", type: "send_channel_message" },
+          ],
+          edges: [{ id: "edge-1", from: "trig-1", to: "act-1" }],
+        },
+      }),
+    );
+    expect(text).toContain("Current workflow on the canvas");
+    expect(text).toContain("- trig-1: trigger native:manual.run");
+    expect(text).toContain("- act-1: action slack:send_channel_message");
+    expect(text).toContain("- edge-1: trig-1 → act-1");
+  });
+
+  it("labels the section authoritative AND explicitly defers to the no-substitution rule", () => {
+    const text = joinPrompt(
+      makeInput({
+        currentGraph: {
+          nodes: [
+            { id: "trig-1", kind: "trigger", provider: "native", type: "manual.run" },
+          ],
+          edges: [],
+        },
+      }),
+    );
+    expect(text.toLowerCase()).toContain("authoritative");
+    expect(text.toLowerCase()).toContain(
+      "use these as context not as license to substitute",
+    );
+  });
+
+  it("never leaks config values from canvas nodes (no-leak — the snapshot is value-free by design)", () => {
+    // The CurrentGraphSnapshot type is provider:type pairs + edges only;
+    // there is no `config` field. The renderer therefore can't accidentally
+    // surface a poisoned config. Assert the canvas-rendered slice doesn't
+    // contain secret-shaped substrings (the rest of the prompt may legitimately
+    // mention provider names like "slack" or rule examples).
+    const text = joinPrompt(
+      makeInput({
+        currentGraph: {
+          nodes: [
+            { id: "a", kind: "action", provider: "slack", type: "send_channel_message" },
+          ],
+          edges: [],
+        },
+      }),
+    );
+    // Slice ONLY the canvas-rendered section for assertion. The substring
+    // surrounding the Current-workflow header must not contain any secret-
+    // shaped token (the renderer doesn't emit them; this guards regression).
+    const start = text.indexOf("Current workflow on the canvas");
+    const end = text.indexOf("\n\n", start);
+    const section = text.slice(start, end === -1 ? text.length : end);
+    expect(section).not.toMatch(/xox[bpsr]-|Bearer\s|ya29\.|sk-ant-|accessToken|refreshToken/);
   });
 });

@@ -354,3 +354,85 @@ describe("useBuilderAi — follow-up chain (AI-21)", () => {
     expect(reconstructed).not.toContain("patchId");
   });
 });
+
+// ─── Slice 4.AI-24 — currentGraph snapshot pass-through ──────────────────────
+
+describe("useBuilderAi — currentGraph (AI-24)", () => {
+  const sampleSnapshot = {
+    nodes: [
+      {
+        id: "trig-1",
+        kind: "trigger" as const,
+        provider: "gmail",
+        type: "new_email",
+      },
+    ],
+    edges: [],
+  };
+
+  it("forwards currentGraph to planWorkflow on plan()", async () => {
+    mockPlan.mockResolvedValueOnce(applyReadyResponse);
+    const { result } = renderHook(() =>
+      useBuilderAi({ workflowId: "wf-1" }),
+    );
+    await act(async () => {
+      await result.current.plan("Send a Slack message when I get an email", undefined, {
+        currentGraph: sampleSnapshot,
+      });
+    });
+    expect(mockPlan).toHaveBeenCalledWith("wf-1", {
+      prompt: "Send a Slack message when I get an email",
+      currentGraph: sampleSnapshot,
+    });
+  });
+
+  it("omits currentGraph from the body when the caller doesn't supply it", async () => {
+    mockPlan.mockResolvedValueOnce(applyReadyResponse);
+    const { result } = renderHook(() =>
+      useBuilderAi({ workflowId: "wf-1" }),
+    );
+    await act(async () => {
+      await result.current.plan("Just a prompt");
+    });
+    const [, body] = mockPlan.mock.calls[0]!;
+    expect(body).toEqual({ prompt: "Just a prompt" });
+    expect(body).not.toHaveProperty("currentGraph");
+  });
+
+  it("forwards currentGraph to planWorkflow on submitFollowUp()", async () => {
+    // Start a chain so submitFollowUp's guards pass.
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    const { result } = renderHook(() =>
+      useBuilderAi({ workflowId: "wf-1" }),
+    );
+    await act(async () => {
+      await result.current.plan("first prompt");
+    });
+    // The follow-up call sends the canvas snapshot too.
+    mockPlan.mockResolvedValueOnce(applyReadyResponse);
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general", undefined, {
+        currentGraph: sampleSnapshot,
+      });
+    });
+    const [, followUpBody] = mockPlan.mock.calls[1]!;
+    expect(followUpBody).toMatchObject({ currentGraph: sampleSnapshot });
+  });
+
+  it("forwards an EMPTY-canvas snapshot verbatim (does not omit)", async () => {
+    mockPlan.mockResolvedValueOnce(applyReadyResponse);
+    const { result } = renderHook(() =>
+      useBuilderAi({ workflowId: "wf-1" }),
+    );
+    const empty = { nodes: [], edges: [] };
+    await act(async () => {
+      await result.current.plan("Build me a workflow", undefined, {
+        currentGraph: empty,
+      });
+    });
+    expect(mockPlan).toHaveBeenCalledWith("wf-1", {
+      prompt: "Build me a workflow",
+      currentGraph: empty,
+    });
+  });
+});

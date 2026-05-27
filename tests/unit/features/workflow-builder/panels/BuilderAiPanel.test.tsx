@@ -122,7 +122,16 @@ describe("rendering + submit", () => {
     mockPlan.mockResolvedValueOnce(planApplyReady);
     render(<BuilderAiPanel />);
     await typeAndPlan("build it");
-    await waitFor(() => expect(mockPlan).toHaveBeenCalledWith("wf-1", { prompt: "build it" }));
+    // AI-24 — the panel now sends `currentGraph` (pending canvas snapshot)
+    // alongside the prompt. The graph hydrates empty in beforeEach, so the
+    // snapshot is `{ nodes: [], edges: [] }`. The prompt itself is still
+    // trimmed verbatim — that's the original AI-11 invariant.
+    await waitFor(() =>
+      expect(mockPlan).toHaveBeenCalledWith("wf-1", {
+        prompt: "build it",
+        currentGraph: { nodes: [], edges: [] },
+      }),
+    );
   });
 });
 

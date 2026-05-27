@@ -42,6 +42,10 @@ export async function buildWorkflowPlanRequest(
     catalog,
     connectedIntegrations,
     ...(input.costAwareness ? { costAwareness: input.costAwareness } : {}),
+    // Slice 4.AI-24 — current builder-canvas snapshot (pending / unsaved
+    // graph) from the client. Forwarded verbatim; the prompt renderer is
+    // responsible for the (empty | populated) shape decision.
+    ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
   });
 
   const model = input.tier

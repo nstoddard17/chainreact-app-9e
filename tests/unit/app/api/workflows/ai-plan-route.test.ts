@@ -276,3 +276,125 @@ describe("no-leak", () => {
     }
   });
 });
+
+// ─── Slice 4.AI-24 — currentGraph plumbing ───────────────────────────────────
+
+describe("currentGraph (AI-24)", () => {
+  it("forwards a client-supplied currentGraph to the planner service", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    const currentGraph = {
+      nodes: [
+        {
+          id: "trig-1",
+          kind: "trigger",
+          provider: "native",
+          type: "manual.run",
+        },
+        {
+          id: "act-1",
+          kind: "action",
+          provider: "slack",
+          type: "send_channel_message",
+        },
+      ],
+      edges: [{ id: "e-1", from: "trig-1", to: "act-1" }],
+    };
+    const res = await call("wf-1", {
+      prompt: "Send a Slack message when I get an email",
+      currentGraph,
+    });
+    expect(res.status).toBe(200);
+    expect(mockPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workflowId: "wf-1",
+        prompt: "Send a Slack message when I get an email",
+        currentGraph,
+      }),
+    );
+  });
+
+  it("accepts an empty currentGraph (post-delete-without-save case)", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    const res = await call("wf-1", {
+      prompt: "Send a Slack message when I get an email",
+      currentGraph: { nodes: [], edges: [] },
+    });
+    expect(res.status).toBe(200);
+    expect(mockPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentGraph: { nodes: [], edges: [] },
+      }),
+    );
+  });
+
+  it("works without currentGraph (forward-compat with non-builder callers)", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", { prompt: "do x" });
+    const [planArg] = mockPlan.mock.calls[0]!;
+    expect(planArg).not.toHaveProperty("currentGraph");
+  });
+
+  it("returns 400 when currentGraph.nodes contains an unknown kind", async () => {
+    const res = await call("wf-1", {
+      prompt: "x",
+      currentGraph: {
+        nodes: [
+          { id: "a", kind: "router", provider: "slack", type: "send" },
+        ],
+        edges: [],
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPlan).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when currentGraph exceeds the node cap (defense against oversized payloads)", async () => {
+    const nodes = Array.from({ length: 501 }, (_, i) => ({
+      id: `n${i}`,
+      kind: "action" as const,
+      provider: "slack",
+      type: "send_channel_message",
+    }));
+    const res = await call("wf-1", {
+      prompt: "x",
+      currentGraph: { nodes, edges: [] },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPlan).not.toHaveBeenCalled();
+  });
+
+  it("strips unknown keys on a currentGraph node (forward-compatible — schema-strip)", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", {
+      prompt: "x",
+      currentGraph: {
+        nodes: [
+          {
+            id: "a",
+            kind: "trigger",
+            provider: "native",
+            type: "manual.run",
+            // Caller might accidentally include config; the schema strips
+            // it so the planner service never sees it.
+            config: { accessToken: "ya29.LEAKED-SECRET" },
+            position: { x: 1, y: 2 },
+          },
+        ],
+        edges: [],
+      },
+    });
+    const [planArg] = mockPlan.mock.calls[0]!;
+    const forwarded = (planArg as { currentGraph: { nodes: Array<Record<string, unknown>> } })
+      .currentGraph.nodes[0]!;
+    expect(forwarded).not.toHaveProperty("config");
+    expect(forwarded).not.toHaveProperty("position");
+    // The forwarded shape is exactly the allowlisted fields.
+    expect(forwarded).toEqual({
+      id: "a",
+      kind: "trigger",
+      provider: "native",
+      type: "manual.run",
+    });
+  });
+});

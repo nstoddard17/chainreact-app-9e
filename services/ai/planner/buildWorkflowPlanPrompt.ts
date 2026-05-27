@@ -37,6 +37,18 @@ import type {
 /** Hard constraints the model must obey. Tests pin these exact intents. */
 export const PLANNER_CONSTRAINTS: readonly string[] = [
   "Use ONLY the providers, actions, and triggers listed in the catalog below. Never invent a provider, action, trigger, or field name.",
+  // Slice 4.AI-24 — HARD no-substitution rule. Top-of-list prominence is
+  // deliberate: prior to AI-24 this lived as a single mid-list trigger-only
+  // rule (`Do NOT substitute a different trigger…`) and Marcus's smoke
+  // surfaced the model emitting `native:manual.run → slack:send_channel_message`
+  // for the prompt "Send a slack message when I get an email" — substituting
+  // Manual Trigger for the requested Gmail new-email event AND silently
+  // narrowing the requested Slack semantics. AI-24 promotes the rule to a
+  // comprehensive prohibition covering trigger, action, and provider
+  // substitution; the prior single-bullet rule is folded in here.
+  "HARD RULE — NEVER substitute a different provider, action, or trigger for one the user explicitly asked for. This rule is non-negotiable and overrides any preference for emitting a non-null patch. (a) PROVIDER substitution is forbidden: Gmail → Outlook, Slack → Discord, Stripe → Square, Google Drive → OneDrive — all forbidden without explicit user approval; if the user names a provider that is not in the catalog OR is disconnected, set proposedPatch to null, list the requested provider+capability under unsupportedRequests (or surface a `select_integration` requiredUserInput for the disconnected-but-supported case), and STOP — do not propose a different provider's trigger/action just because it is in the catalog or connected. (b) TRIGGER substitution is forbidden: Manual Trigger (`native:manual.run`), HTTP/webhook trigger, and Schedule trigger are NEVER stand-ins for an event-driven trigger the user named. `native:manual.run` is allowed ONLY when the user explicitly asked for manual / on-demand / \"run manually\" / \"test manually\" behavior. HTTP / webhook triggers are allowed ONLY when the user explicitly asked for webhook / HTTP / inbound-API behavior. Schedule / cron triggers are allowed ONLY when the user explicitly asked for time-based / scheduled / recurring behavior. Any other trigger substitution — including \"the user asked for Gmail new-email but I'll use Manual Trigger so the patch applies\" — is a violation. (c) ACTION substitution is forbidden: \"send a Slack DM\" requires `slack:send_direct_message`, NOT `slack:send_channel_message`; \"send a Gmail email\" requires Gmail, NOT Outlook; \"create a Notion page\" requires Notion, NOT Confluence. Even within the same provider, do not narrow or widen the requested action's semantics (DM ↔ channel, draft ↔ send, comment ↔ message). (d) When the requested capability is missing, unavailable, disconnected, or has no metadata, set proposedPatch to null + add the explicit `unsupportedRequests` entry naming the exact requested provider+capability + add `requiredUserInput` entries for any setup (e.g. `{ label: \"Connect Gmail\", kind: \"select_integration\" }`) — and STOP. A null patch with a clear unsupported / required-setup explanation is ALWAYS the right answer over a substitution patch.",
+  // Slice 4.AI-24 — current-canvas awareness. Wired in `buildWorkflowPlanRequest`.
+  "Current workflow context: when a `Current workflow on the canvas` section is provided below it lists the nodes presently on the user's builder canvas (provider:type pairs only — no config). It is the AUTHORITATIVE picture of what the user has right now; the persisted server copy may lag. If the user's request implies replacing the existing trigger (e.g. canvas has `native:manual.run` but the request names a Gmail email trigger) emit a `replaceTrigger` operation, NOT a substitution; if the user's request implies adding to / editing existing nodes, prefer `updateNodeConfig` / targeted `addNode` over rebuilding the canvas. Empty Current-workflow section means the canvas is empty — build from scratch. The catalog + no-substitution rule above still bind: existing canvas nodes never license a substitution.",
   "config object keys MUST come from the catalog's `config fields:` block for that node. Never use a key derived from the action/trigger displayName, the field's UI label, the field's description, or an output name — those are NOT config keys. Example: `slack:send_direct_message` has config field `text` (not `message`); `native:if_then_condition` has config field `input` (not `field`).",
   "Match each config value's SHAPE to the field's renderer type and `multi-select` flag (see the value-shape rules below). A `multi-select` field requires an ARRAY of allowed option values — e.g. `enabledEvents: [\"payment_intent.payment_failed\"]`, NOT the scalar `\"payment_intent.payment_failed\"`. A single-select takes ONE value.",
   "Every field listed under `required:` for a node MUST appear in that node's config — either as a literal value (only for static enums or known ids), an upstream `{{nodeId.field}}` variable reference, or an `{{AI_FIELD:fieldName}}` placeholder for free-text content. Do not omit a required field.",
@@ -44,8 +56,7 @@ export const PLANNER_CONSTRAINTS: readonly string[] = [
   "Required-field discipline (Slice 4.AI-22): NEVER silently default, guess, or invent a required field's value to make the patch apply-ready. Required fields may be filled ONLY when: (a) the user explicitly supplied the value in the request, (b) it is safely derivable from an upstream node's declared `outputs`, (c) it is safely derivable from connected-integration context (e.g. Slack `me=<userId>` for a DM recipient), (d) the field has an existing safe `defaultValue` declared in its FieldMeta, OR (e) the field is a free-text content field where `{{AI_FIELD:fieldName}}` is appropriate per the AI_FIELD rule. For anything else — channel ids, user ids, record ids, enum picks the user hasn't named, attachments — emit a `requiredUserInput` entry and set proposedPatch to null. Do NOT pick a plausible-looking default value (e.g. \"#general\", \"general\", \"announcements\") for a required selection just to ship a patch.",
   "NEVER treat a display label as an opaque id. If the user said \"send to #general\" you may pass the literal \"#general\" ONLY when the field accepts free-text (renderer type `text`/`textarea`) OR the field's static `config options` list contains \"#general\" as a value. For an id-shaped field (Slack channelId, Discord channelId, Airtable recordId, etc.) WITHOUT a literal-id value in the catalog options AND without a connected resolver result in scope, set proposedPatch to null and add a requiredUserInput entry asking the user to pick the channel. NEVER fabricate ids like `C123456`, `U01ABC23DEF`, `rec12345`. The user picking the value via the React Agent's required-input control (which calls the live options resolver) is the correct path.",
   "Variable references `{{nodeId.field}}` (or `{{trigger.field}}` when nodeId is the trigger) MUST use ONLY the output names declared in that node's `outputs:` block. Do NOT invent output keys (e.g. `id`, `amount`, `currency`, `last_payment_error`) from a provider's public API documentation, the displayName, or general knowledge — if metadata doesn't list it, V2 doesn't expose it and the patch is rejected. For opaque object outputs (e.g. an event's `data` payload) you MAY descend into nested paths, but values inside are NOT metadata-validated — prefer top-level declared outputs (e.g. `{{trigger.stripeEventType}}`) for message bodies and use `{{AI_FIELD:fieldName}}` or `requiredUserInput` when no declared output fits.",
-  "Do NOT substitute a different trigger for one the user explicitly asked for. If the user names a triggering event (e.g. \"when a Stripe payment fails\", \"on new Salesforce lead\") and no matching trigger key appears in the catalog, set proposedPatch to null, list the requested trigger under unsupportedRequests, and surface anything else still needed under requiredUserInput. `native:manual.run` is for user-initiated workflows ONLY — never use it as a stand-in for an event-driven trigger the user actually asked for.",
-  "Connected-integration awareness: every action/trigger you propose for a provider that does NOT appear in the connected-integrations list above MUST be accompanied by a `requiredUserInput` entry with `kind: \"select_integration\"` naming that provider — e.g. `{ label: \"Connect Stripe\", kind: \"select_integration\" }`. Do NOT claim the workflow is ready, do NOT say a provider is connected when it isn't, and do NOT silently substitute a different connected provider's trigger/action for the user's requested one. You MAY still propose the patch as a draft so the user can review the shape; the missing-connection requirement is what the UI surfaces as the blocker. Conversely: when a provider IS in the connected list, do not add a `select_integration` entry for it.",
+  "Connected-integration awareness: every action/trigger you propose for a provider that does NOT appear in the connected-integrations list above MUST be accompanied by a `requiredUserInput` entry with `kind: \"select_integration\"` naming that provider — e.g. `{ label: \"Connect Stripe\", kind: \"select_integration\" }`. Do NOT claim the workflow is ready, do NOT say a provider is connected when it isn't. (The substitution prohibition at the top of this list already forbids swapping a disconnected provider for a different connected one.) You MAY still propose the patch as a draft so the user can review the shape; the missing-connection requirement is what the UI surfaces as the blocker. Conversely: when a provider IS in the connected list, do not add a `select_integration` entry for it.",
   "\"Me\" resolution: when the user refers to themselves (\"me\" / \"myself\" / \"I\" / \"send me\") as a per-user recipient — typically the `userId` on a DM action — resolve it from the connected integration's `me=<id>` value when present. Example: for `slack:send_direct_message.userId`, if the connected slack entry shows `me=U01ABC23DEF`, set `userId: \"U01ABC23DEF\"`. If the connected provider has NO `me=` value, add a `requiredUserInput` entry asking for the recipient (e.g. `{ label: \"Which Slack user should receive the DM?\", kind: \"config_value\", field: \"userId\" }`) and use `{{AI_FIELD:userId}}` is NOT correct here — recipient ids are not free text. NEVER guess a user id, NEVER use a bot user id as the human recipient, NEVER use a channel id where a user id is required.",
   "Respond with EXACTLY ONE JSON object that matches the response schema and nothing else — the first character must be { and the last must be }. No prose, no markdown, no ```json fences, no comments, and no trailing commas.",
   "When a value is unknown, do NOT guess: emit an AI_FIELD placeholder ({{AI_FIELD:fieldName}}) for free-text content, or add a requiredUserInput entry for anything else (ids, enums, selections).",
@@ -269,6 +280,37 @@ function renderConnectedIntegrations(input: WorkflowPlanPromptInput): string {
   ].join("\n");
 }
 
+/**
+ * Slice 4.AI-24 — render the current builder-canvas snapshot so the planner
+ * sees what the user has RIGHT NOW (not what's in the persisted server copy,
+ * which may lag). Deliberately compact + value-free: `kind provider:type`
+ * per node + `from → to` per edge. The model only needs to know what is on
+ * the canvas, not the config values (it proposes config via patch ops).
+ *
+ * When `currentGraph` is undefined OR empty, the section explicitly says the
+ * canvas is empty — that prevents the model from inferring "well there must
+ * have been something there before" and substituting a placeholder.
+ */
+function renderCurrentGraph(input: WorkflowPlanPromptInput): string {
+  const graph = input.currentGraph;
+  if (!graph || graph.nodes.length === 0) {
+    return "Current workflow on the canvas: (empty — no nodes on the canvas right now)";
+  }
+  const nodeLines = graph.nodes.map(
+    (n) => `  - ${n.id}: ${n.kind} ${n.provider}:${n.type}`,
+  );
+  const edgeLines = graph.edges.length === 0
+    ? ["  (no edges)"]
+    : graph.edges.map((e) => `  - ${e.id}: ${e.from} → ${e.to}`);
+  return [
+    "Current workflow on the canvas (authoritative — this is what the user has RIGHT NOW; the no-substitution rule above still binds, so use these as context not as license to substitute):",
+    "Nodes:",
+    ...nodeLines,
+    "Edges:",
+    ...edgeLines,
+  ].join("\n");
+}
+
 function renderCostAwareness(cost: WorkflowPlanCostAwareness | undefined): string | null {
   if (!cost) return null;
   const parts: string[] = [];
@@ -293,6 +335,7 @@ export function buildWorkflowPlanPrompt(
     TEMPLATE_FUTURE_NOTE,
     `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(input)}`,
     renderConnectedIntegrations(input),
+    renderCurrentGraph(input),
   ];
 
   const costSection = renderCostAwareness(input.costAwareness);

@@ -32,6 +32,37 @@ import { parseJsonBody, requireUser } from "../../../_shared";
  */
 
 const MAX_PROMPT_LENGTH = 8_000;
+/**
+ * Slice 4.AI-24 — defense against an oversized `currentGraph` payload (a
+ * malicious / runaway client could send a huge nodes/edges list and inflate
+ * the planner prompt). Real workflows fit comfortably under 500 nodes; we
+ * cap conservatively here.
+ */
+const MAX_CURRENT_GRAPH_NODES = 500;
+const MAX_CURRENT_GRAPH_EDGES = 500;
+
+// Slice 4.AI-24 — value-free snapshot of the client's pending/unsaved
+// builder graph. Deliberately minimal — provider:type pairs + edges only,
+// NO config (the planner reads catalog metadata for config shape; it never
+// reads canvas config values), NO position, NO secrets. The route does
+// NOT consult `WorkflowDefinitionSchema` here because we don't need the
+// full strict shape — just enough for the planner to know what's on the
+// canvas.
+const CurrentGraphNodeSchema = z.object({
+  id: z.string().min(1).max(200),
+  kind: z.enum(["trigger", "action"]),
+  provider: z.string().min(1).max(100),
+  type: z.string().min(1).max(200),
+});
+const CurrentGraphEdgeSchema = z.object({
+  id: z.string().min(1).max(200),
+  from: z.string().min(1).max(200),
+  to: z.string().min(1).max(200),
+});
+const CurrentGraphSchema = z.object({
+  nodes: z.array(CurrentGraphNodeSchema).max(MAX_CURRENT_GRAPH_NODES),
+  edges: z.array(CurrentGraphEdgeSchema).max(MAX_CURRENT_GRAPH_EDGES),
+});
 
 // Unknown keys are stripped (forward-compatible); declared fields are validated.
 const PlanRequestSchema = z.object({
@@ -41,6 +72,13 @@ const PlanRequestSchema = z.object({
     .min(1, "prompt is required")
     .max(MAX_PROMPT_LENGTH, "prompt is too long"),
   modelTier: z.enum(["fast", "strong"]).optional(),
+  /**
+   * Slice 4.AI-24 — optional client-supplied current builder-canvas snapshot.
+   * When omitted, the planner is told the canvas is empty (the right default
+   * for "build a workflow from scratch"). Non-builder callers (none today)
+   * can also omit this safely.
+   */
+  currentGraph: CurrentGraphSchema.optional(),
 });
 
 function planFailureStatus(code: PlanWorkflowFailureCode): number {
@@ -78,6 +116,10 @@ export async function POST(
       workflowId: id,
       prompt: body.data.prompt,
       ...(body.data.modelTier ? { modelTier: body.data.modelTier } : {}),
+      // AI-24 — forward the canvas snapshot when the client sent one. The
+      // planner is the only consumer; the apply route is unaffected (no
+      // canvas snapshot involvement at apply time).
+      ...(body.data.currentGraph ? { currentGraph: body.data.currentGraph } : {}),
     });
   } catch {
     // Sanitized — never leak internals / connection strings / stack traces.

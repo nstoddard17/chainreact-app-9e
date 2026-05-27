@@ -39,6 +39,33 @@ export interface WorkflowPlanCostAwareness {
 }
 
 /**
+ * Slice 4.AI-24 — minimal snapshot of the user's current builder canvas
+ * (pending / unsaved graph) passed alongside the catalog + connected
+ * integrations so the planner can reason about what the user has RIGHT NOW.
+ * The server-saved `draftDefinition` may lag the canvas (e.g. user deleted
+ * nodes locally without saving) — the canvas snapshot is authoritative for
+ * planner intent.
+ *
+ * Deliberately value-free: provider:type pairs + edges only. NO `config`,
+ * NO `position`, NO secrets. The planner only needs to know "what is on
+ * the canvas" — config values are graph state the planner already proposes
+ * via patch operations, never reads from the canvas.
+ */
+export interface CurrentWorkflowGraphView {
+  readonly nodes: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: "trigger" | "action";
+    readonly provider: string;
+    readonly type: string;
+  }>;
+  readonly edges: ReadonlyArray<{
+    readonly id: string;
+    readonly from: string;
+    readonly to: string;
+  }>;
+}
+
+/**
  * Pure, fully-resolved input to {@link buildWorkflowPlanPrompt}. The catalog +
  * connected integrations are the AI-2 grounding views; passing them in keeps the
  * prompt builder deterministic and testable without touching repos.
@@ -49,6 +76,14 @@ export interface WorkflowPlanPromptInput {
   readonly catalog: ProviderCatalogView;
   /** The caller's connected integrations (redacted availability view), or empty. */
   readonly connectedIntegrations: readonly ConnectedIntegrationView[];
+  /**
+   * Slice 4.AI-24 — current builder-canvas snapshot. When supplied, rendered
+   * as a `Current workflow on the canvas` section so the planner sees the
+   * unsaved local graph (which is the authoritative picture of the user's
+   * intent right now). When omitted, the prompt states the canvas is empty
+   * — which is the right default for "build a workflow from scratch".
+   */
+  readonly currentGraph?: CurrentWorkflowGraphView;
   readonly costAwareness?: WorkflowPlanCostAwareness;
 }
 
@@ -59,6 +94,8 @@ export interface WorkflowPlanRequestInput {
   /** Tier override; defaults to the `creation` feature's tier. */
   readonly tier?: ModelTier;
   readonly costAwareness?: WorkflowPlanCostAwareness;
+  /** Slice 4.AI-24 — current builder-canvas snapshot; see CurrentWorkflowGraphView. */
+  readonly currentGraph?: CurrentWorkflowGraphView;
 }
 
 /** The AI feature this planner emits requests under (for tier + future events). */
@@ -189,6 +226,13 @@ export interface PlanWorkflowFromPromptInput {
   readonly modelClient?: ModelClient;
   readonly modelTier?: ModelTier;
   readonly feature?: AiFeature;
+  /**
+   * Slice 4.AI-24 — current builder-canvas snapshot from the client (pending
+   * / unsaved graph). When omitted the planner gets no Current-workflow
+   * section; non-builder callers don't need to supply it. See
+   * {@link CurrentWorkflowGraphView} for the value-free shape.
+   */
+  readonly currentGraph?: CurrentWorkflowGraphView;
 }
 
 /** Model-call metadata surfaced on every plan result (deterministic, safe). */

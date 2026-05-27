@@ -6,6 +6,7 @@ import {
   type AiApplyConfirmation,
   type AiApplyResult,
   type AiPlanResult,
+  type CurrentGraphSnapshot,
 } from "@/lib/api/ai";
 import {
   composeFollowUpPrompt,
@@ -54,6 +55,17 @@ export interface SubmitFollowUpInput {
   readonly structuredAnswers?: readonly RequiredInputAnswer[];
 }
 
+/**
+ * Slice 4.AI-24 — per-call options for `plan` / `submitFollowUp`. The
+ * `currentGraph` snapshot is the user's pending / unsaved builder canvas
+ * (graphSlice's pending*) — the planner needs it so a fresh prompt issued
+ * after the user deleted nodes locally without saving doesn't see the
+ * stale server `draftDefinition`. Forwarded verbatim to the plan route.
+ */
+export interface BuilderAiCallOptions {
+  readonly currentGraph?: CurrentGraphSnapshot;
+}
+
 export interface UseBuilderAi {
   readonly status: BuilderAiStatus;
   readonly planResult: AiPlanResult | null;
@@ -74,7 +86,11 @@ export interface UseBuilderAi {
    * case). The chat-layout panel uses the return value to append an
    * assistant message in lockstep with the user message (Slice 4.AI-21B).
    */
-  plan(prompt: string, modelTier?: "fast" | "strong"): Promise<AiPlanResult | null>;
+  plan(
+    prompt: string,
+    modelTier?: "fast" | "strong",
+    options?: BuilderAiCallOptions,
+  ): Promise<AiPlanResult | null>;
   /**
    * Submit a follow-up answer for the in-progress required-input chain.
    * Reconstructs the planner prompt internally (original + asked labels +
@@ -91,6 +107,7 @@ export interface UseBuilderAi {
   submitFollowUp(
     answer: string | SubmitFollowUpInput,
     modelTier?: "fast" | "strong",
+    options?: BuilderAiCallOptions,
   ): Promise<AiPlanResult | null>;
   /**
    * Run the apply call against the latest plan's `proposedPatch`. Returns
@@ -136,7 +153,7 @@ export function useBuilderAi({
   const [priorFollowUpAnswers, setPriorFollowUpAnswers] = useState<readonly string[]>([]);
 
   const plan = useCallback<UseBuilderAi["plan"]>(
-    async (prompt, modelTier) => {
+    async (prompt, modelTier, options) => {
       if (!workflowId) return null;
       setStatus("planning");
       setError(null);
@@ -149,6 +166,8 @@ export function useBuilderAi({
         const result = await planWorkflow(workflowId, {
           prompt,
           ...(modelTier ? { modelTier } : {}),
+          // AI-24 — forward current-canvas snapshot when provided.
+          ...(options?.currentGraph ? { currentGraph: options.currentGraph } : {}),
         });
         setPlanResult(result);
         setStatus("planned");
@@ -167,7 +186,7 @@ export function useBuilderAi({
   );
 
   const submitFollowUp = useCallback<UseBuilderAi["submitFollowUp"]>(
-    async (answer, modelTier) => {
+    async (answer, modelTier, options) => {
       if (!workflowId) return null;
       // Guard: there must be an in-progress chain with outstanding questions
       // on the latest plan. If not, the panel should be calling `plan()`.
@@ -218,6 +237,8 @@ export function useBuilderAi({
         const result = await planWorkflow(workflowId, {
           prompt: reconstructed,
           ...(modelTier ? { modelTier } : {}),
+          // AI-24 — forward current-canvas snapshot on follow-up too.
+          ...(options?.currentGraph ? { currentGraph: options.currentGraph } : {}),
         });
         setPlanResult(result);
         setStatus("planned");

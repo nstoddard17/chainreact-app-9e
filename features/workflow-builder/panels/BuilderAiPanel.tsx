@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearBuilderAgentThread,
   getBuilderAgentThread,
+  type CurrentGraphSnapshot,
 } from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
 import type { RequiredInputAnswer } from "../ai";
@@ -67,9 +68,31 @@ import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
 export function BuilderAiPanel() {
   const workflowId = useGraphSlice((s) => s.workflowId);
   const hydrate = useGraphSlice((s) => s.hydrate);
+  // AI-24 — the planner needs the CURRENT canvas (pending / unsaved), not
+  // the server-saved `draftDefinition` (which lags after a local delete).
+  // Project the slice's pendingNodes/pendingEdges into a value-free snapshot
+  // and pass it on every plan / follow-up call so the planner never reasons
+  // against stale graph state.
+  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
+  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  // AI-24 — value-free projection of the pending canvas for the planner.
+  // provider:type pairs + edges only; NO config, NO position, NO secrets.
+  const currentGraph = useMemo<CurrentGraphSnapshot>(
+    () => ({
+      nodes: pendingNodes.map((n) => ({
+        id: n.id,
+        kind: n.kind,
+        provider: n.provider,
+        type: n.type,
+      })),
+      edges: pendingEdges.map((e) => ({ id: e.id, from: e.from, to: e.to })),
+    }),
+    [pendingNodes, pendingEdges],
+  );
+
   // AI-22 — staged required-input answers from the interactive controls.
   // Keyed by `requiredInputKey(input)` (i.e. `nodeId::field`). Drained
   // into the structured follow-up on submit; cleared on Clear / Plan-another.
@@ -184,11 +207,15 @@ export function BuilderAiPanel() {
     });
 
     const result = followUpMode
-      ? await ai.submitFollowUp({
-          freeText: composerContent,
-          structuredAnswers: stagedSnapshot,
-        })
-      : await ai.plan(composerContent);
+      ? await ai.submitFollowUp(
+          {
+            freeText: composerContent,
+            structuredAnswers: stagedSnapshot,
+          },
+          undefined,
+          { currentGraph },
+        )
+      : await ai.plan(composerContent, undefined, { currentGraph });
 
     if (result === null) {
       const errorContent =
@@ -279,7 +306,7 @@ export function BuilderAiPanel() {
       kind: "prompt",
       content: originalUserPrompt,
     });
-    const result = await ai.plan(originalUserPrompt);
+    const result = await ai.plan(originalUserPrompt, undefined, { currentGraph });
     if (result === null) {
       const errorContent =
         "The AI assistant is unavailable right now. Please try again in a moment.";
