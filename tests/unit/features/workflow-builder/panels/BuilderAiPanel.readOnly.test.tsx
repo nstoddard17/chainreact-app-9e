@@ -32,9 +32,26 @@ import userEvent from "@testing-library/user-event";
 
 const mockPlan = jest.fn();
 const mockApply = jest.fn();
+// AI-23 — persistent Builder Agent thread helpers default to no-ops.
+const mockGetThread = jest.fn().mockResolvedValue({
+  thread: { id: "thr-1", workflowId: "wf-1", createdAt: "now", updatedAt: "now" },
+  messages: [],
+});
+const mockAppendThreadMessage = jest.fn().mockResolvedValue({
+  id: "m-mock",
+  role: "user",
+  kind: "prompt",
+  content: "",
+  safePayload: {},
+  createdAt: "now",
+});
+const mockClearThread = jest.fn().mockResolvedValue({ ok: true, deletedCount: 0 });
 jest.mock("@/lib/api/ai", () => ({
   planWorkflow: (...a: unknown[]) => mockPlan(...a),
   applyWorkflowPatch: (...a: unknown[]) => mockApply(...a),
+  getBuilderAgentThread: (...a: unknown[]) => mockGetThread(...a),
+  appendBuilderAgentMessage: (...a: unknown[]) => mockAppendThreadMessage(...a),
+  clearBuilderAgentThread: (...a: unknown[]) => mockClearThread(...a),
   AiApiError: class AiApiError extends Error {
     status: number;
     constructor(message: string, status: number) {

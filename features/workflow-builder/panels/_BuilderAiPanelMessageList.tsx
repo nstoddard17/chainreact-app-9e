@@ -94,10 +94,15 @@ export function BuilderAiPanelMessageList({
   }, [messages.length, aiStatus]);
 
   // The LATEST plan_result message owns the full breakdown + apply controls.
+  // AI-23 — historical (persisted) plan_result messages are read-only summaries
+  // by definition (their proposedPatch was never persisted), so they are
+  // EXCLUDED from latest-plan derivation regardless of position. The user can
+  // continue the conversation by typing a new prompt; the live session-local
+  // plan that follows owns the Apply path.
   let latestPlanMessageId: ChatMessageId | null = null;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (m.role === "assistant" && m.kind === "plan_result") {
+    if (m.role === "assistant" && m.kind === "plan_result" && !m.persisted) {
       latestPlanMessageId = m.id;
       break;
     }

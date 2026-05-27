@@ -13,9 +13,19 @@ import userEvent from "@testing-library/user-event";
 
 const mockPlan = jest.fn();
 const mockApply = jest.fn();
+// AI-23 — persistent Builder Agent thread helpers default to no-ops so the
+// existing AI-11/AI-20/AI-21/AI-21B/AI-22 test scenarios continue to exercise
+// session-local state. Individual AI-23 tests in the dedicated suite can
+// override these mocks.
+const mockGetThread = jest.fn();
+const mockAppendThreadMessage = jest.fn();
+const mockClearThread = jest.fn();
 jest.mock("@/lib/api/ai", () => ({
   planWorkflow: (...a: unknown[]) => mockPlan(...a),
   applyWorkflowPatch: (...a: unknown[]) => mockApply(...a),
+  getBuilderAgentThread: (...a: unknown[]) => mockGetThread(...a),
+  appendBuilderAgentMessage: (...a: unknown[]) => mockAppendThreadMessage(...a),
+  clearBuilderAgentThread: (...a: unknown[]) => mockClearThread(...a),
   // Real-ish error class so the hook's `instanceof AiApiError` works.
   AiApiError: class AiApiError extends Error {
     status: number;
@@ -67,6 +77,23 @@ beforeEach(() => {
   mockApply.mockReset();
   mockGetWorkflow.mockReset();
   mockGetWorkflow.mockResolvedValue({ id: "wf-1", draftDefinition: { nodes: [], edges: [] } });
+  // AI-23 — default thread mocks: empty history on load, no-op writes.
+  mockGetThread.mockReset();
+  mockGetThread.mockResolvedValue({
+    thread: { id: "thr-1", workflowId: "wf-1", createdAt: "now", updatedAt: "now" },
+    messages: [],
+  });
+  mockAppendThreadMessage.mockReset();
+  mockAppendThreadMessage.mockResolvedValue({
+    id: "m-mock",
+    role: "user",
+    kind: "prompt",
+    content: "",
+    safePayload: {},
+    createdAt: "now",
+  });
+  mockClearThread.mockReset();
+  mockClearThread.mockResolvedValue({ ok: true, deletedCount: 0 });
   useGraphSlice.getState().reset();
   useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
 });

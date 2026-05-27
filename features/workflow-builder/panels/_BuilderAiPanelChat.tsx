@@ -2,7 +2,11 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import type { AiPlanResult, AiRequiredUserInput } from "@/lib/api/ai";
+import type {
+  AiPlanResult,
+  AiRequiredUserInput,
+  BuilderAgentPersistedMessage,
+} from "@/lib/api/ai";
 import {
   AiBulletList,
   RequiredInputControl,
@@ -32,11 +36,20 @@ import { PlanFailure, PreviewSection } from "./_BuilderAiPanelPreview";
 
 export type ChatMessageId = string;
 
+/**
+ * AI-23 — `persisted: true` flags a message rehydrated from
+ * `builder_agent_messages` (workflow-scoped chat history). Persisted
+ * plan_result messages render as read-only summaries (no Apply controls)
+ * regardless of position in the chat; the latest-plan derivation in
+ * `_BuilderAiPanelMessageList.tsx` skips them. The flag is optional /
+ * defaults to false so session-local messages keep the legacy shape.
+ */
 export interface UserChatMessage {
   readonly id: ChatMessageId;
   readonly role: "user";
   readonly kind: "prompt" | "followup";
   readonly content: string;
+  readonly persisted?: boolean;
 }
 
 export interface AssistantPlanChatMessage {
@@ -44,6 +57,7 @@ export interface AssistantPlanChatMessage {
   readonly role: "assistant";
   readonly kind: "plan_result";
   readonly result: AiPlanResult;
+  readonly persisted?: boolean;
 }
 
 export interface AssistantAppliedChatMessage {
@@ -53,6 +67,7 @@ export interface AssistantAppliedChatMessage {
   readonly result: {
     readonly summaryText: string;
   };
+  readonly persisted?: boolean;
 }
 
 export interface AssistantApplyFailureChatMessage {
@@ -63,6 +78,7 @@ export interface AssistantApplyFailureChatMessage {
     readonly code: string;
     readonly message: string;
   };
+  readonly persisted?: boolean;
 }
 
 export interface AssistantErrorChatMessage {
@@ -70,6 +86,7 @@ export interface AssistantErrorChatMessage {
   readonly role: "assistant";
   readonly kind: "error";
   readonly content: string;
+  readonly persisted?: boolean;
 }
 
 export type ChatMessage =
@@ -83,6 +100,83 @@ let chatMessageIdCounter = 0;
 export function nextChatMessageId(): ChatMessageId {
   chatMessageIdCounter += 1;
   return `m${chatMessageIdCounter}`;
+}
+
+/**
+ * AI-23 — convert a persisted message (from `GET /api/workflows/[id]/ai/thread`)
+ * into a `ChatMessage` shape the existing list renderer can consume. Persisted
+ * plan_results synthesize a minimal `AiPlanSuccess` from `safePayload` —
+ * proposedPatch + canApplyLater are intentionally absent, so the Apply path
+ * never engages for historical messages even before the latest-plan derivation
+ * in the list filter kicks in.
+ *
+ * Persisted apply_failure / applied / error messages reuse the safePayload
+ * fields directly. Anything the persisted record doesn't carry (e.g. the
+ * detailed `apply_failure.message`) falls back to a friendly default.
+ */
+export function persistedMessageToChat(
+  p: BuilderAgentPersistedMessage,
+): ChatMessage | null {
+  const id: ChatMessageId = p.id;
+  if (p.role === "user" && (p.kind === "prompt" || p.kind === "followup")) {
+    return { id, role: "user", kind: p.kind, content: p.content ?? "", persisted: true };
+  }
+  if (p.role !== "assistant") return null;
+  switch (p.kind) {
+    case "plan_result": {
+      const payload = p.safePayload ?? {};
+      const ok = (payload as { ok?: unknown }).ok === true;
+      if (ok) {
+        const intentSummary =
+          typeof (payload as { intentSummary?: unknown }).intentSummary === "string"
+            ? ((payload as { intentSummary: string }).intentSummary)
+            : (p.content ?? "");
+        const synth: AiPlanResult = {
+          ok: true,
+          intentSummary,
+          assumptions: [],
+          requiredUserInput: [],
+          unsupportedRequests: [],
+          safetyNotes: [],
+          canApplyLater: false,
+          model: { modelId: "history", tier: "history", feature: "history" },
+        };
+        return { id, role: "assistant", kind: "plan_result", result: synth, persisted: true };
+      }
+      const synthFail: AiPlanResult = {
+        ok: false,
+        code:
+          typeof (payload as { code?: unknown }).code === "string"
+            ? (payload as { code: string }).code
+            : "PARSE_FAILED",
+        message: p.content ?? "",
+        errors: [],
+      };
+      return { id, role: "assistant", kind: "plan_result", result: synthFail, persisted: true };
+    }
+    case "applied": {
+      const summaryText =
+        typeof (p.safePayload as { summaryText?: unknown }).summaryText === "string"
+          ? (p.safePayload as { summaryText: string }).summaryText
+          : (p.content ?? "Change applied.");
+      return { id, role: "assistant", kind: "applied", result: { summaryText }, persisted: true };
+    }
+    case "apply_failure": {
+      const code =
+        typeof (p.safePayload as { code?: unknown }).code === "string"
+          ? (p.safePayload as { code: string }).code
+          : "UPDATE_FAILED";
+      const message = p.content ?? "Couldn’t apply the change.";
+      return { id, role: "assistant", kind: "apply_failure", result: { code, message }, persisted: true };
+    }
+    case "error":
+    case "needs_input":
+    case "system_notice": {
+      return { id, role: "assistant", kind: "error", content: p.content ?? "", persisted: true };
+    }
+    default:
+      return null;
+  }
 }
 
 // ─── Bubble wrappers ────────────────────────────────────────────────────────

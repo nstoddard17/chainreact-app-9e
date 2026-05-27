@@ -1,15 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  clearBuilderAgentThread,
+  getBuilderAgentThread,
+} from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
 import type { RequiredInputAnswer } from "../ai";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
 import {
   nextChatMessageId,
+  persistedMessageToChat,
   type ChatMessage,
   type UserChatMessage,
 } from "./_BuilderAiPanelChat";
+import {
+  buildApplyFailureSafePayload,
+  buildApplySuccessSafePayload,
+  buildPlanResultSafePayload,
+  persistMessageBestEffort,
+} from "./_builderAgentPersistence";
 import { BuilderAiPanelComposer } from "./_BuilderAiPanelComposer";
 import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
 
@@ -34,7 +45,20 @@ import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
  *     types + bubble wrappers + `PlanResultBody`.
  *
  * Scope guardrail — workflow-builder React Agent only. NOT the general
- * app help assistant. NO DB persistence (session-local message state).
+ * app help assistant.
+ *
+ * Slice 4.AI-23 — workflow-scoped persistent chat history. On `workflowId`
+ * change the panel loads the prior thread from
+ * `GET /api/workflows/[id]/ai/thread`, rehydrates each persisted message
+ * via `persistedMessageToChat`, and renders them as read-only summaries
+ * (historical plan_results never own Apply controls — see
+ * `_BuilderAiPanelMessageList.tsx`). New session messages (prompt,
+ * follow-up, plan_result, applied, apply_failure, error) are saved via
+ * `appendBuilderAgentMessage`; Clear conversation also DELETEs the
+ * persisted thread. Persistence is fail-open — an API failure logs at warn
+ * but never blocks planning / applying. NO raw proposedPatch / config /
+ * secrets are ever persisted (server sanitizer + client allowlist).
+ *
  * The follow-up prompt is still sent through `POST /api/workflows/[id]/ai/plan`
  * unchanged. All AI-11B / AI-20 / AI-21 / AI-21B no-leak / apply-readiness /
  * no-auto-apply / strict-schema invariants preserved.
@@ -66,7 +90,40 @@ export function BuilderAiPanel() {
     },
   });
 
+  // AI-23 — load persisted thread on workflowId change. Fail-open: a network
+  // / auth failure leaves `messages` empty so the user sees a fresh chat
+  // (rather than a blocking error). The hasLoadedRef guard prevents a
+  // double-fetch from React 18's strict-mode mount/unmount + Suspense.
+  const loadedForWorkflowRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workflowId) return;
+    if (loadedForWorkflowRef.current === workflowId) return;
+    loadedForWorkflowRef.current = workflowId;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getBuilderAgentThread(workflowId);
+        if (cancelled) return;
+        const rehydrated = res.messages
+          .map(persistedMessageToChat)
+          .filter((m): m is ChatMessage => m !== null);
+        if (rehydrated.length > 0) setMessages(rehydrated);
+      } catch (err) {
+        if (typeof console !== "undefined" && typeof console.warn === "function") {
+          console.warn("Builder Agent thread load failed:", err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workflowId]);
+
   if (!workflowId) return null;
+  // After the guard `workflowId` is known non-null, but TS doesn't propagate
+  // the narrowing into the handler closures below. Capture it into a typed
+  // local so the AI-23 persistence helpers don't need a non-null assertion.
+  const wfId: string = workflowId;
 
   const trimmed = prompt.trim();
   const planning = ai.status === "planning";
@@ -119,6 +176,12 @@ export function BuilderAiPanel() {
       content: userDisplay,
     });
     setPrompt("");
+    // AI-23 — persist the user message (best effort; never blocks).
+    void persistMessageBestEffort(wfId, {
+      role: "user",
+      kind: userKind,
+      content: userDisplay,
+    });
 
     const result = followUpMode
       ? await ai.submitFollowUp({
@@ -128,11 +191,18 @@ export function BuilderAiPanel() {
       : await ai.plan(composerContent);
 
     if (result === null) {
+      const errorContent =
+        "The AI assistant is unavailable right now. Please try again in a moment.";
       appendMessage({
         id: nextChatMessageId(),
         role: "assistant",
         kind: "error",
-        content: "The AI assistant is unavailable right now. Please try again in a moment.",
+        content: errorContent,
+      });
+      void persistMessageBestEffort(wfId, {
+        role: "assistant",
+        kind: "error",
+        content: errorContent,
       });
       return;
     }
@@ -141,6 +211,12 @@ export function BuilderAiPanel() {
       role: "assistant",
       kind: "plan_result",
       result,
+    });
+    void persistMessageBestEffort(wfId, {
+      role: "assistant",
+      kind: "plan_result",
+      content: result.ok ? result.intentSummary : result.message,
+      safePayload: buildPlanResultSafePayload(result),
     });
   }
 
@@ -154,12 +230,24 @@ export function BuilderAiPanel() {
         kind: "applied",
         result,
       });
+      void persistMessageBestEffort(wfId, {
+        role: "assistant",
+        kind: "applied",
+        content: result.summaryText,
+        safePayload: buildApplySuccessSafePayload(result),
+      });
     } else {
       appendMessage({
         id: nextChatMessageId(),
         role: "assistant",
         kind: "apply_failure",
         result,
+      });
+      void persistMessageBestEffort(wfId, {
+        role: "assistant",
+        kind: "apply_failure",
+        content: result.message,
+        safePayload: buildApplyFailureSafePayload(result),
       });
     }
   }
@@ -186,13 +274,25 @@ export function BuilderAiPanel() {
       kind: "prompt",
       content: originalUserPrompt,
     });
+    void persistMessageBestEffort(wfId, {
+      role: "user",
+      kind: "prompt",
+      content: originalUserPrompt,
+    });
     const result = await ai.plan(originalUserPrompt);
     if (result === null) {
+      const errorContent =
+        "The AI assistant is unavailable right now. Please try again in a moment.";
       appendMessage({
         id: nextChatMessageId(),
         role: "assistant",
         kind: "error",
-        content: "The AI assistant is unavailable right now. Please try again in a moment.",
+        content: errorContent,
+      });
+      void persistMessageBestEffort(wfId, {
+        role: "assistant",
+        kind: "error",
+        content: errorContent,
       });
       return;
     }
@@ -202,6 +302,12 @@ export function BuilderAiPanel() {
       kind: "plan_result",
       result,
     });
+    void persistMessageBestEffort(wfId, {
+      role: "assistant",
+      kind: "plan_result",
+      content: result.ok ? result.intentSummary : result.message,
+      safePayload: buildPlanResultSafePayload(result),
+    });
   }
 
   function handleClear(): void {
@@ -209,11 +315,19 @@ export function BuilderAiPanel() {
     // risk-ack, the hook chain state, AND the staged required-input
     // answers (AI-22). "Plan another change" calls this same handler
     // post-apply for the same reason.
+    // AI-23 — also DELETE the persisted thread so reopening the
+    // workflow starts fresh. Fail-open: a delete error doesn't block
+    // the local reset.
     setRiskAcknowledged(false);
     setMessages([]);
     setPrompt("");
     setStagedAnswers(new Map());
     ai.reset();
+    void clearBuilderAgentThread(wfId).catch((err) => {
+      if (typeof console !== "undefined" && typeof console.warn === "function") {
+        console.warn("Builder Agent thread clear failed:", err);
+      }
+    });
   }
 
   /**
