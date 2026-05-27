@@ -14,8 +14,17 @@
  *     planner — the chat still renders, plan still completes.
  *   - No raw config / proposedPatch leaks into rendered output even from
  *     persisted history (the rehydrated message is a safe summary).
+ *
+ * AI-26 — adds:
+ *   - StrictMode regression: persisted messages render after the simulated
+ *     unmount / remount cycle that previously dropped them.
+ *   - Non-blocking history-load-failed notice replaces the intro hint
+ *     when getBuilderAgentThread rejects.
+ *   - workflowId-change: switching to a different workflow loads its
+ *     persisted thread.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockPlan = jest.fn();
@@ -143,13 +152,145 @@ describe("AI-23 — persisted thread load", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("falls back to a fresh chat when the load fails (no blocking error)", async () => {
+  it("renders a non-blocking history-load-failed notice when load rejects (AI-26)", async () => {
     mockGetThread.mockRejectedValueOnce(new Error("network down"));
     render(<BuilderAiPanel />);
-    // No messages — the empty state renders the intro hint.
+    // The notice replaces the intro hint so the user can tell the
+    // difference between "no history" and "couldn't load history."
+    // Planning / applying are still possible — the composer renders.
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("builder-ai-history-load-failed"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("builder-ai-intro")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-composer")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-ai-plan-button")).toBeInTheDocument();
+  });
+
+  it("does NOT render the load-failed notice on the happy path (AI-26)", async () => {
+    mockGetThread.mockResolvedValueOnce({
+      thread: { id: "thr-1", workflowId: "wf-1", createdAt: "x", updatedAt: "x" },
+      messages: [],
+    });
+    render(<BuilderAiPanel />);
     await waitFor(() =>
       expect(screen.getByTestId("builder-ai-intro")).toBeInTheDocument(),
     );
+    expect(
+      screen.queryByTestId("builder-ai-history-load-failed"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("AI-26 — StrictMode regression (refresh-clears-chat fix)", () => {
+  it("renders persisted messages under <StrictMode> after the simulated unmount/remount cycle", async () => {
+    // PRE-AI-26: the panel's load effect set `loadedForWorkflowRef.current
+    // = workflowId` BEFORE awaiting `getBuilderAgentThread`. Strict Mode
+    // ran cleanup (cancelled=true) then re-ran the effect, which then
+    // early-returned because the ref was already set — and the cancelled
+    // first fetch never reached `setMessages`. Persisted chat disappeared
+    // on every refresh in dev. After AI-26 the ref is assigned only AFTER
+    // a successful commit, so the remount effect's fetch is the one that
+    // wins.
+    mockGetThread.mockResolvedValue({
+      thread: { id: "thr-1", workflowId: "wf-1", createdAt: "x", updatedAt: "x" },
+      messages: [persistedUserMsg, persistedAssistantPlanMsg],
+    });
+    render(
+      <StrictMode>
+        <BuilderAiPanel />
+      </StrictMode>,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Post to Slack on new email")).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("builder-ai-plan-result-previous"),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("does not double-commit persisted messages on the StrictMode cycle", async () => {
+    // The late dedup check inside the async closure (`ref === workflowId`
+    // after the await resolves) guarantees only one setMessages reaches
+    // the list even if both StrictMode effect runs race to completion.
+    mockGetThread.mockResolvedValue({
+      thread: { id: "thr-1", workflowId: "wf-1", createdAt: "x", updatedAt: "x" },
+      messages: [persistedUserMsg],
+    });
+    render(
+      <StrictMode>
+        <BuilderAiPanel />
+      </StrictMode>,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Post to Slack on new email")).toBeInTheDocument(),
+    );
+    // Exactly one matching user bubble — no duplicate from the second
+    // StrictMode effect run.
+    expect(screen.getAllByText("Post to Slack on new email")).toHaveLength(1);
+  });
+
+  it("loads the new workflow's persisted thread when workflowId changes", async () => {
+    mockGetThread.mockResolvedValueOnce({
+      thread: { id: "thr-1", workflowId: "wf-1", createdAt: "x", updatedAt: "x" },
+      messages: [persistedUserMsg],
+    });
+    render(<BuilderAiPanel />);
+    await waitFor(() =>
+      expect(screen.getByText("Post to Slack on new email")).toBeInTheDocument(),
+    );
+    // Switch the active workflow. The graphSlice transition rehydrates
+    // the panel via the workflowId selector dep.
+    const wf2UserMsg = {
+      ...persistedUserMsg,
+      id: "p1-wf2",
+      content: "Send a Discord DM when a Stripe charge fails",
+    };
+    mockGetThread.mockResolvedValueOnce({
+      thread: { id: "thr-2", workflowId: "wf-2", createdAt: "x", updatedAt: "x" },
+      messages: [wf2UserMsg],
+    });
+    await act(async () => {
+      useGraphSlice.getState().hydrate("wf-2", { nodes: [], edges: [] });
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByText("Send a Discord DM when a Stripe charge fails"),
+      ).toBeInTheDocument(),
+    );
+    // The previous workflow's message is no longer in the DOM (messages
+    // were replaced by the new workflow's persisted thread).
+    expect(
+      screen.queryByText("Post to Slack on new email"),
+    ).not.toBeInTheDocument();
+    expect(mockGetThread).toHaveBeenCalledTimes(2);
+    expect(mockGetThread).toHaveBeenLastCalledWith("wf-2");
+  });
+
+  it("resets a prior workflow's load-failed notice when switching workflows", async () => {
+    mockGetThread.mockRejectedValueOnce(new Error("wf-1 load failed"));
+    render(<BuilderAiPanel />);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("builder-ai-history-load-failed"),
+      ).toBeInTheDocument(),
+    );
+    mockGetThread.mockResolvedValueOnce({
+      thread: { id: "thr-2", workflowId: "wf-2", createdAt: "x", updatedAt: "x" },
+      messages: [],
+    });
+    await act(async () => {
+      useGraphSlice.getState().hydrate("wf-2", { nodes: [], edges: [] });
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("builder-ai-intro")).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByTestId("builder-ai-history-load-failed"),
+    ).not.toBeInTheDocument();
   });
 });
 

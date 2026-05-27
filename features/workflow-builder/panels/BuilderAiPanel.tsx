@@ -79,6 +79,13 @@ export function BuilderAiPanel() {
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  // AI-26 — true when the most recent thread-load attempt for the
+  // current workflowId failed. Drives a small non-blocking notice in
+  // `_BuilderAiPanelMessageList` so a silent load failure is no longer
+  // indistinguishable from "no history." Reset on workflowId transition
+  // (the new workflow's load gets a clean slate) and on a successful
+  // subsequent load. Planning / applying / clearing are unaffected.
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
   // AI-24 — value-free projection of the pending canvas for the planner.
   // provider:type pairs + edges only; NO config, NO position, NO secrets.
   const currentGraph = useMemo<CurrentGraphSnapshot>(
@@ -116,23 +123,47 @@ export function BuilderAiPanel() {
 
   // AI-23 — load persisted thread on workflowId change. Fail-open: a network
   // / auth failure leaves `messages` empty so the user sees a fresh chat
-  // (rather than a blocking error). The hasLoadedRef guard prevents a
-  // double-fetch from React 18's strict-mode mount/unmount + Suspense.
+  // (with a small non-blocking notice — AI-26).
+  //
+  // AI-26 (fixes AI-AUDIT-1 P0) — the `loadedForWorkflowRef` sentinel is
+  // assigned ONLY after a successful load has committed messages. The
+  // earlier pattern (set-ref-before-await) raced with React Strict Mode's
+  // simulated unmount cleanup: the first effect started a fetch, set the
+  // ref, and was then cancelled by the cleanup; the re-mount effect saw
+  // `ref === workflowId` and early-returned without re-fetching; the
+  // cancelled fetch eventually resolved but skipped `setMessages`. Net
+  // effect in dev: persisted messages silently disappeared on every page
+  // refresh. The fix flips the order so a cancelled or failed load leaves
+  // the ref unchanged, letting the re-mount effect's own fetch be the one
+  // that actually commits.
   const loadedForWorkflowRef = useRef<string | null>(null);
   useEffect(() => {
     if (!workflowId) return;
     if (loadedForWorkflowRef.current === workflowId) return;
-    loadedForWorkflowRef.current = workflowId;
+    // Reset stale failure indicator on workflow transition — the previous
+    // workflow's failure shouldn't shadow the new workflow's load.
+    setHistoryLoadFailed(false);
     let cancelled = false;
     (async () => {
       try {
         const res = await getBuilderAgentThread(workflowId);
         if (cancelled) return;
+        // Late dedup — if a concurrent effect already committed messages
+        // for this workflowId during the await window, don't double-apply.
+        if (loadedForWorkflowRef.current === workflowId) return;
         const rehydrated = res.messages
           .map(persistedMessageToChat)
           .filter((m): m is ChatMessage => m !== null);
         if (rehydrated.length > 0) setMessages(rehydrated);
+        // Mark loaded only AFTER messages are committed (or confirmed
+        // empty). A cancelled fetch never reaches this line, so the next
+        // effect run is free to re-attempt.
+        loadedForWorkflowRef.current = workflowId;
       } catch (err) {
+        if (cancelled) return;
+        // Surface a small notice; planning / applying still work. The ref
+        // stays null so a future re-mount can retry without manual code.
+        setHistoryLoadFailed(true);
         warnPersistenceFailureForDev("Builder Agent thread load failed", err);
       }
     })();
@@ -416,6 +447,7 @@ export function BuilderAiPanel() {
         aiStatus={ai.status}
         stagedAnswers={stagedAnswers}
         onStagedAnswerChange={handleStagedAnswerChange}
+        historyLoadFailed={historyLoadFailed}
       />
       <BuilderAiPanelComposer
         prompt={prompt}

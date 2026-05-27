@@ -66,6 +66,14 @@ interface Props {
     key: string,
     answer: RequiredInputAnswer | undefined,
   ) => void;
+  /**
+   * AI-26 — set when the most recent `getBuilderAgentThread` attempt
+   * threw. Renders an inline, non-blocking notice in place of the intro
+   * hint when the chat is otherwise empty, so a silent load failure is
+   * distinguishable from "no history." Planning / applying are unaffected
+   * regardless of this flag.
+   */
+  readonly historyLoadFailed: boolean;
 }
 
 export function BuilderAiPanelMessageList({
@@ -83,6 +91,7 @@ export function BuilderAiPanelMessageList({
   aiStatus,
   stagedAnswers,
   onStagedAnswerChange,
+  historyLoadFailed,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +125,19 @@ export function BuilderAiPanelMessageList({
       aria-relevant="additions"
       className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1 pt-1"
     >
-      {!hasMessages && !busy && (
+      {!hasMessages && !busy && historyLoadFailed && (
+        <p
+          data-testid="builder-ai-history-load-failed"
+          role="status"
+          className="px-1 pt-1 text-[11.5px] leading-relaxed"
+          style={{ color: "var(--builder-warn)" }}
+        >
+          Chat history couldn&rsquo;t be loaded. New messages will still
+          work.
+        </p>
+      )}
+
+      {!hasMessages && !busy && !historyLoadFailed && (
         <p
           data-testid="builder-ai-intro"
           className="px-1 pt-1 text-[11.5px] leading-relaxed"
