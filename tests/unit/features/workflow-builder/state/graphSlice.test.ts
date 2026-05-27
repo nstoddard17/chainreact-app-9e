@@ -891,3 +891,162 @@ describe("graphSlice.removeEdge", () => {
     expect(useGraphSlice.getState().isDirty).toBe(false);
   });
 });
+
+// ─── Slice 4.AI-25 — delete + save persistence regression suite ──────────────
+//
+// Marcus's 2026-05-27 smoke: deleted Manual Trigger → Slack locally, opened
+// React Agent, the canvas still showed those nodes. After saving the delete
+// first, the issue went away. Root cause = saved-draft rehydration on page
+// refresh / re-render (server-component re-load), NOT a bug. These tests pin
+// the expected behavior so it can't drift:
+//
+//   1. Local delete updates pending* immediately + sets isDirty true.
+//      saved* is UNCHANGED (the server still has the pre-delete draft).
+//   2. Save round-trips: the call posts the post-delete pending payload AND
+//      reconciles saved* to match. After save, isDirty is false. A
+//      subsequent re-hydrate (Next.js server re-render) sees the empty
+//      saved draft from the DB, so the deletion is now permanent.
+//   3. WITHOUT save: a forced re-hydrate (simulating a hard refresh that
+//      re-loads the saved draft from the DB) DOES override the local
+//      delete. This is the user-visible "old nodes came back" behavior —
+//      expected because unsaved changes don't survive refresh.
+
+describe("graphSlice — delete + save persistence (AI-25 regression)", () => {
+  const TRIGGER_PLUS_ACTION_DEF: WorkflowDefinition = {
+    nodes: [
+      {
+        id: "trig-1",
+        kind: "trigger",
+        provider: "native",
+        type: "manual.run",
+        config: {},
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: "act-1",
+        kind: "action",
+        provider: "slack",
+        type: "send_channel_message",
+        config: {},
+        position: { x: 100, y: 0 },
+      },
+    ],
+    edges: [{ id: "e-1", from: "trig-1", to: "act-1" }],
+  };
+
+  it("local delete (no save) — pendingNodes empty + isDirty true; savedNodes UNCHANGED", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+
+    useGraphSlice.getState().deleteNodeAndRewire("act-1");
+    useGraphSlice.getState().deleteNodeAndRewire("trig-1");
+
+    const s = useGraphSlice.getState();
+    // Pending state reflects the delete immediately.
+    expect(s.pendingNodes).toEqual([]);
+    expect(s.pendingEdges).toEqual([]);
+    expect(s.isDirty).toBe(true);
+    // Saved state is unchanged — the server still has the pre-delete draft.
+    expect(s.savedNodes.map((n) => n.id)).toEqual(["trig-1", "act-1"]);
+    expect(s.savedEdges.map((e) => e.id)).toEqual(["e-1"]);
+  });
+
+  it("save after delete — posts the empty payload, reconciles savedNodes to empty, clears isDirty", async () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
+    useGraphSlice.getState().deleteNodeAndRewire("act-1");
+    useGraphSlice.getState().deleteNodeAndRewire("trig-1");
+    // Server returns the empty draft (mirrors the request).
+    mockUpdateWorkflow.mockResolvedValueOnce({
+      id: "wf-1",
+      name: "x",
+      state: "draft",
+      disabledReason: null,
+      disabledContext: null,
+      activeRevisionId: null,
+      draftDefinition: { nodes: [], edges: [] },
+      deletedAt: null,
+      createdAt: "2026-05-06T00:00:00Z",
+      updatedAt: "2026-05-27T00:01:00Z",
+    });
+
+    await useGraphSlice.getState().save();
+
+    // The save call posted the post-delete pending payload.
+    expect(mockUpdateWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      expect.objectContaining({
+        draftDefinition: expect.objectContaining({ nodes: [], edges: [] }),
+      }),
+    );
+    const s = useGraphSlice.getState();
+    expect(s.savedNodes).toEqual([]);
+    expect(s.savedEdges).toEqual([]);
+    expect(s.pendingNodes).toEqual([]);
+    expect(s.pendingEdges).toEqual([]);
+    expect(s.isDirty).toBe(false);
+    expect(s.saveError).toBeNull();
+  });
+
+  it("simulated page refresh (re-hydrate from server) AFTER save — deletion is permanent", async () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
+    useGraphSlice.getState().deleteNodeAndRewire("act-1");
+    useGraphSlice.getState().deleteNodeAndRewire("trig-1");
+    mockUpdateWorkflow.mockResolvedValueOnce({
+      id: "wf-1",
+      name: "x",
+      state: "draft",
+      disabledReason: null,
+      disabledContext: null,
+      activeRevisionId: null,
+      draftDefinition: { nodes: [], edges: [] },
+      deletedAt: null,
+      createdAt: "2026-05-06T00:00:00Z",
+      updatedAt: "2026-05-27T00:01:00Z",
+    });
+    await useGraphSlice.getState().save();
+    // Page refresh: WorkflowBuilder mount effect re-runs hydrate() with the
+    // freshly-loaded server draft. Because we saved, the server draft is
+    // empty too.
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toEqual([]);
+    expect(s.pendingEdges).toEqual([]);
+    expect(s.savedNodes).toEqual([]);
+    expect(s.savedEdges).toEqual([]);
+    expect(s.isDirty).toBe(false);
+  });
+
+  it("simulated page refresh BEFORE save — old saved draft returns (expected; unsaved changes don't survive refresh)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
+    useGraphSlice.getState().deleteNodeAndRewire("act-1");
+    useGraphSlice.getState().deleteNodeAndRewire("trig-1");
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+
+    // Page refresh: WorkflowBuilder mount effect re-runs hydrate() with the
+    // SAVED server draft (which still has the pre-delete nodes — the user
+    // never clicked Save). The local delete is overridden by design.
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => n.id)).toEqual(["trig-1", "act-1"]);
+    expect(s.pendingEdges.map((e) => e.id)).toEqual(["e-1"]);
+    // isDirty resets because pending* now matches saved*.
+    expect(s.isDirty).toBe(false);
+  });
+
+  it("save preserves dirty + saveError if the request fails — delete stays local", async () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
+    useGraphSlice.getState().deleteNodeAndRewire("act-1");
+    useGraphSlice.getState().deleteNodeAndRewire("trig-1");
+    mockUpdateWorkflow.mockRejectedValueOnce(
+      new WorkflowApiError("network", "SERVER_ERROR", 500),
+    );
+    await expect(useGraphSlice.getState().save()).rejects.toThrow();
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toEqual([]);
+    expect(s.pendingEdges).toEqual([]);
+    expect(s.isDirty).toBe(true);
+    expect(s.saveError).toBe("network");
+    // Saved* is unchanged — the failed save left the server draft intact.
+    expect(s.savedNodes.map((n) => n.id)).toEqual(["trig-1", "act-1"]);
+  });
+});
