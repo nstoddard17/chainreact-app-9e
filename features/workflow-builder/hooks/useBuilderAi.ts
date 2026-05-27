@@ -240,6 +240,23 @@ export function useBuilderAi({
           // AI-24 — forward current-canvas snapshot on follow-up too.
           ...(options?.currentGraph ? { currentGraph: options.currentGraph } : {}),
         });
+        // Slice 4.AI-25 — preserve chain on ANY structured planner failure
+        // during a follow-up turn. RATE_LIMITED / PARSE_FAILED /
+        // PREVIEW_UNAVAILABLE / NETWORK_ERROR / TIMEOUT (all wrapped as
+        // MODEL_FAILED) and structural ok:false responses are all treated
+        // as retryable — the user shouldn't lose the original prompt, prior
+        // follow-up answers, or the in-flight needs-input question just
+        // because the planner round-trip failed. We also DO NOT overwrite
+        // `planResult` with the failure shape; keeping the prior needs-input
+        // plan in state means the chat's latest plan_result message (and
+        // its interactive controls) remain visible. The panel layer
+        // (BuilderAiPanel.handleSubmit) detects the `null` return and
+        // restores composer text + staged required-input answers so the
+        // user can retry without re-typing or re-selecting.
+        if (!result.ok) {
+          setStatus("planned");
+          return null;
+        }
         setPlanResult(result);
         setStatus("planned");
         if (planNeedsMoreInput(result)) {
@@ -247,16 +264,18 @@ export function useBuilderAi({
           // so the model can see the full set of prior responses.
           setPriorFollowUpAnswers((prev) => [...prev, turnSummary]);
         } else {
-          // Chain complete (or response shape doesn't continue it — e.g. a
-          // failure or an unsupported result). Drop chain state; the user
-          // can apply or start a new prompt.
+          // ok:true && requiredUserInput.length === 0 → chain genuinely
+          // complete. Drop chain state so the next prompt is treated as
+          // fresh; the user can apply this plan or start a new request.
           setOriginalPrompt(null);
           setPriorFollowUpAnswers([]);
         }
         return result;
       } catch (err) {
-        // Transport failure — leave chain state intact so the user can retry
-        // the same follow-up answer.
+        // Transport failure — same chain-preservation contract as the
+        // ok:false branch above (AI-25). The user can retry the same
+        // follow-up answer; chain state, prior planResult, and the
+        // panel's composer + staged answers all survive.
         setError(friendlyError(err, "The AI assistant is unavailable right now."));
         setStatus("idle");
         return null;

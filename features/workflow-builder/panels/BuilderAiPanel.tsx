@@ -176,8 +176,14 @@ export function BuilderAiPanel() {
     // AI-22 — gather any staged required-input answers from the interactive
     // controls. They're cleared synchronously here so the user message bubble
     // (which renders them as part of its display text) doesn't render twice.
+    // AI-25 — snapshot composer text + staged answers BEFORE clearing so we
+    // can restore both on retryable failure (RATE_LIMITED, PARSE_FAILED,
+    // transport throws — anything where `ai.plan` / `ai.submitFollowUp`
+    // returns null). The user shouldn't lose the structured selections
+    // they just made, or have to retype their answer, to retry.
     const stagedSnapshot = Array.from(stagedAnswers.values());
     const hasStagedAnswers = stagedSnapshot.length > 0;
+    const stagedAnswersForRetry = new Map(stagedAnswers);
     setStagedAnswers(new Map());
 
     const composerContent = trimmed;
@@ -198,6 +204,9 @@ export function BuilderAiPanel() {
       kind: userKind,
       content: userDisplay,
     });
+    // AI-25 — snapshot composer text BEFORE the input clears, so a retryable
+    // failure can put it back.
+    const composerForRetry = prompt;
     setPrompt("");
     // AI-23 — persist the user message (best effort; never blocks).
     void persistMessageBestEffort(wfId, {
@@ -218,6 +227,16 @@ export function BuilderAiPanel() {
       : await ai.plan(composerContent, undefined, { currentGraph });
 
     if (result === null) {
+      // AI-25 — retryable failure (RATE_LIMITED / PARSE_FAILED / network /
+      // any ok:false during a follow-up). Restore composer text + staged
+      // required-input answers so the user can click Send again without
+      // re-entering anything. The prior plan_result (with the unanswered
+      // question + controls) remains the latest in chat because the hook
+      // intentionally did NOT overwrite `ai.planResult` with the failure.
+      setPrompt(composerForRetry);
+      if (stagedAnswersForRetry.size > 0) {
+        setStagedAnswers(stagedAnswersForRetry);
+      }
       const errorContent =
         "The AI assistant is unavailable right now. Please try again in a moment.";
       appendMessage({

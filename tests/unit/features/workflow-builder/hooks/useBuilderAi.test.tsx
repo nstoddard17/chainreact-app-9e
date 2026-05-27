@@ -436,3 +436,158 @@ describe("useBuilderAi — currentGraph (AI-24)", () => {
     });
   });
 });
+
+// ─── Slice 4.AI-25 — preserve follow-up chain on retryable failures ──────────
+
+describe("useBuilderAi — preserve chain on retryable follow-up failures (AI-25)", () => {
+  const rateLimitedFailure = {
+    ok: false as const,
+    code: "MODEL_FAILED",
+    message: "The model did not return a plan (RATE_LIMITED).",
+    errors: [
+      { stage: "model", code: "RATE_LIMITED", message: "rate limited" },
+    ],
+    model: {
+      modelId: "claude-sonnet-4-6",
+      tier: "strong" as const,
+      feature: "creation" as const,
+      finishReason: "stop" as const,
+    },
+  };
+
+  const parseFailedFailure = {
+    ok: false as const,
+    code: "PARSE_FAILED",
+    message: "The model response could not be parsed into a valid plan.",
+    errors: [{ stage: "parse", code: "NOT_JSON", message: "bad json" }],
+    model: {
+      modelId: "claude-sonnet-4-6",
+      tier: "strong" as const,
+      feature: "creation" as const,
+      finishReason: "stop" as const,
+    },
+  };
+
+  it("submitFollowUp RATE_LIMITED returns null and preserves followUpMode", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send a Slack message when I get an email");
+    });
+    expect(result.current.followUpMode).toBe(true);
+
+    mockPlan.mockResolvedValueOnce(rateLimitedFailure);
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.submitFollowUp("Use #general");
+    });
+    // Hook signals retryable failure with null (panel restores composer +
+    // staged answers + appends an error bubble).
+    expect(captured).toBeNull();
+    // Chain still active so the user can retry.
+    expect(result.current.followUpMode).toBe(true);
+  });
+
+  it("submitFollowUp RATE_LIMITED preserves planResult (the prior needs-input plan stays the active turn)", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send a Slack message when I get an email");
+    });
+    const planBefore = result.current.planResult;
+    expect(planBefore?.ok).toBe(true);
+
+    mockPlan.mockResolvedValueOnce(rateLimitedFailure);
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general");
+    });
+    // planResult is NOT overwritten with the failure — the prior needs-input
+    // plan stays in state so the chat's latest plan_result bubble (with
+    // its controls) keeps rendering and apply gating stays correct.
+    expect(result.current.planResult).toBe(planBefore);
+    if (result.current.planResult?.ok) {
+      expect(result.current.planResult.requiredUserInput.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("submitFollowUp PARSE_FAILED (also retryable) preserves chain + planResult", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("first");
+    });
+    const planBefore = result.current.planResult;
+
+    mockPlan.mockResolvedValueOnce(parseFailedFailure);
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.submitFollowUp("Use #general");
+    });
+    expect(captured).toBeNull();
+    expect(result.current.followUpMode).toBe(true);
+    expect(result.current.planResult).toBe(planBefore);
+  });
+
+  it("RATE_LIMITED does NOT add the failed turn to priorFollowUpAnswers (no contamination on retry)", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse); // turn 1
+    mockPlan.mockResolvedValueOnce(rateLimitedFailure); // turn 2 rate-limited
+    mockPlan.mockResolvedValueOnce(applyReadyResponse); // turn 2 retry succeeds
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("original prompt");
+    });
+    // First follow-up attempt — rate limited.
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general");
+    });
+    // Second follow-up attempt — same answer, succeeds.
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general");
+    });
+    // The successful turn's reconstructed prompt must NOT contain a stale
+    // "Previous follow-up answers" line citing the rate-limited turn —
+    // that turn never made it into the chain history.
+    const [, thirdCallBody] = mockPlan.mock.calls[2]!;
+    const thirdPrompt = (thirdCallBody as { prompt: string }).prompt;
+    expect(thirdPrompt).not.toContain("Previous follow-up answers:");
+    expect(thirdPrompt).toContain("Original request:");
+    expect(thirdPrompt).toContain("Use #general");
+  });
+
+  it("a successful follow-up AFTER a RATE_LIMITED retry completes the chain when requiredUserInput resolves", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse); // initial
+    mockPlan.mockResolvedValueOnce(rateLimitedFailure); // rate-limited follow-up
+    mockPlan.mockResolvedValueOnce(applyReadyResponse); // successful retry
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("first");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general");
+    });
+    // Still in chain after rate-limited turn.
+    expect(result.current.followUpMode).toBe(true);
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general");
+    });
+    // Apply-ready plan with no required input → chain genuinely complete.
+    expect(result.current.followUpMode).toBe(false);
+    expect(result.current.planResult?.ok).toBe(true);
+  });
+
+  it("reset() after a RATE_LIMITED retry clears all preserved chain state", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    mockPlan.mockResolvedValueOnce(rateLimitedFailure);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("first");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp("Use #general");
+    });
+    expect(result.current.followUpMode).toBe(true);
+    act(() => result.current.reset());
+    expect(result.current.followUpMode).toBe(false);
+    expect(result.current.planResult).toBeNull();
+  });
+});
