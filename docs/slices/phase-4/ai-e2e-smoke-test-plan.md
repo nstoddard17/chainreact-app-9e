@@ -362,8 +362,15 @@ Run the full unit suite first — if it's red, the dev smoke can't help. This ch
 
 32. Open the browser dev-tools Network tab while running steps 5.1 / 5.2 / 5.3.
 33. For every `/api/workflows/*/ai/*` response and every `/api/ai/usage` response, search the body text for:
-    - `sk-ant-`, `Bearer `, `accessToken`, `refreshToken`, `apiSecret`, `clientSecret`, `webhookSecret`, `botToken`, `ya29.`.
+    - `sk-ant-`, `sk-`, `Bearer `, `accessToken`, `refreshToken`, `apiSecret`, `clientSecret`, `webhookSecret`, `botToken`, `ya29.`.
 34. **Expected:** zero hits. (The unit tests pin this, but a manual dev check catches a careless mid-PR change.)
+
+### 5.6 — OpenAI adapter live verification (AI-34B; provider-level, not a UI surface)
+
+The OpenAI adapter is wired but NOT routed (default planner stays Anthropic). To confirm it works against the real API without touching any workflow or UI:
+
+35. With `OPENAI_API_KEY` set server-side and `ENABLE_OPENAI_PROVIDER=true`, run `npx tsx scripts/trash/verify-openai-adapter.ts --tier=fast` (and `--tier=strong`).
+36. **Expected:** `result: SUCCESS`, `provider: openai`, `args parsed: true`, `args shape: { ok: boolean, message: string }`, non-zero usage tokens, and NO key printed. A `FAILURE` line with a typed `failureCode` (e.g. `NOT_CONFIGURED` when the key is absent) is also a clean, expected outcome — never a stack trace or a leaked key. This probe does NOT write `ai_cost_events` and does NOT mutate a workflow.
 
 ---
 

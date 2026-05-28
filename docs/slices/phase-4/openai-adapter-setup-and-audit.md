@@ -68,17 +68,17 @@ The planner's structured-output contract (`ModelGenerateInput.responseTool` → 
 
 ---
 
-## D. ⚠️ Live-verification checklist (before AI-34B routes real traffic)
+## D. ✅ Live-verification checklist — CONFIRMED in AI-34B (2026-05-27)
 
-The Responses-API request/response field shapes were implemented against the documented API. This environment cannot make a live OpenAI call, so the following MUST be confirmed against a real response first (the adapter is structured so only the parse/serialize helpers change if a field differs):
+The Responses-API request/response field shapes were implemented against the documented API and have now been **confirmed against a live `gpt-4.1` / `gpt-4.1-mini` call** via [`scripts/trash/verify-openai-adapter.ts`](../../../scripts/trash/verify-openai-adapter.ts). The adapter required **no source change** — every assumed field matched. Details in §I below.
 
-- [ ] `instructions` + `input: [{role, content}]` is accepted (vs requiring a single `input` string or a different message shape).
-- [ ] Function tool shape: flat `{type:"function", name, description, parameters}` + `tool_choice:{type:"function", name}`.
-- [ ] Response `output[]` contains a `function_call` item with `name` + `arguments` (JSON string).
-- [ ] Plain-text response exposes `output[].content[].type === "output_text"` (and/or top-level `output_text`).
-- [ ] `usage.input_tokens` / `usage.output_tokens` field names.
-- [ ] `status: "incomplete"` + `incomplete_details.reason: "max_output_tokens"` for truncation.
-- [ ] The chosen model ids (`gpt-4.1` / `gpt-4.1-mini`) exist on the account.
+- [x] `instructions` + `input: [{role, content}]` is accepted.
+- [x] Function tool shape: flat `{type:"function", name, description, parameters}` + `tool_choice:{type:"function", name}`.
+- [x] Response `output[]` contains a `function_call` item with `name` + `arguments` (JSON string).
+- [~] Plain-text response exposes `output[].content[].type === "output_text"` (and/or top-level `output_text`) — not exercised by the forced-tool probe; covered by unit tests and unchanged from the documented shape.
+- [x] `usage.input_tokens` / `usage.output_tokens` field names.
+- [~] `status: "incomplete"` + `incomplete_details.reason: "max_output_tokens"` for truncation — not triggered by the small probe (returned `status:"completed"`); the mapping is unit-pinned.
+- [x] The chosen model ids (`gpt-4.1` / `gpt-4.1-mini`) exist on the account.
 
 ---
 
@@ -111,6 +111,59 @@ The Responses-API request/response field shapes were implemented against the doc
 - [`createModelClient.test.ts`](../../../tests/unit/services/ai/modelClients/createModelClient.test.ts) — OpenAI + key → real adapter (hits `/v1/responses`); OpenAI + no key → NOT_CONFIGURED; unknown provider → CONFIGURATION_ERROR; no-leak; `isOpenAiProviderEnabled` flag (default off, only literal "true").
 - [`models.test.ts`](../../../tests/unit/core/ai/models.test.ts) — `OPENAI_MODELS` shape, id non-collision, `getModelForProviderTier` (anthropic vs openai), default resolver still Anthropic, `getModelById` cross-provider.
 
-## H. Next slice (AI-34B candidate, NOT this slice)
+## H. Next slice — AI-34C (NOT this slice)
 
-A/B or switch routing: a routing layer that, gated on `ENABLE_OPENAI_PROVIDER`, resolves `getModelForProviderTier("openai", tier)` for some/all plan calls — after the §D live-verification checklist passes and a quality comparison (parse-failure rate, no-substitution adherence, INVALID_PATCH rate) against Anthropic is run on real prompts.
+A/B or switch routing, gated on `ENABLE_OPENAI_PROVIDER`. After AI-34B's live verification (§I), the recommended AI-34C route is **Option 1 — a GPT fast-tier intent classifier**, not planner/patch routing. See §J.
+
+---
+
+## I. AI-34B — live verification results (2026-05-27)
+
+The adapter was driven against the **real OpenAI API** through the NORMAL model-client abstraction (`createModelClientForModel(getModelForProviderTier("openai", tier), apiKey)` — the factory, not a direct `createOpenAiModelClient`) by the dev-only probe [`scripts/trash/verify-openai-adapter.ts`](../../../scripts/trash/verify-openai-adapter.ts).
+
+### Env vars (server-side only)
+
+| Var | Purpose | AI-34B state |
+|---|---|---|
+| `OPENAI_API_KEY` | adapter key (read at call time, header only, never logged) | present |
+| `ENABLE_OPENAI_PROVIDER` | gates the probe + a future routing layer | `true` |
+
+### How to verify (repeatable)
+
+```
+# fast tier (gpt-4.1-mini, cheapest)
+npx tsx scripts/trash/verify-openai-adapter.ts --tier=fast
+# strong tier (gpt-4.1)
+npx tsx scripts/trash/verify-openai-adapter.ts --tier=strong --force
+```
+
+The probe sends one forced `verify_adapter` function tool (`{ ok: boolean, message: string }`), prints only safe fields, and aborts if the key ever appears in the result.
+
+### Results
+
+| Tier | Model | Result | input/output tokens | finishReason | arg shape |
+|---|---|---|---|---|---|
+| fast | `gpt-4.1-mini` | SUCCESS | 98 / 11 | stop | `{ ok: boolean, message: string }` |
+| strong | `gpt-4.1` | SUCCESS | 98 / 11 | stop | `{ ok: boolean, message: string }` |
+
+- **Response shape:** exactly as assumed — `output[].type==="function_call"` with `name` + `arguments` (JSON string). `arguments` parsed to the expected object. **No adapter change required.**
+- **Usage/token mapping:** `usage.input_tokens`/`output_tokens` → `ModelSuccess.usage.{inputTokens,outputTokens}` correct.
+- **Finish reason:** `status:"completed"` → `"stop"`.
+- **No leak:** runtime guard passed; the no-secrets test ([`verify-openai-adapter.test.ts`](../../../tests/unit/scripts/verify-openai-adapter.test.ts)) scans every console line for `apiKey`/`Bearer`/`authorization`/`OPENAI_API_KEY`.
+- **Failure mapping (unit-pinned, invalid key NOT burned live):** missing key → `NOT_CONFIGURED`; 401 → `PROVIDER_ERROR` (not retryable); 429 → `RATE_LIMITED`; 5xx → `PROVIDER_ERROR` (retryable); abort → `TIMEOUT`; fetch throw → `NETWORK_ERROR`.
+
+### Telemetry readiness
+
+`getModelById("gpt-4.1" | "gpt-4.1-mini")` resolves `provider:"openai"`, so `recordAiPlanOutcome`'s `providerOf` tags an OpenAI call as `model_provider:"openai"` + the OpenAI `model_name` + tier with no recorder change. The probe deliberately does NOT write `ai_cost_events` — adapter verification is separate from planner telemetry.
+
+### Model ids
+
+`gpt-4.1` (strong) / `gpt-4.1-mini` (fast) are **hardcoded** in `OPENAI_MODELS` (not env-overridable). Both confirmed valid on the account. **Recommendation:** keep them for AI-34C; add env overrides only when there's a measured reason. Classifier vs planner can share the registry (`fast` for the classifier, `strong` for any planner A/B) — no separate env names needed yet.
+
+## J. AI-34C routing recommendation
+
+**Option 1 — GPT fast-tier intent classifier (RECOMMENDED).** Plug a real `gpt-4.1-mini` classifier into the existing AI-31 seam `safeRunNarrowingClassifier` ([`narrowingClassifier.ts`](../../../services/ai/planner/narrowingClassifier.ts)) which already returns `source:"model"` / `modelTier` and has the additive/advisory contract + deterministic fallback baked in. The classifier is add-only — it can NEVER remove a deterministically-narrowed provider — and the planner stays Anthropic/Sonnet 4.6. Safest first product experiment.
+
+**Option 2 — GPT planner A/B for simple/narrowed prompts.** Route only low-risk/narrowed plans to `gpt-4.1`, fall back to Anthropic on parse failure / preview failure / unsupported schema / high-risk action. More direct cost comparison, higher risk.
+
+**Option 3 — keep dormant.** Only if verification had failed. It did not, so this is not recommended.

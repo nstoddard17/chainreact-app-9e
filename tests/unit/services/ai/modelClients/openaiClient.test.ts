@@ -211,6 +211,20 @@ describe("error mapping", () => {
     expect(result.retryable).toBe(false);
   });
 
+  it("401 (invalid key) → PROVIDER_ERROR (not retryable) — the closed code set has no AUTHENTICATION_ERROR, so 401 maps to PROVIDER_ERROR exactly like Anthropic (AI-34B Part D)", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      mockResponse({
+        status: 401,
+        text: JSON.stringify({ error: { type: "invalid_request_error", message: "Incorrect API key provided" } }),
+      }),
+    );
+    const result = await client(fetchImpl).generateStructuredJson(input);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureCode).toBe("PROVIDER_ERROR");
+    expect(result.retryable).toBe(false);
+  });
+
   it("invalid JSON body → INVALID_RESPONSE", async () => {
     const fetchImpl = jest.fn().mockResolvedValue(mockResponse({ status: 200, jsonThrows: true }));
     const result = await client(fetchImpl).generateStructuredJson(input);
@@ -247,6 +261,34 @@ describe("error mapping", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.failureCode).toBe("NETWORK_ERROR");
+  });
+});
+
+// The mock bodies below are the EXACT shapes confirmed against a live
+// gpt-4.1 / gpt-4.1-mini Responses-API call on 2026-05-27 (Slice 4.AI-34B
+// verification: scripts/trash/verify-openai-adapter.ts). Locking them guards
+// against silent drift if the adapter's parse helpers are ever refactored.
+describe("AI-34B live-confirmed Responses-API shape", () => {
+  it("forced tool: output[].type='function_call' (name+arguments JSON string) → SUCCESS with text=arguments, finishReason stop, usage mapped", async () => {
+    const liveShape = {
+      output: [
+        {
+          type: "function_call",
+          name: "propose_workflow_plan",
+          arguments: '{"ok":true,"message":"adapter verified"}',
+          call_id: "call_abc123",
+        },
+      ],
+      status: "completed",
+      usage: { input_tokens: 98, output_tokens: 11, total_tokens: 109 },
+    };
+    const fetchImpl = jest.fn().mockResolvedValue(mockResponse({ status: 200, json: liveShape }));
+    const result = await client(fetchImpl).generateStructuredJson(toolInput);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(JSON.parse(result.text)).toEqual({ ok: true, message: "adapter verified" });
+    expect(result.finishReason).toBe("stop");
+    expect(result.usage).toEqual({ inputTokens: 98, outputTokens: 11 });
   });
 });
 
