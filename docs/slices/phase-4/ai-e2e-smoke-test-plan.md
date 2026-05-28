@@ -397,6 +397,15 @@ Filling already-identified required fields and clicking Send details should NOT 
 45. Existing Slack DM edit: "change this to send the message to a different person" → answer the recipient via the control → Send details → the existing node updates (no new node), apply-ready, `resolution=deterministic` (no model call). This is the AI-35 #3 fix moved to the deterministic layer.
 46. Typing free text alongside the controls, resolving a provider choice, or a fill that fails preview validation → a normal `follow_up` planner cost line appears (model re-plan) — the expected fallback.
 
+### 5.10 — OpenAI-only planner; Anthropic disabled at runtime (AI-36)
+
+The React Agent planner now uses OpenAI `gpt-4.1-mini`; Anthropic must not be called. Run with `ENABLE_OPENAI_PROVIDER=true`, `ENABLE_OPENAI_PLANNER=true`, `OPENAI_API_KEY` set, `ENABLE_AI_COST_DEBUG=true`, and `ENABLE_ANTHROPIC_PLANNER_FALLBACK` unset.
+
+47. Plan each: "Send me a Slack DM", "When Stripe payment fails send me a Slack DM", "When I get an email send a Slack message", "When I get a Gmail email send a Slack message", "Create an automation".
+48. **Expected:** every `[ai-cost]` planner line shows `provider=openai model=gpt-4.1-mini`; `ai_cost_events` rows for these plans show `model_provider=openai`; **zero** `model_provider=anthropic` rows are created; no request hits `/v1/messages` (watch the Network tab / server logs). Output quality holds — no-substitution, required fields asked, Apply/Activate semantics, deterministic completion for direct field fills.
+49. **Quick confirm without the dev server:** `npx tsx scripts/trash/verify-openai-planner.ts` prints `planner provider: openai` + `provider=openai`/`model=gpt-4.1-mini` on every prompt row.
+50. **Emergency Anthropic (only when explicitly enabled):** set `ENABLE_ANTHROPIC_PLANNER_FALLBACK=true` and unset the OpenAI planner flag → the planner uses Anthropic (`/v1/messages`). With the flag unset, this never happens.
+
 ---
 
 ## 6. Bugs found during this audit

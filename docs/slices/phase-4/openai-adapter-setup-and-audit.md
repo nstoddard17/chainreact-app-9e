@@ -111,6 +111,29 @@ The Responses-API request/response field shapes were implemented against the doc
 - [`createModelClient.test.ts`](../../../tests/unit/services/ai/modelClients/createModelClient.test.ts) — OpenAI + key → real adapter (hits `/v1/responses`); OpenAI + no key → NOT_CONFIGURED; unknown provider → CONFIGURATION_ERROR; no-leak; `isOpenAiProviderEnabled` flag (default off, only literal "true").
 - [`models.test.ts`](../../../tests/unit/core/ai/models.test.ts) — `OPENAI_MODELS` shape, id non-collision, `getModelForProviderTier` (anthropic vs openai), default resolver still Anthropic, `getModelById` cross-provider.
 
+## K. AI-36 — OpenAI is now the React Agent PLANNER (Anthropic disabled at runtime)
+
+The OpenAI adapter is no longer just classifier/A-B — as of AI-36 it serves the **React Agent planner**. Anthropic is **not called at runtime** (cost decision); its code stays dormant behind an emergency flag.
+
+**Required env (planner ON):**
+```
+OPENAI_API_KEY=sk-...
+ENABLE_OPENAI_PROVIDER=true
+ENABLE_OPENAI_PLANNER=true
+```
+Optional emergency/dev override (default OFF — the ONLY runtime path that calls Anthropic):
+```
+ENABLE_ANTHROPIC_PLANNER_FALLBACK=true
+```
+
+**Planner model:** `gpt-4.1-mini` (`OPENAI_MODELS.fast`, output budget bumped to 8192 for planner use). `OPENAI_PLANNER_MODEL` / `OPENAI_PLANNER_STRONG_MODEL` env overrides are NOT yet wired — the adapter resolves the model id by tier from the registry; the planner uses the fast-tier id. Documented as a future override.
+
+**No fallback:** if OpenAI is disabled / not-configured / rate-limited / errors / parse-fails / preview-rejects, the planner returns the existing model-unavailable or parse/preview failure flow — it does NOT fall back to Anthropic.
+
+**Confirm Anthropic calls are zero:** run with the env above + `ENABLE_AI_COST_DEBUG=true`; every `[ai-cost]` planner line shows `provider=openai`, and no request hits `/v1/messages`. Live verify: `npx tsx scripts/trash/verify-openai-planner.ts` (all rows `provider=openai`, `model=gpt-4.1-mini`).
+
+Routing: [`createPlannerModelClient`](../../../services/ai/modelClients/createModelClient.ts). Full note: [`ai-architecture-react-agent-plan.md`](./ai-architecture-react-agent-plan.md) "AI-36".
+
 ## H. AI-34C — SHIPPED (Option 1: GPT fast-tier intent classifier)
 
 AI-34C took §J's recommended **Option 1**. `gpt-4.1-mini` plugs into the AI-31 narrowing-classifier seam as an OPTIONAL, ADVISORY, ADDITIVE classifier ([`services/ai/planner/modelNarrowingClassifier.ts`](../../../services/ai/planner/modelNarrowingClassifier.ts) + [`resolvePromptClassifier.ts`](../../../services/ai/planner/resolvePromptClassifier.ts)). It only ADDS valid candidate providers to the deterministic narrowed catalog (never removes / shrinks / pollutes), gated on `ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true` + `ENABLE_OPENAI_PROVIDER=true` + `OPENAI_API_KEY` (default off). The PLANNER stays Anthropic/Sonnet — NO patch generation / Apply on OpenAI. Full details in [`ai-architecture-react-agent-plan.md`](./ai-architecture-react-agent-plan.md) "AI-34C" note + [`planner-model-tier-routing-audit.md`](./planner-model-tier-routing-audit.md). Verify live: `npx tsx scripts/trash/verify-model-classifier.ts`.

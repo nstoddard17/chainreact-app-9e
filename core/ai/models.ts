@@ -64,7 +64,11 @@ export const OPENAI_MODELS: Readonly<Record<ModelTier, ModelDefinition>> = {
     provider: "openai",
     tier: "fast",
     maxInputTokens: 1_000_000,
-    maxOutputTokens: 4_096,
+    // Slice 4.AI-36 — gpt-4.1-mini is now the React Agent PLANNER model, so it
+    // needs a planner-grade output budget (matches the prior Sonnet planner's
+    // 8192). gpt-4.1-mini supports up to 32k output, so 8192 is well within
+    // limits. The AI-34C classifier sets its own small cap (400), unaffected.
+    maxOutputTokens: 8_192,
   },
   strong: {
     id: "gpt-4.1",

@@ -112,11 +112,14 @@ beforeEach(() => {
   mockGetWorkflowGraphForAI.mockReset();
   mockListActiveByUser.mockReset();
   mockListActiveByUser.mockResolvedValue([]);
-  // AI-8C: the default client is the env-configured runtime client. Clear keys so
-  // the no-injected-client path is deterministically NOT_CONFIGURED (and never
-  // makes a live call) regardless of the developer's shell env.
+  // AI-8C/AI-36: the non-injected client path is decided by the planner routing.
+  // Clear keys + provider/planner flags so the default is deterministically
+  // NOT_CONFIGURED (model unavailable) — never a live call, never Anthropic.
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.OPENAI_API_KEY;
+  delete process.env.ENABLE_OPENAI_PLANNER;
+  delete process.env.ENABLE_OPENAI_PROVIDER;
+  delete process.env.ENABLE_ANTHROPIC_PLANNER_FALLBACK;
 });
 afterAll(() => {
   if (ORIGINAL_ANTHROPIC_KEY === undefined) delete process.env.ANTHROPIC_API_KEY;
@@ -440,7 +443,10 @@ describe("model failure", () => {
     expect(result.code).toBe("MODEL_FAILED");
     expect(result.errors[0]!.stage).toBe("model");
     expect(result.errors[0]!.code).toBe("NOT_CONFIGURED");
-    expect(result.model?.modelId).toBe(MODELS.strong.id);
+    // AI-36 — with no planner flags the routing returns NOT_CONFIGURED at the
+    // fast tier (the planner default), so the placeholder model id is the
+    // fast-tier model. No call is made; this id is only a label.
+    expect(result.model?.modelId).toBe(MODELS.fast.id);
     expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
   });
 
@@ -633,24 +639,27 @@ describe("structured-output wiring (AI-19)", () => {
     expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
   });
 
-  it("end-to-end: simulated Anthropic tool_use response → reaches preview + canApplyLater", async () => {
-    // Drives the planner with the runtime client + a mocked fetch returning a
-    // tool_use block (the live shape under AI-19). Asserts the planner does
-    // not regress to the AI-18 PARSE_FAILED/NOT_JSON failure mode.
-    process.env.ANTHROPIC_API_KEY = "sk-ant-AI-19-TEST";
+  it("end-to-end (AI-36): OpenAI planner function_call response → reaches preview + canApplyLater, hits /v1/responses (NOT Anthropic)", async () => {
+    // Drives the planner with the routed OpenAI client + a mocked fetch
+    // returning an OpenAI Responses-API function_call (the AI-19 forced-tool
+    // contract, OpenAI shape). Proves the planner reaches preview without
+    // regressing to PARSE_FAILED — AND that it calls OpenAI, never Anthropic.
+    process.env.ENABLE_OPENAI_PLANNER = "true";
+    process.env.ENABLE_OPENAI_PROVIDER = "true";
+    process.env.OPENAI_API_KEY = "sk-openai-AI-36-TEST";
     const fetchSpy = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
-        content: [
+        output: [
           {
-            type: "tool_use",
-            id: "toolu_x",
+            type: "function_call",
             name: "propose_workflow_plan",
-            input: JSON.parse(planResponse({ proposedPatch: movePatch() })),
+            arguments: planResponse({ proposedPatch: movePatch() }),
+            call_id: "call_1",
           },
         ],
-        stop_reason: "tool_use",
+        status: "completed",
         usage: { input_tokens: 100, output_tokens: 50 },
       }),
       text: async () => "{}",
@@ -664,16 +673,18 @@ describe("structured-output wiring (AI-19)", () => {
         prompt: "When a Stripe payment fails, send me a Slack DM.",
       });
       expect(fetchSpy).toHaveBeenCalledTimes(1);
-      // The fetch body must include tools + tool_choice (the AI-19 contract).
+      expect(fetchSpy.mock.calls[0]![0]).toContain("/v1/responses"); // OpenAI
+      expect(fetchSpy.mock.calls[0]![0]).not.toContain("/v1/messages"); // never Anthropic
+      // The fetch body must include the forced function tool (AI-19 contract).
       const reqInit = fetchSpy.mock.calls[0]![1] as { body: string };
       const body = JSON.parse(reqInit.body);
-      expect(body.tool_choice).toEqual({ type: "tool", name: "propose_workflow_plan" });
+      expect(body.tool_choice).toEqual({ type: "function", name: "propose_workflow_plan" });
       expect(body.tools[0].name).toBe("propose_workflow_plan");
-      // And the planner reached preview successfully (no PARSE_FAILED).
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.canApplyLater).toBe(true);
       expect(result.preview).toBeDefined();
+      expect(result.model.modelId).toBe("gpt-4.1-mini"); // OpenAI planner model
     } finally {
       (globalThis as { fetch?: unknown }).fetch = original;
     }
@@ -712,25 +723,28 @@ describe("default runtime client wiring (AI-8C)", () => {
     expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
   });
 
-  it("with no injected client but a configured key + mocked fetch → reaches parse/preview", async () => {
-    // Slice 4.AI-19 — the planner now passes `responseTool` so the Anthropic
-    // adapter forces tool-use. The mocked fetch must return a tool_use block,
-    // not a text block — otherwise the adapter (correctly) flags
-    // INVALID_RESPONSE because the model didn't call the forced tool.
+  it("with the OpenAI planner enabled + a key + mocked fetch → reaches parse/preview via /v1/responses (AI-36)", async () => {
+    // AI-36 — the non-injected planner routes to OpenAI (gpt-4.1-mini). The
+    // mocked fetch returns an OpenAI Responses-API function_call (the forced
+    // tool); the planner parses + previews it. Proves the default path is
+    // OpenAI, never Anthropic.
     mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
-    process.env.ANTHROPIC_API_KEY = "sk-ant-RUNTIME-TEST";
+    process.env.ENABLE_OPENAI_PLANNER = "true";
+    process.env.ENABLE_OPENAI_PROVIDER = "true";
+    process.env.OPENAI_API_KEY = "sk-openai-RUNTIME-TEST";
     const fetchSpy = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
-        content: [
+        output: [
           {
-            type: "tool_use",
+            type: "function_call",
             name: "propose_workflow_plan",
-            input: JSON.parse(planResponse({ proposedPatch: movePatch() })),
+            arguments: planResponse({ proposedPatch: movePatch() }),
+            call_id: "call_1",
           },
         ],
-        stop_reason: "tool_use",
+        status: "completed",
         usage: { input_tokens: 1, output_tokens: 2 },
       }),
       text: async () => "{}",
@@ -740,12 +754,13 @@ describe("default runtime client wiring (AI-8C)", () => {
     try {
       const result = await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt: "tidy" });
       expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0]![0]).toContain("/v1/responses");
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.canApplyLater).toBe(true);
       expect(result.preview).toBeDefined();
       // The runtime key must never surface in the planner result.
-      expect(JSON.stringify(result)).not.toContain("sk-ant-RUNTIME-TEST");
+      expect(JSON.stringify(result)).not.toContain("sk-openai-RUNTIME-TEST");
     } finally {
       (globalThis as { fetch?: unknown }).fetch = original;
     }
@@ -1636,5 +1651,135 @@ describe("AI-35 — generic-category requests get a structured provider_choice",
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.requiredUserInput.some((r) => r.kind === "provider_choice")).toBe(false);
+  });
+});
+
+describe("AI-36 — OpenAI planner routing: no Anthropic fallback", () => {
+  function enableOpenAiPlanner() {
+    process.env.ENABLE_OPENAI_PLANNER = "true";
+    process.env.ENABLE_OPENAI_PROVIDER = "true";
+    process.env.OPENAI_API_KEY = "sk-openai-AI36";
+  }
+  function openAiResponse(body: {
+    ok?: boolean;
+    status?: number;
+    json?: unknown;
+    text?: string;
+  }) {
+    return {
+      ok: body.ok ?? true,
+      status: body.status ?? 200,
+      json: async () => body.json ?? {},
+      text: async () => body.text ?? "{}",
+    } as unknown as Response;
+  }
+  async function runWithFetch(fetchSpy: jest.Mock, prompt = "Send me a Slack DM") {
+    const original = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = fetchSpy;
+    try {
+      return await planWorkflowFromPromptForAI({ userId: "u1", workflowId: "wf1", prompt });
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = original;
+    }
+  }
+  function assertNeverAnthropic(fetchSpy: jest.Mock) {
+    for (const call of fetchSpy.mock.calls) {
+      expect(String(call[0])).not.toContain("/v1/messages");
+    }
+  }
+
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+  });
+
+  it("routes a successful plan to OpenAI (/v1/responses), never Anthropic", async () => {
+    enableOpenAiPlanner();
+    const fetchSpy = jest.fn().mockResolvedValue(
+      openAiResponse({
+        json: {
+          output: [{ type: "function_call", name: "propose_workflow_plan", arguments: planResponse({ proposedPatch: movePatch() }), call_id: "c1" }],
+          status: "completed",
+          usage: { input_tokens: 10, output_tokens: 5 },
+        },
+      }),
+    );
+    const result = await runWithFetch(fetchSpy);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.model.modelId).toBe("gpt-4.1-mini");
+    expect(fetchSpy.mock.calls[0]![0]).toContain("/v1/responses");
+    assertNeverAnthropic(fetchSpy);
+  });
+
+  it("OpenAI parse failure does NOT call Anthropic", async () => {
+    enableOpenAiPlanner();
+    const fetchSpy = jest.fn().mockResolvedValue(
+      openAiResponse({
+        json: {
+          output: [{ type: "function_call", name: "propose_workflow_plan", arguments: '{"intentSummary":"x"', call_id: "c1" }],
+          status: "completed",
+        },
+      }),
+    );
+    const result = await runWithFetch(fetchSpy);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("PARSE_FAILED");
+    assertNeverAnthropic(fetchSpy);
+  });
+
+  it("OpenAI rate limit does NOT call Anthropic (no retry to a second provider)", async () => {
+    enableOpenAiPlanner();
+    const fetchSpy = jest.fn().mockResolvedValue(
+      openAiResponse({ ok: false, status: 429, text: JSON.stringify({ error: { message: "slow down" } }) }),
+    );
+    const result = await runWithFetch(fetchSpy);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.code).toBe("RATE_LIMITED");
+    assertNeverAnthropic(fetchSpy);
+  });
+
+  it("OpenAI provider error does NOT call Anthropic", async () => {
+    enableOpenAiPlanner();
+    const fetchSpy = jest.fn().mockResolvedValue(openAiResponse({ ok: false, status: 500, text: "{}" }));
+    const result = await runWithFetch(fetchSpy);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.code).toBe("PROVIDER_ERROR");
+    assertNeverAnthropic(fetchSpy);
+  });
+
+  it("OpenAI planner enabled but no key → MODEL_FAILED/NOT_CONFIGURED, no network, no Anthropic", async () => {
+    process.env.ENABLE_OPENAI_PLANNER = "true";
+    process.env.ENABLE_OPENAI_PROVIDER = "true";
+    // no OPENAI_API_KEY
+    const fetchSpy = jest.fn();
+    const result = await runWithFetch(fetchSpy);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("MODEL_FAILED");
+    expect(result.errors[0]!.code).toBe("NOT_CONFIGURED");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("emergency fallback flag ENABLES Anthropic (the ONLY path that calls /v1/messages)", async () => {
+    process.env.ENABLE_ANTHROPIC_PLANNER_FALLBACK = "true";
+    process.env.ANTHROPIC_API_KEY = "sk-ant-EMERGENCY";
+    const fetchSpy = jest.fn().mockResolvedValue(
+      openAiResponse({
+        json: {
+          content: [{ type: "tool_use", name: "propose_workflow_plan", input: JSON.parse(planResponse({ proposedPatch: movePatch() })) }],
+          stop_reason: "tool_use",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      }),
+    );
+    const result = await runWithFetch(fetchSpy);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(fetchSpy.mock.calls[0]![0]).toContain("/v1/messages"); // Anthropic, by explicit opt-in only
   });
 });

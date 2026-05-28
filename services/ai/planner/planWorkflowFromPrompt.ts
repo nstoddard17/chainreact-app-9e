@@ -31,7 +31,7 @@ import type {
   ModelSuccess,
   ModelTier,
 } from "@/core/ai/modelTypes";
-import { createRuntimeModelClient } from "@/services/ai/modelClients";
+import { createPlannerModelClient } from "@/services/ai/modelClients";
 import { previewWorkflowPatchForAI } from "@/services/ai/preview";
 import { getProviderCatalog } from "@/services/ai/tools/providerCatalog";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
@@ -191,10 +191,19 @@ export async function planWorkflowFromPromptForAI(
 ): Promise<PlanWorkflowResult> {
   const { userId, workflowId, prompt } = input;
   const feature = input.feature ?? WORKFLOW_PLAN_FEATURE;
-  const tier: ModelTier = input.modelTier ?? getModelForFeature(feature).tier;
-  // Default to the env-configured runtime client; with no API key it resolves to
-  // the NOT_CONFIGURED client, so the planner still fails safe (MODEL_FAILED).
-  const client = input.modelClient ?? createRuntimeModelClient({ feature, tier });
+  // Slice 4.AI-36 — route the React Agent planner to OpenAI (gpt-4.1-mini);
+  // Anthropic is dormant (emergency flag only) and is NEVER a silent fallback.
+  // An injected client (tests) bypasses routing. With the OpenAI planner flag
+  // off / unconfigured the routing returns a NOT_CONFIGURED client, so the
+  // planner fails safe (MODEL_FAILED → "model unavailable"), NEVER Anthropic.
+  const routing = input.modelClient
+    ? undefined
+    : createPlannerModelClient({
+        feature,
+        ...(input.modelTier ? { tier: input.modelTier } : {}),
+      });
+  const tier: ModelTier = input.modelTier ?? routing?.tier ?? getModelForFeature(feature).tier;
+  const client = input.modelClient ?? routing!.client;
 
   // 1. Registry-grounded request (live catalog + connected integrations, AI-8A;
   //    AI-24 adds the current builder-canvas snapshot from the client). The
@@ -213,15 +222,20 @@ export async function planWorkflowFromPromptForAI(
     tier,
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
   });
-  // Slice 4.AI-19 — force structured output via Anthropic tool-use so the
-  // model can never return prose that PARSE_FAILED/NOT_JSON's our parser.
-  // Adapters that don't understand `responseTool` (mock client,
-  // NOT_CONFIGURED, future non-Anthropic) IGNORE the field and behave
-  // exactly as before — the wiring is additive.
+  // Slice 4.AI-19 — force structured output via provider tool-use (function
+  // call) so the model can never return prose that PARSE_FAILED/NOT_JSON's our
+  // parser. The OpenAI Responses-API adapter (AI-34A/AI-36) reads `responseTool`
+  // the same way the Anthropic adapter did; adapters that don't understand it
+  // (mock / NOT_CONFIGURED) IGNORE it — the wiring is additive.
   const request: ModelGenerateInput = {
     ...baseRequest,
     feature,
     responseTool: WORKFLOW_PLAN_TOOL,
+    // Slice 4.AI-36 — the request's tier-derived output cap comes from the
+    // Anthropic registry inside `buildWorkflowPlanRequestWithAttribution`;
+    // override it with the ROUTED provider's model budget so the OpenAI
+    // planner keeps a planner-grade output budget (gpt-4.1-mini → 8192).
+    ...(routing ? { maxOutputTokens: routing.maxOutputTokens } : {}),
   };
 
   // 2. Call the injected model client.

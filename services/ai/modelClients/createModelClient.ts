@@ -20,6 +20,7 @@
 import { createNotConfiguredModelClient } from "@/core/ai/modelClient";
 import {
   getModelForFeature,
+  getModelForProviderTier,
   getModelForTier,
   MODEL_API_KEY_ENV,
   type ModelDefinition,
@@ -28,6 +29,7 @@ import type {
   ModelClient,
   ModelGenerateInput,
   ModelResult,
+  ModelTier,
 } from "@/core/ai/modelTypes";
 import { createAnthropicModelClient } from "./anthropicClient";
 import { createOpenAiModelClient } from "./openaiClient";
@@ -110,4 +112,91 @@ export function createModelClientForFeature(
   tier?: RuntimeModelClientInput["tier"],
 ): ModelClient {
   return createRuntimeModelClient(tier ? { feature, tier } : { feature });
+}
+
+// ─── Slice 4.AI-36: React Agent planner provider routing ─────────────────────
+
+/**
+ * Whether OpenAI is the React Agent PLANNER provider. Read at call time
+ * (default OFF). When true (AND `ENABLE_OPENAI_PROVIDER` + `OPENAI_API_KEY`),
+ * the planner routes to OpenAI; Anthropic is NOT called.
+ */
+export function isOpenAiPlannerEnabled(): boolean {
+  return process.env.ENABLE_OPENAI_PLANNER === "true";
+}
+
+/**
+ * EMERGENCY / DEV ONLY (default OFF). When true, the planner may use Anthropic
+ * — the ONLY runtime path that calls Anthropic after AI-36. Marcus disabled
+ * Anthropic at runtime for cost; this flag exists for emergency/debug use.
+ */
+export function isAnthropicPlannerFallbackEnabled(): boolean {
+  return process.env.ENABLE_ANTHROPIC_PLANNER_FALLBACK === "true";
+}
+
+export type PlannerProvider = "openai" | "anthropic" | "none";
+
+export interface PlannerModelClientResult {
+  readonly client: ModelClient;
+  /** Which provider will actually serve the call (`none` → NOT_CONFIGURED). */
+  readonly provider: PlannerProvider;
+  readonly tier: ModelTier;
+  readonly modelId: string;
+  /** Output-token budget for the planner request (the resolved model's cap). */
+  readonly maxOutputTokens: number;
+}
+
+/**
+ * Slice 4.AI-36 — resolve the React Agent PLANNER's model client.
+ *
+ * Routing (no silent Anthropic fallback):
+ *   1. OpenAI planner enabled + provider enabled → OpenAI (`gpt-4.1-mini`, the
+ *      `fast` tier). With no key, `createModelClientForModel` returns the
+ *      NOT_CONFIGURED client — still NOT Anthropic.
+ *   2. Else if the explicit emergency flag is set → Anthropic (dormant default).
+ *   3. Else → NOT_CONFIGURED (the existing "model unavailable" flow). NEVER
+ *      Anthropic.
+ *
+ * Anthropic code stays available; only this routing decides whether it runs.
+ */
+export function createPlannerModelClient(
+  input: RuntimeModelClientInput,
+): PlannerModelClientResult {
+  if (isOpenAiPlannerEnabled() && isOpenAiProviderEnabled()) {
+    const tier: ModelTier = input.tier ?? "fast";
+    const model = getModelForProviderTier("openai", tier);
+    const apiKey = process.env[MODEL_API_KEY_ENV.openai];
+    return {
+      client: createModelClientForModel(model, apiKey),
+      provider: "openai",
+      tier,
+      modelId: model.id,
+      maxOutputTokens: model.maxOutputTokens,
+    };
+  }
+
+  if (isAnthropicPlannerFallbackEnabled()) {
+    const tier: ModelTier = input.tier ?? getModelForFeature(input.feature).tier;
+    const model = getModelForTier(tier);
+    const apiKey = process.env[MODEL_API_KEY_ENV.anthropic];
+    return {
+      client: createModelClientForModel(model, apiKey),
+      provider: "anthropic",
+      tier,
+      modelId: model.id,
+      maxOutputTokens: model.maxOutputTokens,
+    };
+  }
+
+  // Neither enabled → model-unavailable. Report an OpenAI id (the intended
+  // provider) and a NOT_CONFIGURED client — Anthropic is never constructed.
+  const tier: ModelTier = input.tier ?? "fast";
+  const model = getModelForProviderTier("openai", tier);
+  return {
+    client: createNotConfiguredModelClient(),
+    provider: "none",
+    tier,
+    modelId: model.id,
+    maxOutputTokens: model.maxOutputTokens,
+  };
 }

@@ -13,8 +13,13 @@ export { createOpenAiModelClient } from "./openaiClient";
 export {
   createModelClientForFeature,
   createModelClientForModel,
+  createPlannerModelClient,
   createRuntimeModelClient,
+  isAnthropicPlannerFallbackEnabled,
+  isOpenAiPlannerEnabled,
   isOpenAiProviderEnabled,
+  type PlannerModelClientResult,
+  type PlannerProvider,
 } from "./createModelClient";
 export type {
   AnthropicModelClientOptions,

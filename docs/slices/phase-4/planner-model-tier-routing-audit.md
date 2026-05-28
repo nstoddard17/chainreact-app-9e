@@ -256,3 +256,16 @@ A new value-free `plannerInteractionKind` (`initial_plan | follow_up | retry |
 unknown`) is also recorded into the planner row's metadata so follow-up re-plans
 (which re-run the full planner) are attributable. See the AI-35D section in
 `ai-cost-telemetry-validation-and-cache-audit.md`.
+
+---
+
+## L. AI-36 — OpenAI is now the React Agent planner (Anthropic disabled at runtime)
+
+§A's "keep patch generation on strong (Sonnet)" decision is **superseded** by a product decision: Anthropic/Sonnet runtime cost is unacceptable, so the React Agent planner now uses **OpenAI `gpt-4.1-mini`** and **Anthropic is not called at runtime**.
+
+- **Routing:** `createPlannerModelClient` (`services/ai/modelClients/createModelClient.ts`) — OpenAI when `ENABLE_OPENAI_PLANNER` + `ENABLE_OPENAI_PROVIDER` + `OPENAI_API_KEY`; otherwise NOT_CONFIGURED ("model unavailable"). **No silent Anthropic fallback.** The ONLY runtime Anthropic path is the explicit emergency flag `ENABLE_ANTHROPIC_PLANNER_FALLBACK=true` (default off).
+- **Tier:** the planner uses the OpenAI **fast** tier (gpt-4.1-mini). `OPENAI_MODELS.fast.maxOutputTokens` bumped 4096→8192 so the planner keeps a Sonnet-grade output budget; the planner request overrides its budget with the routed model's.
+- **`plannerModelTier`:** now `"fast"` for the OpenAI planner (was `"strong"`/Sonnet). `classifierModelTier` is unaffected (AI-34C classifier is its own gated path).
+- **Telemetry:** `model_provider="openai"`, `model_name="gpt-4.1-mini"` on planner rows. The AI-35D cost guard shows `provider=openai`. A planner-disabled NOT_CONFIGURED failure carries a fast-tier placeholder id (no call made).
+- **Anthropic code:** retained, dormant. Not deleted; never called without the emergency flag.
+- The deterministic classifier (§D) + AI-30 narrowing are unchanged — they still run before the OpenAI planner and shape the (now OpenAI-billed) catalog.

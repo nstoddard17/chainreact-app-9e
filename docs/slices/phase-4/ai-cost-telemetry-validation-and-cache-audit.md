@@ -496,3 +496,15 @@ change.
 | Touched billing/tasks / workflow execution / provider metadata | ❌ |
 | Wrote `estimated_cost_micros` to the ledger | ❌ (dev-log only this slice) |
 | DB migration | ❌ |
+
+---
+
+## AI-36 — planner provider is now OpenAI (telemetry impact)
+
+As of AI-36 the React Agent planner uses OpenAI `gpt-4.1-mini` (Anthropic disabled at runtime; emergency flag only). Telemetry impact:
+
+- `ai_cost_events` planner rows (`feature: workflow_creation`) now record `model_provider = openai`, `model_name = gpt-4.1-mini`. `getModelById` already resolves OpenAI ids (AI-34A), so the existing `recordAiRouteEvents.providerOf` mapping needed no change.
+- `plannerModelTier` is now `"fast"` (gpt-4.1-mini) instead of `"strong"` (Sonnet).
+- The AI-35D `aiCostDebug` line shows `provider=openai`. OpenAI cost estimation depends on `core/ai/modelPricing` having confirmed gpt-4.1-mini prices; if a price is not configured the line shows token counts with `cost=unknown` (never a guessed number).
+- A planner-disabled (no flags) NOT_CONFIGURED failure carries a fast-tier placeholder model id (an Anthropic registry id) because no call is made — the configured path always reports OpenAI.
+- Validation queries that filtered on `model_provider = 'anthropic'` for the React Agent planner will now return rows only from before the cutover (or from the emergency-fallback path). Filter on `model_provider = 'openai'` for current planner cost.
