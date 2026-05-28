@@ -1521,3 +1521,120 @@ describe("AI-33 — service-side required-field completeness + ambiguity plumbin
     expect(result.canApplyLater).toBe(true);
   });
 });
+
+describe("AI-35 — Apply vs Activate: disconnected providers don't block Apply", () => {
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+  });
+
+  it("select_integration (connect a disconnected provider) does NOT block Apply — the draft applies, connection gates Activation", async () => {
+    const mc = client(
+      planResponse({
+        proposedPatch: movePatch(),
+        requiredUserInput: [{ label: "Connect Stripe", kind: "select_integration" }],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "When a Stripe payment fails send me a Slack DM",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.proposedPatch).toBeDefined();
+    expect(result.canApplyLater).toBe(true); // ← Apply allowed despite disconnected Stripe
+    expect(result.blockedReason).toBeUndefined();
+    // The setup requirement is still surfaced (for Activation), just non-blocking.
+    expect(result.requiredUserInput.some((r) => r.kind === "select_integration")).toBe(true);
+  });
+
+  it("a missing config_value STILL blocks Apply (AI-20 safety floor preserved)", async () => {
+    const mc = client(
+      planResponse({
+        proposedPatch: movePatch(),
+        requiredUserInput: [
+          { label: "What should the message say?", kind: "config_value", nodeId: "n1", field: "text" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "Send a Slack message",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.canApplyLater).toBe(false);
+    expect(result.blockedReason).toContain("More information is still needed");
+  });
+
+  it("a config_value blocks even when a non-blocking select_integration is also present", async () => {
+    const mc = client(
+      planResponse({
+        proposedPatch: movePatch(),
+        requiredUserInput: [
+          { label: "Connect Stripe", kind: "select_integration" },
+          { label: "What should the message say?", kind: "config_value", nodeId: "n1", field: "text" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "x",
+      modelClient: mc,
+    });
+    expect(result.ok && result.canApplyLater).toBe(false);
+  });
+});
+
+describe("AI-35 — generic-category requests get a structured provider_choice", () => {
+  it("an ambiguous 'email' request surfaces a provider_choice with options and blocks Apply (null patch)", async () => {
+    const mc = client(
+      planResponse({
+        proposedPatch: null,
+        requiredUserInput: [
+          { label: "Which email app should trigger this — Gmail or Outlook?", kind: "choose_trigger" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "When I get an email send a Slack message",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const choice = result.requiredUserInput.find((r) => r.kind === "provider_choice");
+    expect(choice).toBeDefined();
+    expect(choice!.category).toBe("email");
+    expect(choice!.options?.map((o) => o.value)).toEqual(["gmail", "microsoft-outlook"]);
+    expect(result.canApplyLater).toBe(false); // null patch → not apply-ready
+    // The model's free-text duplicate (a non-structured choose_trigger) is
+    // dropped in favor of the structured provider_choice control.
+    expect(
+      result.requiredUserInput.filter(
+        (r) => r.kind !== "provider_choice" && r.label.toLowerCase().includes("email app"),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("naming the provider explicitly produces NO provider_choice", async () => {
+    const mc = client(
+      planResponse({ proposedPatch: movePatch(), requiredUserInput: [] }),
+    );
+    mockGetWorkflowGraphForAI.mockResolvedValue(graphResult([gnode("n1", "action", "slack", "send")]));
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "When I get a Gmail email tidy the layout",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput.some((r) => r.kind === "provider_choice")).toBe(false);
+  });
+});

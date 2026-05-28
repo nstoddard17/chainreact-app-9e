@@ -34,7 +34,11 @@ import {
   getTriggerMeta,
 } from "@/services/discovery/_registry";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
-import type { PlanRequiredUserInput, PlanRequiredUserInputMetadata } from "./types";
+import type {
+  CurrentWorkflowGraphView,
+  PlanRequiredUserInput,
+  PlanRequiredUserInputMetadata,
+} from "./types";
 
 /**
  * Renderer types that accept free-text input. The React Agent's control
@@ -55,34 +59,41 @@ interface NodeIdentity {
 }
 
 /**
- * Walk the patch's `addNode` operations to find the node with the given
- * id. Returns its provider/type so we can look up the registry meta.
+ * Resolve a node's (provider, type) for a required-input `nodeId`.
  *
- * Note: we ONLY look at `addNode` ops here — `updateNodeConfig` targets
- * a pre-existing node we'd need the workflow's full graph to resolve. The
- * common AI-22 case is a brand-new workflow where the planner emits one
- * `addNode` per node and asks for missing required fields on those.
- * Update-config flows (rare for planner-generated patches) fall through
- * to unenriched entries — degraded UX, no incorrect data.
+ * Order:
+ *   1. the patch's `addNode` / `replaceTrigger` ops (brand-new nodes — the
+ *      common AI-22 case);
+ *   2. the CURRENT canvas graph (Slice 4.AI-35) — for `updateNodeConfig`
+ *      edits, which only carry `nodeId` + `config`, the provider/type live
+ *      on the existing node. Without this, an existing-node edit (e.g.
+ *      "change the Slack DM recipient") produced un-enriched bullet text
+ *      instead of an interactive control.
+ *
+ * Returns `null` when neither source knows the node — the entry stays
+ * un-enriched (graceful degrade, no incorrect data).
  */
 function findNodeIdentity(
   patch: WorkflowPatch | null,
   nodeId: string,
+  currentGraph: CurrentWorkflowGraphView | undefined,
 ): NodeIdentity | null {
-  if (!patch) return null;
-  for (const op of patch.operations ?? []) {
-    if (op.op === "addNode" && op.node?.id === nodeId) {
+  for (const op of patch?.operations ?? []) {
+    if (
+      (op.op === "addNode" || op.op === "replaceTrigger") &&
+      op.node?.id === nodeId
+    ) {
       const { provider, type } = op.node;
       if (typeof provider === "string" && typeof type === "string") {
         return { provider, type };
       }
     }
-    if (op.op === "replaceTrigger" && op.node?.id === nodeId) {
-      const { provider, type } = op.node;
-      if (typeof provider === "string" && typeof type === "string") {
-        return { provider, type };
-      }
-    }
+  }
+  // updateNodeConfig (and any entry referencing an existing node) — resolve
+  // provider/type from the live canvas snapshot.
+  const canvasNode = currentGraph?.nodes.find((n) => n.id === nodeId);
+  if (canvasNode) {
+    return { provider: canvasNode.provider, type: canvasNode.type };
   }
   return null;
 }
@@ -236,13 +247,15 @@ export function deriveMissingRequiredFieldInputs(
 export function enrichRequiredUserInputs(
   inputs: readonly PlanRequiredUserInput[],
   patch: WorkflowPatch | null,
+  currentGraph?: CurrentWorkflowGraphView,
 ): readonly PlanRequiredUserInput[] {
   return inputs.map((entry) => {
     // Pass-through entries that are NOT field-specific. `select_integration`,
-    // `choose_trigger`, `clarification` don't carry a field reference.
+    // `choose_trigger`, `clarification`, `provider_choice` don't carry a
+    // field reference.
     if (!entry.nodeId || !entry.field) return entry;
 
-    const nodeIdentity = findNodeIdentity(patch, entry.nodeId);
+    const nodeIdentity = findNodeIdentity(patch, entry.nodeId, currentGraph);
     if (!nodeIdentity) return entry;
 
     const fieldLookup = findFieldMeta(

@@ -47,6 +47,13 @@ export interface AiRequiredUserInput {
   readonly nodeId?: string;
   readonly field?: string;
   readonly kind: string;
+  /**
+   * Slice 4.AI-35 — for `provider_choice` entries, the ambiguous capability
+   * category (`"email"` | `"calendar"` | `"drive"` | `"chat"`). Lets the
+   * control label itself + the follow-up cite the choice ("The email provider
+   * is Gmail."). Absent for other entries.
+   */
+  readonly category?: string;
   /** Provider id (e.g. `slack`) — derived server-side from the patch's node metadata. */
   readonly provider?: string;
   /** Node type within the provider (e.g. `send_channel_message`). */

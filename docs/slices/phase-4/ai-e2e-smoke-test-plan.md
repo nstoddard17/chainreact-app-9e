@@ -380,6 +380,15 @@ The model classifier is wired into the narrowing seam but ships dormant (default
 38. **Expected:** for "email → Slack" the candidates include `slack` (and an email app); for "Stripe payment fails → Slack DM" they include `stripe, slack`. `outcome: model_succeeded`, NO key printed. If the flags/key are missing the script prints a clean `model_disabled` / `openai_not_configured` outcome and the plan would proceed on deterministic narrowing — never a throw. This probe does NOT run the planner, build a patch, or mutate a workflow.
 39. **Safety check:** even when the classifier's candidates omit a provider the deterministic layer found (e.g. it returns only `gmail` for a generic "email"), the catalog the planner sees still contains the deterministic providers (e.g. `microsoft-outlook`) — the union is additive-only.
 
+### 5.8 — Provider-choice controls + Apply vs Activate (AI-35)
+
+The React Agent must render selectable controls for provider ambiguity and must let a disconnected-provider draft be APPLIED (Activation, not Apply, gates connection). Full matrix: [`react-agent-live-qa-matrix.md`](./react-agent-live-qa-matrix.md).
+
+40. Empty canvas, prompt "When I get an email send a Slack message" → a **select** with Gmail + Microsoft Outlook renders (not a static bullet); Apply is hidden; choosing one + Send re-plans citing "The email provider is Gmail."
+41. "When a Stripe payment fails send me a Slack DM" with Stripe disconnected → preview shows, **Apply is enabled**, and a non-blocking "Connect Stripe before activating" note renders. After Apply, the node/workflow is **not-ready** and **Activate stays blocked** until Stripe is connected (existing activation/readiness validation — unchanged).
+42. A Slack message with no channel/text still **blocks Apply** until provided (AI-20 floor preserved).
+43. Existing Manual Trigger → Slack DM; "change this to send the message to a different person" → asks for the recipient; answering `user123` produces an **update** to the existing DM node (no new unrelated node).
+
 ---
 
 ## 6. Bugs found during this audit

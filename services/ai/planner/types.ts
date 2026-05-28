@@ -374,7 +374,28 @@ export type PlanRequiredUserInputKind =
   | "select_integration"
   | "choose_trigger"
   | "variable_reference"
-  | "clarification";
+  | "clarification"
+  // Slice 4.AI-35 — the user must pick WHICH provider satisfies an ambiguous
+  // generic category ("email" → Gmail | Outlook). Carries `category` +
+  // `options`; rendered as a choice control. BLOCKS Apply (the node type is
+  // ambiguous until resolved), unlike `select_integration`.
+  | "provider_choice";
+
+/**
+ * Slice 4.AI-35 — whether a required-input entry must be resolved BEFORE the
+ * draft patch can be applied to the builder.
+ *
+ * Apply = create/update the DRAFT workflow graph. Activate = the readiness
+ * gate. So a `select_integration` (connect-a-disconnected-provider) requirement
+ * is an ACTIVATION concern — it yields a not-ready draft node, not a blocked
+ * Apply. Everything else (a missing config value, an ambiguous provider choice,
+ * an unresolved trigger/variable/clarification) is needed to form a correct
+ * draft and therefore still blocks Apply (preserves the AI-20 safety floor for
+ * genuinely-missing values).
+ */
+export function isApplyBlockingRequiredInputKind(kind: string): boolean {
+  return kind !== "select_integration";
+}
 
 /**
  * Slice 4.AI-22 — server-enriched metadata that lets the React Agent
@@ -395,6 +416,14 @@ export type PlanRequiredUserInputKind =
  * never tokens.
  */
 export interface PlanRequiredUserInputMetadata {
+  /**
+   * Slice 4.AI-35 — for `provider_choice` entries, the generic capability
+   * category the user must disambiguate (`"email"` | `"calendar"` |
+   * `"drive"` | `"chat"`). Lets the follow-up reconstruction cite the choice
+   * ("The email provider is Gmail.") and lets the control label itself.
+   * Absent for non-provider-choice entries.
+   */
+  readonly category?: string;
   /** Provider id this missing field belongs to (e.g. `slack`). Derived from the node's metadata. */
   readonly provider?: string;
   /** Node type within that provider (e.g. `send_channel_message`). */

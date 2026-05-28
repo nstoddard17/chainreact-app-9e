@@ -30,6 +30,13 @@ export interface ComposeFollowUpStructuredAnswer {
   readonly display: string;
   /** Machine value when the user picked an option (e.g. "C123456"). Optional. */
   readonly value?: string;
+  /**
+   * Slice 4.AI-35 — set for a `provider_choice` answer (the ambiguous category
+   * the user just resolved, e.g. "email"). Rendered as a clear statement —
+   * "The email provider is Gmail." — so the planner uses exactly that provider
+   * on the re-plan instead of re-deriving the ambiguity.
+   */
+  readonly category?: string;
 }
 
 export interface ComposeFollowUpPromptInput {
@@ -52,6 +59,12 @@ export interface ComposeFollowUpPromptInput {
 function formatStructuredAnswer(a: ComposeFollowUpStructuredAnswer): string {
   const label = a.label.trim();
   const display = a.display.trim();
+  // Slice 4.AI-35 — provider-choice answers read as a clear directive so the
+  // re-plan binds the named provider (e.g. "The email provider is Gmail.").
+  if (a.category && a.category.trim().length > 0) {
+    const value = a.value && a.value !== display ? ` (id: ${a.value})` : "";
+    return `- The ${a.category.trim()} provider is ${display}${value}.`;
+  }
   if (a.value && a.value !== display) {
     return `- ${label}: ${display} (value: ${a.value})`;
   }
@@ -92,8 +105,14 @@ export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string
   if (trimmedFollowUp.length > 0) {
     sections.push(`User follow-up:\n${trimmedFollowUp}`);
   }
+  // Slice 4.AI-35 — edit-aware closing. The prior "Create the workflow…"
+  // wording biased the model toward ADDING nodes even when the original
+  // request was an edit of an existing canvas node (e.g. "change the Slack DM
+  // recipient"), which broke existing-node-edit follow-ups. This neutral
+  // instruction tells the model to update existing nodes for edits and only
+  // create when building from scratch.
   sections.push(
-    "Create the workflow using the original request and the follow-up details.",
+    "Produce the workflow patch for the original request using the follow-up details above. If the original request edits nodes already on the canvas, UPDATE those existing nodes (update their config) rather than adding new ones; only add nodes when building from scratch.",
   );
 
   return sections.join("\n\n");

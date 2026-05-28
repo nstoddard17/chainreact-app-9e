@@ -4,16 +4,11 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type {
   AiPlanResult,
-  AiRequiredUserInput,
   BuilderAgentPersistedMessage,
 } from "@/lib/api/ai";
-import {
-  AiBulletList,
-  RequiredInputControl,
-  requiredInputKey,
-  type RequiredInputAnswer,
-} from "../ai";
+import { AiBulletList, type RequiredInputAnswer } from "../ai";
 import { PlanFailure, PreviewSection } from "./_BuilderAiPanelPreview";
+import { RequiredInputControlsBlock } from "./_BuilderAiPanelRequiredInputs";
 
 /**
  * Chat-bubble subcomponents for `BuilderAiPanel` (Slice 4.AI-21B).
@@ -232,59 +227,6 @@ export function AssistantBubble({
   );
 }
 
-// ─── Required-input controls block (Slice 4.AI-22) ──────────────────────────
-
-function RequiredInputControlsBlock({
-  inputs,
-  stagedAnswers,
-  onStagedAnswerChange,
-}: {
-  readonly inputs: readonly AiRequiredUserInput[];
-  readonly stagedAnswers: ReadonlyMap<string, RequiredInputAnswer>;
-  readonly onStagedAnswerChange: (
-    key: string,
-    answer: RequiredInputAnswer | undefined,
-  ) => void;
-}) {
-  // Split: entries with a field reference render as interactive controls;
-  // entries without one (`select_integration`, `clarification`) keep the
-  // bullet-list affordance so the user still sees what's missing.
-  const controls = inputs.filter((i) => !!i.field && !!i.nodeId);
-  const bulletInputs = inputs.filter((i) => !i.field || !i.nodeId);
-
-  return (
-    <div
-      className="flex flex-col gap-2 rounded border p-2 text-xs"
-      data-testid="builder-ai-needs-input"
-      style={{ borderColor: "var(--builder-border)" }}
-    >
-      <p className="font-medium" style={{ color: "var(--builder-text)" }}>
-        More information is needed before this can be built:
-      </p>
-      {bulletInputs.length > 0 && (
-        <ul className="list-disc pl-4" style={{ color: "var(--builder-muted)" }}>
-          {bulletInputs.map((i, idx) => (
-            <li key={`${i.label}-${idx}`}>{i.label}</li>
-          ))}
-        </ul>
-      )}
-      {controls.map((input) => {
-        const key = requiredInputKey(input);
-        return (
-          <RequiredInputControl
-            key={key}
-            input={input}
-            inputKey={key}
-            answer={stagedAnswers.get(key)}
-            onChange={(next) => onStagedAnswerChange(key, next)}
-            stagedAnswers={stagedAnswers}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── Plan-result body (latest = full breakdown; older = summary) ───────────
 
 /**
@@ -353,11 +295,19 @@ export function PlanResultBody({
   const planOk = result;
   const preview = planOk.preview;
   const requiresConfirmation = preview?.requiresConfirmation === true;
-  const requiredInputCount = planOk.requiredUserInput.length;
+  // Slice 4.AI-35 — Apply is gated only by DRAFT-forming requirements.
+  // `select_integration` (connect a disconnected provider) is an ACTIVATION
+  // concern and must NOT block applying the draft (mirrors the server's
+  // `isApplyBlockingRequiredInputKind`). Apply = create/update the draft
+  // graph; the builder's activation/readiness validation gates running it.
+  const blockingInputs = planOk.requiredUserInput.filter(
+    (i) => i.kind !== "select_integration",
+  );
+  const requiredInputCount = blockingInputs.length;
   const hasUnresolvedRequiredInput = requiredInputCount > 0;
 
   // AI-20 apply-readiness gate — service flagged canApplyLater AND no
-  // outstanding required input. The (UI) `!appliedOk` check moved into
+  // outstanding draft-blocking input. The (UI) `!appliedOk` check moved into
   // the chat layer: once apply succeeds, an "applied" assistant message
   // is appended, and the message that was the latest plan_result is no
   // longer the latest — so this body still renders Apply only for the

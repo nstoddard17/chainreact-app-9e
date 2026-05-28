@@ -33,10 +33,12 @@ import type {
 } from "@/core/ai/modelTypes";
 import { createRuntimeModelClient } from "@/services/ai/modelClients";
 import { previewWorkflowPatchForAI } from "@/services/ai/preview";
+import { getProviderCatalog } from "@/services/ai/tools/providerCatalog";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import type { AiToolError } from "@/services/ai/tools/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
 import { buildWorkflowPlanRequestWithAttribution } from "./buildWorkflowPlanRequest";
+import { deriveProviderChoiceInputs } from "./deriveProviderChoiceInputs";
 import {
   deriveMissingRequiredFieldInputs,
   enrichRequiredUserInputs,
@@ -44,15 +46,56 @@ import {
 import { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 import { WORKFLOW_PLAN_TOOL } from "./workflowPlanTool";
 import {
+  isApplyBlockingRequiredInputKind,
   WORKFLOW_PLAN_FEATURE,
+  type CurrentWorkflowGraphView,
   type ParseWorkflowPlanFailure,
   type PlanModelMetadata,
   type PlannerPromptAttribution,
+  type PlanRequiredUserInput,
   type PlanWorkflowFailure,
   type PlanWorkflowFromPromptInput,
   type PlanWorkflowResult,
   type WorkflowPlanResponse,
 } from "./types";
+
+/**
+ * Slice 4.AI-35 — fold deterministic `provider_choice` entries into the
+ * model's `requiredUserInput`. When the request hits an ambiguous generic
+ * category (email/calendar/…) and we synthesized a structured provider
+ * choice, drop the model's free-text version of the SAME question (a bullet
+ * that names ≥2 of the choice's option labels) so the user sees one
+ * selectable control, not a control + a redundant bullet. Everything
+ * field-specific or non-matching is preserved.
+ */
+function mergeProviderChoices(
+  modelInputs: readonly PlanRequiredUserInput[],
+  derived: readonly PlanRequiredUserInput[],
+): readonly PlanRequiredUserInput[] {
+  if (derived.length === 0) return modelInputs;
+  const categories = derived
+    .map((d) => d.category?.toLowerCase())
+    .filter((c): c is string => !!c);
+  const filteredModel = modelInputs.filter((e) => {
+    // Field-specific entries + connect-provider setup + config values are
+    // distinct concerns — always keep them.
+    if (e.field || e.nodeId) return true;
+    if (
+      e.kind === "config_value" ||
+      e.kind === "variable_reference" ||
+      e.kind === "select_integration"
+    ) {
+      return true;
+    }
+    // A vague ambiguity question (choose_trigger / clarification /
+    // provider_choice) that names a category we produced a structured choice
+    // for is the SAME question — drop it so the user sees one control.
+    const label = e.label.toLowerCase();
+    const matchesCategory = categories.some((c) => label.includes(c));
+    return !matchesCategory;
+  });
+  return [...derived, ...filteredModel];
+}
 
 function buildModelMeta(result: ModelResult, tier: ModelTier): PlanModelMetadata {
   const base: PlanModelMetadata = {
@@ -122,16 +165,18 @@ function noPatchResult(
   response: WorkflowPlanResponse,
   model: PlanModelMetadata,
   prompt: PlannerPromptAttribution,
+  requiredUserInput: readonly PlanRequiredUserInput[],
 ): PlanWorkflowResult {
   return {
     ok: true,
     intentSummary: response.intentSummary,
     assumptions: response.assumptions,
-    // Slice 4.AI-22 — enrich with FieldMeta hints even when there's no
-    // patch. Entries without nodeId/field (e.g. `select_integration`,
-    // `clarification`) pass through unchanged; the helper degrades
-    // gracefully when the patch is null.
-    requiredUserInput: enrichRequiredUserInputs(response.requiredUserInput, null),
+    // Slice 4.AI-22/35 — already merged with derived provider choices +
+    // enriched with FieldMeta hints (incl. existing-canvas node identities)
+    // by the caller. Entries without nodeId/field (`select_integration`,
+    // `clarification`, `provider_choice`) carry their own option/category
+    // hints; the control layer renders choice/select controls for those.
+    requiredUserInput,
     unsupportedRequests: response.unsupportedRequests,
     safetyNotes: response.safetyNotes,
     canApplyLater: false,
@@ -193,9 +238,23 @@ export async function planWorkflowFromPromptForAI(
   }
   const response = parsed.response;
 
+  // Slice 4.AI-35 — deterministic provider-choice derivation. When the
+  // request names a generic category ("email") without naming the provider,
+  // synthesize a STRUCTURED `provider_choice` entry (with options) so the
+  // React Agent renders a choice control instead of a static bullet. Fires
+  // only on genuine ambiguity (≥2 catalog providers, none named); returns []
+  // otherwise. Catalog is the in-memory registry view (cheap, pure).
+  const catalogRes = getProviderCatalog();
+  const providerChoices = catalogRes.ok
+    ? deriveProviderChoiceInputs(prompt, catalogRes.data)
+    : [];
+  const currentGraph: CurrentWorkflowGraphView | undefined = input.currentGraph;
+
   // 4. No patch → surface clarification / unsupported, no preview.
   if (!response.proposedPatch) {
-    return noPatchResult(response, model, attribution);
+    const merged = mergeProviderChoices(response.requiredUserInput, providerChoices);
+    const enriched = enrichRequiredUserInputs(merged, null, currentGraph);
+    return noPatchResult(response, model, attribution, enriched);
   }
 
   // 5. Reconcile target + revision: load the live workflow (ownership + NOT_FOUND
@@ -248,12 +307,27 @@ export async function planWorkflowFromPromptForAI(
     patch,
     response.requiredUserInput,
   );
-  const mergedRequiredInput = enrichRequiredUserInputs(
+  const withChoices = mergeProviderChoices(
     [...response.requiredUserInput, ...derivedRequiredInput],
-    patch,
+    providerChoices,
   );
+  // Slice 4.AI-35 — enrich with patch-node AND current-canvas node identities
+  // (the latter lets existing-node-edit `updateNodeConfig` fields render as
+  // controls).
+  const mergedRequiredInput = enrichRequiredUserInputs(withChoices, patch, currentGraph);
 
-  const requiredInputBlocking = mergedRequiredInput.length > 0;
+  // Slice 4.AI-35 — Apply (= create/update the DRAFT graph) is gated only by
+  // inputs needed to FORM a correct draft: missing config values, ambiguous
+  // provider choices, unresolved triggers/variables/clarifications. A
+  // `select_integration` (connect-a-disconnected-provider) requirement is an
+  // ACTIVATION concern — it yields a not-ready draft node, not a blocked
+  // Apply (see `isApplyBlockingRequiredInputKind`). This preserves the AI-20
+  // safety floor for true required values while letting disconnected-provider
+  // drafts be applied.
+  const blockingRequiredInput = mergedRequiredInput.filter((e) =>
+    isApplyBlockingRequiredInputKind(e.kind),
+  );
+  const requiredInputBlocking = blockingRequiredInput.length > 0;
   const canApplyLater = preview.canApplyLater && !requiredInputBlocking;
   const blockedReason = canApplyLater
     ? undefined

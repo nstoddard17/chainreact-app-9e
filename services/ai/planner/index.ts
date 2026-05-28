@@ -17,6 +17,7 @@ export {
   TEMPLATE_FUTURE_NOTE,
 } from "./buildWorkflowPlanPrompt";
 export { computePlannerAttribution } from "./computePlannerAttribution";
+export { deriveProviderChoiceInputs } from "./deriveProviderChoiceInputs";
 export { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
 export {
   buildWorkflowPlanRequest,
@@ -53,6 +54,7 @@ export { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
   WORKFLOW_PLAN_FEATURE,
+  isApplyBlockingRequiredInputKind,
   PLANNER_PACKET_VERSION,
   PLANNER_PACKET_VERSION_V1,
   PLANNER_PACKET_VERSION_V2,

@@ -215,6 +215,9 @@ export function useBuilderAi({
           label: a.descriptor.fieldLabel ?? a.descriptor.label,
           display: a.display,
           ...(a.value !== undefined ? { value: a.value } : {}),
+          // Slice 4.AI-35 — carry the provider-choice category so the
+          // reconstruction can cite "The email provider is Gmail."
+          ...(a.descriptor.category ? { category: a.descriptor.category } : {}),
         })),
       });
       // Single per-turn summary string for the prior-answers history.

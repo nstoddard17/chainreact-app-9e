@@ -364,3 +364,45 @@ describe("deriveMissingRequiredFieldInputs (AI-33)", () => {
     expect(byField.get("text")?.allowFreeText).toBe(true);
   });
 });
+
+// ─── Slice 4.AI-35: existing-node edit identity from the current canvas ──────
+
+describe("AI-35 — updateNodeConfig identity resolves from the current canvas", () => {
+  const currentGraph = {
+    nodes: [
+      { id: "n_existing", kind: "action" as const, provider: "slack", type: "send_channel_message" },
+    ],
+    edges: [],
+  };
+
+  function editPatch(): WorkflowPatch {
+    return {
+      patchId: "p-edit",
+      workflowId: "wf-1",
+      baseRevision: "rev-1",
+      summary: "Change the channel",
+      rationale: "Edit the existing Slack post.",
+      operations: [{ op: "updateNodeConfig", nodeId: "n_existing", config: {} }],
+    };
+  }
+
+  const entry = {
+    label: "Which channel?",
+    kind: "config_value" as const,
+    nodeId: "n_existing",
+    field: "channel",
+  };
+
+  it("enriches an updateNodeConfig field entry using the current graph node", () => {
+    const [enriched] = enrichRequiredUserInputs([entry], editPatch(), currentGraph);
+    expect(enriched!.provider).toBe("slack");
+    expect(enriched!.nodeType).toBe("send_channel_message");
+    expect(enriched!.optionsSource).toBe("slack:channels");
+  });
+
+  it("stays un-enriched without the current graph (graceful degrade, no incorrect data)", () => {
+    const [enriched] = enrichRequiredUserInputs([entry], editPatch());
+    expect(enriched!.provider).toBeUndefined();
+    expect(enriched!.optionsSource).toBeUndefined();
+  });
+});

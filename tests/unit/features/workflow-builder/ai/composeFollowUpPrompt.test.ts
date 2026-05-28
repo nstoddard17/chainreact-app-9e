@@ -28,7 +28,7 @@ describe("composeFollowUpPrompt — first-turn smoke (AI-21)", () => {
     expect(out).toContain("- What should the message say?");
     expect(out).toContain("User follow-up:");
     expect(out).toContain("Use #general and say Test from ChainReact AI.");
-    expect(out).toContain("Create the workflow using the original request and the follow-up details.");
+    expect(out).toContain("Produce the workflow patch for the original request using the follow-up details above.");
   });
 
   it("omits the 'Previous follow-up answers' section on the first turn", () => {
@@ -125,7 +125,7 @@ describe("composeFollowUpPrompt — structured answers (AI-22)", () => {
     });
     expect(out).toContain("User provided:");
     expect(out).not.toContain("User follow-up:");
-    expect(out).toContain("Create the workflow using the original request");
+    expect(out).toContain("Produce the workflow patch for the original request");
   });
 
   it("renders both 'User provided' and 'User follow-up' sections when both are present", () => {
@@ -181,7 +181,34 @@ describe("composeFollowUpPrompt — trimming / safety (AI-21)", () => {
     // But the trailing instruction should always be present so the model
     // knows to build the workflow.
     expect(out).toContain(
-      "Create the workflow using the original request and the follow-up details.",
+      "Produce the workflow patch for the original request using the follow-up details above.",
     );
+  });
+});
+
+describe("composeFollowUpPrompt — AI-35 provider-choice citation + edit-aware closing", () => {
+  it("renders a provider_choice answer as a clear directive ('The email provider is Gmail.')", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "When I get an email send a Slack message",
+      requiredInputLabels: ["Which email app should this use — Gmail or Microsoft Outlook?"],
+      priorFollowUpAnswers: [],
+      followUp: "",
+      structuredAnswers: [
+        { label: "email provider", display: "Gmail", value: "gmail", category: "email" },
+      ],
+    });
+    expect(out).toContain("The email provider is Gmail (id: gmail).");
+    expect(out).toContain("Produce the workflow patch for the original request");
+  });
+
+  it("closing instruction is edit-aware (UPDATE existing nodes, not always create)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Change this to send the message to a different person",
+      requiredInputLabels: ["Which Slack user should receive the direct message?"],
+      priorFollowUpAnswers: [],
+      followUp: "user123",
+    });
+    expect(out).toContain("UPDATE those existing nodes");
+    expect(out).not.toContain("Create the workflow using the original request");
   });
 });
