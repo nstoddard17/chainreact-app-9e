@@ -79,6 +79,12 @@ const PlanRequestSchema = z.object({
    * can also omit this safely.
    */
   currentGraph: CurrentGraphSchema.optional(),
+  /**
+   * Slice 4.AI-35D — optional observability tag (initial prompt vs follow-up
+   * vs retry). Forwarded ONLY to the fail-open recorder for cost attribution;
+   * never reaches the planner, so it cannot change planner behavior.
+   */
+  interactionKind: z.enum(["initial_plan", "follow_up", "retry", "unknown"]).optional(),
 });
 
 function planFailureStatus(code: PlanWorkflowFailureCode): number {
@@ -133,7 +139,14 @@ export async function POST(
   // its own errors; the extra try/catch is belt-and-suspenders so analytics can
   // never affect the response. No raw prompt/config is recorded.
   try {
-    await recordAiPlanOutcome({ userId: auth.userId, workflowId: id }, result);
+    await recordAiPlanOutcome(
+      {
+        userId: auth.userId,
+        workflowId: id,
+        ...(body.data.interactionKind ? { interactionKind: body.data.interactionKind } : {}),
+      },
+      result,
+    );
   } catch {
     /* analytics must never break the route */
   }

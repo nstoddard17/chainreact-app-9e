@@ -168,6 +168,9 @@ export function useBuilderAi({
           ...(modelTier ? { modelTier } : {}),
           // AI-24 — forward current-canvas snapshot when provided.
           ...(options?.currentGraph ? { currentGraph: options.currentGraph } : {}),
+          // AI-35D — tag the request so the dev cost guard + ai_cost_events
+          // can distinguish a fresh prompt from a follow-up re-plan.
+          interactionKind: "initial_plan",
         });
         setPlanResult(result);
         setStatus("planned");
@@ -242,6 +245,9 @@ export function useBuilderAi({
           ...(modelTier ? { modelTier } : {}),
           // AI-24 — forward current-canvas snapshot on follow-up too.
           ...(options?.currentGraph ? { currentGraph: options.currentGraph } : {}),
+          // AI-35D — a follow-up answer re-runs the FULL planner (the
+          // AI-COST-INCIDENT-1 finding); tag it so the cost is attributable.
+          interactionKind: "follow_up",
         });
         // Slice 4.AI-25 — preserve chain on ANY structured planner failure
         // during a follow-up turn. RATE_LIMITED / PARSE_FAILED /

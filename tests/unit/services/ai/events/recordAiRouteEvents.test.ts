@@ -661,6 +661,116 @@ describe("AI-31 — tier-routing metadata flows through", () => {
   });
 });
 
+describe("AI-35D — classifier telemetry + interactionKind", () => {
+  const classifierModelCall = {
+    modelName: "gpt-4.1-mini",
+    modelProvider: "openai" as const,
+    responded: true,
+    inputTokens: 60,
+    outputTokens: 12,
+    latencyMs: 7,
+    confidence: "high" as const,
+    candidateProviderCount: 3,
+    validProviderCount: 2,
+    outcome: "model_succeeded" as const,
+  };
+
+  function discoveryCall() {
+    return recordAiModelCallCompleted.mock.calls.find(
+      (c) => (c[0] as { feature?: string }).feature === "provider_discovery",
+    );
+  }
+
+  it("emits a DISTINCT provider_discovery classifier model call when telemetry is present", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: { packetVersion: "workflow-planner-v3", classifierModelCall } }) as never,
+    );
+    const call = discoveryCall();
+    expect(call).toBeDefined();
+    expect(call![0]).toMatchObject({ feature: "provider_discovery", workflowId: "wf1" });
+    expect(call![1]).toMatchObject({
+      modelName: "gpt-4.1-mini",
+      modelProvider: "openai",
+      inputTokens: 60,
+      outputTokens: 12,
+      metadata: expect.objectContaining({
+        classifierOnly: true,
+        classifierPurpose: "provider_narrowing",
+        classifierOutcome: "model_succeeded",
+        classifierConfidence: "high",
+        candidateProviderCount: 3,
+        validProviderCount: 2,
+      }),
+    });
+    // The planner's own workflow_creation completed call still fires too.
+    const plannerCall = recordAiModelCallCompleted.mock.calls.find(
+      (c) => (c[0] as { feature?: string }).feature === "workflow_creation",
+    );
+    expect(plannerCall).toBeDefined();
+  });
+
+  it("records a FAILED classifier call (responded:false) as ai_model_call_failed under provider_discovery", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({
+        prompt: {
+          packetVersion: "workflow-planner-v3",
+          classifierModelCall: { ...classifierModelCall, responded: false, outcome: "model_failed" },
+        },
+      }) as never,
+    );
+    const failedDiscovery = recordAiModelCallFailed.mock.calls.find(
+      (c) => (c[0] as { feature?: string }).feature === "provider_discovery",
+    );
+    expect(failedDiscovery).toBeDefined();
+    expect(failedDiscovery![1]).toMatchObject({ modelProvider: "openai", modelName: "gpt-4.1-mini" });
+  });
+
+  it("emits NO provider_discovery event when the classifier did not run (no telemetry)", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: { packetVersion: "workflow-planner-v3" } }) as never,
+    );
+    expect(discoveryCall()).toBeUndefined();
+    // Only the planner's own completed call fired.
+    expect(recordAiModelCallCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("folds plannerInteractionKind into the planner model-call metadata when provided", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1", interactionKind: "follow_up" },
+      planSuccess() as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).toMatchObject({ plannerInteractionKind: "follow_up" });
+  });
+
+  it("omits plannerInteractionKind for legacy callers (back-compat)", async () => {
+    await recordAiPlanOutcome({ userId: "u1", workflowId: "wf1" }, planSuccess() as never);
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).not.toHaveProperty("plannerInteractionKind");
+  });
+
+  it("classifier metadata keys pass the sanitizer denylist and carry no secrets", async () => {
+    const BLOCKED = [/token/i, /secret/i, /password/i, /authorization/i, /prompt/i, /completion/i, /body/i, /\bconfig\b/i, /\braw/i];
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1", interactionKind: "initial_plan" },
+      planSuccess({ prompt: { packetVersion: "workflow-planner-v3", classifierModelCall } }) as never,
+    );
+    const call = discoveryCall();
+    const metadata = (call![1] as { metadata: Record<string, unknown> }).metadata;
+    for (const key of Object.keys(metadata)) {
+      for (const re of BLOCKED) {
+        if (re.test(key)) throw new Error(`classifier metadata key '${key}' matches denylist /${re.source}/`);
+      }
+    }
+    expect(allCallArgs()).not.toMatch(/xox[bpsr]-|Bearer\s|ya29\.|sk-ant-|access_token/);
+  });
+});
+
 describe("no-leak", () => {
   it("never forwards raw patch config values to the recorder", async () => {
     const withSecret = planSuccess({

@@ -390,3 +390,109 @@ The current `no_provider_mention` / `ambiguous_broad_request` fallbacks send the
 | Touched provider metadata / billing / workflow execution | ❌ |
 | Ran the §C smoke against live data | ✅ executed 2026-05-28 (AI-32-LIVE) — see §A-LIVE; all expectations pass, no leak, no bug |
 | DB migration | ❌ |
+
+---
+
+# AI-COST-INCIDENT-1 + AI-35D — Cost Incident Findings & Dev Cost Guard
+
+**Slice:** 4.AI-COST-INCIDENT-1 (audit) → 4.AI-35D (dev cost guard)
+**Date:** 2026-05-28
+
+## AI-COST-INCIDENT-1 — what the ~$0.98 was
+
+Marcus's live QA produced ~$0.98 of Anthropic API cost. The audit pulled
+`ai_cost_events` for the 2026-05-28 window and found it matched the Anthropic
+dashboard **token-for-token**:
+
+- **17 completed + 1 failed** Anthropic `claude-sonnet-4-6` planner calls (not ~6).
+- **271,359 input / 7,364 output tokens** = dashboard exactly. **$0.9245** at
+  Sonnet pricing ($3/MTok in, $15/MTok out).
+- **3 full-catalog fallback calls (~40k input each) = 40% of the bill** from 17%
+  of the calls. Triggered by broad/no-provider prompts (`ambiguous_broad_request`
+  ×2, `no_provider_mention` ×1).
+- 14 narrowed calls averaged ~10.8k input (~$0.0398/call). Provider narrowing
+  was active + correct on every call.
+- **Every follow-up answer re-runs the FULL planner** (`useBuilderAi.submitFollowUp`
+  → `planWorkflow`), so follow-ups double the calls per task.
+- **No** hidden Anthropic route, telemetry leak, broken narrowing, or OpenAI cost.
+- Latent gap: an enabled OpenAI classifier (`ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true`)
+  billed OpenAI with **no `ai_cost_events` row** — closed by AI-35D.
+
+Root cause: expected Sonnet economics × too many calls per task (follow-up
+re-plans, validation-failure re-prompts, QA iteration) + 3× full-catalog spikes.
+Not a bug.
+
+## AI-35D — dev cost guard + per-request visibility
+
+Observability/cost-control only. No planner behavior change, no OpenAI patch
+routing, no narrowing-semantics change, no billing/tasks/execution/metadata
+change.
+
+- **Cost helper** — `core/ai/modelPricing.ts` (pure): `estimateModelCostUsd(modelId, usage)`.
+  Lists ONLY confirmed prices (`claude-sonnet-4-6` $3/$15). Unknown model → `null`
+  (caller shows tokens, cost "unknown"). Never guesses OpenAI/Haiku prices.
+- **Dev log** — `services/ai/events/aiCostDebug.ts`. After each recorded React
+  Agent model call, `logAiCostDebug(...)` emits one safe, greppable `[ai-cost]`
+  line: feature, event, provider/model, prompt_version, in/out/total tokens,
+  estimated cost, narrowing mode/fallback/reason, provider count, planner tier,
+  classifier used/tier, tier-routing reason, interaction kind, patch outcome,
+  workflowId. SAFE-by-construction: the input type has no field for raw prompt,
+  raw output, catalog, config values, account labels, or secrets.
+- **Cost debug flag** — emits ONLY when `ENABLE_AI_COST_DEBUG === "true"` AND
+  `NODE_ENV !== "production"`. Off by default; never in prod. Set
+  `ENABLE_AI_COST_DEBUG=true` in `.env.local` to turn on locally.
+- **Full-catalog warning (Part C)** — when a call is a full-catalog fallback OR
+  `input_tokens >= 20000` OR `catalogProviderCount >= 20`, the line escalates to
+  `console.warn` + "AI planner full-catalog call: this is expected for
+  broad/ambiguous prompts but costs about 3x a narrowed call." Visibility only —
+  the call is NOT blocked (no confirmation gate this slice).
+- **Follow-up visibility (Part D)** — new value-free enum `plannerInteractionKind`
+  (`initial_plan | follow_up | retry | unknown`) sent by `useBuilderAi` →
+  `lib/api/ai` → plan route → recorder. Folded into the planner model-call
+  `metadata.plannerInteractionKind` (queryable in `ai_cost_events`) and shown in
+  the dev line, so a follow-up's full re-plan is attributable.
+- **OpenAI classifier telemetry (Part E) — gap CLOSED.** `runModelNarrowingClassifier`
+  now returns `telemetry`; the grounding layer threads it onto
+  `PlannerPromptAttribution.classifierModelCall`; `recordAiPlanOutcome` emits a
+  DISTINCT `ai_model_call_completed`/`ai_model_call_failed` row under feature
+  `provider_discovery` (model_provider `openai`), with metadata
+  `{ classifierOnly: true, classifierPurpose: "provider_narrowing",
+  classifierOutcome, classifierConfidence, candidateProviderCount,
+  validProviderCount }` — counts/enums only, no raw prompt/output. Feature
+  `provider_discovery` (not `workflow_creation`) keeps the planner funnel +
+  AI-32-LIVE baselines clean. Still gated off by default (the classifier only
+  runs when `ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true`); now it records when it
+  does run.
+
+## Next cost reducers (prioritized — NOT in AI-35D)
+
+- **P1 — Prompt caching (AI-35C).** The single lever that cuts both the ~14k-char
+  stable rules prefix on EVERY call and the 124k-char catalog on full-catalog
+  fallbacks (the 40%-of-bill spikes). Needs the `workflow-planner-v4` prefix
+  reorder + `system` as a content-block array (see §"Prompt-caching feasibility").
+- **P1 — Deterministic follow-up patch completion (AI-35B).** When a follow-up
+  only fills a config value the user just answered (Slack channel/text), patch it
+  into the existing patch deterministically instead of re-running the full
+  planner — removes a whole class of redundant Sonnet calls.
+- **P2 — OpenAI planner A/B (AI-35A).** Route simple narrowed/low-risk plans to
+  OpenAI, keep Anthropic for parse-failure/high-risk/full-catalog. Gate on
+  confirming the real OpenAI model ids (AI-34A ids are scaffolding) + the
+  AI-34B live-shape verification.
+- **P2 — Clamp the full-catalog fallback.** Ask one clarifying question before
+  shipping the full 124k-char catalog to Sonnet for broad prompts.
+
+## AI-35D scope ledger
+
+| Action | Done? |
+|---|---|
+| Cost estimate helper (Sonnet only; unknown→null) | ✅ |
+| Dev cost line, flag-gated + dev-only | ✅ |
+| Full-catalog dev warning (no block) | ✅ |
+| `plannerInteractionKind` threaded + recorded | ✅ |
+| OpenAI classifier telemetry recorded (gap closed) | ✅ |
+| Changed default planner / routed to OpenAI | ❌ |
+| Changed provider narrowing decisions | ❌ |
+| Added prompt caching / deterministic follow-up | ❌ (next slices) |
+| Touched billing/tasks / workflow execution / provider metadata | ❌ |
+| Wrote `estimated_cost_micros` to the ledger | ❌ (dev-log only this slice) |
+| DB migration | ❌ |

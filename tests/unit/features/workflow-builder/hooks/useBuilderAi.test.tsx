@@ -383,6 +383,8 @@ describe("useBuilderAi — currentGraph (AI-24)", () => {
     expect(mockPlan).toHaveBeenCalledWith("wf-1", {
       prompt: "Send a Slack message when I get an email",
       currentGraph: sampleSnapshot,
+      // AI-35D — plan() tags the request as the user's first prompt.
+      interactionKind: "initial_plan",
     });
   });
 
@@ -395,7 +397,9 @@ describe("useBuilderAi — currentGraph (AI-24)", () => {
       await result.current.plan("Just a prompt");
     });
     const [, body] = mockPlan.mock.calls[0]!;
-    expect(body).toEqual({ prompt: "Just a prompt" });
+    // AI-35D — interactionKind is always present (observability); currentGraph
+    // is still omitted when the caller doesn't supply it.
+    expect(body).toEqual({ prompt: "Just a prompt", interactionKind: "initial_plan" });
     expect(body).not.toHaveProperty("currentGraph");
   });
 
@@ -433,6 +437,7 @@ describe("useBuilderAi — currentGraph (AI-24)", () => {
     expect(mockPlan).toHaveBeenCalledWith("wf-1", {
       prompt: "Build me a workflow",
       currentGraph: empty,
+      interactionKind: "initial_plan",
     });
   });
 });

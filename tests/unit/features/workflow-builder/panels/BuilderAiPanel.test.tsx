@@ -130,6 +130,8 @@ describe("rendering + submit", () => {
       expect(mockPlan).toHaveBeenCalledWith("wf-1", {
         prompt: "build it",
         currentGraph: { nodes: [], edges: [] },
+        // AI-35D — plan() tags the request as the user's first prompt.
+        interactionKind: "initial_plan",
       }),
     );
   });

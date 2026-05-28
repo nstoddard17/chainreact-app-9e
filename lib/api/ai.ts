@@ -206,6 +206,14 @@ export interface PlanWorkflowRequest {
   readonly modelTier?: "fast" | "strong";
   /** Slice 4.AI-24 — current builder-canvas snapshot. See {@link CurrentGraphSnapshot}. */
   readonly currentGraph?: CurrentGraphSnapshot;
+  /**
+   * Slice 4.AI-35D — value-free telemetry tag distinguishing the user's first
+   * prompt (`initial_plan`) from a follow-up answer (`follow_up`, which today
+   * re-runs the FULL planner) so the dev cost guard + `ai_cost_events.metadata`
+   * can attribute repeat planner calls. Purely observability — the planner
+   * behavior is identical regardless of the value.
+   */
+  readonly interactionKind?: "initial_plan" | "follow_up" | "retry" | "unknown";
 }
 
 export interface ApplyWorkflowPatchRequest {

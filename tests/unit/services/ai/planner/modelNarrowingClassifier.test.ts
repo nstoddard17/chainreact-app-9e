@@ -211,6 +211,20 @@ describe("runModelNarrowingClassifier — gating + fail-safe", () => {
     // The classifier targets the FAST tier with the forced classify tool.
     expect(calls[0]!.tier).toBe("fast");
     expect(calls[0]!.responseTool?.name).toBe("classify_workflow_intent");
+    // Slice 4.AI-35D — telemetry captured for the recorder. Tokens/latency
+    // from the model result; raw vs valid candidate counts; confidence enum.
+    expect(out.telemetry).toEqual({
+      modelName: "gpt-4.1-mini",
+      modelProvider: "openai",
+      responded: true,
+      inputTokens: 50,
+      outputTokens: 10,
+      latencyMs: 5,
+      outcome: "model_succeeded",
+      confidence: "high",
+      candidateProviderCount: 2,
+      validProviderCount: 2,
+    });
   });
 
   it("model failure → model_failed (plan proceeds on deterministic)", async () => {
@@ -225,10 +239,18 @@ describe("runModelNarrowingClassifier — gating + fail-safe", () => {
       retryable: true,
     });
     const out = await runModelNarrowingClassifier(input(), { modelClient: client });
-    expect(out).toEqual({ result: null, outcome: "model_failed" });
+    expect(out).toMatchObject({ result: null, outcome: "model_failed" });
+    // Slice 4.AI-35D — a failed call still records telemetry (responded:false,
+    // no tokens) so the recorder can emit an ai_model_call_failed row.
+    expect(out.telemetry).toEqual({
+      modelName: "gpt-4.1-mini",
+      modelProvider: "openai",
+      responded: false,
+      outcome: "model_failed",
+    });
   });
 
-  it("unparseable model text → model_failed", async () => {
+  it("unparseable model text → model_failed (telemetry still has tokens)", async () => {
     process.env[M] = "true";
     process.env[O] = "true";
     const { client } = mockClient({
@@ -237,10 +259,22 @@ describe("runModelNarrowingClassifier — gating + fail-safe", () => {
       feature: "discovery",
       text: "<<<not json>>>",
       finishReason: "stop",
+      usage: { inputTokens: 42, outputTokens: 7 },
       latencyMs: 1,
     });
     const out = await runModelNarrowingClassifier(input(), { modelClient: client });
-    expect(out).toEqual({ result: null, outcome: "model_failed" });
+    expect(out).toMatchObject({ result: null, outcome: "model_failed" });
+    // The model RESPONDED (and billed us) but the text was unparseable — we
+    // still attribute the tokens so the cost isn't invisible.
+    expect(out.telemetry).toMatchObject({
+      modelName: "gpt-4.1-mini",
+      modelProvider: "openai",
+      responded: true,
+      inputTokens: 42,
+      outputTokens: 7,
+      latencyMs: 1,
+      outcome: "model_failed",
+    });
   });
 });
 

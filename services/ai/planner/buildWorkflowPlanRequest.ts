@@ -78,15 +78,18 @@ export async function buildWorkflowPlanRequestWithAttribution(
   // stays on Anthropic/Sonnet — this only augments which providers the
   // Anthropic planner sees in its catalog. Runs before the (pure) prompt
   // build because the model call is async.
-  const { result: modelClassifier, outcome: modelClassifierOutcome } =
-    await runModelNarrowingClassifier({
-      userRequest: input.userRequest,
-      catalog,
-      connectedIntegrations,
-      ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
-    });
+  const {
+    result: modelClassifier,
+    outcome: modelClassifierOutcome,
+    telemetry: classifierTelemetry,
+  } = await runModelNarrowingClassifier({
+    userRequest: input.userRequest,
+    catalog,
+    connectedIntegrations,
+    ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
+  });
 
-  const { messages, attribution } = buildWorkflowPlanPromptWithAttribution({
+  const { messages, attribution: baseAttribution } = buildWorkflowPlanPromptWithAttribution({
     userRequest: input.userRequest,
     catalog,
     connectedIntegrations,
@@ -112,6 +115,13 @@ export async function buildWorkflowPlanRequestWithAttribution(
     messages,
     maxOutputTokens: model.maxOutputTokens,
   };
+
+  // Slice 4.AI-35D — attach the classifier model-call telemetry (when a call
+  // was attempted) so `recordAiPlanOutcome` can emit a distinct classifier
+  // `ai_model_call_*` row. Pure merge — does not change the prompt or planner.
+  const attribution: PlannerPromptAttribution = classifierTelemetry
+    ? { ...baseAttribution, classifierModelCall: classifierTelemetry }
+    : baseAttribution;
 
   return { request, attribution };
 }

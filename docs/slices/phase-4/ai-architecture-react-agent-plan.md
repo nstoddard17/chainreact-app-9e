@@ -1722,3 +1722,30 @@ Define `ai_events` + the typed event-name union + a fire-and-forget emitter alon
 - [`testing-strategy.md`](../../rules/testing-strategy.md) — good/bad paths, regression protection, deterministic-validator coverage.
 - [`workflow-lifecycle.md`](../../rules/workflow-lifecycle.md) — patches respect activation preconditions; resources still created on activation, not on AI edit.
 - [`workflow-builder-ui.md`](../../rules/workflow-builder-ui.md) / [`workflow-state-store.md`](../../rules/workflow-state-store.md) — AI surfaces compose into the existing builder + Zustand slices without forking layout.
+
+---
+
+## §16 addendum — AI-35D dev cost guard + per-request cost visibility (2026-05-28)
+
+Following AI-COST-INCIDENT-1 (live QA cost ~$0.98 = 17 Sonnet planner calls,
+fully explained, telemetry matched the Anthropic dashboard token-for-token),
+AI-35D adds developer-facing cost visibility — observability only, no planner /
+narrowing / OpenAI-routing / billing / execution / metadata change:
+
+- **`core/ai/modelPricing.ts`** — pure cost estimator; Sonnet 4.6 priced ($3/$15),
+  unknown models → `null` (never guessed).
+- **`services/ai/events/aiCostDebug.ts`** — one safe, greppable `[ai-cost]` dev
+  line per recorded React Agent model call. Gated by `ENABLE_AI_COST_DEBUG=true`
+  AND `NODE_ENV !== "production"` (off by default). Full-catalog calls
+  (fallback / ≥20k input tokens / ≥20 providers) escalate to `console.warn` with
+  a "~3x a narrowed call" message — visibility only, no block.
+- **`plannerInteractionKind`** (`initial_plan | follow_up | retry | unknown`) —
+  threaded client→route→recorder, folded into `ai_cost_events.metadata` so
+  follow-up full re-plans are attributable.
+- **OpenAI classifier telemetry gap CLOSED** — the AI-34C classifier (gated off
+  by default) now records a distinct `provider_discovery` `ai_model_call_*` row
+  when it runs (counts/enums only).
+
+Next cost reducers (separate slices): AI-35C prompt caching (P1), AI-35B
+deterministic follow-up patch completion (P1), AI-35A OpenAI planner A/B (P2).
+Full detail: `ai-cost-telemetry-validation-and-cache-audit.md` (AI-35D section).

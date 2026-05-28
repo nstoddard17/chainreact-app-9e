@@ -33,12 +33,23 @@ import type {
   PlanWorkflowResult,
 } from "@/services/ai/planner";
 import type { RepairSuggestionResult } from "@/services/ai/repair";
+import {
+  logAiCostDebug,
+  type AiCostDebugPatchOutcome,
+  type PlannerInteractionKind,
+} from "./aiCostDebug";
 
 export interface AiRouteEventScope {
   readonly userId: string;
   readonly workflowId?: string | null;
   /** The request's patch id (apply route) — used for failure events. */
   readonly patchId?: string | null;
+  /**
+   * Slice 4.AI-35D — value-free observability tag (initial prompt vs follow-up
+   * vs retry). Folded into the planner model-call metadata + the dev cost line.
+   * Absent for legacy/non-builder callers (recorded as no tag).
+   */
+  readonly interactionKind?: PlannerInteractionKind;
 }
 
 export interface AiRepairRouteEventScope {
@@ -50,6 +61,75 @@ export interface AiRepairRouteEventScope {
 /** Registry provider for a model id (analytics dimension); undefined if unknown. */
 function providerOf(modelId: string | undefined): string | undefined {
   return modelId ? getModelById(modelId)?.provider : undefined;
+}
+
+/** Map a plan result onto the patch-lifecycle outcome shown in the dev cost line. */
+function derivePlanPatchOutcome(result: PlanWorkflowResult): AiCostDebugPatchOutcome {
+  if (!result.ok) {
+    return result.code === "PREVIEW_UNAVAILABLE" ? "validation_failed" : "none";
+  }
+  if (result.proposedPatch) return result.canApplyLater ? "previewed" : "validation_failed";
+  return "none";
+}
+
+/**
+ * Slice 4.AI-35D — emit a DISTINCT `ai_model_call_*` row for the OpenAI
+ * classifier call (AI-34C) when one was attempted, closing the
+ * AI-COST-INCIDENT-1 telemetry gap. Feature `provider_discovery` keeps it OUT
+ * of the `workflow_creation` model-call funnel (so the AI-32-LIVE baselines
+ * stay clean) while still being attributable to the same workflow. Metadata is
+ * counts/enums only — no raw classifier prompt or output. Fail-open.
+ */
+async function recordClassifierModelCall(
+  input: AiRouteEventScope,
+  attribution: PlannerPromptAttribution | undefined,
+): Promise<void> {
+  const c = attribution?.classifierModelCall;
+  if (!c) return;
+  const scope: AiEventScope = {
+    userId: input.userId,
+    feature: "provider_discovery",
+    workflowId: input.workflowId ?? null,
+  };
+  const metadata: Record<string, unknown> = {
+    classifierOnly: true,
+    classifierPurpose: "provider_narrowing",
+    classifierOutcome: c.outcome,
+    ...(c.confidence ? { classifierConfidence: c.confidence } : {}),
+    ...(c.candidateProviderCount !== undefined
+      ? { candidateProviderCount: c.candidateProviderCount }
+      : {}),
+    ...(c.validProviderCount !== undefined ? { validProviderCount: c.validProviderCount } : {}),
+  };
+  if (c.responded) {
+    await recordAiModelCallCompleted(scope, {
+      modelName: c.modelName,
+      modelProvider: c.modelProvider,
+      ...(c.inputTokens !== undefined ? { inputTokens: c.inputTokens } : {}),
+      ...(c.outputTokens !== undefined ? { outputTokens: c.outputTokens } : {}),
+      ...(c.latencyMs !== undefined ? { latencyMs: c.latencyMs } : {}),
+      metadata,
+    });
+  } else {
+    await recordAiModelCallFailed(scope, {
+      modelName: c.modelName,
+      modelProvider: c.modelProvider,
+      ...(c.latencyMs !== undefined ? { latencyMs: c.latencyMs } : {}),
+      metadata,
+    });
+  }
+  logAiCostDebug({
+    feature: "provider_discovery",
+    eventType: c.responded ? "ai_model_call_completed" : "ai_model_call_failed",
+    modelProvider: c.modelProvider,
+    modelName: c.modelName,
+    ...(c.inputTokens !== undefined ? { inputTokens: c.inputTokens } : {}),
+    ...(c.outputTokens !== undefined ? { outputTokens: c.outputTokens } : {}),
+    classifierUsed: true,
+    classifierModelTier: "fast",
+    tierRoutingReason: `classifier_${c.outcome}`,
+    workflowId: input.workflowId ?? null,
+  });
 }
 
 /**
@@ -146,6 +226,52 @@ export async function recordAiPlanOutcome(
     const promptVersion = prompt?.packetVersion;
     const promptMeta = promptAttributionMetadata(prompt);
 
+    // Slice 4.AI-35D — emit the DISTINCT classifier model-call row (when the
+    // AI-34C OpenAI classifier ran) BEFORE the planner event so the funnel
+    // reads interaction → classifier → planner.
+    await recordClassifierModelCall(input, prompt);
+
+    // Slice 4.AI-35D — interaction tag, folded into the planner model-call
+    // metadata only when the caller provided one (keeps legacy rows
+    // byte-identical). Queryable as `metadata.plannerInteractionKind`.
+    const interactionMeta = input.interactionKind
+      ? { plannerInteractionKind: input.interactionKind }
+      : {};
+
+    // Slice 4.AI-35D — one dev cost line per planner call (gated by
+    // ENABLE_AI_COST_DEBUG, dev-only). Safe fields only; fail-open.
+    logAiCostDebug({
+      feature: "workflow_creation",
+      eventType:
+        !result.ok && (result.code === "MODEL_FAILED" || result.code === "PARSE_FAILED")
+          ? "ai_model_call_failed"
+          : "ai_model_call_completed",
+      ...(modelProvider ? { modelProvider } : {}),
+      ...(modelName ? { modelName } : {}),
+      ...(promptVersion ? { promptVersion } : {}),
+      ...(model?.usage
+        ? { inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens }
+        : {}),
+      ...(prompt
+        ? {
+            providerNarrowingMode: prompt.providerNarrowingMode,
+            providerNarrowingFallbackUsed: prompt.providerNarrowingFallbackUsed,
+            catalogProviderCount: prompt.catalogProviderCount,
+            catalogProvidersTotal: prompt.catalogProvidersTotal,
+            plannerModelTier: prompt.plannerModelTier,
+            classifierUsed: prompt.classifierUsed,
+            classifierModelTier: prompt.classifierModelTier,
+            tierRoutingReason: prompt.tierRoutingReason,
+            ...(prompt.providerNarrowingReason
+              ? { providerNarrowingReason: prompt.providerNarrowingReason }
+              : {}),
+          }
+        : {}),
+      ...(input.interactionKind ? { plannerInteractionKind: input.interactionKind } : {}),
+      patchOutcome: derivePlanPatchOutcome(result),
+      ...(input.workflowId ? { workflowId: input.workflowId } : {}),
+    });
+
     // 2. Model event. A model-API failure and an unparseable response are both
     //    "no usable model output" — recorded as a failed call, distinguished by
     //    metadata.stage.
@@ -159,6 +285,7 @@ export async function recordAiPlanOutcome(
           code: result.errors[0]?.code ?? "unknown",
           ...(promptVersion ? { packetVersion: promptVersion } : {}),
           ...promptMeta,
+          ...interactionMeta,
         },
       });
       return;
@@ -173,6 +300,7 @@ export async function recordAiPlanOutcome(
           code: result.errors[0]?.code ?? "unknown",
           ...(promptVersion ? { packetVersion: promptVersion } : {}),
           ...promptMeta,
+          ...interactionMeta,
         },
       });
       return;
@@ -191,6 +319,7 @@ export async function recordAiPlanOutcome(
           finishReason: model.finishReason ?? "unknown",
           ...(promptVersion ? { packetVersion: promptVersion } : {}),
           ...promptMeta,
+          ...interactionMeta,
         },
       });
     }
@@ -237,6 +366,16 @@ export async function recordAiApplyOutcome(
       workflowId: input.workflowId ?? null,
       patchId,
     };
+
+    // Slice 4.AI-35D — apply has no model call (deterministic), so the dev
+    // line just surfaces the patch outcome (no tokens / no cost). Gated +
+    // fail-open.
+    logAiCostDebug({
+      feature: "workflow_editing",
+      eventType: result.ok ? "ai_patch_applied" : "ai_patch_validation_failed",
+      patchOutcome: result.ok ? "applied" : "validation_failed",
+      ...(input.workflowId ? { workflowId: input.workflowId } : {}),
+    });
 
     if (result.ok) {
       await recordAiPatchOutcome(scope, "applied", {

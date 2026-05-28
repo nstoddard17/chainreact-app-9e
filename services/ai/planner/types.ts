@@ -176,6 +176,38 @@ export const PLANNER_PACKET_VERSION_V1 = "workflow-planner-v1";
 export const PLANNER_PACKET_VERSION = PLANNER_PACKET_VERSION_V3;
 
 /**
+ * Slice 4.AI-35D — telemetry for the SEPARATE OpenAI fast-tier intent
+ * classifier model call (AI-34C), when it was attempted. Rides the planner
+ * attribution channel (the only field that flows uniformly to every
+ * `PlanWorkflowResult` shape) so `recordAiPlanOutcome` can emit a distinct
+ * `ai_model_call_completed`/`ai_model_call_failed` row for the classifier —
+ * closing the AI-COST-INCIDENT-1 telemetry gap (an enabled classifier
+ * previously billed OpenAI with no `ai_cost_events` record).
+ *
+ * Present ONLY when a model call was attempted (`outcome` is `model_succeeded`
+ * / `model_failed`). Absent for `model_disabled` / `openai_not_configured`
+ * (no call → nothing to record). Carries counts/enums/ids only — NO raw
+ * classifier prompt, NO raw model output, NO provider-id arrays.
+ */
+export interface ClassifierModelCallAttribution {
+  /** Vendor model id (e.g. `gpt-4.1-mini`). */
+  readonly modelName: string;
+  readonly modelProvider: "openai";
+  /** True when the model returned a response (regardless of parse success). */
+  readonly responded: boolean;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly latencyMs?: number;
+  /** Parsed classifier confidence (only when the result parsed). */
+  readonly confidence?: "high" | "medium" | "low";
+  /** Raw count of provider ids the model named (pre catalog-filter). */
+  readonly candidateProviderCount?: number;
+  /** Count of those ids that exist in the catalog (post-filter). */
+  readonly validProviderCount?: number;
+  readonly outcome: ModelClassifierOutcome;
+}
+
+/**
  * Slice 4.AI-28 — per-section character attribution + structural counts for
  * one planner prompt. Computed deterministically by
  * `buildWorkflowPlanPromptWithAttribution` from the same sections that ship
@@ -346,6 +378,14 @@ export interface PlannerPromptAttribution {
    * AI-31 / AI-34C.
    */
   readonly tierRoutingReason: string;
+  /**
+   * Slice 4.AI-35D — telemetry for the SEPARATE OpenAI classifier model call,
+   * present only when one was attempted. Read by `recordAiPlanOutcome` to emit
+   * a distinct classifier `ai_model_call_*` row. NOT folded into the planner
+   * row's metadata (the recorder allow-lists planner fields explicitly), so it
+   * never pollutes the Anthropic call's attribution.
+   */
+  readonly classifierModelCall?: ClassifierModelCallAttribution;
 }
 
 /**

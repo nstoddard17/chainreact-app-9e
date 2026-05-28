@@ -49,7 +49,7 @@ import {
 } from "@/services/ai/modelClients";
 import type { NarrowingClassifierResult } from "./narrowingClassifier";
 import type { NarrowProvidersInput } from "./narrowProvidersForPlan";
-import type { ModelClassifierOutcome } from "./types";
+import type { ClassifierModelCallAttribution, ModelClassifierOutcome } from "./types";
 
 const CLASSIFIER_MAX_OUTPUT_TOKENS = 400;
 /** Hard cap on array sizes parsed back from the model (defensive). */
@@ -197,6 +197,31 @@ export function parseModelClassifierResponse(
 export interface RunModelClassifierResult {
   readonly result: NarrowingClassifierResult | null;
   readonly outcome: ModelClassifierOutcome;
+  /**
+   * Slice 4.AI-35D — telemetry for the model call, present ONLY when a call
+   * was attempted (outcome `model_succeeded` / `model_failed`). Absent when
+   * the classifier was skipped (disabled / not-configured) or threw before
+   * the call. The grounding layer threads it onto the planner attribution so
+   * the recorder emits a distinct classifier `ai_model_call_*` row.
+   */
+  readonly telemetry?: ClassifierModelCallAttribution;
+}
+
+/** Count of provider ids the model named, BEFORE the catalog filter. */
+function rawCandidateCount(text: string): number | undefined {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray((parsed as { candidateProviders?: unknown }).candidateProviders)
+    ) {
+      return (parsed as { candidateProviders: unknown[] }).candidateProviders.length;
+    }
+  } catch {
+    /* unparseable — leave undefined */
+  }
+  return undefined;
 }
 
 export interface RunModelClassifierOptions {
@@ -236,16 +261,53 @@ export async function runModelNarrowingClassifier(
       messages: buildModelClassifierMessages(input),
     };
     const modelResult = await client.generateStructuredJson(request);
+
+    // Slice 4.AI-35D — base telemetry for the call we just made (success or
+    // failure), so the recorder can emit a classifier `ai_model_call_*` row.
+    const base = {
+      modelName: model.id,
+      modelProvider: "openai" as const,
+      responded: modelResult.ok,
+      ...(modelResult.ok && modelResult.usage
+        ? { inputTokens: modelResult.usage.inputTokens, outputTokens: modelResult.usage.outputTokens }
+        : {}),
+      ...(modelResult.latencyMs !== undefined ? { latencyMs: modelResult.latencyMs } : {}),
+    };
+
     if (!modelResult.ok) {
-      return { result: null, outcome: "model_failed" };
+      return {
+        result: null,
+        outcome: "model_failed",
+        telemetry: { ...base, outcome: "model_failed" },
+      };
     }
     const catalogIds = new Set(input.catalog.providers.map((p) => p.id));
+    const raw = rawCandidateCount(modelResult.text);
     const parsedResult = parseModelClassifierResponse(modelResult.text, catalogIds);
     if (!parsedResult) {
-      return { result: null, outcome: "model_failed" };
+      return {
+        result: null,
+        outcome: "model_failed",
+        telemetry: {
+          ...base,
+          outcome: "model_failed",
+          ...(raw !== undefined ? { candidateProviderCount: raw } : {}),
+        },
+      };
     }
-    return { result: parsedResult, outcome: "model_succeeded" };
+    return {
+      result: parsedResult,
+      outcome: "model_succeeded",
+      telemetry: {
+        ...base,
+        outcome: "model_succeeded",
+        confidence: parsedResult.confidence,
+        ...(raw !== undefined ? { candidateProviderCount: raw } : {}),
+        validProviderCount: parsedResult.candidateProviders.length,
+      },
+    };
   } catch {
+    // Threw before/around the call — we can't attribute tokens, so no telemetry.
     return { result: null, outcome: "model_failed" };
   }
 }

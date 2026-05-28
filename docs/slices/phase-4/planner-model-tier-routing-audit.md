@@ -230,3 +230,29 @@ AI-34C took option (1)'s spirit but on **OpenAI `gpt-4.1-mini`** (the AI-34A/34B
 **The PLANNER is untouched.** `getModelForFeature("creation")` / `getModelForTier("strong")` still resolve Anthropic; patch generation, preview, and Apply never touch OpenAI. AI-34C only augments the catalog the Anthropic planner sees.
 
 **Rollback.** `ENABLE_AI_MODEL_NARROWING_CLASSIFIER` unset/false → the model classifier never runs; behavior is byte-identical to AI-31. Independent of the AI-29/AI-30/AI-31 flags.
+
+---
+
+## AI-35D addendum — classifier telemetry now recorded
+
+AI-COST-INCIDENT-1 (2026-05-28) found that when the AI-34C OpenAI classifier is
+enabled (`ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true`), its model call billed
+OpenAI with **no `ai_cost_events` row** — invisible cost.
+
+**Closed by AI-35D.** `runModelNarrowingClassifier` returns a `telemetry`
+envelope; `buildWorkflowPlanRequestWithAttribution` threads it onto
+`PlannerPromptAttribution.classifierModelCall`; `recordAiPlanOutcome` emits a
+DISTINCT classifier `ai_model_call_completed`/`ai_model_call_failed` row under
+feature **`provider_discovery`** (model_provider `openai`, `gpt-4.1-mini`),
+metadata `{ classifierOnly: true, classifierPurpose: "provider_narrowing",
+classifierOutcome, classifierConfidence, candidateProviderCount,
+validProviderCount }` — counts/enums only. Feature `provider_discovery` (not
+`workflow_creation`) keeps the planner funnel + AI-32-LIVE baselines clean.
+
+Still gated off by default. The classifier only runs when the flag is on; it now
+records when it does. The PLANNER stays on Anthropic/Sonnet regardless.
+
+A new value-free `plannerInteractionKind` (`initial_plan | follow_up | retry |
+unknown`) is also recorded into the planner row's metadata so follow-up re-plans
+(which re-run the full planner) are attributable. See the AI-35D section in
+`ai-cost-telemetry-validation-and-cache-audit.md`.
