@@ -129,7 +129,11 @@ export function HeaderRunControls() {
         require a typed confirmation before they fire.
       </p>
       {isDirty ? (
-        <p role="status" className="sr-only">
+        <p
+          role="status"
+          className="sr-only"
+          data-testid="header-run-unsaved-changes-status"
+        >
           You have unsaved changes. Run controls execute the saved workflow,
           not the in-progress edits.
         </p>

@@ -234,7 +234,13 @@ it("end-to-end: add manual trigger, Run Now posts to runNowWorkflow", async () =
   });
 
   // 3. Unsaved-changes warning surfaces (graph is dirty after add).
-  expect(screen.getByRole("status")).toHaveTextContent(/unsaved changes/i);
+  // Scoped via the dedicated testid because the Builder AI panel may
+  // mount its own `role="status"` (history-load-failed) — both are
+  // semantically valid status updates; the test query needs the
+  // specific one to avoid the multiple-elements collision.
+  expect(
+    screen.getByTestId("header-run-unsaved-changes-status"),
+  ).toHaveTextContent(/unsaved changes/i);
 
   // 4. Click Run Manually → typed-client called with the workflow id +
   //    empty inputs payload.
