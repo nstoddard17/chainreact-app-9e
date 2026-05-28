@@ -29,6 +29,22 @@
 > full implementation note. AI-30 / AI-31 / AI-32 remain queued; each will
 > bump `PLANNER_PACKET_VERSION` further so dashboards can A/B by version.
 >
+> **Status update (2026-05-28, AI-32 audit shipped on this same branch):**
+> the §J recommendation for AI-32 has landed as an **audit-only** slice:
+> [`ai-cost-telemetry-validation-and-cache-audit.md`](./ai-cost-telemetry-validation-and-cache-audit.md).
+> Verified the AI-28/30/31 telemetry path against the real `ai_cost_events`
+> schema + recorder (no behavior change, no source change). Confirmed the §I
+> dashboard queries below ARE runnable against live data and extended them
+> with narrowing / tier-routing / section-proportion / cost-per-apply
+> variants. Prompt-caching feasibility audited: usable, but needs the
+> adapter to send `system` as content blocks AND a `workflow-planner-v4`
+> packet reorder (the stable rules+guides are currently stranded after the
+> variable CONTEXT PACKET, so no contiguous cacheable prefix exists today).
+> AI-30 shifted the cache target from the catalog (now variable/small) to
+> the rules+guides (~4.2k tokens, still stable). Model-classifier deferred
+> (AI-32B) pending live failure-vs-confidence data. **Recommendation: live
+> smoke + ship the AI-29→AI-31 arc, then AI-32A prompt caching.**
+>
 > **Status update (2026-05-27, AI-31 shipped on this same branch):** the §J
 > recommendation for AI-31 (model-tier routing foundation) has landed —
 > **conservative scope**: deterministic narrowing-classifier
