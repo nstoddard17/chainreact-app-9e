@@ -95,6 +95,21 @@ function promptAttributionMetadata(
     ...(prompt.providerNarrowingReason
       ? { providerNarrowingReason: prompt.providerNarrowingReason }
       : {}),
+    // Slice 4.AI-31 — tier-routing fields. Counts + enums only; the
+    // deterministic classifier never produces raw text. None of the
+    // field names match the `sanitizeAiEventMetadata` denylist
+    // (`/token|secret|password|authorization|prompt|config|body|raw/i`)
+    // — the test in `recordAiRouteEvents.test.ts` pins this.
+    plannerModelTier: prompt.plannerModelTier,
+    classifierUsed: prompt.classifierUsed,
+    classifierModelTier: prompt.classifierModelTier,
+    classifierConfidence: prompt.classifierConfidence,
+    classifierProviderCount: prompt.classifierProviderCount,
+    deterministicProviderCount: prompt.deterministicProviderCount,
+    finalProviderCount: prompt.finalProviderCount,
+    fallbackToDeterministic: prompt.fallbackToDeterministic,
+    fallbackToFullCatalog: prompt.fallbackToFullCatalog,
+    tierRoutingReason: prompt.tierRoutingReason,
   };
 }
 

@@ -85,6 +85,15 @@ export interface WorkflowPlanPromptInput {
    */
   readonly currentGraph?: CurrentWorkflowGraphView;
   readonly costAwareness?: WorkflowPlanCostAwareness;
+  /**
+   * Slice 4.AI-31 — the tier the orchestrator plans to use for the
+   * model call. Threaded through so `PlannerPromptAttribution` can
+   * record `plannerModelTier` (the planner's tier-routing decision)
+   * separately from `model.tier` on `PlanModelMetadata` (which is
+   * authoritative for what actually ran). Defaults to the
+   * workflow_creation feature default (`"strong"`) when omitted.
+   */
+  readonly plannerTier?: ModelTier;
 }
 
 /** Input to the async grounding helper that composes AI-2 then builds the prompt. */
@@ -219,6 +228,82 @@ export interface PlannerPromptAttribution {
   readonly providerNarrowingReason?: string;
   /** Count of providers omitted from the catalog. 0 when full-catalog. AI-30. */
   readonly providerNarrowingOmittedCount: number;
+  // ─── Slice 4.AI-31: tier-routing attribution ───────────────────────────────
+  /**
+   * Tier of the model that produced the plan response. Today always
+   * `"strong"` for the workflow_creation feature — see
+   * `FEATURE_DEFAULT_TIER` in `core/ai/models.ts`. AI-31.
+   */
+  readonly plannerModelTier: ModelTier;
+  /**
+   * Whether a narrowing classifier (deterministic OR model) produced a
+   * result for this plan call. `false` only when the classifier env
+   * flag is off OR a future model classifier failed and we fell back
+   * to deterministic narrowing alone. AI-31.
+   */
+  readonly classifierUsed: boolean;
+  /**
+   * Tier of the model used by the classifier. `null` for the AI-31
+   * deterministic helper; `"fast"` for a future Haiku-backed classifier
+   * (AI-31B). AI-31.
+   */
+  readonly classifierModelTier: ModelTier | null;
+  /**
+   * Classifier-assigned confidence in the narrowing decision. `null`
+   * when no classifier ran. AI-31.
+   */
+  readonly classifierConfidence: "high" | "medium" | "low" | null;
+  /**
+   * Number of providers the classifier suggested (its
+   * `candidateProviders` length). `null` when no classifier ran.
+   * AI-31.
+   */
+  readonly classifierProviderCount: number | null;
+  /**
+   * Number of providers the AI-30 deterministic narrowing helper
+   * included (`narrowing.providerIds.size`). Always present —
+   * narrowing runs on every plan call. AI-31.
+   */
+  readonly deterministicProviderCount: number;
+  /**
+   * Number of providers the planner ACTUALLY shipped to the model in
+   * the catalog section. Today equal to `deterministicProviderCount`;
+   * may differ when a future model classifier adds providers
+   * narrowing missed. AI-31.
+   */
+  readonly finalProviderCount: number;
+  /**
+   * True when the classifier failed/threw and we used deterministic
+   * narrowing alone. Today always `false` — the deterministic
+   * classifier doesn't throw. A future model classifier that times
+   * out will flip this to `true` so dashboards can attribute failed
+   * classifier calls. AI-31.
+   */
+  readonly fallbackToDeterministic: boolean;
+  /**
+   * True when narrowing fell back to the full catalog. Alias for
+   * `providerNarrowingFallbackUsed` exposed under the tier-routing
+   * name so dashboards can group by routing outcome without
+   * disambiguating field names. AI-31.
+   */
+  readonly fallbackToFullCatalog: boolean;
+  /**
+   * Short string explaining how the planner-model tier was chosen.
+   * Stable enum-like vocabulary:
+   *   - `"feature_default_strong"` — workflow_creation default; the
+   *     steady-state value today.
+   *   - `"feature_default_fast"` — a `fast`-default feature (not
+   *     used for plan calls today).
+   *   - `"user_override_<tier>"` — caller passed an explicit tier
+   *     override.
+   *   - `"classifier_disabled"` — classifier env flag off; planner
+   *     still uses the feature-default tier.
+   *   - `"narrowing_fallback_<reason>"` — narrowing fell back to full
+   *     catalog AND the planner stayed on the default tier (today the
+   *     only behavior; a future AI-31B may promote/demote here).
+   * AI-31.
+   */
+  readonly tierRoutingReason: string;
 }
 
 /**

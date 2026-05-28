@@ -36,11 +36,15 @@ import {
   type WorkflowPlanPromptInput,
 } from "./types";
 import { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
+import { computePlannerAttribution } from "./computePlannerAttribution";
 import {
   filterCatalogToNarrowed,
   narrowProvidersForPlan,
-  type NarrowProvidersResult,
 } from "./narrowProvidersForPlan";
+import {
+  isNarrowingClassifierEnabled,
+  safeRunNarrowingClassifier,
+} from "./narrowingClassifier";
 
 /** Hard constraints the model must obey. Tests pin these exact intents. */
 export const PLANNER_CONSTRAINTS: readonly string[] = [
@@ -402,16 +406,25 @@ export function buildWorkflowPlanPromptV1WithAttribution(
   // requests) hold for both packet shapes. Rollback for narrowing alone
   // is `ENABLE_AI_PROVIDER_NARROWING=false`; rollback for packet shape
   // back to v1 is `ENABLE_STRUCTURED_PROMPT_PACKET=false`.
-  const narrowing = narrowProvidersForPlan({
+  const narrowingInput = {
     userRequest: input.userRequest,
     catalog: input.catalog,
     connectedIntegrations: input.connectedIntegrations,
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
-  });
+  };
+  const narrowing = narrowProvidersForPlan(narrowingInput);
   const effectiveInput: WorkflowPlanPromptInput = {
     ...input,
     catalog: filterCatalogToNarrowed(input.catalog, narrowing),
   };
+  // Slice 4.AI-31 — deterministic narrowing classifier (instrumentation
+  // only). Result is recorded into attribution; it does NOT change which
+  // providers ship in the catalog (narrowing remains authoritative).
+  // Null when the classifier env flag is off.
+  const classifier = safeRunNarrowingClassifier(narrowingInput, narrowing);
+  const classifierAbsentReason = classifier === null && !isNarrowingClassifierEnabled()
+    ? "classifier_disabled"
+    : undefined;
 
   const preamble =
     "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
@@ -458,87 +471,11 @@ export function buildWorkflowPlanPromptV1WithAttribution(
     connectedIntegrationCount: input.connectedIntegrations.length,
     currentGraph: input.currentGraph,
     narrowing,
+    ...(input.plannerTier ? { plannerTier: input.plannerTier } : {}),
+    classifier,
+    ...(classifierAbsentReason ? { classifierAbsentReason } : {}),
   });
 
   return { messages, attribution };
 }
 
-/**
- * Slice 4.AI-30 — shared attribution computer for V1 and V2 packet
- * shapes. Both versions compute structural counts the same way (over the
- * EFFECTIVE catalog they shipped to the model) plus the narrowing
- * decision metadata (from the helper's result). Only `packetVersion` +
- * the section chars differ between V1 and V2.
- *
- * Exported for use by `buildWorkflowPlanPromptV2.ts` so the two builders
- * never drift on attribution shape.
- */
-export function computePlannerAttribution(args: {
-  readonly packetVersion: string;
-  readonly fullCatalog: WorkflowPlanPromptInput["catalog"];
-  readonly effectiveCatalog: WorkflowPlanPromptInput["catalog"];
-  readonly systemContent: string;
-  readonly userContent: string;
-  readonly catalogSection: string;
-  readonly rulesSection: string;
-  readonly connectedSection: string;
-  readonly canvasSection: string;
-  readonly connectedIntegrationCount: number;
-  readonly currentGraph: WorkflowPlanPromptInput["currentGraph"];
-  readonly narrowing: NarrowProvidersResult;
-}): PlannerPromptAttribution {
-  const usable = args.effectiveCatalog.providers.filter(isUsableProvider);
-  const totalUsable = args.fullCatalog.providers.filter(isUsableProvider).length;
-  const catalogActionCount = usable.reduce((n, p) => n + p.actions.length, 0);
-  const catalogTriggerCount = usable.reduce((n, p) => n + p.triggers.length, 0);
-  const catalogFieldCount = usable.reduce(
-    (n, p) =>
-      n +
-      p.actions.reduce((m, a) => m + a.configFields.length, 0) +
-      p.triggers.reduce((m, t) => m + t.configFields.length, 0),
-    0,
-  );
-  const catalogOutputFieldCount = usable.reduce(
-    (n, p) =>
-      n +
-      p.actions.reduce((m, a) => m + a.outputs.length, 0) +
-      p.triggers.reduce((m, t) => m + t.outputs.length, 0),
-    0,
-  );
-
-  // Narrowing-enabled is the inverse of the `narrowing_disabled` sentinel.
-  // `mode === "full-catalog"` alone doesn't mean disabled — narrowing can
-  // be enabled and still bail to full-catalog for a safety reason.
-  const providerNarrowingEnabled = args.narrowing.fallbackReason !== "narrowing_disabled";
-  const providerNarrowingFallbackUsed =
-    args.narrowing.mode === "full-catalog" && providerNarrowingEnabled;
-
-  return {
-    packetVersion: args.packetVersion,
-    totalPacketChars: args.systemContent.length + args.userContent.length,
-    catalogChars: args.catalogSection.length,
-    rulesChars: args.rulesSection.length,
-    connectedIntegrationsChars: args.connectedSection.length,
-    currentCanvasChars: args.canvasSection.length,
-    userRequestChars: args.userContent.length,
-    catalogProviderCount: usable.length,
-    catalogActionCount,
-    catalogTriggerCount,
-    catalogFieldCount,
-    catalogOutputFieldCount,
-    connectedIntegrationCount: args.connectedIntegrationCount,
-    currentCanvasNodeCount: args.currentGraph?.nodes.length ?? 0,
-    currentCanvasEdgeCount: args.currentGraph?.edges.length ?? 0,
-    catalogProvidersTotal: totalUsable,
-    providerNarrowingEnabled,
-    providerNarrowingMode: args.narrowing.mode,
-    providerNarrowingFallbackUsed,
-    ...(args.narrowing.fallbackReason
-      ? { providerNarrowingReason: args.narrowing.fallbackReason }
-      : {}),
-    providerNarrowingOmittedCount:
-      args.narrowing.mode === "narrowed"
-        ? args.narrowing.omittedProviderCount
-        : 0,
-  };
-}

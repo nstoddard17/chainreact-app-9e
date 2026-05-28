@@ -42,8 +42,8 @@
  */
 
 import type { ModelMessage } from "@/core/ai/modelTypes";
+import { computePlannerAttribution } from "./computePlannerAttribution";
 import {
-  computePlannerAttribution,
   isUsableProvider,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
@@ -60,6 +60,10 @@ import {
   narrowProvidersForPlan,
   type NarrowProvidersResult,
 } from "./narrowProvidersForPlan";
+import {
+  isNarrowingClassifierEnabled,
+  safeRunNarrowingClassifier,
+} from "./narrowingClassifier";
 import {
   PLANNER_PACKET_VERSION,
   type PlannerPromptAttribution,
@@ -194,17 +198,24 @@ export function buildWorkflowPlanPromptV2WithAttribution(
   // disabled). The R1 narrowing-aware no-substitution rule is the model-
   // side defense in depth; the CONTEXT PACKET below reports the mode +
   // reason so the model can act on it.
-  const narrowing = narrowProvidersForPlan({
+  const narrowingInput = {
     userRequest: input.userRequest,
     catalog: input.catalog,
     connectedIntegrations: input.connectedIntegrations,
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
-  });
+  };
+  const narrowing = narrowProvidersForPlan(narrowingInput);
   const effectiveCatalog = filterCatalogToNarrowed(input.catalog, narrowing);
   const effectiveInput: WorkflowPlanPromptInput = {
     ...input,
     catalog: effectiveCatalog,
   };
+  // Slice 4.AI-31 — deterministic narrowing classifier (instrumentation).
+  // Advisory only; does NOT change which providers the planner sees.
+  const classifier = safeRunNarrowingClassifier(narrowingInput, narrowing);
+  const classifierAbsentReason = classifier === null && !isNarrowingClassifierEnabled()
+    ? "classifier_disabled"
+    : undefined;
 
   const preamble =
     "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
@@ -262,6 +273,9 @@ export function buildWorkflowPlanPromptV2WithAttribution(
     connectedIntegrationCount: input.connectedIntegrations.length,
     currentGraph: input.currentGraph,
     narrowing,
+    ...(input.plannerTier ? { plannerTier: input.plannerTier } : {}),
+    classifier,
+    ...(classifierAbsentReason ? { classifierAbsentReason } : {}),
   });
 
   return { messages, attribution };

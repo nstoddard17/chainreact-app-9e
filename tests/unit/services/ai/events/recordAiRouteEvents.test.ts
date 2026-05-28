@@ -517,6 +517,150 @@ describe("AI-30 — narrowing-attribution flows through metadata", () => {
   });
 });
 
+describe("AI-31 — tier-routing metadata flows through", () => {
+  const promptAttributionStrongDeterministic = {
+    packetVersion: "workflow-planner-v3",
+    totalPacketChars: 12000,
+    catalogChars: 8000,
+    rulesChars: 2000,
+    connectedIntegrationsChars: 200,
+    currentCanvasChars: 50,
+    userRequestChars: 40,
+    catalogProviderCount: 3,
+    catalogActionCount: 12,
+    catalogTriggerCount: 6,
+    catalogFieldCount: 40,
+    catalogOutputFieldCount: 60,
+    connectedIntegrationCount: 1,
+    currentCanvasNodeCount: 0,
+    currentCanvasEdgeCount: 0,
+    catalogProvidersTotal: 26,
+    providerNarrowingEnabled: true,
+    providerNarrowingMode: "narrowed",
+    providerNarrowingFallbackUsed: false,
+    providerNarrowingOmittedCount: 23,
+    // AI-31 tier-routing fields.
+    plannerModelTier: "strong",
+    classifierUsed: true,
+    classifierModelTier: null,
+    classifierConfidence: "high",
+    classifierProviderCount: 3,
+    deterministicProviderCount: 3,
+    finalProviderCount: 3,
+    fallbackToDeterministic: false,
+    fallbackToFullCatalog: false,
+    tierRoutingReason: "feature_default_strong",
+  } as const;
+
+  const promptAttributionClassifierDisabled = {
+    ...promptAttributionStrongDeterministic,
+    classifierUsed: false,
+    classifierConfidence: null,
+    classifierProviderCount: null,
+    tierRoutingReason: "classifier_disabled",
+  } as const;
+
+  it("folds all tier-routing fields into ai_model_call_completed metadata", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttributionStrongDeterministic }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).toMatchObject({
+      plannerModelTier: "strong",
+      classifierUsed: true,
+      classifierModelTier: null,
+      classifierConfidence: "high",
+      classifierProviderCount: 3,
+      deterministicProviderCount: 3,
+      finalProviderCount: 3,
+      fallbackToDeterministic: false,
+      fallbackToFullCatalog: false,
+      tierRoutingReason: "feature_default_strong",
+    });
+  });
+
+  it("reflects classifier_disabled when classifier is off", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttributionClassifierDisabled }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).toMatchObject({
+      classifierUsed: false,
+      classifierConfidence: null,
+      classifierProviderCount: null,
+      tierRoutingReason: "classifier_disabled",
+    });
+  });
+
+  it("folds tier-routing fields into ai_model_call_failed metadata too (MODEL_FAILED)", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      {
+        ...planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]),
+        prompt: promptAttributionStrongDeterministic,
+      } as never,
+    );
+    expect(recordAiModelCallFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          plannerModelTier: "strong",
+          classifierUsed: true,
+          tierRoutingReason: "feature_default_strong",
+        }),
+      }),
+    );
+  });
+
+  it("tier-routing field names do NOT match the sanitizer denylist", async () => {
+    const BLOCKED = [
+      /token/i,
+      /secret/i,
+      /password/i,
+      /authorization/i,
+      /api[-_]?key/i,
+      /credential/i,
+      /prompt/i,
+      /completion/i,
+      /body/i,
+      /\bconfig\b/i,
+      /\braw/i,
+    ];
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttributionStrongDeterministic }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    const tierRoutingKeys = [
+      "plannerModelTier",
+      "classifierUsed",
+      "classifierModelTier",
+      "classifierConfidence",
+      "classifierProviderCount",
+      "deterministicProviderCount",
+      "finalProviderCount",
+      "fallbackToDeterministic",
+      "fallbackToFullCatalog",
+      "tierRoutingReason",
+    ];
+    for (const key of tierRoutingKeys) {
+      expect(metadata).toHaveProperty(key);
+      for (const re of BLOCKED) {
+        if (re.test(key)) {
+          throw new Error(
+            `Tier-routing metadata key '${key}' matches sanitizer denylist /${re.source}/${re.flags}`,
+          );
+        }
+      }
+    }
+  });
+});
+
 describe("no-leak", () => {
   it("never forwards raw patch config values to the recorder", async () => {
     const withSecret = planSuccess({

@@ -66,6 +66,10 @@ export async function buildWorkflowPlanRequestWithAttribution(
   const connectedIntegrations: readonly ConnectedIntegrationView[] =
     integrationsRes.ok ? integrationsRes.data.integrations : [];
 
+  const model = input.tier
+    ? getModelForTier(input.tier)
+    : getModelForFeature(WORKFLOW_PLAN_FEATURE);
+
   const { messages, attribution } = buildWorkflowPlanPromptWithAttribution({
     userRequest: input.userRequest,
     catalog,
@@ -75,11 +79,11 @@ export async function buildWorkflowPlanRequestWithAttribution(
     // graph) from the client. Forwarded verbatim; the prompt renderer is
     // responsible for the (empty | populated) shape decision.
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
+    // Slice 4.AI-31 — surface the resolved planner tier so attribution
+    // records `plannerModelTier` correctly when callers pass a tier
+    // override.
+    plannerTier: model.tier,
   });
-
-  const model = input.tier
-    ? getModelForTier(input.tier)
-    : getModelForFeature(WORKFLOW_PLAN_FEATURE);
 
   const request: ModelGenerateInput = {
     feature: WORKFLOW_PLAN_FEATURE,

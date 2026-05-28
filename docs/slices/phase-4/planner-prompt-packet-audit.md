@@ -29,6 +29,35 @@
 > full implementation note. AI-30 / AI-31 / AI-32 remain queued; each will
 > bump `PLANNER_PACKET_VERSION` further so dashboards can A/B by version.
 >
+> **Status update (2026-05-27, AI-31 shipped on this same branch):** the §J
+> recommendation for AI-31 (model-tier routing foundation) has landed —
+> **conservative scope**: deterministic narrowing-classifier
+> instrumentation only, **NO patch generation routed to a cheaper
+> model**. Audit doc at
+> [`planner-model-tier-routing-audit.md`](./planner-model-tier-routing-audit.md)
+> captures the current routing state and the decision not to ship a
+> Haiku planner yet. New helper
+> [`services/ai/planner/narrowingClassifier.ts`](../../../services/ai/planner/narrowingClassifier.ts)
+> returns a `NarrowingClassifierResult` with `{intentType, confidence,
+> candidateProviders, triggerHints, actionHints, broadOrAmbiguous,
+> source, modelTier}` derived purely from the AI-30 narrowing decision
+> + input shape — pure, no model call. **10 new tier-routing fields on
+> `PlannerPromptAttribution`** (`plannerModelTier`, `classifierUsed`,
+> `classifierModelTier`, `classifierConfidence`, `classifierProviderCount`,
+> `deterministicProviderCount`, `finalProviderCount`,
+> `fallbackToDeterministic`, `fallbackToFullCatalog`, `tierRoutingReason`)
+> all folded into `ai_cost_events.metadata` via the AI-28 channel;
+> none match the sanitizer denylist. The classifier output is
+> **advisory only** — `finalProviderCount` equals
+> `deterministicProviderCount` today; narrowing's `providerIds` is still
+> authoritative for what ships to the model. Rollback via
+> `ENABLE_AI_NARROWING_CLASSIFIER=false`. 59 new tests (29 helper + 26
+> prompt-builder + 4 events). `PLANNER_PACKET_VERSION` stays at
+> `workflow-planner-v3` — this slice is attribution-only, no packet
+> shape change. **AI-31B** (model classifier behind the same
+> interface) queued pending live data; see §J of the tier-routing audit
+> for the decision tree.
+>
 > **Status update (2026-05-27, AI-30 shipped on this same branch):** the §C
 > recommendation for AI-30 (deterministic provider narrowing) has landed.
 > `PLANNER_PACKET_VERSION` bumped to `workflow-planner-v3`. New helper

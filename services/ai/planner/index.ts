@@ -13,10 +13,10 @@ export {
   buildWorkflowPlanPrompt,
   buildWorkflowPlanPromptWithAttribution,
   buildWorkflowPlanPromptV1WithAttribution,
-  computePlannerAttribution,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
 } from "./buildWorkflowPlanPrompt";
+export { computePlannerAttribution } from "./computePlannerAttribution";
 export { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
 export {
   buildWorkflowPlanRequest,
@@ -29,6 +29,12 @@ export {
   type NarrowProvidersInput,
   type NarrowProvidersResult,
 } from "./narrowProvidersForPlan";
+export {
+  isNarrowingClassifierEnabled,
+  runDeterministicNarrowingClassifier,
+  safeRunNarrowingClassifier,
+  type NarrowingClassifierResult,
+} from "./narrowingClassifier";
 export { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
