@@ -46,6 +46,48 @@ export const MODELS: Readonly<Record<ModelTier, ModelDefinition>> = {
   },
 } as const;
 
+/**
+ * OpenAI models per tier (Slice 4.AI-34A). **Not the default planner** —
+ * the React Agent stays on Anthropic (`MODELS` above) until an explicit
+ * A/B / switch slice (AI-34B). These definitions exist so the OpenAI
+ * adapter is wired + testable; they are only reachable via an explicit
+ * `getModelForProviderTier("openai", …)` resolution, which a future
+ * routing layer gates on `ENABLE_OPENAI_PROVIDER`.
+ *
+ * Model ids are current GPT-4.1-family defaults; the adapter sends
+ * whatever `id` is here, so update these in one place if OpenAI's catalog
+ * shifts. `maxInputTokens` reflects the GPT-4.1 long-context window.
+ */
+export const OPENAI_MODELS: Readonly<Record<ModelTier, ModelDefinition>> = {
+  fast: {
+    id: "gpt-4.1-mini",
+    provider: "openai",
+    tier: "fast",
+    maxInputTokens: 1_000_000,
+    maxOutputTokens: 4_096,
+  },
+  strong: {
+    id: "gpt-4.1",
+    provider: "openai",
+    tier: "strong",
+    maxInputTokens: 1_000_000,
+    maxOutputTokens: 8_192,
+  },
+} as const;
+
+/**
+ * Every known model registry keyed by provider. The DEFAULT resolution
+ * (`getModelForTier` / `getModelForFeature`) still reads `MODELS`
+ * (Anthropic) — this map only powers explicit provider-aware lookups
+ * (`getModelForProviderTier`) + the cross-provider `getModelById`.
+ */
+const MODELS_BY_PROVIDER: Readonly<
+  Record<ModelProvider, Readonly<Record<ModelTier, ModelDefinition>>>
+> = {
+  anthropic: MODELS,
+  openai: OPENAI_MODELS,
+};
+
 /** Default tier when a caller specifies neither a tier nor a known feature. */
 export const DEFAULT_MODEL_TIER: ModelTier = "strong";
 
@@ -85,9 +127,24 @@ export const MODEL_API_KEY_ENV: Readonly<Record<ModelProvider, string>> = {
   openai: "OPENAI_API_KEY",
 } as const;
 
-/** The model for a capability tier. */
+/** The model for a capability tier. Default provider (Anthropic). */
 export function getModelForTier(tier: ModelTier): ModelDefinition {
   return MODELS[tier];
+}
+
+/**
+ * The model for an explicit provider + tier (Slice 4.AI-34A). Used by the
+ * provider-specific adapters to resolve their own registry — e.g. the
+ * OpenAI adapter resolves `getModelForProviderTier("openai", tier)` so it
+ * never accidentally serves an Anthropic model id. The DEFAULT planner
+ * path does NOT call this (it uses `getModelForTier` / `getModelForFeature`,
+ * which stay Anthropic), so adding OpenAI here changes no default behavior.
+ */
+export function getModelForProviderTier(
+  provider: ModelProvider,
+  tier: ModelTier,
+): ModelDefinition {
+  return MODELS_BY_PROVIDER[provider][tier];
 }
 
 /**
@@ -100,7 +157,17 @@ export function getModelForFeature(feature: AiFeature): ModelDefinition {
   return MODELS[tier];
 }
 
-/** Look up a model by its vendor id. Returns `undefined` for an unknown id. */
+/**
+ * Look up a model by its vendor id across ALL provider registries
+ * (Anthropic + OpenAI). Returns `undefined` for an unknown id. Used by
+ * the cost-event recorder to derive `model_provider` from `model_name`,
+ * so an OpenAI call's telemetry resolves to `provider: "openai"` (Slice
+ * 4.AI-34A).
+ */
 export function getModelById(id: string): ModelDefinition | undefined {
-  return Object.values(MODELS).find((m) => m.id === id);
+  for (const registry of Object.values(MODELS_BY_PROVIDER)) {
+    const found = Object.values(registry).find((m) => m.id === id);
+    if (found) return found;
+  }
+  return undefined;
 }

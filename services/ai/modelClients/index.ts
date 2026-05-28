@@ -9,12 +9,15 @@
  */
 
 export { createAnthropicModelClient } from "./anthropicClient";
+export { createOpenAiModelClient } from "./openaiClient";
 export {
   createModelClientForFeature,
   createModelClientForModel,
   createRuntimeModelClient,
+  isOpenAiProviderEnabled,
 } from "./createModelClient";
 export type {
   AnthropicModelClientOptions,
+  OpenAiModelClientOptions,
   RuntimeModelClientInput,
 } from "./types";

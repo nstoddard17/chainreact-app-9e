@@ -35,3 +35,22 @@ export interface AnthropicModelClientOptions {
   /** Anthropic API version header; defaults to a pinned stable version. */
   readonly anthropicVersion?: string;
 }
+
+/**
+ * Options for the OpenAI adapter (Slice 4.AI-34A). Same shape discipline as
+ * the Anthropic options: `fetchImpl` is the test seam (no network in tests),
+ * and `apiKey` lives only in the closure — never returned, logged, or echoed.
+ * The key is read SERVER-SIDE from `OPENAI_API_KEY` (never `NEXT_PUBLIC_`),
+ * so it is structurally unreachable from the browser bundle.
+ */
+export interface OpenAiModelClientOptions {
+  readonly apiKey: string;
+  /** Defaults to https://api.openai.com (Responses API at /v1/responses). */
+  readonly baseUrl?: string;
+  /** Per-call timeout; defaults to DEFAULT_MODEL_BUDGET.timeoutMs. */
+  readonly timeoutMs?: number;
+  /** Injectable fetch (defaults to globalThis.fetch) — the test seam. */
+  readonly fetchImpl?: typeof fetch;
+  /** Optional OpenAI organization id (`openai-organization` header). */
+  readonly organization?: string;
+}

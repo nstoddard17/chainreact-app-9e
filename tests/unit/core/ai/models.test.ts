@@ -122,3 +122,63 @@ describe("getModelById", () => {
     expect(getModelById("gpt-does-not-exist")).toBeUndefined();
   });
 });
+
+// ─── Slice 4.AI-34A: OpenAI provider config ──────────────────────────────────
+
+import { OPENAI_MODELS, getModelForProviderTier } from "@/core/ai/models";
+import type { ModelProvider } from "@/core/ai/modelTypes";
+
+describe("OPENAI_MODELS config (AI-34A)", () => {
+  it("defines both tiers with provider=openai", () => {
+    expect(OPENAI_MODELS.fast.provider).toBe("openai");
+    expect(OPENAI_MODELS.strong.provider).toBe("openai");
+    expect(OPENAI_MODELS.fast.tier).toBe("fast");
+    expect(OPENAI_MODELS.strong.tier).toBe("strong");
+  });
+
+  it("each OpenAI model carries id + finite token caps", () => {
+    for (const m of Object.values(OPENAI_MODELS)) {
+      expect(typeof m.id).toBe("string");
+      expect(m.id.length).toBeGreaterThan(0);
+      expect(Number.isFinite(m.maxInputTokens)).toBe(true);
+      expect(Number.isFinite(m.maxOutputTokens)).toBe(true);
+    }
+  });
+
+  it("OpenAI model ids do not collide with Anthropic ids", () => {
+    const anthropicIds = new Set(Object.values(MODELS).map((m) => m.id));
+    for (const m of Object.values(OPENAI_MODELS)) {
+      expect(anthropicIds.has(m.id)).toBe(false);
+    }
+  });
+});
+
+describe("getModelForProviderTier (AI-34A)", () => {
+  it("resolves the Anthropic model for provider=anthropic (default planner unchanged)", () => {
+    expect(getModelForProviderTier("anthropic", "strong")).toEqual(MODELS.strong);
+    expect(getModelForProviderTier("anthropic", "fast")).toEqual(MODELS.fast);
+  });
+
+  it("resolves the OpenAI model for provider=openai", () => {
+    expect(getModelForProviderTier("openai", "strong")).toEqual(OPENAI_MODELS.strong);
+    expect(getModelForProviderTier("openai", "fast")).toEqual(OPENAI_MODELS.fast);
+  });
+
+  it("the DEFAULT resolver (getModelForTier) still returns Anthropic — no behavior switch", () => {
+    expect(getModelForTier("strong").provider).toBe("anthropic");
+    expect(getModelForFeature("creation").provider).toBe("anthropic");
+  });
+});
+
+describe("getModelById across providers (AI-34A)", () => {
+  it("resolves an OpenAI model id to its OpenAI definition (telemetry provider mapping)", () => {
+    const openaiStrong = OPENAI_MODELS.strong;
+    const found = getModelById(openaiStrong.id);
+    expect(found).toEqual(openaiStrong);
+    expect(found?.provider satisfies ModelProvider | undefined).toBe("openai");
+  });
+
+  it("still resolves Anthropic ids", () => {
+    expect(getModelById(MODELS.strong.id)?.provider).toBe("anthropic");
+  });
+});

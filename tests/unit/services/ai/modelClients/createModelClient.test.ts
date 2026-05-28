@@ -12,6 +12,7 @@ import {
   createModelClientForFeature,
   createModelClientForModel,
   createRuntimeModelClient,
+  isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
 import { MODELS, type ModelDefinition } from "@/core/ai/models";
 import type { AiFeature, ModelGenerateInput } from "@/core/ai/modelTypes";
@@ -49,6 +50,20 @@ function mockOkResponse(): Response {
   } as unknown as Response;
 }
 
+/** OpenAI Responses-API shaped 200 (AI-34A). */
+function mockOpenAiOkResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      output: [{ type: "message", content: [{ type: "output_text", text: "{}" }] }],
+      status: "completed",
+      usage: { input_tokens: 1, output_tokens: 1 },
+    }),
+    text: async () => "{}",
+  } as unknown as Response;
+}
+
 describe("createModelClientForModel", () => {
   it("returns a NOT_CONFIGURED client for Anthropic with no key", async () => {
     const result = await createModelClientForModel(ANTHROPIC_MODEL, undefined).generateStructuredJson(input);
@@ -57,14 +72,46 @@ describe("createModelClientForModel", () => {
     expect(result.failureCode).toBe("NOT_CONFIGURED");
   });
 
-  it("returns a CONFIGURATION_ERROR client for an unsupported provider (with or without key)", async () => {
-    const withKey = await createModelClientForModel(OPENAI_MODEL, "some-key").generateStructuredJson(input);
+  it("returns a NOT_CONFIGURED client for OpenAI with no key (AI-34A — fail safe, not CONFIGURATION_ERROR)", async () => {
     const noKey = await createModelClientForModel(OPENAI_MODEL, undefined).generateStructuredJson(input);
-    expect(withKey.ok).toBe(false);
     expect(noKey.ok).toBe(false);
-    if (withKey.ok || noKey.ok) return;
+    if (noKey.ok) return;
+    expect(noKey.failureCode).toBe("NOT_CONFIGURED");
+  });
+
+  it("returns the real OpenAI adapter for OpenAI + key (reaches a mocked fetch, AI-34A)", async () => {
+    const fetchSpy = jest.fn().mockResolvedValue(mockOpenAiOkResponse());
+    const original = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = fetchSpy;
+    try {
+      const result = await createModelClientForModel(OPENAI_MODEL, "sk-openai-KEY").generateStructuredJson(input);
+      expect(result.ok).toBe(true); // real adapter path (not NOT_CONFIGURED / CONFIGURATION_ERROR)
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      // Hit the OpenAI Responses endpoint, not Anthropic.
+      expect(fetchSpy.mock.calls[0]![0]).toContain("/v1/responses");
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = original;
+    }
+  });
+
+  it("never echoes the OpenAI API key in a result (AI-34A no-leak)", async () => {
+    const fetchSpy = jest.fn().mockResolvedValue(mockOpenAiOkResponse());
+    const original = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = fetchSpy;
+    try {
+      const result = await createModelClientForModel(OPENAI_MODEL, "sk-openai-LEAKME").generateStructuredJson(input);
+      expect(JSON.stringify(result)).not.toContain("sk-openai-LEAKME");
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = original;
+    }
+  });
+
+  it("returns a CONFIGURATION_ERROR client for a provider with no implemented adapter", async () => {
+    const unknownProvider = { ...OPENAI_MODEL, provider: "cohere" as unknown as ModelDefinition["provider"] };
+    const withKey = await createModelClientForModel(unknownProvider, "some-key").generateStructuredJson(input);
+    expect(withKey.ok).toBe(false);
+    if (withKey.ok) return;
     expect(withKey.failureCode).toBe("CONFIGURATION_ERROR");
-    expect(noKey.failureCode).toBe("CONFIGURATION_ERROR");
   });
 
   it("returns the real adapter for Anthropic + key (reaches a mocked fetch)", async () => {
@@ -129,5 +176,31 @@ describe("createModelClientForFeature", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.failureCode).toBe("NOT_CONFIGURED");
+  });
+});
+
+describe("isOpenAiProviderEnabled (AI-34A flag, default off)", () => {
+  const KEY = "ENABLE_OPENAI_PROVIDER";
+  let original: string | undefined;
+  beforeEach(() => {
+    original = process.env[KEY];
+  });
+  afterEach(() => {
+    if (original === undefined) delete process.env[KEY];
+    else process.env[KEY] = original;
+  });
+
+  it("is false when the env var is unset", () => {
+    delete process.env[KEY];
+    expect(isOpenAiProviderEnabled()).toBe(false);
+  });
+
+  it("is true only for the literal 'true'", () => {
+    process.env[KEY] = "true";
+    expect(isOpenAiProviderEnabled()).toBe(true);
+    process.env[KEY] = "1";
+    expect(isOpenAiProviderEnabled()).toBe(false);
+    process.env[KEY] = "false";
+    expect(isOpenAiProviderEnabled()).toBe(false);
   });
 });

@@ -30,6 +30,7 @@ import type {
   ModelResult,
 } from "@/core/ai/modelTypes";
 import { createAnthropicModelClient } from "./anthropicClient";
+import { createOpenAiModelClient } from "./openaiClient";
 import type { RuntimeModelClientInput } from "./types";
 
 /** A client whose every call fails CONFIGURATION_ERROR (no adapter for provider). */
@@ -52,9 +53,25 @@ function createConfigurationErrorClient(provider: string): ModelClient {
 }
 
 /**
+ * Slice 4.AI-34A — whether the OpenAI provider is enabled for routing.
+ * Read at call time (default OFF). This gates a FUTURE routing layer
+ * (AI-34B); the DEFAULT planner path never resolves an OpenAI model, so
+ * this flag does not change any current behavior. Kept here (services
+ * layer) rather than `core/ai` because reading env is impure.
+ */
+export function isOpenAiProviderEnabled(): boolean {
+  return process.env.ENABLE_OPENAI_PROVIDER === "true";
+}
+
+/**
  * Select a concrete client for a resolved model + the provider's API key.
- * Exported so every branch (real adapter / NOT_CONFIGURED / CONFIGURATION_ERROR)
- * is unit-testable with a synthetic model — without mutating the global config.
+ * Exported so every branch (real adapter / NOT_CONFIGURED) is unit-testable
+ * with a synthetic model — without mutating the global config.
+ *
+ * Slice 4.AI-34A — OpenAI joins Anthropic as a real adapter. Both fail
+ * SAFE: present provider + present key → real adapter; provider with a
+ * missing key → NOT_CONFIGURED (never throws, never blocks the app). A
+ * provider with NO implemented adapter still degrades to CONFIGURATION_ERROR.
  */
 export function createModelClientForModel(
   model: ModelDefinition,
@@ -64,7 +81,11 @@ export function createModelClientForModel(
     if (!apiKey) return createNotConfiguredModelClient();
     return createAnthropicModelClient({ apiKey });
   }
-  // No real adapter for this provider yet (e.g. OpenAI) — fail safe.
+  if (model.provider === "openai") {
+    if (!apiKey) return createNotConfiguredModelClient();
+    return createOpenAiModelClient({ apiKey });
+  }
+  // No real adapter for this provider yet — fail safe.
   return createConfigurationErrorClient(model.provider);
 }
 
