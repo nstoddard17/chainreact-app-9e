@@ -50,9 +50,18 @@ beforeEach(() => {
 
 describe("buildWorkflowPlanRequest — grounding", () => {
   it("grounds the prompt in the live AI-2 provider catalog", async () => {
+    // Slice 4.AI-30 — AI-30 added deterministic provider narrowing, so a
+    // mid-specificity request like "Notify me on Slack about new emails"
+    // only renders the narrowed subset (slack + email candidates + native).
+    // The "first usable provider in the registry" may not be in that
+    // subset, so the assertion would flake on an alphabetic registry order
+    // change. Use a vague request that triggers the full-catalog fallback
+    // (`no_provider_mention` / `ambiguous_broad_request`) so the original
+    // contract — "the live catalog is rendered into the prompt" — holds
+    // independent of which provider happens to be alphabetically first.
     const req = await buildWorkflowPlanRequest({
       userId: "u1",
-      userRequest: "Notify me on Slack about new emails",
+      userRequest: "do something",
     });
     const system = systemMessage(req.messages);
 

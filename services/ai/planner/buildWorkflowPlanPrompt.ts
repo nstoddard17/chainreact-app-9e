@@ -36,6 +36,11 @@ import {
   type WorkflowPlanPromptInput,
 } from "./types";
 import { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
+import {
+  filterCatalogToNarrowed,
+  narrowProvidersForPlan,
+  type NarrowProvidersResult,
+} from "./narrowProvidersForPlan";
 
 /** Hard constraints the model must obey. Tests pin these exact intents. */
 export const PLANNER_CONSTRAINTS: readonly string[] = [
@@ -69,6 +74,11 @@ export const PLANNER_CONSTRAINTS: readonly string[] = [
   "Prefer low-risk, non-destructive actions. Avoid destructive or confirmation-required actions unless the user explicitly asked for them, and note them in safetyNotes.",
   "If part of the request cannot be satisfied with the available metadata, list it under unsupportedRequests instead of approximating it.",
   "Do not echo the user's secrets, message bodies, or file contents back into the plan.",
+  // Slice 4.AI-30 — narrowing-aware no-substitution rule. Defense in depth
+  // for the HARD no-substitution rule at the top of this list: the catalog
+  // is sometimes narrowed for cost, and the model must still refuse to
+  // substitute when a named provider isn't in the narrowed view.
+  "The catalog above may have been narrowed to a subset of supported providers for cost reasons. The narrowing layer is best-effort: it tries to include every provider the user names, but a missed alias is always possible. If the user explicitly names a provider (or a capability that requires one) that is NOT in the catalog below, do NOT substitute another provider. Set proposedPatch to null, add an `unsupportedRequests` entry naming the requested provider, and add a `requiredUserInput` entry with `kind: \"select_integration\"` for that provider so the user can connect it. This is a defense-in-depth restatement of the top-of-list HARD RULE; the no-substitution prohibition ALWAYS overrides any cost-narrowing assumption. The CONTEXT PACKET JSON at the top of this prompt reports `catalog.providersIncluded` vs `catalog.providersTotal` so you can tell when narrowing was applied.",
 ];
 
 /**
@@ -386,12 +396,29 @@ export function buildWorkflowPlanPromptWithAttribution(
 export function buildWorkflowPlanPromptV1WithAttribution(
   input: WorkflowPlanPromptInput,
 ): { readonly messages: ModelMessage[]; readonly attribution: PlannerPromptAttribution } {
+  // Slice 4.AI-30 — apply provider narrowing for V1 too. Same helper
+  // V2 uses; the safety invariants (no substitution of explicit, canvas,
+  // connected, native; full-catalog fallback for ambiguous broad
+  // requests) hold for both packet shapes. Rollback for narrowing alone
+  // is `ENABLE_AI_PROVIDER_NARROWING=false`; rollback for packet shape
+  // back to v1 is `ENABLE_STRUCTURED_PROMPT_PACKET=false`.
+  const narrowing = narrowProvidersForPlan({
+    userRequest: input.userRequest,
+    catalog: input.catalog,
+    connectedIntegrations: input.connectedIntegrations,
+    ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
+  });
+  const effectiveInput: WorkflowPlanPromptInput = {
+    ...input,
+    catalog: filterCatalogToNarrowed(input.catalog, narrowing),
+  };
+
   const preamble =
     "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
   const rulesSection = `Rules:\n${PLANNER_CONSTRAINTS.map((c) => `- ${c}`).join("\n")}`;
-  const catalogSection = `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(input)}`;
-  const connectedSection = renderConnectedIntegrations(input);
-  const canvasSection = renderCurrentGraph(input);
+  const catalogSection = `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(effectiveInput)}`;
+  const connectedSection = renderConnectedIntegrations(effectiveInput);
+  const canvasSection = renderCurrentGraph(effectiveInput);
 
   const sections: string[] = [
     preamble,
@@ -418,7 +445,50 @@ export function buildWorkflowPlanPromptV1WithAttribution(
     { role: "user", content: userContent },
   ];
 
-  const usable = input.catalog.providers.filter(isUsableProvider);
+  const attribution = computePlannerAttribution({
+    packetVersion: PLANNER_PACKET_VERSION_V1,
+    fullCatalog: input.catalog,
+    effectiveCatalog: effectiveInput.catalog,
+    systemContent,
+    userContent,
+    catalogSection,
+    rulesSection,
+    connectedSection,
+    canvasSection,
+    connectedIntegrationCount: input.connectedIntegrations.length,
+    currentGraph: input.currentGraph,
+    narrowing,
+  });
+
+  return { messages, attribution };
+}
+
+/**
+ * Slice 4.AI-30 — shared attribution computer for V1 and V2 packet
+ * shapes. Both versions compute structural counts the same way (over the
+ * EFFECTIVE catalog they shipped to the model) plus the narrowing
+ * decision metadata (from the helper's result). Only `packetVersion` +
+ * the section chars differ between V1 and V2.
+ *
+ * Exported for use by `buildWorkflowPlanPromptV2.ts` so the two builders
+ * never drift on attribution shape.
+ */
+export function computePlannerAttribution(args: {
+  readonly packetVersion: string;
+  readonly fullCatalog: WorkflowPlanPromptInput["catalog"];
+  readonly effectiveCatalog: WorkflowPlanPromptInput["catalog"];
+  readonly systemContent: string;
+  readonly userContent: string;
+  readonly catalogSection: string;
+  readonly rulesSection: string;
+  readonly connectedSection: string;
+  readonly canvasSection: string;
+  readonly connectedIntegrationCount: number;
+  readonly currentGraph: WorkflowPlanPromptInput["currentGraph"];
+  readonly narrowing: NarrowProvidersResult;
+}): PlannerPromptAttribution {
+  const usable = args.effectiveCatalog.providers.filter(isUsableProvider);
+  const totalUsable = args.fullCatalog.providers.filter(isUsableProvider).length;
   const catalogActionCount = usable.reduce((n, p) => n + p.actions.length, 0);
   const catalogTriggerCount = usable.reduce((n, p) => n + p.triggers.length, 0);
   const catalogFieldCount = usable.reduce(
@@ -436,23 +506,39 @@ export function buildWorkflowPlanPromptV1WithAttribution(
     0,
   );
 
-  const attribution: PlannerPromptAttribution = {
-    packetVersion: PLANNER_PACKET_VERSION_V1,
-    totalPacketChars: systemContent.length + userContent.length,
-    catalogChars: catalogSection.length,
-    rulesChars: rulesSection.length,
-    connectedIntegrationsChars: connectedSection.length,
-    currentCanvasChars: canvasSection.length,
-    userRequestChars: userContent.length,
+  // Narrowing-enabled is the inverse of the `narrowing_disabled` sentinel.
+  // `mode === "full-catalog"` alone doesn't mean disabled — narrowing can
+  // be enabled and still bail to full-catalog for a safety reason.
+  const providerNarrowingEnabled = args.narrowing.fallbackReason !== "narrowing_disabled";
+  const providerNarrowingFallbackUsed =
+    args.narrowing.mode === "full-catalog" && providerNarrowingEnabled;
+
+  return {
+    packetVersion: args.packetVersion,
+    totalPacketChars: args.systemContent.length + args.userContent.length,
+    catalogChars: args.catalogSection.length,
+    rulesChars: args.rulesSection.length,
+    connectedIntegrationsChars: args.connectedSection.length,
+    currentCanvasChars: args.canvasSection.length,
+    userRequestChars: args.userContent.length,
     catalogProviderCount: usable.length,
     catalogActionCount,
     catalogTriggerCount,
     catalogFieldCount,
     catalogOutputFieldCount,
-    connectedIntegrationCount: input.connectedIntegrations.length,
-    currentCanvasNodeCount: input.currentGraph?.nodes.length ?? 0,
-    currentCanvasEdgeCount: input.currentGraph?.edges.length ?? 0,
+    connectedIntegrationCount: args.connectedIntegrationCount,
+    currentCanvasNodeCount: args.currentGraph?.nodes.length ?? 0,
+    currentCanvasEdgeCount: args.currentGraph?.edges.length ?? 0,
+    catalogProvidersTotal: totalUsable,
+    providerNarrowingEnabled,
+    providerNarrowingMode: args.narrowing.mode,
+    providerNarrowingFallbackUsed,
+    ...(args.narrowing.fallbackReason
+      ? { providerNarrowingReason: args.narrowing.fallbackReason }
+      : {}),
+    providerNarrowingOmittedCount:
+      args.narrowing.mode === "narrowed"
+        ? args.narrowing.omittedProviderCount
+        : 0,
   };
-
-  return { messages, attribution };
 }

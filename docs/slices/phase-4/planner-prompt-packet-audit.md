@@ -28,6 +28,47 @@
 > in env → routes to v1 builder. See § "AI-29" in the same doc for the
 > full implementation note. AI-30 / AI-31 / AI-32 remain queued; each will
 > bump `PLANNER_PACKET_VERSION` further so dashboards can A/B by version.
+>
+> **Status update (2026-05-27, AI-30 shipped on this same branch):** the §C
+> recommendation for AI-30 (deterministic provider narrowing) has landed.
+> `PLANNER_PACKET_VERSION` bumped to `workflow-planner-v3`. New helper
+> `services/ai/planner/narrowProvidersForPlan.ts` decides — pre-render,
+> from the user request + connected integrations + current canvas + a
+> per-provider alias map — which subset of the 26-provider catalog to ship
+> to the model. Wired into BOTH V1 and V2 builders so narrowing is
+> independent of packet shape. The R1 group gains a new
+> narrowing-aware no-substitution clause (`PLANNER_CONSTRAINTS[20]`); the
+> CONTEXT PACKET JSON gains `catalog.providersTotal` + `catalog.narrowingMode`
+> + `catalog.narrowingReason`; `PlannerPromptAttribution` gains
+> `catalogProvidersTotal`, `providerNarrowingEnabled`, `providerNarrowingMode`,
+> `providerNarrowingFallbackUsed`, `providerNarrowingReason`, and
+> `providerNarrowingOmittedCount` — all surfaced into `ai_cost_events`.
+> **Measured impact against the live 26-provider catalog (catalogChars,
+> totalPacketChars):**
+> - **Slack-only "Send me a Slack DM"** — narrowed 2/26 providers,
+>   catalogChars 16,809 vs 124,261 (**−86.5%**), totalPacketChars 35,464
+>   vs 142,922 (**−75.1%**).
+> - **Stripe + Slack "When Stripe payment fails send me a Slack DM"** —
+>   3/26 providers, catalogChars 18,720 (**−84.9%**), totalPacketChars
+>   37,379 (−75.5%).
+> - **Email ambiguous "When I get an email send a Slack message"** —
+>   4/26 (slack + gmail + microsoft-outlook + native), catalogChars
+>   21,227 (**−82.9%**), totalPacketChars 39,882 (−72.1%).
+> - **Broad generic "create an automation"** — full-catalog fallback
+>   (reason `ambiguous_broad_request`), 0% reduction (correct: the user
+>   hasn't said what they want).
+> - **Vague edit "add a step"** — full-catalog fallback (reason
+>   `no_provider_mention`), 0% reduction (correct: ambiguous about
+>   target).
+>
+> Safety invariants pinned by 58 helper tests + 24 narrowing-prompt
+> tests: explicit mentions, current canvas providers, connected
+> providers, and `native` are NEVER dropped; broad generic phrasing and
+> complex-canvas-plus-vague-edit fall through to the full catalog.
+> Rollback path: `ENABLE_AI_PROVIDER_NARROWING=false` in env restores
+> full-catalog behavior under v3 (and `ENABLE_STRUCTURED_PROMPT_PACKET=false`
+> still falls back to v1, where AI-30 narrowing also applies — the
+> two flags are independent). AI-31 / AI-32 remain queued.
 
 ---
 

@@ -12,7 +12,7 @@
  *  - CONTEXT PACKET JSON block at top with promptVersion = workflow-planner-v2.
  *  - Named CRITICAL RULES groups (R1..R8) with no-substitution in R1.
  *  - Full-catalog inclusion (no narrowing) — providersIncluded == providersTotal.
- *  - Attribution: packetVersion = "workflow-planner-v2".
+ *  - Attribution: packetVersion = "workflow-planner-v3".
  *  - Env dispatch — `ENABLE_STRUCTURED_PROMPT_PACKET=false` falls back to v1
  *    and yields `packetVersion = "workflow-planner-v1"`.
  *  - No-leak: CONTEXT PACKET JSON never contains raw user request /
@@ -104,9 +104,9 @@ function makeInput(
   };
 }
 
-describe("AI-29 — packet version constants", () => {
-  it("PLANNER_PACKET_VERSION is workflow-planner-v2 (the current default)", () => {
-    expect(PLANNER_PACKET_VERSION).toBe("workflow-planner-v2");
+describe("AI-29 / AI-30 — packet version constants", () => {
+  it("PLANNER_PACKET_VERSION is workflow-planner-v3 (AI-30 narrowing-aware, the current default)", () => {
+    expect(PLANNER_PACKET_VERSION).toBe("workflow-planner-v3");
   });
 
   it("PLANNER_PACKET_VERSION_V1 is workflow-planner-v1 (preserved for rollback)", () => {
@@ -122,7 +122,7 @@ describe("AI-29 — v2 builds the CONTEXT PACKET JSON envelope", () => {
     expect(system).toContain("Context packet (machine-readable summary");
     expect(system).toMatch(/```json\n[\s\S]*?\n```/);
     expect(system).toContain('"task": "workflow_plan"');
-    expect(system).toContain('"promptVersion": "workflow-planner-v2"');
+    expect(system).toContain('"promptVersion": "workflow-planner-v3"');
     expect(system).toContain('"mode": "create"');
     expect(system).toMatch(/"nodeCount":\s*0/);
     expect(system).toMatch(/"edgeCount":\s*0/);
@@ -181,7 +181,7 @@ describe("AI-29 — v2 organizes rules into R1..R8 named groups", () => {
     expect(system).toContain(
       "CRITICAL RULES (non-negotiable; violations are rejected downstream):",
     );
-    expect(system).toContain("R1 — SAFETY-CRITICAL (catalog-only use + no substitution)");
+    expect(system).toContain("R1 — SAFETY-CRITICAL (catalog-only use + no substitution, including under narrowing)");
     expect(system).toContain("R2 — CURRENT CANVAS GROUNDING");
     expect(system).toContain("R3 — CONFIG GROUNDING (keys, shapes, required-fill, label vs id)");
     expect(system).toContain("R4 — VARIABLE REFERENCES MUST USE DECLARED OUTPUTS");
@@ -240,7 +240,7 @@ describe("AI-29 — v2 organizes rules into R1..R8 named groups", () => {
 describe("AI-29 — v2 attribution", () => {
   it("packetVersion is workflow-planner-v2", () => {
     const { attribution } = buildWorkflowPlanPromptV2WithAttribution(makeInput());
-    expect(attribution.packetVersion).toBe("workflow-planner-v2");
+    expect(attribution.packetVersion).toBe("workflow-planner-v3");
   });
 
   it("character counts sum bounded by system message length", () => {
@@ -305,13 +305,13 @@ describe("AI-29 — env-flag dispatch", () => {
   it("default (env unset) → v2", () => {
     delete process.env[ENV_KEY];
     const { attribution } = buildWorkflowPlanPromptWithAttribution(makeInput());
-    expect(attribution.packetVersion).toBe("workflow-planner-v2");
+    expect(attribution.packetVersion).toBe("workflow-planner-v3");
   });
 
   it("env=true → v2", () => {
     process.env[ENV_KEY] = "true";
     const { attribution } = buildWorkflowPlanPromptWithAttribution(makeInput());
-    expect(attribution.packetVersion).toBe("workflow-planner-v2");
+    expect(attribution.packetVersion).toBe("workflow-planner-v3");
   });
 
   it("env=false → v1 (rollback)", () => {
@@ -326,13 +326,13 @@ describe("AI-29 — env-flag dispatch", () => {
     expect(messages[0]!.content).not.toContain(
       "Context packet (machine-readable summary",
     );
-    expect(messages[0]!.content).not.toContain('"promptVersion": "workflow-planner-v2"');
+    expect(messages[0]!.content).not.toContain('"promptVersion": "workflow-planner-v3"');
   });
 
   it("env=invalid value (any non-'false') → v2", () => {
     process.env[ENV_KEY] = "0"; // not the literal string "false"
     const { attribution } = buildWorkflowPlanPromptWithAttribution(makeInput());
-    expect(attribution.packetVersion).toBe("workflow-planner-v2");
+    expect(attribution.packetVersion).toBe("workflow-planner-v3");
   });
 });
 

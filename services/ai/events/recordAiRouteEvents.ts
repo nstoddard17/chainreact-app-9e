@@ -84,6 +84,17 @@ function promptAttributionMetadata(
     connectedIntegrationCount: prompt.connectedIntegrationCount,
     currentCanvasNodeCount: prompt.currentCanvasNodeCount,
     currentCanvasEdgeCount: prompt.currentCanvasEdgeCount,
+    // Slice 4.AI-30 — narrowing fields. Counts + enum reasons only; no
+    // provider ids (the catalog itself already ships the names to the
+    // model — the metadata channel stays compact + sanitizer-safe).
+    catalogProvidersTotal: prompt.catalogProvidersTotal,
+    providerNarrowingEnabled: prompt.providerNarrowingEnabled,
+    providerNarrowingMode: prompt.providerNarrowingMode,
+    providerNarrowingFallbackUsed: prompt.providerNarrowingFallbackUsed,
+    providerNarrowingOmittedCount: prompt.providerNarrowingOmittedCount,
+    ...(prompt.providerNarrowingReason
+      ? { providerNarrowingReason: prompt.providerNarrowingReason }
+      : {}),
   };
 }
 

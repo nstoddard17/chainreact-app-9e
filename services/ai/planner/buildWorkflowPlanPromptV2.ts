@@ -43,6 +43,7 @@
 
 import type { ModelMessage } from "@/core/ai/modelTypes";
 import {
+  computePlannerAttribution,
   isUsableProvider,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
@@ -54,6 +55,11 @@ import {
   renderCurrentGraph,
   renderCostAwareness,
 } from "./buildWorkflowPlanPrompt";
+import {
+  filterCatalogToNarrowed,
+  narrowProvidersForPlan,
+  type NarrowProvidersResult,
+} from "./narrowProvidersForPlan";
 import {
   PLANNER_PACKET_VERSION,
   type PlannerPromptAttribution,
@@ -75,8 +81,12 @@ import {
 const RULE_GROUPS: readonly { readonly title: string; readonly indexes: readonly number[] }[] = [
   // R1 wraps the catalog-only + HARD no-substitution rules so they stay
   // top-of-prompt. The no-substitution rule sits at index 1 in
-  // PLANNER_CONSTRAINTS (within first 4 — the array-position test).
-  { title: "R1 — SAFETY-CRITICAL (catalog-only use + no substitution)", indexes: [0, 1] },
+  // PLANNER_CONSTRAINTS (within first 4 — the array-position test). AI-30
+  // appends a narrowing-aware restatement at PLANNER_CONSTRAINTS[20] so the
+  // model can't silently substitute when the catalog has been narrowed —
+  // the new rule lives in R1 so it shares the top-of-prompt visibility
+  // with the original HARD RULE.
+  { title: "R1 — SAFETY-CRITICAL (catalog-only use + no substitution, including under narrowing)", indexes: [0, 1, 20] },
   { title: "R2 — CURRENT CANVAS GROUNDING", indexes: [2] },
   // R3 covers config-key + value-shape + required-fill discipline +
   // display-label-vs-id grounding — every rule about HOW config values
@@ -96,9 +106,20 @@ const RULE_GROUPS: readonly { readonly title: string; readonly indexes: readonly
  * Render the structured CONTEXT PACKET JSON envelope. Counts only — no
  * raw user request, no raw catalog content, no integration account
  * labels, no canvas node ids. Sanitizer-safe by construction.
+ *
+ * AI-30 — also reports the narrowing decision (`catalog.providersTotal`,
+ * `catalog.narrowingMode`, `catalog.narrowingReason`) so the model knows
+ * when the catalog it sees has been narrowed and can apply the R1
+ * narrowing-aware no-substitution rule with confidence.
  */
-function renderContextPacket(input: WorkflowPlanPromptInput): string {
-  const usableProviderCount = input.catalog.providers.filter(isUsableProvider).length;
+function renderContextPacket(
+  fullCatalog: WorkflowPlanPromptInput["catalog"],
+  effectiveCatalog: WorkflowPlanPromptInput["catalog"],
+  input: WorkflowPlanPromptInput,
+  narrowing: NarrowProvidersResult,
+): string {
+  const providersIncluded = effectiveCatalog.providers.filter(isUsableProvider).length;
+  const providersTotal = fullCatalog.providers.filter(isUsableProvider).length;
   const packet = {
     task: "workflow_plan",
     promptVersion: PLANNER_PACKET_VERSION,
@@ -109,11 +130,15 @@ function renderContextPacket(input: WorkflowPlanPromptInput): string {
     },
     connectedIntegrationCount: input.connectedIntegrations.length,
     catalog: {
-      providersIncluded: usableProviderCount,
-      // AI-29 keeps the full catalog; provider narrowing lands in AI-30.
-      // Surface the included == total fact so the model never assumes
-      // a provider was silently omitted.
-      providersTotal: usableProviderCount,
+      providersIncluded,
+      providersTotal,
+      // AI-30: the model needs the narrowing mode + reason so it can act
+      // on R1's narrowing-aware no-substitution clause. Reason is null
+      // (JSON serializes to `null`) when narrowing was applied so the
+      // shape stays stable. No provider id arrays here — only counts +
+      // enums, sanitizer-safe.
+      narrowingMode: narrowing.mode,
+      narrowingReason: narrowing.fallbackReason,
     },
     constraints: {
       noSubstitution: true,
@@ -163,13 +188,36 @@ function renderCriticalRules(): string {
 export function buildWorkflowPlanPromptV2WithAttribution(
   input: WorkflowPlanPromptInput,
 ): { readonly messages: ModelMessage[]; readonly attribution: PlannerPromptAttribution } {
+  // AI-30 — narrow the catalog deterministically before rendering. The
+  // helper returns the FULL catalog with `mode: "full-catalog"` when it
+  // can't safely narrow (broad request, complex-canvas vague edit, env
+  // disabled). The R1 narrowing-aware no-substitution rule is the model-
+  // side defense in depth; the CONTEXT PACKET below reports the mode +
+  // reason so the model can act on it.
+  const narrowing = narrowProvidersForPlan({
+    userRequest: input.userRequest,
+    catalog: input.catalog,
+    connectedIntegrations: input.connectedIntegrations,
+    ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
+  });
+  const effectiveCatalog = filterCatalogToNarrowed(input.catalog, narrowing);
+  const effectiveInput: WorkflowPlanPromptInput = {
+    ...input,
+    catalog: effectiveCatalog,
+  };
+
   const preamble =
     "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
-  const contextPacketSection = renderContextPacket(input);
+  const contextPacketSection = renderContextPacket(
+    input.catalog,
+    effectiveCatalog,
+    input,
+    narrowing,
+  );
   const rulesSection = renderCriticalRules();
-  const catalogSection = `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(input)}`;
-  const connectedSection = renderConnectedIntegrations(input);
-  const canvasSection = renderCurrentGraph(input);
+  const catalogSection = `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(effectiveInput)}`;
+  const connectedSection = renderConnectedIntegrations(effectiveInput);
+  const canvasSection = renderCurrentGraph(effectiveInput);
 
   const sections: string[] = [
     preamble,
@@ -201,41 +249,20 @@ export function buildWorkflowPlanPromptV2WithAttribution(
     { role: "user", content: userContent },
   ];
 
-  const usable = input.catalog.providers.filter(isUsableProvider);
-  const catalogActionCount = usable.reduce((n, p) => n + p.actions.length, 0);
-  const catalogTriggerCount = usable.reduce((n, p) => n + p.triggers.length, 0);
-  const catalogFieldCount = usable.reduce(
-    (n, p) =>
-      n +
-      p.actions.reduce((m, a) => m + a.configFields.length, 0) +
-      p.triggers.reduce((m, t) => m + t.configFields.length, 0),
-    0,
-  );
-  const catalogOutputFieldCount = usable.reduce(
-    (n, p) =>
-      n +
-      p.actions.reduce((m, a) => m + a.outputs.length, 0) +
-      p.triggers.reduce((m, t) => m + t.outputs.length, 0),
-    0,
-  );
-
-  const attribution: PlannerPromptAttribution = {
+  const attribution = computePlannerAttribution({
     packetVersion: PLANNER_PACKET_VERSION,
-    totalPacketChars: systemContent.length + userContent.length,
-    catalogChars: catalogSection.length,
-    rulesChars: rulesSection.length,
-    connectedIntegrationsChars: connectedSection.length,
-    currentCanvasChars: canvasSection.length,
-    userRequestChars: userContent.length,
-    catalogProviderCount: usable.length,
-    catalogActionCount,
-    catalogTriggerCount,
-    catalogFieldCount,
-    catalogOutputFieldCount,
+    fullCatalog: input.catalog,
+    effectiveCatalog,
+    systemContent,
+    userContent,
+    catalogSection,
+    rulesSection,
+    connectedSection,
+    canvasSection,
     connectedIntegrationCount: input.connectedIntegrations.length,
-    currentCanvasNodeCount: input.currentGraph?.nodes.length ?? 0,
-    currentCanvasEdgeCount: input.currentGraph?.edges.length ?? 0,
-  };
+    currentGraph: input.currentGraph,
+    narrowing,
+  });
 
   return { messages, attribution };
 }

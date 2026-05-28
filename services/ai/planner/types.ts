@@ -116,11 +116,19 @@ export const WORKFLOW_PLAN_FEATURE: AiFeature = "creation";
  * guide, value shape rules, and JSON output rules are unchanged from v1.
  * Every PLANNER_CONSTRAINTS string is preserved verbatim inside its
  * grouped rule block. Rollback to v1 via `ENABLE_STRUCTURED_PROMPT_PACKET=false`.
+ *
+ * AI-30 (2026-05-27) bumped v2 → v3: deterministic provider narrowing for
+ * the catalog (`narrowProvidersForPlan`) plus a narrowing-aware
+ * no-substitution rule and an extended CONTEXT PACKET JSON
+ * (`catalog.providersTotal` / `catalog.narrowingMode` /
+ * `catalog.narrowingReason`). The structured packet shape and rule
+ * grouping are otherwise unchanged. Rollback to full-catalog (within v3)
+ * via `ENABLE_AI_PROVIDER_NARROWING=false`.
  */
-export const PLANNER_PACKET_VERSION = "workflow-planner-v2";
-
-/** Prior packet version, kept for fallback + the rollback path. */
+export const PLANNER_PACKET_VERSION_V3 = "workflow-planner-v3";
+export const PLANNER_PACKET_VERSION_V2 = "workflow-planner-v2";
 export const PLANNER_PACKET_VERSION_V1 = "workflow-planner-v1";
+export const PLANNER_PACKET_VERSION = PLANNER_PACKET_VERSION_V3;
 
 /**
  * Slice 4.AI-28 — per-section character attribution + structural counts for
@@ -173,6 +181,44 @@ export interface PlannerPromptAttribution {
   readonly currentCanvasNodeCount: number;
   /** Count of edges in the current-canvas snapshot. */
   readonly currentCanvasEdgeCount: number;
+  // ─── Slice 4.AI-30: provider narrowing attribution ─────────────────────────
+  /**
+   * Total usable providers in the FULL catalog BEFORE narrowing. Always equal
+   * to `catalogProviderCount` when narrowing was skipped. Surfaced separately
+   * so dashboards can compute `omitted = total - included` and `narrowing
+   * coverage = included / total` without needing the catalog itself. AI-30.
+   */
+  readonly catalogProvidersTotal: number;
+  /**
+   * Whether narrowing was enabled for this call. False only when the env
+   * flag `ENABLE_AI_PROVIDER_NARROWING=false` short-circuited the helper.
+   * Independent of `providerNarrowingMode` — narrowing can be enabled and
+   * still fall through to `"full-catalog"` for safety reasons (broad request,
+   * complex-canvas-vague-edit, etc.). AI-30.
+   */
+  readonly providerNarrowingEnabled: boolean;
+  /**
+   * What the narrowing helper actually did:
+   *  - `"narrowed"`: catalog filtered to a subset (cost saved).
+   *  - `"full-catalog"`: full catalog included (safety fallback or disabled).
+   * AI-30.
+   */
+  readonly providerNarrowingMode: "narrowed" | "full-catalog";
+  /**
+   * True when `mode === "full-catalog"` AND it was a deliberate FALLBACK
+   * from a real narrowing attempt — i.e. narrowing was enabled but the
+   * helper decided narrowing was unsafe for this request. False when
+   * `mode === "narrowed"` OR when narrowing was simply disabled by env.
+   * Distinguishes "we tried and bailed" from "we never tried." AI-30.
+   */
+  readonly providerNarrowingFallbackUsed: boolean;
+  /**
+   * Stable enum reason from {@link NarrowingFallbackReason}. Set when
+   * `mode === "full-catalog"`; absent otherwise. AI-30.
+   */
+  readonly providerNarrowingReason?: string;
+  /** Count of providers omitted from the catalog. 0 when full-catalog. AI-30. */
+  readonly providerNarrowingOmittedCount: number;
 }
 
 /**

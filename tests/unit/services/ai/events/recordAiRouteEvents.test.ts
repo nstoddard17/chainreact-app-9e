@@ -399,6 +399,124 @@ describe("AI-28 — prompt packet attribution", () => {
   });
 });
 
+describe("AI-30 — narrowing-attribution flows through metadata", () => {
+  const promptAttributionNarrowed = {
+    packetVersion: "workflow-planner-v3",
+    totalPacketChars: 12000,
+    catalogChars: 8000,
+    rulesChars: 2000,
+    connectedIntegrationsChars: 200,
+    currentCanvasChars: 50,
+    userRequestChars: 40,
+    catalogProviderCount: 3,
+    catalogActionCount: 12,
+    catalogTriggerCount: 6,
+    catalogFieldCount: 40,
+    catalogOutputFieldCount: 60,
+    connectedIntegrationCount: 1,
+    currentCanvasNodeCount: 0,
+    currentCanvasEdgeCount: 0,
+    // Narrowing fields from AI-30.
+    catalogProvidersTotal: 26,
+    providerNarrowingEnabled: true,
+    providerNarrowingMode: "narrowed",
+    providerNarrowingFallbackUsed: false,
+    providerNarrowingOmittedCount: 23,
+  } as const;
+
+  const promptAttributionFallback = {
+    ...promptAttributionNarrowed,
+    catalogProviderCount: 26,
+    providerNarrowingMode: "full-catalog",
+    providerNarrowingFallbackUsed: true,
+    providerNarrowingOmittedCount: 0,
+    providerNarrowingReason: "ambiguous_broad_request",
+  } as const;
+
+  it("folds narrowing fields into ai_model_call_completed metadata", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttributionNarrowed }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).toMatchObject({
+      catalogProvidersTotal: 26,
+      providerNarrowingEnabled: true,
+      providerNarrowingMode: "narrowed",
+      providerNarrowingFallbackUsed: false,
+      providerNarrowingOmittedCount: 23,
+    });
+    // Reason is OMITTED when narrowing was applied (fallbackReason is null).
+    expect(metadata).not.toHaveProperty("providerNarrowingReason");
+  });
+
+  it("forwards providerNarrowingReason on the full-catalog fallback path", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttributionFallback }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    expect(metadata).toMatchObject({
+      providerNarrowingMode: "full-catalog",
+      providerNarrowingFallbackUsed: true,
+      providerNarrowingOmittedCount: 0,
+      providerNarrowingReason: "ambiguous_broad_request",
+    });
+  });
+
+  it("narrowing field names do NOT match the sanitizer denylist", async () => {
+    // Same defensive denylist as the AI-28 attribution test — ensures
+    // future narrowing-field renames don't accidentally trip the
+    // sanitizer (which would silently drop the data).
+    const BLOCKED = [
+      /token/i,
+      /secret/i,
+      /password/i,
+      /authorization/i,
+      /api[-_]?key/i,
+      /credential/i,
+      /prompt/i,
+      /completion/i,
+      /body/i,
+      /config/i,
+      /\braw/i,
+    ];
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      planSuccess({ prompt: promptAttributionNarrowed }) as never,
+    );
+    const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
+      .metadata;
+    for (const key of Object.keys(metadata)) {
+      for (const re of BLOCKED) {
+        if (re.test(key)) {
+          throw new Error(
+            `Metadata key '${key}' matches sanitizer denylist /${re.source}/${re.flags}`,
+          );
+        }
+      }
+    }
+  });
+
+  it("folds narrowing fields into ai_model_call_failed metadata on MODEL_FAILED too", async () => {
+    await recordAiPlanOutcome(
+      { userId: "u1", workflowId: "wf1" },
+      { ...planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]), prompt: promptAttributionNarrowed } as never,
+    );
+    expect(recordAiModelCallFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          providerNarrowingMode: "narrowed",
+          providerNarrowingOmittedCount: 23,
+        }),
+      }),
+    );
+  });
+});
+
 describe("no-leak", () => {
   it("never forwards raw patch config values to the recorder", async () => {
     const withSecret = planSuccess({

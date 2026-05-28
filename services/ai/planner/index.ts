@@ -13,6 +13,7 @@ export {
   buildWorkflowPlanPrompt,
   buildWorkflowPlanPromptWithAttribution,
   buildWorkflowPlanPromptV1WithAttribution,
+  computePlannerAttribution,
   PLANNER_CONSTRAINTS,
   TEMPLATE_FUTURE_NOTE,
 } from "./buildWorkflowPlanPrompt";
@@ -21,12 +22,21 @@ export {
   buildWorkflowPlanRequest,
   buildWorkflowPlanRequestWithAttribution,
 } from "./buildWorkflowPlanRequest";
+export {
+  filterCatalogToNarrowed,
+  narrowProvidersForPlan,
+  type NarrowingFallbackReason,
+  type NarrowProvidersInput,
+  type NarrowProvidersResult,
+} from "./narrowProvidersForPlan";
 export { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
   WORKFLOW_PLAN_FEATURE,
   PLANNER_PACKET_VERSION,
   PLANNER_PACKET_VERSION_V1,
+  PLANNER_PACKET_VERSION_V2,
+  PLANNER_PACKET_VERSION_V3,
   estimateTokensFromChars,
   type PlannerPromptAttribution,
   type WorkflowPlanPromptInput,
