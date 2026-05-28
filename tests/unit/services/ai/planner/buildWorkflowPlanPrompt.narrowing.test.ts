@@ -206,7 +206,7 @@ describe("AI-30 — R1 contains the narrowing-aware no-substitution clause", () 
   it("R1 title surfaces the narrowing extension", () => {
     const { messages } = buildWorkflowPlanPromptV2WithAttribution(makeInput());
     expect(messages[0]!.content).toContain(
-      "R1 — SAFETY-CRITICAL (catalog-only use + no substitution, including under narrowing)",
+      "R1 — SAFETY-CRITICAL (catalog-only use + no substitution + no ambiguous-category assumption)",
     );
   });
 

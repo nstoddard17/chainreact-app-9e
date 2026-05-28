@@ -83,6 +83,24 @@ export const PLANNER_CONSTRAINTS: readonly string[] = [
   // is sometimes narrowed for cost, and the model must still refuse to
   // substitute when a named provider isn't in the narrowed view.
   "The catalog above may have been narrowed to a subset of supported providers for cost reasons. The narrowing layer is best-effort: it tries to include every provider the user names, but a missed alias is always possible. If the user explicitly names a provider (or a capability that requires one) that is NOT in the catalog below, do NOT substitute another provider. Set proposedPatch to null, add an `unsupportedRequests` entry naming the requested provider, and add a `requiredUserInput` entry with `kind: \"select_integration\"` for that provider so the user can connect it. This is a defense-in-depth restatement of the top-of-list HARD RULE; the no-substitution prohibition ALWAYS overrides any cost-narrowing assumption. The CONTEXT PACKET JSON at the top of this prompt reports `catalog.providersIncluded` vs `catalog.providersTotal` so you can tell when narrowing was applied.",
+  // Slice 4.AI-33 — ambiguous-category clarification. A generic capability
+  // word is NOT a specific provider. Closes the live bug where "send a
+  // Slack message when I get an email" silently became "when a new email
+  // arrives in Gmail" — the model picked Gmail because both Gmail + Outlook
+  // were in the (ambiguous-email) narrowed catalog. Sits in R1 next to the
+  // no-substitution rule because "assume a provider the user didn't name"
+  // is the same failure class as substituting one.
+  "Generic provider CATEGORIES are NOT a specific provider. When the user names a capability generically — \"email\", \"calendar\", \"spreadsheet\", \"file storage\" / \"drive\", \"chat\" / \"message\", \"payment\" — and does NOT name the specific provider, and more than one provider in the catalog could satisfy that category, you MUST NOT pick one. Set proposedPatch to null and add a `requiredUserInput` entry asking WHICH provider/app to use (`kind: \"choose_trigger\"` when it's the trigger, otherwise `\"select_integration\"` / `\"clarification\"`), naming the plausible options in the label — e.g. \"Which email app should trigger this — Gmail or Outlook?\". NEVER default \"email\" to Gmail, \"calendar\" to Google Calendar, \"drive\" / \"file storage\" to Google Drive, or \"chat\" / \"message\" to Slack. When the user DOES name the provider (\"a Gmail email\", \"in Outlook\", \"send a Slack message\", \"to my Google Sheet\"), use exactly that provider — naming it resolves the ambiguity.",
+  // Slice 4.AI-33 — content-field completeness. Closes the live bug where
+  // the model proposed slack:send_channel_message without ever asking what
+  // the message should say (it AI_FIELD'd or omitted the text). Grouped
+  // into R3 (config grounding / required-field discipline).
+  "Free-text CONTENT fields — a chat / Slack / Discord message body, an email subject or body, a document body, a comment — require content the user actually specified OR content safely derivable from an upstream node's declared outputs. If the user said \"send a Slack message\" / \"send an email\" WITHOUT saying what it should say, the content is UNSPECIFIED: add a `requiredUserInput` entry for that field (e.g. \"What should the Slack message say?\") and do NOT invent it. An `{{AI_FIELD:fieldName}}` placeholder is correct ONLY when the user asked for generated / summarized content (\"send a summary\", \"draft a reply\") OR the body is built from declared upstream outputs (\"send the email subject and sender\" → reference `{{trigger.subject}}` etc.). Do NOT use AI_FIELD to skip asking for content the user simply did not provide.",
+  // Slice 4.AI-33 — null-patch required-field completeness. Closes the live
+  // bug where, because the email provider was ambiguous (null patch), the
+  // model asked only for the Slack channel and forgot the message text.
+  // Grouped into R7 (unknown values / requiredUserInput / null-over-partial).
+  "When you set proposedPatch to null but you DO intend to build specific nodes (you named the actions/triggers in intentSummary), you MUST still list EVERY missing required field of those intended nodes under requiredUserInput — not only the single blocking item. Example: the user wants an email trigger (provider ambiguous → null patch) plus a Slack channel message; even with a null patch, list \"Which email app should trigger this?\" AND \"Which Slack channel?\" AND \"What should the Slack message say?\". A null patch is NOT an excuse to ask only one question — surface the full set of answers the user must provide.",
 ];
 
 /**

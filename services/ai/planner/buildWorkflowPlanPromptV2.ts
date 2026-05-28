@@ -90,19 +90,23 @@ const RULE_GROUPS: readonly { readonly title: string; readonly indexes: readonly
   // model can't silently substitute when the catalog has been narrowed —
   // the new rule lives in R1 so it shares the top-of-prompt visibility
   // with the original HARD RULE.
-  { title: "R1 — SAFETY-CRITICAL (catalog-only use + no substitution, including under narrowing)", indexes: [0, 1, 20] },
+  // AI-33 appends index 21 (ambiguous-category clarification) to R1 —
+  // "assume a provider the user didn't name" is the same failure class as
+  // substitution, so it shares R1's top-of-prompt prominence.
+  { title: "R1 — SAFETY-CRITICAL (catalog-only use + no substitution + no ambiguous-category assumption)", indexes: [0, 1, 20, 21] },
   { title: "R2 — CURRENT CANVAS GROUNDING", indexes: [2] },
   // R3 covers config-key + value-shape + required-fill discipline +
   // display-label-vs-id grounding — every rule about HOW config values
-  // are constructed.
+  // are constructed. AI-33 appends index 22 (content-field completeness).
   {
-    title: "R3 — CONFIG GROUNDING (keys, shapes, required-fill, label vs id)",
-    indexes: [3, 4, 5, 6, 7, 8],
+    title: "R3 — CONFIG GROUNDING (keys, shapes, required-fill, label vs id, content fields)",
+    indexes: [3, 4, 5, 6, 7, 8, 22],
   },
   { title: "R4 — VARIABLE REFERENCES MUST USE DECLARED OUTPUTS", indexes: [9] },
   { title: "R5 — CONNECTED INTEGRATIONS (awareness + me-resolution)", indexes: [10, 11] },
   { title: "R6 — OUTPUT FORMAT (strict JSON via tool-use)", indexes: [12, 15] },
-  { title: "R7 — UNKNOWN VALUES (AI_FIELD / requiredUserInput / null-over-partial)", indexes: [13, 14] },
+  // AI-33 appends index 23 (null-patch required-field completeness) to R7.
+  { title: "R7 — UNKNOWN VALUES (AI_FIELD / requiredUserInput / null-over-partial / full question set)", indexes: [13, 14, 23] },
   { title: "R8 — SAFETY HYGIENE (no secrets, low-risk bias, unsupported surfaced)", indexes: [16, 17, 18, 19] },
 ];
 

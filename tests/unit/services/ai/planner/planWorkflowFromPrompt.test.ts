@@ -1369,3 +1369,155 @@ describe("no-leak", () => {
     }
   });
 });
+
+describe("AI-33 — service-side required-field completeness + ambiguity plumbing", () => {
+  function slackPatch(config: Record<string, unknown>) {
+    return {
+      patchId: "p1",
+      workflowId: "wf1",
+      baseRevision: "x",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n_slack",
+            kind: "action",
+            provider: "slack",
+            type: "send_channel_message",
+            config,
+            position: { x: 0, y: 0 },
+          },
+        },
+      ],
+      summary: "Add Slack post",
+      rationale: "User asked for a Slack message.",
+    };
+  }
+
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+  });
+
+  it("derives the missing `text` question when the model fills only `channel` and asks for nothing", async () => {
+    const mc = client(
+      planResponse({ proposedPatch: slackPatch({ channel: "C123" }), requiredUserInput: [] }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send a slack message to #general",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const textEntry = result.requiredUserInput.find((r) => r.field === "text");
+    expect(textEntry).toBeDefined();
+    expect(textEntry?.nodeId).toBe("n_slack");
+    expect(textEntry?.fieldType).toBe("textarea"); // enriched
+    expect(result.canApplyLater).toBe(false); // blocked until answered
+  });
+
+  it("derives BOTH channel + text when the model proposes an empty-config slack node with no questions", async () => {
+    const mc = client(
+      planResponse({ proposedPatch: slackPatch({}), requiredUserInput: [] }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send a slack message",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const fields = result.requiredUserInput.map((r) => r.field).filter(Boolean).sort();
+    expect(fields).toEqual(["channel", "text"]);
+    expect(result.canApplyLater).toBe(false);
+  });
+
+  it("does NOT duplicate a field the model already asked for (dedup on nodeId+field)", async () => {
+    const mc = client(
+      planResponse({
+        proposedPatch: slackPatch({}),
+        requiredUserInput: [
+          { label: "Which Slack channel?", nodeId: "n_slack", field: "channel", kind: "config_value" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send a slack message",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const channelEntries = result.requiredUserInput.filter((r) => r.field === "channel");
+    const textEntries = result.requiredUserInput.filter((r) => r.field === "text");
+    expect(channelEntries).toHaveLength(1); // model's, not duplicated
+    expect(textEntries).toHaveLength(1); // derived
+  });
+
+  it("does NOT derive a question when both required fields are filled (no false positives)", async () => {
+    const mc = client(
+      planResponse({
+        proposedPatch: slackPatch({ channel: "C123", text: "Hello team" }),
+        requiredUserInput: [],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "send 'Hello team' to #general on slack",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(0);
+  });
+
+  it("ambiguity plumbing: a null-patch clarification (which email app?) is surfaced, apply blocked, no mutation", async () => {
+    const mc = client(
+      planResponse({
+        intentSummary: "Send a Slack message when an email arrives.",
+        proposedPatch: null,
+        requiredUserInput: [
+          { label: "Which email app should trigger this — Gmail or Outlook?", kind: "choose_trigger" },
+          { label: "What should the Slack message say?", kind: "config_value" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "when I get an email send a slack message",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(2);
+    expect(result.canApplyLater).toBe(false);
+    expect(result.proposedPatch).toBeUndefined();
+    expect(result.noMutation).toBe(true);
+  });
+
+  it("no-regression: a complete patch with no required fields stays apply-ready (derivation adds nothing)", async () => {
+    const mc = client(
+      planResponse({ proposedPatch: movePatch(), requiredUserInput: [] }),
+    );
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "tidy the layout",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.requiredUserInput).toHaveLength(0);
+    expect(result.canApplyLater).toBe(true);
+  });
+});

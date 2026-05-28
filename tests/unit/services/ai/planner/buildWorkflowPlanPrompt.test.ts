@@ -855,3 +855,36 @@ describe("current-workflow-on-canvas section (AI-24)", () => {
     expect(section).not.toMatch(/xox[bpsr]-|Bearer\s|ya29\.|sk-ant-|accessToken|refreshToken/);
   });
 });
+
+describe("AI-33 — ambiguous-category + content-field + null-patch completeness rules", () => {
+  it("R1 ambiguity rule: generic categories are not a specific provider", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("generic provider categories are not a specific provider");
+    expect(text).toContain("which email app should trigger this");
+    expect(text).toContain('never default "email" to gmail');
+  });
+
+  it("R1 ambiguity rule: naming the provider resolves the ambiguity", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("naming it resolves the ambiguity");
+  });
+
+  it("R3 content-field rule: unspecified message content must be asked, not invented", () => {
+    const text = joinPrompt(makeInput()).toLowerCase();
+    expect(text).toContain("free-text content fields");
+    expect(text).toContain("what should the slack message say?");
+    expect(text).toContain("do not use ai_field to skip asking for content");
+  });
+
+  it("R3 content-field rule: AI_FIELD is valid for summary/derivable content", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("send a summary");
+    expect(text).toContain("draft a reply");
+  });
+
+  it("R7 null-patch completeness: list EVERY missing required field even with a null patch", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("you MUST still list EVERY missing required field");
+    expect(text.toLowerCase()).toContain("a null patch is not an excuse to ask only one question");
+  });
+});

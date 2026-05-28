@@ -237,3 +237,130 @@ describe("enrichRequiredUserInputs — no-leak", () => {
     expect(json).not.toContain("accessToken");
   });
 });
+
+// ─── Slice 4.AI-33: deriveMissingRequiredFieldInputs ─────────────────────────
+
+import { deriveMissingRequiredFieldInputs } from "@/services/ai/planner/enrichRequiredUserInputs";
+
+function slackNode(config: Record<string, unknown>) {
+  return {
+    op: "addNode" as const,
+    node: {
+      id: "n_slack",
+      kind: "action" as const,
+      provider: "slack",
+      type: "send_channel_message",
+      config,
+      position: { x: 0, y: 0 },
+    },
+  };
+}
+
+function patchWith(config: Record<string, unknown>): WorkflowPatch {
+  return {
+    patchId: "p1",
+    workflowId: "wf-1",
+    baseRevision: "rev-1",
+    summary: "s",
+    rationale: "r",
+    operations: [slackNode(config)],
+  };
+}
+
+describe("deriveMissingRequiredFieldInputs (AI-33)", () => {
+  it("derives BOTH channel + text when the slack node config is empty", () => {
+    const derived = deriveMissingRequiredFieldInputs(patchWith({}), []);
+    const fields = derived.map((d) => d.field).sort();
+    expect(fields).toEqual(["channel", "text"]);
+    for (const d of derived) {
+      expect(d.kind).toBe("config_value");
+      expect(d.nodeId).toBe("n_slack");
+      expect(typeof d.label).toBe("string");
+    }
+  });
+
+  it("derives only text when channel is already filled with a literal", () => {
+    const derived = deriveMissingRequiredFieldInputs(
+      patchWith({ channel: "C12345" }),
+      [],
+    );
+    expect(derived.map((d) => d.field)).toEqual(["text"]);
+  });
+
+  it("derives only channel when text is filled with an AI_FIELD placeholder", () => {
+    // A field FILLED with {{AI_FIELD:...}} is the model's choice — the
+    // derivation does not second-guess it (prompt rules govern that).
+    const derived = deriveMissingRequiredFieldInputs(
+      patchWith({ text: "{{AI_FIELD:text}}" }),
+      [],
+    );
+    expect(derived.map((d) => d.field)).toEqual(["channel"]);
+  });
+
+  it("treats an upstream {{ref}} value as filled (not derived)", () => {
+    const derived = deriveMissingRequiredFieldInputs(
+      patchWith({ channel: "C1", text: "{{trigger.subject}}" }),
+      [],
+    );
+    expect(derived).toHaveLength(0);
+  });
+
+  it("treats empty-string / empty-array as missing", () => {
+    const derived = deriveMissingRequiredFieldInputs(
+      patchWith({ channel: "", text: "" }),
+      [],
+    );
+    expect(derived.map((d) => d.field).sort()).toEqual(["channel", "text"]);
+  });
+
+  it("does NOT derive an optional field (threadTs)", () => {
+    const derived = deriveMissingRequiredFieldInputs(patchWith({}), []);
+    expect(derived.map((d) => d.field)).not.toContain("threadTs");
+  });
+
+  it("dedupes against an existing model-supplied entry (nodeId+field)", () => {
+    const derived = deriveMissingRequiredFieldInputs(patchWith({}), [
+      { label: "Which channel?", nodeId: "n_slack", field: "channel", kind: "config_value" },
+    ]);
+    // channel already asked → only text derived.
+    expect(derived.map((d) => d.field)).toEqual(["text"]);
+  });
+
+  it("returns [] for a null patch (clarification/null-patch path)", () => {
+    expect(deriveMissingRequiredFieldInputs(null, [])).toEqual([]);
+  });
+
+  it("skips nodes with unknown provider:type (no meta)", () => {
+    const patch: WorkflowPatch = {
+      patchId: "p1",
+      workflowId: "wf-1",
+      baseRevision: "rev-1",
+      summary: "s",
+      rationale: "r",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n_x",
+            kind: "action",
+            provider: "ghostprovider",
+            type: "ghostaction",
+            config: {},
+            position: { x: 0, y: 0 },
+          },
+        },
+      ],
+    };
+    expect(deriveMissingRequiredFieldInputs(patch, [])).toEqual([]);
+  });
+
+  it("derived entries enrich cleanly through enrichRequiredUserInputs (channel→combobox, text→textarea)", () => {
+    const derived = deriveMissingRequiredFieldInputs(patchWith({}), []);
+    const enriched = enrichRequiredUserInputs(derived, patchWith({}));
+    const byField = new Map(enriched.map((e) => [e.field, e]));
+    expect(byField.get("channel")?.fieldType).toBe("combobox");
+    expect(byField.get("channel")?.optionsSource).toBe("slack:channels");
+    expect(byField.get("text")?.fieldType).toBe("textarea");
+    expect(byField.get("text")?.allowFreeText).toBe(true);
+  });
+});

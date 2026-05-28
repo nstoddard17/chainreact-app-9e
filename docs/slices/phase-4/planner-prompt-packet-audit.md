@@ -29,6 +29,20 @@
 > full implementation note. AI-30 / AI-31 / AI-32 remain queued; each will
 > bump `PLANNER_PACKET_VERSION` further so dashboards can A/B by version.
 >
+> **Status update (2026-05-28, AI-33 shipped on this same branch):** three
+> new `PLANNER_CONSTRAINTS` added (indexes 21–23) for planner correctness,
+> grouped into R1 / R3 / R7 in the V2 packet: (R1) generic provider
+> CATEGORIES must not resolve to a specific provider — "email" no longer
+> silently becomes Gmail; (R3) free-text content fields must be asked when
+> the user didn't specify content — no silent AI_FIELD; (R7) a null patch
+> must still list EVERY missing required field. Plus a service-side
+> `deriveMissingRequiredFieldInputs` safety net that adds a question for any
+> required field the model left empty + drives the apply-gate. Rules add
+> ~3 entries to the `Rules:` section (~+2k chars / minor); `rulesChars`
+> grows accordingly. `PLANNER_PACKET_VERSION` UNCHANGED
+> (`workflow-planner-v3`) — rule additions don't alter the packet's
+> structural shape. No narrowing-cost / metadata / execution change.
+>
 > **Status update (2026-05-28, AI-32 audit shipped on this same branch):**
 > the §J recommendation for AI-32 has landed as an **audit-only** slice:
 > [`ai-cost-telemetry-validation-and-cache-audit.md`](./ai-cost-telemetry-validation-and-cache-audit.md).

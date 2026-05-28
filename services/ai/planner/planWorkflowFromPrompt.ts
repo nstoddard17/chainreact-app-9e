@@ -37,7 +37,10 @@ import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import type { AiToolError } from "@/services/ai/tools/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
 import { buildWorkflowPlanRequestWithAttribution } from "./buildWorkflowPlanRequest";
-import { enrichRequiredUserInputs } from "./enrichRequiredUserInputs";
+import {
+  deriveMissingRequiredFieldInputs,
+  enrichRequiredUserInputs,
+} from "./enrichRequiredUserInputs";
 import { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 import { WORKFLOW_PLAN_TOOL } from "./workflowPlanTool";
 import {
@@ -234,7 +237,23 @@ export async function planWorkflowFromPromptForAI(
   // `validation`/`riskLevel`/`taskCostEstimate` still flow through — only
   // the apply gate is tightened. UI applies an identical guard as defense
   // in depth.
-  const requiredInputBlocking = response.requiredUserInput.length > 0;
+  // Slice 4.AI-33 — service-side required-field completeness. Derive a
+  // question for every required field the model left empty in the patch
+  // (a field it forgot entirely), merge with the model's own questions
+  // (deduped on nodeId+field), then enrich the full set. This is the
+  // safety net behind the R3/R7 prompt rules: even when the model omits a
+  // required field, the user gets an actionable control + apply stays
+  // blocked until it's answered.
+  const derivedRequiredInput = deriveMissingRequiredFieldInputs(
+    patch,
+    response.requiredUserInput,
+  );
+  const mergedRequiredInput = enrichRequiredUserInputs(
+    [...response.requiredUserInput, ...derivedRequiredInput],
+    patch,
+  );
+
+  const requiredInputBlocking = mergedRequiredInput.length > 0;
   const canApplyLater = preview.canApplyLater && !requiredInputBlocking;
   const blockedReason = canApplyLater
     ? undefined
@@ -250,7 +269,9 @@ export async function planWorkflowFromPromptForAI(
     // `addNode` operations so the React Agent can render an interactive
     // RequiredInputControl per missing field (dropdown for static options,
     // async picker for `optionsSource`, text fallback otherwise).
-    requiredUserInput: enrichRequiredUserInputs(response.requiredUserInput, patch),
+    // Slice 4.AI-33 — the merged set also includes service-derived
+    // questions for required fields the model forgot.
+    requiredUserInput: mergedRequiredInput,
     unsupportedRequests: response.unsupportedRequests,
     safetyNotes: response.safetyNotes,
     proposedPatch: patch,

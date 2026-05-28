@@ -162,6 +162,77 @@ function enrichmentFromFieldMeta(
  * Pure / deterministic — no DB, no network, no model. The (provider+type
  * → FieldMeta) lookup hits the in-memory discovery registry only.
  */
+/**
+ * Slice 4.AI-33 — service-side safety net for required-field completeness.
+ *
+ * `enrichRequiredUserInputs` only DECORATES entries the model already
+ * asked for. If the model proposes a node but forgets a required field
+ * entirely (no key in `config`), no question reaches the user — they see
+ * a generic "preview rejected" instead of an actionable per-field control
+ * (the deterministic `MISSING_REQUIRED_FIELD` check rejects the patch, but
+ * gives no field-level UI). This pass walks the patch's added nodes and
+ * derives a `requiredUserInput` entry for every required field that is
+ * ABSENT from config and not already asked about.
+ *
+ * Deliberately conservative — it only fires on truly-empty required fields
+ * (undefined / null / "" / empty array, mirroring the validator's
+ * `isEmpty`). A field the model filled with a literal, an upstream
+ * `{{nodeId.field}}` reference, OR an `{{AI_FIELD:...}}` placeholder is
+ * treated as "the model made a choice" and is NOT second-guessed here —
+ * whether an AI_FIELD on a content field is appropriate is governed by the
+ * planner prompt rules (R3 content-field completeness), not this net.
+ *
+ * Pure / deterministic — same in-memory registry lookups as the enricher.
+ * Returns BARE entries (`kind: "config_value"`, `nodeId`, `field`, `label`);
+ * the caller runs them back through `enrichRequiredUserInputs` so they pick
+ * up the same FieldMeta hints (options / optionsSource / fieldType) the
+ * interactive control needs.
+ */
+function isFieldValueEmpty(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+export function deriveMissingRequiredFieldInputs(
+  patch: WorkflowPatch | null,
+  existing: readonly PlanRequiredUserInput[],
+): readonly PlanRequiredUserInput[] {
+  if (!patch) return [];
+  const seen = new Set(
+    existing
+      .filter((e) => e.nodeId && e.field)
+      .map((e) => `${e.nodeId}::${e.field}`),
+  );
+  const derived: PlanRequiredUserInput[] = [];
+  for (const op of patch.operations ?? []) {
+    const node =
+      op.op === "addNode" || op.op === "replaceTrigger" ? op.node : null;
+    if (!node) continue;
+    const key = `${node.provider}:${node.type}`;
+    const meta = node.kind === "trigger" ? getTriggerMeta(key) : getActionMeta(key);
+    if (!meta) continue;
+    const config = (node.config ?? {}) as Record<string, unknown>;
+    for (const f of meta.fields) {
+      if (!f.required) continue;
+      if (!isFieldValueEmpty(config[f.name])) continue; // model filled it
+      const dedupeKey = `${node.id}::${f.name}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      derived.push({
+        label: `${meta.displayName}: "${f.label}" is required — please provide a value.`,
+        kind: "config_value",
+        nodeId: node.id,
+        field: f.name,
+      });
+    }
+  }
+  return derived;
+}
+
 export function enrichRequiredUserInputs(
   inputs: readonly PlanRequiredUserInput[],
   patch: WorkflowPatch | null,

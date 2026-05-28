@@ -181,13 +181,13 @@ describe("AI-29 — v2 organizes rules into R1..R8 named groups", () => {
     expect(system).toContain(
       "CRITICAL RULES (non-negotiable; violations are rejected downstream):",
     );
-    expect(system).toContain("R1 — SAFETY-CRITICAL (catalog-only use + no substitution, including under narrowing)");
+    expect(system).toContain("R1 — SAFETY-CRITICAL (catalog-only use + no substitution + no ambiguous-category assumption)");
     expect(system).toContain("R2 — CURRENT CANVAS GROUNDING");
-    expect(system).toContain("R3 — CONFIG GROUNDING (keys, shapes, required-fill, label vs id)");
+    expect(system).toContain("R3 — CONFIG GROUNDING (keys, shapes, required-fill, label vs id, content fields)");
     expect(system).toContain("R4 — VARIABLE REFERENCES MUST USE DECLARED OUTPUTS");
     expect(system).toContain("R5 — CONNECTED INTEGRATIONS (awareness + me-resolution)");
     expect(system).toContain("R6 — OUTPUT FORMAT (strict JSON via tool-use)");
-    expect(system).toContain("R7 — UNKNOWN VALUES (AI_FIELD / requiredUserInput / null-over-partial)");
+    expect(system).toContain("R7 — UNKNOWN VALUES (AI_FIELD / requiredUserInput / null-over-partial / full question set)");
     expect(system).toContain("R8 — SAFETY HYGIENE (no secrets, low-risk bias, unsupported surfaced)");
   });
 
@@ -459,5 +459,46 @@ describe("AI-29 — v2 preserves v1 grounding sections", () => {
     expect(system).toContain("WorkflowPatch shape (the value of proposedPatch)");
     expect(system).toContain("Config value shape per renderer type");
     expect(system).toContain("OUTPUT FORMAT — follow exactly:");
+  });
+});
+
+describe("AI-33 — new rules are grouped (R1 ambiguity / R3 content / R7 null-patch)", () => {
+  it("R1 title surfaces the ambiguous-category extension + the rule sits in R1 (above R2)", () => {
+    const { messages } = buildWorkflowPlanPromptV2WithAttribution(makeInput());
+    const system = messages[0]!.content;
+    expect(system).toContain(
+      "R1 — SAFETY-CRITICAL (catalog-only use + no substitution + no ambiguous-category assumption)",
+    );
+    const r1 = system.indexOf("R1 — SAFETY-CRITICAL");
+    const r2 = system.indexOf("R2 — CURRENT CANVAS GROUNDING");
+    const ambiguity = system.indexOf("Generic provider CATEGORIES are NOT a specific provider");
+    expect(ambiguity).toBeGreaterThan(r1);
+    expect(ambiguity).toBeLessThan(r2);
+  });
+
+  it("R3 title + content-field rule sits inside R3 (between R3 and R4)", () => {
+    const { messages } = buildWorkflowPlanPromptV2WithAttribution(makeInput());
+    const system = messages[0]!.content;
+    expect(system).toContain(
+      "R3 — CONFIG GROUNDING (keys, shapes, required-fill, label vs id, content fields)",
+    );
+    const r3 = system.indexOf("R3 — CONFIG GROUNDING");
+    const r4 = system.indexOf("R4 — VARIABLE REFERENCES");
+    const content = system.indexOf("Free-text CONTENT fields");
+    expect(content).toBeGreaterThan(r3);
+    expect(content).toBeLessThan(r4);
+  });
+
+  it("R7 title + null-patch-completeness rule sits inside R7 (between R7 and R8)", () => {
+    const { messages } = buildWorkflowPlanPromptV2WithAttribution(makeInput());
+    const system = messages[0]!.content;
+    expect(system).toContain(
+      "R7 — UNKNOWN VALUES (AI_FIELD / requiredUserInput / null-over-partial / full question set)",
+    );
+    const r7 = system.indexOf("R7 — UNKNOWN VALUES");
+    const r8 = system.indexOf("R8 — SAFETY HYGIENE");
+    const nullPatch = system.indexOf("you MUST still list EVERY missing required field");
+    expect(nullPatch).toBeGreaterThan(r7);
+    expect(nullPatch).toBeLessThan(r8);
   });
 });
