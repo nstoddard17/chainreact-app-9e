@@ -35,6 +35,20 @@ export {
   safeRunNarrowingClassifier,
   type NarrowingClassifierResult,
 } from "./narrowingClassifier";
+export {
+  buildModelClassifierMessages,
+  CLASSIFY_INTENT_TOOL,
+  isModelNarrowingClassifierEnabled,
+  parseModelClassifierResponse,
+  runModelNarrowingClassifier,
+  type RunModelClassifierResult,
+  type RunModelClassifierOptions,
+} from "./modelNarrowingClassifier";
+export {
+  augmentNarrowingWithModelCandidates,
+  resolvePromptClassifier,
+  type ResolvedPromptClassifier,
+} from "./resolvePromptClassifier";
 export { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 export { planWorkflowFromPromptForAI } from "./planWorkflowFromPrompt";
 export {
@@ -44,6 +58,7 @@ export {
   PLANNER_PACKET_VERSION_V2,
   PLANNER_PACKET_VERSION_V3,
   estimateTokensFromChars,
+  type ModelClassifierOutcome,
   type PlannerPromptAttribution,
   type WorkflowPlanPromptInput,
   type WorkflowPlanRequestInput,

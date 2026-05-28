@@ -20,7 +20,11 @@ import { FEATURE_DEFAULT_TIER } from "@/core/ai/models";
 import { isUsableProvider } from "./buildWorkflowPlanPrompt";
 import type { NarrowingClassifierResult } from "./narrowingClassifier";
 import type { NarrowProvidersResult } from "./narrowProvidersForPlan";
-import type { PlannerPromptAttribution, WorkflowPlanPromptInput } from "./types";
+import type {
+  ModelClassifierOutcome,
+  PlannerPromptAttribution,
+  WorkflowPlanPromptInput,
+} from "./types";
 
 export interface ComputePlannerAttributionArgs {
   readonly packetVersion: string;
@@ -41,6 +45,19 @@ export interface ComputePlannerAttributionArgs {
   readonly classifier?: NarrowingClassifierResult | null;
   /** Reason the classifier wasn't used; e.g. "classifier_disabled". */
   readonly classifierAbsentReason?: string;
+  // Slice 4.AI-34C: optional model-classifier wiring. All default to the
+  // AI-31 behavior when omitted, so existing call sites are unaffected.
+  /**
+   * Provider count from the DETERMINISTIC helper (pre-union). When omitted,
+   * derived from `narrowing.providerIds.size` (the AI-31 behavior). Pass this
+   * when `narrowing` is the post-union (effective) set so the deterministic
+   * count still reflects the pre-union narrowing decision.
+   */
+  readonly deterministicProviderCountOverride?: number;
+  /** Providers actually shipped (post-union). Defaults to the deterministic count. */
+  readonly finalProviderCount?: number;
+  /** AI-34C model-classifier outcome — drives `fallbackToDeterministic` + `tierRoutingReason`. */
+  readonly modelClassifierOutcome?: ModelClassifierOutcome;
 }
 
 export function computePlannerAttribution(
@@ -78,29 +95,39 @@ export function computePlannerAttribution(
   // either the deterministic helper's output OR null when the classifier
   // was disabled / unavailable.
   const plannerModelTier: ModelTier = args.plannerTier ?? FEATURE_DEFAULT_TIER.creation;
-  const deterministicProviderCount = args.narrowing.providerIds.size;
+  // Slice 4.AI-34C — when a model classifier unions providers in, callers
+  // pass the post-union (effective) `narrowing` for catalog/mode/reason
+  // fields BUT override the deterministic count so it still reflects the
+  // pre-union narrowing decision. Defaults preserve the AI-31 behavior.
+  const deterministicProviderCount =
+    args.deterministicProviderCountOverride ?? args.narrowing.providerIds.size;
   const classifier = args.classifier ?? null;
   const classifierUsed = classifier !== null;
   const classifierModelTier: ModelTier | null = classifier?.modelTier ?? null;
   const classifierConfidence = classifier?.confidence ?? null;
   const classifierProviderCount = classifier?.candidateProviders.length ?? null;
-  // The catalog the planner ACTUALLY ships is driven by narrowing today;
-  // classifier output is advisory and folded in only as observability.
-  // When AI-31B wires a model classifier that adds providers, this will
-  // become `narrowing.providerIds ∪ classifier.candidateProviders`. The
-  // formula stays in this one place.
-  const finalProviderCount = deterministicProviderCount;
-  // `fallbackToDeterministic` flips true only when a CLASSIFIER attempt
-  // failed and we ended up on deterministic narrowing alone. Today the
-  // deterministic classifier is itself the only classifier, so this is
-  // always false when the classifier ran successfully, and remains false
-  // when it was disabled (we never "fell back" — we never tried).
-  const fallbackToDeterministic = false;
+  // Providers actually shipped to the model. Equals the deterministic count
+  // unless an AI-34C model classifier added valid candidates (union).
+  const finalProviderCount = args.finalProviderCount ?? deterministicProviderCount;
+  // `fallbackToDeterministic` is true only when a MODEL classifier attempt
+  // failed / was unavailable and we used deterministic narrowing alone.
+  // `model_disabled` (never attempted) + `model_succeeded` are NOT fallbacks.
+  const fallbackToDeterministic =
+    args.modelClassifierOutcome === "model_failed" ||
+    args.modelClassifierOutcome === "openai_not_configured";
   const fallbackToFullCatalog = providerNarrowingFallbackUsed;
   // Stable enum-like reason string. See the JSDoc on
-  // `PlannerPromptAttribution.tierRoutingReason` for the vocabulary.
+  // `PlannerPromptAttribution.tierRoutingReason` for the vocabulary. AI-34C
+  // model-classifier outcomes take precedence; `model_disabled`/absent fall
+  // through to the AI-31 logic so existing behavior is byte-identical.
   let tierRoutingReason: string;
-  if (args.classifierAbsentReason) {
+  if (args.modelClassifierOutcome === "model_succeeded") {
+    tierRoutingReason = "classifier_model_succeeded";
+  } else if (args.modelClassifierOutcome === "model_failed") {
+    tierRoutingReason = "classifier_model_failed";
+  } else if (args.modelClassifierOutcome === "openai_not_configured") {
+    tierRoutingReason = "openai_not_configured";
+  } else if (args.classifierAbsentReason) {
     tierRoutingReason = args.classifierAbsentReason;
   } else if (args.plannerTier && args.plannerTier !== FEATURE_DEFAULT_TIER.creation) {
     tierRoutingReason = `user_override_${args.plannerTier}`;

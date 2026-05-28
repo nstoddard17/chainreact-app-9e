@@ -60,10 +60,7 @@ import {
   narrowProvidersForPlan,
   type NarrowProvidersResult,
 } from "./narrowProvidersForPlan";
-import {
-  isNarrowingClassifierEnabled,
-  safeRunNarrowingClassifier,
-} from "./narrowingClassifier";
+import { resolvePromptClassifier } from "./resolvePromptClassifier";
 import {
   PLANNER_PACKET_VERSION,
   type PlannerPromptAttribution,
@@ -209,17 +206,17 @@ export function buildWorkflowPlanPromptV2WithAttribution(
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
   };
   const narrowing = narrowProvidersForPlan(narrowingInput);
-  const effectiveCatalog = filterCatalogToNarrowed(input.catalog, narrowing);
+  // Slice 4.AI-31 deterministic classifier OR Slice 4.AI-34C model classifier
+  // (when the async layer threaded a successful result in). The classifier is
+  // ADVISORY: it can only ADD valid catalog providers to the narrowed set,
+  // never remove a deterministic / explicit / connected / canvas provider.
+  const resolved = resolvePromptClassifier(input, narrowingInput, narrowing);
+  const classifier = resolved.classifier;
+  const effectiveCatalog = filterCatalogToNarrowed(input.catalog, resolved.effectiveNarrowing);
   const effectiveInput: WorkflowPlanPromptInput = {
     ...input,
     catalog: effectiveCatalog,
   };
-  // Slice 4.AI-31 — deterministic narrowing classifier (instrumentation).
-  // Advisory only; does NOT change which providers the planner sees.
-  const classifier = safeRunNarrowingClassifier(narrowingInput, narrowing);
-  const classifierAbsentReason = classifier === null && !isNarrowingClassifierEnabled()
-    ? "classifier_disabled"
-    : undefined;
 
   const preamble =
     "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
@@ -227,7 +224,7 @@ export function buildWorkflowPlanPromptV2WithAttribution(
     input.catalog,
     effectiveCatalog,
     input,
-    narrowing,
+    resolved.effectiveNarrowing,
   );
   const rulesSection = renderCriticalRules();
   const catalogSection = `Available providers, triggers, and actions (the ONLY ones you may use):\n${renderCatalog(effectiveInput)}`;
@@ -276,10 +273,17 @@ export function buildWorkflowPlanPromptV2WithAttribution(
     canvasSection,
     connectedIntegrationCount: input.connectedIntegrations.length,
     currentGraph: input.currentGraph,
-    narrowing,
+    narrowing: resolved.effectiveNarrowing,
     ...(input.plannerTier ? { plannerTier: input.plannerTier } : {}),
     classifier,
-    ...(classifierAbsentReason ? { classifierAbsentReason } : {}),
+    ...(resolved.classifierAbsentReason
+      ? { classifierAbsentReason: resolved.classifierAbsentReason }
+      : {}),
+    deterministicProviderCountOverride: resolved.deterministicProviderCount,
+    finalProviderCount: resolved.finalProviderCount,
+    ...(resolved.modelClassifierOutcome
+      ? { modelClassifierOutcome: resolved.modelClassifierOutcome }
+      : {}),
   });
 
   return { messages, attribution };

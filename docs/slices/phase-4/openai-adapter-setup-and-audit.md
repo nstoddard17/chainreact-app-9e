@@ -111,9 +111,9 @@ The Responses-API request/response field shapes were implemented against the doc
 - [`createModelClient.test.ts`](../../../tests/unit/services/ai/modelClients/createModelClient.test.ts) — OpenAI + key → real adapter (hits `/v1/responses`); OpenAI + no key → NOT_CONFIGURED; unknown provider → CONFIGURATION_ERROR; no-leak; `isOpenAiProviderEnabled` flag (default off, only literal "true").
 - [`models.test.ts`](../../../tests/unit/core/ai/models.test.ts) — `OPENAI_MODELS` shape, id non-collision, `getModelForProviderTier` (anthropic vs openai), default resolver still Anthropic, `getModelById` cross-provider.
 
-## H. Next slice — AI-34C (NOT this slice)
+## H. AI-34C — SHIPPED (Option 1: GPT fast-tier intent classifier)
 
-A/B or switch routing, gated on `ENABLE_OPENAI_PROVIDER`. After AI-34B's live verification (§I), the recommended AI-34C route is **Option 1 — a GPT fast-tier intent classifier**, not planner/patch routing. See §J.
+AI-34C took §J's recommended **Option 1**. `gpt-4.1-mini` plugs into the AI-31 narrowing-classifier seam as an OPTIONAL, ADVISORY, ADDITIVE classifier ([`services/ai/planner/modelNarrowingClassifier.ts`](../../../services/ai/planner/modelNarrowingClassifier.ts) + [`resolvePromptClassifier.ts`](../../../services/ai/planner/resolvePromptClassifier.ts)). It only ADDS valid candidate providers to the deterministic narrowed catalog (never removes / shrinks / pollutes), gated on `ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true` + `ENABLE_OPENAI_PROVIDER=true` + `OPENAI_API_KEY` (default off). The PLANNER stays Anthropic/Sonnet — NO patch generation / Apply on OpenAI. Full details in [`ai-architecture-react-agent-plan.md`](./ai-architecture-react-agent-plan.md) "AI-34C" note + [`planner-model-tier-routing-audit.md`](./planner-model-tier-routing-audit.md). Verify live: `npx tsx scripts/trash/verify-model-classifier.ts`.
 
 ---
 

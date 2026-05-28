@@ -372,6 +372,14 @@ The OpenAI adapter is wired but NOT routed (default planner stays Anthropic). To
 35. With `OPENAI_API_KEY` set server-side and `ENABLE_OPENAI_PROVIDER=true`, run `npx tsx scripts/trash/verify-openai-adapter.ts --tier=fast` (and `--tier=strong`).
 36. **Expected:** `result: SUCCESS`, `provider: openai`, `args parsed: true`, `args shape: { ok: boolean, message: string }`, non-zero usage tokens, and NO key printed. A `FAILURE` line with a typed `failureCode` (e.g. `NOT_CONFIGURED` when the key is absent) is also a clean, expected outcome — never a stack trace or a leaked key. This probe does NOT write `ai_cost_events` and does NOT mutate a workflow.
 
+### 5.7 — OpenAI fast-tier intent classifier (AI-34C; additive, advisory)
+
+The model classifier is wired into the narrowing seam but ships dormant (default off) and is ADDITIVE only — it can never remove a provider or change the plan; the planner stays Anthropic/Sonnet.
+
+37. With `OPENAI_API_KEY` set, run `ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true ENABLE_OPENAI_PROVIDER=true npx tsx scripts/trash/verify-model-classifier.ts`.
+38. **Expected:** for "email → Slack" the candidates include `slack` (and an email app); for "Stripe payment fails → Slack DM" they include `stripe, slack`. `outcome: model_succeeded`, NO key printed. If the flags/key are missing the script prints a clean `model_disabled` / `openai_not_configured` outcome and the plan would proceed on deterministic narrowing — never a throw. This probe does NOT run the planner, build a patch, or mutate a workflow.
+39. **Safety check:** even when the classifier's candidates omit a provider the deterministic layer found (e.g. it returns only `gmail` for a generic "email"), the catalog the planner sees still contains the deterministic providers (e.g. `microsoft-outlook`) — the union is additive-only.
+
 ---
 
 ## 6. Bugs found during this audit

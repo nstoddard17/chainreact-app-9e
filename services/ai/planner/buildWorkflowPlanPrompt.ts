@@ -41,10 +41,7 @@ import {
   filterCatalogToNarrowed,
   narrowProvidersForPlan,
 } from "./narrowProvidersForPlan";
-import {
-  isNarrowingClassifierEnabled,
-  safeRunNarrowingClassifier,
-} from "./narrowingClassifier";
+import { resolvePromptClassifier } from "./resolvePromptClassifier";
 
 /** Hard constraints the model must obey. Tests pin these exact intents. */
 export const PLANNER_CONSTRAINTS: readonly string[] = [
@@ -431,18 +428,16 @@ export function buildWorkflowPlanPromptV1WithAttribution(
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
   };
   const narrowing = narrowProvidersForPlan(narrowingInput);
+  // Slice 4.AI-31 deterministic classifier OR Slice 4.AI-34C model classifier
+  // (when threaded in by the async layer). ADVISORY: can only ADD valid
+  // catalog providers to the narrowed set — never removes a deterministic /
+  // explicit / connected / canvas provider.
+  const resolved = resolvePromptClassifier(input, narrowingInput, narrowing);
+  const classifier = resolved.classifier;
   const effectiveInput: WorkflowPlanPromptInput = {
     ...input,
-    catalog: filterCatalogToNarrowed(input.catalog, narrowing),
+    catalog: filterCatalogToNarrowed(input.catalog, resolved.effectiveNarrowing),
   };
-  // Slice 4.AI-31 — deterministic narrowing classifier (instrumentation
-  // only). Result is recorded into attribution; it does NOT change which
-  // providers ship in the catalog (narrowing remains authoritative).
-  // Null when the classifier env flag is off.
-  const classifier = safeRunNarrowingClassifier(narrowingInput, narrowing);
-  const classifierAbsentReason = classifier === null && !isNarrowingClassifierEnabled()
-    ? "classifier_disabled"
-    : undefined;
 
   const preamble =
     "You are ChainReact's workflow planner. You design an automation workflow from the user's request by proposing a WorkflowPatch grounded ONLY in the metadata provided below.";
@@ -488,10 +483,17 @@ export function buildWorkflowPlanPromptV1WithAttribution(
     canvasSection,
     connectedIntegrationCount: input.connectedIntegrations.length,
     currentGraph: input.currentGraph,
-    narrowing,
+    narrowing: resolved.effectiveNarrowing,
     ...(input.plannerTier ? { plannerTier: input.plannerTier } : {}),
     classifier,
-    ...(classifierAbsentReason ? { classifierAbsentReason } : {}),
+    ...(resolved.classifierAbsentReason
+      ? { classifierAbsentReason: resolved.classifierAbsentReason }
+      : {}),
+    deterministicProviderCountOverride: resolved.deterministicProviderCount,
+    finalProviderCount: resolved.finalProviderCount,
+    ...(resolved.modelClassifierOutcome
+      ? { modelClassifierOutcome: resolved.modelClassifierOutcome }
+      : {}),
   });
 
   return { messages, attribution };

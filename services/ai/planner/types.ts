@@ -23,6 +23,25 @@ import type { ConnectedIntegrationView } from "@/services/ai/tools/integrations"
 import type { ProviderCatalogView } from "@/services/ai/tools/providerCatalog";
 import type { PatchPreviewResult } from "@/services/ai/preview/types";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
+import type { NarrowingClassifierResult } from "./narrowingClassifier";
+
+/**
+ * Slice 4.AI-34C — outcome of the OpenAI fast-tier model classifier attempt.
+ * Drives `PlannerPromptAttribution.fallbackToDeterministic` + `tierRoutingReason`.
+ *   - `model_succeeded` — the model classifier ran and produced a result; its
+ *     candidates were unioned into narrowing (additive only).
+ *   - `model_failed` — the model classifier was attempted but errored / returned
+ *     unparseable output; the planner fell back to deterministic narrowing.
+ *   - `openai_not_configured` — the model classifier flag is on but
+ *     `ENABLE_OPENAI_PROVIDER`/`OPENAI_API_KEY` are missing; deterministic used.
+ *   - `model_disabled` — the model classifier flag is off; deterministic used
+ *     exactly as AI-31 (NOT a fallback — never attempted).
+ */
+export type ModelClassifierOutcome =
+  | "model_succeeded"
+  | "model_failed"
+  | "openai_not_configured"
+  | "model_disabled";
 
 // ─── Prompt-builder input ────────────────────────────────────────────────────
 
@@ -94,6 +113,23 @@ export interface WorkflowPlanPromptInput {
    * workflow_creation feature default (`"strong"`) when omitted.
    */
   readonly plannerTier?: ModelTier;
+  /**
+   * Slice 4.AI-34C — the OpenAI fast-tier model classifier's result, when it
+   * ran successfully (`source: "model"`). Threaded in by the async grounding
+   * layer (`buildWorkflowPlanRequestWithAttribution`) since the model call is
+   * async and the builder is pure. When present, the builder uses it as the
+   * classifier AND unions its valid candidate providers into the deterministic
+   * narrowed catalog (ADDITIVE only — never removes a deterministic / explicit
+   * / connected / canvas provider). When absent, the builder runs the AI-31
+   * deterministic classifier exactly as before. ADVISORY — never authoritative.
+   */
+  readonly modelClassifier?: NarrowingClassifierResult | null;
+  /**
+   * Slice 4.AI-34C — outcome of the model-classifier attempt (drives the
+   * `fallbackToDeterministic` + `tierRoutingReason` attribution). Absent /
+   * `"model_disabled"` reproduces the AI-31 behavior exactly.
+   */
+  readonly modelClassifierOutcome?: ModelClassifierOutcome;
 }
 
 /** Input to the async grounding helper that composes AI-2 then builds the prompt. */
@@ -301,7 +337,13 @@ export interface PlannerPromptAttribution {
    *   - `"narrowing_fallback_<reason>"` — narrowing fell back to full
    *     catalog AND the planner stayed on the default tier (today the
    *     only behavior; a future AI-31B may promote/demote here).
-   * AI-31.
+   *   - `"classifier_model_succeeded"` — the AI-34C OpenAI fast-tier
+   *     classifier ran and its candidates were unioned into narrowing.
+   *   - `"classifier_model_failed"` — the model classifier was attempted
+   *     but errored / returned unparseable output; deterministic used.
+   *   - `"openai_not_configured"` — model-classifier flag on but OpenAI
+   *     provider / key missing; deterministic used.
+   * AI-31 / AI-34C.
    */
   readonly tierRoutingReason: string;
 }

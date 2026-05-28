@@ -23,6 +23,7 @@ import {
 } from "@/services/ai/tools/providerCatalog";
 import type { ConnectedIntegrationView } from "@/services/ai/tools/integrations";
 import { buildWorkflowPlanPromptWithAttribution } from "./buildWorkflowPlanPrompt";
+import { runModelNarrowingClassifier } from "./modelNarrowingClassifier";
 import {
   WORKFLOW_PLAN_FEATURE,
   type PlannerPromptAttribution,
@@ -70,6 +71,21 @@ export async function buildWorkflowPlanRequestWithAttribution(
     ? getModelForTier(input.tier)
     : getModelForFeature(WORKFLOW_PLAN_FEATURE);
 
+  // Slice 4.AI-34C — OpenAI fast-tier intent classifier (ADVISORY, additive).
+  // Gated (default off): when enabled + OpenAI configured it adds candidate
+  // providers to the deterministic narrowing; on any failure it returns null
+  // and the planner proceeds on deterministic narrowing. The PLANNER itself
+  // stays on Anthropic/Sonnet — this only augments which providers the
+  // Anthropic planner sees in its catalog. Runs before the (pure) prompt
+  // build because the model call is async.
+  const { result: modelClassifier, outcome: modelClassifierOutcome } =
+    await runModelNarrowingClassifier({
+      userRequest: input.userRequest,
+      catalog,
+      connectedIntegrations,
+      ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
+    });
+
   const { messages, attribution } = buildWorkflowPlanPromptWithAttribution({
     userRequest: input.userRequest,
     catalog,
@@ -83,6 +99,11 @@ export async function buildWorkflowPlanRequestWithAttribution(
     // records `plannerModelTier` correctly when callers pass a tier
     // override.
     plannerTier: model.tier,
+    // Slice 4.AI-34C — thread the model-classifier result (when it succeeded)
+    // + outcome down to the pure builder, which unions valid candidates into
+    // narrowing and records the routing telemetry.
+    ...(modelClassifier ? { modelClassifier } : {}),
+    modelClassifierOutcome,
   });
 
   const request: ModelGenerateInput = {

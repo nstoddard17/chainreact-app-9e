@@ -204,3 +204,29 @@ After 1–2 weeks of `ai_cost_events` data, decide whether to:
 3. **Defer further.** If deterministic narrowing's fallback rate is already low and the failures correlate with truly ambiguous prompts (not with narrowing misses), no classifier is needed.
 
 The decision will be data-driven; no commitment to a path until the metadata shows the picture.
+
+---
+
+## K. AI-34C — model classifier WIRED (OpenAI fast-tier, additive only)
+
+AI-34C took option (1)'s spirit but on **OpenAI `gpt-4.1-mini`** (the AI-34A/34B-verified adapter) instead of Haiku, because the OpenAI provider is the one Marcus is currently A/B-evaluating. It plugs into the §D seam directly — `runModelNarrowingClassifier` returns a `NarrowingClassifierResult` with `source:"model"` / `modelTier:"fast"`, exactly the shape §D reserved for AI-31B.
+
+**What changed vs §C "why a model classifier is NOT wired."** §C deferred a model classifier pending telemetry. AI-34C wires it behind a **default-off flag** (`ENABLE_AI_MODEL_NARROWING_CLASSIFIER`) so it ships dormant — the telemetry-gated decision is now "flip the flag for an experiment," not "write the code."
+
+**Additive-only (the safety story §F promised).** The model classifier's candidate providers are UNIONED into the deterministic narrowed set ([`resolvePromptClassifier.ts`](../../../services/ai/planner/resolvePromptClassifier.ts) `augmentNarrowingWithModelCandidates`). It can only ADD valid catalog ids — never removes a deterministic / explicit / connected / canvas provider, never shrinks a `full-catalog` fallback, ignores unknown ids. So `finalProviderCount ≥ deterministicProviderCount` ALWAYS, and a wrong/low-confidence model result cannot hide a provider the user named. The deterministic narrowing (and AI-33 R1 ambiguity rule) remain the floor.
+
+**Tier-routing fields (§E), now populated for real:**
+- `classifierModelTier: "fast"` (was always `null` in AI-31).
+- `classifierConfidence` / `classifierProviderCount` from the model result.
+- `finalProviderCount` = union size (can now exceed `deterministicProviderCount`).
+- `fallbackToDeterministic: true` on `model_failed` / `openai_not_configured` (was always `false`).
+- `tierRoutingReason` adds `classifier_model_succeeded` / `classifier_model_failed` / `openai_not_configured`; the AI-31 vocabulary is preserved for the disabled/undefined path.
+- `classifierUsed` keeps its AI-31 meaning (deterministic OR model produced a result) — the model-ran signal is `classifierModelTier` + `tierRoutingReason`.
+
+**Gating + fallback (extends §F).** Three flags required: `ENABLE_AI_MODEL_NARROWING_CLASSIFIER=true` + `ENABLE_OPENAI_PROVIDER=true` + `OPENAI_API_KEY`. Missing any → deterministic classifier (AI-31) runs unchanged. `runModelNarrowingClassifier` NEVER throws — any model/parse error returns `model_failed` and the plan proceeds on deterministic narrowing.
+
+**Telemetry hygiene.** The tiny classifier prompt carries only the user request + provider ids + connected/canvas ids (NO full catalog, NO config fields, NO secrets, NO chat history). The classifier RESULT and `ai_cost_events` store COUNTS + ENUMS only — never raw classifier text.
+
+**The PLANNER is untouched.** `getModelForFeature("creation")` / `getModelForTier("strong")` still resolve Anthropic; patch generation, preview, and Apply never touch OpenAI. AI-34C only augments the catalog the Anthropic planner sees.
+
+**Rollback.** `ENABLE_AI_MODEL_NARROWING_CLASSIFIER` unset/false → the model classifier never runs; behavior is byte-identical to AI-31. Independent of the AI-29/AI-30/AI-31 flags.
