@@ -18,7 +18,51 @@
 
 **Both optimizations are viable; recommend prompt caching (AI-32A) next, classifier (AI-32B) deferred.** Reasons in §E. The headline: prompt caching is lower risk (no model-quality surface, no extra call), but **needs a packet reorder first** because the current V2 layout puts the variable CONTEXT PACKET JSON immediately after the stable preamble, so there is no contiguous cacheable prefix today. A model classifier adds cost + latency + a new no-substitution risk surface and should wait until live telemetry proves deterministic narrowing has a real miss rate.
 
-**Validation status:** the queries + smoke plan in §B/§C are runnable but **have not been executed against live data** — this environment has no `ANTHROPIC_API_KEY` and no attached running app, so no real plan calls have hit `ai_cost_events`. Marcus runs the §C smoke against a dev server with a key. The query shapes are validated against the confirmed table schema (`20260525000001_ai_cost_events.sql`) + the recorder field names.
+**Validation status: EXECUTED LIVE (AI-32-LIVE, 2026-05-28).** Marcus ran the §C smoke prompts in the browser; the resulting `ai_cost_events` rows were read back via the service-role client and analyzed. **All expectations pass — see §A-LIVE below.** No telemetry bug, no field mismatch, no data leak. The earlier "not yet executed" caveat is closed.
+
+---
+
+## A-LIVE. Live smoke validation results (2026-05-28)
+
+Read the 25 most recent `workflow_creation` model-call rows. **5 rows carry `prompt_version = "workflow-planner-v3"`** (the AI-29→31 stack, all 2026-05-28 12:05–12:08 UTC); the other 20 are older (2026-05-26/27) with `prompt_version = null` and only the pre-AI-28 metadata shape (`tier` / `finishReason` / `code` / `stage`) — they predate the telemetry and are the legitimate full-catalog baseline.
+
+**The 5 v3 rows map cleanly to Marcus's smoke prompts** (identified by `userRequestChars` + provider count — the raw prompt is correctly NOT stored):
+
+| Time (UTC) | reqChars | mode | included/total | omitted | conf | tier | input_tokens | output | likely prompt |
+|---|---:|---|---|---:|---|---|---:|---:|---|
+| 12:08:25 | 20 | full-catalog | 26/26 | 0 | low | strong | **39,360** | 201 | "Create an automation" |
+| 12:07:55 | 40 | narrowed | 4/26 | 22 | high | strong | **11,711** | 350 | "When I get an email send a Slack message" |
+| 12:06:46 | 44 | narrowed | 3/26 | 23 | high | strong | **10,968** | 769 | "When Stripe payment fails send me a Slack DM" |
+| 12:06:02 | 196 | narrowed | 2/26 | 24 | high | strong | **9,110** | 611 | (longer 2-provider prompt) |
+| 12:05:20 | 18 | narrowed | 2/26 | 24 | high | strong | **9,067** | 657 | "Send me a Slack DM" |
+
+**Pass checklist:**
+- ✅ `prompt_version = workflow-planner-v3` on all 5.
+- ✅ `input_tokens` / `output_tokens` / `total_tokens` populated as top-level columns from the real Anthropic `usage`.
+- ✅ AI-28 attribution present (`catalogChars`, `rulesChars`=11,449, `totalPacketChars`, `connectedIntegrationsChars`=236, `userRequestChars`, + counts).
+- ✅ AI-30 narrowing present (`providerNarrowingMode`, `catalogProviderCount`, `catalogProvidersTotal`=26, `providerNarrowingOmittedCount`, `providerNarrowingReason`).
+- ✅ AI-31 tier-routing present (`plannerModelTier`=strong on all 5, `classifierUsed`=true, `classifierModelTier`=null, `classifierConfidence`, `tierRoutingReason`).
+- ✅ Specific prompts narrowed (2–4 providers); broad prompt fell back to full catalog (`reason=ambiguous_broad_request`, `tierRoutingReason=narrowing_fallback_ambiguous_broad_request`).
+- ✅ Planner stayed on `claude-sonnet-4-6` / strong for every call.
+- ✅ **No-leak scan: 0 hits** for `ya29.` / `Bearer ` / `xoxb-` / `xoxp-` / `sk-ant-` / `accessToken` / `refreshToken` / `authorization` / `webhookSecret` / `apiKey`; zero `config`/`raw` substrings anywhere; zero array-valued metadata. 35 distinct metadata keys, all counts/enums/booleans/short strings.
+
+**Live cost reduction confirmed:**
+- Narrowed v3 calls: **avg 10,214 input tokens** (4 calls).
+- Broad v3 fallback: **39,360 input tokens** (1 call).
+- Pre-AI-28 full-catalog baseline (the 20 null-pv rows): **~37,700–38,700 input tokens** (the older steady-state).
+- **Narrowed vs baseline ≈ 73% reduction** — matches the AI-30 ~75% projection within tokenizer variance.
+
+**Section-proportion finding (validates the AI-32A caching thesis):** the per-row chars×tokens estimate shows the catalog's share of the packet collapsing as narrowing kicks in, and the **stable rules rising to match it** on tight prompts:
+
+| call | pctCatalog | pctRules | est. catalog tok | est. rules tok |
+|---|---:|---:|---:|---:|
+| broad (26 prov) | 86.9% | 8.0% | ~34,216 | ~3,153 |
+| 4-provider | 53.2% | 28.7% | ~6,230 | ~3,360 |
+| 2-provider | 37.7% | 38.3% | ~3,415 | ~3,469 |
+
+On a 2-provider narrowed call the **rules block (~3,469 tok) is now slightly LARGER than the catalog (~3,415 tok)** — empirical proof of the §D thesis that, post-AI-30, the stable rules+guides are the prime prompt-cache target.
+
+**One expected (non-bug) observation:** the broad v3 fallback (39,360 tok) is marginally HIGHER than the pre-AI-28 baseline (~38,000 tok). That's the documented AI-29 +0.83% packet overhead (CONTEXT PACKET JSON + R1..R8 headers + the AI-30 narrowing-aware R1 clause; `rulesChars` grew 10,021→11,449) applied on top of the full catalog when a broad prompt falls back. It is the minority path; the narrowed-path savings dominate. Not a regression — the documented tradeoff.
 
 ---
 
@@ -325,6 +369,8 @@ The current `no_provider_mention` / `ambiguous_broad_request` fallbacks send the
 
 **My recommendation: do the live smoke (§C) + ship the arc first, THEN AI-32A.** Caching's payoff depends on a warm-cache hit rate we can't estimate without live multi-turn data, and the packet reorder carries a real recency-regression risk that should be A/B'd against live parse-failure rates — not guessed. Ship, measure (§B), then cache.
 
+**Update (AI-32-LIVE, 2026-05-28):** the live smoke is DONE (§A-LIVE) and the telemetry passes cleanly — the AI-29→AI-31 arc is validated and safe to ship. The live section-proportion data (rules ≈ catalog on tight prompts) also empirically confirms the AI-32A caching target. **Next: branch closeout / PR prep for the AI-29→AI-31 arc, then AI-32A prompt caching.** AI-32B classifier stays deferred — the live `classifierConfidence` sample (4× high / 1× low) is far too small to justify a model classifier; revisit after production volume accumulates in the §B.6 query.
+
 ---
 
 ## G. What this slice did / did NOT do
@@ -342,5 +388,5 @@ The current `no_provider_mention` / `ambiguous_broad_request` fallbacks send the
 | Wired prompt caching | ❌ |
 | Wired a model classifier | ❌ |
 | Touched provider metadata / billing / workflow execution | ❌ |
-| Ran the §C smoke against live data | ❌ (no API key in this environment) |
+| Ran the §C smoke against live data | ✅ executed 2026-05-28 (AI-32-LIVE) — see §A-LIVE; all expectations pass, no leak, no bug |
 | DB migration | ❌ |
