@@ -270,6 +270,53 @@ export async function applyWorkflowPatch(
 }
 
 /**
+ * Slice 4.AI-35B — deterministic required-input completion (NO model call).
+ *
+ * When the user fills the EXACT required fields the planner already identified,
+ * the client posts the staged answers + the pending patch here; the server
+ * drops the values into the patch config (or builds an `updateNodeConfig` for an
+ * existing-canvas node), previews, and returns an apply-ready plan — without a
+ * model call. When the answers can't be safely mapped the server returns a
+ * `NEEDS_REPLAN` signal and the caller falls back to {@link planWorkflow}.
+ *
+ * `proposedPatch` is the OPAQUE patch from the prior plan result (same value the
+ * apply route accepts). `carryRequiredInput` preserves non-blocking entries
+ * (e.g. `select_integration`) in the completed result.
+ */
+export interface CompletePlanRequest {
+  readonly proposedPatch?: AiOpaquePatch | null;
+  readonly answers: ReadonlyArray<{
+    readonly nodeId: string;
+    readonly field: string;
+    readonly value: string;
+    readonly multiple?: boolean;
+  }>;
+  readonly currentGraph?: CurrentGraphSnapshot;
+  readonly intentSummary?: string;
+  readonly carryRequiredInput?: readonly AiRequiredUserInput[];
+}
+
+/** Server signal that deterministic completion isn't safe — caller re-plans. */
+export interface CompletePlanNeedsReplan {
+  readonly ok: false;
+  readonly code: "NEEDS_REPLAN";
+  readonly reason: string;
+}
+
+/** Either an apply-ready completed plan (same shape as a plan success) or a re-plan signal. */
+export type CompletePlanResponse = AiPlanSuccess | CompletePlanNeedsReplan;
+
+export async function completePlan(
+  workflowId: string,
+  request: CompletePlanRequest,
+): Promise<CompletePlanResponse> {
+  return postStructured<CompletePlanResponse>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/complete`,
+    request,
+  );
+}
+
+/**
  * Slice 4.AI-23 — persistent Builder Agent thread / workflow-scoped chat
  * history. The React Agent rail loads its prior conversation through
  * `getBuilderAgentThread(workflowId)`, appends each chat-rendered message

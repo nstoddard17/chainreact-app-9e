@@ -40,6 +40,23 @@ In a **fully-ambiguous turn** the model returns a **null patch** (no nodes). Non
 
 ---
 
+## AI-35B — deterministic required-input completion (cost + edit fix)
+
+After AI-35, every "Send details" re-ran the full Anthropic planner — wasteful, and the cause of the existing-Slack-DM-edit failure (the model re-plan failed → "AI assistant is unavailable"). AI-35B adds a deterministic completion path: when the staged answers map 1:1 to fields the planner already identified, the pending patch is completed + previewed **without a model call**.
+
+| Submission | Resolution | Model call? |
+|---|---|---|
+| Pick a dropdown / type in a field control | (no submit yet — staged only) | no |
+| Send details — only structured answers for known config fields | `completePlanWithRequiredInputs` → preview → apply-ready | **no** |
+| Send details — existing-node edit (Slack DM recipient) | `updateNodeConfig` on the existing node → preview | **no** |
+| Send details — includes free text (possible new instruction) | model re-plan | yes |
+| Send details — resolves a `provider_choice` (shape change) | model re-plan | yes |
+| Deterministic fill didn't preview-validate | `NEEDS_REPLAN` → model re-plan | yes (fallback) |
+
+Dev visibility: with `ENABLE_AI_COST_DEBUG=true`, a deterministic completion logs `[ai-cost] … resolution=deterministic(config_values_applied)` (no model cost); a re-plan shows the normal `follow_up` planner cost line.
+
+**Existing Slack DM edit (the AI-35 #3 fix), now resolved at the deterministic layer:** "change this to send the message to a different person" → the agent asks for the user id → `user123` → the server builds `updateNodeConfig` on the existing DM node (`userId: "user123"`), previews apply-ready, **no model call, no new node**. `userId` is a free-text field, so `user123` is accepted as typed (a non-Slack-id only fails at run time, per Apply-vs-Activate).
+
 ## Manual verification (Marcus — live dev server)
 
 1. **Provider choice** — empty canvas, prompt "When I get an email send a Slack message" → a **select** with Gmail + Microsoft Outlook renders; Apply hidden; picking one + Send re-plans with "The email provider is Gmail."

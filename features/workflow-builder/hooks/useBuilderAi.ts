@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import {
   AiApiError,
   applyWorkflowPatch,
+  completePlan,
   planWorkflow,
   type AiApplyConfirmation,
   type AiApplyResult,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/api/ai";
 import {
   composeFollowUpPrompt,
+  evaluateDeterministicCompletion,
   type RequiredInputAnswer,
 } from "@/features/workflow-builder/ai";
 
@@ -207,6 +209,44 @@ export function useBuilderAi({
       const structuredAnswers = normalized.structuredAnswers ?? [];
       // No-op when both inputs are empty after trim.
       if (freeText.length === 0 && structuredAnswers.length === 0) return null;
+
+      // Slice 4.AI-35B — try DETERMINISTIC completion first (NO model call).
+      // When the staged answers map 1:1 to the already-identified required
+      // config fields, the server completes the pending patch + previews it
+      // without re-running the planner. This is the cost win (every "Send
+      // details" used to re-run the full planner) AND the existing-Slack-DM
+      // edit fix (that flow failed because the model re-plan failed). On a
+      // NEEDS_REPLAN signal (or transport error) we fall through to the model
+      // planner unchanged, preserving the chain.
+      const decision = evaluateDeterministicCompletion(planResult, structuredAnswers, freeText);
+      if (decision.mode === "deterministic") {
+        setStatus("planning");
+        setError(null);
+        setApplyResult(null);
+        try {
+          const completed = await completePlan(workflowId, {
+            proposedPatch: planResult.proposedPatch ?? null,
+            answers: decision.answers,
+            ...(options?.currentGraph ? { currentGraph: options.currentGraph } : {}),
+            intentSummary: planResult.intentSummary,
+            carryRequiredInput: planResult.requiredUserInput.filter(
+              (r) => r.kind === "select_integration",
+            ),
+          });
+          if (completed.ok) {
+            setPlanResult(completed);
+            setStatus("planned");
+            // All blocking inputs resolved deterministically → chain complete.
+            setOriginalPrompt(null);
+            setPriorFollowUpAnswers([]);
+            return completed;
+          }
+          // NEEDS_REPLAN → fall through to the model planner below.
+        } catch {
+          // Transport error on the deterministic route → fall through to the
+          // model planner (same chain-preserving contract as a model failure).
+        }
+      }
 
       const requiredInputLabels = planResult.requiredUserInput.map((r) => r.label);
       const reconstructed = composeFollowUpPrompt({

@@ -18,6 +18,13 @@ export {
 } from "./buildWorkflowPlanPrompt";
 export { computePlannerAttribution } from "./computePlannerAttribution";
 export { deriveProviderChoiceInputs } from "./deriveProviderChoiceInputs";
+export {
+  completePlanWithRequiredInputs,
+  type CompletePlanInput,
+  type CompletePlanRequiredInputAnswer,
+  type CompletePlanResult,
+  type CompletePlanFailureReason,
+} from "./completePlanWithRequiredInputs";
 export { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
 export {
   buildWorkflowPlanRequest,
@@ -60,6 +67,7 @@ export {
   PLANNER_PACKET_VERSION_V2,
   PLANNER_PACKET_VERSION_V3,
   estimateTokensFromChars,
+  type CurrentWorkflowGraphView,
   type ModelClassifierOutcome,
   type PlannerPromptAttribution,
   type WorkflowPlanPromptInput,

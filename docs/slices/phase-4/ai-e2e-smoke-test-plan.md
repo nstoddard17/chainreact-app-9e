@@ -389,6 +389,14 @@ The React Agent must render selectable controls for provider ambiguity and must 
 42. A Slack message with no channel/text still **blocks Apply** until provided (AI-20 floor preserved).
 43. Existing Manual Trigger → Slack DM; "change this to send the message to a different person" → asks for the recipient; answering `user123` produces an **update** to the existing DM node (no new unrelated node).
 
+### 5.9 — Deterministic required-input completion (AI-35B; cost guard)
+
+Filling already-identified required fields and clicking Send details should NOT call a model. Run the dev server with `ENABLE_AI_COST_DEBUG=true` and watch the server console.
+
+44. Provider chosen + Slack channel/text patch exists; fill channel + message via the controls (no free text) → Send details → an apply-ready plan appears and the console shows `[ai-cost] … event=ai_required_input_completed … resolution=deterministic(config_values_applied)` — and **no** `follow_up` planner cost line (no model call).
+45. Existing Slack DM edit: "change this to send the message to a different person" → answer the recipient via the control → Send details → the existing node updates (no new node), apply-ready, `resolution=deterministic` (no model call). This is the AI-35 #3 fix moved to the deterministic layer.
+46. Typing free text alongside the controls, resolving a provider choice, or a fill that fails preview validation → a normal `follow_up` planner cost line appears (model re-plan) — the expected fallback.
+
 ---
 
 ## 6. Bugs found during this audit

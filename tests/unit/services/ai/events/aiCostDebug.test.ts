@@ -157,6 +157,22 @@ describe("formatAiCostDebugLine — no secrets, greppable", () => {
     const line = formatAiCostDebugLine(buildAiCostDebugRecord(FULL_CATALOG));
     expect(line).not.toMatch(/xox[bpsr]-|Bearer\s|ya29\.|sk-ant-|accessToken|refreshToken|access_token|password/i);
   });
+
+  // Slice 4.AI-35B — required-input resolution mode (deterministic vs re-plan).
+  it("renders resolution=deterministic(reason) when the field is set", () => {
+    const rec = buildAiCostDebugRecord({
+      feature: "workflow_creation",
+      eventType: "ai_required_input_completed",
+      requiredInputResolutionMode: "deterministic",
+      requiredInputResolutionReason: "config_values_applied",
+    });
+    expect(rec.requiredInputResolutionMode).toBe("deterministic");
+    expect(formatAiCostDebugLine(rec)).toContain("resolution=deterministic(config_values_applied)");
+  });
+
+  it("omits the resolution segment when the field is absent", () => {
+    expect(formatAiCostDebugLine(buildAiCostDebugRecord(NARROWED))).not.toContain("resolution=");
+  });
 });
 
 describe("logAiCostDebug — gating", () => {

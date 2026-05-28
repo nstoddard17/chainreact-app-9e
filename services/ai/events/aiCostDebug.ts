@@ -49,6 +49,16 @@ export type AiCostDebugPatchOutcome =
   | "none";
 
 /**
+ * Slice 4.AI-35B — how a required-input follow-up was resolved.
+ *   - `deterministic` — staged answers mapped directly to known config fields
+ *     and the pending patch was completed WITHOUT a model call (~$0).
+ *   - `model_replan` — the answer required interpretation / a shape change, so
+ *     the full planner ran (a normal `follow_up` planner cost line is emitted
+ *     separately by the recorder for that case).
+ */
+export type RequiredInputResolutionMode = "deterministic" | "model_replan";
+
+/**
  * The SAFE inputs to one dev cost line. Every field is an enum / count / id /
  * boolean — there is deliberately no field for raw prompt, raw output, catalog
  * content, config values, account labels, or secrets.
@@ -73,6 +83,10 @@ export interface AiCostDebugInput {
   readonly plannerInteractionKind?: PlannerInteractionKind;
   readonly patchOutcome?: AiCostDebugPatchOutcome;
   readonly workflowId?: string | null;
+  /** Slice 4.AI-35B — deterministic vs model re-plan for a required-input follow-up. */
+  readonly requiredInputResolutionMode?: RequiredInputResolutionMode;
+  /** Slice 4.AI-35B — short enum reason (e.g. `config_values_applied`, `provider_choice_requires_replan`). */
+  readonly requiredInputResolutionReason?: string;
 }
 
 /** Full-catalog warning thresholds (Part C). Any one trips the warning. */
@@ -129,6 +143,8 @@ export interface AiCostDebugRecord {
   readonly plannerInteractionKind: PlannerInteractionKind | null;
   readonly patchOutcome: AiCostDebugPatchOutcome | null;
   readonly workflowId: string | null;
+  readonly requiredInputResolutionMode: RequiredInputResolutionMode | null;
+  readonly requiredInputResolutionReason: string | null;
   readonly fullCatalogWarning: boolean;
 }
 
@@ -169,6 +185,8 @@ export function buildAiCostDebugRecord(input: AiCostDebugInput): AiCostDebugReco
     plannerInteractionKind: input.plannerInteractionKind ?? null,
     patchOutcome: input.patchOutcome ?? null,
     workflowId: input.workflowId ?? null,
+    requiredInputResolutionMode: input.requiredInputResolutionMode ?? null,
+    requiredInputResolutionReason: input.requiredInputResolutionReason ?? null,
     fullCatalogWarning: shouldWarnFullCatalog(input),
   };
 }
@@ -207,12 +225,18 @@ export function formatAiCostDebugLine(record: AiCostDebugRecord): string {
   const patch = record.patchOutcome ? ` patch=${record.patchOutcome}` : "";
   const wf = record.workflowId ? ` wf=${record.workflowId}` : "";
   const pv = record.promptVersion ? ` pv=${record.promptVersion}` : "";
+  const resolution = record.requiredInputResolutionMode
+    ? ` resolution=${record.requiredInputResolutionMode}` +
+      (record.requiredInputResolutionReason
+        ? `(${record.requiredInputResolutionReason})`
+        : "")
+    : "";
   return (
     `[ai-cost] feature=${record.feature} event=${record.eventType}` +
     ` provider=${record.modelProvider ?? "?"} model=${record.modelName ?? "?"}${pv}` +
     ` in=${fmtTokens(record.inputTokens)} out=${fmtTokens(record.outputTokens)}` +
     ` total=${fmtTokens(record.totalTokens)} cost=${cost}` +
-    `${narrowing}${providers}${tier}${classifier}${routing}${interaction}${patch}${wf}`
+    `${narrowing}${providers}${tier}${classifier}${routing}${interaction}${patch}${resolution}${wf}`
   );
 }
 

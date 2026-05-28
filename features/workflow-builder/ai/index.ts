@@ -38,3 +38,9 @@ export type {
 
 export { RequiredInputControl, requiredInputKey } from "./RequiredInputControl";
 export type { RequiredInputAnswer } from "./RequiredInputControl";
+
+export { evaluateDeterministicCompletion } from "./deterministicCompletion";
+export type {
+  DeterministicCompletionDecision,
+  ResolvedRequiredInputAnswer,
+} from "./deterministicCompletion";
