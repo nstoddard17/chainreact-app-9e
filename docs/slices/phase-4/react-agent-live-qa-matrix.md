@@ -209,3 +209,22 @@ Result: AI-created trigger→action(→action) workflows read top-to-bottom; tri
 14. **Rename** — select a node → config Setup tab shows a "Node name" field with the metadata default as placeholder → type "Notify Support Team" → the canvas card title updates → Save → reload → the name persists. Clear the field → the card falls back to the default label.
 15. **Friendly messages** — a workflow with a missing required field → the validation drawer shows the friendly node name (not `provider:type` or a raw id). A failed run's results panel shows friendly step names; a step whose node was deleted reads "a node that's no longer in this workflow".
 16. **Fake-id rejection** — (if reproducible) a planner patch targeting a non-existent node id is rejected at apply (`UNKNOWN_NODE`) with a friendly message; nothing changes; no Anthropic call.
+
+---
+
+## Slice 4.PROVIDER-CATALOG-INTEGRITY-1 — catalog exposure + malformed key + friendly copy (2026-05-29)
+
+**Live failure:** "change the trigger to a new Gmail email" → `UNKNOWN_TRIGGER: 'gmail:gmail:new_email' …`. **Root cause:** `gmail:new_email` IS supported; the planner emitted a self-qualified `type:"gmail:new_email"` → validator built the doubled key. Non-goals: no validation weakening; no fake metadata; planner stays OpenAI (Anthropic not called).
+
+| # | Behavior | Where | Status | Test |
+|---|---|---|---|---|
+| C1 | Self-qualified node `type` (`gmail:new_email`) is normalized → resolves the real `gmail:new_email`; the supported trigger plans cleanly | `normalizeAiPatchNodeKeys` (preview + apply) | ✅ | `normalizeAiPatchNodeKeys.test.ts`, `previewWorkflowPatch.test.ts` |
+| C2 | Mismatched / genuinely-unknown node still rejects (validation not weakened) | normalizer strictness + validator | ✅ | `normalizeAiPatchNodeKeys.test.ts`, `previewWorkflowPatch.test.ts` |
+| C3 | UNKNOWN_TRIGGER/ACTION/NODE user copy has no raw key, no "registered", no "V2"; raw kept as devDetail | `humanizePatchError` + preview/apply wiring | ✅ | `humanizePatchError.test.ts`, `previewWorkflowPatch.test.ts` |
+| C4 | Planner catalog ⊆ validated registry; keys well-formed (no `provider:provider:type`); `gmail:new_email` exposed | `ai-catalog-consistency.test.ts` | ✅ | `tests/structure/ai-catalog-consistency.test.ts` |
+| C5 | Planner prompt steers split provider/type with a GOOD/BAD example | `PATCH_SHAPE_GUIDE` | ✅ | (prompt content) |
+
+**Manual verification (Marcus — live dev server):**
+
+17. **Gmail trigger now works** — empty/any canvas → "change the trigger to a new Gmail email from X with no attachments" → the agent proposes Gmail New Email and the preview is NOT blocked by `UNKNOWN_TRIGGER`; Apply creates the Gmail new-email trigger (real key `gmail:new_email`).
+18. **Friendly unsupported copy** — ask for a trigger/action that genuinely isn't supported → the "Problems to fix" / blocked message reads e.g. "Gmail 'New Email' isn't available as a trigger yet…" or the generic "This trigger isn't available yet…" — never `gmail:gmail:new_email`, "registered trigger", or "V2".

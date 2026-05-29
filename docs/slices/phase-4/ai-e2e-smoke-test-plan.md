@@ -467,6 +467,7 @@ If a future regression breaks any S1–S12 row, fix the regression in its own sl
 
 ## 7. When to revisit this plan
 
+- **Slice 4.PROVIDER-CATALOG-INTEGRITY-1 (2026-05-29)** added catalog-integrity scenarios (self-qualified key normalization so a supported node resolves; planner catalog ⊆ validated registry; friendly unsupported-node copy with no raw/doubled key, "registered", or "V2"). Coverage map + manual steps in [`react-agent-live-qa-matrix.md`](./react-agent-live-qa-matrix.md) §"Slice 4.PROVIDER-CATALOG-INTEGRITY-1" (C1–C5 + manual steps 17–18). The structural guard is `tests/structure/ai-catalog-consistency.test.ts`.
 - **Slice 4.BUILDER-NODE-IDENTITY-1 (2026-05-29)** added node-identity scenarios (system-owned ids replace AI patch-local ids at apply; user-facing editable `displayName`; friendly labels everywhere; fake-id rejection at apply). Their coverage map + manual steps live in [`react-agent-live-qa-matrix.md`](./react-agent-live-qa-matrix.md) §"Slice 4.BUILDER-NODE-IDENTITY-1" (N1–N6 + manual steps 13–16). No new automation gap here — exercised at helper + apply + UI + prompt layers with type-checked contracts.
 - A new AI surface ships (chat panel, template recommendation, optimizer). Add a Surface row to §1, scenario rows as needed.
 - ~~A new failure mode appears (e.g. forced tool_choice landing as the JSON enforcement, per the AI-12C revert note). Add a scenario row.~~ **Done in AI-19** — forced tool_choice is now the live JSON enforcement; S2 updated to reflect the transport-layer guard.

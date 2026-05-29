@@ -17,13 +17,16 @@
  */
 
 import type { WorkflowDefinition, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
+import { formatTypeKey } from "@/core/workflows/nodeDisplayName";
+import { humanizePatchError } from "@/core/errors/humanizePatchError";
 import { isSecretKey } from "@/services/ai/tools/redact";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import { aiToolOk, type AiToolResult } from "@/services/ai/tools/types";
 import { explainWorkflowDefinition } from "@/services/ai/explain/explainDefinition";
 import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
+import { normalizeAiPatchNodeKeys } from "@/services/ai/patch/normalizeAiPatchNodeKeys";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
-import type { PatchOperation } from "@/services/workflows/patch/types";
+import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
 import type {
   PatchChangeSummary,
   PatchPreviewResult,
@@ -37,6 +40,32 @@ const UNRESOLVED_NODE_LABEL = "a node that's no longer in this workflow";
 function labelForNode(node: WorkflowNode | undefined): string {
   if (!node) return UNRESOLVED_NODE_LABEL;
   return resolveNodeDisplayNameFromRegistry(node);
+}
+
+/**
+ * Build a friendly subject (e.g. `Gmail 'New Email'`) for an UNKNOWN_TRIGGER /
+ * UNKNOWN_ACTION error by locating the offending addNode / replaceTrigger node
+ * in the patch. Title-cases provider + type — stripping a self-prefix
+ * defensively — so a raw or doubled `provider:type` key never reaches user copy.
+ * Returns undefined when the node can't be resolved (humanizer uses generic copy).
+ */
+function subjectForError(
+  error: PatchValidationError,
+  operations: readonly PatchOperation[],
+): string | undefined {
+  if (error.code !== "UNKNOWN_TRIGGER" && error.code !== "UNKNOWN_ACTION") return undefined;
+  if (!error.nodeId) return undefined;
+  for (const op of operations) {
+    const node = op.op === "addNode" || op.op === "replaceTrigger" ? op.node : undefined;
+    if (!node || node.id !== error.nodeId) continue;
+    const prefix = `${node.provider}:`;
+    const type = node.type.startsWith(prefix) ? node.type.slice(prefix.length) : node.type;
+    const providerLabel = formatTypeKey(node.provider);
+    const typeLabel = formatTypeKey(type);
+    if (!typeLabel) return providerLabel || undefined;
+    return providerLabel ? `${providerLabel} '${typeLabel}'` : `'${typeLabel}'`;
+  }
+  return undefined;
 }
 
 function describeEdge(
@@ -223,6 +252,13 @@ export async function previewWorkflowPatchForAI(
   const name = graphRes.data.name;
   const currentRevision = graphRes.data.updatedAt;
 
+  // Slice 4.PROVIDER-CATALOG-INTEGRITY-1 — correct a self-qualified node key
+  // (e.g. the planner put `gmail:new_email` in `type`) BEFORE validation so a
+  // supported trigger/action resolves against its real registry key. Strict:
+  // only strips a `<provider>:` prefix that equals the node's own provider;
+  // genuinely-unknown nodes still reject. Envelope unchanged.
+  const effectivePatch = normalizeAiPatchNodeKeys(patch);
+
   // 2. Deterministic validation (candidate, risk, cost) — never mutates input.
   //
   // Slice 4.BUILDER-NODE-IDENTITY-1 — the preview validates the patch with the
@@ -233,9 +269,9 @@ export async function previewWorkflowPatchForAI(
   // only at the apply persistence boundary (`applyWorkflowPatchForAI`), which is
   // always gated behind a passing preview — so persisted defs contain only
   // system ids without leaking throwaway uuids into preview copy.
-  const validation = validateWorkflowPatch(patch, currentDef);
+  const validation = validateWorkflowPatch(effectivePatch, currentDef);
   const candidate = validation.candidateDefinition;
-  const operations = patch.operations ?? [];
+  const operations = effectivePatch.operations ?? [];
 
   // Scrub any secret-shaped config KEY name out of surfaced error/warning text.
   const secretKeys = collectSecretConfigKeys(operations);
@@ -244,6 +280,14 @@ export async function previewWorkflowPatchForAI(
     message: scrubMessage(e.message, secretKeys),
     ...(e.path !== undefined ? { path: isSecretKey(e.path) ? "[sensitive field]" : e.path } : {}),
   }));
+  // Slice 4.PROVIDER-CATALOG-INTEGRITY-1 — humanize user-facing copy: no raw
+  // provider:type keys, no "registered"/"V2" backend language. The raw message
+  // stays as the error's dev detail; only the displayed `message` is rewritten.
+  const userFacingErrors: PatchValidationError[] = safeErrors.map((e) => {
+    const subject = subjectForError(e, operations);
+    const { message } = humanizePatchError(e, subject ? { subject } : {});
+    return { ...e, message };
+  });
   const safeWarnings = validation.warnings.map((w) => ({
     ...w,
     message: scrubMessage(w.message, secretKeys),
@@ -267,7 +311,7 @@ export async function previewWorkflowPatchForAI(
       : undefined;
 
   const blockedReason = !validation.ok
-    ? `${safeErrors[0]?.code ?? "INVALID_PATCH"}: ${safeErrors[0]?.message ?? "Patch is invalid."}`
+    ? userFacingErrors[0]?.message ?? "This change can't be applied as-is."
     : undefined;
 
   const costClause = validation.taskCostEstimate
@@ -287,7 +331,7 @@ export async function previewWorkflowPatchForAI(
     patchSummary: patch.summary,
     validation: {
       ok: validation.ok,
-      errors: safeErrors,
+      errors: userFacingErrors,
       warnings: safeWarnings,
     },
     changes,

@@ -26,6 +26,7 @@
  */
 
 import type { WorkflowDefinition } from "@/contracts/workflow";
+import { humanizePatchError } from "@/core/errors/humanizePatchError";
 import { isSecretKey } from "@/services/ai/tools/redact";
 import {
   getById,
@@ -38,6 +39,7 @@ import type {
   PatchValidationError,
 } from "@/services/workflows/patch/types";
 import { materializeAiPatchNodeIds } from "@/services/ai/patch/materializeAiPatchNodeIds";
+import { normalizeAiPatchNodeKeys } from "@/services/ai/patch/normalizeAiPatchNodeKeys";
 import { normalizeLinearWorkflowLayout } from "./normalizeLinearLayout";
 import type {
   ApplyErrorCode,
@@ -82,6 +84,23 @@ function scrubError(
   };
 }
 
+/**
+ * Slice 4.PROVIDER-CATALOG-INTEGRITY-1 — scrub secrets THEN humanize the
+ * surfaced apply errors so the user never sees a raw provider:type key or
+ * "registered"/"V2" backend language. The raw message stays as the humanizer's
+ * dev detail (the error `code` is preserved for dev identification).
+ */
+function toUserFacingErrors(
+  errors: readonly PatchValidationError[],
+  secretKeys: readonly string[],
+): PatchValidationError[] {
+  return errors.map((e) => {
+    const scrubbed = scrubError(e, secretKeys);
+    const { message } = humanizePatchError(scrubbed);
+    return { ...scrubbed, message };
+  });
+}
+
 /** Choose a single typed code for a validation failure. */
 function classifyValidationFailure(errors: readonly PatchValidationError[]): ApplyErrorCode {
   const codes = new Set(errors.map((e) => e.code));
@@ -120,6 +139,11 @@ export async function applyWorkflowPatchForAI(
   }
   const currentDef: WorkflowDefinition = record.draftDefinition;
 
+  // 2.4. Slice 4.PROVIDER-CATALOG-INTEGRITY-1 — correct a self-qualified node
+  //      key (planner put `gmail:new_email` in `type`) so a supported node
+  //      resolves to its real registry key + persists the real dispatch `type`.
+  const normalizedPatch = normalizeAiPatchNodeKeys(patch);
+
   // 2.5. Materialize SYSTEM-OWNED ids for AI-created nodes/edges before
   //      anything is validated or persisted (Slice 4.BUILDER-NODE-IDENTITY-1).
   //      Model-proposed ids are patch-local scratch values; this assigns opaque
@@ -128,10 +152,10 @@ export async function applyWorkflowPatchForAI(
   //      rejects references to ids that are neither on the canvas nor introduced
   //      earlier in this patch (UNKNOWN_NODE / INVALID_EDGE) — so `action1` can
   //      never become a persisted id or silently map to an existing node.
-  const materialized = materializeAiPatchNodeIds(patch, currentDef);
+  const materialized = materializeAiPatchNodeIds(normalizedPatch, currentDef);
   if (!materialized.ok) {
-    const secretKeysForErr = collectSecretConfigKeys(patch.operations ?? []);
-    const safeErrors = materialized.errors.map((e) => scrubError(e, secretKeysForErr));
+    const secretKeysForErr = collectSecretConfigKeys(normalizedPatch.operations ?? []);
+    const safeErrors = toUserFacingErrors(materialized.errors, secretKeysForErr);
     const code = classifyValidationFailure(materialized.errors);
     return fail(code, `Patch failed validation (${safeErrors.length} error(s)).`, safeErrors);
   }
@@ -143,7 +167,7 @@ export async function applyWorkflowPatchForAI(
   //         when validation fails.
   const validation = validateWorkflowPatch(effectivePatch, currentDef);
   if (!validation.ok) {
-    const safeErrors = validation.errors.map((e) => scrubError(e, secretKeys));
+    const safeErrors = toUserFacingErrors(validation.errors, secretKeys);
     const code = classifyValidationFailure(validation.errors);
     return fail(code, `Patch failed validation (${safeErrors.length} error(s)).`, safeErrors);
   }

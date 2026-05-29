@@ -160,8 +160,13 @@ describe("previewWorkflowPatchForAI — invalid patches", () => {
     expect(res.data.canApplyLater).toBe(false);
     expect(res.data.afterSummary).toBeUndefined();
     expect(res.data.candidateSummary).toBeUndefined();
+    // The error CODE is preserved for dev identification...
     expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_ACTION")).toBe(true);
-    expect(res.data.blockedReason).toContain("UNKNOWN_ACTION");
+    // ...but the user-facing blockedReason + message are friendly (Slice
+    // 4.PROVIDER-CATALOG-INTEGRITY-1): no raw key, no "registered", no "V2".
+    expect(res.data.blockedReason).toMatch(/isn't available as an action yet/i);
+    expect(res.data.blockedReason).not.toMatch(/V2|registered|acme:do_thing/);
+    expect(res.data.validation.errors[0]!.message).not.toMatch(/V2|registered|acme:do_thing/);
     // currentRevision is present even when the patch is invalid (workflow loaded).
     expect(res.data.currentRevision).toBe("2026-05-25T00:00:00Z");
   });
@@ -200,6 +205,34 @@ describe("previewWorkflowPatchForAI — invalid patches", () => {
   it("multiple triggers → MULTIPLE_TRIGGERS", async () => {
     const res = await previewOps([{ op: "addNode", node: gnode("t2", "trigger", "native", "manual.run") }]);
     expect(res.ok && res.data.validation.errors.some((e) => e.code === "MULTIPLE_TRIGGERS")).toBe(true);
+  });
+});
+
+describe("previewWorkflowPatchForAI — Slice 4.PROVIDER-CATALOG-INTEGRITY-1 (self-qualified key + friendly copy)", () => {
+  beforeEach(() => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(baseGraph());
+  });
+
+  it("normalizes a self-qualified replaceTrigger so the supported gmail:new_email trigger resolves (no UNKNOWN_TRIGGER)", async () => {
+    // The planner put the combined key in `type` — pre-fix this produced
+    // `gmail:gmail:new_email` → UNKNOWN_TRIGGER. Normalization strips the prefix.
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "replaceTrigger", node: gnode("t2", "trigger", "gmail", "gmail:new_email") }]),
+    });
+    if (!res.ok) throw new Error("expected envelope ok");
+    expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_TRIGGER")).toBe(false);
+  });
+
+  it("a genuinely unknown trigger yields friendly blockedReason (no raw key / 'registered' / 'V2')", async () => {
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "replaceTrigger", node: gnode("t2", "trigger", "gmail", "definitely_not_a_trigger") }]),
+    });
+    if (!res.ok) throw new Error("expected envelope ok");
+    expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_TRIGGER")).toBe(true);
+    expect(res.data.blockedReason).toMatch(/isn't available as a trigger yet/i);
+    expect(res.data.blockedReason).not.toMatch(/V2|registered|gmail:definitely_not_a_trigger/);
   });
 });
 
