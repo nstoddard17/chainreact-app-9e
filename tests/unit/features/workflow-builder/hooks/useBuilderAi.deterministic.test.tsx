@@ -201,6 +201,50 @@ it("AI-35F: a BARE config_value follow-up with NO patch re-plans (nothing to inf
   expect(mockPlan).toHaveBeenCalledTimes(2); // initial + model re-plan
 });
 
+it("AI-35K: a typed manual value for an optionsSource field (no option id) completes deterministically — no model call", async () => {
+  // The picker couldn't load (e.g. Slack disconnected), so the user typed
+  // "#general" instead of selecting an option. The answer has display only (no
+  // option id). It must complete via completePlan (NOT the model planner) and
+  // write the typed value to the config — Apply can draft, Activate stays gated.
+  const needsChannelPicker = {
+    ...needsConfig,
+    requiredUserInput: [
+      { label: "Which Slack channel?", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    ],
+    proposedPatch: { patchId: "p1", operations: [] },
+  };
+  mockPlan.mockResolvedValueOnce(needsChannelPicker);
+  mockComplete.mockResolvedValueOnce(completedReady);
+  const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+
+  await act(async () => {
+    await result.current.plan("Send a Slack channel message when I manually run this", undefined, { currentGraph });
+  });
+  await act(async () => {
+    await result.current.submitFollowUp(
+      {
+        structuredAnswers: [
+          {
+            key: "n1::channel",
+            display: "#general", // typed, no selected option id
+            descriptor: { label: "Which Slack channel?", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+          },
+        ],
+      },
+      undefined,
+      { currentGraph },
+    );
+  });
+
+  expect(mockComplete).toHaveBeenCalledTimes(1);
+  expect(mockPlan).toHaveBeenCalledTimes(1); // ← no model re-plan
+  expect(mockApply).not.toHaveBeenCalled(); // ← no graph mutation before Apply
+  const [, body] = mockComplete.mock.calls[0]!;
+  expect((body as { answers: unknown[] }).answers).toEqual([
+    { nodeId: "n1", field: "channel", value: "#general" },
+  ]);
+});
+
 it("a provider_choice follow-up skips deterministic completion and re-plans directly", async () => {
   const needsChoice = {
     ...needsConfig,

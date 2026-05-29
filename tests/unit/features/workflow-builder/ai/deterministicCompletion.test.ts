@@ -213,18 +213,47 @@ describe("evaluateDeterministicCompletion", () => {
     expect(decision.answers).toEqual([{ nodeId: "n1", field: "channel", value: "C123" }]);
   });
 
-  it("model_replan (picker_requires_option) when an optionsSource answer is free-text only (no option id)", () => {
+  // ─── Slice 4.AI-35K — picker fields accept a manually-typed fallback ───
+  it("deterministic with the typed display value when an optionsSource answer is free-text only (AI-35K)", () => {
     const plan = planWith([
       { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
     ]);
     const freeTextOnly: RequiredInputAnswer = {
       key: "n1::channel",
-      display: "channel1", // typed a label, never picked an option → no value
+      display: "#general", // typed a value, never picked an option (e.g. Slack disconnected)
       descriptor: { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
     };
     const decision = evaluateDeterministicCompletion(plan, [freeTextOnly], "");
-    // Must NOT write "channel1" as the channel id — re-plan so the model resolves it.
-    expect(decision).toEqual({ mode: "model_replan", reason: "picker_requires_option" });
+    // AI-35K: a failed/unselected picker no longer bounces to the model — the
+    // typed value completes the field; the preview/activation validates it later.
+    expect(decision.mode).toBe("deterministic");
+    if (decision.mode !== "deterministic") return;
+    expect(decision.answers).toEqual([{ nodeId: "n1", field: "channel", value: "#general" }]);
+  });
+
+  it("a selected option value/id still wins over the typed display text (AI-35K)", () => {
+    const plan = planWith([
+      { label: "Widget", kind: "config_value", nodeId: "n1", field: "widgetId", fieldType: "combobox", optionsSource: "acme:widgets" },
+    ]);
+    const picked: RequiredInputAnswer = {
+      key: "n1::widgetId",
+      display: "Friendly Widget Name", // display label
+      value: "W-001", // selected option id — must win
+      descriptor: { label: "Widget", kind: "config_value", nodeId: "n1", field: "widgetId", fieldType: "combobox", optionsSource: "acme:widgets" },
+    };
+    const decision = evaluateDeterministicCompletion(plan, [picked], "");
+    expect(decision.mode).toBe("deterministic");
+    if (decision.mode !== "deterministic") return;
+    expect(decision.answers).toEqual([{ nodeId: "n1", field: "widgetId", value: "W-001" }]);
+  });
+
+  it("empty typed value for an optionsSource field is still missing (re-plan)", () => {
+    const plan = planWith([
+      { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    ]);
+    // No staged answer at all → still missing.
+    const decision = evaluateDeterministicCompletion(plan, [], "");
+    expect(decision).toEqual({ mode: "model_replan", reason: "missing_answer" });
   });
 
   it("deterministic for a static-options field when the selected option value is present", () => {

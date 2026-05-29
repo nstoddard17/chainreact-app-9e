@@ -152,9 +152,18 @@ export function RequiredInputOptionsSourceControl({
           {input.allowFreeText ? " You can type a custom value above." : ""}
         </p>
       )}
-      {/* Allow the user to commit the typed value verbatim when allowFreeText
-          is true — same affordance the config-modal combobox offers. */}
-      {input.allowFreeText &&
+      {/* Allow the user to commit the typed value verbatim when:
+            - the field explicitly allows free text (same affordance the
+              config-modal combobox offers), OR
+            - options could NOT load (provider disconnected / resolver error) —
+              Slice 4.AI-35K. A failed optionsSource load must not block
+              drafting: the user can still type a value (#general, an id, a
+              name) and submit it. A selected option's value/id still wins; the
+              typed value flows as the answer's `display` (no fake id) and the
+              AI-5 preview / activation validation decides acceptability. */}
+      {(input.allowFreeText ||
+        state.status === "disconnected" ||
+        state.status === "error") &&
         query.trim().length > 0 &&
         answer?.display !== query.trim() && (
           <button

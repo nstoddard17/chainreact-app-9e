@@ -270,6 +270,102 @@ describe("RequiredInputControl — optionsSource (Branch 2)", () => {
   });
 });
 
+describe("RequiredInputControl — optionsSource manual entry fallback on load failure (AI-35K)", () => {
+  // Generic optionsSource field with allowFreeText OMITTED (default false) —
+  // proves the fallback is NOT gated on allowFreeText, only on the load failing.
+  const genericInput: AiRequiredUserInput = {
+    label: "Which widget?",
+    nodeId: "n_generic",
+    field: "widgetId",
+    kind: "config_value",
+    provider: "acme",
+    fieldLabel: "Widget",
+    fieldType: "combobox",
+    optionsSource: "acme:widgets",
+  };
+
+  it("disconnected provider: the query input stays editable and a commit button appears (no allowFreeText)", async () => {
+    mockUseOptionsSource.mockReturnValue({
+      state: { status: "disconnected", items: [], hasMore: false, provider: "acme", message: "x" },
+      refetch: () => undefined,
+    });
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(genericInput)} onChange={onChange} />);
+    const queryInput = screen.getByTestId(
+      "builder-ai-required-input-combobox-query",
+    ) as HTMLInputElement;
+    expect(queryInput).not.toBeDisabled();
+    fireEvent.change(queryInput, { target: { value: "widget-42" } });
+    const commit = await screen.findByTestId("builder-ai-required-input-commit-typed");
+    await userEvent.setup().click(commit);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const arg = onChange.mock.calls[0]![0] as RequiredInputAnswer;
+    // Typed value flows as display only — NOT a fabricated option id.
+    expect(arg.display).toBe("widget-42");
+    expect(arg.value).toBeUndefined();
+  });
+
+  it("resolver error: a typed value can be committed (no allowFreeText needed)", async () => {
+    mockUseOptionsSource.mockReturnValue({
+      state: {
+        status: "error",
+        items: [],
+        hasMore: false,
+        code: "PROVIDER_ERROR",
+        message: "Couldn’t load options. Try again.",
+      },
+      refetch: () => undefined,
+    });
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(genericInput)} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-combobox-query"), {
+      target: { value: "manual value" },
+    });
+    const commit = await screen.findByTestId("builder-ai-required-input-commit-typed");
+    await userEvent.setup().click(commit);
+    expect((onChange.mock.calls[0]![0] as RequiredInputAnswer).display).toBe("manual value");
+  });
+
+  it("does NOT offer manual commit when options load fine and allowFreeText is false (no regression)", () => {
+    mockUseOptionsSource.mockReturnValue({
+      state: { status: "ready", items: [{ value: "C1", label: "#one" }], hasMore: false },
+      refetch: () => undefined,
+    });
+    render(<RequiredInputControl {...defaultProps(genericInput)} />);
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-combobox-query"), {
+      target: { value: "typed-but-options-loaded" },
+    });
+    expect(screen.queryByTestId("builder-ai-required-input-commit-typed")).not.toBeInTheDocument();
+  });
+
+  it("Slack channel regression: disconnected picker allows typing #general manually", async () => {
+    const slackInput: AiRequiredUserInput = {
+      label: "Which Slack channel?",
+      nodeId: "n_slack",
+      field: "channel",
+      kind: "config_value",
+      provider: "slack",
+      fieldLabel: "Channel",
+      fieldType: "combobox",
+      optionsSource: "slack:channels",
+    };
+    mockUseOptionsSource.mockReturnValue({
+      state: { status: "disconnected", items: [], hasMore: false, provider: "slack", message: "x" },
+      refetch: () => undefined,
+    });
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(slackInput)} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-combobox-query"), {
+      target: { value: "#general" },
+    });
+    const commit = await screen.findByTestId("builder-ai-required-input-commit-typed");
+    await userEvent.setup().click(commit);
+    const arg = onChange.mock.calls[0]![0] as RequiredInputAnswer;
+    expect(arg.display).toBe("#general");
+    expect(arg.value).toBeUndefined();
+  });
+});
+
 describe("RequiredInputControl — single-line text (text field)", () => {
   const input: AiRequiredUserInput = {
     label: "Recipient user id",

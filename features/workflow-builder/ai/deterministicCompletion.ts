@@ -36,6 +36,17 @@ import type { RequiredInputAnswer } from "./RequiredInputControl";
  * required text field from the patch metadata. A bare answer with NO patch to
  * infer against → re-plan (`no_target_node`). The server still returns
  * `NEEDS_REPLAN` (ambiguous_target / no_target_node) when it can't map safely.
+ *
+ * Slice 4.AI-35K — a picker-backed field (static `options` or a dynamic
+ * `optionsSource`) now accepts a manually-TYPED value as a fallback: a SELECTED
+ * option's `value` (id) still wins, but when no option was selected (e.g. the
+ * `optionsSource` couldn't load because the provider is disconnected) the typed
+ * `display` text completes the field instead of bouncing to the model. This
+ * relaxes the AI-35G rule that a picker required a selected option id. The typed
+ * value is written to config and the AI-5 preview / activation validation
+ * decides acceptability (Apply may proceed on the draft; Activate stays gated by
+ * the provider's `select_integration` requirement). No new unresolved-value
+ * format — a preview-rejected value still returns NEEDS_REPLAN.
  */
 
 export interface ResolvedRequiredInputAnswer {
@@ -106,19 +117,23 @@ export function evaluateDeterministicCompletion(
       return { mode: "model_replan", reason: "non_string_field" };
     }
     const answer = byKey.get(keyOf(entry));
-    // Slice 4.AI-35G — a picker-backed field (static `options` or a dynamic
-    // `optionsSource` resolver) stores an OPTION VALUE (e.g. a Slack channel
-    // id), not the display label. Deterministic completion must use the
-    // SELECTED `value`, never a free-text `display`; a free-text-only answer
-    // (the user typed instead of picking) would write a label where an id is
-    // required → re-plan so the model can resolve it safely.
-    const isPickerField = (entry.options?.length ?? 0) > 0 || !!entry.optionsSource;
-    const value = isPickerField ? answer?.value : (answer?.value ?? answer?.display);
+    // A SELECTED option always wins: its `value` (e.g. a Slack channel id) is
+    // the verified machine value the field expects.
+    //
+    // Slice 4.AI-35K — a picker-backed field (static `options` or a dynamic
+    // `optionsSource` resolver) now ALSO accepts a manually-typed `display`
+    // value as a fallback when no option was selected. This is the path for an
+    // `optionsSource` field whose options couldn't load (e.g. the provider is
+    // disconnected): the user types `#general` and we complete with that text
+    // rather than bouncing to the model. (This relaxes the AI-35G rule that a
+    // picker required a selected option id.) The typed value is written to the
+    // config and the AI-5 preview / activation validation decides whether it's
+    // acceptable — Apply may proceed on the draft, Activate stays gated by the
+    // provider's `select_integration` requirement. We never silently corrupt
+    // config: a value the preview rejects still returns NEEDS_REPLAN.
+    const value = answer?.value ?? answer?.display;
     if (value === undefined || value.trim().length === 0) {
-      return {
-        mode: "model_replan",
-        reason: isPickerField ? "picker_requires_option" : "missing_answer",
-      };
+      return { mode: "model_replan", reason: "missing_answer" };
     }
     // Multi-select entries already returned model_replan above, so every
     // answer reaching here is single-valued.

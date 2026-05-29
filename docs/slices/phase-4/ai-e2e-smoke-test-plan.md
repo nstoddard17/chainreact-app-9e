@@ -447,6 +447,14 @@ A correction replaces the obsolete shape but keeps compatible user-supplied valu
 65. **Provider/action correction preserves downstream content** — Gmail→Slack with the Slack message text supplied, then "No, use Outlook" → the email provider becomes Outlook and the Slack message text is preserved. Slack→email ("actually send an email") → the message body is preserved, the Slack channel/user fields are dropped.
 66. **Incompatible values not forced** — across a DM↔channel switch, a prior DM user id is never reused as the channel (and a prior channel is never reused as a recipient) — the destination value transfers only when the destination type is unchanged.
 
+### 5.16 — Combobox manual-entry fallback when optionsSource can't load (AI-35K)
+
+An `optionsSource` picker stays usable when options can't load; selected options submit ids, typed manual values submit the typed text; drafting isn't blocked but Activation is.
+
+67. **Disconnected picker, manual type** — ask for a Slack channel with Slack disconnected → the combobox shows a load hint/error but stays editable; type `#general` → "Use '#general' as-is" appears → click → Send details completes WITHOUT a model call (`POST /ai/complete`, channel = typed text). Apply creates the draft; Activate is blocked ("Connect Slack before activating").
+68. **Selected option still wins** — when options load, pick one → the option's value/id is submitted (not the display label). Typing a custom value with `allowFreeText:false` while options loaded fine offers no manual-commit (only the failure path does).
+69. **Generic, not Slack** — repeat #67 with another `optionsSource` field (Gmail label, Sheets spreadsheet, Airtable/Trello/Notion picker) — manual entry works identically. No new unresolved-value architecture; Apply-vs-Activate unchanged.
+
 ---
 
 ## 6. Bugs found during this audit
