@@ -28,7 +28,9 @@ describe("composeFollowUpPrompt — first-turn smoke (AI-21)", () => {
     expect(out).toContain("- What should the message say?");
     expect(out).toContain("User follow-up:");
     expect(out).toContain("Use #general and say Test from ChainReact AI.");
-    expect(out).toContain("Produce the workflow patch for the original request using the follow-up details above.");
+    // Slice 4.AI-35I — authoritative-latest closing (replaced the AI-35
+    // "Produce the workflow patch for the original request" wording).
+    expect(out).toContain("The user's latest message is authoritative.");
   });
 
   it("omits the 'Previous follow-up answers' section on the first turn", () => {
@@ -125,7 +127,7 @@ describe("composeFollowUpPrompt — structured answers (AI-22)", () => {
     });
     expect(out).toContain("User provided:");
     expect(out).not.toContain("User follow-up:");
-    expect(out).toContain("Produce the workflow patch for the original request");
+    expect(out).toContain("The user's latest message is authoritative.");
   });
 
   it("renders both 'User provided' and 'User follow-up' sections when both are present", () => {
@@ -179,10 +181,8 @@ describe("composeFollowUpPrompt — trimming / safety (AI-21)", () => {
     expect(out).not.toContain("Previous follow-up answers:");
     expect(out).not.toContain("The agent asked for:");
     // But the trailing instruction should always be present so the model
-    // knows to build the workflow.
-    expect(out).toContain(
-      "Produce the workflow patch for the original request using the follow-up details above.",
-    );
+    // knows to build the workflow (AI-35I authoritative-latest closing).
+    expect(out).toContain("The user's latest message is authoritative.");
   });
 });
 
@@ -198,7 +198,7 @@ describe("composeFollowUpPrompt — AI-35 provider-choice citation + edit-aware 
       ],
     });
     expect(out).toContain("The email provider is Gmail (id: gmail).");
-    expect(out).toContain("Produce the workflow patch for the original request");
+    expect(out).toContain("The user's latest message is authoritative.");
   });
 
   it("closing instruction is edit-aware (UPDATE existing nodes, not always create)", () => {
@@ -210,5 +210,67 @@ describe("composeFollowUpPrompt — AI-35 provider-choice citation + edit-aware 
     });
     expect(out).toContain("UPDATE those existing nodes");
     expect(out).not.toContain("Create the workflow using the original request");
+  });
+});
+
+describe("composeFollowUpPrompt — AI-35I authoritative-latest + correction override", () => {
+  it("always renders the authoritative-latest closing (latest message overrides prior context)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send me a Slack DM when I manually run this workflow",
+      requiredInputLabels: ["Which Slack user should receive the DM?"],
+      priorFollowUpAnswers: [],
+      followUp: "This is to a channel",
+    });
+    expect(out).toContain("The user's latest message is authoritative.");
+    expect(out).toContain("CONTEXT ONLY");
+    expect(out).toContain("REPLACE the obsolete provider/action/trigger choice");
+  });
+
+  it("adds a prominent 'Correction:' override directive when isCorrection is true", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send me a Slack DM when I manually run this workflow",
+      requiredInputLabels: ["Which Slack user should receive the DM?"],
+      priorFollowUpAnswers: [],
+      followUp: "This is to a channel",
+      isCorrection: true,
+    });
+    expect(out).toContain("Correction:");
+    expect(out).toContain("explicit override of the previously inferred provider, action, and trigger");
+  });
+
+  it("omits the 'Correction:' directive when isCorrection is false / absent (backwards compatible)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send a Slack message",
+      requiredInputLabels: ["What should the message say?"],
+      priorFollowUpAnswers: [],
+      followUp: "Hey",
+    });
+    expect(out).not.toContain("Correction:");
+    // The authoritative-latest closing is still present even without a correction.
+    expect(out).toContain("The user's latest message is authoritative.");
+  });
+
+  it("renders the prior plan summary as NON-BINDING context when provided", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send me a Slack DM when I manually run this workflow",
+      requiredInputLabels: ["Which Slack user should receive the DM?"],
+      priorFollowUpAnswers: [],
+      followUp: "This is to a channel",
+      isCorrection: true,
+      priorPlanSummary: "Send a Slack direct message when the workflow is run manually.",
+    });
+    expect(out).toContain("Current plan so far (context only — may be replaced by your latest message):");
+    expect(out).toContain("Send a Slack direct message when the workflow is run manually.");
+  });
+
+  it("omits the prior-plan-summary section when not provided / blank", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "x",
+      requiredInputLabels: [],
+      priorFollowUpAnswers: [],
+      followUp: "This is to a channel",
+      priorPlanSummary: "   ",
+    });
+    expect(out).not.toContain("Current plan so far");
   });
 });

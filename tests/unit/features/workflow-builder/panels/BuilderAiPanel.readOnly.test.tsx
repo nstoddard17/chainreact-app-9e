@@ -217,7 +217,7 @@ describe("React Agent canvas-stability guard (AI-22 regression)", () => {
     const beforeFollowUp = readGraphSnapshot();
 
     // Fill the text-branch control (Message) and submit.
-    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-textarea"), {
       target: { value: "Test from ChainReact AI" },
     });
     await user.click(screen.getByTestId("builder-ai-plan-button"));
@@ -245,7 +245,7 @@ describe("React Agent canvas-stability guard (AI-22 regression)", () => {
     const before = readGraphSnapshot();
 
     // Change the text control multiple times — purely local staging.
-    const textControl = screen.getByTestId("builder-ai-required-input-text");
+    const textControl = screen.getByTestId("builder-ai-required-input-textarea");
     fireEvent.change(textControl, { target: { value: "draft 1" } });
     fireEvent.change(textControl, { target: { value: "Test from ChainReact AI" } });
 

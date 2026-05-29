@@ -24,8 +24,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 
 const mockPlan = jest.fn();
 const mockApply = jest.fn();
+// AI-35I — `completePlan` is mocked so the deterministic-vs-correction tests can
+// assert which route a follow-up took (existing free-text tests never reach it).
+const mockComplete = jest.fn();
 jest.mock("@/lib/api/ai", () => ({
   planWorkflow: (...a: unknown[]) => mockPlan(...a),
+  completePlan: (...a: unknown[]) => mockComplete(...a),
   applyWorkflowPatch: (...a: unknown[]) => mockApply(...a),
   AiApiError: class AiApiError extends Error {
     status: number;
@@ -38,6 +42,7 @@ jest.mock("@/lib/api/ai", () => ({
 }));
 
 import { useBuilderAi } from "@/features/workflow-builder/hooks/useBuilderAi";
+import type { RequiredInputAnswer } from "@/features/workflow-builder/ai";
 
 // Pre-built planner responses
 const needsInputResponse = {
@@ -83,6 +88,7 @@ const stillNeedsMessage = {
 beforeEach(() => {
   mockPlan.mockReset();
   mockApply.mockReset();
+  mockComplete.mockReset();
 });
 
 describe("useBuilderAi — follow-up chain (AI-21)", () => {
@@ -594,5 +600,184 @@ describe("useBuilderAi — preserve chain on retryable follow-up failures (AI-25
     act(() => result.current.reset());
     expect(result.current.followUpMode).toBe(false);
     expect(result.current.planResult).toBeNull();
+  });
+});
+
+// ─── Slice 4.AI-35I — follow-up intent-correction reconciliation ─────────────
+
+describe("useBuilderAi — intent-correction follow-ups (AI-35I)", () => {
+  // A Slack DM plan still asking who should receive it (the stale-intent setup).
+  const dmNeedsUser = {
+    ...needsInputResponse,
+    intentSummary: "Send a Slack direct message when the workflow is run manually.",
+    assumptions: ["Using a Slack direct message."],
+    requiredUserInput: [
+      { label: "Which Slack user should receive the DM?", kind: "config_value", nodeId: "n1", field: "userId", fieldType: "text" },
+    ],
+    proposedPatch: {
+      patchId: "p-dm",
+      operations: [
+        { op: "addNode", node: { id: "n1", kind: "action", provider: "slack", type: "send_direct_message", config: { text: "Hey" } } },
+      ],
+      summary: "dm",
+    },
+  };
+
+  // What the (mocked) planner returns after the correction: a channel message.
+  const channelReplan = {
+    ...needsInputResponse,
+    intentSummary: "Send a Slack channel message when the workflow is run manually.",
+    assumptions: ["Using a Slack channel message."],
+    requiredUserInput: [
+      { label: "Which Slack channel should receive the message?", kind: "config_value", nodeId: "n2", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    ],
+    proposedPatch: { patchId: "p-ch", operations: [], summary: "channel" },
+  };
+
+  // A single-text-field plan that is eligible for deterministic completion.
+  const messageNeedsText = {
+    ...needsInputResponse,
+    intentSummary: "Send a Slack message",
+    requiredUserInput: [
+      { label: "What should the message say?", kind: "config_value", nodeId: "n1", field: "text", fieldType: "textarea", allowFreeText: true },
+    ],
+  };
+  const messageCompleted = { ...messageNeedsText, requiredUserInput: [], canApplyLater: true };
+
+  function ans(nodeId: string, field: string, value: string, fieldLabel: string): RequiredInputAnswer {
+    return { key: `${nodeId}::${field}`, display: value, value, descriptor: { label: fieldLabel, kind: "config_value", nodeId, field } };
+  }
+
+  it("(1) DM→channel correction skips deterministic completion and re-plans with override context", async () => {
+    mockPlan.mockResolvedValueOnce(dmNeedsUser); // initial
+    mockPlan.mockResolvedValueOnce(channelReplan); // correction re-plan
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a Slack DM when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "This is to a channel" });
+    });
+
+    // Deterministic completion was NOT attempted; the planner re-ran.
+    expect(mockComplete).not.toHaveBeenCalled();
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+    const [, body] = mockPlan.mock.calls[1]!;
+    const reconstructed = (body as { prompt: string }).prompt;
+    expect(reconstructed).toContain("Correction:");
+    expect(reconstructed).toContain("The user's latest message is authoritative.");
+    expect((body as { interactionKind: string }).interactionKind).toBe("follow_up");
+
+    // Active plan replaced — no userId question remains; channel is asked.
+    expect(result.current.planResult).toEqual(channelReplan);
+    if (result.current.planResult?.ok) {
+      expect(result.current.planResult.requiredUserInput.every((r) => r.field !== "userId")).toBe(true);
+      expect(result.current.planResult.requiredUserInput.some((r) => /channel/i.test(r.label))).toBe(true);
+    }
+  });
+
+  it("(2) 'I said this is to a channel' discards the stale DM userId input and re-plans", async () => {
+    mockPlan.mockResolvedValueOnce(dmNeedsUser);
+    mockPlan.mockResolvedValueOnce(channelReplan);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a Slack DM when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "I said this is to a channel" });
+    });
+    expect(mockComplete).not.toHaveBeenCalled();
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+    const [, body] = mockPlan.mock.calls[1]!;
+    expect((body as { prompt: string }).prompt).toContain("Correction:");
+    // The stale DM question is gone — replaced, not merged.
+    if (result.current.planResult?.ok) {
+      expect(result.current.planResult.requiredUserInput.some((r) => /user/i.test(r.label))).toBe(false);
+    }
+  });
+
+  it("(3) a plain field answer (no free text, no correction) still completes deterministically — no model call", async () => {
+    mockPlan.mockResolvedValueOnce(messageNeedsText); // initial only
+    mockComplete.mockResolvedValueOnce(messageCompleted);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send a Slack message when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ structuredAnswers: [ans("n1", "text", "Hey", "Message")] });
+    });
+    expect(mockComplete).toHaveBeenCalledTimes(1);
+    expect(mockPlan).toHaveBeenCalledTimes(1); // the follow-up did NOT call the model planner
+    expect(result.current.planResult).toEqual(messageCompleted);
+  });
+
+  it("(4) a provider correction ('No, use Outlook') skips deterministic completion and re-plans", async () => {
+    mockPlan.mockResolvedValueOnce(dmNeedsUser);
+    mockPlan.mockResolvedValueOnce(channelReplan);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me an email when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "No, use Outlook" });
+    });
+    expect(mockComplete).not.toHaveBeenCalled();
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+    const [, body] = mockPlan.mock.calls[1]!;
+    const reconstructed = (body as { prompt: string }).prompt;
+    expect(reconstructed).toContain("Correction:");
+    expect(reconstructed).toContain("No, use Outlook");
+  });
+
+  it("(5) an action correction ('Actually send an email instead') re-plans, not deterministic", async () => {
+    mockPlan.mockResolvedValueOnce(dmNeedsUser);
+    mockPlan.mockResolvedValueOnce(channelReplan);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a Slack message when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "Actually send an email instead" });
+    });
+    expect(mockComplete).not.toHaveBeenCalled();
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+    expect((mockPlan.mock.calls[1]![1] as { prompt: string }).prompt).toContain("Correction:");
+  });
+
+  it("(6) a later correction overrides a prior follow-up answer (latest wins over 'DM me')", async () => {
+    mockPlan.mockResolvedValueOnce(dmNeedsUser); // turn 1
+    mockPlan.mockResolvedValueOnce(dmNeedsUser); // turn 2: "DM me" still needs input
+    mockPlan.mockResolvedValueOnce(channelReplan); // turn 3: correction
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a message when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "DM me" });
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "Actually send to channel" });
+    });
+    expect(mockPlan).toHaveBeenCalledTimes(3);
+    const reconstructed = (mockPlan.mock.calls[2]![1] as { prompt: string }).prompt;
+    // Prior answer is still cited as context, but the latest message is authoritative.
+    expect(reconstructed).toContain("Previous follow-up answers:");
+    expect(reconstructed).toContain("- DM me");
+    expect(reconstructed).toContain("Actually send to channel");
+    expect(reconstructed).toContain("Correction:");
+    expect(reconstructed).toContain("The user's latest message is authoritative.");
+  });
+
+  it("(7) a correction follow-up never mutates the graph (no apply before an explicit Apply)", async () => {
+    mockPlan.mockResolvedValueOnce(dmNeedsUser);
+    mockPlan.mockResolvedValueOnce(channelReplan);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a Slack DM when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "This is to a channel" });
+    });
+    expect(mockApply).not.toHaveBeenCalled();
   });
 });

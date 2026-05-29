@@ -381,6 +381,61 @@ describe("apply-readiness gate (AI-20)", () => {
     expect(textEntry?.allowFreeText).toBe(true);
   });
 
+  it("AI-35H: a follow-up's BARE clarification (no node/field) reconciles to the unique missing optionsSource field → channel combobox", async () => {
+    // The DM→channel follow-up: the re-plan builds send_channel_message with the
+    // user's message text filled and the channel still missing (AI_FIELD), and
+    // asks "Which Slack channel?" as a `clarification` with NO node/field. The
+    // orchestrator must reconcile the bare question to the channel field so it
+    // enriches to the optionsSource combobox — not plain text.
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("n1", "action", "slack", "send")]),
+    );
+    const slackPatch = {
+      patchId: "p1",
+      workflowId: "wf1",
+      baseRevision: "x",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n_slack",
+            kind: "action",
+            provider: "slack",
+            type: "send_channel_message",
+            config: { text: "Hey", channel: "{{AI_FIELD:channel}}" },
+            position: { x: 0, y: 0 },
+          },
+        },
+      ],
+      summary: "Send a Slack channel message",
+      rationale: "User clarified this is to a channel.",
+    };
+    const mc = client(
+      planResponse({
+        proposedPatch: slackPatch,
+        requiredUserInput: [
+          // BARE clarification — no nodeId/field (the live shape that AI-35G missed).
+          { label: "Which Slack channel should receive the message?", kind: "clarification" },
+        ],
+      }),
+    );
+    const result = await planWorkflowFromPromptForAI({
+      userId: "u1",
+      workflowId: "wf1",
+      prompt: "Original: send me a Slack DM … / Follow-up: this is to a channel / Hey",
+      modelClient: mc,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const channelEntry = result.requiredUserInput.find((r) => r.field === "channel");
+    expect(channelEntry).toBeDefined();
+    expect(channelEntry?.kind).toBe("config_value"); // normalized from clarification
+    expect(channelEntry?.fieldType).toBe("combobox");
+    expect(channelEntry?.optionsSource).toBe("slack:channels");
+    // Picker field still blocks Apply until the user selects a channel.
+    expect(result.canApplyLater).toBe(false);
+  });
+
   it("leaves no-field entries unenriched (e.g. select_integration / clarification) so the existing fallback bullet renders", async () => {
     mockGetWorkflowGraphForAI.mockResolvedValue(
       graphResult([gnode("n1", "action", "slack", "send")]),

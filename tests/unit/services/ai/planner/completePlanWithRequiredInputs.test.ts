@@ -142,6 +142,106 @@ describe("filling config on a node in the pending proposed patch", () => {
   });
 });
 
+// ─── Slice 4.AI-35F — bare answer → server-side target inference ────────────
+describe("bare answer inference (AI-35F)", () => {
+  function dmPatch(config: Record<string, unknown>): WorkflowPatch {
+    return {
+      patchId: "p1",
+      workflowId: "wf1",
+      baseRevision: "stale",
+      summary: "Add Slack DM",
+      rationale: "user asked",
+      operations: [
+        {
+          op: "addNode",
+          node: {
+            id: "n_dm",
+            kind: "action",
+            provider: "slack",
+            type: "send_direct_message",
+            config,
+            position: { x: 0, y: 0 },
+          },
+        },
+      ],
+    };
+  }
+
+  it("maps a bare answer to the UNIQUE missing required text field (live regression)", async () => {
+    // Pending Slack DM: userId resolved from "me", message body still empty.
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("t1", "trigger", "gmail", "new_email", {})]),
+    );
+    const result = await completePlanWithRequiredInputs({
+      userId: "u1",
+      workflowId: "wf1",
+      proposedPatch: dmPatch({ userId: "U123", text: "" }),
+      answers: [{ value: "Hey" }], // BARE — no nodeId/field
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const addOp = result.result.proposedPatch!.operations[0] as Extract<
+      WorkflowPatch["operations"][number],
+      { op: "addNode" }
+    >;
+    expect(addOp.node.config).toEqual({ userId: "U123", text: "Hey" });
+    expect(result.result.model.modelId).toBe("deterministic-completion");
+  });
+
+  it("treats an {{AI_FIELD:...}} placeholder as fillable and replaces it", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphResult([gnode("t1", "trigger", "gmail", "new_email", {})]),
+    );
+    const result = await completePlanWithRequiredInputs({
+      userId: "u1",
+      workflowId: "wf1",
+      proposedPatch: dmPatch({ userId: "U123", text: "{{AI_FIELD:message}}" }),
+      answers: [{ value: "Hey" }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const addOp = result.result.proposedPatch!.operations[0] as Extract<
+      WorkflowPatch["operations"][number],
+      { op: "addNode" }
+    >;
+    expect(addOp.node.config.text).toBe("Hey");
+  });
+
+  it("ambiguous_target when more than one required text field is fillable", async () => {
+    // Both userId AND text are missing → two candidate text fields → don't guess.
+    const result = await completePlanWithRequiredInputs({
+      userId: "u1",
+      workflowId: "wf1",
+      proposedPatch: dmPatch({}),
+      answers: [{ value: "Hey" }],
+    });
+    expect(result).toEqual({ ok: false, reason: "ambiguous_target" });
+    // Inference happens before the graph lookup — no model, no graph read.
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("no_target_node when no required text field is fillable", async () => {
+    const result = await completePlanWithRequiredInputs({
+      userId: "u1",
+      workflowId: "wf1",
+      proposedPatch: dmPatch({ userId: "U123", text: "already written" }),
+      answers: [{ value: "Hey" }],
+    });
+    expect(result).toEqual({ ok: false, reason: "no_target_node" });
+    expect(mockGetWorkflowGraphForAI).not.toHaveBeenCalled();
+  });
+
+  it("ambiguous_target when more than one bare answer is supplied", async () => {
+    const result = await completePlanWithRequiredInputs({
+      userId: "u1",
+      workflowId: "wf1",
+      proposedPatch: dmPatch({ userId: "U123", text: "" }),
+      answers: [{ value: "Hey" }, { value: "There" }],
+    });
+    expect(result).toEqual({ ok: false, reason: "ambiguous_target" });
+  });
+});
+
 describe("fallback reasons (caller re-plans)", () => {
   it("no_answers when answers is empty", async () => {
     const result = await completePlanWithRequiredInputs({

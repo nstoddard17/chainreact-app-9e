@@ -14,6 +14,9 @@ import {
   evaluateDeterministicCompletion,
   type RequiredInputAnswer,
 } from "@/features/workflow-builder/ai";
+// Slice 4.AI-35I — direct module import (the barrel is owned by a parallel
+// track this slice does not touch).
+import { detectIntentCorrection } from "@/features/workflow-builder/ai/detectIntentCorrection";
 
 /**
  * Plan → preview → confirm → apply state machine for the Builder AI panel
@@ -210,6 +213,15 @@ export function useBuilderAi({
       // No-op when both inputs are empty after trim.
       if (freeText.length === 0 && structuredAnswers.length === 0) return null;
 
+      // Slice 4.AI-35I — detect an explicit shape-changing correction in the
+      // latest free-text message ("this is to a channel", "no, use Outlook",
+      // "actually send an email instead", "make it manual"). A correction must
+      // force a model re-plan with explicit override context — it must NEVER
+      // deterministically complete the prior (now-stale) patch, which would
+      // keep re-asking for the obsolete action's inputs (e.g. a Slack DM
+      // userId after the user said "channel").
+      const correction = detectIntentCorrection(freeText);
+
       // Slice 4.AI-35B — try DETERMINISTIC completion first (NO model call).
       // When the staged answers map 1:1 to the already-identified required
       // config fields, the server completes the pending patch + previews it
@@ -218,7 +230,13 @@ export function useBuilderAi({
       // edit fix (that flow failed because the model re-plan failed). On a
       // NEEDS_REPLAN signal (or transport error) we fall through to the model
       // planner unchanged, preserving the chain.
-      const decision = evaluateDeterministicCompletion(planResult, structuredAnswers, freeText);
+      //
+      // Slice 4.AI-35I — a detected correction short-circuits to the model
+      // planner (the deterministic route is for direct field-filling only, not
+      // action/provider/trigger corrections).
+      const decision = correction.isCorrection
+        ? ({ mode: "model_replan", reason: "intent_correction" } as const)
+        : evaluateDeterministicCompletion(planResult, structuredAnswers, freeText);
       if (decision.mode === "deterministic") {
         setStatus("planning");
         setError(null);
@@ -254,6 +272,11 @@ export function useBuilderAi({
         requiredInputLabels,
         priorFollowUpAnswers,
         followUp: freeText,
+        // Slice 4.AI-35I — flag a shape-changing correction so the re-plan
+        // prompt makes the latest message authoritative, and carry the prior
+        // plan's (value-free) intent summary as non-binding context.
+        isCorrection: correction.isCorrection,
+        ...(planResult.intentSummary ? { priorPlanSummary: planResult.intentSummary } : {}),
         structuredAnswers: structuredAnswers.map((a) => ({
           label: a.descriptor.fieldLabel ?? a.descriptor.label,
           display: a.display,

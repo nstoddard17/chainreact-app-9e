@@ -163,7 +163,8 @@ describe("AI-35 — Apply vs Activate", () => {
     render(<BuilderAiPanel />);
     await typeAndPlan("Send a Slack message");
 
-    expect(await screen.findByTestId("builder-ai-required-input-text")).toBeInTheDocument();
+    // AI-35E — the `textarea` message field renders the matching multi-line control.
+    expect(await screen.findByTestId("builder-ai-required-input-textarea")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByTestId("builder-ai-apply-button")).not.toBeInTheDocument(),
     );

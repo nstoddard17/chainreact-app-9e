@@ -132,6 +132,75 @@ it("falls back to the model planner when completePlan returns NEEDS_REPLAN", asy
   expect(result.current.planResult).toEqual(completedReady);
 });
 
+it("AI-35F: a BARE config_value follow-up (no nodeId/field) completes deterministically when a patch exists", async () => {
+  // The live regression after AI-35E: "Send me a Slack DM…" → the agent asks
+  // "What should the Slack direct message say?" as a bare config_value (no node
+  // identity). AI-35E renders a text control; the user answers "Hey". The
+  // answer must route to completePlan (NOT the model planner) and be forwarded
+  // UNTARGETED so the server infers the Slack DM text field.
+  const needsBareMessage = {
+    ...needsConfig,
+    requiredUserInput: [{ label: "What should the Slack direct message say?", kind: "config_value" }],
+    proposedPatch: { patchId: "p1", operations: [] },
+  };
+  mockPlan.mockResolvedValueOnce(needsBareMessage);
+  mockComplete.mockResolvedValueOnce(completedReady);
+  const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+
+  await act(async () => {
+    await result.current.plan("Send me a Slack DM when I manually run this workflow", undefined, { currentGraph });
+  });
+  await act(async () => {
+    await result.current.submitFollowUp(
+      {
+        structuredAnswers: [
+          {
+            key: "label::What should the Slack direct message say?",
+            display: "Hey",
+            descriptor: { label: "What should the Slack direct message say?", kind: "config_value" },
+          },
+        ],
+      },
+      undefined,
+      { currentGraph },
+    );
+  });
+
+  expect(mockComplete).toHaveBeenCalledTimes(1);
+  expect(mockPlan).toHaveBeenCalledTimes(1); // ← the follow-up did NOT call the model planner
+  const [, body] = mockComplete.mock.calls[0]!;
+  expect((body as { answers: unknown[] }).answers).toEqual([{ value: "Hey" }]); // untargeted
+});
+
+it("AI-35F: a BARE config_value follow-up with NO patch re-plans (nothing to infer against)", async () => {
+  const needsBareNoPatch = {
+    ...needsConfig,
+    requiredUserInput: [{ label: "What should it say?", kind: "config_value" }],
+    proposedPatch: undefined,
+  };
+  mockPlan.mockResolvedValueOnce(needsBareNoPatch);
+  mockPlan.mockResolvedValueOnce(completedReady); // fallback re-plan
+  const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+
+  await act(async () => {
+    await result.current.plan("Send me a message", undefined, { currentGraph });
+  });
+  await act(async () => {
+    await result.current.submitFollowUp(
+      {
+        structuredAnswers: [
+          { key: "label::What should it say?", display: "Hey", descriptor: { label: "What should it say?", kind: "config_value" } },
+        ],
+      },
+      undefined,
+      { currentGraph },
+    );
+  });
+
+  expect(mockComplete).not.toHaveBeenCalled();
+  expect(mockPlan).toHaveBeenCalledTimes(2); // initial + model re-plan
+});
+
 it("a provider_choice follow-up skips deterministic completion and re-plans directly", async () => {
   const needsChoice = {
     ...needsConfig,

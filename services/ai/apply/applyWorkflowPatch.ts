@@ -37,6 +37,7 @@ import type {
   PatchOperation,
   PatchValidationError,
 } from "@/services/workflows/patch/types";
+import { normalizeLinearWorkflowLayout } from "./normalizeLinearLayout";
 import type {
   ApplyErrorCode,
   ApplyWorkflowPatchFailure,
@@ -128,11 +129,17 @@ export async function applyWorkflowPatchForAI(
     const code = classifyValidationFailure(validation.errors);
     return fail(code, `Patch failed validation (${safeErrors.length} error(s)).`, safeErrors);
   }
-  const candidate = validation.candidateDefinition;
-  if (!candidate) {
+  const validatedCandidate = validation.candidateDefinition;
+  if (!validatedCandidate) {
     // Defensive: validation.ok implies a candidate, but never persist without one.
     return fail("VALIDATION_FAILED", "No candidate definition was produced.");
   }
+  // Slice 4.AI-35G — normalize a SIMPLE LINEAR AI-applied workflow to the
+  // builder's vertical column (trigger on top, actions stacked below). The
+  // model isn't given positioning guidance, so its addNode positions are often
+  // side-by-side; this gives AI-created workflows the normal top-to-bottom
+  // layout. No-op for pure config edits, explicit moveNode, or branching graphs.
+  const candidate = normalizeLinearWorkflowLayout(validatedCandidate, operations);
 
   // 5. Optimistic concurrency (read-time): the patch must be based on the
   //    workflow's current revision token (its updatedAt).

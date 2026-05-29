@@ -1,24 +1,34 @@
 "use client";
 
-import { useState } from "react";
 import type { AiRequiredUserInput } from "@/lib/api/ai";
-import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
+import { resolveRequiredInputControl } from "./resolveRequiredInputControl";
+import { RequiredInputOptionsSourceControl } from "./RequiredInputOptionsSourceControl";
 
 /**
- * Interactive required-input control for the React Agent (Slice 4.AI-22).
+ * Interactive required-input control for the React Agent (Slice 4.AI-22,
+ * extended for full control parity in Slice 4.AI-35E).
  *
  * Renders one input affordance per `requiredUserInput` entry returned by
- * the planner. Branches on the server-enriched FieldMeta hints:
+ * the planner. The control class is chosen by the shared, metadata-driven
+ * {@link resolveRequiredInputControl} helper (the SAME logic the panel uses
+ * to split controls from bullets) — never by provider id:
  *
- *   - `options[]` (static enum)        → native `<select>` dropdown
- *   - `optionsSource` (dynamic resolver) → typeable combobox backed by
- *                                          `useOptionsSource` (same hook
- *                                          the config modal pickers use,
- *                                          via the AI-2 sanitized options
- *                                          API). Disabled with a hint when
- *                                          a `dependsOn` parent hasn't
- *                                          been staged yet.
- *   - neither (free-text)              → `<input type="text">` fallback
+ *   - `select`      (static enum, single)     → native `<select>` dropdown
+ *   - `multiselect` (static enum, multiple)   → checkbox group
+ *   - `combobox`    (dynamic `optionsSource`) → typeable picker backed by
+ *                                               `useOptionsSource` (same hook
+ *                                               the config-modal pickers use,
+ *                                               via the AI-2 sanitized options
+ *                                               API). Disabled with a hint when
+ *                                               a `dependsOn` parent hasn't been
+ *                                               staged yet.
+ *   - `boolean`     (`boolean` field)         → checkbox/toggle
+ *   - `number`      (`number` field)          → numeric input
+ *   - `textarea`    (`textarea` field)        → multi-line editor
+ *   - `text`        (text / cron / fallback)  → single-line `<input>`. Also the
+ *                                               safe fallback for any KNOWN
+ *                                               config field whose renderer has
+ *                                               no dedicated chat control yet.
  *
  * Always allows a typed/manual answer when `allowFreeText === true` —
  * the user can override a dropdown by typing in the composer below, or
@@ -36,10 +46,12 @@ import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSo
  *   - Never reads `proposedPatch` config, never renders raw model text.
  *
  * Backward compat:
- *   - When NONE of the AI-22 enrichment fields are present (e.g. a
- *     pre-AI-22 planner result, or an entry without `nodeId`/`field`),
- *     falls through to the free-text input fallback. Pre-AI-22
- *     consumers still get a usable control.
+ *   - When NONE of the enrichment fields are present (e.g. a pre-AI-22
+ *     planner result, or a bare `config_value` from a null-patch plan),
+ *     the helper resolves to `text` and the free-text input renders. Such
+ *     entries were previously dropped to a bullet by the panel's control
+ *     gate — AI-35E routes them here so a known config field always gets
+ *     an interactive control.
  */
 
 export interface RequiredInputAnswer {
@@ -49,6 +61,14 @@ export interface RequiredInputAnswer {
   readonly display: string;
   /** Machine value when the user picked a dropdown / picker option — undefined for free text. */
   readonly value?: string;
+  /**
+   * Multi-select: the set of chosen option values. Present ONLY for the
+   * `multiselect` control. The follow-up reconstruction reads `display`
+   * (joined labels); deterministic completion intentionally bounces
+   * multi-value fields to the model planner, so `values` is not threaded
+   * into the completion route.
+   */
+  readonly values?: readonly string[];
   /** The original required-input descriptor — surfaced so reconstruction can cite field/provider/label. */
   readonly descriptor: AiRequiredUserInput;
 }
@@ -106,11 +126,17 @@ export function RequiredInputControl({
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
-  const hasStaticOptions = (input.options?.length ?? 0) > 0;
-  const hasOptionsSource = !!input.optionsSource;
+  const labelStyle = { color: "var(--builder-text)" } as const;
+  const inputClassName = "rounded-md border bg-transparent px-2 py-1 text-[12.5px]";
+  const inputStyle = {
+    borderColor: "var(--builder-border)",
+    color: "var(--builder-text)",
+  } as const;
 
-  // ── Branch 1: static options → native <select> ───────────────────────
-  if (hasStaticOptions && !hasOptionsSource) {
+  const control = resolveRequiredInputControl(input);
+
+  // ── select: static enum, single-pick (incl. provider_choice) ─────────
+  if (control === "select") {
     return (
       <div
         className="flex flex-col gap-1"
@@ -118,7 +144,7 @@ export function RequiredInputControl({
         data-input-key={inputKey}
         data-variant="static-options"
       >
-        <label className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
+        <label className="text-[11.5px] font-medium" style={labelStyle}>
           {fieldLabel}
         </label>
         <select
@@ -138,11 +164,8 @@ export function RequiredInputControl({
               descriptor: input,
             });
           }}
-          className="rounded-md border bg-transparent px-2 py-1 text-[12.5px]"
-          style={{
-            borderColor: "var(--builder-border)",
-            color: "var(--builder-text)",
-          }}
+          className={inputClassName}
+          style={inputStyle}
         >
           <option value="">— pick a value —</option>
           {input.options!.map((o) => (
@@ -155,8 +178,60 @@ export function RequiredInputControl({
     );
   }
 
-  // ── Branch 2: dynamic optionsSource → typeable combobox ──────────────
-  if (hasOptionsSource) {
+  // ── multiselect: static enum, multiple ───────────────────────────────
+  if (control === "multiselect") {
+    const selected = new Set(answer?.values ?? []);
+    const toggle = (value: string) => {
+      const next = new Set(selected);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      const values = [...next];
+      if (values.length === 0) {
+        onChange(undefined);
+        return;
+      }
+      const display = values
+        .map((v) => input.options!.find((o) => o.value === v)?.label ?? v)
+        .join(", ");
+      onChange({ key: inputKey, values, display, descriptor: input });
+    };
+    return (
+      <div
+        className="flex flex-col gap-1"
+        data-testid="builder-ai-required-input-control"
+        data-input-key={inputKey}
+        data-variant="multiselect"
+      >
+        <label className="text-[11.5px] font-medium" style={labelStyle}>
+          {fieldLabel}
+        </label>
+        <div
+          data-testid="builder-ai-required-input-multiselect"
+          className="flex flex-col gap-px"
+        >
+          {input.options!.map((o) => (
+            <label
+              key={o.value}
+              className="flex items-center gap-1.5 text-[12px]"
+              style={labelStyle}
+            >
+              <input
+                type="checkbox"
+                data-testid="builder-ai-required-input-multiselect-option"
+                data-option-value={o.value}
+                checked={selected.has(o.value)}
+                onChange={() => toggle(o.value)}
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── combobox: dynamic optionsSource → typeable picker ────────────────
+  if (control === "combobox") {
     return (
       <RequiredInputOptionsSourceControl
         input={input}
@@ -170,7 +245,102 @@ export function RequiredInputControl({
     );
   }
 
-  // ── Branch 3: free-text fallback ─────────────────────────────────────
+  // ── boolean: checkbox/toggle ─────────────────────────────────────────
+  if (control === "boolean") {
+    const checked = answer?.value === "true";
+    return (
+      <div
+        className="flex flex-col gap-1"
+        data-testid="builder-ai-required-input-control"
+        data-input-key={inputKey}
+        data-variant="boolean"
+      >
+        <label className="flex items-center gap-1.5 text-[11.5px] font-medium" style={labelStyle}>
+          <input
+            type="checkbox"
+            data-testid="builder-ai-required-input-boolean"
+            checked={checked}
+            onChange={(e) => {
+              const next = e.target.checked;
+              onChange({
+                key: inputKey,
+                value: next ? "true" : "false",
+                display: next ? "true" : "false",
+                descriptor: input,
+              });
+            }}
+          />
+          {fieldLabel}
+        </label>
+      </div>
+    );
+  }
+
+  // ── number: numeric input ────────────────────────────────────────────
+  if (control === "number") {
+    return (
+      <div
+        className="flex flex-col gap-1"
+        data-testid="builder-ai-required-input-control"
+        data-input-key={inputKey}
+        data-variant="number"
+      >
+        <label className="text-[11.5px] font-medium" style={labelStyle}>
+          {fieldLabel}
+        </label>
+        <input
+          type="number"
+          data-testid="builder-ai-required-input-number"
+          value={answer?.value ?? ""}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next.trim() === "") {
+              onChange(undefined);
+              return;
+            }
+            onChange({ key: inputKey, value: next, display: next, descriptor: input });
+          }}
+          placeholder={placeholderText}
+          className={inputClassName}
+          style={inputStyle}
+        />
+      </div>
+    );
+  }
+
+  // ── textarea: multi-line editor ──────────────────────────────────────
+  if (control === "textarea") {
+    return (
+      <div
+        className="flex flex-col gap-1"
+        data-testid="builder-ai-required-input-control"
+        data-input-key={inputKey}
+        data-variant="textarea"
+      >
+        <label className="text-[11.5px] font-medium" style={labelStyle}>
+          {fieldLabel}
+        </label>
+        <textarea
+          data-testid="builder-ai-required-input-textarea"
+          rows={3}
+          value={answer?.display ?? ""}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next.trim() === "") {
+              onChange(undefined);
+              return;
+            }
+            onChange({ key: inputKey, display: next, descriptor: input });
+          }}
+          placeholder={placeholderText}
+          className={inputClassName}
+          style={inputStyle}
+        />
+      </div>
+    );
+  }
+
+  // ── text: single-line input + safe fallback for any known config field ─
   return (
     <div
       className="flex flex-col gap-1"
@@ -178,7 +348,7 @@ export function RequiredInputControl({
       data-input-key={inputKey}
       data-variant="text"
     >
-      <label className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
+      <label className="text-[11.5px] font-medium" style={labelStyle}>
         {fieldLabel}
       </label>
       <input
@@ -198,180 +368,9 @@ export function RequiredInputControl({
           });
         }}
         placeholder={placeholderText}
-        className="rounded-md border bg-transparent px-2 py-1 text-[12.5px]"
-        style={{
-          borderColor: "var(--builder-border)",
-          color: "var(--builder-text)",
-        }}
+        className={inputClassName}
+        style={inputStyle}
       />
-    </div>
-  );
-}
-
-/**
- * Dynamic-options branch (`optionsSource`). Subcomponent so the hook-call
- * site is gated behind the `optionsSource` check above — `useOptionsSource`
- * fires a network request whenever it mounts in `enabled` state, and the
- * static-options / text-fallback branches must never trigger that.
- */
-function RequiredInputOptionsSourceControl({
-  input,
-  answer,
-  onChange,
-  inputKey,
-  fieldLabel,
-  placeholderText,
-  deps,
-}: {
-  readonly input: AiRequiredUserInput;
-  readonly answer: RequiredInputAnswer | undefined;
-  readonly onChange: (next: RequiredInputAnswer | undefined) => void;
-  readonly inputKey: string;
-  readonly fieldLabel: string;
-  readonly placeholderText: string;
-  readonly deps: Readonly<Record<string, string>> | undefined;
-}) {
-  const [query, setQuery] = useState<string>(answer?.display ?? "");
-  // Disable the picker when a dependsOn parent isn't staged yet — the
-  // resolver would otherwise return MISSING_DEPENDENCY. The user can still
-  // type a free-text answer below.
-  const depsReady =
-    !input.dependsOn ||
-    input.dependsOn.length === 0 ||
-    (deps !== undefined && Object.keys(deps).length === input.dependsOn.length);
-  const { state } = useOptionsSource({
-    source: input.optionsSource ?? null,
-    deps: deps ?? {},
-    query,
-    enabled: depsReady,
-  });
-
-  return (
-    <div
-      className="flex flex-col gap-1"
-      data-testid="builder-ai-required-input-control"
-      data-input-key={inputKey}
-      data-variant="options-source"
-    >
-      <label className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
-        {fieldLabel}
-      </label>
-      <input
-        type="text"
-        data-testid="builder-ai-required-input-combobox-query"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={placeholderText}
-        className="rounded-md border bg-transparent px-2 py-1 text-[12.5px]"
-        style={{
-          borderColor: "var(--builder-border)",
-          color: "var(--builder-text)",
-        }}
-        disabled={!depsReady}
-      />
-      {!depsReady && (
-        <p
-          className="text-[10.5px]"
-          style={{ color: "var(--builder-muted)" }}
-          data-testid="builder-ai-required-input-deps-missing"
-        >
-          Select {input.dependsOn?.join(", ")} first.
-        </p>
-      )}
-      {depsReady && state.status === "loading" && (
-        <p
-          className="text-[10.5px]"
-          style={{ color: "var(--builder-muted)" }}
-          data-testid="builder-ai-required-input-loading"
-        >
-          Loading options…
-        </p>
-      )}
-      {depsReady && state.status === "error" && (
-        <p
-          className="text-[10.5px]"
-          style={{ color: "var(--builder-danger)" }}
-          data-testid="builder-ai-required-input-error"
-        >
-          {state.message}
-        </p>
-      )}
-      {depsReady && state.status === "disconnected" && (
-        <p
-          className="text-[10.5px]"
-          style={{ color: "var(--builder-warn)" }}
-          data-testid="builder-ai-required-input-disconnected"
-        >
-          Connect {state.provider} to load options.
-        </p>
-      )}
-      {depsReady &&
-        (state.status === "ready" || state.status === "loading") &&
-        state.items.length > 0 && (
-          <ul
-            data-testid="builder-ai-required-input-option-list"
-            className="flex flex-col gap-px"
-          >
-            {state.items.slice(0, 8).map((item) => {
-              const isSelected = answer?.value === item.value;
-              return (
-                <li key={item.value}>
-                  <button
-                    type="button"
-                    data-testid="builder-ai-required-input-option"
-                    data-option-value={item.value}
-                    onClick={() =>
-                      onChange({
-                        key: inputKey,
-                        value: item.value,
-                        display: item.label,
-                        descriptor: input,
-                      })
-                    }
-                    className="w-full rounded px-2 py-1 text-left text-[12px]"
-                    style={{
-                      background: isSelected ? "var(--builder-panel-2)" : "transparent",
-                      color: "var(--builder-text)",
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      {depsReady && state.status === "empty" && (
-        <p
-          className="text-[10.5px]"
-          style={{ color: "var(--builder-muted)" }}
-          data-testid="builder-ai-required-input-empty"
-        >
-          No options found.
-          {input.allowFreeText ? " You can type a custom value above." : ""}
-        </p>
-      )}
-      {/* Allow the user to commit the typed value verbatim when allowFreeText
-          is true — same affordance the config-modal combobox offers. */}
-      {input.allowFreeText &&
-        query.trim().length > 0 &&
-        answer?.display !== query.trim() && (
-          <button
-            type="button"
-            data-testid="builder-ai-required-input-commit-typed"
-            onClick={() =>
-              onChange({
-                key: inputKey,
-                display: query.trim(),
-                descriptor: input,
-              })
-            }
-            className="self-start text-[10.5px] underline"
-            style={{ color: "var(--builder-muted)" }}
-          >
-            Use “{query.trim()}” as-is
-          </button>
-        )}
     </div>
   );
 }

@@ -31,9 +31,13 @@ import { parseJsonBody, requireUser } from "../../../_shared";
 const MAX_ANSWERS = 50;
 const MAX_VALUE_LENGTH = 4_000;
 
+// nodeId/field are OPTIONAL (Slice 4.AI-35F): a bare answer (rendered required
+// text control with no node identity) is forwarded without a target, and
+// `completePlanWithRequiredInputs` infers the unique missing required text field
+// from the pending patch. A targeted answer (AI-35B) still carries both.
 const AnswerSchema = z.object({
-  nodeId: z.string().min(1).max(200),
-  field: z.string().min(1).max(200),
+  nodeId: z.string().min(1).max(200).optional(),
+  field: z.string().min(1).max(200).optional(),
   value: z.string().max(MAX_VALUE_LENGTH),
   multiple: z.boolean().optional(),
 });

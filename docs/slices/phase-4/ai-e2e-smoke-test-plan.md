@@ -133,7 +133,7 @@ The 12 scenarios from the AI-15 brief, each mapped to the test(s) that prove the
 | Service enrichment | [`enrichRequiredUserInputs.test.ts`](../../../tests/unit/services/ai/planner/enrichRequiredUserInputs.test.ts) (8 cases) | `slack:send_channel_message.channel` → enriched with `combobox` + `slack:channels` + `allowFreeText: true`; `slack:send_channel_message.text` → enriched with `textarea`; no-field / unresolvable nodeId / unknown field / null patch all pass through unchanged; no-leak (a patch with `accessToken: "xoxb-LEAKED-SECRET"` produces no leak in serialized output). |
 | Planner-service wiring | [`planWorkflowFromPrompt.test.ts`](../../../tests/unit/services/ai/planner/planWorkflowFromPrompt.test.ts) `it("enriches requiredUserInput with FieldMeta hints ...")` + `it("leaves no-field entries unenriched ...")` | The patched-path enricher attaches `provider` / `nodeType` / `fieldLabel` / `fieldType` / `optionsSource` to each entry that maps to an `addNode` op; `select_integration` / `clarification` entries pass through unchanged. |
 | Client type | [`lib/api/ai.ts`](../../../lib/api/ai.ts) `AiRequiredUserInput` | All new fields are `readonly … ?:` — every existing AI-11B / AI-20 / AI-21 / AI-21B / AI-21C consumer keeps working. |
-| Control branches | [`RequiredInputControl.test.tsx`](../../../tests/unit/features/workflow-builder/ai/RequiredInputControl.test.tsx) (20 cases) | Static options → `<select>` (3 cases + no-hook-fire); optionsSource → combobox (8 cases: ready / loading / disconnected / error / empty / commit-typed / deps-missing / deps-pass-through); free-text fallback (4 cases + no-hook-fire); pre-AI-22 backward compat; `requiredInputKey` helper (2 cases). |
+| Control branches | [`RequiredInputControl.test.tsx`](../../../tests/unit/features/workflow-builder/ai/RequiredInputControl.test.tsx) + [`resolveRequiredInputControl.test.ts`](../../../tests/unit/features/workflow-builder/ai/resolveRequiredInputControl.test.ts) (AI-35E) | Static options → `<select>`; `multiple` → checkbox multi-select; optionsSource → combobox (ready / loading / disconnected / error / empty / commit-typed / deps-missing / deps-pass-through); `boolean` → checkbox; `number` → number input; `textarea` → `<textarea>`; `text` / renderer-unknown / bare `config_value` → text fallback; clarification (no field) → bullet only. The resolver tests prove the mapping is metadata-driven (same field shape across 10 providers + native resolves to the same control — no provider branches). |
 | Compose helper | [`composeFollowUpPrompt.test.ts`](../../../tests/unit/features/workflow-builder/ai/composeFollowUpPrompt.test.ts) `describe("composeFollowUpPrompt — structured answers (AI-22)")` (5 cases) | `User provided:` section renders with `- {label}: {display} (value: <value>)`; redundant `(value: …)` suffix suppressed when display equals value; structured-only mode (empty followUp) works; both sections render when both inputs present; backward compat preserved. |
 | Panel integration | [`BuilderAiPanel.test.tsx`](../../../tests/unit/features/workflow-builder/panels/BuilderAiPanel.test.tsx) `describe("required-input controls + structured follow-up (AI-22)")` (7 cases) | Controls render per entry (combobox + text), staging doesn't auto-submit, submit produces reconstructed prompt with `User provided:`, user-message bubble shows staged answers, Clear resets staged answers, AI-20 apply-gate still hides Apply while requiredUserInput is non-empty, no-leak holds when patch carries fake secret config. |
 
@@ -389,22 +389,55 @@ The React Agent must render selectable controls for provider ambiguity and must 
 42. A Slack message with no channel/text still **blocks Apply** until provided (AI-20 floor preserved).
 43. Existing Manual Trigger → Slack DM; "change this to send the message to a different person" → asks for the recipient; answering `user123` produces an **update** to the existing DM node (no new unrelated node).
 
-### 5.9 — Deterministic required-input completion (AI-35B; cost guard)
+### 5.9 — Deterministic required-input completion (AI-35B / AI-35F; cost guard)
 
 Filling already-identified required fields and clicking Send details should NOT call a model. Run the dev server with `ENABLE_AI_COST_DEBUG=true` and watch the server console.
 
 44. Provider chosen + Slack channel/text patch exists; fill channel + message via the controls (no free text) → Send details → an apply-ready plan appears and the console shows `[ai-cost] … event=ai_required_input_completed … resolution=deterministic(config_values_applied)` — and **no** `follow_up` planner cost line (no model call).
 45. Existing Slack DM edit: "change this to send the message to a different person" → answer the recipient via the control → Send details → the existing node updates (no new node), apply-ready, `resolution=deterministic` (no model call). This is the AI-35 #3 fix moved to the deterministic layer.
 46. Typing free text alongside the controls, resolving a provider choice, or a fill that fails preview validation → a normal `follow_up` planner cost line appears (model re-plan) — the expected fallback.
+47. **AI-35F bare control** — "Send me a Slack DM when I manually run this workflow" → answer the rendered *"What should the Slack DM say?"* control with "Hey" → Send details → the Network tab shows `POST /api/workflows/.../ai/complete` (**not** `/ai/plan`), the console shows `resolution=deterministic(config_values_applied)`, no OpenAI call, no "AI assistant is unavailable", and the message is filled in. The server inferred the unique missing required text field from the pending patch even though the chat entry had no node identity.
+48. **AI-35F ambiguous / no-patch** — a turn where two required text fields are both missing (or the plan returned a null patch) → Send details bounces with `resolution=model_replan(ambiguous_target)` / `model_replan(no_target_node)` and falls back to the planner (no wrong field filled).
 
 ### 5.10 — OpenAI-only planner; Anthropic disabled at runtime (AI-36)
 
 The React Agent planner now uses OpenAI `gpt-4.1-mini`; Anthropic must not be called. Run with `ENABLE_OPENAI_PROVIDER=true`, `ENABLE_OPENAI_PLANNER=true`, `OPENAI_API_KEY` set, `ENABLE_AI_COST_DEBUG=true`, and `ENABLE_ANTHROPIC_PLANNER_FALLBACK` unset.
 
-47. Plan each: "Send me a Slack DM", "When Stripe payment fails send me a Slack DM", "When I get an email send a Slack message", "When I get a Gmail email send a Slack message", "Create an automation".
-48. **Expected:** every `[ai-cost]` planner line shows `provider=openai model=gpt-4.1-mini`; `ai_cost_events` rows for these plans show `model_provider=openai`; **zero** `model_provider=anthropic` rows are created; no request hits `/v1/messages` (watch the Network tab / server logs). Output quality holds — no-substitution, required fields asked, Apply/Activate semantics, deterministic completion for direct field fills.
-49. **Quick confirm without the dev server:** `npx tsx scripts/trash/verify-openai-planner.ts` prints `planner provider: openai` + `provider=openai`/`model=gpt-4.1-mini` on every prompt row.
-50. **Emergency Anthropic (only when explicitly enabled):** set `ENABLE_ANTHROPIC_PLANNER_FALLBACK=true` and unset the OpenAI planner flag → the planner uses Anthropic (`/v1/messages`). With the flag unset, this never happens.
+49. Plan each: "Send me a Slack DM", "When Stripe payment fails send me a Slack DM", "When I get an email send a Slack message", "When I get a Gmail email send a Slack message", "Create an automation".
+50. **Expected:** every `[ai-cost]` planner line shows `provider=openai model=gpt-4.1-mini`; `ai_cost_events` rows for these plans show `model_provider=openai`; **zero** `model_provider=anthropic` rows are created; no request hits `/v1/messages` (watch the Network tab / server logs). Output quality holds — no-substitution, required fields asked, Apply/Activate semantics, deterministic completion for direct field fills.
+51. **Quick confirm without the dev server:** `npx tsx scripts/trash/verify-openai-planner.ts` prints `planner provider: openai` + `provider=openai`/`model=gpt-4.1-mini` on every prompt row.
+52. **Emergency Anthropic (only when explicitly enabled):** set `ENABLE_ANTHROPIC_PLANNER_FALLBACK=true` and unset the OpenAI planner flag → the planner uses Anthropic (`/v1/messages`). With the flag unset, this never happens.
+
+### 5.11 — Required-input control parity (AI-35E)
+
+Every missing field that maps to a known field/control must render the matching interactive control in the chat — never a static bullet. The control class mirrors what the config panel would render. No provider-specific behavior.
+
+53. **Live regression:** empty canvas → "Send me a Slack DM when I manually run this workflow" → the agent's *"What should the Slack DM say?"* renders an **interactive input control** (a textarea when the plan carries the Slack `text` field's `textarea` FieldMeta; a single-line text box for a bare null-patch question) — **not** a static bullet. Type the message → Send details → the plan completes / becomes apply-ready.
+54. **Provider choice** → a `provider_choice` renders a **select** with the candidate providers (Gmail / Outlook). **Channel / list pickers** → an `optionsSource` field renders a typeable **combobox**. **Boolean** config field → checkbox/toggle. **Number** field → number input. **Multi-select** (`multiple`) static enum → checkbox group.
+55. **Bullet only for non-field clarifications:** a pure `clarification` / `choose_trigger` that maps to no known field still renders as a bullet (no control). Confirm a clarification-only turn shows a bullet, while any `config_value` shows a control.
+
+### 5.12 — Vertical layout + optionsSource control parity (AI-35G)
+
+AI-applied simple workflows lay out vertically; required-input controls mirror the config-panel picker for `optionsSource` fields; picker answers use option ids, never labels.
+
+56. **Vertical layout** — "When I manually run this, send a Slack message saying Hello" → Apply → the canvas shows the Manual Trigger ABOVE the Slack action (vertical, x-aligned, edges routing downward), NOT side-by-side. A second action stacks below. A pure config edit (no node added) does not relayout the graph. Branch/router graphs keep their layout.
+57. **optionsSource combobox** — "send a Slack channel message" (channel unspecified) → the "Which Slack channel should receive the message?" required-input renders the **searchable channel combobox** (the `slack:channels` picker), not a plain text box. Generic: a Gmail label / Sheets / Airtable / Trello / Notion picker field renders its combobox the same way.
+58. **Picker uses option id** — pick a channel in the combobox + Send details → completes deterministically and writes the channel **id** (not the `#name` label). Typing a name without selecting an option → re-plans (`picker_requires_option`); the label is never written as the channel id.
+
+### 5.13 — optionsSource reconciliation on follow-up plans (AI-35H)
+
+Follow-up-generated picker fields render the combobox just like initial plans — even when the model phrases the question as a clarification.
+
+59. **Follow-up correction** — "Send me a Slack DM when I manually run this workflow" → answer the message text → reply "This is to a channel" → the agent switches to Send Channel Message and asks "Which Slack channel should receive the message?". That follow-up question renders the **`slack:channels` combobox**, NOT a plain text box (the follow-up goes through the same reconciliation/enrichment path as the initial plan; the clarification-phrased question is reconciled to the unique missing channel field). Pick a channel + Send details → completes with the channel id.
+60. **Limitation check** — if the follow-up returns a null patch (no node) or has two missing picker fields for one question, the field stays a text fallback and Send details re-plans rather than writing a bad value — never a corrupted id.
+
+### 5.14 — Intent-correction reconciliation (AI-35I)
+
+An explicit follow-up correction overrides the earlier inferred provider/action/trigger; deterministic completion is for direct field-filling only, and a shape-changing correction forces a model re-plan with explicit override context.
+
+61. **DM→channel intent switch** — "Send me a Slack DM when I manually run this workflow" → answer the message text "Hey" → reply "This is to a channel" → the action **switches to Send Channel Message** and asks for a channel. The agent must NOT keep asking "Which Slack user should receive the DM?" / "Slack DMs require a userId". The message "Hey" is reused. With `ENABLE_AI_COST_DEBUG=true`, the correction turn shows the `follow_up` planner cost line (a re-plan), NOT `resolution=deterministic`.
+62. **Provider / action / trigger corrections** — from any inferred plan: "No, use Outlook" (provider), "Actually send an email instead" (action), "make it manual" (trigger) each REPLACE the prior shape and its required inputs rather than re-asking the obsolete action's inputs.
+63. **Plain answer stays deterministic** — a non-correction answer ("Hey", picking "#general") is NOT treated as a correction: it still completes deterministically (`POST /ai/complete`, no model call), confirming the detector doesn't over-trigger on ordinary field answers.
 
 ---
 

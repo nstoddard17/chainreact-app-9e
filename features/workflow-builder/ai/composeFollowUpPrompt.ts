@@ -54,6 +54,21 @@ export interface ComposeFollowUpPromptInput {
    * than typed free text). Optional — pre-AI-22 callers can omit it.
    */
   readonly structuredAnswers?: readonly ComposeFollowUpStructuredAnswer[];
+  /**
+   * Slice 4.AI-35I — true when the latest follow-up is an explicit
+   * shape-changing correction (detected by `detectIntentCorrection`). Adds a
+   * prominent directive telling the planner the latest message OVERRIDES the
+   * previously inferred provider/action/trigger, so a "this is to a channel"
+   * correction switches Slack DM → channel instead of re-asking for a user id.
+   */
+  readonly isCorrection?: boolean;
+  /**
+   * Slice 4.AI-35I — the prior plan's `intentSummary` (already value-free per
+   * the AI-9A/AI-3 contract). Rendered as NON-BINDING context so the planner
+   * knows what it inferred before, while the closing instruction keeps the
+   * latest user message authoritative.
+   */
+  readonly priorPlanSummary?: string;
 }
 
 function formatStructuredAnswer(a: ComposeFollowUpStructuredAnswer): string {
@@ -78,10 +93,20 @@ export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string
     priorFollowUpAnswers,
     followUp,
     structuredAnswers,
+    isCorrection,
+    priorPlanSummary,
   } = input;
   const sections: string[] = [];
 
   sections.push(`Original request:\n${originalPrompt.trim()}`);
+
+  // Slice 4.AI-35I — the prior plan summary is CONTEXT, never binding truth.
+  const trimmedPriorPlanSummary = priorPlanSummary?.trim() ?? "";
+  if (trimmedPriorPlanSummary.length > 0) {
+    sections.push(
+      `Current plan so far (context only — may be replaced by your latest message):\n${trimmedPriorPlanSummary}`,
+    );
+  }
 
   if (requiredInputLabels.length > 0) {
     sections.push(
@@ -105,14 +130,25 @@ export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string
   if (trimmedFollowUp.length > 0) {
     sections.push(`User follow-up:\n${trimmedFollowUp}`);
   }
-  // Slice 4.AI-35 — edit-aware closing. The prior "Create the workflow…"
-  // wording biased the model toward ADDING nodes even when the original
-  // request was an edit of an existing canvas node (e.g. "change the Slack DM
-  // recipient"), which broke existing-node-edit follow-ups. This neutral
-  // instruction tells the model to update existing nodes for edits and only
-  // create when building from scratch.
+
+  // Slice 4.AI-35I — when the latest message is an explicit correction, lead
+  // with a prominent override directive so the planner abandons the previously
+  // inferred provider/action/trigger instead of re-completing its stale inputs
+  // (the "keeps asking for a Slack DM userId after the user said channel" bug).
+  if (isCorrection === true) {
+    sections.push(
+      "Correction: the user's latest message corrects the earlier plan. Treat it as an explicit override of the previously inferred provider, action, and trigger. Rebuild the affected node(s) to match the correction — do NOT keep the previous action/trigger type, and do NOT re-ask for inputs (e.g. a recipient or user id) that only applied to the choice the user just replaced.",
+    );
+  }
+
+  // Slice 4.AI-35I — authoritative-latest closing (replaces the AI-35 "for the
+  // original request" wording, which biased the planner toward the original
+  // inferred intent and ignored explicit corrections — exposed once AI-36
+  // switched the planner to OpenAI). The original request, the agent's
+  // questions, the current plan, and any previous answers above are CONTEXT
+  // ONLY. Keeps the AI-35 edit-vs-add guidance.
   sections.push(
-    "Produce the workflow patch for the original request using the follow-up details above. If the original request edits nodes already on the canvas, UPDATE those existing nodes (update their config) rather than adding new ones; only add nodes when building from scratch.",
+    "The user's latest message is authoritative. The original request, the agent's questions, the current plan, and any previous answers above are CONTEXT ONLY — if the latest message conflicts with them, follow the latest message and REPLACE the obsolete provider/action/trigger choice (discarding any required inputs that only applied to the replaced choice). If the request edits nodes already on the canvas, UPDATE those existing nodes (update their config) rather than adding new ones; only add nodes when building from scratch.",
   );
 
   return sections.join("\n\n");

@@ -208,6 +208,101 @@ function isFieldValueEmpty(value: unknown): boolean {
   );
 }
 
+const AI_FIELD_RE = /\{\{\s*AI_FIELD:/;
+
+/**
+ * A config value the user's answer can replace: empty (per `isFieldValueEmpty`)
+ * OR an unresolved `{{AI_FIELD:…}}` placeholder. A literal value or a
+ * `{{nodeId.field}}` reference is a real model choice and is NOT a candidate.
+ */
+function isFieldValueFillable(value: unknown): boolean {
+  return (
+    isFieldValueEmpty(value) ||
+    (typeof value === "string" && AI_FIELD_RE.test(value))
+  );
+}
+
+/**
+ * Bare-question kinds this pass can attach a field to. A model asking the user
+ * to supply a single missing field typically emits either `config_value` ("the
+ * user must provide this value") OR `clarification` ("which Slack channel?") —
+ * both are field-value questions in practice. Slice 4.AI-35H broadens AI-35G
+ * (which matched `config_value` only) to also catch the `clarification` form,
+ * since the live "Which Slack channel should receive the message?" follow-up was
+ * emitted as a clarification and therefore never reconciled → rendered as plain
+ * text instead of the channel combobox. `provider_choice` / `select_integration`
+ * / `choose_trigger` / `variable_reference` are deliberately NOT reconciled —
+ * they are provider/trigger/wiring concerns, not a single missing config field.
+ */
+const RECONCILABLE_BARE_KINDS: ReadonlySet<string> = new Set(["config_value", "clarification"]);
+
+/**
+ * Slice 4.AI-35G / 4.AI-35H — attach node/field identity to a BARE question (no
+ * `nodeId`/`field`) when the pending patch has exactly ONE unambiguous fillable
+ * required field it can map to. Runs on BOTH initial AND follow-up plan results
+ * (both go through `planWorkflowFromPromptForAI`).
+ *
+ * The model often asks a free-text question ("Which Slack channel should
+ * receive the message?") WITHOUT carrying the field reference, even though the
+ * patch's node has that exact field missing. Without identity the enricher
+ * can't attach the field's FieldMeta, so an `optionsSource` picker (Slack
+ * channel, Gmail label, Airtable table, …) degrades to a plain text input AND
+ * deterministic completion can't map the answer. This pass gives the bare
+ * question its field identity (and normalizes its kind to `config_value`) so
+ * {@link enrichRequiredUserInputs} can then attach the right control metadata
+ * (combobox / select / textarea).
+ *
+ * Conservative + generic (no provider branches): fires ONLY when there is
+ * exactly one bare reconcilable question (kind in {@link RECONCILABLE_BARE_KINDS})
+ * AND exactly one fillable required field (across `addNode`/`replaceTrigger`
+ * nodes) not already targeted by another entry. Multiple bare entries, multiple
+ * candidate fields, or a null patch → left untouched (the bare entry keeps its
+ * text fallback / re-plan path — a documented limitation when field identity
+ * cannot be safely inferred). Pure; same in-memory registry lookups as the
+ * enricher.
+ */
+export function reconcileBareConfigValueEntries(
+  inputs: readonly PlanRequiredUserInput[],
+  patch: WorkflowPatch | null,
+): readonly PlanRequiredUserInput[] {
+  if (!patch) return inputs;
+
+  const bareIndices = inputs
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => RECONCILABLE_BARE_KINDS.has(entry.kind) && (!entry.nodeId || !entry.field));
+  if (bareIndices.length !== 1) return inputs;
+
+  const targeted = new Set(
+    inputs.filter((e) => e.nodeId && e.field).map((e) => `${e.nodeId}::${e.field}`),
+  );
+
+  const candidates: Array<{ nodeId: string; field: string }> = [];
+  for (const op of patch.operations ?? []) {
+    const node = op.op === "addNode" || op.op === "replaceTrigger" ? op.node : null;
+    if (!node) continue;
+    const key = `${node.provider}:${node.type}`;
+    const meta = node.kind === "trigger" ? getTriggerMeta(key) : getActionMeta(key);
+    if (!meta) continue;
+    const config = (node.config ?? {}) as Record<string, unknown>;
+    for (const f of meta.fields) {
+      if (!f.required) continue;
+      if (!isFieldValueFillable(config[f.name])) continue;
+      const dedupeKey = `${node.id}::${f.name}`;
+      if (targeted.has(dedupeKey)) continue;
+      candidates.push({ nodeId: node.id, field: f.name });
+    }
+  }
+  if (candidates.length !== 1) return inputs;
+
+  const target = candidates[0]!;
+  const bareIndex = bareIndices[0]!.index;
+  return inputs.map((entry, index) =>
+    index === bareIndex
+      ? { ...entry, kind: "config_value", nodeId: target.nodeId, field: target.field }
+      : entry,
+  );
+}
+
 export function deriveMissingRequiredFieldInputs(
   patch: WorkflowPatch | null,
   existing: readonly PlanRequiredUserInput[],

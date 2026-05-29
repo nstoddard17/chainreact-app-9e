@@ -213,6 +213,31 @@ describe("applyWorkflowPatchForAI — persistence", () => {
     expect(persistedDef().edges.some((e) => e.id === "e2")).toBe(true);
   });
 
+  // Slice 4.AI-35G — an AI-applied simple linear workflow is normalized to the
+  // builder's vertical column (trigger on top, actions stacked below).
+  it("lays out a simple linear AI-applied workflow vertically (trigger above actions)", async () => {
+    const res = await applyWorkflowPatchForAI({
+      ...APPLY,
+      patch: patch([
+        { op: "addNode", node: node("a2", "action", "slack", "send_channel_message", { channel: "C1", text: "hi" }) },
+        { op: "addEdge", edge: { id: "e2", from: "a1", to: "a2" } },
+      ]),
+    });
+    expect(res.ok).toBe(true);
+    const pos = (id: string) => persistedDef().nodes.find((n) => n.id === id)!.position;
+    // Base def starts with t + a1 BOTH at (0,0); after apply the chain t→a1→a2
+    // is re-stacked vertically, all x-aligned.
+    expect(pos("t").y).toBeLessThan(pos("a1").y);
+    expect(pos("a1").y).toBeLessThan(pos("a2").y);
+    expect(new Set([pos("t").x, pos("a1").x, pos("a2").x]).size).toBe(1);
+  });
+
+  it("does NOT relayout positions on a pure config edit (updateNodeConfig)", async () => {
+    // a1 starts at (0,0); a config edit must not move it.
+    await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "updateNodeConfig", nodeId: "a1", config: { subject: "Hi" } }]) });
+    expect(persistedDef().nodes.find((n) => n.id === "a1")!.position).toEqual({ x: 0, y: 0 });
+  });
+
   it("persists merged config from updateNodeConfig", async () => {
     await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "updateNodeConfig", nodeId: "a1", config: { to: "new@y.com", subject: "Hi" } }]) });
     const a1 = persistedDef().nodes.find((n) => n.id === "a1")!;

@@ -406,3 +406,133 @@ describe("AI-35 — updateNodeConfig identity resolves from the current canvas",
     expect(enriched!.optionsSource).toBeUndefined();
   });
 });
+
+// ─── Slice 4.AI-35G: reconcile bare config_value → unique missing field ──────
+
+import { reconcileBareConfigValueEntries } from "@/services/ai/planner/enrichRequiredUserInputs";
+
+describe("reconcileBareConfigValueEntries (AI-35G)", () => {
+  it("attaches node/field identity to a bare question when the patch has one fillable required field", () => {
+    // Slack send_channel_message with text filled (user said "Hello") + channel
+    // an AI_FIELD placeholder → exactly one fillable required field (channel).
+    const patch = patchWith({ text: "Hello", channel: "{{AI_FIELD:channel}}" });
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Which Slack channel should receive the message?", kind: "config_value" }],
+      patch,
+    );
+    expect(reconciled[0]!.nodeId).toBe("n_slack");
+    expect(reconciled[0]!.field).toBe("channel");
+  });
+
+  it("the reconciled entry then enriches to the optionsSource combobox (renders a picker, not text)", () => {
+    const patch = patchWith({ text: "Hello", channel: "{{AI_FIELD:channel}}" });
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Which Slack channel?", kind: "config_value" }],
+      patch,
+    );
+    const [enriched] = enrichRequiredUserInputs(reconciled, patch);
+    expect(enriched!.fieldType).toBe("combobox");
+    expect(enriched!.optionsSource).toBe("slack:channels");
+  });
+
+  it("does NOT attach when more than one required field is fillable (ambiguous)", () => {
+    // Both channel + text empty → two candidates → don't guess.
+    const patch = patchWith({});
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Which Slack channel?", kind: "config_value" }],
+      patch,
+    );
+    expect(reconciled[0]!.nodeId).toBeUndefined();
+    expect(reconciled[0]!.field).toBeUndefined();
+  });
+
+  it("does NOT attach when there is more than one bare config_value entry", () => {
+    const patch = patchWith({ text: "Hello" }); // only channel fillable
+    const reconciled = reconcileBareConfigValueEntries(
+      [
+        { label: "Which channel?", kind: "config_value" },
+        { label: "Anything else?", kind: "config_value" },
+      ],
+      patch,
+    );
+    expect(reconciled.every((e) => e.nodeId === undefined)).toBe(true);
+  });
+
+  it("does NOT attach a field already targeted by another entry", () => {
+    const patch = patchWith({ text: "Hello" }); // channel fillable
+    const reconciled = reconcileBareConfigValueEntries(
+      [
+        { label: "Which channel?", nodeId: "n_slack", field: "channel", kind: "config_value" }, // already targets channel
+        { label: "Something bare", kind: "config_value" },
+      ],
+      patch,
+    );
+    // The bare entry stays bare — channel is the only fillable field but it's taken.
+    const bare = reconciled.find((e) => e.label === "Something bare")!;
+    expect(bare.nodeId).toBeUndefined();
+  });
+
+  it("no-op for a null patch", () => {
+    const inputs = [{ label: "Which channel?", kind: "config_value" as const }];
+    expect(reconcileBareConfigValueEntries(inputs, null)).toBe(inputs);
+  });
+
+  it("leaves a non-config_value bare entry (provider_choice / select_integration) untouched", () => {
+    const patch = patchWith({ text: "Hello" });
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Connect Slack", kind: "select_integration" }],
+      patch,
+    );
+    expect(reconciled[0]!.nodeId).toBeUndefined();
+  });
+});
+
+// ─── Slice 4.AI-35H: broaden reconcile to clarification-kind questions ───────
+
+describe("reconcileBareConfigValueEntries — clarification kind (AI-35H)", () => {
+  it("attaches identity to a bare CLARIFICATION question + normalizes it to config_value (the live follow-up bug)", () => {
+    // The DM→channel follow-up: the model emitted "Which Slack channel…" as a
+    // `clarification`, so AI-35G (config_value only) never reconciled it → plain
+    // text. AI-35H catches the clarification form.
+    const patch = patchWith({ text: "Hey", channel: "{{AI_FIELD:channel}}" });
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Which Slack channel should receive the message?", kind: "clarification" }],
+      patch,
+    );
+    expect(reconciled[0]!.nodeId).toBe("n_slack");
+    expect(reconciled[0]!.field).toBe("channel");
+    expect(reconciled[0]!.kind).toBe("config_value"); // normalized
+  });
+
+  it("a clarification-kind channel question enriches to the optionsSource combobox (picker, not text)", () => {
+    const patch = patchWith({ text: "Hey", channel: "{{AI_FIELD:channel}}" });
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Which Slack channel should receive the message?", kind: "clarification" }],
+      patch,
+    );
+    const [enriched] = enrichRequiredUserInputs(reconciled, patch);
+    expect(enriched!.fieldType).toBe("combobox");
+    expect(enriched!.optionsSource).toBe("slack:channels");
+  });
+
+  it("does NOT reconcile a choose_trigger / variable_reference bare entry (not a single missing field)", () => {
+    const patch = patchWith({ text: "Hey" }); // channel fillable
+    for (const kind of ["choose_trigger", "variable_reference"] as const) {
+      const reconciled = reconcileBareConfigValueEntries([{ label: "x", kind }], patch);
+      expect(reconciled[0]!.nodeId).toBeUndefined();
+    }
+  });
+
+  it("generic: the same single-missing-optionsSource-field reconciliation works for a channel-message clarification regardless of question wording", () => {
+    // Wording-independent: keyed off the patch's unique fillable required field,
+    // not the question text → provider-agnostic.
+    const patch = patchWith({ text: "Hey" }); // channel empty → unique fillable
+    const reconciled = reconcileBareConfigValueEntries(
+      [{ label: "Pick the destination please", kind: "clarification" }],
+      patch,
+    );
+    const [enriched] = enrichRequiredUserInputs(reconciled, patch);
+    expect(enriched!.field).toBe("channel");
+    expect(enriched!.optionsSource).toBe("slack:channels");
+  });
+});

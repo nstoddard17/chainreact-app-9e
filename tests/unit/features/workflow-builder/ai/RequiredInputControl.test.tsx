@@ -270,7 +270,59 @@ describe("RequiredInputControl — optionsSource (Branch 2)", () => {
   });
 });
 
-describe("RequiredInputControl — free-text fallback (Branch 3)", () => {
+describe("RequiredInputControl — single-line text (text field)", () => {
+  const input: AiRequiredUserInput = {
+    label: "Recipient user id",
+    nodeId: "n_slack",
+    field: "userId",
+    kind: "config_value",
+    fieldLabel: "User id",
+    fieldType: "text",
+    allowFreeText: true,
+  };
+
+  it("renders a text input for a `text` field", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    const control = screen.getByTestId("builder-ai-required-input-control");
+    expect(control.getAttribute("data-variant")).toBe("text");
+    expect(screen.getByTestId("builder-ai-required-input-text")).toBeInTheDocument();
+  });
+
+  it("calls onChange with the typed value when the user enters text", () => {
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(input)} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+      target: { value: "U123" },
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const arg = onChange.mock.calls[0]![0] as RequiredInputAnswer;
+    expect(arg.display).toBe("U123");
+    expect(arg.value).toBeUndefined();
+    expect(arg.descriptor).toBe(input);
+  });
+
+  it("calls onChange(undefined) when the user clears the text input", () => {
+    const onChange = jest.fn();
+    render(
+      <RequiredInputControl
+        {...defaultProps(input)}
+        answer={{ key: "n_slack::userId", display: "U123", descriptor: input }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+      target: { value: "" },
+    });
+    expect(onChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it("never fires the optionsSource hook on the text branch", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("RequiredInputControl — multi-line textarea (textarea field)", () => {
   const input: AiRequiredUserInput = {
     label: "What should the message say?",
     nodeId: "n_slack",
@@ -281,59 +333,160 @@ describe("RequiredInputControl — free-text fallback (Branch 3)", () => {
     allowFreeText: true,
   };
 
-  it("renders a text input when no options + no optionsSource are present", () => {
+  it("renders a <textarea> for a `textarea` field", () => {
     render(<RequiredInputControl {...defaultProps(input)} />);
     const control = screen.getByTestId("builder-ai-required-input-control");
-    expect(control.getAttribute("data-variant")).toBe("text");
-    expect(screen.getByTestId("builder-ai-required-input-text")).toBeInTheDocument();
+    expect(control.getAttribute("data-variant")).toBe("textarea");
+    expect(screen.getByTestId("builder-ai-required-input-textarea").tagName).toBe("TEXTAREA");
   });
 
-  it("calls onChange with the typed value when the user enters text", () => {
-    // Use fireEvent.change for the controlled-input contract: the
-    // component reads `answer?.display ?? ""`. The real panel owns
-    // `stagedAnswers` and re-renders with the new answer on each
-    // keystroke; this test exercises the contract one event at a time.
+  it("calls onChange with the typed value", () => {
     const onChange = jest.fn();
     render(<RequiredInputControl {...defaultProps(input)} onChange={onChange} />);
-    const textInput = screen.getByTestId("builder-ai-required-input-text");
-    fireEvent.change(textInput, { target: { value: "Hello" } });
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-textarea"), {
+      target: { value: "Hello there" },
+    });
     expect(onChange).toHaveBeenCalledTimes(1);
     const arg = onChange.mock.calls[0]![0] as RequiredInputAnswer;
-    expect(arg.display).toBe("Hello");
+    expect(arg.display).toBe("Hello there");
     expect(arg.value).toBeUndefined();
-    expect(arg.descriptor).toBe(input);
   });
 
-  it("calls onChange(undefined) when the user clears the text input", () => {
-    const onChange = jest.fn();
-    render(
-      <RequiredInputControl
-        {...defaultProps(input)}
-        answer={{ key: "n_slack::text", display: "Hello", descriptor: input }}
-        onChange={onChange}
-      />,
-    );
-    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
-      target: { value: "" },
-    });
-    expect(onChange).toHaveBeenCalledWith(undefined);
-  });
-
-  it("never fires the optionsSource hook on the free-text branch", () => {
+  it("never fires the optionsSource hook on the textarea branch", () => {
     render(<RequiredInputControl {...defaultProps(input)} />);
     expect(mockUseOptionsSource).not.toHaveBeenCalled();
   });
 });
 
-describe("RequiredInputControl — backward compat (pre-AI-22 entry)", () => {
-  it("falls through to the free-text branch when no enrichment fields are present", () => {
+describe("RequiredInputControl — boolean field", () => {
+  const input: AiRequiredUserInput = {
+    label: "Notify on completion?",
+    nodeId: "n1",
+    field: "notify",
+    kind: "config_value",
+    fieldLabel: "Notify",
+    fieldType: "boolean",
+  };
+
+  it("renders a checkbox for a `boolean` field", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    expect(
+      screen.getByTestId("builder-ai-required-input-control").getAttribute("data-variant"),
+    ).toBe("boolean");
+    const box = screen.getByTestId("builder-ai-required-input-boolean") as HTMLInputElement;
+    expect(box.type).toBe("checkbox");
+    expect(box.checked).toBe(false);
+  });
+
+  it("calls onChange with value 'true'/'false' when toggled", () => {
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(input)} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId("builder-ai-required-input-boolean"));
+    const arg = onChange.mock.calls[0]![0] as RequiredInputAnswer;
+    expect(arg.value).toBe("true");
+    expect(arg.display).toBe("true");
+  });
+
+  it("never fires the optionsSource hook on the boolean branch", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("RequiredInputControl — number field", () => {
+  const input: AiRequiredUserInput = {
+    label: "How many?",
+    nodeId: "n1",
+    field: "count",
+    kind: "config_value",
+    fieldLabel: "Count",
+    fieldType: "number",
+  };
+
+  it("renders a number input for a `number` field", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    expect(
+      screen.getByTestId("builder-ai-required-input-control").getAttribute("data-variant"),
+    ).toBe("number");
+    const box = screen.getByTestId("builder-ai-required-input-number") as HTMLInputElement;
+    expect(box.type).toBe("number");
+  });
+
+  it("calls onChange with the typed numeric string as value", () => {
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(input)} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-number"), {
+      target: { value: "5" },
+    });
+    const arg = onChange.mock.calls[0]![0] as RequiredInputAnswer;
+    expect(arg.value).toBe("5");
+    expect(arg.display).toBe("5");
+  });
+});
+
+describe("RequiredInputControl — multi-select (static options + multiple)", () => {
+  const input: AiRequiredUserInput = {
+    label: "Which events?",
+    nodeId: "n1",
+    field: "events",
+    kind: "config_value",
+    fieldLabel: "Events",
+    fieldType: "select",
+    multiple: true,
+    options: [
+      { label: "Created", value: "created" },
+      { label: "Updated", value: "updated" },
+      { label: "Deleted", value: "deleted" },
+    ],
+  };
+
+  it("renders one checkbox per option", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    expect(
+      screen.getByTestId("builder-ai-required-input-control").getAttribute("data-variant"),
+    ).toBe("multiselect");
+    expect(screen.getAllByTestId("builder-ai-required-input-multiselect-option")).toHaveLength(3);
+  });
+
+  it("accumulates selected values + joins labels into display", () => {
+    const onChange = jest.fn();
+    render(<RequiredInputControl {...defaultProps(input)} onChange={onChange} />);
+    const boxes = screen.getAllByTestId("builder-ai-required-input-multiselect-option");
+    fireEvent.click(boxes[0]!); // created
+    const first = onChange.mock.calls[0]![0] as RequiredInputAnswer;
+    expect(first.values).toEqual(["created"]);
+    expect(first.display).toBe("Created");
+  });
+
+  it("removing the last selection clears the answer", () => {
+    const onChange = jest.fn();
+    render(
+      <RequiredInputControl
+        {...defaultProps(input)}
+        answer={{ key: "n1::events", values: ["created"], display: "Created", descriptor: input }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getAllByTestId("builder-ai-required-input-multiselect-option")[0]!);
+    expect(onChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it("never fires the optionsSource hook on the multiselect branch", () => {
+    render(<RequiredInputControl {...defaultProps(input)} />);
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("RequiredInputControl — backward compat (bare config_value)", () => {
+  it("renders a text control when no enrichment fields are present (null-patch regression)", () => {
     const bareInput: AiRequiredUserInput = {
-      label: "Which value?",
+      label: "What should the Slack DM say?",
       kind: "config_value",
     };
     render(<RequiredInputControl {...defaultProps(bareInput)} />);
     const control = screen.getByTestId("builder-ai-required-input-control");
     expect(control.getAttribute("data-variant")).toBe("text");
+    expect(screen.getByTestId("builder-ai-required-input-text")).toBeInTheDocument();
   });
 });
 

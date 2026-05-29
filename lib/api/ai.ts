@@ -286,8 +286,14 @@ export async function applyWorkflowPatch(
 export interface CompletePlanRequest {
   readonly proposedPatch?: AiOpaquePatch | null;
   readonly answers: ReadonlyArray<{
-    readonly nodeId: string;
-    readonly field: string;
+    /**
+     * Target node id + field. BOTH optional (Slice 4.AI-35F): a bare answer for
+     * a rendered required text control with no node identity is forwarded
+     * without a target, and the server infers the unique missing required text
+     * field from the pending patch.
+     */
+    readonly nodeId?: string;
+    readonly field?: string;
     readonly value: string;
     readonly multiple?: boolean;
   }>;

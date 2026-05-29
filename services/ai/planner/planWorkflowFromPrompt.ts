@@ -42,6 +42,7 @@ import { deriveProviderChoiceInputs } from "./deriveProviderChoiceInputs";
 import {
   deriveMissingRequiredFieldInputs,
   enrichRequiredUserInputs,
+  reconcileBareConfigValueEntries,
 } from "./enrichRequiredUserInputs";
 import { parseWorkflowPlanResponse } from "./parseWorkflowPlanResponse";
 import { WORKFLOW_PLAN_TOOL } from "./workflowPlanTool";
@@ -317,12 +318,20 @@ export async function planWorkflowFromPromptForAI(
   // safety net behind the R3/R7 prompt rules: even when the model omits a
   // required field, the user gets an actionable control + apply stays
   // blocked until it's answered.
+  // Slice 4.AI-35G — give a BARE config_value question ("Which Slack channel?")
+  // its node/field identity from the patch when uniquely inferable, so the
+  // enricher below attaches the field's optionsSource/select/text metadata and
+  // the chat renders the matching control (combobox) instead of plain text.
+  const reconciledRequiredInput = reconcileBareConfigValueEntries(
+    response.requiredUserInput,
+    patch,
+  );
   const derivedRequiredInput = deriveMissingRequiredFieldInputs(
     patch,
-    response.requiredUserInput,
+    reconciledRequiredInput,
   );
   const withChoices = mergeProviderChoices(
-    [...response.requiredUserInput, ...derivedRequiredInput],
+    [...reconciledRequiredInput, ...derivedRequiredInput],
     providerChoices,
   );
   // Slice 4.AI-35 — enrich with patch-node AND current-canvas node identities

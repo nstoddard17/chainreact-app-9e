@@ -208,10 +208,10 @@ describe("AI-25 — follow-up RATE_LIMITED preserves composer + staged answers +
     await screen.findAllByTestId("builder-ai-required-input-control");
 
     // Type the answer into the staged required-input text control.
-    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-textarea"), {
       target: { value: "Hi there" },
     });
-    expect(screen.getByTestId("builder-ai-required-input-text")).toHaveValue(
+    expect(screen.getByTestId("builder-ai-required-input-textarea")).toHaveValue(
       "Hi there",
     );
 
@@ -231,7 +231,7 @@ describe("AI-25 — follow-up RATE_LIMITED preserves composer + staged answers +
       screen.getByTestId("builder-ai-required-input-control"),
     ).toBeInTheDocument();
     // And the staged value is RESTORED into the control.
-    expect(screen.getByTestId("builder-ai-required-input-text")).toHaveValue(
+    expect(screen.getByTestId("builder-ai-required-input-textarea")).toHaveValue(
       "Hi there",
     );
   });
@@ -302,13 +302,13 @@ describe("AI-25 — Clear conversation still resets the preserved chain", () => 
     render(<BuilderAiPanel />);
     const user = await plan("Send a Slack message when I get an email");
     await screen.findAllByTestId("builder-ai-required-input-control");
-    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-textarea"), {
       target: { value: "Hi there" },
     });
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await screen.findByTestId("builder-ai-error-message");
     // The required-input control is still visible + restored.
-    expect(screen.getByTestId("builder-ai-required-input-text")).toHaveValue(
+    expect(screen.getByTestId("builder-ai-required-input-textarea")).toHaveValue(
       "Hi there",
     );
 

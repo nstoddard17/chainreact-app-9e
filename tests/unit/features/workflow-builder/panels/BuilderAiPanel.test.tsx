@@ -744,23 +744,24 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
     canApplyLater: false,
   };
 
-  it("renders an interactive control per required-input entry (combobox for channel, text for message)", async () => {
+  it("renders an interactive control per required-input entry (combobox for channel, textarea for message)", async () => {
     mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
     render(<BuilderAiPanel />);
     await typeAndPlan("Create a Slack workflow");
     const controls = await screen.findAllByTestId("builder-ai-required-input-control");
     expect(controls).toHaveLength(2);
-    // One is the combobox (optionsSource branch), one is the text input.
+    // One is the combobox (optionsSource branch), one is the textarea (the
+    // `textarea` message field — AI-35E renders the matching multi-line editor).
     const variants = controls.map((c) => c.getAttribute("data-variant")).sort();
-    expect(variants).toEqual(["options-source", "text"]);
+    expect(variants).toEqual(["options-source", "textarea"]);
   });
 
-  it("typing in the channel combobox + text input stages structured answers without submitting", async () => {
+  it("typing in the channel combobox + message textarea stages structured answers without submitting", async () => {
     mockPlan.mockResolvedValueOnce(enrichedNeedsInput);
     render(<BuilderAiPanel />);
     await typeAndPlan("Create a Slack workflow");
     await screen.findAllByTestId("builder-ai-required-input-control");
-    const textInput = screen.getByTestId("builder-ai-required-input-text") as HTMLInputElement;
+    const textInput = screen.getByTestId("builder-ai-required-input-textarea") as HTMLTextAreaElement;
     fireEvent.change(textInput, { target: { value: "Test from ChainReact AI" } });
     // Only the initial plan call so far — staging answers does NOT auto-submit.
     expect(mockPlan).toHaveBeenCalledTimes(1);
@@ -772,8 +773,8 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
     render(<BuilderAiPanel />);
     const user = await typeAndPlan("Create a Slack workflow");
     await screen.findAllByTestId("builder-ai-required-input-control");
-    // Stage a free-text answer for the Message field (the only text-branch control).
-    const textInput = screen.getByTestId("builder-ai-required-input-text") as HTMLInputElement;
+    // Stage a free-text answer for the Message field (the textarea control).
+    const textInput = screen.getByTestId("builder-ai-required-input-textarea") as HTMLTextAreaElement;
     fireEvent.change(textInput, { target: { value: "Test from ChainReact AI" } });
     // Click submit (composer button) — no need to type into the composer; the
     // submission carries the staged answer alone.
@@ -794,7 +795,7 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
     render(<BuilderAiPanel />);
     const user = await typeAndPlan("Create a Slack workflow");
     await screen.findAllByTestId("builder-ai-required-input-control");
-    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-textarea"), {
       target: { value: "Test from ChainReact AI" },
     });
     await user.click(screen.getByTestId("builder-ai-plan-button"));
@@ -810,10 +811,10 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
     render(<BuilderAiPanel />);
     const user = await typeAndPlan("Create a Slack workflow");
     await screen.findAllByTestId("builder-ai-required-input-control");
-    fireEvent.change(screen.getByTestId("builder-ai-required-input-text"), {
+    fireEvent.change(screen.getByTestId("builder-ai-required-input-textarea"), {
       target: { value: "Test from ChainReact AI" },
     });
-    expect(screen.getByTestId("builder-ai-required-input-text")).toHaveValue(
+    expect(screen.getByTestId("builder-ai-required-input-textarea")).toHaveValue(
       "Test from ChainReact AI",
     );
     await user.click(screen.getByTestId("builder-ai-clear-button"));
@@ -850,6 +851,71 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
     await screen.findAllByTestId("builder-ai-required-input-control");
     expect(document.body.textContent).not.toContain("xoxb-LEAKED-SECRET");
     expect(document.body.textContent).not.toContain("accessToken");
+  });
+});
+
+// ─── Slice 4.AI-35E — required-input control parity ─────────────────────────
+describe("required-input control parity (AI-35E)", () => {
+  it("renders an interactive text control for a bare config_value (null-patch regression: 'What should the Slack DM say?')", async () => {
+    // Live regression: a null-patch plan surfaced the missing message as a
+    // bare config_value (no nodeId/field, no options). It must render a
+    // control, not a static bullet.
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      proposedPatch: null,
+      canApplyLater: false,
+      requiredUserInput: [{ label: "What should the Slack DM say?", kind: "config_value" }],
+      preview: undefined,
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Send me a Slack DM when I manually run this workflow");
+    const control = await screen.findByTestId("builder-ai-required-input-control");
+    expect(control.getAttribute("data-variant")).toBe("text");
+    expect(screen.getByTestId("builder-ai-required-input-text")).toBeInTheDocument();
+  });
+
+  it("renders a provider select for a provider_choice entry", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      proposedPatch: null,
+      canApplyLater: false,
+      requiredUserInput: [
+        {
+          label: "Which email app should trigger this — Gmail or Outlook?",
+          kind: "provider_choice",
+          category: "email",
+          options: [
+            { label: "Gmail", value: "gmail" },
+            { label: "Microsoft Outlook", value: "microsoft-outlook" },
+          ],
+        },
+      ],
+      preview: undefined,
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan("When I get an email send a Slack message");
+    const control = await screen.findByTestId("builder-ai-required-input-control");
+    expect(control.getAttribute("data-variant")).toBe("static-options");
+    const select = screen.getByTestId("builder-ai-required-input-select") as HTMLSelectElement;
+    const values = Array.from(select.querySelectorAll("option")).map((o) => o.value);
+    expect(values).toContain("gmail");
+    expect(values).toContain("microsoft-outlook");
+  });
+
+  it("keeps a non-field clarification as a static bullet (no control)", async () => {
+    mockPlan.mockResolvedValueOnce({
+      ...planApplyReady,
+      proposedPatch: null,
+      canApplyLater: false,
+      requiredUserInput: [{ label: "Can you clarify the overall goal?", kind: "clarification" }],
+      preview: undefined,
+    });
+    render(<BuilderAiPanel />);
+    await typeAndPlan("Do something");
+    const needs = await screen.findByTestId("builder-ai-needs-input");
+    expect(needs).toHaveTextContent("Can you clarify the overall goal?");
+    // No interactive control for a pure clarification.
+    expect(screen.queryByTestId("builder-ai-required-input-control")).not.toBeInTheDocument();
   });
 });
 

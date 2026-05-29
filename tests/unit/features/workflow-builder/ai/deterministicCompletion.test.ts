@@ -32,6 +32,15 @@ function answer(nodeId: string, field: string, value: string): RequiredInputAnsw
   };
 }
 
+/** A staged answer for a BARE config_value entry (no nodeId/field) — keyed by label. */
+function bareAnswer(label: string, value: string): RequiredInputAnswer {
+  return {
+    key: `label::${label}`,
+    display: value,
+    descriptor: { label, kind: "config_value" },
+  };
+}
+
 describe("evaluateDeterministicCompletion", () => {
   it("deterministic when every blocking config_value has a matching staged answer", () => {
     const plan = planWith([
@@ -86,6 +95,37 @@ describe("evaluateDeterministicCompletion", () => {
     expect(decision).toEqual({ mode: "model_replan", reason: "multi_value_field" });
   });
 
+  // Slice 4.AI-35E — typed-scalar / array fields can't be filled with a raw
+  // string by the completion route; the model must build the correctly-typed
+  // config value. Deterministic stays valid for string-scalar renderers.
+  it.each(["number", "boolean", "string-array", "file", "keyvalue"])(
+    "model_replan for a non-string-scalar field type (%s)",
+    (fieldType) => {
+      const plan = planWith([
+        { label: "X", kind: "config_value", nodeId: "n1", field: "x", fieldType },
+      ]);
+      const decision = evaluateDeterministicCompletion(plan, [answer("n1", "x", "v")], "");
+      expect(decision).toEqual({ mode: "model_replan", reason: "non_string_field" });
+    },
+  );
+
+  it.each(["text", "textarea", "select", "combobox", "cron"])(
+    "deterministic for a string-scalar field type (%s)",
+    (fieldType) => {
+      const plan = planWith([
+        { label: "X", kind: "config_value", nodeId: "n1", field: "x", fieldType },
+      ]);
+      const decision = evaluateDeterministicCompletion(plan, [answer("n1", "x", "v")], "");
+      expect(decision.mode).toBe("deterministic");
+    },
+  );
+
+  it("deterministic when fieldType is absent (legacy / bare config_value)", () => {
+    const plan = planWith([{ label: "X", kind: "config_value", nodeId: "n1", field: "x" }]);
+    const decision = evaluateDeterministicCompletion(plan, [answer("n1", "x", "v")], "");
+    expect(decision.mode).toBe("deterministic");
+  });
+
   it("select_integration entries are non-blocking and don't force a re-plan", () => {
     const plan = planWith([
       { label: "Connect Stripe", kind: "select_integration" },
@@ -99,5 +139,107 @@ describe("evaluateDeterministicCompletion", () => {
     expect(evaluateDeterministicCompletion(null, [], "").mode).toBe("model_replan");
     const fail: AiPlanResult = { ok: false, code: "MODEL_FAILED", message: "x", errors: [] };
     expect(evaluateDeterministicCompletion(fail, [], "").mode).toBe("model_replan");
+  });
+
+  // ─── Slice 4.AI-35F — bare config_value answers (no node identity) ─────────
+  it("deterministic for a BARE config_value when a proposedPatch exists (server infers the target)", () => {
+    // The live regression: a null-patch-derived "What should the message say?"
+    // has no nodeId/field, but the plan carries a proposedPatch. The answer is
+    // forwarded UNTARGETED so the server maps it to the unique missing field.
+    const plan = planWith([{ label: "What should the Slack DM say?", kind: "config_value" }]);
+    const decision = evaluateDeterministicCompletion(
+      plan,
+      [bareAnswer("What should the Slack DM say?", "Hey")],
+      "",
+    );
+    expect(decision.mode).toBe("deterministic");
+    if (decision.mode !== "deterministic") return;
+    expect(decision.answers).toEqual([{ value: "Hey" }]); // untargeted — no nodeId/field
+  });
+
+  it("model_replan (no_target_node) for a BARE config_value when there is NO proposedPatch to infer against", () => {
+    const plan: AiPlanResult = {
+      ok: true,
+      intentSummary: "x",
+      assumptions: [],
+      requiredUserInput: [{ label: "What should it say?", kind: "config_value" }],
+      unsupportedRequests: [],
+      safetyNotes: [],
+      // no proposedPatch
+      canApplyLater: false,
+      model: { modelId: "m", tier: "strong", feature: "creation" },
+    };
+    const decision = evaluateDeterministicCompletion(plan, [bareAnswer("What should it say?", "Hey")], "");
+    expect(decision).toEqual({ mode: "model_replan", reason: "no_target_node" });
+  });
+
+  it("mixes a targeted answer and a bare answer (both forwarded; server resolves the bare one)", () => {
+    const plan = planWith([
+      { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", optionsSource: "slack:channels" },
+      { label: "What should the message say?", kind: "config_value" }, // bare
+    ]);
+    const decision = evaluateDeterministicCompletion(
+      plan,
+      [
+        // channel is a picker → must carry the selected option value (id).
+        { key: "n1::channel", display: "#general", value: "C123", descriptor: { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", optionsSource: "slack:channels" } },
+        bareAnswer("What should the message say?", "Hey"),
+      ],
+      "",
+    );
+    expect(decision.mode).toBe("deterministic");
+    if (decision.mode !== "deterministic") return;
+    expect(decision.answers).toEqual([
+      { nodeId: "n1", field: "channel", value: "C123" },
+      { value: "Hey" },
+    ]);
+  });
+
+  // ─── Slice 4.AI-35G — picker-backed fields require the selected option id ───
+  it("deterministic for an optionsSource field when the answer carries the selected option value (id)", () => {
+    const plan = planWith([
+      { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    ]);
+    const pickedAnswer: RequiredInputAnswer = {
+      key: "n1::channel",
+      display: "#general",
+      value: "C123", // the selected channel id
+      descriptor: { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    };
+    const decision = evaluateDeterministicCompletion(plan, [pickedAnswer], "");
+    expect(decision.mode).toBe("deterministic");
+    if (decision.mode !== "deterministic") return;
+    // The ID is written, NOT the "#general" display label.
+    expect(decision.answers).toEqual([{ nodeId: "n1", field: "channel", value: "C123" }]);
+  });
+
+  it("model_replan (picker_requires_option) when an optionsSource answer is free-text only (no option id)", () => {
+    const plan = planWith([
+      { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    ]);
+    const freeTextOnly: RequiredInputAnswer = {
+      key: "n1::channel",
+      display: "channel1", // typed a label, never picked an option → no value
+      descriptor: { label: "Channel", kind: "config_value", nodeId: "n1", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    };
+    const decision = evaluateDeterministicCompletion(plan, [freeTextOnly], "");
+    // Must NOT write "channel1" as the channel id — re-plan so the model resolves it.
+    expect(decision).toEqual({ mode: "model_replan", reason: "picker_requires_option" });
+  });
+
+  it("deterministic for a static-options field when the selected option value is present", () => {
+    const plan = planWith([
+      { label: "Event", kind: "config_value", nodeId: "n1", field: "eventType", fieldType: "select", options: [{ label: "Succeeded", value: "ok" }] },
+    ]);
+    const picked: RequiredInputAnswer = {
+      key: "n1::eventType",
+      display: "Succeeded",
+      value: "ok",
+      descriptor: { label: "Event", kind: "config_value", nodeId: "n1", field: "eventType", fieldType: "select", options: [{ label: "Succeeded", value: "ok" }] },
+    };
+    const decision = evaluateDeterministicCompletion(plan, [picked], "");
+    expect(decision.mode).toBe("deterministic");
+    if (decision.mode !== "deterministic") return;
+    expect(decision.answers).toEqual([{ nodeId: "n1", field: "eventType", value: "ok" }]);
   });
 });

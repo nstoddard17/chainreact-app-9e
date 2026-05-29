@@ -36,7 +36,7 @@ Required-input kinds and whether they block **Apply** (`isApplyBlockingRequiredI
 
 ## Known limitation (intentional, documented)
 
-In a **fully-ambiguous turn** the model returns a **null patch** (no nodes). Non-provider-choice config questions (Slack channel, message text) reference node ids that don't exist yet, so they can't be enriched into controls and render as bullets — they become interactive controls on the **re-plan** after the user resolves the provider choice (or any time the model proposes a patch). Closing this fully would require the planner to draft the action node even when the trigger provider is ambiguous, which means changing the R1/R7 prompt discipline this slice is told not to weaken. Deferred.
+In a **fully-ambiguous turn** the model returns a **null patch** (no nodes). Non-provider-choice config questions (Slack channel, message text) reference no node identity yet, so they cannot be **field-enriched** (no `optionsSource` combobox, no node-scoped picker). **As of AI-35E** a bare `config_value` still renders an **interactive text control** (not a static bullet) — see below — so the user can answer the message text in-place; the **dynamic resource picker** (e.g. a Slack channel combobox) still only materializes on the **re-plan** once a patch exists to carry the field's `optionsSource` metadata. Closing the picker case fully would require the planner to draft the action node even when the trigger provider is ambiguous, which means changing the R1/R7 prompt discipline this slice is told not to weaken. Deferred.
 
 ---
 
@@ -49,13 +49,107 @@ After AI-35, every "Send details" re-ran the full Anthropic planner — wasteful
 | Pick a dropdown / type in a field control | (no submit yet — staged only) | no |
 | Send details — only structured answers for known config fields | `completePlanWithRequiredInputs` → preview → apply-ready | **no** |
 | Send details — existing-node edit (Slack DM recipient) | `updateNodeConfig` on the existing node → preview | **no** |
+| Send details — **bare config_value text control** (no node identity) with a pending patch (AI-35F) | server infers the unique missing required text field → fills → preview | **no** |
 | Send details — includes free text (possible new instruction) | model re-plan | yes |
+| Send details — explicit shape-changing **correction** ("this is to a channel", "no, use Outlook") (AI-35I) | deterministic SKIPPED → model re-plan with override context (`intent_correction`) | yes |
 | Send details — resolves a `provider_choice` (shape change) | model re-plan | yes |
+| Send details — bare answer is ambiguous (≥2 fillable text fields) or has no patch | `NEEDS_REPLAN` (`ambiguous_target` / `no_target_node`) → model re-plan | yes (fallback) |
 | Deterministic fill didn't preview-validate | `NEEDS_REPLAN` → model re-plan | yes (fallback) |
 
 Dev visibility: with `ENABLE_AI_COST_DEBUG=true`, a deterministic completion logs `[ai-cost] … resolution=deterministic(config_values_applied)` (no model cost); a re-plan shows the normal `follow_up` planner cost line.
 
 **Existing Slack DM edit (the AI-35 #3 fix), now resolved at the deterministic layer:** "change this to send the message to a different person" → the agent asks for the user id → `user123` → the server builds `updateNodeConfig` on the existing DM node (`userId: "user123"`), previews apply-ready, **no model call, no new node**. `userId` is a free-text field, so `user123` is accepted as typed (a non-Slack-id only fails at run time, per Apply-vs-Activate).
+
+## AI-35E — required-input control parity
+
+**Live regression:** "Send me a Slack DM when I manually run this workflow" → the agent says *"What should the Slack DM say?"* but **no input control appeared** — only a static bullet.
+
+**Root cause:** the panel's control-vs-bullet gate (`isControlRenderable`) only treated an entry as a control when it had **node+field identity, static `options`, an `optionsSource`, or `kind === provider_choice`**. A **bare `config_value`** — which is exactly what a null-patch plan emits for an unspecified message body (no `nodeId`/`field`, no options) — failed all four checks and dropped to the bullet branch. The `RequiredInputControl` renderer itself already handled a bare entry (text fallback); the gate simply never routed it there.
+
+**Product rule:** the React Agent chat renders the **same class of control the workflow builder config panel would render** for the underlying field. Static bullets are reserved for **non-field clarifications** that map to no known field/control.
+
+**Fix (metadata-driven, NOT provider-specific):** a single shared resolver — [`resolveRequiredInputControl`](../../../features/workflow-builder/ai/resolveRequiredInputControl.ts) — maps one `requiredUserInput` entry to a control kind from the server-enriched FieldMeta hints (`options` / `optionsSource` / `fieldType` / `multiple`) + `kind`. Both the renderer (`RequiredInputControl`) and the gate (`isControlRenderable`) consume it, so they cannot drift. There are **no provider id branches** — Slack/Gmail/Outlook/Stripe/Sheets/Airtable/Trello/Notion/HubSpot/Microsoft/native all flow through the same metadata.
+
+| Metadata | Control | Mirrors config-panel renderer |
+|---|---|---|
+| static `options`, single | `select` | SelectField |
+| static `options`, `multiple` | `multiselect` (checkbox group) | SelectField + multiple |
+| `optionsSource` | `combobox` (async picker) | ComboboxField |
+| `fieldType: boolean` | checkbox/toggle | BooleanField |
+| `fieldType: number` | number input | NumberField |
+| `fieldType: textarea` | `<textarea>` | TextareaField |
+| `fieldType: text` / `cron` / `string-array` / `file` / `keyvalue` / … | text input (safe fallback) | TextField |
+| `provider_choice` | `select` (its own options) | — |
+| **bare `config_value`** / field identity, no renderer hint | **text input** (known config field, renderer unknown) | TextField |
+| `clarification` / `choose_trigger` / `variable_reference` with **no** field identity | **bullet** (not a control) | — |
+
+**Date / datetime:** the `FieldType` vocabulary (`contracts/actionMeta.ts`) has **no `date`/`datetime` renderer**, so a date-shaped config field surfaces as `text`/`cron` today and resolves to the closest available control (a text input). When a dedicated date renderer lands in the contract, add a case to the resolver + a branch to `RequiredInputControl` — no provider code changes.
+
+**Deterministic completion (AI-35B) interaction:** the completion route writes the staged answer **verbatim as a string** into the patch config. That is correct only for string-scalar renderers (`text` / `textarea` / `select` / `combobox` / `cron`). AI-35E adds a guard in `evaluateDeterministicCompletion` so `number` / `boolean` / array / object fields (and multi-select, already guarded) route to the **model planner**, which builds the correctly-typed config value. String-scalar and legacy/bare (`fieldType` absent) entries still complete deterministically — no model call.
+
+## AI-35F — deterministic completion for rendered required text controls
+
+**Live regression (after AI-35E):** "Send me a Slack DM when I manually run this workflow" → the agent asks *"What should the Slack direct message say?"*, AI-35E renders a text control, the user types "Hey" and hits **Send details** → the request hit `POST /ai/plan` (OpenAI follow-up, **502**) and the UI showed *"AI assistant is unavailable."* It should have hit `POST /ai/complete` (no model).
+
+**Root cause.** AI-35E let a **bare `config_value`** (no `nodeId`/`field`) render as a control, but `evaluateDeterministicCompletion` rejected any blocking entry without `nodeId`/`field` (`unmapped_required_input`) → every bare-control answer fell to the model planner. The answer carried no field identity, so neither the client nor the server ever tried to map it to the pending patch's missing field.
+
+**Fix (generic, metadata-driven — NOT Slack-specific).** A rendered required text control now completes deterministically when its answer maps to a unique missing config field:
+- **Client** (`evaluateDeterministicCompletion`): a bare `config_value` answer is no longer rejected. When the plan carries a `proposedPatch`, the answer is forwarded **untargeted** (`{ value }`, no `nodeId`/`field`); with no patch to infer against it still re-plans (`no_target_node`).
+- **Server** (`completePlanWithRequiredInputs`): for a bare answer it collects every **required `text`/`textarea` field** on the patch's pending `addNode`/`replaceTrigger` nodes whose value is still fillable (empty or an `{{AI_FIELD:…}}` placeholder), from `ActionMeta`/`TriggerMeta`/`FieldMeta` — no provider branches. It fills the field **only when exactly one candidate** uniquely matches; otherwise it returns `NEEDS_REPLAN`:
+  - `ambiguous_target` — ≥2 fillable required text fields, or ≥2 bare answers (never guess the pairing).
+  - `no_target_node` — no fillable required text field (and none was covered by a targeted answer).
+- It still threads through `WorkflowPatchSchema` + the AI-5 preview + the apply-readiness gate, never auto-applies, and logs `requiredInputResolutionMode` = `deterministic(config_values_applied)` / `model_replan(ambiguous_target)` / `model_replan(no_target_node)` via the AI-35D `aiCostDebug` hook.
+
+**Generic coverage.** The inference keys off FieldMeta `type ∈ {text, textarea}` + `required`, so it applies to any provider/native action with a unique missing required text field — Slack/Teams message text, email subject/body, HubSpot note text, Trello card title/description, HTTP request URL/body, native text/string config. Id/enum/select/combobox/number/boolean fields are NOT inferred from a bare text answer (they render their own controls with field identity via AI-33 derivation + AI-22/AI-35E, or route to the model).
+
+**Targeted answers (AI-35B) unchanged.** An enriched entry with `nodeId`+`field` (e.g. the existing Slack-DM-recipient edit, or AI-33-derived empty fields) still completes via the explicit mapped path. Only entries that arrive *without* a target use the new inference.
+
+## AI-35G — vertical layout + optionsSource control parity
+
+Two live findings from "When I manually run this, send a Slack message saying Hello":
+
+### A. AI-applied nodes rendered side-by-side
+
+**Root cause.** The planner model gets NO positioning guidance, so its `addNode` positions are arbitrary (often same-`y` → side-by-side). The apply path persisted those positions verbatim — `applyPatchToDefinition` copies `node.position` as-is, and the builder re-hydrates the persisted definition after Apply.
+
+**Fix.** New deterministic helper [`normalizeLinearWorkflowLayout`](../../../services/ai/apply/normalizeLinearLayout.ts), called in `applyWorkflowPatchForAI` before persist. For a **simple linear chain** it re-stacks nodes into the builder's vertical column (anchored on the head/trigger position; each node `VERTICAL_NODE_SPACING = 120`px below, all sharing the head's `x`). Conservative guards — leaves positions untouched when:
+- the patch has no structural add (`addNode`/`replaceTrigger`) → a pure config edit never relayouts;
+- the patch carries an explicit `moveNode` → respect the chosen position;
+- the graph is NOT a simple linear chain (fan-out/fan-in, labeled branch/router edges, cycle, or disconnected/multi-head) → branch/router layouts preserved.
+
+Result: AI-created trigger→action(→action) workflows read top-to-bottom; trigger `y` < action `y`; actions x-aligned with the trigger. The model is never trusted for positions.
+
+### B. Channel required-input rendered as plain text instead of a combobox
+
+**Root cause.** The Slack channel field IS a `combobox` + `optionsSource: "slack:channels"` (and `resolveRequiredInputControl` already maps that to a combobox), but the **required-input entry was BARE** — the model asked "Which Slack channel should receive the message?" with no `nodeId`/`field`, so `enrichRequiredUserInputs` had no field to attach the `optionsSource` metadata to → it fell to the bare-text fallback. Typing `channel1` then failed because a free-text label isn't a channel id.
+
+**Fix (generic, metadata-driven — NOT Slack-specific).** New planner pass [`reconcileBareConfigValueEntries`](../../../services/ai/planner/enrichRequiredUserInputs.ts): when the pending patch has exactly ONE fillable required field (empty or `{{AI_FIELD:…}}`) not already targeted, and there's exactly ONE bare `config_value` question, it attaches that node/field identity to the bare entry. `enrichRequiredUserInputs` then attaches the field's FieldMeta — so an `optionsSource` field renders its combobox, a `select` field renders a select, a text field renders text. Applies to any provider/native field with `optionsSource` (Slack channel/user, Gmail label, Sheets/Airtable/Trello/Notion pickers). Ambiguous (≥2 fillable fields or ≥2 bare entries) or null-patch → left bare (documented limitation).
+
+**Deterministic completion for picker fields.** `evaluateDeterministicCompletion` now requires the **selected option value (id)** for any picker-backed field (`options` or `optionsSource`) — it uses `answer.value`, never the free-text `answer.display`. A free-text-only answer for a picker → `model_replan(picker_requires_option)`, so a display label (e.g. `channel1`) is **never** written where an id is required. The completion route writes the id; the AI-35F bare-text server inference only ever targets `text`/`textarea` fields, so a picker field is never filled from a bare text answer.
+
+## AI-35H — optionsSource reconciliation for follow-up plans
+
+**Live regression (after AI-35G).** "Send me a Slack DM…" → agent asks for message text → user replies "This is to a channel" + "Hey" → the agent correctly switches to **send a Slack channel message** and asks "Which Slack channel should receive the message?" — but the channel renders as a **plain text box**, not the searchable channel combobox.
+
+**Root cause.** The follow-up re-plan goes through the SAME orchestrator (`/ai/plan` → `planWorkflowFromPromptForAI`), so AI-35G's `reconcileBareConfigValueEntries` DID run. But it only matched bare `kind: "config_value"` questions — and the model emitted "Which Slack channel?" as a **`clarification`**. So the bare clarification was never reconciled to the patch's missing `channel` field → `enrichRequiredUserInputs` had no field identity to attach the `slack:channels` `optionsSource` to → plain-text fallback. (Investigation also confirmed: a patch whose `channel` is left *empty* already renders the combobox via `deriveMissingRequiredFieldInputs` + the preview returning `ok:true` with `canApplyLater:false`; the failure was specifically the **bare, non-`config_value`-kind** question.)
+
+**Fix (generic, pipeline, not Slack-specific).** [`reconcileBareConfigValueEntries`](../../../services/ai/planner/enrichRequiredUserInputs.ts) now reconciles bare questions of kind `config_value` **OR `clarification`** (`RECONCILABLE_BARE_KINDS`) — a "which/what X?" question is a field-value question in practice — and normalizes the attached entry's kind to `config_value`. Still strictly guarded: fires only when there's exactly ONE bare reconcilable question AND exactly ONE fillable required field (empty / `{{AI_FIELD}}`) on the patch's `addNode`/`replaceTrigger` nodes, not already targeted. `provider_choice` / `select_integration` / `choose_trigger` / `variable_reference` are NOT reconciled (provider/trigger/wiring concerns, not a single missing field). Once attached, enrichment surfaces the field's FieldMeta so the channel renders its `slack:channels` combobox; works identically for any provider/native field with `optionsSource` (Gmail label, Sheets/Airtable/Trello/Notion pickers, …).
+
+**Deterministic completion** (unchanged from AI-35G): a picker field (`options`/`optionsSource`) completes only from a **selected option value (id)**; a free-text-only answer → `picker_requires_option` re-plan, so a label is never written where an id is required.
+
+**Remaining limitation (documented).** When the follow-up returns a **null patch** (no node to infer from) or the patch has **≥2 fillable required fields** for one bare question, the field identity cannot be safely inferred → the question renders as a text fallback and deterministic completion safely re-plans (never writes a label as an id). Closing the null-patch case would require the planner to always emit the action node; deferred to avoid a prompt-behavior change.
+
+## AI-35I — follow-up intent-correction reconciliation
+
+**Live regression (after AI-36).** "Send me a Slack DM when I manually run this workflow" → answer the message text → reply "This is to a channel" → the agent kept DM semantics ("Which Slack user should receive the DM?", then "Slack DMs require a userId, not a channel"). The explicit correction did NOT override the earlier inferred Slack-DM action — a **stale-intent** bug. (AI-35G/H fixed channel-field *rendering* but assumed the action had already switched; once AI-36 moved the planner to OpenAI, the action stopped switching.)
+
+**Root cause.** (1) **Primary:** `composeFollowUpPrompt` closed with *"Produce the workflow patch for **the original request**…"* — the original "Slack DM" read as binding, the correction as a subordinate detail, and nothing said the latest message overrides prior intent. (2) **No correction signal:** the re-plan happened (free text already forces it) but the prompt gave the planner no reason to abandon the DM action; `priorFollowUpAnswers` reinforced it. The OpenAI planner reads the weak wording more literally than Sonnet did.
+
+**Fix (generic, provider-agnostic).** New pure detector [`detectIntentCorrection`](../../../features/workflow-builder/ai/detectIntentCorrection.ts) flags override/contrast markers in the latest follow-up. [`useBuilderAi.submitFollowUp`](../../../features/workflow-builder/hooks/useBuilderAi.ts) skips deterministic completion on a correction (so a stale `proposedPatch` is never completed) and flags the re-plan; [`composeFollowUpPrompt`](../../../features/workflow-builder/ai/composeFollowUpPrompt.ts) makes the latest message **authoritative** (original request / questions / current plan / prior answers become CONTEXT ONLY) and adds a `Correction:` directive to REPLACE the obsolete provider/action/trigger and discard inputs that only applied to the replaced choice. Stale required inputs are replaced (not merged) because a re-plan fully replaces `planResult`.
+
+**Decision rule.** Deterministic completion is for **direct field-filling only** (a plain "Hey" still completes with no model call). A **shape-changing correction forces a model re-plan** with explicit override context. Provider/action/trigger corrections are never resolved deterministically against the obsolete patch.
+
+**No new boundaries crossed.** Planner stays OpenAI (AI-36); Anthropic not called; no execution / billing / provider-metadata / general-help change; no graph mutation before Apply.
 
 ## Manual verification (Marcus — live dev server)
 
@@ -63,3 +157,9 @@ Dev visibility: with `ENABLE_AI_COST_DEBUG=true`, a deterministic completion log
 2. **Disconnected apply** — "When a Stripe payment fails send me a Slack DM" with Stripe disconnected → preview shows; **Apply is enabled**; a "Connect Stripe before activating" note shows; after Apply the node/workflow is **not-ready** and **Activate is blocked** until Stripe is connected.
 3. **Missing config still blocks** — a Slack message with no channel/text → Apply stays hidden until provided.
 4. **Existing edit** — canvas has Manual Trigger → Slack DM; "change this to send to a different person" → asks recipient; answer `user123` → produces an **updateNodeConfig** on the existing DM node (no new node), apply-ready if recipient was the only gap.
+5. **AI-35E regression** — "Send me a Slack DM when I manually run this workflow" → the *"What should the Slack DM say?"* question renders an **interactive text control** (a textarea when the plan carries the `text` field's `textarea` FieldMeta; a single-line text input for a bare null-patch question), **not** a static bullet. Typing an answer + Send completes the plan.
+6. **AI-35F regression** — same prompt; type "Hey" into the rendered control and hit **Send details**. With `ENABLE_AI_COST_DEBUG=true`, the server console shows `[ai-cost] … event=ai_required_input_completed … resolution=deterministic(config_values_applied)` and the Network tab shows `POST /api/workflows/.../ai/complete` (**not** `/ai/plan`) — no OpenAI call, no "AI assistant is unavailable". The plan becomes apply-ready with the message filled in.
+7. **AI-35G layout** — "When I manually run this, send a Slack message saying Hello" → Apply → the canvas shows the **Manual Trigger on top and the Slack action below it** (vertical, x-aligned, edge routing downward), not side-by-side. Adding a second action stacks it further down. Editing a node's config does not relayout the graph.
+8. **AI-35G channel picker** — "send a Slack channel message" (channel unspecified) → the agent's "Which Slack channel should receive the message?" renders a **searchable channel combobox** (same picker as the config panel), not a plain text box. Picking a channel + Send details completes deterministically (writes the channel **id**). Typing a name without picking → re-plans (never writes the label as the id).
+9. **AI-35H follow-up correction** — "Send me a Slack DM when I manually run this workflow" → answer the message text → reply "This is to a channel" → the agent switches to Send Channel Message and asks "Which Slack channel should receive the message?" → that follow-up question renders the **searchable channel combobox** (even when the model phrased it as a clarification), not a plain text box. Picking a channel completes with the channel id.
+10. **AI-35I intent override** — same prompt → answer the message text "Hey" → reply "This is to a channel" → the action **switches from Send DM to Send Channel Message**; the agent NO LONGER asks "Which Slack user should receive the DM?" / "Slack DMs require a userId" — it asks for a channel and reuses "Hey". Then test other corrections: "No, use Outlook" (provider switch), "Actually send an email instead" (action switch), "make it manual" (trigger switch) — each replaces the prior inferred shape rather than re-asking the obsolete action's inputs. A plain answer ("Hey", "#general") is NOT treated as a correction and still completes deterministically (no model call).
