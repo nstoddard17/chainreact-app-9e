@@ -85,6 +85,15 @@ export interface GraphSliceActions {
    */
   updateNodeConfig(nodeId: string, config: Record<string, unknown>): void;
   /**
+   * Slice 4.BUILDER-NODE-IDENTITY-1 — set/clear the node's USER-FACING display
+   * name. Trims; an empty/whitespace value clears it (the UI then derives a
+   * friendly default from metadata). No-op on unknown nodeId or an unchanged
+   * value. Marks the graph dirty — displayName persists with the workflow
+   * draft. NEVER touches `id`, provider/type, config, or execution: this is a
+   * pure label edit, deliberately independent of the configSlice draft cycle.
+   */
+  renameNode(nodeId: string, displayName: string | undefined): void;
+  /**
    * Slice 3.5 — replace the named node's position after a canvas drag.
    * No-op if the position is shallow-equal to the current one (avoids
    * flipping dirty on a click that doesn't move the node). No-op on
@@ -339,6 +348,29 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     set({
       pendingNodes: remaining,
       pendingEdges: newEdges,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
+  renameNode(nodeId, displayName) {
+    const { pendingNodes } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return;
+    const current = pendingNodes[idx]!;
+    const trimmed = displayName?.trim();
+    const next = trimmed && trimmed.length > 0 ? trimmed : undefined;
+    if (current.displayName === next) return; // no-op (covers undefined === undefined)
+    const updated: WorkflowNode = { ...current };
+    if (next === undefined) {
+      delete updated.displayName;
+    } else {
+      updated.displayName = next;
+    }
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updated;
+    set({
+      pendingNodes: nextNodes,
       isDirty: true,
       saveError: null,
     });

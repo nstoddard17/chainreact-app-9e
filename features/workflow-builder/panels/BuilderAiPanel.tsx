@@ -95,6 +95,9 @@ export function BuilderAiPanel() {
         kind: n.kind,
         provider: n.provider,
         type: n.type,
+        // Slice 4.BUILDER-NODE-IDENTITY-1 — the user's custom node name as
+        // read-only context so the planner can refer to nodes by their label.
+        ...(n.displayName !== undefined ? { displayName: n.displayName } : {}),
       })),
       edges: pendingEdges.map((e) => ({ id: e.id, from: e.from, to: e.to })),
     }),

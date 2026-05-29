@@ -50,6 +50,8 @@ const CurrentGraphSchema = z.object({
         kind: z.enum(["trigger", "action"]),
         provider: z.string().min(1).max(100),
         type: z.string().min(1).max(200),
+        // Slice 4.BUILDER-NODE-IDENTITY-1 — optional user node name (context only).
+        displayName: z.string().max(120).optional(),
       }),
     )
     .max(500),

@@ -35,6 +35,7 @@ import {
   type WorkflowPlanCostAwareness,
   type WorkflowPlanPromptInput,
 } from "./types";
+import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 import { buildWorkflowPlanPromptV2WithAttribution } from "./buildWorkflowPlanPromptV2";
 import { computePlannerAttribution } from "./computePlannerAttribution";
 import {
@@ -98,6 +99,12 @@ export const PLANNER_CONSTRAINTS: readonly string[] = [
   // model asked only for the Slack channel and forgot the message text.
   // Grouped into R7 (unknown values / requiredUserInput / null-over-partial).
   "When you set proposedPatch to null but you DO intend to build specific nodes (you named the actions/triggers in intentSummary), you MUST still list EVERY missing required field of those intended nodes under requiredUserInput — not only the single blocking item. Example: the user wants an email trigger (provider ambiguous → null patch) plus a Slack channel message; even with a null patch, list \"Which email app should trigger this?\" AND \"Which Slack channel?\" AND \"What should the Slack message say?\". A null patch is NOT an excuse to ask only one question — surface the full set of answers the user must provide.",
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — node ids are system-owned + opaque
+  // (index 24; grouped into R2 in V2). APPENDED at the end so existing
+  // PLANNER_CONSTRAINTS indices (referenced by RULE_GROUPS in V2) don't shift.
+  "Node ids are OPAQUE system identifiers. Each node in the `Current workflow on the canvas` section is shown as `<id> (\"<display name>\")`. For ANY operation on an EXISTING node — updateNodeConfig, removeNode, moveNode, repairVariableReference, or an addEdge/replaceEdge endpoint pointing at an existing node — you MUST copy the exact `<id>` from that section. NEVER invent an id like `action1`, `trigger1`, `node1`, or `step2` for an existing node, and NEVER use a node's display name (the quoted label) where an id is required — a patch that targets an id which is neither on the canvas nor introduced earlier in this same patch is rejected (UNKNOWN_NODE) and nothing changes. For NEW nodes you create in THIS patch (addNode / replaceTrigger) pick any `id` you like and reference that exact id from edges/operations later in the same patch; the system replaces your new-node ids with its own opaque ids before saving, so they are throwaway scratch values. NEVER set a `displayName` on a node — node names belong to the user, not the planner.",
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — edit-scope discipline (index 25; R2 in V2).
+  "Scope every edit to exactly what the user asked for. If the user only wants to change the TRIGGER (e.g. \"change the trigger to a Gmail new email\"), emit only a `replaceTrigger` (or the trigger node's `updateNodeConfig`) — do NOT touch existing action nodes or their config. If the user only wants to change one ACTION field (e.g. \"change the Slack message to hello\"), emit a single `updateNodeConfig` on that existing action's exact id — do NOT replace or re-add the trigger and do NOT modify unrelated nodes. Only emit config updates that are part of the requested change OR are required fields of a node you are newly adding/replacing in this patch.",
 ];
 
 /**
@@ -328,14 +335,25 @@ export function renderCurrentGraph(input: WorkflowPlanPromptInput): string {
   if (!graph || graph.nodes.length === 0) {
     return "Current workflow on the canvas: (empty — no nodes on the canvas right now)";
   }
-  const nodeLines = graph.nodes.map(
-    (n) => `  - ${n.id}: ${n.kind} ${n.provider}:${n.type}`,
-  );
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — surface the friendly display name next to
+  // the opaque id: `- <id> ("<label>"): <kind> <provider>:<type>`. The label is
+  // human context only; patch ops referencing this node MUST use the exact
+  // <id>, never the label.
+  const nodeLines = graph.nodes.map((n) => {
+    const label = resolveNodeDisplayNameFromRegistry({
+      kind: n.kind,
+      provider: n.provider,
+      type: n.type,
+      ...(n.displayName !== undefined ? { displayName: n.displayName } : {}),
+    });
+    return `  - ${n.id} ("${label}"): ${n.kind} ${n.provider}:${n.type}`;
+  });
   const edgeLines = graph.edges.length === 0
     ? ["  (no edges)"]
     : graph.edges.map((e) => `  - ${e.id}: ${e.from} → ${e.to}`);
   return [
     "Current workflow on the canvas (authoritative — this is what the user has RIGHT NOW; the no-substitution rule above still binds, so use these as context not as license to substitute):",
+    'Each node is `<id> ("<display name>"): <kind> <provider>:<type>`. The <id> is an OPAQUE system identifier — copy it EXACTLY for any update/delete/reconnect/move; the "<display name>" is human context only and is NEVER a node id.',
     "Nodes:",
     ...nodeLines,
     "Edges:",

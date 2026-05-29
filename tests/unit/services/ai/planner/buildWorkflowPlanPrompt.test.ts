@@ -808,8 +808,11 @@ describe("current-workflow-on-canvas section (AI-24)", () => {
       }),
     );
     expect(text).toContain("Current workflow on the canvas");
-    expect(text).toContain("- trig-1: trigger native:manual.run");
-    expect(text).toContain("- act-1: action slack:send_channel_message");
+    // Slice 4.BUILDER-NODE-IDENTITY-1 — each node now renders as
+    // `<id> ("<friendly label>"): <kind> <provider>:<type>`. The opaque id +
+    // provider:type are preserved; a quoted human label is added as context.
+    expect(text).toMatch(/- trig-1 \("[^"]+"\): trigger native:manual\.run/);
+    expect(text).toMatch(/- act-1 \("[^"]+"\): action slack:send_channel_message/);
     expect(text).toContain("- edge-1: trig-1 → act-1");
   });
 
@@ -886,5 +889,52 @@ describe("AI-33 — ambiguous-category + content-field + null-patch completeness
     const text = joinPrompt(makeInput());
     expect(text).toContain("you MUST still list EVERY missing required field");
     expect(text.toLowerCase()).toContain("a null patch is not an excuse to ask only one question");
+  });
+});
+
+describe("Slice 4.BUILDER-NODE-IDENTITY-1 — node-id grounding + edit scope", () => {
+  it("tells the model node ids are opaque and to copy exact ids for existing-node ops", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("Node ids are OPAQUE system identifiers");
+    expect(text.toLowerCase()).toContain("you must copy the exact");
+  });
+
+  it("forbids invented ids (action1 / trigger1 / node1) for existing-node operations", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("NEVER invent an id like `action1`, `trigger1`, `node1`");
+    expect(text).toContain("rejected (UNKNOWN_NODE)");
+  });
+
+  it("states displayName is human context only and the planner never sets it", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("NEVER set a `displayName` on a node");
+    expect(text.toLowerCase()).toContain("node names belong to the user");
+  });
+
+  it("documents trigger-only vs action-only edit scope", () => {
+    const text = joinPrompt(makeInput());
+    expect(text).toContain("Scope every edit to exactly what the user asked for");
+    expect(text.toLowerCase()).toContain("do not touch existing action nodes");
+    expect(text.toLowerCase()).toContain("do not replace or re-add the trigger");
+  });
+
+  it("renders a node's user displayName as the quoted label in the current canvas", () => {
+    const text = joinPrompt(
+      makeInput({
+        currentGraph: {
+          nodes: [
+            {
+              id: "n1",
+              kind: "action",
+              provider: "slack",
+              type: "send_channel_message",
+              displayName: "Notify Support Team",
+            },
+          ],
+          edges: [],
+        },
+      }),
+    );
+    expect(text).toContain('- n1 ("Notify Support Team"): action slack:send_channel_message');
   });
 });

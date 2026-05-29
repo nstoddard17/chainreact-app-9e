@@ -467,6 +467,7 @@ If a future regression breaks any S1–S12 row, fix the regression in its own sl
 
 ## 7. When to revisit this plan
 
+- **Slice 4.BUILDER-NODE-IDENTITY-1 (2026-05-29)** added node-identity scenarios (system-owned ids replace AI patch-local ids at apply; user-facing editable `displayName`; friendly labels everywhere; fake-id rejection at apply). Their coverage map + manual steps live in [`react-agent-live-qa-matrix.md`](./react-agent-live-qa-matrix.md) §"Slice 4.BUILDER-NODE-IDENTITY-1" (N1–N6 + manual steps 13–16). No new automation gap here — exercised at helper + apply + UI + prompt layers with type-checked contracts.
 - A new AI surface ships (chat panel, template recommendation, optimizer). Add a Surface row to §1, scenario rows as needed.
 - ~~A new failure mode appears (e.g. forced tool_choice landing as the JSON enforcement, per the AI-12C revert note). Add a scenario row.~~ **Done in AI-19** — forced tool_choice is now the live JSON enforcement; S2 updated to reflect the transport-layer guard.
 - The Stripe `event_received` TriggerMeta lands. Promote Stripe-failed-payment from S3/S4 to a S5/S6 happy-path smoke target in §5.

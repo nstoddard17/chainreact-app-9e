@@ -76,6 +76,13 @@ export interface CurrentWorkflowGraphView {
     readonly kind: "trigger" | "action";
     readonly provider: string;
     readonly type: string;
+    /**
+     * Slice 4.BUILDER-NODE-IDENTITY-1 — the USER's custom node name when set.
+     * Read-only context so the planner can refer to a node by its human label
+     * when talking to the user; the `id` is still the only thing patch ops may
+     * reference. The planner NEVER writes a displayName.
+     */
+    readonly displayName?: string;
   }>;
   readonly edges: ReadonlyArray<{
     readonly id: string;

@@ -91,7 +91,11 @@ const RULE_GROUPS: readonly { readonly title: string; readonly indexes: readonly
   // "assume a provider the user didn't name" is the same failure class as
   // substitution, so it shares R1's top-of-prompt prominence.
   { title: "R1 — SAFETY-CRITICAL (catalog-only use + no substitution + no ambiguous-category assumption)", indexes: [0, 1, 20, 21] },
-  { title: "R2 — CURRENT CANVAS GROUNDING", indexes: [2] },
+  // R2 covers the current-canvas section + node-identity grounding + edit
+  // scope. Slice 4.BUILDER-NODE-IDENTITY-1 appends index 24 (opaque
+  // system-owned ids; never invent ids for existing-node ops; displayName is
+  // not identity) and index 25 (edit-scope discipline).
+  { title: "R2 — CURRENT CANVAS GROUNDING (opaque node ids + edit scope)", indexes: [2, 24, 25] },
   // R3 covers config-key + value-shape + required-fill discipline +
   // display-label-vs-id grounding — every rule about HOW config values
   // are constructed. AI-33 appends index 22 (content-field completeness).

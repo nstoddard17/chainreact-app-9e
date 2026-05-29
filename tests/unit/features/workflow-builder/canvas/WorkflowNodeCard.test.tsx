@@ -10,11 +10,12 @@
  *   - data-testid="workflow-node-view" preserved (so the existing
  *     canvas-config-sync integration test keeps finding nodes).
  *   - data-selected, data-kind, data-status attributes.
- *   - Provider label + kind chip rendered.
+ *   - Slice 4.BUILDER-NODE-IDENTITY-1: the node DISPLAY NAME is the title
+ *     and the provider label is the subtitle (the raw `provider:type` key
+ *     is no longer shown to the user).
  *   - Provider initials avatar fallback (deterministic, no per-provider
  *     branches).
  *   - "Not configured" amber badge when type === "".
- *   - Type subtitle shown when configured.
  */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
@@ -60,36 +61,51 @@ describe("WorkflowNodeCard — render contract", () => {
         kind: "action",
         provider: "slack",
         type: "slack.message.channel",
+        displayName: "Send Message",
         providerLabel: "Slack",
       },
     });
     expect(screen.getByTestId("workflow-node-view")).toBeInTheDocument();
   });
 
-  it("renders the provider label, kind chip, and configured type subtitle", () => {
+  it("renders the node display name as the title, the provider label as the subtitle, and the kind chip", () => {
     renderCard({
       data: {
         kind: "action",
         provider: "slack",
         type: "slack.message.channel",
+        displayName: "Notify Support Team",
         providerLabel: "Slack",
       },
     });
-    expect(screen.getByText("Slack")).toBeInTheDocument();
+    expect(screen.getByText("Notify Support Team")).toBeInTheDocument();
     expect(screen.getByText("action")).toBeInTheDocument();
-    expect(screen.getByText("slack.message.channel")).toBeInTheDocument();
+    expect(screen.getByText("Slack")).toBeInTheDocument();
+    // The raw provider:type key is NOT shown to the user any more.
+    expect(screen.queryByText("slack.message.channel")).toBeNull();
   });
 
-  it("falls back to the provider id when no providerLabel is supplied", () => {
+  it("shows the provider id as the subtitle when no providerLabel is supplied", () => {
     renderCard({
-      data: { kind: "action", provider: "github", type: "add_comment" },
+      data: {
+        kind: "action",
+        provider: "github",
+        type: "add_comment",
+        displayName: "Add Comment",
+      },
     });
+    expect(screen.getByText("Add Comment")).toBeInTheDocument();
     expect(screen.getByText("github")).toBeInTheDocument();
   });
 
   it("sets data-kind for trigger vs action", () => {
     const { rerender } = renderCard({
-      data: { kind: "trigger", provider: "slack", type: "slack.event" },
+      data: {
+        kind: "trigger",
+        provider: "slack",
+        type: "slack.event",
+        displayName: "New Event",
+      },
     });
     expect(screen.getByTestId("workflow-node-view")).toHaveAttribute(
       "data-kind",
@@ -100,7 +116,12 @@ describe("WorkflowNodeCard — render contract", () => {
         <WorkflowNodeCard
           id="n1"
           type="workflowNode"
-          data={{ kind: "action", provider: "slack", type: "x" }}
+          data={{
+            kind: "action",
+            provider: "slack",
+            type: "x",
+            displayName: "X",
+          }}
           selected={false}
           dragging={false}
           isConnectable
@@ -123,7 +144,7 @@ describe("WorkflowNodeCard — render contract", () => {
 describe("WorkflowNodeCard — selected state", () => {
   it("sets data-selected='true' when ReactFlow marks the node selected", () => {
     renderCard({
-      data: { kind: "action", provider: "slack", type: "x" },
+      data: { kind: "action", provider: "slack", type: "x", displayName: "X" },
       selected: true,
     });
     expect(screen.getByTestId("workflow-node-view")).toHaveAttribute(
@@ -134,7 +155,7 @@ describe("WorkflowNodeCard — selected state", () => {
 
   it("omits data-selected when not selected", () => {
     renderCard({
-      data: { kind: "action", provider: "slack", type: "x" },
+      data: { kind: "action", provider: "slack", type: "x", displayName: "X" },
       selected: false,
     });
     expect(screen.getByTestId("workflow-node-view")).not.toHaveAttribute(
@@ -150,6 +171,8 @@ describe("WorkflowNodeCard — status surface", () => {
         kind: "action",
         provider: "slack",
         type: "",
+        // The adapter feeds the kind fallback for an unconfigured node.
+        displayName: "Action",
         providerLabel: "Slack",
       },
     });
@@ -158,8 +181,6 @@ describe("WorkflowNodeCard — status surface", () => {
       "data-status",
       "unconfigured",
     );
-    // Subtitle still says "(unconfigured)" — preserves prior copy.
-    expect(screen.getByText("(unconfigured)")).toBeInTheDocument();
   });
 
   it("does NOT render the 'Not configured' badge once the node has a type, and reports data-status='configured'", () => {
@@ -168,6 +189,7 @@ describe("WorkflowNodeCard — status surface", () => {
         kind: "action",
         provider: "slack",
         type: "slack.message.channel",
+        displayName: "Send Message",
         providerLabel: "Slack",
       },
     });
@@ -186,6 +208,7 @@ describe("WorkflowNodeCard — initials avatar fallback", () => {
         kind: "action",
         provider: "slack",
         type: "x",
+        displayName: "X",
         providerLabel: "Slack",
       },
     });
@@ -195,7 +218,12 @@ describe("WorkflowNodeCard — initials avatar fallback", () => {
 
   it("avatar initials are derived from the provider label (or id if unlabeled)", () => {
     renderCard({
-      data: { kind: "action", provider: "github", type: "x" },
+      data: {
+        kind: "action",
+        provider: "github",
+        type: "x",
+        displayName: "X",
+      },
     });
     expect(screen.getByTestId("provider-initials-avatar").textContent).toBe(
       "GI",
@@ -210,6 +238,7 @@ describe("WorkflowNodeCard — provider icon rendering (Slice 4.BUILDER-INSPECTO
         kind: "action",
         provider: "slack",
         type: "slack.message.channel",
+        displayName: "Send Message",
         providerLabel: "Slack",
         providerIcon: "/integrations/slack.svg",
       },
@@ -230,6 +259,7 @@ describe("WorkflowNodeCard — provider icon rendering (Slice 4.BUILDER-INSPECTO
         kind: "action",
         provider: "slack",
         type: "x",
+        displayName: "X",
         providerLabel: "Slack",
         providerIcon: "/integrations/slack.svg",
       },
@@ -255,6 +285,7 @@ describe("WorkflowNodeCard — provider icon rendering (Slice 4.BUILDER-INSPECTO
         kind: "action",
         provider: "unknown-provider",
         type: "x",
+        displayName: "X",
         providerLabel: "Unknown",
       },
     });
@@ -271,6 +302,7 @@ describe("WorkflowNodeCard — provider icon rendering (Slice 4.BUILDER-INSPECTO
         kind: "action",
         provider: "totally-fictional",
         type: "x",
+        displayName: "X",
         providerLabel: "Totally Fictional",
         providerIcon: "/integrations/totally-fictional.svg",
       },

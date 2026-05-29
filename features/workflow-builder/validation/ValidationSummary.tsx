@@ -1,6 +1,7 @@
 "use client";
 
 import type { WorkflowNode } from "@/contracts/workflow";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 import {
@@ -161,14 +162,10 @@ function IssueRow({
   const node = issue.nodeId
     ? pendingNodes.find((n) => n.id === issue.nodeId)
     : undefined;
-  // Use the provider + type as the node label — same source the node
-  // card already uses. Picker labels (Slack / Gmail / etc.) aren't in
-  // the slice; the inspector covers the friendly name.
-  const nodeLabel = node
-    ? node.type
-      ? `${node.provider} · ${node.type}`
-      : `${node.provider} · (unconfigured)`
-    : null;
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — friendly user-facing label (custom node
+  // name → metadata-derived default → formatted type key), never the raw
+  // provider:type key or node id.
+  const nodeLabel = node ? getNodeDisplayName(node) : null;
 
   const containerClass =
     severity(issue.severity) +

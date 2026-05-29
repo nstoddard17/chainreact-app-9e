@@ -115,6 +115,8 @@ describe("previewWorkflowPatchForAI — valid patch change summaries", () => {
     expect(ops).toEqual(["addNode", "addEdge"]);
     expect(res.data.changes[0]!.description).toMatch(/^Adds /);
     expect(res.data.changes[1]!.description).toMatch(/^Connects /);
+    // The preview validates the patch with the model's proposed ids intact
+    // (id materialization happens at apply, not preview — see the service doc).
     expect(res.data.affectedEdgeIds).toContain("e2");
   });
 

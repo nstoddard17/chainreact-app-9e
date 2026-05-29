@@ -202,8 +202,14 @@ it("end-to-end: pick GitHub new_commit via drill-in, configure, save, downstream
     expect(screen.getByLabelText("Repository")).toBeInTheDocument();
   });
   expect(screen.getByLabelText("Branch (optional)")).toBeInTheDocument();
-  // The header shows the meta's displayName + description.
-  expect(screen.getByText("New Commit")).toBeInTheDocument();
+  // The header shows the meta's displayName + description. (Slice
+  // 4.BUILDER-NODE-IDENTITY-1: the canvas card now also shows the node name, so
+  // scope this to the config panel.)
+  expect(
+    within(screen.getByRole("complementary", { name: /node configuration/i })).getByText(
+      "New Commit",
+    ),
+  ).toBeInTheDocument();
 
   // 6. Type a repository — configSlice draft flips dirty.
   await user.type(
@@ -271,7 +277,9 @@ it("end-to-end: pick GitHub new_commit via drill-in, configure, save, downstream
   // displayName and its payloadShape fields are visible (after expansion
   // — the trigger source expands by default).
   await waitFor(() => {
-    expect(screen.getByText("New Commit")).toBeInTheDocument();
+    // The variable-source section is grouped under the trigger's displayName;
+    // the canvas card also shows that label, so at least one occurrence is expected.
+    expect(screen.getAllByText("New Commit").length).toBeGreaterThanOrEqual(1);
   });
   // payloadShape outputs render as insertable buttons.
   expect(

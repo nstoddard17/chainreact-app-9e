@@ -103,17 +103,17 @@ export function WorkflowNodeCard({
           </div>
           <div
             className="mt-0.5 truncate text-[12.5px] font-semibold leading-tight"
-            title={providerLabel}
+            title={data.displayName}
             style={{ color: "var(--builder-text)" }}
           >
-            {providerLabel}
+            {data.displayName}
           </div>
           <div
-            className="builder-mono mt-0.5 truncate text-[10.5px] leading-tight"
+            className="mt-0.5 truncate text-[10.5px] leading-tight"
             style={{ color: "var(--builder-muted)" }}
-            title={data.type || undefined}
+            title={providerLabel}
           >
-            {data.type ? data.type : "(unconfigured)"}
+            {providerLabel}
           </div>
         </div>
       </div>

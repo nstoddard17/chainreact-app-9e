@@ -469,6 +469,74 @@ describe("graphSlice.updateNodeConfig", () => {
   });
 });
 
+// ─── Slice 4.BUILDER-NODE-IDENTITY-1 — user-facing node rename ───────────────
+
+describe("graphSlice.renameNode", () => {
+  beforeEach(() => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+  });
+
+  it("sets the node's displayName, marks dirty, and leaves identity untouched", () => {
+    useGraphSlice.getState().renameNode("t1", "Notify Support Team");
+    const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === "t1")!;
+    expect(node.displayName).toBe("Notify Support Team");
+    // id / provider / type / config are NEVER changed by a rename.
+    expect(node.id).toBe("t1");
+    expect(node.provider).toBe("slack");
+    expect(node.type).toBe("message_received");
+    expect(node.config).toEqual({});
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("trims the name and clears it (back to undefined) when blank — falls back to default", () => {
+    useGraphSlice.getState().renameNode("t1", "  Spaced Name  ");
+    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "t1")!.displayName).toBe("Spaced Name");
+    useGraphSlice.getState().renameNode("t1", "   ");
+    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "t1")!.displayName).toBeUndefined();
+  });
+
+  it("no-op (same reference) when the value is unchanged", () => {
+    useGraphSlice.getState().renameNode("t1", "Same");
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().renameNode("t1", "Same");
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+
+  it("no-op on an unknown nodeId", () => {
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().renameNode("ghost", "X");
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+
+  it("persists displayName through save → re-hydrate", async () => {
+    useGraphSlice.getState().renameNode("t1", "Watcher");
+    const pending = useGraphSlice.getState().pendingNodes;
+    mockUpdateWorkflow.mockResolvedValueOnce({
+      id: "wf-1",
+      name: "x",
+      state: "draft",
+      disabledReason: null,
+      disabledContext: null,
+      activeRevisionId: null,
+      draftDefinition: { nodes: pending, edges: [] },
+      deletedAt: null,
+      createdAt: "2026-05-06T00:00:00Z",
+      updatedAt: "2026-05-06T00:01:00Z",
+    });
+    await useGraphSlice.getState().save();
+    // The saved payload carries displayName; re-hydrating from it preserves it.
+    expect(mockUpdateWorkflow).toHaveBeenCalledWith(
+      "wf-1",
+      expect.objectContaining({
+        draftDefinition: expect.objectContaining({
+          nodes: expect.arrayContaining([expect.objectContaining({ id: "t1", displayName: "Watcher" })]),
+        }),
+      }),
+    );
+    expect(useGraphSlice.getState().savedNodes.find((n) => n.id === "t1")!.displayName).toBe("Watcher");
+  });
+});
+
 // ─── Slice 3.5 — canvas-driven actions ──────────────────────────────────────
 
 describe("graphSlice.updateNodePosition", () => {

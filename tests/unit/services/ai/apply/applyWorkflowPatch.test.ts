@@ -209,8 +209,17 @@ describe("applyWorkflowPatchForAI — persistence", () => {
       ]),
     });
     expect(res.ok).toBe(true);
-    expect(persistedDef().nodes.some((n) => n.id === "a2")).toBe(true);
-    expect(persistedDef().edges.some((e) => e.id === "e2")).toBe(true);
+    // Slice 4.BUILDER-NODE-IDENTITY-1 — the model's patch-local ids ("a2"/"e2")
+    // are replaced with system-owned ids before persistence; assert by content.
+    const added = persistedDef().nodes.find(
+      (n) => n.provider === "slack" && n.type === "send_channel_message",
+    );
+    expect(added).toBeDefined();
+    expect(added!.id).not.toBe("a2");
+    // The edge wires the existing node a1 → the new node's SYSTEM id.
+    expect(persistedDef().edges.some((e) => e.from === "a1" && e.to === added!.id)).toBe(true);
+    // The model's scratch edge id never persists.
+    expect(persistedDef().edges.some((e) => e.id === "e2")).toBe(false);
   });
 
   // Slice 4.AI-35G — an AI-applied simple linear workflow is normalized to the
@@ -224,12 +233,16 @@ describe("applyWorkflowPatchForAI — persistence", () => {
       ]),
     });
     expect(res.ok).toBe(true);
+    // The added node has a system id (not "a2"); find it by content.
+    const added = persistedDef().nodes.find(
+      (n) => n.provider === "slack" && n.type === "send_channel_message",
+    )!;
     const pos = (id: string) => persistedDef().nodes.find((n) => n.id === id)!.position;
-    // Base def starts with t + a1 BOTH at (0,0); after apply the chain t→a1→a2
+    // Base def starts with t + a1 BOTH at (0,0); after apply the chain t→a1→added
     // is re-stacked vertically, all x-aligned.
     expect(pos("t").y).toBeLessThan(pos("a1").y);
-    expect(pos("a1").y).toBeLessThan(pos("a2").y);
-    expect(new Set([pos("t").x, pos("a1").x, pos("a2").x]).size).toBe(1);
+    expect(pos("a1").y).toBeLessThan(added.position.y);
+    expect(new Set([pos("t").x, pos("a1").x, added.position.x]).size).toBe(1);
   });
 
   it("does NOT relayout positions on a pure config edit (updateNodeConfig)", async () => {

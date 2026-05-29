@@ -919,3 +919,44 @@ describe("ConfigModalShell — provider-action lookup gating", () => {
     expect(mockListProviderActions).not.toHaveBeenCalled();
   });
 });
+
+describe("ConfigModalShell — node rename (Slice 4.BUILDER-NODE-IDENTITY-1)", () => {
+  it("renders a Node name input whose placeholder is the metadata default", async () => {
+    bootWithNativeAction();
+    render(<ConfigModalShell />);
+    // Wait for the meta to load (the header shows the action's display name).
+    await waitFor(() => expect(screen.getByText("HTTP Request")).toBeInTheDocument());
+    const input = screen.getByTestId("node-name-input") as HTMLInputElement;
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("HTTP Request");
+  });
+
+  it("typing a name writes displayName to graphSlice + marks the graph dirty (no planner call)", async () => {
+    const { nodeId } = bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => expect(screen.getByTestId("node-name-input")).toBeInTheDocument());
+    await user.type(screen.getByTestId("node-name-input"), "Notify Support Team");
+    expect(
+      useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)!.displayName,
+    ).toBe("Notify Support Team");
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+    // Rename is a pure state mutation — it does not change the node's identity.
+    const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)!;
+    expect(node.id).toBe(nodeId);
+    expect(node.provider).toBe("native");
+    expect(node.type).toBe("http_request");
+  });
+
+  it("clearing the name resets displayName to the default (undefined)", async () => {
+    const { nodeId } = bootWithNativeAction();
+    const user = userEvent.setup();
+    useGraphSlice.getState().renameNode(nodeId, "Temp");
+    render(<ConfigModalShell />);
+    await waitFor(() => expect(screen.getByTestId("node-name-input")).toBeInTheDocument());
+    await user.clear(screen.getByTestId("node-name-input"));
+    expect(
+      useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)!.displayName,
+    ).toBeUndefined();
+  });
+});

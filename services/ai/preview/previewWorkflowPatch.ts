@@ -17,11 +17,11 @@
  */
 
 import type { WorkflowDefinition, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
-import { getActionMeta, getTriggerMeta } from "@/services/ai/tools/providerCatalog";
 import { isSecretKey } from "@/services/ai/tools/redact";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import { aiToolOk, type AiToolResult } from "@/services/ai/tools/types";
 import { explainWorkflowDefinition } from "@/services/ai/explain/explainDefinition";
+import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import type { PatchOperation } from "@/services/workflows/patch/types";
 import type {
@@ -30,18 +30,13 @@ import type {
   PreviewWorkflowPatchInput,
 } from "./types";
 
-/** Registry display label for a `provider:type` key, falling back to the key. */
-function labelForKey(key: string): string {
-  const action = getActionMeta(key);
-  if (action.ok) return action.data.displayName;
-  const trigger = getTriggerMeta(key);
-  if (trigger.ok) return trigger.data.displayName;
-  return key;
-}
+/** Friendly stand-in when an op references a node not in the (candidate) graph. */
+const UNRESOLVED_NODE_LABEL = "a node that's no longer in this workflow";
 
-function labelForNode(node: WorkflowNode | undefined, fallback: string): string {
-  if (!node) return fallback;
-  return labelForKey(`${node.provider}:${node.type}`);
+/** Friendly user-facing label for a node — honors user displayName, then meta. */
+function labelForNode(node: WorkflowNode | undefined): string {
+  if (!node) return UNRESOLVED_NODE_LABEL;
+  return resolveNodeDisplayNameFromRegistry(node);
 }
 
 function describeEdge(
@@ -65,14 +60,14 @@ function buildChanges(
   );
   const currentEdges = new Map(currentDef.edges.map((e) => [e.id, e]));
 
-  const currentLabel = (id: string) => labelForNode(currentNodes.get(id), id);
-  const candidateLabel = (id: string) => labelForNode(candidateNodes.get(id), id);
+  const currentLabel = (id: string) => labelForNode(currentNodes.get(id));
+  const candidateLabel = (id: string) => labelForNode(candidateNodes.get(id));
 
   const changes: PatchChangeSummary[] = [];
   for (const op of operations) {
     switch (op.op) {
       case "addNode": {
-        const label = labelForKey(`${op.node.provider}:${op.node.type}`);
+        const label = resolveNodeDisplayNameFromRegistry(op.node);
         changes.push({ op: op.op, description: `Adds "${label}".`, nodeId: op.node.id });
         break;
       }
@@ -145,7 +140,7 @@ function buildChanges(
         break;
       }
       case "replaceTrigger": {
-        const label = labelForKey(`${op.node.provider}:${op.node.type}`);
+        const label = resolveNodeDisplayNameFromRegistry(op.node);
         changes.push({
           op: op.op,
           description: `Replaces workflow trigger with "${label}".`,
@@ -229,6 +224,15 @@ export async function previewWorkflowPatchForAI(
   const currentRevision = graphRes.data.updatedAt;
 
   // 2. Deterministic validation (candidate, risk, cost) — never mutates input.
+  //
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — the preview validates the patch with the
+  // model's PROPOSED (patch-local) ids intact, so error/reference paths read
+  // back the same ids the model reasoned about. The existing validator already
+  // rejects an invented update target (UNKNOWN_NODE), a missing edge endpoint
+  // (INVALID_EDGE), and duplicate ids. The system-owned id MATERIALIZATION runs
+  // only at the apply persistence boundary (`applyWorkflowPatchForAI`), which is
+  // always gated behind a passing preview — so persisted defs contain only
+  // system ids without leaking throwaway uuids into preview copy.
   const validation = validateWorkflowPatch(patch, currentDef);
   const candidate = validation.candidateDefinition;
   const operations = patch.operations ?? [];

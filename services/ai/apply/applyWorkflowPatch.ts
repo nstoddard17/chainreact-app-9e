@@ -37,6 +37,7 @@ import type {
   PatchOperation,
   PatchValidationError,
 } from "@/services/workflows/patch/types";
+import { materializeAiPatchNodeIds } from "@/services/ai/patch/materializeAiPatchNodeIds";
 import { normalizeLinearWorkflowLayout } from "./normalizeLinearLayout";
 import type {
   ApplyErrorCode,
@@ -118,12 +119,29 @@ export async function applyWorkflowPatchForAI(
     return fail("NOT_FOUND", `No workflow '${workflowId}'.`);
   }
   const currentDef: WorkflowDefinition = record.draftDefinition;
-  const operations = patch.operations ?? [];
+
+  // 2.5. Materialize SYSTEM-OWNED ids for AI-created nodes/edges before
+  //      anything is validated or persisted (Slice 4.BUILDER-NODE-IDENTITY-1).
+  //      Model-proposed ids are patch-local scratch values; this assigns opaque
+  //      system ids, rewrites every reference to them (edges, op nodeIds,
+  //      `{{id.path}}` config tokens), strips any AI-set displayName, and
+  //      rejects references to ids that are neither on the canvas nor introduced
+  //      earlier in this patch (UNKNOWN_NODE / INVALID_EDGE) — so `action1` can
+  //      never become a persisted id or silently map to an existing node.
+  const materialized = materializeAiPatchNodeIds(patch, currentDef);
+  if (!materialized.ok) {
+    const secretKeysForErr = collectSecretConfigKeys(patch.operations ?? []);
+    const safeErrors = materialized.errors.map((e) => scrubError(e, secretKeysForErr));
+    const code = classifyValidationFailure(materialized.errors);
+    return fail(code, `Patch failed validation (${safeErrors.length} error(s)).`, safeErrors);
+  }
+  const effectivePatch = materialized.patch;
+  const operations = effectivePatch.operations ?? [];
   const secretKeys = collectSecretConfigKeys(operations);
 
   // 3 + 4. Re-validate against the current definition. Nothing is persisted
   //         when validation fails.
-  const validation = validateWorkflowPatch(patch, currentDef);
+  const validation = validateWorkflowPatch(effectivePatch, currentDef);
   if (!validation.ok) {
     const safeErrors = validation.errors.map((e) => scrubError(e, secretKeys));
     const code = classifyValidationFailure(validation.errors);

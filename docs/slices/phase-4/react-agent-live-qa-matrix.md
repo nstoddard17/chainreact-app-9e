@@ -187,3 +187,25 @@ Result: AI-created trigger→action(→action) workflows read top-to-bottom; tri
 10. **AI-35I intent override** — same prompt → answer the message text "Hey" → reply "This is to a channel" → the action **switches from Send DM to Send Channel Message**; the agent NO LONGER asks "Which Slack user should receive the DM?" / "Slack DMs require a userId" — it asks for a channel and reuses "Hey". Then test other corrections: "No, use Outlook" (provider switch), "Actually send an email instead" (action switch), "make it manual" (trigger switch) — each replaces the prior inferred shape rather than re-asking the obsolete action's inputs. A plain answer ("Hey", "#general") is NOT treated as a correction and still completes deterministically (no model call).
 11. **AI-35J preserve compatible value** — "Send me a Slack DM when I manually run this workflow" → answer "hey" → reply "this is to a channel" → the agent switches to Send Channel Message and asks ONLY for the channel; it does **NOT** re-ask "What should the message say?" — "hey" is reused. The previously-asked Slack **user id** is dropped (not reused as a channel). Repeat for Gmail→Outlook (downstream message text preserved) and Slack→email (message body preserved, Slack channel/user dropped).
 12. **AI-35K combobox manual fallback** — ask for a Slack channel with Slack **disconnected** → the channel combobox shows a load error/hint but the input stays editable; type `#general` → a "Use '#general' as-is" action appears → click it → the value is staged. Send details → completes WITHOUT a model call (`POST /ai/complete`, the channel written as the typed text). Apply creates the draft; Activate stays blocked ("Connect Slack before activating"). If options DO load, picking an option still submits its id. Repeat with a non-Slack picker (e.g. a Gmail label) to confirm it's generic.
+
+---
+
+## Slice 4.BUILDER-NODE-IDENTITY-1 — system-owned IDs + node names (2026-05-29)
+
+**Scope:** backend node identity (system-owned ids), user-facing editable node names, planner reference integrity. Non-goals: no execution / billing / provider-metadata / general-help change; planner stays OpenAI per AI-36 (Anthropic not called).
+
+| # | Behavior | Where | Status | Test |
+|---|---|---|---|---|
+| N1 | AI-created node/edge ids (e.g. `action1`, `trigger1`) are replaced with system ids before persistence; references (edges, op nodeIds, `{{id.path}}` config tokens) rewritten | `materializeAiPatchNodeIds` (apply boundary) | ✅ | `materializeAiPatchNodeIds.test.ts`, `applyWorkflowPatch.test.ts` |
+| N2 | `updateNodeConfig`/etc. targeting an invented id (not on canvas, not introduced earlier) → `UNKNOWN_NODE`, nothing persists; no Anthropic fallback | materializer + apply | ✅ | `materializeAiPatchNodeIds.test.ts` |
+| N3 | AI-supplied `displayName` on a node is dropped unconditionally (names are user-only) | materializer | ✅ | `materializeAiPatchNodeIds.test.ts` |
+| N4 | Friendly node label (custom → metadata → type key → kind), never a raw id, on card / validation / run history / preview | `getNodeDisplayName` | ✅ | `nodeDisplayName.test.ts`, `WorkflowNodeCard.test.tsx`, `ValidationSummary.test.tsx`, `RunResultsPanel.test.tsx` |
+| N5 | Rename via "Node name" Setup-tab input → `renameNode` (pure state, no planner); save/re-hydrate preserves; clearing → default | `graphSlice.renameNode`, `ConfigModalShell` | ✅ | `graphSlice.test.ts`, `ConfigModalShell.test.tsx` |
+| N6 | currentCanvas renders `<id> ("<label>")`; prompt says ids opaque, displayName ≠ nodeId, forbids invented ids, scopes edits | `renderCurrentGraph`, `PLANNER_CONSTRAINTS` | ✅ | `buildWorkflowPlanPrompt.test.ts` |
+
+**Manual verification (Marcus — live dev server):**
+
+13. **System ids** — "When I get a Gmail email, send a Slack channel message" → Apply → reload the workflow → persisted node ids are opaque uuids, NOT `action1`/`trigger1`; edges still connect the right nodes; variable refs between the new nodes still resolve.
+14. **Rename** — select a node → config Setup tab shows a "Node name" field with the metadata default as placeholder → type "Notify Support Team" → the canvas card title updates → Save → reload → the name persists. Clear the field → the card falls back to the default label.
+15. **Friendly messages** — a workflow with a missing required field → the validation drawer shows the friendly node name (not `provider:type` or a raw id). A failed run's results panel shows friendly step names; a step whose node was deleted reads "a node that's no longer in this workflow".
+16. **Fake-id rejection** — (if reproducible) a planner patch targeting a non-existent node id is rejected at apply (`UNKNOWN_NODE`) with a friendly message; nothing changes; no Anthropic call.

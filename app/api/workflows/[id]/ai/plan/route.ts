@@ -53,6 +53,9 @@ const CurrentGraphNodeSchema = z.object({
   kind: z.enum(["trigger", "action"]),
   provider: z.string().min(1).max(100),
   type: z.string().min(1).max(200),
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — optional user node name, forwarded to the
+  // planner as read-only context (shown next to the opaque id). Never identity.
+  displayName: z.string().max(120).optional(),
 });
 const CurrentGraphEdgeSchema = z.object({
   id: z.string().min(1).max(200),

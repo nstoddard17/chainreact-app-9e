@@ -39,6 +39,18 @@ export const WorkflowNodeSchema = z.object({
   type: z.string(),
   config: z.record(z.string(), z.unknown()).default({}),
   position: WorkflowNodePositionSchema.default({ x: 0, y: 0 }),
+  /**
+   * Optional USER-FACING node name (Slice 4.BUILDER-NODE-IDENTITY-1). Purely
+   * for human display in the builder UI, validation copy, and run history —
+   * it is NEVER identity: edges, patch references, execution dispatch, and
+   * persistence all key on `id`, never this. When absent/blank the UI derives
+   * a friendly default from metadata (see `getNodeDisplayName`).
+   *
+   * Owned by the USER only (the rename UI). The AI/planner NEVER sets it —
+   * any `displayName` arriving on an AI patch node is stripped unconditionally
+   * at the apply/preview boundary (`materializeAiPatchNodeIds`).
+   */
+  displayName: z.string().max(120).optional(),
 });
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
 

@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import type { WorkflowRunStep } from "@/contracts/workflow";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
 import { RunResultsRepairBlock } from "./RunResultsRepairBlock";
+
+/** Friendly stand-in when a run step references a node no longer on the canvas. */
+const MISSING_NODE_LABEL = "a node that's no longer in this workflow";
 
 /**
  * Slice 3.8 — Test Run / Latest Run Output Preview.
@@ -33,6 +38,14 @@ export function RunResultsPanel() {
   const detail = useRunSlice((s) => s.detail);
   const fetchError = useRunSlice((s) => s.fetchError);
   const pollCount = useRunSlice((s) => s.pollCount);
+  // Slice 4.BUILDER-NODE-IDENTITY-1 — resolve each step's opaque node id to a
+  // friendly label from the current canvas; missing nodes get a generic phrase
+  // (never the raw id) in the visible copy. The raw id stays only as a dev hover.
+  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
+  const labelForNodeId = (nodeId: string): string => {
+    const node = pendingNodes.find((n) => n.id === nodeId);
+    return node ? getNodeDisplayName(node) : MISSING_NODE_LABEL;
+  };
 
   return (
     <section
@@ -60,7 +73,12 @@ export function RunResultsPanel() {
           {fetchError}
         </p>
       ) : null}
-      <Body status={status} detail={detail} pollCount={pollCount} />
+      <Body
+        status={status}
+        detail={detail}
+        pollCount={pollCount}
+        labelForNodeId={labelForNodeId}
+      />
     </section>
   );
 }
@@ -69,10 +87,12 @@ function Body({
   status,
   detail,
   pollCount,
+  labelForNodeId,
 }: {
   status: ReturnType<typeof useRunSlice.getState>["status"];
   detail: ReturnType<typeof useRunSlice.getState>["detail"];
   pollCount: number;
+  labelForNodeId: (nodeId: string) => string;
 }) {
   if (status === "idle") {
     return (
@@ -117,7 +137,7 @@ function Body({
       {detail.errorClassification ? (
         <ClassifiedErrorBlock classification={detail.errorClassification} />
       ) : null}
-      <Steps steps={detail.steps} />
+      <Steps steps={detail.steps} labelForNodeId={labelForNodeId} />
       {detail.status === "failed" ? (
         <RunResultsRepairBlock workflowId={detail.workflowId} runId={detail.id} />
       ) : null}
@@ -142,7 +162,13 @@ function RunStatusLine({
   );
 }
 
-function Steps({ steps }: { steps: readonly WorkflowRunStep[] }) {
+function Steps({
+  steps,
+  labelForNodeId,
+}: {
+  steps: readonly WorkflowRunStep[];
+  labelForNodeId: (nodeId: string) => string;
+}) {
   if (steps.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
@@ -154,14 +180,14 @@ function Steps({ steps }: { steps: readonly WorkflowRunStep[] }) {
     <ol className="flex flex-col gap-2" aria-label="Run steps">
       {steps.map((step, idx) => (
         <li key={`${step.nodeId}-${idx}`}>
-          <StepRow step={step} />
+          <StepRow step={step} nodeLabel={labelForNodeId(step.nodeId)} />
         </li>
       ))}
     </ol>
   );
 }
 
-function StepRow({ step }: { step: WorkflowRunStep }) {
+function StepRow({ step, nodeLabel }: { step: WorkflowRunStep; nodeLabel: string }) {
   const [open, setOpen] = useState(false);
   const hasOutput = step.output !== undefined;
   return (
@@ -173,9 +199,9 @@ function StepRow({ step }: { step: WorkflowRunStep }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <StatusPill status={step.status} />
-          <code className="text-xs text-muted-foreground truncate" title={step.nodeId}>
-            {step.nodeId}
-          </code>
+          <span className="text-xs text-muted-foreground truncate" title={step.nodeId}>
+            {nodeLabel}
+          </span>
         </div>
         {(hasOutput || step.error) && (
           <button

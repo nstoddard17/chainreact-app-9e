@@ -7,6 +7,7 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from "@/contracts/workflow";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 
 /**
  * Pure converters between the workflow-definition shape (the
@@ -38,6 +39,15 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   provider: string;
   /** Provider-scoped action/trigger type, or empty string for unconfigured nodes. */
   type: string;
+  /**
+   * User-facing node name (Slice 4.BUILDER-NODE-IDENTITY-1). The custom
+   * `node.displayName` when set, otherwise a friendly default derived from the
+   * type key (`send_channel_message` → "Send Channel Message"). The card shows
+   * this as the title — never the raw node id. Metadata-exact display names are
+   * resolved in the config panel (which has the meta loaded); the canvas uses
+   * the pure type-key fallback so it stays a synchronous converter.
+   */
+  displayName: string;
   /** Optional provider-friendly label (e.g. "Slack" instead of "slack"). */
   providerLabel?: string;
   /**
@@ -85,6 +95,7 @@ export function workflowNodesToFlowNodes(
       kind: node.kind,
       provider: node.provider,
       type: node.type,
+      displayName: getNodeDisplayName(node),
       providerLabel: ctx.providerLabels?.[node.provider],
       providerIcon: ctx.providerIcons?.[node.provider],
     },

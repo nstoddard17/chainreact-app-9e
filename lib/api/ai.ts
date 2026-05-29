@@ -193,6 +193,12 @@ export interface CurrentGraphSnapshot {
     readonly kind: "trigger" | "action";
     readonly provider: string;
     readonly type: string;
+    /**
+     * Slice 4.BUILDER-NODE-IDENTITY-1 — the user's custom node name when set.
+     * Read-only context for the planner (shown next to the opaque id); the
+     * planner references nodes by `id`, never this. Omitted when unnamed.
+     */
+    readonly displayName?: string;
   }>;
   readonly edges: ReadonlyArray<{
     readonly id: string;

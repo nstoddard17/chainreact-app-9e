@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { FieldMeta } from "@/contracts/actionMeta";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { Button } from "@/components/ui/button";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
@@ -75,6 +76,7 @@ export function ConfigModalShell() {
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const updateNodeConfig = useGraphSlice((s) => s.updateNodeConfig);
+  const renameNode = useGraphSlice((s) => s.renameNode);
 
   const nativeActions = useNativeActions();
   const nativeTriggers = useNativeTriggers();
@@ -238,6 +240,42 @@ export function ConfigModalShell() {
       </nav>
 
       <section aria-label="Setup fields" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="node-name-input"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Node name
+          </label>
+          {/*
+            Uncontrolled + keyed by node id: the browser owns the live value
+            (so multi-word names with spaces type smoothly), while each keystroke
+            writes through `renameNode`, which trims for storage and clears to
+            the metadata default when blank. Remounts when the active node
+            changes. This is a USER-only label — never identity.
+          */}
+          <input
+            key={activeNodeId}
+            id="node-name-input"
+            data-testid="node-name-input"
+            type="text"
+            maxLength={120}
+            defaultValue={activeNode.displayName ?? ""}
+            placeholder={getNodeDisplayName(
+              {
+                kind: activeNode.kind,
+                provider: activeNode.provider,
+                type: activeNode.type,
+              },
+              activeMeta ? { displayName: activeMeta.displayName } : null,
+            )}
+            onChange={(e) => renameNode(activeNodeId, e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-sm"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            A friendly name shown on the canvas. Leave blank to use the default.
+          </p>
+        </div>
         {isLoadingMeta ? (
           <p className="text-xs text-muted-foreground">Loading…</p>
         ) : metaError ? (

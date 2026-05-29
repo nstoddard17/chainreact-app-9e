@@ -450,7 +450,8 @@ describe("AI-29 — v2 preserves v1 grounding sections", () => {
     );
     const system = messages[0]!.content;
     expect(system).toContain("Current workflow on the canvas (authoritative");
-    expect(system).toContain("- trig-1: trigger native:manual.run");
+    // Slice 4.BUILDER-NODE-IDENTITY-1 — id + quoted friendly label + provider:type.
+    expect(system).toMatch(/- trig-1 \("[^"]+"\): trigger native:manual\.run/);
   });
 
   it("includes the v1 PATCH_SHAPE_GUIDE + VALUE_SHAPE_RULES + JSON_OUTPUT_RULES", () => {

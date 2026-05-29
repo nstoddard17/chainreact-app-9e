@@ -182,8 +182,13 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   await waitFor(() => {
     expect(screen.getByLabelText(/label id/i)).toBeInTheDocument();
   });
-  // Header shows the meta's displayName.
-  expect(screen.getByText("New Labeled Email")).toBeInTheDocument();
+  // Header shows the meta's displayName. (Slice 4.BUILDER-NODE-IDENTITY-1: the
+  // canvas card now also shows the node name, so scope this to the config panel.)
+  expect(
+    within(screen.getByRole("complementary", { name: /node configuration/i })).getByText(
+      "New Labeled Email",
+    ),
+  ).toBeInTheDocument();
 
   // 6. Type a label id — configSlice draft flips dirty.
   await user.type(screen.getByLabelText(/label id/i), "Label_12345");
@@ -250,7 +255,9 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   );
 
   await waitFor(() => {
-    expect(screen.getByText("New Labeled Email")).toBeInTheDocument();
+    // The variable picker groups outputs under the source node's label; the
+    // canvas card also shows that label, so at least one occurrence is expected.
+    expect(screen.getAllByText("New Labeled Email").length).toBeGreaterThanOrEqual(1);
   });
   // SEC-7: from + subject are now flagged sensitive (PII); aria-label
   // gains the masked-preview suffix for screen-reader announcement.

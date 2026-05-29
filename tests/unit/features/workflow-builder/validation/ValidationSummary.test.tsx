@@ -73,16 +73,18 @@ describe("ValidationSummary — has-issues state", () => {
     expect(screen.getByText(/^2 issues$/i)).toBeInTheDocument();
   });
 
-  it("renders provider · type as the node label on each row", () => {
+  it("renders a friendly node label on each row (never the raw provider:type key)", () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
     act(() => {
       useGraphSlice.getState().addTrigger({ provider: "slack" });
       useGraphSlice.getState().addAction({ provider: "slack" });
     });
     render(<ValidationSummary />);
-    expect(
-      screen.getAllByText(/slack · \(unconfigured\)/i).length,
-    ).toBeGreaterThanOrEqual(1);
+    // Slice 4.BUILDER-NODE-IDENTITY-1 — unconfigured nodes (no type yet) fall
+    // back to the friendly kind label, NEVER the raw "slack · (unconfigured)".
+    expect(screen.queryByText(/slack · \(unconfigured\)/i)).toBeNull();
+    expect(screen.getAllByText(/^Trigger$/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/^Action$/).length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -172,11 +174,12 @@ describe("ValidationSummary — provider-agnostic", () => {
       useGraphSlice.getState().addAction({ provider: "fictional-x" });
     });
     render(<ValidationSummary />);
-    // The unconfigured-node rows should still render normally with
-    // the provider name in the label — no per-provider branch
-    // dropping unknown providers.
+    // The unconfigured-node rows should still render normally for an unknown
+    // provider — no per-provider branch dropping it. (The friendly label uses
+    // the kind fallback, so the provider id itself isn't in the label.)
     expect(
-      screen.getAllByText(/fictional-x/i).length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getAllByTestId("validation-summary-issue").length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/^Trigger$/).length).toBeGreaterThanOrEqual(1);
   });
 });
