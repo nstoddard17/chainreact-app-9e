@@ -781,3 +781,132 @@ describe("useBuilderAi — intent-correction follow-ups (AI-35I)", () => {
     expect(mockApply).not.toHaveBeenCalled();
   });
 });
+
+// ─── Slice 4.AI-35J — preserve compatible answers across intent corrections ──
+
+describe("useBuilderAi — preserve compatible answers across corrections (AI-35J)", () => {
+  // A DM plan asking BOTH the message text AND the recipient — so answering the
+  // message leaves the chain OPEN (and the answer lands in priorFollowUpAnswers).
+  const dmAsksMessageAndUser = {
+    ...needsInputResponse,
+    intentSummary: "Send a Slack direct message when the workflow is run manually.",
+    requiredUserInput: [
+      { label: "What should the Slack direct message say?", kind: "config_value", nodeId: "n1", field: "text", fieldType: "textarea" },
+      { label: "Which Slack user should receive the DM?", kind: "config_value", nodeId: "n1", field: "userId", fieldType: "text" },
+    ],
+    proposedPatch: {
+      patchId: "p-dm",
+      operations: [{ op: "addNode", node: { id: "n1", kind: "action", provider: "slack", type: "send_direct_message", config: {} } }],
+      summary: "dm",
+    },
+  };
+  // After answering the message, the DM plan still needs the recipient → chain
+  // stays open; the message answer is now in priorFollowUpAnswers.
+  const dmStillAsksUser = {
+    ...dmAsksMessageAndUser,
+    requiredUserInput: [
+      { label: "Which Slack user should receive the DM?", kind: "config_value", nodeId: "n1", field: "userId", fieldType: "text" },
+    ],
+  };
+  // The (mocked) correction re-plan: a channel message that reuses the message
+  // and only needs the channel.
+  const channelReplanReusingMessage = {
+    ...needsInputResponse,
+    intentSummary: "Send a Slack channel message when the workflow is run manually.",
+    requiredUserInput: [
+      { label: "Which Slack channel should receive the message?", kind: "config_value", nodeId: "n2", field: "channel", fieldType: "combobox", optionsSource: "slack:channels" },
+    ],
+    proposedPatch: { patchId: "p-ch", operations: [], summary: "channel" },
+  };
+
+  function ans(nodeId: string, field: string, value: string, fieldLabel: string): RequiredInputAnswer {
+    return { key: `${nodeId}::${field}`, display: value, value, descriptor: { label: fieldLabel, kind: "config_value", nodeId, field } };
+  }
+
+  it("DM→channel correction preserves the already-supplied message text in the re-plan prompt", async () => {
+    mockPlan.mockResolvedValueOnce(dmAsksMessageAndUser); // turn 1
+    mockPlan.mockResolvedValueOnce(dmStillAsksUser); // turn 2: "hey" fills message, still needs user
+    mockPlan.mockResolvedValueOnce(channelReplanReusingMessage); // turn 3: correction
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a Slack DM when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "hey" }); // message text
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "this is to a channel" }); // correction
+    });
+
+    // The correction did NOT complete deterministically — it re-planned.
+    expect(mockComplete).not.toHaveBeenCalled();
+    expect(mockPlan).toHaveBeenCalledTimes(3);
+    const reconstructed = (mockPlan.mock.calls[2]![1] as { prompt: string }).prompt;
+    // The prior message answer survives AND the planner is told to preserve it.
+    expect(reconstructed).toContain("- hey");
+    expect(reconstructed).toContain("PRESERVE earlier user-provided values that still apply");
+    expect(reconstructed).toContain("Correction:");
+    // And the incompatible-destination guard is present (userId must not become a channel).
+    expect(reconstructed).toContain("destination details when the destination type is unchanged");
+    expect(result.current.planResult).toEqual(channelReplanReusingMessage);
+  });
+
+  it("provider correction ('No, use Outlook') preserves the downstream message text in the re-plan prompt", async () => {
+    mockPlan.mockResolvedValueOnce(dmAsksMessageAndUser); // turn 1
+    mockPlan.mockResolvedValueOnce(dmStillAsksUser); // turn 2: message answered
+    mockPlan.mockResolvedValueOnce(channelReplanReusingMessage); // turn 3: correction
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("When I get a Gmail email send a message saying notify the team");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "notify the team" });
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "No, use Outlook" });
+    });
+    const reconstructed = (mockPlan.mock.calls[2]![1] as { prompt: string }).prompt;
+    expect(reconstructed).toContain("- notify the team");
+    expect(reconstructed).toContain("PRESERVE earlier user-provided values that still apply");
+    expect(reconstructed).toContain("Correction:");
+  });
+
+  it("a plain field fill (no correction) still completes deterministically — no model call (unchanged by AI-35J)", async () => {
+    const messageOnly = {
+      ...needsInputResponse,
+      requiredUserInput: [
+        { label: "What should the message say?", kind: "config_value", nodeId: "n1", field: "text", fieldType: "textarea", allowFreeText: true },
+      ],
+    };
+    const completed = { ...messageOnly, requiredUserInput: [], canApplyLater: true };
+    mockPlan.mockResolvedValueOnce(messageOnly);
+    mockComplete.mockResolvedValueOnce(completed);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send a Slack message when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ structuredAnswers: [ans("n1", "text", "hey", "Message")] });
+    });
+    expect(mockComplete).toHaveBeenCalledTimes(1);
+    expect(mockPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("a correction re-plan goes through the standard planWorkflow path only (no completePlan, no apply, no routing change)", async () => {
+    mockPlan.mockResolvedValueOnce(dmAsksMessageAndUser);
+    mockPlan.mockResolvedValueOnce(channelReplanReusingMessage);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send me a Slack DM when I manually run this workflow");
+    });
+    await act(async () => {
+      await result.current.submitFollowUp({ freeText: "this is to a channel" });
+    });
+    // Only the standard planner route is exercised — AI-35J adds NO routing path.
+    // (OpenAI-vs-Anthropic selection lives behind /ai/plan per AI-36 and is
+    // untouched here; the hook never picks a model client.)
+    expect(mockComplete).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+  });
+});

@@ -135,9 +135,12 @@ export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string
   // with a prominent override directive so the planner abandons the previously
   // inferred provider/action/trigger instead of re-completing its stale inputs
   // (the "keeps asking for a Slack DM userId after the user said channel" bug).
+  // Slice 4.AI-35J — the directive ALSO instructs the planner to PRESERVE
+  // earlier user-supplied values that remain compatible (e.g. message text),
+  // so a DM→channel correction reuses "hey" instead of re-asking for it.
   if (isCorrection === true) {
     sections.push(
-      "Correction: the user's latest message corrects the earlier plan. Treat it as an explicit override of the previously inferred provider, action, and trigger. Rebuild the affected node(s) to match the correction — do NOT keep the previous action/trigger type, and do NOT re-ask for inputs (e.g. a recipient or user id) that only applied to the choice the user just replaced.",
+      "Correction: the user's latest message corrects the earlier plan. Treat it as an explicit override of the previously inferred provider, action, and trigger. Rebuild the affected node(s) to match the correction — do NOT keep the previous action/trigger type, and do NOT re-ask for inputs (e.g. a recipient or user id) that only applied to the choice the user just replaced. PRESERVE earlier user-provided values that still apply to the corrected plan — such as message text/body/content, schedule times, or filter terms — and do NOT re-ask for a value the user already supplied when it remains compatible; discard only the values tied to the replaced field, action, or provider.",
     );
   }
 
@@ -147,8 +150,14 @@ export function composeFollowUpPrompt(input: ComposeFollowUpPromptInput): string
   // switched the planner to OpenAI). The original request, the agent's
   // questions, the current plan, and any previous answers above are CONTEXT
   // ONLY. Keeps the AI-35 edit-vs-add guidance.
+  // Slice 4.AI-35J — adds the preserve-compatible-values clause: a correction
+  // replaces the obsolete SHAPE but keeps compatible user-supplied VALUES; a
+  // destination value (recipient / channel) transfers only when the destination
+  // TYPE is unchanged (so a DM user id is never reused as a channel, nor vice
+  // versa), while message/body/content, schedules, and filter terms transfer
+  // across compatible actions.
   sections.push(
-    "The user's latest message is authoritative. The original request, the agent's questions, the current plan, and any previous answers above are CONTEXT ONLY — if the latest message conflicts with them, follow the latest message and REPLACE the obsolete provider/action/trigger choice (discarding any required inputs that only applied to the replaced choice). If the request edits nodes already on the canvas, UPDATE those existing nodes (update their config) rather than adding new ones; only add nodes when building from scratch.",
+    "The user's latest message is authoritative. The original request, the agent's questions, the current plan, and any previous answers above are CONTEXT ONLY — if the latest message conflicts with them, follow the latest message and REPLACE the obsolete provider/action/trigger choice (discarding any required inputs that only applied to the replaced choice, but PRESERVING earlier user-provided values that still apply — message text/body/content, schedule times, filter terms, or destination details when the destination type is unchanged). If the request edits nodes already on the canvas, UPDATE those existing nodes (update their config) rather than adding new ones; only add nodes when building from scratch.",
   );
 
   return sections.join("\n\n");

@@ -274,3 +274,60 @@ describe("composeFollowUpPrompt — AI-35I authoritative-latest + correction ove
     expect(out).not.toContain("Current plan so far");
   });
 });
+
+describe("composeFollowUpPrompt — AI-35J preserve compatible values across corrections", () => {
+  it("the correction directive instructs the planner to PRESERVE compatible prior values", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send me a Slack DM when I manually run this workflow",
+      requiredInputLabels: ["Which Slack user should receive the DM?"],
+      priorFollowUpAnswers: ["What should the Slack direct message say?: hey"],
+      followUp: "this is to a channel",
+      isCorrection: true,
+    });
+    // The override is still present (AI-35I), AND a preserve instruction is added.
+    expect(out).toContain("Correction:");
+    expect(out).toContain("PRESERVE earlier user-provided values that still apply");
+    expect(out).toContain("do NOT re-ask for a value the user already supplied when it remains compatible");
+    // The already-supplied message text is in the prompt for the planner to reuse.
+    expect(out).toContain("What should the Slack direct message say?: hey");
+  });
+
+  it("the always-rendered closing keeps obsolete-input discarding AND adds value preservation", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send me a Slack DM",
+      requiredInputLabels: ["Which Slack user should receive the DM?"],
+      priorFollowUpAnswers: [],
+      followUp: "this is to a channel",
+      isCorrection: true,
+    });
+    expect(out).toContain("REPLACE the obsolete provider/action/trigger choice");
+    expect(out).toContain("PRESERVING earlier user-provided values that still apply");
+    expect(out).toContain("message text/body/content, schedule times, filter terms");
+  });
+
+  it("guards incompatible destination transfer (recipient/channel only when destination type is unchanged)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send me a Slack DM",
+      requiredInputLabels: ["Which Slack user should receive the DM?"],
+      priorFollowUpAnswers: [],
+      followUp: "this is to a channel",
+      isCorrection: true,
+    });
+    // The qualifier is what stops a DM user id being reused as a channel id.
+    expect(out).toContain("destination details when the destination type is unchanged");
+  });
+
+  it("the preserve clause is in the closing even for a NON-correction follow-up (always rendered)", () => {
+    const out = composeFollowUpPrompt({
+      originalPrompt: "Send a Slack message",
+      requiredInputLabels: ["What should the message say?"],
+      priorFollowUpAnswers: ["Use #general"],
+      followUp: "say hello",
+    });
+    // No correction directive, but prior answers still render + closing still
+    // carries the preserve clause (no regression to AI-21/22 follow-ups).
+    expect(out).not.toContain("Correction:");
+    expect(out).toContain("- Use #general");
+    expect(out).toContain("PRESERVING earlier user-provided values that still apply");
+  });
+});

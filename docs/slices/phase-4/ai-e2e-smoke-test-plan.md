@@ -439,6 +439,14 @@ An explicit follow-up correction overrides the earlier inferred provider/action/
 62. **Provider / action / trigger corrections** — from any inferred plan: "No, use Outlook" (provider), "Actually send an email instead" (action), "make it manual" (trigger) each REPLACE the prior shape and its required inputs rather than re-asking the obsolete action's inputs.
 63. **Plain answer stays deterministic** — a non-correction answer ("Hey", picking "#general") is NOT treated as a correction: it still completes deterministically (`POST /ai/complete`, no model call), confirming the detector doesn't over-trigger on ordinary field answers.
 
+### 5.15 — Preserve compatible answers across corrections (AI-35J)
+
+A correction replaces the obsolete shape but keeps compatible user-supplied values; incompatible/obsolete fields are discarded.
+
+64. **DM→channel preserves message** — "Send me a Slack DM when I manually run this workflow" → answer the message text "hey" → reply "this is to a channel" → the agent switches to Send Channel Message and asks ONLY for the channel. It must NOT re-ask "What should the message say?" — "hey" is reused. The DM **user id** is dropped (never reused as a channel id).
+65. **Provider/action correction preserves downstream content** — Gmail→Slack with the Slack message text supplied, then "No, use Outlook" → the email provider becomes Outlook and the Slack message text is preserved. Slack→email ("actually send an email") → the message body is preserved, the Slack channel/user fields are dropped.
+66. **Incompatible values not forced** — across a DM↔channel switch, a prior DM user id is never reused as the channel (and a prior channel is never reused as a recipient) — the destination value transfers only when the destination type is unchanged.
+
 ---
 
 ## 6. Bugs found during this audit
