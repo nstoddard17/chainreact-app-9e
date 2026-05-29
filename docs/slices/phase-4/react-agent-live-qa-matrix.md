@@ -228,3 +228,22 @@ Result: AI-created trigger→action(→action) workflows read top-to-bottom; tri
 
 17. **Gmail trigger now works** — empty/any canvas → "change the trigger to a new Gmail email from X with no attachments" → the agent proposes Gmail New Email and the preview is NOT blocked by `UNKNOWN_TRIGGER`; Apply creates the Gmail new-email trigger (real key `gmail:new_email`).
 18. **Friendly unsupported copy** — ask for a trigger/action that genuinely isn't supported → the "Problems to fix" / blocked message reads e.g. "Gmail 'New Email' isn't available as a trigger yet…" or the generic "This trigger isn't available yet…" — never `gmail:gmail:new_email`, "registered trigger", or "V2".
+
+---
+
+## Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — post-apply canvas stability (2026-05-29)
+
+**Live bug:** Apply succeeded + persisted, nodes appeared, then the canvas reset to EMPTY while inspecting config; refresh restored them. **Root cause:** two hydrate sources (the builder's stale prop-effect with a `reset()` cleanup + the fresh `onApplied` hydrate) with no freshness ordering. **Browser-extension console errors are NOT the cause** unless reproduced without extensions.
+
+| # | Behavior | Where | Status | Test |
+|---|---|---|---|---|
+| H1 | A same-workflow hydrate with a STRICTLY-OLDER revision is ignored | `graphSlice.hydrate` revision guard | ✅ | `graphSlice.test.ts` |
+| H2 | Post-apply race: a late stale empty hydrate never clobbers the applied graph | guard + effect split | ✅ | `graphSlice.test.ts`, `WorkflowBuilder.test.tsx` |
+| H3 | A same-id stale prop re-render does NOT reset the canvas | WorkflowBuilder effect split (id-keyed reset) | ✅ | `WorkflowBuilder.test.tsx` |
+| H4 | `onApplied` hydrates the post-apply draft + threads `updatedAt` as revision | `BuilderAiPanel.onApplied` | ✅ | `BuilderAiPanel.test.tsx` |
+| H5 | Newer / equal / different-workflow / legacy-no-revision hydrates still accept (no regression) | guard | ✅ | `graphSlice.test.ts` |
+
+**Manual verification (Marcus — live dev server):**
+
+19. **Apply → inspect → no disappearance** — "Change the trigger to fire when a new email is received in Gmail" → Apply → the Gmail trigger appears → open its config and inspect → the canvas STAYS on the applied graph (no "EMPTY · NO TRIGGER" flash). Refresh shows the same graph.
+20. **Save / initial-load parity** — a normal Save still reconciles; reloading the page hydrates the persisted draft; switching to another workflow resets cleanly (no leak).

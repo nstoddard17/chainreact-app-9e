@@ -284,6 +284,28 @@ describe("confirmation + apply", () => {
     await waitFor(() => expect(mockGetWorkflow).toHaveBeenCalledWith("wf-1"));
   });
 
+  // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — onApplied hydrates the builder graph
+  // from the post-apply getWorkflow draft AND threads its revision so a later
+  // stale prop hydrate is ignored.
+  it("hydrates the graph from the post-apply draft + revision after a successful apply", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    mockApply.mockResolvedValueOnce({ ok: true, appliedPatchId: "p1", summaryText: "Applied.", updatedAt: "2026-05-06T00:05:00Z", workflowId: "wf-1", appliedOperationCount: 1, riskLevel: "low", requiresConfirmation: false });
+    mockGetWorkflow.mockResolvedValueOnce({
+      id: "wf-1",
+      updatedAt: "2026-05-06T00:05:00Z",
+      draftDefinition: {
+        nodes: [{ id: "t", kind: "trigger", provider: "gmail", type: "new_email", config: {}, position: { x: 0, y: 0 } }],
+        edges: [],
+      },
+    });
+    render(<BuilderAiPanel />);
+    const user = await typeAndPlan();
+    await user.click(await screen.findByTestId("builder-ai-apply-button"));
+    await waitFor(() => expect(useGraphSlice.getState().pendingNodes).toHaveLength(1));
+    expect(useGraphSlice.getState().savedNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().hydratedRevision).toBe("2026-05-06T00:05:00Z");
+  });
+
   it("shows a re-run message and a Re-run plan button on STALE_PATCH (no auto-reapply)", async () => {
     mockPlan.mockResolvedValue(planApplyReady);
     mockApply.mockResolvedValueOnce({ ok: false, code: "STALE_PATCH", message: "stale" });

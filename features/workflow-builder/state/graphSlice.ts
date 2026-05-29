@@ -49,6 +49,15 @@ export interface GraphSliceState {
   isDirty: boolean;
   isSaving: boolean;
   saveError: string | null;
+
+  /**
+   * Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — the server revision (`updatedAt`)
+   * of the last ACCEPTED hydrate for the current workflow. A later hydrate for
+   * the SAME workflow carrying a STRICTLY-OLDER revision is ignored, so a
+   * stale/late prop-driven hydrate can never clobber a freshly-applied graph.
+   * `null` when unknown (legacy hydrate with no revision, or after reset).
+   */
+  hydratedRevision: string | null;
 }
 
 export interface AddNodeInput {
@@ -59,7 +68,17 @@ export interface AddNodeInput {
 }
 
 export interface GraphSliceActions {
-  hydrate(workflowId: string, def: WorkflowDefinition): void;
+  /**
+   * Replace saved + pending graph state from a server definition.
+   *
+   * Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — pass the workflow's server
+   * `revision` (`updatedAt`) so a STALE re-hydrate for the SAME workflow (an
+   * older revision arriving after a fresher one — e.g. the builder's
+   * prop-driven mount effect re-firing after a React Agent apply already
+   * hydrated the newer draft) is IGNORED. Omitting `revision` keeps the legacy
+   * always-accept behavior (used by tests / non-revisioned callers).
+   */
+  hydrate(workflowId: string, def: WorkflowDefinition, revision?: string): void;
   reset(): void;
   addTrigger(input: AddNodeInput): WorkflowNode;
   addAction(input: AddNodeInput): WorkflowNode;
@@ -196,7 +215,22 @@ const INITIAL_STATE: GraphSliceState = Object.freeze({
   isDirty: false,
   isSaving: false,
   saveError: null,
+  hydratedRevision: null,
 });
+
+/**
+ * Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — is an incoming hydrate revision
+ * STRICTLY older than the currently-accepted one? Compared as epoch ms (robust
+ * to ISO timestamp formatting). Unknown / unparseable revisions are NOT stale
+ * (we can't prove staleness → accept), preserving legacy behavior.
+ */
+function isStaleRevision(incoming: string | undefined, current: string | null): boolean {
+  if (incoming === undefined || current === null) return false;
+  const a = Date.parse(incoming);
+  const b = Date.parse(current);
+  if (Number.isNaN(a) || Number.isNaN(b)) return false;
+  return a < b;
+}
 
 /**
  * Random id generator. Uses crypto.randomUUID when available; falls back to
@@ -220,7 +254,18 @@ function newEdgeId(): string {
 export const useGraphSlice = create<GraphSlice>((set, get) => ({
   ...INITIAL_STATE,
 
-  hydrate(workflowId, def) {
+  hydrate(workflowId, def, revision) {
+    const state = get();
+    const sameWorkflow = state.workflowId === workflowId;
+    // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — refuse a STALE re-hydrate for the
+    // same workflow so a late/older prop hydrate can't overwrite a freshly
+    // applied (newer) graph. A different workflow id always hydrates.
+    if (sameWorkflow && isStaleRevision(revision, state.hydratedRevision)) {
+      return;
+    }
+    const nextRevision = sameWorkflow
+      ? revision ?? state.hydratedRevision ?? null
+      : revision ?? null;
     set({
       workflowId,
       isHydrated: true,
@@ -231,6 +276,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       isDirty: false,
       isSaving: false,
       saveError: null,
+      hydratedRevision: nextRevision,
     });
   },
 

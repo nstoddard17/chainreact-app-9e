@@ -80,6 +80,67 @@ describe("graphSlice — initial + hydrate + reset", () => {
   });
 });
 
+// ─── Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — hydrate revision guard ───────────
+
+describe("graphSlice.hydrate — revision guard", () => {
+  const OLD = "2026-05-06T00:00:01Z";
+  const NEW = "2026-05-06T00:05:00Z";
+
+  it("ignores a STALE (older-revision) hydrate for the same workflow", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, OLD);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toHaveLength(1);
+    expect(s.savedNodes).toHaveLength(1);
+    expect(s.hydratedRevision).toBe(NEW);
+  });
+
+  it("the post-apply race: a late stale empty hydrate never clobbers the applied graph", () => {
+    // Apply hydrated the new (non-empty) draft at the post-apply revision...
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    // ...then the builder's prop-driven effect re-fires with the STALE empty draft.
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, OLD);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+  });
+
+  it("accepts a NEWER-revision hydrate for the same workflow", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, OLD);
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toHaveLength(1);
+    expect(s.hydratedRevision).toBe(NEW);
+  });
+
+  it("accepts an EQUAL-revision hydrate (idempotent re-hydrate, never stale)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, NEW);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  });
+
+  it("a DIFFERENT workflow always hydrates, even with an older revision", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    useGraphSlice.getState().hydrate("wf-2", EMPTY_DEF, OLD);
+    const s = useGraphSlice.getState();
+    expect(s.workflowId).toBe("wf-2");
+    expect(s.pendingNodes).toHaveLength(0);
+    expect(s.hydratedRevision).toBe(OLD);
+  });
+
+  it("a legacy hydrate without a revision still accepts (no-regression)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  });
+
+  it("reset clears hydratedRevision so the next hydrate is accepted", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, NEW);
+    useGraphSlice.getState().reset();
+    expect(useGraphSlice.getState().hydratedRevision).toBeNull();
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, OLD);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  });
+});
+
 describe("graphSlice.addTrigger", () => {
   it("adds a trigger node and marks dirty", () => {
     useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);

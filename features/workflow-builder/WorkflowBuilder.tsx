@@ -79,12 +79,21 @@ export function WorkflowBuilder({
   const closeNode = useConfigSlice((s) => s.closeNode);
   const runId = useRunSlice((s) => s.runId);
 
-  // Re-hydrate on workflow change (or initial mount). Also clear the
-  // config + run slices so stale per-node drafts and stale latest-run
-  // pointers from a previous workflow never leak into the newly-loaded
-  // one.
+  // Hydrate from the server prop on initial mount AND whenever the prop's
+  // definition / revision changes (e.g. an external refresh). The graphSlice
+  // revision guard ignores a STALE re-hydrate — an older `updatedAt` arriving
+  // after a fresher one — so a late prop render can never clobber a freshly
+  // applied graph (Slice 4.BUILDER-APPLY-HYDRATE-RACE-1). Crucially this effect
+  // has NO cleanup, so a same-workflow re-render does not reset the graph.
   useEffect(() => {
-    hydrate(workflow.id, workflow.draftDefinition);
+    hydrate(workflow.id, workflow.draftDefinition, workflow.updatedAt);
+  }, [workflow.id, workflow.draftDefinition, workflow.updatedAt, hydrate]);
+
+  // Reset per-workflow client state (config drafts, latest-run pointer, and the
+  // graph) ONLY when the workflow id changes or the builder unmounts — never on
+  // a same-workflow re-render, which would wipe a freshly-applied graph. Keyed
+  // on `workflow.id` alone so a new prop object with the same id is a no-op.
+  useEffect(() => {
     resetConfigSlice();
     resetRunSlice();
     return () => {
@@ -92,14 +101,7 @@ export function WorkflowBuilder({
       resetConfigSlice();
       resetRunSlice();
     };
-  }, [
-    workflow.id,
-    workflow.draftDefinition,
-    hydrate,
-    reset,
-    resetConfigSlice,
-    resetRunSlice,
-  ]);
+  }, [workflow.id, reset, resetConfigSlice, resetRunSlice]);
 
   // Slice 3.8 — owns the 1s polling interval for the latest run.
   useLatestRunPolling();

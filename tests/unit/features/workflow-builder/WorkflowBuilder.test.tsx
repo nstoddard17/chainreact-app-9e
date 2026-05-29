@@ -255,6 +255,60 @@ describe("WorkflowBuilder", () => {
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
   });
 
+  // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — a stale prop re-render (same id,
+  // older revision) must NOT clobber a freshly-applied graph. The hydrate
+  // effect re-fires (draftDefinition ref changed) but the graphSlice revision
+  // guard ignores the older revision; the id-keyed reset effect does not re-run.
+  it("a stale prop re-render after a React Agent apply does NOT reset the canvas", () => {
+    const stale: WorkflowDetail = {
+      ...baseWorkflow,
+      updatedAt: "2026-05-06T00:00:00Z",
+      draftDefinition: { nodes: [], edges: [] },
+    };
+    const { rerender } = render(
+      <WorkflowBuilder
+        workflow={stale}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+    // Simulate the React Agent apply → onApplied hydrate of the NEW (non-empty)
+    // draft carrying the post-apply revision.
+    act(() => {
+      useGraphSlice.getState().hydrate(
+        "wf-1",
+        {
+          nodes: [
+            {
+              id: "t",
+              kind: "trigger",
+              provider: "gmail",
+              type: "new_email",
+              config: {},
+              position: { x: 0, y: 0 },
+            },
+          ],
+          edges: [],
+        },
+        "2026-05-06T00:05:00Z",
+      );
+    });
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    // A late prop render re-fires the hydrate effect with the STALE empty draft
+    // (older updatedAt, new object reference for the same workflow id).
+    rerender(
+      <WorkflowBuilder
+        workflow={{ ...stale, draftDefinition: { nodes: [], edges: [] } }}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    // The applied graph survives — the stale hydrate was ignored.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().savedNodes).toHaveLength(1);
+  });
+
   it("resets the slice on unmount so a stale graph never leaks into the next workflow", () => {
     const { unmount } = render(
       <WorkflowBuilder

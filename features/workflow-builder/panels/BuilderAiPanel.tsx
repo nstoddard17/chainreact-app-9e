@@ -117,7 +117,10 @@ export function BuilderAiPanel() {
       if (!workflowId) return;
       try {
         const detail = await getWorkflow(workflowId);
-        hydrate(workflowId, detail.draftDefinition);
+        // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — pass the post-apply revision so
+        // this fresh hydrate wins, and a later stale prop-driven hydrate (older
+        // updatedAt) is ignored by the graphSlice guard.
+        hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
       } catch {
         // Best-effort refresh — the apply already succeeded server-side.
       }
