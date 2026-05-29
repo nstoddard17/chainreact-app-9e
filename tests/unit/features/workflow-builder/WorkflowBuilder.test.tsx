@@ -379,6 +379,148 @@ describe("WorkflowBuilder", () => {
     expect(nodes[1]!.type).toBe("http.request");
   });
 
+  // Slice 4.BUILDER-TRIGGER-RECOVERY-1 — a workflow that lost its trigger
+  // (or never had one) but still has actions must surface a recovery CTA so
+  // the user is never stranded. The CTA opens the same trigger picker the
+  // empty-state uses; picking a trigger restores a runnable chain WITHOUT
+  // discarding the existing actions.
+  describe("Slice 4.BUILDER-TRIGGER-RECOVERY-1 — no-trigger recovery", () => {
+    const actionOnlyWorkflow: WorkflowDetail = {
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [
+          {
+            id: "a1",
+            kind: "action",
+            provider: "slack",
+            type: "send_message",
+            config: {},
+            position: { x: 0, y: 120 },
+          },
+        ],
+        edges: [],
+      },
+    };
+
+    it("renders the recovery banner (not the empty-state card) when actions exist but no trigger", () => {
+      render(
+        <WorkflowBuilder
+          workflow={actionOnlyWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(
+        screen.getByTestId("no-trigger-recovery-banner"),
+      ).toBeInTheDocument();
+      // Not the full empty-state card — the user's action is still on canvas.
+      expect(screen.queryByTestId("empty-canvas-state")).toBeNull();
+    });
+
+    it("recovery CTA opens the AddNodePanel in trigger mode", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={actionOnlyWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(screen.queryByTestId("add-node-panel")).toBeNull();
+      await user.click(screen.getByTestId("recovery-choose-trigger"));
+      expect(screen.getByTestId("add-node-panel")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /browse slack triggers/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("picking a trigger from the recovery CTA adds it, preserves the action, and auto-connects", async () => {
+      mockListProviderTriggers.mockResolvedValueOnce([slackTriggerMeta]);
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={actionOnlyWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      await user.click(screen.getByTestId("recovery-choose-trigger"));
+      await user.click(
+        screen.getByRole("button", { name: /browse slack triggers/i }),
+      );
+      await waitFor(() => {
+        expect(screen.getByText("Slack Message")).toBeInTheDocument();
+      });
+      await user.click(screen.getByText("Slack Message"));
+
+      const s = useGraphSlice.getState();
+      // Trigger added, existing action preserved.
+      expect(s.pendingNodes).toHaveLength(2);
+      const trigger = s.pendingNodes.find((n) => n.kind === "trigger");
+      expect(trigger).toBeDefined();
+      expect(s.pendingNodes.some((n) => n.id === "a1")).toBe(true);
+      // Auto-connected: trigger → a1 (the sole root action).
+      expect(s.pendingEdges).toHaveLength(1);
+      expect(s.pendingEdges[0]).toMatchObject({ from: trigger!.id, to: "a1" });
+      // Recovery banner is gone now that a trigger exists.
+      expect(screen.queryByTestId("no-trigger-recovery-banner")).toBeNull();
+    });
+
+    it("deleting the trigger while actions remain surfaces the recovery banner", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      // Build a trigger → action chain through the slice. addAction wires the
+      // edge from the last node (the trigger) to the new action automatically.
+      act(() => {
+        useGraphSlice.getState().addTrigger({ provider: "slack" });
+        useGraphSlice
+          .getState()
+          .addAction({ provider: "github", type: "add_comment" });
+      });
+      // No recovery banner while the trigger exists.
+      expect(screen.queryByTestId("no-trigger-recovery-banner")).toBeNull();
+      // Delete the trigger (safe delete path) — the action survives.
+      act(() => {
+        const trigId = useGraphSlice
+          .getState()
+          .pendingNodes.find((n) => n.kind === "trigger")!.id;
+        useGraphSlice.getState().deleteNodeAndRewire(trigId);
+      });
+      // The action remains but the trigger is gone → recovery banner appears.
+      expect(
+        useGraphSlice.getState().pendingNodes.some((n) => n.kind === "action"),
+      ).toBe(true);
+      expect(
+        useGraphSlice.getState().pendingNodes.some((n) => n.kind === "trigger"),
+      ).toBe(false);
+      expect(
+        screen.getByTestId("no-trigger-recovery-banner"),
+      ).toBeInTheDocument();
+    });
+
+    it("the no_trigger validation issue exposes a 'Choose trigger' action that opens the picker", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={actionOnlyWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      // Open the validation drawer via the header pill.
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      const chooseTrigger = screen.getByTestId("validation-choose-trigger");
+      expect(chooseTrigger).toBeInTheDocument();
+      await user.click(chooseTrigger);
+      expect(screen.getByTestId("add-node-panel")).toBeInTheDocument();
+    });
+  });
+
   // Slice 4.BUILDER-INSPECTOR-1 — drawer mount / close round-trip.
   it("opening a node mounts the BuilderRightDrawer with NodeInspectorPanel inside", () => {
     render(

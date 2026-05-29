@@ -309,7 +309,10 @@ describe("graphSlice.save", () => {
 // ─── Slice 3.2 extensions ────────────────────────────────────────────────────
 
 import type { ActionMeta } from "@/contracts/actionMeta";
-import { deriveDefaultConfig } from "@/features/workflow-builder/state/graphSlice";
+import {
+  deriveDefaultConfig,
+  findSoleRootActionId,
+} from "@/features/workflow-builder/state/graphSlice";
 
 const httpRequestMeta: ActionMeta = {
   key: "native:http_request",
@@ -467,6 +470,155 @@ describe("graphSlice.addTriggerFromMeta", () => {
     // No state mutation on rejection.
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
     expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});
+
+// ─── Slice 4.BUILDER-TRIGGER-RECOVERY-1 — trigger auto-connect on recovery ───
+
+const SINGLE_ACTION_NO_TRIGGER_DEF: WorkflowDefinition = {
+  nodes: [
+    {
+      id: "a1",
+      kind: "action",
+      provider: "slack",
+      type: "send_message",
+      config: {},
+      position: { x: 0, y: 120 },
+    },
+  ],
+  edges: [],
+};
+
+const CHAIN_NO_TRIGGER_DEF: WorkflowDefinition = {
+  // a1 → a2 with the trigger deleted: a1 is the sole root (no incoming edge),
+  // a2 has an incoming edge from a1.
+  nodes: [
+    {
+      id: "a1",
+      kind: "action",
+      provider: "slack",
+      type: "send_message",
+      config: {},
+      position: { x: 0, y: 120 },
+    },
+    {
+      id: "a2",
+      kind: "action",
+      provider: "github",
+      type: "add_comment",
+      config: {},
+      position: { x: 0, y: 240 },
+    },
+  ],
+  edges: [{ id: "e1", from: "a1", to: "a2" }],
+};
+
+const TWO_ROOT_ACTIONS_NO_TRIGGER_DEF: WorkflowDefinition = {
+  // Two disconnected root actions — ambiguous which one a trigger should
+  // attach to, so auto-connect must NOT create an edge.
+  nodes: [
+    {
+      id: "a1",
+      kind: "action",
+      provider: "slack",
+      type: "send_message",
+      config: {},
+      position: { x: 0, y: 120 },
+    },
+    {
+      id: "a2",
+      kind: "action",
+      provider: "github",
+      type: "add_comment",
+      config: {},
+      position: { x: 200, y: 120 },
+    },
+  ],
+  edges: [],
+};
+
+describe("graphSlice.addTriggerFromMeta — recovery auto-connect", () => {
+  it("connects the new trigger to the sole root action and preserves the action", () => {
+    useGraphSlice.getState().hydrate("wf-1", SINGLE_ACTION_NO_TRIGGER_DEF);
+    const trigger = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(manualTriggerMeta);
+    const s = useGraphSlice.getState();
+    // Action is preserved; trigger added.
+    expect(s.pendingNodes).toHaveLength(2);
+    expect(s.pendingNodes.some((n) => n.id === "a1")).toBe(true);
+    // Exactly one edge: trigger → a1.
+    expect(s.pendingEdges).toHaveLength(1);
+    expect(s.pendingEdges[0]).toMatchObject({ from: trigger.id, to: "a1" });
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("connects the trigger to the chain's root (first) action, not a mid-chain action", () => {
+    useGraphSlice.getState().hydrate("wf-1", CHAIN_NO_TRIGGER_DEF);
+    const trigger = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(manualTriggerMeta);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toHaveLength(3);
+    // Original a1 → a2 edge preserved, plus the new trigger → a1 edge.
+    expect(s.pendingEdges).toHaveLength(2);
+    expect(
+      s.pendingEdges.some((e) => e.from === trigger.id && e.to === "a1"),
+    ).toBe(true);
+    expect(s.pendingEdges.some((e) => e.from === "a1" && e.to === "a2")).toBe(
+      true,
+    );
+    // No edge straight to the mid-chain node.
+    expect(
+      s.pendingEdges.some((e) => e.from === trigger.id && e.to === "a2"),
+    ).toBe(false);
+  });
+
+  it("does NOT auto-connect when there are multiple root actions (ambiguous)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TWO_ROOT_ACTIONS_NO_TRIGGER_DEF);
+    const trigger = useGraphSlice
+      .getState()
+      .addTriggerFromMeta(manualTriggerMeta);
+    const s = useGraphSlice.getState();
+    // Trigger added, both actions preserved, but no unsafe edge created.
+    expect(s.pendingNodes).toHaveLength(3);
+    expect(s.pendingEdges).toHaveLength(0);
+    expect(
+      s.pendingEdges.some((e) => e.from === trigger.id),
+    ).toBe(false);
+  });
+
+  it("creates no edge for the empty-canvas first-trigger flow (no actions)", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().addTriggerFromMeta(manualTriggerMeta);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toHaveLength(1);
+    expect(s.pendingEdges).toHaveLength(0);
+  });
+});
+
+describe("findSoleRootActionId", () => {
+  it("returns the sole root action id", () => {
+    expect(
+      findSoleRootActionId(
+        SINGLE_ACTION_NO_TRIGGER_DEF.nodes,
+        SINGLE_ACTION_NO_TRIGGER_DEF.edges,
+      ),
+    ).toBe("a1");
+  });
+
+  it("returns null when zero or multiple root actions exist", () => {
+    expect(findSoleRootActionId([], [])).toBeNull();
+    expect(
+      findSoleRootActionId(
+        TWO_ROOT_ACTIONS_NO_TRIGGER_DEF.nodes,
+        TWO_ROOT_ACTIONS_NO_TRIGGER_DEF.edges,
+      ),
+    ).toBeNull();
+  });
+
+  it("ignores trigger nodes — only actions count as roots", () => {
+    expect(findSoleRootActionId(TRIGGER_DEF.nodes, TRIGGER_DEF.edges)).toBeNull();
   });
 });
 

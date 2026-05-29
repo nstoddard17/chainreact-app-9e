@@ -29,6 +29,7 @@ import {
   type WorkflowNodeData,
 } from "./adapters";
 import { EmptyCanvasState } from "./EmptyCanvasState";
+import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
 
@@ -64,9 +65,13 @@ interface Props {
    */
   providerIcons?: Readonly<Record<string, string>>;
   /**
-   * Invoked by the empty-state CTA.
+   * Invoked by the "add a trigger" CTA. Wired by WorkflowBuilder to
+   * `openTriggerPicker`. Serves BOTH surfaces that need to add a trigger:
+   * the empty-state card (truly-empty canvas) and the no-trigger recovery
+   * banner (Slice 4.BUILDER-TRIGGER-RECOVERY-1 — nodes exist but the
+   * trigger was deleted).
    */
-  onEmptyAddTrigger?: () => void;
+  onAddTrigger?: () => void;
   /**
    * Slice 4.BUILDER-ADD-FLOW-1 — fires when the user clicks the
    * insert-plus button on an edge.
@@ -112,7 +117,7 @@ export function WorkflowCanvas(props: Props) {
 function WorkflowCanvasInner({
   providerLabels,
   providerIcons,
-  onEmptyAddTrigger,
+  onAddTrigger,
   onEdgePlusClick,
   onAddAction,
   canAddAction,
@@ -199,6 +204,12 @@ function WorkflowCanvasInner({
   );
 
   const isEmpty = pendingNodes.length === 0;
+  // Slice 4.BUILDER-TRIGGER-RECOVERY-1 — a workflow needs a trigger to run.
+  // When the canvas has nodes but none is a trigger (e.g. the user deleted
+  // the trigger while actions remain) we surface a compact recovery banner
+  // instead of leaving the user stranded with no "add trigger" affordance.
+  const hasTrigger = pendingNodes.some((n) => n.kind === "trigger");
+  const showRecoveryBanner = !isEmpty && !hasTrigger;
   const nodeCountText = `${pendingNodes.length} node${pendingNodes.length === 1 ? "" : "s"} · ${pendingEdges.length} edge${pendingEdges.length === 1 ? "" : "s"}`;
 
   return (
@@ -260,7 +271,10 @@ function WorkflowCanvasInner({
             nodeColor={() => "var(--builder-muted-2)"}
           />
         </ReactFlow>
-        {isEmpty ? <EmptyCanvasState onAddTrigger={onEmptyAddTrigger} /> : null}
+        {isEmpty ? <EmptyCanvasState onAddTrigger={onAddTrigger} /> : null}
+        {showRecoveryBanner ? (
+          <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
+        ) : null}
       </div>
       {pendingDelete !== null ? (
         <DeleteNodeConfirmDialog

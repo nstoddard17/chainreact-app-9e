@@ -645,7 +645,7 @@ The biggest single UX upgrade in the track. Replaces the inline drill-in `AddNod
 
 **AddNodeMenu replacement decision:** **deleted**. Equivalent functionality + a search bar + provider icons live in AddNodePanel. No fallback retained — keeping AddNodeMenu around would duplicate add-node logic (against slice guidance).
 
-**EmptyCanvasState integration:** `WorkflowBuilder` passes `openTriggerPicker` directly as `onEmptyAddTrigger`. The CANVAS-1 `triggerButtonRef` bridge through `AddNodeMenu`'s "+ Add trigger" button is gone — EmptyCanvasState's CTA now directly opens the modal.
+**EmptyCanvasState integration:** `WorkflowBuilder` passes `openTriggerPicker` directly as `onAddTrigger` (renamed from `onEmptyAddTrigger` in 4.BUILDER-TRIGGER-RECOVERY-1, since the canvas now uses one callback for both the empty-state CTA and the no-trigger recovery banner). The CANVAS-1 `triggerButtonRef` bridge through `AddNodeMenu`'s "+ Add trigger" button is gone — EmptyCanvasState's CTA now directly opens the modal.
 
 **WorkflowEdge / plus-button behavior:** Renders only when `data.onPlusClick` is supplied (canvas threads it) and `shouldShowPlusButton({hasResolvedEndpoints})` returns true. Click → `onPlusClick(edgeId)` → WorkflowBuilder's `handleEdgePlusClick` sets `addPanelMode = { kind: "insertAction", edgeId }`.
 
@@ -1575,4 +1575,51 @@ $ npx jest tests/integration/features/workflow-builder
 ### Provider / backend / billing / AI service files
 
 ✅ **Zero changes.** Files touched are confined to `features/workflow-builder/`, `tests/unit/features/workflow-builder/`, and `docs/slices/phase-4/builder-ui-v1-port-plan.md`. No `app/`, `lib/`, `integrations/`, `services/`, `repositories/`, `contracts/`, or `supabase/migrations/` files modified.
+
+---
+
+## Slice 4.BUILDER-TRIGGER-RECOVERY-1 — No-Trigger Recovery CTA
+
+**Type:** Builder UI / recovery slice. No planner-routing, provider-metadata, workflow-execution, or billing changes.
+
+**Live bug.** After deleting a workflow's trigger, there was no visible "Add trigger" affordance. The canvas surfaced the trigger CTA **only** through `EmptyCanvasState`, which renders only when `pendingNodes.length === 0`. When the trigger was deleted but actions remained on the canvas, `pendingNodes.length > 0` → empty state suppressed → no recovery path. The `+ Add action` canvas button is gated to actions only (`canAddAction={hasTrigger}` → disabled with no trigger), so the user was stranded with a non-runnable workflow and no obvious fix.
+
+**Root cause.** `WorkflowCanvas` had a single `isEmpty = pendingNodes.length === 0` gate driving the only add-trigger surface. There was no "has nodes but no trigger" state. The trigger picker existed and could be launched independently (`openTriggerPicker` → `AddNodePanel` in `trigger` mode), but only the empty-state CTA and (indirectly) the never-actionable `no_trigger` validation row pointed at it.
+
+**Fix.**
+
+| Surface | Behavior |
+|---|---|
+| **Canvas recovery banner** | New [`NoTriggerRecoveryBanner`](../../../features/workflow-builder/canvas/NoTriggerRecoveryBanner.tsx) — a compact prompt pinned to the top of the canvas (`pointer-events-none` container, `pointer-events-auto` card so it never blocks the action nodes below). Copy: **"Add a trigger / This workflow needs a trigger before it can run. Your actions are still here…"** + **"Choose trigger"** CTA. Rendered by `WorkflowCanvas` only when `pendingNodes.length > 0 && !hasTrigger`. The truly-empty canvas still shows the full `EmptyCanvasState` card; the two are mutually exclusive. |
+| **Validation drawer action** | The graph-level `no_trigger` issue carries no `nodeId`, so it was a non-clickable `<div>`. `ValidationSummary` now takes an optional `onChooseTrigger`; when provided, the `no_trigger` row renders an inline **"Choose trigger"** button (`data-testid="validation-choose-trigger"`). The row itself stays a non-button container — the CTA is the only interactive element. |
+| **Auto-connect on recovery** | `graphSlice.addTriggerFromMeta` now auto-connects the new trigger to the **sole root action** (an `action` node with no incoming edge) via the new pure `findSoleRootActionId(nodes, edges)`. Only fires when exactly one root action exists — zero (nothing to attach) or ≥2 (ambiguous branch) → no edge created, validation/edge UI guides the user. No-op for the empty-canvas first-trigger flow (no actions → no root). A fresh trigger id can't self-loop or duplicate, but the `connectNodes` call is `try/catch`-guarded defensively. |
+
+**Wiring.** The canvas prop `onEmptyAddTrigger` was **renamed to `onAddTrigger`** — it now feeds both the empty-state card and the recovery banner. `WorkflowBuilder` passes `openTriggerPicker` to both `WorkflowCanvas onAddTrigger` and `ValidationSummary onChooseTrigger`; both open the existing `AddNodePanel` in `trigger` mode. Picking a trigger routes through the unchanged `handlePickTrigger` → `addTriggerFromMeta`.
+
+**Product rule documented.** A workflow must have a trigger to activate/run, but deleting the trigger must NOT strand the user. The "Add trigger" CTA appears whenever `hasTrigger === false` — as the empty-state card (no nodes) or the recovery banner (nodes but no trigger). `no_trigger` validation still appears until a trigger exists.
+
+**No graph mutation before explicit trigger selection** — the banner/CTA only open the picker; nodes/edges change only when the user picks a trigger.
+
+**Tests added/updated.**
+
+- [`NoTriggerRecoveryBanner.test.tsx`](../../../tests/unit/features/workflow-builder/canvas/NoTriggerRecoveryBanner.test.tsx) — **4 new**: renders prompt/copy/CTA, fires `onChooseTrigger`, safe with no handler, testid + status landmark.
+- [`WorkflowCanvas.test.tsx`](../../../tests/unit/features/workflow-builder/canvas/WorkflowCanvas.test.tsx) — **4 new** (recovery describe): banner renders when actions exist but no trigger (and empty-state suppressed, action preserved), banner absent when a trigger exists, empty-state (not banner) on empty canvas, CTA fires `onAddTrigger`.
+- [`graphSlice.test.ts`](../../../tests/unit/features/workflow-builder/state/graphSlice.test.ts) — **7 new**: `addTriggerFromMeta` connects to sole root action / connects to chain root not mid-chain / no connect with ≥2 roots / no edge on empty-canvas first trigger; `findSoleRootActionId` returns sole root / null on zero-or-many / ignores triggers.
+- [`WorkflowBuilder.test.tsx`](../../../tests/unit/features/workflow-builder/WorkflowBuilder.test.tsx) — **5 new** (recovery describe): banner (not empty card) when actions-only; recovery CTA opens picker; pick trigger adds + preserves action + auto-connects + banner clears; deleting the trigger surfaces the banner; `no_trigger` validation row exposes a Choose-trigger action that opens the picker.
+- [`ValidationSummary.test.tsx`](../../../tests/unit/features/workflow-builder/validation/ValidationSummary.test.tsx) — **4 new**: Choose-trigger button shown when `onChooseTrigger` provided / hidden when omitted / fires + no graph mutation / `no_trigger` row stays a non-button container.
+- [`useUpstreamVariables.test.tsx`](../../../tests/unit/features/workflow-builder/hooks/useUpstreamVariables.test.tsx) — **1 updated**: the trigger-swap test dropped its now-redundant explicit `connectNodes` — `addTriggerFromMeta` auto-reconnects the new trigger to the sole root action. This pre-existing test *is* the recovery scenario and now validates the auto-connect behavior.
+
+**Gate results:**
+
+```
+$ npx tsc --noEmit                          — OK (clean)
+$ npm run lint -- --max-warnings=0          — OK
+$ npm run lint:structure                    — OK
+$ npm run lint:migrations                   — OK
+$ npx jest tests/unit/features/workflow-builder + trigger-config integration
+  Test Suites: 84 passed, 84 total
+  Tests:       1264 passed, 1264 total
+```
+
+**Boundaries held.** No planner routing change (planner stays OpenAI; Anthropic not called); no provider metadata change; no workflow execution/billing/tasks change; no general app-help assistant. Files confined to `features/workflow-builder/`, `tests/unit/features/workflow-builder/`, and this doc.
 

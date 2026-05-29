@@ -19,6 +19,15 @@ interface Props {
    * just a hook for tests / future composition.
    */
   onOpenNode?: (nodeId: string) => void;
+  /**
+   * Slice 4.BUILDER-TRIGGER-RECOVERY-1 — optional callback that opens the
+   * trigger picker. When provided, the `no_trigger` issue row renders an
+   * inline "Choose trigger" action button so the missing-trigger error is
+   * directly actionable from the validation drawer (it carries no `nodeId`,
+   * so it is otherwise non-clickable). WorkflowBuilder wires this to
+   * `openTriggerPicker`.
+   */
+  onChooseTrigger?: () => void;
 }
 
 /**
@@ -41,7 +50,7 @@ interface Props {
  *     mutate graphSlice (no add / remove / config-change side effects).
  *   - No fetch. No backend call. No AI service call.
  */
-export function ValidationSummary({ onOpenNode }: Props) {
+export function ValidationSummary({ onOpenNode, onChooseTrigger }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const openNode = useConfigSlice((s) => s.openNode);
@@ -95,6 +104,7 @@ export function ValidationSummary({ onOpenNode }: Props) {
           issues={errors}
           pendingNodes={pendingNodes}
           onOpen={handleOpen}
+          onChooseTrigger={onChooseTrigger}
         />
       )}
       {warnings.length > 0 && (
@@ -104,6 +114,7 @@ export function ValidationSummary({ onOpenNode }: Props) {
           issues={warnings}
           pendingNodes={pendingNodes}
           onOpen={handleOpen}
+          onChooseTrigger={onChooseTrigger}
         />
       )}
     </div>
@@ -116,12 +127,14 @@ function IssueGroup({
   issues,
   pendingNodes,
   onOpen,
+  onChooseTrigger,
 }: {
   severity: "error" | "warning";
   label: string;
   issues: readonly BuilderValidationIssue[];
   pendingNodes: readonly WorkflowNode[];
   onOpen: (issue: BuilderValidationIssue) => void;
+  onChooseTrigger?: () => void;
 }) {
   const headingClass =
     severity === "error"
@@ -142,6 +155,7 @@ function IssueGroup({
               issue={issue}
               pendingNodes={pendingNodes}
               onOpen={onOpen}
+              onChooseTrigger={onChooseTrigger}
             />
           </li>
         ))}
@@ -154,10 +168,12 @@ function IssueRow({
   issue,
   pendingNodes,
   onOpen,
+  onChooseTrigger,
 }: {
   issue: BuilderValidationIssue;
   pendingNodes: readonly WorkflowNode[];
   onOpen: (issue: BuilderValidationIssue) => void;
+  onChooseTrigger?: () => void;
 }) {
   const node = issue.nodeId
     ? pendingNodes.find((n) => n.id === issue.nodeId)
@@ -189,17 +205,37 @@ function IssueRow({
       </button>
     );
   }
+
+  // Slice 4.BUILDER-TRIGGER-RECOVERY-1 — the graph-level `no_trigger` issue
+  // carries no nodeId so it can't open an inspector. When the parent supplies
+  // `onChooseTrigger`, render an inline action button so the missing-trigger
+  // error is directly fixable from the validation drawer.
+  const showChooseTrigger =
+    issue.code === "no_trigger" && onChooseTrigger !== undefined;
+
   return (
     <div
       data-testid="validation-summary-issue"
       data-code={issue.code}
       className={containerClass}
     >
-      <IssueBody
-        message={issue.message}
-        nodeLabel={nodeLabel}
-        fieldName={issue.fieldName}
-      />
+      <span className="flex items-start justify-between gap-2">
+        <IssueBody
+          message={issue.message}
+          nodeLabel={nodeLabel}
+          fieldName={issue.fieldName}
+        />
+        {showChooseTrigger ? (
+          <button
+            type="button"
+            onClick={onChooseTrigger}
+            data-testid="validation-choose-trigger"
+            className="shrink-0 rounded border border-current px-2 py-1 text-[11px] font-medium hover:brightness-95 dark:hover:brightness-110"
+          >
+            Choose trigger
+          </button>
+        ) : null}
+      </span>
     </div>
   );
 }

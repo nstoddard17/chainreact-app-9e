@@ -94,6 +94,12 @@ export interface GraphSliceActions {
    * `meta.fields[].defaultValue` so e.g. the scheduled trigger's
    * cronExpression field can pre-populate a sensible placeholder.
    * Same single-trigger-per-workflow guard as `addTrigger`.
+   *
+   * Slice 4.BUILDER-TRIGGER-RECOVERY-1 — when actions remain but the trigger
+   * was deleted, the new trigger auto-connects to the SOLE root action (an
+   * action with no incoming edge) so the chain becomes runnable again. Skips
+   * the edge when the target is ambiguous (zero or ≥2 root actions). Returns
+   * the trigger node.
    */
   addTriggerFromMeta(meta: TriggerMeta): WorkflowNode;
   removeNode(nodeId: string): void;
@@ -201,6 +207,32 @@ export function deriveDefaultConfig(
     }
   }
   return out;
+}
+
+/**
+ * Slice 4.BUILDER-TRIGGER-RECOVERY-1 — find the single "root" action a newly
+ * added trigger can safely connect to.
+ *
+ * A root action is an `action` node with NO incoming edge. After a trigger is
+ * deleted from `trigger → A → B`, A loses its incoming edge and becomes the
+ * sole root — so re-adding a trigger should reconnect `trigger → A` to restore
+ * a runnable chain without forcing the user to rewire by hand.
+ *
+ * Returns the root action id ONLY when there is EXACTLY ONE — i.e. the
+ * reconnection target is unambiguous. Returns `null` when there are zero root
+ * actions (nothing to attach to) or two-or-more (ambiguous — adding an edge
+ * could pick the wrong branch, so we leave it to the user / edge UI). Pure;
+ * never throws.
+ */
+export function findSoleRootActionId(
+  nodes: readonly WorkflowNode[],
+  edges: readonly WorkflowEdge[],
+): string | null {
+  const nodesWithIncoming = new Set(edges.map((e) => e.to));
+  const rootActions = nodes.filter(
+    (n) => n.kind === "action" && !nodesWithIncoming.has(n.id),
+  );
+  return rootActions.length === 1 ? rootActions[0]!.id : null;
 }
 
 export type GraphSlice = GraphSliceState & GraphSliceActions;
@@ -349,11 +381,30 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     // Slice 3.3 — mirror of addActionFromMeta. Delegates to addTrigger
     // so the single-trigger-per-workflow guard + dirty-check stay
     // single-sourced. Same metadata-derived defaults policy as actions.
-    return get().addTrigger({
+    const triggerNode = get().addTrigger({
       provider: meta.provider,
       type: meta.type,
       config: deriveDefaultConfig(meta),
     });
+    // Slice 4.BUILDER-TRIGGER-RECOVERY-1 — when the user re-adds a trigger to a
+    // workflow that still has actions but lost its trigger, reconnect the new
+    // trigger to the sole root action so the chain is runnable again. Only
+    // fires when the target is unambiguous (exactly one root action); a fresh
+    // trigger id can never self-loop or duplicate an existing edge, but the
+    // try/catch keeps this defensive against connectNodes' guards. No-op for
+    // the empty-canvas first-trigger flow (no actions → no root → null).
+    const rootActionId = findSoleRootActionId(
+      get().pendingNodes,
+      get().pendingEdges,
+    );
+    if (rootActionId !== null) {
+      try {
+        get().connectNodes({ from: triggerNode.id, to: rootActionId });
+      } catch {
+        // Leave the trigger unconnected; validation / edge UI guides the user.
+      }
+    }
+    return triggerNode;
   },
 
   updateNodeConfig(nodeId, config) {

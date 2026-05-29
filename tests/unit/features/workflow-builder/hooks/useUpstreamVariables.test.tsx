@@ -512,16 +512,16 @@ describe("useUpstreamVariables — provider-trigger ancestor (Slice 3.10)", () =
       ).toBe("New Commit");
     });
 
-    // Swap the trigger — remove the GitHub one, add a Slack one, and
-    // reconnect to `target` (removeNode also drops the edges from the
-    // removed node so the new trigger needs an explicit connection to
-    // restore the upstream relationship).
+    // Swap the trigger — remove the GitHub one, add a Slack one. removeNode
+    // drops the removed node's edges, leaving `target` as the sole root
+    // action; Slice 4.BUILDER-TRIGGER-RECOVERY-1 then has addTriggerFromMeta
+    // auto-reconnect the new trigger → target, restoring the upstream
+    // relationship without an explicit connectNodes call.
     const triggerNodeId = useGraphSlice
       .getState()
       .pendingNodes.find((n) => n.kind === "trigger")!.id;
     useGraphSlice.getState().removeNode(triggerNodeId);
-    const newTrigger = useGraphSlice.getState().addTriggerFromMeta(slackTrig);
-    useGraphSlice.getState().connectNodes({ from: newTrigger.id, to: target.id });
+    useGraphSlice.getState().addTriggerFromMeta(slackTrig);
     rerender();
     await waitFor(() => {
       expect(

@@ -166,6 +166,46 @@ describe("ValidationSummary — issue → openNode round-trip", () => {
   });
 });
 
+describe("ValidationSummary — no_trigger 'Choose trigger' action (Slice 4.BUILDER-TRIGGER-RECOVERY-1)", () => {
+  it("renders a 'Choose trigger' button on the no_trigger issue when onChooseTrigger is provided", () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    render(<ValidationSummary onChooseTrigger={jest.fn()} />);
+    expect(screen.getByTestId("validation-choose-trigger")).toBeInTheDocument();
+  });
+
+  it("does NOT render the 'Choose trigger' button when onChooseTrigger is omitted", () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    render(<ValidationSummary />);
+    expect(screen.queryByTestId("validation-choose-trigger")).toBeNull();
+    // The no_trigger error itself is still surfaced.
+    const issueRow = screen
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.getAttribute("data-code") === "no_trigger");
+    expect(issueRow).toBeDefined();
+  });
+
+  it("fires onChooseTrigger when the button is clicked (and does not mutate the graph)", async () => {
+    const user = userEvent.setup();
+    const onChooseTrigger = jest.fn();
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    const before = useGraphSlice.getState().pendingNodes;
+    render(<ValidationSummary onChooseTrigger={onChooseTrigger} />);
+    await user.click(screen.getByTestId("validation-choose-trigger"));
+    expect(onChooseTrigger).toHaveBeenCalledTimes(1);
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+
+  it("keeps the no_trigger issue row a non-button container even with the action present", () => {
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    render(<ValidationSummary onChooseTrigger={jest.fn()} />);
+    const issueRow = screen
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.getAttribute("data-code") === "no_trigger");
+    // The row stays a <div> (the nested CTA is the only interactive element).
+    expect(issueRow?.tagName.toLowerCase()).not.toBe("button");
+  });
+});
+
 describe("ValidationSummary — provider-agnostic", () => {
   it("renders the same UI shape for a fictional provider as for a known one", () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });

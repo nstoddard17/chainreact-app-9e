@@ -164,6 +164,65 @@ describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () 
   });
 });
 
+// ─── Slice 4.BUILDER-TRIGGER-RECOVERY-1 — no-trigger recovery banner ────────
+
+const triggerlessDef: WorkflowDefinition = {
+  nodes: [
+    {
+      id: "act",
+      kind: "action",
+      provider: "github",
+      type: "add_comment",
+      config: { repository: "octocat/x" },
+      position: { x: 0, y: 0 },
+    },
+  ],
+  edges: [],
+};
+
+describe("WorkflowCanvas — no-trigger recovery banner", () => {
+  it("renders the recovery banner when actions exist but no trigger does", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-1", triggerlessDef);
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(
+      screen.getByTestId("no-trigger-recovery-banner"),
+    ).toBeInTheDocument();
+    // It is a recovery prompt, NOT the full empty-state card — the action
+    // node is still on the canvas.
+    expect(screen.queryByTestId("empty-canvas-state")).toBeNull();
+    expect(screen.getAllByTestId("workflow-node-view")).toHaveLength(1);
+  });
+
+  it("does NOT render the recovery banner when a trigger exists", () => {
+    // baseDef (hydrated in beforeEach) has a trigger.
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(screen.queryByTestId("no-trigger-recovery-banner")).toBeNull();
+  });
+
+  it("shows the empty-state card (not the recovery banner) when the canvas is empty", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
+    expect(screen.queryByTestId("no-trigger-recovery-banner")).toBeNull();
+  });
+
+  it("recovery banner CTA fires the onAddTrigger callback", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-1", triggerlessDef);
+    const onAddTrigger = jest.fn();
+    render(
+      <WorkflowCanvas
+        providerLabels={providerLabels}
+        onAddTrigger={onAddTrigger}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("recovery-choose-trigger"));
+    expect(onAddTrigger).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── Slice 4.BUILDER-NODE-DELETE-2 — keyboard-delete uses the safe path ─────
 
 describe("WorkflowCanvas — safe keyboard-delete dialog mounts", () => {

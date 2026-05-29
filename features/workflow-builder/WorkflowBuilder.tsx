@@ -265,7 +265,9 @@ export function WorkflowBuilder({
           >
             {mode === "inspector" ? <NodeInspectorPanel /> : null}
             {mode === "results" ? <RunResultsPanel /> : null}
-            {mode === "validation" ? <ValidationSummary /> : null}
+            {mode === "validation" ? (
+              <ValidationSummary onChooseTrigger={openTriggerPicker} />
+            ) : null}
           </BuilderRightDrawer>
         ) : null
       }
@@ -278,7 +280,7 @@ export function WorkflowBuilder({
         <WorkflowCanvas
           providerLabels={providerLabels}
           providerIcons={providerIcons}
-          onEmptyAddTrigger={openTriggerPicker}
+          onAddTrigger={openTriggerPicker}
           onEdgePlusClick={memoizedEdgePlusClick}
           onAddAction={openActionPicker}
           canAddAction={hasTrigger}
