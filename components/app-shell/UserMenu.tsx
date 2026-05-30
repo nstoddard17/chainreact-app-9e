@@ -1,0 +1,115 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { signOut } from "@/app/auth/actions";
+
+/**
+ * Authenticated-user menu (Slice 4.APP-SHELL-1).
+ *
+ * Trigger: a compact button with the user's initials. Popover content:
+ * full email + a Sign out form bound to the existing `signOut` server
+ * action (which destroys the session + redirects to `/`). NO other
+ * menu items — Settings / Billing / Account routes don't exist yet,
+ * and the page guide forbids rendering CTAs that aren't backed by a
+ * real route.
+ *
+ * Notes:
+ *   - The `<form action={signOut}>` is the standard Next.js server-
+ *     action invocation. `useState` here is only for popover open/close;
+ *     the sign-out itself doesn't need client state.
+ *   - Initials are derived locally from the email — no extra fetch.
+ */
+interface Props {
+  userEmail: string;
+}
+
+export function UserMenu({ userEmail }: Props) {
+  const [open, setOpen] = useState(false);
+  const initials = initialsForEmail(userEmail);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid="app-shell-user-menu-trigger"
+          aria-label={`Account menu for ${userEmail}`}
+          aria-expanded={open}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 py-0.5 pl-0.5 pr-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <span
+            aria-hidden
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+          >
+            {initials}
+          </span>
+          <ChevronDownIcon />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-64 p-2"
+        data-testid="app-shell-user-menu-content"
+      >
+        <div className="flex flex-col gap-0.5 px-2 py-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Signed in as
+          </span>
+          <span
+            data-testid="app-shell-user-email"
+            className="truncate text-sm text-foreground"
+          >
+            {userEmail}
+          </span>
+        </div>
+        <div className="my-1 h-px bg-border" />
+        <form action={signOut}>
+          <button
+            type="submit"
+            data-testid="app-shell-sign-out"
+            className="block w-full rounded-sm px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+          >
+            Sign out
+          </button>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="4 6 8 11 12 6" />
+    </svg>
+  );
+}
+
+function initialsForEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  // Initials from local-part: split on common separators, take leading
+  // letters. Falls back to the first two letters of the local-part, or
+  // "?" if nothing usable.
+  const tokens = local.split(/[._\-+]/).filter(Boolean);
+  if (tokens.length >= 2) {
+    const a = tokens[0]?.[0] ?? "";
+    const b = tokens[1]?.[0] ?? "";
+    return (a + b).toUpperCase() || "?";
+  }
+  const head = local.replace(/[^a-z0-9]/gi, "").slice(0, 2);
+  return head.toUpperCase() || "?";
+}

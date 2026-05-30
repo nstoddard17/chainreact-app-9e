@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import * as notificationsRepo from "@/repositories/notifications";
 import { NotificationsList } from "@/features/notifications/NotificationsList";
+import { AppShell } from "@/components/app-shell/AppShell";
 
 export default async function NotificationsPage() {
   const supabase = await createClient();
@@ -14,16 +14,13 @@ export default async function NotificationsPage() {
   const notifications = await notificationsRepo.listForUser(user.id);
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-8">
-      <div className="flex w-full max-w-2xl flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Notifications</h1>
-          <Link href="/" className="text-sm text-muted-foreground hover:underline">
-            ← Home
-          </Link>
-        </div>
+    <AppShell userEmail={user.email ?? ""}>
+      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6 sm:p-8">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Notifications
+        </h1>
         <NotificationsList notifications={notifications} />
-      </div>
-    </main>
+      </main>
+    </AppShell>
   );
 }

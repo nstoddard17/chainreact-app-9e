@@ -4,6 +4,7 @@ import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
 import { toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
+import { AppShell } from "@/components/app-shell/AppShell";
 
 /**
  * Workflows dashboard route (Slice 4.WORKFLOWS-PAGE-1).
@@ -33,8 +34,10 @@ export default async function WorkflowsPage() {
   const workflows = records.map((r) => toWorkflowListItem(r, runStats));
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
-      <WorkflowsDashboard initialWorkflows={workflows} />
-    </main>
+    <AppShell userEmail={user.email ?? ""}>
+      <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
+        <WorkflowsDashboard initialWorkflows={workflows} />
+      </main>
+    </AppShell>
   );
 }

@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as integrationsRepo from "@/repositories/integrations";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
+import { AppShell } from "@/components/app-shell/AppShell";
 import { buildCategoryList, resolveAppCatalog } from "./_shared";
 
 interface Props {
@@ -35,9 +36,11 @@ export default async function AppsPage({ searchParams }: Props) {
   const categories = buildCategoryList(items);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6 sm:p-8">
-      <ConnectionStatusBanner searchParams={params} />
-      <AppsDashboard items={items} categories={categories} />
-    </main>
+    <AppShell userEmail={user.email ?? ""}>
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6 sm:p-8">
+        <ConnectionStatusBanner searchParams={params} />
+        <AppsDashboard items={items} categories={categories} />
+      </main>
+    </AppShell>
   );
 }
