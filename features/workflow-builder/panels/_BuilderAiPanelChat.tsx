@@ -246,6 +246,9 @@ export function PlanResultBody({
   onApply,
   stagedAnswers,
   onStagedAnswerChange,
+  onSubmitDetails,
+  canSubmitDetails,
+  submittingDetails,
 }: {
   readonly result: AiPlanResult;
   readonly isLatest: boolean;
@@ -264,6 +267,16 @@ export function PlanResultBody({
     key: string,
     answer: RequiredInputAnswer | undefined,
   ) => void;
+  /**
+   * Slice 4.REACT-AGENT-CHAT-QOL-1 — submit + enabled/busy state for the
+   * inline "Send details" button rendered under the required-input controls.
+   * This body only renders controls when `isLatest` is true, so the inline
+   * button is exclusive to the active plan turn — historical / persisted
+   * plan_results collapse to a summary and never receive it.
+   */
+  readonly onSubmitDetails: () => void;
+  readonly canSubmitDetails: boolean;
+  readonly submittingDetails: boolean;
 }) {
   if (!isLatest) {
     if (result.ok) {
@@ -344,6 +357,9 @@ export function PlanResultBody({
           inputs={planOk.requiredUserInput}
           stagedAnswers={stagedAnswers}
           onStagedAnswerChange={onStagedAnswerChange}
+          onSubmitDetails={onSubmitDetails}
+          canSubmitDetails={canSubmitDetails}
+          submittingDetails={submittingDetails}
         />
       )}
 

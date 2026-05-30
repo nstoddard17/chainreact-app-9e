@@ -74,6 +74,19 @@ interface Props {
    * regardless of this flag.
    */
   readonly historyLoadFailed: boolean;
+  /**
+   * Slice 4.REACT-AGENT-CHAT-QOL-1 — submit handler for the inline "Send
+   * details" button rendered under the ACTIVE plan_result's required-input
+   * controls. Identical to the composer's `onSubmit` (the panel passes the
+   * same `handleSubmit`), so there is no second submit path. Only the latest
+   * non-persisted plan_result renders controls (via `PlanResultBody`'s
+   * `isLatest` guard), so historical blocks never get an active button.
+   */
+  readonly onSubmitDetails: () => void;
+  /** Enabled-state for the inline Send details button (staged answers or text, not busy). */
+  readonly canSubmitDetails: boolean;
+  /** True while a plan / apply round-trip is in flight — disables the inline button. */
+  readonly submittingDetails: boolean;
 }
 
 export function BuilderAiPanelMessageList({
@@ -92,6 +105,9 @@ export function BuilderAiPanelMessageList({
   stagedAnswers,
   onStagedAnswerChange,
   historyLoadFailed,
+  onSubmitDetails,
+  canSubmitDetails,
+  submittingDetails,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -173,6 +189,9 @@ export function BuilderAiPanelMessageList({
                 onApply={onApply}
                 stagedAnswers={stagedAnswers}
                 onStagedAnswerChange={onStagedAnswerChange}
+                onSubmitDetails={onSubmitDetails}
+                canSubmitDetails={canSubmitDetails}
+                submittingDetails={submittingDetails}
               />
             </AssistantBubble>
           );

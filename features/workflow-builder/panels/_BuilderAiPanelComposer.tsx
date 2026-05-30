@@ -100,6 +100,18 @@ export function BuilderAiPanelComposer({
           }
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
+          onKeyDown={(e) => {
+            // Slice 4.REACT-AGENT-CHAT-QOL-1 — Enter submits, Shift+Enter
+            // inserts a newline. Skip while an IME composition is active so
+            // CJK / diacritic entry isn't cut off (the composing Enter just
+            // commits the candidate). `canSubmit` already gates out
+            // whitespace-only / too-long / busy, so a blocked Enter is a
+            // no-op rather than a double-submit.
+            if (e.key !== "Enter" || e.shiftKey) return;
+            if (e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            if (canSubmit) onSubmit();
+          }}
           disabled={busy}
           maxLength={MAX_PROMPT_LENGTH + 100}
           aria-invalid={tooLong || undefined}
@@ -122,19 +134,10 @@ export function BuilderAiPanelComposer({
                 color: "var(--builder-muted)",
               }}
             >
-              ⌘
-            </kbd>
-            <kbd
-              className="ml-0.5 rounded-[3px] px-1.5 py-px text-[9.5px]"
-              style={{
-                background: "var(--builder-panel)",
-                border: "1px solid var(--builder-border)",
-                color: "var(--builder-muted)",
-              }}
-            >
               ↵
             </kbd>
             <span className="ml-1.5">{followUpMode ? "send" : "plan"}</span>
+            <span className="ml-1.5 opacity-70">· ⇧↵ newline</span>
           </span>
           <Button
             type="button"

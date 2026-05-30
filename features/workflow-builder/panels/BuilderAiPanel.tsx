@@ -23,7 +23,10 @@ import {
   persistMessageBestEffort,
   warnPersistenceFailureForDev,
 } from "./_builderAgentPersistence";
-import { BuilderAiPanelComposer } from "./_BuilderAiPanelComposer";
+import {
+  BUILDER_AI_MAX_PROMPT_LENGTH,
+  BuilderAiPanelComposer,
+} from "./_BuilderAiPanelComposer";
 import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
 
 /**
@@ -190,6 +193,16 @@ export function BuilderAiPanel() {
   const busy = planning || applying;
   const followUpMode = ai.followUpMode;
   const hasMessages = messages.length > 0;
+
+  // Slice 4.REACT-AGENT-CHAT-QOL-1 — enabled-state for the inline "Send
+  // details" button rendered under the active required-input controls. Mirrors
+  // the composer's own `canSubmit` derivation (staged answers OR composer text,
+  // not too long, not busy) so the inline button and the bottom composer button
+  // agree on when there's something to submit. Both call the SAME `handleSubmit`
+  // path, so there is no second submit route to drift.
+  const tooLong = prompt.length > BUILDER_AI_MAX_PROMPT_LENGTH;
+  const canSubmitDetails =
+    (trimmed.length > 0 || stagedAnswers.size > 0) && !tooLong && !busy;
 
   function appendMessage(message: ChatMessage): void {
     setMessages((prev) => [...prev, message]);
@@ -454,6 +467,9 @@ export function BuilderAiPanel() {
         stagedAnswers={stagedAnswers}
         onStagedAnswerChange={handleStagedAnswerChange}
         historyLoadFailed={historyLoadFailed}
+        onSubmitDetails={handleSubmit}
+        canSubmitDetails={canSubmitDetails}
+        submittingDetails={busy}
       />
       <BuilderAiPanelComposer
         prompt={prompt}

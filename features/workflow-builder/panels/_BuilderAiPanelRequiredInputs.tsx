@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import type { AiRequiredUserInput } from "@/lib/api/ai";
 import {
   isRequiredInputControlRenderable,
@@ -40,6 +41,9 @@ export function RequiredInputControlsBlock({
   inputs,
   stagedAnswers,
   onStagedAnswerChange,
+  onSubmitDetails,
+  canSubmitDetails,
+  submittingDetails,
 }: {
   readonly inputs: readonly AiRequiredUserInput[];
   readonly stagedAnswers: ReadonlyMap<string, RequiredInputAnswer>;
@@ -47,12 +51,30 @@ export function RequiredInputControlsBlock({
     key: string,
     answer: RequiredInputAnswer | undefined,
   ) => void;
+  /**
+   * Slice 4.REACT-AGENT-CHAT-QOL-1 — submit handler + state for the inline
+   * "Send details" button rendered directly under the interactive controls,
+   * so the user doesn't have to scroll to the bottom composer after filling
+   * them. Identical to the composer's submit (`BuilderAiPanel.handleSubmit`),
+   * so there is no duplicate submit path. Optional so non-panel / test
+   * renders of this block without a handler omit the button entirely.
+   * This block only mounts for the ACTIVE (latest, non-persisted) plan_result
+   * — `PlanResultBody` collapses older turns to a summary — so the inline
+   * button is never shown on historical / read-only required-input messages.
+   */
+  readonly onSubmitDetails?: () => void;
+  readonly canSubmitDetails?: boolean;
+  readonly submittingDetails?: boolean;
 }) {
   const setupInputs = inputs.filter((i) => i.kind === "select_integration");
   const draftInputs = inputs.filter((i) => i.kind !== "select_integration");
   const controls = draftInputs.filter(isControlRenderable);
   const bulletInputs = draftInputs.filter((i) => !isControlRenderable(i));
   const hasDraftBlockers = draftInputs.length > 0;
+  // Inline Send details only when there ARE interactive controls to fill AND
+  // the panel wired a submit handler (bullet-only / setup-only blocks rely on
+  // the bottom composer). Disabled until there's something to send / while busy.
+  const showInlineSend = controls.length > 0 && onSubmitDetails !== undefined;
 
   return (
     <div
@@ -85,6 +107,20 @@ export function RequiredInputControlsBlock({
           />
         );
       })}
+      {showInlineSend && (
+        <div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSubmitDetails}
+            disabled={canSubmitDetails !== true}
+            data-testid="builder-ai-send-details-inline"
+            className="h-7 px-2.5 text-[12px]"
+          >
+            {submittingDetails === true ? "Sending…" : "Send details"}
+          </Button>
+        </div>
+      )}
       {setupInputs.length > 0 && (
         <div
           data-testid="builder-ai-setup-needed"

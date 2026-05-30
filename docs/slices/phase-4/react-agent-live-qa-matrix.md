@@ -247,3 +247,27 @@ Result: AI-created trigger→action(→action) workflows read top-to-bottom; tri
 
 19. **Apply → inspect → no disappearance** — "Change the trigger to fire when a new email is received in Gmail" → Apply → the Gmail trigger appears → open its config and inspect → the canvas STAYS on the applied graph (no "EMPTY · NO TRIGGER" flash). Refresh shows the same graph.
 20. **Save / initial-load parity** — a normal Save still reconciles; reloading the page hydrates the persisted draft; switching to another workflow resets cleanly (no leak).
+
+---
+
+## Slice 4.REACT-AGENT-CHAT-QOL-1 — chat Enter-to-send + inline Send details (2026-05-29)
+
+**Context:** AI behavior confirmed good after the AI-35x stabilization arc; this is chat UX quality-of-life only. **No planner / routing / execution / billing / provider-metadata change.**
+
+| # | Behavior | Where | Status | Test |
+|---|---|---|---|---|
+| Q1 | Enter in the composer submits | `_BuilderAiPanelComposer` `onKeyDown` | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q2 | Shift+Enter inserts a newline (no submit) | same | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q3 | Whitespace-only Enter does not submit | gated on `canSubmit` | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q4 | Enter during a pending request does not double-submit | `busy` gate + disabled textarea | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q5 | IME composition Enter is ignored | `e.nativeEvent.isComposing` guard | ✅ | (manual — CJK input) |
+| Q6 | Enter inside a required-input textarea/combobox does NOT submit | controls have no submit keydown | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q7 | Inline "Send details" renders under the ACTIVE required-input controls | `RequiredInputControlsBlock` | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q8 | Inline button disabled until something is staged / while busy | `canSubmitDetails` | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q9 | Inline button uses the SAME submit path as the bottom button (no duplicate call/message) | both call `handleSubmit` | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+| Q10 | Only the latest required-input block shows an active inline button; persisted/older are read-only | `PlanResultBody` `isLatest` + persisted exclusion | ✅ | `BuilderAiPanel.chatQol.test.tsx` |
+
+**Manual verification (Marcus — live dev server):**
+
+21. **Enter sends, Shift+Enter wraps** — type a prompt, press Enter → it plans; type a multi-line prompt with Shift+Enter → newlines stay, Enter still sends. Pressing Enter on an empty/space-only composer does nothing.
+22. **Fill details, click the inline button** — ask something that needs details ("post a Slack message when a new email arrives") → fill the channel + message controls → the **Send details** button right under the controls is enabled → click it (no scrolling to the bottom) → it sends the same as the bottom button; reloading the thread shows the older required-input turn with no active button.
