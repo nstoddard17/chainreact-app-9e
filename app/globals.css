@@ -163,6 +163,55 @@
     color: var(--builder-text);
     font-feature-settings: "ss01", "cv11";
   }
+
+  /* Marketing surface (Slice 4.HOMEPAGE-V2-1). Editorial, image-heavy
+     palette from the `Homepage v2` Anthropic Design handoff. Scoped via
+     [data-marketing-surface] mirrors --builder-* scoping; never bleeds
+     into in-app surfaces. Dark by default per the design; light variant
+     toggled with data-marketing-theme="light" on the same node. */
+  [data-marketing-surface] {
+    --mk-bg: #0a0a0a;
+    --mk-bg-2: #111111;
+    --mk-panel: #161616;
+    --mk-panel-2: #1c1c1c;
+    --mk-border: #262626;
+    --mk-border-strong: #333333;
+    --mk-text: #fafafa;
+    --mk-text-2: #d4d4d4;
+    --mk-muted: #a3a3a3;
+    --mk-muted-2: #6b6b6b;
+    --mk-accent: #fafafa;
+    --mk-accent-soft: rgba(255, 255, 255, 0.08);
+    --mk-success: #34d399;
+
+    background: var(--mk-bg);
+    color: var(--mk-text);
+    font-feature-settings: "ss01", "cv11";
+  }
+  [data-marketing-surface][data-marketing-theme="light"] {
+    --mk-bg: #fafaf9;
+    --mk-bg-2: #f5f5f4;
+    --mk-panel: #ffffff;
+    --mk-panel-2: #fafaf9;
+    --mk-border: #e7e5e4;
+    --mk-border-strong: #d6d3d1;
+    --mk-text: #0a0a0a;
+    --mk-text-2: #292524;
+    --mk-muted: #78716c;
+    --mk-muted-2: #a8a29e;
+    --mk-accent: #0a0a0a;
+    --mk-accent-soft: #f5f5f4;
+    --mk-success: #16a34a;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-marketing-surface] *,
+    [data-marketing-surface] *::before,
+    [data-marketing-surface] *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 /* Builder utility classes (4.BUILDER-DESIGN-PARITY-1). Hand-rolled rather
