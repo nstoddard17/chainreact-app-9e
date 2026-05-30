@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { WorkflowState } from "@/contracts/workflow";
 import { useGraphSlice } from "../state/graphSlice";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
@@ -141,9 +142,22 @@ function HeaderLeft({
   status: SaveStatus;
   saveError: string | null;
 }) {
+  const router = useRouter();
+  // Slice 4.WORKFLOWS-PAGE-1 follow-up — wire the header back arrow to the
+  // workflows dashboard. No dirty-state confirmation here: the existing save
+  // status pill + Cmd/Ctrl+S shortcut already surface unsaved changes; a
+  // future slice can add a confirm-if-dirty step if Marcus wants one.
+  const handleBack = useCallback(() => {
+    router.push("/workflows");
+  }, [router]);
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      <BuilderIconButton ariaLabel="Back" title="Back" disabled>
+      <BuilderIconButton
+        ariaLabel="Back to workflows"
+        title="Back to workflows"
+        onClick={handleBack}
+        testId="builder-header-back-button"
+      >
         <ChevronLeftIcon />
       </BuilderIconButton>
       {leftRail ? (

@@ -25,11 +25,29 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
+// Slice 4.WORKFLOWS-PAGE-1 follow-up — the header's back button calls
+// `useRouter().push("/workflows")`. Override the global jest.setup default
+// so the test can assert on the navigation target.
+const mockPush = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: mockPush,
+    refresh: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { BuilderHeader } from "@/features/workflow-builder/layout/BuilderHeader";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockPush.mockReset();
   useGraphSlice.getState().reset();
   useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
 });
@@ -46,6 +64,23 @@ describe("BuilderHeader — render contract", () => {
   it("renders a Save button (the WorkflowBuilder integration test asserts on this exact accessible name)", () => {
     render(<BuilderHeader workflowName="x" />);
     expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
+  });
+});
+
+describe("BuilderHeader — back button (Slice 4.WORKFLOWS-PAGE-1 follow-up)", () => {
+  it("renders an enabled 'Back to workflows' button", () => {
+    render(<BuilderHeader workflowName="x" />);
+    const back = screen.getByTestId("builder-header-back-button");
+    expect(back).toBeInTheDocument();
+    expect(back).toBeEnabled();
+    expect(back).toHaveAccessibleName(/back to workflows/i);
+  });
+
+  it("clicking the back button navigates to /workflows", async () => {
+    const user = userEvent.setup();
+    render(<BuilderHeader workflowName="x" />);
+    await user.click(screen.getByTestId("builder-header-back-button"));
+    expect(mockPush).toHaveBeenCalledWith("/workflows");
   });
 });
 
