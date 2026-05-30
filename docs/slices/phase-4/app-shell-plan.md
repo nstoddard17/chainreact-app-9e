@@ -32,44 +32,112 @@ shell on marketing; no fake nav items.
 7. **No new global theme toggle.** App stays light-mode at the in-app
    surface; marketing has its own scoped dark palette.
 
-## Design-parity tune — Slice 4.APP-SHELL-DESIGN-PARITY-1
+## Rail nav reduced to Workflows + Apps (2026-05-31)
 
-**Design source for shell visual parity:** the `TopBar` + `Sidebar`
-idiom in `chainv2builder/project/src/workflows-page.jsx` (≡ the same
-file the Workflows + Connections pages consume). The same design
-tokens / spacing language already drives the in-page toolbars
-(`WorkflowsToolbar`, `AppsToolbar`); the shell now reuses them.
+Marcus pointed out that the rail's `/notifications` entry duplicated
+the top-bar notification bell. Removed `/notifications` from
+`APP_SHELL_NAV_ITEMS`. The rail now carries only Workflows + Apps;
+the top-bar bell (with the real unread badge) is the canonical entry
+to `/notifications`. `AppPageContext` returns null on `/notifications`
+(the page renders its own h1, so the top-bar context slot stays empty
+there — no fabricated label). Tests updated to pin the change:
+`navItems.test.ts`, `AppNav.test.tsx`, `AppMobileNav.test.tsx`,
+`AppPageContext.test.tsx`.
 
-**What changed visually** (no route, no API, no nav-item changes —
-pure CSS tune; zero tests modified):
+## Design-parity tune — Slice 4.APP-SHELL-DESIGN-PARITY-1 (superseded)
 
-| Component | Before (APP-SHELL-1) | After (APP-SHELL-DESIGN-PARITY-1) |
+A first design-parity tune restyled the top-header shell (solid panel
++ segmented nav pills + pill-shape user-menu) to match the in-page
+toolbars. That pass shipped but Marcus decided the top-nav direction
+was wrong for the authenticated app. Replaced by the rail-based dark
+shell below.
+
+## Dark-rail rewrite — Slice 4.APP-SHELL-DARK-DESIGN-PARITY-1
+
+**Reason for the rewrite:** the top-nav layout shipped by
+`APP-SHELL-1` + the visual tune in `APP-SHELL-DESIGN-PARITY-1` didn't
+match the design direction Marcus wants for the authenticated app.
+The Anthropic Design reference uses a dark dashboard surface with a
+left icon rail. This slice replaces the top header with that
+direction.
+
+**Design source:** the dark `Sidebar` + dark `[data-theme="dark"]`
+palette from `chainv2builder/project/src/workflows-page.jsx:4-119` —
+the same handoff that drives the Workflows + Connections pages. Top
+bar with search / task-meter / help / bell / theme toggle / workspace
+switcher was deliberately NOT ported; those would all be fake on V2
+today (no cross-surface search index, no billing-task data wired into
+UI, no help center route, no theme system, no workspaces).
+
+**Layout (≥ md — desktop):** rail + top bar (revised — see
+"Top-bar restored" section above).
+
+```
+┌──┬──────────────────────────────────┐
+│B │ Workflows           🔔³  ⊙ ▾    │ <- top bar (sticky, bg-card border-b)
+│──├──────────────────────────────────┤
+│ W│                                  │
+│ A│   page content (dark bg)         │
+│ N│                                  │
+│  │                                  │
+└──┴──────────────────────────────────┘
+```
+
+- 64px-wide sticky rail (`<aside role="complementary"
+  aria-label="Sidebar">`): brand → divider → primary nav icons.
+  Icon-only — user-menu lives in the top bar (design `tb-profile`
+  placement), not at the rail bottom.
+- Top bar inside content column: page context label (left) +
+  notification bell with real unread badge + user menu (right).
+
+**Layout (< md — mobile):** rail hidden; thin sticky top bar
+(hamburger + brand + page context + notification bell + user-menu
+avatar). Hamburger opens the mobile drawer popover with the full
+nav set.
+
+**Dark scope:** the AppShell root carries `data-app-surface="dark"`.
+A scoped CSS rule in [`app/globals.css`](../../../app/globals.css)
+re-themes the app HSL tokens (`--background`, `--card`, `--popover`,
+`--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`,
+`--success`, `--warning`, `--border`, `--input`, `--ring`) so EVERY
+page component that uses `bg-card`, `text-foreground`, `border-border`,
+etc. automatically renders against the dark palette. No per-component
+class rewrites needed. Mirrors the existing `[data-builder-surface]`
++ `[data-marketing-surface]` scoping idiom — marketing `/` and builder
+`/workflows/[id]` are untouched because they don't carry this
+attribute.
+
+**Portal-scope fix:** Radix `PopoverContent` portals to `document.body`,
+OUTSIDE the AppShell's dark ancestor. The fix is to re-apply
+`data-app-surface="dark"` directly on each `PopoverContent` we render
+(UserMenu + AppMobileNav). The CSS rule then matches the portaled
+node by attribute, regardless of DOM ancestry.
+
+**Nav active state inside the rail:** active item = `border-primary/30
+bg-primary/10 text-primary`; inactive = `text-muted-foreground hover:
+bg-muted hover:text-foreground`. Icon-only rail with `aria-label` per
+item + a tooltip on hover (`role="tooltip"` span).
+
+**What changed structurally** (`AppHeader` retired; new `AppRail` +
+`AppMobileBar`):
+
+| Component | Before (APP-SHELL-DESIGN-PARITY-1) | After (APP-SHELL-DARK-DESIGN-PARITY-1) |
 |---|---|---|
-| `AppHeader` | `bg-background/95 backdrop-blur-sm`, variable height (`py-3`) | Solid `bg-card`, hard `border-b`, fixed `h-14` (= design's 56px), no blur |
-| `AppNav` (desktop) | Inline pills, active = `bg-primary/10 text-primary` | Segmented-tab container `rounded-md border bg-muted/40 p-0.5`; active = `bg-background text-foreground shadow-sm`; inactive = `text-muted-foreground hover:text-foreground` — matches `WorkflowsToolbar` status-filter group exactly |
-| `AppMobileNav` trigger | `h-9 w-9 bg-card` | `h-8 w-8 bg-muted/40` with hover-darken — matches the V2 icon-button idiom used in `AppsToolbar` |
-| `UserMenu` trigger | Solo 32×32 initials circle | Pill: initials avatar (28×28) + chevron-down inside a rounded-full `bg-muted/40` pill — matches the design's `tb-profile` button (`workflows-page.jsx:223-231`) |
+| `AppShell` | flex-col with sticky top header | flex-row with rail + content column (md+); content column has a thin sticky mobile bar (< md). Root carries `data-app-surface="dark"`. |
+| `AppHeader` | sticky top header | **DELETED** |
+| `AppRail` | — | **NEW** — desktop vertical sidebar (`<aside aria-label="Sidebar">`), `bg-card border-r border-border`, sticky |
+| `AppMobileBar` | — | **NEW** — mobile-only thin top bar with hamburger + brand + user menu; no fake utility content |
+| `AppNav` | horizontal segmented tabs | vertical icon-only stack with tooltip on hover |
+| `AppBrand` | brand mark + wordmark | icon-only tile inside the rail; wordmark in `aria-label` + tooltip |
+| `UserMenu` trigger | pill (initials + chevron) | circular initials avatar (no chevron); popover opens to the right (`side="right"`) |
+| `AppMobileNav` trigger | unchanged | unchanged (lives in mobile bar) |
 
-**Deferred design-shell elements** (out of scope here — already noted
-above and unchanged by this tune):
-
-- Left slim icon rail (`Sidebar` in the design). Only 2 of its 8
-  items (Automations → `/workflows`, Connections → `/apps`) resolve
-  to real V2 routes; the other 6 (Templates, AI assistant, Activity,
-  Team, Billing, Settings) would be fake links. The top-only shell
-  covers the real navigation surface without rendering empty rails.
-  Sidebar revisits when ≥ 5 of those routes ship.
-- Global `⌘K` search input (`tb-search`) — no cross-surface search
-  index yet.
-- Task-usage progress meter (`tb-tasks`) — billing/tasks scope
-  intentionally untouched.
-- Notification bell + unread-count dot (`tb-bell`) —
-  `countUnreadForUser` is wired in the repository, but the design's
-  bell deep-links into a panel/popover that doesn't exist. The
-  existing `/notifications` nav item already exposes the same data
-  without duplication.
-- Theme toggle — locked decision (no global theme system).
-- Workspace switcher — no workspaces in V2 yet.
+**Page components — no changes needed.** The Workflows / Apps /
+Notifications page components use `bg-card`, `text-foreground`,
+`border-border`, etc. — every one of those resolves to the dark value
+inside the AppShell's `[data-app-surface="dark"]` scope. Cards / rows /
+status pills / stat cards / empty states all auto-render dark without
+per-component class rewrites.
 
 ## Architecture
 
@@ -83,29 +151,42 @@ authenticated page (server)
         </AppShell>
 ```
 
-`AppShell` (server) → `AppHeader` (server) composes `AppBrand` (server) +
-`AppMobileNav` (client — Popover) + `AppNav` (client — `usePathname`) +
-`UserMenu` (client — Popover + server-action form). Auth is the caller's
-responsibility; the shell ASSUMES it's rendering inside a server
-component that already verified `auth.getUser()` and gated on it.
+`AppShell` (server) carries `data-app-surface="dark"` and composes:
+- `AppRail` (server, ≥ md): `AppBrand` + `AppNav` (client; vertical
+  icon stack via `usePathname`) + `UserMenu` (client; popover with
+  email + sign-out form).
+- `AppMobileBar` (server, < md): `AppMobileNav` (client; hamburger +
+  popover drawer) + `AppBrand` + `UserMenu`.
+
+Both layers live in the DOM at all times; Tailwind responsive
+utilities (`md:flex` / `md:hidden`) toggle visibility. Auth is the
+caller's responsibility; the shell ASSUMES it's rendering inside a
+server component that already verified `auth.getUser()` and gated on
+it.
 
 ## Implemented vs deferred (design → V2)
 
 | Design element                              | This slice                                                                |
 |---|---|
-| Sticky top header                            | ✅ `sticky top-0 z-40 h-14 bg-card border-b` (design-parity tune Slice 4.APP-SHELL-DESIGN-PARITY-1 — solid panel, hard 1px border, fixed 56px height, no backdrop blur — matches Workflows / Connections `TopBar`) |
-| Brand mark + wordmark                        | ✅ Real ChainReact mark + "ChainReact" text → links to `/workflows`       |
-| Primary nav (desktop)                        | ✅ Workflows / Apps / Notifications inside a segmented `rounded-md border bg-muted/40 p-0.5` container; active item is a white pill with shadow — same pattern as `WorkflowsToolbar` / `AppsToolbar` so the shell visually belongs with the pages |
-| Mobile hamburger + popover                   | ✅ Same item set, `aria-expanded` + closes on item click; trigger restyled to match V2 icon-button idiom (`h-8 w-8 bg-muted/40`) |
-| User menu                                    | ✅ Pill-shape trigger (initials avatar + chevron, matches design profile button) + popover with email + Sign out form |
+| Dark dashboard surface                       | ✅ `data-app-surface="dark"` scope on AppShell root; re-themes app HSL tokens; never bleeds into marketing / builder |
+| Left icon rail (slim, sticky, dark panel)    | ✅ 64px-wide rail (`<aside role="complementary" aria-label="Sidebar">`); `bg-card border-r border-border` |
+| Top utility bar (desktop)                    | ✅ 56px-tall sticky `bg-card border-b` strip inside the content column — page context (left) + notification bell + user menu (right) |
+| Brand mark (rail top)                        | ✅ Real ChainReact mark in a 36×36 tile; `aria-label` carries the wordmark; tooltip on hover |
+| Primary nav (vertical icon stack)            | ✅ Workflows + Apps only (rail nav reduced 2026-05-31); icon-only with `aria-label` + hover tooltip; active = `border-primary/30 bg-primary/10 text-primary`. Notifications is reached via the top-bar bell, not the rail. |
+| Page context label (top bar + mobile bar)   | ✅ Active primary nav item's label, derived from `usePathname` (single source of truth with the rail highlight) |
+| Notification bell + unread badge             | ✅ Real `<Link href="/notifications">` with badge driven by `notificationsRepo.countUnreadForUser`; badge hidden at 0, shown as `99+` above 99; aria-label reflects unread state |
+| Mobile hamburger + popover                   | ✅ Lives in the `AppMobileBar` (< md); same item set as desktop; `aria-expanded` + closes on item click; popover carries `data-app-surface="dark"` to keep dark theming through the portal |
+| User menu                                    | ✅ Pill trigger in the top bar (desktop) + mobile bar; popover with email + Sign out form |
 | Workspace breadcrumb ("Acme Co › …")         | ⏸️ **Deferred** — no workspaces in V2                                       |
 | Workspace switcher                           | ⏸️ **Deferred** — same reason                                              |
-| Left sidebar / vertical rail                 | ⏸️ **Deferred** — top header alone covers nav scope today                  |
-| Global search                                | ⏸️ **Deferred** — no search index across workflows + apps + runs yet       |
-| Notifications bell badge                     | ⏸️ **Deferred** — has its own `/notifications` route; not surfaced inline  |
-| Theme toggle                                 | ❌ Out of scope (locked decision; no global theme system)                  |
+| Top-bar utility elements NOT shipped (search / task / help / theme) | ❌ **Not rendered** — would be fake on V2 today:                  |
+|                                              |   • Global `⌘K` search — no cross-surface search index                     |
+|                                              |   • Task-usage meter — billing/tasks scope intentionally untouched         |
+|                                              |   • Help button — no help-center route                                     |
+|                                              |   • Theme toggle — locked decision (no global theme system)                |
 | Settings / Billing / Account menu items      | ❌ **Not rendered** — no real routes                                       |
-| "Create workflow" CTA in header              | ⏸️ **Deferred** — `WorkflowsDashboard` already exposes Create; adding to header would duplicate |
+| "Create workflow" CTA in shell               | ⏸️ **Deferred** — `WorkflowsDashboard` already exposes Create; adding to shell would duplicate |
+| Additional rail items in design (Templates, AI assistant, Activity, Team, Billing, Settings) | ❌ **Not rendered** — no real routes; would be fake nav. Rail revisits when ≥ 5 of those routes ship. |
 
 ## Route scope (pinned by tests)
 

@@ -9,14 +9,16 @@ import {
 import { signOut } from "@/app/auth/actions";
 
 /**
- * Authenticated-user menu (Slice 4.APP-SHELL-1).
+ * Authenticated-user menu (Slice 4.APP-SHELL-1; rail-style refit in
+ * 4.APP-SHELL-DARK-DESIGN-PARITY-1).
  *
- * Trigger: a compact button with the user's initials. Popover content:
- * full email + a Sign out form bound to the existing `signOut` server
- * action (which destroys the session + redirects to `/`). NO other
- * menu items — Settings / Billing / Account routes don't exist yet,
- * and the page guide forbids rendering CTAs that aren't backed by a
- * real route.
+ * Trigger: a circular initials avatar that sits at the bottom of the
+ * left rail (mirrors design `sb-avatar` — `workflows-page.jsx:107-116`).
+ * Popover content: full email + a Sign out form bound to the existing
+ * `signOut` server action (which destroys the session + redirects to
+ * `/`). NO other menu items — Settings / Billing / Account routes
+ * don't exist yet, and the page guide forbids rendering CTAs that
+ * aren't backed by a real route.
  *
  * Notes:
  *   - The `<form action={signOut}>` is the standard Next.js server-
@@ -39,20 +41,21 @@ export function UserMenu({ userEmail }: Props) {
           data-testid="app-shell-user-menu-trigger"
           aria-label={`Account menu for ${userEmail}`}
           aria-expanded={open}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 py-0.5 pl-0.5 pr-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-card bg-primary/10 text-xs font-semibold text-primary transition hover:bg-primary/15 focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <span
-            aria-hidden
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-          >
-            {initials}
-          </span>
-          <ChevronDownIcon />
+          <span aria-hidden>{initials}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
-        align="end"
+        align="start"
+        side="right"
         className="w-64 p-2"
+        // Pinned dark scope: PopoverContent portals to document.body,
+        // outside the AppShell's `[data-app-surface="dark"]` ancestor,
+        // so the scope's HSL re-themes don't cascade. Re-applying the
+        // attribute here makes the CSS rule match the portaled node
+        // directly.
+        data-app-surface="dark"
         data-testid="app-shell-user-menu-content"
       >
         <div className="flex flex-col gap-0.5 px-2 py-1.5">
@@ -78,24 +81,6 @@ export function UserMenu({ userEmail }: Props) {
         </form>
       </PopoverContent>
     </Popover>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <polyline points="4 6 8 11 12 6" />
-    </svg>
   );
 }
 

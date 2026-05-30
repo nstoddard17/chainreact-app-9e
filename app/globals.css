@@ -164,6 +164,60 @@
     font-feature-settings: "ss01", "cv11";
   }
 
+  /* Authenticated app shell — dark dashboard surface
+     (Slice 4.APP-SHELL-DARK-DESIGN-PARITY-1). Re-themes the app HSL
+     tokens (--background, --card, --border, --muted, --primary, …) on
+     the AppShell root so EVERY page component that uses `bg-card`,
+     `text-foreground`, `border-border`, etc. automatically renders
+     against the dark dashboard palette — no per-component class
+     rewrites. Scope is opt-in: only the AppShell root carries
+     `data-app-surface="dark"`. Marketing (`[data-marketing-surface]`)
+     and Builder (`[data-builder-surface]`) routes are untouched
+     because they don't carry this attribute. Colors mirror the design
+     `[data-theme="dark"]` palette from the Anthropic handoff
+     (`workflows-page.jsx` Sidebar + TopBar); tuned to V2's HSL
+     channels so Tailwind utility classes keep working unchanged. */
+  [data-app-surface="dark"] {
+    /* Page background — slightly darker than card for panel contrast. */
+    --background: 220 13% 5%;
+    --foreground: 210 20% 96%;
+
+    --card: 220 13% 8%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 220 13% 9%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 199 89% 60%;
+    --primary-foreground: 220 13% 5%;
+
+    --secondary: 220 13% 13%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 220 13% 12%;
+    --muted-foreground: 220 9% 60%;
+
+    --accent: 220 13% 14%;
+    --accent-foreground: 210 20% 96%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 50%;
+    --success-foreground: 220 13% 5%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 13% 5%;
+
+    --border: 220 13% 16%;
+    --input: 220 13% 16%;
+    --ring: 199 89% 60%;
+
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "ss01", "cv11";
+  }
+
   /* Marketing surface (Slice 4.HOMEPAGE-V2-1). Editorial, image-heavy
      palette from the `Homepage v2` Anthropic Design handoff. Scoped via
      [data-marketing-surface] mirrors --builder-* scoping; never bleeds

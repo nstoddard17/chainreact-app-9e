@@ -34,7 +34,7 @@ describe("AppMobileNav", () => {
     expect(screen.getByTestId("app-shell-mobile-content")).toBeInTheDocument();
   });
 
-  it("popover items mirror the desktop nav set (Workflows / Apps / Notifications) — single source of truth", async () => {
+  it("popover items mirror the desktop nav set (Workflows + Apps) — single source of truth. Notifications is NOT here; covered by the top-bar bell.", async () => {
     const user = userEvent.setup();
     render(<AppMobileNav />);
     await user.click(screen.getByTestId("app-shell-mobile-trigger"));
@@ -47,8 +47,8 @@ describe("AppMobileNav", () => {
       "/apps",
     );
     expect(
-      screen.getByTestId("app-shell-mobile-nav-notifications"),
-    ).toHaveAttribute("href", "/notifications");
+      screen.queryByTestId("app-shell-mobile-nav-notifications"),
+    ).toBeNull();
   });
 
   it("active item carries aria-current='page' inside the mobile popover", async () => {

@@ -5,13 +5,18 @@ import { usePathname } from "next/navigation";
 import { APP_SHELL_NAV_ITEMS, isNavItemActive } from "./navItems";
 
 /**
- * Desktop primary nav for the authenticated app shell
- * (Slice 4.APP-SHELL-1).
+ * Desktop vertical icon rail nav for the authenticated app shell
+ * (Slice 4.APP-SHELL-1; rewritten as a vertical icon rail in
+ * 4.APP-SHELL-DARK-DESIGN-PARITY-1 to match the design `Sidebar` in
+ * `workflows-page.jsx:4-119`).
  *
- * Hidden below `md` (640px) — the `AppMobileNav` popover takes over
- * there with the same item set. `usePathname()` drives the active
- * highlight; `aria-current="page"` is set on the active link for
- * accessibility-tree consumers (screen readers, automation tooling).
+ * Icon-forward — each item renders just the glyph; the human label is
+ * exposed via `aria-label` (for AT) and a tooltip on hover (for sighted
+ * users). Active state uses `aria-current="page"` + a primary-tinted
+ * background tile.
+ *
+ * Hidden below `md` — the `AppMobileNav` popover replaces it there
+ * with the same item set + full labels.
  */
 export function AppNav() {
   const pathname = usePathname() ?? "";
@@ -19,7 +24,7 @@ export function AppNav() {
     <nav
       data-testid="app-shell-nav"
       aria-label="Primary"
-      className="hidden items-center gap-1 rounded-md border border-border bg-muted/40 p-0.5 md:flex"
+      className="hidden flex-col items-center gap-1 md:flex"
     >
       {APP_SHELL_NAV_ITEMS.map((item) => {
         const active = isNavItemActive(item.href, pathname);
@@ -29,14 +34,21 @@ export function AppNav() {
             href={item.href}
             data-testid={`app-shell-nav-${item.id}`}
             aria-current={active ? "page" : undefined}
+            aria-label={item.label}
             className={
-              "rounded px-3 py-1 text-xs font-medium transition " +
+              "group relative inline-flex h-10 w-10 items-center justify-center rounded-lg border transition " +
               (active
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground")
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground")
             }
           >
-            {item.label}
+            {item.icon}
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
+            >
+              {item.label}
+            </span>
           </Link>
         );
       })}

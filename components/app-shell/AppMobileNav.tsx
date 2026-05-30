@@ -41,6 +41,9 @@ export function AppMobileNav() {
         <PopoverContent
           align="start"
           className="w-56 p-1"
+          // Pinned dark scope — see UserMenu.tsx note about the
+          // portaled-popover scope problem.
+          data-app-surface="dark"
           data-testid="app-shell-mobile-content"
         >
           <ul className="flex flex-col gap-0.5" role="menu">

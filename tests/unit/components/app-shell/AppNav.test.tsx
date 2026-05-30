@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe("AppNav — registered items + real routes", () => {
-  it("renders Workflows / Apps / Notifications, all as real <Link> hrefs", () => {
+  it("renders Workflows + Apps as real <Link> hrefs (Notifications is exposed via the top-bar bell, NOT in the rail)", () => {
     mockPathname.mockReturnValue("/workflows");
     render(<AppNav />);
     expect(screen.getByTestId("app-shell-nav-workflows")).toHaveAttribute(
@@ -34,10 +34,9 @@ describe("AppNav — registered items + real routes", () => {
       "href",
       "/apps",
     );
-    expect(screen.getByTestId("app-shell-nav-notifications")).toHaveAttribute(
-      "href",
-      "/notifications",
-    );
+    expect(
+      screen.queryByTestId("app-shell-nav-notifications"),
+    ).toBeNull();
   });
 
   it("never renders a fake or '#' anchor", () => {
@@ -54,7 +53,7 @@ describe("AppNav — registered items + real routes", () => {
 });
 
 describe("AppNav — active state", () => {
-  it("on /workflows: Workflows is active, others are not", () => {
+  it("on /workflows: Workflows is active, Apps is not", () => {
     mockPathname.mockReturnValue("/workflows");
     render(<AppNav />);
     expect(
@@ -63,14 +62,9 @@ describe("AppNav — active state", () => {
     expect(
       screen.getByTestId("app-shell-nav-apps").getAttribute("aria-current"),
     ).toBe(null);
-    expect(
-      screen
-        .getByTestId("app-shell-nav-notifications")
-        .getAttribute("aria-current"),
-    ).toBe(null);
   });
 
-  it("on /apps: Apps is active, others are not", () => {
+  it("on /apps: Apps is active, Workflows is not", () => {
     mockPathname.mockReturnValue("/apps");
     render(<AppNav />);
     expect(
@@ -83,14 +77,12 @@ describe("AppNav — active state", () => {
     ).toBe(null);
   });
 
-  it("on /notifications: Notifications is active", () => {
+  it("on /notifications: NO rail item is active (the bell is the entry point, not the rail)", () => {
     mockPathname.mockReturnValue("/notifications");
     render(<AppNav />);
     expect(
-      screen
-        .getByTestId("app-shell-nav-notifications")
-        .getAttribute("aria-current"),
-    ).toBe("page");
+      screen.queryByRole("link", { current: "page" }),
+    ).toBeNull();
   });
 
   it("on /workflows/abc: Workflows stays highlighted (sub-route)", () => {

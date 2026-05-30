@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
+import * as notificationsRepo from "@/repositories/notifications";
 import { toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -27,14 +28,18 @@ export default async function WorkflowsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
 
-  const [records, runStats] = await Promise.all([
+  const [records, runStats, unreadNotifications] = await Promise.all([
     workflowsRepo.listByUser(user.id),
     workflowRunStatsRepo.getStatsForUser(user.id),
+    notificationsRepo.countUnreadForUser(user.id),
   ]);
   const workflows = records.map((r) => toWorkflowListItem(r, runStats));
 
   return (
-    <AppShell userEmail={user.email ?? ""}>
+    <AppShell
+      userEmail={user.email ?? ""}
+      unreadNotifications={unreadNotifications}
+    >
       <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
         <WorkflowsDashboard initialWorkflows={workflows} />
       </main>

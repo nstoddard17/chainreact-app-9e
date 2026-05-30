@@ -1,11 +1,21 @@
 /**
- * Tests for components/app-shell/AppShell (Slice 4.APP-SHELL-1).
+ * Tests for components/app-shell/AppShell (Slice 4.APP-SHELL-1; layout
+ * rewrite in 4.APP-SHELL-DARK-DESIGN-PARITY-1).
  *
- * Composition-level checks: the shell wraps children in the sticky
- * header (brand + nav + mobile trigger + user menu) and renders the
- * page content underneath.
+ * Composition-level checks for the rail + top-bar + mobile-bar shell:
+ *   - Root carries `data-app-surface="dark"` so the dark dashboard
+ *     palette re-themes the app HSL tokens for everything nested.
+ *   - Desktop rail renders with brand + nav (no user menu — that
+ *     moved to the top bar).
+ *   - Desktop top bar renders with page context + notification bell
+ *     (badge reflects `unreadNotifications`) + user menu.
+ *   - Mobile bar renders (Tailwind responsive — both desktop and
+ *     mobile layers live in the DOM, the unused one is display:none
+ *     via `md:flex` / `md:hidden`). Mobile bar carries the hamburger
+ *     trigger + brand + page context + bell + user menu.
+ *   - Children render in the content column.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 
 const mockPathname = jest.fn<string, []>();
 jest.mock("next/navigation", () => ({
@@ -21,40 +31,115 @@ beforeEach(() => {
   mockPathname.mockReturnValue("/workflows");
 });
 
-describe("AppShell", () => {
-  it("renders the header, the brand link (→ /workflows), and the children content", () => {
+describe("AppShell — composition", () => {
+  it("renders the root with the dark-app-surface attribute + the rail + the top bar + the mobile bar + the children content", () => {
     render(
-      <AppShell userEmail="marcus@example.com">
+      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
         <main data-testid="page-content">Hello</main>
       </AppShell>,
     );
-    expect(screen.getByTestId("app-shell-root")).toBeInTheDocument();
-    expect(screen.getByTestId("app-shell-header")).toBeInTheDocument();
-    expect(screen.getByTestId("app-shell-brand")).toHaveAttribute(
-      "href",
-      "/workflows",
-    );
+    const root = screen.getByTestId("app-shell-root");
+    expect(root).toBeInTheDocument();
+    expect(root).toHaveAttribute("data-app-surface", "dark");
+
+    expect(screen.getByTestId("app-shell-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("app-shell-top-bar")).toBeInTheDocument();
+    expect(screen.getByTestId("app-shell-mobile-bar")).toBeInTheDocument();
     expect(screen.getByTestId("page-content")).toHaveTextContent("Hello");
   });
 
-  it("renders the primary nav landmark + the user menu trigger", () => {
+  it("rail renders brand + nav landmark, but NOT the user menu (moved to top bar)", () => {
     render(
-      <AppShell userEmail="marcus@example.com">
+      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
         <div />
       </AppShell>,
     );
+    const rail = screen.getByTestId("app-shell-rail");
+    expect(within(rail).getByTestId("app-shell-brand")).toBeInTheDocument();
     expect(
-      screen.getByRole("navigation", { name: /primary/i }),
+      within(rail).getByRole("navigation", { name: /primary/i }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("app-shell-user-menu-trigger")).toBeInTheDocument();
+    expect(
+      within(rail).queryByTestId("app-shell-user-menu-trigger"),
+    ).toBeNull();
   });
 
-  it("renders the mobile hamburger trigger (so the same items are reachable on small viewports)", () => {
+  it("rail brand links to /workflows", () => {
     render(
-      <AppShell userEmail="marcus@example.com">
+      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
         <div />
       </AppShell>,
     );
-    expect(screen.getByTestId("app-shell-mobile-trigger")).toBeInTheDocument();
+    const rail = screen.getByTestId("app-shell-rail");
+    const brand = within(rail).getByTestId("app-shell-brand");
+    expect(brand).toHaveAttribute("href", "/workflows");
+  });
+
+  it("top bar (desktop) renders page context + notification bell + user menu — and renders the unread badge when count > 0", () => {
+    render(
+      <AppShell userEmail="marcus@example.com" unreadNotifications={3}>
+        <div />
+      </AppShell>,
+    );
+    const topBar = screen.getByTestId("app-shell-top-bar");
+    expect(
+      within(topBar).getByTestId("app-shell-page-context"),
+    ).toBeInTheDocument();
+    const bell = within(topBar).getByTestId("app-shell-notification-bell");
+    expect(bell).toHaveAttribute("href", "/notifications");
+    expect(bell).toHaveAttribute("data-unread-count", "3");
+    expect(
+      within(topBar).getByTestId("app-shell-notification-bell-badge"),
+    ).toHaveTextContent("3");
+    expect(
+      within(topBar).getByTestId("app-shell-user-menu-trigger"),
+    ).toBeInTheDocument();
+  });
+
+  it("top bar bell hides the badge when unreadNotifications is 0", () => {
+    render(
+      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+        <div />
+      </AppShell>,
+    );
+    const topBar = screen.getByTestId("app-shell-top-bar");
+    const bell = within(topBar).getByTestId("app-shell-notification-bell");
+    expect(bell).toHaveAttribute("data-unread-count", "0");
+    expect(
+      within(topBar).queryByTestId("app-shell-notification-bell-badge"),
+    ).toBeNull();
+  });
+
+  it("mobile bar carries hamburger + brand + page context + bell + user menu (same affordances reachable on small viewports)", () => {
+    render(
+      <AppShell userEmail="marcus@example.com" unreadNotifications={5}>
+        <div />
+      </AppShell>,
+    );
+    const mobileBar = screen.getByTestId("app-shell-mobile-bar");
+    expect(within(mobileBar).getByTestId("app-shell-brand")).toBeInTheDocument();
+    expect(
+      within(mobileBar).getByTestId("app-shell-mobile-trigger"),
+    ).toBeInTheDocument();
+    expect(
+      within(mobileBar).getByTestId("app-shell-page-context"),
+    ).toBeInTheDocument();
+    expect(
+      within(mobileBar).getByTestId("app-shell-notification-bell"),
+    ).toBeInTheDocument();
+    expect(
+      within(mobileBar).getByTestId("app-shell-user-menu-trigger"),
+    ).toBeInTheDocument();
+  });
+
+  it("rail Sidebar landmark is labeled (a11y)", () => {
+    render(
+      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+        <div />
+      </AppShell>,
+    );
+    // <aside aria-label="Sidebar"> is the rail container.
+    const rail = screen.getByRole("complementary", { name: /sidebar/i });
+    expect(rail).toHaveAttribute("data-testid", "app-shell-rail");
   });
 });

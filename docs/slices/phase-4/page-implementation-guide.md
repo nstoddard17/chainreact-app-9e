@@ -27,14 +27,23 @@ A page implementation owns the **page body**. It does NOT own:
 - Cross-page navigation chrome.
 - Workspace switcher / breadcrumb (deferred until workspaces exist).
 
-**Shell-wrapped surfaces** (Slice 4.APP-SHELL-1): every authenticated dashboard page wraps its `<main>` in `<AppShell userEmail={user.email ?? ""}>`. The shell adds the sticky top header (brand + primary nav + mobile hamburger + user menu); the page body stays exactly where it was. Reference: [`app/workflows/page.tsx`](../../../app/workflows/page.tsx), [`app/apps/page.tsx`](../../../app/apps/page.tsx), [`app/notifications/page.tsx`](../../../app/notifications/page.tsx).
+**Shell-wrapped surfaces:** every authenticated dashboard page wraps its `<main>` in `<AppShell userEmail={…} unreadNotifications={…}>`. The shell adds the left icon rail + top bar + mobile bar (dark surface); the page body stays where it was. Reference: [`app/workflows/page.tsx`](../../../app/workflows/page.tsx), [`app/apps/page.tsx`](../../../app/apps/page.tsx), [`app/notifications/page.tsx`](../../../app/notifications/page.tsx).
+
+`unreadNotifications` is a server-fetched real count from `notificationsRepo.countUnreadForUser(user.id)` — runs in parallel with the page's primary fetches via `Promise.all`. Drives the top-bar notification-bell badge.
 
 ```tsx
 // app/<feature>/page.tsx — reference: app/workflows/page.tsx
+const [data, unreadNotifications] = await Promise.all([
+  fetchPrimaryData(user.id),
+  notificationsRepo.countUnreadForUser(user.id),
+]);
 return (
-  <AppShell userEmail={user.email ?? ""}>
+  <AppShell
+    userEmail={user.email ?? ""}
+    unreadNotifications={unreadNotifications}
+  >
     <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
-      <FeatureDashboard initialData={...} />
+      <FeatureDashboard initialData={data} />
     </main>
   </AppShell>
 );
@@ -44,15 +53,20 @@ return (
 
 **Nav extension rule:** adding a nav item is a one-line change to [`components/app-shell/navItems.ts`](../../../components/app-shell/navItems.ts) — but ship the route first. Every entry MUST resolve to a real page; `#`/`coming-soon` hrefs are forbidden (the page guide §4 rule applies to the shell too).
 
-**Shell styling — design parity (Slice 4.APP-SHELL-DESIGN-PARITY-1):** the shell intentionally reuses the same visual language as in-page toolbars (`WorkflowsToolbar` / `AppsToolbar`):
+**Shell layout + dark surface (Slice 4.APP-SHELL-DARK-DESIGN-PARITY-1):** the authenticated shell is a left vertical icon rail + dark dashboard surface, with a top bar inside the content column. Layout details + token rebinding rules:
 
-- Header: `sticky top-0 z-40 h-14 bg-card border-b border-border` (solid panel, hard 1px border, fixed 56px height — no `backdrop-blur`).
-- Header inner container: `max-w-7xl` with `px-4 sm:px-6 lg:px-8`. Pages inside the shell may use any narrower max-width (Workflows uses `max-w-6xl`); the outer rhythm stays consistent.
-- Desktop nav: segmented-tab container — `rounded-md border border-border bg-muted/40 p-0.5`. Active item is a white pill (`bg-background text-foreground shadow-sm`); inactive items are `text-muted-foreground hover:text-foreground`. Mirrors the status-filter group in `WorkflowsToolbar`.
-- Icon-button idiom (mobile hamburger, future shell utility buttons): `h-8 w-8 rounded-md border border-border bg-muted/40` with `hover:bg-muted hover:text-foreground`. Mirrors `AppsToolbar` view-toggle buttons.
-- Profile-pill idiom (`UserMenu` trigger): `rounded-full border border-border bg-muted/40` containing a small avatar (`h-7 w-7 rounded-full bg-primary/10 text-primary`) + chevron-down. Mirrors the design's `tb-profile` pill.
+- AppShell root carries `data-app-surface="dark"`. The scoped CSS rule in `app/globals.css` re-themes the app HSL tokens (`--background`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--success`, `--warning`, `--border`, `--input`, `--ring`) so existing `bg-card` / `text-foreground` / `border-border` classes auto-render dark.
+- Desktop (≥ md): sticky 64px-wide rail on the left (`bg-card border-r`) + sticky 56px top bar above page content (`bg-card border-b`); content fills the rest.
+- Mobile (< md): thin sticky top bar (hamburger + brand + page context + notification bell + user menu), no rail. Same nav set available via the drawer popover.
+- Rail nav active state: `border-primary/30 bg-primary/10 text-primary`; inactive: `text-muted-foreground hover:bg-muted hover:text-foreground`.
+- Top bar content: page context label (left, from `usePathname`) + notification bell with real unread badge + user menu (right).
+- Page content wrapper inside the shell: `<main className="mx-auto flex w-full max-w-… flex-col p-6 sm:p-8">` — unchanged; centers within the content column to the right of the rail.
 
-When in doubt about a shell-control style, look at the matching idiom on a dashboard page first — the shell should feel like another piece of that page's chrome, not a separate visual surface.
+**Truthful top-bar content only.** Search input / task meter / help link / theme toggle / workspace switcher are NOT shipped — they'd be fake without the backing data/routes. The only top-bar elements rendered are ones backed by real V2 data: page context (from the route), notification bell (real `countUnreadForUser`), user menu (real `signOut`). Reintroduce additional elements only when their data lands.
+
+**Portaled-popover rule:** Radix `PopoverContent` portals to `document.body`, OUTSIDE the AppShell ancestor, so the dark scope's CSS vars don't cascade. When you build a popover inside the shell, re-apply `data-app-surface="dark"` directly on `PopoverContent` so the CSS rule matches the portaled node by attribute. See `UserMenu.tsx` / `AppMobileNav.tsx`.
+
+When in doubt about a shell-control style, read the rail/mobile-bar components in `components/app-shell/` and the design source at `chainv2builder/project/src/workflows-page.jsx:4-119` (Sidebar).
 
 **Rule:** Do not introduce sidebars / top bars / nav chrome inside a feature dashboard. Defer them to the app-shell slice and document the deferral (see §11).
 
