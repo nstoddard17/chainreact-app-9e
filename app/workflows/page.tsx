@@ -6,6 +6,10 @@ import * as notificationsRepo from "@/repositories/notifications";
 import { toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
+import {
+  NOTIFICATION_BELL_PREVIEW_LIMIT,
+  toNotificationPreview,
+} from "@/app/notifications/notificationPreview";
 
 /**
  * Workflows dashboard route (Slice 4.WORKFLOWS-PAGE-1).
@@ -28,17 +32,23 @@ export default async function WorkflowsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
 
-  const [records, runStats, unreadNotifications] = await Promise.all([
-    workflowsRepo.listByUser(user.id),
-    workflowRunStatsRepo.getStatsForUser(user.id),
-    notificationsRepo.countUnreadForUser(user.id),
-  ]);
+  const [records, runStats, unreadNotifications, recentNotificationRecords] =
+    await Promise.all([
+      workflowsRepo.listByUser(user.id),
+      workflowRunStatsRepo.getStatsForUser(user.id),
+      notificationsRepo.countUnreadForUser(user.id),
+      notificationsRepo.listForUser(user.id, {
+        limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
+      }),
+    ]);
   const workflows = records.map((r) => toWorkflowListItem(r, runStats));
+  const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
       unreadNotifications={unreadNotifications}
+      recentNotifications={recentNotifications}
     >
       <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
         <WorkflowsDashboard initialWorkflows={workflows} />

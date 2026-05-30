@@ -24,6 +24,9 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/app/auth/actions", () => ({
   signOut: jest.fn(),
 }));
+jest.mock("@/app/notifications/actions", () => ({
+  markAllNotificationsRead: jest.fn(),
+}));
 
 import { AppShell } from "@/components/app-shell/AppShell";
 
@@ -34,7 +37,11 @@ beforeEach(() => {
 describe("AppShell — composition", () => {
   it("renders the root with the dark-app-surface attribute + the rail + the top bar + the mobile bar + the children content", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={0}
+        recentNotifications={[]}
+      >
         <main data-testid="page-content">Hello</main>
       </AppShell>,
     );
@@ -50,7 +57,11 @@ describe("AppShell — composition", () => {
 
   it("rail renders brand + nav landmark, but NOT the user menu (moved to top bar)", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={0}
+        recentNotifications={[]}
+      >
         <div />
       </AppShell>,
     );
@@ -66,7 +77,11 @@ describe("AppShell — composition", () => {
 
   it("rail brand links to /workflows", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={0}
+        recentNotifications={[]}
+      >
         <div />
       </AppShell>,
     );
@@ -77,7 +92,11 @@ describe("AppShell — composition", () => {
 
   it("top bar (desktop) renders page context + notification bell + user menu — and renders the unread badge when count > 0", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={3}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={3}
+        recentNotifications={[]}
+      >
         <div />
       </AppShell>,
     );
@@ -86,7 +105,10 @@ describe("AppShell — composition", () => {
       within(topBar).getByTestId("app-shell-page-context"),
     ).toBeInTheDocument();
     const bell = within(topBar).getByTestId("app-shell-notification-bell");
-    expect(bell).toHaveAttribute("href", "/notifications");
+    // Bell is now a popover trigger, not a link — popover behavior is
+    // exercised in `NotificationBell.test.tsx`. Here we just pin that
+    // the bell renders inside the top bar with the right unread count.
+    expect(bell.tagName.toLowerCase()).toBe("button");
     expect(bell).toHaveAttribute("data-unread-count", "3");
     expect(
       within(topBar).getByTestId("app-shell-notification-bell-badge"),
@@ -98,12 +120,17 @@ describe("AppShell — composition", () => {
 
   it("top bar bell hides the badge when unreadNotifications is 0", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={0}
+        recentNotifications={[]}
+      >
         <div />
       </AppShell>,
     );
     const topBar = screen.getByTestId("app-shell-top-bar");
     const bell = within(topBar).getByTestId("app-shell-notification-bell");
+    expect(bell.tagName.toLowerCase()).toBe("button");
     expect(bell).toHaveAttribute("data-unread-count", "0");
     expect(
       within(topBar).queryByTestId("app-shell-notification-bell-badge"),
@@ -112,7 +139,11 @@ describe("AppShell — composition", () => {
 
   it("mobile bar carries hamburger + brand + page context + bell + user menu (same affordances reachable on small viewports)", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={5}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={5}
+        recentNotifications={[]}
+      >
         <div />
       </AppShell>,
     );
@@ -134,7 +165,11 @@ describe("AppShell — composition", () => {
 
   it("rail Sidebar landmark is labeled (a11y)", () => {
     render(
-      <AppShell userEmail="marcus@example.com" unreadNotifications={0}>
+      <AppShell
+        userEmail="marcus@example.com"
+        unreadNotifications={0}
+        recentNotifications={[]}
+      >
         <div />
       </AppShell>,
     );

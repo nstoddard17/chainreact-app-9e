@@ -303,5 +303,106 @@ regression sweep below.
   model from `docs/rules/account-ownership-model.md` to land first.
 - **APP-SHELL-WORKSPACES-1** — workspace switcher + workspace
   breadcrumb once the ownership model + workspace tables exist.
-- **APP-SHELL-NOTIF-BELL-1** — inline unread-notifications bell badge
-  in the header (reuses `notificationsRepo.countUnreadForUser`).
+
+## Bell popover — Slice 4.NOTIFICATIONS-POPOVER-1 (2026-05-30)
+
+**Reason for the slice:** Marcus called out that the top-bar bell was
+still a `<Link href="/notifications">` — clicking it took the user out
+of context to a full page. Standard webapp pattern is bell → inline
+dropdown of recent notifications, with a "View all" link to the full
+page as a fallback. Notifications is already off the primary side nav
+(rail-nav reduction shipped 2026-05-31), so this slice closes the loop
+on the bell's affordance.
+
+**Behavior:**
+- `components/app-shell/NotificationBell.tsx` is now a `"use client"`
+  component owning popover open-state. Trigger is a `<button>` (not a
+  link); `aria-haspopup="dialog"`; `aria-expanded` flips on click.
+- Popover content (portaled, re-tagged `data-app-surface="dark"`):
+  - **Header** — `"Notifications"` title + a `"Mark all read"` `<form
+    action={markAllNotificationsRead}>` (rendered ONLY when
+    `unreadCount > 0` — no fake button when there's nothing to mark).
+  - **Body** — either the empty state `"No notifications yet."` or
+    a `<ul>` of the most-recent rows (≤ `NOTIFICATION_BELL_PREVIEW_LIMIT`
+    = 5). Each row shows title + body + relative-time label +
+    severity-tinted unread dot. Rows are wrapped in `<Link
+    href={actionUrl}>` ONLY if the underlying notification carries
+    one — no fake link affordance otherwise.
+  - **Footer** — `"View all"` link to `/notifications` (the route is
+    preserved as a fallback / email deep-link target).
+- Trigger badge rules unchanged: hidden at `0`, displayed as `99+`
+  above 99, raw count on `data-unread-count` for instrumentation,
+  unread-state-aware `aria-label`.
+
+**Data flow:**
+- Pages (server components) fetch
+  `notificationsRepo.listForUser(userId, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT })`
+  alongside their existing `countUnreadForUser` call in the same
+  `Promise.all`.
+- Records are mapped through
+  [`toNotificationPreview()`](../../../app/notifications/notificationPreview.ts)
+  to the UI-safe `NotificationPreview` shape — strips `userId`,
+  `type`, and `metadata`; flattens `read_at: string | null` to
+  `isUnread: boolean`.
+- `<AppShell>` gains a `recentNotifications: readonly
+  NotificationPreview[]` prop and forwards it to both `AppTopBar` and
+  `AppMobileBar`, which pass it through to the bell.
+- The bell receives plain props — no client API calls, no polling.
+  Mark-all-read goes through the existing
+  [`markAllNotificationsRead`](../../../app/notifications/actions.ts)
+  server action which already `revalidatePath`s `/` + `/notifications`.
+
+**`/notifications` route decision: KEEP as a fallback.** The route
+already exists with real server actions and is the target of
+existing email deep-links; deleting it would break those links. It
+stays out of the primary rail and is reached via the popover's
+"View all" footer link.
+
+**Type/mapper layout (boundary-safe):**
+
+| File | Role |
+|---|---|
+| [`components/app-shell/notificationPreview.ts`](../../../components/app-shell/notificationPreview.ts) | Pure type definition — no `@/repositories/**` imports (project-structure-and-module-boundaries §4 forbids `components/` from importing `repositories/`). |
+| [`app/notifications/notificationPreview.ts`](../../../app/notifications/notificationPreview.ts) | Server-side mapper `toNotificationPreview(record)` + the `NOTIFICATION_BELL_PREVIEW_LIMIT` constant. Pages may import from `@/repositories/**`, so the conversion lives here. |
+
+**Real-only invariants (re-pinned by tests):**
+- Bell trigger renders as a `<button>` (NOT a link).
+- Empty state is the honest `"No notifications yet."` — no fake rows.
+- `"Mark all read"` renders ONLY when `unreadCount > 0` AND is wired
+  to the real existing server action.
+- Row gets wrapped in `<Link>` ONLY when `actionUrl !== null`.
+- `"View all"` href is `/notifications` (the real route).
+- No client polling, no client fetch — the popover reflects the
+  server-snapshot taken at page render.
+
+**Files added/changed (slice 4.NOTIFICATIONS-POPOVER-1):**
+- ✏️ `components/app-shell/NotificationBell.tsx` — Link → Popover.
+- ➕ `components/app-shell/notificationPreview.ts` — UI-safe type.
+- ➕ `app/notifications/notificationPreview.ts` — `toNotificationPreview`
+   mapper + `NOTIFICATION_BELL_PREVIEW_LIMIT`.
+- ✏️ `components/app-shell/AppShell.tsx` — adds
+  `recentNotifications` prop.
+- ✏️ `components/app-shell/AppTopBar.tsx` — threads
+  `recentNotifications`.
+- ✏️ `components/app-shell/AppMobileBar.tsx` — threads
+  `recentNotifications`.
+- ✏️ `app/workflows/page.tsx` — `Promise.all` adds
+  `listForUser(userId, { limit })`; maps to previews.
+- ✏️ `app/apps/page.tsx` — same.
+- ✏️ `app/notifications/page.tsx` — reuses its existing
+  `listForUser` call; slices the first
+  `NOTIFICATION_BELL_PREVIEW_LIMIT` rows for the bell.
+- ✏️ `tests/unit/components/app-shell/NotificationBell.test.tsx`
+  — replaces the link-only assertions with 11 popover tests
+  (trigger button, badge rules, empty state, list rendering, link-
+  only-when-actionUrl, conditional Mark-all-read form, View-all
+  href).
+- ✏️ `tests/unit/components/app-shell/AppShell.test.tsx` — adds
+  `markAllNotificationsRead` mock; passes
+  `recentNotifications={[]}` to every render; the bell-href
+  assertion flips to a tagName check.
+- ✏️ `tests/unit/app/AppsPage.test.tsx` — adds `listForUser` to the
+  notifications-repo mock (was `countUnreadForUser`-only).
+
+**Closeout slices:**
+- **APP-SHELL-NOTIF-BELL-1** — superseded by this slice.

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AppMobileBar } from "./AppMobileBar";
 import { AppRail } from "./AppRail";
 import { AppTopBar } from "./AppTopBar";
+import type { NotificationPreview } from "./notificationPreview";
 
 /**
  * Authenticated app shell (Slice 4.APP-SHELL-1;
@@ -24,9 +25,15 @@ import { AppTopBar } from "./AppTopBar";
  * **Architecture (locked with the user):** shared component, NOT a
  * Next.js route group. Authenticated pages (`/workflows`, `/apps`,
  * `/notifications`) wrap their existing `<main>` in `<AppShell
- * userEmail={…} unreadNotifications={…}>`. URLs and import paths stay
- * unchanged; the builder route (`/workflows/[id]`) and marketing
- * route (`/`) are untouched.
+ * userEmail={…} unreadNotifications={…} recentNotifications={…}>`.
+ * URLs and import paths stay unchanged; the builder route
+ * (`/workflows/[id]`) and marketing route (`/`) are untouched.
+ *
+ * `recentNotifications` is the (≤ 5) most-recent feed seeded into the
+ * top-bar bell popover (Slice 4.NOTIFICATIONS-POPOVER-1). Pages map
+ * their `notificationsRepo.listForUser(...)` rows through
+ * `toNotificationPreview()` before passing them here; this keeps the
+ * client-side bell free of any `@/repositories/**` dependency.
  *
  * Auth is the caller's responsibility — the shell ASSUMES it's
  * rendering inside a server component that has already verified
@@ -35,10 +42,16 @@ import { AppTopBar } from "./AppTopBar";
 interface Props {
   userEmail: string;
   unreadNotifications: number;
+  recentNotifications: readonly NotificationPreview[];
   children: ReactNode;
 }
 
-export function AppShell({ userEmail, unreadNotifications, children }: Props) {
+export function AppShell({
+  userEmail,
+  unreadNotifications,
+  recentNotifications,
+  children,
+}: Props) {
   return (
     <div
       data-testid="app-shell-root"
@@ -50,10 +63,12 @@ export function AppShell({ userEmail, unreadNotifications, children }: Props) {
         <AppMobileBar
           userEmail={userEmail}
           unreadNotifications={unreadNotifications}
+          recentNotifications={recentNotifications}
         />
         <AppTopBar
           userEmail={userEmail}
           unreadNotifications={unreadNotifications}
+          recentNotifications={recentNotifications}
         />
         {children}
       </div>

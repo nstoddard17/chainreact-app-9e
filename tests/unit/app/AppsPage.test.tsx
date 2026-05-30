@@ -29,8 +29,10 @@ jest.mock("@/repositories/integrations", () => ({
 }));
 
 const mockCountUnread = jest.fn();
+const mockListNotifications = jest.fn();
 jest.mock("@/repositories/notifications", () => ({
   countUnreadForUser: (...a: unknown[]) => mockCountUnread(...a),
+  listForUser: (...a: unknown[]) => mockListNotifications(...a),
 }));
 
 const mockListProviders = jest.fn();
@@ -61,6 +63,8 @@ beforeEach(() => {
   mockListProviders.mockReset();
   mockCountUnread.mockReset();
   mockCountUnread.mockResolvedValue(0);
+  mockListNotifications.mockReset();
+  mockListNotifications.mockResolvedValue([]);
 });
 
 describe("AppsPage — auth", () => {

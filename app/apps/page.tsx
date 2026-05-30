@@ -5,6 +5,10 @@ import * as notificationsRepo from "@/repositories/notifications";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
+import {
+  NOTIFICATION_BELL_PREVIEW_LIMIT,
+  toNotificationPreview,
+} from "@/app/notifications/notificationPreview";
 import { buildCategoryList, resolveAppCatalog } from "./_shared";
 
 interface Props {
@@ -32,17 +36,23 @@ export default async function AppsPage({ searchParams }: Props) {
   if (!user) redirect("/auth/sign-in");
 
   const params = await searchParams;
-  const [records, unreadNotifications] = await Promise.all([
-    integrationsRepo.listActiveByUser(user.id),
-    notificationsRepo.countUnreadForUser(user.id),
-  ]);
+  const [records, unreadNotifications, recentNotificationRecords] =
+    await Promise.all([
+      integrationsRepo.listActiveByUser(user.id),
+      notificationsRepo.countUnreadForUser(user.id),
+      notificationsRepo.listForUser(user.id, {
+        limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
+      }),
+    ]);
   const items = resolveAppCatalog(records);
   const categories = buildCategoryList(items);
+  const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
       unreadNotifications={unreadNotifications}
+      recentNotifications={recentNotifications}
     >
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />

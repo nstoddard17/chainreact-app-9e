@@ -27,20 +27,30 @@ A page implementation owns the **page body**. It does NOT own:
 - Cross-page navigation chrome.
 - Workspace switcher / breadcrumb (deferred until workspaces exist).
 
-**Shell-wrapped surfaces:** every authenticated dashboard page wraps its `<main>` in `<AppShell userEmail={…} unreadNotifications={…}>`. The shell adds the left icon rail + top bar + mobile bar (dark surface); the page body stays where it was. Reference: [`app/workflows/page.tsx`](../../../app/workflows/page.tsx), [`app/apps/page.tsx`](../../../app/apps/page.tsx), [`app/notifications/page.tsx`](../../../app/notifications/page.tsx).
+**Shell-wrapped surfaces:** every authenticated dashboard page wraps its `<main>` in `<AppShell userEmail={…} unreadNotifications={…} recentNotifications={…}>`. The shell adds the left icon rail + top bar + mobile bar (dark surface); the page body stays where it was. Reference: [`app/workflows/page.tsx`](../../../app/workflows/page.tsx), [`app/apps/page.tsx`](../../../app/apps/page.tsx), [`app/notifications/page.tsx`](../../../app/notifications/page.tsx).
 
 `unreadNotifications` is a server-fetched real count from `notificationsRepo.countUnreadForUser(user.id)` — runs in parallel with the page's primary fetches via `Promise.all`. Drives the top-bar notification-bell badge.
 
+`recentNotifications` is a (≤ `NOTIFICATION_BELL_PREVIEW_LIMIT` = 5) server-fetched array of UI-safe previews — drives the bell's popover dropdown (Slice 4.NOTIFICATIONS-POPOVER-1). Fetch the rows via `notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT })` in the same `Promise.all`, then map through `toNotificationPreview` from [`app/notifications/notificationPreview.ts`](../../../app/notifications/notificationPreview.ts). The mapper lives under `app/` because `components/` may not import from `@/repositories/**` (project-structure-and-module-boundaries §4); the type alone is in [`components/app-shell/notificationPreview.ts`](../../../components/app-shell/notificationPreview.ts).
+
 ```tsx
 // app/<feature>/page.tsx — reference: app/workflows/page.tsx
-const [data, unreadNotifications] = await Promise.all([
+import {
+  NOTIFICATION_BELL_PREVIEW_LIMIT,
+  toNotificationPreview,
+} from "@/app/notifications/notificationPreview";
+
+const [data, unreadNotifications, recentNotificationRecords] = await Promise.all([
   fetchPrimaryData(user.id),
   notificationsRepo.countUnreadForUser(user.id),
+  notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT }),
 ]);
+const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
 return (
   <AppShell
     userEmail={user.email ?? ""}
     unreadNotifications={unreadNotifications}
+    recentNotifications={recentNotifications}
   >
     <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
       <FeatureDashboard initialData={data} />

@@ -1,6 +1,7 @@
 import { AppPageContext } from "./AppPageContext";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
+import type { NotificationPreview } from "./notificationPreview";
 
 /**
  * Desktop top bar for the authenticated app shell
@@ -25,9 +26,14 @@ import { UserMenu } from "./UserMenu";
 interface Props {
   userEmail: string;
   unreadNotifications: number;
+  recentNotifications: readonly NotificationPreview[];
 }
 
-export function AppTopBar({ userEmail, unreadNotifications }: Props) {
+export function AppTopBar({
+  userEmail,
+  unreadNotifications,
+  recentNotifications,
+}: Props) {
   return (
     <header
       data-testid="app-shell-top-bar"
@@ -37,7 +43,10 @@ export function AppTopBar({ userEmail, unreadNotifications }: Props) {
         <AppPageContext />
       </div>
       <div className="flex items-center gap-2">
-        <NotificationBell unreadCount={unreadNotifications} />
+        <NotificationBell
+          unreadCount={unreadNotifications}
+          recentNotifications={recentNotifications}
+        />
         <UserMenu userEmail={userEmail} />
       </div>
     </header>
