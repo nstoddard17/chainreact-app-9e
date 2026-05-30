@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/app/api/providers/_shared";
 import { getActiveForExecution } from "@/repositories/integrations";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getOptionsResolver } from "@/services/options/_registry";
 import {
   OptionsResolverError,
@@ -135,11 +136,14 @@ export async function GET(
   }
 
   // Integration lookup (only when the resolver declares it required).
+  // Slice 4.ACCOUNT-MODEL-6: account-scoped. Until the switcher slice
+  // ships, "this user's integrations" means their personal account.
   let integration = null;
   if (resolver.requiresIntegration) {
     try {
+      const ownerAccount = await ensurePersonalAccount(auth.userId);
       integration = await getActiveForExecution(
-        auth.userId,
+        ownerAccount.id,
         resolver.provider,
         null,
       );

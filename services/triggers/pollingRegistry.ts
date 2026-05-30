@@ -19,6 +19,13 @@ import type { TriggerResourceRecord } from "@/repositories/triggerResources";
 
 export interface PollingHandlerContext {
   trigger: TriggerResourceRecord;
+  /**
+   * V2 account that owns this trigger's workflow. Threaded in by the
+   * scheduler from workflows.account_id at trigger-load time so polling
+   * handlers can pass it to `getActiveForExecution` / `refreshAndRetry`
+   * for account-scoped integration lookups. Slice 4.ACCOUNT-MODEL-6.
+   */
+  accountId: string;
   /** Plan tier for the trigger's user. Slice 2e always passes "default". */
   userRole: string;
   /** `Date.now()` snapshot from the start of the cron tick. */

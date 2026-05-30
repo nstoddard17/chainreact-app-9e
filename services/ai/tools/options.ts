@@ -14,6 +14,7 @@
  */
 
 import { getActiveForExecution } from "@/repositories/integrations";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getOptionsResolver } from "@/services/options/_registry";
 import {
   OptionsResolverError,
@@ -95,10 +96,13 @@ export async function resolveOptionsSourceForAI(
   }
 
   // Integration lookup only when the resolver declares it required.
+  // Slice 4.ACCOUNT-MODEL-6: account-scoped. Resolve the user's
+  // personal account here until the switcher slice ships.
   let integration = null;
   if (resolver.requiresIntegration) {
     try {
-      integration = await getActiveForExecution(userId, resolver.provider, null);
+      const ownerAccount = await ensurePersonalAccount(userId);
+      integration = await getActiveForExecution(ownerAccount.id, resolver.provider, null);
     } catch {
       return aiToolErr("SERVER_ERROR", "Couldn't look up integration. Try again.");
     }

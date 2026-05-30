@@ -37,6 +37,15 @@ const STATE_TTL_SECONDS = 15 * 60;
 
 export interface OAuthStatePayload {
   userId: string;
+  /**
+   * V2 account the new integration will be written to. Resolved at
+   * connect time from the user's personal account (slice
+   * 4.ACCOUNT-MODEL-6); when team/org accounts ship, the connect
+   * route resolves the user's active account instead. Verified at
+   * consume time so a tampered JWT can't redirect the new integration
+   * to a different account.
+   */
+  accountId: string;
   provider: string;
   nonce: string;
   expiresAt: number;
@@ -84,6 +93,8 @@ function nowSeconds(): number {
 
 export interface CreateStateInput {
   userId: string;
+  /** V2 account the new integration will be written to. See OAuthStatePayload.accountId. */
+  accountId: string;
   provider: string;
   requestedScopes: readonly string[];
   /**
@@ -126,10 +137,12 @@ export async function createState(
   input: CreateStateInput,
 ): Promise<{ token: string; payload: OAuthStatePayload }> {
   if (!input.userId) throw new Error("createState: userId is required.");
+  if (!input.accountId) throw new Error("createState: accountId is required.");
   if (!input.provider) throw new Error("createState: provider is required.");
 
   const payload: OAuthStatePayload = {
     userId: input.userId,
+    accountId: input.accountId,
     provider: input.provider,
     nonce: randomBytes(16).toString("base64url"),
     expiresAt: nowSeconds() + STATE_TTL_SECONDS,
@@ -192,7 +205,7 @@ export function verifyState(token: string): OAuthStatePayload {
   if (typeof payload.expiresAt !== "number" || payload.expiresAt < nowSeconds()) {
     throw new InvalidStateError("expired");
   }
-  if (!payload.userId || !payload.provider || !payload.nonce) {
+  if (!payload.userId || !payload.accountId || !payload.provider || !payload.nonce) {
     throw new InvalidStateError("missing required fields");
   }
   // Slice 12: providerHint is optional. When present, validate the shape

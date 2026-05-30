@@ -71,37 +71,41 @@ export type IntegrationActionRequiredReason =
  * reason forward to the user-facing notification.
  */
 export class IntegrationActionRequiredError extends Error {
-  readonly userId: string;
+  readonly accountId: string;
   readonly provider: string;
-  readonly accountId: string | null;
+  readonly providerAccountId: string | null;
   readonly reason: IntegrationActionRequiredReason;
 
   constructor(input: {
-    userId: string;
+    accountId: string;
     provider: string;
-    accountId: string | null;
+    providerAccountId: string | null;
     reason: IntegrationActionRequiredReason;
     cause?: unknown;
   }) {
     super(
-      `Integration action required: ${input.reason} (user=${input.userId}, provider=${input.provider}${
-        input.accountId !== null ? `, account=${input.accountId}` : ""
+      `Integration action required: ${input.reason} (account=${input.accountId}, provider=${input.provider}${
+        input.providerAccountId !== null ? `, provider-account=${input.providerAccountId}` : ""
       }).`,
       input.cause !== undefined ? { cause: input.cause } : undefined,
     );
     this.name = "IntegrationActionRequiredError";
-    this.userId = input.userId;
-    this.provider = input.provider;
     this.accountId = input.accountId;
+    this.provider = input.provider;
+    this.providerAccountId = input.providerAccountId;
     this.reason = input.reason;
   }
 }
 
 export interface RefreshAndRetryInput<T> {
-  userId: string;
+  /** V2 account that owns the integration (post 4.ACCOUNT-MODEL-6 cutover). */
+  accountId: string;
   provider: string;
-  /** Account discriminator for multi-account users; null if not applicable. */
-  accountId?: string | null;
+  /**
+   * Provider-side account discriminator (Slack team_id, Gmail mailbox,
+   * etc.); null if not applicable.
+   */
+  providerAccountId?: string | null;
   /**
    * The principal outbound call. Receives the current decrypted access
    * token. Must throw `Unauthorized401Error` on HTTP 401; other errors
@@ -145,21 +149,21 @@ export interface RefreshAndRetryInput<T> {
  *     missing at lookup time.
  */
 export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promise<T> {
-  if (!input.userId) throw new Error("refreshAndRetry: userId is required.");
+  if (!input.accountId) throw new Error("refreshAndRetry: accountId is required.");
   if (!input.provider) throw new Error("refreshAndRetry: provider is required.");
 
-  const accountId = input.accountId ?? null;
+  const providerAccountId = input.providerAccountId ?? null;
 
   // First attempt — fetch current row, decrypt access token, run apiCall.
   const initialRow = await getActiveForExecution(
-    input.userId,
+    input.accountId,
     input.provider,
-    accountId,
+    providerAccountId,
   );
   if (!initialRow) {
     throw new Error(
-      `refreshAndRetry: no active integration for user ${input.userId} provider ${input.provider}${
-        accountId !== null ? ` account ${accountId}` : ""
+      `refreshAndRetry: no active integration for account ${input.accountId} provider ${input.provider}${
+        providerAccountId !== null ? ` provider-account ${providerAccountId}` : ""
       }.`,
     );
   }
@@ -184,24 +188,24 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
   // Refresh.
   try {
     await dispatcherRefresh({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: input.provider,
-      accountId,
+      providerAccountId,
     });
   } catch (refreshErr) {
     if (refreshErr instanceof RefreshNotSupportedError) {
       throw new IntegrationActionRequiredError({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: input.provider,
-        accountId,
+        providerAccountId,
         reason: "refresh_not_supported",
         cause: refreshErr,
       });
     }
     throw new IntegrationActionRequiredError({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: input.provider,
-      accountId,
+      providerAccountId,
       reason: "refresh_failed",
       cause: refreshErr,
     });
@@ -209,13 +213,13 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
 
   // Refresh succeeded — refetch row to read the new access token.
   const refreshedRow = await getActiveForExecution(
-    input.userId,
+    input.accountId,
     input.provider,
-    accountId,
+    providerAccountId,
   );
   if (!refreshedRow) {
     throw new Error(
-      `refreshAndRetry: integration disappeared between refresh and retry (user ${input.userId} provider ${input.provider}).`,
+      `refreshAndRetry: integration disappeared between refresh and retry (account ${input.accountId} provider ${input.provider}).`,
     );
   }
 
@@ -228,9 +232,9 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
       // integration genuinely needs user action (scope shrunk, account
       // moved, provider-side revoke, etc.).
       throw new IntegrationActionRequiredError({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: input.provider,
-        accountId,
+        providerAccountId,
         reason: "refresh_failed",
         cause: retryErr,
       });

@@ -496,6 +496,7 @@ export class WorkflowEngine {
         const result = await handler({
           workflowId: input.workflowId,
           userId: workflow.userId,
+          accountId: workflow.accountId,
           runId,
           nodeId: node.id,
           config: resolvedConfig,

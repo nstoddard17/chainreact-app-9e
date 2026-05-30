@@ -67,16 +67,21 @@ export async function registerWorkflowTriggers(
       mergedConfig = { ...mergedConfig, ...patch };
     } else {
       // Provider-tier activation path — requires an active integration.
+      // Slice 4.ACCOUNT-MODEL-6: integration lookup is account-keyed; uses
+      // the workflow's owner account (workflow.accountId from foundation
+      // slice -5). Cross-account integration use rejects naturally — if
+      // the account has no integration for the provider, this throws and
+      // the activation precondition surfaces the same error to the user.
       const activation = findActivation(node.provider, node.type);
       if (activation) {
         const integration = await getActiveForExecution(
-          workflow.userId,
+          workflow.accountId,
           node.provider,
           null,
         );
         if (!integration) {
           throw new Error(
-            `registerWorkflowTriggers: no active ${node.provider} integration for user ${workflow.userId}.`,
+            `registerWorkflowTriggers: no active ${node.provider} integration for account ${workflow.accountId}.`,
           );
         }
         const patch = await activation({
@@ -119,8 +124,13 @@ export async function unregisterWorkflowTriggers(
     if (!deactivation) continue;
 
     try {
+      // Slice 4.ACCOUNT-MODEL-6: account-keyed lookup. Uses the
+      // workflow's owner account (passed in), not trigger.userId
+      // (provenance only). `trigger.accountId` here is the PROVIDER
+      // account scope (Slack team_id), distinct from workflow.accountId
+      // (V2 owner account).
       const integration = await getActiveForExecution(
-        trigger.userId,
+        workflow.accountId,
         trigger.provider,
         trigger.accountId ?? null,
       );

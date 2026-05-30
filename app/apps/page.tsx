@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import * as integrationsRepo from "@/repositories/integrations";
 import * as notificationsRepo from "@/repositories/notifications";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -36,9 +37,13 @@ export default async function AppsPage({ searchParams }: Props) {
   if (!user) redirect("/auth/sign-in");
 
   const params = await searchParams;
+  // Slice 4.ACCOUNT-MODEL-6: integrations are account-scoped. Until the
+  // switcher slice ships, "this user's integrations" means their personal
+  // account's integrations.
+  const ownerAccount = await ensurePersonalAccount(user.id);
   const [records, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
-      integrationsRepo.listActiveByUser(user.id),
+      integrationsRepo.listActiveByAccount(ownerAccount.id),
       notificationsRepo.countUnreadForUser(user.id),
       notificationsRepo.listForUser(user.id, {
         limit: NOTIFICATION_BELL_PREVIEW_LIMIT,

@@ -25,13 +25,15 @@
 const inFlight = new Map<string, Promise<unknown>>();
 
 export interface RefreshLockKeyInput {
-  userId: string;
+  /** V2 owner account of the integration. */
+  accountId: string;
   provider: string;
-  accountId: string | null;
+  /** Provider-side account discriminator (Slack team_id, etc.). */
+  providerAccountId: string | null;
 }
 
 export function refreshLockKey(input: RefreshLockKeyInput): string {
-  return `${input.userId}:${input.provider}:${input.accountId ?? "default"}`;
+  return `${input.accountId}:${input.provider}:${input.providerAccountId ?? "default"}`;
 }
 
 /**

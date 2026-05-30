@@ -134,6 +134,34 @@ export async function listByUser(
   return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
 }
 
+/**
+ * Fetch `(id, name)` for an explicit set of workflow ids (Slice
+ * 4.RUNS-PAGE-1). Used by the Runs page to populate the workflow-name
+ * column without pulling each row's `draft_definition` (a potentially
+ * large JSONB blob) through `listByUser`. RLS gates per-user access,
+ * so an attacker who guesses another user's workflow id still gets
+ * zero rows back. Includes soft-deleted rows on purpose — a deleted
+ * workflow's prior runs still exist in `workflow_runs` and the run-
+ * history surface should still show its name (better truth than
+ * "Untitled").
+ *
+ * Returns an empty array when `ids` is empty (no I/O).
+ */
+export async function listNamesByIds(
+  ids: readonly string[],
+): Promise<readonly { id: string; name: string }[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id,name")
+    .in("id", ids as string[]);
+  if (error) {
+    throw new Error(`workflows.listNamesByIds failed: ${error.message}`);
+  }
+  return (data ?? []) as readonly { id: string; name: string }[];
+}
+
 export async function updateName(
   workflowId: string,
   name: string,
@@ -323,6 +351,41 @@ export async function getStateForDispatch(
     throw new Error(`workflows.getStateForDispatch failed: ${error.message}`);
   }
   return data?.state ?? null;
+}
+
+/**
+ * Polling-scheduler path (Slice 4.ACCOUNT-MODEL-6): look up state +
+ * V2 owner accountId in a single round trip. The cron's per-trigger
+ * pre-filter needs both — `state` for the active-or-skip gate, and
+ * `accountId` for threading into the polling handler context so the
+ * handler's integration lookups (getActiveForExecution +
+ * refreshAndRetry) scope correctly.
+ *
+ * Returns null when no workflow row matches; otherwise both fields
+ * are populated (accountId is NOT NULL per the 4.ACCOUNT-MODEL-5
+ * foundation).
+ */
+export interface WorkflowDispatchInfo {
+  state: WorkflowState;
+  accountId: string;
+}
+
+export async function getDispatchInfo(
+  workflowId: string,
+): Promise<WorkflowDispatchInfo | null> {
+  const supabase = getServiceRoleClient(
+    `polling scheduler: state+account lookup ${workflowId}`,
+  );
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("state, account_id")
+    .eq("id", workflowId)
+    .maybeSingle<{ state: WorkflowState; account_id: string }>();
+  if (error) {
+    throw new Error(`workflows.getDispatchInfo failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return { state: data.state, accountId: data.account_id };
 }
 
 export async function applyTransition(

@@ -19,11 +19,25 @@ export interface ActionHandlerInput {
   /** Workflow id (for logging / future billing attribution). */
   workflowId: string;
   /**
-   * Owner of the workflow. Handlers use this to look up the user's
-   * integration row + decrypt the provider token. Threaded through from
-   * workflow.userId at engine entry.
+   * Provenance of the workflow's creator. Retained for logging + the
+   * Phase B-still-billing-keyed-on-userId attribution. Handlers must
+   * NOT use this for integration lookups — that contract now belongs
+   * to `accountId` (post 4.ACCOUNT-MODEL-6 integrations cutover).
    */
   userId: string;
+  /**
+   * V2 account that owns the workflow. Handlers use this to look up the
+   * account-owned integration row + decrypt the provider token. Threaded
+   * through from workflow.accountId at engine entry. Cross-account
+   * integration use is rejected because the integrations table is
+   * keyed on account_id; passing a wrong accountId returns null.
+   *
+   * Slice 4.ACCOUNT-MODEL-6 introduced this field. The integrations
+   * cutover (this slice) consumes it everywhere; the workflows /
+   * workflow_runs cutovers (-7, -8) continue threading it from
+   * workflow.accountId.
+   */
+  accountId: string;
   /** Run id assigned at engine entry; carried through every handler call. */
   runId: string;
   /** Node id of the action being executed. */

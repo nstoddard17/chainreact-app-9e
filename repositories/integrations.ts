@@ -11,11 +11,22 @@ import type { EncryptedTokens, ProviderAccountInfo } from "@/contracts/integrati
  *     Repository never encrypts/decrypts; tokens come in already-encrypted from
  *     the OAuth handler and go out as-encrypted to be decrypted by services
  *     that explicitly need plaintext.
+ *
+ * Ownership model (post 4.ACCOUNT-MODEL-6 cutover):
+ *   - `account_id` is the authoritative owner (FK to public.accounts).
+ *   - `connected_by_user_id` carries provenance (the human who connected it).
+ *   - `user_id` column does NOT exist on the table anymore.
+ *
+ * RLS: account-membership only. INSERT/UPDATE/DELETE happen through
+ * service-role (OAuth dispatcher + this repository's disconnect path).
  */
 
 export interface IntegrationRecord {
   id: string;
-  userId: string;
+  /** V2 account that owns this integration. */
+  accountId: string;
+  /** Provenance: the human who completed the OAuth flow. */
+  connectedByUserId: string | null;
   provider: string;
   providerAccountId: string;
   displayName: string | null;
@@ -31,7 +42,13 @@ export interface IntegrationRecord {
 }
 
 export interface UpsertActiveInput {
-  userId: string;
+  /** Owner account (V2). Required. */
+  accountId: string;
+  /**
+   * The human who completed the OAuth flow. Provenance only; not used
+   * for authorization. Nullable to match the column (ON DELETE SET NULL).
+   */
+  connectedByUserId: string;
   provider: string;
   providerAccountId: string;
   displayName: string | null;
@@ -41,7 +58,8 @@ export interface UpsertActiveInput {
 
 interface IntegrationsRow {
   id: string;
-  user_id: string;
+  account_id: string;
+  connected_by_user_id: string | null;
   provider: string;
   provider_account_id: string;
   display_name: string | null;
@@ -58,7 +76,8 @@ interface IntegrationsRow {
 function rowToRecord(row: IntegrationsRow): IntegrationRecord {
   return {
     id: row.id,
-    userId: row.user_id,
+    accountId: row.account_id,
+    connectedByUserId: row.connected_by_user_id,
     provider: row.provider,
     providerAccountId: row.provider_account_id,
     displayName: row.display_name,
@@ -80,9 +99,9 @@ function expiresAtIso(epochSeconds: number | null): string | null {
 
 /**
  * Insert a new active integration, or update the existing active row if one
- * exists for the (userId, provider, providerAccountId) tuple. The unique index
- * on those three columns (WHERE disconnected_at IS NULL) enforces at-most-one
- * active row.
+ * exists for the (accountId, provider, providerAccountId) tuple. The unique
+ * index `integrations_account_active_unique` on those three columns
+ * (WHERE disconnected_at IS NULL) enforces at-most-one active row.
  *
  * Re-connection flow: if a previously-disconnected row exists, this function
  * inserts a new row rather than reviving the disconnected one — preserving
@@ -90,23 +109,24 @@ function expiresAtIso(epochSeconds: number | null): string | null {
  *
  * Uses service-role: the only caller is the OAuth callback dispatcher, which
  * has already cryptographically verified the user identity via the signed
- * state token. The HTTP request hitting the callback was issued by the user's
- * browser to a redirect URL — the V2 session cookie may or may not be on that
- * host (ngrok dev, multi-domain prod), so the SSR-cookie client is unreliable
- * here. Per database-security.md §"Allowed flows" — system writes that have
- * already proved user identity out-of-band use service-role with an explicit
- * reason for audit.
+ * state token (which now also binds the target accountId). The HTTP request
+ * hitting the callback was issued by the user's browser to a redirect URL —
+ * the V2 session cookie may or may not be on that host (ngrok dev,
+ * multi-domain prod), so the SSR-cookie client is unreliable here. Per
+ * database-security.md §"Allowed flows" — system writes that have already
+ * proved user identity out-of-band use service-role with an explicit reason
+ * for audit.
  */
 export async function upsertActive(input: UpsertActiveInput): Promise<IntegrationRecord> {
   const supabase = getServiceRoleClient(
-    `oauth callback: upsertActive ${input.provider} for user ${input.userId}`,
+    `oauth callback: upsertActive ${input.provider} for account ${input.accountId}`,
   );
 
-  // Check for an existing ACTIVE row.
+  // Check for an existing ACTIVE row keyed by (account_id, provider, provider_account_id).
   const { data: existing, error: existingErr } = await supabase
     .from("integrations")
     .select("*")
-    .eq("user_id", input.userId)
+    .eq("account_id", input.accountId)
     .eq("provider", input.provider)
     .eq("provider_account_id", input.providerAccountId)
     .is("disconnected_at", null)
@@ -119,6 +139,10 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
     const { data, error } = await supabase
       .from("integrations")
       .update({
+        // connected_by_user_id is preserved from the original connect on
+        // an update — the provenance is "who first connected this", not
+        // "who last re-authenticated". A re-connect from a different
+        // member of the same account intentionally does NOT rewrite it.
         display_name: input.displayName,
         access_token_encrypted: input.tokens.accessTokenEncrypted,
         refresh_token_encrypted: input.tokens.refreshTokenEncrypted,
@@ -138,7 +162,8 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
   const { data, error } = await supabase
     .from("integrations")
     .insert({
-      user_id: input.userId,
+      account_id: input.accountId,
+      connected_by_user_id: input.connectedByUserId,
       provider: input.provider,
       provider_account_id: input.providerAccountId,
       display_name: input.displayName,
@@ -157,14 +182,19 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
 }
 
 /**
- * Engine path: look up the active integration for (userId, provider,
- * accountId) without a user session. Action handlers run in background
- * after a webhook returns 200, so the SSR-cookie client would have no
- * auth context — service-role bypasses RLS for this lookup.
+ * Engine path: look up the active integration for (accountId, provider,
+ * providerAccountId) without a user session. Action handlers run in
+ * background after a webhook returns 200, so the SSR-cookie client would
+ * have no auth context — service-role bypasses RLS for this lookup.
  *
- * `accountId` may be null — when omitted we return the first active row
- * for the (userId, provider) pair, which is what action handlers do when
- * their trigger event has no account scope (manual / scheduled triggers).
+ * `providerAccountId` may be null — when omitted we return the first active
+ * row for the (accountId, provider) pair, which is what action handlers do
+ * when their trigger event has no account scope (manual / scheduled triggers).
+ *
+ * **Cross-account isolation:** the filter `account_id = $1` is exact. An
+ * integration belonging to a different account is not visible regardless
+ * of which user the workflow was created by. Handlers must pass
+ * `input.accountId` (= workflow.account_id), not a derived user account.
  *
  * Returns null when nothing matches. Handlers map null to a clear "connect
  * <provider> first" error. Activation preconditions
@@ -173,21 +203,21 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
  * running race.
  */
 export async function getActiveForExecution(
-  userId: string,
+  accountId: string,
   provider: string,
-  accountId: string | null,
+  providerAccountId: string | null,
 ): Promise<IntegrationRecord | null> {
   const supabase = getServiceRoleClient(
-    `action handler integration lookup: ${provider} for user ${userId}`,
+    `action handler integration lookup: ${provider} for account ${accountId}`,
   );
   let query = supabase
     .from("integrations")
     .select("*")
-    .eq("user_id", userId)
+    .eq("account_id", accountId)
     .eq("provider", provider)
     .is("disconnected_at", null);
-  if (accountId !== null) {
-    query = query.eq("provider_account_id", accountId);
+  if (providerAccountId !== null) {
+    query = query.eq("provider_account_id", providerAccountId);
   }
   const { data, error } = await query.limit(1).maybeSingle<IntegrationsRow>();
   if (error) {
@@ -214,11 +244,10 @@ export interface UpdateTokensInput {
  * disconnected mid-refresh, the update returns no row and we throw a clear
  * error rather than write to a dead row.
  *
- * Refresh-token rotation policy (per Slice 2 plan, Decision 2b-5): the
- * provider's `refreshToken()` always returns a populated
- * `refreshTokenEncrypted` — providers that don't rotate (Google default
- * flow) re-encrypt and return the input refresh token. Repository writes
- * whatever the provider returned without inspecting it.
+ * Refresh-token rotation policy: the provider's `refreshToken()` always
+ * returns a populated `refreshTokenEncrypted` — providers that don't rotate
+ * (Google default flow) re-encrypt and return the input refresh token.
+ * Repository writes whatever the provider returned without inspecting it.
  *
  * Service-role: action handlers run in background after a webhook returns
  * 200, no user session — same rationale as `getActiveForExecution`.
@@ -247,12 +276,23 @@ export async function updateTokens(input: UpdateTokensInput): Promise<Integratio
   return rowToRecord(data);
 }
 
-export async function listActiveByUser(userId: string): Promise<readonly IntegrationRecord[]> {
+/**
+ * List the active integrations owned by an account. Used by the
+ * integrations / apps list page and activation preconditions.
+ *
+ * Uses the SSR-cookie session client so RLS gates by account membership
+ * — a member can see every active integration on every account they
+ * belong to. Today there is one personal account per user; future
+ * team/org accounts surface multiple.
+ */
+export async function listActiveByAccount(
+  accountId: string,
+): Promise<readonly IntegrationRecord[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("integrations")
     .select("*")
-    .eq("user_id", userId)
+    .eq("account_id", accountId)
     .is("disconnected_at", null)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`integrations list failed: ${error.message}`);

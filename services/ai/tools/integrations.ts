@@ -18,9 +18,10 @@
 import type { TokenScope } from "@/contracts/integration";
 import { getProvider } from "@/integrations/_registry";
 import {
-  listActiveByUser,
+  listActiveByAccount,
   type IntegrationRecord,
 } from "@/repositories/integrations";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { aiToolErr, aiToolOk, type AiToolResult } from "./types";
 
 export interface ConnectedIntegrationView {
@@ -94,13 +95,22 @@ function toView(record: IntegrationRecord): ConnectedIntegrationView {
 /**
  * List the caller's connected integrations as a redacted availability view.
  * Multiple accounts for the same provider produce multiple entries.
+ *
+ * Slice 4.ACCOUNT-MODEL-6: integrations are account-keyed at the repository
+ * layer. The AI surface keeps a `userId` parameter because the AI tool
+ * call sites have the caller's user id from auth; this function resolves
+ * the user's personal account internally. The future switcher slice will
+ * either change this to take `accountId` directly or add an active-account
+ * variant — the contract of "give me the integrations the caller can use"
+ * stays the same.
  */
 export async function getConnectedIntegrationsForAI(
   userId: string,
 ): Promise<AiToolResult<ConnectedIntegrationsView>> {
   let records: readonly IntegrationRecord[];
   try {
-    records = await listActiveByUser(userId);
+    const ownerAccount = await ensurePersonalAccount(userId);
+    records = await listActiveByAccount(ownerAccount.id);
   } catch {
     return aiToolErr("SERVER_ERROR", "Couldn't load connected integrations.");
   }

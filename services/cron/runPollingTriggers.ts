@@ -1,6 +1,6 @@
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import type { TriggerResourceRecord } from "@/repositories/triggerResources";
-import { getStateForDispatch } from "@/repositories/workflows";
+import { getDispatchInfo } from "@/repositories/workflows";
 import { findPollingHandler } from "@/services/triggers/pollingRegistry";
 import { DEFAULT_INTERVAL_MS } from "./pollingIntervals";
 
@@ -67,7 +67,16 @@ export async function runPollingTriggers(): Promise<RunPollingTriggersResult> {
   // Pre-filter — drop rows whose workflow isn't active, and rows whose
   // interval hasn't elapsed yet. V1 did the interval gate inside the loop;
   // doing it before the fan-out keeps Promise.allSettled tight.
-  const eligible: TriggerResourceRecord[] = [];
+  //
+  // Slice 4.ACCOUNT-MODEL-6: also capture the workflow's V2 owner accountId
+  // from the same dispatch lookup so polling handlers can thread it into
+  // their integration lookups (getActiveForExecution + refreshAndRetry).
+  // Without this, the polling handlers would have to roundtrip the
+  // workflows table once per fan-out.
+  const eligible: Array<{
+    trigger: TriggerResourceRecord;
+    accountId: string;
+  }> = [];
   for (const trigger of triggers) {
     const handler = findPollingHandler(trigger);
     if (!handler) {
@@ -82,22 +91,22 @@ export async function runPollingTriggers(): Promise<RunPollingTriggersResult> {
       continue;
     }
 
-    const state = await getStateForDispatch(trigger.workflowId);
-    if (state !== "active") {
+    const dispatchInfo = await getDispatchInfo(trigger.workflowId);
+    if (!dispatchInfo || dispatchInfo.state !== "active") {
       // The lifecycle service deletes trigger_resources on disable; this
       // is the in-flight-window guard mirroring the webhook dispatcher.
       result.skipped += 1;
       continue;
     }
 
-    eligible.push(trigger);
+    eligible.push({ trigger, accountId: dispatchInfo.accountId });
   }
 
   // Fan out with bounded parallelism.
   for (let i = 0; i < eligible.length; i += CONCURRENCY) {
     const batch = eligible.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
-      batch.map((trigger) => runOne(trigger, now)),
+      batch.map(({ trigger, accountId }) => runOne(trigger, accountId, now)),
     );
     for (const outcome of settled) {
       if (outcome.status === "fulfilled") {
@@ -113,13 +122,14 @@ export async function runPollingTriggers(): Promise<RunPollingTriggersResult> {
 
 async function runOne(
   trigger: TriggerResourceRecord,
+  accountId: string,
   now: number,
 ): Promise<void> {
   const handler = findPollingHandler(trigger);
   if (!handler) return; // already filtered above; defensive
 
   await withTimeout(
-    handler.poll({ trigger, userRole: "default", now }),
+    handler.poll({ trigger, accountId, userRole: "default", now }),
     PER_TRIGGER_TIMEOUT_MS,
     `polling handler ${handler.id} for trigger ${trigger.id}`,
   );

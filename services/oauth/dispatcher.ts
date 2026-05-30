@@ -37,6 +37,7 @@ import {
   upsertActive,
   type IntegrationRecord,
 } from "@/repositories/integrations";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { refreshLockKey, withRefreshLock } from "./refreshLock";
 import { createState, consumeState, InvalidStateError } from "./state";
 
@@ -134,6 +135,15 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     throw new Error(`Provider '${input.provider}' does not support OAuth.`);
   }
 
+  // Slice 4.ACCOUNT-MODEL-6: resolve the target V2 account at connect
+  // time and bind it into the signed state JWT. No active-account
+  // switcher yet — default to the user's personal account. The future
+  // switcher slice changes only what we resolve here (the active
+  // account over personal-account fallback); the dispatcher contract
+  // is unchanged.
+  const ownerAccount = await ensurePersonalAccount(input.userId);
+  const accountId = ownerAccount.id;
+
   // Token-ingest providers (Slice 17+) take a parallel path. They receive
   // the token from the browser via URL fragment + client POST, not via a
   // server callback with `code` + `state`. The dispatcher still owns
@@ -156,6 +166,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
     const { token: state } = await createState({
       userId: input.userId,
+      accountId,
       provider: input.provider,
       requestedScopes,
     });
@@ -195,6 +206,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   const pkceGen = oauth.generatePkce?.();
   const { token: state } = await createState({
     userId: input.userId,
+    accountId,
     provider: input.provider,
     requestedScopes,
     ...(pkceGen !== undefined
@@ -268,7 +280,8 @@ export async function handleCallback(
   );
 
   const integration = await upsertActive({
-    userId: payload.userId,
+    accountId: payload.accountId,
+    connectedByUserId: payload.userId,
     provider: input.provider,
     providerAccountId: account.providerAccountId,
     displayName: account.displayName,
@@ -346,7 +359,8 @@ export async function handleTokenIngest(
   });
 
   const integration = await upsertActive({
-    userId: payload.userId,
+    accountId: payload.accountId,
+    connectedByUserId: payload.userId,
     provider: input.provider,
     providerAccountId: account.providerAccountId,
     displayName: account.displayName,
@@ -358,17 +372,21 @@ export async function handleTokenIngest(
 }
 
 export interface RefreshInput {
-  userId: string;
+  /**
+   * V2 account that owns the integration (post 4.ACCOUNT-MODEL-6
+   * cutover). Replaces the pre-cutover `userId` keying.
+   */
+  accountId: string;
   provider: string;
   /**
-   * Optional account discriminator for multi-account users (Slack
-   * workspaces, multiple Gmail inboxes). When omitted and the user has a
-   * single active row for the provider, that row is refreshed; when
-   * multiple active rows exist, the repository's lookup picks one
-   * arbitrarily — callers with multi-account users SHOULD pass an
-   * accountId to disambiguate.
+   * Optional provider-side account discriminator for multi-account
+   * setups within the same V2 account (e.g., two Slack workspaces
+   * connected to one team account; multiple Gmail inboxes). When
+   * omitted and the account has a single active row for the provider,
+   * that row is refreshed; when multiple active rows exist, callers
+   * SHOULD pass a `providerAccountId` to disambiguate.
    */
-  accountId?: string | null;
+  providerAccountId?: string | null;
 }
 
 export interface RefreshOutput {
@@ -395,7 +413,7 @@ export interface RefreshOutput {
  *   - Any error the provider's `refreshToken()` throws (network, 4xx, 5xx).
  */
 export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
-  if (!input.userId) throw new Error("refresh: userId is required.");
+  if (!input.accountId) throw new Error("refresh: accountId is required.");
   const manifest = getProvider(input.provider);
   if (!manifest) throw new Error(`Unknown provider: ${input.provider}`);
   if (!manifest.capabilities.oauth) {
@@ -409,19 +427,23 @@ export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
     );
   }
 
-  const accountId = input.accountId ?? null;
+  const providerAccountId = input.providerAccountId ?? null;
   const lockKey = refreshLockKey({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: input.provider,
-    accountId,
+    providerAccountId,
   });
 
   return withRefreshLock(lockKey, async () => {
-    const row = await getActiveForExecution(input.userId, input.provider, accountId);
+    const row = await getActiveForExecution(
+      input.accountId,
+      input.provider,
+      providerAccountId,
+    );
     if (!row) {
       throw new Error(
-        `refresh: no active integration found for user ${input.userId} provider ${input.provider}${
-          accountId !== null ? ` account ${accountId}` : ""
+        `refresh: no active integration found for account ${input.accountId} provider ${input.provider}${
+          providerAccountId !== null ? ` provider-account ${providerAccountId}` : ""
         }.`,
       );
     }

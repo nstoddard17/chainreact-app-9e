@@ -61,7 +61,9 @@ export async function checkActivationPreconditions(
   // If every node is native (no OAuth provider required), nothing to check.
   if (requiredProviders.size === 0) return { ok: true };
 
-  const activeIntegrations = await integrationsRepo.listActiveByUser(workflow.userId);
+  // Slice 4.ACCOUNT-MODEL-6: integrations are account-scoped. Use the
+  // workflow's owner account, not its creator user.
+  const activeIntegrations = await integrationsRepo.listActiveByAccount(workflow.accountId);
   const connectedProviders = new Set(activeIntegrations.map((i) => i.provider));
 
   const failures: { code: string; message: string }[] = [];
