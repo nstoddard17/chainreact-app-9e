@@ -59,7 +59,7 @@ function ctaUrlFor(
 ): string {
   switch (action) {
     case "reconnect":
-      return "/integrations";
+      return "/apps";
     case "upgrade_plan":
       return "/subscription";
     case "open_node":

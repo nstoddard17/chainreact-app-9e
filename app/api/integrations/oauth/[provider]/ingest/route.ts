@@ -18,7 +18,7 @@ import { createClient } from "@/utils/supabase/server";
  * Request: POST with `{ state: string, token: string }` JSON body.
  *
  * Responses:
- *   - 200: `{ redirect: "/?integration=connected&provider=<provider>" }`.
+ *   - 200: `{ redirect: "/apps?integration=connected&provider=<provider>" }`.
  *   - 400: missing fields, invalid state, or token rejected by provider.
  *   - 401: unauthenticated.
  *   - 502: transient provider verifier failure (network / 5xx).
@@ -95,7 +95,7 @@ export async function POST(
       state: parsed.state,
       token: parsed.token,
     });
-    const redirect = `/?integration=connected&provider=${encodeURIComponent(provider)}`;
+    const redirect = `/apps?integration=connected&provider=${encodeURIComponent(provider)}`;
     return NextResponse.json({ redirect });
   } catch (err) {
     if (err instanceof InvalidStateError) {

@@ -48,7 +48,7 @@ export function MarketingFooter() {
             <ul>
               <li><a href="#how-it-works">How it works</a></li>
               <li><a href="#examples">Examples</a></li>
-              <li><Link href="/integrations">Apps</Link></li>
+              <li><Link href="/apps">Apps</Link></li>
               <li><a href="#pricing">Pricing</a></li>
             </ul>
           </div>

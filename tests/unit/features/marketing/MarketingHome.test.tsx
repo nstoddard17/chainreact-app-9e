@@ -106,11 +106,11 @@ describe("MarketingHome — CTA wiring to real V2 routes", () => {
     );
   });
 
-  it("footer 'Apps' link routes to /integrations (real route)", () => {
+  it("footer 'Apps' link routes to /apps (Slice 4.APPS-PAGE-1 — repointed from legacy /integrations)", () => {
     renderHome();
     const footer = screen.getByTestId("marketing-footer");
     const appsLink = within(footer).getByRole("link", { name: /^apps$/i });
-    expect(appsLink).toHaveAttribute("href", "/integrations");
+    expect(appsLink).toHaveAttribute("href", "/apps");
   });
 });
 

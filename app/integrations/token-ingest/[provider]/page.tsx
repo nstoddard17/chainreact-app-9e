@@ -150,7 +150,7 @@ export default function TokenIngestPage({ params }: PageProps) {
         <h1>Connection failed</h1>
         <p>{errorMessage}</p>
         <p>
-          <a href="/integrations">Return to integrations</a>
+          <a href="/apps">Return to Apps</a>
         </p>
       </main>
     );

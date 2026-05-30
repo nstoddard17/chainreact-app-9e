@@ -4,8 +4,13 @@ import { handleCallback } from "@/services/oauth/dispatcher";
 /**
  * OAuth callback handler. The provider redirects the user here after they
  * authorize. We exchange the code for tokens via the dispatcher (which
- * delegates to the per-provider OAuth module), then redirect to the home
- * page with a status param the UI can render.
+ * delegates to the per-provider OAuth module), then redirect to the Apps
+ * page (`/apps`) with a status param `ConnectionStatusBanner` renders.
+ *
+ * Pre-Slice-4.APPS-PAGE-1 this redirected to `/` and let the homepage
+ * render the toast. Once the homepage became the public marketing surface
+ * (signed-in users redirect away from `/`), the toast had nowhere to
+ * land; this slice moved it to `/apps`, the user's real post-connect home.
  *
  * Redirect base comes from NEXT_PUBLIC_APP_URL, not request.url: behind a
  * tunnel (ngrok dev) or proxy, the upstream Host header may be rewritten,
@@ -33,14 +38,14 @@ export async function GET(
   if (providerError) {
     return NextResponse.redirect(
       new URL(
-        `/?integration_error=${encodeURIComponent(providerError)}`,
+        `/apps?integration_error=${encodeURIComponent(providerError)}`,
         base,
       ),
     );
   }
   if (!code || !state) {
     return NextResponse.redirect(
-      new URL("/?integration_error=missing_code_or_state", base),
+      new URL("/apps?integration_error=missing_code_or_state", base),
     );
   }
 
@@ -48,14 +53,14 @@ export async function GET(
     const { integration } = await handleCallback({ provider, code, state });
     return NextResponse.redirect(
       new URL(
-        `/?integration=connected&provider=${encodeURIComponent(integration.provider)}`,
+        `/apps?integration=connected&provider=${encodeURIComponent(integration.provider)}`,
         base,
       ),
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "callback_failed";
     return NextResponse.redirect(
-      new URL(`/?integration_error=${encodeURIComponent(message)}`, base),
+      new URL(`/apps?integration_error=${encodeURIComponent(message)}`, base),
     );
   }
 }

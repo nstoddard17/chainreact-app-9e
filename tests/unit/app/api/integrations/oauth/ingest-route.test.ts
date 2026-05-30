@@ -178,7 +178,7 @@ describe("POST /api/integrations/oauth/[provider]/ingest — success", () => {
     const res = await POST(makeRequest({ state: "x", token: "y" }), { params });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.redirect).toBe("/?integration=connected&provider=trello");
+    expect(body.redirect).toBe("/apps?integration=connected&provider=trello");
     expect(mockHandleTokenIngest).toHaveBeenCalledWith({
       userId: "user-1",
       provider: "trello",

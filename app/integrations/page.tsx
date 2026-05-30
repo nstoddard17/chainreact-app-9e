@@ -1,32 +1,41 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
-import { listProviders } from "@/integrations/_registry";
-import { listActiveByUser } from "@/repositories/integrations";
-import { IntegrationsList } from "@/features/integrations/IntegrationsList";
-import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
+import { redirect, type RedirectType } from "next/navigation";
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function IntegrationsPage({ searchParams }: Props) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/sign-in");
+/**
+ * Legacy `/integrations` route → permanent redirect to `/apps`
+ * (Slice 4.APPS-PAGE-1).
+ *
+ * The product surface moved to `/apps`. We preserve query parameters so
+ * post-OAuth callback toasts (`?integration=connected&provider=…`,
+ * `?integration_error=…`) keep working for any deep links / bookmarks /
+ * notification CTAs that still point at the legacy URL.
+ *
+ * `/api/integrations/oauth/*` is unchanged — the API namespace stays
+ * "integrations" since it matches the database table + provider folder
+ * names; only the product page noun changes to "Apps".
+ */
+function serializeSearch(
+  params: Record<string, string | string[] | undefined>,
+): string {
+  const out = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value.length > 0) {
+      out.append(key, value);
+    } else if (Array.isArray(value)) {
+      for (const v of value) if (v) out.append(key, v);
+    }
+  }
+  const s = out.toString();
+  return s ? `?${s}` : "";
+}
 
+export default async function LegacyIntegrationsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const providers = listProviders();
-  const connections = await listActiveByUser(user.id);
-
-  return (
-    <main className="flex min-h-screen flex-col items-center p-8">
-      <div className="flex w-full max-w-2xl flex-col gap-6">
-        <h1 className="text-3xl font-bold">Integrations</h1>
-        <ConnectionStatusBanner searchParams={params} />
-        <IntegrationsList providers={providers} connections={connections} />
-      </div>
-    </main>
-  );
+  // `replace` (not `push`) so the legacy URL is gone from history — the
+  // canonical surface is /apps and we don't want users navigating Back into
+  // a redirect loop.
+  redirect(`/apps${serializeSearch(params)}`, "replace" as RedirectType);
 }

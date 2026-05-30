@@ -48,12 +48,12 @@ describe("buildWorkflowFailurePayload — passthrough", () => {
 });
 
 describe("buildWorkflowFailurePayload — CTA URL routing per humanizer action", () => {
-  it("action='reconnect' → /integrations + 'Reconnect' label", () => {
+  it("action='reconnect' → /apps + 'Reconnect' label (Slice 4.APPS-PAGE-1 — repointed from legacy /integrations)", () => {
     const payload = buildWorkflowFailurePayload({
       ...baseInput,
       errorClassification: makeErr({ action: "reconnect" }),
     });
-    expect(payload.ctaUrl).toBe("/integrations");
+    expect(payload.ctaUrl).toBe("/apps");
     expect(payload.ctaLabel).toBe("Reconnect");
   });
 
