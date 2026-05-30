@@ -175,6 +175,8 @@ V2 today has the bare minimum to drive the e2e walkthroughs: integrations list, 
 **Entry condition:** Phase 3 substantially shipped — UI is stable enough that the teams UX has a place to live.
 **Goal:** Add the ownership model that lets ChainReact be a team product.
 
+> **⚠️ Canonical model now lives in [`docs/rules/account-ownership-model.md`](../rules/account-ownership-model.md).** That rule doc supersedes the V1-style `workspaces` + `team_members` + per-resource `workspace_id` framing used in the narrative below. Before Phase 4 work begins, the subphases and exit conditions in this section should be re-derived from the rule doc (Account is the permanent owner; personal vs team/org are account *types*, not separate ownership systems; integrations and workflows are account-scoped from launch). Treat the narrative below as historical scoping; the rule doc is authoritative for ownership semantics.
+
 ### What this is
 
 Today every workflow + integration + run is owned by exactly one user via `user_id` foreign keys. To go beyond single-user usage we need:
