@@ -334,11 +334,15 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
 
     if (!admin) return;
     // FK-safe explicit deletes by seeded ids, then drop the users (cascade).
+    // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT,
+    // so explicitly clear account_memberships + accounts before auth.admin.deleteUser.
     await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
     await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
     await admin.from("workflow_runs").delete().in("user_id", createdUserIds);
     await admin.from("workflows").delete().in("user_id", createdUserIds);
     await admin.from("user_billing").delete().in("user_id", createdUserIds);
+    await admin.from("account_memberships").delete().in("user_id", createdUserIds);
+    await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
     for (const id of createdUserIds) {
       const { error } = await admin.auth.admin.deleteUser(id);
       if (error) console.error(`cleanup: failed to delete user ${id}: ${error.message}`);

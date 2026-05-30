@@ -54,7 +54,16 @@ export async function createTestUser(): Promise<TestUser> {
 }
 
 export async function deleteTestUser(userId: string): Promise<void> {
-  const { error } = await adminClient().auth.admin.deleteUser(userId);
+  // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT
+  // (the user/account deletion flow is the only legitimate path to remove
+  // an account; not implemented yet). E2e teardown is best-effort and not
+  // production code — explicitly clear the user's account_memberships and
+  // accounts rows before calling auth.admin.deleteUser so the FK doesn't
+  // block teardown.
+  const client = adminClient();
+  await client.from("account_memberships").delete().eq("user_id", userId);
+  await client.from("accounts").delete().eq("owner_user_id", userId);
+  const { error } = await client.auth.admin.deleteUser(userId);
   if (error) {
     // Don't throw — teardown is best-effort. Log so the test runner shows it.
     console.warn(`[e2e cleanup] deleteTestUser ${userId} failed: ${error.message}`);

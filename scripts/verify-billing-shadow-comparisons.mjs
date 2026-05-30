@@ -151,7 +151,11 @@ async function main() {
 }
 
 async function cleanup() {
+  // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT,
+  // so explicitly clear account_memberships + accounts before auth.admin.deleteUser.
   for (const id of createdUserIds) {
+    await admin.from("account_memberships").delete().eq("user_id", id);
+    await admin.from("accounts").delete().eq("owner_user_id", id);
     const { error } = await admin.auth.admin.deleteUser(id);
     if (error) console.error(`  cleanup: failed to delete user ${id}: ${error.message}`);
   }
