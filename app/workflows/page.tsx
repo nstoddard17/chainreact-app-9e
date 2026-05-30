@@ -1,9 +1,24 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import * as workflowsRepo from "@/repositories/workflows";
-import { CreateWorkflowButton } from "@/features/workflows/CreateWorkflowButton";
-import { WorkflowsList } from "@/features/workflows/WorkflowsList";
+import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
+import { toWorkflowListItem } from "@/app/api/workflows/_shared";
+import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 
+/**
+ * Workflows dashboard route (Slice 4.WORKFLOWS-PAGE-1).
+ *
+ * Thin server component: auth gate + server-side fetch of the enriched list
+ * (workflows + lifetime run aggregates in parallel) → pass to the client
+ * `WorkflowsDashboard`. The dashboard owns client interactivity (search,
+ * status filter, list/grid view, non-optimistic status toggle + refresh).
+ *
+ * Per CLAUDE.md / data-security: both reads are user-scoped (workflows by
+ * user_id; run stats via the `workflow_run_stats` view's security_invoker +
+ * underlying `workflow_runs` RLS). No per-row N+1, no client detail fetches,
+ * no raw definition / config exposure (the route mapping emits only provider
+ * id/label/iconUrl + counts + numeric run stats).
+ */
 export default async function WorkflowsPage() {
   const supabase = await createClient();
   const {
@@ -11,25 +26,15 @@ export default async function WorkflowsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
 
-  const records = await workflowsRepo.listByUser(user.id);
-  const workflows = records.map((r) => ({
-    id: r.id,
-    name: r.name,
-    state: r.state,
-    disabledReason: r.disabledReason,
-    disabledContext: r.disabledContext,
-    deletedAt: r.deletedAt,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  }));
+  const [records, runStats] = await Promise.all([
+    workflowsRepo.listByUser(user.id),
+    workflowRunStatsRepo.getStatsForUser(user.id),
+  ]);
+  const workflows = records.map((r) => toWorkflowListItem(r, runStats));
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-8">
-      <div className="flex w-full max-w-2xl flex-col gap-6">
-        <h1 className="text-3xl font-bold">Workflows</h1>
-        <CreateWorkflowButton />
-        <WorkflowsList workflows={workflows} />
-      </div>
+    <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
+      <WorkflowsDashboard initialWorkflows={workflows} />
     </main>
   );
 }

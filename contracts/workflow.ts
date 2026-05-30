@@ -96,6 +96,51 @@ export type WorkflowDetail = z.infer<typeof WorkflowDetailSchema>;
 export const WorkflowRunStatusSchema = z.enum(["succeeded", "failed"]);
 export type WorkflowRunStatus = z.infer<typeof WorkflowRunStatusSchema>;
 
+// ── Workflows list-page enriched item (Slice 4.WORKFLOWS-PAGE-1) ─────────────
+
+/**
+ * One connected provider rendered as a chip on a workflows-list row/card.
+ * Derived SERVER-SIDE from the workflow's draft definition node `provider`
+ * fields only — never from node config or any value. `iconUrl` is the public
+ * SVG path (or null for unknown providers); the UI falls back to initials.
+ */
+export const WorkflowProviderChipSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  iconUrl: z.string().nullable(),
+});
+export type WorkflowProviderChip = z.infer<typeof WorkflowProviderChipSchema>;
+
+/**
+ * LIFETIME run aggregates for one workflow. Sourced from the
+ * `workflow_run_stats` view (real, non-test runs only). `successRate` is
+ * `succeeded / total` (0 when `total === 0`). These are lifetime totals — the
+ * UI must never present them as "today"/"24h".
+ */
+export const WorkflowRunStatsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  succeeded: z.number().int().nonnegative(),
+  successRate: z.number().min(0).max(1),
+  lastRunAt: z.string().nullable(),
+  lastRunStatus: WorkflowRunStatusSchema.nullable(),
+});
+export type WorkflowRunStats = z.infer<typeof WorkflowRunStatsSchema>;
+
+/**
+ * Enriched wire shape for GET /api/workflows — the workflows list/dashboard
+ * page. Extends WorkflowSummary (so it stays backward-compatible for any
+ * consumer that only reads summary fields) with server-derived per-row data:
+ * provider chips + trigger/action counts (from the draft definition) and
+ * lifetime run stats. Carries NO raw config / secrets / draftDefinition.
+ */
+export const WorkflowListItemSchema = WorkflowSummarySchema.extend({
+  providers: z.array(WorkflowProviderChipSchema),
+  triggerCount: z.number().int().nonnegative(),
+  actionCount: z.number().int().nonnegative(),
+  runStats: WorkflowRunStatsSchema,
+});
+export type WorkflowListItem = z.infer<typeof WorkflowListItemSchema>;
+
 export const HumanizedErrorSchema = z.object({
   title: z.string(),
   description: z.string(),

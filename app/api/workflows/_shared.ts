@@ -3,10 +3,16 @@ import { createClient } from "@/utils/supabase/server";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import { redactOutput } from "@/core/security/redactOutput";
 import { getActionMeta } from "@/services/discovery/_registry";
+import { getProvider, providerIconUrl } from "@/integrations/_registry";
+import { summarizeDefinition } from "@/core/workflows/definitionSummary";
+import { emptyRunStats } from "@/repositories/workflowRunStats";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type {
   WorkflowDetail,
+  WorkflowListItem,
+  WorkflowProviderChip,
+  WorkflowRunStats,
   WorkflowRunDetail,
   WorkflowRunSummary,
   WorkflowSummary,
@@ -117,6 +123,35 @@ export function toWorkflowDetail(record: WorkflowRecord): WorkflowDetail {
     ...toWorkflowSummary(record),
     activeRevisionId: record.activeRevisionId,
     draftDefinition: record.draftDefinition,
+  };
+}
+
+/**
+ * Slice 4.WORKFLOWS-PAGE-1 — enriched list item for the workflows dashboard.
+ *
+ * Derives provider chips + trigger/action counts from the draft definition
+ * (via `summarizeDefinition`, which reads ONLY node.provider/node.kind — never
+ * config/secrets) and merges the lifetime run aggregates the route fetched
+ * once from the `workflow_run_stats` view. Workflows with no recorded real
+ * runs get zeroed stats. Only provider id/label/iconUrl + counts + numeric
+ * run stats leave the server — no raw definition, config, or values.
+ */
+export function toWorkflowListItem(
+  record: WorkflowRecord,
+  runStatsByWorkflow: ReadonlyMap<string, WorkflowRunStats>,
+): WorkflowListItem {
+  const summary = summarizeDefinition(record.draftDefinition);
+  const providers: WorkflowProviderChip[] = summary.providerIds.map((id) => ({
+    id,
+    label: getProvider(id)?.displayName ?? id,
+    iconUrl: providerIconUrl(id) ?? null,
+  }));
+  return {
+    ...toWorkflowSummary(record),
+    providers,
+    triggerCount: summary.triggerCount,
+    actionCount: summary.actionCount,
+    runStats: runStatsByWorkflow.get(record.id) ?? emptyRunStats(),
   };
 }
 

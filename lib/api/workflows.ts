@@ -3,6 +3,7 @@ import type {
   DisableWorkflowRequest,
   UpdateWorkflowRequest,
   WorkflowDetail,
+  WorkflowListItem,
   WorkflowRunDetail,
   WorkflowRunSummary,
   WorkflowSummary,
@@ -237,10 +238,17 @@ export async function createWorkflow(
   return postJson<WorkflowSummary>("/api/workflows", input);
 }
 
-export async function listWorkflows(): Promise<readonly WorkflowSummary[]> {
+/**
+ * Slice 4.WORKFLOWS-PAGE-1 — GET /api/workflows returns enriched list items
+ * (provider chips + trigger/action counts + lifetime run aggregates) so the
+ * workflows dashboard never has to do per-row detail/runs fetches. The shape
+ * is a SUPERSET of WorkflowSummary, so any consumer reading only the summary
+ * fields keeps working.
+ */
+export async function listWorkflows(): Promise<readonly WorkflowListItem[]> {
   const res = await fetch("/api/workflows");
   if (!res.ok) throw await parseError(res);
-  const body = (await res.json()) as { workflows: WorkflowSummary[] };
+  const body = (await res.json()) as { workflows: WorkflowListItem[] };
   return body.workflows;
 }
 
