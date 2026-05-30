@@ -1,5 +1,9 @@
 # Rule: Provider Registry
 
+> **Adding a new provider?** Follow the end‑to‑end playbook at
+> [`docs/runbooks/adding-a-new-provider.md`](../runbooks/adding-a-new-provider.md).
+> This rule file documents *policy*; the runbook documents *procedure*.
+
 ## Purpose
 
 Define how ChainReactV2 enumerates, looks up, and exposes capabilities for every supported integration provider. The registry is assembled from per-provider manifest files at module load time; no central god-object holds provider definitions.
