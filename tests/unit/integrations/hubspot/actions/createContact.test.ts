@@ -44,14 +44,14 @@ beforeEach(() => {
 
 function trigger(
   provider = "hubspot",
-  accountId = "9876543",
+  providerAccountId = "9876543",
 ): TriggerEvent {
   return {
     provider,
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -69,6 +69,7 @@ describe("create_contact — happy path", () => {
     await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -93,6 +94,7 @@ describe("create_contact — happy path", () => {
     await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -116,6 +118,7 @@ describe("create_contact — happy path", () => {
     const result = await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "alice@example.com" },
@@ -139,6 +142,7 @@ describe("create_contact — happy path", () => {
     await createContact({
       workflowId: "wf",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "r",
       nodeId: "n",
       config: { email: "a@b.com" },
@@ -155,6 +159,7 @@ describe("create_contact — happy path", () => {
     await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "a@b.com" },
@@ -170,6 +175,7 @@ describe("create_contact — happy path", () => {
     await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "a@b.com" },
@@ -185,6 +191,7 @@ describe("create_contact — schema validation", () => {
       createContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -198,6 +205,7 @@ describe("create_contact — schema validation", () => {
       createContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { email: "not-an-email" },
@@ -211,6 +219,7 @@ describe("create_contact — schema validation", () => {
       createContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { email: "a@b.com", unknownExtraField: "x" },
@@ -234,6 +243,7 @@ describe("create_contact — duplicate handling (V2 fix for V1 regex bug)", () =
       createContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { email: "dup@example.com" },
@@ -265,6 +275,7 @@ describe("create_contact — duplicate handling (V2 fix for V1 regex bug)", () =
     const result = await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -302,6 +313,7 @@ describe("create_contact — duplicate handling (V2 fix for V1 regex bug)", () =
     const result = await createContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -329,6 +341,7 @@ describe("create_contact — duplicate handling (V2 fix for V1 regex bug)", () =
       createContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -350,6 +363,7 @@ describe("create_contact — duplicate handling (V2 fix for V1 regex bug)", () =
       createContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

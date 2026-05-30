@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "e",
     occurredAt: "t",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -68,6 +68,7 @@ describe("copy_page handler", () => {
     const result = await copyPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sourcePageId: "p-1", targetSectionId: "s-target" },
@@ -89,6 +90,7 @@ describe("copy_page handler", () => {
     await copyPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sourcePageId: "p", targetSectionId: "s" },
@@ -103,6 +105,7 @@ describe("copy_page handler", () => {
     const result = await copyPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sourcePageId: "p", targetSectionId: "s" },
@@ -119,6 +122,7 @@ describe("copy_page handler", () => {
     await copyPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sourcePageId: "p", targetSectionId: "s" },

@@ -54,7 +54,7 @@ describe("existing Slack DM recipient edit (the AI-35 #3 fix)", () => {
     );
 
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: null, // null patch — the edit is derived from the current canvas
       answers: [{ nodeId: "n_dm", field: "userId", value: "user123" }],
@@ -86,7 +86,7 @@ describe("config completion on an existing node", () => {
       ], [{ id: "e1", from: "t1", to: "n_msg" }]),
     );
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: null,
       answers: [{ nodeId: "n_msg", field: "channel", value: "C_NEW" }],
@@ -128,7 +128,7 @@ describe("filling config on a node in the pending proposed patch", () => {
       ],
     };
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch,
       answers: [{ nodeId: "n_dm", field: "userId", value: "U123" }],
@@ -173,7 +173,7 @@ describe("bare answer inference (AI-35F)", () => {
       graphResult([gnode("t1", "trigger", "gmail", "new_email", {})]),
     );
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: dmPatch({ userId: "U123", text: "" }),
       answers: [{ value: "Hey" }], // BARE — no nodeId/field
@@ -193,7 +193,7 @@ describe("bare answer inference (AI-35F)", () => {
       graphResult([gnode("t1", "trigger", "gmail", "new_email", {})]),
     );
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: dmPatch({ userId: "U123", text: "{{AI_FIELD:message}}" }),
       answers: [{ value: "Hey" }],
@@ -210,7 +210,7 @@ describe("bare answer inference (AI-35F)", () => {
   it("ambiguous_target when more than one required text field is fillable", async () => {
     // Both userId AND text are missing → two candidate text fields → don't guess.
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: dmPatch({}),
       answers: [{ value: "Hey" }],
@@ -222,7 +222,7 @@ describe("bare answer inference (AI-35F)", () => {
 
   it("no_target_node when no required text field is fillable", async () => {
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: dmPatch({ userId: "U123", text: "already written" }),
       answers: [{ value: "Hey" }],
@@ -233,7 +233,7 @@ describe("bare answer inference (AI-35F)", () => {
 
   it("ambiguous_target when more than one bare answer is supplied", async () => {
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: dmPatch({ userId: "U123", text: "" }),
       answers: [{ value: "Hey" }, { value: "There" }],
@@ -245,7 +245,7 @@ describe("bare answer inference (AI-35F)", () => {
 describe("fallback reasons (caller re-plans)", () => {
   it("no_answers when answers is empty", async () => {
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: null,
       answers: [],
@@ -255,7 +255,7 @@ describe("fallback reasons (caller re-plans)", () => {
 
   it("no_target_node when the answer maps to neither the patch nor the canvas", async () => {
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: null,
       answers: [{ nodeId: "ghost", field: "text", value: "x" }],
@@ -268,7 +268,7 @@ describe("fallback reasons (caller re-plans)", () => {
   it("workflow_not_found when the graph lookup fails", async () => {
     mockGetWorkflowGraphForAI.mockResolvedValue({ ok: false, code: "NOT_FOUND", message: "x" });
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: null,
       answers: [{ nodeId: "n_dm", field: "userId", value: "user123" }],
@@ -284,7 +284,7 @@ describe("fallback reasons (caller re-plans)", () => {
       graphResult([gnode("n_dm", "action", "slack", "send_direct_message", {})]),
     );
     const result = await completePlanWithRequiredInputs({
-      userId: "u1",
+      userId: "user-1",
       workflowId: "wf1",
       proposedPatch: null,
       answers: [{ nodeId: "n_dm", field: "userId", value: "user123" }],

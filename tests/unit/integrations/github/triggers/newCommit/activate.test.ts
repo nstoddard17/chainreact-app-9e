@@ -39,7 +39,8 @@ afterEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "github",
   providerAccountId: "octocat",
   displayName: "octocat",

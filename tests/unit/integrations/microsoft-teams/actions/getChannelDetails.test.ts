@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_channel_message",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -52,6 +52,7 @@ describe("get_channel_details action", () => {
     const result = await getChannelDetails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", channelId: "ch-1" },
@@ -79,6 +80,7 @@ describe("get_channel_details action", () => {
     const result = await getChannelDetails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", channelId: "ch-2" },
@@ -103,6 +105,7 @@ describe("get_channel_details action", () => {
     await getChannelDetails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", channelId: "ch-1" },
@@ -119,6 +122,7 @@ describe("get_channel_details action", () => {
       getChannelDetails({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { teamId: "", channelId: "ch-1" },

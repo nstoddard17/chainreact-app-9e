@@ -25,16 +25,16 @@ import { DeleteEmailConfigSchema } from "./deleteEmail.schema";
 export const deleteEmail: ActionHandler = async (input) => {
   const config = DeleteEmailConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   if (config.deleteMode === "trash") {
     const result = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "gmail",
-      accountId,
+      providerAccountId,
       apiCall: async (accessToken) =>
         usersMessagesTrash({
           accessToken,
@@ -54,9 +54,9 @@ export const deleteEmail: ActionHandler = async (input) => {
 
   // permanent
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesDelete({
         accessToken,

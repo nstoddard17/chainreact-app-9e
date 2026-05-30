@@ -24,7 +24,7 @@ describe("normalize", () => {
     expect(ev.provider).toBe("google-sheets");
     expect(ev.eventType).toBe("row_changed");
     expect(ev.occurredAt).toBe("2026-05-08T12:00:00Z");
-    expect(ev.accountId).toBe("alice@example.test");
+    expect(ev.providerAccountId).toBe("alice@example.test");
     expect(ev.payload).toMatchObject({
       changeKind: "added",
       spreadsheetId: "ss-1",

@@ -29,9 +29,9 @@ import { CreateRecordConfigSchema } from "./createRecord.schema";
 export const createRecord: ActionHandler = async (input) => {
   const config = CreateRecordConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "airtable"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Coerce typed field map into Airtable wire-format. Throws
@@ -42,9 +42,9 @@ export const createRecord: ActionHandler = async (input) => {
   );
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "airtable",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       recordsCreate({
         accessToken,

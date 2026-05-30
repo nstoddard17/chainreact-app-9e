@@ -91,16 +91,16 @@ async function fetchAssetBytes(publicUrl: string): Promise<Uint8Array> {
 export const downloadFile: ActionHandler = async (input) => {
   const config = DownloadFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // 1) Fetch the item's file sources.
   const itemFiles = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemFilesGet({ accessToken, itemId: config.itemId }),
   });
@@ -119,9 +119,9 @@ export const downloadFile: ActionHandler = async (input) => {
     const { assetIds } = parseFileColumnAssetIds(column?.value ?? null);
     if (assetIds.length > 0) {
       candidates = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "monday",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => assetsGet({ accessToken, assetIds }),
       });
     } else {

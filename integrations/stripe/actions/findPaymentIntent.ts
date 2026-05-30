@@ -39,16 +39,16 @@ import { FindPaymentIntentConfigSchema } from "./findPaymentIntent.schema";
 export const findPaymentIntent: ActionHandler = async (input) => {
   const config = FindPaymentIntentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   try {
     const result = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "stripe",
-      accountId,
+      providerAccountId,
       preflight: stripeLivemodePreflight({
         actionType: "find_payment_intent",
         runTestMode: input.testMode === true,

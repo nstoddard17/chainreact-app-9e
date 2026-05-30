@@ -43,7 +43,7 @@ function excelTrigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -54,7 +54,7 @@ function nonExcelTrigger(): TriggerEvent {
     eventType: "slack.message.channel",
     eventId: "Ev1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload: {},
   };
 }
@@ -71,6 +71,7 @@ describe("rename_worksheet handler — happy path", () => {
     const result = await renameWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -111,6 +112,7 @@ describe("rename_worksheet handler — happy path", () => {
     const result = await renameWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -130,6 +132,7 @@ describe("rename_worksheet handler — happy path", () => {
     const result = await renameWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -153,6 +156,7 @@ describe("rename_worksheet handler — error surface", () => {
       renameWorksheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -170,6 +174,7 @@ describe("rename_worksheet handler — error surface", () => {
       renameWorksheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -193,6 +198,7 @@ describe("rename_worksheet handler — refreshAndRetry routing", () => {
     await renameWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -213,6 +219,7 @@ describe("rename_worksheet handler — refreshAndRetry routing", () => {
     await renameWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

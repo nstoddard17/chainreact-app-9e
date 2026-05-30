@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -57,6 +57,7 @@ describe("delete_item handler — structural-only output (D-MON4)", () => {
     const result = await deleteItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i" },
@@ -85,6 +86,7 @@ describe("delete_item handler — structural-only output (D-MON4)", () => {
     const result = await deleteItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i" },
@@ -101,6 +103,7 @@ describe("delete_item handler — structural-only output (D-MON4)", () => {
     await deleteItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i-1" },
@@ -115,6 +118,7 @@ describe("delete_item handler — structural-only output (D-MON4)", () => {
     await deleteItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i" },

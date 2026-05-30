@@ -24,23 +24,23 @@ import { GetPageContentConfigSchema } from "./getPageContent.schema";
 export const getPageContent: ActionHandler = async (input) => {
   const config = GetPageContentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const page = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesGet({ accessToken, pageId: config.pageId }),
   });
 
   const { html } = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pageContentGet({
         accessToken,

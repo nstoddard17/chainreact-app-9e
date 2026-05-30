@@ -69,7 +69,7 @@ export function normalize(
       item.lastModifiedDateTime ??
       item.createdDateTime ??
       context.notificationOccurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       itemId: item.id,
       kind,
@@ -111,7 +111,7 @@ export function normalizeDeleted(
     eventType: "file_changed",
     eventId,
     occurredAt: context.notificationOccurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       itemId,
       kind: null,

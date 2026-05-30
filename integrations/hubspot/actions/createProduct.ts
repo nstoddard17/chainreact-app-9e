@@ -21,9 +21,9 @@ const OPTIONAL_FIELDS = [
 export const createProduct: ActionHandler = async (input) => {
   const config = CreateProductConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = { name: config.name };
@@ -35,9 +35,9 @@ export const createProduct: ActionHandler = async (input) => {
   }
 
   const product = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       productsCreate({ accessToken, properties }),
   });

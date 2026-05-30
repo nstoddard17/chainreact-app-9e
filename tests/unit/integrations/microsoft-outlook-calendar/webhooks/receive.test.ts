@@ -43,6 +43,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "microsoft-outlook-calendar",
   eventType: "event_changed",
@@ -54,7 +55,7 @@ const baseTrigger = {
     resource: "/me/events",
     changeType: "created,updated,deleted",
   },
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -64,7 +65,8 @@ const baseTrigger = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-outlook-calendar",
   providerAccountId: "alice@contoso.com",
   displayName: "alice@contoso.com",
@@ -202,7 +204,7 @@ describe("receiveOutlookCalendarWebhook — notifications", () => {
     expect(result.events[0]!.provider).toBe("microsoft-outlook-calendar");
     expect(result.events[0]!.eventType).toBe("event_changed");
     expect(result.events[0]!.eventId).toBe("sub-1:evt-1:created");
-    expect(result.events[0]!.accountId).toBe("alice@contoso.com");
+    expect(result.events[0]!.providerAccountId).toBe("alice@contoso.com");
     expect(result.events[0]!.payload.changeType).toBe("created");
   });
 

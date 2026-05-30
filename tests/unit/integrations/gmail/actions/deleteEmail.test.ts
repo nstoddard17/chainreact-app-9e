@@ -45,7 +45,7 @@ function makeGmailTriggerEvent(): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-12T12:00:00Z",
-    accountId: "me@example.com",
+    providerAccountId: "me@example.com",
     payload: {},
   };
 }
@@ -56,6 +56,7 @@ function baseHandlerInput(overrides: {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "node-delete",
     config: overrides.config ?? { messageId: "msg-1", deleteMode: "trash" },

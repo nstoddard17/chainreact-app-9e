@@ -29,7 +29,7 @@ const baseEvent = {
   eventType: "message",
   eventId: "Ev123",
   occurredAt: "2026-05-07T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: { text: "hi" },
 };
 

@@ -64,12 +64,13 @@ function triggerRow(topics: string[] = ["orders/create"]) {
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "shopify",
     eventType: "webhook_received",
     nodeId: "n-1",
     config: { topics },
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,
@@ -207,7 +208,7 @@ describe("receiveShopifyWebhook — happy path", () => {
     expect(event.provider).toBe("shopify");
     expect(event.eventType).toBe("webhook_received");
     expect(event.eventId).toBe("wh-abc-123");
-    expect(event.accountId).toBe("s.myshopify.com");
+    expect(event.providerAccountId).toBe("s.myshopify.com");
     expect(event.payload.topic).toBe("orders/create");
     expect(event.payload.body).toEqual({
       id: 99,

@@ -20,7 +20,7 @@ describe("new_worksheet normalize", () => {
     const ev = normalize(baseInput, baseContext);
     expect(ev.provider).toBe("google-sheets");
     expect(ev.eventType).toBe("new_worksheet");
-    expect(ev.accountId).toBe("alice@example.test");
+    expect(ev.providerAccountId).toBe("alice@example.test");
     expect(ev.occurredAt).toBe("2026-05-15T12:00:00.000Z");
     expect(ev.payload).toEqual({
       changeKind: "added",

@@ -35,7 +35,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "trello",
   providerAccountId: "trelloMemberId",
   displayName: "Ada (Trello)",
@@ -190,9 +191,9 @@ describe("trelloCardsResolver — error sanitization", () => {
     });
     mockCardsList.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "trello",
-        accountId: "trelloMemberId",
+        providerAccountId: "trelloMemberId",
         reason: "refresh_not_supported",
       }),
     );

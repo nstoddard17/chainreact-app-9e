@@ -24,15 +24,15 @@ import { GetBlockChildrenConfigSchema } from "./getBlockChildren.schema";
 export const getBlockChildren: ActionHandler = async (input) => {
   const config = GetBlockChildrenConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       blocksChildrenList({
         accessToken,

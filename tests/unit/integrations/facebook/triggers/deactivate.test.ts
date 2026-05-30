@@ -36,7 +36,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "facebook",
   providerAccountId: "fb-user-1",
   displayName: "Alice",
@@ -54,12 +55,13 @@ function trigger(config: Record<string, unknown>, workflowId = "wf-1") {
   return {
     id: "tr-1",
     workflowId,
+    workflowAccountId: "acct-user-1",
     userId: "user-1",
     provider: "facebook",
     eventType: "new_post",
     nodeId: "node-1",
     config,
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,

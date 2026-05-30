@@ -56,9 +56,9 @@ export const updateDocument: ActionHandler = async (input) => {
     input.config,
   );
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-docs"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // For end / replace / after_text / before_text we need the current
@@ -67,9 +67,9 @@ export const updateDocument: ActionHandler = async (input) => {
   let document: DocumentResource | null = null;
   if (config.insertLocation !== "beginning") {
     document = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "google-docs",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         documentsGet({ accessToken, documentId: config.documentId }),
     });
@@ -78,9 +78,9 @@ export const updateDocument: ActionHandler = async (input) => {
   const requests = buildBatchUpdateRequests(config, document);
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-docs",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       documentsBatchUpdate({
         accessToken,

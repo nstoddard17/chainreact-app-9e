@@ -23,7 +23,7 @@ const triggerEvent: TriggerEvent = {
   eventType: "manual",
   eventId: "t1",
   occurredAt: "2026-05-11T00:00:00Z",
-  accountId: "manual",
+  providerAccountId: "manual",
   payload: {},
 };
 
@@ -71,6 +71,7 @@ describe("createList handler", () => {
       runId: "r",
       nodeId: "n",
       userId: "user-1",
+      accountId: "acct-user-1",
       config: { idBoard: "b1", name: "Backlog" },
       triggerEvent,
     });

@@ -93,17 +93,17 @@ export const addAttachment: ActionHandler = async (input) => {
   // user's Airtable userId. Cross-provider triggers / manual runs
   // pass null and refreshAndRetry picks the user's single Airtable
   // integration row.
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "airtable"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // PATCH the record. The attachment field receives a single-element
   // array — Airtable's REPLACE semantic per NPD-A5 / NPD-A6.
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "airtable",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       recordsUpdate({
         accessToken,

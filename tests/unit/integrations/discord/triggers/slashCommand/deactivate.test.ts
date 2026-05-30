@@ -35,7 +35,8 @@ beforeEach(() => {
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "discord",
   providerAccountId: "u",
   displayName: "u",
@@ -53,11 +54,12 @@ function makeTrigger(config: Record<string, unknown>) {
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "discord",
     eventType: "slash_command",
     nodeId: "node-1",
-    accountId: null,
+    providerAccountId: null,
     config,
     registeredAt: "2026-05-23T00:00:00Z",
     expiresAt: null,

@@ -97,6 +97,8 @@ export const googleSheetsSheetsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const spreadsheetId = ctx.deps.spreadsheetId;
     if (typeof spreadsheetId !== "string" || spreadsheetId.length === 0) {
       // Defense-in-depth — the route's requiredDeps guard should have
@@ -110,9 +112,9 @@ export const googleSheetsSheetsResolver: OptionsResolver = {
     let resource;
     try {
       resource = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-sheets",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) =>
           spreadsheetsGet({ accessToken, spreadsheetId }),
       });

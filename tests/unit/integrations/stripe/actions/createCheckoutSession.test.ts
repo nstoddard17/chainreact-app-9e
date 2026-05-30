@@ -35,13 +35,13 @@ beforeEach(() => {
   );
 });
 
-function trigger(provider = "stripe", accountId = "acct_TEST"): TriggerEvent {
+function trigger(provider = "stripe", providerAccountId = "acct_TEST"): TriggerEvent {
   return {
     provider,
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -76,6 +76,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r1",
       nodeId: "node-a",
       config: {
@@ -105,6 +106,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-42",
       nodeId: "node-a",
       config: {
@@ -126,6 +128,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -145,6 +148,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -170,6 +174,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -198,6 +203,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -219,6 +225,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -238,6 +245,7 @@ describe("create_checkout_session action", () => {
     await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -267,6 +275,7 @@ describe("create_checkout_session action", () => {
     const result = await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -318,6 +327,7 @@ describe("create_checkout_session action", () => {
     const result = await createCheckoutSession({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -344,6 +354,7 @@ describe("create_checkout_session action", () => {
       createCheckoutSession({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -362,6 +373,7 @@ describe("create_checkout_session action", () => {
       createCheckoutSession({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         // mode missing — strict parse rejects.

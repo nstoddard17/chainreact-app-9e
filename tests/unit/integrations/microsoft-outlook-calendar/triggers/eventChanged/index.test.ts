@@ -21,6 +21,7 @@ import { findSubscriptionHandler } from "@/services/triggers/subscriptionRegistr
 const triggerRow = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "microsoft-outlook-calendar",
   eventType: "event_changed",
@@ -32,7 +33,7 @@ const triggerRow = {
     resource: "/me/events",
     changeType: "created,updated,deleted",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,

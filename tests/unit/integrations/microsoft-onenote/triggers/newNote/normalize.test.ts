@@ -16,7 +16,7 @@
 
 import { normalizeNewNote } from "@/integrations/microsoft-onenote/triggers/newNote/normalize";
 
-const accountId = "alice@contoso.com";
+const providerAccountId = "alice@contoso.com";
 
 describe("new_note normalize — happy path", () => {
   it("builds a complete TriggerEvent for a fully-populated page", () => {
@@ -31,7 +31,7 @@ describe("new_note normalize — happy path", () => {
         parentNotebook: { id: "nb-1", displayName: "Work" },
         parentSection: { id: "sec-1", displayName: "Meetings" },
       },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });
@@ -40,7 +40,7 @@ describe("new_note normalize — happy path", () => {
       eventType: "new_note",
       eventId: "p-1:created",
       occurredAt: "2026-05-23T12:10:00Z",
-      accountId,
+      providerAccountId,
       payload: {
         changeKind: "created",
         pageId: "p-1",
@@ -62,7 +62,7 @@ describe("new_note normalize — missing optional fields", () => {
   it("emits null for title/webUrl/contentUrl/notebookName/sectionName when absent", () => {
     const event = normalizeNewNote({
       page: { id: "p-2", createdDateTime: "2026-05-23T12:00:00Z" },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });
@@ -79,7 +79,7 @@ describe("new_note normalize — missing optional fields", () => {
     const before = Date.now();
     const event = normalizeNewNote({
       page: { id: "p-3" },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });
@@ -98,7 +98,7 @@ describe("new_note normalize — banned fields (no body / content in payload)", 
         title: "Hello",
         createdDateTime: "2026-05-23T12:10:00Z",
       },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });
@@ -111,7 +111,7 @@ describe("new_note normalize — banned fields (no body / content in payload)", 
   it("does NOT emit secret-shaped fields (token / secret / accessToken)", () => {
     const event = normalizeNewNote({
       page: { id: "p-1", createdDateTime: "2026-05-23T12:10:00Z" },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });

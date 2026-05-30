@@ -68,12 +68,15 @@ function freshState(resultData: unknown = baseRow): ChainState {
 }
 
 describe("getActiveForExecution", () => {
-  it("filters by user_id, provider, disconnected_at IS NULL, and provider_account_id when accountId is supplied", async () => {
+  it("filters by account_id, provider, disconnected_at IS NULL, and provider_account_id when supplied", async () => {
     const state = freshState();
     mockServiceRole.current = makeMockClient(state);
-    const result = await getActiveForExecution("user-1", "slack", "T0001");
+    const result = await getActiveForExecution("acct-A", "slack", "T0001");
     expect(result?.id).toBe("int-1");
-    expect(state.filters).toContainEqual({ op: "eq", args: ["user_id", "user-1"] });
+    expect(state.filters).toContainEqual({
+      op: "eq",
+      args: ["account_id", "acct-A"],
+    });
     expect(state.filters).toContainEqual({ op: "eq", args: ["provider", "slack"] });
     expect(state.filters).toContainEqual({ op: "is", args: ["disconnected_at", null] });
     expect(state.filters).toContainEqual({
@@ -82,17 +85,17 @@ describe("getActiveForExecution", () => {
     });
   });
 
-  it("skips the provider_account_id filter when accountId is null", async () => {
+  it("skips the provider_account_id filter when providerAccountId is null", async () => {
     const state = freshState();
     mockServiceRole.current = makeMockClient(state);
-    await getActiveForExecution("user-1", "slack", null);
+    await getActiveForExecution("acct-A", "slack", null);
     expect(state.filters.find((f) => f.args[0] === "provider_account_id")).toBeUndefined();
   });
 
   it("returns null when no active row matches", async () => {
     const state = freshState(null);
     mockServiceRole.current = makeMockClient(state);
-    const result = await getActiveForExecution("user-1", "slack", "T0001");
+    const result = await getActiveForExecution("acct-A", "slack", "T0001");
     expect(result).toBeNull();
   });
 
@@ -104,7 +107,7 @@ describe("getActiveForExecution", () => {
     };
     mockServiceRole.current = makeMockClient(state);
     await expect(
-      getActiveForExecution("user-1", "slack", "T0001"),
+      getActiveForExecution("acct-A", "slack", "T0001"),
     ).rejects.toThrow(/permission denied/);
   });
 });

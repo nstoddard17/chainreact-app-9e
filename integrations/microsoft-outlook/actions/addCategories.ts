@@ -48,15 +48,15 @@ export const addCategories: ActionHandler = async (input) => {
     );
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const patched = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       patchMessage({
         accessToken,

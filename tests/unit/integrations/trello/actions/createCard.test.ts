@@ -27,7 +27,7 @@ const triggerEvent: TriggerEvent = {
   eventType: "manual",
   eventId: "trig-1",
   occurredAt: "2026-05-11T00:00:00Z",
-  accountId: "manual",
+  providerAccountId: "manual",
   payload: {},
 };
 
@@ -85,6 +85,7 @@ describe("createCard handler", () => {
       runId: "run-1",
       nodeId: "node-1",
       userId: "user-1",
+      accountId: "acct-user-1",
       config: { listId: "list-1", name: "New Card", desc: "hi" },
       triggerEvent,
     });

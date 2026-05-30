@@ -28,7 +28,7 @@ import { AssignRoleConfigSchema } from "./assignRole.schema";
 export const assignRole: ActionHandler = async (input) => {
   const config = AssignRoleConfigSchema.parse(input.config);
 
-  const integration = await getActiveForExecution(input.userId, "discord", null);
+  const integration = await getActiveForExecution(input.accountId, "discord", null);
   if (!integration) {
     throw new Error("No active Discord integration found for this user.");
   }

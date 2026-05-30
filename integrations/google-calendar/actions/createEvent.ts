@@ -34,9 +34,9 @@ import {
 export const createEvent: ActionHandler = async (input) => {
   const config: CreateEventConfig = CreateEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const attendeeEmails = parseRecipients(config.attendees ?? []);
@@ -84,9 +84,9 @@ export const createEvent: ActionHandler = async (input) => {
   }
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsInsert({
         accessToken,

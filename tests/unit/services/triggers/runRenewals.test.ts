@@ -37,6 +37,7 @@ function makeTrigger(
   return {
     id: `tr-${Math.random()}`,
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "google-calendar",
     eventType: "event_changed",
@@ -45,7 +46,7 @@ function makeTrigger(
       type: "subscription-watch",
       expiresAt: expiresAtIso,
     },
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,

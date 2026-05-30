@@ -18,15 +18,15 @@ import { CreateSectionConfigSchema } from "./createSection.schema";
 export const createSection: ActionHandler = async (input) => {
   const config = CreateSectionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const section = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       sectionsCreate({
         accessToken,

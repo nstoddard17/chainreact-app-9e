@@ -34,7 +34,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -55,6 +55,7 @@ describe("reply_to_email action", () => {
     const result = await replyToEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -84,6 +85,7 @@ describe("reply_to_email action", () => {
     const result = await replyToEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, replyAll: true },
@@ -102,6 +104,7 @@ describe("reply_to_email action", () => {
     await replyToEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -123,6 +126,7 @@ describe("reply_to_email action", () => {
     await replyToEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -143,6 +147,7 @@ describe("reply_to_email action", () => {
       replyToEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -158,6 +163,7 @@ describe("reply_to_email action", () => {
       replyToEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -172,6 +178,7 @@ describe("reply_to_email action", () => {
       replyToEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...BASE_CONFIG, emailId: "" },
@@ -188,6 +195,7 @@ describe("reply_to_email action", () => {
       replyToEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: BASE_CONFIG,
@@ -210,6 +218,7 @@ describe("reply_to_email action", () => {
     const result = await replyToEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,

@@ -126,7 +126,7 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
           eventType: "manual_trigger",
           eventId: `evt-${Date.now()}`,
           occurredAt: nowIso,
-          accountId: "harness",
+          providerAccountId: "harness",
           payload: {},
         },
         started_at: nowIso,

@@ -32,17 +32,17 @@ export const createPullRequest: ActionHandler = async (input) => {
   const config = CreatePullRequestConfigSchema.parse(input.config);
   const { owner, repo } = parseRepository(config.repository);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "github"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // PR-G6 auto-detect — wrap in refreshAndRetry per auxiliary-call
   // contract.
   const effectiveBase = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       resolveDefaultBranch({
         accessToken,
@@ -53,9 +53,9 @@ export const createPullRequest: ActionHandler = async (input) => {
   });
 
   const pr = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pullsCreate({
         accessToken,

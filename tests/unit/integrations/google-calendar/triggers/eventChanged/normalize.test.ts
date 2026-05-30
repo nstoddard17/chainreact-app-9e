@@ -63,7 +63,7 @@ describe("normalize", () => {
     );
     expect(event.provider).toBe("google-calendar");
     expect(event.eventType).toBe("event_changed");
-    expect(event.accountId).toBe("alice@example.com");
+    expect(event.providerAccountId).toBe("alice@example.com");
     // dedup key combines eventId + updated so a real edit produces fresh dedup
     expect(event.eventId).toBe("evt-1:2026-05-08T10:30:00Z");
     expect(event.occurredAt).toBe("2026-05-08T10:30:00Z");

@@ -75,8 +75,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "gmail",
     null,
   );
@@ -92,7 +91,7 @@ async function poll(input: {
     );
     return;
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   let cursor = config.snapshot.historyId;
 
@@ -106,9 +105,9 @@ async function poll(input: {
     let page;
     try {
       page = await refreshAndRetry({
-        userId: trigger.userId,
+        accountId: trigger.workflowAccountId!,
         provider: "gmail",
-        accountId,
+        providerAccountId,
         apiCall: async (accessToken) =>
           usersHistoryList({
             accessToken,
@@ -119,9 +118,9 @@ async function poll(input: {
     } catch (err) {
       if (err instanceof HistoryListStaleCursorError) {
         const profile = await refreshAndRetry({
-          userId: trigger.userId,
+          accountId: trigger.workflowAccountId!,
           provider: "gmail",
-          accountId,
+          providerAccountId,
           apiCall: async (accessToken) => usersGetProfile({ accessToken }),
         });
         console.warn(
@@ -161,7 +160,7 @@ async function poll(input: {
   if (!cursorReset) {
     for (const messageId of uniqueIds) {
       try {
-        await processOneMessage({ trigger, accountId, messageId });
+        await processOneMessage({ trigger, providerAccountId, messageId });
       } catch (err) {
         console.warn(
           JSON.stringify({
@@ -203,10 +202,10 @@ function matchesAttachmentSource(ev: MessageEvent): boolean {
 
 async function processOneMessage(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   messageId: string;
 }): Promise<void> {
-  const { trigger, accountId, messageId } = input;
+  const { trigger, providerAccountId, messageId } = input;
 
   const dedupOutcome = await checkAndMarkSeenAttachment(messageId);
   if (dedupOutcome.outage) return; // fail-closed (see dedup.ts)
@@ -215,9 +214,9 @@ async function processOneMessage(input: {
   // format=full required for attachment metadata enumeration —
   // metadata responses omit payload.parts.
   const message = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesGet({ accessToken, messageId, format: "full" }),
   });
@@ -226,7 +225,7 @@ async function processOneMessage(input: {
   if (attachments.length === 0) return; // no real attachments — skip enqueue
 
   const event = buildAttachmentTriggerEvent({
-    emailAddress: accountId,
+    emailAddress: providerAccountId,
     message,
     attachments,
   });

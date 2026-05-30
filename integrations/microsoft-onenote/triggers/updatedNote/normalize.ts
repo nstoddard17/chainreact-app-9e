@@ -20,13 +20,13 @@ import { buildEventId } from "./dedup";
 
 export interface NormalizeInput {
   page: OneNotePage;
-  accountId: string;
+  providerAccountId: string;
   notebookId: string;
   sectionId: string;
 }
 
 export function normalizeUpdatedNote(input: NormalizeInput): TriggerEvent {
-  const { page, accountId, notebookId, sectionId } = input;
+  const { page, providerAccountId, notebookId, sectionId } = input;
   const lastModified = page.lastModifiedDateTime;
   if (typeof lastModified !== "string" || lastModified.length === 0) {
     throw new Error(
@@ -38,7 +38,7 @@ export function normalizeUpdatedNote(input: NormalizeInput): TriggerEvent {
     eventType: "updated_note",
     eventId: buildEventId(page.id, lastModified),
     occurredAt: lastModified,
-    accountId,
+    providerAccountId,
     payload: {
       changeKind: "updated",
       pageId: page.id,

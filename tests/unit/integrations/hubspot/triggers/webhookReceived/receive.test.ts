@@ -221,7 +221,6 @@ describe("receiveHubSpotWebhook — routing", () => {
         id: "ref-A",
         appSubscriptionId: "app-sub-1",
         workflowId: "wf-A",
-        userId: "user-A",
         nodeId: "node-A",
         hubId: "9988776",
         config: {},
@@ -233,7 +232,6 @@ describe("receiveHubSpotWebhook — routing", () => {
         id: "ref-B",
         appSubscriptionId: "app-sub-1",
         workflowId: "wf-B",
-        userId: "user-B",
         nodeId: "node-B",
         hubId: "9988776",
         config: {},
@@ -254,6 +252,7 @@ describe("receiveHubSpotWebhook — routing", () => {
       workflowId: "wf-A",
       nodeId: "node-A",
       userId: "user-A",
+      accountId: "acct-user-A",
     });
   });
 
@@ -315,7 +314,6 @@ describe("receiveHubSpotWebhook — routing", () => {
         id: "ref-1",
         appSubscriptionId: "app-sub-A",
         workflowId: "wf-A",
-        userId: "user-A",
         nodeId: "node-A",
         hubId: "9988776",
         config: {},
@@ -370,7 +368,6 @@ describe("receiveHubSpotWebhook — routing", () => {
         id: "ref-1",
         appSubscriptionId: "app-sub-1",
         workflowId: "wf-1",
-        userId: "user-1",
         nodeId: "node-1",
         hubId: "9988776",
         config: {},
@@ -389,7 +386,7 @@ describe("receiveHubSpotWebhook — routing", () => {
     expect(event.provider).toBe("hubspot");
     expect(event.eventType).toBe("webhook_received");
     expect(event.eventId).toBe("5555");
-    expect(event.accountId).toBe("9988776");
+    expect(event.providerAccountId).toBe("9988776");
     expect(event.payload.subscriptionType).toBe("contact.creation");
     expect(event.payload.objectId).toBe("5001");
   });
@@ -412,7 +409,6 @@ describe("receiveHubSpotWebhook — routing", () => {
         id: "ref-ticket-pc",
         appSubscriptionId: "app-sub-ticket-pc",
         workflowId: "wf-ticket-pc",
-        userId: "user-1",
         nodeId: "node-1",
         hubId: "9988776",
         config: {},
@@ -462,7 +458,6 @@ describe("receiveHubSpotWebhook — routing", () => {
         id: "ref-ticket-del",
         appSubscriptionId: "app-sub-ticket-del",
         workflowId: "wf-ticket-del",
-        userId: "user-1",
         nodeId: "node-1",
         hubId: "9988776",
         config: {},

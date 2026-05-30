@@ -13,7 +13,7 @@ function makeEvent(payload: Record<string, unknown>): TriggerEvent {
     eventType: "slack.message.group",
     eventId: "Ev1",
     occurredAt: "2026-05-11T00:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload,
   };
 }

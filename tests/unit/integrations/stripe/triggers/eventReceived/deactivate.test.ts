@@ -22,7 +22,8 @@ afterEach(() => {
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "stripe",
   providerAccountId: "acct_test_1",
   displayName: "acct_test_1",
@@ -40,6 +41,7 @@ function trigger(config: Record<string, unknown> = {}) {
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "stripe",
     eventType: "event_received",
@@ -51,7 +53,7 @@ function trigger(config: Record<string, unknown> = {}) {
       enabledEvents: ["payment_intent.succeeded"],
       ...config,
     },
-    accountId: "acct_test_1",
+    providerAccountId: "acct_test_1",
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,

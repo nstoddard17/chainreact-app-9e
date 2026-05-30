@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -73,6 +73,7 @@ describe("create_board handler", () => {
     await createBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardName: "B", boardKind: "private" },
@@ -94,6 +95,7 @@ describe("create_board handler", () => {
     const result = await createBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardName: "B", boardKind: "public", description: "desc" },
@@ -116,6 +118,7 @@ describe("create_board handler", () => {
     await createBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardName: "B", boardKind: "public" },

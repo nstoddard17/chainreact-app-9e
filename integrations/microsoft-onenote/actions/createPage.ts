@@ -62,9 +62,9 @@ function buildHtmlBody(
 export const createPage: ActionHandler = async (input) => {
   const config = CreatePageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const htmlBody = buildHtmlBody(config.title, config.content, config.contentType);
@@ -77,9 +77,9 @@ export const createPage: ActionHandler = async (input) => {
       : "text/html";
 
   const page = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesCreate({
         accessToken,

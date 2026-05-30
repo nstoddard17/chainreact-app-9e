@@ -13,15 +13,16 @@ import { resolveShopDomain } from "./_resolveShop";
  */
 export const updateProduct: ActionHandler = async (input) => {
   const config = UpdateProductConfigSchema.parse(input.config);
-  const { shopDomain, accountId } = await resolveShopDomain({
+  const { shopDomain, providerAccountId } = await resolveShopDomain({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const product = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "shopify",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       productsUpdate({
         shopDomain,

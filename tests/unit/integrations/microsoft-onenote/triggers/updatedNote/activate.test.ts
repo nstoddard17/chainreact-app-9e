@@ -27,7 +27,8 @@ import { activate } from "@/integrations/microsoft-onenote/triggers/updatedNote/
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-onenote",
   providerAccountId: "alice@contoso.com",
   displayName: "Alice (OneNote)",

@@ -46,7 +46,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -103,6 +103,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     const result = await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-1",
       nodeId: "node-1",
       config: {
@@ -160,6 +161,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-1",
       nodeId: "node-1",
       config: {
@@ -185,6 +187,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     const promise = addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-1",
       nodeId: "node-1",
       config: {
@@ -226,6 +229,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-1",
       nodeId: "node-1",
       config: {
@@ -255,6 +259,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -277,6 +282,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -299,6 +305,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
       addAttachment({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -324,6 +331,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
       addAttachment({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -350,6 +358,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     const result = await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -374,6 +383,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     const result = await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -425,6 +435,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
     const result = await addAttachment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

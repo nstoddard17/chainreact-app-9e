@@ -25,15 +25,15 @@ import { GetDocumentConfigSchema } from "./getDocument.schema";
 export const getDocument: ActionHandler = async (input) => {
   const config = GetDocumentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-docs"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const document = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-docs",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       documentsGet({ accessToken, documentId: config.documentId }),
   });

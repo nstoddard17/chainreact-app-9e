@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -68,6 +68,7 @@ describe("list_boards handler", () => {
     await listBoards({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { limit: 25 },
@@ -81,6 +82,7 @@ describe("list_boards handler", () => {
     await listBoards({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { limit: 25, cursor: "3" },
@@ -94,6 +96,7 @@ describe("list_boards handler", () => {
       listBoards({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { limit: 25, cursor: "not-a-number" },
@@ -107,6 +110,7 @@ describe("list_boards handler", () => {
     const result = await listBoards({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { limit: 25 },
@@ -121,6 +125,7 @@ describe("list_boards handler", () => {
     const result = await listBoards({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { limit: 25 },
@@ -147,6 +152,7 @@ describe("list_boards handler", () => {
     const result = await listBoards({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { limit: 25 },

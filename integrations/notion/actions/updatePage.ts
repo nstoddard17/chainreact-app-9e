@@ -22,9 +22,9 @@ import { UpdatePageConfigSchema } from "./updatePage.schema";
 export const updatePage: ActionHandler = async (input) => {
   const config = UpdatePageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const wireProperties =
@@ -35,9 +35,9 @@ export const updatePage: ActionHandler = async (input) => {
       : undefined;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesUpdate({
         accessToken,

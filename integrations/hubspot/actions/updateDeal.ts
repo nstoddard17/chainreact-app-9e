@@ -23,9 +23,9 @@ const UPDATABLE_FIELDS = [
 export const updateDeal: ActionHandler = async (input) => {
   const config = UpdateDealConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {};
@@ -42,9 +42,9 @@ export const updateDeal: ActionHandler = async (input) => {
   }
 
   const deal = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       dealsUpdate({
         accessToken,

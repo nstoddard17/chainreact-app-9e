@@ -34,7 +34,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -50,6 +50,7 @@ describe("update_page action", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -75,6 +76,7 @@ describe("update_page action", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", archived: true },
@@ -94,6 +96,7 @@ describe("update_page action", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", archived: false },
@@ -113,6 +116,7 @@ describe("update_page action", () => {
     const result = await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", archived: true },
@@ -131,6 +135,7 @@ describe("update_page action", () => {
       updatePage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "p-1" },
@@ -144,6 +149,7 @@ describe("update_page action", () => {
       updatePage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "", archived: true },
@@ -160,6 +166,7 @@ describe("update_page action", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", icon: null },

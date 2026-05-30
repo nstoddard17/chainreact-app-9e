@@ -34,7 +34,8 @@ function ctx(overrides?: { tableName?: string }): {
 } {
   const integration: IntegrationRecord = {
     id: "int-1",
-    userId: "u-1",
+    accountId: "acct-u-1",
+    connectedByUserId: "u-1",
     provider: "microsoft-excel",
     providerAccountId: "alice@contoso.com",
     displayName: "Alice",

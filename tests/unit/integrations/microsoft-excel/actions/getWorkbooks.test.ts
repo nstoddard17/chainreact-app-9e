@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -55,6 +55,7 @@ describe("get_workbooks action", () => {
     const result = await getWorkbooks({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -80,6 +81,7 @@ describe("get_workbooks action", () => {
     await getWorkbooks({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { top: 50 },
@@ -96,6 +98,7 @@ describe("get_workbooks action", () => {
     const result = await getWorkbooks({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -111,6 +114,7 @@ describe("get_workbooks action", () => {
       getWorkbooks({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { top: 0 },
@@ -122,6 +126,7 @@ describe("get_workbooks action", () => {
       getWorkbooks({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { top: 1001 },

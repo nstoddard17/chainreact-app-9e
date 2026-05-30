@@ -91,7 +91,7 @@ describe("trigger_resources.upsert", () => {
       eventType: "message_received",
       nodeId: "n1",
       config: { channelId: "C123" },
-      accountId: "T0001",
+      providerAccountId: "T0001",
     });
     expect(result.id).toBe("tr-1");
     expect(state.insertPayload).toEqual({

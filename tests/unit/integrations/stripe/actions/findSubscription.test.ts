@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -74,6 +74,7 @@ describe("find_subscription action", () => {
     const result = await findSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },
@@ -108,6 +109,7 @@ describe("find_subscription action", () => {
     const result = await findSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_missing" },
@@ -129,6 +131,7 @@ describe("find_subscription action", () => {
     const result = await findSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },
@@ -146,6 +149,7 @@ describe("find_subscription action", () => {
     const result = await findSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },
@@ -167,6 +171,7 @@ describe("find_subscription action", () => {
     await findSubscription({
       workflowId: "wf",
       userId: "u-123",
+      accountId: "acct-u-123",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },
@@ -183,6 +188,7 @@ describe("find_subscription action", () => {
     await findSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },
@@ -202,6 +208,7 @@ describe("find_subscription action", () => {
       findSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { subscriptionId: "sub_1" },
@@ -215,6 +222,7 @@ describe("find_subscription action", () => {
       findSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -229,6 +237,7 @@ describe("find_subscription action", () => {
       findSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { subscriptionId: "sub_1", expand: ["items"] },

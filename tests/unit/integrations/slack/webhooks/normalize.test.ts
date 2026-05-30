@@ -22,7 +22,7 @@ describe("normalizeSlackEvent — canonical envelope shape", () => {
       eventType: "slack.message.channel",
       eventId: "Ev123",
       occurredAt: new Date(1730000000 * 1000).toISOString(),
-      accountId: "T0001",
+      providerAccountId: "T0001",
       payload: baseSlackPayload.event,
     });
   });

@@ -19,15 +19,15 @@ import { GetOwnersConfigSchema } from "./getOwners.schema";
 export const getOwners: ActionHandler = async (input) => {
   const config = GetOwnersConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const response = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       ownersList({
         accessToken,

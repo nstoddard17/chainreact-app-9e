@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -47,6 +47,7 @@ describe("delete_record action", () => {
     const result = await deleteRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -71,6 +72,7 @@ describe("delete_record action", () => {
       deleteRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

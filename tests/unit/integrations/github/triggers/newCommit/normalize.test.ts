@@ -100,7 +100,7 @@ describe("normalizeGitHubEvent — shape", () => {
       headers: baseHeaders,
       body: basePushBody,
     });
-    expect(result.accountId).toBe("octocat");
+    expect(result.providerAccountId).toBe("octocat");
   });
 
   it("falls back to extracting owner from full_name when owner.login is absent", () => {
@@ -112,7 +112,7 @@ describe("normalizeGitHubEvent — shape", () => {
       headers: baseHeaders,
       body,
     });
-    expect(result.accountId).toBe("myorg");
+    expect(result.providerAccountId).toBe("myorg");
   });
 
   it("uses 'unknown' accountId when no owner can be determined", () => {
@@ -120,7 +120,7 @@ describe("normalizeGitHubEvent — shape", () => {
       headers: baseHeaders,
       body: { ref: "refs/heads/main" },
     });
-    expect(result.accountId).toBe("unknown");
+    expect(result.providerAccountId).toBe("unknown");
   });
 });
 

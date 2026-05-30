@@ -17,15 +17,15 @@ import { ListSectionsConfigSchema } from "./listSections.schema";
 export const listSections: ActionHandler = async (input) => {
   const config = ListSectionsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       sectionsList({
         accessToken,

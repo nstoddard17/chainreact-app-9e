@@ -34,7 +34,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("get_board handler — pure read", () => {
     const result = await getBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b-1" },
@@ -84,6 +85,7 @@ describe("get_board handler — pure read", () => {
       getBoard({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { boardId: "gone" },
@@ -107,6 +109,7 @@ describe("get_board handler — pure read", () => {
     await getBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b" },

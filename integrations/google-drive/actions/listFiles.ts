@@ -19,15 +19,15 @@ import {
 export const listFiles: ActionHandler = async (input) => {
   const config: ListFilesConfig = ListFilesConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-drive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-drive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesList({
         accessToken,

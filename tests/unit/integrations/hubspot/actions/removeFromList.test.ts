@@ -29,7 +29,7 @@ const trigger: TriggerEvent = {
   eventType: "webhook_received",
   eventId: "e",
   occurredAt: "x",
-  accountId: "portal-1",
+  providerAccountId: "portal-1",
   payload: {},
 };
 
@@ -41,6 +41,7 @@ describe("remove_from_list", () => {
     await removeFromList({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { listId: "list-7", email: "alice@e.test" },
@@ -59,6 +60,7 @@ describe("remove_from_list", () => {
     const result = await removeFromList({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { listId: "list-7", email: "bob@e.test" },
@@ -77,6 +79,7 @@ describe("remove_from_list", () => {
     const result = await removeFromList({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { listId: "l", email: "x@y.com" },
@@ -91,6 +94,7 @@ describe("remove_from_list", () => {
     await removeFromList({
       workflowId: "wf",
       userId: "user-abc",
+      accountId: "acct-user-abc",
       runId: "r",
       nodeId: "n",
       config: { listId: "l", email: "x@y.com" },
@@ -107,6 +111,7 @@ describe("remove_from_list", () => {
       removeFromList({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { email: "x@y.com" } as Record<string, unknown>,
@@ -121,6 +126,7 @@ describe("remove_from_list", () => {
       removeFromList({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { listId: "l", email: "not-an-email" },
@@ -135,6 +141,7 @@ describe("remove_from_list", () => {
       removeFromList({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -157,6 +164,7 @@ describe("remove_from_list", () => {
       removeFromList({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { listId: "dynamic-list", email: "a@b.com" },

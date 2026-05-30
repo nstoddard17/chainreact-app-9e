@@ -64,10 +64,9 @@ export const outlookNewEmailSubscriptionHandler: SubscriptionHandler = {
       );
     }
 
-    const integration = await getActiveForExecution(
-      trigger.userId,
+    const integration = await getActiveForExecution(trigger.workflowAccountId!,
       trigger.provider,
-      trigger.accountId,
+      trigger.providerAccountId,
     );
     if (!integration) {
       throw new Error(
@@ -77,9 +76,9 @@ export const outlookNewEmailSubscriptionHandler: SubscriptionHandler = {
 
     const newExpiresAt = expirationFromNow();
     const result = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "microsoft-outlook",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         renewSubscription({
           accessToken,

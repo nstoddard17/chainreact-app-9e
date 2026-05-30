@@ -51,6 +51,7 @@ import { POST } from "@/app/api/workflows/[id]/activate/route";
 const baseWorkflowRecord = {
   id: "wf-1",
   userId: "user-1",
+  accountId: "acct-user-1",
   name: "WF",
   state: "draft" as const,
   disabledReason: null,

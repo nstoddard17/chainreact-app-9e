@@ -34,7 +34,7 @@ import { SendMessageConfigSchema } from "./sendMessage.schema";
 export const sendMessage: ActionHandler = async (input) => {
   const config = SendMessageConfigSchema.parse(input.config);
 
-  const integration = await getActiveForExecution(input.userId, "discord", null);
+  const integration = await getActiveForExecution(input.accountId, "discord", null);
   if (!integration) {
     throw new Error("No active Discord integration found for this user.");
   }

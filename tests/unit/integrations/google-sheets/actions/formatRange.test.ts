@@ -36,7 +36,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -47,7 +47,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -75,6 +75,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -99,6 +100,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -141,6 +143,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -168,6 +171,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -194,6 +198,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -221,6 +226,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -262,6 +268,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -287,6 +294,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -312,6 +320,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -337,6 +346,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -365,6 +375,7 @@ describe("formatRange action", () => {
     const result = await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -395,6 +406,7 @@ describe("formatRange action", () => {
     const result = await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -416,6 +428,7 @@ describe("formatRange action", () => {
       formatRange({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -439,6 +452,7 @@ describe("formatRange action", () => {
     const result = await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -462,6 +476,7 @@ describe("formatRange action", () => {
       formatRange({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -484,6 +499,7 @@ describe("formatRange action", () => {
       formatRange({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -503,6 +519,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -531,6 +548,7 @@ describe("formatRange action", () => {
     await formatRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -561,6 +579,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, backgroundColor: "#abcdef" },
@@ -575,6 +594,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, backgroundColor: "abcdef" },
@@ -589,6 +609,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, textColor: "#000000" },
@@ -603,6 +624,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, bold: false, italic: true },
@@ -618,6 +640,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, horizontalAlignment: alignment },
@@ -644,6 +667,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, numberFormat: { type } },
@@ -660,6 +684,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, range },
@@ -674,6 +699,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -691,6 +717,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { sheetName: "Sheet1", range: "A1", bold: true },
@@ -701,6 +728,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, sheetName: "" },
@@ -711,6 +739,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, range: "" },
@@ -724,6 +753,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, range: "Sheet1!A1" },
@@ -738,6 +768,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, backgroundColor: bad },
@@ -752,6 +783,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, horizontalAlignment: "JUSTIFY" },
@@ -765,6 +797,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -781,6 +814,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, bold: "true" },
@@ -804,6 +838,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseWithFormat, ...extra },
@@ -823,6 +858,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, ...extra },
@@ -842,6 +878,7 @@ describe("formatRange action", () => {
           formatRange({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, ...extra },
@@ -856,6 +893,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, unknownThing: "x" },
@@ -869,6 +907,7 @@ describe("formatRange action", () => {
         formatRange({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {

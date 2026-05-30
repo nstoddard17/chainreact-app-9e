@@ -15,15 +15,15 @@ import { DuplicateItemConfigSchema } from "./duplicateItem.schema";
 export const duplicateItem: ActionHandler = async (input) => {
   const config = DuplicateItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const newItem = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemsDuplicate({
         accessToken,

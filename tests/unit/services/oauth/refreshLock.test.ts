@@ -14,21 +14,37 @@ beforeEach(() => {
 });
 
 describe("refreshLockKey", () => {
-  it("composes userId + provider + accountId", () => {
+  it("composes accountId + provider + providerAccountId", () => {
     expect(
-      refreshLockKey({ userId: "u-1", provider: "gmail", accountId: "alice@x" }),
-    ).toBe("u-1:gmail:alice@x");
+      refreshLockKey({
+        accountId: "acct-u-1",
+        provider: "gmail",
+        providerAccountId: "alice@x",
+      }),
+    ).toBe("acct-u-1:gmail:alice@x");
   });
 
-  it("uses 'default' when accountId is null", () => {
+  it("uses 'default' when providerAccountId is null", () => {
     expect(
-      refreshLockKey({ userId: "u-1", provider: "slack", accountId: null }),
-    ).toBe("u-1:slack:default");
+      refreshLockKey({
+        accountId: "acct-u-1",
+        provider: "slack",
+        providerAccountId: null,
+      }),
+    ).toBe("acct-u-1:slack:default");
   });
 
-  it("different accountIds produce distinct keys", () => {
-    const a = refreshLockKey({ userId: "u", provider: "gmail", accountId: "a" });
-    const b = refreshLockKey({ userId: "u", provider: "gmail", accountId: "b" });
+  it("different providerAccountIds produce distinct keys", () => {
+    const a = refreshLockKey({
+      accountId: "acct-u",
+      provider: "gmail",
+      providerAccountId: "a",
+    });
+    const b = refreshLockKey({
+      accountId: "acct-u",
+      provider: "gmail",
+      providerAccountId: "b",
+    });
     expect(a).not.toBe(b);
   });
 });

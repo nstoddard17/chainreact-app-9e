@@ -34,7 +34,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -67,6 +67,7 @@ describe("create_draft_email action", () => {
     const result = await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -117,6 +118,7 @@ describe("create_draft_email action", () => {
     await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, isHtml: false },
@@ -138,6 +140,7 @@ describe("create_draft_email action", () => {
     await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -154,6 +157,7 @@ describe("create_draft_email action", () => {
       createDraftEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...BASE_CONFIG, to: "   ,   " },
@@ -172,6 +176,7 @@ describe("create_draft_email action", () => {
     await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -195,6 +200,7 @@ describe("create_draft_email action", () => {
     await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -215,6 +221,7 @@ describe("create_draft_email action", () => {
       createDraftEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -230,6 +237,7 @@ describe("create_draft_email action", () => {
       createDraftEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -248,6 +256,7 @@ describe("create_draft_email action", () => {
     const result = await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, subject: "Echo back" },
@@ -266,6 +275,7 @@ describe("create_draft_email action", () => {
       createDraftEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: BASE_CONFIG,
@@ -293,6 +303,7 @@ describe("create_draft_email action", () => {
     const result = await createDraftEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,

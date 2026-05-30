@@ -89,9 +89,9 @@ export const sendEmail: ActionHandler = async (input) => {
     );
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const toGraph = (addresses: string[]): GraphRecipient[] =>
@@ -107,9 +107,9 @@ export const sendEmail: ActionHandler = async (input) => {
   );
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       sendMail({
         accessToken,

@@ -56,9 +56,9 @@ function buildPatchOperations(
 export const updatePage: ActionHandler = async (input) => {
   const config = UpdatePageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const operations = buildPatchOperations(
@@ -69,9 +69,9 @@ export const updatePage: ActionHandler = async (input) => {
   );
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pageContentUpdate({
         accessToken,
@@ -81,9 +81,9 @@ export const updatePage: ActionHandler = async (input) => {
   });
 
   const page = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesGet({ accessToken, pageId: config.pageId }),
   });

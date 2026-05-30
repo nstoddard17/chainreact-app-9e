@@ -17,15 +17,15 @@ import { GetBoardConfigSchema } from "./getBoard.schema";
 export const getBoard: ActionHandler = async (input) => {
   const config = GetBoardConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const board = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       boardsGet({ accessToken, boardId: config.boardId }),
   });

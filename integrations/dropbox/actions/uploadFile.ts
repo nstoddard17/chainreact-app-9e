@@ -104,15 +104,15 @@ export const uploadFile: ActionHandler = async (input) => {
   const filename = config.filename ?? fetched.name;
   const destPath = joinDropboxPath(config.path, filename);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const entry = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "dropbox",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesUpload({
         accessToken,

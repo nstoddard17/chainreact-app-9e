@@ -28,15 +28,15 @@ import { ListEventsConfigSchema } from "./listEvents.schema";
 export const listEvents: ActionHandler = async (input) => {
   const config = ListEventsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsList({
         accessToken,

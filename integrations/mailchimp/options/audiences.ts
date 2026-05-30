@@ -72,6 +72,8 @@ export const mailchimpAudiencesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const dc = ctx.integration.accountMetadata.dc;
     if (typeof dc !== "string" || dc.length === 0) {
       // dc is captured at OAuth callback. Missing dc on an otherwise
@@ -83,14 +85,14 @@ export const mailchimpAudiencesResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "mailchimp",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           listsList({ accessToken, dc, count: 100 }),
       });

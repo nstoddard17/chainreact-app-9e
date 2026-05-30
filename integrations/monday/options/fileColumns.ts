@@ -60,6 +60,8 @@ export const mondayFileColumnsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const boardId = ctx.deps.boardId;
     if (typeof boardId !== "string" || boardId.length === 0) {
       throw new OptionsResolverError(
@@ -68,7 +70,7 @@ export const mondayFileColumnsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     const sentinel = {
       value: SENTINEL_VALUE,
@@ -79,9 +81,9 @@ export const mondayFileColumnsResolver: OptionsResolver = {
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "monday",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => columnsList({ accessToken, boardId }),
       });
     } catch (err) {

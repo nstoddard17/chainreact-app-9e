@@ -28,7 +28,8 @@ import { resolveShopDomain } from "./_resolveShop";
  */
 export const updateOrderStatus: ActionHandler = async (input) => {
   const config = UpdateOrderStatusConfigSchema.parse(input.config);
-  const { shopDomain, accountId } = await resolveShopDomain({
+  const { shopDomain, providerAccountId } = await resolveShopDomain({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
@@ -39,9 +40,9 @@ export const updateOrderStatus: ActionHandler = async (input) => {
   switch (config.action) {
     case "cancel": {
       order = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "shopify",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           ordersCancel({
             shopDomain,
@@ -57,9 +58,9 @@ export const updateOrderStatus: ActionHandler = async (input) => {
     }
     case "add_tags": {
       const existing = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "shopify",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           ordersGet({ shopDomain, accessToken, orderId: config.order_id }),
       });
@@ -70,9 +71,9 @@ export const updateOrderStatus: ActionHandler = async (input) => {
       const newTags = config.tags.split(",").map((t) => t.trim()).filter(Boolean);
       const merged = Array.from(new Set([...existingTags, ...newTags]));
       order = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "shopify",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           ordersUpdate({
             shopDomain,
@@ -86,9 +87,9 @@ export const updateOrderStatus: ActionHandler = async (input) => {
     }
     case "add_note": {
       const existing = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "shopify",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           ordersGet({ shopDomain, accessToken, orderId: config.order_id }),
       });
@@ -97,9 +98,9 @@ export const updateOrderStatus: ActionHandler = async (input) => {
         ? `${existingNote}\n\n${config.note}`
         : config.note;
       order = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "shopify",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           ordersUpdate({
             shopDomain,

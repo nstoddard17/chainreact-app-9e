@@ -18,9 +18,9 @@ import { RunPivotReportConfigSchema } from "./runPivotReport.schema";
 export const runPivotReport: ActionHandler = async (input) => {
   const config = RunPivotReportConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-analytics"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const dateRange = resolveDateRange(
@@ -30,9 +30,9 @@ export const runPivotReport: ActionHandler = async (input) => {
   );
 
   const report = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-analytics",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       runPivotReportApi({
         accessToken,

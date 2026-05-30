@@ -48,7 +48,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "test-shop.myshopify.com",
+    providerAccountId: "test-shop.myshopify.com",
     payload: {},
   };
 }
@@ -59,6 +59,7 @@ describe("updateOrderStatus — cancel sub-action", () => {
     const result = await updateOrderStatus({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { action: "cancel", order_id: 1, notify_customer: true },
@@ -81,6 +82,7 @@ describe("updateOrderStatus — cancel sub-action", () => {
     await updateOrderStatus({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -102,6 +104,7 @@ describe("updateOrderStatus — cancel sub-action", () => {
       updateOrderStatus({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         // notify_customer omitted
@@ -120,6 +123,7 @@ describe("updateOrderStatus — add_tags sub-action", () => {
     const result = await updateOrderStatus({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -143,6 +147,7 @@ describe("updateOrderStatus — add_tags sub-action", () => {
     await updateOrderStatus({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -168,6 +173,7 @@ describe("updateOrderStatus — add_note sub-action", () => {
     await updateOrderStatus({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -189,6 +195,7 @@ describe("updateOrderStatus — add_note sub-action", () => {
     await updateOrderStatus({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -209,6 +216,7 @@ describe("updateOrderStatus — schema rejects unknown actions", () => {
       updateOrderStatus({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: {

@@ -165,7 +165,7 @@ async function fireOne(
     eventType: SCHEDULED_TRIGGER_EVENT_TYPE,
     eventId: `schedule.fired:${trigger.workflowId}:${trigger.nodeId}:${scheduledFireAtMs}`,
     occurredAt: firedAt,
-    accountId: "system",
+    providerAccountId: "system",
     payload: {
       scheduledFireAt: parsed.nextFireAt,
       cronExpression: parsed.cronExpression,

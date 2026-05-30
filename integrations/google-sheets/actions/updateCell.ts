@@ -22,17 +22,17 @@ import {
 export const updateCell: ActionHandler = async (input) => {
   const config: UpdateCellConfig = UpdateCellConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-sheets"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const range = `${config.sheetName}!${config.cell}`;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-sheets",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       valuesUpdate({
         accessToken,

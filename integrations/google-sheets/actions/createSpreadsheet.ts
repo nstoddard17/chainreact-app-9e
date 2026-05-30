@@ -32,9 +32,9 @@ export const createSpreadsheet: ActionHandler = async (input) => {
   const config: CreateSpreadsheetConfig =
     CreateSpreadsheetConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-sheets"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const initialSheetTitles = config.initialSheetName
@@ -42,9 +42,9 @@ export const createSpreadsheet: ActionHandler = async (input) => {
     : undefined;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-sheets",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       spreadsheetsCreate({
         accessToken,

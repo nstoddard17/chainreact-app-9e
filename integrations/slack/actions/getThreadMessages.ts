@@ -20,10 +20,10 @@ export const getThreadMessages: ActionHandler = async (input) => {
 
   const accountId =
     input.triggerEvent.provider === "slack"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
-  const integration = await getActiveForExecution(input.userId, "slack", accountId);
+  const integration = await getActiveForExecution(input.accountId, "slack", accountId);
   if (!integration) {
     throw new Error(
       accountId

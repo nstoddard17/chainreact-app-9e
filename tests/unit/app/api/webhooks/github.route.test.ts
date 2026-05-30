@@ -148,7 +148,7 @@ describe("/api/webhooks/github route — dispatch", () => {
     eventType: "new_commit",
     eventId: "delivery-uuid",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "octocat",
+    providerAccountId: "octocat",
     payload: {},
   };
 

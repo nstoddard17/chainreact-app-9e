@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -50,6 +50,7 @@ describe("append_block_children action", () => {
     await appendBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -81,6 +82,7 @@ describe("append_block_children action", () => {
     const result = await appendBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -107,6 +109,7 @@ describe("append_block_children action", () => {
     await appendBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -130,6 +133,7 @@ describe("append_block_children action", () => {
       appendBlockChildren({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { blockId: "p", children: [] },
@@ -147,6 +151,7 @@ describe("append_block_children action", () => {
       appendBlockChildren({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { blockId: "p", children: big },
@@ -160,6 +165,7 @@ describe("append_block_children action", () => {
       appendBlockChildren({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -176,6 +182,7 @@ describe("append_block_children action", () => {
       appendBlockChildren({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

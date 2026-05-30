@@ -145,7 +145,7 @@ describe("normalizeTrelloEvent — common fields", () => {
     // form is on payload.classifiedType.
     expect(event.eventType).toBe("new_card");
     expect(event.payload.classifiedType).toBe("trello.card.created");
-    expect(event.accountId).toBe("b1");
+    expect(event.providerAccountId).toBe("b1");
   });
 
   it("falls back to a derived eventId when action.id is missing", () => {

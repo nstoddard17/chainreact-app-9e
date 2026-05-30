@@ -35,6 +35,7 @@ describe("Shopify webhook_received trigger registration", () => {
     const shopifyTrigger = {
       id: "tr-1",
       workflowId: "wf-1",
+      workflowAccountId: "acct-1",
       userId: "u",
       provider: "shopify",
       eventType: "webhook_received",
@@ -45,7 +46,7 @@ describe("Shopify webhook_received trigger registration", () => {
         topics: ["orders/create"],
         subscriptions: [{ topic: "orders/create", webhookId: 111 }],
       },
-      accountId: "merchant.myshopify.com",
+      providerAccountId: "merchant.myshopify.com",
       registeredAt: "",
       expiresAt: null,
       lastRenewedAt: null,

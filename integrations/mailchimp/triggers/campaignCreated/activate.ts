@@ -38,9 +38,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   // typical Mailchimp account (campaign volume is low relative to
   // subscriber volume).
   const campaigns = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "mailchimp",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       campaignsList({
         accessToken,

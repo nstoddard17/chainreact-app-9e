@@ -36,9 +36,9 @@ import { CreateCommentConfigSchema } from "./createComment.schema";
 export const createComment: ActionHandler = async (input) => {
   const config = CreateCommentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const target =
@@ -47,9 +47,9 @@ export const createComment: ActionHandler = async (input) => {
       : ({ discussionId: config.discussionId! } as const);
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       commentsCreate({
         accessToken,

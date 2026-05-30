@@ -38,7 +38,7 @@ function trigger(): TriggerEvent {
     eventType: "event_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -64,6 +64,7 @@ describe("add_attendees action", () => {
     const result = await addAttendees({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -110,6 +111,7 @@ describe("add_attendees action", () => {
     const result = await addAttendees({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -137,6 +139,7 @@ describe("add_attendees action", () => {
     await addAttendees({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -159,6 +162,7 @@ describe("add_attendees action", () => {
       addAttendees({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -177,6 +181,7 @@ describe("add_attendees action", () => {
       addAttendees({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { eventId: "evt-1", attendees: "alice@x.com" },
@@ -190,6 +195,7 @@ describe("add_attendees action", () => {
       addAttendees({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -209,6 +215,7 @@ describe("add_attendees action", () => {
       addAttendees({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

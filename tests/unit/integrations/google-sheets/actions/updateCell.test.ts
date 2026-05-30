@@ -29,7 +29,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -40,7 +40,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -59,6 +59,7 @@ describe("updateCell action", () => {
     const result = await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -95,6 +96,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -122,6 +124,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -146,6 +149,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -170,6 +174,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -194,6 +199,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -218,6 +224,7 @@ describe("updateCell action", () => {
     const result = await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -248,6 +255,7 @@ describe("updateCell action", () => {
       updateCell({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -268,6 +276,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -294,6 +303,7 @@ describe("updateCell action", () => {
     await updateCell({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -317,6 +327,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "s", sheetName: "S", cell: "A1", value: "x" },
@@ -330,6 +341,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -348,6 +360,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -367,6 +380,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -384,6 +398,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -401,6 +416,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -420,6 +436,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -438,6 +455,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -456,6 +474,7 @@ describe("updateCell action", () => {
         updateCell({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {

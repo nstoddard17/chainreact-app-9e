@@ -77,8 +77,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "microsoft-onenote",
     null,
   );
@@ -93,16 +92,16 @@ async function poll(input: {
     );
     return;
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   const previousSnapshot = config.snapshot.lastSeenCreatedDateTime;
 
   let result;
   try {
     result = await refreshAndRetry({
-      userId: trigger.userId,
+      accountId: trigger.workflowAccountId!,
       provider: "microsoft-onenote",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         pagesList({
           accessToken,
@@ -166,7 +165,7 @@ async function poll(input: {
 
       const event = normalizeNewNote({
         page,
-        accountId,
+        providerAccountId,
         notebookId: config.notebookId,
         sectionId: config.sectionId,
       });

@@ -22,7 +22,7 @@ import type { AiCostEventRecord } from "@/repositories/aiCostEvents";
 function ev(partial: Partial<AiCostEventRecord>): AiCostEventRecord {
   return {
     id: "e1",
-    userId: "u1",
+    userId: "user-1",
     workflowId: null,
     workflowRunId: null,
     patchId: null,

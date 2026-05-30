@@ -193,7 +193,7 @@ it("Run Now → terminal succeeded → picker shows trigger.payload.subject prev
       eventType: "manual.run",
       eventId: "ev-1",
       occurredAt: "2026-05-17T10:00:00Z",
-      accountId: "system",
+      providerAccountId: "system",
       payload: {
         payload: { subject: "Hello world", from: "alice@example.com" },
       },

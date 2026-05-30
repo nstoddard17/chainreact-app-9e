@@ -34,12 +34,14 @@ export const hubspotTicketPipelinesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "hubspot",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) =>
           pipelinesList({ accessToken, objectType: "tickets" }),
       });

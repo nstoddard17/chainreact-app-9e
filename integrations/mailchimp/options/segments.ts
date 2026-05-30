@@ -76,6 +76,8 @@ export const mailchimpSegmentsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const listId = ctx.deps.listId;
     if (typeof listId !== "string" || listId.length === 0) {
       // Defense-in-depth — the route's requiredDeps guard should fire
@@ -94,14 +96,14 @@ export const mailchimpSegmentsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "mailchimp",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           segmentsList({ accessToken, dc, audienceId: listId, count: 100 }),
       });

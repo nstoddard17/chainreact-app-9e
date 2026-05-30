@@ -34,7 +34,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -52,6 +52,7 @@ describe("add_categories action", () => {
     const result = await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -86,6 +87,7 @@ describe("add_categories action", () => {
     await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: ["A", "B"] },
@@ -110,6 +112,7 @@ describe("add_categories action", () => {
     await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -139,6 +142,7 @@ describe("add_categories action", () => {
     await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: "  Work  ,   Personal  " },
@@ -156,6 +160,7 @@ describe("add_categories action", () => {
       addCategories({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { emailId: "msg-1", categories: "   ,   ,   " },
@@ -179,6 +184,7 @@ describe("add_categories action", () => {
     const result = await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: "Important, Urgent" },
@@ -198,6 +204,7 @@ describe("add_categories action", () => {
     const result = await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: "Important, Urgent" },
@@ -216,6 +223,7 @@ describe("add_categories action", () => {
     await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: "A" },
@@ -239,6 +247,7 @@ describe("add_categories action", () => {
     await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: "A" },
@@ -258,6 +267,7 @@ describe("add_categories action", () => {
       addCategories({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { categories: "A" },
@@ -272,6 +282,7 @@ describe("add_categories action", () => {
       addCategories({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { emailId: "msg-1" },
@@ -290,6 +301,7 @@ describe("add_categories action", () => {
       addCategories({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { emailId: "missing", categories: "A" },
@@ -313,6 +325,7 @@ describe("add_categories action", () => {
     const result = await addCategories({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", categories: "A" },

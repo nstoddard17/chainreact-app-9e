@@ -32,7 +32,7 @@ import { CreateItemConfigSchema } from "./createItem.schema";
  *   }
  *
  * accountId resolution: mirrors every other V2 handler — read from
- * `triggerEvent.accountId` when the run was started by a Monday
+ * `triggerEvent.providerAccountId` when the run was started by a Monday
  * trigger; otherwise null (the `getActiveForExecution` call inside
  * `refreshAndRetry` resolves the single connected integration).
  */
@@ -54,17 +54,17 @@ function serializeColumnValues(
 export const createItem: ActionHandler = async (input) => {
   const config = CreateItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const columnValuesJson = serializeColumnValues(config.columnValues);
 
   const item = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemsCreate({
         accessToken,

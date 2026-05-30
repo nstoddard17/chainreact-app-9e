@@ -112,15 +112,15 @@ export const addFile: ActionHandler = async (input) => {
 
   const fileName = config.filename ?? fetched.name;
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const asset = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       addFileToColumn({
         accessToken,

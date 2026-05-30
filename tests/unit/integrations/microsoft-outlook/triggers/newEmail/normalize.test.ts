@@ -39,7 +39,7 @@ describe("Outlook new_email normalize", () => {
       eventType: "new_email",
       eventId: "sub-1:msg-1:created",
       occurredAt: "2026-05-08T11:30:00Z",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
       payload: {
         messageId: "msg-1",
         conversationId: "conv-1",

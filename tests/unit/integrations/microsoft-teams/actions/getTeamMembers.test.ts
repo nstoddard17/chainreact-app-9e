@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_channel_message",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("get_team_members action", () => {
     const result = await getTeamMembers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1" },
@@ -102,6 +103,7 @@ describe("get_team_members action", () => {
     const result = await getTeamMembers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1" },
@@ -121,6 +123,7 @@ describe("get_team_members action", () => {
     const result = await getTeamMembers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1" },
@@ -145,6 +148,7 @@ describe("get_team_members action", () => {
     await getTeamMembers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", top: 50 },
@@ -159,6 +163,7 @@ describe("get_team_members action", () => {
       getTeamMembers({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { teamId: "team-1", top: 0 },
@@ -170,6 +175,7 @@ describe("get_team_members action", () => {
       getTeamMembers({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { teamId: "team-1", top: 1000 },

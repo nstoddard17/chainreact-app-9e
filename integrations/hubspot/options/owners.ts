@@ -106,12 +106,14 @@ export const hubspotOwnersResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "hubspot",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) => ownersList({ accessToken, limit: 100 }),
       });
     } catch (err) {

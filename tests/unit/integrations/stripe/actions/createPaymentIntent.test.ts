@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -66,6 +66,7 @@ describe("create_payment_intent action", () => {
     await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { amount: 20.99, currency: "usd" },
@@ -79,6 +80,7 @@ describe("create_payment_intent action", () => {
     await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { amount: "100.00", currency: "usd" },
@@ -92,6 +94,7 @@ describe("create_payment_intent action", () => {
     await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-7",
       nodeId: "node-PI",
       config: { amount: 100, currency: "usd" },
@@ -107,6 +110,7 @@ describe("create_payment_intent action", () => {
       createPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { amount: -1, currency: "usd" },
@@ -120,6 +124,7 @@ describe("create_payment_intent action", () => {
       createPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { amount: 100, currency: "USD" },
@@ -134,6 +139,7 @@ describe("create_payment_intent action", () => {
     await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -156,6 +162,7 @@ describe("create_payment_intent action", () => {
     const result = await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { amount: 20.99, currency: "usd" },
@@ -183,6 +190,7 @@ describe("create_payment_intent action", () => {
     const result = await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { amount: 20.99, currency: "usd" },
@@ -203,6 +211,7 @@ describe("create_payment_intent action", () => {
     await createPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { amount: 20.99, currency: "usd" },

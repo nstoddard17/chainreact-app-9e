@@ -25,7 +25,8 @@ beforeEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "github",
   providerAccountId: "octocat",
   displayName: "octocat",
@@ -43,11 +44,12 @@ function trigger(overrides: Record<string, unknown> = {}) {
   return {
     id: "trig-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "github",
     eventType: "new_commit",
     nodeId: "node-trigger-1",
-    accountId: "octocat",
+    providerAccountId: "octocat",
     config: {
       owner: "octocat",
       repo: "hello",

@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -71,6 +71,7 @@ describe("duplicate_board handler", () => {
     await duplicateBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -97,6 +98,7 @@ describe("duplicate_board handler", () => {
     const result = await duplicateBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -120,6 +122,7 @@ describe("duplicate_board handler", () => {
     await duplicateBoard({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

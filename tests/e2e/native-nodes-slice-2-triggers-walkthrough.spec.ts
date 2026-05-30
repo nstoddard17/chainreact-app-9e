@@ -269,7 +269,7 @@ test.describe("Native-nodes Slice 2 — Tier B triggers walkthrough", () => {
     };
     expect(triggerOut.event.provider).toBe("native");
     expect(triggerOut.event.eventType).toBe("manual.run");
-    expect(triggerOut.event.accountId).toBe("system");
+    expect(triggerOut.event.providerAccountId).toBe("system");
     expect(triggerOut.event.payload.inputs).toEqual({
       target: targetValue,
       message: messageValue,
@@ -481,7 +481,7 @@ test.describe("Native-nodes Slice 2 — Tier B triggers walkthrough", () => {
     };
     expect(triggerOut.event.provider).toBe("native");
     expect(triggerOut.event.eventType).toBe("schedule.fired");
-    expect(triggerOut.event.accountId).toBe("system");
+    expect(triggerOut.event.providerAccountId).toBe("system");
     // Composite eventId shape.
     expect(triggerOut.event.eventId).toMatch(
       new RegExp(`^schedule\\.fired:${workflowId}:trigger-node:\\d+$`),

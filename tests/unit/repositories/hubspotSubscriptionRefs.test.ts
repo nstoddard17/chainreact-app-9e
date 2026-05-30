@@ -96,9 +96,9 @@ describe("hubspot_subscription_refs.upsert", () => {
     const state = freshState(baseRow);
     mockServiceRole.current = makeMockClient(state);
     const result = await upsert({
+      userId: "user-1",
       appSubscriptionId: "sub-1",
       workflowId: "wf-1",
-      userId: "user-1",
       nodeId: "trigger-node",
       hubId: "9876543",
       config: { foo: "bar" },
@@ -122,9 +122,9 @@ describe("hubspot_subscription_refs.upsert", () => {
     const state = freshState(baseRow);
     mockServiceRole.current = makeMockClient(state);
     await upsert({
+      userId: "user-1",
       appSubscriptionId: "sub-1",
       workflowId: "wf-1",
-      userId: "user-1",
       nodeId: "trigger-node",
       hubId: "9876543",
     });
@@ -142,9 +142,9 @@ describe("hubspot_subscription_refs.upsert", () => {
     mockServiceRole.current = makeMockClient(state);
     await expect(
       upsert({
+        userId: "user-1",
         appSubscriptionId: "sub-1",
         workflowId: "wf-1",
-        userId: "user-1",
         nodeId: "n",
         hubId: "1",
       }),

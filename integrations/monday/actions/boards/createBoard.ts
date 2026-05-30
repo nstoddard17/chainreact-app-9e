@@ -15,15 +15,15 @@ import { CreateBoardConfigSchema } from "./createBoard.schema";
 export const createBoard: ActionHandler = async (input) => {
   const config = CreateBoardConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const board = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       boardsCreate({
         accessToken,

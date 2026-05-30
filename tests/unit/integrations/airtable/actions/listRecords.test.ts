@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -53,6 +53,7 @@ describe("list_records action", () => {
     const result = await listRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -86,6 +87,7 @@ describe("list_records action", () => {
     const result = await listRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { baseId: "appBASE", tableIdOrName: "Tasks" },
@@ -101,6 +103,7 @@ describe("list_records action", () => {
       listRecords({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -118,6 +121,7 @@ describe("list_records action", () => {
     await listRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { baseId: "appBASE", tableIdOrName: "Tasks" },

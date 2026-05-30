@@ -32,7 +32,7 @@ const triggerEvent: TriggerEvent = {
   eventType: "manual.run",
   eventId: "evt-1",
   occurredAt: "2026-05-15T00:00:00Z",
-  accountId: "system",
+  providerAccountId: "system",
   payload: {},
 };
 
@@ -40,6 +40,7 @@ function makeInput(config: Record<string, unknown>): ActionHandlerInput {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "n-fmt",
     config,

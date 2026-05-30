@@ -136,7 +136,7 @@ function applyFilter(
 export const fetchMessages: ActionHandler = async (input) => {
   const config = FetchMessagesConfigSchema.parse(input.config);
 
-  const integration = await getActiveForExecution(input.userId, "discord", null);
+  const integration = await getActiveForExecution(input.accountId, "discord", null);
   if (!integration) {
     throw new Error("No active Discord integration found for this user.");
   }

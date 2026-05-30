@@ -27,7 +27,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-excel",
   providerAccountId: "alice@contoso.com",
   displayName: "Alice (Excel)",
@@ -155,9 +156,9 @@ describe("microsoftExcelWorkbooksResolver — error sanitization", () => {
   it("maps IntegrationActionRequiredError → INTEGRATION_DISCONNECTED (reconnect)", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "microsoft-excel",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
         reason: "refresh_failed",
       }),
     );

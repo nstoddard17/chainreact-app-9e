@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -88,6 +88,7 @@ describe("search_items handler — column path", () => {
     const result = await searchItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", columnValue: "v", columnId: "status", limit: 25 },
@@ -112,6 +113,7 @@ describe("search_items handler — name path", () => {
     const result = await searchItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", columnValue: "bug", limit: 25 },
@@ -135,6 +137,7 @@ describe("search_items handler — group filter", () => {
     const result = await searchItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

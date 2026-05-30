@@ -17,15 +17,15 @@ import { CreateWorksheetConfigSchema } from "./createWorksheet.schema";
 export const createWorksheet: ActionHandler = async (input) => {
   const config = CreateWorksheetConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetsAdd({
         accessToken,

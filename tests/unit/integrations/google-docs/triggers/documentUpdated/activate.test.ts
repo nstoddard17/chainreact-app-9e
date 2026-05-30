@@ -59,7 +59,8 @@ const baseNode = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "google-docs",
   providerAccountId: "alice@example.com",
   displayName: "alice@example.com",

@@ -60,19 +60,18 @@ export async function pull(
     return { events: [], resyncRequired: true };
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [], resyncRequired: false };
   }
 
   const metadata = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       spreadsheetsGet({
         accessToken,
@@ -121,7 +120,7 @@ export async function pull(
           occurredAt,
         },
         {
-          accountId: integration.providerAccountId,
+          accountId: integration.accountId,
           spreadsheetId: config.spreadsheetId!,
         },
       ),

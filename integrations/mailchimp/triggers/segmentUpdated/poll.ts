@@ -71,8 +71,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "mailchimp",
     null,
   );
@@ -91,12 +90,12 @@ async function poll(input: {
   if (typeof dc !== "string" || dc.length === 0) {
     throw new MissingDataCenterError();
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   const segment = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       segmentGet({
         accessToken,
@@ -140,7 +139,7 @@ async function poll(input: {
           eventType: "segment_updated",
           eventId,
           occurredAt: observed.updatedAt ?? new Date().toISOString(),
-          accountId,
+          providerAccountId,
           payload: {
             listId: config.listId,
             segmentId: config.segmentId,

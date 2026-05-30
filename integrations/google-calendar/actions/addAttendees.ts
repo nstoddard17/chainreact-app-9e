@@ -25,9 +25,9 @@ import {
 export const addAttendees: ActionHandler = async (input) => {
   const config: AddAttendeesConfig = AddAttendeesConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const newEmails = parseRecipients(config.attendees);
@@ -46,9 +46,9 @@ export const addAttendees: ActionHandler = async (input) => {
 
   // Step 1: fetch the existing event.
   const existing = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsGet({
         accessToken,
@@ -96,9 +96,9 @@ export const addAttendees: ActionHandler = async (input) => {
   ];
 
   const patched = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsPatch({
         accessToken,

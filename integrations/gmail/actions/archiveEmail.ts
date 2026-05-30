@@ -14,15 +14,15 @@ import { ArchiveEmailConfigSchema } from "./archiveEmail.schema";
 export const archiveEmail: ActionHandler = async (input) => {
   const config = ArchiveEmailConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesModify({
         accessToken,

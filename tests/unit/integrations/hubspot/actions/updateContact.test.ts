@@ -28,7 +28,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "9876543",
+  providerAccountId: "9876543",
   payload: {},
 };
 
@@ -43,6 +43,7 @@ describe("update_contact", () => {
     const result = await updateContact({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { contactId: "c-42", firstname: "New" },
@@ -71,6 +72,7 @@ describe("update_contact", () => {
       updateContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { contactId: "c-1" },
@@ -84,6 +86,7 @@ describe("update_contact", () => {
       updateContact({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { contactId: "", firstname: "X" },
@@ -97,6 +100,7 @@ describe("update_contact", () => {
     await updateContact({
       workflowId: "wf",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "r",
       nodeId: "n",
       config: { contactId: "c", firstname: "x" },

@@ -28,7 +28,7 @@ const trigger: TriggerEvent = {
   eventType: "webhook_received",
   eventId: "e",
   occurredAt: "x",
-  accountId: "portal-1",
+  providerAccountId: "portal-1",
   payload: {},
 };
 
@@ -38,6 +38,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -56,6 +57,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { properties: "name, price" },
@@ -72,6 +74,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { properties: ["name", "hs_sku"] },
@@ -88,6 +91,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { filterProperty: "hs_sku", filterValue: "SKU-001" },
@@ -103,6 +107,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { filterValue: "x" },
@@ -123,6 +128,7 @@ describe("get_products", () => {
     const result = await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -144,6 +150,7 @@ describe("get_products", () => {
     const result = await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -158,6 +165,7 @@ describe("get_products", () => {
     const result = await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -172,6 +180,7 @@ describe("get_products", () => {
       getProducts({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { limit: 1000 },
@@ -186,6 +195,7 @@ describe("get_products", () => {
       getProducts({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { hasHeaders: true } as Record<string, unknown>,
@@ -199,6 +209,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "user-7",
+      accountId: "acct-user-7",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -215,6 +226,7 @@ describe("get_products", () => {
     await getProducts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { after: "cursor-7" },

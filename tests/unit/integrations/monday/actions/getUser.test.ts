@@ -34,7 +34,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -61,6 +61,7 @@ describe("get_user handler — pure read", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "u-1" },
@@ -85,6 +86,7 @@ describe("get_user handler — pure read", () => {
       getUser({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { userId: "gone" },
@@ -107,6 +109,7 @@ describe("get_user handler — pure read", () => {
     await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "u-1" },

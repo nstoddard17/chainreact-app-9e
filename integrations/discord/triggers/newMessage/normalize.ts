@@ -90,10 +90,10 @@ export function normalizeNewMessage(
     eventType: DISCORD_TRIGGER_EVENT_TYPE,
     eventId: message.id,
     occurredAt,
-    // accountId: the guild id. Mirrors slash_command's accountId
+    // providerAccountId: the guild id. Mirrors slash_command's accountId
     // semantics — per-guild dispatch fan-out + downstream variable
     // pickers branch off this.
-    accountId: guildId,
+    providerAccountId: guildId,
     payload: {
       messageId: message.id,
       content: message.content ?? "",

@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -45,6 +45,7 @@ describe("delete_item action", () => {
     const result = await deleteItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1" },
@@ -67,6 +68,7 @@ describe("delete_item action", () => {
     const result = await deleteItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "gone" },
@@ -89,6 +91,7 @@ describe("delete_item action", () => {
       deleteItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "i" },
@@ -102,6 +105,7 @@ describe("delete_item action", () => {
       deleteItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "" },

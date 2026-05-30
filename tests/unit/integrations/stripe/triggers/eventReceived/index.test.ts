@@ -33,6 +33,7 @@ describe("Stripe event_received trigger registration", () => {
     const stripeTrigger = {
       id: "tr-1",
       workflowId: "wf-1",
+      workflowAccountId: "acct-1",
       userId: "u",
       provider: "stripe",
       eventType: "event_received",
@@ -43,7 +44,7 @@ describe("Stripe event_received trigger registration", () => {
         endpointSecret: "whsec",
         enabledEvents: ["payment_intent.succeeded"],
       },
-      accountId: null,
+      providerAccountId: null,
       registeredAt: "",
       expiresAt: null,
       lastRenewedAt: null,

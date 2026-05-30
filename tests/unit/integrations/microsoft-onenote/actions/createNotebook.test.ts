@@ -32,7 +32,7 @@ const trig: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "t",
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   payload: {},
 };
 
@@ -58,6 +58,7 @@ describe("create_notebook", () => {
     const result = await createNotebook({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { displayName: "Work" },

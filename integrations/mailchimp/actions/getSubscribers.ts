@@ -35,7 +35,8 @@ import { GetSubscribersConfigSchema } from "./getSubscribers.schema";
 export const getSubscribers: ActionHandler = async (input) => {
   const config = GetSubscribersConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
@@ -44,9 +45,9 @@ export const getSubscribers: ActionHandler = async (input) => {
   const requestedOffset = config.offset ?? 0;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       membersList({
         accessToken,

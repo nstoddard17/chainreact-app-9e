@@ -32,9 +32,9 @@ import {
 export const updateEvent: ActionHandler = async (input) => {
   const config: UpdateEventConfig = UpdateEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const patch: Record<string, unknown> = {};
@@ -81,9 +81,9 @@ export const updateEvent: ActionHandler = async (input) => {
   // conference via patch is out of scope for Batch 1.
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsPatch({
         accessToken,

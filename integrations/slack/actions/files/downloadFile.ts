@@ -48,11 +48,10 @@ export const downloadFile: ActionHandler = async (input) => {
 
   const accountId =
     input.triggerEvent.provider === "slack"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
-  const integration = await getActiveForExecution(
-    input.userId,
+  const integration = await getActiveForExecution(input.accountId,
     "slack",
     accountId,
   );

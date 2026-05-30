@@ -61,7 +61,7 @@ function trigger(provider = "mailchimp"): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "mc_account_xyz",
+    providerAccountId: "mc_account_xyz",
     payload: {},
   };
 }
@@ -70,6 +70,7 @@ function input(config: Record<string, unknown>) {
   return {
     workflowId: "w1",
     userId: "u1",
+    accountId: "acct-u1",
     runId: "r1",
     nodeId: "n1",
     config,

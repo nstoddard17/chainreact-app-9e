@@ -16,15 +16,15 @@ import { GetNotebookDetailsConfigSchema } from "./getNotebookDetails.schema";
 export const getNotebookDetails: ActionHandler = async (input) => {
   const config = GetNotebookDetailsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const notebook = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       notebooksGet({ accessToken, notebookId: config.notebookId }),
   });

@@ -86,12 +86,14 @@ export const googleSheetsSpreadsheetsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     let page;
     try {
       page = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-sheets",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) => listSpreadsheets({ accessToken }),
       });
     } catch (err) {

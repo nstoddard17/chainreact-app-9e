@@ -25,7 +25,7 @@ function gaTrigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-25T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -34,6 +34,7 @@ function call(config: Record<string, unknown>) {
   return runReport({
     workflowId: "w",
     userId: "u",
+    accountId: "acct-u",
     runId: "r",
     nodeId: "n",
     config,

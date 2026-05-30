@@ -18,9 +18,9 @@ import { UpdateContactConfigSchema } from "./updateContact.schema";
 export const updateContact: ActionHandler = async (input) => {
   const config = UpdateContactConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {};
@@ -52,9 +52,9 @@ export const updateContact: ActionHandler = async (input) => {
   }
 
   const contact = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       contactsUpdate({
         accessToken,

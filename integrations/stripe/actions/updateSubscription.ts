@@ -35,9 +35,9 @@ import { UpdateSubscriptionConfigSchema } from "./updateSubscription.schema";
 export const updateSubscription: ActionHandler = async (input) => {
   const config = UpdateSubscriptionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const preflight = stripeLivemodePreflight({
@@ -52,9 +52,9 @@ export const updateSubscription: ActionHandler = async (input) => {
   let items: SubscriptionItemUpdate[] | undefined;
   if (config.priceId !== undefined || config.quantity !== undefined) {
     const existing = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "stripe",
-      accountId,
+      providerAccountId,
       preflight,
       apiCall: (accessToken) =>
         subscriptionsGet({
@@ -71,9 +71,9 @@ export const updateSubscription: ActionHandler = async (input) => {
   }
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight,
     apiCall: (accessToken) =>
       subscriptionsUpdate({

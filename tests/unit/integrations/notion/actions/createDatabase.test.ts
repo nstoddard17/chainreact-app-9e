@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -193,6 +193,7 @@ describe("create_database handler", () => {
     await createDatabase({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -232,6 +233,7 @@ describe("create_database handler", () => {
     const result = await createDatabase({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -268,6 +270,7 @@ describe("create_database handler", () => {
     const result = await createDatabase({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -296,6 +299,7 @@ describe("create_database handler", () => {
       createDatabase({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -316,6 +320,7 @@ describe("create_database handler", () => {
     const result = await createDatabase({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

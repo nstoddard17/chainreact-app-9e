@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "e",
     occurredAt: "t",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -102,6 +102,7 @@ describe("list_pages handler", () => {
     const result = await listPages({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "s-1" },
@@ -132,6 +133,7 @@ describe("list_pages handler", () => {
     const result = await listPages({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "s-1" },
@@ -151,6 +153,7 @@ describe("list_pages handler", () => {
     await listPages({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "s-1" },

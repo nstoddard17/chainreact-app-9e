@@ -92,7 +92,8 @@ function makeIntegration(
 ): IntegrationRecord {
   return {
     id: "i1",
-    userId: "u1",
+    accountId: "acct-u1",
+    connectedByUserId: "u1",
     provider: "mailchimp",
     providerAccountId: "mc_xyz",
     displayName: "Acme",
@@ -111,12 +112,13 @@ function makeTrigger(config: Record<string, unknown>): TriggerResourceRecord {
   return {
     id: "tr1",
     workflowId: "w1",
+    workflowAccountId: "acct-w1",
     userId: "u1",
     provider: "mailchimp",
     eventType: "email_opened",
     nodeId: "n1",
     config,
-    accountId: "mc_xyz",
+    providerAccountId: "mc_xyz",
     registeredAt: "2026-01-01T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -230,6 +232,7 @@ describe("email_opened poll — baseline-first", () => {
 
     await mailchimpEmailOpenedPollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: Date.now(),
     });
@@ -243,6 +246,7 @@ describe("email_opened poll — baseline-first", () => {
     const trigger = makeTrigger({ pollingEnabled: true, campaignId: "c1" });
     await mailchimpEmailOpenedPollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: Date.now(),
     });
@@ -286,6 +290,7 @@ describe("email_opened poll — emit on delta", () => {
 
     await mailchimpEmailOpenedPollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: Date.now(),
     });
@@ -327,6 +332,7 @@ describe("email_opened poll — emit on delta", () => {
 
     await mailchimpEmailOpenedPollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: Date.now(),
     });
@@ -353,6 +359,7 @@ describe("email_opened poll — emit on delta", () => {
 
     await mailchimpEmailOpenedPollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: Date.now(),
     });
@@ -382,6 +389,7 @@ describe("email_opened poll — emit on delta", () => {
 
     await mailchimpEmailOpenedPollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: Date.now(),
     });

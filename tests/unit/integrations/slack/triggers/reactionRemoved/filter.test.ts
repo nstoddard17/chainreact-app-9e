@@ -18,7 +18,7 @@ function makeEvent(payload: Record<string, unknown>): TriggerEvent {
     eventType: "slack.reaction_removed",
     eventId: "Ev1",
     occurredAt: "2026-05-07T00:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload,
   };
 }

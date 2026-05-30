@@ -29,7 +29,7 @@ function trigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -52,6 +52,7 @@ describe("appendRow action", () => {
     const result = await appendRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -90,6 +91,7 @@ describe("appendRow action", () => {
     await appendRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -113,6 +115,7 @@ describe("appendRow action", () => {
     await appendRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -134,6 +137,7 @@ describe("appendRow action", () => {
       appendRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "s", range: "S", values: ["x"] }, // missing valueInputOption
@@ -147,6 +151,7 @@ describe("appendRow action", () => {
       appendRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -167,6 +172,7 @@ describe("appendRow action", () => {
       appendRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

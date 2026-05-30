@@ -29,7 +29,7 @@ function trigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -48,6 +48,7 @@ describe("updateRow action", () => {
     const result = await updateRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -84,6 +85,7 @@ describe("updateRow action", () => {
     await updateRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -105,6 +107,7 @@ describe("updateRow action", () => {
       updateRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "s", range: "S", values: ["x"] }, // missing valueInputOption
@@ -118,6 +121,7 @@ describe("updateRow action", () => {
       updateRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -136,6 +140,7 @@ describe("updateRow action", () => {
       updateRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

@@ -22,7 +22,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 function makeRecord(overrides: Partial<IntegrationRecord> = {}): IntegrationRecord {
   return {
     id: "int-1",
-    userId: "u1",
+    accountId: "acct-u1",
+    connectedByUserId: "u1",
     provider: "slack",
     providerAccountId: "T123",
     displayName: "My Slack Team",

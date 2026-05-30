@@ -27,7 +27,7 @@ import { CreateCustomerConfigSchema } from "./createCustomer.schema";
  *     deferred to a future slice).
  *
  * accountId resolution: when the trigger is a Stripe webhook event,
- * `triggerEvent.accountId` is the connected merchant's
+ * `triggerEvent.providerAccountId` is the connected merchant's
  * `stripe_user_id`. For non-Stripe-triggered runs (manual / cross-
  * provider), accountId is null and `refreshAndRetry`'s lookup picks
  * the user's single Stripe integration. Multi-Stripe-account users
@@ -44,9 +44,9 @@ import { CreateCustomerConfigSchema } from "./createCustomer.schema";
 export const createCustomer: ActionHandler = async (input) => {
   const config = CreateCustomerConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const idempotencyKey = buildIdempotencyKey({
@@ -56,9 +56,9 @@ export const createCustomer: ActionHandler = async (input) => {
   });
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "create_customer",
       runTestMode: input.testMode === true,

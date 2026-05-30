@@ -36,7 +36,7 @@ import { filesList } from "@/integrations/google-drive/api/filesList";
  *   - No `requiredDeps` — documents are account-scoped; the picker
  *     opens against the connected Drive.
  *   - Wraps the Drive call in `refreshAndRetry({provider: "google-docs",
- *     accountId: null})` so a stale access token triggers exactly one
+ *     providerAccountId: null})` so a stale access token triggers exactly one
  *     refresh + retry cycle. Google access tokens default to a 1h TTL
  *     so the refresh path is the production-safe choice.
  *   - The Drive `drive` scope is already in the Google Docs manifest
@@ -113,12 +113,14 @@ export const googleDocsDocumentsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     let page;
     try {
       page = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-docs",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) =>
           filesList({
             accessToken,

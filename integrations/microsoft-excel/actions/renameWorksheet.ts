@@ -30,15 +30,15 @@ import { RenameWorksheetConfigSchema } from "./renameWorksheet.schema";
 export const renameWorksheet: ActionHandler = async (input) => {
   const config = RenameWorksheetConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetPatch({
         accessToken,

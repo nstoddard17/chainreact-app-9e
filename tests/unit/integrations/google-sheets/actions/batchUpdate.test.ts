@@ -30,7 +30,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -41,7 +41,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -73,6 +73,7 @@ describe("batchUpdate action", () => {
     const result = await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -138,6 +139,7 @@ describe("batchUpdate action", () => {
     const result = await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -165,6 +167,7 @@ describe("batchUpdate action", () => {
     await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -186,6 +189,7 @@ describe("batchUpdate action", () => {
     const result = await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -216,6 +220,7 @@ describe("batchUpdate action", () => {
     const result = await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -245,6 +250,7 @@ describe("batchUpdate action", () => {
       batchUpdate({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -263,6 +269,7 @@ describe("batchUpdate action", () => {
     await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -287,6 +294,7 @@ describe("batchUpdate action", () => {
     await batchUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -316,6 +324,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: baseConfig,
@@ -331,6 +340,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -352,6 +362,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, valueInputOption: "RAW" },
@@ -367,6 +378,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, valueInputOption: "USER_ENTERED" },
@@ -382,6 +394,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -403,6 +416,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { valueInputOption: "RAW", updates: baseConfig.updates },
@@ -416,6 +430,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, spreadsheetId: "" },
@@ -429,6 +444,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", updates: baseConfig.updates },
@@ -442,6 +458,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, valueInputOption: "AUTO" },
@@ -455,6 +472,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, updates: [] },
@@ -473,6 +491,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, updates: tooMany },
@@ -486,6 +505,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -502,6 +522,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -518,6 +539,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -534,6 +556,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -550,6 +573,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -566,6 +590,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -583,6 +608,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -601,6 +627,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -624,6 +651,7 @@ describe("batchUpdate action", () => {
           batchUpdate({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, ...extra },
@@ -638,6 +666,7 @@ describe("batchUpdate action", () => {
         batchUpdate({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {

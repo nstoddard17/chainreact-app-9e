@@ -42,7 +42,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     payload: {},
   };
 }
@@ -59,6 +59,7 @@ describe("createCustomer", () => {
     await createCustomer({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -87,6 +88,7 @@ describe("createCustomer", () => {
       createCustomer({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { email: "alice@example.com" } as Record<string, unknown>,
@@ -107,6 +109,7 @@ describe("createCustomer", () => {
     const result = await createCustomer({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { email: "x@y.com", send_welcome_email: false },

@@ -35,13 +35,13 @@ beforeEach(() => {
   mockUsersDraftsCreate.mockReset();
 });
 
-function makeGmailTriggerEvent(accountId: string): TriggerEvent {
+function makeGmailTriggerEvent(providerAccountId: string): TriggerEvent {
   return {
     provider: "gmail",
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-12T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -53,6 +53,7 @@ function baseHandlerInput(overrides: {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "node-create-draft",
     config: overrides.config ?? {
@@ -81,7 +82,7 @@ describe("createDraft — refreshAndRetry + accountId routing", () => {
     expect(typeof call.apiCall).toBe("function");
   });
 
-  it("passes accountId: null when the trigger event is not Gmail-shaped", async () => {
+  it("passes providerAccountId: null when the trigger event is not Gmail-shaped", async () => {
     mockRefreshAndRetry.mockResolvedValueOnce({
       id: "d",
       message: { id: "m", threadId: "t" },
@@ -94,7 +95,7 @@ describe("createDraft — refreshAndRetry + accountId routing", () => {
           eventType: "msg",
           eventId: "e",
           occurredAt: "2026-05-12T12:00:00Z",
-          accountId: "T123",
+          providerAccountId: "T123",
           payload: {},
         },
       }),

@@ -37,7 +37,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -53,6 +53,7 @@ describe("create_record action", () => {
     const result = await createRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -94,6 +95,7 @@ describe("create_record action", () => {
     await createRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -112,6 +114,7 @@ describe("create_record action", () => {
     await createRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -130,6 +133,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -148,6 +152,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -180,6 +185,7 @@ describe("create_record action", () => {
     await createRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -209,6 +215,7 @@ describe("create_record action", () => {
     await createRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -236,6 +243,7 @@ describe("create_record action", () => {
     await createRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -257,6 +265,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -281,6 +290,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -305,6 +315,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -335,6 +346,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -365,6 +377,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -400,6 +413,7 @@ describe("create_record action", () => {
       createRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

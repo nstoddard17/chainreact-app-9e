@@ -20,15 +20,15 @@ import { CancelSubscriptionConfigSchema } from "./cancelSubscription.schema";
 export const cancelSubscription: ActionHandler = async (input) => {
   const config = CancelSubscriptionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "cancel_subscription",
       runTestMode: input.testMode === true,

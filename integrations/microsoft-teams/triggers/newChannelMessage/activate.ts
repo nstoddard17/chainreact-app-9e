@@ -103,9 +103,9 @@ export const activate: ActivationFn = async ({ integration, node }) => {
   // before returning. Failure → throw → orchestrator records as
   // TRIGGER_REGISTRATION_FAILED.
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-teams",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

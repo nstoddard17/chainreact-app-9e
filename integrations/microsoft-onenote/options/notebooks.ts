@@ -27,7 +27,7 @@ import { notebooksList } from "@/integrations/microsoft-onenote/api/notebooksLis
  *     `INTEGRATION_DISCONNECTED` if no row exists.
  *   - No `requiredDeps` — notebooks are account-scoped.
  *   - Wrapper goes through `refreshAndRetry({provider:
- *     "microsoft-onenote", accountId: ctx.integration.providerAccountId})`
+ *     "microsoft-onenote", providerAccountId: ctx.integration.accountId})`
  *     so a stale Microsoft access token triggers exactly one refresh +
  *     retry cycle. Microsoft v2 access tokens default to a 60-90 minute
  *     TTL — refresh is the production-safe choice. `accountId` is
@@ -109,14 +109,16 @@ export const microsoftOneNoteNotebooksResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const integration = ctx.integration;
+
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "microsoft-onenote",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           notebooksList({
             accessToken,

@@ -26,7 +26,8 @@ beforeEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "shopify",
   providerAccountId: "merchant.myshopify.com",
   displayName: "merchant.myshopify.com",
@@ -50,12 +51,13 @@ function trigger(
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "shopify",
     eventType: "webhook_received",
     nodeId: "node-1",
     config,
-    accountId: "merchant.myshopify.com",
+    providerAccountId: "merchant.myshopify.com",
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,

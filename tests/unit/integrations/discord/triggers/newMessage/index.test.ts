@@ -16,11 +16,12 @@ describe("discord new_message module-init registration", () => {
     const fakeRow = {
       id: "tr-x",
       workflowId: "wf-x",
+      workflowAccountId: "acct-x",
       userId: "u-x",
       provider: "discord",
       eventType: "new_message",
       nodeId: "n-x",
-      accountId: null,
+      providerAccountId: null,
       config: {},
       registeredAt: "",
       expiresAt: null,

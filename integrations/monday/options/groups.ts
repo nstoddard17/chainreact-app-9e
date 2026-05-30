@@ -21,8 +21,8 @@ import { groupsList } from "@/integrations/_shared/monday/api/groupsList";
  *   - `requiredDeps: ["boardId"]` — route validates + short-circuits
  *     with `MISSING_DEPENDENCY` before dispatch. Dep name preserved
  *     verbatim from V1 (camelCase, NOT snake_case `board_id`).
- *   - Wrapper through `refreshAndRetry({provider: "monday", accountId:
- *     ctx.integration.providerAccountId})`.
+ *   - Wrapper through `refreshAndRetry({provider: "monday", providerAccountId:
+ *     ctx.integration.accountId})`.
  *
  * Cascade fallback: Monday returns an empty `boards` array (not a
  * GraphQL error) when the board id is unknown or no longer accessible.
@@ -57,6 +57,8 @@ export const mondayGroupsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const boardId = ctx.deps.boardId;
     if (typeof boardId !== "string" || boardId.length === 0) {
       throw new OptionsResolverError(
@@ -65,14 +67,14 @@ export const mondayGroupsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "monday",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => groupsList({ accessToken, boardId }),
       });
     } catch (err) {

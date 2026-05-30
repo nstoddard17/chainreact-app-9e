@@ -27,9 +27,9 @@ import { ListBoardsConfigSchema } from "./listBoards.schema";
 export const listBoards: ActionHandler = async (input) => {
   const config = ListBoardsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const currentPage = config.cursor
@@ -37,9 +37,9 @@ export const listBoards: ActionHandler = async (input) => {
     : 1;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       boardsList({
         accessToken,

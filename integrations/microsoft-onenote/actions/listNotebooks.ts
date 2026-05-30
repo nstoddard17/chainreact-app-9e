@@ -18,15 +18,15 @@ import { ListNotebooksConfigSchema } from "./listNotebooks.schema";
 export const listNotebooks: ActionHandler = async (input) => {
   const config = ListNotebooksConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       notebooksList({ accessToken, orderBy: config.orderBy }),
   });

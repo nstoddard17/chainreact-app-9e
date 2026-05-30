@@ -75,9 +75,9 @@ export const exportDocument: ActionHandler = async (input) => {
     input.config,
   );
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-docs"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // 1) Resolve the file name. When the workflow author supplied one,
@@ -91,9 +91,9 @@ export const exportDocument: ActionHandler = async (input) => {
     baseName = config.fileName;
   } else {
     const document = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "google-docs",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         documentsGet({ accessToken, documentId: config.documentId }),
     });
@@ -111,9 +111,9 @@ export const exportDocument: ActionHandler = async (input) => {
 
   // 2) Export via Drive.
   const exportResult = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-docs",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesExport({
         accessToken,

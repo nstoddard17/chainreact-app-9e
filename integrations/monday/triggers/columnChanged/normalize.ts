@@ -48,7 +48,7 @@ export function normalizeColumnChanged(ev: MondayEventObject): TriggerEvent {
     eventType: "column_changed",
     eventId,
     occurredAt,
-    accountId: boardId ?? "unknown",
+    providerAccountId: boardId ?? "unknown",
     payload: {
       changeKind: "column_changed",
       itemId,

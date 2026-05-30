@@ -29,7 +29,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "airtable",
   providerAccountId: "usrAIRTABLEUSER",
   displayName: "Alice (Airtable)",
@@ -187,9 +188,9 @@ describe("airtableTablesResolver — error sanitization", () => {
   it("maps auth errors → INTEGRATION_DISCONNECTED", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "airtable",
-        accountId: "usrAIRTABLEUSER",
+        providerAccountId: "usrAIRTABLEUSER",
         reason: "refresh_failed",
       }),
     );

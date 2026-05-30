@@ -63,7 +63,7 @@ describe("refreshAndRetry — happy path (no 401)", () => {
     const apiCall = jest.fn().mockResolvedValue({ messageId: "m-1" });
 
     const result = await refreshAndRetry({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "gmail",
       apiCall,
     });
@@ -79,7 +79,7 @@ describe("refreshAndRetry — happy path (no 401)", () => {
     const apiCall = jest.fn().mockRejectedValue(new Error("HTTP 500 service unavailable"));
 
     await expect(
-      refreshAndRetry({ userId: "user-1", provider: "gmail", apiCall }),
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
     ).rejects.toThrow(/HTTP 500/);
     expect(mockDispatcherRefresh).not.toHaveBeenCalled();
     expect(apiCall).toHaveBeenCalledTimes(1);
@@ -100,7 +100,7 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       .mockResolvedValueOnce({ ok: true });
 
     const result = await refreshAndRetry({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "gmail",
       apiCall,
     });
@@ -128,7 +128,7 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       .mockRejectedValueOnce(new Unauthorized401Error("still 401"));
 
     await expect(
-      refreshAndRetry({ userId: "user-1", provider: "gmail", apiCall }),
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
     ).rejects.toMatchObject({
       name: "IntegrationActionRequiredError",
       reason: "refresh_failed",
@@ -149,9 +149,9 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       .mockResolvedValueOnce("ok");
 
     await refreshAndRetry({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "gmail",
-      accountId: "alice@example.com",
+      providerAccountId: "alice@example.com",
       apiCall,
     });
 
@@ -182,7 +182,7 @@ describe("refreshAndRetry — refresh-not-supported provider (Slack-shaped path)
     const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
 
     await expect(
-      refreshAndRetry({ userId: "user-1", provider: "slack", apiCall }),
+      refreshAndRetry({ accountId: "user-1", provider: "slack", apiCall }),
     ).rejects.toMatchObject({
       name: "IntegrationActionRequiredError",
       reason: "refresh_not_supported",
@@ -198,7 +198,7 @@ describe("refreshAndRetry — refresh-not-supported provider (Slack-shaped path)
     const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
 
     await expect(
-      refreshAndRetry({ userId: "user-1", provider: "gmail", apiCall }),
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
     ).rejects.toMatchObject({
       name: "IntegrationActionRequiredError",
       reason: "refresh_failed",
@@ -214,7 +214,7 @@ describe("refreshAndRetry — error class shape", () => {
     const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
 
     try {
-      await refreshAndRetry({ userId: "user-1", provider: "gmail", apiCall });
+      await refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(IntegrationActionRequiredError);
@@ -228,7 +228,7 @@ describe("refreshAndRetry — missing integration", () => {
     mockGetActiveForExecution.mockResolvedValueOnce(null);
     const apiCall = jest.fn();
     await expect(
-      refreshAndRetry({ userId: "user-1", provider: "gmail", apiCall }),
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
     ).rejects.toThrow(/no active integration/i);
     expect(apiCall).not.toHaveBeenCalled();
     expect(mockDispatcherRefresh).not.toHaveBeenCalled();
@@ -242,7 +242,7 @@ describe("refreshAndRetry — missing integration", () => {
     const apiCall = jest.fn().mockRejectedValueOnce(new Unauthorized401Error());
 
     await expect(
-      refreshAndRetry({ userId: "user-1", provider: "gmail", apiCall }),
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
     ).rejects.toThrow(/disappeared between refresh and retry/i);
   });
 });
@@ -257,7 +257,7 @@ describe("refreshAndRetry — preflight hook (Slice 3.SEC-14)", () => {
     const preflight = jest.fn();
 
     const result = await refreshAndRetry({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "stripe",
       apiCall,
       preflight,
@@ -284,7 +284,7 @@ describe("refreshAndRetry — preflight hook (Slice 3.SEC-14)", () => {
 
     await expect(
       refreshAndRetry({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "stripe",
         apiCall,
         preflight,
@@ -319,7 +319,7 @@ describe("refreshAndRetry — preflight hook (Slice 3.SEC-14)", () => {
     const preflight = jest.fn();
 
     const result = await refreshAndRetry({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "stripe",
       apiCall,
       preflight,
@@ -335,7 +335,7 @@ describe("refreshAndRetry — preflight hook (Slice 3.SEC-14)", () => {
     mockGetActiveForExecution.mockResolvedValueOnce(makeRow("ENC-tok"));
     const apiCall = jest.fn().mockResolvedValue("ok");
     const result = await refreshAndRetry({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "gmail",
       apiCall,
     });
@@ -349,7 +349,7 @@ describe("refreshAndRetry — preflight hook (Slice 3.SEC-14)", () => {
     const preflight = jest.fn();
     await expect(
       refreshAndRetry({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "stripe",
         apiCall,
         preflight,

@@ -53,17 +53,17 @@ describe("normalizeStripeEvent", () => {
 
   it("uses event.account as accountId on Connect events", () => {
     const result = normalizeStripeEvent(evt({ account: "acct_M_xxx" }));
-    expect(result.accountId).toBe("acct_M_xxx");
+    expect(result.providerAccountId).toBe("acct_M_xxx");
   });
 
   it("falls back accountId to '<platform>' when event.account is null", () => {
     const result = normalizeStripeEvent(evt({ account: null }));
-    expect(result.accountId).toBe("<platform>");
+    expect(result.providerAccountId).toBe("<platform>");
   });
 
   it("falls back accountId to '<platform>' when event.account is missing", () => {
     const result = normalizeStripeEvent(evt({ account: undefined }));
-    expect(result.accountId).toBe("<platform>");
+    expect(result.providerAccountId).toBe("<platform>");
   });
 
   it("payload.stripeEventType carries the original Stripe type (workflow discriminator)", () => {

@@ -60,6 +60,7 @@ function row(overrides: Partial<TriggerResourceRecord> = {}): TriggerResourceRec
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "dropbox",
     eventType: "new_file",
@@ -73,7 +74,7 @@ function row(overrides: Partial<TriggerResourceRecord> = {}): TriggerResourceRec
         capturedAt: "2026-05-24T00:00:00Z",
       },
     },
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "2026-05-24T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -85,7 +86,8 @@ function row(overrides: Partial<TriggerResourceRecord> = {}): TriggerResourceRec
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "dropbox",
   providerAccountId: "dbid:abc",
   displayName: "Alice",
@@ -159,7 +161,7 @@ describe("reconcileDropboxAccounts — fan-out + happy path", () => {
     const [id, config] = mockUpdateConfig.mock.calls[0]!;
     expect(id).toBe("tr-1");
     expect(config.snapshot.cursor).toBe("C1");
-    expect(config.snapshot.accountId).toBe("dbid:abc");
+    expect(config.snapshot.providerAccountId).toBe("dbid:abc");
   });
 
   it("skips rows whose stored account is NOT in the changed set", async () => {

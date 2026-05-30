@@ -44,16 +44,16 @@ export const addAttendees: ActionHandler = async (input) => {
     );
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // 1. GET the current event so we can preserve existing attendees.
   const existingEvent = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsGet({ accessToken, eventId: config.eventId }),
   });
@@ -96,9 +96,9 @@ export const addAttendees: ActionHandler = async (input) => {
   // 4. PATCH with merged list (existing + new).
   const mergedAttendees = [...existingAttendees, ...newGraphAttendees];
   const updatedEvent = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsUpdate({
         accessToken,

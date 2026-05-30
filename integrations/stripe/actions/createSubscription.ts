@@ -22,9 +22,9 @@ import { CreateSubscriptionConfigSchema } from "./createSubscription.schema";
 export const createSubscription: ActionHandler = async (input) => {
   const config = CreateSubscriptionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const idempotencyKey = buildIdempotencyKey({
@@ -34,9 +34,9 @@ export const createSubscription: ActionHandler = async (input) => {
   });
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "create_subscription",
       runTestMode: input.testMode === true,

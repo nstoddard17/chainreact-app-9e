@@ -74,9 +74,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
 
   // 2. Snapshot initial row count so the first notification doesn't backfill.
   const initialValues = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
@@ -108,9 +108,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   //    parity; pull does NOT consume this in Slice 5 Batch 1 (it reads
   //    values.get directly, which is cheaper than walking changes.list).
   const pageBaseline = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
   });
   const pageToken = pageBaseline.startPageToken;
@@ -125,9 +125,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const channelToken = buildChannelToken({ channelId });
 
   const watch = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       filesWatch({
         accessToken,

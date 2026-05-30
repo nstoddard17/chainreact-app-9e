@@ -30,7 +30,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "p",
+  providerAccountId: "p",
   payload: {},
 };
 
@@ -40,6 +40,7 @@ describe("get_owners", () => {
     await getOwners({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -74,6 +75,7 @@ describe("get_owners", () => {
     const result = await getOwners({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -100,6 +102,7 @@ describe("get_owners", () => {
       getOwners({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { email: "not-an-email" },
@@ -113,6 +116,7 @@ describe("get_owners", () => {
       getOwners({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { limit: 500 },
@@ -128,6 +132,7 @@ describe("get_owners", () => {
     const result = await getOwners({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},

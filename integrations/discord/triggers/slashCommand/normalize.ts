@@ -175,11 +175,11 @@ export function normalizeSlashCommand(
     eventType: DISCORD_TRIGGER_EVENT_TYPE,
     eventId: interactionId,
     occurredAt: new Date().toISOString(),
-    // accountId: guild id where the command was invoked. Slash commands
+    // providerAccountId: guild id where the command was invoked. Slash commands
     // are guild-scoped; `null` should never happen for an APPLICATION_COMMAND
     // interaction with type=2, but fall back to "unknown" so the
     // TriggerEvent contract's non-empty-string requirement holds.
-    accountId: guildId ?? "unknown",
+    providerAccountId: guildId ?? "unknown",
     payload: {
       interactionId,
       commandId,

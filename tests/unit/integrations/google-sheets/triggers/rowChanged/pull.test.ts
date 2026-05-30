@@ -45,6 +45,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-sheets",
   eventType: "row_changed",
@@ -57,7 +58,7 @@ const baseTrigger = {
     lastRowCount: 3,
     channelId: "channel-1",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,

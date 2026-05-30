@@ -40,9 +40,9 @@ import { CreatePaymentIntentConfigSchema } from "./createPaymentIntent.schema";
 export const createPaymentIntent: ActionHandler = async (input) => {
   const config = CreatePaymentIntentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const idempotencyKey = buildIdempotencyKey({
@@ -54,9 +54,9 @@ export const createPaymentIntent: ActionHandler = async (input) => {
   const amountCents = dollarsToCents(config.amount);
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "create_payment_intent",
       runTestMode: input.testMode === true,

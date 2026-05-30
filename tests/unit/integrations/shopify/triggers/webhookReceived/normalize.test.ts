@@ -14,7 +14,7 @@ describe("normalizeShopifyEvent — happy path", () => {
     expect(event.eventId).toBe("wh-abc-123");
     expect(event.provider).toBe("shopify");
     expect(event.eventType).toBe("webhook_received");
-    expect(event.accountId).toBe("s.myshopify.com");
+    expect(event.providerAccountId).toBe("s.myshopify.com");
     expect(event.occurredAt).toBe("2026-05-09T12:00:00Z");
   });
 

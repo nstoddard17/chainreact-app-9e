@@ -22,9 +22,9 @@ export const activate: ActivationFn = async ({ integration, node }) => {
   });
 
   const sheets = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-excel",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       worksheetsList({
         accessToken,

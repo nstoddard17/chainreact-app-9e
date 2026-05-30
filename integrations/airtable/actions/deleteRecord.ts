@@ -19,15 +19,15 @@ import { DeleteRecordConfigSchema } from "./deleteRecord.schema";
 export const deleteRecord: ActionHandler = async (input) => {
   const config = DeleteRecordConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "airtable"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "airtable",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       recordsDelete({
         accessToken,

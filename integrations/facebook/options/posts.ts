@@ -59,6 +59,8 @@ export const facebookPostsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const pageId = ctx.deps.pageId;
     if (typeof pageId !== "string" || pageId.length === 0) {
       throw new OptionsResolverError(
@@ -67,14 +69,14 @@ export const facebookPostsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "facebook",
-        accountId,
+        providerAccountId,
         apiCall: async (userToken) => {
           const pageAccessToken = await getPageAccessToken({
             accessToken: userToken,

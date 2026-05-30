@@ -44,6 +44,7 @@ function makeRecord(def: WorkflowDefinition, over: Partial<WorkflowRecord> = {})
   return {
     id: "wf1",
     userId: "owner-1",
+    accountId: "acct-owner-1",
     name: "WF",
     state: "draft",
     disabledReason: null,

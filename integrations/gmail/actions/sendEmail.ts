@@ -102,15 +102,15 @@ export const sendEmail: ActionHandler = async (input) => {
     /* isHtml */ true,
   );
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) => {
       const rfc5322 = buildRfc5322Message({
         to: toAddresses.join(", "),
@@ -136,9 +136,9 @@ export const sendEmail: ActionHandler = async (input) => {
   if (config.labels !== undefined && config.labels.length > 0) {
     try {
       const modifyResult = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "gmail",
-        accountId,
+        providerAccountId,
         apiCall: async (accessToken) =>
           usersMessagesModify({
             accessToken,

@@ -29,7 +29,7 @@ function trigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -45,6 +45,7 @@ describe("clearRange action", () => {
     const result = await clearRange({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss-1", range: "Sheet1!A1:C5" },
@@ -69,6 +70,7 @@ describe("clearRange action", () => {
       clearRange({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -86,6 +88,7 @@ describe("clearRange action", () => {
       clearRange({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "", range: "S" },

@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -47,6 +47,7 @@ describe("get_worksheets action", () => {
     const result = await getWorksheets({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1" },
@@ -75,6 +76,7 @@ describe("get_worksheets action", () => {
       getWorksheets({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},

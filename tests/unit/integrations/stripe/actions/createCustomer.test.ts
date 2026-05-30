@@ -32,13 +32,13 @@ beforeEach(() => {
   );
 });
 
-function trigger(provider = "stripe", accountId = "acct_TEST"): TriggerEvent {
+function trigger(provider = "stripe", providerAccountId = "acct_TEST"): TriggerEvent {
   return {
     provider,
     eventType: provider === "stripe" ? "manual" : "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -70,6 +70,7 @@ describe("create_customer action", () => {
     const result = await createCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "node-A",
       config: {
@@ -101,6 +102,7 @@ describe("create_customer action", () => {
     await createCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-42",
       nodeId: "node-X",
       config: { email: "alice@example.com" },
@@ -117,6 +119,7 @@ describe("create_customer action", () => {
     await createCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "x@y.com" },
@@ -133,6 +136,7 @@ describe("create_customer action", () => {
     await createCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "x@y.com" },
@@ -147,6 +151,7 @@ describe("create_customer action", () => {
       createCustomer({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { email: "not-an-email" },
@@ -161,6 +166,7 @@ describe("create_customer action", () => {
       createCustomer({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -182,6 +188,7 @@ describe("create_customer action", () => {
     await createCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "alice@example.com" },

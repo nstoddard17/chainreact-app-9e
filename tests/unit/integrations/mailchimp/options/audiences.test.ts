@@ -37,7 +37,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "mailchimp",
   providerAccountId: "mc-account-9001",
   displayName: "Acme (Mailchimp)",
@@ -229,9 +230,9 @@ describe("mailchimpAudiencesResolver — error sanitization", () => {
   it("maps IntegrationActionRequiredError → INTEGRATION_DISCONNECTED (refresh_not_supported branch)", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "mailchimp",
-        accountId: "mc-account-9001",
+        providerAccountId: "mc-account-9001",
         reason: "refresh_not_supported",
       }),
     );

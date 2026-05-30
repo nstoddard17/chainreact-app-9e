@@ -40,6 +40,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "microsoft-outlook-calendar",
   eventType: "event_changed",
@@ -52,7 +53,7 @@ const baseTrigger = {
     changeType: "created,updated,deleted",
     expiresAt: "2026-05-09T12:00:00.000Z",
   },
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -62,7 +63,8 @@ const baseTrigger = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-outlook-calendar",
   providerAccountId: "alice@contoso.com",
   displayName: "alice@contoso.com",

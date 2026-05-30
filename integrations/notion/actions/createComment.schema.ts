@@ -22,7 +22,7 @@ import { z } from "zod";
  *     handler then silently dropped it because Notion's public API
  *     does not support block-level comments. V2 rejects at schema time
  *     to surface the limitation loudly.
- *   - `workspace` selector. Resolved via triggerEvent.accountId.
+ *   - `workspace` selector. Resolved via triggerEvent.providerAccountId.
  */
 export const CreateCommentConfigSchema = z
   .object({

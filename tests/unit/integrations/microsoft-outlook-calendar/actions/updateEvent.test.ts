@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "event_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -47,6 +47,7 @@ describe("update_event action", () => {
     await updateEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { eventId: "evt-1", subject: "Renamed Meeting" },
@@ -68,6 +69,7 @@ describe("update_event action", () => {
     await updateEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -92,6 +94,7 @@ describe("update_event action", () => {
     await updateEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -114,6 +117,7 @@ describe("update_event action", () => {
     await updateEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -143,6 +147,7 @@ describe("update_event action", () => {
     await updateEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -164,6 +169,7 @@ describe("update_event action", () => {
       updateEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { eventId: "evt-1" },
@@ -178,6 +184,7 @@ describe("update_event action", () => {
       updateEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { eventId: "evt-1", body: "hi" },
@@ -191,6 +198,7 @@ describe("update_event action", () => {
       updateEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { subject: "x" },
@@ -206,6 +214,7 @@ describe("update_event action", () => {
       updateEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { eventId: "evt-1", subject: "x" },

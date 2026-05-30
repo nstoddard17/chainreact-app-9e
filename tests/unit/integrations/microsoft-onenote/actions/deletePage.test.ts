@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "e",
     occurredAt: "t",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -74,6 +74,7 @@ describe("delete_page handler", () => {
     const result = await deletePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -89,6 +90,7 @@ describe("delete_page handler", () => {
     const result = await deletePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -105,6 +107,7 @@ describe("delete_page handler", () => {
     await deletePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },

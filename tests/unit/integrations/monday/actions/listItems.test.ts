@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -84,6 +84,7 @@ describe("list_items handler — pure read", () => {
     const result = await listItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", limit: 25 },
@@ -126,6 +127,7 @@ describe("list_items handler — pure read", () => {
     const result = await listItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", limit: 25, groupId: "g-1" },
@@ -146,6 +148,7 @@ describe("list_items handler — pure read", () => {
     const result = await listItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", limit: 25 },
@@ -164,6 +167,7 @@ describe("list_items handler — pure read", () => {
     await listItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", limit: 25, cursor: "page-2-token" },

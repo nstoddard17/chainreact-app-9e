@@ -269,7 +269,7 @@ describe("useUpstreamVariables — latestValuesBySource (Slice 3.9)", () => {
         eventType: "manual.run",
         eventId: "ev1",
         occurredAt: "2026-05-17T00:00:00Z",
-        accountId: "system",
+        providerAccountId: "system",
         payload: { inputs: { foo: "bar" } },
       },
       steps: [

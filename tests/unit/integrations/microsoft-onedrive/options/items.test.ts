@@ -37,7 +37,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-onedrive",
   providerAccountId: "user@example.com",
   displayName: "User OneDrive",
@@ -210,9 +211,9 @@ describe("microsoftOneDriveItemsResolver — error sanitization", () => {
     });
     mockDriveItemsList.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "microsoft-onedrive",
-        accountId: "user@example.com",
+        providerAccountId: "user@example.com",
         reason: "refresh_failed",
       }),
     );

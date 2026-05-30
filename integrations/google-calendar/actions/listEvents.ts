@@ -13,15 +13,15 @@ import { ListEventsConfigSchema, type ListEventsConfig } from "./listEvents.sche
 export const listEvents: ActionHandler = async (input) => {
   const config: ListEventsConfig = ListEventsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsList({
         accessToken,

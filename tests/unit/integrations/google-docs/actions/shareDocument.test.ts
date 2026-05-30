@@ -36,7 +36,7 @@ function docsTrigger(): TriggerEvent {
     eventType: "document_updated",
     eventId: "evt-1",
     occurredAt: "2026-05-23T12:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -47,6 +47,7 @@ describe("share_document — Q11 sendNotification gate", () => {
       shareDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -64,6 +65,7 @@ describe("share_document — Q11 sendNotification gate", () => {
     await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -88,6 +90,7 @@ describe("share_document — per-user sharing", () => {
     const result = await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -109,6 +112,7 @@ describe("share_document — per-user sharing", () => {
     await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -130,6 +134,7 @@ describe("share_document — per-user sharing", () => {
     await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -153,6 +158,7 @@ describe("share_document — per-user sharing", () => {
     const result = await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -177,6 +183,7 @@ describe("share_document — public sharing (makePublic)", () => {
     const result = await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -206,6 +213,7 @@ describe("share_document — public sharing (makePublic)", () => {
     const result = await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -227,6 +235,7 @@ describe("share_document — transferOwnership", () => {
     await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -251,6 +260,7 @@ describe("share_document — transferOwnership", () => {
       shareDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -271,6 +281,7 @@ describe("share_document — transferOwnership", () => {
       shareDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -293,6 +304,7 @@ describe("share_document — output shape", () => {
     const result = await shareDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

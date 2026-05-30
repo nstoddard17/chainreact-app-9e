@@ -25,6 +25,7 @@ function makeTrigger(
   return {
     id: "tr1",
     workflowId: "w1",
+    workflowAccountId: "acct-w1",
     userId: "u1",
     provider: "mailchimp",
     eventType: "audience_event",
@@ -34,7 +35,7 @@ function makeTrigger(
       eventTypes: ["subscribe", "unsubscribe"],
       webhookId: "wh-uuid-1",
     },
-    accountId: "mc_xyz",
+    providerAccountId: "mc_xyz",
     registeredAt: "2026-01-01T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -209,7 +210,7 @@ describe("receiveMailchimpWebhook — events", () => {
       const event = result.events[0]!;
       expect(event.provider).toBe("mailchimp");
       expect(event.eventType).toBe("audience_event");
-      expect(event.accountId).toBe("mc_xyz");
+      expect(event.providerAccountId).toBe("mc_xyz");
       expect(event.payload.type).toBe("subscribe");
       expect(event.payload.audienceId).toBe("1a2b3c4d5e");
       expect(event.payload.email).toBe("urist@example.com");

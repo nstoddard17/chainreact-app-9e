@@ -32,7 +32,7 @@ const trig: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "t",
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   payload: {},
 };
 
@@ -54,6 +54,7 @@ describe("create_section", () => {
     await createSection({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { notebookId: "nb-1", displayName: "Q4 Notes" },
@@ -75,6 +76,7 @@ describe("create_section", () => {
     const result = await createSection({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { notebookId: "nb-1", displayName: "Q4" },

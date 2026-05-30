@@ -37,7 +37,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -69,6 +69,7 @@ describe("fetch_emails action — no-query path", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -108,6 +109,7 @@ describe("fetch_emails action — no-query path", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -129,6 +131,7 @@ describe("fetch_emails action — no-query path", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { folderId: "inbox", maxResults: 10 },
@@ -165,6 +168,7 @@ describe("fetch_emails action — query path", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -189,6 +193,7 @@ describe("fetch_emails action — query path", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { query: "   ", maxResults: 10 },
@@ -206,6 +211,7 @@ describe("fetch_emails action — query path", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { query: "", maxResults: 10 },
@@ -226,6 +232,7 @@ describe("fetch_emails action — query path", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -272,6 +279,7 @@ describe("fetch_emails action — output shape", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { maxResults: 10 },
@@ -310,6 +318,7 @@ describe("fetch_emails action — output shape", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { maxResults: 10 },
@@ -337,6 +346,7 @@ describe("fetch_emails action — output shape", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { maxResults: 10 },
@@ -358,6 +368,7 @@ describe("fetch_emails action — output shape", () => {
     const result = await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { query: "x", maxResults: 4 },
@@ -376,6 +387,7 @@ describe("fetch_emails action — account routing + Q3", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { maxResults: 10 },
@@ -396,6 +408,7 @@ describe("fetch_emails action — account routing + Q3", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { maxResults: 10 },
@@ -416,6 +429,7 @@ describe("fetch_emails action — account routing + Q3", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { maxResults: 10 },
@@ -434,6 +448,7 @@ describe("fetch_emails action — account routing + Q3", () => {
       fetchEmails({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { maxResults: 10 },
@@ -450,6 +465,7 @@ describe("fetch_emails action — schema enforcement", () => {
     await fetchEmails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -464,6 +480,7 @@ describe("fetch_emails action — schema enforcement", () => {
       fetchEmails({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { extra: "leak", maxResults: 10 },
@@ -478,6 +495,7 @@ describe("fetch_emails action — schema enforcement", () => {
       fetchEmails({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { maxResults: 51 },

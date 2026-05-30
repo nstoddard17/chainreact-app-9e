@@ -20,15 +20,15 @@ import { GetTeamMembersConfigSchema } from "./getTeamMembers.schema";
 export const getTeamMembers: ActionHandler = async (input) => {
   const config = GetTeamMembersConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-teams"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-teams",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       teamMembersList({
         accessToken,

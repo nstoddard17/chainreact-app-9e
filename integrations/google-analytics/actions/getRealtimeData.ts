@@ -18,15 +18,15 @@ import { GetRealtimeDataConfigSchema } from "./getRealtimeData.schema";
 export const getRealtimeData: ActionHandler = async (input) => {
   const config = GetRealtimeDataConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-analytics"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const report = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-analytics",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       runRealtimeReportApi({
         accessToken,

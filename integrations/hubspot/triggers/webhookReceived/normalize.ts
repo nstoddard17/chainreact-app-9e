@@ -112,7 +112,7 @@ export function normalizeHubSpotEvent(
     eventType: HUBSPOT_TRIGGER_EVENT_TYPE,
     eventId: buildDedupId(event),
     occurredAt: bestOccurredAt(event),
-    accountId: String(event.portalId),
+    providerAccountId: String(event.portalId),
     payload: {
       subscriptionType: event.subscriptionType,
       portalId: String(event.portalId),

@@ -78,9 +78,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
 
 // Imports of the REAL repositories must come AFTER jest.mock (hoisted).
 import { create as createWorkflow } from "@/repositories/workflows";
-import { upsertActive as upsertIntegration } from "@/repositories/integrations";
 import { createWorkflowRunStart } from "@/repositories/workflowRunsLifecycle";
-import type { EncryptedTokens } from "@/contracts/integration";
 
 const describeDb = RUN ? describe : describe.skip;
 
@@ -114,15 +112,6 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
       .single<{ id: string }>();
     if (error || !data) throw new Error(`getPersonalAccountId: ${error?.message ?? "no row"}`);
     return data.id;
-  }
-
-  function buildTokens(): EncryptedTokens {
-    return {
-      accessTokenEncrypted: "encrypted-access-token",
-      refreshTokenEncrypted: null,
-      accessTokenExpiresAt: null,
-      scopes: ["chat:write"],
-    };
   }
 
   afterAll(async () => {
@@ -160,35 +149,12 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
     expect(row!.created_by_user_id).toBe(userId);
   });
 
-  it("integrations.upsertActive({ userId, provider, ... }) — existing signature inserts successfully + trigger populates account_id + connected_by_user_id", async () => {
-    const userId = await createTestUser("int-upsert");
-    const personalAccountId = await getPersonalAccountId(userId);
-
-    const provider = "slack";
-    const providerAccountId = `T-compat-${Math.random().toString(36).slice(2, 10)}`;
-
-    const result = await upsertIntegration({
-      userId,
-      provider,
-      providerAccountId,
-      displayName: "Compat trigger workspace",
-      tokens: buildTokens(),
-      accountMetadata: { harness: true },
-    });
-    expect(result.userId).toBe(userId);
-    expect(result.provider).toBe(provider);
-    expect(result.providerAccountId).toBe(providerAccountId);
-
-    const { data: row, error } = await adminClient!
-      .from("integrations")
-      .select("user_id, account_id, connected_by_user_id")
-      .eq("id", result.id)
-      .single<{ user_id: string; account_id: string; connected_by_user_id: string }>();
-    expect(error).toBeNull();
-    expect(row!.user_id).toBe(userId);
-    expect(row!.account_id).toBe(personalAccountId);
-    expect(row!.connected_by_user_id).toBe(userId);
-  });
+  // The compat-trigger sub-test for integrations was removed in Slice
+  // 4.ACCOUNT-MODEL-6 — the column `integrations.user_id` is gone, the
+  // compat trigger was dropped, and `upsertActive` now requires
+  // `accountId` + `connectedByUserId` directly. See
+  // `tests/integration/security/integrations-account-rls.test.ts` and
+  // the new cross-account isolation tests for the post-cutover surface.
 
   it("workflowRunsLifecycle.createWorkflowRunStart({ userId, workflowId, ... }) — existing signature inserts successfully + trigger derives account_id from owning workflow + triggered_by_user_id stays NULL", async () => {
     const userId = await createTestUser("run-start");
@@ -209,7 +175,7 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
         eventType: "manual_trigger",
         eventId: `evt-${Date.now()}`,
         occurredAt: nowIso,
-        accountId: "harness",
+        providerAccountId: "harness",
         payload: {},
       },
       startedAt: nowIso,
@@ -308,7 +274,7 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
           eventType: "manual_trigger",
           eventId: `evt-${Date.now()}`,
           occurredAt: nowIso,
-          accountId: "harness",
+          providerAccountId: "harness",
           payload: {},
         },
         started_at: nowIso,

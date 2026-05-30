@@ -57,7 +57,7 @@ function makeEvent(eventId: string = "evt-1") {
     eventType: "webhook_received",
     eventId,
     occurredAt: "2026-05-10T00:00:00Z",
-    accountId: "9988776",
+    providerAccountId: "9988776",
     payload: {
       subscriptionType: "contact.creation",
       portalId: "9988776",

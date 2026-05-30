@@ -128,7 +128,7 @@ describe("/api/webhooks/discord — dispatch", () => {
     eventType: "slash_command",
     eventId: "interaction-1",
     occurredAt: "2026-05-23T00:00:00Z",
-    accountId: "guild-1",
+    providerAccountId: "guild-1",
     payload: { commandName: "report" },
   };
 

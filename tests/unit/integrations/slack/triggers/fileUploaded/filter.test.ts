@@ -22,7 +22,7 @@ function makeEvent(payload: Record<string, unknown>): TriggerEvent {
     eventType: "slack.file_shared",
     eventId: "Ev0001",
     occurredAt: "2026-05-14T00:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload,
   };
 }

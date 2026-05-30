@@ -18,9 +18,9 @@ export const archiveCard: ActionHandler = async (input) => {
 
   // Trello integrations are tokenScope: "user". See createCard.ts.
   const card = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "trello",
-    accountId: null,
+    providerAccountId: null,
     apiCall: (accessToken) =>
       cardsUpdate({
         accessToken,

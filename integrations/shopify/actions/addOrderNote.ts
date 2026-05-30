@@ -21,7 +21,8 @@ import { resolveShopDomain } from "./_resolveShop";
  */
 export const addOrderNote: ActionHandler = async (input) => {
   const config = AddOrderNoteConfigSchema.parse(input.config);
-  const { shopDomain, accountId } = await resolveShopDomain({
+  const { shopDomain, providerAccountId } = await resolveShopDomain({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
@@ -29,9 +30,9 @@ export const addOrderNote: ActionHandler = async (input) => {
   let finalNote: string;
   if (config.append) {
     const existing = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "shopify",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         ordersGet({ shopDomain, accessToken, orderId: config.order_id }),
     });
@@ -42,9 +43,9 @@ export const addOrderNote: ActionHandler = async (input) => {
   }
 
   const order = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "shopify",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       ordersUpdate({
         shopDomain,

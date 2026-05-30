@@ -21,7 +21,7 @@ import { CreateCheckoutSessionConfigSchema } from "./createCheckoutSession.schem
  * (V1 used identical shape; cutover parity).
  *
  * `accountId` resolution: when the workflow's trigger is a Stripe
- * webhook event, `triggerEvent.accountId` carries the connected
+ * webhook event, `triggerEvent.providerAccountId` carries the connected
  * merchant's `stripe_user_id`. For manual / cross-provider triggers,
  * `accountId` is null and `refreshAndRetry`'s integration lookup
  * picks the user's single Stripe integration row.
@@ -45,9 +45,9 @@ import { CreateCheckoutSessionConfigSchema } from "./createCheckoutSession.schem
 export const createCheckoutSession: ActionHandler = async (input) => {
   const config = CreateCheckoutSessionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const idempotencyKey = buildIdempotencyKey({
@@ -57,9 +57,9 @@ export const createCheckoutSession: ActionHandler = async (input) => {
   });
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "create_checkout_session",
       runTestMode: input.testMode === true,

@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -128,6 +128,7 @@ describe("create_comment handler — page parent target", () => {
     await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", text: "Hello" },
@@ -155,6 +156,7 @@ describe("create_comment handler — page parent target", () => {
     const result = await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", text: "Hello" },
@@ -186,6 +188,7 @@ describe("create_comment handler — discussion target", () => {
     await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { discussionId: "d-existing", text: "Reply" },
@@ -209,6 +212,7 @@ describe("create_comment handler — discussion target", () => {
     const result = await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { discussionId: "d-existing", text: "Reply" },
@@ -234,6 +238,7 @@ describe("create_comment handler — output discipline + error propagation", () 
     const result = await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", text: "hi" },
@@ -260,6 +265,7 @@ describe("create_comment handler — output discipline + error propagation", () 
     const result = await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", text: "Hello, world!" },
@@ -275,6 +281,7 @@ describe("create_comment handler — output discipline + error propagation", () 
       createComment({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "p-missing", text: "hi" },
@@ -293,6 +300,7 @@ describe("create_comment handler — output discipline + error propagation", () 
     const result = await createComment({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", text: "hi" },

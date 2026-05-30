@@ -50,9 +50,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
 
   // 2a. Capture baseline cursor.
   const baseline = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-docs",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
   });
   const pageToken = baseline.startPageToken;
@@ -67,9 +67,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const channelToken = buildChannelToken({ channelId });
 
   const watch = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-docs",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       filesWatch({
         accessToken,

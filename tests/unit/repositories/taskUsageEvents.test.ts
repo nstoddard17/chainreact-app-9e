@@ -198,7 +198,6 @@ describe("taskUsageEvents.listEventsForAnalytics (owner/admin, service-role)", (
     const records = await listEventsForAnalytics({
       from: "2026-05-01",
       to: "2026-05-31",
-      userId: "u9",
       workflowId: "wf-1",
       limit: 100,
     });

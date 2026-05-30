@@ -28,6 +28,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-nw-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-sheets",
   eventType: "new_worksheet",
@@ -39,7 +40,7 @@ const baseTrigger = {
     resourceId: "res-nw",
     worksheetSnapshot: { names: ["Sheet1"], updatedAt: "" },
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -49,7 +50,8 @@ const baseTrigger = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "google-sheets",
   providerAccountId: "alice@example.com",
   displayName: "alice@example.com",

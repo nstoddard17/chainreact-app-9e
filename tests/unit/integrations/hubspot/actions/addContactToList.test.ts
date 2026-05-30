@@ -32,7 +32,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "p",
+  providerAccountId: "p",
   payload: {},
 };
 
@@ -44,6 +44,7 @@ describe("add_contact_to_list", () => {
     await addContactToList({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { listId: "list-1", email: "alice@example.com" },
@@ -63,6 +64,7 @@ describe("add_contact_to_list", () => {
     const result = await addContactToList({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { listId: "l-1", email: "a@b.com" },
@@ -81,6 +83,7 @@ describe("add_contact_to_list", () => {
     const result = await addContactToList({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { listId: "l", email: "a@b.com" },
@@ -95,6 +98,7 @@ describe("add_contact_to_list", () => {
       addContactToList({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { listId: "l", email: "not-an-email" },
@@ -108,6 +112,7 @@ describe("add_contact_to_list", () => {
       addContactToList({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { listId: "", email: "a@b.com" },
@@ -121,6 +126,7 @@ describe("add_contact_to_list", () => {
     await addContactToList({
       workflowId: "wf",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "r",
       nodeId: "n",
       config: { listId: "l", email: "a@b.com" },

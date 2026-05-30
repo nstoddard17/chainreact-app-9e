@@ -32,7 +32,7 @@ function trigger(provider: string = "microsoft-outlook-calendar"): TriggerEvent 
     eventType: "event_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -60,6 +60,7 @@ describe("create_event action", () => {
     const result = await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: VALID_CONFIG,
@@ -100,6 +101,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -121,6 +123,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -142,6 +145,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -165,6 +169,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: VALID_CONFIG,
@@ -181,6 +186,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -204,6 +210,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -231,6 +238,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: VALID_CONFIG,
@@ -249,6 +257,7 @@ describe("create_event action", () => {
     await createEvent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: VALID_CONFIG,
@@ -265,6 +274,7 @@ describe("create_event action", () => {
       createEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -280,6 +290,7 @@ describe("create_event action", () => {
       createEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -293,6 +304,7 @@ describe("create_event action", () => {
       createEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...VALID_CONFIG, body: "Hello!" },
@@ -307,6 +319,7 @@ describe("create_event action", () => {
       createEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...VALID_CONFIG, unknownExtra: "leak" },
@@ -322,6 +335,7 @@ describe("create_event action", () => {
       createEvent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: VALID_CONFIG,

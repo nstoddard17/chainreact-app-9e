@@ -96,7 +96,7 @@ export function normalize(
     eventType: "file_changed",
     eventId,
     occurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       changeKind,
       objectKind,

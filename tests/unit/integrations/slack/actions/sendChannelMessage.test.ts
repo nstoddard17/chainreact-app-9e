@@ -37,13 +37,14 @@ const slackEvent: TriggerEvent = {
   eventType: "message",
   eventId: "Ev1",
   occurredAt: "2026-05-07T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: { text: "hi", channel: "C123" },
 };
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "slack",
   providerAccountId: "T0001",
   displayName: "Acme",
@@ -64,6 +65,7 @@ function makeInput(
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "n2",
     config,
@@ -132,7 +134,7 @@ describe("sendChannelMessage — happy path", () => {
     const otherProviderEvent: TriggerEvent = {
       ...slackEvent,
       provider: "gmail",
-      accountId: "gmail-account",
+      providerAccountId: "gmail-account",
     };
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
     mockDecryptToken.mockReturnValueOnce("xoxb-real-token");
@@ -181,7 +183,7 @@ describe("sendChannelMessage — integration missing", () => {
     const otherProviderEvent: TriggerEvent = {
       ...slackEvent,
       provider: "gmail",
-      accountId: "g",
+      providerAccountId: "g",
     };
     await expect(
       sendChannelMessage(

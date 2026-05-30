@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -57,6 +57,7 @@ describe("create_group handler", () => {
     await createGroup({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", groupTitle: "G", color: "#ff0000" },
@@ -78,6 +79,7 @@ describe("create_group handler", () => {
     const result = await createGroup({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", groupTitle: "G" },
@@ -94,6 +96,7 @@ describe("create_group handler", () => {
     await createGroup({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", groupTitle: "G" },

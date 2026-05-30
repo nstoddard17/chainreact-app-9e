@@ -56,6 +56,8 @@ export const hubspotDealStagesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const pipelineId = ctx.deps.pipeline;
     if (typeof pipelineId !== "string" || pipelineId.length === 0) {
       // Defense-in-depth — the route's requiredDeps guard should fire
@@ -69,9 +71,9 @@ export const hubspotDealStagesResolver: OptionsResolver = {
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "hubspot",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) =>
           pipelinesList({ accessToken, objectType: "deals" }),
       });

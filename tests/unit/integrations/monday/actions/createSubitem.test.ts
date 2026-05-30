@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -93,6 +93,7 @@ describe("create_subitem handler", () => {
     await createSubitem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { parentItemId: "p-1", subitemName: "New sub" },
@@ -113,6 +114,7 @@ describe("create_subitem handler", () => {
     await createSubitem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -137,6 +139,7 @@ describe("create_subitem handler", () => {
     const result = await createSubitem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { parentItemId: "p-1", subitemName: "Original" },
@@ -161,6 +164,7 @@ describe("create_subitem handler", () => {
     await createSubitem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { parentItemId: "p", subitemName: "s" },

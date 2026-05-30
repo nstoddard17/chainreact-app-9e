@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -80,6 +80,7 @@ describe("find_payment_intent action", () => {
     const result = await findPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -112,6 +113,7 @@ describe("find_payment_intent action", () => {
     const result = await findPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_missing" },
@@ -134,6 +136,7 @@ describe("find_payment_intent action", () => {
     const result = await findPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -154,6 +157,7 @@ describe("find_payment_intent action", () => {
     const result = await findPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -168,6 +172,7 @@ describe("find_payment_intent action", () => {
     const result = await findPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -192,6 +197,7 @@ describe("find_payment_intent action", () => {
     await findPaymentIntent({
       workflowId: "wf",
       userId: "u-123",
+      accountId: "acct-u-123",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -208,6 +214,7 @@ describe("find_payment_intent action", () => {
     await findPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -225,6 +232,7 @@ describe("find_payment_intent action", () => {
       findPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { paymentIntentId: "pi_1" },
@@ -238,6 +246,7 @@ describe("find_payment_intent action", () => {
       findPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -252,6 +261,7 @@ describe("find_payment_intent action", () => {
       findPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { paymentIntentId: "pi_1", expand: ["charges"] },

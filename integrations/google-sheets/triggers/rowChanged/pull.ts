@@ -94,19 +94,18 @@ async function pullAddedOnly(
     return { events: [], resyncRequired: true };
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [], resyncRequired: false };
   }
 
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
@@ -137,7 +136,7 @@ async function pullAddedOnly(
             occurredAt,
           },
           {
-            accountId: integration.providerAccountId,
+            accountId: integration.accountId,
             spreadsheetId: config.spreadsheetId!,
             sheetName: config.sheetName!,
             headers,
@@ -198,19 +197,18 @@ async function pullSnapshotMode(
     return { events: [], resyncRequired: true };
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [], resyncRequired: false };
   }
 
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
@@ -253,7 +251,7 @@ async function pullSnapshotMode(
 
   const occurredAt = new Date().toISOString();
   const context = {
-    accountId: integration.providerAccountId,
+    accountId: integration.accountId,
     spreadsheetId: config.spreadsheetId!,
     sheetName: config.sheetName!,
     headers,

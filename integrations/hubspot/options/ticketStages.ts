@@ -39,6 +39,8 @@ export const hubspotTicketStagesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const pipelineId = ctx.deps.hs_pipeline;
     if (typeof pipelineId !== "string" || pipelineId.length === 0) {
       throw new OptionsResolverError(
@@ -50,9 +52,9 @@ export const hubspotTicketStagesResolver: OptionsResolver = {
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "hubspot",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) =>
           pipelinesList({ accessToken, objectType: "tickets" }),
       });

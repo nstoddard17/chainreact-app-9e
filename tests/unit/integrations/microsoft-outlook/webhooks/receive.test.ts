@@ -43,6 +43,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "microsoft-outlook",
   eventType: "new_email",
@@ -53,7 +54,7 @@ const baseTrigger = {
     clientState: "deadbeef",
     resource: "/me/messages",
   },
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -63,7 +64,8 @@ const baseTrigger = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-outlook",
   providerAccountId: "alice@contoso.com",
   displayName: "alice@contoso.com",
@@ -192,7 +194,7 @@ describe("receiveOutlookWebhook — notifications", () => {
     expect(result.events[0]!.provider).toBe("microsoft-outlook");
     expect(result.events[0]!.eventType).toBe("new_email");
     expect(result.events[0]!.eventId).toBe("sub-1:msg-1:created");
-    expect(result.events[0]!.accountId).toBe("alice@contoso.com");
+    expect(result.events[0]!.providerAccountId).toBe("alice@contoso.com");
   });
 
   it("skips notifications whose subscriptionId has no matching trigger row (deactivated workflow)", async () => {

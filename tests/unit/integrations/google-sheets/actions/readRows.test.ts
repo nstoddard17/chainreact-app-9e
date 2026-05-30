@@ -29,7 +29,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -40,7 +40,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -60,6 +60,7 @@ describe("readRows action", () => {
     const result = await readRows({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -92,6 +93,7 @@ describe("readRows action", () => {
     await readRows({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", range: "Sheet1" },
@@ -110,6 +112,7 @@ describe("readRows action", () => {
     const result = await readRows({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", range: "Sheet1!A:Z" },
@@ -126,6 +129,7 @@ describe("readRows action", () => {
     await readRows({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "s", range: "S1" },
@@ -146,6 +150,7 @@ describe("readRows action", () => {
     await readRows({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "s", range: "S1" },
@@ -162,6 +167,7 @@ describe("readRows action", () => {
       readRows({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -179,6 +185,7 @@ describe("readRows action", () => {
       readRows({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "", range: "S1" },
@@ -190,6 +197,7 @@ describe("readRows action", () => {
       readRows({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "s", range: "" },

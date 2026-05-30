@@ -116,7 +116,7 @@ describe("normalize", () => {
     expect(ev!.eventType).toBe("file_changed");
     expect(ev!.eventId).toBe("f-1:2026-05-08T12:00:00Z");
     expect(ev!.occurredAt).toBe("2026-05-08T12:00:00Z");
-    expect(ev!.accountId).toBe("alice@example.test");
+    expect(ev!.providerAccountId).toBe("alice@example.test");
     expect(ev!.payload).toEqual({
       changeKind: "created",
       objectKind: "file",

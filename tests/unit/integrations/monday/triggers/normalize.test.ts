@@ -26,7 +26,7 @@ describe("normalizeNewItem", () => {
     });
     expect(ev.provider).toBe("monday");
     expect(ev.eventType).toBe("new_item");
-    expect(ev.accountId).toBe("123");
+    expect(ev.providerAccountId).toBe("123");
     expect(ev.payload).toMatchObject({
       changeKind: "new_item",
       itemId: "456",

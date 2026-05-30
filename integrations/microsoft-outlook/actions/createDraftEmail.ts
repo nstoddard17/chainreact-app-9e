@@ -45,18 +45,18 @@ export const createDraftEmail: ActionHandler = async (input) => {
     );
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const toGraph = (addresses: string[]): GraphRecipient[] =>
     addresses.map((address) => ({ emailAddress: { address } }));
 
   const draft = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       createMessage({
         accessToken,

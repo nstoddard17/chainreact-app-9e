@@ -38,7 +38,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "facebook",
   providerAccountId: "fb-user-1",
   displayName: "Alice",
@@ -190,9 +191,9 @@ describe("facebookPostsResolver — error sanitization", () => {
   it("INTEGRATION_DISCONNECTED on auth errors", async () => {
     mockPostsList.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "facebook",
-        accountId: "fb-user-1",
+        providerAccountId: "fb-user-1",
         reason: "refresh_failed",
       }),
     );

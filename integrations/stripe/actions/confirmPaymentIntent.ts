@@ -22,15 +22,15 @@ import { ConfirmPaymentIntentConfigSchema } from "./confirmPaymentIntent.schema"
 export const confirmPaymentIntent: ActionHandler = async (input) => {
   const config = ConfirmPaymentIntentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "confirm_payment_intent",
       runTestMode: input.testMode === true,

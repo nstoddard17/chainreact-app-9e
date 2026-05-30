@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -54,6 +54,7 @@ describe("upload_file action", () => {
     const result = await uploadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -85,6 +86,7 @@ describe("upload_file action", () => {
     await uploadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -107,6 +109,7 @@ describe("upload_file action", () => {
     await uploadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -127,6 +130,7 @@ describe("upload_file action", () => {
     await uploadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { filename: "a", mimeType: "text/plain", content: "x" },
@@ -147,6 +151,7 @@ describe("upload_file action", () => {
       uploadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { filename: "", mimeType: "text/plain", content: "x" },
@@ -158,6 +163,7 @@ describe("upload_file action", () => {
       uploadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { filename: "a", mimeType: "", content: "x" },
@@ -171,6 +177,7 @@ describe("upload_file action", () => {
       uploadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -189,6 +196,7 @@ describe("upload_file action", () => {
       uploadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

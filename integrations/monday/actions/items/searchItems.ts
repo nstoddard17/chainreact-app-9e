@@ -46,17 +46,17 @@ function normalizeItem(it: MondayItemFull) {
 export const searchItems: ActionHandler = async (input) => {
   const config = SearchItemsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   let rawItems: MondayItemFull[];
   if (config.columnId !== undefined) {
     const result = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "monday",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         itemsSearchByColumnValues({
           accessToken,
@@ -70,9 +70,9 @@ export const searchItems: ActionHandler = async (input) => {
   } else {
     // Name-search path — fetch board items and substring-filter.
     const result = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "monday",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         itemsList({
           accessToken,

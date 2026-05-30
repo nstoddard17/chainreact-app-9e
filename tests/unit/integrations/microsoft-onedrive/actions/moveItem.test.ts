@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -49,6 +49,7 @@ describe("move_item action", () => {
     const result = await moveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", newName: "renamed.txt" },
@@ -72,6 +73,7 @@ describe("move_item action", () => {
     await moveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", targetParentItemId: "p-2" },
@@ -93,6 +95,7 @@ describe("move_item action", () => {
     await moveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -113,6 +116,7 @@ describe("move_item action", () => {
       moveItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "i-1" },
@@ -127,6 +131,7 @@ describe("move_item action", () => {
       moveItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "", newName: "x" },

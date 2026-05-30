@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -52,6 +52,7 @@ describe("deleteFile action — permanent mode", () => {
     const result = await deleteFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { fileId: "f-1", permanent: true },
@@ -76,6 +77,7 @@ describe("deleteFile action — permanent mode", () => {
     const result = await deleteFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { fileId: "f-1", permanent: true },
@@ -98,6 +100,7 @@ describe("deleteFile action — trash mode", () => {
     const result = await deleteFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { fileId: "f-1", permanent: false },
@@ -126,6 +129,7 @@ describe("deleteFile action — trash mode", () => {
     const result = await deleteFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { fileId: "f-1", permanent: false },
@@ -143,6 +147,7 @@ describe("deleteFile action — schema enforcement", () => {
       deleteFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { fileId: "f-1" }, // permanent missing
@@ -156,6 +161,7 @@ describe("deleteFile action — schema enforcement", () => {
       deleteFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { fileId: "", permanent: true },
@@ -172,6 +178,7 @@ describe("deleteFile action — schema enforcement", () => {
       deleteFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { fileId: "f-1", permanent: true },

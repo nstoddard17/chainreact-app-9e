@@ -8,7 +8,7 @@ import { getActiveForExecution } from "@/repositories/integrations";
  *
  *   1. **Shopify-triggered run.** When the run was started by a
  *      Shopify webhook (Slice 12 Commit 4 — `webhook_received`),
- *      `triggerEvent.accountId` is the canonical shop domain because
+ *      `triggerEvent.providerAccountId` is the canonical shop domain because
  *      the OAuth callback wrote it as the integration's
  *      `providerAccountId` (Slice 12 Commit 2). One DB hit avoided.
  *
@@ -32,6 +32,13 @@ import { getActiveForExecution } from "@/repositories/integrations";
  */
 
 export interface ResolveShopInput {
+  /**
+   * V2 account that owns the workflow. Used for the integrations
+   * lookup; cross-account fallback is rejected at the repository
+   * boundary. Post 4.ACCOUNT-MODEL-6 cutover.
+   */
+  accountId: string;
+  /** Provenance only — actor that triggered the run. */
   userId: string;
   triggerEvent: TriggerEvent;
 }
@@ -40,40 +47,45 @@ export interface ResolveShopOutput {
   /** Full `*.myshopify.com` host. */
   shopDomain: string;
   /**
-   * Account discriminator passed to `refreshAndRetry({ accountId })`
-   * so the row lookup pins to this exact shop. Always equals
-   * `shopDomain` for Shopify; expressed as a separate field to keep
-   * the contract clear at the call site.
+   * Provider account discriminator passed to
+   * `refreshAndRetry({ providerAccountId })` so the row lookup pins
+   * to this exact shop. Always equals `shopDomain` for Shopify;
+   * expressed as a separate field to keep the contract clear at the
+   * call site.
    */
-  accountId: string;
+  providerAccountId: string;
 }
 
 export async function resolveShopDomain(
   input: ResolveShopInput,
 ): Promise<ResolveShopOutput> {
-  if (!input.userId) {
-    throw new Error("resolveShopDomain: userId is required.");
+  if (!input.accountId) {
+    throw new Error("resolveShopDomain: accountId is required.");
   }
 
-  // Path 1 — Shopify-triggered run. accountId is already the shop
-  // domain (set at OAuth callback time per Commit 2).
+  // Path 1 — Shopify-triggered run. providerAccountId is already the
+  // shop domain (set at OAuth callback time per Commit 2).
   if (
     input.triggerEvent.provider === "shopify" &&
-    typeof input.triggerEvent.accountId === "string" &&
-    input.triggerEvent.accountId.length > 0
+    typeof input.triggerEvent.providerAccountId === "string" &&
+    input.triggerEvent.providerAccountId.length > 0
   ) {
-    const shopDomain = input.triggerEvent.accountId;
-    return { shopDomain, accountId: shopDomain };
+    const shopDomain = input.triggerEvent.providerAccountId;
+    return { shopDomain, providerAccountId: shopDomain };
   }
 
-  // Path 2 — non-Shopify trigger. Look up the user's Shopify
-  // integration row. The resolved providerAccountId IS the shop
-  // domain. Pin accountId for refreshAndRetry's row re-fetch.
-  const row = await getActiveForExecution(input.userId, "shopify", null);
+  // Path 2 — non-Shopify trigger. Look up the workflow account's
+  // Shopify integration row. The resolved providerAccountId IS the
+  // shop domain. Pin providerAccountId for refreshAndRetry's row
+  // re-fetch.
+  const row = await getActiveForExecution(input.accountId, "shopify", null);
   if (!row) {
     throw new Error(
-      `resolveShopDomain: no active Shopify integration for user ${input.userId}.`,
+      `resolveShopDomain: no active Shopify integration for account ${input.accountId}.`,
     );
   }
-  return { shopDomain: row.providerAccountId, accountId: row.providerAccountId };
+  return {
+    shopDomain: row.providerAccountId,
+    providerAccountId: row.providerAccountId,
+  };
 }

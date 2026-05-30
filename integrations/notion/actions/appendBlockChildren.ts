@@ -22,18 +22,18 @@ import { AppendBlockChildrenConfigSchema } from "./appendBlockChildren.schema";
 export const appendBlockChildren: ActionHandler = async (input) => {
   const config = AppendBlockChildrenConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Coerce typed BlockSpec[] into Notion wire-format children.
   const wireChildren = buildBlocks(config.children);
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       blocksAppendChildren({
         accessToken,

@@ -25,7 +25,7 @@ import { workbooksList } from "@/integrations/microsoft-excel/api/workbooksList"
  *   - `requiresIntegration: true`; no `requiredDeps` (workbooks are
  *     account-scoped).
  *   - Wrapper goes through `refreshAndRetry({provider: "microsoft-excel",
- *     accountId: ctx.integration.providerAccountId})` so a stale Microsoft
+ *     providerAccountId: ctx.integration.accountId})` so a stale Microsoft
  *     v2 access token triggers exactly one refresh + retry cycle.
  *
  * Source: `workbooksList` (drive-root `.xlsx` mime filter). Single page
@@ -76,14 +76,16 @@ export const microsoftExcelWorkbooksResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const integration = ctx.integration;
+
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "microsoft-excel",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           workbooksList({ accessToken, top: PAGE_SIZE }),
       });

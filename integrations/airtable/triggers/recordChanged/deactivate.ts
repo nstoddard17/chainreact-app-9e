@@ -29,9 +29,9 @@ export const deactivate: DeactivationFn = async ({ trigger, integration }) => {
 
   try {
     await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "airtable",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         webhooksDelete({
           accessToken,

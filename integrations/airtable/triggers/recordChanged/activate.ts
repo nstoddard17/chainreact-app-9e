@@ -80,9 +80,9 @@ export const activate: ActivationFn = async ({
   const url = notificationUrl(workflowId, node.id);
 
   const webhook = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "airtable",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       webhooksCreate({
         accessToken,

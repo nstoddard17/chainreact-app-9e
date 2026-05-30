@@ -41,7 +41,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-onenote",
   providerAccountId: "alice@contoso.com",
   displayName: "Alice (OneNote)",
@@ -231,9 +232,9 @@ describe("microsoftOneNoteSectionsResolver — error sanitization", () => {
   it("maps IntegrationActionRequiredError → INTEGRATION_DISCONNECTED with reconnect prompt", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "microsoft-onenote",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
         reason: "refresh_failed",
       }),
     );

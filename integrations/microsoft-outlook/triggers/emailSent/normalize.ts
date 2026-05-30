@@ -84,7 +84,7 @@ export function normalize(
       message.lastModifiedDateTime ??
       message.receivedDateTime ??
       context.notificationOccurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       messageId: message.id,
       conversationId: message.conversationId ?? null,

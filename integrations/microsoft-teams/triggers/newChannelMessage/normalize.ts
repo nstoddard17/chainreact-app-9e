@@ -57,7 +57,7 @@ export function normalize(
       message.createdDateTime ??
       message.lastModifiedDateTime ??
       context.notificationOccurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       messageId: message.id,
       teamId: context.teamId,

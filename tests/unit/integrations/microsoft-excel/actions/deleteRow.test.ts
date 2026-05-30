@@ -42,7 +42,7 @@ function excelTrigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -53,7 +53,7 @@ function nonExcelTrigger(): TriggerEvent {
     eventType: "slack.message.channel",
     eventId: "Ev1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload: {},
   };
 }
@@ -63,6 +63,7 @@ describe("delete_row handler — happy path", () => {
     const result = await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -96,6 +97,7 @@ describe("delete_row handler — happy path", () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1", rowNumber: 1000 },
@@ -112,6 +114,7 @@ describe("delete_row handler — error surface", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -129,6 +132,7 @@ describe("delete_row handler — error surface", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -148,6 +152,7 @@ describe("delete_row handler — error surface", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -168,6 +173,7 @@ describe("delete_row handler — refreshAndRetry routing", () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1", rowNumber: 5 },
@@ -184,6 +190,7 @@ describe("delete_row handler — refreshAndRetry routing", () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1", rowNumber: 5 },

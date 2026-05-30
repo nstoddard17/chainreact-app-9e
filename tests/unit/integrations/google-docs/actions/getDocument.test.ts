@@ -34,7 +34,7 @@ function docsTrigger(): TriggerEvent {
     eventType: "new_document",
     eventId: "evt-1",
     occurredAt: "2026-05-23T12:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -66,6 +66,7 @@ describe("get_document — flattens body to plain text", () => {
     const result = await getDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1" },
@@ -88,6 +89,7 @@ describe("get_document — flattens body to plain text", () => {
     const result = await getDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1" },
@@ -113,6 +115,7 @@ describe("get_document — flattens body to plain text", () => {
     const result = await getDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1" },
@@ -141,6 +144,7 @@ describe("get_document — flattens body to plain text", () => {
     const result = await getDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1" },
@@ -156,6 +160,7 @@ describe("get_document — schema + integration plumbing", () => {
       getDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -169,6 +174,7 @@ describe("get_document — schema + integration plumbing", () => {
     await getDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1" },

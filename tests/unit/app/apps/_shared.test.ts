@@ -52,7 +52,8 @@ function mkProvider(over: Partial<{
 function mkRecord(over: Partial<IntegrationRecord> = {}): IntegrationRecord {
   return {
     id: "int-1",
-    userId: "user-1",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
     provider: "slack",
     providerAccountId: "T-WORKSPACE-12345",
     displayName: "Acme · marcus@example.com",

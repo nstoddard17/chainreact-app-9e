@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_channel_message",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -49,6 +49,7 @@ describe("reply_to_channel_message action", () => {
     const result = await replyToChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -76,6 +77,7 @@ describe("reply_to_channel_message action", () => {
     await replyToChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -95,6 +97,7 @@ describe("reply_to_channel_message action", () => {
       replyToChannelMessage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

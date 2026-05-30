@@ -118,6 +118,7 @@ describe("UI-scope boardId — handler ignores it at runtime", () => {
     mockGetActiveForExecution.mockResolvedValue({
       id: "int-1",
       userId: "user-1",
+      accountId: "acct-user-1",
       provider: "trello",
       providerAccountId: "trello-mem-1",
       displayName: "User",
@@ -149,7 +150,7 @@ describe("UI-scope boardId — handler ignores it at runtime", () => {
       eventType: "manual",
       eventId: "trig-1",
       occurredAt: "2026-05-25T00:00:00Z",
-      accountId: "manual",
+      providerAccountId: "manual",
       payload: {},
     };
 
@@ -158,6 +159,7 @@ describe("UI-scope boardId — handler ignores it at runtime", () => {
       runId: "run-1",
       nodeId: "node-1",
       userId: "user-1",
+      accountId: "acct-user-1",
       // boardId is the UI-scope field — present in the persisted config.
       config: { boardId: "b-ui-only", listId: "l1", name: "Card" },
       triggerEvent,

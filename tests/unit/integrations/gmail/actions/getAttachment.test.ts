@@ -43,7 +43,7 @@ const gmailEvent: TriggerEvent = {
   eventType: "new_attachment",
   eventId: "attachment:msg-1",
   occurredAt: "2026-05-14T00:00:00Z",
-  accountId: "alice@example.com",
+  providerAccountId: "alice@example.com",
   payload: { id: "msg-1" },
 };
 
@@ -52,7 +52,7 @@ const nonGmailEvent: TriggerEvent = {
   eventType: "slack.message.channel",
   eventId: "Ev1",
   occurredAt: "2026-05-14T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: {},
 };
 
@@ -133,6 +133,7 @@ function makeInput(
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "n-get",
     config,

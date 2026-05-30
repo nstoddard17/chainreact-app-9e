@@ -37,6 +37,8 @@ export const googleAnalyticsPropertiesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const accountId = ctx.deps.accountId;
     if (typeof accountId !== "string" || accountId.length === 0) {
       throw new OptionsResolverError(
@@ -48,9 +50,9 @@ export const googleAnalyticsPropertiesResolver: OptionsResolver = {
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-analytics",
-        accountId: ctx.integration.providerAccountId,
+        providerAccountId: ctx.integration.accountId,
         apiCall: (accessToken) => accountSummariesList({ accessToken }),
       });
     } catch (err) {

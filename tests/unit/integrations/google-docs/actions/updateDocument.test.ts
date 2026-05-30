@@ -42,7 +42,7 @@ function docsTrigger(): TriggerEvent {
     eventType: "document_updated",
     eventId: "evt-1",
     occurredAt: "2026-05-23T12:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -88,6 +88,7 @@ describe("update_document — beginning mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -116,6 +117,7 @@ describe("update_document — end mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -143,6 +145,7 @@ describe("update_document — end mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -168,6 +171,7 @@ describe("update_document — replace mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -200,6 +204,7 @@ describe("update_document — replace mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -231,6 +236,7 @@ describe("update_document — after_text mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -256,6 +262,7 @@ describe("update_document — after_text mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -275,6 +282,7 @@ describe("update_document — after_text mode", () => {
       updateDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -297,6 +305,7 @@ describe("update_document — after_text mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -330,6 +339,7 @@ describe("update_document — before_text mode", () => {
     await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -355,6 +365,7 @@ describe("update_document — schema validation", () => {
       updateDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -372,6 +383,7 @@ describe("update_document — schema validation", () => {
       updateDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -389,6 +401,7 @@ describe("update_document — schema validation", () => {
       updateDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -409,6 +422,7 @@ describe("update_document — output shape", () => {
     const result = await updateDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {

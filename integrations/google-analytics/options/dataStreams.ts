@@ -44,6 +44,8 @@ export const googleAnalyticsDataStreamsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const propertyId = ctx.deps.propertyId;
     if (typeof propertyId !== "string" || propertyId.length === 0) {
       throw new OptionsResolverError(
@@ -55,9 +57,9 @@ export const googleAnalyticsDataStreamsResolver: OptionsResolver = {
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-analytics",
-        accountId: ctx.integration.providerAccountId,
+        providerAccountId: ctx.integration.accountId,
         apiCall: (accessToken) => dataStreamsList({ accessToken, propertyId }),
       });
     } catch (err) {

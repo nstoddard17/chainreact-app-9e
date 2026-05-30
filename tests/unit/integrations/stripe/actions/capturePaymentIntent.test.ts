@@ -34,7 +34,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -51,6 +51,7 @@ describe("capture_payment_intent action", () => {
     const result = await capturePaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -79,6 +80,7 @@ describe("capture_payment_intent action", () => {
     await capturePaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1", amount_to_capture: 1000 },
@@ -92,6 +94,7 @@ describe("capture_payment_intent action", () => {
       capturePaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { paymentIntentId: "pi_1", amount_to_capture: 9.99 },
@@ -111,6 +114,7 @@ describe("capture_payment_intent action", () => {
     await capturePaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-9",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },

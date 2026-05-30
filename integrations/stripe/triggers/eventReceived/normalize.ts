@@ -79,7 +79,7 @@ export function normalizeStripeEvent(event: StripeEvent): TriggerEvent {
     ? new Date(event.created * 1000).toISOString()
     : new Date().toISOString();
 
-  const accountId =
+  const providerAccountId =
     typeof event.account === "string" && event.account.length > 0
       ? event.account
       : "<platform>";
@@ -89,7 +89,7 @@ export function normalizeStripeEvent(event: StripeEvent): TriggerEvent {
     eventType: STRIPE_TRIGGER_EVENT_TYPE,
     eventId: event.id,
     occurredAt,
-    accountId,
+    providerAccountId,
     payload: {
       stripeEventType: event.type,
       data: event.data?.object ?? null,

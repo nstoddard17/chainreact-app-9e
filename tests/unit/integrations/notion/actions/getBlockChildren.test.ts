@@ -37,7 +37,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -108,6 +108,7 @@ describe("get_block_children handler", () => {
     await getBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -131,6 +132,7 @@ describe("get_block_children handler", () => {
     await getBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1", pageSize: 25, startCursor: "cur-x" },
@@ -165,6 +167,7 @@ describe("get_block_children handler", () => {
     const result = await getBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -193,6 +196,7 @@ describe("get_block_children handler", () => {
     const result = await getBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -214,6 +218,7 @@ describe("get_block_children handler", () => {
     await getBlockChildren({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -228,6 +233,7 @@ describe("get_block_children handler", () => {
       getBlockChildren({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { blockId: "p-1" },

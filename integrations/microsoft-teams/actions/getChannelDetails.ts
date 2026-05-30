@@ -15,15 +15,15 @@ import { GetChannelDetailsConfigSchema } from "./getChannelDetails.schema";
 export const getChannelDetails: ActionHandler = async (input) => {
   const config = GetChannelDetailsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-teams"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const channel = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-teams",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       channelGet({
         accessToken,

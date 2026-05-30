@@ -41,7 +41,8 @@ afterEach(() => {
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "discord",
   providerAccountId: "discord-user-1",
   displayName: "test-user",

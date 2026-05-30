@@ -27,11 +27,11 @@ const fileEntry: DropboxFileEntry = {
 
 describe("dropbox new_file normalize", () => {
   it("produces a contract-valid TriggerEvent", () => {
-    const event = normalizeNewFile({ entry: fileEntry, accountId: "dbid:abc" });
+    const event = normalizeNewFile({ entry: fileEntry, providerAccountId: "dbid:abc" });
     expect(() => TriggerEventSchema.parse(event)).not.toThrow();
     expect(event.provider).toBe("dropbox");
     expect(event.eventType).toBe("new_file");
-    expect(event.accountId).toBe("dbid:abc");
+    expect(event.providerAccountId).toBe("dbid:abc");
     expect(event.occurredAt).toBe("2026-05-24T10:00:00Z");
   });
 
@@ -40,14 +40,14 @@ describe("dropbox new_file normalize", () => {
       "new_file:dbid:abc:id:file1:0123abc",
     );
     expect(
-      normalizeNewFile({ entry: fileEntry, accountId: "dbid:abc" }).eventId,
+      normalizeNewFile({ entry: fileEntry, providerAccountId: "dbid:abc" }).eventId,
     ).toBe("new_file:dbid:abc:id:file1:0123abc");
   });
 
   it("emits the canonical payload (name/path/pathLower + metadata)", () => {
     const { payload } = normalizeNewFile({
       entry: fileEntry,
-      accountId: "dbid:abc",
+      providerAccountId: "dbid:abc",
     });
     expect(payload).toEqual({
       changeKind: "new_file",
@@ -59,7 +59,7 @@ describe("dropbox new_file normalize", () => {
       sizeBytes: 2048,
       clientModified: "2026-05-20T10:00:00Z",
       serverModified: "2026-05-24T10:00:00Z",
-      accountId: "dbid:abc",
+      providerAccountId: "dbid:abc",
       isDownloadable: true,
     });
   });
@@ -67,7 +67,7 @@ describe("dropbox new_file normalize", () => {
   it("never includes bytes / content / download or shared links", () => {
     const { payload } = normalizeNewFile({
       entry: fileEntry,
-      accountId: "dbid:abc",
+      providerAccountId: "dbid:abc",
     });
     for (const banned of [
       "content",
@@ -90,7 +90,7 @@ describe("dropbox new_file normalize", () => {
       name: "x.txt",
       path_display: "/x.txt",
     };
-    const event = normalizeNewFile({ entry: minimal, accountId: "dbid:z" });
+    const event = normalizeNewFile({ entry: minimal, providerAccountId: "dbid:z" });
     expect(() => TriggerEventSchema.parse(event)).not.toThrow();
     expect(event.payload.sizeBytes).toBeNull();
     expect(event.payload.isDownloadable).toBeNull();

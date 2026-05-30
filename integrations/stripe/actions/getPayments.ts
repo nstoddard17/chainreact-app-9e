@@ -16,7 +16,7 @@ import { GetPaymentsConfigSchema } from "./getPayments.schema";
  * `output.hasMore: true`, else `null`).
  *
  * `accountId` resolution: when the workflow's trigger is a Stripe
- * webhook event, `triggerEvent.accountId` carries the connected
+ * webhook event, `triggerEvent.providerAccountId` carries the connected
  * merchant's `stripe_user_id`. For manual / cross-provider triggers,
  * `accountId` is null and `refreshAndRetry`'s integration lookup
  * picks the user's single Stripe integration row.
@@ -42,15 +42,15 @@ import { GetPaymentsConfigSchema } from "./getPayments.schema";
 export const getPayments: ActionHandler = async (input) => {
   const config = GetPaymentsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "get_payments",
       runTestMode: input.testMode === true,

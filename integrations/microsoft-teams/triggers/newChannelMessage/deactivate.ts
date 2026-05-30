@@ -25,9 +25,9 @@ export const deactivate: DeactivationFn = async ({ trigger, integration }) => {
 
   try {
     await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "microsoft-teams",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         deleteSubscription({
           accessToken,

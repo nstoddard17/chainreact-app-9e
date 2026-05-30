@@ -66,6 +66,7 @@ afterEach(() => {
 const baseTrigger = {
   id: "tr-nw-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-sheets",
   eventType: "new_worksheet",
@@ -82,7 +83,7 @@ const baseTrigger = {
     },
     expiresAt: "2026-05-15T00:00:00Z",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,

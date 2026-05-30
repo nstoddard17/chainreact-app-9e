@@ -45,7 +45,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "test-shop.myshopify.com",
+    providerAccountId: "test-shop.myshopify.com",
     payload: {},
   };
 }
@@ -69,6 +69,7 @@ describe("createOrder — happy path", () => {
     const result = await createOrder({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: validConfig,
@@ -93,6 +94,7 @@ describe("createOrder — happy path", () => {
     await createOrder({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: validConfig,
@@ -110,6 +112,7 @@ describe("createOrder — happy path", () => {
     await createOrder({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: validConfig,
@@ -133,6 +136,7 @@ describe("createOrder — Q11 send_receipt gate", () => {
       createOrder({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: rest as Record<string, unknown>,
@@ -147,6 +151,7 @@ describe("createOrder — Q11 send_receipt gate", () => {
     await createOrder({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { ...validConfig, send_receipt: false },
@@ -164,6 +169,7 @@ describe("createOrder — shop NOT overridable from action config", () => {
       createOrder({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         // Strict schema rejects unknown fields like `shopify_store`.
@@ -181,6 +187,7 @@ describe("createOrder — schema validation", () => {
       createOrder({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { ...validConfig, line_items: [] },
@@ -194,6 +201,7 @@ describe("createOrder — schema validation", () => {
       createOrder({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: {

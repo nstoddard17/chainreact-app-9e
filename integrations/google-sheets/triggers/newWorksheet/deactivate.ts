@@ -27,9 +27,9 @@ export const deactivate: DeactivationFn = async ({ trigger, integration }) => {
 
   try {
     await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "google-sheets",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         channelsStop({
           accessToken,

@@ -91,7 +91,7 @@ const triggerEvent: TriggerEvent = {
   eventType: "message",
   eventId: "Ev1",
   occurredAt: "2026-05-07T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: {
     text: "hello",
     channel: "C123",
@@ -126,6 +126,7 @@ function workflowWith(actionTextTemplate: string) {
   return {
     id: "wf-resolver-drift",
     userId: "user-1",
+    accountId: "acct-user-1",
     name: "resolver drift parity",
     state: "active" as const,
     disabledReason: null,

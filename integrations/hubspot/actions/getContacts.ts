@@ -31,9 +31,9 @@ const DEFAULT_PROPERTIES: readonly string[] = [
 export const getContacts: ActionHandler = async (input) => {
   const config = GetContactsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties = (() => {
@@ -52,9 +52,9 @@ export const getContacts: ActionHandler = async (input) => {
   }
 
   const response = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       contactsSearch({
         accessToken,

@@ -102,7 +102,7 @@ const successDetail: WorkflowRunDetail = {
     eventType: "manual.run",
     eventId: "ev-1",
     occurredAt: "2026-05-17T10:00:00Z",
-    accountId: "system",
+    providerAccountId: "system",
     payload: { inputs: {} },
   },
   steps: [

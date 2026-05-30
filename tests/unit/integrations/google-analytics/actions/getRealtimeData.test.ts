@@ -21,10 +21,10 @@ jest.mock("@/integrations/_shared/google/api/analytics/runRealtimeReport", () =>
 import { getRealtimeData } from "@/integrations/google-analytics/actions/getRealtimeData";
 
 function gaTrigger(): TriggerEvent {
-  return { provider: "google-analytics", eventType: "manual", eventId: "e", occurredAt: "2026-05-25T00:00:00Z", accountId: "alice@example.com", payload: {} };
+  return { provider: "google-analytics", eventType: "manual", eventId: "e", occurredAt: "2026-05-25T00:00:00Z", providerAccountId: "alice@example.com", payload: {} };
 }
 function call(config: Record<string, unknown>) {
-  return getRealtimeData({ workflowId: "w", userId: "u", runId: "r", nodeId: "n", config, triggerEvent: gaTrigger() });
+  return getRealtimeData({ workflowId: "w", userId: "u", accountId: "acct-u", runId: "r", nodeId: "n", config, triggerEvent: gaTrigger() });
 }
 
 beforeEach(() => {

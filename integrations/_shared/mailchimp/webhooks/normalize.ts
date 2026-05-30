@@ -46,7 +46,7 @@ import { createHash } from "node:crypto";
  *   - `occurredAt` — ISO-8601. Prefers Mailchimp's `fired_at`; falls
  *     back to the receive timestamp.
  *   - `accountId` — Mailchimp `account_id` (stored at OAuth callback
- *     time as `integration.providerAccountId`). NOT the audience id.
+ *     time as `integration.accountId`). NOT the audience id.
  *     Provided by the receive helper after the integration lookup.
  *   - `payload` carries `type` (Mailchimp event name) / `audienceId` /
  *     `email` / `subscriberHash` / `firedAt` / `parsed` (flattened
@@ -166,7 +166,7 @@ export function normalizeMailchimpEvent(
     eventType: MAILCHIMP_TRIGGER_EVENT_TYPE,
     eventId: mailchimpDedupKey(input.rawBody),
     occurredAt: bestOccurredAt(input.parsed),
-    accountId: input.accountId,
+    providerAccountId: input.accountId,
     payload: {
       type: input.parsed.type,
       audienceId: input.parsed.data.list_id ?? null,

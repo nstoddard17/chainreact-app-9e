@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -55,6 +55,7 @@ describe("find_record action", () => {
     const result = await findRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -80,6 +81,7 @@ describe("find_record action", () => {
     const result = await findRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -103,6 +105,7 @@ describe("find_record action", () => {
     const result = await findRecord({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -123,6 +126,7 @@ describe("find_record action", () => {
       findRecord({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

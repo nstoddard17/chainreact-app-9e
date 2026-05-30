@@ -59,7 +59,7 @@ describe("buildTriggerEvent", () => {
       emailAddress: "alice@example.com",
       message: makeMessage(),
     });
-    expect(event.accountId).toBe("alice@example.com");
+    expect(event.providerAccountId).toBe("alice@example.com");
   });
 
   it("converts internalDate (ms-as-string) to ISO 8601 occurredAt", () => {

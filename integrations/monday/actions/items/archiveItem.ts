@@ -19,15 +19,15 @@ import { ArchiveItemConfigSchema } from "./archiveItem.schema";
 export const archiveItem: ActionHandler = async (input) => {
   const config = ArchiveItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const archived = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemsArchive({ accessToken, itemId: config.itemId }),
   });

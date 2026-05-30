@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("add_row action", () => {
     const result = await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -95,6 +96,7 @@ describe("add_row action", () => {
     const result = await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -124,6 +126,7 @@ describe("add_row action", () => {
     const result = await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -149,6 +152,7 @@ describe("add_row action", () => {
     const result = await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -178,6 +182,7 @@ describe("add_row action", () => {
     const result = await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -211,6 +216,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
     const result = await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -258,6 +264,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
     await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -297,6 +304,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
     await addRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -320,6 +328,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
       addRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -350,6 +359,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
       addRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -379,6 +389,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
       addRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -406,6 +417,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
       addRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -435,6 +447,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
       addRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -452,6 +465,7 @@ describe("add_row batch mode — handler behavior (Microsoft Excel parity Commit
       addRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

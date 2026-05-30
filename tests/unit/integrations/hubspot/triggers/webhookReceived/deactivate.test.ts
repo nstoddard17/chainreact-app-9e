@@ -39,7 +39,8 @@ beforeEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "hubspot",
   providerAccountId: "9988776",
   displayName: "Acme Hub",
@@ -70,12 +71,13 @@ function trigger(
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "hubspot",
     eventType: "webhook_received",
     nodeId: "node-1",
     config,
-    accountId: "9988776",
+    providerAccountId: "9988776",
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,
@@ -214,6 +216,7 @@ describe("HubSpot webhook_received deactivate — best-effort safety", () => {
     const triggerWithoutAppId = {
       id: "tr-1",
       workflowId: "wf-1",
+      workflowAccountId: "acct-1",
       userId: "user-1",
       provider: "hubspot",
       eventType: "webhook_received",
@@ -229,7 +232,7 @@ describe("HubSpot webhook_received deactivate — best-effort safety", () => {
         ],
         // No appId field — defensive path.
       },
-      accountId: "9988776",
+      providerAccountId: "9988776",
       registeredAt: "",
       expiresAt: null,
       lastRenewedAt: null,

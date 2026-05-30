@@ -30,8 +30,7 @@ afterEach(() => {
 
 describe("createState / verifyState (signature layer — pure JWT semantics)", () => {
   it("round-trips and preserves payload fields", async () => {
-    const { token, payload } = await createState({
-      userId: "user-123",
+    const { token, payload } = await createState({ userId: "user-123", accountId: "acct-user-123",
       provider: "slack",
       requestedScopes: ["chat:write", "channels:read"],
     });
@@ -46,24 +45,24 @@ describe("createState / verifyState (signature layer — pure JWT semantics)", (
 
   it("expiresAt is roughly 15 minutes in the future", async () => {
     const before = Math.floor(Date.now() / 1000);
-    const { payload } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { payload } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     const expected = before + 15 * 60;
     expect(payload.expiresAt).toBeGreaterThanOrEqual(expected - 2);
     expect(payload.expiresAt).toBeLessThanOrEqual(expected + 2);
   });
 
   it("each state has a unique nonce", async () => {
-    const a = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
-    const b = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const a = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
+    const b = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     expect(a.payload.nonce).not.toBe(b.payload.nonce);
     expect(a.token).not.toBe(b.token);
   });
 
   it("rejects a tampered payload (signature mismatch)", async () => {
-    const { token } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { token } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     const [data, sig] = token.split(".", 2);
     // Re-encode payload with elevated userId
-    const tamperedPayload = { userId: "admin", provider: "slack", nonce: "x", expiresAt: 9999999999, requestedScopes: [] };
+    const tamperedPayload = { userId: "admin", accountId: "acct-admin", provider: "slack", nonce: "x", expiresAt: 9999999999, requestedScopes: [] };
     const tamperedData = Buffer.from(JSON.stringify(tamperedPayload)).toString("base64url");
     const tampered = `${tamperedData}.${sig}`;
     expect(() => verifyState(tampered)).toThrow(InvalidStateError);
@@ -71,9 +70,9 @@ describe("createState / verifyState (signature layer — pure JWT semantics)", (
   });
 
   it("rejects an expired token", async () => {
-    const { token } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { token } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     // Re-craft with expired payload but a real signature using the same key
-    const expiredPayload = { userId: "u", provider: "slack", nonce: "x", expiresAt: 1, requestedScopes: [] };
+    const expiredPayload = { userId: "u", accountId: "acct-u", provider: "slack", nonce: "x", expiresAt: 1, requestedScopes: [] };
     const data = Buffer.from(JSON.stringify(expiredPayload)).toString("base64url");
     const sig = createHmac("sha256", Buffer.from(TEST_KEY, "base64")).update(data).digest("base64url");
     expect(() => verifyState(`${data}.${sig}`)).toThrow(/expired/);
@@ -89,18 +88,23 @@ describe("createState / verifyState (signature layer — pure JWT semantics)", (
   it("rejects when OAUTH_STATE_SIGNING_KEY is unset", async () => {
     delete process.env.OAUTH_STATE_SIGNING_KEY;
     await expect(
-      createState({ userId: "u", provider: "slack", requestedScopes: [] }),
+      createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] }),
     ).rejects.toThrow(/OAUTH_STATE_SIGNING_KEY/);
   });
 
   it("rejects an empty userId", async () => {
     await expect(
-      createState({ userId: "", provider: "slack", requestedScopes: [] }),
+      createState({
+        accountId: "acct-u",
+        userId: "",
+        provider: "slack",
+        requestedScopes: [],
+      }),
     ).rejects.toThrow(/userId/);
   });
 
   it("verify with a different signing key fails", async () => {
-    const { token } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { token } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     process.env.OAUTH_STATE_SIGNING_KEY = randomBytes(32).toString("base64");
     expect(() => verifyState(token)).toThrow(/signature mismatch/);
   });
@@ -108,8 +112,7 @@ describe("createState / verifyState (signature layer — pure JWT semantics)", (
 
 describe("createState — DB nonce write", () => {
   it("writes the nonce row to oauth_states with matching userId/provider/expiresAt", async () => {
-    const { payload } = await createState({
-      userId: "user-abc",
+    const { payload } = await createState({ userId: "user-abc", accountId: "acct-user-abc",
       provider: "slack",
       requestedScopes: ["chat:write"],
     });
@@ -120,6 +123,10 @@ describe("createState — DB nonce write", () => {
       userId: "user-abc",
       provider: "slack",
     });
+    // accountId is signed INTO the JWT but NOT persisted to the
+    // oauth_states DB row — the verifier reads it from the signed
+    // payload, not the DB.
+    expect(arg).not.toHaveProperty("accountId");
     // expiresAt is ISO-8601 from epoch seconds in the JWT payload
     expect(arg.expiresAt).toBe(new Date(payload.expiresAt * 1000).toISOString());
     // No PKCE supplied -> field omitted from the input
@@ -127,8 +134,7 @@ describe("createState — DB nonce write", () => {
   });
 
   it("forwards optional PKCE metadata to the repository (forward-compat)", async () => {
-    await createState({
-      userId: "u",
+    await createState({ userId: "u", accountId: "acct-u",
       provider: "google",
       requestedScopes: ["openid"],
       pkce: { codeVerifier: "verifier-secret", codeChallengeMethod: "S256" },
@@ -141,15 +147,14 @@ describe("createState — DB nonce write", () => {
   it("propagates a repository write failure (caller sees the error)", async () => {
     mockCreate.mockRejectedValueOnce(new Error("db down"));
     await expect(
-      createState({ userId: "u", provider: "slack", requestedScopes: [] }),
+      createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] }),
     ).rejects.toThrow(/db down/);
   });
 });
 
 describe("consumeState — verify-and-consume (replay protection)", () => {
   it("returns the payload when the JWT is valid AND the DB row is consumed atomically", async () => {
-    const { token, payload } = await createState({
-      userId: "user-1",
+    const { token, payload } = await createState({ userId: "user-1", accountId: "acct-user-1",
       provider: "slack",
       requestedScopes: [],
     });
@@ -157,6 +162,7 @@ describe("consumeState — verify-and-consume (replay protection)", () => {
     mockConsumeByNonce.mockResolvedValueOnce({
       nonce: payload.nonce,
       userId: "user-1",
+      accountId: "acct-user-1",
       provider: "slack",
       expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
       pkceCodeVerifier: null,
@@ -170,11 +176,12 @@ describe("consumeState — verify-and-consume (replay protection)", () => {
   });
 
   it("rejects on second consume — the nonce row is gone (REPLAY ATTACK guard)", async () => {
-    const { token } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { token } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     mockConsumeByNonce
       .mockResolvedValueOnce({
         nonce: "x",
         userId: "u",
+        accountId: "acct-u",
         provider: "slack",
         expiresAt: new Date().toISOString(),
         pkceCodeVerifier: null,
@@ -202,14 +209,13 @@ describe("consumeState — verify-and-consume (replay protection)", () => {
   });
 
   it("rejects when the DB row is expired/missing (consumeByNonce returns null)", async () => {
-    const { token } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { token } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     mockConsumeByNonce.mockResolvedValueOnce(null);
     await expect(consumeState(token)).rejects.toThrow(/already consumed or expired/);
   });
 
   it("rejects when the JWT payload and DB row disagree on userId (key rotation / DB tampering)", async () => {
-    const { token, payload } = await createState({
-      userId: "user-real",
+    const { token, payload } = await createState({ userId: "user-real", accountId: "acct-user-real",
       provider: "slack",
       requestedScopes: [],
     });
@@ -226,15 +232,14 @@ describe("consumeState — verify-and-consume (replay protection)", () => {
   });
 
   it("rejects a tampered token before touching the DB (signature check is first)", async () => {
-    const { token } = await createState({ userId: "u", provider: "slack", requestedScopes: [] });
+    const { token } = await createState({ userId: "u", accountId: "acct-u", provider: "slack", requestedScopes: [] });
     const tampered = token.slice(0, -4) + "AAAA";
     await expect(consumeState(tampered)).rejects.toThrow(InvalidStateError);
     expect(mockConsumeByNonce).not.toHaveBeenCalled();
   });
 
   it("rejects an expired JWT before touching the DB", async () => {
-    const expiredPayload = {
-      userId: "u",
+    const expiredPayload = { userId: "u", accountId: "acct-u",
       provider: "slack",
       nonce: "x",
       expiresAt: 1,
@@ -251,8 +256,7 @@ describe("consumeState — verify-and-consume (replay protection)", () => {
 
 describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
   it("returns providerHint when the JWT payload carries one", async () => {
-    const { token, payload } = await createState({
-      userId: "u-shop",
+    const { token, payload } = await createState({ userId: "u-shop", accountId: "acct-u-shop",
       provider: "shopify",
       requestedScopes: [],
       providerHint: { shop: "mystore.myshopify.com" },
@@ -273,8 +277,7 @@ describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
   });
 
   it("returns providerHint: null when the payload carries no hint (default for non-tenant providers)", async () => {
-    const { token, payload } = await createState({
-      userId: "u",
+    const { token, payload } = await createState({ userId: "u", accountId: "acct-u",
       provider: "slack",
       requestedScopes: [],
     });
@@ -292,8 +295,7 @@ describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
   });
 
   it("does NOT persist providerHint to the oauth_states DB row (JWT-only)", async () => {
-    await createState({
-      userId: "u",
+    await createState({ userId: "u", accountId: "acct-u",
       provider: "shopify",
       requestedScopes: [],
       providerHint: { shop: "mystore.myshopify.com" },
@@ -309,14 +311,12 @@ describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
   });
 
   it("isolates providerHint between concurrent createState calls (per-call object copy)", async () => {
-    const a = await createState({
-      userId: "u-a",
+    const a = await createState({ userId: "u-a", accountId: "acct-u-a",
       provider: "shopify",
       requestedScopes: [],
       providerHint: { shop: "shop-a.myshopify.com" },
     });
-    const b = await createState({
-      userId: "u-b",
+    const b = await createState({ userId: "u-b", accountId: "acct-u-b",
       provider: "shopify",
       requestedScopes: [],
       providerHint: { shop: "shop-b.myshopify.com" },
@@ -328,8 +328,7 @@ describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
   it("rejects a verified token whose tampered payload sets providerHint to a non-record", async () => {
     // Re-craft a payload with a real signature but providerHint as a
     // string (rejected by isValidProviderHint).
-    const tamperedPayload = {
-      userId: "u",
+    const tamperedPayload = { userId: "u", accountId: "acct-u",
       provider: "shopify",
       nonce: "x",
       expiresAt: Math.floor(Date.now() / 1000) + 600,
@@ -346,8 +345,7 @@ describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
   });
 
   it("rejects a verified token whose providerHint contains a non-string value", async () => {
-    const tamperedPayload = {
-      userId: "u",
+    const tamperedPayload = { userId: "u", accountId: "acct-u",
       provider: "shopify",
       nonce: "x",
       expiresAt: Math.floor(Date.now() / 1000) + 600,
@@ -366,8 +364,7 @@ describe("consumeState — providerHint round-trip (Slice 12 plumbing)", () => {
 
 describe("consumeState — PKCE round-trip (Slice 2a plumbing)", () => {
   it("returns pkce inputs when the row has both verifier + method", async () => {
-    const { token, payload } = await createState({
-      userId: "u-pkce",
+    const { token, payload } = await createState({ userId: "u-pkce", accountId: "acct-u-pkce",
       provider: "google",
       requestedScopes: ["openid"],
       pkce: { codeVerifier: "verifier-secret-xyz", codeChallengeMethod: "S256" },
@@ -390,8 +387,7 @@ describe("consumeState — PKCE round-trip (Slice 2a plumbing)", () => {
   });
 
   it("returns pkce: null when only verifier is present (half-populated row)", async () => {
-    const { token, payload } = await createState({
-      userId: "u",
+    const { token, payload } = await createState({ userId: "u", accountId: "acct-u",
       provider: "slack",
       requestedScopes: [],
     });
@@ -409,8 +405,7 @@ describe("consumeState — PKCE round-trip (Slice 2a plumbing)", () => {
   });
 
   it("returns pkce: null when only method is present (half-populated row)", async () => {
-    const { token, payload } = await createState({
-      userId: "u",
+    const { token, payload } = await createState({ userId: "u", accountId: "acct-u",
       provider: "slack",
       requestedScopes: [],
     });

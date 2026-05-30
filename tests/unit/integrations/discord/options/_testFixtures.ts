@@ -7,7 +7,8 @@ import type { OptionsResolverContext } from "@/services/options/types";
 
 export const baseIntegration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "discord",
   providerAccountId: "discord-user-1",
   displayName: "Alice",

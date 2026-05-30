@@ -52,14 +52,16 @@ export const facebookPagesResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const integration = ctx.integration;
+
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "facebook",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => pagesList({ accessToken }),
       });
     } catch (err) {

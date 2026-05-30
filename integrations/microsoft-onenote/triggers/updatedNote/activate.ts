@@ -47,9 +47,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     typeof rawPageId === "string" && rawPageId.length > 0 ? rawPageId : null;
 
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-onenote",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       pagesList({
         accessToken,

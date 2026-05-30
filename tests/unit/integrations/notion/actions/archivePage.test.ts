@@ -43,7 +43,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -97,6 +97,7 @@ describe("archive_page handler", () => {
     await archivePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -122,6 +123,7 @@ describe("archive_page handler", () => {
     const result = await archivePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -140,6 +142,7 @@ describe("archive_page handler", () => {
     const result = await archivePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -159,6 +162,7 @@ describe("archive_page handler", () => {
       archivePage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "p-missing" },
@@ -178,6 +182,7 @@ describe("archive_page handler", () => {
     const result = await archivePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },

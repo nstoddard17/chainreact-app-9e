@@ -46,7 +46,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "9876543",
+  providerAccountId: "9876543",
   payload: {},
 };
 
@@ -58,6 +58,7 @@ describe("create_company", () => {
       createCompany({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { domain: "acme.com" },
@@ -76,6 +77,7 @@ describe("create_company", () => {
     await createCompany({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -100,6 +102,7 @@ describe("create_company", () => {
       createCompany({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { name: "Acme", domain: "acme.com" },
@@ -126,6 +129,7 @@ describe("create_company", () => {
     const result = await createCompany({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -153,6 +157,7 @@ describe("create_company", () => {
       createCompany({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -177,6 +182,7 @@ describe("create_company", () => {
     const result = await createCompany({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -205,6 +211,7 @@ describe("update_company", () => {
     await updateCompany({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { companyId: "c-1", phone: "555" },
@@ -225,6 +232,7 @@ describe("update_company", () => {
       updateCompany({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { companyId: "c-1" },
@@ -242,6 +250,7 @@ describe("get_companies", () => {
     await getCompanies({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -266,6 +275,7 @@ describe("get_companies", () => {
     const r = await getCompanies({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},

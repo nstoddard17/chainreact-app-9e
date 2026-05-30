@@ -76,8 +76,7 @@ async function poll(input: {
   // both TriggerEvent.accountId (so action handlers can target the right
   // inbox) AND the explicit accountId on refreshAndRetry calls (avoids
   // the multi-account ambiguity case).
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "gmail",
     null,
   );
@@ -92,7 +91,7 @@ async function poll(input: {
     );
     return;
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   let cursor = config.snapshot.historyId;
 
@@ -106,9 +105,9 @@ async function poll(input: {
     let page;
     try {
       page = await refreshAndRetry({
-        userId: trigger.userId,
+        accountId: trigger.workflowAccountId!,
         provider: "gmail",
-        accountId,
+        providerAccountId,
         apiCall: async (accessToken) =>
           usersHistoryList({
             accessToken,
@@ -121,9 +120,9 @@ async function poll(input: {
         // Re-snapshot. Per Slice 2e plan: log the gap, no recovery
         // heuristic, continue from new cursor on the next tick.
         const profile = await refreshAndRetry({
-          userId: trigger.userId,
+          accountId: trigger.workflowAccountId!,
           provider: "gmail",
-          accountId,
+          providerAccountId,
           apiCall: async (accessToken) => usersGetProfile({ accessToken }),
         });
         console.warn(
@@ -163,7 +162,7 @@ async function poll(input: {
   if (!cursorReset) {
     for (const messageId of uniqueIds) {
       try {
-        await processOneMessage({ trigger, accountId, messageId });
+        await processOneMessage({ trigger, providerAccountId, messageId });
       } catch (err) {
         console.warn(
           JSON.stringify({
@@ -201,10 +200,10 @@ async function poll(input: {
 
 async function processOneMessage(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   messageId: string;
 }): Promise<void> {
-  const { trigger, accountId, messageId } = input;
+  const { trigger, providerAccountId, messageId } = input;
   const config = GmailNewEmailConfigSchema.parse(trigger.config);
 
   const dedupOutcome = await checkAndMarkSeen(messageId);
@@ -212,16 +211,16 @@ async function processOneMessage(input: {
   if (!dedupOutcome.fresh) return; // already processed in a prior tick
 
   const message = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) => usersMessagesGet({ accessToken, messageId }),
   });
 
   if (!matchesFilters(message, config)) return;
 
   const event = buildTriggerEvent({
-    emailAddress: accountId,
+    emailAddress: providerAccountId,
     message,
   });
 

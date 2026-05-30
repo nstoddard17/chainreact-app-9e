@@ -15,15 +15,16 @@ import { AddNoteConfigSchema } from "./addNote.schema";
 export const addNote: ActionHandler = async (input) => {
   const config = AddNoteConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const created = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       memberAddNote({
         accessToken,

@@ -35,12 +35,13 @@ function input(file: FileRef, extra: Record<string, unknown> = {}) {
     eventType: "manual",
     eventId: "e",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "dbid:1",
+    providerAccountId: "dbid:1",
     payload: {},
   };
   return {
     workflowId: "wf",
     userId: "u",
+    accountId: "acct-u",
     runId: "r",
     nodeId: "n",
     config: { file, ...extra },

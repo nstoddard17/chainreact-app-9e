@@ -32,7 +32,7 @@ function trigger(provider: string = "microsoft-outlook-calendar"): TriggerEvent 
     eventType: "event_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -44,6 +44,7 @@ describe("list_events action", () => {
     await listEvents({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -68,6 +69,7 @@ describe("list_events action", () => {
     await listEvents({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -86,6 +88,7 @@ describe("list_events action", () => {
       listEvents({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { startDateTime: "2026-05-09T00:00:00Z" },
@@ -100,6 +103,7 @@ describe("list_events action", () => {
       listEvents({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { endDateTime: "2026-05-16T00:00:00Z" },
@@ -113,6 +117,7 @@ describe("list_events action", () => {
       listEvents({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { top: 0 },
@@ -124,6 +129,7 @@ describe("list_events action", () => {
       listEvents({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { top: 200 },
@@ -166,6 +172,7 @@ describe("list_events action", () => {
     const result = await listEvents({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -215,6 +222,7 @@ describe("list_events action", () => {
     const result = await listEvents({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -233,6 +241,7 @@ describe("list_events action", () => {
     await listEvents({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subjectFilter: "standup" },
@@ -251,6 +260,7 @@ describe("list_events action", () => {
       listEvents({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},

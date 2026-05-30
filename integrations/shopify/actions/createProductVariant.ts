@@ -12,15 +12,16 @@ import { resolveShopDomain } from "./_resolveShop";
  */
 export const createProductVariant: ActionHandler = async (input) => {
   const config = CreateProductVariantConfigSchema.parse(input.config);
-  const { shopDomain, accountId } = await resolveShopDomain({
+  const { shopDomain, providerAccountId } = await resolveShopDomain({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const variant = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "shopify",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       variantsCreate({
         shopDomain,

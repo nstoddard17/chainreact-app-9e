@@ -31,15 +31,15 @@ import { MoveEmailConfigSchema } from "./moveEmail.schema";
 export const moveEmail: ActionHandler = async (input) => {
   const config = MoveEmailConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const moved = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       moveMessage({
         accessToken,

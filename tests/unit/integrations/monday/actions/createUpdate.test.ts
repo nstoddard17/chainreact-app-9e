@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -57,6 +57,7 @@ describe("create_update handler", () => {
     await createUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", body: "Hello world" },
@@ -73,6 +74,7 @@ describe("create_update handler", () => {
     const result = await createUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", body: "Hello" },
@@ -89,6 +91,7 @@ describe("create_update handler", () => {
     await createUpdate({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i", body: "b" },

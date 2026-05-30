@@ -26,7 +26,7 @@ import { sectionsList } from "@/integrations/microsoft-onenote/api/sectionsList"
  *   - `requiredDeps: ["notebookId"]` — route validates + short-circuits
  *     with `MISSING_DEPENDENCY` before dispatch.
  *   - Wrapper goes through `refreshAndRetry({provider:
- *     "microsoft-onenote", accountId: ctx.integration.providerAccountId})`.
+ *     "microsoft-onenote", providerAccountId: ctx.integration.accountId})`.
  *
  * Sort: Graph-side `$orderby=displayName asc`. OneNote sections within
  * a notebook are usually <30; alphabetical matches Notebook → Section
@@ -73,6 +73,8 @@ export const microsoftOneNoteSectionsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const notebookId = ctx.deps.notebookId;
     if (typeof notebookId !== "string" || notebookId.length === 0) {
       // Defense in depth — the route's requiredDeps guard fires before
@@ -84,14 +86,14 @@ export const microsoftOneNoteSectionsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "microsoft-onenote",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           sectionsList({
             accessToken,

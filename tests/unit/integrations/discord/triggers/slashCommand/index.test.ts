@@ -32,6 +32,7 @@ describe("discord slash_command module-init registration", () => {
     const fakeDiscordRow = {
       id: "x",
       workflowId: "wf",
+      workflowAccountId: "acct-wf",
       userId: "u",
       provider: "discord",
       eventType: "slash_command",
@@ -46,7 +47,7 @@ describe("discord slash_command module-init registration", () => {
         guildId: "g",
         commandId: "c",
       },
-      accountId: "u",
+      providerAccountId: "u",
       registeredAt: "",
       expiresAt: null,
       lastRenewedAt: null,

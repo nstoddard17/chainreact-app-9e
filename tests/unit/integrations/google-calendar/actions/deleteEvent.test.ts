@@ -37,7 +37,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "x",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -46,6 +46,7 @@ function input(config: Record<string, unknown>) {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-del",
     nodeId: "node-del",
     config,

@@ -30,15 +30,15 @@ import { CreateLabelConfigSchema } from "./createLabel.schema";
 export const createLabel: ActionHandler = async (input) => {
   const config = CreateLabelConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersLabelsCreate({
         accessToken,

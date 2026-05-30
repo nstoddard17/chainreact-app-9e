@@ -41,6 +41,7 @@ import { POST } from "@/app/api/workflows/[id]/run-now/route";
 const baseWorkflow = {
   id: "wf-1",
   userId: "user-1",
+  accountId: "acct-user-1",
   name: "WF",
   state: "active" as const,
   disabledReason: null,
@@ -354,12 +355,12 @@ describe("POST /run-now — happy path", () => {
       event: {
         provider: string;
         eventType: string;
-        accountId: string;
+        providerAccountId: string;
       };
     };
     expect(enqueueCall.event.provider).toBe("native");
     expect(enqueueCall.event.eventType).toBe("manual.run");
-    expect(enqueueCall.event.accountId).toBe("system");
+    expect(enqueueCall.event.providerAccountId).toBe("system");
   });
 
   it("event.eventId is a UUID v4 string", async () => {

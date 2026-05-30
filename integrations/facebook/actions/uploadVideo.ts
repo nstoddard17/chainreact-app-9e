@@ -51,15 +51,15 @@ export const uploadVideo: ActionHandler = async (input) => {
     );
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "facebook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "facebook",
-    accountId,
+    providerAccountId,
     apiCall: async (userToken) => {
       const pageAccessToken = await getPageAccessToken({
         accessToken: userToken,

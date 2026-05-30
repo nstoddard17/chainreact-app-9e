@@ -19,9 +19,9 @@ export const createBoard: ActionHandler = async (input) => {
 
   // Trello integrations are tokenScope: "user". See createCard.ts.
   const board = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "trello",
-    accountId: null,
+    providerAccountId: null,
     apiCall: (accessToken) =>
       boardsCreate({
         accessToken,

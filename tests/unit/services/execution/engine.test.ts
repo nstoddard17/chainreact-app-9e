@@ -125,7 +125,7 @@ const triggerEvent: TriggerEvent = {
   eventType: "message",
   eventId: "Ev1",
   occurredAt: "2026-05-07T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: { text: "hello", channel: "C123" },
 };
 
@@ -168,6 +168,7 @@ function labeledEdge(
 const baseWorkflow = {
   id: "wf-1",
   userId: "user-1",
+  accountId: "acct-user-1",
   name: "Test",
   state: "active" as const,
   disabledReason: null,
@@ -857,7 +858,6 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
       persist: unknown; log: unknown;
     };
     expect(arg).toMatchObject({
-      userId: "user-1",
       workflowId: "wf-1",
       workflowRunId: result.runId,
       flatChargedTasks: 1,
@@ -2506,7 +2506,6 @@ describe("WorkflowEngine — live reserve/reconcile billing (Slice 4.COST-15H)",
     expect(mockBillingGate).not.toHaveBeenCalled(); // flat gate bypassed
     expect(mockCreateBillingReservation).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
         workflowId: "wf-1",
         workflowRunId: result.runId,
         estimatedTasks: 3,

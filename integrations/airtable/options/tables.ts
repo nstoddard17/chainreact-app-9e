@@ -58,9 +58,9 @@ export const airtableTablesResolver: OptionsResolver = {
     let schema;
     try {
       schema = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "airtable",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) =>
           basesGetSchema({ accessToken, baseId, includeViews: false }),
       });

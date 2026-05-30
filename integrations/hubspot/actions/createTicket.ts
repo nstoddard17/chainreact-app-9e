@@ -26,9 +26,9 @@ const OPTIONAL_PROPERTY_FIELDS = [
 export const createTicket: ActionHandler = async (input) => {
   const config = CreateTicketConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -44,9 +44,9 @@ export const createTicket: ActionHandler = async (input) => {
   }
 
   const ticket = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       ticketsCreate({ accessToken, properties }),
   });
@@ -54,9 +54,9 @@ export const createTicket: ActionHandler = async (input) => {
   // Best-effort associations. Failures don't roll back the ticket
   // — surfaced as warnings.
   const assoc = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       attachAssociations({
         accessToken,

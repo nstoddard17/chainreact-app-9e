@@ -33,16 +33,16 @@ import { ReplyToEmailConfigSchema } from "./replyToEmail.schema";
 export const replyToEmail: ActionHandler = async (input) => {
   const config = ReplyToEmailConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Step 1 — lookup original message metadata for headers + threadId.
   const original = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesGet({
         accessToken,
@@ -73,9 +73,9 @@ export const replyToEmail: ActionHandler = async (input) => {
 
   // Step 4 — build reply MIME + send in the original thread.
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) => {
       const rfc5322 = buildRfc5322Message({
         to: replyCtx.to,

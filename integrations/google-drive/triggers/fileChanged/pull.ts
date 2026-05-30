@@ -51,10 +51,9 @@ export async function pull(
     return { events: [], resyncRequired: true };
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [], resyncRequired: false };
@@ -76,9 +75,9 @@ export async function pull(
     }
     try {
       const page = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "google-drive",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) =>
           changesList({ accessToken, pageToken }),
       });
@@ -104,9 +103,9 @@ export async function pull(
     // the recovery via the persisted token, and let the next notification
     // surface real changes.
     const baseline = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "google-drive",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
     });
     if (baseline.startPageToken) {
@@ -130,7 +129,7 @@ export async function pull(
   const events: TriggerEvent[] = [];
   for (const change of allChanges) {
     const ev = normalize(change, {
-      accountId: integration.providerAccountId,
+      accountId: integration.accountId,
       folderId: config.folderId,
     });
     if (ev) events.push(ev);

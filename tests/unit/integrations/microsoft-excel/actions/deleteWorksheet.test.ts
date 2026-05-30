@@ -41,7 +41,7 @@ function excelTrigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -52,7 +52,7 @@ function nonExcelTrigger(): TriggerEvent {
     eventType: "slack.message.channel",
     eventId: "Ev1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("delete_worksheet handler — happy path", () => {
     const result = await deleteWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -95,6 +96,7 @@ describe("delete_worksheet handler — error surface", () => {
       deleteWorksheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -114,6 +116,7 @@ describe("delete_worksheet handler — error surface", () => {
       deleteWorksheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -130,6 +133,7 @@ describe("delete_worksheet handler — error surface", () => {
       deleteWorksheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -147,6 +151,7 @@ describe("delete_worksheet handler — error surface", () => {
       deleteWorksheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -166,6 +171,7 @@ describe("delete_worksheet handler — refreshAndRetry routing", () => {
     await deleteWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1" },
@@ -182,6 +188,7 @@ describe("delete_worksheet handler — refreshAndRetry routing", () => {
     await deleteWorksheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1" },

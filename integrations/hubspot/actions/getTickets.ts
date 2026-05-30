@@ -21,9 +21,9 @@ const DEFAULT_PROPERTIES: readonly string[] = [
 export const getTickets: ActionHandler = async (input) => {
   const config = GetTicketsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties = (() => {
@@ -42,9 +42,9 @@ export const getTickets: ActionHandler = async (input) => {
   }
 
   const response = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       ticketsSearch({
         accessToken,

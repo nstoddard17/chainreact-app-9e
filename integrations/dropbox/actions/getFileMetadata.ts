@@ -11,15 +11,15 @@ import { GetFileMetadataConfigSchema } from "./getFileMetadata.schema";
 export const getFileMetadata: ActionHandler = async (input) => {
   const config = GetFileMetadataConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const entry = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "dropbox",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesGetMetadata({ accessToken, path: config.path }),
   });

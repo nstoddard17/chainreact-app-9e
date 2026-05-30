@@ -115,9 +115,9 @@ export const activate: ActivationFn = async ({ integration, node }) => {
   const resource = resolveResource(node.config);
 
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-outlook",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

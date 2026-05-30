@@ -36,7 +36,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "hubspot",
   providerAccountId: "1234567",
   displayName: "Acme (HubSpot)",
@@ -159,9 +160,9 @@ describe("hubspotDealStagesResolver — error sanitization", () => {
   it("maps IntegrationActionRequiredError → INTEGRATION_DISCONNECTED", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "hubspot",
-        accountId: null,
+        providerAccountId: null,
         reason: "refresh_failed",
       }),
     );

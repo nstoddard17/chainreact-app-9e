@@ -28,6 +28,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-sheets",
   eventType: "row_changed",
@@ -40,7 +41,7 @@ const baseTrigger = {
     resourceId: "res-1",
     lastRowCount: 5,
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -50,7 +51,8 @@ const baseTrigger = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "google-sheets",
   providerAccountId: "alice@example.com",
   displayName: "alice@example.com",

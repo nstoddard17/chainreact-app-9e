@@ -41,7 +41,8 @@ const baseNode = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-outlook-calendar",
   providerAccountId: "alice@contoso.com",
   displayName: "alice@contoso.com",

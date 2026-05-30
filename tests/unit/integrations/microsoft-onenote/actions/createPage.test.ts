@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -111,6 +111,7 @@ describe("create_page handler", () => {
     await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -139,6 +140,7 @@ describe("create_page handler", () => {
     await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -164,6 +166,7 @@ describe("create_page handler", () => {
     await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -184,6 +187,7 @@ describe("create_page handler", () => {
     await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -212,6 +216,7 @@ describe("create_page handler", () => {
     const result = await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "s", title: "T" },
@@ -234,6 +239,7 @@ describe("create_page handler", () => {
     const result = await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "s", title: "T" },
@@ -249,6 +255,7 @@ describe("create_page handler", () => {
     await createPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "s", title: "T" },

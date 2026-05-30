@@ -43,7 +43,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     payload: {},
   };
 }
@@ -60,6 +60,7 @@ describe("createProduct", () => {
     const result = await createProduct({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { title: "Hat", price: "29.99", vendor: "Acme" },
@@ -80,6 +81,7 @@ describe("createProduct", () => {
     await createProduct({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { title: "X", price: "1.00" },
@@ -94,6 +96,7 @@ describe("createProduct", () => {
       createProduct({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { price: "1.00" } as Record<string, unknown>,

@@ -20,15 +20,15 @@ import { DeletePageConfigSchema } from "./deletePage.schema";
 export const deletePage: ActionHandler = async (input) => {
   const config = DeletePageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesDelete({ accessToken, pageId: config.pageId }),
   });

@@ -68,9 +68,9 @@ export const activate: ActivationFn = async ({ integration }) => {
   const expiresAt = expirationFromNow();
 
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-outlook",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

@@ -111,7 +111,7 @@ export function normalize(
       event.lastModifiedDateTime ??
       event.createdDateTime ??
       context.notificationOccurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       eventId: event.id,
       changeType: context.changeType,
@@ -153,7 +153,7 @@ export function normalizeDeleted(
     eventType: "event_changed",
     eventId: buildEventId(context, eventId),
     occurredAt: context.notificationOccurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       eventId,
       changeType: context.changeType,

@@ -24,15 +24,15 @@ import { MoveItemConfigSchema } from "./moveItem.schema";
 export const moveItem: ActionHandler = async (input) => {
   const config = MoveItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const moved = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemsMove({
         accessToken,

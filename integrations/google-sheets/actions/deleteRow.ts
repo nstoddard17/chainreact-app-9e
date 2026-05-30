@@ -28,15 +28,15 @@ import {
 export const deleteRow: ActionHandler = async (input) => {
   const config: DeleteRowConfig = DeleteRowConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-sheets"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const metadata = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-sheets",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       spreadsheetsGet({
         accessToken,
@@ -57,9 +57,9 @@ export const deleteRow: ActionHandler = async (input) => {
   }
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-sheets",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       spreadsheetsBatchUpdate({
         accessToken,

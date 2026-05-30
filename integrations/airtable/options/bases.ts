@@ -25,7 +25,7 @@ import {
  * Architecture (mirrors `microsoft-excel:workbooks`):
  *   - `requiresIntegration: true`; no `requiredDeps`.
  *   - Wrapper via `refreshAndRetry({provider:"airtable",
- *     accountId: ctx.integration.providerAccountId})` so a stale
+ *     providerAccountId: ctx.integration.accountId})` so a stale
  *     (rotated) Airtable token triggers exactly one refresh + retry.
  *   - Source: `basesList` (GET /v0/meta/bases, existing
  *     `schema.bases:read` scope).
@@ -62,9 +62,9 @@ export const airtableBasesResolver: OptionsResolver = {
     let response;
     try {
       response = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "airtable",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) => basesList({ accessToken }),
       });
     } catch (err) {

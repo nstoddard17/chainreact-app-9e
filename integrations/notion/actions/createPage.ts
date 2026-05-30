@@ -28,9 +28,9 @@ import { CreatePageConfigSchema } from "./createPage.schema";
 export const createPage: ActionHandler = async (input) => {
   const config = CreatePageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Coerce typed property map into Notion wire-format. The Zod schema
@@ -53,9 +53,9 @@ export const createPage: ActionHandler = async (input) => {
       : { page_id: config.parent.pageId };
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesCreate({
         accessToken,

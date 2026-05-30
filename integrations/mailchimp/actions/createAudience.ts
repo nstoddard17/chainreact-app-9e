@@ -20,15 +20,16 @@ import { CreateAudienceConfigSchema } from "./createAudience.schema";
 export const createAudience: ActionHandler = async (input) => {
   const config = CreateAudienceConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const list = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       listCreate({
         accessToken,

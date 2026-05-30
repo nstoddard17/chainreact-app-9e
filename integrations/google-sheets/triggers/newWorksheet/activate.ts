@@ -47,9 +47,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
 
   // 2. Seed worksheet-name baseline.
   const metadata = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       spreadsheetsGet({
         accessToken,
@@ -67,9 +67,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   // 3a. Capture Drive baseline cursor (parity with row_changed; pull
   // doesn't consume it but renew + future polling-mode parity may).
   const pageBaseline = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
   });
   const pageToken = pageBaseline.startPageToken;
@@ -84,9 +84,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const channelToken = buildChannelToken({ channelId });
 
   const watch = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-sheets",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       filesWatch({
         accessToken,

@@ -17,6 +17,14 @@ import type {
 export interface WorkflowRecord {
   id: string;
   userId: string;
+  /**
+   * V2 account that owns this workflow. NOT NULL per the 4.ACCOUNT-MODEL-5
+   * foundation. Handlers must use this for integration lookups; never the
+   * workflow's userId. Cross-account integration use is rejected at the
+   * integrations.getActiveForExecution boundary because integrations are
+   * keyed on `account_id`.
+   */
+  accountId: string;
   name: string;
   state: WorkflowState;
   disabledReason: WorkflowDisabledReason | null;
@@ -39,6 +47,7 @@ export interface WorkflowRevisionRecord {
 interface WorkflowsRow {
   id: string;
   user_id: string;
+  account_id: string;
   name: string;
   state: WorkflowState;
   disabled_reason: WorkflowDisabledReason | null;
@@ -62,6 +71,7 @@ function rowToRecord(row: WorkflowsRow): WorkflowRecord {
   return {
     id: row.id,
     userId: row.user_id,
+    accountId: row.account_id,
     name: row.name,
     state: row.state,
     disabledReason: row.disabled_reason,

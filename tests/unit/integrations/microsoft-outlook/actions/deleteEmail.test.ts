@@ -39,7 +39,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -54,6 +54,7 @@ describe("delete_email action — trash mode", () => {
     const result = await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "AAMkAGI2", deleteMode: "trash" },
@@ -85,6 +86,7 @@ describe("delete_email action — trash mode", () => {
     await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", deleteMode: "trash" },
@@ -106,6 +108,7 @@ describe("delete_email action — trash mode", () => {
     const result = await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", deleteMode: "trash" },
@@ -126,6 +129,7 @@ describe("delete_email action — permanent mode", () => {
     const result = await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "AAMkAGI2", deleteMode: "permanent" },
@@ -154,6 +158,7 @@ describe("delete_email action — permanent mode", () => {
     await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", deleteMode: "permanent" },
@@ -170,6 +175,7 @@ describe("delete_email action — permanent mode", () => {
       deleteEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { emailId: "msg-1", deleteMode: "permanent" },
@@ -187,6 +193,7 @@ describe("delete_email action — common behavior", () => {
       deleteEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { emailId: "msg-1" },
@@ -203,6 +210,7 @@ describe("delete_email action — common behavior", () => {
       deleteEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { emailId: "msg-1", deleteMode: false as unknown as "trash" },
@@ -216,6 +224,7 @@ describe("delete_email action — common behavior", () => {
       deleteEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { deleteMode: "trash" },
@@ -233,6 +242,7 @@ describe("delete_email action — common behavior", () => {
     await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", deleteMode: "trash" },
@@ -256,6 +266,7 @@ describe("delete_email action — common behavior", () => {
     await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", deleteMode: "permanent" },
@@ -283,6 +294,7 @@ describe("delete_email action — common behavior", () => {
     const result = await deleteEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { emailId: "msg-1", deleteMode: "trash" },

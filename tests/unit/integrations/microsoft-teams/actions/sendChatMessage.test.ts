@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_channel_message",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -48,6 +48,7 @@ describe("send_chat_message action", () => {
     const result = await sendChatMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { chatId: "chat-1", content: "<p>chat</p>" },
@@ -68,6 +69,7 @@ describe("send_chat_message action", () => {
     await sendChatMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { chatId: "chat-1", content: "hi" },
@@ -82,6 +84,7 @@ describe("send_chat_message action", () => {
       sendChatMessage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { chatId: "", content: "hi" },
@@ -95,6 +98,7 @@ describe("send_chat_message action", () => {
       sendChatMessage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { chatId: "chat-1", content: "hi", contentType: "rtf" },

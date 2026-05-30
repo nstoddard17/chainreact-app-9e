@@ -37,7 +37,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -75,6 +75,7 @@ describe("get_block handler — rich-text-bearing blocks", () => {
     await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-1" },
@@ -106,6 +107,7 @@ describe("get_block handler — rich-text-bearing blocks", () => {
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-1" },
@@ -141,6 +143,7 @@ describe("get_block handler — rich-text-bearing blocks", () => {
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-h" },
@@ -163,6 +166,7 @@ describe("get_block handler — non-text blocks", () => {
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-d" },
@@ -187,6 +191,7 @@ describe("get_block handler — non-text blocks", () => {
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-i" },
@@ -211,6 +216,7 @@ describe("get_block handler — output discipline + parent + error propagation",
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-1" },
@@ -232,6 +238,7 @@ describe("get_block handler — output discipline + parent + error propagation",
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-1" },
@@ -248,6 +255,7 @@ describe("get_block handler — output discipline + parent + error propagation",
       getBlock({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { blockId: "b-missing" },
@@ -268,6 +276,7 @@ describe("get_block handler — output discipline + parent + error propagation",
     const result = await getBlock({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "b-1" },

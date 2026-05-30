@@ -47,9 +47,9 @@ import { UpdateMultipleRecordsConfigSchema } from "./updateMultipleRecords.schem
 export const updateMultipleRecords: ActionHandler = async (input) => {
   const config = UpdateMultipleRecordsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "airtable"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Coerce every record's typed field map into wire-format. Throws
@@ -63,9 +63,9 @@ export const updateMultipleRecords: ActionHandler = async (input) => {
   }));
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "airtable",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       recordsBatchUpdate({
         accessToken,

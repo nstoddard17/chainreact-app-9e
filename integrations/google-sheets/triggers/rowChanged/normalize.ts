@@ -129,7 +129,7 @@ export function normalize(
     eventType: "row_changed",
     eventId,
     occurredAt: row.occurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       changeKind,
       spreadsheetId: context.spreadsheetId,

@@ -33,16 +33,16 @@ export const createBranch: ActionHandler = async (input) => {
   const config = CreateBranchConfigSchema.parse(input.config);
   const { owner, repo } = parseRepository(config.repository);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "github"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // PR-G6 auto-detect for sourceBranch.
   const effectiveSource = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       resolveDefaultBranch({
         accessToken,
@@ -54,9 +54,9 @@ export const createBranch: ActionHandler = async (input) => {
 
   // Fetch source SHA.
   const sourceRef = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       gitRefGet({
         accessToken,
@@ -68,9 +68,9 @@ export const createBranch: ActionHandler = async (input) => {
 
   // Create new ref.
   const newRef = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       gitRefsCreate({
         accessToken,

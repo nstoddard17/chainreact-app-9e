@@ -38,7 +38,7 @@ function trigger(): TriggerEvent {
     eventType: "new_table_row",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -53,6 +53,7 @@ describe("add_table_row action", () => {
     const result = await addTableRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -83,6 +84,7 @@ describe("add_table_row action", () => {
     await addTableRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -109,6 +111,7 @@ describe("add_table_row action", () => {
     await addTableRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -133,6 +136,7 @@ describe("add_table_row action", () => {
     await addTableRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -151,6 +155,7 @@ describe("add_table_row action", () => {
       addTableRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

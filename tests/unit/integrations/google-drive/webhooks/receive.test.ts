@@ -36,12 +36,13 @@ function makeRequest(headers: Record<string, string>): Request {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-drive",
   eventType: "file_changed",
   nodeId: "n1",
   config: { channelId: "channel-1", pageToken: "page-1", fileId: "root" },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -109,7 +110,7 @@ describe("receiveDriveWebhook", () => {
           eventType: "file_changed",
           eventId: "f-1:t1",
           occurredAt: "t1",
-          accountId: "alice@example.com",
+          providerAccountId: "alice@example.com",
           payload: {
             changeKind: "created",
             objectKind: "file",

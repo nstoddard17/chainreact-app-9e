@@ -69,8 +69,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "gmail",
     null,
   );
@@ -86,7 +85,7 @@ async function poll(input: {
     );
     return;
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   let cursor = config.snapshot.historyId;
 
@@ -102,9 +101,9 @@ async function poll(input: {
     let page;
     try {
       page = await refreshAndRetry({
-        userId: trigger.userId,
+        accountId: trigger.workflowAccountId!,
         provider: "gmail",
-        accountId,
+        providerAccountId,
         apiCall: async (accessToken) =>
           usersHistoryList({
             accessToken,
@@ -115,9 +114,9 @@ async function poll(input: {
     } catch (err) {
       if (err instanceof HistoryListStaleCursorError) {
         const profile = await refreshAndRetry({
-          userId: trigger.userId,
+          accountId: trigger.workflowAccountId!,
           provider: "gmail",
-          accountId,
+          providerAccountId,
           apiCall: async (accessToken) => usersGetProfile({ accessToken }),
         });
         console.warn(
@@ -171,7 +170,7 @@ async function poll(input: {
       try {
         await processOneMessage({
           trigger,
-          accountId,
+          providerAccountId,
           messageId: entry.id,
           labelAppliedId: config.labelId,
           labelsAdded: entry.labelsAdded,
@@ -218,26 +217,27 @@ function matchesLabel(ev: MessageEvent, configuredLabelId: string): boolean {
 
 async function processOneMessage(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   messageId: string;
   labelAppliedId: string;
   labelsAdded: readonly string[];
 }): Promise<void> {
-  const { trigger, accountId, messageId, labelAppliedId, labelsAdded } = input;
+  const { trigger, providerAccountId, messageId, labelAppliedId, labelsAdded } =
+    input;
 
   const dedupOutcome = await checkAndMarkSeenLabeled(messageId);
   if (dedupOutcome.outage) return; // fail-closed (see dedup.ts)
   if (!dedupOutcome.fresh) return; // already processed in a prior tick
 
   const message = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) => usersMessagesGet({ accessToken, messageId }),
   });
 
   const event = buildLabeledTriggerEvent({
-    emailAddress: accountId,
+    emailAddress: providerAccountId,
     message,
     labelAppliedId,
     labelsAdded,

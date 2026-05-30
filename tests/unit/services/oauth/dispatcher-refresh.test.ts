@@ -50,7 +50,8 @@ beforeEach(() => {
 function makeRow(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
   return {
     id: "int-1",
-    userId: "user-1",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
     provider: "slack",
     providerAccountId: "T123",
     displayName: "Acme",
@@ -79,7 +80,7 @@ describe("dispatcher.refresh — happy path", () => {
       makeRow({ accessTokenEncrypted: "ENC-new-access", refreshTokenEncrypted: "ENC-new-refresh" }),
     );
 
-    const result = await refresh({ userId: "user-1", provider: "slack" });
+    const result = await refresh({ accountId: "user-1", provider: "slack" });
 
     // Provider received the decrypted refresh token (mock decrypts ENC- prefix).
     expect(mockSlackRefreshToken).toHaveBeenCalledWith("old-refresh");
@@ -105,7 +106,7 @@ describe("dispatcher.refresh — happy path", () => {
     });
     mockUpdateTokens.mockResolvedValueOnce(makeRow());
 
-    await refresh({ userId: "user-1", provider: "slack", accountId: "T999" });
+    await refresh({ accountId: "user-1", provider: "slack", providerAccountId: "T999" });
 
     expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", "T999");
   });
@@ -120,7 +121,7 @@ describe("dispatcher.refresh — happy path", () => {
     });
     mockUpdateTokens.mockResolvedValueOnce(makeRow());
 
-    await refresh({ userId: "user-1", provider: "slack" });
+    await refresh({ accountId: "user-1", provider: "slack" });
 
     expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", null);
   });
@@ -131,7 +132,7 @@ describe("dispatcher.refresh — error paths", () => {
     mockGetActiveForExecution.mockResolvedValueOnce(makeRow());
     mockSlackRefreshToken.mockRejectedValueOnce(new RefreshNotSupportedError("slack"));
 
-    await expect(refresh({ userId: "user-1", provider: "slack" })).rejects.toBeInstanceOf(
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toBeInstanceOf(
       RefreshNotSupportedError,
     );
     expect(mockUpdateTokens).not.toHaveBeenCalled();
@@ -139,7 +140,7 @@ describe("dispatcher.refresh — error paths", () => {
 
   it("throws clear error when no active integration exists", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(null);
-    await expect(refresh({ userId: "user-1", provider: "slack" })).rejects.toThrow(
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toThrow(
       /no active integration/i,
     );
     expect(mockSlackRefreshToken).not.toHaveBeenCalled();
@@ -149,20 +150,20 @@ describe("dispatcher.refresh — error paths", () => {
     mockGetActiveForExecution.mockResolvedValueOnce(
       makeRow({ refreshTokenEncrypted: null }),
     );
-    await expect(refresh({ userId: "user-1", provider: "slack" })).rejects.toThrow(
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toThrow(
       /no refresh token/i,
     );
     expect(mockSlackRefreshToken).not.toHaveBeenCalled();
   });
 
   it("throws when manifest is unknown for the provider", async () => {
-    await expect(refresh({ userId: "u", provider: "nope" })).rejects.toThrow(
+    await expect(refresh({ accountId: "u", provider: "nope" })).rejects.toThrow(
       /unknown provider/i,
     );
   });
 
   it("rejects empty userId", async () => {
-    await expect(refresh({ userId: "", provider: "slack" })).rejects.toThrow(
+    await expect(refresh({ accountId: "", provider: "slack" })).rejects.toThrow(
       /userId is required/i,
     );
   });
@@ -185,8 +186,8 @@ describe("dispatcher.refresh — concurrent calls coalesce via the lock", () => 
     mockUpdateTokens.mockResolvedValue(makeRow({ accessTokenEncrypted: "ENC-new" }));
 
     const [a, b] = await Promise.all([
-      refresh({ userId: "user-1", provider: "slack" }),
-      refresh({ userId: "user-1", provider: "slack" }),
+      refresh({ accountId: "user-1", provider: "slack" }),
+      refresh({ accountId: "user-1", provider: "slack" }),
     ]);
 
     expect(providerInvocations).toBe(1);
@@ -210,8 +211,8 @@ describe("dispatcher.refresh — concurrent calls coalesce via the lock", () => 
     mockUpdateTokens.mockResolvedValue(makeRow());
 
     await Promise.all([
-      refresh({ userId: "user-1", provider: "slack", accountId: "T-A" }),
-      refresh({ userId: "user-1", provider: "slack", accountId: "T-B" }),
+      refresh({ accountId: "user-1", provider: "slack", providerAccountId: "T-A" }),
+      refresh({ accountId: "user-1", provider: "slack", providerAccountId: "T-B" }),
     ]);
 
     expect(mockSlackRefreshToken).toHaveBeenCalledTimes(2);

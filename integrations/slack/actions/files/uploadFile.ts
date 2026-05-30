@@ -137,10 +137,9 @@ export const uploadFile: ActionHandler = async (input) => {
   // matches the convention every other Slack action handler uses.
   const accountId =
     input.triggerEvent.provider === "slack"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
-  const integration = await getActiveForExecution(
-    input.userId,
+  const integration = await getActiveForExecution(input.accountId,
     "slack",
     accountId,
   );

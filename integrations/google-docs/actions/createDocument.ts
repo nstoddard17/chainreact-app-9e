@@ -48,16 +48,16 @@ import { CreateDocumentConfigSchema } from "./createDocument.schema";
 export const createDocument: ActionHandler = async (input) => {
   const config = CreateDocumentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-docs"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // 1) Create the empty document.
   const created = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-docs",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       documentsCreate({ accessToken, title: config.title }),
   });
@@ -66,9 +66,9 @@ export const createDocument: ActionHandler = async (input) => {
   // 2) Insert content if supplied.
   if (config.content.length > 0) {
     await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "google-docs",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         documentsBatchUpdate({
           accessToken,
@@ -88,9 +88,9 @@ export const createDocument: ActionHandler = async (input) => {
   // 3) Move to folder if requested.
   if (config.folderId !== undefined && config.folderId.length > 0) {
     await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "google-docs",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         filesUpdate({
           accessToken,

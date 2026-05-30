@@ -93,7 +93,7 @@ export function normalizeShopifyEvent(
     eventType: SHOPIFY_TRIGGER_EVENT_TYPE,
     eventId,
     occurredAt: bestOccurredAt(input.headers.triggeredAt, input.body),
-    accountId: input.headers.shopDomain,
+    providerAccountId: input.headers.shopDomain,
     payload: {
       topic: input.headers.topic,
       shopDomain: input.headers.shopDomain,

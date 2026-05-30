@@ -30,7 +30,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -41,7 +41,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -65,6 +65,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -115,6 +116,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -152,6 +154,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -178,6 +181,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -207,6 +211,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -235,6 +240,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -264,6 +270,7 @@ describe("findRow action", () => {
       findRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -290,6 +297,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -322,6 +330,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -350,6 +359,7 @@ describe("findRow action", () => {
     const result = await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -380,6 +390,7 @@ describe("findRow action", () => {
       findRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -400,6 +411,7 @@ describe("findRow action", () => {
     await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -426,6 +438,7 @@ describe("findRow action", () => {
     await findRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -459,6 +472,7 @@ describe("findRow action", () => {
         findRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, value: true },
@@ -474,6 +488,7 @@ describe("findRow action", () => {
         findRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, value: 42 },
@@ -487,6 +502,7 @@ describe("findRow action", () => {
         findRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, value: null },
@@ -501,6 +517,7 @@ describe("findRow action", () => {
           findRow({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, operator: op },
@@ -515,6 +532,7 @@ describe("findRow action", () => {
         findRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, spreadsheetId: "" },
@@ -526,6 +544,7 @@ describe("findRow action", () => {
         findRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, sheetName: "" },
@@ -537,6 +556,7 @@ describe("findRow action", () => {
         findRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { ...baseConfig, column: "" },
@@ -555,6 +575,7 @@ describe("findRow action", () => {
           findRow({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, ...extra },

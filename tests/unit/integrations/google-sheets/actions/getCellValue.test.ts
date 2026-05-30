@@ -29,7 +29,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -40,7 +40,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -57,6 +57,7 @@ describe("getCellValue action", () => {
     const result = await getCellValue({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -91,6 +92,7 @@ describe("getCellValue action", () => {
     const result = await getCellValue({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -116,6 +118,7 @@ describe("getCellValue action", () => {
     const result = await getCellValue({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "Sheet1", cell: "A1" },
@@ -132,6 +135,7 @@ describe("getCellValue action", () => {
     const result = await getCellValue({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "Sheet1", cell: "C3" },
@@ -149,6 +153,7 @@ describe("getCellValue action", () => {
       getCellValue({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "ss", sheetName: "Sheet1", cell: "A1" },
@@ -163,6 +168,7 @@ describe("getCellValue action", () => {
     await getCellValue({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "S1", cell: "A1" },
@@ -183,6 +189,7 @@ describe("getCellValue action", () => {
     await getCellValue({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "S1", cell: "A1" },
@@ -203,6 +210,7 @@ describe("getCellValue action", () => {
           getCellValue({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { spreadsheetId: "ss", sheetName: "S", cell },
@@ -217,6 +225,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", cell: "A1:B5" },
@@ -230,6 +239,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", cell: "A:A" },
@@ -243,6 +253,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", cell: "A" },
@@ -256,6 +267,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", cell: "1" },
@@ -269,6 +281,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "", sheetName: "S", cell: "A1" },
@@ -280,6 +293,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "", cell: "A1" },
@@ -291,6 +305,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", cell: "" },
@@ -304,6 +319,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { sheetName: "S", cell: "A1" }, // no spreadsheetId
@@ -317,6 +333,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {
@@ -333,6 +350,7 @@ describe("getCellValue action", () => {
         getCellValue({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {

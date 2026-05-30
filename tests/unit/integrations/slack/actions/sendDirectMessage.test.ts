@@ -32,13 +32,14 @@ const slackEvent: TriggerEvent = {
   eventType: "slack.message.channel",
   eventId: "Ev1",
   occurredAt: "2026-05-07T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: { text: "hi", channel: "C123" },
 };
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "slack",
   providerAccountId: "T0001",
   displayName: "Acme",
@@ -59,6 +60,7 @@ function makeInput(
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "n2",
     config,
@@ -157,7 +159,7 @@ describe("sendDirectMessage — integration missing", () => {
   });
 
   it("throws generic message when triggerEvent is from a different provider", async () => {
-    const otherEvent: TriggerEvent = { ...slackEvent, provider: "gmail", accountId: "g" };
+    const otherEvent: TriggerEvent = { ...slackEvent, provider: "gmail", providerAccountId: "g" };
     mockGetActiveForExecution.mockResolvedValueOnce(null);
     await expect(
       sendDirectMessage(

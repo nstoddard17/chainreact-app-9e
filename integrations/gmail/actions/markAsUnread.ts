@@ -10,15 +10,15 @@ import { MarkAsUnreadConfigSchema } from "./markAsUnread.schema";
 export const markAsUnread: ActionHandler = async (input) => {
   const config = MarkAsUnreadConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesModify({
         accessToken,

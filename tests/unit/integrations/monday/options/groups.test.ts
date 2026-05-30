@@ -27,7 +27,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "monday",
   providerAccountId: "alice@example.com",
   displayName: "Alice",
@@ -184,9 +185,9 @@ describe("mondayGroupsResolver — error sanitization", () => {
   it("INTEGRATION_DISCONNECTED on auth errors", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "monday",
-        accountId: "alice@example.com",
+        providerAccountId: "alice@example.com",
         reason: "refresh_failed",
       }),
     );

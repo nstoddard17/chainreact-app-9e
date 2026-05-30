@@ -26,15 +26,15 @@ import { AddLabelConfigSchema } from "./addLabel.schema";
 export const addLabel: ActionHandler = async (input) => {
   const config = AddLabelConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesModify({
         accessToken,

@@ -60,7 +60,7 @@ describe("normalizeNewMessage — canonical TriggerEvent fields", () => {
     // Discord's messages API doesn't populate guild_id on each row;
     // trigger config supplies it.
     const event = normalizeNewMessage({ message: SAMPLE, guildId: "g-from-config" });
-    expect(event.accountId).toBe("g-from-config");
+    expect(event.providerAccountId).toBe("g-from-config");
   });
 
   it("uses message.timestamp for occurredAt when present", () => {

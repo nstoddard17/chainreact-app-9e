@@ -96,6 +96,7 @@ afterEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "gmail",
   eventType: "new_attachment",
@@ -104,7 +105,7 @@ const baseTrigger = {
     pollingEnabled: true,
     snapshot: { historyId: "100", capturedAt: "2026-05-14T12:00:00Z" },
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -163,6 +164,7 @@ describe("Gmail new_attachment poll — fire / skip behavior", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -184,6 +186,7 @@ describe("Gmail new_attachment poll — fire / skip behavior", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -209,6 +212,7 @@ describe("Gmail new_attachment poll — fire / skip behavior", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -225,6 +229,7 @@ describe("Gmail new_attachment poll — fire / skip behavior", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -263,6 +268,7 @@ describe("Gmail new_attachment poll — fire / skip behavior", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -289,6 +295,7 @@ describe("Gmail new_attachment poll — wiring details", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -307,6 +314,7 @@ describe("Gmail new_attachment poll — wiring details", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -324,6 +332,7 @@ describe("Gmail new_attachment poll — wiring details", () => {
 
     await gmailNewAttachmentPollingHandler.poll({
       trigger: baseTrigger,
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });
@@ -353,6 +362,7 @@ describe("Gmail new_attachment poll — wiring details", () => {
   it("does nothing when snapshot is missing (defensive log + return)", async () => {
     await gmailNewAttachmentPollingHandler.poll({
       trigger: { ...baseTrigger, config: { pollingEnabled: true } },
+      accountId: "acct-test",
       userRole: "owner",
       now: Date.now(),
     });

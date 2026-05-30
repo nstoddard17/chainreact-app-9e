@@ -38,10 +38,9 @@ export async function pull(
     return { events: [], resyncRequired: true };
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [], resyncRequired: false };
@@ -63,9 +62,9 @@ export async function pull(
     }
     try {
       const page = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "google-calendar",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) =>
           eventsList({
             accessToken,
@@ -104,9 +103,9 @@ export async function pull(
         );
       }
       const page = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "google-calendar",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) =>
           eventsList({
             accessToken,
@@ -142,7 +141,7 @@ export async function pull(
   // Convert each delta event to a TriggerEvent.
   const events: TriggerEvent[] = allEvents.map((e) =>
     normalize(e, {
-      accountId: integration.providerAccountId,
+      accountId: integration.accountId,
       calendarId: config.calendarId!,
     }),
   );

@@ -35,7 +35,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -52,6 +52,7 @@ describe("create_folder action", () => {
     const result = await createFolder({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "Reports" },
@@ -78,6 +79,7 @@ describe("create_folder action", () => {
     await createFolder({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "x", parentItemId: "p-9" },
@@ -93,6 +95,7 @@ describe("create_folder action", () => {
     await createFolder({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "x" },
@@ -111,6 +114,7 @@ describe("create_folder action", () => {
       createFolder({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { name: "" },
@@ -124,6 +128,7 @@ describe("create_folder action", () => {
       createFolder({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { name: "x", description: "leftover" },

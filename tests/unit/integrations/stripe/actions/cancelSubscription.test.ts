@@ -35,7 +35,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -64,6 +64,7 @@ describe("cancel_subscription action", () => {
     const result = await cancelSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },
@@ -82,6 +83,7 @@ describe("cancel_subscription action", () => {
     await cancelSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1", at_period_end: true },
@@ -96,6 +98,7 @@ describe("cancel_subscription action", () => {
     await cancelSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -115,6 +118,7 @@ describe("cancel_subscription action", () => {
       cancelSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -128,6 +132,7 @@ describe("cancel_subscription action", () => {
     await cancelSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "n",
       config: { subscriptionId: "sub_1" },

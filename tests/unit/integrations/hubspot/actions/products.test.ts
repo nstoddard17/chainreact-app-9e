@@ -34,7 +34,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "p",
+  providerAccountId: "p",
   payload: {},
 };
 
@@ -46,6 +46,7 @@ describe("create_product", () => {
       createProduct({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { price: "99.99" },
@@ -64,6 +65,7 @@ describe("create_product", () => {
     await createProduct({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -90,6 +92,7 @@ describe("create_product", () => {
     const result = await createProduct({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "X" },
@@ -112,6 +115,7 @@ describe("update_product", () => {
       updateProduct({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { productId: "p-1" },
@@ -129,6 +133,7 @@ describe("update_product", () => {
     await updateProduct({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { productId: "p-1", price: "129.99" },

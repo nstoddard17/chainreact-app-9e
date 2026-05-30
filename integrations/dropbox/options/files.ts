@@ -96,6 +96,8 @@ export const dropboxFilesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const path = ctx.deps.folderPath;
     if (typeof path !== "string") {
       // Belt-and-suspenders: the route already enforces requiredDeps.
@@ -105,14 +107,14 @@ export const dropboxFilesResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "dropbox",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           filesListFolder({
             accessToken,

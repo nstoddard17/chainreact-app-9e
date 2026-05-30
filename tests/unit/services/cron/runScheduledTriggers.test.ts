@@ -81,7 +81,7 @@ function row(overrides: Partial<{
       nextFireAt: "2026-05-16T11:59:00Z",
       schedulerState: "armed",
     },
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "2026-05-16T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,

@@ -31,7 +31,7 @@ import { worksheetsList } from "@/integrations/microsoft-excel/api/worksheetsLis
  *     short-circuits `MISSING_DEPENDENCY` before dispatch; the in-resolver
  *     guard covers direct invocations).
  *   - Wrapper via `refreshAndRetry({provider: "microsoft-excel",
- *     accountId: ctx.integration.providerAccountId})`.
+ *     providerAccountId: ctx.integration.accountId})`.
  *
  * `worksheetsList` returns a bare array (Graph `value[]`; no pagination),
  * so `hasMore` is always `false`. Worksheet lists are small.
@@ -58,6 +58,8 @@ export const microsoftExcelWorksheetsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const workbookId = ctx.deps.workbookId;
     if (typeof workbookId !== "string" || workbookId.length === 0) {
       throw new OptionsResolverError(
@@ -66,14 +68,14 @@ export const microsoftExcelWorksheetsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let worksheets;
     try {
       worksheets = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "microsoft-excel",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => worksheetsList({ accessToken, workbookId }),
       });
     } catch (err) {

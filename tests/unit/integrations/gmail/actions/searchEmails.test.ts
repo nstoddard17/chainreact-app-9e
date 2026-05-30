@@ -48,7 +48,7 @@ function makeGmailTriggerEvent(): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-12T12:00:00Z",
-    accountId: "me@example.com",
+    providerAccountId: "me@example.com",
     payload: {},
   };
 }
@@ -59,6 +59,7 @@ function baseHandlerInput(overrides: {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "node-search-emails",
     config: overrides.config ?? {
@@ -486,7 +487,7 @@ describe("searchEmails — refreshAndRetry routing", () => {
     }
   });
 
-  it("passes accountId: null for non-Gmail trigger events", async () => {
+  it("passes providerAccountId: null for non-Gmail trigger events", async () => {
     wireRefreshAndRetry();
     mockUsersMessagesList.mockResolvedValueOnce({
       messages: [],
@@ -496,6 +497,7 @@ describe("searchEmails — refreshAndRetry routing", () => {
     await searchEmails({
       workflowId: "wf-1",
       userId: "user-1",
+      accountId: "acct-user-1",
       runId: "run-1",
       nodeId: "node-search",
       config: { searchMode: "query", query: "is:unread" },
@@ -504,7 +506,7 @@ describe("searchEmails — refreshAndRetry routing", () => {
         eventType: "msg",
         eventId: "e",
         occurredAt: "2026-05-12T12:00:00Z",
-        accountId: "T1",
+        providerAccountId: "T1",
         payload: {},
       },
     });

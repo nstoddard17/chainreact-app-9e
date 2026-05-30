@@ -40,16 +40,16 @@ export const searchEmails: ActionHandler = async (input) => {
 
   const query = resolveQuery(config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Step 1 — list message ids.
   const listResult = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesList({
         accessToken,
@@ -63,9 +63,9 @@ export const searchEmails: ActionHandler = async (input) => {
   const messages: SearchEmailMessageOutput[] = [];
   for (const ref of listResult.messages) {
     const hydrated = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "gmail",
-      accountId,
+      providerAccountId,
       apiCall: async (accessToken) =>
         usersMessagesGet({ accessToken, messageId: ref.id }),
     });

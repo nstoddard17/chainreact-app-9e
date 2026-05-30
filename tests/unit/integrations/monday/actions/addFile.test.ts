@@ -44,7 +44,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -100,6 +100,7 @@ describe("add_file handler — FileRef arms", () => {
       await addFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "1", columnId: "files", file: providerUrlRef },
@@ -132,6 +133,7 @@ describe("add_file handler — FileRef arms", () => {
     await addFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "1", columnId: "files", file: v2StorageRef },
@@ -160,6 +162,7 @@ describe("add_file handler — FileRef arms", () => {
     await addFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "1", columnId: "files", file: signedUrlRef },
@@ -183,6 +186,7 @@ describe("add_file handler — FileRef arms", () => {
     await addFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -211,6 +215,7 @@ describe("add_file handler — FileRef arms", () => {
     const result = await addFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "1", columnId: "files", file: v2StorageRef },
@@ -241,6 +246,7 @@ describe("add_file handler — FileRef arms", () => {
     await addFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "1", columnId: "files", file: signedUrlRef },

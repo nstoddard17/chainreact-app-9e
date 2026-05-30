@@ -38,13 +38,13 @@ beforeEach(() => {
   );
 });
 
-function trigger(provider = "stripe", accountId = "acct_TEST"): TriggerEvent {
+function trigger(provider = "stripe", providerAccountId = "acct_TEST"): TriggerEvent {
   return {
     provider,
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -76,6 +76,7 @@ describe("create_invoice action", () => {
     await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r1",
       nodeId: "node-a",
       config: { customerId: "cus_test_42" },
@@ -90,6 +91,7 @@ describe("create_invoice action", () => {
     await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-42",
       nodeId: "node-a",
       config: { customerId: "cus_test_1" },
@@ -106,6 +108,7 @@ describe("create_invoice action", () => {
     await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_test_1" },
@@ -120,6 +123,7 @@ describe("create_invoice action", () => {
     await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_test_1" },
@@ -140,6 +144,7 @@ describe("create_invoice action", () => {
     await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -161,6 +166,7 @@ describe("create_invoice action", () => {
     await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_test_1" },
@@ -194,6 +200,7 @@ describe("create_invoice action", () => {
     const result = await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_99" },
@@ -240,6 +247,7 @@ describe("create_invoice action", () => {
     const result = await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_test_1" },
@@ -255,6 +263,7 @@ describe("create_invoice action", () => {
     const result = await createInvoice({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -277,6 +286,7 @@ describe("create_invoice action", () => {
       createInvoice({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { customerId: "cus_missing" },
@@ -290,6 +300,7 @@ describe("create_invoice action", () => {
       createInvoice({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         // missing customerId — strict parse rejects.

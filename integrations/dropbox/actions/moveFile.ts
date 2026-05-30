@@ -11,15 +11,15 @@ import { MoveFileConfigSchema } from "./moveFile.schema";
 export const moveFile: ActionHandler = async (input) => {
   const config = MoveFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const entry = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "dropbox",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesMove({
         accessToken,

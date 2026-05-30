@@ -18,15 +18,15 @@ export const addComment: ActionHandler = async (input) => {
   const config = AddCommentConfigSchema.parse(input.config);
   const { owner, repo } = parseRepository(config.repository);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "github"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const comment = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       issueCommentsCreate({
         accessToken,

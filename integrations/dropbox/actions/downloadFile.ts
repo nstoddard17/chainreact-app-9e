@@ -22,15 +22,15 @@ import { DownloadFileConfigSchema } from "./downloadFile.schema";
 export const downloadFile: ActionHandler = async (input) => {
   const config = DownloadFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const { bytes, metadata } = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "dropbox",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesDownload({ accessToken, path: config.path }),
   });

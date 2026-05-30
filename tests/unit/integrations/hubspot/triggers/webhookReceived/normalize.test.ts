@@ -23,7 +23,7 @@ describe("normalizeHubSpotEvent", () => {
       eventType: HUBSPOT_TRIGGER_EVENT_TYPE,
       eventId: "12345",
       occurredAt: new Date(1700000000000).toISOString(),
-      accountId: "9988776",
+      providerAccountId: "9988776",
       payload: expect.objectContaining({
         subscriptionType: "contact.creation",
         portalId: "9988776",
@@ -98,7 +98,7 @@ describe("normalizeHubSpotEvent", () => {
       objectId: 67890,
       occurredAt: 1700000000000,
     });
-    expect(result.accountId).toBe("12345");
+    expect(result.providerAccountId).toBe("12345");
     expect(result.payload.portalId).toBe("12345");
     expect(result.payload.hubId).toBe("12345");
     expect(result.payload.objectId).toBe("67890");

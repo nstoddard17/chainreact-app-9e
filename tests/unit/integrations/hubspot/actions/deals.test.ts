@@ -38,7 +38,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "9876543",
+  providerAccountId: "9876543",
   payload: {},
 };
 
@@ -50,6 +50,7 @@ describe("create_deal", () => {
       createDeal({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { dealname: "X" }, // missing dealstage
@@ -61,6 +62,7 @@ describe("create_deal", () => {
       createDeal({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { dealstage: "proposalsent" }, // missing dealname
@@ -83,6 +85,7 @@ describe("create_deal", () => {
     await createDeal({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -109,6 +112,7 @@ describe("create_deal", () => {
     const result = await createDeal({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { dealname: "x", dealstage: "s" },
@@ -131,6 +135,7 @@ describe("update_deal", () => {
     await updateDeal({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { dealId: "d-1", amount: "9999" },
@@ -150,6 +155,7 @@ describe("update_deal", () => {
       updateDeal({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { dealId: "d-1" },
@@ -167,6 +173,7 @@ describe("get_deals", () => {
     await getDeals({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -192,6 +199,7 @@ describe("get_deals", () => {
     const r = await getDeals({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},

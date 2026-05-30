@@ -61,7 +61,7 @@ describe("Outlook Calendar event_changed normalize", () => {
       eventType: "event_changed",
       eventId: "sub-1:evt-1:created",
       occurredAt: "2026-05-08T11:00:00Z",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
       payload: {
         eventId: "evt-1",
         changeType: "created",
@@ -241,7 +241,7 @@ describe("Outlook Calendar event_changed normalizeDeleted", () => {
       eventType: "event_changed",
       eventId: "sub-1:evt-deleted:deleted",
       occurredAt: "2026-05-08T12:00:00Z",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
       payload: {
         eventId: "evt-deleted",
         changeType: "deleted",

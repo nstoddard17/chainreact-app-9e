@@ -160,10 +160,9 @@ export async function receiveOutlookWebhook(
 
     // 3. Fetch the full message. The notification envelope only carries
     //    the message id; the body lives behind /me/messages/{id}.
-    const integration = await getActiveForExecution(
-      trigger.userId,
+    const integration = await getActiveForExecution(trigger.workflowAccountId!,
       trigger.provider,
-      trigger.accountId,
+      trigger.providerAccountId,
     );
     if (!integration) {
       console.warn(
@@ -178,9 +177,9 @@ export async function receiveOutlookWebhook(
     let message;
     try {
       message = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "microsoft-outlook",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) => getMessage({ accessToken, messageId }),
       });
     } catch (err) {
@@ -216,7 +215,7 @@ export async function receiveOutlookWebhook(
       subscriptionId,
       changeType,
       notificationOccurredAt: occurredAt,
-      accountId: integration.providerAccountId,
+      accountId: integration.accountId,
     };
     let normalized: TriggerEvent;
     switch (trigger.eventType) {

@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -51,6 +51,7 @@ describe("search action", () => {
     const result = await search({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { query: "Q2" },
@@ -71,6 +72,7 @@ describe("search action", () => {
     await search({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -95,6 +97,7 @@ describe("search action", () => {
       search({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -111,6 +114,7 @@ describe("search action", () => {
       search({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { query: "x", pageSize: 101 },
@@ -124,6 +128,7 @@ describe("search action", () => {
       search({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { query: "x", oldField: 1 },

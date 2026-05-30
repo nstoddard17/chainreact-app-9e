@@ -143,7 +143,7 @@ function triggerEvent(): TriggerEvent {
     eventType: "manual_trigger",
     eventId: `cost15i-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     occurredAt: new Date().toISOString(),
-    accountId: "cost15i-harness",
+    providerAccountId: "cost15i-harness",
     payload: { harness: true },
   };
 }

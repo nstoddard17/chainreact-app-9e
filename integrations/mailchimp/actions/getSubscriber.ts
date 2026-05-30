@@ -17,15 +17,16 @@ import { GetSubscriberConfigSchema } from "./getSubscriber.schema";
 export const getSubscriber: ActionHandler = async (input) => {
   const config = GetSubscriberConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const member = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       memberGet({
         accessToken,

@@ -187,10 +187,10 @@ export function normalizeGitHubEvent(
     eventType: GITHUB_TRIGGER_EVENT_TYPE,
     eventId,
     occurredAt: bestOccurredAt(input.body),
-    // accountId: prefer the repo owner login (stable per-repo). Falls
+    // providerAccountId: prefer the repo owner login (stable per-repo). Falls
     // back to `"unknown"` defensively — TriggerEvent contract requires
     // a non-empty string.
-    accountId: owner ?? "unknown",
+    providerAccountId: owner ?? "unknown",
     payload: {
       eventName: input.headers.eventName,
       deliveryId: input.headers.deliveryId,

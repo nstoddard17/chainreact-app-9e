@@ -69,7 +69,7 @@ export function normalizeSlackEvent(
     eventType: deriveCanonicalEventType(payload.event),
     eventId: payload.event_id,
     occurredAt: new Date(payload.event_time * 1000).toISOString(),
-    accountId: payload.team_id,
+    providerAccountId: payload.team_id,
     payload: payload.event,
   };
   // Defense-in-depth: validate the canonical shape so a malformed Slack

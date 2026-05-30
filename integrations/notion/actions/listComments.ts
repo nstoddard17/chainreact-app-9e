@@ -21,15 +21,15 @@ import { ListCommentsConfigSchema } from "./listComments.schema";
 export const listComments: ActionHandler = async (input) => {
   const config = ListCommentsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       commentsList({
         accessToken,

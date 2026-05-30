@@ -41,7 +41,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "slack",
   providerAccountId: "T01TEAM",
   displayName: "Test Workspace",

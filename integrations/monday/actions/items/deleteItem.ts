@@ -25,15 +25,15 @@ import { DeleteItemConfigSchema } from "./deleteItem.schema";
 export const deleteItem: ActionHandler = async (input) => {
   const config = DeleteItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const deleted = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemsDelete({
         accessToken,

@@ -14,15 +14,15 @@ import { CreateGroupConfigSchema } from "./createGroup.schema";
 export const createGroup: ActionHandler = async (input) => {
   const config = CreateGroupConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const group = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       groupsCreate({
         accessToken,

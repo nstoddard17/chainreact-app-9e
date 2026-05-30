@@ -45,16 +45,16 @@ import { FindSubscriptionConfigSchema } from "./findSubscription.schema";
 export const findSubscription: ActionHandler = async (input) => {
   const config = FindSubscriptionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   try {
     const result = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "stripe",
-      accountId,
+      providerAccountId,
       preflight: stripeLivemodePreflight({
         actionType: "find_subscription",
         runTestMode: input.testMode === true,

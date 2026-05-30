@@ -35,7 +35,7 @@ import { filesList } from "../api/filesList";
  *     `google-drive:folders_in` resolver with `parentFolderId` dep can
  *     support drill-down; deferred until a real consumer asks for it.)
  *   - Wraps the Drive call in `refreshAndRetry({provider: "google-drive",
- *     accountId: null})`.
+ *     providerAccountId: null})`.
  *
  * Mapping (Drive file → OptionItem):
  *   - `value`: folder id.
@@ -81,12 +81,14 @@ export const googleDriveFoldersResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     let page;
     try {
       page = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-drive",
-        accountId: null,
+        providerAccountId: null,
         apiCall: (accessToken) =>
           filesList({
             accessToken,

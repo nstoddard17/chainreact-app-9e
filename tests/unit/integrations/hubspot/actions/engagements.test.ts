@@ -50,7 +50,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "p",
+  providerAccountId: "p",
   payload: {},
 };
 
@@ -62,6 +62,7 @@ describe("create_note", () => {
       createNote({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -76,6 +77,7 @@ describe("create_note", () => {
     await createNote({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { hs_note_body: "Quick note" },
@@ -94,6 +96,7 @@ describe("create_note", () => {
     await createNote({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -116,6 +119,7 @@ describe("create_note", () => {
     const result = await createNote({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -141,6 +145,7 @@ describe("create_task", () => {
       createTask({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -154,6 +159,7 @@ describe("create_task", () => {
     await createTask({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { hs_task_subject: "Follow up" },
@@ -170,6 +176,7 @@ describe("create_task", () => {
     await createTask({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -196,6 +203,7 @@ describe("create_task", () => {
         createTask({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: cfg,
@@ -214,6 +222,7 @@ describe("create_call", () => {
     await createCall({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -227,6 +236,7 @@ describe("create_call", () => {
     await createCall({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -242,6 +252,7 @@ describe("create_call", () => {
       createCall({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { hs_call_direction: "SIDEWAYS" },
@@ -259,6 +270,7 @@ describe("create_meeting", () => {
       createMeeting({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -272,6 +284,7 @@ describe("create_meeting", () => {
     await createMeeting({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { hs_meeting_title: "Kickoff" },
@@ -287,6 +300,7 @@ describe("create_meeting", () => {
     await createMeeting({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -310,6 +324,7 @@ describe("create_meeting", () => {
     await createMeeting({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { hs_meeting_title: "Kickoff" },

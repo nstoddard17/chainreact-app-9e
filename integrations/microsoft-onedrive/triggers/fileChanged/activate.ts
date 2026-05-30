@@ -104,9 +104,9 @@ export const activate: ActivationFn = async ({ integration }) => {
   //    arrive within seconds of subscription creation; without a
   //    baseline cursor the delta-fallback would re-emit every file.
   const baseline = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-onedrive",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) => driveRootDelta({ accessToken }),
   });
   const deltaToken = baseline.deltaLink;
@@ -115,9 +115,9 @@ export const activate: ActivationFn = async ({ integration }) => {
   //    validation handshake to our notificationUrl; the call only
   //    returns after our route echoes the token back as text/plain.
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "microsoft-onedrive",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

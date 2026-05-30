@@ -23,9 +23,9 @@ import { CreateSharedLinkConfigSchema } from "./createSharedLink.schema";
 export const createSharedLink: ActionHandler = async (input) => {
   const config = CreateSharedLinkConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   let url: string | null = null;
@@ -34,9 +34,9 @@ export const createSharedLink: ActionHandler = async (input) => {
 
   try {
     const link = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "dropbox",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         sharingCreateSharedLink({ accessToken, path: config.path }),
     });
@@ -49,9 +49,9 @@ export const createSharedLink: ActionHandler = async (input) => {
     ) {
       // D-DB8 — recover the existing link rather than failing.
       const existing = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "dropbox",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           sharingListSharedLinks({ accessToken, path: config.path }),
       });

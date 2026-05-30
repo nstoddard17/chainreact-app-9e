@@ -93,6 +93,8 @@ export const mondayItemFilesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const itemId = ctx.deps.itemId;
     const columnId = ctx.deps.columnId;
     if (typeof itemId !== "string" || itemId.length === 0) {
@@ -108,14 +110,14 @@ export const mondayItemFilesResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let candidates: MondayAsset[];
     try {
       const itemFiles = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "monday",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => itemFilesGet({ accessToken, itemId }),
       });
       if (itemFiles === null) {
@@ -130,9 +132,9 @@ export const mondayItemFilesResolver: OptionsResolver = {
         const { assetIds } = parseFileColumnAssetIds(column?.value ?? null);
         if (assetIds.length > 0) {
           candidates = await refreshAndRetry({
-            userId: ctx.userId,
+            accountId: integration.accountId,
             provider: "monday",
-            accountId,
+            providerAccountId,
             apiCall: (accessToken) => assetsGet({ accessToken, assetIds }),
           });
         } else {

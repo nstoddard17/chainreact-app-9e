@@ -38,7 +38,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "e",
     occurredAt: "t",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -73,6 +73,7 @@ describe("get_page_content handler", () => {
     const result = await getPageContent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -94,6 +95,7 @@ describe("get_page_content handler", () => {
     await getPageContent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p", includeIDs: true, preGenerated: false },

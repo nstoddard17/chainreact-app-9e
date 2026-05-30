@@ -53,7 +53,7 @@ export function normalize(
     eventType: "event_changed",
     eventId,
     occurredAt: updated,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       changeKind,
       calendarId: context.calendarId,

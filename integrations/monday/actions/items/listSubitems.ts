@@ -17,15 +17,15 @@ import { ListSubitemsConfigSchema } from "./listSubitems.schema";
 export const listSubitems: ActionHandler = async (input) => {
   const config = ListSubitemsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       subitemsList({ accessToken, parentItemId: config.parentItemId }),
   });

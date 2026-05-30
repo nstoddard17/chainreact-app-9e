@@ -39,13 +39,13 @@ beforeEach(() => {
   mockUsersMessagesSend.mockReset();
 });
 
-function makeGmailTriggerEvent(accountId: string): TriggerEvent {
+function makeGmailTriggerEvent(providerAccountId: string): TriggerEvent {
   return {
     provider: "gmail",
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-12T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -76,6 +76,7 @@ function baseHandlerInput(overrides: {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "node-reply-to-email",
     config: overrides.config ?? {

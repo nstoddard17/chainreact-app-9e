@@ -50,9 +50,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
       );
     }
     const page = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "google-calendar",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         eventsList({
           accessToken,
@@ -80,9 +80,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const channelToken = buildChannelToken({ channelId });
 
   const watch = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "google-calendar",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       eventsWatch({
         accessToken,

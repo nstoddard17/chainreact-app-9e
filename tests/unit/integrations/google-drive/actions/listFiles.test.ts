@@ -29,7 +29,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -42,6 +42,7 @@ describe("listFiles action", () => {
     await listFiles({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -71,6 +72,7 @@ describe("listFiles action", () => {
     await listFiles({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -96,6 +98,7 @@ describe("listFiles action", () => {
     const result = await listFiles({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -112,6 +115,7 @@ describe("listFiles action", () => {
       listFiles({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageSize: 1001 },
@@ -123,6 +127,7 @@ describe("listFiles action", () => {
       listFiles({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageSize: 0 },

@@ -39,7 +39,8 @@ beforeEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-teams",
   providerAccountId: "alice@contoso.com",
   displayName: "alice@contoso.com",
@@ -57,12 +58,13 @@ function trigger(config: Record<string, unknown>) {
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "microsoft-teams",
     eventType: "new_channel_message",
     nodeId: "n-1",
     config,
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,

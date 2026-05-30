@@ -69,7 +69,7 @@ describe("normalizeNewPost", () => {
     expect(event.provider).toBe("facebook");
     expect(event.eventType).toBe("new_post");
     expect(event.eventId).toBe("new_post:page-1:page-1_99");
-    expect(event.accountId).toBe("page-1");
+    expect(event.providerAccountId).toBe("page-1");
     expect(event.payload).toEqual({
       changeKind: "new_post",
       pageId: "page-1",

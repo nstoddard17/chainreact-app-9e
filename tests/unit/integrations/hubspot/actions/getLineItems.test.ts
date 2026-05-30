@@ -28,7 +28,7 @@ const trigger: TriggerEvent = {
   eventType: "webhook_received",
   eventId: "e",
   occurredAt: "x",
-  accountId: "portal-1",
+  providerAccountId: "portal-1",
   payload: {},
 };
 
@@ -38,6 +38,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -57,6 +58,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { properties: "name, price" },
@@ -73,6 +75,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { properties: ["name", "amount"] },
@@ -89,6 +92,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -107,6 +111,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { filterProperty: "name" },
@@ -127,6 +132,7 @@ describe("get_line_items", () => {
     const result = await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -148,6 +154,7 @@ describe("get_line_items", () => {
     const result = await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -163,6 +170,7 @@ describe("get_line_items", () => {
     const result = await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -177,6 +185,7 @@ describe("get_line_items", () => {
       getLineItems({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { limit: 500 },
@@ -191,6 +200,7 @@ describe("get_line_items", () => {
       getLineItems({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { hasHeaders: true } as Record<string, unknown>,
@@ -204,6 +214,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "user-xyz",
+      accountId: "acct-user-xyz",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -220,6 +231,7 @@ describe("get_line_items", () => {
     await getLineItems({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { after: "cursor-a" },

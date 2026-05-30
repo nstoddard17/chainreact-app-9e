@@ -62,8 +62,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "mailchimp",
     null,
   );
@@ -86,14 +85,14 @@ async function poll(input: {
     // prompt.
     throw new MissingDataCenterError();
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   // Fetch the current campaign list using the same filter the
   // activation snapshot used.
   const campaigns = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       campaignsList({
         accessToken,
@@ -115,7 +114,7 @@ async function poll(input: {
 
   for (const c of newCampaigns) {
     try {
-      await processOneCampaign({ trigger, accountId, campaign: c });
+      await processOneCampaign({ trigger, providerAccountId, campaign: c });
     } catch (err) {
       console.warn(
         JSON.stringify({
@@ -148,10 +147,10 @@ async function poll(input: {
 
 async function processOneCampaign(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   campaign: MailchimpCampaign;
 }): Promise<void> {
-  const { trigger, accountId, campaign } = input;
+  const { trigger, providerAccountId, campaign } = input;
   if (!campaign.id) return;
 
   // Dedup by campaign id — opaque + stable across the Mailchimp
@@ -180,7 +179,7 @@ async function processOneCampaign(input: {
     eventType: "campaign_created",
     eventId,
     occurredAt: campaign.create_time ?? new Date().toISOString(),
-    accountId,
+    providerAccountId,
     payload: {
       campaignId: campaign.id,
       type: campaign.type ?? null,

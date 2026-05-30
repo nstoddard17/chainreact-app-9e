@@ -42,7 +42,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -89,6 +89,7 @@ describe("get_user handler — person user mapping", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "u-alice" },
@@ -123,6 +124,7 @@ describe("get_user handler — person user mapping", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "u-alice" },
@@ -150,6 +152,7 @@ describe("get_user handler — bot user mapping", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "b-1" },
@@ -185,6 +188,7 @@ describe("get_user handler — bot user mapping", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "b-2" },
@@ -210,6 +214,7 @@ describe("get_user handler — bot user mapping", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "u-alice" },
@@ -229,6 +234,7 @@ describe("get_user handler — error propagation + output discipline", () => {
       getUser({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { userId: "u-missing" },
@@ -246,6 +252,7 @@ describe("get_user handler — error propagation + output discipline", () => {
     const result = await getUser({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { userId: "u-1" },

@@ -31,7 +31,8 @@ afterEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "shopify",
   providerAccountId: "merchant.myshopify.com",
   displayName: "merchant.myshopify.com",

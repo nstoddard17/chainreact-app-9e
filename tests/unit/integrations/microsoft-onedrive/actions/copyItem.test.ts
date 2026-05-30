@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -47,6 +47,7 @@ describe("copy_item action", () => {
     const result = await copyItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -76,6 +77,7 @@ describe("copy_item action", () => {
     const result = await copyItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -95,6 +97,7 @@ describe("copy_item action", () => {
       copyItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "", targetParentItemId: "p" },
@@ -108,6 +111,7 @@ describe("copy_item action", () => {
       copyItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "i", targetParentItemId: "" },
@@ -121,6 +125,7 @@ describe("copy_item action", () => {
       copyItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

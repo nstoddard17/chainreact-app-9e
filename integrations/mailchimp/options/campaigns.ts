@@ -71,6 +71,8 @@ export const mailchimpCampaignsResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const dc = ctx.integration.accountMetadata.dc;
     if (typeof dc !== "string" || dc.length === 0) {
       throw new OptionsResolverError(
@@ -79,14 +81,14 @@ export const mailchimpCampaignsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let campaigns;
     try {
       campaigns = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "mailchimp",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           campaignsList({
             accessToken,

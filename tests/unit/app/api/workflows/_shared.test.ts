@@ -169,6 +169,7 @@ describe("toWorkflowSummary", () => {
     const record: WorkflowRecord = {
       id: "wf-1",
       userId: "user-1",
+      accountId: "acct-user-1",
       name: "Test",
       state: "active",
       disabledReason: null,
@@ -213,6 +214,7 @@ describe("toWorkflowDetail", () => {
     const record: WorkflowRecord = {
       id: "wf-1",
       userId: "user-1",
+      accountId: "acct-user-1",
       name: "Test",
       state: "active",
       disabledReason: null,
@@ -249,7 +251,7 @@ describe("toWorkflowRunSummary", () => {
     eventType: "message",
     eventId: "Ev1",
     occurredAt: "2026-05-07T00:00:00Z",
-    accountId: "T0001",
+    providerAccountId: "T0001",
     payload: { text: "secret" },
   };
 
@@ -306,7 +308,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     eventType: "manual.run",
     eventId: "ev-1",
     occurredAt: "2026-05-22T00:00:00Z",
-    accountId: "system",
+    providerAccountId: "system",
     payload: { inputs: {} },
   };
 

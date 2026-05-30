@@ -26,9 +26,9 @@ export const activate: ActivationFn = async ({ integration }) => {
   }
 
   const result = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "mailchimp",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       listsList({
         accessToken,

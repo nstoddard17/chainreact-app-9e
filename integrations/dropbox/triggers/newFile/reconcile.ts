@@ -125,7 +125,7 @@ async function reconcileTriggerRow(
     );
     return 0;
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   let cursor = config.snapshot!.cursor;
   const entries: DropboxFileEntry[] = [];
@@ -135,9 +135,9 @@ async function reconcileTriggerRow(
     let page;
     try {
       page = await refreshAndRetry({
-        userId: row.userId,
+        accountId: row.workflowAccountId!,
         provider: PROVIDER,
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => filesListFolder({ accessToken, cursor }),
       });
     } catch (err) {
@@ -146,9 +146,9 @@ async function reconcileTriggerRow(
         // the gap (first-poll-miss parity). Next notification continues
         // cleanly from here.
         const reseed = await refreshAndRetry({
-          userId: row.userId,
+          accountId: row.workflowAccountId!,
           provider: PROVIDER,
-          accountId,
+          providerAccountId,
           apiCall: (accessToken) =>
             filesListFolderGetLatestCursor({
               accessToken,
@@ -183,7 +183,7 @@ async function reconcileTriggerRow(
       if (entry[".tag"] !== "file") continue;
       if (!isUnderConfiguredPath(entry, config.path)) continue;
       try {
-        dispatched += await dispatchOneFile(row, accountId, entry);
+        dispatched += await dispatchOneFile(row, providerAccountId, entry);
       } catch (err) {
         console.warn(
           JSON.stringify({
@@ -201,7 +201,7 @@ async function reconcileTriggerRow(
     ...config,
     snapshot: {
       cursor,
-      accountId,
+      providerAccountId,
       capturedAt: cursorReset
         ? new Date().toISOString()
         : config.snapshot!.capturedAt,
@@ -213,7 +213,7 @@ async function reconcileTriggerRow(
 
 async function dispatchOneFile(
   row: TriggerResourceRecord,
-  accountId: string,
+  providerAccountId: string,
   entry: DropboxFileEntry,
 ): Promise<number> {
   // State-gate first (cheap; avoids dedup writes for inactive workflows —
@@ -250,7 +250,7 @@ async function dispatchOneFile(
   }
   if (!fresh) return 0;
 
-  const event = normalizeNewFile({ entry, accountId });
+  const event = normalizeNewFile({ entry, providerAccountId });
   await enqueueRun({
     workflowId: row.workflowId,
     triggerNodeId: row.nodeId,

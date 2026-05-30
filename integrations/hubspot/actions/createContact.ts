@@ -49,9 +49,9 @@ import { CreateContactConfigSchema } from "./createContact.schema";
 export const createContact: ActionHandler = async (input) => {
   const config = CreateContactConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Build properties map — only include non-empty fields.
@@ -83,9 +83,9 @@ export const createContact: ActionHandler = async (input) => {
 
   try {
     contact = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "hubspot",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         contactsCreate({ accessToken, properties }),
     });
@@ -95,9 +95,9 @@ export const createContact: ActionHandler = async (input) => {
     }
     // 409 with `update` or `skip` strategy — deterministic recovery.
     const existing = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "hubspot",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         findContactByEmail({ accessToken, email: config.email }),
     });
@@ -113,9 +113,9 @@ export const createContact: ActionHandler = async (input) => {
     } else {
       // update
       contact = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "hubspot",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           contactsUpdate({
             accessToken,

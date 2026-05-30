@@ -24,7 +24,7 @@ import { EditMessageConfigSchema } from "./editMessage.schema";
 export const editMessage: ActionHandler = async (input) => {
   const config = EditMessageConfigSchema.parse(input.config);
 
-  const integration = await getActiveForExecution(input.userId, "discord", null);
+  const integration = await getActiveForExecution(input.accountId, "discord", null);
   if (!integration) {
     throw new Error("No active Discord integration found for this user.");
   }

@@ -28,7 +28,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "p",
+  providerAccountId: "p",
   payload: {},
 };
 
@@ -38,6 +38,7 @@ describe("get_contacts", () => {
     await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -57,6 +58,7 @@ describe("get_contacts", () => {
     await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { properties: "email, jobtitle" },
@@ -73,6 +75,7 @@ describe("get_contacts", () => {
     await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { properties: ["email", "phone"] },
@@ -89,6 +92,7 @@ describe("get_contacts", () => {
     await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -107,6 +111,7 @@ describe("get_contacts", () => {
     await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { filterProperty: "lifecyclestage" },
@@ -127,6 +132,7 @@ describe("get_contacts", () => {
     const result = await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -143,6 +149,7 @@ describe("get_contacts", () => {
     const result = await getContacts({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -157,6 +164,7 @@ describe("get_contacts", () => {
       getContacts({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { limit: 500 },
@@ -170,6 +178,7 @@ describe("get_contacts", () => {
     await getContacts({
       workflowId: "wf",
       userId: "user-xyz",
+      accountId: "acct-user-xyz",
       runId: "r",
       nodeId: "n",
       config: {},

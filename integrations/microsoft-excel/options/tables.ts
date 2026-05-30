@@ -24,7 +24,7 @@ import { tablesList } from "@/integrations/microsoft-excel/api/tablesList";
  * Architecture mirrors `microsoft-excel:worksheets` / OneNote sections:
  *   - `requiresIntegration: true`; `requiredDeps: ["workbookId"]`.
  *   - Wrapper via `refreshAndRetry({provider: "microsoft-excel",
- *     accountId: ctx.integration.providerAccountId})`.
+ *     providerAccountId: ctx.integration.accountId})`.
  *   - `tablesList` returns a bare array → `hasMore: false`.
  *   - Parent workbook gone (`NotFoundError`) → empty items (cascade
  *     fallback, not a thrown error).
@@ -46,6 +46,8 @@ export const microsoftExcelTablesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const workbookId = ctx.deps.workbookId;
     if (typeof workbookId !== "string" || workbookId.length === 0) {
       throw new OptionsResolverError(
@@ -54,14 +56,14 @@ export const microsoftExcelTablesResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let tables;
     try {
       tables = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "microsoft-excel",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => tablesList({ accessToken, workbookId }),
       });
     } catch (err) {

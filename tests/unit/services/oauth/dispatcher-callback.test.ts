@@ -56,6 +56,7 @@ async function freshStateWithConsumeWired(input: {
   pkceMethod?: string;
 }): Promise<string> {
   const { token, payload } = await createState({
+    accountId: `acct-${input.userId}`,
     userId: input.userId,
     provider: input.provider,
     requestedScopes: input.scopes ?? [],
@@ -190,6 +191,7 @@ describe("dispatcher.handleCallback — PKCE plumbing (Slice 2a)", () => {
   function arrangeUpsert(): void {
     mockUpsertActive.mockResolvedValueOnce({
       id: "int-pkce",
+      accountId: "acct-u-pkce",
       userId: "u-pkce",
       provider: "slack",
       providerAccountId: "acct",
@@ -271,6 +273,7 @@ describe("dispatcher.handleCallback — PKCE plumbing (Slice 2a)", () => {
     // method NULL — simulates upstream corruption that createState's all-or-
     // nothing write should normally prevent.
     const { token, payload } = await createState({
+      accountId: "acct-u",
       userId: "u",
       provider: "slack",
       requestedScopes: [],
@@ -316,6 +319,7 @@ describe("dispatcher.handleCallback — providerHint plumbing (Slice 12)", () =>
     });
     mockUpsertActive.mockResolvedValueOnce({
       id: "int-1",
+      accountId: "acct-u",
       userId: "u",
       provider: "slack", // routed via slack mock per the slack mock above
       providerAccountId: "mystore.myshopify.com",
@@ -333,6 +337,7 @@ describe("dispatcher.handleCallback — providerHint plumbing (Slice 12)", () =>
 
   it("forwards the providerHint from the JWT payload to provider.handleCallback", async () => {
     const { token, payload } = await createState({
+      accountId: "acct-u",
       userId: "u",
       provider: "slack",
       requestedScopes: [],
@@ -361,6 +366,7 @@ describe("dispatcher.handleCallback — providerHint plumbing (Slice 12)", () =>
 
   it("forwards null providerHint when the JWT payload didn't carry one", async () => {
     const { token, payload } = await createState({
+      accountId: "acct-u",
       userId: "u",
       provider: "slack",
       requestedScopes: [],

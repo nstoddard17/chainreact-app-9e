@@ -20,15 +20,15 @@ import { CreateGistConfigSchema } from "./createGist.schema";
 export const createGist: ActionHandler = async (input) => {
   const config = CreateGistConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "github"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const gist = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       gistsCreate({
         accessToken,

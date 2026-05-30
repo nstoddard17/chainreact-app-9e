@@ -24,9 +24,9 @@ import { CreateDatabaseEntryConfigSchema } from "./createDatabaseEntry.schema";
 export const createDatabaseEntry: ActionHandler = async (input) => {
   const config = CreateDatabaseEntryConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const wireProperties = formatProperties(
@@ -39,9 +39,9 @@ export const createDatabaseEntry: ActionHandler = async (input) => {
       : undefined;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesCreate({
         accessToken,

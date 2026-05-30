@@ -22,15 +22,15 @@ import { ListGroupsConfigSchema } from "./listGroups.schema";
 export const listGroups: ActionHandler = async (input) => {
   const config = ListGroupsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       groupsList({ accessToken, boardId: config.boardId }),
   });

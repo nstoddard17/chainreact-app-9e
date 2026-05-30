@@ -36,7 +36,7 @@ describe("OneDrive file_changed normalize", () => {
       eventType: "file_changed",
       eventId: "sub-1:item-1:2026-05-09T11:00:00Z",
       occurredAt: "2026-05-09T11:00:00Z",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
       payload: {
         itemId: "item-1",
         kind: "file",

@@ -29,21 +29,22 @@ beforeEach(() => {
 
 function trigger(
   provider = "mailchimp",
-  accountId = "mc_account_xyz",
+  providerAccountId = "mc_account_xyz",
 ): TriggerEvent {
   return {
     provider,
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
 
 const ROW = {
   id: "i1",
-  userId: "u1",
+  accountId: "acct-u1",
+  connectedByUserId: "u1",
   provider: "mailchimp",
   providerAccountId: "mc_account_xyz",
   displayName: "Acme",
@@ -60,27 +61,27 @@ const ROW = {
 describe("resolveDc", () => {
   it("returns (dc, accountId) from the integration row", async () => {
     mockGetActive.mockResolvedValueOnce(ROW);
-    const r = await resolveDc({ userId: "u1", triggerEvent: trigger() });
-    expect(r).toEqual({ dc: "us21", accountId: "mc_account_xyz" });
+    const r = await resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger() });
+    expect(r).toEqual({ dc: "us21", providerAccountId: "mc_account_xyz" });
   });
 
   it("hints the lookup with accountId when the trigger is Mailchimp", async () => {
     mockGetActive.mockResolvedValueOnce(ROW);
-    await resolveDc({ userId: "u1", triggerEvent: trigger("mailchimp", "mc_account_xyz") });
-    expect(mockGetActive).toHaveBeenCalledWith("u1", "mailchimp", "mc_account_xyz");
+    await resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger("mailchimp", "mc_account_xyz") });
+    expect(mockGetActive).toHaveBeenCalledWith("acct-u1", "mailchimp", "mc_account_xyz");
   });
 
   it("passes null hint when the trigger is from another provider", async () => {
     mockGetActive.mockResolvedValueOnce(ROW);
-    await resolveDc({ userId: "u1", triggerEvent: trigger("stripe", "cus_xyz") });
-    expect(mockGetActive).toHaveBeenCalledWith("u1", "mailchimp", null);
+    await resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger("stripe", "cus_xyz") });
+    expect(mockGetActive).toHaveBeenCalledWith("acct-u1", "mailchimp", null);
   });
 
   it("throws when no active Mailchimp integration exists", async () => {
     mockGetActive.mockResolvedValueOnce(null);
     await expect(
-      resolveDc({ userId: "u1", triggerEvent: trigger("stripe", "cus_x") }),
-    ).rejects.toThrow(/no active Mailchimp integration for user u1/);
+      resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger("stripe", "cus_x") }),
+    ).rejects.toThrow(/no active Mailchimp integration for account acct-u1/);
   });
 
   it("throws MissingDataCenterError when accountMetadata lacks dc", async () => {
@@ -89,7 +90,7 @@ describe("resolveDc", () => {
       accountMetadata: { mailchimpAccountId: "mc_account_xyz" /* dc missing */ },
     });
     await expect(
-      resolveDc({ userId: "u1", triggerEvent: trigger() }),
+      resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger() }),
     ).rejects.toBeInstanceOf(MissingDataCenterError);
   });
 
@@ -99,7 +100,7 @@ describe("resolveDc", () => {
       accountMetadata: { dc: "", mailchimpAccountId: "mc_account_xyz" },
     });
     await expect(
-      resolveDc({ userId: "u1", triggerEvent: trigger() }),
+      resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger() }),
     ).rejects.toBeInstanceOf(MissingDataCenterError);
   });
 
@@ -109,13 +110,13 @@ describe("resolveDc", () => {
       accountMetadata: { dc: 42, mailchimpAccountId: "mc" },
     });
     await expect(
-      resolveDc({ userId: "u1", triggerEvent: trigger() }),
+      resolveDc({ accountId: "acct-u1", userId: "u1", triggerEvent: trigger() }),
     ).rejects.toBeInstanceOf(MissingDataCenterError);
   });
 
-  it("throws on missing userId (defensive)", async () => {
+  it("throws on missing accountId (defensive)", async () => {
     await expect(
-      resolveDc({ userId: "", triggerEvent: trigger() }),
-    ).rejects.toThrow(/userId is required/);
+      resolveDc({ accountId: "", userId: "u1", triggerEvent: trigger() }),
+    ).rejects.toThrow(/accountId is required/);
   });
 });

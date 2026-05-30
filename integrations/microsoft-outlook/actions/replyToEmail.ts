@@ -26,15 +26,15 @@ import { ReplyToEmailConfigSchema } from "./replyToEmail.schema";
 export const replyToEmail: ActionHandler = async (input) => {
   const config = ReplyToEmailConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       replyMessage({
         accessToken,

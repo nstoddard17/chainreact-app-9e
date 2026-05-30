@@ -46,7 +46,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
     await updateProductVariant({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -81,6 +82,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
     await updateProductVariant({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -118,6 +120,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
     await updateProductVariant({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { variant_id: 22, price: "44.99" },
@@ -142,6 +145,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
     await updateProductVariant({
       workflowId: "wf",
       userId: "u-123",
+      accountId: "acct-u-123",
       runId: "r",
       nodeId: "n",
       config: { variant_id: 22, price: "44.99" },
@@ -179,6 +183,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
     const result = await updateProductVariant({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { variant_id: 22, price: "44.99" },
@@ -229,6 +234,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
     const result = await updateProductVariant({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { variant_id: 22, price: "44.99" },
@@ -253,6 +259,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
       updateProductVariant({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { variant_id: 22 } as Record<string, unknown>,
@@ -269,6 +276,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
       updateProductVariant({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -292,6 +300,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
       updateProductVariant({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { variant_id: 22, weight: 1.5, weight_unit: "kg" },

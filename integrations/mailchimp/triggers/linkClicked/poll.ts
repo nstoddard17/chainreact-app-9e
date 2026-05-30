@@ -63,8 +63,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "mailchimp",
     null,
   );
@@ -81,16 +80,16 @@ async function poll(input: {
   if (typeof dc !== "string" || dc.length === 0) {
     throw new MissingDataCenterError();
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   let campaignIds: string[];
   if (config.campaignId) {
     campaignIds = [config.campaignId];
   } else {
     const campaigns = await refreshAndRetry({
-      userId: trigger.userId,
+      accountId: trigger.workflowAccountId!,
       provider: "mailchimp",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         campaignsList({
           accessToken,
@@ -115,7 +114,7 @@ async function poll(input: {
     try {
       await processOneCampaign({
         trigger,
-        accountId,
+        providerAccountId,
         dc,
         campaignId,
         urlFilter: config.url,
@@ -148,7 +147,7 @@ async function poll(input: {
 
 async function processOneCampaign(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   dc: string;
   campaignId: string;
   urlFilter: string | undefined;
@@ -156,13 +155,13 @@ async function processOneCampaign(input: {
   updatedCampaigns: Record<string, { totalClicks: number }>;
   updatedKnownClicks: Set<string>;
 }): Promise<void> {
-  const { trigger, accountId, dc, campaignId, urlFilter, previousTotal } =
+  const { trigger, providerAccountId, dc, campaignId, urlFilter, previousTotal } =
     input;
 
   const summary = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       reportSummary({ accessToken, dc, campaignId }),
   });
@@ -172,9 +171,9 @@ async function processOneCampaign(input: {
   if (currentTotal <= previousTotal) return;
 
   const urls = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       reportClickDetails({
         accessToken,
@@ -194,9 +193,9 @@ async function processOneCampaign(input: {
   let subjectLine: string | null = null;
   try {
     const campaign = await refreshAndRetry({
-      userId: trigger.userId,
+      accountId: trigger.workflowAccountId!,
       provider: "mailchimp",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         campaignGet({ accessToken, dc, campaignId }),
     });
@@ -212,9 +211,9 @@ async function processOneCampaign(input: {
     if (!urlId || !url) continue;
 
     const members = await refreshAndRetry({
-      userId: trigger.userId,
+      accountId: trigger.workflowAccountId!,
       provider: "mailchimp",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         reportClickDetailMembers({
           accessToken,
@@ -255,7 +254,7 @@ async function processOneCampaign(input: {
         eventType: "link_clicked",
         eventId,
         occurredAt: new Date().toISOString(),
-        accountId,
+        providerAccountId,
         payload: {
           campaignId,
           campaignTitle,

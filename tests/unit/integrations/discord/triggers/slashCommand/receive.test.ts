@@ -70,11 +70,12 @@ const COMMAND_BODY = JSON.stringify({
 const triggerRow = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "discord",
   eventType: "slash_command",
   nodeId: "n-1",
-  accountId: null,
+  providerAccountId: null,
   config: { guildId: "guild-1", commandName: "report" },
   registeredAt: "2026-05-23T00:00:00Z",
   expiresAt: null,
@@ -221,7 +222,7 @@ describe("receiveDiscordInteraction — happy path dispatch", () => {
     expect(result.event.provider).toBe("discord");
     expect(result.event.eventType).toBe("slash_command");
     expect(result.event.eventId).toBe("interaction-1");
-    expect(result.event.accountId).toBe("guild-1");
+    expect(result.event.providerAccountId).toBe("guild-1");
     expect(result.event.payload.commandName).toBe("report");
   });
 });

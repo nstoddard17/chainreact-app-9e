@@ -55,10 +55,9 @@ export async function pull(
   mode: PullMode,
   notificationOccurredAt: string,
 ): Promise<PullResult> {
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [] };
@@ -77,16 +76,16 @@ export async function pull(
   const baseContext = {
     subscriptionId: config.subscriptionId,
     notificationOccurredAt,
-    accountId: integration.providerAccountId,
+    accountId: integration.accountId,
   };
 
   if (mode.kind === "id-fetch") {
     const ctx: NormalizeContext = { ...baseContext, source: "id-fetch" };
     try {
       const item = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "microsoft-onedrive",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           driveItemsGet({ accessToken, itemId: mode.itemId }),
       });
@@ -114,9 +113,9 @@ export async function pull(
   let result;
   try {
     result = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "microsoft-onedrive",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         driveRootDelta({ accessToken, nextLink: config.deltaToken! }),
     });
@@ -160,14 +159,14 @@ export async function pull(
  */
 async function reBaselineAndReturnEmpty(
   trigger: TriggerResourceRecord,
-  integration: { userId: string; providerAccountId: string },
+  integration: { accountId: string; providerAccountId: string },
   config: Record<string, unknown>,
 ): Promise<PullResult> {
   try {
     const baseline = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "microsoft-onedrive",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) => driveRootDelta({ accessToken }),
     });
     await triggerResourcesRepo.updateConfig(trigger.id, {

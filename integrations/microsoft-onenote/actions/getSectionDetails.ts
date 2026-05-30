@@ -16,15 +16,15 @@ import { GetSectionDetailsConfigSchema } from "./getSectionDetails.schema";
 export const getSectionDetails: ActionHandler = async (input) => {
   const config = GetSectionDetailsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const section = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       sectionsGet({ accessToken, sectionId: config.sectionId }),
   });

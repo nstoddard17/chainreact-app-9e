@@ -28,13 +28,14 @@ const slackEvent: TriggerEvent = {
   eventType: "slack.message.channel",
   eventId: "Ev1",
   occurredAt: "2026-05-11T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: {},
 };
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "slack",
   providerAccountId: "T0001",
   displayName: "Acme",
@@ -52,6 +53,7 @@ function makeInput(config: Record<string, unknown>): ActionHandlerInput {
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "n5",
     config,

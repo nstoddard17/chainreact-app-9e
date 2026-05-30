@@ -115,7 +115,7 @@ describe("UI-scope parentItemId — handler ignores it at runtime", () => {
       eventType: "manual",
       eventId: "evt-1",
       occurredAt: "2026-05-25T00:00:00Z",
-      accountId: "manual",
+      providerAccountId: "manual",
       payload: {},
     };
 
@@ -124,6 +124,7 @@ describe("UI-scope parentItemId — handler ignores it at runtime", () => {
       runId: "r",
       nodeId: "n",
       userId: "u",
+      accountId: "acct-u",
       // parentItemId is the UI-scope field — present in the persisted config.
       config: { parentItemId: "p-ui-only", itemId: "i1" },
       triggerEvent,

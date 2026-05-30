@@ -21,15 +21,15 @@ import {
 export const appendRow: ActionHandler = async (input) => {
   const config: AppendRowConfig = AppendRowConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-sheets"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-sheets",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       valuesAppend({
         accessToken,

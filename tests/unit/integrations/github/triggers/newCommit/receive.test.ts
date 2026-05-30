@@ -77,6 +77,7 @@ function triggerRow(branch: string | null = null) {
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "github",
     eventType: "new_commit",
@@ -89,7 +90,7 @@ function triggerRow(branch: string | null = null) {
       hookId: 12345,
       events: ["push"],
     },
-    accountId: "octocat",
+    providerAccountId: "octocat",
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,
@@ -293,7 +294,7 @@ describe("receiveGitHubWebhook — happy path normalize", () => {
       provider: "github",
       eventType: "new_commit",
       eventId: "12345-abcde",
-      accountId: "octocat",
+      providerAccountId: "octocat",
       occurredAt: "2026-05-10T12:00:00Z",
     });
     expect(event.payload).toMatchObject({

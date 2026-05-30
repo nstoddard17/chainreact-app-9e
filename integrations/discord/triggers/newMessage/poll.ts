@@ -95,8 +95,7 @@ async function poll(input: {
   // integration. The bot token used for the actual API call is
   // global env (see _shared/discord/api/_base.ts), so this is purely
   // authorization. Matches the action-handler pattern.
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "discord",
     null,
   );

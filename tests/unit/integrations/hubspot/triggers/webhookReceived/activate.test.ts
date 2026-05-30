@@ -40,7 +40,8 @@ afterEach(() => {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "hubspot",
   providerAccountId: "9988776",
   displayName: "Acme Hub",
@@ -106,7 +107,6 @@ describe("HubSpot webhook_received activate — happy path", () => {
     expect(mockRefsUpsert.mock.calls[0]![0]).toMatchObject({
       appSubscriptionId: "app-sub-1",
       workflowId: "wf-test",
-      userId: "user-1",
       nodeId: "node-trigger-1",
       hubId: "9988776",
     });

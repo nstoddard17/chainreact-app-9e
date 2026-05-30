@@ -19,15 +19,15 @@ import { UpdateCustomerConfigSchema } from "./updateCustomer.schema";
 export const updateCustomer: ActionHandler = async (input) => {
   const config = UpdateCustomerConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "update_customer",
       runTestMode: input.testMode === true,

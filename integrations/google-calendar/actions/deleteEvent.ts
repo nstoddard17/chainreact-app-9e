@@ -21,9 +21,9 @@ import { DeleteEventConfigSchema, type DeleteEventConfig } from "./deleteEvent.s
 export const deleteEvent: ActionHandler = async (input) => {
   const config: DeleteEventConfig = DeleteEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Best-effort fetch for snapshot info. If it 404s, set alreadyDeleted and
@@ -35,9 +35,9 @@ export const deleteEvent: ActionHandler = async (input) => {
 
   try {
     const original = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "google-calendar",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         eventsGet({
           accessToken,
@@ -59,9 +59,9 @@ export const deleteEvent: ActionHandler = async (input) => {
   if (!alreadyDeleted) {
     try {
       await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "google-calendar",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           eventsDelete({
             accessToken,

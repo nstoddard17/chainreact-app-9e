@@ -24,8 +24,8 @@ import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 
 function input(config: Record<string, unknown>): ActionHandlerInput {
   return {
-    workflowId: "wf", userId: "user-1", runId: "run", nodeId: "node", config,
-    triggerEvent: { provider: "manual", eventType: "manual", eventId: "e", occurredAt: "t", accountId: "a", payload: {} },
+    workflowId: "wf", userId: "user-1", accountId: "acct-user-1", runId: "run", nodeId: "node", config,
+    triggerEvent: { provider: "manual", eventType: "manual", eventId: "e", occurredAt: "t", providerAccountId: "a", payload: {} },
   };
 }
 

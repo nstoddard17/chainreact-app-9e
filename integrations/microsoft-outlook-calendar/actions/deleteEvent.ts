@@ -16,16 +16,16 @@ import { DeleteEventConfigSchema } from "./deleteEvent.schema";
 export const deleteEvent: ActionHandler = async (input) => {
   const config = DeleteEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   try {
     await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "microsoft-outlook-calendar",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         eventsDelete({ accessToken, eventId: config.eventId }),
     });

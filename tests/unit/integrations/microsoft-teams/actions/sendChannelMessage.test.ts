@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_channel_message",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -50,6 +50,7 @@ describe("send_channel_message action", () => {
     const result = await sendChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -85,6 +86,7 @@ describe("send_channel_message action", () => {
     await sendChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", channelId: "ch-1", content: "hi" },
@@ -105,6 +107,7 @@ describe("send_channel_message action", () => {
     await sendChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -125,6 +128,7 @@ describe("send_channel_message action", () => {
     await sendChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", channelId: "ch-1", content: "hi" },
@@ -146,6 +150,7 @@ describe("send_channel_message action", () => {
     await sendChannelMessage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { teamId: "team-1", channelId: "ch-1", content: "hi" },
@@ -154,7 +159,7 @@ describe("send_channel_message action", () => {
         eventType: "new_email",
         eventId: "e",
         occurredAt: "2026-05-10T12:00:00Z",
-        accountId: "alice@example.test",
+        providerAccountId: "alice@example.test",
         payload: {},
       },
     });
@@ -167,6 +172,7 @@ describe("send_channel_message action", () => {
       sendChannelMessage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { teamId: "team-1", channelId: "ch-1", content: "" },
@@ -180,6 +186,7 @@ describe("send_channel_message action", () => {
       sendChannelMessage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -198,6 +205,7 @@ describe("send_channel_message action", () => {
       sendChannelMessage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

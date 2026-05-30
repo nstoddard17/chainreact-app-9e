@@ -16,7 +16,7 @@ import { MissingDataCenterError } from "@/integrations/_shared/mailchimp/errors"
  *
  *   1. **Mailchimp-triggered run.** When the run was started by a
  *      Mailchimp webhook trigger (Slice 14 Commit 4) or polling
- *      trigger (Slice 14 Commit 5), `triggerEvent.accountId` is the
+ *      trigger (Slice 14 Commit 5), `triggerEvent.providerAccountId` is the
  *      Mailchimp `account_id` because the OAuth callback wrote it as
  *      the integration's `providerAccountId` (Slice 14 Commit 2). We
  *      still hit the DB once because dc lives only on the integration
@@ -51,6 +51,13 @@ import { MissingDataCenterError } from "@/integrations/_shared/mailchimp/errors"
  */
 
 export interface ResolveDcInput {
+  /**
+   * V2 account that owns the workflow. Used for the integrations
+   * lookup; cross-account fallback is rejected at the repository
+   * boundary. Post 4.ACCOUNT-MODEL-6 cutover.
+   */
+  accountId: string;
+  /** Provenance only — actor that triggered the run. */
   userId: string;
   triggerEvent: TriggerEvent;
 }
@@ -60,38 +67,40 @@ export interface ResolveDcOutput {
   dc: string;
   /**
    * Mailchimp `account_id` — stable identifier used as
-   * `refreshAndRetry({ accountId })` so the row lookup pins to the
-   * same integration. Matches the integration row's
+   * `refreshAndRetry({ providerAccountId })` so the row lookup pins
+   * to the same integration. Matches the integration row's
    * `providerAccountId`.
    */
-  accountId: string;
+  providerAccountId: string;
 }
 
 export async function resolveDc(
   input: ResolveDcInput,
 ): Promise<ResolveDcOutput> {
-  if (!input.userId) {
-    throw new Error("resolveDc: userId is required.");
+  if (!input.accountId) {
+    throw new Error("resolveDc: accountId is required.");
   }
 
-  // Resolve accountId hint from the trigger event (if any).
-  const accountIdHint =
+  // Resolve provider-account hint from the trigger event (if any).
+  const providerAccountIdHint =
     input.triggerEvent.provider === "mailchimp" &&
-    typeof input.triggerEvent.accountId === "string" &&
-    input.triggerEvent.accountId.length > 0
-      ? input.triggerEvent.accountId
+    typeof input.triggerEvent.providerAccountId === "string" &&
+    input.triggerEvent.providerAccountId.length > 0
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Always look up the row — dc lives only on accountMetadata.
   const row = await getActiveForExecution(
-    input.userId,
+    input.accountId,
     "mailchimp",
-    accountIdHint,
+    providerAccountIdHint,
   );
   if (!row) {
     throw new Error(
-      `resolveDc: no active Mailchimp integration for user ${input.userId}${
-        accountIdHint !== null ? ` account ${accountIdHint}` : ""
+      `resolveDc: no active Mailchimp integration for account ${input.accountId}${
+        providerAccountIdHint !== null
+          ? ` provider-account ${providerAccountIdHint}`
+          : ""
       }.`,
     );
   }
@@ -101,5 +110,5 @@ export async function resolveDc(
     throw new MissingDataCenterError();
   }
 
-  return { dc, accountId: row.providerAccountId };
+  return { dc, providerAccountId: row.providerAccountId };
 }

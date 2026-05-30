@@ -41,12 +41,13 @@ function makeTrigger(config: Record<string, unknown>): TriggerResourceRecord {
   return {
     id: "tr1",
     workflowId: "w1",
+    workflowAccountId: "acct-w1",
     userId: "u1",
     provider: "mailchimp",
     eventType: "audience_event",
     nodeId: "n1",
     config,
-    accountId: "mc_xyz",
+    providerAccountId: "mc_xyz",
     registeredAt: "2026-01-01T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -60,7 +61,8 @@ function makeIntegration(
 ): IntegrationRecord {
   return {
     id: "i1",
-    userId: "u1",
+    accountId: "acct-u1",
+    connectedByUserId: "u1",
     provider: "mailchimp",
     providerAccountId: "mc_xyz",
     displayName: "Acme",

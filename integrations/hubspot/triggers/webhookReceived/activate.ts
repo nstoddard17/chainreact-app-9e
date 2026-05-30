@@ -29,7 +29,7 @@ import {
  *   - `webhookEnabled: true` (parity with other V2 webhook triggers).
  *   - `appId` — the HubSpot app id (env-resolved; never user-supplied).
  *   - `hubId` — the customer's portal id (from
- *     `integration.providerAccountId`).
+ *     `integration.accountId`).
  *   - `subscriptions: [{ eventType, propertyName, appSubscriptionId,
  *     hubspotSubscriptionId }, ...]` — used by deactivate to walk
  *     refs.
@@ -139,7 +139,7 @@ export const activate: ActivationFn = async ({
   const subscriptions = parseSubscriptions(node.config?.subscriptions);
   const appId = getAppId();
 
-  const hubId = integration.providerAccountId;
+  const hubId = integration.accountId;
   if (!hubId) {
     throw new Error(
       "hubspot webhook_received activate: integration row missing providerAccountId (hubId). Reconnect the HubSpot integration.",
@@ -176,7 +176,7 @@ export const activate: ActivationFn = async ({
     await refsRepo.upsert({
       appSubscriptionId: appSub.id,
       workflowId,
-      userId: integration.userId,
+      userId: integration.accountId,
       nodeId: node.id,
       hubId,
       config: {

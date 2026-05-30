@@ -51,7 +51,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-drive-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "google-drive",
   providerAccountId: "alice@example.com",
   displayName: "Alice (Google Drive)",
@@ -271,9 +272,9 @@ describe("googleDriveFoldersResolver — error sanitization", () => {
   it("maps IntegrationActionRequiredError → OptionsResolverError(INTEGRATION_DISCONNECTED) with a reconnect prompt", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "google-drive",
-        accountId: null,
+        providerAccountId: null,
         reason: "refresh_failed",
       }),
     );

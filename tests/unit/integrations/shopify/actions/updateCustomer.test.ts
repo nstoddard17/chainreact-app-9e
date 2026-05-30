@@ -42,7 +42,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     payload: {},
   };
 }
@@ -57,6 +57,7 @@ describe("updateCustomer", () => {
     await updateCustomer({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: {
@@ -84,6 +85,7 @@ describe("updateCustomer", () => {
     const result = await updateCustomer({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { customer_id: 5, note: "VIP" },

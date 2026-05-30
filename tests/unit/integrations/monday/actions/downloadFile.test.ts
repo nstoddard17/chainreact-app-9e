@@ -65,7 +65,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -118,6 +118,7 @@ describe("download_file handler — __item_files__ sentinel", () => {
     const result = await downloadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", columnId: ITEM_FILES_SENTINEL },
@@ -166,6 +167,7 @@ describe("download_file handler — __item_files__ sentinel", () => {
     const result = await downloadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", columnId: ITEM_FILES_SENTINEL, fileId: "a-2" },
@@ -205,6 +207,7 @@ describe("download_file handler — specific file column", () => {
     const result = await downloadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", columnId: "files_col" },
@@ -236,6 +239,7 @@ describe("download_file handler — specific file column", () => {
     const result = await downloadFile({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", columnId: "files_col" },
@@ -253,6 +257,7 @@ describe("download_file handler — errors", () => {
       downloadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "gone", columnId: ITEM_FILES_SENTINEL },
@@ -273,6 +278,7 @@ describe("download_file handler — errors", () => {
       downloadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "i-1", columnId: ITEM_FILES_SENTINEL },
@@ -303,6 +309,7 @@ describe("download_file handler — errors", () => {
       await downloadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "i-1", columnId: ITEM_FILES_SENTINEL },
@@ -338,6 +345,7 @@ describe("download_file handler — errors", () => {
       await downloadFile({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { itemId: "i-1", columnId: ITEM_FILES_SENTINEL },

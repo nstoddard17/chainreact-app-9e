@@ -61,9 +61,9 @@ export const facebookSharedDeactivate: DeactivationFn = async ({
   // Last reference — best-effort unsubscribe.
   try {
     await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "facebook",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: async (userToken) => {
         const pageAccessToken = await getPageAccessToken({
           accessToken: userToken,

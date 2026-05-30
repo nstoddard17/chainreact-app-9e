@@ -28,9 +28,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const config = DropboxNewFileConfigSchema.parse(node.config);
 
   const { cursor } = await refreshAndRetry({
-    userId: integration.userId,
+    accountId: integration.accountId,
     provider: "dropbox",
-    accountId: integration.providerAccountId,
+    providerAccountId: integration.accountId,
     apiCall: (accessToken) =>
       filesListFolderGetLatestCursor({
         accessToken,
@@ -42,7 +42,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   return {
     snapshot: {
       cursor,
-      accountId: integration.providerAccountId,
+      accountId: integration.accountId,
       capturedAt: new Date().toISOString(),
     },
   };

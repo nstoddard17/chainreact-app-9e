@@ -41,7 +41,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -64,6 +64,7 @@ describe("find_customer action", () => {
     const result = await findCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_1" },
@@ -80,6 +81,7 @@ describe("find_customer action", () => {
     const result = await findCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_missing" },
@@ -99,6 +101,7 @@ describe("find_customer action", () => {
     const result = await findCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "alice@example.com" },
@@ -120,6 +123,7 @@ describe("find_customer action", () => {
     const result = await findCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { email: "missing@example.com" },
@@ -134,6 +138,7 @@ describe("find_customer action", () => {
       findCustomer({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -152,6 +157,7 @@ describe("find_customer action", () => {
       findCustomer({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -165,6 +171,7 @@ describe("find_customer action", () => {
     await findCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "n",
       config: { customerId: "cus_1" },
@@ -183,6 +190,7 @@ describe("find_customer action", () => {
       findCustomer({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { customerId: "cus_1" },

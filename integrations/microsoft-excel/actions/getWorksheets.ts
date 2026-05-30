@@ -15,15 +15,15 @@ import { GetWorksheetsConfigSchema } from "./getWorksheets.schema";
 export const getWorksheets: ActionHandler = async (input) => {
   const config = GetWorksheetsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const sheets = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetsList({ accessToken, workbookId: config.workbookId }),
   });

@@ -17,15 +17,15 @@ import { ListUpdatesConfigSchema } from "./listUpdates.schema";
 export const listUpdates: ActionHandler = async (input) => {
   const config = ListUpdatesConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       updatesList({
         accessToken,

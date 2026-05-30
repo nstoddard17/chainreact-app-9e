@@ -47,10 +47,9 @@ export const airtableRecordChangedSubscriptionHandler: SubscriptionHandler = {
       );
     }
 
-    const integration = await getActiveForExecution(
-      trigger.userId,
+    const integration = await getActiveForExecution(trigger.workflowAccountId!,
       trigger.provider,
-      trigger.accountId,
+      trigger.providerAccountId,
     );
     if (!integration) {
       throw new Error(
@@ -59,9 +58,9 @@ export const airtableRecordChangedSubscriptionHandler: SubscriptionHandler = {
     }
 
     const result = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "airtable",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         webhooksRefresh({
           accessToken,

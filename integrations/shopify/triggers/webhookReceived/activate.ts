@@ -97,7 +97,7 @@ export const activate: ActivationFn = async ({
   // workflow-activate transaction, which already validated the
   // integration; if the token is stale, the user's first action call
   // will surface the 401).
-  const shopDomain = integration.providerAccountId;
+  const shopDomain = integration.accountId;
   const accessToken = decryptToken(integration.accessTokenEncrypted);
 
   const address = notificationUrl(workflowId, node.id);

@@ -110,7 +110,7 @@ export function normalize(
     eventType: "document_updated",
     eventId,
     occurredAt: updatedAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       documentId: fileId,
       title: file.name ?? null,

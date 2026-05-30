@@ -16,15 +16,15 @@ import { CreateNotebookConfigSchema } from "./createNotebook.schema";
 export const createNotebook: ActionHandler = async (input) => {
   const config = CreateNotebookConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const notebook = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       notebooksCreate({ accessToken, displayName: config.displayName }),
   });

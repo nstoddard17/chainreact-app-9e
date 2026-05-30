@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -51,6 +51,7 @@ describe("get_table_schema action", () => {
     const result = await getTableSchema({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -78,6 +79,7 @@ describe("get_table_schema action", () => {
       getTableSchema({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -95,6 +97,7 @@ describe("get_table_schema action", () => {
       getTableSchema({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { baseId: "appBASE", tableIdOrName: "Tasks" },

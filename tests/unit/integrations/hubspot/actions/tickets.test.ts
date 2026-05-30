@@ -44,7 +44,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "9876543",
+  providerAccountId: "9876543",
   payload: {},
 };
 
@@ -61,6 +61,7 @@ describe("create_ticket", () => {
         createTicket({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: cfg,
@@ -89,6 +90,7 @@ describe("create_ticket", () => {
     await createTicket({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -126,6 +128,7 @@ describe("create_ticket", () => {
     const result = await createTicket({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -168,6 +171,7 @@ describe("create_ticket", () => {
     const result = await createTicket({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -197,6 +201,7 @@ describe("update_ticket", () => {
     await updateTicket({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ticketId: "t-1", subject: "Updated" },
@@ -213,6 +218,7 @@ describe("update_ticket", () => {
       updateTicket({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ticketId: "t-1" },
@@ -230,6 +236,7 @@ describe("get_tickets", () => {
     await getTickets({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -253,6 +260,7 @@ describe("get_tickets", () => {
     const r = await getTickets({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},

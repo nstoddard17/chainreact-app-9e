@@ -24,15 +24,15 @@ import { CreateUpdateConfigSchema } from "./createUpdate.schema";
 export const createUpdate: ActionHandler = async (input) => {
   const config = CreateUpdateConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const update = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       updatesCreate({
         accessToken,

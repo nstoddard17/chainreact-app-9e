@@ -47,6 +47,7 @@ function makeRequest(headers: Record<string, string>): Request {
 const newDocTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-docs",
   eventType: "new_document",
@@ -57,7 +58,7 @@ const newDocTrigger = {
     fileId: "root",
     pageToken: "p",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -139,7 +140,7 @@ describe("receiveDocsWebhook — event-type dispatch (no cross-talk)", () => {
           eventType: "new_document",
           eventId: "doc-1:2026-05-08T10:00:00Z",
           occurredAt: "2026-05-08T10:00:00Z",
-          accountId: "alice@example.com",
+          providerAccountId: "alice@example.com",
           payload: {
             documentId: "doc-1",
             title: "Hi",
@@ -182,7 +183,7 @@ describe("receiveDocsWebhook — event-type dispatch (no cross-talk)", () => {
           eventType: "document_updated",
           eventId: "doc-1:2026-05-08T11:00:00Z",
           occurredAt: "2026-05-08T11:00:00Z",
-          accountId: "alice@example.com",
+          providerAccountId: "alice@example.com",
           payload: {
             documentId: "doc-1",
             title: "Hi",

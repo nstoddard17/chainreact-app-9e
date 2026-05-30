@@ -15,9 +15,9 @@ import { CreateTaskConfigSchema } from "./createTask.schema";
 export const createTask: ActionHandler = async (input) => {
   const config = CreateTaskConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -37,17 +37,17 @@ export const createTask: ActionHandler = async (input) => {
   }
 
   const task = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       tasksCreate({ accessToken, properties }),
   });
 
   const assoc = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       attachAssociations({
         accessToken,

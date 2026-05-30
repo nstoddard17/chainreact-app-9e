@@ -22,9 +22,9 @@ import { AddTableRowConfigSchema } from "./addTableRow.schema";
 export const addTableRow: ActionHandler = async (input) => {
   const config = AddTableRowConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   let alignedValues: unknown[];
@@ -33,9 +33,9 @@ export const addTableRow: ActionHandler = async (input) => {
     alignedValues = [...config.values];
   } else {
     const columns = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "microsoft-excel",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         tableColumnsList({
           accessToken,
@@ -54,9 +54,9 @@ export const addTableRow: ActionHandler = async (input) => {
   }
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       tableRowsAdd({
         accessToken,

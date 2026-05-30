@@ -149,7 +149,7 @@ export async function receiveMailchimpWebhook(
   const event = normalizeMailchimpEvent({
     rawBody: input.rawBody,
     parsed,
-    accountId: trigger.accountId ?? "",
+    accountId: trigger.providerAccountId ?? "",
   });
   return { kind: "events", events: [event] };
 }

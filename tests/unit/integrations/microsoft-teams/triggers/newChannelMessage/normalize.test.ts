@@ -37,7 +37,7 @@ describe("Teams new_channel_message normalize", () => {
       eventType: "new_channel_message",
       eventId: "sub-1:msg-1:created",
       occurredAt: "2026-05-10T12:01:00.000Z",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
       payload: {
         messageId: "msg-1",
         teamId: "team-1",

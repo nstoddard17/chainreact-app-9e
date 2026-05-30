@@ -21,15 +21,15 @@ import { SearchConfigSchema } from "./search.schema";
 export const search: ActionHandler = async (input) => {
   const config = SearchConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       notionSearch({
         accessToken,

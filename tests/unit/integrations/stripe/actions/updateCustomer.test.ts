@@ -35,7 +35,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -54,6 +54,7 @@ describe("update_customer action", () => {
     const result = await updateCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -85,6 +86,7 @@ describe("update_customer action", () => {
     await updateCustomer({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "n",
       config: { customerId: "cus_1", name: "x" },
@@ -99,6 +101,7 @@ describe("update_customer action", () => {
       updateCustomer({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { name: "Alice" } as unknown as Record<string, unknown>,

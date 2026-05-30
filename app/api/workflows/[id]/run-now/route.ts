@@ -209,7 +209,7 @@ export async function POST(
     eventType: MANUAL_TRIGGER_EVENT_TYPE,
     eventId: randomUUID(),
     occurredAt: new Date().toISOString(),
-    accountId: "system",
+    providerAccountId: "system",
     payload: parsed.data,
   };
 

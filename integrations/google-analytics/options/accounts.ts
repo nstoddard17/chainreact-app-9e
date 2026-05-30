@@ -37,14 +37,16 @@ export const googleAnalyticsAccountsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const integration = ctx.integration;
+
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "google-analytics",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) => accountSummariesList({ accessToken }),
       });
     } catch (err) {

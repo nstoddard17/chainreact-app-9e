@@ -31,15 +31,15 @@ import { DeleteEmailConfigSchema } from "./deleteEmail.schema";
 export const deleteEmail: ActionHandler = async (input) => {
   const config = DeleteEmailConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) => {
       if (config.deleteMode === "permanent") {
         await deleteMessage({

@@ -38,15 +38,15 @@ import { CreateDatabaseConfigSchema } from "./createDatabase.schema";
 export const createDatabase: ActionHandler = async (input) => {
   const config = CreateDatabaseConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       databasesCreate({
         accessToken,

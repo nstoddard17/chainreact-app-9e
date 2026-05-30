@@ -24,8 +24,8 @@ import { boardsList } from "@/integrations/_shared/monday/api/boardsList";
  *     integration via `getActiveForExecution(userId, "monday", null)`
  *     and short-circuits with `INTEGRATION_DISCONNECTED` if no row.
  *   - No `requiredDeps` — boards are account-scoped.
- *   - Wrapper through `refreshAndRetry({provider: "monday", accountId:
- *     ctx.integration.providerAccountId})` so a stale Monday access
+ *   - Wrapper through `refreshAndRetry({provider: "monday", providerAccountId:
+ *     ctx.integration.accountId})` so a stale Monday access
  *     token triggers exactly one refresh + retry cycle.
  *
  * Sort: client-side alphabetical by label. Monday's `boards` GraphQL
@@ -85,14 +85,16 @@ export const mondayBoardsResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const integration = ctx.integration;
+
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "monday",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           boardsList({ accessToken, limit: PAGE_SIZE, page: 1 }),
       });

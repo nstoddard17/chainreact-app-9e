@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -79,6 +79,7 @@ describe("update_item handler", () => {
     await updateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i", columnId: "status", columnValue: "Done" },
@@ -95,6 +96,7 @@ describe("update_item handler", () => {
     await updateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -117,6 +119,7 @@ describe("update_item handler", () => {
     await updateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -138,6 +141,7 @@ describe("update_item handler", () => {
       updateItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -157,6 +161,7 @@ describe("update_item handler", () => {
     const result = await updateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -182,6 +187,7 @@ describe("update_item handler", () => {
     await updateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i", columnId: "c", columnValue: "v" },

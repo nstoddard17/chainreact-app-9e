@@ -31,6 +31,7 @@ import { GET, PATCH } from "@/app/api/workflows/[id]/route";
 const baseRecord = {
   id: "wf-1",
   userId: "user-1",
+  accountId: "acct-user-1",
   name: "Original",
   state: "draft" as const,
   disabledReason: null,

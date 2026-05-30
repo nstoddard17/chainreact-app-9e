@@ -14,7 +14,7 @@
 
 import { normalizeUpdatedNote } from "@/integrations/microsoft-onenote/triggers/updatedNote/normalize";
 
-const accountId = "alice@contoso.com";
+const providerAccountId = "alice@contoso.com";
 
 describe("updated_note normalize — happy path", () => {
   it("builds a complete TriggerEvent with composite eventId", () => {
@@ -29,7 +29,7 @@ describe("updated_note normalize — happy path", () => {
         parentNotebook: { displayName: "Work" },
         parentSection: { displayName: "Meetings" },
       },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });
@@ -38,7 +38,7 @@ describe("updated_note normalize — happy path", () => {
       eventType: "updated_note",
       eventId: "p-1:2026-05-23T12:20:00Z",
       occurredAt: "2026-05-23T12:20:00Z",
-      accountId,
+      providerAccountId,
       payload: {
         changeKind: "updated",
         pageId: "p-1",
@@ -61,7 +61,7 @@ describe("updated_note normalize — error guards", () => {
     expect(() =>
       normalizeUpdatedNote({
         page: { id: "p-1" /* no lastModifiedDateTime */ },
-        accountId,
+        providerAccountId,
         notebookId: "nb-1",
         sectionId: "sec-1",
       }),
@@ -77,7 +77,7 @@ describe("updated_note normalize — banned fields", () => {
         title: "Hello",
         lastModifiedDateTime: "2026-05-23T12:20:00Z",
       },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });
@@ -90,7 +90,7 @@ describe("updated_note normalize — banned fields", () => {
   it("does NOT emit secret-shaped fields", () => {
     const event = normalizeUpdatedNote({
       page: { id: "p-1", lastModifiedDateTime: "2026-05-23T12:20:00Z" },
-      accountId,
+      providerAccountId,
       notebookId: "nb-1",
       sectionId: "sec-1",
     });

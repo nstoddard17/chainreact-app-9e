@@ -26,19 +26,19 @@ import { buildEventId } from "./dedup";
 
 export interface NormalizeInput {
   page: OneNotePage;
-  accountId: string;
+  providerAccountId: string;
   notebookId: string;
   sectionId: string;
 }
 
 export function normalizeNewNote(input: NormalizeInput): TriggerEvent {
-  const { page, accountId, notebookId, sectionId } = input;
+  const { page, providerAccountId, notebookId, sectionId } = input;
   return {
     provider: "microsoft-onenote",
     eventType: "new_note",
     eventId: buildEventId(page.id),
     occurredAt: page.createdDateTime ?? new Date().toISOString(),
-    accountId,
+    providerAccountId,
     payload: {
       changeKind: "created",
       pageId: page.id,

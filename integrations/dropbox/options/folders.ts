@@ -63,14 +63,16 @@ export const dropboxFoldersResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const integration = ctx.integration;
+
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "dropbox",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           filesListFolder({
             accessToken,

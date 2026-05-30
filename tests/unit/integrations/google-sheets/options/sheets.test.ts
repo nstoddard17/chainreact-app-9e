@@ -45,7 +45,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "google-sheets",
   providerAccountId: "alice@example.com",
   displayName: "Alice (Google Sheets)",
@@ -272,9 +273,9 @@ describe("googleSheetsSheetsResolver — error sanitization", () => {
   it("maps IntegrationActionRequiredError → INTEGRATION_DISCONNECTED", async () => {
     mockRefreshAndRetry.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "google-sheets",
-        accountId: null,
+        providerAccountId: null,
         reason: "refresh_failed",
       }),
     );

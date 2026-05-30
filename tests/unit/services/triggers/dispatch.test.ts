@@ -45,19 +45,20 @@ const event: TriggerEvent = {
   eventType: "message",
   eventId: "Ev123",
   occurredAt: "2026-05-07T00:00:00Z",
-  accountId: "T0001",
+  providerAccountId: "T0001",
   payload: { text: "hi" },
 };
 
 const baseResource = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "slack",
   eventType: "message",
   nodeId: "n1",
   config: {},
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "2026-05-07T00:00:00Z",
   expiresAt: null,
   lastRenewedAt: null,

@@ -20,15 +20,15 @@ import { RemoveLineItemConfigSchema } from "./removeLineItem.schema";
 export const removeLineItem: ActionHandler = async (input) => {
   const config = RemoveLineItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       lineItemsDelete({ accessToken, lineItemId: config.lineItemId }),
   });

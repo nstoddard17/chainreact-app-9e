@@ -23,6 +23,7 @@ function makeWorkflow(
   return {
     id: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     name: "Test",
     state: "draft",
     disabledReason: null,

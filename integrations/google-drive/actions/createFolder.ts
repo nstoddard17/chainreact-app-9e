@@ -23,9 +23,9 @@ export const createFolder: ActionHandler = async (input) => {
     input.config,
   );
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-drive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const body: {
@@ -41,9 +41,9 @@ export const createFolder: ActionHandler = async (input) => {
   }
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-drive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) => filesCreate({ accessToken, body }),
   });
 

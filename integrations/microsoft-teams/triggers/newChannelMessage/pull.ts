@@ -37,10 +37,9 @@ export async function pull(
   messageId: string,
   notificationOccurredAt: string,
 ): Promise<PullResult> {
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [] };
@@ -61,14 +60,14 @@ export async function pull(
     teamId: config.teamId,
     channelId: config.channelId,
     notificationOccurredAt,
-    accountId: integration.providerAccountId,
+    accountId: integration.accountId,
   };
 
   try {
     const message = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "microsoft-teams",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         channelMessageGet({
           accessToken,

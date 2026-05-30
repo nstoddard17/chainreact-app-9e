@@ -191,10 +191,9 @@ export async function receiveOutlookCalendarWebhook(
 
     // 3. Fetch the full event. The notification envelope only carries
     //    the event id; the body lives behind /me/events/{id}.
-    const integration = await getActiveForExecution(
-      trigger.userId,
+    const integration = await getActiveForExecution(trigger.workflowAccountId!,
       trigger.provider,
-      trigger.accountId,
+      trigger.providerAccountId,
     );
     if (!integration) {
       console.warn(
@@ -209,9 +208,9 @@ export async function receiveOutlookCalendarWebhook(
     let event;
     try {
       event = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "microsoft-outlook-calendar",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) => eventsGet({ accessToken, eventId }),
       });
     } catch (err) {
@@ -224,7 +223,7 @@ export async function receiveOutlookCalendarWebhook(
               subscriptionId,
               changeType,
               notificationOccurredAt: occurredAt,
-              accountId: integration.providerAccountId,
+              accountId: integration.accountId,
             }),
           );
           continue;
@@ -251,7 +250,7 @@ export async function receiveOutlookCalendarWebhook(
         subscriptionId,
         changeType,
         notificationOccurredAt: occurredAt,
-        accountId: integration.providerAccountId,
+        accountId: integration.accountId,
       }),
     );
   }

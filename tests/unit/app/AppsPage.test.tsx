@@ -151,7 +151,8 @@ describe("AppsPage — route DTO no-leak", () => {
     mockListActive.mockResolvedValue([
       {
         id: "int-1",
-        userId: "u-123",
+        accountId: "acct-u-123",
+        connectedByUserId: "u-123",
         provider: "slack",
         providerAccountId: "T-SECRET-9999",
         displayName: "Acme",

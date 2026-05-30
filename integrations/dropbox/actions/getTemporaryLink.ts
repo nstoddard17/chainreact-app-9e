@@ -25,15 +25,15 @@ const TEMP_LINK_TTL_MS = 4 * 60 * 60 * 1000;
 export const getTemporaryLink: ActionHandler = async (input) => {
   const config = GetTemporaryLinkConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const { link, metadata } = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "dropbox",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesGetTemporaryLink({ accessToken, path: config.path }),
   });

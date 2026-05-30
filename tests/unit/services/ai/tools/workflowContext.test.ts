@@ -39,6 +39,7 @@ function makeRecord(
   return {
     id: "wf-1",
     userId: "owner-1",
+    accountId: "acct-owner-1",
     name: "My Workflow",
     state: "draft",
     disabledReason: null,

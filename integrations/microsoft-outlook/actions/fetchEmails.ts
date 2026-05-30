@@ -48,18 +48,18 @@ import { FetchEmailsConfigSchema } from "./fetchEmails.schema";
 export const fetchEmails: ActionHandler = async (input) => {
   const config = FetchEmailsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const hasQuery =
     typeof config.query === "string" && config.query.trim().length > 0;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       listMessages({
         accessToken,

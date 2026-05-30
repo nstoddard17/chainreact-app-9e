@@ -65,7 +65,7 @@ export function normalize(
     eventType: "new_worksheet",
     eventId,
     occurredAt: input.occurredAt,
-    accountId: context.accountId,
+    providerAccountId: context.accountId,
     payload: {
       changeKind: "added" as const,
       spreadsheetId: context.spreadsheetId,

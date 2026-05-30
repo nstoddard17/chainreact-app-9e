@@ -408,7 +408,8 @@ describe("GET /api/options/[source] — requiresIntegration branch", () => {
     authedUser();
     const integrationRow = {
       id: "int-1",
-      userId: "user-1",
+      accountId: "acct-user-1",
+      connectedByUserId: "user-1",
       provider: "synthetic",
       providerAccountId: "acct-1",
       displayName: null,
@@ -528,7 +529,8 @@ describe("GET /api/options/[source] — requiresIntegration branch", () => {
 describe("GET /api/options/slack:channels — end-to-end through the real resolver (Slice 3.32)", () => {
   const slackIntegrationRow = {
     id: "int-slack",
-    userId: "user-1",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
     provider: "slack",
     providerAccountId: "T01TEAM",
     displayName: "Test Workspace",

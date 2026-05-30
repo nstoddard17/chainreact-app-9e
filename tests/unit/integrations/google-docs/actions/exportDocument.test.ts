@@ -58,7 +58,7 @@ function docsTrigger(): TriggerEvent {
     eventType: "document_updated",
     eventId: "evt-1",
     occurredAt: "2026-05-23T12:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -74,6 +74,7 @@ describe("export_document — Drive destination + FileRef output", () => {
     await exportDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -108,6 +109,7 @@ describe("export_document — Drive destination + FileRef output", () => {
       await exportDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -130,6 +132,7 @@ describe("export_document — Drive destination + FileRef output", () => {
     await exportDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -155,6 +158,7 @@ describe("export_document — Drive destination + FileRef output", () => {
     await exportDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1", exportFormat: "pdf" },
@@ -176,6 +180,7 @@ describe("export_document — Drive destination + FileRef output", () => {
     await exportDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { documentId: "doc-1", exportFormat: "pdf" },
@@ -193,6 +198,7 @@ describe("export_document — Drive destination + FileRef output", () => {
     const result = await exportDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -220,6 +226,7 @@ describe("export_document — Drive destination + FileRef output", () => {
     await exportDocument({
       workflowId: "w",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -245,6 +252,7 @@ describe("export_document — V1 destination fields rejected", () => {
       exportDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -263,6 +271,7 @@ describe("export_document — V1 destination fields rejected", () => {
       exportDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -282,6 +291,7 @@ describe("export_document — schema validation", () => {
       exportDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { documentId: "doc-1", exportFormat: "xls" },
@@ -295,6 +305,7 @@ describe("export_document — schema validation", () => {
       exportDocument({
         workflowId: "w",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { exportFormat: "pdf" },

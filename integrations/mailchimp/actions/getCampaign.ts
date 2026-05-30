@@ -20,15 +20,16 @@ import { GetCampaignConfigSchema } from "./getCampaign.schema";
 export const getCampaign: ActionHandler = async (input) => {
   const config = GetCampaignConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const campaign = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       campaignGet({
         accessToken,

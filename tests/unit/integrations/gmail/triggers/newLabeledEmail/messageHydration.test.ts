@@ -76,7 +76,7 @@ describe("buildLabeledTriggerEvent", () => {
       labelAppliedId: "Label_5",
       labelsAdded: ["Label_5"],
     });
-    expect(event.accountId).toBe("alice@example.com");
+    expect(event.providerAccountId).toBe("alice@example.com");
   });
 
   it("occurredAt is internalDate as ISO 8601", () => {

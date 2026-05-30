@@ -27,13 +27,13 @@ beforeEach(() => {
   mockEventsInsert.mockReset();
 });
 
-function calendarTrigger(accountId: string): TriggerEvent {
+function calendarTrigger(providerAccountId: string): TriggerEvent {
   return {
     provider: "google-calendar",
     eventType: "event_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -44,7 +44,7 @@ function nonCalendarTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -63,6 +63,7 @@ function baseInput(overrides: { config?: Record<string, unknown>; triggerEvent?:
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-abc",
     nodeId: "node-create",
     config: overrides.config ?? VALID_TIMED,

@@ -46,6 +46,7 @@ async function freshStateWithConsumeWired(input: {
   scopes?: readonly string[];
 }): Promise<string> {
   const { token, payload } = await createState({
+    accountId: `acct-${input.userId}`,
     userId: input.userId,
     provider: input.provider,
     requestedScopes: input.scopes ?? [],

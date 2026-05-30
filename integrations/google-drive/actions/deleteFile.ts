@@ -24,17 +24,17 @@ import {
 export const deleteFile: ActionHandler = async (input) => {
   const config: DeleteFileConfig = DeleteFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-drive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   if (config.permanent) {
     try {
       await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "google-drive",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           filesDelete({ accessToken, fileId: config.fileId }),
       });
@@ -62,9 +62,9 @@ export const deleteFile: ActionHandler = async (input) => {
   // Trash mode — PATCH trashed=true.
   try {
     const result = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "google-drive",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         filesUpdate({
           accessToken,

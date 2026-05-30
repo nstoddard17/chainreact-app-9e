@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -57,6 +57,7 @@ describe("get_page action", () => {
     const result = await getPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -81,6 +82,7 @@ describe("get_page action", () => {
       getPage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "" },
@@ -94,6 +96,7 @@ describe("get_page action", () => {
       getPage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "p", extra: 1 },
@@ -111,6 +114,7 @@ describe("get_page action", () => {
     await getPage({
       workflowId: "wf",
       userId: "user-1",
+      accountId: "acct-user-1",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -134,6 +138,7 @@ describe("get_page action", () => {
     await getPage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },

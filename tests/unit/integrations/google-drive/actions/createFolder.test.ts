@@ -27,13 +27,13 @@ beforeEach(() => {
   mockFilesCreate.mockReset();
 });
 
-function driveTrigger(accountId: string): TriggerEvent {
+function driveTrigger(providerAccountId: string): TriggerEvent {
   return {
     provider: "google-drive",
     eventType: "file_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -44,7 +44,7 @@ function nonDriveTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -66,6 +66,7 @@ describe("createFolder action", () => {
     const result = await createFolder({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { name: "Reports" },
@@ -97,6 +98,7 @@ describe("createFolder action", () => {
     await createFolder({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "Sub", parentFolderId: "fld-parent" },
@@ -116,6 +118,7 @@ describe("createFolder action", () => {
     await createFolder({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "F" },
@@ -136,6 +139,7 @@ describe("createFolder action", () => {
     await createFolder({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { name: "F" },
@@ -152,6 +156,7 @@ describe("createFolder action", () => {
       createFolder({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { name: "F", mimeType: "text/plain" }, // mimeType not allowed
@@ -165,6 +170,7 @@ describe("createFolder action", () => {
       createFolder({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { name: "" },

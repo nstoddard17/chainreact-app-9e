@@ -22,9 +22,9 @@ import { CreateNoteConfigSchema } from "./createNote.schema";
 export const createNote: ActionHandler = async (input) => {
   const config = CreateNoteConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -36,17 +36,17 @@ export const createNote: ActionHandler = async (input) => {
   }
 
   const note = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       notesCreate({ accessToken, properties }),
   });
 
   const assoc = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       attachAssociations({
         accessToken,

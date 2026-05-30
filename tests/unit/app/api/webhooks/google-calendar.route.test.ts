@@ -52,8 +52,8 @@ describe("/api/webhooks/google-calendar route", () => {
     mockReceive.mockResolvedValueOnce({
       kind: "events",
       events: [
-        { provider: "google-calendar", eventType: "event_changed", eventId: "a", occurredAt: "t", accountId: "u", payload: {} },
-        { provider: "google-calendar", eventType: "event_changed", eventId: "b", occurredAt: "t", accountId: "u", payload: {} },
+        { provider: "google-calendar", eventType: "event_changed", eventId: "a", occurredAt: "t", providerAccountId: "u", payload: {} },
+        { provider: "google-calendar", eventType: "event_changed", eventId: "b", occurredAt: "t", providerAccountId: "u", payload: {} },
       ],
     });
     mockDispatch
@@ -86,7 +86,7 @@ describe("/api/webhooks/google-calendar route", () => {
     mockReceive.mockResolvedValueOnce({
       kind: "events",
       events: [
-        { provider: "google-calendar", eventType: "event_changed", eventId: "a", occurredAt: "t", accountId: "u", payload: {} },
+        { provider: "google-calendar", eventType: "event_changed", eventId: "a", occurredAt: "t", providerAccountId: "u", payload: {} },
       ],
     });
     mockDispatch.mockRejectedValueOnce(new Error("queue down"));

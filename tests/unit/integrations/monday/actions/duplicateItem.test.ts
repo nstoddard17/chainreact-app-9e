@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -69,6 +69,7 @@ describe("duplicate_item handler", () => {
     await duplicateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i", withUpdates: true },
@@ -92,6 +93,7 @@ describe("duplicate_item handler", () => {
     const result = await duplicateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "orig", withUpdates: false },
@@ -118,6 +120,7 @@ describe("duplicate_item handler", () => {
     await duplicateItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i", withUpdates: false },

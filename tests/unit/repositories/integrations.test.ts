@@ -95,7 +95,8 @@ describe("repositories/integrations.upsertActive", () => {
       insertedRow: baseRow,
     });
     const result = await upsertActive({
-      userId: "user-1",
+      accountId: "acct-user-1",
+      connectedByUserId: "user-1",
       provider: "slack",
       providerAccountId: "T123",
       displayName: "Acme",
@@ -118,7 +119,8 @@ describe("repositories/integrations.upsertActive", () => {
       updatedRow: { ...baseRow, access_token_encrypted: "ENC-REFRESHED" },
     });
     const result = await upsertActive({
-      userId: "user-1",
+      accountId: "acct-user-1",
+      connectedByUserId: "user-1",
       provider: "slack",
       providerAccountId: "T123",
       displayName: "Acme",
@@ -157,7 +159,8 @@ describe("repositories/integrations.upsertActive", () => {
     mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
 
     await upsertActive({
-      userId: "user-1",
+      accountId: "acct-user-1",
+      connectedByUserId: "user-1",
       provider: "slack",
       providerAccountId: "T123",
       displayName: null,

@@ -33,7 +33,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -53,6 +53,7 @@ describe("forward_email action", () => {
     const result = await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -88,6 +89,7 @@ describe("forward_email action", () => {
     await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -114,6 +116,7 @@ describe("forward_email action", () => {
     const result = await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -143,6 +146,7 @@ describe("forward_email action", () => {
     await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -163,6 +167,7 @@ describe("forward_email action", () => {
     await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, comment: "FYI" },
@@ -181,6 +186,7 @@ describe("forward_email action", () => {
     await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -196,6 +202,7 @@ describe("forward_email action", () => {
       forwardEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...BASE_CONFIG, to: "   ,   " },
@@ -211,6 +218,7 @@ describe("forward_email action", () => {
     await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -231,6 +239,7 @@ describe("forward_email action", () => {
     await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -251,6 +260,7 @@ describe("forward_email action", () => {
       forwardEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -266,6 +276,7 @@ describe("forward_email action", () => {
       forwardEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -282,6 +293,7 @@ describe("forward_email action", () => {
       forwardEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: BASE_CONFIG,
@@ -301,6 +313,7 @@ describe("forward_email action", () => {
     const result = await forwardEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,

@@ -15,15 +15,15 @@ import { DuplicateBoardConfigSchema } from "./duplicateBoard.schema";
 export const duplicateBoard: ActionHandler = async (input) => {
   const config = DuplicateBoardConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const newBoard = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       boardsDuplicate({
         accessToken,

@@ -21,9 +21,9 @@ import {
 export const uploadFile: ActionHandler = async (input) => {
   const config: UploadFileConfig = UploadFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-drive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const content =
@@ -44,9 +44,9 @@ export const uploadFile: ActionHandler = async (input) => {
   }
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-drive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesCreateMultipart({ accessToken, metadata, content }),
   });

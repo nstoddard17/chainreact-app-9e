@@ -33,9 +33,9 @@ import { CreateEventConfigSchema } from "./createEvent.schema";
 export const createEvent: ActionHandler = async (input) => {
   const config = CreateEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Q12 — resolve timezones (explicit-or-UTC). The helper validates
@@ -85,9 +85,9 @@ export const createEvent: ActionHandler = async (input) => {
   if (config.importance !== undefined) body.importance = config.importance;
 
   const event = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) => eventsCreate({ accessToken, body }),
   });
 

@@ -132,7 +132,7 @@ export async function unregisterWorkflowTriggers(
       const integration = await getActiveForExecution(
         workflow.accountId,
         trigger.provider,
-        trigger.accountId ?? null,
+        trigger.providerAccountId ?? null,
       );
       if (!integration) continue;
       await deactivation({ trigger, integration });

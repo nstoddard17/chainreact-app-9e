@@ -36,6 +36,7 @@ describe("GitHub new_commit registration", () => {
     const fakeGithubRow = {
       id: "x",
       workflowId: "wf",
+      workflowAccountId: "acct-wf",
       userId: "u",
       provider: "github",
       eventType: "new_commit",
@@ -43,7 +44,7 @@ describe("GitHub new_commit registration", () => {
       // Even if a corrupted row carries the marker, no GitHub-specific
       // handler should match.
       config: { type: "subscription-watch", repository: "u/r" },
-      accountId: "u",
+      providerAccountId: "u",
       registeredAt: "",
       expiresAt: null,
       lastRenewedAt: null,

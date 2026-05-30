@@ -266,14 +266,14 @@ export function normalizeTrelloEvent(
 
   const eventId = action.id ?? `${board?.id ?? "no-board"}:${action.date ?? Date.now()}`;
   const occurredAt = action.date ?? new Date().toISOString();
-  const accountId = board?.id ?? "unknown-board";
+  const providerAccountId = board?.id ?? "unknown-board";
 
   return {
     provider: "trello",
     eventType: triggerEventType,
     eventId,
     occurredAt,
-    accountId,
+    providerAccountId,
     payload,
   };
 }

@@ -20,7 +20,8 @@ import { resolveShopDomain } from "./_resolveShop";
  */
 export const updateInventory: ActionHandler = async (input) => {
   const config = UpdateInventoryConfigSchema.parse(input.config);
-  const { shopDomain, accountId } = await resolveShopDomain({
+  const { shopDomain, providerAccountId } = await resolveShopDomain({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
@@ -31,9 +32,9 @@ export const updateInventory: ActionHandler = async (input) => {
   let level: ShopifyInventoryLevel;
   if (config.adjustment_type === "set") {
     level = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "shopify",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         inventoryLevelsSet({
           shopDomain,
@@ -47,9 +48,9 @@ export const updateInventory: ActionHandler = async (input) => {
     const delta =
       config.adjustment_type === "add" ? config.quantity : -config.quantity;
     level = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "shopify",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         inventoryLevelsAdjust({
           shopDomain,

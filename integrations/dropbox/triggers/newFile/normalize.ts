@@ -23,26 +23,26 @@ import type { DropboxEntry } from "@/integrations/_shared/dropbox/api/_types";
 export type DropboxFileEntry = DropboxEntry & { is_downloadable?: boolean };
 
 export function buildNewFileEventId(
-  accountId: string,
+  providerAccountId: string,
   entry: DropboxFileEntry,
 ): string {
   const id = entry.id ?? entry.path_lower ?? entry.path_display ?? "unknown";
   const rev = entry.rev ?? "";
-  return `new_file:${accountId}:${id}:${rev}`;
+  return `new_file:${providerAccountId}:${id}:${rev}`;
 }
 
 export function normalizeNewFile(input: {
   entry: DropboxFileEntry;
-  accountId: string;
+  providerAccountId: string;
 }): TriggerEvent {
-  const { entry, accountId } = input;
+  const { entry, providerAccountId } = input;
   const path = entry.path_display ?? entry.path_lower ?? null;
   return {
     provider: "dropbox",
     eventType: "new_file",
-    eventId: buildNewFileEventId(accountId, entry),
+    eventId: buildNewFileEventId(providerAccountId, entry),
     occurredAt: entry.server_modified ?? new Date().toISOString(),
-    accountId,
+    providerAccountId,
     payload: {
       changeKind: "new_file",
       id: entry.id ?? null,
@@ -53,7 +53,7 @@ export function normalizeNewFile(input: {
       sizeBytes: typeof entry.size === "number" ? entry.size : null,
       clientModified: entry.client_modified ?? null,
       serverModified: entry.server_modified ?? null,
-      accountId,
+      providerAccountId,
       isDownloadable:
         typeof entry.is_downloadable === "boolean"
           ? entry.is_downloadable

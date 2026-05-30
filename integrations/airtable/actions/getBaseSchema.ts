@@ -22,15 +22,15 @@ import { GetBaseSchemaConfigSchema } from "./getBaseSchema.schema";
 export const getBaseSchema: ActionHandler = async (input) => {
   const config = GetBaseSchemaConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "airtable"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "airtable",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       basesGetSchema({
         accessToken,

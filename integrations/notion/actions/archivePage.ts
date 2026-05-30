@@ -19,15 +19,15 @@ import { ArchivePageConfigSchema } from "./archivePage.schema";
 export const archivePage: ActionHandler = async (input) => {
   const config = ArchivePageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "notion"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "notion",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesUpdate({
         accessToken,

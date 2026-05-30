@@ -27,13 +27,14 @@ const nativeEvent: TriggerEvent = {
   eventType: "manual.run",
   eventId: "ev1",
   occurredAt: "2026-05-23T00:00:00Z",
-  accountId: "discord-user-1",
+  providerAccountId: "discord-user-1",
   payload: {},
 };
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "discord",
   providerAccountId: "discord-user-1",
   displayName: "Alice",
@@ -51,6 +52,7 @@ function makeInput(config: Record<string, unknown>): ActionHandlerInput {
   return {
     workflowId: "wf",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run",
     nodeId: "n",
     config,

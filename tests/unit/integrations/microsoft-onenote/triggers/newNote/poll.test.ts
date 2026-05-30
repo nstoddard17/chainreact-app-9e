@@ -58,11 +58,12 @@ function makeTrigger(
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "microsoft-onenote",
     eventType: "new_note",
     nodeId: "node-1",
-    accountId: null,
+    providerAccountId: null,
     config: {
       notebookId: "nb-1",
       sectionId: "sec-1",
@@ -83,7 +84,8 @@ function makeTrigger(
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-onenote",
   providerAccountId: "alice@contoso.com",
   displayName: "Alice (OneNote)",
@@ -137,6 +139,7 @@ describe("new_note poll — defensive skips", () => {
     const trigger = makeTrigger({ snapshot: undefined });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -148,6 +151,7 @@ describe("new_note poll — defensive skips", () => {
     mockGetActive.mockResolvedValueOnce(null);
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -161,6 +165,7 @@ describe("new_note poll — happy path dispatch", () => {
     mockPagesList.mockResolvedValueOnce({ pages: [], nextLink: null });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -202,6 +207,7 @@ describe("new_note poll — happy path dispatch", () => {
     });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -226,6 +232,7 @@ describe("new_note poll — happy path dispatch", () => {
       .mockResolvedValueOnce({ fresh: false }); // p-already-seen
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -251,6 +258,7 @@ describe("new_note poll — happy path dispatch", () => {
     });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -283,6 +291,7 @@ describe("new_note poll — snapshot advancement invariant", () => {
     mockMarkSeen.mockResolvedValueOnce({ fresh: false });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -301,6 +310,7 @@ describe("new_note poll — snapshot advancement invariant", () => {
     });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -313,6 +323,7 @@ describe("new_note poll — snapshot advancement invariant", () => {
     mockPagesList.mockResolvedValueOnce({ pages: [], nextLink: null });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -326,6 +337,7 @@ describe("new_note poll — error handling", () => {
     mockPagesList.mockRejectedValueOnce(new NotFoundError("section sec-1", "not found"));
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -338,6 +350,7 @@ describe("new_note poll — error handling", () => {
     await expect(
       microsoftOneNoteNewNotePollingHandler.poll({
         trigger: makeTrigger(),
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       }),
@@ -359,6 +372,7 @@ describe("new_note poll — error handling", () => {
       .mockResolvedValueOnce({ runId: "r2", enqueuedAt: "x" });
     await microsoftOneNoteNewNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });

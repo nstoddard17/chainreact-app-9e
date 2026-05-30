@@ -121,7 +121,7 @@ describe("/api/webhooks/monday — dispatch", () => {
     eventType: "new_item",
     eventId: "new_item:1:2:t",
     occurredAt: "2026-05-24T10:00:00Z",
-    accountId: "1",
+    providerAccountId: "1",
     payload: {},
   };
 

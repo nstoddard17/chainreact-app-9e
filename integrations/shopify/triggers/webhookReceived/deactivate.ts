@@ -39,7 +39,7 @@ export const deactivate: DeactivationFn = async ({ trigger, integration }) => {
   // before deactivation runs. `||` (NOT `??`) — an empty string
   // falls through to the config value, since "" is a "missing" shop
   // domain even though it isn't null/undefined.
-  const shopDomain = integration.providerAccountId || config.shopDomain;
+  const shopDomain = integration.accountId || config.shopDomain;
   if (!shopDomain) return;
 
   const accessToken = decryptToken(integration.accessTokenEncrypted);

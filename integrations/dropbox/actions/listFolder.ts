@@ -14,15 +14,15 @@ import { ListFolderConfigSchema } from "./listFolder.schema";
 export const listFolder: ActionHandler = async (input) => {
   const config = ListFolderConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "dropbox"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const res = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "dropbox",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesListFolder({
         accessToken,

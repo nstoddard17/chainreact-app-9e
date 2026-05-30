@@ -49,7 +49,7 @@ export function buildLabeledTriggerEvent(input: {
     eventType: "new_labeled_email",
     eventId: `labeled:${message.id}`,
     occurredAt,
-    accountId: emailAddress,
+    providerAccountId: emailAddress,
     payload: {
       id: message.id,
       threadId: message.threadId,

@@ -23,15 +23,15 @@ import { GetFileConfigSchema } from "./getFile.schema";
 export const getFile: ActionHandler = async (input) => {
   const config = GetFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onedrive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onedrive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       driveItemsGet({ accessToken, itemId: config.itemId }),
   });

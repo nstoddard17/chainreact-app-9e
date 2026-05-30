@@ -26,9 +26,9 @@ import {
 export const uploadFile: ActionHandler = async (input) => {
   const config: UploadFileConfig = UploadFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onedrive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const content =
@@ -37,9 +37,9 @@ export const uploadFile: ActionHandler = async (input) => {
       : Buffer.from(config.content, "utf8");
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onedrive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       driveItemsContentUpload({
         accessToken,

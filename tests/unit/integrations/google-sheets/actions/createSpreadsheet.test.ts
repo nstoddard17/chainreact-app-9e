@@ -29,7 +29,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -40,7 +40,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -64,6 +64,7 @@ describe("createSpreadsheet action", () => {
     const result = await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "Project Tracker" },
@@ -95,6 +96,7 @@ describe("createSpreadsheet action", () => {
     const result = await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -124,6 +126,7 @@ describe("createSpreadsheet action", () => {
     const result = await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "Untitled" },
@@ -145,6 +148,7 @@ describe("createSpreadsheet action", () => {
     const result = await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "X" },
@@ -179,6 +183,7 @@ describe("createSpreadsheet action", () => {
     const result = await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "X" },
@@ -197,6 +202,7 @@ describe("createSpreadsheet action", () => {
     const result = await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "X" },
@@ -214,6 +220,7 @@ describe("createSpreadsheet action", () => {
       createSpreadsheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { title: "X" },
@@ -228,6 +235,7 @@ describe("createSpreadsheet action", () => {
     await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "X" },
@@ -248,6 +256,7 @@ describe("createSpreadsheet action", () => {
     await createSpreadsheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "X" },
@@ -265,6 +274,7 @@ describe("createSpreadsheet action", () => {
         createSpreadsheet({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: {},
@@ -278,6 +288,7 @@ describe("createSpreadsheet action", () => {
         createSpreadsheet({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { title: "" },
@@ -291,6 +302,7 @@ describe("createSpreadsheet action", () => {
         createSpreadsheet({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { title: "X", initialSheetName: "" },
@@ -318,6 +330,7 @@ describe("createSpreadsheet action", () => {
           createSpreadsheet({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, ...extra },

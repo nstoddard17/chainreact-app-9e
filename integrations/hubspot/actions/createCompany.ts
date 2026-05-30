@@ -45,9 +45,9 @@ const OPTIONAL_FIELDS = [
 export const createCompany: ActionHandler = async (input) => {
   const config = CreateCompanyConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = { name: config.name };
@@ -64,9 +64,9 @@ export const createCompany: ActionHandler = async (input) => {
 
   try {
     company = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "hubspot",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         companiesCreate({ accessToken, properties }),
     });
@@ -79,9 +79,9 @@ export const createCompany: ActionHandler = async (input) => {
       throw err;
     }
     const existing = await refreshAndRetry({
-      userId: input.userId,
+      accountId: input.accountId,
       provider: "hubspot",
-      accountId,
+      providerAccountId,
       apiCall: (accessToken) =>
         findCompanyByDomain({ accessToken, domain: config.domain! }),
     });
@@ -93,9 +93,9 @@ export const createCompany: ActionHandler = async (input) => {
       wasSkip = true;
     } else {
       company = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "hubspot",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           companiesUpdate({
             accessToken,

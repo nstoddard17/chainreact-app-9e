@@ -40,7 +40,6 @@ beforeEach(() => mockList.mockReset());
 function ev(p: Partial<AiCostEventRecord> = {}): AiCostEventRecord {
   return {
     id: "x",
-    userId: "user-1",
     workflowId: "wf-1",
     workflowRunId: null,
     patchId: null,

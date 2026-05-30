@@ -24,15 +24,16 @@ import { GetCampaignStatsConfigSchema } from "./getCampaignStats.schema";
 export const getCampaignStats: ActionHandler = async (input) => {
   const config = GetCampaignStatsConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const report = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       reportGet({
         accessToken,

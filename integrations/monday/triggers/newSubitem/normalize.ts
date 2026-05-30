@@ -60,7 +60,7 @@ export function normalizeNewSubitem(ev: MondayEventObject): TriggerEvent {
     eventType: "new_subitem",
     eventId,
     occurredAt,
-    accountId: boardId ?? "unknown",
+    providerAccountId: boardId ?? "unknown",
     payload: {
       changeKind: "new_subitem",
       subitemId,

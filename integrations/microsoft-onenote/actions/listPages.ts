@@ -22,15 +22,15 @@ import { ListPagesConfigSchema } from "./listPages.schema";
 export const listPages: ActionHandler = async (input) => {
   const config = ListPagesConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onenote"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onenote",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       pagesList({
         accessToken,

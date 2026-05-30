@@ -118,7 +118,7 @@ export function normalizeNewPost(input: {
     eventType: "new_post",
     eventId: buildNewPostEventId(pageId, value),
     occurredAt,
-    accountId: pageId,
+    providerAccountId: pageId,
     payload: {
       changeKind: "new_post",
       pageId,
@@ -144,7 +144,7 @@ export function normalizeNewComment(input: {
     eventType: "new_comment",
     eventId: buildNewCommentEventId(pageId, value),
     occurredAt,
-    accountId: pageId,
+    providerAccountId: pageId,
     payload: {
       changeKind: "new_comment",
       pageId,

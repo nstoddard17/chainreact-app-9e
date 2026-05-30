@@ -37,15 +37,15 @@ import type { ExcelRange } from "../api/types";
 export const addRow: ActionHandler = async (input) => {
   const config = AddRowConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const used = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetUsedRange({
         accessToken,
@@ -60,7 +60,7 @@ export const addRow: ActionHandler = async (input) => {
       input,
       config,
       used,
-      accountId,
+      providerAccountId,
       rows: config.rows,
     });
   }
@@ -70,7 +70,7 @@ export const addRow: ActionHandler = async (input) => {
     input,
     config,
     used,
-    accountId,
+    providerAccountId,
     values: config.values!,
   });
 };
@@ -79,13 +79,13 @@ interface ExecuteContext {
   input: Parameters<ActionHandler>[0];
   config: AddRowConfig;
   used: ExcelRange;
-  accountId: string | null;
+  providerAccountId: string | null;
 }
 
 async function executeSingle(
   ctx: ExecuteContext & { values: readonly unknown[] },
 ): Promise<ReturnType<ActionHandler>> {
-  const { input, config, used, accountId, values } = ctx;
+  const { input, config, used, providerAccountId, values } = ctx;
 
   // Graph's usedRange against an empty worksheet returns rowCount/
   // columnCount both 1 with a single null cell. Detect that to avoid
@@ -116,9 +116,9 @@ async function executeSingle(
   const address = `A${targetRow}:${columnLetter(columnCount)}${targetRow}`;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetRangePatch({
         accessToken,
@@ -144,7 +144,7 @@ async function executeSingle(
 async function executeBatch(
   ctx: ExecuteContext & { rows: ReadonlyArray<Record<string, unknown>> },
 ): Promise<ReturnType<ActionHandler>> {
-  const { input, config, used, accountId, rows } = ctx;
+  const { input, config, used, providerAccountId, rows } = ctx;
 
   const sheetRows = used.values ?? [];
   if (sheetRows.length === 0) {
@@ -216,9 +216,9 @@ async function executeBatch(
   const address = `A${firstRowNumber}:${endCol}${lastRowNumber}`;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetRangePatch({
         accessToken,

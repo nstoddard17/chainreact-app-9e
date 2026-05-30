@@ -75,8 +75,7 @@ async function poll(ctx: PollingHandlerContext): Promise<void> {
   if (trigger.provider !== "microsoft-excel") return;
   if (!SUPPORTED_EVENT_TYPES.has(trigger.eventType)) return;
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "microsoft-excel",
     null,
   );
@@ -91,39 +90,39 @@ async function poll(ctx: PollingHandlerContext): Promise<void> {
     );
     return;
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   switch (trigger.eventType) {
     case "new_row":
-      await pollWorksheet({ trigger, accountId, now: ctx.now, mode: "new" });
+      await pollWorksheet({ trigger, providerAccountId, now: ctx.now, mode: "new" });
       return;
     case "updated_row":
       await pollWorksheet({
         trigger,
-        accountId,
+        providerAccountId,
         now: ctx.now,
         mode: "updated",
       });
       return;
     case "new_table_row":
-      await pollTable({ trigger, accountId, now: ctx.now, mode: "new" });
+      await pollTable({ trigger, providerAccountId, now: ctx.now, mode: "new" });
       return;
     case "updated_table_row":
-      await pollTable({ trigger, accountId, now: ctx.now, mode: "updated" });
+      await pollTable({ trigger, providerAccountId, now: ctx.now, mode: "updated" });
       return;
     case "new_worksheet":
-      await pollWorksheetList({ trigger, accountId, now: ctx.now });
+      await pollWorksheetList({ trigger, providerAccountId, now: ctx.now });
       return;
   }
 }
 
 async function pollWorksheet(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   now: number;
   mode: "new" | "updated";
 }): Promise<void> {
-  const { trigger, accountId, now, mode } = input;
+  const { trigger, providerAccountId, now, mode } = input;
   const eventType = mode === "new" ? "new_row" : "updated_row";
   const schema =
     mode === "new" ? ExcelNewRowConfigSchema : ExcelUpdatedRowConfigSchema;
@@ -142,9 +141,9 @@ async function pollWorksheet(input: {
   }
 
   const range = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetUsedRange({
         accessToken,
@@ -174,7 +173,7 @@ async function pollWorksheet(input: {
   for (const entry of diff) {
     await emitEvent({
       trigger,
-      accountId,
+      providerAccountId,
       eventType,
       key: entry.key,
       values: entry.values,
@@ -196,11 +195,11 @@ async function pollWorksheet(input: {
 
 async function pollTable(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   now: number;
   mode: "new" | "updated";
 }): Promise<void> {
-  const { trigger, accountId, now, mode } = input;
+  const { trigger, providerAccountId, now, mode } = input;
   const eventType = mode === "new" ? "new_table_row" : "updated_table_row";
   const schema =
     mode === "new"
@@ -221,9 +220,9 @@ async function pollTable(input: {
   }
 
   const rows = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       tableRowsList({
         accessToken,
@@ -246,7 +245,7 @@ async function pollTable(input: {
   for (const entry of diff) {
     await emitEvent({
       trigger,
-      accountId,
+      providerAccountId,
       eventType,
       key: entry.key,
       values: entry.values,
@@ -268,10 +267,10 @@ async function pollTable(input: {
 
 async function pollWorksheetList(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   now: number;
 }): Promise<void> {
-  const { trigger, accountId, now } = input;
+  const { trigger, providerAccountId, now } = input;
   const config = ExcelNewWorksheetConfigSchema.parse(trigger.config);
 
   if (!config.snapshot) {
@@ -287,9 +286,9 @@ async function pollWorksheetList(input: {
   }
 
   const sheets = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetsList({
         accessToken,
@@ -310,7 +309,7 @@ async function pollWorksheetList(input: {
     const sheet = currentSheets.find((s) => s.name === name);
     await emitEvent({
       trigger,
-      accountId,
+      providerAccountId,
       eventType: "new_worksheet",
       key: name,
       // No row values for a worksheet — payload carries the metadata
@@ -336,7 +335,7 @@ async function pollWorksheetList(input: {
 
 async function emitEvent(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   eventType:
     | "new_row"
     | "new_table_row"
@@ -347,7 +346,7 @@ async function emitEvent(input: {
   values: ReadonlyArray<unknown>;
   extra: Record<string, unknown>;
 }): Promise<void> {
-  const { trigger, accountId, eventType, key, values, extra } = input;
+  const { trigger, providerAccountId, eventType, key, values, extra } = input;
 
   // Synthetic event id ties to the trigger + entry key so a snapshot
   // regression (e.g. workflow reactivated and pre-existing entries
@@ -359,7 +358,7 @@ async function emitEvent(input: {
     eventType,
     eventId,
     occurredAt: new Date().toISOString(),
-    accountId,
+    providerAccountId,
     payload: {
       ...extra,
       values,

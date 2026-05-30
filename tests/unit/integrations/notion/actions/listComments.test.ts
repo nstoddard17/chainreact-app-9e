@@ -36,7 +36,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -111,6 +111,7 @@ describe("list_comments handler", () => {
     await listComments({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -134,6 +135,7 @@ describe("list_comments handler", () => {
     await listComments({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1", pageSize: 10, startCursor: "cur-x" },
@@ -175,6 +177,7 @@ describe("list_comments handler", () => {
     const result = await listComments({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -204,6 +207,7 @@ describe("list_comments handler", () => {
     const result = await listComments({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -225,6 +229,7 @@ describe("list_comments handler", () => {
     await listComments({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { blockId: "p-1" },
@@ -239,6 +244,7 @@ describe("list_comments handler", () => {
       listComments({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { blockId: "p-missing" },

@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -60,6 +60,7 @@ describe("archive_item handler — structural-only output (recoverable)", () => 
     const result = await archiveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1" },
@@ -82,6 +83,7 @@ describe("archive_item handler — structural-only output (recoverable)", () => 
     const result = await archiveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1" },
@@ -95,6 +97,7 @@ describe("archive_item handler — structural-only output (recoverable)", () => 
     await archiveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i-1", boardId: "b" },
@@ -109,6 +112,7 @@ describe("archive_item handler — structural-only output (recoverable)", () => 
     await archiveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { itemId: "i" },

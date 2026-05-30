@@ -22,7 +22,7 @@ import { CreatePaymentLinkConfigSchema } from "./createPaymentLink.schema";
  * matches the Slice 11 pattern.
  *
  * `accountId` resolution: when the workflow's trigger is a Stripe
- * webhook event, `triggerEvent.accountId` carries the connected
+ * webhook event, `triggerEvent.providerAccountId` carries the connected
  * merchant's `stripe_user_id`. For manual / cross-provider triggers,
  * `accountId` is null and `refreshAndRetry`'s integration lookup
  * picks the user's single Stripe integration row.
@@ -46,9 +46,9 @@ import { CreatePaymentLinkConfigSchema } from "./createPaymentLink.schema";
 export const createPaymentLink: ActionHandler = async (input) => {
   const config = CreatePaymentLinkConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const idempotencyKey = buildIdempotencyKey({
@@ -58,9 +58,9 @@ export const createPaymentLink: ActionHandler = async (input) => {
   });
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "create_payment_link",
       runTestMode: input.testMode === true,

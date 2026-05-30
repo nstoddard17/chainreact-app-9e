@@ -84,7 +84,7 @@ describe("buildAttachmentTriggerEvent", () => {
       message: makeMessage(),
       attachments: oneAttachment,
     });
-    expect(event.accountId).toBe("alice@example.com");
+    expect(event.providerAccountId).toBe("alice@example.com");
   });
 
   it("occurredAt is internalDate as ISO 8601", () => {

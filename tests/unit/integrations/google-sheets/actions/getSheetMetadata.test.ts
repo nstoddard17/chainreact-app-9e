@@ -29,7 +29,7 @@ function trigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -69,6 +69,7 @@ describe("getSheetMetadata action", () => {
     const result = await getSheetMetadata({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss-1" },
@@ -112,6 +113,7 @@ describe("getSheetMetadata action", () => {
     const result = await getSheetMetadata({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss-2" },
@@ -140,6 +142,7 @@ describe("getSheetMetadata action", () => {
     const result = await getSheetMetadata({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss-3" },
@@ -154,6 +157,7 @@ describe("getSheetMetadata action", () => {
       getSheetMetadata({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

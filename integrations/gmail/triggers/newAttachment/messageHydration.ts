@@ -49,7 +49,7 @@ export function buildAttachmentTriggerEvent(input: {
     eventType: "new_attachment",
     eventId: `attachment:${message.id}`,
     occurredAt,
-    accountId: emailAddress,
+    providerAccountId: emailAddress,
     payload: {
       id: message.id,
       threadId: message.threadId,

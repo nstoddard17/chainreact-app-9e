@@ -47,7 +47,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "t",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -112,6 +112,7 @@ describe("update_page handler — operation construction", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", content: "<p>new</p>", updateMode: "append" },
@@ -127,6 +128,7 @@ describe("update_page handler — operation construction", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", content: "<p/>", updateMode: "prepend" },
@@ -141,6 +143,7 @@ describe("update_page handler — operation construction", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", content: "<p>new</p>", updateMode: "replace" },
@@ -155,6 +158,7 @@ describe("update_page handler — operation construction", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -174,6 +178,7 @@ describe("update_page handler — operation construction", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -194,6 +199,7 @@ describe("update_page handler — operation construction", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -216,6 +222,7 @@ describe("update_page handler — output shape", () => {
     const result = await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", content: "<p>x</p>", updateMode: "replace" },
@@ -236,6 +243,7 @@ describe("update_page handler — output shape", () => {
     await updatePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1", content: "<p/>", updateMode: "append" },

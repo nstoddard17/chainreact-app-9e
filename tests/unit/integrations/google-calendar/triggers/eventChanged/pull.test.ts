@@ -46,6 +46,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-calendar",
   eventType: "event_changed",
@@ -56,7 +57,7 @@ const baseTrigger = {
     syncToken: "sync-1",
     channelId: "channel-1",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,

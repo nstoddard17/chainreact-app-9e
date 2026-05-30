@@ -38,16 +38,16 @@ import { CreateDraftReplyConfigSchema } from "./createDraftReply.schema";
 export const createDraftReply: ActionHandler = async (input) => {
   const config = CreateDraftReplyConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Step 1 — lookup original message metadata for headers + threadId.
   const original = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesGet({
         accessToken,
@@ -78,9 +78,9 @@ export const createDraftReply: ActionHandler = async (input) => {
 
   // Step 4 — build reply MIME + create the draft in the original thread.
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) => {
       const rfc5322 = buildRfc5322Message({
         to: replyCtx.to,

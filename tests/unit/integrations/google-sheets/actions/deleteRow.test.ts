@@ -36,7 +36,7 @@ function sheetsTrigger(): TriggerEvent {
     eventType: "row_changed",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     payload: {},
   };
 }
@@ -47,7 +47,7 @@ function nonSheetsTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -73,6 +73,7 @@ describe("deleteRow action", () => {
     const result = await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -121,6 +122,7 @@ describe("deleteRow action", () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "Sheet1", rowNumber: 1 },
@@ -149,6 +151,7 @@ describe("deleteRow action", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "ss", sheetName: "Missing", rowNumber: 5 },
@@ -165,6 +168,7 @@ describe("deleteRow action", () => {
     const result = await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "Sheet1", rowNumber: 2 },
@@ -182,6 +186,7 @@ describe("deleteRow action", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "ss", sheetName: "Sheet1", rowNumber: 1 },
@@ -198,6 +203,7 @@ describe("deleteRow action", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "ss", sheetName: "S", rowNumber: 1 },
@@ -217,6 +223,7 @@ describe("deleteRow action", () => {
       deleteRow({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { spreadsheetId: "ss", sheetName: "S", rowNumber: 1 },
@@ -231,6 +238,7 @@ describe("deleteRow action", () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "S", rowNumber: 1 },
@@ -254,6 +262,7 @@ describe("deleteRow action", () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { spreadsheetId: "ss", sheetName: "S", rowNumber: 1 },
@@ -271,6 +280,7 @@ describe("deleteRow action", () => {
         deleteRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", rowNumber: 0 },
@@ -284,6 +294,7 @@ describe("deleteRow action", () => {
         deleteRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", rowNumber: -3 },
@@ -297,6 +308,7 @@ describe("deleteRow action", () => {
         deleteRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "S", rowNumber: 2.5 },
@@ -310,6 +322,7 @@ describe("deleteRow action", () => {
         deleteRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "", sheetName: "S", rowNumber: 1 },
@@ -321,6 +334,7 @@ describe("deleteRow action", () => {
         deleteRow({
           workflowId: "wf",
           userId: "u",
+          accountId: "acct-u",
           runId: "r",
           nodeId: "n",
           config: { spreadsheetId: "ss", sheetName: "", rowNumber: 1 },
@@ -349,6 +363,7 @@ describe("deleteRow action", () => {
           deleteRow({
             workflowId: "wf",
             userId: "u",
+            accountId: "acct-u",
             runId: "r",
             nodeId: "n",
             config: { ...baseConfig, ...extra },

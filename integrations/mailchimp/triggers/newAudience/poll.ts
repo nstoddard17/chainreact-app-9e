@@ -54,8 +54,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "mailchimp",
     null,
   );
@@ -74,12 +73,12 @@ async function poll(input: {
   if (typeof dc !== "string" || dc.length === 0) {
     throw new MissingDataCenterError();
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   const result = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       listsList({
         accessToken,
@@ -97,7 +96,7 @@ async function poll(input: {
 
   for (const l of newLists) {
     try {
-      await processOneList({ trigger, accountId, list: l });
+      await processOneList({ trigger, providerAccountId, list: l });
     } catch (err) {
       console.warn(
         JSON.stringify({
@@ -130,10 +129,10 @@ async function poll(input: {
 
 async function processOneList(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   list: MailchimpList;
 }): Promise<void> {
-  const { trigger, accountId, list } = input;
+  const { trigger, providerAccountId, list } = input;
   if (!list.id) return;
 
   const eventId = `new_audience:${list.id}`;
@@ -157,7 +156,7 @@ async function processOneList(input: {
     eventType: "new_audience",
     eventId,
     occurredAt: list.date_created ?? new Date().toISOString(),
-    accountId,
+    providerAccountId,
     payload: {
       listId: list.id,
       name: list.name ?? null,

@@ -43,15 +43,15 @@ import { UpdateRowConfigSchema } from "./updateRow.schema";
 export const updateRow: ActionHandler = async (input) => {
   const config = UpdateRowConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const used = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetUsedRange({
         accessToken,
@@ -112,9 +112,9 @@ export const updateRow: ActionHandler = async (input) => {
   const address = `${startCol}${config.rowNumber}:${endCol}${config.rowNumber}`;
 
   await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       worksheetRangePatch({
         accessToken,

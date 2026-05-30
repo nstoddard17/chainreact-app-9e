@@ -17,15 +17,15 @@ import { CreateConversionEventConfigSchema } from "./createConversionEvent.schem
 export const createConversionEvent: ActionHandler = async (input) => {
   const config = CreateConversionEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-analytics"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const created = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-analytics",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       conversionEventsCreate({
         accessToken,

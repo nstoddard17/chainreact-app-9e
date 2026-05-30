@@ -85,7 +85,9 @@ export class IntegrationActionRequiredError extends Error {
   }) {
     super(
       `Integration action required: ${input.reason} (account=${input.accountId}, provider=${input.provider}${
-        input.providerAccountId !== null ? `, provider-account=${input.providerAccountId}` : ""
+        input.providerAccountId !== null
+          ? `, provider-account=${input.providerAccountId}`
+          : ""
       }).`,
       input.cause !== undefined ? { cause: input.cause } : undefined,
     );

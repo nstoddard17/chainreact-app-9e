@@ -24,15 +24,15 @@ export const createIssue: ActionHandler = async (input) => {
   const config = CreateIssueConfigSchema.parse(input.config);
   const { owner, repo } = parseRepository(config.repository);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "github"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const issue = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       issuesCreate({
         accessToken,

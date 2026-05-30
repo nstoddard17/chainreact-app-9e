@@ -70,7 +70,7 @@ function trigger(provider: string = "microsoft-outlook"): TriggerEvent {
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-08T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -93,6 +93,7 @@ describe("send_email action", () => {
     const result = await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -150,6 +151,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, isHtml: false },
@@ -174,6 +176,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -200,6 +203,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -216,6 +220,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...BASE_CONFIG, to: "   ,   " },
@@ -231,6 +236,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -252,6 +258,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -272,6 +279,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -287,6 +295,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: rest,
@@ -303,6 +312,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: BASE_CONFIG,
@@ -322,6 +332,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: BASE_CONFIG,
@@ -347,6 +358,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, attachments: [] },
@@ -381,6 +393,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { ...BASE_CONFIG, attachments: [signedRef] },
@@ -431,6 +444,7 @@ describe("send_email action", () => {
     await sendEmail({
       workflowId: "wf",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "r-1",
       nodeId: "n-1",
       config: { ...BASE_CONFIG, attachments: [v2Ref] },
@@ -477,6 +491,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...BASE_CONFIG, attachments: [providerRef] },
@@ -504,6 +519,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -545,6 +561,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { ...BASE_CONFIG, attachments: refs },
@@ -564,6 +581,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -601,6 +619,7 @@ describe("send_email action", () => {
     const result = await sendEmail({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -657,6 +676,7 @@ describe("send_email action", () => {
       sendEmail({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

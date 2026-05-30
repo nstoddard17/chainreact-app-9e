@@ -16,9 +16,9 @@ import { CreateMeetingConfigSchema } from "./createMeeting.schema";
 export const createMeeting: ActionHandler = async (input) => {
   const config = CreateMeetingConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -42,17 +42,17 @@ export const createMeeting: ActionHandler = async (input) => {
   }
 
   const meeting = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       meetingsCreate({ accessToken, properties }),
   });
 
   const assoc = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       attachAssociations({
         accessToken,

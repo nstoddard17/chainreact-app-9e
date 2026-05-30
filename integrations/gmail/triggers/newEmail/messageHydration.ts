@@ -41,7 +41,7 @@ export function buildTriggerEvent(input: {
     // walks — perfect dedup key for webhook_event_dedup.
     eventId: message.id,
     occurredAt,
-    accountId: emailAddress,
+    providerAccountId: emailAddress,
     payload: {
       id: message.id,
       threadId: message.threadId,

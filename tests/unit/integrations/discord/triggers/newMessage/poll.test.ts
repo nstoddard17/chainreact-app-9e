@@ -72,11 +72,12 @@ function makeTrigger(
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "discord",
     eventType: "new_message",
     nodeId: "node-1",
-    accountId: null,
+    providerAccountId: null,
     config: {
       guildId: "g-1",
       channelId: "ch-1",
@@ -115,6 +116,7 @@ describe("discord new_message poll — happy path dispatch", () => {
     mockMessagesList.mockResolvedValueOnce([]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -129,6 +131,7 @@ describe("discord new_message poll — happy path dispatch", () => {
     mockMessagesList.mockResolvedValueOnce([userMsg("200"), userMsg("150")]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -139,6 +142,7 @@ describe("discord new_message poll — happy path dispatch", () => {
     mockMessagesList.mockResolvedValueOnce([userMsg("300"), userMsg("200"), userMsg("150")]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -152,11 +156,12 @@ describe("discord new_message poll — happy path dispatch", () => {
     mockMessagesList.mockResolvedValueOnce([userMsg("200")]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger({ guildId: "g-from-config" }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
-    const arg = mockEnqueueRun.mock.calls[0]![0] as { event: { accountId: string } };
-    expect(arg.event.accountId).toBe("g-from-config");
+    const arg = mockEnqueueRun.mock.calls[0]![0] as { event: { providerAccountId: string } };
+    expect(arg.event.providerAccountId).toBe("g-from-config");
   });
 });
 
@@ -168,6 +173,7 @@ describe("discord new_message poll — system-message filter", () => {
     ]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -190,6 +196,7 @@ describe("discord new_message poll — system-message filter", () => {
     ]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -205,6 +212,7 @@ describe("discord new_message poll — content + author filters", () => {
     ]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger({ authorFilter: "user-a" }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -221,6 +229,7 @@ describe("discord new_message poll — content + author filters", () => {
     ]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger({ contentFilter: ["urgent"] }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -237,6 +246,7 @@ describe("discord new_message poll — dedup", () => {
     mockMarkSeen.mockResolvedValueOnce({ fresh: true });
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -247,6 +257,7 @@ describe("discord new_message poll — dedup", () => {
     mockMarkSeen.mockResolvedValueOnce({ fresh: false });
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -259,6 +270,7 @@ describe("discord new_message poll — dedup", () => {
     mockMarkSeen.mockRejectedValueOnce(new Error("dedup down"));
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -274,6 +286,7 @@ describe("discord new_message poll — snapshot advancement", () => {
     ]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -291,6 +304,7 @@ describe("discord new_message poll — snapshot advancement", () => {
     mockMessagesList.mockResolvedValueOnce([userMsg("500"), userMsg("300")]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger({ authorFilter: "no-such-user" }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -307,6 +321,7 @@ describe("discord new_message poll — snapshot advancement", () => {
     mockMessagesList.mockResolvedValueOnce([]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -320,6 +335,7 @@ describe("discord new_message poll — snapshot advancement", () => {
     mockMessagesList.mockResolvedValueOnce([]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -335,6 +351,7 @@ describe("discord new_message poll — empty-result path", () => {
     mockMessagesList.mockResolvedValueOnce([]);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -349,6 +366,7 @@ describe("discord new_message poll — defensive no-ops", () => {
     (trigger.config as Record<string, unknown>).snapshot = undefined;
     await discordNewMessagePollingHandler.poll({
       trigger,
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -361,6 +379,7 @@ describe("discord new_message poll — defensive no-ops", () => {
     mockGetActive.mockResolvedValueOnce(null);
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -375,6 +394,7 @@ describe("discord new_message poll — provider error handling", () => {
     mockMessagesList.mockRejectedValueOnce(new NotFoundError("channel ch-1"));
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -388,6 +408,7 @@ describe("discord new_message poll — provider error handling", () => {
     );
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -402,6 +423,7 @@ describe("discord new_message poll — provider error handling", () => {
     await expect(
       discordNewMessagePollingHandler.poll({
         trigger: makeTrigger(),
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       }),
@@ -413,6 +435,7 @@ describe("discord new_message poll — provider error handling", () => {
     await expect(
       discordNewMessagePollingHandler.poll({
         trigger: makeTrigger(),
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       }),
@@ -428,6 +451,7 @@ describe("discord new_message poll — provider error handling", () => {
     // The above setup means 150 fails closed (no enqueue), 200 enqueues.
     await discordNewMessagePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });

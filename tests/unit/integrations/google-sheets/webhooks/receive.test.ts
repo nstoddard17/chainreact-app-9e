@@ -42,6 +42,7 @@ function makeRequest(headers: Record<string, string>): Request {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "google-sheets",
   eventType: "row_changed",
@@ -52,7 +53,7 @@ const baseTrigger = {
     sheetName: "Sheet1",
     lastRowCount: 3,
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -120,7 +121,7 @@ describe("receiveSheetsWebhook", () => {
           eventType: "row_changed",
           eventId: "ss-1:Sheet1:4:abc123",
           occurredAt: "2026-05-08T12:00:00Z",
-          accountId: "alice@example.com",
+          providerAccountId: "alice@example.com",
           payload: {
             changeKind: "added",
             spreadsheetId: "ss-1",
@@ -194,7 +195,7 @@ describe("receiveSheetsWebhook", () => {
             eventType: "new_worksheet",
             eventId: "ss-1:new_worksheet:42:abc123",
             occurredAt: "2026-05-15T12:00:00Z",
-            accountId: "alice@example.com",
+            providerAccountId: "alice@example.com",
             payload: {
               changeKind: "added",
               spreadsheetId: "ss-1",

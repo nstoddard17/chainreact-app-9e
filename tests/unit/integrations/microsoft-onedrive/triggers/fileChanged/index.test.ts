@@ -22,6 +22,7 @@ import { findSubscriptionHandler } from "@/services/triggers/subscriptionRegistr
 const triggerRow = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "microsoft-onedrive",
   eventType: "file_changed",
@@ -33,7 +34,7 @@ const triggerRow = {
     resource: "/me/drive/root",
     changeType: "updated",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,

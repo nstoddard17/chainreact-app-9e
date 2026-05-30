@@ -60,7 +60,7 @@ const trig: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "t",
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   payload: {},
 };
 
@@ -88,6 +88,7 @@ describe("list_notebooks", () => {
     const result = await listNotebooks({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -121,6 +122,7 @@ describe("list_sections", () => {
     await listSections({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -151,6 +153,7 @@ describe("list_sections", () => {
     const result = await listSections({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { notebookId: "nb-1" },
@@ -188,6 +191,7 @@ describe("get_notebook_details", () => {
     const result = await getNotebookDetails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { notebookId: "nb-1" },
@@ -220,6 +224,7 @@ describe("get_section_details", () => {
     const result = await getSectionDetails({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { sectionId: "sec-1" },

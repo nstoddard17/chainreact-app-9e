@@ -70,16 +70,16 @@ export const getAttachment: ActionHandler = async (input) => {
     }
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // 1. LIST attachment metadata.
   const listed = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       listAttachments({
         accessToken,
@@ -118,9 +118,9 @@ export const getAttachment: ActionHandler = async (input) => {
     let envelope: GraphAttachmentEnvelope;
     try {
       envelope = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "microsoft-outlook",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           getAttachmentApi({
             accessToken,

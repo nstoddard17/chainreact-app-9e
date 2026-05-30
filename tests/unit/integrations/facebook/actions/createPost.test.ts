@@ -25,7 +25,7 @@ import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 function input(config: Record<string, unknown>): ActionHandlerInput {
   return {
     workflowId: "wf",
-    userId: "user-1",
+    userId: "user-1", accountId: "acct-user-1",
     runId: "run",
     nodeId: "node",
     config,
@@ -34,7 +34,7 @@ function input(config: Record<string, unknown>): ActionHandlerInput {
       eventType: "manual",
       eventId: "e",
       occurredAt: "2026-05-25T00:00:00Z",
-      accountId: "acct",
+      providerAccountId: "acct",
       payload: {},
     },
   };

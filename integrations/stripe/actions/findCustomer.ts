@@ -39,9 +39,9 @@ import { FindCustomerConfigSchema } from "./findCustomer.schema";
 export const findCustomer: ActionHandler = async (input) => {
   const config = FindCustomerConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const preflight = stripeLivemodePreflight({
@@ -52,9 +52,9 @@ export const findCustomer: ActionHandler = async (input) => {
   if (config.customerId !== undefined) {
     try {
       const result = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: "stripe",
-        accountId,
+        providerAccountId,
         preflight,
         apiCall: (accessToken) =>
           customersGet({
@@ -79,9 +79,9 @@ export const findCustomer: ActionHandler = async (input) => {
   // email path — list filter. No 404 possible (list returns 200 with
   // empty data on no match).
   const list = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight,
     apiCall: (accessToken) =>
       customersList({

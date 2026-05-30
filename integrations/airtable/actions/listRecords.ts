@@ -19,15 +19,15 @@ import { ListRecordsConfigSchema } from "./listRecords.schema";
 export const listRecords: ActionHandler = async (input) => {
   const config = ListRecordsConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "airtable"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "airtable",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       recordsList({
         accessToken,

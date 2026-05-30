@@ -51,9 +51,9 @@ import { GetAttachmentConfigSchema } from "./getAttachment.schema";
 export const getAttachment: ActionHandler = async (input) => {
   const config = GetAttachmentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "gmail"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // 1) Fetch message metadata with format=full so we can enumerate
@@ -61,9 +61,9 @@ export const getAttachment: ActionHandler = async (input) => {
   //    the new_attachment trigger — single source of truth for the
   //    MIME-tree walk.
   const message = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesGet({
         accessToken,
@@ -84,9 +84,9 @@ export const getAttachment: ActionHandler = async (input) => {
 
   // 2) Fetch attachment bytes (wire shape: base64url + optional size).
   const wire = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "gmail",
-    accountId,
+    providerAccountId,
     apiCall: async (accessToken) =>
       usersMessagesAttachmentsGet({
         accessToken,

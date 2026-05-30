@@ -32,9 +32,9 @@ const OPTIONAL_FIELDS = [
 export const createDeal: ActionHandler = async (input) => {
   const config = CreateDealConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -49,9 +49,9 @@ export const createDeal: ActionHandler = async (input) => {
   }
 
   const deal = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       dealsCreate({ accessToken, properties }),
   });

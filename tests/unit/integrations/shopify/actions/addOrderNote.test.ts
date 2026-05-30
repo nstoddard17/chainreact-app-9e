@@ -46,7 +46,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     payload: {},
   };
 }
@@ -58,6 +58,7 @@ describe("addOrderNote — append=true", () => {
     await addOrderNote({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { order_id: 1, note: "new", append: true },
@@ -73,6 +74,7 @@ describe("addOrderNote — append=true", () => {
     await addOrderNote({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { order_id: 1, note: "fresh", append: true },
@@ -88,6 +90,7 @@ describe("addOrderNote — append=false", () => {
     await addOrderNote({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { order_id: 1, note: "replacement", append: false },
@@ -104,6 +107,7 @@ describe("addOrderNote — schema rejects missing append", () => {
       addOrderNote({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { order_id: 1, note: "x" } as Record<string, unknown>,

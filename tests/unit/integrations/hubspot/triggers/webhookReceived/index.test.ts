@@ -30,6 +30,7 @@ describe("HubSpot webhook_received trigger registration", () => {
     const hubspotTrigger = {
       id: "tr-1",
       workflowId: "wf-1",
+      workflowAccountId: "acct-1",
       userId: "u",
       provider: "hubspot",
       eventType: "webhook_received",
@@ -47,7 +48,7 @@ describe("HubSpot webhook_received trigger registration", () => {
           },
         ],
       },
-      accountId: "9988776",
+      providerAccountId: "9988776",
       registeredAt: "",
       expiresAt: null,
       lastRenewedAt: null,

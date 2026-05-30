@@ -63,7 +63,8 @@ beforeEach(() => {
   mockUpdateConfig.mockResolvedValue(undefined);
   const integration: IntegrationRecord = {
     id: "int-1",
-    userId: "u-1",
+    accountId: "acct-u-1",
+    connectedByUserId: "u-1",
     provider: "microsoft-excel",
     providerAccountId: "alice@contoso.com",
     displayName: "Alice",
@@ -90,6 +91,7 @@ function worksheetTrigger(
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "u-1",
     provider: "microsoft-excel",
     eventType,
@@ -100,7 +102,7 @@ function worksheetTrigger(
       pollingEnabled: true,
       ...(snapshot ? { snapshot } : {}),
     },
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "2026-05-09T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -120,6 +122,7 @@ function tableTrigger(
   return {
     id: "tr-2",
     workflowId: "wf-2",
+    workflowAccountId: "acct-2",
     userId: "u-1",
     provider: "microsoft-excel",
     eventType,
@@ -130,7 +133,7 @@ function tableTrigger(
       pollingEnabled: true,
       ...(snapshot ? { snapshot } : {}),
     },
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "2026-05-09T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -146,6 +149,7 @@ function worksheetListTrigger(snapshot?: {
   return {
     id: "tr-3",
     workflowId: "wf-3",
+    workflowAccountId: "acct-3",
     userId: "u-1",
     provider: "microsoft-excel",
     eventType: "new_worksheet",
@@ -155,7 +159,7 @@ function worksheetListTrigger(snapshot?: {
       pollingEnabled: true,
       ...(snapshot ? { snapshot } : {}),
     },
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "2026-05-09T00:00:00Z",
     expiresAt: null,
     lastRenewedAt: null,
@@ -232,6 +236,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -267,6 +272,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -292,6 +298,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -313,6 +320,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -342,6 +350,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -366,6 +375,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -390,6 +400,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -423,6 +434,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -457,6 +469,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -495,6 +508,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -525,6 +539,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -539,6 +554,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -566,6 +582,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -598,6 +615,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -630,6 +648,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -654,6 +673,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -685,6 +705,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -708,6 +729,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -729,6 +751,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });
@@ -747,6 +770,7 @@ describe("microsoftExcelPollingHandler", () => {
 
       await microsoftExcelPollingHandler.poll({
         trigger,
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       });

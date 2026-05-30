@@ -70,9 +70,9 @@ export const shareDocument: ActionHandler = async (input) => {
   }
   const sendNotification = explicit.value;
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === PROVIDER_ID
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const sharedWith: string[] = [];
@@ -83,9 +83,9 @@ export const shareDocument: ActionHandler = async (input) => {
   for (const email of config.shareWith) {
     try {
       const perm = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: PROVIDER_ID,
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           permissionsCreate({
             accessToken,
@@ -121,9 +121,9 @@ export const shareDocument: ActionHandler = async (input) => {
   if (config.makePublic) {
     try {
       const publicPerm = await refreshAndRetry({
-        userId: input.userId,
+        accountId: input.accountId,
         provider: PROVIDER_ID,
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           permissionsCreate({
             accessToken,

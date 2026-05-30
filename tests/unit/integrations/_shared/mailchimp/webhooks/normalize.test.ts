@@ -127,7 +127,7 @@ describe("normalizeMailchimpEvent", () => {
     expect(event.eventType).toBe("audience_event");
     expect(event.eventId).toBe(mailchimpDedupKey(SUBSCRIBE_BODY));
     expect(event.occurredAt).toBe("2025-05-10 12:34:56");
-    expect(event.accountId).toBe("mc_account_xyz");
+    expect(event.providerAccountId).toBe("mc_account_xyz");
     expect(event.payload.type).toBe("subscribe");
     expect(event.payload.audienceId).toBe("1a2b3c4d5e");
     expect(event.payload.email).toBe("urist@example.com");

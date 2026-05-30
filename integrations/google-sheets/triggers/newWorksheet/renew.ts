@@ -57,10 +57,9 @@ export const sheetsNewWorksheetSubscriptionHandler: SubscriptionHandler = {
     const oldChannelId = config.channelId;
     const oldResourceId = config.resourceId;
 
-    const integration = await getActiveForExecution(
-      trigger.userId,
+    const integration = await getActiveForExecution(trigger.workflowAccountId!,
       trigger.provider,
-      trigger.accountId,
+      trigger.providerAccountId,
     );
     if (!integration) {
       throw new Error(
@@ -72,9 +71,9 @@ export const sheetsNewWorksheetSubscriptionHandler: SubscriptionHandler = {
     const newChannelToken = buildChannelToken({ channelId: newChannelId });
 
     const watch = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "google-sheets",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         filesWatch({
           accessToken,
@@ -90,9 +89,9 @@ export const sheetsNewWorksheetSubscriptionHandler: SubscriptionHandler = {
     if (oldChannelId && oldResourceId) {
       try {
         await refreshAndRetry({
-          userId: integration.userId,
+          accountId: integration.accountId,
           provider: "google-sheets",
-          accountId: integration.providerAccountId,
+          providerAccountId: integration.accountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

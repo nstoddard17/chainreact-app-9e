@@ -28,7 +28,7 @@ const trigger: TriggerEvent = {
   eventType: "webhook_received",
   eventId: "e",
   occurredAt: "x",
-  accountId: "portal-1",
+  providerAccountId: "portal-1",
   payload: {},
 };
 
@@ -38,6 +38,7 @@ describe("remove_line_item", () => {
     await removeLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItemId: "li-42" },
@@ -51,6 +52,7 @@ describe("remove_line_item", () => {
     const result = await removeLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItemId: "li-7" },
@@ -67,6 +69,7 @@ describe("remove_line_item", () => {
     await removeLineItem({
       workflowId: "wf",
       userId: "user-xyz",
+      accountId: "acct-user-xyz",
       runId: "r",
       nodeId: "n",
       config: { lineItemId: "li-1" },
@@ -83,6 +86,7 @@ describe("remove_line_item", () => {
     await removeLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItemId: "li-1" },
@@ -91,7 +95,7 @@ describe("remove_line_item", () => {
         eventType: "manual",
         eventId: "e",
         occurredAt: "x",
-        accountId: "T-other",
+        providerAccountId: "T-other",
         payload: {},
       },
     });
@@ -103,6 +107,7 @@ describe("remove_line_item", () => {
       removeLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { lineItemId: "" },
@@ -117,6 +122,7 @@ describe("remove_line_item", () => {
       removeLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { lineItemId: "li-1", deleteBy: "id" },
@@ -132,6 +138,7 @@ describe("remove_line_item", () => {
       removeLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { lineItemId: "li-9" },

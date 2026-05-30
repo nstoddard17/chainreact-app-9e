@@ -17,15 +17,15 @@ import { FindConversionConfigSchema } from "./findConversion.schema";
 export const findConversion: ActionHandler = async (input) => {
   const config = FindConversionConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-analytics"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-analytics",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       conversionEventsList({ accessToken, propertyId: config.propertyId }),
   });

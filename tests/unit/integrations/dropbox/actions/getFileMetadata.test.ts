@@ -23,12 +23,12 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "e",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "dbid:1",
+    providerAccountId: "dbid:1",
     payload: {},
   };
 }
 function input(config: Record<string, unknown>) {
-  return { workflowId: "wf", userId: "u", runId: "r", nodeId: "n", config, triggerEvent: trigger() };
+  return { workflowId: "wf", userId: "u", accountId: "acct-u", runId: "r", nodeId: "n", config, triggerEvent: trigger() };
 }
 
 beforeEach(() => {

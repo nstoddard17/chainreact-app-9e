@@ -37,13 +37,13 @@ beforeEach(() => {
   );
 });
 
-function trigger(provider = "stripe", accountId = "acct_TEST"): TriggerEvent {
+function trigger(provider = "stripe", providerAccountId = "acct_TEST"): TriggerEvent {
   return {
     provider,
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -67,6 +67,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r1",
       nodeId: "node-a",
       config: {
@@ -89,6 +90,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "run-42",
       nodeId: "node-a",
       config: {
@@ -107,6 +109,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItems: [{ priceId: "price_123", quantity: 1 }] },
@@ -121,6 +124,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItems: [{ priceId: "price_123", quantity: 1 }] },
@@ -137,6 +141,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -164,6 +169,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -181,6 +187,7 @@ describe("create_payment_link action", () => {
     await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItems: [{ priceId: "price_123", quantity: 1 }] },
@@ -206,6 +213,7 @@ describe("create_payment_link action", () => {
     const result = await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItems: [{ priceId: "price_123", quantity: 1 }] },
@@ -236,6 +244,7 @@ describe("create_payment_link action", () => {
     const result = await createPaymentLink({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -259,6 +268,7 @@ describe("create_payment_link action", () => {
       createPaymentLink({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { lineItems: [{ priceId: "price_123", quantity: 1 }] },
@@ -272,6 +282,7 @@ describe("create_payment_link action", () => {
       createPaymentLink({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         // missing lineItems — strict parse rejects.

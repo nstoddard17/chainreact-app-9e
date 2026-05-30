@@ -26,15 +26,15 @@ import { AddContactToListConfigSchema } from "./addContactToList.schema";
 export const addContactToList: ActionHandler = async (input) => {
   const config = AddContactToListConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const response = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       addListMembershipByEmail({
         accessToken,

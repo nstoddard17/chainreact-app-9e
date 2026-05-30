@@ -49,7 +49,7 @@ function docsTrigger(): TriggerEvent {
     eventType: "new_document",
     eventId: "evt-1",
     occurredAt: "2026-05-23T12:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -60,7 +60,7 @@ function slackTrigger(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-23T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -74,6 +74,7 @@ describe("create_document — happy path", () => {
     const result = await createDocument({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "My Title" },
@@ -99,6 +100,7 @@ describe("create_document — happy path", () => {
     await createDocument({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "T", content: "hello body" },
@@ -120,6 +122,7 @@ describe("create_document — happy path", () => {
     await createDocument({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "T", content: "x", folderId: "fld-123" },
@@ -139,6 +142,7 @@ describe("create_document — happy path", () => {
     await createDocument({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "T" },
@@ -157,6 +161,7 @@ describe("create_document — happy path", () => {
     await createDocument({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { title: "T" },
@@ -174,6 +179,7 @@ describe("create_document — schema validation", () => {
       createDocument({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -188,6 +194,7 @@ describe("create_document — schema validation", () => {
       createDocument({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { title: "T", contentSource: "file_upload" },
@@ -202,6 +209,7 @@ describe("create_document — schema validation", () => {
       createDocument({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { title: "T", enableSharing: true, emails: "a@b.com" },

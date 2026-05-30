@@ -15,15 +15,15 @@ import { normalizeChatMessage } from "./_normalize";
 export const sendChannelMessage: ActionHandler = async (input) => {
   const config = SendChannelMessageConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-teams"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const message = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-teams",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       channelMessageSend({
         accessToken,

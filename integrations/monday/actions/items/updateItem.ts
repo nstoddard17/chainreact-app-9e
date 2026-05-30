@@ -50,9 +50,9 @@ function parseAdditional(
 export const updateItem: ActionHandler = async (input) => {
   const config = UpdateItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "monday"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const additional = parseAdditional(config.additionalColumns);
@@ -63,9 +63,9 @@ export const updateItem: ActionHandler = async (input) => {
   const columnValuesJson = JSON.stringify(columnValuesMap);
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "monday",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       itemsUpdate({
         accessToken,

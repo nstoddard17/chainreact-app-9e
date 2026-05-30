@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-15T12:00:00Z",
-    accountId: "usrXXX",
+    providerAccountId: "usrXXX",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -89,6 +90,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -142,6 +144,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -176,6 +179,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -201,6 +205,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     const result = await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -223,6 +228,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
       createMultipleRecords({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -243,6 +249,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
       createMultipleRecords({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -267,6 +274,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
       createMultipleRecords({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -293,6 +301,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
       await createMultipleRecords({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -317,6 +326,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     await createMultipleRecords({
       workflowId: "wf",
       userId: "u-123",
+      accountId: "acct-u-123",
       runId: "r",
       nodeId: "n",
       config: {
@@ -351,6 +361,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     const result = await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -392,6 +403,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
     const result = await createMultipleRecords({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -415,6 +427,7 @@ describe("create_multiple_records action — Airtable 2.1 Commit 3", () => {
       createMultipleRecords({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

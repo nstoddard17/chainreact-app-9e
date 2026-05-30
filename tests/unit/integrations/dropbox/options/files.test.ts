@@ -31,7 +31,8 @@ import type { IntegrationRecord } from "@/repositories/integrations";
 
 const integration: IntegrationRecord = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "dropbox",
   providerAccountId: "dbid:1",
   displayName: "Alice",
@@ -156,9 +157,9 @@ describe("dropboxFilesResolver — error sanitization", () => {
   it("INTEGRATION_DISCONNECTED on auth errors", async () => {
     mockList.mockRejectedValueOnce(
       new IntegrationActionRequiredError({
-        userId: "user-1",
+        accountId: "user-1",
         provider: "dropbox",
-        accountId: "dbid:1",
+        providerAccountId: "dbid:1",
         reason: "refresh_failed",
       }),
     );

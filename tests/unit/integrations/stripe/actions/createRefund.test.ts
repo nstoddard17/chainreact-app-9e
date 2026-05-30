@@ -34,7 +34,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -60,6 +60,7 @@ describe("create_refund action", () => {
     await createRefund({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -81,6 +82,7 @@ describe("create_refund action", () => {
     await createRefund({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -100,6 +102,7 @@ describe("create_refund action", () => {
     await createRefund({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },
@@ -113,6 +116,7 @@ describe("create_refund action", () => {
     await createRefund({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-12",
       nodeId: "node-RF",
       config: { paymentIntentId: "pi_1" },
@@ -128,6 +132,7 @@ describe("create_refund action", () => {
       createRefund({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { chargeId: "ch_1", paymentIntentId: "pi_1" },
@@ -142,6 +147,7 @@ describe("create_refund action", () => {
       createRefund({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -155,6 +161,7 @@ describe("create_refund action", () => {
       createRefund({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

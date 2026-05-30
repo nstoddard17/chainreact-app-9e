@@ -31,7 +31,6 @@ beforeEach(() => mockList.mockReset());
 function ev(p: Partial<TaskUsageEventRecord> = {}): TaskUsageEventRecord {
   return {
     id: "x",
-    userId: "user-1",
     workflowId: "wf-1",
     workflowRunId: "run-1",
     nodeId: null,

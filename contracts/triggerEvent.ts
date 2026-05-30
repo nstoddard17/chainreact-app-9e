@@ -22,9 +22,11 @@ import { z } from "zod";
  *     "Provider event-id field").
  *   - `occurredAt`: ISO-8601 timestamp from the provider payload (or our
  *     receipt time if the provider doesn't supply one).
- *   - `accountId`: provider account scope (Slack team_id, Notion
+ *   - `providerAccountId`: provider account scope (Slack team_id, Notion
  *     workspace_id). Disambiguates events when one user has multiple
- *     accounts on the same provider.
+ *     accounts on the same provider. Renamed from `accountId` in
+ *     Slice 4.ACCOUNT-MODEL-6 so it no longer collides with the V2
+ *     `accountId` (workflow / integration ownership account).
  *   - `payload`: the original provider payload, opaque at this layer.
  *     Action handlers / variable resolver consume specific fields.
  */
@@ -33,7 +35,7 @@ export const TriggerEventSchema = z.object({
   eventType: z.string().min(1),
   eventId: z.string().min(1),
   occurredAt: z.string().min(1),
-  accountId: z.string().min(1),
+  providerAccountId: z.string().min(1),
   payload: z.record(z.string(), z.unknown()),
 });
 export type TriggerEvent = z.infer<typeof TriggerEventSchema>;

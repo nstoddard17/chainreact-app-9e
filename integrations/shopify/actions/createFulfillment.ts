@@ -33,16 +33,17 @@ import { resolveShopDomain } from "./_resolveShop";
  */
 export const createFulfillment: ActionHandler = async (input) => {
   const config = CreateFulfillmentConfigSchema.parse(input.config);
-  const { shopDomain, accountId } = await resolveShopDomain({
+  const { shopDomain, providerAccountId } = await resolveShopDomain({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   // Step 1 — fetch fulfillment orders.
   const fulfillmentOrders = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "shopify",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       fulfillmentOrdersList({
         shopDomain,
@@ -90,9 +91,9 @@ export const createFulfillment: ActionHandler = async (input) => {
 
   // Step 2 — create the fulfillment.
   const fulfillment = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "shopify",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       fulfillmentsCreate({
         shopDomain,

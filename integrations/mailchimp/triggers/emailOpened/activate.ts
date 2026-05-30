@@ -36,9 +36,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     campaignIds = [config.campaignId];
   } else {
     const campaigns = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "mailchimp",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         campaignsList({
           accessToken,
@@ -58,9 +58,9 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   for (const campaignId of campaignIds) {
     try {
       const summary = await refreshAndRetry({
-        userId: integration.userId,
+        accountId: integration.accountId,
         provider: "mailchimp",
-        accountId: integration.providerAccountId,
+        providerAccountId: integration.accountId,
         apiCall: (accessToken) =>
           reportSummary({ accessToken, dc, campaignId }),
       });

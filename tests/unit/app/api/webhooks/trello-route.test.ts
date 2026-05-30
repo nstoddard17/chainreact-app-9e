@@ -143,7 +143,7 @@ describe("POST /api/webhooks/trello — dispatch", () => {
     eventType: "trello.card.created",
     eventId: "act-1",
     occurredAt: "2026-05-11T00:00:00Z",
-    accountId: "b1",
+    providerAccountId: "b1",
     payload: {},
   };
 

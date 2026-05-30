@@ -17,15 +17,15 @@ import { CapturePaymentIntentConfigSchema } from "./capturePaymentIntent.schema"
 export const capturePaymentIntent: ActionHandler = async (input) => {
   const config = CapturePaymentIntentConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "capture_payment_intent",
       runTestMode: input.testMode === true,

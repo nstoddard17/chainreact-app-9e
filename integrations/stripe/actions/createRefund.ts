@@ -19,9 +19,9 @@ import { CreateRefundConfigSchema } from "./createRefund.schema";
 export const createRefund: ActionHandler = async (input) => {
   const config = CreateRefundConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "stripe"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const idempotencyKey = buildIdempotencyKey({
@@ -34,9 +34,9 @@ export const createRefund: ActionHandler = async (input) => {
     config.amount !== undefined ? dollarsToCents(config.amount) : undefined;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "stripe",
-    accountId,
+    providerAccountId,
     preflight: stripeLivemodePreflight({
       actionType: "create_refund",
       runTestMode: input.testMode === true,

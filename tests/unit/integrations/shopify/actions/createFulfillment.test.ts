@@ -44,7 +44,7 @@ function trigger(): TriggerEvent {
     eventType: "webhook_received",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
     payload: {},
   };
 }
@@ -78,6 +78,7 @@ describe("createFulfillment — happy path (two-step REST flow)", () => {
     const result = await createFulfillment({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: validConfig,
@@ -117,6 +118,7 @@ describe("createFulfillment — happy path (two-step REST flow)", () => {
     await createFulfillment({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { order_id: 1, notify_customer: false },
@@ -133,6 +135,7 @@ describe("createFulfillment — happy path (two-step REST flow)", () => {
       createFulfillment({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { order_id: 1, notify_customer: false },
@@ -154,6 +157,7 @@ describe("createFulfillment — happy path (two-step REST flow)", () => {
       createFulfillment({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { order_id: 1, notify_customer: false },
@@ -169,6 +173,7 @@ describe("createFulfillment — Q11 notify_customer gate", () => {
       createFulfillment({
         workflowId: "wf-1",
         userId: "u-1",
+        accountId: "acct-u-1",
         runId: "run-1",
         nodeId: "n-1",
         config: { order_id: 1 } as Record<string, unknown>,
@@ -190,6 +195,7 @@ describe("createFulfillment — Q11 notify_customer gate", () => {
     await createFulfillment({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { order_id: 1, notify_customer: false },
@@ -212,6 +218,7 @@ describe("createFulfillment — refreshAndRetry wrapping", () => {
     await createFulfillment({
       workflowId: "wf-1",
       userId: "u-1",
+      accountId: "acct-u-1",
       runId: "run-1",
       nodeId: "n-1",
       config: { order_id: 1, notify_customer: false },

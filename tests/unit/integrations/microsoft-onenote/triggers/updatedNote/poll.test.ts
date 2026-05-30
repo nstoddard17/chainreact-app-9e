@@ -59,11 +59,12 @@ function makeTrigger(
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "microsoft-onenote",
     eventType: "updated_note",
     nodeId: "node-1",
-    accountId: null,
+    providerAccountId: null,
     config: {
       notebookId: "nb-1",
       sectionId: "sec-1",
@@ -85,7 +86,8 @@ function makeTrigger(
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-onenote",
   providerAccountId: "alice@contoso.com",
   displayName: "Alice (OneNote)",
@@ -139,6 +141,7 @@ describe("updated_note poll — defensive skips", () => {
   it("skips when snapshot missing", async () => {
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger({ snapshot: undefined }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -150,6 +153,7 @@ describe("updated_note poll — defensive skips", () => {
     mockGetActive.mockResolvedValueOnce(null);
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -162,6 +166,7 @@ describe("updated_note poll — happy path dispatch", () => {
     mockPagesList.mockResolvedValueOnce({ pages: [], nextLink: null });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -191,6 +196,7 @@ describe("updated_note poll — happy path dispatch", () => {
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -219,6 +225,7 @@ describe("updated_note poll — happy path dispatch", () => {
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -256,6 +263,7 @@ describe("updated_note poll — brand-new-page exclusion (new_note handles those
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -288,6 +296,7 @@ describe("updated_note poll — optional pageId filter", () => {
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger({ pageId: "p-watched" }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -318,6 +327,7 @@ describe("updated_note poll — optional pageId filter", () => {
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger({ pageId: null }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -339,6 +349,7 @@ describe("updated_note poll — composite dedup key", () => {
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -363,6 +374,7 @@ describe("updated_note poll — composite dedup key", () => {
     mockMarkSeen.mockResolvedValueOnce({ fresh: true });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -387,6 +399,7 @@ describe("updated_note poll — composite dedup key", () => {
           capturedAt: "x",
         },
       }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -409,6 +422,7 @@ describe("updated_note poll — composite dedup key", () => {
     mockMarkSeen.mockResolvedValueOnce({ fresh: true });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -432,6 +446,7 @@ describe("updated_note poll — composite dedup key", () => {
           capturedAt: "x",
         },
       }),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -454,6 +469,7 @@ describe("updated_note poll — snapshot advancement invariant", () => {
     });
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -474,6 +490,7 @@ describe("updated_note poll — error handling", () => {
     );
     await microsoftOneNoteUpdatedNotePollingHandler.poll({
       trigger: makeTrigger(),
+      accountId: "acct-test",
       userRole: "default",
       now: NOW,
     });
@@ -486,6 +503,7 @@ describe("updated_note poll — error handling", () => {
     await expect(
       microsoftOneNoteUpdatedNotePollingHandler.poll({
         trigger: makeTrigger(),
+        accountId: "acct-test",
         userRole: "default",
         now: NOW,
       }),

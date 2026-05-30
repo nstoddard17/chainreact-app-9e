@@ -35,7 +35,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -74,6 +74,7 @@ describe("create_subscription action", () => {
     await createSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_1", priceId: "price_pro" },
@@ -89,6 +90,7 @@ describe("create_subscription action", () => {
     await createSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-3",
       nodeId: "node-S",
       config: { customerId: "cus_1", priceId: "price_pro" },
@@ -104,6 +106,7 @@ describe("create_subscription action", () => {
     await createSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -128,6 +131,7 @@ describe("create_subscription action", () => {
     const result = await createSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_1", priceId: "price_pro" },
@@ -148,6 +152,7 @@ describe("create_subscription action", () => {
     const result = await createSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { customerId: "cus_1", priceId: "price_pro" },
@@ -162,6 +167,7 @@ describe("create_subscription action", () => {
       createSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -179,6 +185,7 @@ describe("create_subscription action", () => {
       createSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { customerId: "cus_1" } as unknown as Record<string, unknown>,

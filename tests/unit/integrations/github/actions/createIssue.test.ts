@@ -34,7 +34,7 @@ function trigger(provider = "manual"): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-10T12:00:00Z",
-    accountId: provider === "github" ? "octocat" : "n/a",
+    providerAccountId: provider === "github" ? "octocat" : "n/a",
     payload: {},
   };
 }
@@ -42,6 +42,7 @@ function trigger(provider = "manual"): TriggerEvent {
 const baseInput = {
   workflowId: "wf",
   userId: "u",
+  accountId: "acct-u",
   runId: "r",
   nodeId: "n",
   triggerEvent: trigger(),

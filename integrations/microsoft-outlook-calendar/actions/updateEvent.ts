@@ -23,9 +23,9 @@ import { UpdateEventConfigSchema } from "./updateEvent.schema";
 export const updateEvent: ActionHandler = async (input) => {
   const config = UpdateEventConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-outlook-calendar"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Build PATCH body — only set fields the caller actually provided.
@@ -74,9 +74,9 @@ export const updateEvent: ActionHandler = async (input) => {
   if (config.importance !== undefined) body.importance = config.importance;
 
   const event = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-outlook-calendar",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       eventsUpdate({ accessToken, eventId: config.eventId, body }),
   });

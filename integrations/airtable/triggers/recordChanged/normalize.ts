@@ -181,7 +181,7 @@ function tableSectionEvents(
         eventType: "record_changed",
         eventId: buildEventId(ctx, tableId, recordId, "created", baseTransactionNumber),
         occurredAt,
-        accountId: ctx.accountId,
+        providerAccountId: ctx.accountId,
         payload: {
           eventType: "created",
           baseId: ctx.baseId,
@@ -205,7 +205,7 @@ function tableSectionEvents(
         eventType: "record_changed",
         eventId: buildEventId(ctx, tableId, recordId, "updated", baseTransactionNumber),
         occurredAt,
-        accountId: ctx.accountId,
+        providerAccountId: ctx.accountId,
         payload: {
           eventType: "updated",
           baseId: ctx.baseId,
@@ -228,7 +228,7 @@ function tableSectionEvents(
         eventType: "record_changed",
         eventId: buildEventId(ctx, tableId, recordId, "deleted", baseTransactionNumber),
         occurredAt,
-        accountId: ctx.accountId,
+        providerAccountId: ctx.accountId,
         payload: {
           eventType: "deleted",
           baseId: ctx.baseId,
@@ -264,7 +264,7 @@ function tableDeletedEvents(
     eventType: "record_changed",
     eventId: buildTableDeletedEventId(ctx, tableId, baseTransactionNumber),
     occurredAt,
-    accountId: ctx.accountId,
+    providerAccountId: ctx.accountId,
     payload: {
       eventType: "table_deleted",
       baseId: ctx.baseId,

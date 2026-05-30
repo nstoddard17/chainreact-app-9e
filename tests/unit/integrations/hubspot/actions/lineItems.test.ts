@@ -40,7 +40,7 @@ const trigger: TriggerEvent = {
   eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  accountId: "p",
+  providerAccountId: "p",
   payload: {},
 };
 
@@ -52,6 +52,7 @@ describe("create_line_item", () => {
       createLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { hs_product_id: "p-1", quantity: "1" }, // missing dealId
@@ -62,6 +63,7 @@ describe("create_line_item", () => {
       createLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { dealId: "d-1", hs_product_id: "p-1" }, // missing quantity
@@ -75,6 +77,7 @@ describe("create_line_item", () => {
       createLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { dealId: "d-1", quantity: "1" },
@@ -91,6 +94,7 @@ describe("create_line_item", () => {
     await createLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { dealId: "d-1", hs_product_id: "p-1", quantity: "2" },
@@ -110,6 +114,7 @@ describe("create_line_item", () => {
     await createLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { dealId: "d-1", name: "Custom", quantity: "1" },
@@ -129,6 +134,7 @@ describe("create_line_item", () => {
     await createLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { dealId: "d-1", hs_product_id: "p-1", quantity: "1" },
@@ -151,6 +157,7 @@ describe("update_line_item", () => {
       updateLineItem({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { lineItemId: "li-1" },
@@ -168,6 +175,7 @@ describe("update_line_item", () => {
     await updateLineItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { lineItemId: "li-1", quantity: "5" },

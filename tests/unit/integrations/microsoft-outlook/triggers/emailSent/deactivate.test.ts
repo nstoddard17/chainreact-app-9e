@@ -28,6 +28,7 @@ beforeEach(() => {
 const baseTrigger = {
   id: "tr-1",
   workflowId: "wf-1",
+  workflowAccountId: "acct-1",
   userId: "user-1",
   provider: "microsoft-outlook",
   eventType: "email_sent",
@@ -38,7 +39,7 @@ const baseTrigger = {
     clientState: "deadbeef",
     resource: "/me/mailFolders/SentItems/messages",
   },
-  accountId: null,
+  providerAccountId: null,
   registeredAt: "",
   expiresAt: null,
   lastRenewedAt: null,
@@ -48,7 +49,8 @@ const baseTrigger = {
 
 const baseIntegration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "microsoft-outlook",
   providerAccountId: "alice@contoso.com",
   displayName: "alice@contoso.com",

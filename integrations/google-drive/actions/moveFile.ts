@@ -28,16 +28,16 @@ import {
 export const moveFile: ActionHandler = async (input) => {
   const config: MoveFileConfig = MoveFileConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "google-drive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   // Step 1 — read existing parents so we can detach them on the PATCH.
   const existing = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-drive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesGet({ accessToken, fileId: config.fileId, fields: "id,parents" }),
   });
@@ -49,9 +49,9 @@ export const moveFile: ActionHandler = async (input) => {
 
   // Step 2 — PATCH addParents + removeParents.
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "google-drive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       filesUpdate({
         accessToken,

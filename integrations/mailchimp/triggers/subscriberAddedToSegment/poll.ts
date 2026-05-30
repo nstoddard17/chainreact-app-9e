@@ -57,8 +57,7 @@ async function poll(input: {
     return;
   }
 
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     "mailchimp",
     null,
   );
@@ -77,12 +76,12 @@ async function poll(input: {
   if (typeof dc !== "string" || dc.length === 0) {
     throw new MissingDataCenterError();
   }
-  const accountId = integration.providerAccountId;
+  const providerAccountId = integration.providerAccountId;
 
   const result = await refreshAndRetry({
-    userId: trigger.userId,
+    accountId: trigger.workflowAccountId!,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       segmentMembersList({
         accessToken,
@@ -104,7 +103,7 @@ async function poll(input: {
     try {
       await processOneMember({
         trigger,
-        accountId,
+        providerAccountId,
         listId: config.listId,
         segmentId: config.segmentId,
         member: m,
@@ -141,12 +140,12 @@ async function poll(input: {
 
 async function processOneMember(input: {
   trigger: import("@/repositories/triggerResources").TriggerResourceRecord;
-  accountId: string;
+  providerAccountId: string;
   listId: string;
   segmentId: string;
   member: MailchimpSegmentMember;
 }): Promise<void> {
-  const { trigger, accountId, listId, segmentId, member } = input;
+  const { trigger, providerAccountId, listId, segmentId, member } = input;
   if (!member.id) return;
 
   const eventId = `subscriber_added_to_segment:${segmentId}:${member.id}`;
@@ -171,7 +170,7 @@ async function processOneMember(input: {
     eventType: "subscriber_added_to_segment",
     eventId,
     occurredAt: member.last_changed ?? new Date().toISOString(),
-    accountId,
+    providerAccountId,
     payload: {
       listId,
       segmentId,

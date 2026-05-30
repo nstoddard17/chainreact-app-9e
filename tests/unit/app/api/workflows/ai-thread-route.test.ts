@@ -64,6 +64,7 @@ function callAppend(id: string, body: unknown) {
 const ownedWorkflow = {
   id: "wf-1",
   userId: "user-1",
+  accountId: "acct-user-1",
   name: "WF",
   state: "draft",
   disabledReason: null,
@@ -79,7 +80,6 @@ const otherUserWorkflow = { ...ownedWorkflow, userId: "user-2" };
 
 const threadRow = {
   id: "thr-1",
-  userId: "user-1",
   workflowId: "wf-1",
   title: null,
   createdAt: "2026-05-26T00:00:00Z",
@@ -142,7 +142,6 @@ describe("GET /api/workflows/[id]/ai/thread", () => {
       {
         id: "m1",
         threadId: "thr-1",
-        userId: "user-1",
         workflowId: "wf-1",
         role: "user",
         kind: "prompt",
@@ -153,7 +152,6 @@ describe("GET /api/workflows/[id]/ai/thread", () => {
       {
         id: "m2",
         threadId: "thr-1",
-        userId: "user-1",
         workflowId: "wf-1",
         role: "assistant",
         kind: "plan_result",
@@ -181,7 +179,6 @@ describe("GET /api/workflows/[id]/ai/thread", () => {
       {
         id: "m1",
         threadId: "thr-1",
-        userId: "user-1",
         workflowId: "wf-1",
         role: "user",
         kind: "prompt",
@@ -286,7 +283,6 @@ describe("POST /api/workflows/[id]/ai/thread/messages", () => {
     mockAppendMessage.mockResolvedValueOnce({
       id: "m1",
       threadId: "thr-1",
-      userId: "user-1",
       workflowId: "wf-1",
       role: "user",
       kind: "prompt",
@@ -302,7 +298,6 @@ describe("POST /api/workflows/[id]/ai/thread/messages", () => {
     expect(res.status).toBe(201);
     expect(mockAppendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
         workflowId: "wf-1",
         message: expect.objectContaining({
           role: "user",
@@ -318,7 +313,6 @@ describe("POST /api/workflows/[id]/ai/thread/messages", () => {
     mockAppendMessage.mockResolvedValueOnce({
       id: "m2",
       threadId: "thr-1",
-      userId: "user-1",
       workflowId: "wf-1",
       role: "assistant",
       kind: "plan_result",
@@ -357,7 +351,6 @@ describe("POST /api/workflows/[id]/ai/thread/messages", () => {
     mockAppendMessage.mockResolvedValueOnce({
       id: "m3",
       threadId: "thr-1",
-      userId: "user-1",
       workflowId: "wf-1",
       role: "user",
       kind: "prompt",

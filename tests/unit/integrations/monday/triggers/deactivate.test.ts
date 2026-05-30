@@ -28,7 +28,8 @@ beforeEach(() => {
 
 const integration = {
   id: "int-1",
-  userId: "user-1",
+  accountId: "acct-user-1",
+  connectedByUserId: "user-1",
   provider: "monday",
   providerAccountId: "alice@example.com",
   displayName: "Alice",
@@ -46,12 +47,13 @@ function trigger(config: Record<string, unknown>) {
   return {
     id: "tr-1",
     workflowId: "wf-1",
+    workflowAccountId: "acct-1",
     userId: "user-1",
     provider: "monday",
     eventType: "new_item",
     nodeId: "node-1",
     config,
-    accountId: null,
+    providerAccountId: null,
     registeredAt: "",
     expiresAt: null,
     lastRenewedAt: null,

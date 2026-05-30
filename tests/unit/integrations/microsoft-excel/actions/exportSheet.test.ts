@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "new_row",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
     payload: {},
   };
 }
@@ -53,6 +53,7 @@ describe("export_sheet action", () => {
     const result = await exportSheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1" },
@@ -81,6 +82,7 @@ describe("export_sheet action", () => {
     const result = await exportSheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -110,6 +112,7 @@ describe("export_sheet action", () => {
     const result = await exportSheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1", limit: 2 },
@@ -132,6 +135,7 @@ describe("export_sheet action", () => {
     const result = await exportSheet({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { workbookId: "wb-1", worksheetName: "Sheet1" },
@@ -148,6 +152,7 @@ describe("export_sheet action", () => {
       exportSheet({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

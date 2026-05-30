@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -72,6 +72,7 @@ describe("update_subscription action", () => {
     await updateSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -97,6 +98,7 @@ describe("update_subscription action", () => {
     await updateSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -116,6 +118,7 @@ describe("update_subscription action", () => {
     await updateSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -141,6 +144,7 @@ describe("update_subscription action", () => {
     await updateSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "session-1",
       nodeId: "n",
       config: { subscriptionId: "sub_1", metadata: {} },
@@ -155,6 +159,7 @@ describe("update_subscription action", () => {
     const result = await updateSubscription({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { subscriptionId: "sub_1", metadata: {} },
@@ -169,6 +174,7 @@ describe("update_subscription action", () => {
       updateSubscription({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {

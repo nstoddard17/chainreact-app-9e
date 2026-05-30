@@ -19,15 +19,15 @@ import { GetWorkbooksConfigSchema } from "./getWorkbooks.schema";
 export const getWorkbooks: ActionHandler = async (input) => {
   const config = GetWorkbooksConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-excel"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-excel",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       workbooksList({ accessToken, top: config.top }),
   });

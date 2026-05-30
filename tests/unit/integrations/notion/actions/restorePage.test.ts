@@ -39,7 +39,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -93,6 +93,7 @@ describe("restore_page handler", () => {
     await restorePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -117,6 +118,7 @@ describe("restore_page handler", () => {
     const result = await restorePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -135,6 +137,7 @@ describe("restore_page handler", () => {
     const result = await restorePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },
@@ -154,6 +157,7 @@ describe("restore_page handler", () => {
       restorePage({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { pageId: "p-missing" },
@@ -171,6 +175,7 @@ describe("restore_page handler", () => {
     const result = await restorePage({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageId: "p-1" },

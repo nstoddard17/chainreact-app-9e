@@ -25,9 +25,9 @@ export const createLineItem: ActionHandler = async (input) => {
     );
   }
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -39,9 +39,9 @@ export const createLineItem: ActionHandler = async (input) => {
   if (config.discount) properties.discount = config.discount;
 
   const lineItem = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       lineItemsCreate({ accessToken, properties }),
   });
@@ -49,9 +49,9 @@ export const createLineItem: ActionHandler = async (input) => {
   // Always associate to the deal — that's the whole purpose of a line
   // item. Failure surfaces as a warning (the line item itself exists).
   const assoc = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       attachAssociations({
         accessToken,

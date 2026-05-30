@@ -27,9 +27,9 @@ export const createCard: ActionHandler = async (input) => {
   // the integration account id. Pass null so getActiveForExecution
   // returns the first active Trello row for this user.
   const card = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "trello",
-    accountId: null,
+    providerAccountId: null,
     apiCall: (accessToken) =>
       cardsCreate({
         accessToken,

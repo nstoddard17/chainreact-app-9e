@@ -21,15 +21,15 @@ import { CreateRepositoryConfigSchema } from "./createRepository.schema";
 export const createRepository: ActionHandler = async (input) => {
   const config = CreateRepositoryConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "github"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const repository = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "github",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       userReposCreate({
         accessToken,

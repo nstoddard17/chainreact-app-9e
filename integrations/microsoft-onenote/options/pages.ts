@@ -25,7 +25,7 @@ import { pagesList } from "@/integrations/microsoft-onenote/api/pagesList";
  *   - `requiredDeps: ["sectionId"]` — route validates + short-circuits
  *     with `MISSING_DEPENDENCY` before dispatch.
  *   - Wrapper goes through `refreshAndRetry({provider:
- *     "microsoft-onenote", accountId: ctx.integration.providerAccountId})`.
+ *     "microsoft-onenote", providerAccountId: ctx.integration.accountId})`.
  *
  * Sort: Graph-side `$orderby=lastModifiedDateTime desc`. Workflow
  * authors picking a page almost always want the one they (or another
@@ -90,6 +90,8 @@ export const microsoftOneNotePagesResolver: OptionsResolver = {
       );
     }
 
+    const integration = ctx.integration;
+
     const sectionId = ctx.deps.sectionId;
     if (typeof sectionId !== "string" || sectionId.length === 0) {
       throw new OptionsResolverError(
@@ -98,14 +100,14 @@ export const microsoftOneNotePagesResolver: OptionsResolver = {
       );
     }
 
-    const accountId = ctx.integration.providerAccountId;
+    const providerAccountId = integration.providerAccountId;
 
     let result;
     try {
       result = await refreshAndRetry({
-        userId: ctx.userId,
+        accountId: integration.accountId,
         provider: "microsoft-onenote",
-        accountId,
+        providerAccountId,
         apiCall: (accessToken) =>
           pagesList({
             accessToken,

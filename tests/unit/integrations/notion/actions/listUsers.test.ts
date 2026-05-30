@@ -42,7 +42,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-14T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -107,6 +107,7 @@ describe("list_users handler", () => {
     await listUsers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -129,6 +130,7 @@ describe("list_users handler", () => {
     await listUsers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { pageSize: 10, startCursor: "cur-1" },
@@ -165,6 +167,7 @@ describe("list_users handler", () => {
     const result = await listUsers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -194,6 +197,7 @@ describe("list_users handler", () => {
     const result = await listUsers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -215,6 +219,7 @@ describe("list_users handler", () => {
     await listUsers({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {},
@@ -229,6 +234,7 @@ describe("list_users handler", () => {
       listUsers({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},

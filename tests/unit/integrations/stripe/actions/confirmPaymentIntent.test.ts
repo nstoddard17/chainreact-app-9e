@@ -34,7 +34,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "acct_TEST",
+    providerAccountId: "acct_TEST",
     payload: {},
   };
 }
@@ -52,6 +52,7 @@ describe("confirm_payment_intent action", () => {
     const result = await confirmPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -74,6 +75,7 @@ describe("confirm_payment_intent action", () => {
       confirmPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {},
@@ -87,6 +89,7 @@ describe("confirm_payment_intent action", () => {
       confirmPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -103,6 +106,7 @@ describe("confirm_payment_intent action", () => {
       confirmPaymentIntent({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: {
@@ -128,6 +132,7 @@ describe("confirm_payment_intent action", () => {
     const result = await confirmPaymentIntent({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { paymentIntentId: "pi_1" },

@@ -22,15 +22,15 @@ import { CopyItemConfigSchema } from "./copyItem.schema";
 export const copyItem: ActionHandler = async (input) => {
   const config = CopyItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "microsoft-onedrive"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const result = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "microsoft-onedrive",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       driveItemsCopy({
         accessToken,

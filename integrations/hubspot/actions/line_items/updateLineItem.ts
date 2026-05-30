@@ -14,9 +14,9 @@ const UPDATABLE_FIELDS = ["name", "quantity", "price", "discount"] as const;
 export const updateLineItem: ActionHandler = async (input) => {
   const config = UpdateLineItemConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {};
@@ -33,9 +33,9 @@ export const updateLineItem: ActionHandler = async (input) => {
   }
 
   const lineItem = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       lineItemsUpdate({
         accessToken,

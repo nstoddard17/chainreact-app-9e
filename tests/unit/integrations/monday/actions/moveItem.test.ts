@@ -33,7 +33,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-24T00:00:00Z",
-    accountId: "alice@example.com",
+    providerAccountId: "alice@example.com",
     payload: {},
   };
 }
@@ -66,6 +66,7 @@ describe("move_item handler", () => {
     await moveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i-1", targetGroupId: "g-target" },
@@ -86,6 +87,7 @@ describe("move_item handler", () => {
     const result = await moveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b-input", itemId: "i", targetGroupId: "g-input" },
@@ -108,6 +110,7 @@ describe("move_item handler", () => {
     await moveItem({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { boardId: "b", itemId: "i", targetGroupId: "g" },

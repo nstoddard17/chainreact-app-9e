@@ -45,10 +45,9 @@ export async function pull(
   trigger: TriggerResourceRecord,
   notificationOccurredAt: string,
 ): Promise<PullResult> {
-  const integration = await getActiveForExecution(
-    trigger.userId,
+  const integration = await getActiveForExecution(trigger.workflowAccountId!,
     trigger.provider,
-    trigger.accountId,
+    trigger.providerAccountId,
   );
   if (!integration) {
     return { events: [], cursorAdvanced: false };
@@ -73,9 +72,9 @@ export async function pull(
 
   for (let i = 0; i < MAX_PAGE_FETCHES; i++) {
     const result = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "airtable",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         webhooksListPayloads({
           accessToken,
@@ -105,7 +104,7 @@ export async function pull(
       const normalized = normalizePayloads(result.payloads, {
         webhookId: config.webhookId,
         baseId: config.baseId,
-        accountId: integration.providerAccountId,
+        accountId: integration.accountId,
         notificationOccurredAt,
       });
       for (const e of normalized.events) events.push(e);

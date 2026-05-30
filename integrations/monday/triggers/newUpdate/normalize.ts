@@ -49,7 +49,7 @@ export function normalizeNewUpdate(ev: MondayEventObject): TriggerEvent {
     eventType: "new_update",
     eventId,
     occurredAt,
-    accountId: boardId ?? "unknown",
+    providerAccountId: boardId ?? "unknown",
     payload: {
       changeKind: "new_update",
       updateId,

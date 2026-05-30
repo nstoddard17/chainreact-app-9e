@@ -87,7 +87,8 @@ function makeIntegration(
 ): IntegrationRecord {
   return {
     id: "i1",
-    userId: "u1",
+    accountId: "acct-u1",
+    connectedByUserId: "u1",
     provider: "mailchimp",
     providerAccountId: "mc_xyz",
     displayName: "Acme",

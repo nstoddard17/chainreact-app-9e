@@ -15,7 +15,7 @@ function postEvent(pageId: string): TriggerEvent {
     eventType: "new_post",
     eventId: `new_post:${pageId}:p1`,
     occurredAt: "2026-05-25T00:00:00Z",
-    accountId: pageId,
+    providerAccountId: pageId,
     payload: { changeKind: "new_post", pageId, postId: "p1" },
   };
 }
@@ -26,7 +26,7 @@ function commentEvent(pageId: string, postId: string): TriggerEvent {
     eventType: "new_comment",
     eventId: `new_comment:${pageId}:c1`,
     occurredAt: "2026-05-25T00:00:00Z",
-    accountId: pageId,
+    providerAccountId: pageId,
     payload: { changeKind: "new_comment", pageId, postId, commentId: "c1" },
   };
 }

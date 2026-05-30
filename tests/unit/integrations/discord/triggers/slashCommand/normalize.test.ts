@@ -63,7 +63,7 @@ describe("normalizeSlashCommand — canonical fields", () => {
 
   it("sets accountId to the guild id", () => {
     const event = normalizeSlashCommand({ body: SAMPLE });
-    expect(event.accountId).toBe("guild-snowflake");
+    expect(event.providerAccountId).toBe("guild-snowflake");
   });
 
   it("sets occurredAt to a non-empty ISO-8601 string (current time)", () => {
@@ -165,6 +165,6 @@ describe("normalizeSlashCommand — defensive fallbacks", () => {
     const dm: Record<string, unknown> = { ...SAMPLE };
     delete dm.guild_id;
     const event = normalizeSlashCommand({ body: dm });
-    expect(event.accountId).toBe("unknown");
+    expect(event.providerAccountId).toBe("unknown");
   });
 });

@@ -58,10 +58,9 @@ export const calendarEventChangedSubscriptionHandler: SubscriptionHandler = {
     const oldChannelId = config.channelId;
     const oldResourceId = config.resourceId;
 
-    const integration = await getActiveForExecution(
-      trigger.userId,
+    const integration = await getActiveForExecution(trigger.workflowAccountId!,
       trigger.provider,
-      trigger.accountId,
+      trigger.providerAccountId,
     );
     if (!integration) {
       throw new Error(
@@ -74,9 +73,9 @@ export const calendarEventChangedSubscriptionHandler: SubscriptionHandler = {
     const newChannelToken = buildChannelToken({ channelId: newChannelId });
 
     const watch = await refreshAndRetry({
-      userId: integration.userId,
+      accountId: integration.accountId,
       provider: "google-calendar",
-      accountId: integration.providerAccountId,
+      providerAccountId: integration.accountId,
       apiCall: (accessToken) =>
         eventsWatch({
           accessToken,
@@ -93,9 +92,9 @@ export const calendarEventChangedSubscriptionHandler: SubscriptionHandler = {
     if (oldChannelId && oldResourceId) {
       try {
         await refreshAndRetry({
-          userId: integration.userId,
+          accountId: integration.accountId,
           provider: "google-calendar",
-          accountId: integration.providerAccountId,
+          providerAccountId: integration.accountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

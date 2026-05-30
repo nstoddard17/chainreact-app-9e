@@ -32,7 +32,7 @@ function trigger(): TriggerEvent {
     eventType: "manual",
     eventId: "evt-1",
     occurredAt: "2026-05-09T12:00:00Z",
-    accountId: "bot-123",
+    providerAccountId: "bot-123",
     payload: {},
   };
 }
@@ -62,6 +62,7 @@ describe("query_database action", () => {
     const result = await queryDatabase({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: { databaseId: "db-1" },
@@ -89,6 +90,7 @@ describe("query_database action", () => {
     await queryDatabase({
       workflowId: "wf",
       userId: "u",
+      accountId: "acct-u",
       runId: "r",
       nodeId: "n",
       config: {
@@ -115,6 +117,7 @@ describe("query_database action", () => {
       queryDatabase({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { databaseId: "db-1", pageSize: 200 },
@@ -128,6 +131,7 @@ describe("query_database action", () => {
       queryDatabase({
         workflowId: "wf",
         userId: "u",
+        accountId: "acct-u",
         runId: "r",
         nodeId: "n",
         config: { databaseId: "" },

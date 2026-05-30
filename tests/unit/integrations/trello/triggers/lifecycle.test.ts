@@ -37,7 +37,8 @@ function makeIntegration(): IntegrationRecord {
   const { encryptToken } = jest.requireActual("@/core/encryption/tokens");
   return {
     id: "int-1",
-    userId: "user-1",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
     provider: "trello",
     providerAccountId: "mem-1",
     displayName: "User",
@@ -160,12 +161,13 @@ describe("Trello deactivate (shared)", () => {
     return {
       id: "tr-1",
       workflowId: "wf-1",
+      workflowAccountId: "acct-1",
       userId: "user-1",
       nodeId: "node-1",
       provider: "trello",
       eventType: "new_card",
       config,
-      accountId: null,
+      providerAccountId: null,
       registeredAt: "2026-01-01T00:00:00Z",
       expiresAt: null,
       lastRenewedAt: null,

@@ -45,13 +45,13 @@ beforeEach(() => {
   mockUsersMessagesModify.mockReset();
 });
 
-function makeGmailTriggerEvent(accountId: string): TriggerEvent {
+function makeGmailTriggerEvent(providerAccountId: string): TriggerEvent {
   return {
     provider: "gmail",
     eventType: "new_email",
     eventId: "evt-1",
     occurredAt: "2026-05-07T12:00:00Z",
-    accountId,
+    providerAccountId,
     payload: {},
   };
 }
@@ -62,7 +62,7 @@ function makeNonGmailTriggerEvent(): TriggerEvent {
     eventType: "message_received",
     eventId: "evt-2",
     occurredAt: "2026-05-07T12:00:00Z",
-    accountId: "T123",
+    providerAccountId: "T123",
     payload: {},
   };
 }
@@ -71,6 +71,7 @@ function baseHandlerInput(overrides: { config?: Record<string, unknown>; trigger
   return {
     workflowId: "wf-1",
     userId: "user-1",
+    accountId: "acct-user-1",
     runId: "run-1",
     nodeId: "node-send",
     config: overrides.config ?? {

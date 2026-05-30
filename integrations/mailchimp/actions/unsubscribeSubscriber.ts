@@ -56,15 +56,16 @@ import { UnsubscribeSubscriberConfigSchema } from "./unsubscribeSubscriber.schem
 export const unsubscribeSubscriber: ActionHandler = async (input) => {
   const config = UnsubscribeSubscriberConfigSchema.parse(input.config);
 
-  const { dc, accountId } = await resolveDc({
+  const { dc, providerAccountId } = await resolveDc({
+    accountId: input.accountId,
     userId: input.userId,
     triggerEvent: input.triggerEvent,
   });
 
   const member = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "mailchimp",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       memberPatch({
         accessToken,

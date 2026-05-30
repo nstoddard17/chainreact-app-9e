@@ -15,9 +15,9 @@ import { CreateCallConfigSchema } from "./createCall.schema";
 export const createCall: ActionHandler = async (input) => {
   const config = CreateCallConfigSchema.parse(input.config);
 
-  const accountId =
+  const providerAccountId =
     input.triggerEvent.provider === "hubspot"
-      ? input.triggerEvent.accountId
+      ? input.triggerEvent.providerAccountId
       : null;
 
   const properties: Record<string, string> = {
@@ -40,17 +40,17 @@ export const createCall: ActionHandler = async (input) => {
   }
 
   const call = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       callsCreate({ accessToken, properties }),
   });
 
   const assoc = await refreshAndRetry({
-    userId: input.userId,
+    accountId: input.accountId,
     provider: "hubspot",
-    accountId,
+    providerAccountId,
     apiCall: (accessToken) =>
       attachAssociations({
         accessToken,
