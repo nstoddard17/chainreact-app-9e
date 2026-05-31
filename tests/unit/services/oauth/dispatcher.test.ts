@@ -2,10 +2,19 @@ import { randomBytes } from "node:crypto";
 
 const mockOAuthStatesCreate = jest.fn();
 const mockOAuthStatesConsume = jest.fn();
+const mockEnsurePersonalAccount = jest.fn();
 
 jest.mock("@/repositories/oauthStates", () => ({
   create: (...args: unknown[]) => mockOAuthStatesCreate(...args),
   consumeByNonce: (...args: unknown[]) => mockOAuthStatesConsume(...args),
+}));
+
+// dispatcher.connect resolves the V2 owner account via this service —
+// stub it so the test doesn't need a real Supabase request context.
+// Returns `acct-<userId>` to mirror the synthetic V2 account id
+// convention used elsewhere in the test fixtures.
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (...args: unknown[]) => mockEnsurePersonalAccount(...args),
 }));
 
 import { connect } from "@/services/oauth/dispatcher";
@@ -18,6 +27,14 @@ beforeEach(() => {
   mockOAuthStatesCreate.mockReset();
   mockOAuthStatesCreate.mockResolvedValue(undefined);
   mockOAuthStatesConsume.mockReset();
+  mockEnsurePersonalAccount.mockReset();
+  mockEnsurePersonalAccount.mockImplementation(async (userId: string) => ({
+    id: `acct-${userId}`,
+    type: "personal" as const,
+    ownerUserId: userId,
+    createdAt: "2026-05-30T00:00:00Z",
+    updatedAt: "2026-05-30T00:00:00Z",
+  }));
 });
 
 afterEach(() => {

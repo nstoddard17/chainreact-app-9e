@@ -193,8 +193,7 @@ describe("Outlook email_flagged activate", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });

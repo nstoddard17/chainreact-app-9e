@@ -181,7 +181,7 @@ describe("find_customer action", () => {
     // wrapper's typed input doesn't have the field. Passing through
     // refreshAndRetry, no Idempotency-Key flows.
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(refreshArg.userId).toBe("u");
+    expect(refreshArg.accountId).toBe("acct-u");
   });
 
   it("re-throws non-NotFoundError errors from customersGet", async () => {

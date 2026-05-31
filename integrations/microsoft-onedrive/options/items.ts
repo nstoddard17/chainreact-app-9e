@@ -63,7 +63,7 @@ export const microsoftOneDriveItemsResolver: OptionsResolver = {
       result = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "microsoft-onedrive",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           driveItemsList({ accessToken, parentItemId, top: PAGE_SIZE }),
       });

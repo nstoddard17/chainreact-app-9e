@@ -483,7 +483,7 @@ describe("searchEmails — refreshAndRetry routing", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(2);
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0].provider).toBe("gmail");
-      expect(call[0].accountId).toBe("me@example.com");
+      expect(call[0].providerAccountId).toBe("me@example.com");
     }
   });
 
@@ -511,6 +511,6 @@ describe("searchEmails — refreshAndRetry routing", () => {
       },
     });
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBeNull();
   });
 });

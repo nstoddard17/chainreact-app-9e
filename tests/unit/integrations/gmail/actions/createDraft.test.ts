@@ -76,9 +76,9 @@ describe("createDraft — refreshAndRetry + accountId routing", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     const call = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("gmail");
-    expect(call.accountId).toBe("alice@example.com");
+    expect(call.providerAccountId).toBe("alice@example.com");
     expect(typeof call.apiCall).toBe("function");
   });
 
@@ -101,7 +101,7 @@ describe("createDraft — refreshAndRetry + accountId routing", () => {
       }),
     );
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBeNull();
   });
 });
 

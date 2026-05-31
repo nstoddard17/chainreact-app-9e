@@ -228,7 +228,7 @@ describe("forward_email action", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });
@@ -249,7 +249,7 @@ describe("forward_email action", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: null,
+        providerAccountId: null,
       }),
     );
   });

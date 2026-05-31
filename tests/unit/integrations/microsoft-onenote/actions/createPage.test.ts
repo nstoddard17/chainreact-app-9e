@@ -264,7 +264,7 @@ describe("create_page handler", () => {
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe(
       "microsoft-onenote",
     );
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe(
       "alice@contoso.com",
     );
   });

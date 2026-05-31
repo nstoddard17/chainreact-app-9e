@@ -78,9 +78,9 @@ describe("createEvent — refreshAndRetry usage", () => {
     await createEvent(baseInput());
 
     const call = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("google-calendar");
-    expect(call.accountId).toBe("alice@example.com");
+    expect(call.providerAccountId).toBe("alice@example.com");
   });
 
   it("passes accountId: null when the trigger is not Calendar-shaped", async () => {
@@ -88,7 +88,7 @@ describe("createEvent — refreshAndRetry usage", () => {
 
     await createEvent(baseInput({ triggerEvent: nonCalendarTrigger() }));
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBeNull();
   });
 });
 

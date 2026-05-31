@@ -91,7 +91,7 @@ describe("sendDirectMessage — happy path", () => {
       makeInput({ userId: "U1RECIPIENT", text: "hi there" }),
     );
 
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", "T0001");
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-user-1", "slack", "T0001");
     expect(mockDecryptToken).toHaveBeenCalledWith("ENCRYPTED_TOKEN");
     expect(mockConversationsOpen).toHaveBeenCalledWith({
       botToken: "xoxb-token",

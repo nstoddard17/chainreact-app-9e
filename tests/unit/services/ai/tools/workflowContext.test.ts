@@ -13,7 +13,7 @@ jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
 }));
 jest.mock("@/repositories/integrations", () => ({
-  listActiveByUser: (...args: unknown[]) => mockListActiveByUser(...args),
+  listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
 }));
 
 import {

@@ -69,7 +69,7 @@ describe("dropbox get_file_metadata", () => {
     await getFileMetadata(input({ path: "/x" }));
     expect(mockRefresh.mock.calls[0]![0]).toMatchObject({
       provider: "dropbox",
-      accountId: "dbid:1",
+      providerAccountId: "dbid:1",
     });
   });
 

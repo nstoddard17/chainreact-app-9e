@@ -87,7 +87,7 @@ describe("classifyObjectKind", () => {
 });
 
 describe("normalize", () => {
-  const ctx = { accountId: "alice@example.test" };
+  const ctx = { providerAccountId: "alice@example.test" };
 
   it("emits a TriggerEvent with correct shape for a created file", () => {
     const ev = normalize(
@@ -175,7 +175,7 @@ describe("normalize", () => {
         fileId: "f-1",
         file: { id: "f-1", parents: ["fld-A", "fld-B"] },
       },
-      { accountId: "a@e.test", folderId: "fld-A" },
+      { providerAccountId: "a@e.test", folderId: "fld-A" },
     );
     expect(ev).not.toBeNull();
   });
@@ -188,7 +188,7 @@ describe("normalize", () => {
         fileId: "f-1",
         file: { id: "f-1", parents: ["fld-X"] },
       },
-      { accountId: "a@e.test", folderId: "fld-A" },
+      { providerAccountId: "a@e.test", folderId: "fld-A" },
     );
     expect(ev).toBeNull();
   });
@@ -204,7 +204,7 @@ describe("normalize", () => {
         fileId: "f-1",
         removed: true,
       },
-      { accountId: "a@e.test", folderId: "fld-A" },
+      { providerAccountId: "a@e.test", folderId: "fld-A" },
     );
     expect(ev).toBeNull();
   });

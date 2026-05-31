@@ -139,7 +139,7 @@ export const activate: ActivationFn = async ({
   const subscriptions = parseSubscriptions(node.config?.subscriptions);
   const appId = getAppId();
 
-  const hubId = integration.accountId;
+  const hubId = integration.providerAccountId;
   if (!hubId) {
     throw new Error(
       "hubspot webhook_received activate: integration row missing providerAccountId (hubId). Reconnect the HubSpot integration.",
@@ -176,7 +176,7 @@ export const activate: ActivationFn = async ({
     await refsRepo.upsert({
       appSubscriptionId: appSub.id,
       workflowId,
-      userId: integration.accountId,
+      userId: integration.connectedByUserId ?? "",
       nodeId: node.id,
       hubId,
       config: {

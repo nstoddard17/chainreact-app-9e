@@ -7,7 +7,7 @@ const CONTEXT = {
   subscriptionId: "sub-1",
   changeType: "created",
   notificationOccurredAt: "2026-05-08T12:00:00Z",
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
 };
 
 describe("Outlook new_email normalize", () => {

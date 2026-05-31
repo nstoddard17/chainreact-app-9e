@@ -77,6 +77,7 @@ describe("recordBillingShadowComparison", () => {
     await recordBillingShadowComparison(comparison(), "user-9");
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0]![0]).toEqual({
+      userId: "user-9",
       workflowId: "wf-1",
       workflowRunId: "run-1",
       flatChargedTasks: 1,

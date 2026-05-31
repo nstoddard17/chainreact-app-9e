@@ -75,14 +75,14 @@ describe("isUpdatedChange", () => {
 
 describe("normalize — filters", () => {
   it("drops drive-level changes", () => {
-    expect(normalize(change({ changeType: "drive" }), { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(change({ changeType: "drive" }), { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("drops removed and trashed files", () => {
-    expect(normalize(change({ removed: true }), { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(change({ removed: true }), { providerAccountId: ACCOUNT })).toBeNull();
     expect(
       normalize(change({ file: { trashed: true } }), {
-        accountId: ACCOUNT,
+        providerAccountId: ACCOUNT,
       }),
     ).toBeNull();
   });
@@ -91,7 +91,7 @@ describe("normalize — filters", () => {
     expect(
       normalize(
         change({ file: { mimeType: "application/vnd.google-apps.spreadsheet" } }),
-        { accountId: ACCOUNT },
+        { providerAccountId: ACCOUNT },
       ),
     ).toBeNull();
   });
@@ -103,13 +103,13 @@ describe("normalize — filters", () => {
         modifiedTime: "2026-05-08T10:00:00Z",
       },
     });
-    expect(normalize(c, { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("documentId filter takes precedence — drops other documents even when in folder", () => {
     expect(
       normalize(change(), {
-        accountId: ACCOUNT,
+        providerAccountId: ACCOUNT,
         documentId: "other-doc",
         folderId: "folder-A",
       }),
@@ -119,7 +119,7 @@ describe("normalize — filters", () => {
   it("documentId filter emits when document matches", () => {
     expect(
       normalize(change(), {
-        accountId: ACCOUNT,
+        providerAccountId: ACCOUNT,
         documentId: "doc-1",
       }),
     ).not.toBeNull();
@@ -129,7 +129,7 @@ describe("normalize — filters", () => {
     expect(
       normalize(
         change({ file: { parents: ["folder-B"] } }),
-        { accountId: ACCOUNT, folderId: "folder-A" },
+        { providerAccountId: ACCOUNT, folderId: "folder-A" },
       ),
     ).toBeNull();
   });
@@ -141,7 +141,7 @@ describe("normalize — filters", () => {
     });
     expect(
       normalize(c, {
-        accountId: ACCOUNT,
+        providerAccountId: ACCOUNT,
         documentId: "doc-1",
         folderId: "folder-A",
       }),
@@ -149,17 +149,17 @@ describe("normalize — filters", () => {
   });
 
   it("emits with no filters", () => {
-    expect(normalize(change(), { accountId: ACCOUNT })).not.toBeNull();
+    expect(normalize(change(), { providerAccountId: ACCOUNT })).not.toBeNull();
   });
 });
 
 describe("normalize — payload shape", () => {
   it("returns the GDOCS-5 payload with updatedBy + revisionId populated", () => {
-    const event = normalize(change(), { accountId: ACCOUNT });
+    const event = normalize(change(), { providerAccountId: ACCOUNT });
     expect(event).toMatchObject({
       provider: "google-docs",
       eventType: "document_updated",
-      accountId: ACCOUNT,
+      providerAccountId: ACCOUNT,
       payload: {
         documentId: "doc-1",
         title: "My Doc",
@@ -177,25 +177,25 @@ describe("normalize — payload shape", () => {
 
   it("revisionId = null when version missing", () => {
     const c = change({ file: { version: undefined } });
-    expect(normalize(c, { accountId: ACCOUNT })!.payload.revisionId).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })!.payload.revisionId).toBeNull();
   });
 
   it("updatedBy = null when lastModifyingUser missing", () => {
     const c = change({
       file: { lastModifyingUser: undefined },
     });
-    expect(normalize(c, { accountId: ACCOUNT })!.payload.updatedBy).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })!.payload.updatedBy).toBeNull();
   });
 
   it("eventId combines fileId + modifiedTime so dedup catches duplicate push deliveries", () => {
-    const e1 = normalize(change(), { accountId: ACCOUNT });
-    const e2 = normalize(change(), { accountId: ACCOUNT });
+    const e1 = normalize(change(), { providerAccountId: ACCOUNT });
+    const e2 = normalize(change(), { providerAccountId: ACCOUNT });
     expect(e1!.eventId).toBe(e2!.eventId);
   });
 
   it("constructs documentUrl when webViewLink missing", () => {
     const c = change({ file: { webViewLink: undefined } });
-    expect(normalize(c, { accountId: ACCOUNT })!.payload.documentUrl).toBe(
+    expect(normalize(c, { providerAccountId: ACCOUNT })!.payload.documentUrl).toBe(
       "https://docs.google.com/document/d/doc-1/edit",
     );
   });

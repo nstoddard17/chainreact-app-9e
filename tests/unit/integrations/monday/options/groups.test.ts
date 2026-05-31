@@ -92,7 +92,7 @@ describe("mondayGroupsResolver — wrapper invocation", () => {
     await mondayGroupsResolver.resolve(ctx({ deps: { boardId: "board-42" } }));
     // The wrapper apiCall receives boardId — assert via refreshAndRetry arg.
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe("monday");
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe(
       "alice@example.com",
     );
   });

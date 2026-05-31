@@ -24,7 +24,7 @@ import { tablesList } from "@/integrations/microsoft-excel/api/tablesList";
  * Architecture mirrors `microsoft-excel:worksheets` / OneNote sections:
  *   - `requiresIntegration: true`; `requiredDeps: ["workbookId"]`.
  *   - Wrapper via `refreshAndRetry({provider: "microsoft-excel",
- *     providerAccountId: ctx.integration.accountId})`.
+ *     providerAccountId: ctx.integration.providerAccountId})`.
  *   - `tablesList` returns a bare array → `hasMore: false`.
  *   - Parent workbook gone (`NotFoundError`) → empty items (cascade
  *     fallback, not a thrown error).

@@ -389,8 +389,7 @@ describe("update_row handler — refreshAndRetry routing", () => {
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0]).toMatchObject({
         provider: "microsoft-excel",
-        userId: "u",
-        accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
       });
     }
   });
@@ -417,7 +416,7 @@ describe("update_row handler — refreshAndRetry routing", () => {
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0]).toMatchObject({
         provider: "microsoft-excel",
-        accountId: null,
+        providerAccountId: null,
       });
     }
   });

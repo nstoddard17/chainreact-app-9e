@@ -159,7 +159,7 @@ describe("get_attachment — happy path", () => {
       triggerEvent: trigger("microsoft-outlook"),
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: "alice@contoso.com" }),
+      expect.objectContaining({ providerAccountId: "alice@contoso.com" }),
     );
   });
 
@@ -171,7 +171,7 @@ describe("get_attachment — happy path", () => {
       triggerEvent: trigger("slack"),
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null }),
+      expect.objectContaining({ providerAccountId: null }),
     );
   });
 });

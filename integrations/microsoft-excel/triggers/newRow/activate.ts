@@ -36,7 +36,7 @@ export const activate: ActivationFn = async ({ integration, node }) => {
   const range = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-excel",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       worksheetUsedRange({
         accessToken,

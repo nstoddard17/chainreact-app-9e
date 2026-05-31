@@ -77,8 +77,8 @@ describe("remove_line_item", () => {
     });
     const callArg = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(callArg.provider).toBe("hubspot");
-    expect(callArg.userId).toBe("user-xyz");
-    expect(callArg.accountId).toBe("portal-1");
+    expect(callArg.accountId).toBe("acct-user-xyz");
+    expect(callArg.providerAccountId).toBe("portal-1");
   });
 
   it("threads accountId=null when triggerEvent is not from hubspot", async () => {
@@ -99,7 +99,7 @@ describe("remove_line_item", () => {
         payload: {},
       },
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBeNull();
   });
 
   it("rejects empty lineItemId at schema time", async () => {

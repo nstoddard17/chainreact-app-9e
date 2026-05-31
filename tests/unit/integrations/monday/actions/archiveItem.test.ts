@@ -119,7 +119,7 @@ describe("archive_item handler — structural-only output (recoverable)", () => 
       triggerEvent: trigger(),
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe("monday");
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe(
       "alice@example.com",
     );
   });

@@ -411,7 +411,7 @@ describe("registerWorkflowTriggers — activation hook (Slice 2e)", () => {
     );
 
     expect(mockGetActiveForExecution).toHaveBeenCalledWith(
-      "user-1",
+      "acct-user-1",
       "gmail",
       null,
     );

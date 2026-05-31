@@ -79,33 +79,33 @@ describe("isCreatedChange", () => {
 
 describe("normalize — filters", () => {
   it("drops drive-level changes (changeType=drive)", () => {
-    expect(normalize(change({ changeType: "drive" }), { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(change({ changeType: "drive" }), { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("drops changes without fileId", () => {
     expect(
-      normalize(change({ fileId: undefined as unknown as string }), { accountId: ACCOUNT }),
+      normalize(change({ fileId: undefined as unknown as string }), { providerAccountId: ACCOUNT }),
     ).toBeNull();
   });
 
   it("drops removed=true", () => {
-    expect(normalize(change({ removed: true }), { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(change({ removed: true }), { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("drops files with no file resource (defensive)", () => {
     const c = { ...change(), file: undefined } as DriveChangeEntry;
-    expect(normalize(c, { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("drops non-Docs mimeType (spreadsheets, sheets, folders, etc.)", () => {
     const c = change({
       file: { mimeType: "application/vnd.google-apps.spreadsheet" },
     });
-    expect(normalize(c, { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })).toBeNull();
     const folder = change({
       file: { mimeType: "application/vnd.google-apps.folder" },
     });
-    expect(normalize(folder, { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(folder, { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("drops updates (createdTime < modifiedTime) — those belong to document_updated", () => {
@@ -115,7 +115,7 @@ describe("normalize — filters", () => {
         modifiedTime: "2026-05-08T11:00:00Z",
       },
     });
-    expect(normalize(c, { accountId: ACCOUNT })).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })).toBeNull();
   });
 
   it("drops files outside the configured folder when folderId is set", () => {
@@ -123,28 +123,28 @@ describe("normalize — filters", () => {
       file: { parents: ["folder-B"] },
     });
     expect(
-      normalize(c, { accountId: ACCOUNT, folderId: "folder-A" }),
+      normalize(c, { providerAccountId: ACCOUNT, folderId: "folder-A" }),
     ).toBeNull();
   });
 
   it("emits when the configured folder is in parents", () => {
     expect(
-      normalize(change(), { accountId: ACCOUNT, folderId: "folder-A" }),
+      normalize(change(), { providerAccountId: ACCOUNT, folderId: "folder-A" }),
     ).not.toBeNull();
   });
 
   it("emits when no folderId is configured", () => {
-    expect(normalize(change(), { accountId: ACCOUNT })).not.toBeNull();
+    expect(normalize(change(), { providerAccountId: ACCOUNT })).not.toBeNull();
   });
 });
 
 describe("normalize — payload shape", () => {
   it("returns the GDOCS-5 payload with sensitive-marked fields populated", () => {
-    const event = normalize(change(), { accountId: ACCOUNT });
+    const event = normalize(change(), { providerAccountId: ACCOUNT });
     expect(event).toMatchObject({
       provider: "google-docs",
       eventType: "new_document",
-      accountId: ACCOUNT,
+      providerAccountId: ACCOUNT,
       payload: {
         documentId: "doc-1",
         title: "My Doc",
@@ -164,7 +164,7 @@ describe("normalize — payload shape", () => {
     const c = change({
       file: { webViewLink: undefined },
     });
-    const event = normalize(c, { accountId: ACCOUNT });
+    const event = normalize(c, { providerAccountId: ACCOUNT });
     expect(event!.payload.documentUrl).toBe(
       "https://docs.google.com/document/d/doc-1/edit",
     );
@@ -172,19 +172,19 @@ describe("normalize — payload shape", () => {
 
   it("createdBy = null when owners array is missing or empty", () => {
     const c = change({ file: { owners: undefined } });
-    expect(normalize(c, { accountId: ACCOUNT })!.payload.createdBy).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })!.payload.createdBy).toBeNull();
     const c2 = change({ file: { owners: [] } });
-    expect(normalize(c2, { accountId: ACCOUNT })!.payload.createdBy).toBeNull();
+    expect(normalize(c2, { providerAccountId: ACCOUNT })!.payload.createdBy).toBeNull();
   });
 
   it("title = null when file.name is missing", () => {
     const c = change({ file: { name: undefined } });
-    expect(normalize(c, { accountId: ACCOUNT })!.payload.title).toBeNull();
+    expect(normalize(c, { providerAccountId: ACCOUNT })!.payload.title).toBeNull();
   });
 
   it("eventId combines fileId + createdTime so dedup catches duplicate push deliveries", () => {
-    const e1 = normalize(change(), { accountId: ACCOUNT });
-    const e2 = normalize(change(), { accountId: ACCOUNT });
+    const e1 = normalize(change(), { providerAccountId: ACCOUNT });
+    const e2 = normalize(change(), { providerAccountId: ACCOUNT });
     expect(e1!.eventId).toBe(e2!.eventId);
   });
 });

@@ -76,7 +76,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const initialValues = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-sheets",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
@@ -110,7 +110,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const pageBaseline = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-sheets",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
   });
   const pageToken = pageBaseline.startPageToken;
@@ -127,7 +127,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const watch = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-sheets",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       filesWatch({
         accessToken,

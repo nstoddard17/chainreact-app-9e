@@ -33,7 +33,7 @@ export interface NormalizeContext {
   /** ISO-8601 timestamp from the notification or our receipt time. */
   notificationOccurredAt: string;
   /** Account id (email) from the integration row this trigger fired against. */
-  accountId: string;
+  providerAccountId: string;
 }
 
 const CHANGE_TYPE = "created" as const;
@@ -57,7 +57,7 @@ export function normalize(
       message.createdDateTime ??
       message.lastModifiedDateTime ??
       context.notificationOccurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       messageId: message.id,
       teamId: context.teamId,

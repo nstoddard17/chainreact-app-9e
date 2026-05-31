@@ -113,12 +113,13 @@ describe("googleDocsDocumentsResolver — wrapper invocation", () => {
     const call = mockRefreshAndRetry.mock.calls[0]![0] as {
       userId: string;
       provider: string;
-      accountId: string | null;
+      accountId: string;
+      providerAccountId: string | null;
       apiCall: (token: string) => Promise<unknown>;
     };
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("google-docs");
-    expect(call.accountId).toBeNull();
+    expect(call.providerAccountId).toBeNull();
     expect(typeof call.apiCall).toBe("function");
 
     // Verify the apiCall closure invokes filesList with the Docs mimeType

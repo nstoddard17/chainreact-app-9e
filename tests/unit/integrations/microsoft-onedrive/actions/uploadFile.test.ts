@@ -139,9 +139,8 @@ describe("upload_file action", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "u",
         provider: "microsoft-onedrive",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });

@@ -105,7 +105,7 @@ export const activate: ActivationFn = async ({ integration, node }) => {
   const result = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-teams",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

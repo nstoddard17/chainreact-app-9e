@@ -107,7 +107,7 @@ describe("update_contact", () => {
       triggerEvent: trigger,
     });
     expect(mockRefreshAndRetry).toHaveBeenCalled();
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.userId).toBe("u-1");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("acct-u-1");
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("hubspot");
   });
 });

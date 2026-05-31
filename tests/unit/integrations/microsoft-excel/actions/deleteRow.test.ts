@@ -169,7 +169,7 @@ describe("delete_row handler — error surface", () => {
 });
 
 describe("delete_row handler — refreshAndRetry routing", () => {
-  it("routes to triggerEvent.accountId when the trigger is microsoft-excel", async () => {
+  it("routes to triggerEvent.providerAccountId when the trigger is microsoft-excel", async () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
@@ -181,12 +181,12 @@ describe("delete_row handler — refreshAndRetry routing", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "microsoft-excel",
-      userId: "u",
-      accountId: "alice@contoso.com",
+      accountId: "acct-u",
+      providerAccountId: "alice@contoso.com",
     });
   });
 
-  it("routes with accountId=null when triggerEvent is from a different provider", async () => {
+  it("routes with providerAccountId=null when triggerEvent is from a different provider", async () => {
     await deleteRow({
       workflowId: "wf",
       userId: "u",
@@ -198,7 +198,7 @@ describe("delete_row handler — refreshAndRetry routing", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "microsoft-excel",
-      accountId: null,
+      providerAccountId: null,
     });
   });
 });

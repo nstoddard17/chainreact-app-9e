@@ -10,7 +10,7 @@ import {
 const CONTEXT = {
   subscriptionId: "sub-1",
   notificationOccurredAt: "2026-05-09T12:00:00Z",
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
   source: "id-fetch" as const,
 };
 

@@ -73,7 +73,7 @@ describe("hubspotListsResolver", () => {
     await hubspotListsResolver.resolve(ctx());
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("hubspot");
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe(null);
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe(null);
   });
 
   it("maps lists with processingType as description", async () => {

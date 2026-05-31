@@ -60,7 +60,7 @@ export const outlookEmailSentSubscriptionHandler: SubscriptionHandler = {
     const result = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "microsoft-outlook",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         renewSubscription({
           accessToken,

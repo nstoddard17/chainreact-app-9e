@@ -79,9 +79,8 @@ describe("facebookPagesResolver — mapping", () => {
     await facebookPagesResolver.resolve(ctx());
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "facebook",
-      accountId: "fb-user-1",
-      userId: "user-1",
-    });
+      providerAccountId: "fb-user-1",
+      });
     // User token threaded into pagesList (no page-token derivation here).
     expect(mockPagesList.mock.calls[0]![0]).toEqual({ accessToken: "user-tok" });
   });

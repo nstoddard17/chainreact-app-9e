@@ -28,7 +28,7 @@ import type { DriveChangeEntry } from "@/integrations/google-drive/api/changesLi
 const GOOGLE_DOCS_MIME_TYPE = "application/vnd.google-apps.document";
 
 export interface NormalizeContext {
-  accountId: string;
+  providerAccountId: string;
   /** When set, only changes matching this fileId are emitted. */
   documentId?: string;
   /**
@@ -110,7 +110,7 @@ export function normalize(
     eventType: "document_updated",
     eventId,
     occurredAt: updatedAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       documentId: fileId,
       title: file.name ?? null,

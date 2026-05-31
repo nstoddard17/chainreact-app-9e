@@ -7,7 +7,7 @@ const CONTEXT = {
   subscriptionId: "sub-flagged-1",
   changeType: "updated",
   notificationOccurredAt: "2026-05-08T12:00:00Z",
-  accountId: "alice@contoso.com",
+  providerAccountId: "alice@contoso.com",
 };
 
 describe("Outlook email_flagged normalize", () => {

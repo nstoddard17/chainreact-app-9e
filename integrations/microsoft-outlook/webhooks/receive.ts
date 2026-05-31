@@ -179,7 +179,7 @@ export async function receiveOutlookWebhook(
       message = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "microsoft-outlook",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) => getMessage({ accessToken, messageId }),
       });
     } catch (err) {
@@ -215,7 +215,7 @@ export async function receiveOutlookWebhook(
       subscriptionId,
       changeType,
       notificationOccurredAt: occurredAt,
-      accountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
     };
     let normalized: TriggerEvent;
     switch (trigger.eventType) {
@@ -258,7 +258,7 @@ interface NormalizeContext {
   subscriptionId: string;
   changeType: string;
   notificationOccurredAt: string;
-  accountId: string;
+  providerAccountId: string;
 }
 
 /**

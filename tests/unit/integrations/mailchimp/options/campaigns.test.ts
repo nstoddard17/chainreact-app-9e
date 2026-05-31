@@ -82,7 +82,7 @@ describe("mailchimpCampaignsResolver — wrapper invocation", () => {
     await mailchimpCampaignsResolver.resolve(ctx());
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("mailchimp");
-    expect(args.accountId).toBe("mc-account-9001");
+    expect(args.providerAccountId).toBe("mc-account-9001");
   });
 
   it("threads dc + sort=create_time DESC into the campaignsList call", async () => {

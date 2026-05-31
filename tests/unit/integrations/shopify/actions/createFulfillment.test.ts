@@ -31,7 +31,7 @@ beforeEach(() => {
   mockResolveShop.mockReset();
   mockResolveShop.mockResolvedValue({
     shopDomain: "s.myshopify.com",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
   });
   mockRefreshAndRetry.mockImplementation(
     async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("tok"),
@@ -227,7 +227,7 @@ describe("createFulfillment — refreshAndRetry wrapping", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(2);
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0].provider).toBe("shopify");
-      expect(call[0].accountId).toBe("s.myshopify.com");
+      expect(call[0].providerAccountId).toBe("s.myshopify.com");
     }
   });
 });

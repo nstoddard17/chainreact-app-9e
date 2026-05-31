@@ -210,7 +210,7 @@ export async function receiveOutlookCalendarWebhook(
       event = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "microsoft-outlook-calendar",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) => eventsGet({ accessToken, eventId }),
       });
     } catch (err) {
@@ -223,7 +223,7 @@ export async function receiveOutlookCalendarWebhook(
               subscriptionId,
               changeType,
               notificationOccurredAt: occurredAt,
-              accountId: integration.accountId,
+              providerAccountId: integration.providerAccountId,
             }),
           );
           continue;
@@ -250,7 +250,7 @@ export async function receiveOutlookCalendarWebhook(
         subscriptionId,
         changeType,
         notificationOccurredAt: occurredAt,
-        accountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
       }),
     );
   }

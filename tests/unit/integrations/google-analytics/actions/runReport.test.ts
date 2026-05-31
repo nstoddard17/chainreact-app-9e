@@ -72,7 +72,7 @@ describe("run_report — schema + plumbing", () => {
     mockRunReport.mockResolvedValueOnce({ rows: [] });
     await call({ propertyId: "123", dateRange: "today", metrics: ["sessions"] });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: "google-analytics", accountId: "alice@example.com" }),
+      expect.objectContaining({ provider: "google-analytics", providerAccountId: "alice@example.com" }),
     );
   });
 

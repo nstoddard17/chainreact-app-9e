@@ -215,7 +215,7 @@ describe("receiveMondayWebhook — routing", () => {
     expect(result.events[0]).toMatchObject({
       provider: "monday",
       eventType: "new_item",
-      accountId: "1",
+      providerAccountId: "1",
       payload: { itemId: "2", itemName: "Task" },
     });
   });

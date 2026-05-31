@@ -427,7 +427,7 @@ describe("findRow action", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "google-sheets",
-        accountId: "alice@example.test",
+        providerAccountId: "alice@example.test",
       }),
     );
   });
@@ -452,7 +452,7 @@ describe("findRow action", () => {
     });
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null }),
+      expect.objectContaining({ providerAccountId: null }),
     );
   });
 

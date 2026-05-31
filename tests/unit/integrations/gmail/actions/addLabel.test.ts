@@ -79,9 +79,9 @@ describe("addLabel — refreshAndRetry + accountId routing", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     const call = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("gmail");
-    expect(call.accountId).toBe("me@example.com");
+    expect(call.providerAccountId).toBe("me@example.com");
   });
 
   it("passes providerAccountId: null when the trigger event is not Gmail-shaped", async () => {
@@ -104,7 +104,7 @@ describe("addLabel — refreshAndRetry + accountId routing", () => {
       }),
     );
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBeNull();
   });
 });
 

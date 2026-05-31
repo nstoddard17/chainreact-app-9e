@@ -21,7 +21,7 @@ export const activate: ActivationFn = async ({ integration }) => {
   const profile = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "gmail",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: async (accessToken) => usersGetProfile({ accessToken }),
   });
 

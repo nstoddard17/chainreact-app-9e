@@ -179,8 +179,7 @@ describe("delete_worksheet handler — refreshAndRetry routing", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "microsoft-excel",
-      userId: "u",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
     });
   });
 
@@ -196,7 +195,7 @@ describe("delete_worksheet handler — refreshAndRetry routing", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "microsoft-excel",
-      accountId: null,
+      providerAccountId: null,
     });
   });
 });

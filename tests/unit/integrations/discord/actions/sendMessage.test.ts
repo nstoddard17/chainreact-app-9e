@@ -144,7 +144,11 @@ describe("sendMessage — integration gate", () => {
       author: { id: "b", username: "b", bot: true },
     });
     await sendMessage(makeInput({ guildId: "g", channelId: "c", message: "x" }));
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "discord", null);
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith(
+      "acct-user-1",
+      "discord",
+      null,
+    );
   });
 });
 

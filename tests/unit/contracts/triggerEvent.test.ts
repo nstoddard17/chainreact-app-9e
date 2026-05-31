@@ -20,7 +20,7 @@ describe("TriggerEventSchema", () => {
       "eventType",
       "eventId",
       "occurredAt",
-      "accountId",
+      "providerAccountId",
     ] as const) {
       const candidate = { ...valid, [field]: "" };
       const result = TriggerEventSchema.safeParse(candidate);

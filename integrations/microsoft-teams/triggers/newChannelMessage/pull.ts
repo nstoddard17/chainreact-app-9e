@@ -60,14 +60,14 @@ export async function pull(
     teamId: config.teamId,
     channelId: config.channelId,
     notificationOccurredAt,
-    accountId: integration.accountId,
+    providerAccountId: integration.accountId,
   };
 
   try {
     const message = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "microsoft-teams",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         channelMessageGet({
           accessToken,

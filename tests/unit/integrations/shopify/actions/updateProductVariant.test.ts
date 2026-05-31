@@ -33,7 +33,7 @@ beforeEach(() => {
   mockResolveShop.mockReset();
   mockResolveShop.mockResolvedValue({
     shopDomain: "s.myshopify.com",
-    accountId: "s.myshopify.com",
+    providerAccountId: "s.myshopify.com",
   });
   mockRefreshAndRetry.mockImplementation(
     async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("tok"),
@@ -139,7 +139,7 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
   it("threads accountId from resolveShopDomain into refreshAndRetry", async () => {
     mockResolveShop.mockResolvedValueOnce({
       shopDomain: "alpha.myshopify.com",
-      accountId: "alpha.myshopify.com",
+      providerAccountId: "alpha.myshopify.com",
     });
     mockVariantsUpdate.mockResolvedValueOnce({ id: 22, product_id: 9 });
     await updateProductVariant({
@@ -152,9 +152,9 @@ describe("update_product_variant action — Shopify 2.1 Commit 1", () => {
       triggerEvent: trigger(),
     });
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(refreshArg.userId).toBe("u-123");
+    expect(refreshArg.accountId).toBe("acct-u-123");
     expect(refreshArg.provider).toBe("shopify");
-    expect(refreshArg.accountId).toBe("alpha.myshopify.com");
+    expect(refreshArg.providerAccountId).toBe("alpha.myshopify.com");
     expect(mockVariantsUpdate.mock.calls[0]![0]!.shopDomain).toBe(
       "alpha.myshopify.com",
     );

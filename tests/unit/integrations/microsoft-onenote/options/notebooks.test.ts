@@ -92,9 +92,9 @@ describe("microsoftOneNoteNotebooksResolver — wrapper invocation", () => {
     mockRefreshAndRetry.mockResolvedValueOnce({ notebooks: [], nextLink: null });
     await microsoftOneNoteNotebooksResolver.resolve(ctx());
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(args.userId).toBe("user-1");
+    expect(args.accountId).toBe("acct-user-1");
     expect(args.provider).toBe("microsoft-onenote");
-    expect(args.accountId).toBe("alice@contoso.com");
+    expect(args.providerAccountId).toBe("alice@contoso.com");
     expect(typeof args.apiCall).toBe("function");
   });
 

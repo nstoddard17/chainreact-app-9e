@@ -126,9 +126,9 @@ describe("create_customer action", () => {
       triggerEvent: trigger("stripe", "acct_FROM_TRIGGER"),
     });
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(refreshArg.userId).toBe("u");
+    expect(refreshArg.accountId).toBe("acct-u");
     expect(refreshArg.provider).toBe("stripe");
-    expect(refreshArg.accountId).toBe("acct_FROM_TRIGGER");
+    expect(refreshArg.providerAccountId).toBe("acct_FROM_TRIGGER");
   });
 
   it("passes accountId=null when triggered by a non-stripe provider", async () => {
@@ -143,7 +143,7 @@ describe("create_customer action", () => {
       triggerEvent: trigger("airtable", "usrXXX"),
     });
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(refreshArg.accountId).toBeNull();
+    expect(refreshArg.providerAccountId).toBeNull();
   });
 
   it("rejects non-email values in email field (Q11)", async () => {

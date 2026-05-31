@@ -41,7 +41,10 @@ beforeEach(() => {
   mockRefreshAndRetry.mockReset();
   mockMemberPut.mockReset();
   mockResolveDc.mockReset();
-  mockResolveDc.mockResolvedValue({ dc: "us21", accountId: "mc_account_xyz" });
+  mockResolveDc.mockResolvedValue({
+    dc: "us21",
+    providerAccountId: "mc_account_xyz",
+  });
   mockRefreshAndRetry.mockImplementation(
     async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("tok"),
   );
@@ -165,6 +168,7 @@ describe("addSubscriber — handler flow", () => {
       }),
     );
     expect(mockResolveDc).toHaveBeenCalledWith({
+      accountId: "acct-u1",
       userId: "u1",
       triggerEvent: expect.objectContaining({ provider: "mailchimp" }),
     });
@@ -184,9 +188,8 @@ describe("addSubscriber — handler flow", () => {
     );
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "u1",
         provider: "mailchimp",
-        accountId: "mc_account_xyz",
+        providerAccountId: "mc_account_xyz",
       }),
     );
   });

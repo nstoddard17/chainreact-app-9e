@@ -396,9 +396,9 @@ describe("update_multiple_records action — Airtable 2.1 Commit 4", () => {
       triggerEvent: trigger(),
     });
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(refreshArg.userId).toBe("u-123");
+    expect(refreshArg.accountId).toBe("acct-u-123");
     expect(refreshArg.provider).toBe("airtable");
-    expect(refreshArg.accountId).toBe("usrXXX");
+    expect(refreshArg.providerAccountId).toBe("usrXXX");
   });
 
   it("returns bounded output (baseId, tableIdOrName, updatedCount, records[]); no raw response spread", async () => {

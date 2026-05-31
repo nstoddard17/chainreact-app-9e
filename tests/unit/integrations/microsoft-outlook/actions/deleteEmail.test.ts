@@ -252,7 +252,7 @@ describe("delete_email action — common behavior", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });
@@ -276,7 +276,7 @@ describe("delete_email action — common behavior", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: null,
+        providerAccountId: null,
       }),
     );
   });

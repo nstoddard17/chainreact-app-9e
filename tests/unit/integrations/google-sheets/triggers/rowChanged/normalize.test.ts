@@ -5,7 +5,7 @@ import { normalize } from "@/integrations/google-sheets/triggers/rowChanged/norm
 
 describe("normalize", () => {
   const baseContext = {
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     spreadsheetId: "ss-1",
     sheetName: "Sheet1",
     headers: null,
@@ -105,7 +105,7 @@ describe("normalize", () => {
 
   describe("Sheets 2.3 — extended changeKind variants", () => {
     const ctxPositional = {
-      accountId: "alice@example.test",
+      providerAccountId: "alice@example.test",
       spreadsheetId: "ss-1",
       sheetName: "Sheet1",
       headers: null,

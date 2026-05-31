@@ -170,9 +170,8 @@ describe("Outlook new_email activate", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
         provider: "microsoft-outlook",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });

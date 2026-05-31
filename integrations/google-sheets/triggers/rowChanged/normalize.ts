@@ -41,7 +41,7 @@ import type { TriggerEvent } from "@/contracts/triggerEvent";
 export type SheetsChangeKind = "added" | "updated" | "removed";
 
 export interface NormalizeContext {
-  accountId: string;
+  providerAccountId: string;
   spreadsheetId: string;
   sheetName: string;
   /** When set, surfaced as `headers` in the payload. Independent of
@@ -129,7 +129,7 @@ export function normalize(
     eventType: "row_changed",
     eventId,
     occurredAt: row.occurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       changeKind,
       spreadsheetId: context.spreadsheetId,

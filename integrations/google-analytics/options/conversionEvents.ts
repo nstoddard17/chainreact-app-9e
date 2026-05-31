@@ -53,7 +53,7 @@ export const googleAnalyticsConversionEventsResolver: OptionsResolver = {
       result = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "google-analytics",
-        providerAccountId: ctx.integration.accountId,
+        providerAccountId: ctx.integration.providerAccountId,
         apiCall: (accessToken) =>
           conversionEventsList({ accessToken, propertyId }),
       });

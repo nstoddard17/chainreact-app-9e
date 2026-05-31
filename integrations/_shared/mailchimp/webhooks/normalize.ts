@@ -144,7 +144,7 @@ export interface NormalizeMailchimpEventInput {
    * receive helper looks up the trigger first; the trigger row carries
    * the `accountId` for the integration that owns the webhook.
    */
-  accountId: string;
+  providerAccountId: string;
 }
 
 function bestOccurredAt(parsed: MailchimpParsedPayload): string {
@@ -166,7 +166,7 @@ export function normalizeMailchimpEvent(
     eventType: MAILCHIMP_TRIGGER_EVENT_TYPE,
     eventId: mailchimpDedupKey(input.rawBody),
     occurredAt: bestOccurredAt(input.parsed),
-    providerAccountId: input.accountId,
+    providerAccountId: input.providerAccountId,
     payload: {
       type: input.parsed.type,
       audienceId: input.parsed.data.list_id ?? null,

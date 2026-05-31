@@ -38,7 +38,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const baseline = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-docs",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
   });
   const pageToken = baseline.startPageToken;
@@ -54,7 +54,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const watch = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-docs",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       filesWatch({
         accessToken,

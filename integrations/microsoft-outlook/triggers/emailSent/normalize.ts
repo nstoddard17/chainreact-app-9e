@@ -29,7 +29,7 @@ export interface NormalizeContext {
   subscriptionId: string;
   changeType: string;
   notificationOccurredAt: string;
-  accountId: string;
+  providerAccountId: string;
 }
 
 interface AddressShape {
@@ -84,7 +84,7 @@ export function normalize(
       message.lastModifiedDateTime ??
       message.receivedDateTime ??
       context.notificationOccurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       messageId: message.id,
       conversationId: message.conversationId ?? null,

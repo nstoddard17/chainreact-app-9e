@@ -64,7 +64,7 @@ export const microsoftTeamsChannelsResolver: OptionsResolver = {
       result = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "microsoft-teams",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) => channelsList({ accessToken, teamId }),
       });
     } catch (err) {

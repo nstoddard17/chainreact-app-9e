@@ -25,7 +25,18 @@ jest.mock("next/navigation", () => ({
 
 const mockListActive = jest.fn();
 jest.mock("@/repositories/integrations", () => ({
-  listActiveByUser: (...a: unknown[]) => mockListActive(...a),
+  listActiveByAccount: (...a: unknown[]) => mockListActive(...a),
+}));
+
+const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
+  id: `acct-${userId}`,
+  type: "personal" as const,
+  ownerUserId: userId,
+  createdAt: "2026-05-30T00:00:00Z",
+  updatedAt: "2026-05-30T00:00:00Z",
+}));
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
 
 const mockCountUnread = jest.fn();
@@ -94,7 +105,7 @@ describe("AppsPage — auth", () => {
     mockListActive.mockResolvedValue([]);
     await getDashboardProps();
     expect(mockRedirect).not.toHaveBeenCalled();
-    expect(mockListActive).toHaveBeenCalledWith("u-123");
+    expect(mockListActive).toHaveBeenCalledWith("acct-u-123");
   });
 });
 

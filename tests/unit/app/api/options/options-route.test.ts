@@ -27,6 +27,20 @@ jest.mock("@/repositories/integrations", () => ({
     mockGetActiveForExecution(...args),
 }));
 
+// Slice 4.ACCOUNT-MODEL-6: the route resolves the V2 owner account via
+// this service. Stub to a synthetic personal account so the route doesn't
+// need a real Supabase request context inside the test runner.
+const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
+  id: `acct-${userId}`,
+  type: "personal" as const,
+  ownerUserId: userId,
+  createdAt: "2026-05-30T00:00:00Z",
+  updatedAt: "2026-05-30T00:00:00Z",
+}));
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
+}));
+
 // The slack:channels happy-path tests below drive the real resolver
 // (registered in `services/options/_registry.ts`) — but the resolver
 // itself calls into `integrations/slack/api/conversationsList` and
@@ -396,9 +410,11 @@ describe("GET /api/options/[source] — requiresIntegration branch", () => {
       expect(body.code).toBe("INTEGRATION_DISCONNECTED");
       expect(body.message).toMatch(/synthetic/);
     }
-    // The integration lookup was called with the resolver's provider.
+    // The integration lookup was called with the resolver's provider —
+    // the V2 owner account (`acct-user-1`) is resolved from the
+    // signed-in user via `ensurePersonalAccount` before the lookup.
     expect(mockGetActiveForExecution).toHaveBeenCalledWith(
-      "user-1",
+      "acct-user-1",
       "synthetic",
       null,
     );
@@ -573,7 +589,7 @@ describe("GET /api/options/slack:channels — end-to-end through the real resolv
       expect(body.hasMore).toBe(false);
     }
     expect(mockGetActiveForExecution).toHaveBeenCalledWith(
-      "user-1",
+      "acct-user-1",
       "slack",
       null,
     );

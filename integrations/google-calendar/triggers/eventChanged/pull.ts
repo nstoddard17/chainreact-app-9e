@@ -64,7 +64,7 @@ export async function pull(
       const page = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "google-calendar",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           eventsList({
             accessToken,
@@ -105,7 +105,7 @@ export async function pull(
       const page = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "google-calendar",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           eventsList({
             accessToken,
@@ -141,7 +141,7 @@ export async function pull(
   // Convert each delta event to a TriggerEvent.
   const events: TriggerEvent[] = allEvents.map((e) =>
     normalize(e, {
-      accountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       calendarId: config.calendarId!,
     }),
   );

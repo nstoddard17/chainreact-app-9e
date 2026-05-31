@@ -162,9 +162,9 @@ describe("dispatcher.refresh — error paths", () => {
     );
   });
 
-  it("rejects empty userId", async () => {
+  it("rejects empty accountId", async () => {
     await expect(refresh({ accountId: "", provider: "slack" })).rejects.toThrow(
-      /userId is required/i,
+      /accountId is required/i,
     );
   });
 });

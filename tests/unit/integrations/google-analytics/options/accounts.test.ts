@@ -80,9 +80,8 @@ describe("googleAnalyticsAccountsResolver — mapping", () => {
     await googleAnalyticsAccountsResolver.resolve(ctx());
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "google-analytics",
-      accountId: "alice@example.com",
-      userId: "user-1",
-    });
+      providerAccountId: "alice@example.com",
+      });
   });
 
   it("maps account summaries → {value: bare id, label: displayName}, alpha-sorted", async () => {

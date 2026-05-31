@@ -294,7 +294,7 @@ describe("add_attachment action — Airtable 2.1 Commit 2", () => {
       },
       triggerEvent: trigger(),
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("usrXXX");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe("usrXXX");
   });
 
   it("propagates signed URL creation failures (no Airtable PATCH issued)", async () => {

@@ -25,7 +25,7 @@ import { workbooksList } from "@/integrations/microsoft-excel/api/workbooksList"
  *   - `requiresIntegration: true`; no `requiredDeps` (workbooks are
  *     account-scoped).
  *   - Wrapper goes through `refreshAndRetry({provider: "microsoft-excel",
- *     providerAccountId: ctx.integration.accountId})` so a stale Microsoft
+ *     providerAccountId: ctx.integration.providerAccountId})` so a stale Microsoft
  *     v2 access token triggers exactly one refresh + retry cycle.
  *
  * Source: `workbooksList` (drive-root `.xlsx` mime filter). Single page

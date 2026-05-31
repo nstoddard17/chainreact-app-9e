@@ -140,7 +140,7 @@ describe("create_checkout_session action", () => {
       triggerEvent: trigger("stripe", "acct_MERCHANT"),
     });
     const arg = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(arg.accountId).toBe("acct_MERCHANT");
+    expect(arg.providerAccountId).toBe("acct_MERCHANT");
   });
 
   it("resolves accountId as null when triggered by a non-Stripe provider", async () => {
@@ -160,7 +160,7 @@ describe("create_checkout_session action", () => {
       triggerEvent: trigger("gmail", "alice@example.com"),
     });
     const arg = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(arg.accountId).toBeNull();
+    expect(arg.providerAccountId).toBeNull();
   });
 
   it("forwards optional safe fields when supplied", async () => {

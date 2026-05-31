@@ -126,7 +126,7 @@ describe("new_note activate — happy path (section has pages)", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("microsoft-onenote");
-    expect(args.accountId).toBe("alice@contoso.com");
+    expect(args.providerAccountId).toBe("alice@contoso.com");
 
     expect(mockPagesList).toHaveBeenCalledTimes(1);
     expect(mockPagesList.mock.calls[0]![0]).toMatchObject({

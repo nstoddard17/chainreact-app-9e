@@ -76,7 +76,7 @@ export async function pull(
   const baseContext = {
     subscriptionId: config.subscriptionId,
     notificationOccurredAt,
-    accountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
   };
 
   if (mode.kind === "id-fetch") {

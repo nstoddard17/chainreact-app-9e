@@ -85,9 +85,9 @@ describe("mailchimpAudiencesResolver — wrapper invocation", () => {
     });
     await mailchimpAudiencesResolver.resolve(ctx());
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(args.userId).toBe("user-1");
+    expect(args.accountId).toBe("acct-user-1");
     expect(args.provider).toBe("mailchimp");
-    expect(args.accountId).toBe("mc-account-9001");
+    expect(args.providerAccountId).toBe("mc-account-9001");
     expect(typeof args.apiCall).toBe("function");
   });
 

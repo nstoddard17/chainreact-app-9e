@@ -12,7 +12,7 @@ describe("new_worksheet normalize", () => {
     occurredAt: "2026-05-15T12:00:00.000Z",
   };
   const baseContext = {
-    accountId: "alice@example.test",
+    providerAccountId: "alice@example.test",
     spreadsheetId: "ss-1",
   };
 

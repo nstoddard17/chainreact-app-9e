@@ -70,7 +70,7 @@ describe("mondayBoardsResolver — wrapper invocation", () => {
     await mondayBoardsResolver.resolve(ctx());
     const args = mockRefreshAndRetry.mock.calls[0]![0];
     expect(args.provider).toBe("monday");
-    expect(args.accountId).toBe("alice@example.com");
+    expect(args.providerAccountId).toBe("alice@example.com");
   });
 
   it("returns empty items when no boards", async () => {

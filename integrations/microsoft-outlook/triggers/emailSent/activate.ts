@@ -70,7 +70,7 @@ export const activate: ActivationFn = async ({ integration }) => {
   const result = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-outlook",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

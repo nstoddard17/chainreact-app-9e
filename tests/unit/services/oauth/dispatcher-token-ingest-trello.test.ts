@@ -17,6 +17,13 @@ import { randomBytes } from "node:crypto";
 const mockUpsertActive = jest.fn();
 const mockOAuthStatesCreate = jest.fn();
 const mockOAuthStatesConsume = jest.fn();
+const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
+  id: `acct-${userId}`,
+  type: "personal" as const,
+  ownerUserId: userId,
+  createdAt: "2026-05-30T00:00:00Z",
+  updatedAt: "2026-05-30T00:00:00Z",
+}));
 
 jest.mock("@/repositories/integrations", () => ({
   upsertActive: (...args: unknown[]) => mockUpsertActive(...args),
@@ -25,6 +32,10 @@ jest.mock("@/repositories/integrations", () => ({
 jest.mock("@/repositories/oauthStates", () => ({
   create: (...args: unknown[]) => mockOAuthStatesCreate(...args),
   consumeByNonce: (...args: unknown[]) => mockOAuthStatesConsume(...args),
+}));
+
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
 
 import { connect, handleTokenIngest } from "@/services/oauth/dispatcher";
@@ -130,13 +141,15 @@ describe("dispatcher.handleTokenIngest (trello — full happy path)", () => {
 
     expect(mockUpsertActive).toHaveBeenCalledTimes(1);
     const upsertInput = mockUpsertActive.mock.calls[0]![0] as {
-      userId: string;
+      accountId: string;
+      connectedByUserId: string;
       provider: string;
       providerAccountId: string;
       displayName: string | null;
       tokens: { accessTokenEncrypted: string; refreshTokenEncrypted: string | null };
     };
-    expect(upsertInput.userId).toBe("user-1");
+    expect(upsertInput.accountId).toBe("acct-user-1");
+    expect(upsertInput.connectedByUserId).toBe("user-1");
     expect(upsertInput.provider).toBe("trello");
     expect(upsertInput.providerAccountId).toBe("trello-member-id-1");
     expect(upsertInput.displayName).toBe("Octo Cat");

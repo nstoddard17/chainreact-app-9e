@@ -106,7 +106,7 @@ export const activate: ActivationFn = async ({ integration }) => {
   const baseline = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-onedrive",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) => driveRootDelta({ accessToken }),
   });
   const deltaToken = baseline.deltaLink;
@@ -117,7 +117,7 @@ export const activate: ActivationFn = async ({ integration }) => {
   const result = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-onedrive",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       createSubscription({
         accessToken,

@@ -79,7 +79,7 @@ export const outlookCalendarEventChangedSubscriptionHandler: SubscriptionHandler
       const result = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "microsoft-outlook-calendar",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           renewSubscription({
             accessToken,

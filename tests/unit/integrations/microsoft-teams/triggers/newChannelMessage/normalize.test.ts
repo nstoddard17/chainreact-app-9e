@@ -10,7 +10,7 @@ function ctx() {
     teamId: "team-1",
     channelId: "ch-1",
     notificationOccurredAt: "2026-05-10T12:00:00.000Z",
-    accountId: "alice@contoso.com",
+    providerAccountId: "alice@contoso.com",
   };
 }
 

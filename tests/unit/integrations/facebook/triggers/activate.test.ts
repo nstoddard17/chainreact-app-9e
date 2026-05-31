@@ -75,9 +75,8 @@ describe("facebookSharedActivate", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "facebook",
-      accountId: "fb-user-1",
-      userId: "user-1",
-    });
+      providerAccountId: "fb-user-1",
+      });
     expect(mockGetPageAccessToken).toHaveBeenCalledWith({
       accessToken: "user-tok",
       pageId: "page-1",

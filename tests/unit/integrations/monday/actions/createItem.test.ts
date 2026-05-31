@@ -188,7 +188,7 @@ describe("create_item handler", () => {
     });
     const call = mockRefreshAndRetry.mock.calls[0]![0];
     expect(call.provider).toBe("monday");
-    expect(call.accountId).toBe("alice@example.com");
+    expect(call.providerAccountId).toBe("alice@example.com");
   });
 
   it("returns null accountId when trigger provider isn't monday", async () => {
@@ -208,7 +208,7 @@ describe("create_item handler", () => {
       config: { boardId: "b", groupId: "g", itemName: "n" },
       triggerEvent: { ...trigger(), provider: "manual" },
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBeNull();
   });
 
   it("output shape: itemId / itemName / boardId / groupId / createdAt", async () => {

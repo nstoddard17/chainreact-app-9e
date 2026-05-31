@@ -183,9 +183,9 @@ describe("OneDrive file_changed activate", () => {
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0]).toEqual(
         expect.objectContaining({
-          userId: "user-1",
+          accountId: "acct-user-1",
           provider: "microsoft-onedrive",
-          accountId: "alice@contoso.com",
+          providerAccountId: "alice@contoso.com",
         }),
       );
     }

@@ -35,7 +35,7 @@ beforeEach(() => {
   mockResolveShop.mockReset();
   mockResolveShop.mockResolvedValue({
     shopDomain: "test-shop.myshopify.com",
-    accountId: "test-shop.myshopify.com",
+    providerAccountId: "test-shop.myshopify.com",
   });
   mockRefreshAndRetry.mockImplementation(
     async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("tok"),

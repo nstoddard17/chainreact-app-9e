@@ -83,7 +83,7 @@ describe("airtableBasesResolver — wrapper invocation", () => {
 
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("airtable");
-    expect(args.accountId).toBe("usrAIRTABLEUSER");
+    expect(args.providerAccountId).toBe("usrAIRTABLEUSER");
   });
 });
 

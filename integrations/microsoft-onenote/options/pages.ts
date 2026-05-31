@@ -25,7 +25,7 @@ import { pagesList } from "@/integrations/microsoft-onenote/api/pagesList";
  *   - `requiredDeps: ["sectionId"]` — route validates + short-circuits
  *     with `MISSING_DEPENDENCY` before dispatch.
  *   - Wrapper goes through `refreshAndRetry({provider:
- *     "microsoft-onenote", providerAccountId: ctx.integration.accountId})`.
+ *     "microsoft-onenote", providerAccountId: ctx.integration.providerAccountId})`.
  *
  * Sort: Graph-side `$orderby=lastModifiedDateTime desc`. Workflow
  * authors picking a page almost always want the one they (or another

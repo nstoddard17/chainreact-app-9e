@@ -149,7 +149,7 @@ describe("receiveSlackWebhook — body parsing", () => {
         // C-prefix fallback → public channel.
         eventType: "slack.message.channel",
         eventId: "Ev123",
-        accountId: "T0001",
+        providerAccountId: "T0001",
       });
     }
   });

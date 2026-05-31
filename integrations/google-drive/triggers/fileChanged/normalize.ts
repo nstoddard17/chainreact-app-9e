@@ -41,7 +41,7 @@ export type ChangeKind = "created" | "updated" | "removed";
 export type ObjectKind = "file" | "folder";
 
 export interface NormalizeContext {
-  accountId: string;
+  providerAccountId: string;
   /** When set, only changes whose file has this id in `parents` are emitted. */
   folderId?: string;
 }
@@ -96,7 +96,7 @@ export function normalize(
     eventType: "file_changed",
     eventId,
     occurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       changeKind,
       objectKind,

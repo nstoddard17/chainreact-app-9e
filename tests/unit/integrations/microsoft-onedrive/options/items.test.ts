@@ -91,7 +91,7 @@ describe("microsoftOneDriveItemsResolver — wrapper invocation", () => {
       parentItemId: "parent-1",
       top: PAGE_SIZE,
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("user@example.com");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe("user@example.com");
   });
 });
 

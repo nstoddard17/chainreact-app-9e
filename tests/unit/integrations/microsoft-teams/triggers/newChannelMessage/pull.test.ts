@@ -152,7 +152,7 @@ describe("Teams new_channel_message pull (hydration)", () => {
 
     await pull(trigger(validConfig), "msg-1", "2026-05-10T12:00:01.000Z");
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe(
       "alice@contoso.com",
     );
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe(

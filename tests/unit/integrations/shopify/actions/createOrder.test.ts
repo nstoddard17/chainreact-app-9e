@@ -31,7 +31,7 @@ beforeEach(() => {
   mockResolveShop.mockReset();
   mockResolveShop.mockResolvedValue({
     shopDomain: "test-shop.myshopify.com",
-    accountId: "test-shop.myshopify.com",
+    providerAccountId: "test-shop.myshopify.com",
   });
   // Default: invoke the apiCall with a stub access token.
   mockRefreshAndRetry.mockImplementation(
@@ -103,8 +103,8 @@ describe("createOrder — happy path", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     const arg = mockRefreshAndRetry.mock.calls[0]![0];
     expect(arg.provider).toBe("shopify");
-    expect(arg.userId).toBe("u-1");
-    expect(arg.accountId).toBe("test-shop.myshopify.com");
+    expect(arg.accountId).toBe("acct-u-1");
+    expect(arg.providerAccountId).toBe("test-shop.myshopify.com");
   });
 
   it("threads the resolved shopDomain into the wrapper (NOT from action config)", async () => {

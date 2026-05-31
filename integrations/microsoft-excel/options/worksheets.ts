@@ -31,7 +31,7 @@ import { worksheetsList } from "@/integrations/microsoft-excel/api/worksheetsLis
  *     short-circuits `MISSING_DEPENDENCY` before dispatch; the in-resolver
  *     guard covers direct invocations).
  *   - Wrapper via `refreshAndRetry({provider: "microsoft-excel",
- *     providerAccountId: ctx.integration.accountId})`.
+ *     providerAccountId: ctx.integration.providerAccountId})`.
  *
  * `worksheetsList` returns a bare array (Graph `value[]`; no pagination),
  * so `hasMore` is always `false`. Worksheet lists are small.

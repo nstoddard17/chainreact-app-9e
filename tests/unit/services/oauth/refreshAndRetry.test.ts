@@ -111,9 +111,9 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
     expect(apiCall).toHaveBeenNthCalledWith(2, "fresh");
     expect(mockDispatcherRefresh).toHaveBeenCalledTimes(1);
     expect(mockDispatcherRefresh).toHaveBeenCalledWith({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "gmail",
-      accountId: null,
+      providerAccountId: null,
     });
   });
 
@@ -133,7 +133,7 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       name: "IntegrationActionRequiredError",
       reason: "refresh_failed",
       provider: "gmail",
-      userId: "user-1",
+      accountId: "user-1",
     });
     expect(apiCall).toHaveBeenCalledTimes(2);
   });
@@ -168,9 +168,9 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       "alice@example.com",
     );
     expect(mockDispatcherRefresh).toHaveBeenCalledWith({
-      userId: "user-1",
+      accountId: "user-1",
       provider: "gmail",
-      accountId: "alice@example.com",
+      providerAccountId: "alice@example.com",
     });
   });
 });
@@ -187,7 +187,7 @@ describe("refreshAndRetry — refresh-not-supported provider (Slack-shaped path)
       name: "IntegrationActionRequiredError",
       reason: "refresh_not_supported",
       provider: "slack",
-      userId: "user-1",
+      accountId: "user-1",
     });
     expect(apiCall).toHaveBeenCalledTimes(1); // no retry attempted
   });

@@ -42,7 +42,7 @@ export interface NormalizeContext {
   /** ISO-8601 timestamp from the notification or our receipt time. */
   notificationOccurredAt: string;
   /** Account id (email) from the integration row this trigger fired against. */
-  accountId: string;
+  providerAccountId: string;
 }
 
 interface AddressShape {
@@ -111,7 +111,7 @@ export function normalize(
       event.lastModifiedDateTime ??
       event.createdDateTime ??
       context.notificationOccurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       eventId: event.id,
       changeType: context.changeType,
@@ -153,7 +153,7 @@ export function normalizeDeleted(
     eventType: "event_changed",
     eventId: buildEventId(context, eventId),
     occurredAt: context.notificationOccurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       eventId,
       changeType: context.changeType,

@@ -250,13 +250,13 @@ describe("deleteRow action", () => {
       expect(call[0]).toEqual(
         expect.objectContaining({
           provider: "google-sheets",
-          accountId: "alice@example.test",
+          providerAccountId: "alice@example.test",
         }),
       );
     }
   });
 
-  it("passes accountId=null when trigger is NOT from google-sheets", async () => {
+  it("passes providerAccountId=null when trigger is NOT from google-sheets", async () => {
     wireRefresh({ sheets: [{ properties: { sheetId: 0, title: "S" } }] });
 
     await deleteRow({
@@ -270,7 +270,9 @@ describe("deleteRow action", () => {
     });
 
     for (const call of mockRefreshAndRetry.mock.calls) {
-      expect(call[0]).toEqual(expect.objectContaining({ accountId: null }));
+      expect(call[0]).toEqual(
+        expect.objectContaining({ providerAccountId: null }),
+      );
     }
   });
 

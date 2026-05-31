@@ -38,12 +38,25 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/repositories/workflows", () => ({
   listByUser: jest.fn().mockResolvedValue([]),
   loadDraft: jest.fn(),
+  listNamesByIds: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("@/repositories/workflowRunStats", () => ({
   getStatsForUser: jest.fn().mockResolvedValue(new Map()),
 }));
+jest.mock("@/repositories/workflowRuns", () => ({
+  listByUserForDisplay: jest.fn().mockResolvedValue([]),
+}));
 jest.mock("@/repositories/integrations", () => ({
-  listActiveByUser: jest.fn().mockResolvedValue([]),
+  listActiveByAccount: jest.fn().mockResolvedValue([]),
+}));
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: jest.fn(async (userId: string) => ({
+    id: `acct-${userId}`,
+    type: "personal" as const,
+    ownerUserId: userId,
+    createdAt: "2026-05-30T00:00:00Z",
+    updatedAt: "2026-05-30T00:00:00Z",
+  })),
 }));
 jest.mock("@/repositories/notifications", () => ({
   listForUser: jest.fn().mockResolvedValue([]),
@@ -107,6 +120,12 @@ describe("AppShell — route scope: INCLUDED", () => {
       "@/app/notifications/page"
     );
     const result = await NotificationsPage();
+    expect(containsElement(result, AppShell)).toBe(true);
+  });
+
+  it("/runs renders AppShell", async () => {
+    const { default: RunsPage } = await import("@/app/runs/page");
+    const result = await RunsPage();
     expect(containsElement(result, AppShell)).toBe(true);
   });
 });

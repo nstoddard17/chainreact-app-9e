@@ -112,7 +112,7 @@ describe("get_channel_details action", () => {
       triggerEvent: trigger(),
     });
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe(
       "alice@contoso.com",
     );
   });

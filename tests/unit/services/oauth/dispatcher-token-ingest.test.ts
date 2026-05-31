@@ -23,6 +23,13 @@ const mockUpsertActive = jest.fn();
 const mockOAuthStatesCreate = jest.fn();
 const mockOAuthStatesConsume = jest.fn();
 const mockGetProvider = jest.fn();
+const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
+  id: `acct-${userId}`,
+  type: "personal" as const,
+  ownerUserId: userId,
+  createdAt: "2026-05-30T00:00:00Z",
+  updatedAt: "2026-05-30T00:00:00Z",
+}));
 
 jest.mock("@/repositories/integrations", () => ({
   upsertActive: (...args: unknown[]) => mockUpsertActive(...args),
@@ -35,6 +42,10 @@ jest.mock("@/repositories/oauthStates", () => ({
 
 jest.mock("@/integrations/_registry", () => ({
   getProvider: (...args: unknown[]) => mockGetProvider(...args),
+}));
+
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
 
 beforeEach(() => {

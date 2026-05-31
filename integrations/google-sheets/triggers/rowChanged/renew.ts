@@ -79,7 +79,7 @@ export const sheetsRowChangedSubscriptionHandler: SubscriptionHandler = {
     const watch = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-sheets",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         filesWatch({
           accessToken,
@@ -98,7 +98,7 @@ export const sheetsRowChangedSubscriptionHandler: SubscriptionHandler = {
         await refreshAndRetry({
           accountId: integration.accountId,
           provider: "google-sheets",
-          providerAccountId: integration.accountId,
+          providerAccountId: integration.providerAccountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

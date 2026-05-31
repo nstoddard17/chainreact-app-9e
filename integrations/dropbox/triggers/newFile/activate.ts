@@ -30,7 +30,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const { cursor } = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "dropbox",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       filesListFolderGetLatestCursor({
         accessToken,
@@ -42,7 +42,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   return {
     snapshot: {
       cursor,
-      accountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       capturedAt: new Date().toISOString(),
     },
   };

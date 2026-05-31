@@ -204,9 +204,9 @@ describe("find_payment_intent action", () => {
       triggerEvent: trigger(),
     });
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(refreshArg.userId).toBe("u-123");
+    expect(refreshArg.accountId).toBe("acct-u-123");
     expect(refreshArg.provider).toBe("stripe");
-    expect(refreshArg.accountId).toBe("acct_TEST");
+    expect(refreshArg.providerAccountId).toBe("acct_TEST");
   });
 
   it("does NOT send Idempotency-Key (read-only GET)", async () => {

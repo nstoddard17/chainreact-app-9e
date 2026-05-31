@@ -80,7 +80,7 @@ describe("microsoftTeamsTeamsResolver — wrapper invocation", () => {
     expect(mockTeamsList).toHaveBeenCalledWith({ accessToken: "test-access-token" });
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("microsoft-teams");
-    expect(args.accountId).toBe("user@example.com");
+    expect(args.providerAccountId).toBe("user@example.com");
   });
 });
 

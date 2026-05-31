@@ -26,7 +26,7 @@ import type { CalendarEventResource } from "../../api/eventsInsert";
 export type ChangeKind = "created" | "updated" | "cancelled";
 
 export interface NormalizeContext {
-  accountId: string;
+  providerAccountId: string;
   calendarId: string;
 }
 
@@ -53,7 +53,7 @@ export function normalize(
     eventType: "event_changed",
     eventId,
     occurredAt: updated,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       changeKind,
       calendarId: context.calendarId,

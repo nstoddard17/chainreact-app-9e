@@ -82,7 +82,7 @@ export async function pull(
       const page = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "google-docs",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           changesList({
             accessToken,
@@ -110,7 +110,7 @@ export async function pull(
     const baseline = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-docs",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
     });
     if (baseline.startPageToken) {
@@ -132,7 +132,7 @@ export async function pull(
   const events: TriggerEvent[] = [];
   for (const change of allChanges) {
     const ev = normalize(change, {
-      accountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       folderId: config.folderId,
     });
     if (ev) events.push(ev);

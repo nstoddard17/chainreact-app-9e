@@ -91,7 +91,7 @@ describe("dropboxFilesResolver — mapping", () => {
     await dropboxFilesResolver.resolve(ctx());
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "dropbox",
-      accountId: "dbid:1",
+      providerAccountId: "dbid:1",
     });
     expect(mockList.mock.calls[0]![0]).toMatchObject({
       path: "/Folder",

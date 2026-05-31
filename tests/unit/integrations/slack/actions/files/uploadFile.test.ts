@@ -489,7 +489,7 @@ describe("upload_file — token / integration lookup", () => {
       }),
     );
     expect(mockGetActiveForExecution).toHaveBeenCalledWith(
-      "user-1",
+      "acct-user-1",
       "slack",
       "T0001",
     );

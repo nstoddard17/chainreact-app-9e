@@ -147,8 +147,8 @@ describe("Airtable record_changed activate", () => {
       expirationTime: "x",
     });
     await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
-    expect(mockRefreshAndRetry.mock.calls[0]![0].userId).toBe("user-1");
+    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe("acct-user-1");
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe("airtable");
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe("usrXXX");
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe("usrXXX");
   });
 });

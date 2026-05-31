@@ -59,7 +59,7 @@ describe("normalize", () => {
         status: "confirmed",
         updated: "2026-05-08T10:30:00Z",
       } as unknown as Parameters<typeof normalize>[0],
-      { accountId: "alice@example.com", calendarId: "primary" },
+      { providerAccountId: "alice@example.com", calendarId: "primary" },
     );
     expect(event.provider).toBe("google-calendar");
     expect(event.eventType).toBe("event_changed");
@@ -81,7 +81,7 @@ describe("normalize", () => {
         attendees: [{ email: "a@x.com" }],
         htmlLink: "https://...",
       } as unknown as Parameters<typeof normalize>[0],
-      { accountId: "u@x.com", calendarId: "primary" },
+      { providerAccountId: "u@x.com", calendarId: "primary" },
     );
     expect(event.payload).toMatchObject({
       changeKind: "created", // created==updated

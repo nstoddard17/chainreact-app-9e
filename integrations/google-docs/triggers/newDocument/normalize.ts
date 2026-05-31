@@ -27,7 +27,7 @@ import type { DriveChangeEntry } from "@/integrations/google-drive/api/changesLi
 const GOOGLE_DOCS_MIME_TYPE = "application/vnd.google-apps.document";
 
 export interface NormalizeContext {
-  accountId: string;
+  providerAccountId: string;
   /**
    * When set, only documents whose file has this id in `parents` are
    * emitted. Drive's `changes.list` returns the whole drive; this
@@ -96,7 +96,7 @@ export function normalize(
     eventType: "new_document",
     eventId,
     occurredAt: createdAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       documentId: fileId,
       title: file.name ?? null,

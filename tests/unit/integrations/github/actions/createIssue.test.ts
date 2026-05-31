@@ -133,7 +133,7 @@ describe("create_issue — refreshAndRetry wrapping", () => {
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("github");
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.userId).toBe("u");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("acct-u");
   });
 
   it("threads accountId from github trigger event", async () => {
@@ -143,7 +143,7 @@ describe("create_issue — refreshAndRetry wrapping", () => {
       triggerEvent: trigger("github"),
       config: { repository: "u/r", title: "x" },
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("octocat");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe("octocat");
   });
 
   it("uses null accountId for non-github triggers", async () => {
@@ -153,7 +153,7 @@ describe("create_issue — refreshAndRetry wrapping", () => {
       triggerEvent: trigger("manual"),
       config: { repository: "u/r", title: "x" },
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBeNull();
   });
 });
 

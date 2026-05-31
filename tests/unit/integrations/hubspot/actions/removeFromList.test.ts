@@ -102,8 +102,8 @@ describe("remove_from_list", () => {
     });
     const arg = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(arg.provider).toBe("hubspot");
-    expect(arg.userId).toBe("user-abc");
-    expect(arg.accountId).toBe("portal-1");
+    expect(arg.accountId).toBe("acct-user-abc");
+    expect(arg.providerAccountId).toBe("portal-1");
   });
 
   it("rejects missing listId at schema time", async () => {

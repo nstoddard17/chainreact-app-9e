@@ -79,7 +79,7 @@ export const driveFileChangedSubscriptionHandler: SubscriptionHandler = {
     const watch = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-drive",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         filesWatch({
           accessToken,
@@ -98,7 +98,7 @@ export const driveFileChangedSubscriptionHandler: SubscriptionHandler = {
         await refreshAndRetry({
           accountId: integration.accountId,
           provider: "google-drive",
-          providerAccountId: integration.accountId,
+          providerAccountId: integration.providerAccountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

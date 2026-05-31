@@ -123,7 +123,7 @@ describe("deleteEmail — trash mode", () => {
 
     const call = mockRefreshAndRetry.mock.calls[0]![0];
     expect(call.provider).toBe("gmail");
-    expect(call.accountId).toBe("me@example.com");
+    expect(call.providerAccountId).toBe("me@example.com");
   });
 });
 

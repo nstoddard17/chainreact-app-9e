@@ -53,7 +53,7 @@ export const microsoftTeamsTeamsResolver: OptionsResolver = {
       result = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "microsoft-teams",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) => teamsList({ accessToken }),
       });
     } catch (err) {

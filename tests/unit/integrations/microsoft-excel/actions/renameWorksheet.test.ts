@@ -210,8 +210,7 @@ describe("rename_worksheet handler — refreshAndRetry routing", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "microsoft-excel",
-      userId: "u",
-      accountId: "alice@contoso.com",
+      providerAccountId: "alice@contoso.com",
     });
   });
 
@@ -231,7 +230,7 @@ describe("rename_worksheet handler — refreshAndRetry routing", () => {
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "microsoft-excel",
-      accountId: null,
+      providerAccountId: null,
     });
   });
 });

@@ -14,7 +14,17 @@ jest.mock("@/repositories/triggerResources", () => ({
   listForPolling: (...args: unknown[]) => mockListForPolling(...args),
 }));
 jest.mock("@/repositories/workflows", () => ({
-  getStateForDispatch: (...args: unknown[]) => mockGetStateForDispatch(...args),
+  // The cron scheduler reads `(state, accountId)` in a single round trip
+  // via `getDispatchInfo` (Slice 4.ACCOUNT-MODEL-6). Reuse the
+  // legacy `mockGetStateForDispatch` jest.fn — the test only asserts
+  // the state field; we wrap it to also return a synthetic
+  // `accountId` so the polling handler context gets a value.
+  getDispatchInfo: async (...args: unknown[]) => {
+    const state = await mockGetStateForDispatch(...args);
+    if (state === null || state === undefined) return null;
+    if (typeof state === "object" && "state" in state) return state;
+    return { state, accountId: "acct-test" };
+  },
 }));
 
 import { runPollingTriggers } from "@/services/cron/runPollingTriggers";

@@ -35,7 +35,7 @@ export interface NormalizeContext {
   /** ISO-8601 timestamp from the notification or our receipt time. */
   notificationOccurredAt: string;
   /** Account id (email) from the integration row this trigger fired against. */
-  accountId: string;
+  providerAccountId: string;
   /** Which receive branch produced this event. Surfaces in payload. */
   source: "id-fetch" | "delta-fallback";
 }
@@ -69,7 +69,7 @@ export function normalize(
       item.lastModifiedDateTime ??
       item.createdDateTime ??
       context.notificationOccurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       itemId: item.id,
       kind,
@@ -111,7 +111,7 @@ export function normalizeDeleted(
     eventType: "file_changed",
     eventId,
     occurredAt: context.notificationOccurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       itemId,
       kind: null,

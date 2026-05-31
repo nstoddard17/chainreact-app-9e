@@ -90,7 +90,7 @@ describe("create_record action", () => {
     expect(result.output.createdTime).toBe("2026-05-09T10:00:00Z");
   });
 
-  it("threads accountId from the trigger event", async () => {
+  it("threads providerAccountId from the trigger event + V2 ownership accountId from input", async () => {
     mockCreate.mockResolvedValueOnce({ id: "rec", fields: {} });
     await createRecord({
       workflowId: "wf",
@@ -106,7 +106,9 @@ describe("create_record action", () => {
       },
       triggerEvent: trigger(),
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("usrXXX");
+    const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
+    expect(refreshArg.accountId).toBe("acct-u");
+    expect(refreshArg.providerAccountId).toBe("usrXXX");
   });
 
   it("threads typecast: true to the wrapper", async () => {

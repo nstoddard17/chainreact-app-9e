@@ -121,7 +121,7 @@ describe("normalizeMailchimpEvent", () => {
     const event = normalizeMailchimpEvent({
       rawBody: SUBSCRIBE_BODY,
       parsed,
-      accountId: "mc_account_xyz",
+      providerAccountId: "mc_account_xyz",
     });
     expect(event.provider).toBe("mailchimp");
     expect(event.eventType).toBe("audience_event");
@@ -141,7 +141,7 @@ describe("normalizeMailchimpEvent", () => {
     const event = normalizeMailchimpEvent({
       rawBody: CAMPAIGN_BODY,
       parsed,
-      accountId: "mc",
+      providerAccountId: "mc",
     });
     expect(event.payload.type).toBe("campaign");
     expect(event.payload.campaignId).toBe("campaign-xyz");
@@ -153,7 +153,7 @@ describe("normalizeMailchimpEvent", () => {
     const event = normalizeMailchimpEvent({
       rawBody: "type=subscribe",
       parsed: parseMailchimpFormBody("type=subscribe"),
-      accountId: "mc",
+      providerAccountId: "mc",
     });
     const after = Date.now();
     const ts = Date.parse(event.occurredAt as string);
@@ -166,7 +166,7 @@ describe("normalizeMailchimpEvent", () => {
     const event = normalizeMailchimpEvent({
       rawBody: SUBSCRIBE_BODY,
       parsed,
-      accountId: "mc",
+      providerAccountId: "mc",
     });
     expect(event.payload.parsed).toEqual(parsed);
   });

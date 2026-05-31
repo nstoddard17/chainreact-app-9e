@@ -9,12 +9,22 @@
  */
 const mockGetOptionsResolver = jest.fn();
 const mockGetActiveForExecution = jest.fn();
+const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
+  id: `acct-${userId}`,
+  type: "personal" as const,
+  ownerUserId: userId,
+  createdAt: "2026-05-30T00:00:00Z",
+  updatedAt: "2026-05-30T00:00:00Z",
+}));
 
 jest.mock("@/services/options/_registry", () => ({
   getOptionsResolver: (...args: unknown[]) => mockGetOptionsResolver(...args),
 }));
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: (...args: unknown[]) => mockGetActiveForExecution(...args),
+}));
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
 
 import { resolveOptionsSourceForAI } from "@/services/ai/tools/options";

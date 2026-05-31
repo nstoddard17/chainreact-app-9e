@@ -43,7 +43,7 @@ export interface NormalizeNewWorksheetInput {
 }
 
 export interface NormalizeNewWorksheetContext {
-  accountId: string;
+  providerAccountId: string;
   spreadsheetId: string;
 }
 
@@ -65,7 +65,7 @@ export function normalize(
     eventType: "new_worksheet",
     eventId,
     occurredAt: input.occurredAt,
-    providerAccountId: context.accountId,
+    providerAccountId: context.providerAccountId,
     payload: {
       changeKind: "added" as const,
       spreadsheetId: context.spreadsheetId,

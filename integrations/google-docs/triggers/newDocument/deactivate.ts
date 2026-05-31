@@ -26,7 +26,7 @@ export const deactivate: DeactivationFn = async ({ trigger, integration }) => {
     await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-docs",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         channelsStop({
           accessToken,

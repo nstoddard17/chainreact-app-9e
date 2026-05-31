@@ -134,7 +134,7 @@ describe("get_payments action", () => {
       triggerEvent: trigger("stripe", "acct_MERCHANT"),
     });
     const arg = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(arg.accountId).toBe("acct_MERCHANT");
+    expect(arg.providerAccountId).toBe("acct_MERCHANT");
   });
 
   it("resolves accountId as null when triggered by a non-Stripe provider", async () => {
@@ -149,7 +149,7 @@ describe("get_payments action", () => {
       triggerEvent: trigger("gmail", "alice@example.com"),
     });
     const arg = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(arg.accountId).toBeNull();
+    expect(arg.providerAccountId).toBeNull();
   });
 
   it("maps each charge to the bounded 13-key projection", async () => {

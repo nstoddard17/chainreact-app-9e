@@ -113,9 +113,8 @@ describe("reply_to_email action", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "u",
         provider: "microsoft-outlook",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });
@@ -136,7 +135,7 @@ describe("reply_to_email action", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: null,
+        providerAccountId: null,
       }),
     );
   });

@@ -27,7 +27,7 @@ import { notebooksList } from "@/integrations/microsoft-onenote/api/notebooksLis
  *     `INTEGRATION_DISCONNECTED` if no row exists.
  *   - No `requiredDeps` — notebooks are account-scoped.
  *   - Wrapper goes through `refreshAndRetry({provider:
- *     "microsoft-onenote", providerAccountId: ctx.integration.accountId})`
+ *     "microsoft-onenote", providerAccountId: ctx.integration.providerAccountId})`
  *     so a stale Microsoft access token triggers exactly one refresh +
  *     retry cycle. Microsoft v2 access tokens default to a 60-90 minute
  *     TTL — refresh is the production-safe choice. `accountId` is

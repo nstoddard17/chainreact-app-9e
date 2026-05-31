@@ -138,10 +138,10 @@ describe("send_channel_message action", () => {
     expect(mockRefreshAndRetry.mock.calls[0]![0].provider).toBe(
       "microsoft-teams",
     );
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBe(
       "alice@contoso.com",
     );
-    expect(mockRefreshAndRetry.mock.calls[0]![0].userId).toBe("u");
+    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBe("acct-u");
   });
 
   it("passes accountId=null when triggerEvent.provider is a different provider", async () => {
@@ -164,7 +164,7 @@ describe("send_channel_message action", () => {
       },
     });
 
-    expect(mockRefreshAndRetry.mock.calls[0]![0].accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0].providerAccountId).toBeNull();
   });
 
   it("rejects empty content via Zod (strict schema)", async () => {

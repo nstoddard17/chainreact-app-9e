@@ -246,9 +246,8 @@ describe("create_event action", () => {
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "u",
         provider: "microsoft-outlook-calendar",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
 
@@ -264,7 +263,7 @@ describe("create_event action", () => {
       triggerEvent: trigger("gmail"),
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null }),
+      expect.objectContaining({ providerAccountId: null }),
     );
   });
 

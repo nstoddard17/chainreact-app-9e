@@ -136,7 +136,7 @@ describe("move_email action", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });
@@ -160,7 +160,7 @@ describe("move_email action", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: null,
+        providerAccountId: null,
       }),
     );
   });
@@ -280,7 +280,7 @@ describe("move_email action", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "u" }),
+      expect.objectContaining({ accountId: "acct-u" }),
     );
   });
 });

@@ -222,8 +222,8 @@ describe("get_line_items", () => {
     });
     const arg = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(arg.provider).toBe("hubspot");
-    expect(arg.userId).toBe("user-xyz");
-    expect(arg.accountId).toBe("portal-1");
+    expect(arg.accountId).toBe("acct-user-xyz");
+    expect(arg.providerAccountId).toBe("portal-1");
   });
 
   it("forwards after cursor when supplied", async () => {

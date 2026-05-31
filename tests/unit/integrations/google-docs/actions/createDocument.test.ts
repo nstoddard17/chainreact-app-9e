@@ -151,7 +151,7 @@ describe("create_document — happy path", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "google-docs",
-        accountId: "alice@example.com",
+        providerAccountId: "alice@example.com",
       }),
     );
   });
@@ -168,7 +168,7 @@ describe("create_document — happy path", () => {
       triggerEvent: slackTrigger(),
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null }),
+      expect.objectContaining({ providerAccountId: null }),
     );
   });
 });

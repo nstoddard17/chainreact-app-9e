@@ -170,9 +170,8 @@ describe("Outlook Calendar event_changed activate", () => {
 
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
         provider: "microsoft-outlook-calendar",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });

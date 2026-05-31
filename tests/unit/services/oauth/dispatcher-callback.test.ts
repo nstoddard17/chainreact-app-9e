@@ -131,7 +131,8 @@ describe("dispatcher.handleCallback", () => {
     );
     expect(mockUpsertActive).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-abc",
+        accountId: "acct-user-abc",
+        connectedByUserId: "user-abc",
         provider: "slack",
         providerAccountId: "T123",
         tokens: expect.objectContaining({ accessTokenEncrypted: "ENC" }),

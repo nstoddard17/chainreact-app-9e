@@ -64,7 +64,7 @@ export const googleDocsDocumentUpdatedSubscriptionHandler: SubscriptionHandler =
     const watch = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-docs",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         filesWatch({
           accessToken,
@@ -82,7 +82,7 @@ export const googleDocsDocumentUpdatedSubscriptionHandler: SubscriptionHandler =
         await refreshAndRetry({
           accountId: integration.accountId,
           provider: "google-docs",
-          providerAccountId: integration.accountId,
+          providerAccountId: integration.providerAccountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

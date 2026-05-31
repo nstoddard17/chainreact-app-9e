@@ -183,7 +183,7 @@ describe("get_document — schema + integration plumbing", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "google-docs",
-        accountId: "alice@example.com",
+        providerAccountId: "alice@example.com",
       }),
     );
   });

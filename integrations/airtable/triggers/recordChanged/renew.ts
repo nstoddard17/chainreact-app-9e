@@ -60,7 +60,7 @@ export const airtableRecordChangedSubscriptionHandler: SubscriptionHandler = {
     const result = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "airtable",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         webhooksRefresh({
           accessToken,

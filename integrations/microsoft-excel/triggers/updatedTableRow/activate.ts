@@ -23,7 +23,7 @@ export const activate: ActivationFn = async ({ integration, node }) => {
   const rows = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-excel",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       tableRowsList({
         accessToken,

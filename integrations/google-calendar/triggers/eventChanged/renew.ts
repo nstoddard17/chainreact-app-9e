@@ -75,7 +75,7 @@ export const calendarEventChangedSubscriptionHandler: SubscriptionHandler = {
     const watch = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-calendar",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         eventsWatch({
           accessToken,
@@ -94,7 +94,7 @@ export const calendarEventChangedSubscriptionHandler: SubscriptionHandler = {
         await refreshAndRetry({
           accountId: integration.accountId,
           provider: "google-calendar",
-          providerAccountId: integration.accountId,
+          providerAccountId: integration.providerAccountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

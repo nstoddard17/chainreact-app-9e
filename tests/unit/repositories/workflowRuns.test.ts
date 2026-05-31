@@ -576,6 +576,7 @@ describe("workflowRuns.getWorkflowRunForBilling", () => {
     const result = await getWorkflowRunForBilling("run-1");
     expect(result).toEqual({
       id: "run-1",
+      userId: "user-1",
       workflowId: "wf-1",
       status: "running",
       isTest: false,

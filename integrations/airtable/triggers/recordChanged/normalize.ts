@@ -70,7 +70,7 @@ export interface NormalizeContext {
   webhookId: string;
   baseId: string;
   /** Account id (userId) from the integration row this trigger fired against. */
-  accountId: string;
+  providerAccountId: string;
   /**
    * ISO-8601 — webhook receive time (NOT the payload timestamp).
    * Used as the eventId fallback when baseTransactionNumber is absent.
@@ -181,7 +181,7 @@ function tableSectionEvents(
         eventType: "record_changed",
         eventId: buildEventId(ctx, tableId, recordId, "created", baseTransactionNumber),
         occurredAt,
-        providerAccountId: ctx.accountId,
+        providerAccountId: ctx.providerAccountId,
         payload: {
           eventType: "created",
           baseId: ctx.baseId,
@@ -205,7 +205,7 @@ function tableSectionEvents(
         eventType: "record_changed",
         eventId: buildEventId(ctx, tableId, recordId, "updated", baseTransactionNumber),
         occurredAt,
-        providerAccountId: ctx.accountId,
+        providerAccountId: ctx.providerAccountId,
         payload: {
           eventType: "updated",
           baseId: ctx.baseId,
@@ -228,7 +228,7 @@ function tableSectionEvents(
         eventType: "record_changed",
         eventId: buildEventId(ctx, tableId, recordId, "deleted", baseTransactionNumber),
         occurredAt,
-        providerAccountId: ctx.accountId,
+        providerAccountId: ctx.providerAccountId,
         payload: {
           eventType: "deleted",
           baseId: ctx.baseId,
@@ -264,7 +264,7 @@ function tableDeletedEvents(
     eventType: "record_changed",
     eventId: buildTableDeletedEventId(ctx, tableId, baseTransactionNumber),
     occurredAt,
-    providerAccountId: ctx.accountId,
+    providerAccountId: ctx.providerAccountId,
     payload: {
       eventType: "table_deleted",
       baseId: ctx.baseId,

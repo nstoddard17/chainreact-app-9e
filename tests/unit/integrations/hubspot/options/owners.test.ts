@@ -80,9 +80,9 @@ describe("hubspotOwnersResolver — wrapper invocation", () => {
     await hubspotOwnersResolver.resolve(ctx());
     expect(mockRefreshAndRetry).toHaveBeenCalledTimes(1);
     const call = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("hubspot");
-    expect(call.accountId).toBe(null);
+    expect(call.providerAccountId).toBe(null);
     expect(typeof call.apiCall).toBe("function");
   });
 });

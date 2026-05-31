@@ -56,7 +56,7 @@ export const activate: ActivationFn = async ({ node, integration }) => {
   const result = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "microsoft-onenote",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       pagesList({
         accessToken,

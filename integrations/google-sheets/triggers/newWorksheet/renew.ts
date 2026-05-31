@@ -73,7 +73,7 @@ export const sheetsNewWorksheetSubscriptionHandler: SubscriptionHandler = {
     const watch = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "google-sheets",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         filesWatch({
           accessToken,
@@ -91,7 +91,7 @@ export const sheetsNewWorksheetSubscriptionHandler: SubscriptionHandler = {
         await refreshAndRetry({
           accountId: integration.accountId,
           provider: "google-sheets",
-          providerAccountId: integration.accountId,
+          providerAccountId: integration.providerAccountId,
           apiCall: (accessToken) =>
             channelsStop({
               accessToken,

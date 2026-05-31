@@ -185,6 +185,6 @@ describe("get_contacts", () => {
       triggerEvent: trigger,
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("hubspot");
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.userId).toBe("user-xyz");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("acct-user-xyz");
   });
 });

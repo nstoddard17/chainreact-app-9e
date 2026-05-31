@@ -89,7 +89,7 @@ describe("microsoftTeamsChannelsResolver — wrapper invocation", () => {
       accessToken: "test-access-token",
       teamId: "t1",
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("user@example.com");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe("user@example.com");
   });
 });
 

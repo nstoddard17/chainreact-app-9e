@@ -26,7 +26,7 @@ import { sectionsList } from "@/integrations/microsoft-onenote/api/sectionsList"
  *   - `requiredDeps: ["notebookId"]` — route validates + short-circuits
  *     with `MISSING_DEPENDENCY` before dispatch.
  *   - Wrapper goes through `refreshAndRetry({provider:
- *     "microsoft-onenote", providerAccountId: ctx.integration.accountId})`.
+ *     "microsoft-onenote", providerAccountId: ctx.integration.providerAccountId})`.
  *
  * Sort: Graph-side `$orderby=displayName asc`. OneNote sections within
  * a notebook are usually <30; alphabetical matches Notebook → Section

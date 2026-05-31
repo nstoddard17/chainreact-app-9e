@@ -11,7 +11,7 @@
  */
 const mockListActiveByUser = jest.fn();
 jest.mock("@/repositories/integrations", () => ({
-  listActiveByUser: (...args: unknown[]) => mockListActiveByUser(...args),
+  listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
 }));
 
 import { checkActivationPreconditions } from "@/services/triggers/preconditions";
@@ -90,7 +90,7 @@ describe("checkActivationPreconditions — activate", () => {
       "activate",
     );
     expect(result.ok).toBe(true);
-    expect(mockListActiveByUser).toHaveBeenCalledWith("user-1");
+    expect(mockListActiveByUser).toHaveBeenCalledWith("acct-user-1");
   });
 
   it("rejects with INTEGRATION_NOT_CONNECTED for each missing provider", async () => {

@@ -122,9 +122,8 @@ describe("get_page action", () => {
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
         provider: "notion",
-        accountId: "bot-123",
+        providerAccountId: "bot-123",
       }),
     );
   });
@@ -145,7 +144,7 @@ describe("get_page action", () => {
       triggerEvent: { ...trigger(), provider: "slack" },
     });
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null }),
+      expect.objectContaining({ providerAccountId: null }),
     );
   });
 });

@@ -140,7 +140,7 @@ describe("create_repository — refreshAndRetry wrapping", () => {
       config: { name: "x" },
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("github");
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBeNull();
   });
 });
 

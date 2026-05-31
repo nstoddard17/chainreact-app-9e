@@ -73,9 +73,9 @@ describe("createLabel — refreshAndRetry routing", () => {
     await createLabel(baseHandlerInput());
 
     const call = mockRefreshAndRetry.mock.calls[0]![0];
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("gmail");
-    expect(call.accountId).toBe("me@example.com");
+    expect(call.providerAccountId).toBe("me@example.com");
   });
 });
 

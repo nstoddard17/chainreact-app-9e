@@ -53,6 +53,61 @@ if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 }
 
+/**
+ * jsdom polyfills required by the v5 marketing homepage
+ * (Slice 4.HOMEPAGE-V5-1).
+ *
+ * The cinematic marketing sections (hero motion canvas, pinned scroll
+ * narratives, scroll-reveals, count-ups) read browser APIs jsdom doesn't
+ * implement. None are exercised for their visual behavior in unit tests —
+ * we assert structure / copy / routing — so no-op stubs are sufficient and
+ * keep the whole `MarketingHome` tree mountable. Production code never
+ * touches this file.
+ */
+if (typeof globalThis.matchMedia === "undefined") {
+  globalThis.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof globalThis.matchMedia;
+}
+
+if (typeof globalThis.IntersectionObserver === "undefined") {
+  class IntersectionObserverStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+    root: Element | null = null;
+    rootMargin = "";
+    thresholds: ReadonlyArray<number> = [];
+  }
+  globalThis.IntersectionObserver =
+    IntersectionObserverStub as unknown as typeof IntersectionObserver;
+}
+
+if (typeof globalThis.requestAnimationFrame === "undefined") {
+  globalThis.requestAnimationFrame = ((cb: (time: number) => void) =>
+    setTimeout(() => cb(Date.now()), 0) as unknown as number) as typeof globalThis.requestAnimationFrame;
+  globalThis.cancelAnimationFrame = ((id: number) =>
+    clearTimeout(id as unknown as ReturnType<typeof setTimeout>)) as typeof globalThis.cancelAnimationFrame;
+}
+
+// The hero/ending motion field draws to a <canvas>. jsdom has no 2D context;
+// `getContext` returns null and the component early-returns. Stub it to null
+// explicitly so tests don't emit jsdom's "Not implemented" console noise.
+if (typeof globalThis.HTMLCanvasElement !== "undefined") {
+  HTMLCanvasElement.prototype.getContext =
+    (() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+}
+
 if (typeof globalThis.DOMMatrixReadOnly === "undefined") {
   class DOMMatrixReadOnlyStub {
     m22 = 1;

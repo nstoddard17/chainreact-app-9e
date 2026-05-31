@@ -44,7 +44,7 @@ export const facebookSharedActivate: ActivationFn = async ({ node, integration }
   await refreshAndRetry({
     accountId: integration.accountId,
     provider: "facebook",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: async (userToken) => {
       const pageAccessToken = await getPageAccessToken({
         accessToken: userToken,

@@ -52,7 +52,7 @@ export const googleAnalyticsPropertiesResolver: OptionsResolver = {
       result = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "google-analytics",
-        providerAccountId: ctx.integration.accountId,
+        providerAccountId: ctx.integration.providerAccountId,
         apiCall: (accessToken) => accountSummariesList({ accessToken }),
       });
     } catch (err) {

@@ -105,7 +105,7 @@ async function pullAddedOnly(
   const result = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-sheets",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
@@ -136,7 +136,7 @@ async function pullAddedOnly(
             occurredAt,
           },
           {
-            accountId: integration.accountId,
+            providerAccountId: integration.providerAccountId,
             spreadsheetId: config.spreadsheetId!,
             sheetName: config.sheetName!,
             headers,
@@ -208,7 +208,7 @@ async function pullSnapshotMode(
   const result = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-sheets",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       valuesGet({
         accessToken,
@@ -251,7 +251,7 @@ async function pullSnapshotMode(
 
   const occurredAt = new Date().toISOString();
   const context = {
-    accountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     spreadsheetId: config.spreadsheetId!,
     sheetName: config.sheetName!,
     headers,
@@ -299,7 +299,7 @@ function buildEvent(
   changeKind: SheetsChangeKind,
   entry: DiffEntry,
   context: {
-    accountId: string;
+    providerAccountId: string;
     spreadsheetId: string;
     sheetName: string;
     headers: ReadonlyArray<unknown> | null;

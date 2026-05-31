@@ -7,9 +7,19 @@
  * material. The no-leak assertions are the load-bearing tests here.
  */
 const mockListActiveByUser = jest.fn();
+const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
+  id: `acct-${userId}`,
+  type: "personal" as const,
+  ownerUserId: userId,
+  createdAt: "2026-05-30T00:00:00Z",
+  updatedAt: "2026-05-30T00:00:00Z",
+}));
 
 jest.mock("@/repositories/integrations", () => ({
-  listActiveByUser: (...args: unknown[]) => mockListActiveByUser(...args),
+  listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
+}));
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
 jest.mock("@/integrations/_registry", () => ({
   getProvider: (id: string) => (id === "slack" ? { tokenScope: "workspace" } : { tokenScope: "user" }),

@@ -100,7 +100,7 @@ describe("microsoftOneDriveFoldersResolver — wrapper invocation", () => {
     });
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("microsoft-onedrive");
-    expect(args.accountId).toBe("user@example.com");
+    expect(args.providerAccountId).toBe("user@example.com");
   });
 });
 

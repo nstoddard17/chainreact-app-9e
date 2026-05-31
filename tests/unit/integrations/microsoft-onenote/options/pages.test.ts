@@ -108,7 +108,7 @@ describe("microsoftOneNotePagesResolver — wrapper invocation", () => {
     await microsoftOneNotePagesResolver.resolve(ctx());
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("microsoft-onenote");
-    expect(args.accountId).toBe("alice@contoso.com");
+    expect(args.providerAccountId).toBe("alice@contoso.com");
   });
 });
 

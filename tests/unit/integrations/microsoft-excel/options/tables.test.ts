@@ -89,7 +89,7 @@ describe("microsoftExcelTablesResolver — wrapper invocation", () => {
 
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(args.provider).toBe("microsoft-excel");
-    expect(args.accountId).toBe("alice@contoso.com");
+    expect(args.providerAccountId).toBe("alice@contoso.com");
   });
 });
 

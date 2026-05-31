@@ -94,7 +94,7 @@ describe("sendChannelMessage — happy path", () => {
       makeInput({ channel: "C123", text: "hello" }),
     );
 
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", "T0001");
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-user-1", "slack", "T0001");
     expect(mockDecryptToken).toHaveBeenCalledWith("ENCRYPTED_TOKEN");
     expect(mockChatPostMessage).toHaveBeenCalledWith({
       botToken: "xoxb-real-token",
@@ -151,7 +151,7 @@ describe("sendChannelMessage — happy path", () => {
       ),
     );
 
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", null);
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-user-1", "slack", null);
   });
 });
 

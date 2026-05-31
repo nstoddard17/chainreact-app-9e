@@ -58,7 +58,7 @@ beforeEach(() => {
 const ctx = {
   webhookId: "achWEBHOOK",
   baseId: "appBASE",
-  accountId: "usrXXX",
+  providerAccountId: "usrXXX",
   notificationOccurredAt: "2026-05-09T12:00:00Z",
 };
 

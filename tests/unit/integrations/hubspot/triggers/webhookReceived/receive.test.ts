@@ -222,6 +222,7 @@ describe("receiveHubSpotWebhook — routing", () => {
         appSubscriptionId: "app-sub-1",
         workflowId: "wf-A",
         nodeId: "node-A",
+        userId: "user-A",
         hubId: "9988776",
         config: {},
         status: "active",
@@ -233,6 +234,7 @@ describe("receiveHubSpotWebhook — routing", () => {
         appSubscriptionId: "app-sub-1",
         workflowId: "wf-B",
         nodeId: "node-B",
+        userId: "user-B",
         hubId: "9988776",
         config: {},
         status: "active",
@@ -252,7 +254,6 @@ describe("receiveHubSpotWebhook — routing", () => {
       workflowId: "wf-A",
       nodeId: "node-A",
       userId: "user-A",
-      accountId: "acct-user-A",
     });
   });
 

@@ -21,7 +21,16 @@ jest.mock("@/services/ai/tools/workflowContext", () => ({
   getWorkflowGraphForAI: (...a: unknown[]) => mockGetWorkflowGraphForAI(...a),
 }));
 jest.mock("@/repositories/integrations", () => ({
-  listActiveByUser: (...a: unknown[]) => mockListActiveByUser(...a),
+  listActiveByAccount: (...a: unknown[]) => mockListActiveByUser(...a),
+}));
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: jest.fn(async (userId: string) => ({
+    id: `acct-${userId}`,
+    type: "personal" as const,
+    ownerUserId: userId,
+    createdAt: "2026-05-30T00:00:00Z",
+    updatedAt: "2026-05-30T00:00:00Z",
+  })),
 }));
 jest.mock("@/repositories/userBilling", () => ({
   deductTasks: jest.fn(),

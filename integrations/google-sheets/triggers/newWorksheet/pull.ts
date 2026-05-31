@@ -71,7 +71,7 @@ export async function pull(
   const metadata = await refreshAndRetry({
     accountId: integration.accountId,
     provider: "google-sheets",
-    providerAccountId: integration.accountId,
+    providerAccountId: integration.providerAccountId,
     apiCall: (accessToken) =>
       spreadsheetsGet({
         accessToken,
@@ -120,7 +120,7 @@ export async function pull(
           occurredAt,
         },
         {
-          accountId: integration.accountId,
+          providerAccountId: integration.providerAccountId,
           spreadsheetId: config.spreadsheetId!,
         },
       ),

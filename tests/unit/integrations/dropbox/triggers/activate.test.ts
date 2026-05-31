@@ -69,10 +69,10 @@ beforeEach(() => {
 });
 
 describe("dropbox new_file activate", () => {
-  it("seeds snapshot {cursor, accountId, capturedAt} via get_latest_cursor", async () => {
+  it("seeds snapshot {cursor, providerAccountId, capturedAt} via get_latest_cursor", async () => {
     const patch = await activate(ctx({ path: "/Reports", recursive: false }));
     expect(patch).toMatchObject({
-      snapshot: { cursor: "CURSOR_SEED", accountId: "dbid:abc" },
+      snapshot: { cursor: "CURSOR_SEED", providerAccountId: "dbid:abc" },
     });
     expect(typeof (patch.snapshot as { capturedAt: string }).capturedAt).toBe(
       "string",
@@ -83,7 +83,7 @@ describe("dropbox new_file activate", () => {
     await activate(ctx({ path: "/Reports", recursive: true }));
     expect(mockRefreshAndRetry.mock.calls[0]![0]).toMatchObject({
       provider: "dropbox",
-      accountId: "dbid:abc",
+      providerAccountId: "dbid:abc",
     });
     expect(mockGetLatestCursor.mock.calls[0]![0]).toMatchObject({
       path: "/Reports",

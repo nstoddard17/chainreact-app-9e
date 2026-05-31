@@ -397,7 +397,7 @@ describe("fetch_emails action — account routing + Q3", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: "alice@contoso.com",
+        providerAccountId: "alice@contoso.com",
       }),
     );
   });
@@ -418,7 +418,7 @@ describe("fetch_emails action — account routing + Q3", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "microsoft-outlook",
-        accountId: null,
+        providerAccountId: null,
       }),
     );
   });

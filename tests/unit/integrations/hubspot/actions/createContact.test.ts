@@ -151,7 +151,7 @@ describe("create_contact — happy path", () => {
     expect(mockRefreshAndRetry).toHaveBeenCalled();
     const refreshArg = mockRefreshAndRetry.mock.calls[0]![0]!;
     expect(refreshArg.provider).toBe("hubspot");
-    expect(refreshArg.userId).toBe("u-1");
+    expect(refreshArg.accountId).toBe("acct-u-1");
   });
 
   it("threads hubspot triggerEvent.accountId into refreshAndRetry's accountId param", async () => {
@@ -165,7 +165,7 @@ describe("create_contact — happy path", () => {
       config: { email: "a@b.com" },
       triggerEvent: trigger("hubspot", "portal-12345"),
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe(
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe(
       "portal-12345",
     );
   });
@@ -181,7 +181,7 @@ describe("create_contact — happy path", () => {
       config: { email: "a@b.com" },
       triggerEvent: trigger("slack", "T-anything"),
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBeNull();
   });
 });
 

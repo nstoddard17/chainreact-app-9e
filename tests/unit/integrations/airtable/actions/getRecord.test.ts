@@ -104,8 +104,8 @@ describe("get_record action", () => {
       triggerEvent: trigger(),
     });
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("airtable");
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.userId).toBe("u");
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("usrXXX");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBe("acct-u");
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBe("usrXXX");
   });
 
   it("accountId null when trigger is from a different provider", async () => {
@@ -123,6 +123,6 @@ describe("get_record action", () => {
       },
       triggerEvent: { ...trigger(), provider: "slack" },
     });
-    expect(mockRefreshAndRetry.mock.calls[0]![0]!.accountId).toBeNull();
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.providerAccountId).toBeNull();
   });
 });

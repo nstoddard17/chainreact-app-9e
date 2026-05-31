@@ -60,7 +60,7 @@ export const airtableTablesResolver: OptionsResolver = {
       schema = await refreshAndRetry({
         accountId: integration.accountId,
         provider: "airtable",
-        providerAccountId: integration.accountId,
+        providerAccountId: integration.providerAccountId,
         apiCall: (accessToken) =>
           basesGetSchema({ accessToken, baseId, includeViews: false }),
       });

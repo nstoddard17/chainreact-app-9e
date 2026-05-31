@@ -74,7 +74,7 @@ export async function pull(
     const result = await refreshAndRetry({
       accountId: integration.accountId,
       provider: "airtable",
-      providerAccountId: integration.accountId,
+      providerAccountId: integration.providerAccountId,
       apiCall: (accessToken) =>
         webhooksListPayloads({
           accessToken,
@@ -104,7 +104,7 @@ export async function pull(
       const normalized = normalizePayloads(result.payloads, {
         webhookId: config.webhookId,
         baseId: config.baseId,
-        accountId: integration.accountId,
+        providerAccountId: integration.accountId,
         notificationOccurredAt,
       });
       for (const e of normalized.events) events.push(e);

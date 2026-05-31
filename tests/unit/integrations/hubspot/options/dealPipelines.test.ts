@@ -73,9 +73,9 @@ describe("hubspotDealPipelinesResolver", () => {
     mockRefreshAndRetry.mockResolvedValueOnce({ results: [] });
     await hubspotDealPipelinesResolver.resolve(ctx());
     const call = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(call.userId).toBe("user-1");
+    expect(call.accountId).toBe("acct-user-1");
     expect(call.provider).toBe("hubspot");
-    expect(call.accountId).toBe(null);
+    expect(call.providerAccountId).toBe(null);
   });
 
   it("maps pipelines to {value, label}, preserving HubSpot order", async () => {

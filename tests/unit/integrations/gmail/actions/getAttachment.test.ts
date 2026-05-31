@@ -271,8 +271,7 @@ describe("get_attachment — happy path", () => {
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0]).toMatchObject({
         provider: "gmail",
-        userId: "user-1",
-        accountId: "alice@example.com",
+      providerAccountId: "alice@example.com",
       });
     }
   });
@@ -285,8 +284,7 @@ describe("get_attachment — happy path", () => {
     for (const call of mockRefreshAndRetry.mock.calls) {
       expect(call[0]).toMatchObject({
         provider: "gmail",
-        userId: "user-1",
-        accountId: null,
+      providerAccountId: null,
       });
     }
   });
