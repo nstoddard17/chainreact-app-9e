@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import { redactOutput } from "@/core/security/redactOutput";
 import { getActionMeta } from "@/services/discovery/_registry";
@@ -71,35 +71,59 @@ export interface AuthWithAccountSuccess {
  * account. Workflows are account-owned, so any route that creates, lists, or
  * authorizes against a workflow resolves the account ONCE here at route entry
  * (per the cutover plan: account resolution at the route, not in repositories)
- * and threads `accountId` downstream. Until the account-switcher slice ships,
- * "the caller's account" is their personal account, resolved via
- * `ensurePersonalAccount` (which never returns null — it creates the personal
- * account on the rare miss).
+ * and threads `accountId` downstream.
+ *
+ * 4.ACCOUNT-MODEL-11c — account selection now delegates to the active-account
+ * resolver (`resolveActiveAccount`), the single chokepoint defined by the
+ * account-switcher plan. Precedence: explicit account id → stored
+ * `active_account_id` → personal-account fallback. Launch behavior is unchanged:
+ * existing callers pass NO `explicitAccountId`, every user has a single personal
+ * account with `active_account_id = NULL`, so the resolver returns the personal
+ * account exactly as `ensurePersonalAccount` did before. The optional
+ * `explicitAccountId` is the forward-compatible seam for Phase D (account-scoped
+ * URLs); no route passes it today.
+ *
+ * Failure mapping (both 403, preserving the pre-11c freeze shape):
+ *   - `account_frozen` → 403 `ACCOUNT_PENDING_DELETION` (10b freeze behavior —
+ *     a pending_deletion account is non-operational; the owner can still read
+ *     the account row to drive cancel).
+ *   - `not_member` → 403 `NOT_ACCOUNT_MEMBER` (an explicit account the caller
+ *     does not belong to NEVER silently downgrades to the personal account).
  */
-export async function requireUserWithAccount(): Promise<
-  AuthWithAccountSuccess | AuthFailure
-> {
+export async function requireUserWithAccount(
+  explicitAccountId?: string | null,
+): Promise<AuthWithAccountSuccess | AuthFailure> {
   const auth = await requireUser();
   if (!auth.ok) return auth;
-  const account = await ensurePersonalAccount(auth.userId);
-  // 4.ACCOUNT-MODEL-10b — account freeze. A pending_deletion account is
-  // non-operational: refuse the resolver so every workflow route (create /
-  // list / run-now / AI) is blocked at the gate. The owner can still read the
-  // account row (accounts_select_member is not frozen) to drive cancel. Uses
-  // the already-resolved record — no extra round trip.
-  if (account.deletionStatus === "pending_deletion") {
+
+  const resolved = await resolveActiveAccount(auth.userId, { explicitAccountId });
+  if (!resolved.ok) {
+    if (resolved.reason === "account_frozen") {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          {
+            error: "This account is pending deletion.",
+            code: "ACCOUNT_PENDING_DELETION",
+          },
+          { status: 403 },
+        ),
+      };
+    }
+    // not_member — explicit account the caller is not a member of.
     return {
       ok: false,
       response: NextResponse.json(
         {
-          error: "This account is pending deletion.",
-          code: "ACCOUNT_PENDING_DELETION",
+          error: "You are not a member of this account.",
+          code: "NOT_ACCOUNT_MEMBER",
         },
         { status: 403 },
       ),
     };
   }
-  return { ok: true, userId: auth.userId, accountId: account.id };
+
+  return { ok: true, userId: auth.userId, accountId: resolved.accountId };
 }
 
 /**

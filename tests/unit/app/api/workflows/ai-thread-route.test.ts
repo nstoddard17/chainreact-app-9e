@@ -26,9 +26,16 @@ jest.mock("@/repositories/workflows", () => ({
 // membership (was a user_id check). Map userId → `acct-<userId>` so "user-1"
 // matches the owned workflow's "acct-user-1" and a workflow on "acct-user-2"
 // is 404 for "user-1".
+// 4.ACCOUNT-MODEL-11c: the gate delegates to resolveActiveAccount, which reads
+// the personal account (mocked) + the active_account_id pointer (mocked NULL)
+// → resolves to the personal account, exactly as before.
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) =>
-    Promise.resolve({ id: `acct-${userId}` }),
+    Promise.resolve({ id: `acct-${userId}`, deletionStatus: "active" }),
+}));
+jest.mock("@/repositories/userProfiles", () => ({
+  getActiveAccountId: () => Promise.resolve(null),
+  clearActiveAccountId: () => Promise.resolve(),
 }));
 
 const mockGetOrCreateThread = jest.fn();

@@ -178,12 +178,19 @@ describe("resolveActiveAccount — personal floor + freeze", () => {
   });
 });
 
-describe("resolver is NOT wired anywhere in production code (11b)", () => {
-  // Walk production source dirs and assert nothing references the resolver. This
-  // is the structural proof that 11b added no routes/UI/background callers.
+describe("resolver wiring is gate-only; background paths never use it (11c)", () => {
+  // Walk production source dirs. After 11c the resolver has exactly ONE caller —
+  // the route gate (app/api/workflows/_shared.ts). Anything else (and ANY
+  // background/cron/webhook/trigger path in particular) referencing it is a leak.
   const ROOT = process.cwd();
-  const PROD_DIRS = ["app", "lib", "components", "repositories", "core", "integrations"];
+  const PROD_DIRS = ["app", "lib", "components", "repositories", "core", "integrations", "services"];
   const DEF_FILE = resolve(ROOT, "services/accounts/activeAccount.ts");
+  const GATE_FILE = resolve(ROOT, "app/api/workflows/_shared.ts");
+  const ALLOWED = new Set([DEF_FILE, GATE_FILE]);
+  // Background entry points must NEVER consult active-account state.
+  const BACKGROUND_DIRS = ["app/api/cron", "app/api/webhooks", "services/triggers"];
+
+  const RESOLVER_REF = /resolveActiveAccount|services\/accounts\/activeAccount/;
 
   function walk(dir: string): string[] {
     let out: string[] = [];
@@ -206,26 +213,23 @@ describe("resolver is NOT wired anywhere in production code (11b)", () => {
     return out;
   }
 
-  it("no production file imports or calls resolveActiveAccount", () => {
+  it("only the route gate (workflows/_shared.ts) references the resolver", () => {
     const offenders: string[] = [];
     for (const d of PROD_DIRS) {
       for (const file of walk(resolve(ROOT, d))) {
-        if (resolve(file) === DEF_FILE) continue;
-        const src = readFileSync(file, "utf8");
-        if (/resolveActiveAccount|services\/accounts\/activeAccount/.test(src)) {
-          offenders.push(file);
-        }
+        if (ALLOWED.has(resolve(file))) continue;
+        if (RESOLVER_REF.test(readFileSync(file, "utf8"))) offenders.push(file);
       }
     }
     expect(offenders).toEqual([]);
   });
 
-  it("the services/ dir references the resolver ONLY in its own definition file", () => {
+  it("NO background path (cron / webhook / trigger) imports or uses the resolver", () => {
     const offenders: string[] = [];
-    for (const file of walk(resolve(ROOT, "services"))) {
-      if (resolve(file) === DEF_FILE) continue;
-      const src = readFileSync(file, "utf8");
-      if (/resolveActiveAccount/.test(src)) offenders.push(file);
+    for (const d of BACKGROUND_DIRS) {
+      for (const file of walk(resolve(ROOT, d))) {
+        if (RESOLVER_REF.test(readFileSync(file, "utf8"))) offenders.push(file);
+      }
     }
     expect(offenders).toEqual([]);
   });

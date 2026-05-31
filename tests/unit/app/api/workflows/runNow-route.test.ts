@@ -24,9 +24,16 @@ jest.mock("@/repositories/workflows", () => ({
 // 4.ACCOUNT-MODEL-7: requireUserWithAccount resolves the caller's account.
 // Map userId → `acct-<userId>` so "user-1" matches the workflow's
 // "acct-user-1" (202 paths) and "user-other" → "acct-user-other" (403).
+// 4.ACCOUNT-MODEL-11c: the gate now delegates to resolveActiveAccount, which
+// reads the personal account (mocked here) + the active_account_id pointer
+// (mocked NULL below) → resolves to the personal account, exactly as before.
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) =>
-    Promise.resolve({ id: `acct-${userId}` }),
+    Promise.resolve({ id: `acct-${userId}`, deletionStatus: "active" }),
+}));
+jest.mock("@/repositories/userProfiles", () => ({
+  getActiveAccountId: () => Promise.resolve(null),
+  clearActiveAccountId: () => Promise.resolve(),
 }));
 
 const mockEnqueueRun = jest.fn();
