@@ -552,6 +552,22 @@ supabase db push --db-url "$POSTGRES_URL_NON_POOLING"  # port 5432, NOT 6543
 
 **Migration rules:** Never modify existing migrations after push. Create new migrations for changes. Test locally first.
 
+**Explicit Data API GRANTs on new public tables (mandatory after Oct 30, 2026):** Supabase is removing implicit Data API exposure for tables in `public`. Every NEW `CREATE TABLE public.<x>` migration MUST include explicit `GRANT` statements alongside `ENABLE ROW LEVEL SECURITY` + policies — otherwise `supabase-js` / PostgREST / GraphQL will return `42501` for the table after the cutover. RLS still gates row visibility; the GRANT only lets the role TOUCH the table.
+
+```sql
+CREATE TABLE public.<table> ( ... );
+ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;
+
+-- Data API access. Required after Oct 30, 2026.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO service_role;
+-- Public-read tables only: GRANT SELECT ON public.<table> TO anon;
+
+CREATE POLICY ... ;
+```
+
+Existing tables are grandfathered — keep their current grants. No retroactive migration needed.
+
 ## Directory Structure
 - `/app` — Routes, APIs, pages
 - `/components` — UI components
