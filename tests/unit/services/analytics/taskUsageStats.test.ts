@@ -17,13 +17,13 @@ import {
   groupTaskUsageByProvider,
   groupTaskUsageByNodeType,
   groupTaskUsageByWorkflow,
-  groupTaskUsageByUser,
+  groupTaskUsageByAccount,
   rankTaskGroups,
   getTaskUsageOverview,
   getTaskUsageByProvider,
   getTaskUsageByWorkflow,
   getMostExpensiveWorkflows,
-  getTaskUsageForUser,
+  getTaskUsageForAccount,
 } from "@/services/analytics/taskUsageStats";
 
 beforeEach(() => mockList.mockReset());
@@ -118,9 +118,9 @@ describe("summarizeTaskUsageEvents", () => {
 
 describe("grouping", () => {
   const events = [
-    ev({ provider: "gmail", nodeType: "send_email", workflowId: "wf-1", userId: "u1", tasksCharged: 1, billable: true }),
-    ev({ provider: "gmail", nodeType: "send_email", workflowId: "wf-1", userId: "u1", tasksCharged: 1, billable: true }),
-    ev({ provider: "slack", nodeType: "post_message", workflowId: "wf-2", userId: "u2", tasksCharged: 3, billable: true }),
+    ev({ provider: "gmail", nodeType: "send_email", workflowId: "wf-1", accountId: "u1", tasksCharged: 1, billable: true }),
+    ev({ provider: "gmail", nodeType: "send_email", workflowId: "wf-1", accountId: "u1", tasksCharged: 1, billable: true }),
+    ev({ provider: "slack", nodeType: "post_message", workflowId: "wf-2", accountId: "u2", tasksCharged: 3, billable: true }),
     ev({ provider: null, nodeType: null, workflowId: null, eventType: "run_estimate_recorded", billable: false, tasksCharged: 0 }),
   ];
 
@@ -145,7 +145,7 @@ describe("grouping", () => {
   });
 
   it("groups by user", () => {
-    const g = groupTaskUsageByUser(events);
+    const g = groupTaskUsageByAccount(events);
     expect(g.u1!.tasksCharged).toBe(2);
     expect(g.u2!.tasksCharged).toBe(3);
   });
@@ -202,10 +202,10 @@ describe("async owner functions forward range to repo + fold", () => {
     expect(out[0]!.key).toBe("wf-b");
   });
 
-  it("getTaskUsageForUser passes userId to the repo", async () => {
-    mockList.mockResolvedValueOnce([ev({ userId: "u-target", tasksCharged: 2 })]);
-    const out = await getTaskUsageForUser({ userId: "u-target", from: "A" });
-    expect(mockList).toHaveBeenCalledWith({ userId: "u-target", from: "A" });
+  it("getTaskUsageForAccount passes accountId to the repo", async () => {
+    mockList.mockResolvedValueOnce([ev({ accountId: "u-target", tasksCharged: 2 })]);
+    const out = await getTaskUsageForAccount({ accountId: "u-target", from: "A" });
+    expect(mockList).toHaveBeenCalledWith({ accountId: "u-target", from: "A" });
     expect(out.totalTasksCharged).toBe(2);
   });
 
@@ -254,7 +254,7 @@ describe("no metadata / secret leakage", () => {
       byProvider: groupTaskUsageByProvider(events),
       byNodeType: groupTaskUsageByNodeType(events),
       byWorkflow: rankTaskGroups(groupTaskUsageByWorkflow(events)),
-      byUser: rankTaskGroups(groupTaskUsageByUser(events)),
+      byAccount: rankTaskGroups(groupTaskUsageByAccount(events)),
     });
     for (const marker of secretMarkers) expect(serialized).not.toContain(marker);
     // No aggregate output field carries a raw metadata payload.

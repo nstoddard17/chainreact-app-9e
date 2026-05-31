@@ -52,7 +52,7 @@ function comparison(p: Partial<ReserveReconcileShadowComparison> = {}): ReserveR
 function row(p: Partial<BillingShadowComparisonRecord> = {}): BillingShadowComparisonRecord {
   return {
     id: "c1",
-    userId: "user-1",
+    accountId: "user-1",
     workflowId: "wf-1",
     workflowRunId: "run-1",
     flatChargedTasks: 1,
@@ -77,7 +77,7 @@ describe("recordBillingShadowComparison", () => {
     await recordBillingShadowComparison(comparison(), "user-9");
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0]![0]).toEqual({
-      userId: "user-9",
+      accountId: "user-9",
       workflowId: "wf-1",
       workflowRunId: "run-1",
       flatChargedTasks: 1,

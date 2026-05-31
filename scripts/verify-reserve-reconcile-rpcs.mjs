@@ -370,7 +370,7 @@ async function main() {
 
   await section("14. task_usage_events partial unique indexes", async () => {
     const runId = await createRun(workflowId, userId);
-    const base = { user_id: userId, workflow_run_id: runId, cost_policy_version: "v1" };
+    const base = { account_id: accountId, workflow_run_id: runId, cost_policy_version: "v1" };
     // run-level dup (node_id null, same event_type) → rejected
     const r1 = await admin.from("task_usage_events").insert({ ...base, event_type: "run_estimate_recorded" });
     assert(!r1.error, "first run-level event inserts");
@@ -384,8 +384,8 @@ async function main() {
     const n3 = await admin.from("task_usage_events").insert({ ...base, event_type: "node_task_charged", node_id: "n2" });
     assert(!n3.error, "different node_id allowed");
     // runless event (workflow_run_id null) twice → NOT blocked by these indexes
-    const p1 = await admin.from("task_usage_events").insert({ user_id: userId, workflow_run_id: null, event_type: "internal_poll_cost_recorded", cost_policy_version: "v1" });
-    const p2 = await admin.from("task_usage_events").insert({ user_id: userId, workflow_run_id: null, event_type: "internal_poll_cost_recorded", cost_policy_version: "v1" });
+    const p1 = await admin.from("task_usage_events").insert({ account_id: accountId, workflow_run_id: null, event_type: "internal_poll_cost_recorded", cost_policy_version: "v1" });
+    const p2 = await admin.from("task_usage_events").insert({ account_id: accountId, workflow_run_id: null, event_type: "internal_poll_cost_recorded", cost_policy_version: "v1" });
     assert(!p1.error && !p2.error, "runless poll events not blocked");
   });
 

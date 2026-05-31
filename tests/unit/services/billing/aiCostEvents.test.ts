@@ -32,7 +32,7 @@ function lastInsert(): AiCostEventInsert {
   return mockInsertEvent.mock.calls[mockInsertEvent.mock.calls.length - 1]![0] as AiCostEventInsert;
 }
 
-const scope: AiEventScope = { userId: "user-1", feature: "workflow_creation", workflowId: "wf-1" };
+const scope: AiEventScope = { accountId: "acct-1", userId: "user-1", feature: "workflow_creation", workflowId: "wf-1" };
 
 describe("sanitizeAiEventMetadata", () => {
   it("drops blocked keys (secrets / tokens / raw model IO / chain-of-thought / bodies / configs)", () => {

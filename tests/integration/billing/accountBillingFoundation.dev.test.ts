@@ -146,8 +146,9 @@ describeDb("4.ACCOUNT-MODEL-9c2 — canonical account billing RPCs (dev DB)", ()
     for (const id of createdUserIds) {
       const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
       const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      await admin.from("task_usage_events").delete().eq("user_id", id);
       if (accountIds.length > 0) {
+        // 4.ACCOUNT-MODEL-9d: task_usage_events is account-owned now.
+        await admin.from("task_usage_events").delete().in("account_id", accountIds);
         await admin.from("workflow_runs").delete().in("account_id", accountIds);
         await admin.from("workflows").delete().in("account_id", accountIds);
         await admin.from("account_billing").delete().in("account_id", accountIds);

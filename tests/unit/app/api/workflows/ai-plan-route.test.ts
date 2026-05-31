@@ -28,6 +28,11 @@ jest.mock("@/services/ai/events", () => ({
   recordAiPlanOutcome: (...a: unknown[]) => mockRecordPlan(...a),
 }));
 
+// 4.ACCOUNT-MODEL-9d: the route resolves the caller's account for AI-cost ownership.
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: jest.fn(async () => ({ id: "acct-user-1" })),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/plan/route";
 
 function call(id: string, body: unknown) {
@@ -227,7 +232,7 @@ describe("AI-10 observability (fail-open)", () => {
     mockPlan.mockResolvedValueOnce(successResult);
     await call("wf-1", { prompt: "x" });
     expect(mockRecordPlan).toHaveBeenCalledWith(
-      { userId: "user-1", workflowId: "wf-1" },
+      { accountId: "acct-user-1", userId: "user-1", workflowId: "wf-1" },
       expect.objectContaining({ ok: true }),
     );
   });

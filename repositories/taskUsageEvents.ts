@@ -23,7 +23,7 @@ export type TaskUsageEventType =
   | "internal_poll_cost_recorded";
 
 export interface TaskUsageEventInsert {
-  userId: string;
+  accountId: string;
   workflowId: string | null;
   workflowRunId: string | null;
   nodeId?: string | null;
@@ -50,7 +50,7 @@ export interface TaskUsageEventRecord extends TaskUsageEventInsert {
 
 interface TaskUsageEventRow {
   id: string;
-  user_id: string;
+  account_id: string;
   workflow_id: string | null;
   workflow_run_id: string | null;
   node_id: string | null;
@@ -72,7 +72,7 @@ interface TaskUsageEventRow {
 
 function toInsertRow(e: TaskUsageEventInsert): Record<string, unknown> {
   return {
-    user_id: e.userId,
+    account_id: e.accountId,
     workflow_id: e.workflowId,
     workflow_run_id: e.workflowRunId,
     node_id: e.nodeId ?? null,
@@ -95,7 +95,7 @@ function toInsertRow(e: TaskUsageEventInsert): Record<string, unknown> {
 function rowToRecord(row: TaskUsageEventRow): TaskUsageEventRecord {
   return {
     id: row.id,
-    userId: row.user_id,
+    accountId: row.account_id,
     workflowId: row.workflow_id,
     workflowRunId: row.workflow_run_id,
     nodeId: row.node_id,
@@ -155,7 +155,7 @@ export interface TaskUsageAnalyticsQuery {
   /** Inclusive upper bound on created_at (ISO timestamp). */
   to?: string;
   /** Optional single-user scope (owner viewing one user). */
-  userId?: string;
+  accountId?: string;
   /** Optional single-workflow scope. */
   workflowId?: string;
   /** Optional row cap (defense against unbounded loads). */
@@ -168,7 +168,7 @@ export interface TaskUsageAnalyticsQuery {
  * Uses the SERVICE-ROLE client and therefore BYPASSES RLS — it is for
  * server-side owner/admin analytics ONLY. It must never be wired into a
  * normal-user-facing path; per-user surfaces use the RLS-gated `listByRun`
- * or pass an explicit `userId` filter here behind an admin authorization
+ * or pass an explicit `accountId` filter here behind an admin authorization
  * check at the call site.
  */
 export async function listEventsForAnalytics(
@@ -180,7 +180,7 @@ export async function listEventsForAnalytics(
   let query = supabase.from("task_usage_events").select("*");
   if (q.from) query = query.gte("created_at", q.from);
   if (q.to) query = query.lte("created_at", q.to);
-  if (q.userId) query = query.eq("user_id", q.userId);
+  if (q.accountId) query = query.eq("account_id", q.accountId);
   if (q.workflowId) query = query.eq("workflow_id", q.workflowId);
   query = query.order("created_at", { ascending: false });
   if (q.limit !== undefined) query = query.limit(q.limit);

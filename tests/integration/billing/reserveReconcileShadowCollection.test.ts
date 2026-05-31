@@ -283,9 +283,10 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
       .select("id")
       .in("owner_user_id", createdUserIds);
     const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-    await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
-    await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
     if (accountIds.length > 0) {
+      // 4.ACCOUNT-MODEL-9d: ledgers are account-owned now.
+      await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
+      await admin.from("task_usage_events").delete().in("account_id", accountIds);
       await admin.from("workflow_runs").delete().in("account_id", accountIds);
       await admin.from("workflows").delete().in("account_id", accountIds);
       await admin.from("account_billing").delete().in("account_id", accountIds);
@@ -396,11 +397,11 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
     });
     await runReal(wf8, "t1");
 
-    // 8 distinct real runs → 8 shadow rows for the seeded users.
+    // 8 distinct real runs → 8 shadow rows for the seeded accounts.
     const { data, error } = await admin
       .from("billing_shadow_comparisons")
       .select("workflow_run_id")
-      .in("user_id", createdUserIds);
+      .in("account_id", [account1, account2]);
     expect(error).toBeNull();
     expect(data?.length ?? 0).toBe(8);
   });
@@ -489,16 +490,16 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
   it("leaves no harness residue after cleanup", async () => {
     // Run the cleanup the afterAll will also do, then assert zero rows — proves
     // the harness is self-cleaning (afterAll re-running delete is a no-op).
-    await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
-    await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
-    // Phase B: account-owned — delete by account_id (user_id column is gone).
+    // 4.ACCOUNT-MODEL-9d: ledgers are account-owned (user_id columns are gone).
+    await admin.from("billing_shadow_comparisons").delete().in("account_id", [account1, account2]);
+    await admin.from("task_usage_events").delete().in("account_id", [account1, account2]);
     await admin.from("workflow_runs").delete().in("account_id", [account1, account2]);
     await admin.from("workflows").delete().in("account_id", [account1, account2]);
 
     const shadow = await admin
       .from("billing_shadow_comparisons")
       .select("id")
-      .in("user_id", createdUserIds);
+      .in("account_id", [account1, account2]);
     expect(shadow.data?.length ?? 0).toBe(0);
 
     expect(capturedSummary).not.toBeNull();

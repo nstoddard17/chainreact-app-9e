@@ -31,7 +31,7 @@ export interface ShadowBillingSummary {
 }
 
 export interface ShadowComparisonInput {
-  userId: string;
+  accountId: string;
   workflowId: string;
   workflowRunId: string;
   workflowDefinition: WorkflowDefinition;
@@ -113,7 +113,7 @@ export function buildReserveReconcileShadowComparison(
  * summary reflects the balance a reservation would have seen instead.
  */
 export function buildShadowFromRun(args: {
-  userId: string;
+  accountId: string;
   workflowId: string;
   workflowRunId: string;
   workflowDefinition: WorkflowDefinition;
@@ -141,14 +141,14 @@ export function buildShadowFromRun(args: {
  * stays structurally unreachable). Never throws.
  */
 export async function recordShadowComparison(args: {
-  userId: string;
+  accountId: string;
   workflowId: string;
   workflowRunId: string;
   workflowDefinition: WorkflowDefinition;
   flatChargedTasks: number;
   actualUsage: { actualTaskCost: number };
   gate: { used?: number; limit?: number };
-  persist: (comparison: ReserveReconcileShadowComparison, userId: string) => Promise<void>;
+  persist: (comparison: ReserveReconcileShadowComparison, accountId: string) => Promise<void>;
   log: (event: string, extra?: Record<string, unknown>) => void;
 }): Promise<void> {
   let comparison: ReserveReconcileShadowComparison;
@@ -162,7 +162,7 @@ export async function recordShadowComparison(args: {
   }
   args.log("execution.run.billing_shadow", { ...comparison });
   try {
-    await args.persist(comparison, args.userId);
+    await args.persist(comparison, args.accountId);
   } catch (err) {
     args.log("execution.run.billing_shadow_persist_failed", {
       error: err instanceof Error ? err.message : String(err),

@@ -117,7 +117,7 @@ describe("recordRunActuals", () => {
     await recordRunActuals({
       runId: "run-1",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "user-1",
       usage: {
         estimatedTaskCost: 2,
         actualTaskCost: 1,
@@ -141,7 +141,7 @@ describe("recordRunActuals", () => {
     await recordRunActuals({
       runId: "run-3",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "user-1",
       usage: {
         estimatedTaskCost: 1,
         actualTaskCost: 1,
@@ -159,7 +159,7 @@ describe("recordRunActuals", () => {
     await recordRunActuals({
       runId: "run-2",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "user-1",
       usage: {
         estimatedTaskCost: 0,
         actualTaskCost: 0,

@@ -96,11 +96,15 @@ describe("4.ACCOUNT-MODEL-9c/9c2 — canonical account billing path (static guar
       expect(matches.length).toBeGreaterThanOrEqual(2);
     });
 
-    it("the user-scoped ledgers still receive createdByUserId (provenance, not a billing key)", () => {
+    it("the ledger recorders are account-scoped too (4.ACCOUNT-MODEL-9d)", () => {
       // recordRunActuals (task_usage_events) + recordShadowComparison
-      // (billing_shadow_comparisons) stay user-scoped until 9d.
-      const matches = code.match(/userId:\s*workflow\.createdByUserId/g) ?? [];
-      expect(matches.length).toBeGreaterThanOrEqual(2);
+      // (billing_shadow_comparisons) were rescoped to account_id in 9d, so the
+      // engine threads accountId (not createdByUserId) into the ledger writes.
+      // (createdByUserId legitimately still flows to HANDLERS as the actor and
+      // to failure notifications as provenance — not asserted against here.)
+      expect(code).toMatch(/recordRunActuals\(\{[\s\S]*?accountId:\s*workflow\.accountId/);
+      expect(code).toMatch(/recordShadowComparison\(\{\s*accountId:\s*workflow\.accountId/);
+      expect(code).not.toMatch(/recordRunActuals\(\{[\s\S]*?userId:\s*workflow\.createdByUserId/);
     });
   });
 

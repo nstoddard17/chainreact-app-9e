@@ -118,6 +118,9 @@ export async function recordAiCostEvent(event: AiCostEventInsert): Promise<void>
 
 /** Common id/feature scope threaded into every event. */
 export interface AiEventScope {
+  /** Cost owner — the account the AI usage is billed to (4.ACCOUNT-MODEL-9d). */
+  accountId: string;
+  /** Actor — the user who drove the AI interaction (provenance, not owner). */
   userId: string;
   feature: AiCostFeature;
   workflowId?: string | null;

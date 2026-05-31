@@ -78,7 +78,7 @@ import {
 } from "@/repositories/taskUsageEvents";
 
 const sampleEvent: TaskUsageEventInsert = {
-  userId: "user-1",
+  accountId: "user-1",
   workflowId: "wf-1",
   workflowRunId: "run-1",
   nodeId: "a1",
@@ -103,7 +103,7 @@ describe("taskUsageEvents.insertEvents", () => {
     const rows = state.inserted as Array<Record<string, unknown>>;
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      user_id: "user-1",
+      account_id: "user-1",
       workflow_run_id: "run-1",
       node_id: "a1",
       node_type: "send_email",
@@ -133,7 +133,7 @@ describe("taskUsageEvents.listByRun", () => {
       data: [
         {
           id: "evt-1",
-          user_id: "user-1",
+          account_id: "user-1",
           workflow_id: "wf-1",
           workflow_run_id: "run-1",
           node_id: "a1",
@@ -167,12 +167,12 @@ describe("taskUsageEvents.listByRun", () => {
 });
 
 describe("taskUsageEvents.listEventsForAnalytics (owner/admin, service-role)", () => {
-  it("wires from/to/userId/workflowId/limit filters and maps rows", async () => {
+  it("wires from/to/accountId/workflowId/limit filters and maps rows", async () => {
     const { client, calls } = makeRangeClient({
       data: [
         {
           id: "evt-1",
-          user_id: "u9",
+          account_id: "u9",
           workflow_id: "wf-1",
           workflow_run_id: "run-1",
           node_id: "a1",
@@ -202,7 +202,7 @@ describe("taskUsageEvents.listEventsForAnalytics (owner/admin, service-role)", (
       limit: 100,
     });
     expect(records).toHaveLength(1);
-    expect(records[0]).toMatchObject({ id: "evt-1", userId: "u9", tasksCharged: 1 });
+    expect(records[0]).toMatchObject({ id: "evt-1", accountId: "u9", tasksCharged: 1 });
     expect(calls.gte).toEqual(["created_at", "2026-05-01"]);
     expect(calls.lte).toEqual(["created_at", "2026-05-31"]);
     expect(calls.eq).toBeDefined();

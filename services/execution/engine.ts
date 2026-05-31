@@ -638,7 +638,7 @@ export class WorkflowEngine {
         await recordRunActuals({
           runId,
           workflowId: input.workflowId,
-          userId: workflow.createdByUserId,
+          accountId: workflow.accountId,
           usage,
         });
       } catch (err) {
@@ -658,7 +658,7 @@ export class WorkflowEngine {
     // shadow. Gated ONLY by the shadow flag (never the live billing flag).
     if (usage && isReserveReconcileShadowEnabled()) {
       await recordShadowComparison({
-        userId: workflow.createdByUserId,
+        accountId: workflow.accountId,
         workflowId: input.workflowId,
         workflowRunId: runId,
         workflowDefinition: def,

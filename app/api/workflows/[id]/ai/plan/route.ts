@@ -5,6 +5,7 @@ import {
   type PlanWorkflowFailureCode,
 } from "@/services/ai/planner";
 import { recordAiPlanOutcome } from "@/services/ai/events";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { parseJsonBody, requireUser } from "../../../_shared";
 
 /**
@@ -142,8 +143,11 @@ export async function POST(
   // its own errors; the extra try/catch is belt-and-suspenders so analytics can
   // never affect the response. No raw prompt/config is recorded.
   try {
+    // 4.ACCOUNT-MODEL-9d: AI cost is owned by the account; userId is the actor.
+    const account = await ensurePersonalAccount(auth.userId);
     await recordAiPlanOutcome(
       {
+        accountId: account.id,
         userId: auth.userId,
         workflowId: id,
         ...(body.data.interactionKind ? { interactionKind: body.data.interactionKind } : {}),

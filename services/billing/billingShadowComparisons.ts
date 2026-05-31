@@ -30,10 +30,10 @@ import {
 /** Map a comparison (+ the owner) into the persisted insert shape. */
 export async function recordBillingShadowComparison(
   comparison: ReserveReconcileShadowComparison,
-  userId: string,
+  accountId: string,
 ): Promise<void> {
   await billingShadowComparisonsRepo.insertComparison({
-    userId,
+    accountId,
     workflowId: comparison.workflowId,
     workflowRunId: comparison.workflowRunId,
     flatChargedTasks: comparison.flatChargedTasks,

@@ -102,7 +102,7 @@ beforeEach(() => {
 
 describe("recordAiPlanOutcome — mapping", () => {
   it("emits interaction_started + model_completed + proposed + previewed for an apply-ready plan", async () => {
-    await recordAiPlanOutcome({ userId: "u1", workflowId: "wf1" }, planSuccess() as never);
+    await recordAiPlanOutcome({ accountId: "acct-u1", userId: "u1", workflowId: "wf1" }, planSuccess() as never);
 
     expect(recordAiCostEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: "ai_interaction_started", feature: "workflow_creation", patchId: "p1" }),
@@ -116,7 +116,7 @@ describe("recordAiPlanOutcome — mapping", () => {
   });
 
   it("emits proposed + validation_failed(PREVIEW_REJECTED) for a not-apply-ready patch", async () => {
-    await recordAiPlanOutcome({ userId: "u1", workflowId: "wf1" }, planSuccess({ canApplyLater: false }) as never);
+    await recordAiPlanOutcome({ accountId: "acct-u1", userId: "u1", workflowId: "wf1" }, planSuccess({ canApplyLater: false }) as never);
     expect(recordAiPatchOutcome).toHaveBeenCalledWith(expect.anything(), "proposed", expect.anything());
     expect(recordAiPatchOutcome).toHaveBeenCalledWith(
       expect.anything(),
@@ -127,7 +127,7 @@ describe("recordAiPlanOutcome — mapping", () => {
 
   it("emits no patch event for a no-patch (needs-input) plan", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ proposedPatch: null, canApplyLater: false }) as never,
     );
     expect(recordAiModelCallCompleted).toHaveBeenCalledTimes(1);
@@ -136,7 +136,7 @@ describe("recordAiPlanOutcome — mapping", () => {
 
   it("maps MODEL_FAILED to a failed model call with stage=model", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]) as never,
     );
     expect(recordAiModelCallFailed).toHaveBeenCalledWith(
@@ -149,7 +149,7 @@ describe("recordAiPlanOutcome — mapping", () => {
 
   it("maps PARSE_FAILED to a failed model call with stage=parse and NO completed event", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planFail("PARSE_FAILED", [{ stage: "parse", code: "INVALID_PATCH" }]) as never,
     );
     expect(recordAiModelCallFailed).toHaveBeenCalledWith(
@@ -165,7 +165,7 @@ describe("recordAiPlanOutcome — mapping", () => {
 
   it("maps PREVIEW_UNAVAILABLE to model_completed + validation_failed", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planFail("PREVIEW_UNAVAILABLE", [{ stage: "preview", code: "NOT_FOUND" }]) as never,
     );
     expect(recordAiModelCallCompleted).toHaveBeenCalledTimes(1);
@@ -180,7 +180,7 @@ describe("recordAiPlanOutcome — mapping", () => {
 describe("recordAiApplyOutcome — mapping", () => {
   it("maps a successful apply to ai_patch_applied", async () => {
     await recordAiApplyOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       { ok: true, appliedPatchId: "p1", appliedOperationCount: 2, riskLevel: "low" } as never,
     );
     expect(recordAiPatchOutcome).toHaveBeenCalledWith(
@@ -192,7 +192,7 @@ describe("recordAiApplyOutcome — mapping", () => {
 
   it("maps CONFIRMATION_REQUIRED to a safety block", async () => {
     await recordAiApplyOutcome(
-      { userId: "u1", workflowId: "wf1", patchId: "p1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1", patchId: "p1" },
       { ok: false, code: "CONFIRMATION_REQUIRED", message: "x" } as never,
     );
     expect(recordAiSafetyBlock).toHaveBeenCalledWith(expect.anything(), "confirmation_required");
@@ -200,7 +200,7 @@ describe("recordAiApplyOutcome — mapping", () => {
 
   it("maps other apply failures to validation_failed with the code", async () => {
     await recordAiApplyOutcome(
-      { userId: "u1", workflowId: "wf1", patchId: "p1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1", patchId: "p1" },
       { ok: false, code: "STALE_PATCH", message: "x" } as never,
     );
     expect(recordAiPatchOutcome).toHaveBeenCalledWith(
@@ -215,7 +215,7 @@ describe("fail-open", () => {
   it("recordAiPlanOutcome resolves even when the recorder throws", async () => {
     recordAiCostEvent.mockRejectedValueOnce(new Error("ledger down"));
     await expect(
-      recordAiPlanOutcome({ userId: "u1", workflowId: "wf1" }, planSuccess() as never),
+      recordAiPlanOutcome({ accountId: "acct-u1", userId: "u1", workflowId: "wf1" }, planSuccess() as never),
     ).resolves.toBeUndefined();
   });
 
@@ -223,7 +223,7 @@ describe("fail-open", () => {
     recordAiPatchOutcome.mockRejectedValueOnce(new Error("ledger down"));
     await expect(
       recordAiApplyOutcome(
-        { userId: "u1", workflowId: "wf1" },
+        { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
         { ok: true, appliedPatchId: "p1", appliedOperationCount: 1, riskLevel: "low" } as never,
       ),
     ).resolves.toBeUndefined();
@@ -251,7 +251,7 @@ describe("AI-28 — prompt packet attribution", () => {
 
   it("forwards packetVersion as the top-level promptVersion column on a completed call", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttribution }) as never,
     );
     expect(recordAiModelCallCompleted).toHaveBeenCalledWith(
@@ -262,7 +262,7 @@ describe("AI-28 — prompt packet attribution", () => {
 
   it("folds per-section chars + structural counts into ai_model_call_completed metadata", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttribution }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -291,7 +291,7 @@ describe("AI-28 — prompt packet attribution", () => {
 
   it("folds attribution + packetVersion into ai_model_call_failed metadata on MODEL_FAILED", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]) as never &
         { prompt?: typeof promptAttribution },
     );
@@ -299,7 +299,7 @@ describe("AI-28 — prompt packet attribution", () => {
     // present so we cover both branches.
     recordAiModelCallFailed.mockClear();
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       { ...planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]), prompt: promptAttribution } as never,
     );
     expect(recordAiModelCallFailed).toHaveBeenCalledWith(
@@ -318,7 +318,7 @@ describe("AI-28 — prompt packet attribution", () => {
 
   it("folds attribution into ai_model_call_failed metadata on PARSE_FAILED", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       { ...planFail("PARSE_FAILED", [{ stage: "parse", code: "INVALID_PATCH" }]), prompt: promptAttribution } as never,
     );
     expect(recordAiModelCallFailed).toHaveBeenCalledWith(
@@ -338,7 +338,7 @@ describe("AI-28 — prompt packet attribution", () => {
     // A plan result with no `prompt` field (pre-AI-28 shape) must still
     // record cleanly — no thrown error, no NaN, no undefined keys.
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess() as never,
     );
     const completedCall = recordAiModelCallCompleted.mock.calls[0]![1] as Record<string, unknown>;
@@ -357,7 +357,7 @@ describe("AI-28 — prompt packet attribution", () => {
     // mistake. (The attribution shape is numeric — this guard catches
     // any future drift.)
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttribution }) as never,
     );
     expect(allCallArgs()).not.toMatch(/xox[bpsr]-|Bearer\s|ya29\.|sk-ant-|accessToken|refreshToken|access_token/);
@@ -382,7 +382,7 @@ describe("AI-28 — prompt packet attribution", () => {
       /\braw/i,
     ];
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttribution }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -435,7 +435,7 @@ describe("AI-30 — narrowing-attribution flows through metadata", () => {
 
   it("folds narrowing fields into ai_model_call_completed metadata", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttributionNarrowed }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -453,7 +453,7 @@ describe("AI-30 — narrowing-attribution flows through metadata", () => {
 
   it("forwards providerNarrowingReason on the full-catalog fallback path", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttributionFallback }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -484,7 +484,7 @@ describe("AI-30 — narrowing-attribution flows through metadata", () => {
       /\braw/i,
     ];
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttributionNarrowed }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -502,7 +502,7 @@ describe("AI-30 — narrowing-attribution flows through metadata", () => {
 
   it("folds narrowing fields into ai_model_call_failed metadata on MODEL_FAILED too", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       { ...planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]), prompt: promptAttributionNarrowed } as never,
     );
     expect(recordAiModelCallFailed).toHaveBeenCalledWith(
@@ -562,7 +562,7 @@ describe("AI-31 — tier-routing metadata flows through", () => {
 
   it("folds all tier-routing fields into ai_model_call_completed metadata", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttributionStrongDeterministic }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -583,7 +583,7 @@ describe("AI-31 — tier-routing metadata flows through", () => {
 
   it("reflects classifier_disabled when classifier is off", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttributionClassifierDisabled }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -598,7 +598,7 @@ describe("AI-31 — tier-routing metadata flows through", () => {
 
   it("folds tier-routing fields into ai_model_call_failed metadata too (MODEL_FAILED)", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       {
         ...planFail("MODEL_FAILED", [{ stage: "model", code: "NOT_CONFIGURED" }]),
         prompt: promptAttributionStrongDeterministic,
@@ -631,7 +631,7 @@ describe("AI-31 — tier-routing metadata flows through", () => {
       /\braw/i,
     ];
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: promptAttributionStrongDeterministic }) as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -683,7 +683,7 @@ describe("AI-35D — classifier telemetry + interactionKind", () => {
 
   it("emits a DISTINCT provider_discovery classifier model call when telemetry is present", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: { packetVersion: "workflow-planner-v3", classifierModelCall } }) as never,
     );
     const call = discoveryCall();
@@ -712,7 +712,7 @@ describe("AI-35D — classifier telemetry + interactionKind", () => {
 
   it("records a FAILED classifier call (responded:false) as ai_model_call_failed under provider_discovery", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({
         prompt: {
           packetVersion: "workflow-planner-v3",
@@ -729,7 +729,7 @@ describe("AI-35D — classifier telemetry + interactionKind", () => {
 
   it("emits NO provider_discovery event when the classifier did not run (no telemetry)", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
       planSuccess({ prompt: { packetVersion: "workflow-planner-v3" } }) as never,
     );
     expect(discoveryCall()).toBeUndefined();
@@ -739,7 +739,7 @@ describe("AI-35D — classifier telemetry + interactionKind", () => {
 
   it("folds plannerInteractionKind into the planner model-call metadata when provided", async () => {
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1", interactionKind: "follow_up" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1", interactionKind: "follow_up" },
       planSuccess() as never,
     );
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
@@ -748,7 +748,7 @@ describe("AI-35D — classifier telemetry + interactionKind", () => {
   });
 
   it("omits plannerInteractionKind for legacy callers (back-compat)", async () => {
-    await recordAiPlanOutcome({ userId: "u1", workflowId: "wf1" }, planSuccess() as never);
+    await recordAiPlanOutcome({ accountId: "acct-u1", userId: "u1", workflowId: "wf1" }, planSuccess() as never);
     const metadata = (recordAiModelCallCompleted.mock.calls[0]![1] as { metadata: Record<string, unknown> })
       .metadata;
     expect(metadata).not.toHaveProperty("plannerInteractionKind");
@@ -757,7 +757,7 @@ describe("AI-35D — classifier telemetry + interactionKind", () => {
   it("classifier metadata keys pass the sanitizer denylist and carry no secrets", async () => {
     const BLOCKED = [/token/i, /secret/i, /password/i, /authorization/i, /prompt/i, /completion/i, /body/i, /\bconfig\b/i, /\braw/i];
     await recordAiPlanOutcome(
-      { userId: "u1", workflowId: "wf1", interactionKind: "initial_plan" },
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1", interactionKind: "initial_plan" },
       planSuccess({ prompt: { packetVersion: "workflow-planner-v3", classifierModelCall } }) as never,
     );
     const call = discoveryCall();
@@ -788,14 +788,14 @@ describe("no-leak", () => {
         rationale: "r",
       },
     });
-    await recordAiPlanOutcome({ userId: "u1", workflowId: "wf1" }, withSecret as never);
+    await recordAiPlanOutcome({ accountId: "acct-u1", userId: "u1", workflowId: "wf1" }, withSecret as never);
     expect(allCallArgs()).not.toContain("ya29.LEAKED");
     expect(allCallArgs()).not.toContain("accessToken");
   });
 });
 
 describe("recordAiRepairOutcome (AI-13) — mapping", () => {
-  const SCOPE = { userId: "u1", workflowId: "wf1", workflowRunId: "run-1" };
+  const SCOPE = { accountId: "acct-u1", userId: "u1", workflowId: "wf1", workflowRunId: "run-1" };
 
   const failureSummary = {
     failed: true,

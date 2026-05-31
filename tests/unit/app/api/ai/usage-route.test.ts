@@ -5,8 +5,9 @@
  *
  * Auth runs through the real `requireUser` (createClient mocked); the analytics
  * service is mocked so the route's auth / query-validation / range / shape /
- * no-leak / read-only contract is isolated. The route is current-user scoped and
- * read-only — these assert it never writes the ledger or imports model/planner.
+ * no-leak / read-only contract is isolated. The route is ACCOUNT-scoped
+ * (4.ACCOUNT-MODEL-9d) and read-only — these assert it never writes the ledger
+ * or imports model/planner, and that it queries by the caller's account.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -18,9 +19,14 @@ jest.mock("@/utils/supabase/server", () => ({
   })),
 }));
 
+const mockEnsurePersonalAccount = jest.fn();
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (...a: unknown[]) => mockEnsurePersonalAccount(...a),
+}));
+
 const mockGetAnalytics = jest.fn();
 jest.mock("@/services/analytics/aiAnalyticsReport", () => ({
-  getAiAnalyticsForUser: (...a: unknown[]) => mockGetAnalytics(...a),
+  getAiAnalyticsForAccount: (...a: unknown[]) => mockGetAnalytics(...a),
 }));
 
 import { GET } from "@/app/api/ai/usage/route";
@@ -63,6 +69,8 @@ function call(query = "") {
 beforeEach(() => {
   mockGetUser.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+  mockEnsurePersonalAccount.mockReset();
+  mockEnsurePersonalAccount.mockResolvedValue({ id: "acct-user-1" });
   mockGetAnalytics.mockReset();
   mockGetAnalytics.mockResolvedValue(sampleReport);
 });
@@ -77,11 +85,11 @@ describe("auth", () => {
 });
 
 describe("default range + scope", () => {
-  it("returns 200 with a ~30-day default range, current_user scope, and the report", async () => {
+  it("returns 200 with a ~30-day default range, account scope, and the report", async () => {
     const res = await call();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.scope).toBe("current_user");
+    expect(body.scope).toBe("account");
     expect(body.range.from).toBeDefined();
     expect(body.range.to).toBeDefined();
     expect(body.overview.totalEvents).toBe(3);
@@ -89,10 +97,11 @@ describe("default range + scope", () => {
     expect(Math.round(spanDays)).toBe(30);
   });
 
-  it("scopes the service call to the authenticated user", async () => {
+  it("scopes the service call to the caller's account (never another account)", async () => {
     await call();
+    expect(mockEnsurePersonalAccount).toHaveBeenCalledWith("user-1");
     expect(mockGetAnalytics).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "user-1" }),
+      expect.objectContaining({ accountId: "acct-user-1" }),
     );
   });
 });

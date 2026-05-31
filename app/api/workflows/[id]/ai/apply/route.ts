@@ -6,6 +6,7 @@ import {
 } from "@/services/ai/apply";
 import type { WorkflowPatch } from "@/services/workflows/patch/types";
 import { recordAiApplyOutcome } from "@/services/ai/events";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { parseJsonBody, requireUser } from "../../../_shared";
 
 /**
@@ -102,8 +103,10 @@ export async function POST(
   const requestPatchId =
     typeof body.data.patch.patchId === "string" ? body.data.patch.patchId : null;
   try {
+    // 4.ACCOUNT-MODEL-9d: AI cost is owned by the account; userId is the actor.
+    const account = await ensurePersonalAccount(auth.userId);
     await recordAiApplyOutcome(
-      { userId: auth.userId, workflowId: id, patchId: requestPatchId },
+      { accountId: account.id, userId: auth.userId, workflowId: id, patchId: requestPatchId },
       result,
     );
   } catch {

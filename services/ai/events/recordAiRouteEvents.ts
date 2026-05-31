@@ -40,6 +40,9 @@ import {
 } from "./aiCostDebug";
 
 export interface AiRouteEventScope {
+  /** Cost owner — the account the AI usage is billed to (4.ACCOUNT-MODEL-9d). */
+  readonly accountId: string;
+  /** Actor — the user who drove the AI interaction (provenance, not owner). */
   readonly userId: string;
   readonly workflowId?: string | null;
   /** The request's patch id (apply route) — used for failure events. */
@@ -53,6 +56,9 @@ export interface AiRouteEventScope {
 }
 
 export interface AiRepairRouteEventScope {
+  /** Cost owner — the account the AI usage is billed to (4.ACCOUNT-MODEL-9d). */
+  readonly accountId: string;
+  /** Actor — the user who drove the AI interaction (provenance, not owner). */
   readonly userId: string;
   readonly workflowId: string;
   readonly workflowRunId: string;
@@ -87,6 +93,7 @@ async function recordClassifierModelCall(
   const c = attribution?.classifierModelCall;
   if (!c) return;
   const scope: AiEventScope = {
+    accountId: input.accountId,
     userId: input.userId,
     feature: "provider_discovery",
     workflowId: input.workflowId ?? null,
@@ -205,6 +212,7 @@ export async function recordAiPlanOutcome(
   try {
     const patchId = result.ok ? result.proposedPatch?.patchId ?? null : null;
     const scope: AiEventScope = {
+      accountId: input.accountId,
       userId: input.userId,
       feature: "workflow_creation",
       workflowId: input.workflowId ?? null,
@@ -361,6 +369,7 @@ export async function recordAiApplyOutcome(
   try {
     const patchId = result.ok ? result.appliedPatchId : input.patchId ?? null;
     const scope: AiEventScope = {
+      accountId: input.accountId,
       userId: input.userId,
       feature: "workflow_editing",
       workflowId: input.workflowId ?? null,
@@ -429,6 +438,7 @@ export async function recordAiRepairOutcome(
   try {
     const patchId = result.ok ? result.proposedPatch?.patchId ?? null : null;
     const scope: AiEventScope = {
+      accountId: input.accountId,
       userId: input.userId,
       feature: "workflow_repair",
       workflowId: input.workflowId,

@@ -59,7 +59,7 @@ import {
 } from "@/repositories/billingShadowComparisons";
 
 const sample: BillingShadowComparisonInsert = {
-  userId: "user-1",
+  accountId: "user-1",
   workflowId: "wf-1",
   workflowRunId: "run-1",
   flatChargedTasks: 1,
@@ -81,7 +81,7 @@ describe("billingShadowComparisons.insertComparison", () => {
     mockServiceRole.current = makeUpsertClient(state);
     await insertComparison(sample);
     expect(state.upserted).toMatchObject({
-      user_id: "user-1",
+      account_id: "user-1",
       workflow_id: "wf-1",
       workflow_run_id: "run-1",
       flat_charged_tasks: 1,
@@ -109,7 +109,7 @@ describe("billingShadowComparisons.insertComparison", () => {
 describe("billingShadowComparisons.listForRange", () => {
   function row(over: Record<string, unknown> = {}) {
     return {
-      id: "c1", user_id: "user-1", workflow_id: "wf-1", workflow_run_id: "run-1",
+      id: "c1", account_id: "user-1", workflow_id: "wf-1", workflow_run_id: "run-1",
       flat_charged_tasks: 1, estimated_tasks_per_run: 3, actual_billable_tasks: 2,
       proposed_reserved_tasks: 3, proposed_reconciled_tasks: 2, proposed_refunded_tasks: 1,
       delta_vs_flat: 1, would_have_reserved: true, would_have_had_enough_balance: false,
@@ -118,10 +118,10 @@ describe("billingShadowComparisons.listForRange", () => {
     };
   }
 
-  it("wires from/to/userId/workflowId/limit and maps rows", async () => {
+  it("wires from/to/accountId/workflowId/limit and maps rows", async () => {
     const { client, calls } = makeRangeClient({ data: [row()], error: null });
     mockServiceRole.current = client;
-    const records = await listForRange({ from: "2026-05-01", to: "2026-05-31", userId: "user-1", workflowId: "wf-1", limit: 50 });
+    const records = await listForRange({ from: "2026-05-01", to: "2026-05-31", accountId: "user-1", workflowId: "wf-1", limit: 50 });
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
       id: "c1", workflowRunId: "run-1", flatChargedTasks: 1, deltaVsFlat: 1,

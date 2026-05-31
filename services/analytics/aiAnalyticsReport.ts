@@ -32,9 +32,10 @@ import {
  * token+latency+cost numbers, and metadata KEY-presence (never metadata VALUES),
  * so no raw prompt / completion / config / secret can appear in the report.
  *
- * Scope: `getAiAnalyticsForUser` loads via the RLS-gated `listByUser`, so it only
- * ever sees the caller's own events. Owner/admin CROSS-user reporting needs an
- * admin gate (not yet present in V2) + the service-role `listEventsForAnalytics`.
+ * Scope (4.ACCOUNT-MODEL-9d): `getAiAnalyticsForAccount` loads via the RLS-gated
+ * `listByAccount`, so it only ever sees events for accounts the caller is a
+ * member of. Owner/admin CROSS-account reporting needs an admin gate (not yet
+ * present in V2) + the service-role `listEventsForAnalytics`.
  */
 
 export interface AiAnalyticsReport {
@@ -68,21 +69,22 @@ export function buildAiAnalyticsReport(
   };
 }
 
-export interface UserAiAnalyticsQuery {
-  readonly userId: string;
+export interface AccountAiAnalyticsQuery {
+  readonly accountId: string;
   readonly from?: string;
   readonly to?: string;
   readonly limit?: number;
 }
 
 /**
- * Current-user AI analytics: load the caller's OWN events (RLS-gated) and fold
- * them. Safe under `requireUser` because the read is scoped to `userId`.
+ * Account AI analytics: load the account's events (RLS-gated by membership) and
+ * fold them. Safe under `requireUser` + a server-side membership check because
+ * the read is scoped to `accountId` and RLS rejects non-member accounts.
  */
-export async function getAiAnalyticsForUser(
-  query: UserAiAnalyticsQuery,
+export async function getAiAnalyticsForAccount(
+  query: AccountAiAnalyticsQuery,
 ): Promise<AiAnalyticsReport> {
-  const events = await aiCostEventsRepo.listByUser(query.userId, {
+  const events = await aiCostEventsRepo.listByAccount(query.accountId, {
     ...(query.from ? { from: query.from } : {}),
     ...(query.to ? { to: query.to } : {}),
     ...(query.limit !== undefined ? { limit: query.limit } : {}),

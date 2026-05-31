@@ -365,18 +365,19 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     // (user_id dropped) with ON DELETE RESTRICT FKs to accounts, and
     // accounts.owner_user_id is itself ON DELETE RESTRICT (slice -3). So delete
     // those by account_id, and clear all dependents before accounts + the user.
-    // billing_shadow_comparisons / task_usage_events stay user-scoped (9d).
+    // 4.ACCOUNT-MODEL-9d: billing_shadow_comparisons / task_usage_events are
+    // account-owned now (ON DELETE CASCADE), so they go by account_id.
     const { data: accts } = await admin
       .from("accounts")
       .select("id")
       .in("owner_user_id", createdUserIds);
     const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-    await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
-    await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
     if (accountIds.length > 0) {
+      await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
+      await admin.from("task_usage_events").delete().in("account_id", accountIds);
       await admin.from("workflow_runs").delete().in("account_id", accountIds);
       await admin.from("workflows").delete().in("account_id", accountIds);
-      // 4.ACCOUNT-MODEL-9c: account_billing -> accounts is ON DELETE RESTRICT.
+      // account_billing -> accounts is ON DELETE RESTRICT.
       await admin.from("account_billing").delete().in("account_id", accountIds);
     }
     await admin.from("account_memberships").delete().in("user_id", createdUserIds);

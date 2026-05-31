@@ -884,7 +884,7 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     // in reserveReconcileShadowMode.test.ts).
     expect(mockRecordShadow).toHaveBeenCalledTimes(1);
     const arg = mockRecordShadow.mock.calls[0]![0] as {
-      userId: string; workflowId: string; workflowRunId: string; flatChargedTasks: number;
+      accountId: string; workflowId: string; workflowRunId: string; flatChargedTasks: number;
       actualUsage: { actualTaskCost: number };
       gate: { used?: number; limit?: number };
       persist: unknown; log: unknown;
@@ -2296,7 +2296,7 @@ describe("WorkflowEngine — task usage recording (Slice 4.COST-3)", () => {
     expect(mockComputeRunTaskUsage).toHaveBeenCalledTimes(1);
     expect(mockRecordRunActuals).toHaveBeenCalledTimes(1);
     expect(mockRecordRunActuals).toHaveBeenCalledWith(
-      expect.objectContaining({ runId: result.runId, workflowId: "wf-1", userId: "user-1" }),
+      expect.objectContaining({ runId: result.runId, workflowId: "wf-1", accountId: "acct-user-1" }),
     );
     // COST-15C — cost columns are written on the finalize UPDATE.
     const finalizeArg = mockFinalizeWorkflowRun.mock.calls[0]![0] as {

@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/app/api/providers/_shared";
-import { getAiAnalyticsForUser } from "@/services/analytics/aiAnalyticsReport";
+import { getAiAnalyticsForAccount } from "@/services/analytics/aiAnalyticsReport";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 
 /**
- * GET /api/ai/usage — CURRENT-USER AI analytics (Slice 4.AI-12).
+ * GET /api/ai/usage — ACCOUNT AI analytics (Slice 4.AI-12; account-scoped in
+ * 4.ACCOUNT-MODEL-9d).
  *
- * READ-ONLY. Returns the authenticated caller's OWN AI analytics, folded from the
+ * READ-ONLY. Returns the caller's ACCOUNT's AI analytics, folded from the
  * COST-6 `ai_cost_events` ledger via COST-7's `ownerAiStats` folds. It makes NO
  * model call, NEVER writes the ledger, and never mutates a workflow.
  *
- * SCOPE / AUTH DECISION (honest): this route is gated by `requireUser` and is
- * scoped to the caller (`getAiAnalyticsForUser` loads via the RLS-gated
- * `listByUser`). It is NOT owner-wide. A cross-user owner/admin analytics route
- * (`GET /api/admin/ai/analytics` over the service-role `listEventsForAnalytics`)
- * is intentionally NOT shipped here: V2 has no admin/owner authorization
- * convention yet, and exposing cross-user analytics behind `requireUser` alone
- * would be unsafe. That route is BLOCKED until an admin gate exists.
+ * SCOPE / AUTH DECISION (honest): gated by `requireUser`; resolves the caller's
+ * personal account (until the switcher ships) and loads via the membership-RLS-
+ * gated `listByAccount`, so it can only ever see the caller's own account's
+ * events — never another account's. A cross-account owner/admin analytics route
+ * over the service-role `listEventsForAnalytics` is intentionally NOT shipped:
+ * V2 has no admin/owner authorization convention yet.
  *
  * No-leak: the response carries only counts / enums / model+feature names /
  * token+latency+cost numbers / ranges — never raw prompts, completions, config
@@ -82,7 +83,8 @@ export async function GET(request: Request) {
 
   let report;
   try {
-    report = await getAiAnalyticsForUser({ userId: auth.userId, from, to, limit });
+    const account = await ensurePersonalAccount(auth.userId);
+    report = await getAiAnalyticsForAccount({ accountId: account.id, from, to, limit });
   } catch {
     // Sanitized — never leak internals / connection strings / stack traces.
     return NextResponse.json({ error: "Failed to load AI analytics." }, { status: 500 });
@@ -90,7 +92,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     range: { from, to },
-    scope: "current_user",
+    scope: "account",
     ...report,
   });
 }

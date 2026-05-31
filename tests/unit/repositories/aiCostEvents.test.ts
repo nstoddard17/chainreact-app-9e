@@ -78,6 +78,7 @@ import {
 } from "@/repositories/aiCostEvents";
 
 const sample: AiCostEventInsert = {
+  accountId: "acct-1",
   userId: "user-1",
   workflowId: "wf-1",
   feature: "workflow_creation",
@@ -101,6 +102,7 @@ describe("aiCostEvents.insertEvent", () => {
     await insertEvent(sample);
     const row = state.inserted as Record<string, unknown>;
     expect(row).toMatchObject({
+      account_id: "acct-1",
       user_id: "user-1",
       workflow_id: "wf-1",
       feature: "workflow_creation",
@@ -186,6 +188,7 @@ describe("aiCostEvents.listEventsForAnalytics (owner/admin, service-role)", () =
       data: [
         {
           id: "evt-1",
+          account_id: "acct-9",
           user_id: "u9",
           workflow_id: "wf-1",
           workflow_run_id: null,
@@ -218,12 +221,12 @@ describe("aiCostEvents.listEventsForAnalytics (owner/admin, service-role)", () =
     const records = await listEventsForAnalytics({
       from: "2026-05-01",
       to: "2026-05-31",
-      userId: "u9",
+      accountId: "acct-9",
       feature: "workflow_creation",
       limit: 50,
     });
     expect(records).toHaveLength(1);
-    expect(records[0]).toMatchObject({ id: "evt-1", userId: "u9", modelName: "claude-opus-4-7", totalTokens: 150 });
+    expect(records[0]).toMatchObject({ id: "evt-1", accountId: "acct-9", userId: "u9", modelName: "claude-opus-4-7", totalTokens: 150 });
     expect(calls.gte).toEqual(["created_at", "2026-05-01"]);
     expect(calls.lte).toEqual(["created_at", "2026-05-31"]);
     expect(calls.limit).toEqual([50]);

@@ -116,7 +116,7 @@ export function computeRunTaskUsage(
 export interface RecordRunActualsInput {
   runId: string;
   workflowId: string;
-  userId: string;
+  accountId: string;
   usage: RunTaskUsage;
 }
 
@@ -129,11 +129,11 @@ export interface RecordRunActualsInput {
 export async function recordRunActuals(
   input: RecordRunActualsInput,
 ): Promise<void> {
-  const { runId, workflowId, userId, usage } = input;
+  const { runId, workflowId, accountId, usage } = input;
 
   const events: taskUsageEventsRepo.TaskUsageEventInsert[] = [
     {
-      userId,
+      accountId,
       workflowId,
       workflowRunId: runId,
       eventType: "run_estimate_recorded",
@@ -147,7 +147,7 @@ export async function recordRunActuals(
       metadata: { ...usage.estimateSummary },
     },
     ...usage.nodeEvents.map((n) => ({
-      userId,
+      accountId,
       workflowId,
       workflowRunId: runId,
       nodeId: n.nodeId,

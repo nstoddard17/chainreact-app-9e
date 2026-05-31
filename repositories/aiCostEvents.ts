@@ -5,10 +5,12 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * Repository for ai_cost_events (Slice 4.COST-6) — the AI cost / observability
  * ledger (separate from task_usage_events).
  *
- * Writes go through the service-role client: AI events are logged server-side
- * with no user session. Reads go through the SSR-cookie client so RLS gates
- * each user to their own events (owner/admin cross-user reads use service-role
- * directly, bypassing RLS).
+ * 4.ACCOUNT-MODEL-9d: cost OWNER is `account_id`; `user_id` is retained as the
+ * ACTOR (the user who drove the AI interaction — distinct from the owning
+ * account). Writes go through the service-role client (AI events are logged
+ * server-side with no user session); reads go through the SSR-cookie client so
+ * RLS gates by account membership (owner/admin cross-account reads use the
+ * service-role path, bypassing RLS).
  *
  * NEVER persist raw prompts / completions / chain-of-thought / secrets /
  * tokens / bodies / configs. Callers pass ids, types, counts, timings, model
@@ -46,6 +48,9 @@ export type AiCostEventType =
   | "ai_cost_recorded";
 
 export interface AiCostEventInsert {
+  /** Cost owner (the account the AI usage is billed to). */
+  accountId: string;
+  /** Actor — the user who drove the AI interaction (provenance, not owner). */
   userId: string;
   workflowId?: string | null;
   workflowRunId?: string | null;
@@ -80,6 +85,7 @@ export interface AiCostEventRecord extends AiCostEventInsert {
 
 interface AiCostEventRow {
   id: string;
+  account_id: string;
   user_id: string;
   workflow_id: string | null;
   workflow_run_id: string | null;
@@ -108,6 +114,7 @@ interface AiCostEventRow {
 
 function toInsertRow(e: AiCostEventInsert): Record<string, unknown> {
   return {
+    account_id: e.accountId,
     user_id: e.userId,
     workflow_id: e.workflowId ?? null,
     workflow_run_id: e.workflowRunId ?? null,
@@ -137,6 +144,7 @@ function toInsertRow(e: AiCostEventInsert): Record<string, unknown> {
 function rowToRecord(row: AiCostEventRow): AiCostEventRecord {
   return {
     id: row.id,
+    accountId: row.account_id,
     userId: row.user_id,
     workflowId: row.workflow_id,
     workflowRunId: row.workflow_run_id,
@@ -203,30 +211,32 @@ export interface ListByUserOptions {
 }
 
 /**
- * List the caller's OWN AI events for current-user analytics (Slice 4.AI-12).
+ * List an ACCOUNT's AI events for account analytics (Slice 4.AI-12;
+ * account-scoped in 4.ACCOUNT-MODEL-9d).
  *
- * Uses the SSR-cookie client, so RLS scopes the read to the caller's own rows —
- * a normal user can NEVER read another user's AI events through this path (the
- * explicit `user_id` filter is belt-and-suspenders on top of RLS). Owner/admin
- * CROSS-user analytics still go through the service-role `listEventsForAnalytics`
- * and require an admin gate that does not yet exist in V2.
+ * Uses the SSR-cookie client, so RLS scopes the read to accounts the caller is a
+ * member of — a caller can NEVER read another account's AI events through this
+ * path (the explicit `account_id` filter is belt-and-suspenders on top of the
+ * membership RLS). Owner/admin CROSS-account analytics still go through the
+ * service-role `listEventsForAnalytics` and require an admin gate that does not
+ * yet exist in V2.
  */
-export async function listByUser(
-  userId: string,
+export async function listByAccount(
+  accountId: string,
   opts: ListByUserOptions = {},
 ): Promise<readonly AiCostEventRecord[]> {
   const supabase = await createClient();
   let query = supabase
     .from("ai_cost_events")
     .select("*")
-    .eq("user_id", userId);
+    .eq("account_id", accountId);
   if (opts.from) query = query.gte("created_at", opts.from);
   if (opts.to) query = query.lte("created_at", opts.to);
   query = query.order("created_at", { ascending: false });
   if (opts.limit !== undefined) query = query.limit(opts.limit);
   const { data, error } = await query;
   if (error) {
-    throw new Error(`ai_cost_events.listByUser failed: ${error.message}`);
+    throw new Error(`ai_cost_events.listByAccount failed: ${error.message}`);
   }
   return (data ?? []).map((r) => rowToRecord(r as AiCostEventRow));
 }
@@ -237,8 +247,8 @@ export interface AiCostAnalyticsQuery {
   from?: string;
   /** Inclusive upper bound on created_at (ISO timestamp). */
   to?: string;
-  /** Optional single-user scope (owner viewing one user). */
-  userId?: string;
+  /** Optional single-account scope (owner viewing one account). */
+  accountId?: string;
   /** Optional single-feature scope. */
   feature?: AiCostFeature;
   /** Optional row cap (defense against unbounded loads). */
@@ -262,7 +272,7 @@ export async function listEventsForAnalytics(
   let query = supabase.from("ai_cost_events").select("*");
   if (q.from) query = query.gte("created_at", q.from);
   if (q.to) query = query.lte("created_at", q.to);
-  if (q.userId) query = query.eq("user_id", q.userId);
+  if (q.accountId) query = query.eq("account_id", q.accountId);
   if (q.feature) query = query.eq("feature", q.feature);
   query = query.order("created_at", { ascending: false });
   if (q.limit !== undefined) query = query.limit(q.limit);

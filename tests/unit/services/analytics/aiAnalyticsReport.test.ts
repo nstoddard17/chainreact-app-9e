@@ -3,25 +3,27 @@
  *
  * Tests for services/analytics/aiAnalyticsReport.ts (Slice 4.AI-12).
  *
- * `buildAiAnalyticsReport` composes the COST-7 pure folds; `getAiAnalyticsForUser`
- * loads the caller's events (RLS-gated repo, mocked) and folds them. These pin
- * the combined shape, empty-data zeros, the user-scoped load wiring, and the
- * no-leak guarantee (metadata VALUES never surface in the report).
+ * `buildAiAnalyticsReport` composes the COST-7 pure folds;
+ * `getAiAnalyticsForAccount` loads the account's events (membership-RLS-gated
+ * repo, mocked) and folds them. These pin the combined shape, empty-data zeros,
+ * the account-scoped load wiring, and the no-leak guarantee (metadata VALUES
+ * never surface in the report).
  */
-const mockListByUser = jest.fn();
+const mockListByAccount = jest.fn();
 jest.mock("@/repositories/aiCostEvents", () => ({
-  listByUser: (...a: unknown[]) => mockListByUser(...a),
+  listByAccount: (...a: unknown[]) => mockListByAccount(...a),
 }));
 
 import {
   buildAiAnalyticsReport,
-  getAiAnalyticsForUser,
+  getAiAnalyticsForAccount,
 } from "@/services/analytics/aiAnalyticsReport";
 import type { AiCostEventRecord } from "@/repositories/aiCostEvents";
 
 function ev(partial: Partial<AiCostEventRecord>): AiCostEventRecord {
   return {
     id: "e1",
+    accountId: "acct-1",
     userId: "user-1",
     workflowId: null,
     workflowRunId: null,
@@ -91,21 +93,21 @@ describe("buildAiAnalyticsReport", () => {
   });
 });
 
-describe("getAiAnalyticsForUser", () => {
+describe("getAiAnalyticsForAccount", () => {
   beforeEach(() => {
-    mockListByUser.mockReset();
-    mockListByUser.mockResolvedValue([]);
+    mockListByAccount.mockReset();
+    mockListByAccount.mockResolvedValue([]);
   });
 
-  it("loads the caller's events with the requested range/limit and folds them", async () => {
-    mockListByUser.mockResolvedValueOnce(sampleEvents);
-    const report = await getAiAnalyticsForUser({
-      userId: "u1",
+  it("loads the account's events with the requested range/limit and folds them", async () => {
+    mockListByAccount.mockResolvedValueOnce(sampleEvents);
+    const report = await getAiAnalyticsForAccount({
+      accountId: "acct-1",
       from: "2026-05-01T00:00:00Z",
       to: "2026-05-25T00:00:00Z",
       limit: 100,
     });
-    expect(mockListByUser).toHaveBeenCalledWith("u1", {
+    expect(mockListByAccount).toHaveBeenCalledWith("acct-1", {
       from: "2026-05-01T00:00:00Z",
       to: "2026-05-25T00:00:00Z",
       limit: 100,

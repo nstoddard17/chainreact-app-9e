@@ -159,11 +159,11 @@ export function groupTaskUsageByWorkflow(
   return groupBy(events, (e) => e.workflowId ?? null);
 }
 
-/** Group by user id. */
-export function groupTaskUsageByUser(
+/** Group by account id (the billing owner). */
+export function groupTaskUsageByAccount(
   events: readonly TaskUsageEventRecord[],
 ): Record<string, TaskGroupStat> {
-  return groupBy(events, (e) => e.userId ?? null);
+  return groupBy(events, (e) => e.accountId ?? null);
 }
 
 /** Rank a grouping by `tasksCharged` (desc), tie-broken by count, then key. */
@@ -226,17 +226,17 @@ export async function getMostExpensiveWorkflows(
   return getTaskUsageByWorkflow(args);
 }
 
-/** Owner per-user task usage in a date range, ranked by tasks charged. */
-export async function getTaskUsageByUser(
+/** Owner per-account task usage in a date range, ranked by tasks charged. */
+export async function getTaskUsageByAccount(
   args: TaskUsageDateRange & { limit?: number } = {},
 ): Promise<RankedTaskGroup[]> {
   const { limit, ...range } = args;
-  return rankTaskGroups(groupTaskUsageByUser(await load(range)), limit);
+  return rankTaskGroups(groupTaskUsageByAccount(await load(range)), limit);
 }
 
-/** Owner overview scoped to a single user (still an owner/admin read). */
-export async function getTaskUsageForUser(
-  args: { userId: string } & TaskUsageDateRange,
+/** Owner overview scoped to a single account (still an owner/admin read). */
+export async function getTaskUsageForAccount(
+  args: { accountId: string } & TaskUsageDateRange,
 ): Promise<TaskUsageOverview> {
   return summarizeTaskUsageEvents(await load(args));
 }

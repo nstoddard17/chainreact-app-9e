@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { suggestWorkflowRepairForAI } from "@/services/ai/repair";
 import { recordAiRepairOutcome } from "@/services/ai/events";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { requireUser } from "../../../../../_shared";
 
 /**
@@ -117,8 +118,10 @@ export async function POST(
   // its own errors; the extra try/catch is belt-and-suspenders so analytics can
   // never affect the response. No raw classification text / config is recorded.
   try {
+    // 4.ACCOUNT-MODEL-9d: AI cost is owned by the account; userId is the actor.
+    const account = await ensurePersonalAccount(auth.userId);
     await recordAiRepairOutcome(
-      { userId: auth.userId, workflowId: id, workflowRunId: runId },
+      { accountId: account.id, userId: auth.userId, workflowId: id, workflowRunId: runId },
       result,
     );
   } catch {

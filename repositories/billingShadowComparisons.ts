@@ -15,7 +15,7 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  */
 
 export interface BillingShadowComparisonInsert {
-  userId: string;
+  accountId: string;
   workflowId: string;
   workflowRunId: string;
   flatChargedTasks: number;
@@ -39,7 +39,7 @@ export interface BillingShadowComparisonRecord extends BillingShadowComparisonIn
 
 interface BillingShadowComparisonRow {
   id: string;
-  user_id: string;
+  account_id: string;
   workflow_id: string;
   workflow_run_id: string;
   flat_charged_tasks: number;
@@ -59,7 +59,7 @@ interface BillingShadowComparisonRow {
 
 function toInsertRow(e: BillingShadowComparisonInsert): Record<string, unknown> {
   return {
-    user_id: e.userId,
+    account_id: e.accountId,
     workflow_id: e.workflowId,
     workflow_run_id: e.workflowRunId,
     flat_charged_tasks: e.flatChargedTasks,
@@ -80,7 +80,7 @@ function toInsertRow(e: BillingShadowComparisonInsert): Record<string, unknown> 
 function rowToRecord(row: BillingShadowComparisonRow): BillingShadowComparisonRecord {
   return {
     id: row.id,
-    userId: row.user_id,
+    accountId: row.account_id,
     workflowId: row.workflow_id,
     workflowRunId: row.workflow_run_id,
     flatChargedTasks: row.flat_charged_tasks,
@@ -126,7 +126,7 @@ export async function insertComparison(
 export interface ShadowComparisonQuery {
   from?: string;
   to?: string;
-  userId?: string;
+  accountId?: string;
   workflowId?: string;
   limit?: number;
 }
@@ -144,7 +144,7 @@ export async function listForRange(
   let query = supabase.from("billing_shadow_comparisons").select("*");
   if (q.from) query = query.gte("created_at", q.from);
   if (q.to) query = query.lte("created_at", q.to);
-  if (q.userId) query = query.eq("user_id", q.userId);
+  if (q.accountId) query = query.eq("account_id", q.accountId);
   if (q.workflowId) query = query.eq("workflow_id", q.workflowId);
   query = query.order("created_at", { ascending: false });
   if (q.limit !== undefined) query = query.limit(q.limit);

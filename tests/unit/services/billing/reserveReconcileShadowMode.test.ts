@@ -32,7 +32,7 @@ function build(
 ) {
   setEstimate(estimate, extra.warnings ?? []);
   return buildReserveReconcileShadowComparison({
-    userId: "u1",
+    accountId: "u1",
     workflowId: "wf-1",
     workflowRunId: "run-1",
     workflowDefinition: def,
@@ -87,7 +87,7 @@ describe("buildReserveReconcileShadowComparison — warnings + policy", () => {
     ];
     setEstimate(4, warnings, "v2");
     const r = buildReserveReconcileShadowComparison({
-      userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+      accountId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
       workflowDefinition: def, flatChargedTasks: 1, actualUsage: { actualTaskCost: 2 },
     });
     expect(r.warnings).toEqual(warnings);
@@ -111,7 +111,7 @@ describe("buildShadowFromRun — gate → pre-flat balance mapping", () => {
   it("reconstructs the pre-flat-charge balance (used-flat, limit-used+flat)", () => {
     setEstimate(3, []);
     const r = buildShadowFromRun({
-      userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+      accountId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
       workflowDefinition: def, flatChargedTasks: 1,
       actualUsage: { actualTaskCost: 2 },
       gate: { used: 5, limit: 100 },
@@ -124,7 +124,7 @@ describe("buildShadowFromRun — gate → pre-flat balance mapping", () => {
   it("would NOT have had enough when the pre-flat remaining is below the estimate", () => {
     setEstimate(5, []);
     const r = buildShadowFromRun({
-      userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+      accountId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
       workflowDefinition: def, flatChargedTasks: 1,
       actualUsage: { actualTaskCost: 1 },
       gate: { used: 99, limit: 100 }, // pre-flat remaining = 100 - 99 + 1 = 2 < 5
@@ -135,7 +135,7 @@ describe("buildShadowFromRun — gate → pre-flat balance mapping", () => {
   it("no gate counters → null wouldHaveHadEnoughBalance", () => {
     setEstimate(2, []);
     const r = buildShadowFromRun({
-      userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+      accountId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
       workflowDefinition: def, flatChargedTasks: 1,
       actualUsage: { actualTaskCost: 1 },
       gate: {},
@@ -151,20 +151,20 @@ describe("recordShadowComparison — build + log + persist orchestration (fail-o
     return { log, persist };
   }
   const baseArgs = {
-    userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+    accountId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
     workflowDefinition: def, flatChargedTasks: 1,
     actualUsage: { actualTaskCost: 2 },
     gate: { used: 5, limit: 100 },
   };
 
-  it("logs billing_shadow and persists the comparison + userId", async () => {
+  it("logs billing_shadow and persists the comparison + accountId", async () => {
     setEstimate(3, []);
     const { log, persist } = deps();
     await recordShadowComparison({ ...baseArgs, persist, log });
     expect(log).toHaveBeenCalledWith("execution.run.billing_shadow", expect.objectContaining({ billingMode: "shadow" }));
     expect(persist).toHaveBeenCalledTimes(1);
-    const [comparison, userId] = persist.mock.calls[0]!;
-    expect(userId).toBe("u1");
+    const [comparison, accountId] = persist.mock.calls[0]!;
+    expect(accountId).toBe("u1");
     expect(comparison).toMatchObject({ workflowRunId: "run-1", estimatedTasksPerRun: 3, actualBillableTasks: 2 });
   });
 
@@ -196,7 +196,7 @@ describe("buildReserveReconcileShadowComparison — no leakage", () => {
     } as unknown as WorkflowDefinition;
     setEstimate(1, []);
     const r = buildReserveReconcileShadowComparison({
-      userId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
+      accountId: "u1", workflowId: "wf-1", workflowRunId: "run-1",
       workflowDefinition: dirtyDef, flatChargedTasks: 1, actualUsage: { actualTaskCost: 1 },
     });
     const serialized = JSON.stringify(r);
