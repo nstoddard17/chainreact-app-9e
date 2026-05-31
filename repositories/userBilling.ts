@@ -2,6 +2,14 @@ import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 
 /**
+ * @deprecated 4.ACCOUNT-MODEL-9c — live billing was cut over to account_billing
+ * (see repositories/accountBilling.ts + the account-keyed `_v2` RPCs). No
+ * production caller imports this module anymore. It is retained for the
+ * deprecation window only: the user-keyed RPCs + user_billing table still exist
+ * (the 9b parity test uses them as the equivalence reference), and several
+ * unit tests still `jest.mock` this path. A later cleanup slice drops the
+ * user-keyed RPCs + user_billing and removes this file.
+ *
  * Repository for user_billing.
  *
  * deductTasks → service-role RPC. The gate runs server-side without a user

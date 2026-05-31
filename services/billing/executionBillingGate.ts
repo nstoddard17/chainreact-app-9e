@@ -1,4 +1,4 @@
-import * as userBillingRepo from "@/repositories/userBilling";
+import * as accountBillingRepo from "@/repositories/accountBilling";
 
 /**
  * Pre-execution billing gate.
@@ -43,7 +43,7 @@ export interface ExecutionBillingGateOptions {
 }
 
 export async function executionBillingGate(
-  userId: string,
+  accountId: string,
   options: ExecutionBillingGateOptions = {},
 ): Promise<BillingGateOutcome> {
   // COST-2A — test/dry-run runs do not bill. Return before touching the
@@ -52,7 +52,9 @@ export async function executionBillingGate(
     return { ok: true, skipped: true, reason: "test_mode" };
   }
 
-  const result = await userBillingRepo.deductTasks(userId, 1);
+  // 4.ACCOUNT-MODEL-9c: bill the account that owns the workflow being run,
+  // never the actor. The caller passes workflow.accountId.
+  const result = await accountBillingRepo.deductTasks(accountId, 1);
   if (result.ok) {
     return { ok: true, used: result.used, limit: result.limit };
   }

@@ -1,4 +1,4 @@
-import * as userBillingRepo from "@/repositories/userBilling";
+import * as accountBillingRepo from "@/repositories/accountBilling";
 import { isReserveReconcileEnabled } from "./billingFeatureFlags";
 
 /**
@@ -149,7 +149,8 @@ function statusForReason(reason: BillingReason): BillingStatus | null {
 // ── inputs ───────────────────────────────────────────────────────────────────
 
 export interface CreateReservationInput {
-  userId: string;
+  /** 4.ACCOUNT-MODEL-9c: bill the workflow's owning account, not the actor. */
+  accountId: string;
   /** Accepted for symmetry/logging; the RPC keys on the run (which carries workflow_id). */
   workflowId?: string | null;
   workflowRunId: string;
@@ -159,14 +160,14 @@ export interface CreateReservationInput {
 }
 
 export interface ReconcileInput {
-  userId: string;
+  accountId: string;
   workflowRunId: string;
   actualTasks: number;
   testMode?: boolean;
 }
 
 export interface ReleaseInput {
-  userId: string;
+  accountId: string;
   workflowRunId: string;
   testMode?: boolean;
 }
@@ -186,8 +187,8 @@ export async function createBillingReservation(
   if (!isReserveReconcileEnabled()) return skip("disabled");
 
   try {
-    const r = await userBillingRepo.reserveTasks(
-      input.userId, amount, input.workflowRunId, input.expiresAt ?? null,
+    const r = await accountBillingRepo.reserveTasks(
+      input.accountId, amount, input.workflowRunId, input.expiresAt ?? null,
     );
     let reason = normalizeReason(r.reason);
     // Explicit zero reservation: a fresh reserve of 0 is a real, idempotent
@@ -226,8 +227,8 @@ export async function reconcileBillingReservation(
 
   const actual = Math.max(0, Math.trunc(input.actualTasks || 0));
   try {
-    const r = await userBillingRepo.reconcileReservation(
-      input.userId, input.workflowRunId, actual,
+    const r = await accountBillingRepo.reconcileReservation(
+      input.accountId, input.workflowRunId, actual,
     );
     const reason = normalizeReason(r.reason);
     return {
@@ -264,8 +265,8 @@ export async function releaseBillingReservation(
   if (!isReserveReconcileEnabled()) return skip("disabled");
 
   try {
-    const r = await userBillingRepo.releaseReservation(
-      input.userId, input.workflowRunId,
+    const r = await accountBillingRepo.releaseReservation(
+      input.accountId, input.workflowRunId,
     );
     const reason = normalizeReason(r.reason);
     return {
@@ -291,7 +292,7 @@ export async function releaseExpiredBillingReservations(
   input: { now?: string } = {},
 ): Promise<SweepResult> {
   try {
-    const r = await userBillingRepo.releaseExpiredReservations(input.now);
+    const r = await accountBillingRepo.releaseExpiredReservations(input.now);
     return {
       ok: r.ok,
       reason: "swept",

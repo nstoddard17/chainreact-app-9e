@@ -12,7 +12,9 @@ jest.mock("@/repositories/workflows", () => ({
 
 const mockGetUsage = jest.fn();
 const mockDeductTasks = jest.fn();
-jest.mock("@/repositories/userBilling", () => ({
+// 4.ACCOUNT-MODEL-9c: the preview reads account-scoped usage
+// (accountBillingRepo.getUsage(record.accountId)).
+jest.mock("@/repositories/accountBilling", () => ({
   getUsage: (...a: unknown[]) => mockGetUsage(...a),
   deductTasks: (...a: unknown[]) => mockDeductTasks(...a),
 }));

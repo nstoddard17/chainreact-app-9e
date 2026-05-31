@@ -59,6 +59,16 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
   afterAll(async () => {
     if (!admin) return;
     for (const id of createdUserIds) {
+      // 4.ACCOUNT-MODEL-9c: handle_new_user now also seeds account_billing,
+      // whose account_id FK is ON DELETE RESTRICT — clear it before accounts.
+      const { data: accts } = await admin
+        .from("accounts")
+        .select("id")
+        .eq("owner_user_id", id);
+      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
+      if (accountIds.length > 0) {
+        await admin.from("account_billing").delete().in("account_id", accountIds);
+      }
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
       const { error } = await admin.auth.admin.deleteUser(id);
@@ -124,5 +134,36 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
     expect(bErr).toBeNull();
     expect(billing?.user_id).toBe(userId);
     expect(billing?.tasks_used).toBe(0);
+  });
+
+  it("4.ACCOUNT-MODEL-9c: a new signup also gets an account_billing row for its personal account", async () => {
+    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email: `signup-trigger-acctbilling-${slug}@chainreact.test`,
+      password: `Pw-${slug}!`,
+      email_confirm: true,
+    });
+    expect(createErr).toBeNull();
+    const userId = created.user!.id;
+    createdUserIds.push(userId);
+
+    const { data: account, error: aErr } = await admin
+      .from("accounts")
+      .select("id")
+      .eq("type", "personal")
+      .eq("owner_user_id", userId)
+      .single<{ id: string }>();
+    expect(aErr).toBeNull();
+
+    const { data: billing, error: bErr } = await admin
+      .from("account_billing")
+      .select("account_id, tasks_limit, tasks_used, tasks_reserved")
+      .eq("account_id", account!.id)
+      .maybeSingle<{ account_id: string; tasks_limit: number; tasks_used: number; tasks_reserved: number }>();
+    expect(bErr).toBeNull();
+    expect(billing?.account_id).toBe(account!.id);
+    expect(billing?.tasks_used).toBe(0);
+    expect(billing?.tasks_reserved).toBe(0);
+    expect(billing?.tasks_limit).toBe(100); // default quota
   });
 });

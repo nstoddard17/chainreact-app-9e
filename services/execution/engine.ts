@@ -282,7 +282,7 @@ export class WorkflowEngine {
       }
       const estimatedTasks = estimateWorkflowTaskCost(def).estimatedTasksPerRun;
       const reservation = await createBillingReservation({
-        userId: workflow.createdByUserId,
+        accountId: workflow.accountId,
         workflowId: input.workflowId,
         workflowRunId: runId,
         estimatedTasks,
@@ -315,7 +315,7 @@ export class WorkflowEngine {
     } else {
       // Flat path (Slice 1N) — unchanged. Test/dry-run runs return a skipped
       // outcome without touching the balance (COST-2A).
-      gateOutcome = await executionBillingGate(workflow.createdByUserId, {
+      gateOutcome = await executionBillingGate(workflow.accountId, {
         testMode: isTest,
       });
       if (!gateOutcome.ok) {
@@ -601,7 +601,7 @@ export class WorkflowEngine {
     if (reservationActive) {
       const actualTasks = usage ? usage.actualTaskCost : 0;
       const reconcile = await reconcileBillingReservation({
-        userId: workflow.createdByUserId,
+        accountId: workflow.accountId,
         workflowRunId: runId,
         actualTasks,
       });

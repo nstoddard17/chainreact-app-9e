@@ -1,4 +1,4 @@
-import * as userBillingRepo from "@/repositories/userBilling";
+import * as accountBillingRepo from "@/repositories/accountBilling";
 import * as workflowsRepo from "@/repositories/workflows";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import {
@@ -99,9 +99,11 @@ export function buildBillingSummary(
  * 404).
  *
  * 4.ACCOUNT-MODEL-7: workflow ownership is account-based — resolve the
- * caller's account and require record.accountId to match. The billing read
- * stays user-scoped (`getUsage(userId)`); billing rescope to account is
- * Phase C, out of scope here.
+ * caller's account and require record.accountId to match.
+ * 4.ACCOUNT-MODEL-9c: the billing read is now ACCOUNT-scoped
+ * (`getUsage(record.accountId)`) — the workflow's owning account, which equals
+ * the caller's personal account here. userId is used only to resolve/authorize
+ * the account, never as a billing key.
  *
  * The billing summary is best-effort — if usage can't be read it is omitted
  * (`billing: null`) rather than failing the whole preview.
@@ -119,7 +121,7 @@ export async function getWorkflowCostPreview(input: {
 
   let billingSummary: PreviewBillingSummary | null = null;
   try {
-    const usage = await userBillingRepo.getUsage(input.userId);
+    const usage = await accountBillingRepo.getUsage(record.accountId);
     if (usage) {
       billingSummary = buildBillingSummary(usage, estimate.estimatedTasksPerRun);
     }

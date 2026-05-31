@@ -170,21 +170,27 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     return data.user.id;
   }
 
-  /** Set the user's quota counters (the handle_new_user trigger seeds the row). */
+  /**
+   * Set the account's quota counters. 4.ACCOUNT-MODEL-9c: live billing is
+   * account-scoped, so the engine charges account_billing (keyed on the
+   * workflow's account). handle_new_user dual-seeds the account_billing row;
+   * this upserts the test values onto the user's personal account.
+   */
   async function setBilling(
     userId: string,
     opts: { limit: number; used: number; reserved?: number },
   ): Promise<void> {
+    const accountId = await personalAccountId(userId);
     const { error } = await admin
-      .from("user_billing")
+      .from("account_billing")
       .upsert(
         {
-          user_id: userId,
+          account_id: accountId,
           tasks_limit: opts.limit,
           tasks_used: opts.used,
           tasks_reserved: opts.reserved ?? 0,
         },
-        { onConflict: "user_id" },
+        { onConflict: "account_id" },
       );
     if (error) throw new Error(`setBilling(${userId}): ${error.message}`);
   }
@@ -195,10 +201,11 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     tasks_limit: number;
   }
   async function getBilling(userId: string): Promise<Billing> {
+    const accountId = await personalAccountId(userId);
     const { data, error } = await admin
-      .from("user_billing")
+      .from("account_billing")
       .select("tasks_used, tasks_reserved, tasks_limit")
-      .eq("user_id", userId)
+      .eq("account_id", accountId)
       .single<Billing>();
     if (error) throw new Error(`getBilling(${userId}): ${error.message}`);
     return data;
@@ -370,6 +377,8 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     if (accountIds.length > 0) {
       await admin.from("workflow_runs").delete().in("account_id", accountIds);
       await admin.from("workflows").delete().in("account_id", accountIds);
+      // 4.ACCOUNT-MODEL-9c: account_billing -> accounts is ON DELETE RESTRICT.
+      await admin.from("account_billing").delete().in("account_id", accountIds);
     }
     await admin.from("user_billing").delete().in("user_id", createdUserIds);
     await admin.from("account_memberships").delete().in("user_id", createdUserIds);
@@ -383,6 +392,34 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
   it("sanity: LIVE flag on, shadow off", () => {
     expect(process.env.ENABLE_RESERVE_RECONCILE_BILLING).toBe("true");
     expect(process.env.ENABLE_RESERVE_RECONCILE_SHADOW).not.toBe("true");
+  });
+
+  // ── 4.ACCOUNT-MODEL-9c cutover — billing charges the ACCOUNT, not the actor ─
+  it("cutover: charge lands on the workflow's account_billing while the run has NO actor (triggered_by_user_id null)", async () => {
+    const userId = await freshUser(1000, 0);
+    const accountId = await personalAccountId(userId);
+    const wf = await seedWorkflow(userId, "9c cutover account-charge", {
+      nodes: [trig("t1"), act("a1", "send_channel_message")],
+      edges: [edge("e1", "t1", "a1")],
+    });
+    // runReal passes no triggeredByUserId → triggered_by_user_id is NULL (a
+    // non-human/unknown-actor run); billing must still charge the account.
+    const res = await runReal(wf, "t1");
+    expect(res.status).toBe("succeeded");
+
+    // The charge landed on account_billing (the workflow's account).
+    expect((await getBilling(userId)).tasks_used).toBe(1);
+
+    // The run carries the workflow's account and NO actor — proving the billing
+    // key is account_id, never triggered_by_user_id.
+    const { data: row, error } = await admin
+      .from("workflow_runs")
+      .select("account_id, triggered_by_user_id")
+      .eq("id", res.runId)
+      .single<{ account_id: string; triggered_by_user_id: string | null }>();
+    expect(error).toBeNull();
+    expect(row!.account_id).toBe(accountId);
+    expect(row!.triggered_by_user_id).toBeNull();
   });
 
   // ── Case 1 — successful one-action workflow ────────────────────────────────

@@ -148,6 +148,10 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
   const createdWorkflowIds: string[] = [];
   let user1 = "";
   let user2 = "";
+  // 4.ACCOUNT-MODEL-9c: live billing is account-scoped — the engine charges the
+  // workflow's account_billing. Track each user's personal account.
+  let account1 = "";
+  let account2 = "";
   let startIso = "";
 
   // Captured run ids for targeted assertions.
@@ -169,18 +173,33 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
     return data.user.id;
   }
 
+  async function personalAccountId(userId: string): Promise<string> {
+    const { data, error } = await admin
+      .from("accounts")
+      .select("id")
+      .eq("type", "personal")
+      .eq("owner_user_id", userId)
+      .single<{ id: string }>();
+    if (error || !data) throw new Error(`personalAccountId(${userId}): ${error?.message ?? "no row"}`);
+    return data.id;
+  }
+
   async function setBilling(userId: string, limit: number, used: number): Promise<void> {
+    const accountId = await personalAccountId(userId);
     const { error } = await admin
-      .from("user_billing")
-      .update({ tasks_limit: limit, tasks_used: used })
-      .eq("user_id", userId);
+      .from("account_billing")
+      .upsert(
+        { account_id: accountId, tasks_limit: limit, tasks_used: used, tasks_reserved: 0 },
+        { onConflict: "account_id" },
+      );
     if (error) throw new Error(`setBilling(${userId}): ${error.message}`);
   }
 
   async function seedWorkflow(userId: string, name: string, def: WorkflowDefinition): Promise<string> {
+    const accountId = await personalAccountId(userId);
     const { data, error } = await admin
       .from("workflows")
-      .insert({ user_id: userId, name, draft_definition: def })
+      .insert({ account_id: accountId, created_by_user_id: userId, name, draft_definition: def })
       .select("id")
       .single<{ id: string }>();
     if (error || !data) throw new Error(`seedWorkflow(${name}): ${error?.message ?? "no row"}`);
@@ -243,6 +262,8 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
 
     user1 = await createUser();
     user2 = await createUser();
+    account1 = await personalAccountId(user1);
+    account2 = await personalAccountId(user2);
     await setBilling(user1, 1000, 0); // generous: all real runs pass the flat gate
     await setBilling(user2, 5, 4); // tight: gate passes (needs 1) but estimate(3) > remaining
 
@@ -254,10 +275,21 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
     // Explicit FK-safe deletes by seeded ids, then drop the users (cascade).
     // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT,
     // so explicitly clear account_memberships + accounts before auth.admin.deleteUser.
+    // Phase B: workflows + workflow_runs are account-owned (user_id dropped).
+    // 9c: account_billing -> accounts is ON DELETE RESTRICT. Resolve accounts and
+    // delete account-owned + account_billing rows before accounts + the user.
+    const { data: accts } = await admin
+      .from("accounts")
+      .select("id")
+      .in("owner_user_id", createdUserIds);
+    const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
     await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
     await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
-    await admin.from("workflow_runs").delete().in("user_id", createdUserIds);
-    await admin.from("workflows").delete().in("user_id", createdUserIds);
+    if (accountIds.length > 0) {
+      await admin.from("workflow_runs").delete().in("account_id", accountIds);
+      await admin.from("workflows").delete().in("account_id", accountIds);
+      await admin.from("account_billing").delete().in("account_id", accountIds);
+    }
     await admin.from("user_billing").delete().in("user_id", createdUserIds);
     await admin.from("account_memberships").delete().in("user_id", createdUserIds);
     await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
@@ -408,20 +440,26 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
   });
 
   it("LIVE flat billing is the only real balance mutation; shadow never reserves", async () => {
+    // 4.ACCOUNT-MODEL-9c: the flat charge lands on account_billing (the
+    // workflow's account), not user_billing.
     const { data, error } = await admin
-      .from("user_billing")
-      .select("user_id, tasks_used, tasks_reserved, tasks_limit")
-      .in("user_id", createdUserIds);
+      .from("account_billing")
+      .select("account_id, tasks_used, tasks_reserved, tasks_limit")
+      .in("account_id", [account1, account2]);
     expect(error).toBeNull();
-    const byUser = new Map((data ?? []).map((r) => [r.user_id, r]));
+    const byAccount = new Map((data ?? []).map((r) => [r.account_id, r]));
 
-    // user1: 7 real runs (WF1–7) + 1 idempotency re-run = 8 flat deductions.
-    expect(byUser.get(user1)?.tasks_used).toBe(8);
-    // user2: started at 4, +1 for WF8 = 5.
-    expect(byUser.get(user2)?.tasks_used).toBe(5);
+    // account1: 7 real runs (WF1–7) each flat-charge 1 → 7. The WF2 idempotency
+    // re-run reuses the run id, so the engine returns DUPLICATE_DISPATCH BEFORE
+    // billing (COST-15C pre-run lifecycle guard) — it does NOT charge again.
+    // (8 distinct shadow rows still exist — WF1–8 — but only 7 land on account1;
+    // WF8 charges account2.)
+    expect(byAccount.get(account1)?.tasks_used).toBe(7);
+    // account2: started at 4, +1 for WF8 = 5.
+    expect(byAccount.get(account2)?.tasks_used).toBe(5);
     // The shadow path NEVER reserves — tasks_reserved must remain 0.
-    expect(byUser.get(user1)?.tasks_reserved).toBe(0);
-    expect(byUser.get(user2)?.tasks_reserved).toBe(0);
+    expect(byAccount.get(account1)?.tasks_reserved).toBe(0);
+    expect(byAccount.get(account2)?.tasks_reserved).toBe(0);
   });
 
   it("aggregates persisted rows through the REAL COST-14B aggregator", async () => {
@@ -454,8 +492,9 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
     // the harness is self-cleaning (afterAll re-running delete is a no-op).
     await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
     await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
-    await admin.from("workflow_runs").delete().in("user_id", createdUserIds);
-    await admin.from("workflows").delete().in("user_id", createdUserIds);
+    // Phase B: account-owned — delete by account_id (user_id column is gone).
+    await admin.from("workflow_runs").delete().in("account_id", [account1, account2]);
+    await admin.from("workflows").delete().in("account_id", [account1, account2]);
 
     const shadow = await admin
       .from("billing_shadow_comparisons")

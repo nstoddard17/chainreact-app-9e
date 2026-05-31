@@ -733,7 +733,7 @@ describe("WorkflowEngine — billing gate (Slice 1N)", () => {
     expect(result.fatalError?.message).toMatch(/100\/100/);
     expect(result.steps).toEqual([]);
     expect(handler).not.toHaveBeenCalled();
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
   });
 
   it("persists the failed run with humanized BILLING_EXHAUSTED classification (action=upgrade_plan)", async () => {
@@ -807,7 +807,7 @@ describe("WorkflowEngine — billing gate (Slice 1N)", () => {
     // gate uses to skip deduction (proven in executionBillingGate.test.ts).
     expect(result.status).toBe("succeeded");
     expect(result.isTest).toBe(true);
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: true });
   });
 
   it("does NOT call the gate when the workflow itself is missing (no userId to attribute)", async () => {
@@ -855,7 +855,7 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     });
     expect(result.status).toBe("succeeded");
     expect(mockRecordShadow).not.toHaveBeenCalled();
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
   });
 
   it("shadow flag ON (real run) → records comparison (flat=1, gate counters, persist injected), flat gate untouched", async () => {
@@ -878,7 +878,7 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
 
     expect(result.status).toBe("succeeded");
     // Flat billing path unchanged.
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
     // Shadow orchestrator called once with the expected inputs. The pre-flat
     // balance math + build/log/persist live in recordShadowComparison (covered
     // in reserveReconcileShadowMode.test.ts).
@@ -953,7 +953,7 @@ describe("WorkflowEngine — reserve/reconcile shadow mode (Slice 4.COST-14)", (
     });
     expect(result.isTest).toBe(true);
     expect(mockRecordShadow).not.toHaveBeenCalled();
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: true });
     expect(mockReserveTasks).not.toHaveBeenCalled();
   });
 });
@@ -2473,7 +2473,7 @@ describe("WorkflowEngine — pre-run row lifecycle (Slice 4.COST-15C)", () => {
       triggerEvent,
     });
 
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
     expect(mockReserveTasks).not.toHaveBeenCalled();
     expect(mockReconcileReservation).not.toHaveBeenCalled();
     expect(mockReleaseReservation).not.toHaveBeenCalled();
@@ -2492,7 +2492,7 @@ describe("WorkflowEngine — pre-run row lifecycle (Slice 4.COST-15C)", () => {
 
     expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
     expect(mockCreateWorkflowRunStart.mock.calls[0]![0].isTest).toBe(true);
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: true });
     expect(mockReserveTasks).not.toHaveBeenCalled();
   });
 });
@@ -2545,7 +2545,7 @@ describe("WorkflowEngine — live reserve/reconcile billing (Slice 4.COST-15H)",
     );
     expect(mockReconcileBillingReservation).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-1",
+        accountId: "acct-user-1",
         workflowRunId: result.runId,
         actualTasks: 2,
       }),
@@ -2672,7 +2672,7 @@ describe("WorkflowEngine — live reserve/reconcile billing (Slice 4.COST-15H)",
     expect(result.isTest).toBe(true);
     expect(mockCreateBillingReservation).not.toHaveBeenCalled();
     expect(mockReconcileBillingReservation).not.toHaveBeenCalled();
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: true });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: true });
     expect(mockRecordRunActuals).not.toHaveBeenCalled();
     expect(mockRecordShadow).not.toHaveBeenCalled();
   });
@@ -2685,7 +2685,7 @@ describe("WorkflowEngine — live reserve/reconcile billing (Slice 4.COST-15H)",
     const result = await run();
 
     expect(result.status).toBe("succeeded");
-    expect(mockBillingGate).toHaveBeenCalledWith("user-1", { testMode: false });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
     expect(mockCreateBillingReservation).not.toHaveBeenCalled();
     expect(mockReconcileBillingReservation).not.toHaveBeenCalled();
   });

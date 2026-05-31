@@ -149,27 +149,17 @@ describe("4.ACCOUNT-MODEL-9b — account_billing foundation (static guards)", ()
     });
   });
 
-  describe("hard fences: no production caller repointed", () => {
-    it("executionBillingGate still calls the user-keyed deduct (no _v2 / account_billing)", () => {
-      const src = readSrc("services/billing/executionBillingGate.ts");
-      expect(src).toMatch(/deductTasks\(/);
-      expect(src).not.toMatch(/_v2/);
-      expect(src).not.toMatch(/account_billing/);
-      expect(src).not.toMatch(/accountId/);
-    });
-
-    it("userBilling repo still calls the user-keyed RPCs with p_user_id (no _v2)", () => {
+  // NOTE: the 9b foundation migration itself repoints nothing — proven by the
+  // fndCode assertions above (no user-keyed RPC redefinition, no handle_new_user
+  // change). The PRODUCTION CALLERS were repointed to the account path in the
+  // 9c live cutover; that reality is asserted by accountBillingCutover.test.ts.
+  // Here we only keep the still-true retention invariant: the user-keyed repo +
+  // RPCs are NOT dropped (9c retains them, deprecated, for the parity reference).
+  describe("user-scoped billing retained (not dropped) through 9c", () => {
+    it("the deprecated userBilling repo still exists and calls the user-keyed RPCs", () => {
       const src = readSrc("repositories/userBilling.ts");
-      expect(src).toMatch(/rpc\("deduct_tasks_if_available",/);
+      expect(src).toMatch(/rpc\("deduct_tasks_if_available",\s*\{/);
       expect(src).toMatch(/p_user_id:/);
-      expect(src).not.toMatch(/_v2/);
-      expect(src).not.toMatch(/account_billing/);
-    });
-
-    it("reserveReconcileBilling service is not repointed to _v2", () => {
-      const src = readSrc("services/billing/reserveReconcileBilling.ts");
-      expect(src).not.toMatch(/_v2/);
-      expect(src).not.toMatch(/account_billing/);
     });
   });
 });
