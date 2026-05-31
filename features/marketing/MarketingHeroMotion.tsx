@@ -92,16 +92,60 @@ export function MarketingHeroMotion({ intensity = 5 }: { intensity?: number }) {
         Math.cos((x - y) * 0.0009 - t * 0.00014)) *
       1.1;
 
+    // Pointer interaction: stars swirl toward the cursor while it's over this
+    // section (chat3 refinement). mouse.x/y are CSS px relative to the wrap;
+    // power ramps 0→1 in and 1→0 out so it eases as the cursor enters/leaves.
+    // Listeners sit on window (the wrap is pointer-events:none) and gate on the
+    // wrap's bounding rect, so each instance (hero + ending) reacts only when
+    // the cursor is actually over it.
+    const mouse = { x: 0, y: 0, power: 0, target: 0 };
+    const onPointerMove = (e: PointerEvent) => {
+      const r = wrap.getBoundingClientRect();
+      const inside =
+        e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (inside) {
+        mouse.x = e.clientX - r.left;
+        mouse.y = e.clientY - r.top;
+        mouse.target = 1;
+      } else {
+        mouse.target = 0;
+      }
+    };
+    const onPointerOut = () => {
+      mouse.target = 0;
+    };
+    if (!reduced) {
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      window.addEventListener("blur", onPointerOut);
+      document.addEventListener("pointerleave", onPointerOut);
+    }
+
     let raf = 0;
     let t0 = performance.now();
     let running = true;
 
     const stepDraw = (p: P, t: number) => {
       const a = flow(p.x, p.y, t);
+      let vx = Math.cos(a) * p.speed;
+      let vy = Math.sin(a) * p.speed;
+      // swirl around the pointer with a gentle inward pull
+      if (mouse.power > 0.002) {
+        const dx = mouse.x - p.x;
+        const dy = mouse.y - p.y;
+        const d2 = dx * dx + dy * dy;
+        const R = 200;
+        if (d2 < R * R) {
+          const d = Math.sqrt(d2) || 1;
+          const inv = 1 / d;
+          const f = (1 - d / R) * mouse.power;
+          vx += -dy * inv * f * 2.6 + dx * inv * f * 1.0;
+          vy += dx * inv * f * 2.6 + dy * inv * f * 1.0;
+        }
+      }
       p.px = p.x;
       p.py = p.y;
-      p.x += Math.cos(a) * p.speed;
-      p.y += Math.sin(a) * p.speed;
+      p.x += vx;
+      p.y += vy;
       p.life++;
       if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10 || p.life > p.maxLife) {
         Object.assign(p, spawn());
@@ -115,6 +159,11 @@ export function MarketingHeroMotion({ intensity = 5 }: { intensity?: number }) {
       if (!running) return;
       const t = now - t0;
       const I = intensity;
+
+      // ease the cursor influence in/out
+      mouse.power += (mouse.target - mouse.power) * 0.06;
+      if (mouse.power < 0.001 && !mouse.target) mouse.power = 0;
+
       const fade = 0.085 - I * 0.0028;
       ctx.fillStyle = `rgba(${bgRGB[0]},${bgRGB[1]},${bgRGB[2]},${Math.max(0.03, fade)})`;
       ctx.fillRect(0, 0, W, H);
@@ -207,6 +256,9 @@ export function MarketingHeroMotion({ intensity = 5 }: { intensity?: number }) {
     return () => {
       stop();
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("blur", onPointerOut);
+      document.removeEventListener("pointerleave", onPointerOut);
       if (io) io.disconnect();
     };
   }, [intensity]);

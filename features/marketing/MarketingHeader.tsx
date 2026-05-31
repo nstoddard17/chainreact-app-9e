@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarketingBrandLogo } from "./MarketingBrandLogo";
 
 /**
  * Sticky top navigation for the marketing landing page
@@ -24,16 +25,7 @@ export function MarketingHeader() {
           data-testid="marketing-nav-brand"
           aria-label="ChainReact home"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/chainreact-mark.png"
-            alt=""
-            width={28}
-            height={28}
-            className="mk-brand-mark"
-            aria-hidden
-          />
-          <span className="mk-brand-text">ChainReact</span>
+          <MarketingBrandLogo variant="nav" size={28} fontSize={20} />
         </Link>
 
         <nav className="mk-nav-links" aria-label="Primary">
@@ -82,9 +74,7 @@ export function MarketingHeader() {
           gap: 24px;
           padding: 12px 24px;
         }
-        .mk-nav-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--mk-text); }
-        .mk-brand-mark { display: block; width: 28px; height: 28px; object-fit: contain; }
-        .mk-brand-text { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+        .mk-nav-brand { display: inline-flex; align-items: center; color: var(--mk-text); }
 
         .mk-nav-links { display: flex; align-items: center; gap: 4px; }
         .mk-nav-link {

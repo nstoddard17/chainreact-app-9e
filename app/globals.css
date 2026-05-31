@@ -268,6 +268,33 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* Purple page scrollbar — marketing surface only. Matches the brand
+     blue→purple gradient used in the intro + animated logo. Scoped via
+     html:has([data-marketing-surface]) (the page-level scrollbar lives on
+     <html>, not on .marketing-root) so the in-app chrome keeps the native
+     scrollbar untouched. */
+  html:has([data-marketing-surface]) {
+    scrollbar-color: #8a6bf2 transparent; /* Firefox: thumb track */
+    scrollbar-width: thin;
+  }
+  html:has([data-marketing-surface])::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  html:has([data-marketing-surface])::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  html:has([data-marketing-surface])::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #5b8bff, #7c6bf5 50%, #b95cf0);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  html:has([data-marketing-surface])::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #6f9bff, #8f7bff 50%, #c77bf5);
+    background-clip: padding-box;
+  }
 }
 
 /* Builder utility classes (4.BUILDER-DESIGN-PARITY-1). Hand-rolled rather

@@ -1,3 +1,4 @@
+import { MarketingIntro } from "./MarketingIntro";
 import { MarketingHeader } from "./MarketingHeader";
 import { MarketingHero } from "./MarketingHero";
 import { MarketingLogoMarquee } from "./MarketingLogoMarquee";
@@ -53,6 +54,7 @@ interface Props {
 export function MarketingHome({ marqueeProviders }: Props) {
   return (
     <div data-marketing-surface data-testid="marketing-home" className="marketing-root">
+      <MarketingIntro />
       <MarketingHeader />
       <main className="marketing-stack">
         <MarketingHero />
