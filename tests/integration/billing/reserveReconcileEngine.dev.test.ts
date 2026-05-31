@@ -245,14 +245,34 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     return events.filter((e) => e.event_type === "node_task_charged");
   }
 
+  /**
+   * The user's personal account (seeded by handle_new_user at createUser time).
+   * Phase B (4.ACCOUNT-MODEL-6/7/8) made workflows + workflow_runs account-owned;
+   * billing stays user-scoped, and the reserve/reconcile RPCs resolve the billed
+   * user through accounts.owner_user_id (4.ACCOUNT-MODEL-9a).
+   */
+  async function personalAccountId(userId: string): Promise<string> {
+    const { data, error } = await admin
+      .from("accounts")
+      .select("id")
+      .eq("owner_user_id", userId)
+      .eq("type", "personal")
+      .single<{ id: string }>();
+    if (error || !data) {
+      throw new Error(`personalAccountId(${userId}): ${error?.message ?? "no row"}`);
+    }
+    return data.id;
+  }
+
   async function seedWorkflow(
     userId: string,
     name: string,
     def: WorkflowDefinition,
   ): Promise<string> {
+    const accountId = await personalAccountId(userId);
     const { data, error } = await admin
       .from("workflows")
-      .insert({ user_id: userId, name, draft_definition: def })
+      .insert({ account_id: accountId, created_by_user_id: userId, name, draft_definition: def })
       .select("id")
       .single<{ id: string }>();
     if (error || !data) throw new Error(`seedWorkflow(${name}): ${error?.message ?? "no row"}`);
@@ -334,12 +354,23 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
 
     if (!admin) return;
     // FK-safe explicit deletes by seeded ids, then drop the users (cascade).
-    // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT,
-    // so explicitly clear account_memberships + accounts before auth.admin.deleteUser.
+    // Phase B (4.ACCOUNT-MODEL-6/7/8): workflows + workflow_runs are account-owned
+    // (user_id dropped) with ON DELETE RESTRICT FKs to accounts, and
+    // accounts.owner_user_id is itself ON DELETE RESTRICT (slice -3). So delete
+    // those by account_id, and clear all dependents before accounts + the user.
+    // billing_shadow_comparisons / task_usage_events / user_billing stay
+    // user-scoped (rescoped in Phase C).
+    const { data: accts } = await admin
+      .from("accounts")
+      .select("id")
+      .in("owner_user_id", createdUserIds);
+    const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
     await admin.from("billing_shadow_comparisons").delete().in("user_id", createdUserIds);
     await admin.from("task_usage_events").delete().in("user_id", createdUserIds);
-    await admin.from("workflow_runs").delete().in("user_id", createdUserIds);
-    await admin.from("workflows").delete().in("user_id", createdUserIds);
+    if (accountIds.length > 0) {
+      await admin.from("workflow_runs").delete().in("account_id", accountIds);
+      await admin.from("workflows").delete().in("account_id", accountIds);
+    }
     await admin.from("user_billing").delete().in("user_id", createdUserIds);
     await admin.from("account_memberships").delete().in("user_id", createdUserIds);
     await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
