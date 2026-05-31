@@ -38,6 +38,12 @@ export interface EnqueueRunInput {
    * `"manual"` (or `"test"` when the same route is used for a test run).
    */
   triggeredBy?: RunTriggerSource;
+  /**
+   * 4.ACCOUNT-MODEL-8 — the human ACTOR's userId, forwarded to
+   * `workflow_runs.triggered_by_user_id`. Manual run-now + retry pass the
+   * caller's id; webhook dispatchers + cron omit it (→ NULL: no human actor).
+   */
+  triggeredByUserId?: string | null;
 }
 
 export interface EnqueueRunResult {
@@ -83,6 +89,7 @@ async function runWorkflowInBackground(
       runId,
       testMode: input.testMode === true,
       triggeredBy: input.triggeredBy ?? "unknown",
+      triggeredByUserId: input.triggeredByUserId ?? null,
     });
   } catch (err) {
     console.error(

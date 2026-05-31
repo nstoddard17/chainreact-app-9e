@@ -52,7 +52,10 @@ export interface CreateWorkflowRunStartInput {
   /** Engine-assigned run id (also the row's PK). */
   runId: string;
   workflowId: string;
-  userId: string;
+  /** Owning account (from workflow.account_id) — 4.ACCOUNT-MODEL-8. */
+  accountId: string;
+  /** Actor: caller userId for manual/retry; NULL for webhook/polling/cron/scheduled/system. */
+  triggeredByUserId: string | null;
   triggerNodeId: string;
   triggerEvent: TriggerEvent;
   startedAt: string;
@@ -85,7 +88,8 @@ export async function createWorkflowRunStart(
   const { error } = await supabase.from("workflow_runs").insert({
     id: input.runId,
     workflow_id: input.workflowId,
-    user_id: input.userId,
+    account_id: input.accountId,
+    triggered_by_user_id: input.triggeredByUserId,
     status: "running",
     trigger_node_id: input.triggerNodeId,
     trigger_event: input.triggerEvent,
@@ -221,7 +225,14 @@ export async function markWorkflowRunFailedBeforeExecution(
  */
 export interface WorkflowRunBillingRecord {
   id: string;
-  userId: string;
+  /**
+   * 4.ACCOUNT-MODEL-8: was `userId` (workflow_runs.user_id, now dropped). The
+   * run row carries account_id; the billing projection exposes it for the
+   * future Phase-C settlement layer (which re-keys billing to the account).
+   * Phase B billing still keys on the workflow's createdByUserId at the gate;
+   * this projection has no production callers yet.
+   */
+  accountId: string;
   workflowId: string;
   status: WorkflowRunLifecycleStatus;
   isTest: boolean;
@@ -238,7 +249,7 @@ export interface WorkflowRunBillingRecord {
 
 interface WorkflowRunBillingRow {
   id: string;
-  user_id: string;
+  account_id: string;
   workflow_id: string;
   status: WorkflowRunLifecycleStatus;
   is_test: boolean;
@@ -267,7 +278,7 @@ export async function getWorkflowRunForBilling(
   const { data, error } = await supabase
     .from("workflow_runs")
     .select(
-      "id, user_id, workflow_id, status, is_test, billing_status, reserved_task_cost, reconciled_task_cost, estimated_task_cost, actual_task_cost, reservation_id, reservation_expires_at, billing_reconciled_at, finished_at",
+      "id, account_id, workflow_id, status, is_test, billing_status, reserved_task_cost, reconciled_task_cost, estimated_task_cost, actual_task_cost, reservation_id, reservation_expires_at, billing_reconciled_at, finished_at",
     )
     .eq("id", runId)
     .maybeSingle<WorkflowRunBillingRow>();
@@ -277,7 +288,7 @@ export async function getWorkflowRunForBilling(
   if (!data) return null;
   return {
     id: data.id,
-    userId: data.user_id,
+    accountId: data.account_id,
     workflowId: data.workflow_id,
     status: data.status,
     isTest: data.is_test,

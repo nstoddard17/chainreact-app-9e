@@ -103,7 +103,8 @@ describe("workflowRuns.recordRun", () => {
     await recordRun({
       runId: "run-1",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "acct-1",
+      triggeredByUserId: "user-1",
       status: "succeeded",
       triggerNodeId: "t1",
       triggerEvent,
@@ -116,7 +117,8 @@ describe("workflowRuns.recordRun", () => {
     expect(state.insertPayload).toMatchObject({
       id: "run-1",
       workflow_id: "wf-1",
-      user_id: "user-1",
+      account_id: "acct-1",
+      triggered_by_user_id: "user-1",
       status: "succeeded",
       trigger_node_id: "t1",
       trigger_event: triggerEvent,
@@ -134,7 +136,8 @@ describe("workflowRuns.recordRun", () => {
     await recordRun({
       runId: "run-test",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "acct-1",
+      triggeredByUserId: "user-1",
       status: "succeeded",
       triggerNodeId: "t1",
       triggerEvent,
@@ -155,7 +158,8 @@ describe("workflowRuns.recordRun", () => {
     await recordRun({
       runId: "run-wh",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "acct-1",
+      triggeredByUserId: "user-1",
       status: "succeeded",
       triggerNodeId: "t1",
       triggerEvent,
@@ -176,7 +180,8 @@ describe("workflowRuns.recordRun", () => {
     await recordRun({
       runId: "run-1",
       workflowId: "wf-1",
-      userId: "user-1",
+      accountId: "acct-1",
+      triggeredByUserId: "user-1",
       status: "failed",
       triggerNodeId: "t1",
       triggerEvent,
@@ -208,7 +213,8 @@ describe("workflowRuns.recordRun", () => {
       recordRun({
         runId: "run-1",
         workflowId: "wf-1",
-        userId: "user-1",
+        accountId: "acct-1",
+        triggeredByUserId: "user-1",
         status: "succeeded",
         triggerNodeId: "t1",
         triggerEvent,
@@ -227,7 +233,8 @@ describe("workflowRuns.listByWorkflow", () => {
     const row = {
       id: "run-1",
       workflow_id: "wf-1",
-      user_id: "user-1",
+      account_id: "acct-1",
+      triggered_by_user_id: "user-1",
       status: "succeeded",
       trigger_node_id: "t1",
       trigger_event: triggerEvent,
@@ -272,7 +279,8 @@ describe("workflowRuns.getById", () => {
   const row = {
     id: "run-1",
     workflow_id: "wf-1",
-    user_id: "user-1",
+    account_id: "acct-1",
+    triggered_by_user_id: "user-1",
     status: "succeeded" as const,
     trigger_node_id: "t1",
     trigger_event: triggerEvent,
@@ -334,7 +342,8 @@ describe("workflowRuns.createWorkflowRunStart", () => {
   const baseInput = {
     runId: "run-1",
     workflowId: "wf-1",
-    userId: "user-1",
+    accountId: "acct-1",
+    triggeredByUserId: "user-1",
     triggerNodeId: "t1",
     triggerEvent,
     startedAt: "2026-05-25T00:00:00Z",
@@ -355,7 +364,8 @@ describe("workflowRuns.createWorkflowRunStart", () => {
     expect(payload).toMatchObject({
       id: "run-1",
       workflow_id: "wf-1",
-      user_id: "user-1",
+      account_id: "acct-1",
+      triggered_by_user_id: "user-1",
       status: "running",
       trigger_node_id: "t1",
       finished_at: null,
@@ -552,7 +562,7 @@ describe("workflowRuns.getWorkflowRunForBilling", () => {
   it("maps reserve/reconcile + cost fields to camelCase and exposes no payloads", async () => {
     const row = {
       id: "run-1",
-      user_id: "user-1",
+      account_id: "acct-1",
       workflow_id: "wf-1",
       status: "running" as const,
       is_test: false,
@@ -576,7 +586,7 @@ describe("workflowRuns.getWorkflowRunForBilling", () => {
     const result = await getWorkflowRunForBilling("run-1");
     expect(result).toEqual({
       id: "run-1",
-      userId: "user-1",
+      accountId: "acct-1",
       workflowId: "wf-1",
       status: "running",
       isTest: false,

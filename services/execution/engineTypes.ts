@@ -102,6 +102,15 @@ export interface RunWorkflowInput {
    * own source label.
    */
   triggeredBy?: RunTriggerSource;
+  /**
+   * 4.ACCOUNT-MODEL-8 — the human ACTOR who triggered this run, persisted to
+   * `workflow_runs.triggered_by_user_id`. Set ONLY for human-initiated runs:
+   * manual run-now + retry pass the caller's userId. Webhook / polling / cron
+   * / scheduled / system runs leave it undefined → NULL (no human actor — the
+   * run must not falsely claim a human trigger). Provenance, not authorization;
+   * run OWNERSHIP comes from the workflow's account_id, not this field.
+   */
+  triggeredByUserId?: string | null;
 }
 
 export interface EngineDependencies {

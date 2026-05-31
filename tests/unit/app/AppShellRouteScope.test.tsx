@@ -45,7 +45,8 @@ jest.mock("@/repositories/workflowRunStats", () => ({
   getStatsForUser: jest.fn().mockResolvedValue(new Map()),
 }));
 jest.mock("@/repositories/workflowRuns", () => ({
-  listByUserForDisplay: jest.fn().mockResolvedValue([]),
+  // 4.ACCOUNT-MODEL-8: the /runs page lists by account now.
+  listByAccountForDisplay: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: jest.fn().mockResolvedValue([]),

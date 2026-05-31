@@ -157,7 +157,7 @@ export class WorkflowEngine {
         isTest,
         triggeredBy,
       };
-      await persistRun(fatalResult, workflow.createdByUserId, workflow.name, input, log);
+      await persistRun(fatalResult, workflow.accountId, workflow.createdByUserId, workflow.name, input, log);
       return fatalResult;
     }
 
@@ -180,7 +180,10 @@ export class WorkflowEngine {
       const startOutcome = await workflowRunsRepo.createWorkflowRunStart({
         runId,
         workflowId: input.workflowId,
-        userId: workflow.createdByUserId,
+        // 4.ACCOUNT-MODEL-8: ownership is the workflow's account; the actor is
+        // the human caller (manual/retry) or NULL (webhook/polling/cron/scheduled).
+        accountId: workflow.accountId,
+        triggeredByUserId: input.triggeredByUserId ?? null,
         triggerNodeId: input.triggerNodeId,
         triggerEvent: input.triggerEvent,
         startedAt,
@@ -244,7 +247,7 @@ export class WorkflowEngine {
         }
         await notifyOnFailure(fatalResult, workflow.createdByUserId, workflow.name, log, classification);
       } else {
-        await persistRun(fatalResult, workflow.createdByUserId, workflow.name, input, log);
+        await persistRun(fatalResult, workflow.accountId, workflow.createdByUserId, workflow.name, input, log);
       }
       return fatalResult;
     };
@@ -622,6 +625,7 @@ export class WorkflowEngine {
     // already settled (above); this only writes the run row + cost columns.
     await finalizeRun(
       result,
+      workflow.accountId,
       workflow.createdByUserId,
       workflow.name,
       input,

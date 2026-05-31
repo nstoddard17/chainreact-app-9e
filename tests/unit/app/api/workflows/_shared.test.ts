@@ -258,7 +258,8 @@ describe("toWorkflowRunSummary", () => {
   const baseRecord: WorkflowRunRecord = {
     id: "11111111-1111-1111-1111-111111111111",
     workflowId: "22222222-2222-2222-2222-222222222222",
-    userId: "user-1",
+    accountId: "acct-1",
+    triggeredByUserId: "user-1",
     status: "succeeded",
     triggerNodeId: "t1",
     triggerEvent,
@@ -318,7 +319,8 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     return {
       id: "11111111-1111-1111-1111-111111111111",
       workflowId: "22222222-2222-2222-2222-222222222222",
-      userId: "user-1",
+      accountId: "acct-1",
+      triggeredByUserId: "user-1",
       status: "succeeded",
       triggerNodeId: "t1",
       triggerEvent,

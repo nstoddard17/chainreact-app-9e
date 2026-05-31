@@ -573,7 +573,10 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
       expect.objectContaining({
         runId: result.runId,
         workflowId: "wf-1",
-        userId: "user-1",
+        // 4.ACCOUNT-MODEL-8: run owned by the workflow's account; no actor on a
+        // non-manual engine run (this test doesn't supply triggeredByUserId).
+        accountId: "acct-user-1",
+        triggeredByUserId: null,
         triggerNodeId: "t1",
         triggerEvent,
       }),
@@ -585,6 +588,32 @@ describe("WorkflowEngine — run persistence (Slice 1M)", () => {
         status: "succeeded",
         errorClassification: null,
         fatalError: null,
+      }),
+    );
+  });
+
+  it("records triggered_by_user_id (the actor) for a human-initiated run (4.ACCOUNT-MODEL-8)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    mockGetActionHandler.mockReturnValueOnce(async () => ({ output: { ok: true } }));
+
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      triggeredBy: "manual",
+      // A manual run-now / retry threads the caller as the actor.
+      triggeredByUserId: "actor-7",
+    });
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: "acct-user-1",
+        triggeredByUserId: "actor-7",
       }),
     );
   });

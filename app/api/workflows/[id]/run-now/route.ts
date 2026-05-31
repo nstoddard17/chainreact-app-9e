@@ -230,6 +230,10 @@ export async function POST(
     event,
     testMode,
     triggeredBy,
+    // 4.ACCOUNT-MODEL-8: manual + test runs are human-initiated — record the
+    // caller as the actor (workflow_runs.triggered_by_user_id). Webhook/cron
+    // paths omit this → NULL.
+    triggeredByUserId: auth.userId,
   });
 
   // Slice 3.POSTSEC-8 — emit a high-risk audit event when the run is

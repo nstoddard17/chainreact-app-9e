@@ -54,7 +54,18 @@ export type WorkflowRunTriggeredBy =
 export interface WorkflowRunRecord {
   id: string;
   workflowId: string;
-  userId: string;
+  /**
+   * V2 account that owns this run — equals the owning workflow's account_id
+   * (4.ACCOUNT-MODEL-8 cutover). NOT NULL per the foundation. Authorization is
+   * by account membership (RLS); this field is the owner key.
+   */
+  accountId: string;
+  /**
+   * Actor provenance — the human who manually ran / retried this run. NULL for
+   * webhook / polling / cron / scheduled / system runs (no human caller). NOT
+   * authorization.
+   */
+  triggeredByUserId: string | null;
   status: WorkflowRunStatus;
   triggerNodeId: string;
   triggerEvent: TriggerEvent;
@@ -73,7 +84,8 @@ export interface WorkflowRunRecord {
 interface WorkflowRunsRow {
   id: string;
   workflow_id: string;
-  user_id: string;
+  account_id: string;
+  triggered_by_user_id: string | null;
   status: WorkflowRunStatus;
   trigger_node_id: string;
   trigger_event: TriggerEvent;
@@ -91,7 +103,8 @@ function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
   return {
     id: row.id,
     workflowId: row.workflow_id,
-    userId: row.user_id,
+    accountId: row.account_id,
+    triggeredByUserId: row.triggered_by_user_id,
     status: row.status,
     triggerNodeId: row.trigger_node_id,
     triggerEvent: row.trigger_event,
@@ -110,7 +123,10 @@ export interface RecordRunInput {
   /** Engine-assigned run id (also the row's id). */
   runId: string;
   workflowId: string;
-  userId: string;
+  /** Owning account (from workflow.account_id) — 4.ACCOUNT-MODEL-8. */
+  accountId: string;
+  /** Actor: caller userId for manual/retry; NULL for webhook/polling/cron/scheduled. */
+  triggeredByUserId: string | null;
   status: WorkflowRunStatus;
   triggerNodeId: string;
   triggerEvent: TriggerEvent;
@@ -144,7 +160,8 @@ export async function recordRun(input: RecordRunInput): Promise<void> {
   const { error } = await supabase.from("workflow_runs").insert({
     id: input.runId,
     workflow_id: input.workflowId,
-    user_id: input.userId,
+    account_id: input.accountId,
+    triggered_by_user_id: input.triggeredByUserId,
     status: input.status,
     trigger_node_id: input.triggerNodeId,
     trigger_event: input.triggerEvent,
@@ -247,6 +264,96 @@ export async function listByWorkflow(
     throw new Error(`workflow_runs.listByWorkflow failed: ${error.message}`);
   }
   return (data ?? []).map((r) => rowToRecord(r as WorkflowRunsRow));
+}
+
+/**
+ * Display-safe per-account run-history projection (Slice 4.RUNS-PAGE-1;
+ * account-scoped in 4.ACCOUNT-MODEL-8).
+ *
+ * Returned shape is strictly narrower than {@link WorkflowRunRecord} —
+ * the SELECT enumerates only columns the run-history page renders:
+ *   id / workflow_id / status / is_test / triggered_by / started_at /
+ *   finished_at / error_classification.
+ *
+ * Deliberately omitted:
+ *   - `account_id` / `triggered_by_user_id` — ownership / actor scope; the
+ *     UI doesn't render them and they'd re-leak auth scope.
+ *   - `trigger_event` — raw upstream payload (webhook bodies, schedule
+ *     metadata, manual run inputs); can contain secrets / PII.
+ *   - `steps` — per-step output blobs; can contain secrets / PII.
+ *   - `fatal_error` — engine-internal code/message; the humanized
+ *     `error_classification` is the user-facing surface.
+ *   - All billing columns (`reserved_task_cost`, `actual_task_cost`,
+ *     `reservation_*`, `billing_*`) — out of scope.
+ *
+ * Rows in the non-terminal `running` state are filtered out — the
+ * display contract is terminal-only, matching `listByWorkflow`.
+ * Test-mode rows are returned by default; the UI hides them behind
+ * an opt-in toggle.
+ *
+ * RLS gates account-member access (SSR-cookie client). The account_id WHERE
+ * is defense-in-depth; an attacker who somehow bypasses RLS still cannot
+ * read another account's rows through this method.
+ */
+export interface WorkflowRunDisplayRecord {
+  id: string;
+  workflowId: string;
+  status: WorkflowRunStatus;
+  isTest: boolean;
+  triggeredBy: WorkflowRunTriggeredBy;
+  startedAt: string;
+  finishedAt: string | null;
+  errorClassification: WorkflowRunErrorClassification | null;
+}
+
+interface WorkflowRunDisplayRow {
+  id: string;
+  workflow_id: string;
+  status: WorkflowRunStatus;
+  is_test: boolean;
+  triggered_by: WorkflowRunTriggeredBy;
+  started_at: string;
+  finished_at: string | null;
+  error_classification: WorkflowRunErrorClassification | null;
+}
+
+const DISPLAY_RUN_COLUMNS =
+  "id,workflow_id,status,is_test,triggered_by,started_at,finished_at,error_classification";
+
+export interface ListRunsForDisplayOptions {
+  /** Defaults to 50, capped at 200 to keep the list-page render bounded. */
+  limit?: number;
+}
+
+export async function listByAccountForDisplay(
+  accountId: string,
+  opts: ListRunsForDisplayOptions = {},
+): Promise<readonly WorkflowRunDisplayRecord[]> {
+  const supabase = await createClient();
+  const limit = Math.min(opts.limit ?? 50, 200);
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select(DISPLAY_RUN_COLUMNS)
+    .eq("account_id", accountId)
+    .neq("status", "running")
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    throw new Error(`workflow_runs.listByAccountForDisplay failed: ${error.message}`);
+  }
+  return (data ?? []).map((r) => {
+    const row = r as WorkflowRunDisplayRow;
+    return {
+      id: row.id,
+      workflowId: row.workflow_id,
+      status: row.status,
+      isTest: row.is_test,
+      triggeredBy: row.triggered_by,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      errorClassification: row.error_classification,
+    };
+  });
 }
 
 // ── Pre-run lifecycle / billing projection / stale sweep ─────────────────────

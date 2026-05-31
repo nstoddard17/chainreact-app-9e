@@ -16,6 +16,7 @@
  */
 
 import { getById as getRunById } from "@/repositories/workflowRuns";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import {
   getWorkflowGraphForAI,
   getWorkflowValidationStateForAI,
@@ -62,14 +63,22 @@ export async function suggestWorkflowRepairForAI(
 ): Promise<RepairSuggestionResult> {
   const { userId, workflowId, workflowRunId } = input;
 
-  // 1. Read the run; enforce ownership + workflow match (no existence leak).
+  // 1. Read the run; enforce account ownership + workflow match (no existence
+  //    leak). 4.ACCOUNT-MODEL-8: runs are account-owned — resolve the caller's
+  //    account and require run.accountId to match (getRunById is RLS-gated to
+  //    the account too; this is defense-in-depth). triggered_by_user_id is
+  //    actor provenance and is NEVER consulted for authorization.
   let run;
   try {
     run = await getRunById(workflowRunId);
   } catch {
     return { ok: false, code: "READ_FAILED", message: "Couldn't read the workflow run.", noMutation: true };
   }
-  if (!run || run.userId !== userId || run.workflowId !== workflowId) {
+  if (!run) {
+    return notFound(`No workflow run '${workflowRunId}'.`);
+  }
+  const accountId = (await ensurePersonalAccount(userId)).id;
+  if (run.accountId !== accountId || run.workflowId !== workflowId) {
     return notFound(`No workflow run '${workflowRunId}'.`);
   }
 

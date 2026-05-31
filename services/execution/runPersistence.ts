@@ -30,7 +30,8 @@ type LogFn = (event: string, extra?: Record<string, unknown>) => void;
  */
 export async function persistRun(
   result: RunResult,
-  userId: string,
+  accountId: string,
+  createdByUserId: string,
   workflowName: string,
   input: RunWorkflowInput,
   log: LogFn,
@@ -41,7 +42,10 @@ export async function persistRun(
     await workflowRunsRepo.recordRun({
       runId: result.runId,
       workflowId: result.workflowId,
-      userId,
+      // 4.ACCOUNT-MODEL-8: run row owned by the workflow's account; actor is
+      // the human caller (manual/retry) or NULL (webhook/polling/cron/scheduled).
+      accountId,
+      triggeredByUserId: input.triggeredByUserId ?? null,
       status: result.status,
       triggerNodeId: input.triggerNodeId,
       triggerEvent: input.triggerEvent,
@@ -61,7 +65,8 @@ export async function persistRun(
     log("execution.run.persist_failed", { error: (err as Error).message });
   }
 
-  await notifyOnFailure(result, userId, workflowName, log, errorClassification);
+  // Notification recipient is the workflow's creator (user-delivered in Phase B).
+  await notifyOnFailure(result, createdByUserId, workflowName, log, errorClassification);
 }
 
 /**
@@ -74,7 +79,8 @@ export async function persistRun(
  */
 export async function finalizeRun(
   result: RunResult,
-  userId: string,
+  accountId: string,
+  createdByUserId: string,
   workflowName: string,
   input: RunWorkflowInput,
   log: LogFn,
@@ -113,7 +119,8 @@ export async function finalizeRun(
       await workflowRunsRepo.recordRun({
         runId: result.runId,
         workflowId: result.workflowId,
-        userId,
+        accountId,
+        triggeredByUserId: input.triggeredByUserId ?? null,
         status: result.status,
         triggerNodeId: input.triggerNodeId,
         triggerEvent: input.triggerEvent,
@@ -132,7 +139,7 @@ export async function finalizeRun(
   } catch (err) {
     log("execution.run.persist_failed", { error: (err as Error).message });
   }
-  await notifyOnFailure(result, userId, workflowName, log, errorClassification);
+  await notifyOnFailure(result, createdByUserId, workflowName, log, errorClassification);
 }
 
 /**

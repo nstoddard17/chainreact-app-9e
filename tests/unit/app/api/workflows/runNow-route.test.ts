@@ -427,6 +427,17 @@ describe("POST /run-now — testMode flag (Slice 3.SEC-2)", () => {
     expect(enqueueCall.triggeredBy).toBe("manual");
   });
 
+  it("4.ACCOUNT-MODEL-8: records the caller as the actor (triggeredByUserId) for a manual run", async () => {
+    signedInAs("user-1");
+    await POST(buildRequest({ body: JSON.stringify({ inputs: {} }) }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      triggeredByUserId: string | null;
+    };
+    expect(enqueueCall.triggeredByUserId).toBe("user-1");
+  });
+
   it("explicit testMode: true forwards to enqueueRun with triggeredBy='test'", async () => {
     const res = await POST(
       buildRequest({ body: JSON.stringify({ testMode: true, inputs: {} }) }),

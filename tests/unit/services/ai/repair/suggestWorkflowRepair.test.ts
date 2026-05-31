@@ -29,6 +29,13 @@ jest.mock("@/services/ai/tools/variables", () => ({
 jest.mock("@/services/ai/preview", () => ({
   previewWorkflowPatchForAI: (...a: unknown[]) => mockPreview(...a),
 }));
+// 4.ACCOUNT-MODEL-8: repair resolves the caller's account and compares it to
+// the run's account_id. Map userId → `acct-<userId>` so "owner-1" matches the
+// run's "acct-owner-1" and any other caller resolves elsewhere → NOT_FOUND.
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
 
 import { suggestWorkflowRepairForAI } from "@/services/ai/repair/suggestWorkflowRepair";
 import { listAllActionMetas } from "@/services/discovery/_registry";
@@ -53,7 +60,8 @@ function runRec(over: Record<string, unknown> = {}) {
   return {
     id: "run1",
     workflowId: "wf1",
-    userId: "owner-1",
+    accountId: "acct-owner-1",
+    triggeredByUserId: "owner-1",
     status: "failed",
     triggerNodeId: "t",
     triggerEvent: {},
@@ -132,7 +140,7 @@ describe("suggestWorkflowRepairForAI — loading / ownership", () => {
   });
 
   it("returns NOT_FOUND when the run is not owned or not for this workflow", async () => {
-    mockGetRunById.mockResolvedValue(runRec({ userId: "other" }));
+    mockGetRunById.mockResolvedValue(runRec({ accountId: "acct-other" }));
     expect((await suggestWorkflowRepairForAI(INPUT)).ok).toBe(false);
     mockGetRunById.mockResolvedValue(runRec({ workflowId: "other" }));
     expect((await suggestWorkflowRepairForAI(INPUT)).ok).toBe(false);

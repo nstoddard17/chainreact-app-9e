@@ -89,10 +89,10 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
   afterAll(async () => {
     if (!admin) return;
     for (const id of createdUserIds) {
-      // workflows.user_id + workflow_revisions.user_id dropped in -7;
-      // integrations.user_id in -6. Delete workflows by created_by_user_id
-      // (revisions cascade) and workflow_runs by its still-present user_id.
-      await admin.from("workflow_runs").delete().eq("user_id", id);
+      // All three hot tables' user_id columns are now dropped (-6/-7/-8).
+      // Delete workflows by created_by_user_id — workflow_runs + revisions
+      // cascade (ON DELETE CASCADE from workflows). integrations by
+      // connected_by_user_id.
       await admin.from("workflows").delete().eq("created_by_user_id", id);
       await admin.from("integrations").delete().eq("connected_by_user_id", id);
       await admin.from("user_billing").delete().eq("user_id", id);
@@ -103,12 +103,10 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
     }
   });
 
-  it("freshly inserted workflow_run has account_id derived from the owning workflow", async () => {
+  it("workflow_run is written with account_id + triggered_by_user_id directly (compat trigger gone, -8)", async () => {
     const userId = await createTestUser("run");
     const personalAccountId = await getPersonalAccountId(userId);
 
-    // Seed a workflow first (post-cutover account-keyed shape) so the
-    // workflow_run has something to point at.
     const { data: wf, error: wfErr } = await admin
       .from("workflows")
       .insert({ account_id: personalAccountId, created_by_user_id: userId, name: "Run test workflow" })
@@ -117,13 +115,15 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
     expect(wfErr).toBeNull();
     expect(wf!.account_id).toBe(personalAccountId);
 
-    // Insert a run with the existing column shape — no account_id supplied.
+    // Post-cutover engine shape: account_id supplied directly (no compat
+    // trigger), triggered_by_user_id = the actor for a manual run.
     const nowIso = new Date().toISOString();
     const { data, error } = await admin
       .from("workflow_runs")
       .insert({
         workflow_id: wf!.id,
-        user_id: userId,
+        account_id: personalAccountId,
+        triggered_by_user_id: userId,
         status: "succeeded",
         trigger_node_id: "trigger-1",
         trigger_event: {
@@ -137,17 +137,23 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
         started_at: nowIso,
         finished_at: nowIso,
       })
-      .select("id, user_id, account_id, triggered_by_user_id")
-      .single<{
-        id: string;
-        user_id: string;
-        account_id: string;
-        triggered_by_user_id: string | null;
-      }>();
+      .select("id, account_id, triggered_by_user_id")
+      .single<{ id: string; account_id: string; triggered_by_user_id: string | null }>();
     expect(error).toBeNull();
-    expect(data!.user_id).toBe(userId);
     expect(data!.account_id).toBe(personalAccountId);
-    expect(data!.triggered_by_user_id).toBeNull();
+    expect(data!.triggered_by_user_id).toBe(userId);
+
+    // The compat trigger is gone: an INSERT without account_id now fails the
+    // NOT NULL constraint (no derivation from the owning workflow).
+    const missing = await admin.from("workflow_runs").insert({
+      workflow_id: wf!.id,
+      status: "succeeded",
+      trigger_node_id: "trigger-1",
+      trigger_event: { provider: "manual", eventType: "manual_trigger", eventId: `evt2-${Date.now()}`, occurredAt: nowIso, providerAccountId: "harness", payload: {} },
+      started_at: nowIso,
+      finished_at: nowIso,
+    });
+    expect(missing.error).not.toBeNull();
   });
 
   it("DB-wide invariant: zero rows on workflows/integrations/workflow_runs have NULL account_id", async () => {
