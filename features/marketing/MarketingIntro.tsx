@@ -90,7 +90,17 @@ export function MarketingIntro() {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // ---------- canvas warp ----------
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      // No 2D context (jsdom under test, or an unsupported browser). The
+      // intro is purely decorative motion — don't strand the user behind a
+      // dead, scroll-locked overlay. Restore scroll and dismiss immediately
+      // so the page shows. Mirrors MarketingHeroMotion's `if (!ctx) return`.
+      document.documentElement.style.overflow = "";
+      finishedRef.current = true;
+      setPlaying(false);
+      return;
+    }
     let W = 0;
     let H = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
