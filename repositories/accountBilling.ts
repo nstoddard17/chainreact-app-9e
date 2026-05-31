@@ -186,6 +186,30 @@ interface AccountBillingRow {
   period_started_at: string;
 }
 
+/**
+ * Service-role: initialize the free billing row for a freshly-created team/org
+ * account (4.ACCOUNT-MODEL-13). All-defaults insert (tasks_limit 100, used 0,
+ * reserved 0) = the FREE plan, identical to what the signup trigger seeds for a
+ * personal account. No Stripe customer / subscription is created — paid-team
+ * billing is deferred to the payments track. `ON CONFLICT DO NOTHING` makes a
+ * re-run on a partially-created account safe.
+ */
+export async function initAccountBillingServiceRole(
+  accountId: string,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_billing: init for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_billing")
+    .upsert({ account_id: accountId }, { onConflict: "account_id", ignoreDuplicates: true });
+  if (error) {
+    throw new Error(
+      `account_billing.initAccountBillingServiceRole failed: ${error.message}`,
+    );
+  }
+}
+
 export async function getUsage(accountId: string): Promise<AccountBillingUsage | null> {
   const supabase = await createClient();
   const { data, error } = await supabase

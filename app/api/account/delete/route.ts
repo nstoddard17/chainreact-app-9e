@@ -7,6 +7,7 @@ import {
 } from "@/app/api/account/_shared";
 import { verifyPasswordReauth } from "@/services/accounts/accountDeletionReauth";
 import { requestAccountDeletion } from "@/services/accounts/accountDeletion";
+import { listOwnedTeamOrgAccountIds } from "@/repositories/accounts";
 
 /**
  * POST /api/account/delete — self-serve account-deletion REQUEST
@@ -36,6 +37,25 @@ import { requestAccountDeletion } from "@/services/accounts/accountDeletion";
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireOwnPersonalAccount();
   if (!auth.ok) return auth.response;
+
+  // 4.ACCOUNT-MODEL-13 deletion guard. Deleting the personal account leads to
+  // user deletion (10c purge → auth.admin.deleteUser). The
+  // `accounts.owner_user_id → auth.users ON DELETE RESTRICT` FK blocks that
+  // while the user still owns any team/org account, so refuse the request up
+  // front with a clear next step. Until ownership transfer ships (Phase E),
+  // deleting those accounts is the only resolution.
+  const ownedTeamOrg = await listOwnedTeamOrgAccountIds(auth.userId);
+  if (ownedTeamOrg.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Delete or transfer the team/organization accounts you own before deleting your personal account.",
+        code: "ACCOUNT_HAS_OWNED_TEAMS",
+        ownedAccountCount: ownedTeamOrg.length,
+      },
+      { status: 409 },
+    );
+  }
 
   const body = await parseAccountBody(request, RequestDeletionBodySchema);
   if (!body.ok) return body.response;

@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type {
   AccountMembershipRecord,
   MembershipRole,
@@ -32,6 +33,30 @@ function rowToRecord(row: AccountMembershipsRow): AccountMembershipRecord {
     invitedByUserId: row.invited_by_user_id,
     joinedAt: row.joined_at,
   };
+}
+
+/**
+ * Service-role: insert the OWNER membership for a freshly-created team/org
+ * account (4.ACCOUNT-MODEL-13). The creator becomes `owner`. Mirrors the owner
+ * membership the signup trigger writes for personal accounts; the personal-
+ * invariants trigger is a no-op for non-personal accounts, so this is the team
+ * path. No client write path exists for memberships.
+ */
+export async function insertOwnerMembershipServiceRole(
+  accountId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: insertOwner for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_memberships")
+    .insert({ account_id: accountId, user_id: userId, role: "owner" });
+  if (error) {
+    throw new Error(
+      `account_memberships.insertOwnerMembershipServiceRole failed: ${error.message}`,
+    );
+  }
 }
 
 export async function listByAccount(

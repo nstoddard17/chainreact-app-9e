@@ -10,10 +10,14 @@ import { z } from "zod";
  * relaxations in supabase/migrations/.
  */
 
-export const AccountTypeSchema = z.enum(["personal"]);
+// 4.ACCOUNT-MODEL-13 (Phase D) — account types + membership roles are modeled in
+// full now (matching the relaxed DB CHECKs in 20260531000010). Only 'team' is
+// creatable in this slice; 'organization' is reachable via the future in-place
+// upgrade; 'admin'/'member' stay unused until invitations ship.
+export const AccountTypeSchema = z.enum(["personal", "team", "organization"]);
 export type AccountType = z.infer<typeof AccountTypeSchema>;
 
-export const MembershipRoleSchema = z.enum(["owner"]);
+export const MembershipRoleSchema = z.enum(["owner", "admin", "member"]);
 export type MembershipRole = z.infer<typeof MembershipRoleSchema>;
 
 /**

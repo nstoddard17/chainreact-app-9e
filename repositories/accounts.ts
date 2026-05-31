@@ -174,6 +174,59 @@ export async function ensurePersonalAccountServiceRole(
 // without a user session and bypass the account freeze RLS (a frozen account
 // must still be readable + restorable by the flow). Purge itself is 10c.
 
+// ─── 4.ACCOUNT-MODEL-13 (Phase D): team account creation (service-role) ───────
+
+/**
+ * Service-role: create a new `team` account owned by `ownerUserId`. Mirrors the
+ * personal-account insert in `ensurePersonalAccountServiceRole`, but with
+ * `type='team'` and NOT subject to the one-personal-per-user index, so a user
+ * may own many teams. Caller (services/accounts/createTeamAccount.ts) also
+ * inserts the owner membership + billing row. No client write path exists for
+ * accounts — this is the only team-create writer.
+ */
+export async function createTeamAccountServiceRole(input: {
+  name: string;
+  ownerUserId: string;
+}): Promise<AccountRecord> {
+  const supabase = getServiceRoleClient(
+    `accounts: createTeamAccount for user ${input.ownerUserId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .insert({ type: "team", name: input.name, owner_user_id: input.ownerUserId })
+    .select()
+    .single<AccountsRow>();
+  if (error || !data) {
+    throw new Error(
+      `accounts.createTeamAccountServiceRole failed: ${error?.message ?? "no row"}`,
+    );
+  }
+  return rowToRecord(data);
+}
+
+/**
+ * Service-role: ids of every NON-personal account `userId` owns. Backs the
+ * deletion guard — a user may not delete their personal account / themselves
+ * while they solely own team/org accounts (the `owner_user_id ON DELETE RESTRICT`
+ * FK would otherwise block the user purge). Empty array = clear to delete.
+ */
+export async function listOwnedTeamOrgAccountIds(
+  userId: string,
+): Promise<string[]> {
+  const supabase = getServiceRoleClient(
+    `accounts: listOwnedTeamOrg for user ${userId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .neq("type", "personal");
+  if (error) {
+    throw new Error(`accounts.listOwnedTeamOrgAccountIds failed: ${error.message}`);
+  }
+  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+}
+
 /**
  * Service-role read of a single account by id. Mirrors `getById` but bypasses
  * RLS — the deletion service must resolve a frozen account that the session

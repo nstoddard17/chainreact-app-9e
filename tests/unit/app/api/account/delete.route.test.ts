@@ -31,6 +31,12 @@ jest.mock("@/services/accounts/accountDeletion", () => ({
   requestAccountDeletion: (...a: unknown[]) => mockRequestAccountDeletion(...a),
 }));
 
+// 4.ACCOUNT-MODEL-13 deletion guard — owned team/org accounts block deletion.
+const mockListOwnedTeamOrg = jest.fn();
+jest.mock("@/repositories/accounts", () => ({
+  listOwnedTeamOrgAccountIds: (...a: unknown[]) => mockListOwnedTeamOrg(...a),
+}));
+
 import { POST } from "@/app/api/account/delete/route";
 
 const USER_ID = "user-1";
@@ -63,6 +69,8 @@ beforeEach(() => {
   mockEnsurePersonalAccount.mockReset();
   mockVerifyReauth.mockReset();
   mockRequestAccountDeletion.mockReset();
+  // Default: the user owns no team/org accounts → deletion proceeds.
+  mockListOwnedTeamOrg.mockReset().mockResolvedValue([]);
   jest.spyOn(console, "info").mockImplementation(() => {});
 });
 
@@ -83,6 +91,18 @@ describe("POST /api/account/delete", () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
     const res = await POST(req({ password: "pw", confirmText: "delete my account" }));
     expect(res.status).toBe(401);
+    expect(mockVerifyReauth).not.toHaveBeenCalled();
+    expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
+  });
+
+  it("409s when the user owns a team/org account (deletion guard) — never reaches re-auth or the service", async () => {
+    signedIn();
+    mockListOwnedTeamOrg.mockResolvedValueOnce(["team-1", "team-2"]);
+    const res = await POST(req({ password: "pw", confirmText: "delete my account" }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("ACCOUNT_HAS_OWNED_TEAMS");
+    expect(body.ownedAccountCount).toBe(2);
     expect(mockVerifyReauth).not.toHaveBeenCalled();
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
