@@ -1,8 +1,10 @@
 import { decryptToken } from "@/core/encryption/tokens";
 import { revokeProviderToken } from "@/services/oauth/dispatcher";
+import { LEDGER_RETENTION_DAYS } from "@/services/accounts/accountDeletionFlags";
 import * as accountsRepo from "@/repositories/accounts";
 import * as accountDeletionsRepo from "@/repositories/accountDeletions";
 import * as accountPurgeRepo from "@/repositories/accountPurge";
+import * as ledgerAnonymizationRepo from "@/repositories/ledgerAnonymization";
 
 /**
  * Account purge service (4.ACCOUNT-MODEL-10c).
@@ -29,6 +31,7 @@ import * as accountPurgeRepo from "@/repositories/accountPurge";
  */
 
 const REVOKE_MAX_ATTEMPTS = 3;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export type PurgeSkipReason =
   | "account_not_found"
@@ -36,6 +39,7 @@ export type PurgeSkipReason =
   | "grace_not_elapsed";
 
 export interface PurgeCounts {
+  ledgerRowsAnonymized: number;
   integrationsRevoked: number;
   integrationsRevokeFailed: number;
   integrationsDeleted: number;
@@ -140,6 +144,7 @@ export async function purgeAccount(
   log("account.purge.started", { accountId: input.accountId });
 
   const counts: PurgeCounts = {
+    ledgerRowsAnonymized: 0,
     integrationsRevoked: 0,
     integrationsRevokeFailed: 0,
     integrationsDeleted: 0,
@@ -149,6 +154,27 @@ export async function purgeAccount(
     accountDeleted: false,
     authUserDeleted: false,
   };
+
+  // 0. Anonymize account-owned ledgers FIRST — before any delete (4.ACCOUNT-
+  //    MODEL-10d). Must precede the workflow_runs/workflows/account deletes so
+  //    the rows are (a) still findable by account_id and (b) detached so they do
+  //    NOT cascade-delete with the account. After this the rows have NULL
+  //    account_id/user_id/workflow refs + stripped metadata, are invisible to
+  //    account-membership RLS, and carry anonymized_at + ledger_purge_after for
+  //    the retention cron.
+  const ledgerPurgeAfter = new Date(
+    now.getTime() + LEDGER_RETENTION_DAYS * MS_PER_DAY,
+  ).toISOString();
+  const anonymized = await ledgerAnonymizationRepo.anonymizeAccountLedgers({
+    accountId: input.accountId,
+    anonymizedAt: now.toISOString(),
+    ledgerPurgeAfter,
+  });
+  counts.ledgerRowsAnonymized = anonymized.total;
+  log("account.purge.ledgers_anonymized", {
+    accountId: input.accountId,
+    ...anonymized,
+  });
 
   // 1. Integrations: best-effort revoke (with retry), then delete the row —
   //    regardless of revoke outcome. RESTRICT → must precede the account delete.

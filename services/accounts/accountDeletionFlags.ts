@@ -15,14 +15,33 @@ export const ACCOUNT_PURGE_CRON_FLAG = "ENABLE_ACCOUNT_PURGE_CRON";
  * called directly (tests, admin), but the scheduled fan-out only runs when this
  * is explicitly "true".
  *
- * NOTE (ledger retention): 10c hard-deletes account-owned ledgers via the
- * account_id ON DELETE CASCADE when the account row is removed — there are no
- * orphans, so purge is SAFE to enable without 10d. 10d (anonymize-then-retain)
- * only CHANGES the ledger disposition from "deleted with the account" to
- * "anonymized + retained for a window". If/when the product wants retained
- * financial-audit ledgers, 10d MUST land before flipping this flag in prod;
- * until then, enabling it is correct but deletes ledgers outright.
+ * NOTE (ledger retention): as of 10d, purgeAccount ANONYMIZES the account-owned
+ * ledgers (task_usage_events / ai_cost_events / billing_shadow_comparisons)
+ * before deleting the account — the rows survive as non-account-addressable
+ * audit records and are hard-deleted later by the ledger-purge cron (gated by
+ * ENABLE_LEDGER_PURGE_CRON). Enabling this flag is safe either way.
  */
 export function isAccountPurgeCronEnabled(): boolean {
   return process.env[ACCOUNT_PURGE_CRON_FLAG] === "true";
 }
+
+/** Env var gating the anonymized-ledger retention cron (4.ACCOUNT-MODEL-10d). */
+export const LEDGER_PURGE_CRON_FLAG = "ENABLE_LEDGER_PURGE_CRON";
+
+/**
+ * DEFAULT OFF. When false, the ledger-purge cron route authenticates but
+ * performs NO deletion — returns a skipped summary. Separate switch from
+ * ENABLE_ACCOUNT_PURGE_CRON: this one gates only the hard-delete of
+ * already-anonymized, retention-elapsed ledger rows. The delete service works
+ * when called directly (tests/admin) regardless of the flag.
+ */
+export function isLedgerPurgeCronEnabled(): boolean {
+  return process.env[LEDGER_PURGE_CRON_FLAG] === "true";
+}
+
+/**
+ * Retention window (days) an anonymized ledger row is kept before the
+ * ledger-purge cron hard-deletes it. Plan default = 90. Set on each row's
+ * `ledger_purge_after` at anonymization time.
+ */
+export const LEDGER_RETENTION_DAYS = 90;

@@ -26,6 +26,7 @@ const mockListDue = jest.fn();
 
 const mockRevokeProviderToken = jest.fn();
 const mockDecryptToken = jest.fn();
+const mockAnonymizeLedgers = jest.fn();
 
 jest.mock("@/repositories/accounts", () => ({
   getByIdServiceRole: (...a: unknown[]) => mockGetByIdServiceRole(...a),
@@ -49,6 +50,9 @@ jest.mock("@/services/oauth/dispatcher", () => ({
 }));
 jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...a: unknown[]) => mockDecryptToken(...a),
+}));
+jest.mock("@/repositories/ledgerAnonymization", () => ({
+  anonymizeAccountLedgers: (...a: unknown[]) => mockAnonymizeLedgers(...a),
 }));
 
 import {
@@ -82,9 +86,13 @@ beforeEach(() => {
     mockListIntegrations, mockDeleteIntegration, mockDeleteRuns,
     mockDeleteWorkflows, mockDeleteBilling, mockDeleteAccount,
     mockDeleteAuthUser, mockListDue, mockRevokeProviderToken, mockDecryptToken,
+    mockAnonymizeLedgers,
   ]) m.mockReset();
 
   // Sensible defaults for the happy path.
+  mockAnonymizeLedgers.mockResolvedValue({
+    taskUsageEvents: 0, aiCostEvents: 0, billingShadowComparisons: 0, total: 0,
+  });
   mockListIntegrations.mockResolvedValue([]);
   mockDeleteRuns.mockResolvedValue(0);
   mockDeleteWorkflows.mockResolvedValue(0);
@@ -121,6 +129,10 @@ describe("purgeAccount — eligibility guard", () => {
 describe("purgeAccount — teardown", () => {
   it("deletes in RESTRICT-safe order with auth.users LAST and marks audit purged", async () => {
     const calls: string[] = [];
+    mockAnonymizeLedgers.mockImplementationOnce(async () => {
+      calls.push("anonymizeLedgers");
+      return { taskUsageEvents: 4, aiCostEvents: 2, billingShadowComparisons: 1, total: 7 };
+    });
     mockListIntegrations.mockImplementationOnce(async () => {
       calls.push("listIntegrations");
       return [
@@ -140,9 +152,11 @@ describe("purgeAccount — teardown", () => {
     const r = await purgeAccount({ accountId: ACCOUNT_ID, now: NOW });
 
     expect(r.status).toBe("purged");
-    // Ordering: integrations (revoke→delete) → runs → workflows → billing →
-    // account → auth.users → audit. auth.users is strictly after account.
+    // Ordering: anonymize ledgers FIRST → integrations (revoke→delete) → runs →
+    // workflows → billing → account → auth.users → audit. Anonymization MUST
+    // precede every delete (4.ACCOUNT-MODEL-10d); auth.users strictly after account.
     expect(calls).toEqual([
+      "anonymizeLedgers",
       "listIntegrations",
       "revoke",
       "deleteIntegration",
@@ -153,11 +167,22 @@ describe("purgeAccount — teardown", () => {
       "deleteAuthUser",
       "markPurged",
     ]);
+    expect(calls.indexOf("anonymizeLedgers")).toBe(0);
+    expect(calls.indexOf("anonymizeLedgers")).toBeLessThan(calls.indexOf("deleteRuns"));
     expect(calls.indexOf("deleteAuthUser")).toBeGreaterThan(calls.indexOf("deleteAccount"));
     expect(mockDeleteAuthUser).toHaveBeenCalledWith(OWNER_ID);
+    // Anonymization stamps a 90-day retention deadline relative to `now`.
+    expect(mockAnonymizeLedgers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: ACCOUNT_ID,
+        anonymizedAt: NOW.toISOString(),
+        ledgerPurgeAfter: new Date(NOW.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
 
     if (r.status === "purged") {
       expect(r.counts).toMatchObject({
+        ledgerRowsAnonymized: 7,
         integrationsRevoked: 1,
         integrationsRevokeFailed: 0,
         integrationsDeleted: 1,
@@ -168,6 +193,14 @@ describe("purgeAccount — teardown", () => {
         authUserDeleted: true,
       });
     }
+  });
+
+  it("does NOT anonymize ledgers when the account is not eligible (guard precedes anonymize)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(
+      pendingDueAccount({ purgeAfter: "2026-08-01T00:00:00.000Z" }),
+    );
+    await purgeAccount({ accountId: ACCOUNT_ID, now: NOW });
+    expect(mockAnonymizeLedgers).not.toHaveBeenCalled();
   });
 
   it("token revoke failure does NOT block purge — the row is still deleted", async () => {
@@ -217,8 +250,11 @@ describe("purgeAccount — recovery + missing", () => {
     expect(r).toEqual({ status: "recovered", accountId: ACCOUNT_ID });
     expect(mockDeleteAuthUser).toHaveBeenCalledWith(OWNER_ID);
     expect(mockMarkPurged).toHaveBeenCalled();
-    // No teardown of operational tables (account already gone).
+    // No teardown of operational tables (account already gone). Ledgers were
+    // anonymized before the account was deleted in the original (interrupted)
+    // run, so recovery does NOT re-anonymize.
     expect(mockDeleteWorkflows).not.toHaveBeenCalled();
+    expect(mockAnonymizeLedgers).not.toHaveBeenCalled();
   });
 
   it("skips when the account is gone and there is no pending audit row", async () => {
