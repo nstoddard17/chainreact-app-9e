@@ -211,6 +211,58 @@ export const WorkflowRunDetailSchema = WorkflowRunSummarySchema.extend({
 export type WorkflowRunDetail = z.infer<typeof WorkflowRunDetailSchema>;
 
 /**
+ * Source labels mirrored from the `workflow_runs.triggered_by` CHECK
+ * constraint (Slice 3.SEC-2 migration). The display layer surfaces
+ * these as filter facets + per-row badges on the `/runs` page.
+ */
+export const WorkflowRunTriggeredBySchema = z.enum([
+  "manual",
+  "test",
+  "webhook",
+  "scheduled",
+  "retry",
+  "unknown",
+]);
+export type WorkflowRunTriggeredBy = z.infer<typeof WorkflowRunTriggeredBySchema>;
+
+/**
+ * Wire shape returned by `GET /api/runs` and consumed by the Runs page
+ * (Slice 4.RUNS-PAGE-1). Deliberately narrower than
+ * `WorkflowRunSummary` / `WorkflowRunDetail`:
+ *
+ *   - Workflow name is joined in (display-facing pages don't issue
+ *     per-row name fetches).
+ *   - `userId` / `triggerEvent` / `steps` / `fatalError` are NEVER
+ *     present — they contain raw upstream payloads, per-step output
+ *     blobs, and engine-internal codes that the run-history surface
+ *     does not need. `errorClassification` is the only error surface
+ *     exposed; it is the humanized shape already designed for users.
+ *   - All billing/task-cost columns are excluded — billing is out of
+ *     scope for the read-only run-history surface.
+ *   - `durationMs` is computed on the server (finishedAt − startedAt)
+ *     to avoid every UI re-computing it. NULL means the run had no
+ *     terminal finishedAt (pre-COST-15B rows or sweep-failed rows
+ *     where finished_at was never set).
+ *
+ * The status enum stays terminal-only (succeeded / failed) — matches
+ * the existing display contract and the
+ * `workflow_runs.status != 'running'` filter the repository applies.
+ */
+export const RunListItemSchema = z.object({
+  id: z.string().uuid(),
+  workflowId: z.string().uuid(),
+  workflowName: z.string(),
+  status: WorkflowRunStatusSchema,
+  isTest: z.boolean(),
+  triggeredBy: WorkflowRunTriggeredBySchema,
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  durationMs: z.number().nullable(),
+  errorClassification: HumanizedErrorSchema.nullable(),
+});
+export type RunListItem = z.infer<typeof RunListItemSchema>;
+
+/**
  * PATCH /api/workflows/[id] body. Slice 1I extended this beyond name-only
  * to accept the full `draftDefinition` so the builder can save graph edits.
  * The orchestrator owns lifecycle transitions via the dedicated action
