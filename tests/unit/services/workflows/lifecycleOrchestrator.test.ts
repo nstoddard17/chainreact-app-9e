@@ -28,6 +28,13 @@ jest.mock("@/repositories/workflows", () => ({
   applyTransition: (...args: unknown[]) => mockApplyTransition(...args),
 }));
 
+// 4.ACCOUNT-MODEL-10b — activate calls the account freeze guard. Mock it as
+// operational so these orchestrator unit tests don't construct the real
+// service-role client. Freeze behavior is covered in accountFreeze.test.ts.
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  assertAccountOperational: jest.fn().mockResolvedValue(undefined),
+}));
+
 function makeWorkflow(
   state: WorkflowRecord["state"],
   overrides: Partial<WorkflowRecord> = {},

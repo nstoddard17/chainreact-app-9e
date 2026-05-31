@@ -38,6 +38,10 @@ import {
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import {
+  AccountFrozenError,
+  assertAccountOperational,
+} from "@/services/accounts/accountFreeze";
 import { refreshLockKey, withRefreshLock } from "./refreshLock";
 import { createState, consumeState, InvalidStateError } from "./state";
 
@@ -143,6 +147,13 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   // is unchanged.
   const ownerAccount = await ensurePersonalAccount(input.userId);
   const accountId = ownerAccount.id;
+
+  // 4.ACCOUNT-MODEL-10b — account freeze. A pending_deletion account cannot
+  // connect new integrations. Checked on the already-resolved record (no extra
+  // round trip) before any state JWT is minted.
+  if (ownerAccount.deletionStatus === "pending_deletion") {
+    throw new AccountFrozenError(accountId);
+  }
 
   // Token-ingest providers (Slice 17+) take a parallel path. They receive
   // the token from the browser via URL fragment + client POST, not via a
@@ -264,6 +275,11 @@ export async function handleCallback(
   if (payload.provider !== input.provider) {
     throw new InvalidStateError("provider mismatch between state and route");
   }
+
+  // 4.ACCOUNT-MODEL-10b — account freeze. If the account entered
+  // pending_deletion between connect and callback, refuse to persist the new
+  // integration. Service-role status read (no session in the callback path).
+  await assertAccountOperational(payload.accountId);
 
   const oauth = OAUTH_BY_PROVIDER[input.provider];
   if (!oauth) {
@@ -414,6 +430,11 @@ export interface RefreshOutput {
  */
 export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
   if (!input.accountId) throw new Error("refresh: accountId is required.");
+  // 4.ACCOUNT-MODEL-10b — account freeze. Token refresh-for-use is blocked for
+  // a pending_deletion account: its integrations must not perform live work
+  // during the grace window. Tokens are retained (revoke happens at purge, 10c)
+  // but cannot be refreshed for use here.
+  await assertAccountOperational(input.accountId);
   const manifest = getProvider(input.provider);
   if (!manifest) throw new Error(`Unknown provider: ${input.provider}`);
   if (!manifest.capabilities.oauth) {

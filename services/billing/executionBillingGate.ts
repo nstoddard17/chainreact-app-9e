@@ -1,4 +1,5 @@
 import * as accountBillingRepo from "@/repositories/accountBilling";
+import { isAccountFrozen } from "@/services/accounts/accountFreeze";
 
 /**
  * Pre-execution billing gate.
@@ -32,7 +33,8 @@ import * as accountBillingRepo from "@/repositories/accountBilling";
 export type BillingGateOutcome =
   | { ok: true; used: number; limit: number }
   | { ok: true; skipped: true; reason: "test_mode" }
-  | { ok: false; reason: "limit_reached"; used: number; limit: number };
+  | { ok: false; reason: "limit_reached"; used: number; limit: number }
+  | { ok: false; reason: "account_frozen"; used: number; limit: number };
 
 export interface ExecutionBillingGateOptions {
   /**
@@ -46,6 +48,15 @@ export async function executionBillingGate(
   accountId: string,
   options: ExecutionBillingGateOptions = {},
 ): Promise<BillingGateOutcome> {
+  // 4.ACCOUNT-MODEL-10b — account freeze. Checked FIRST, before the test-mode
+  // short-circuit: a pending_deletion account is non-operational, so even a
+  // test run is refused. This is the universal execution chokepoint — every
+  // run (manual / webhook / scheduled / polling) passes through here before any
+  // node executes, and the engine treats any `!ok` outcome as a refusal.
+  if (await isAccountFrozen(accountId)) {
+    return { ok: false, reason: "account_frozen", used: 0, limit: 0 };
+  }
+
   // COST-2A — test/dry-run runs do not bill. Return before touching the
   // repository so no quota is consumed and no DB round-trip happens.
   if (options.testMode === true) {

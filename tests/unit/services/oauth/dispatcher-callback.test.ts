@@ -16,6 +16,14 @@ jest.mock("@/repositories/integrations", () => ({
   upsertActive: mockUpsertActive,
 }));
 
+// 4.ACCOUNT-MODEL-10b — handleCallback calls the account freeze guard. Mock it
+// as operational so this unit test doesn't construct the real service-role
+// client. Freeze behavior is covered in accountFreeze.test.ts.
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  assertAccountOperational: jest.fn().mockResolvedValue(undefined),
+  AccountFrozenError: class AccountFrozenError extends Error {},
+}));
+
 jest.mock("@/integrations/slack/oauth", () => ({
   slackOAuth: {
     buildAuthUrl: jest.fn(() => "https://slack.com/oauth/v2/authorize?test=1"),

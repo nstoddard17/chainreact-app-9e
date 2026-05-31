@@ -31,6 +31,14 @@ jest.mock("@/repositories/workflows", () => ({
   applyTransition: (...args: unknown[]) => mockApplyTransition(...args),
 }));
 
+// 4.ACCOUNT-MODEL-10b — activate now calls the account freeze guard. Mock it as
+// operational so these lifecycle wiring tests don't construct the real
+// service-role client (which has no env in unit tests). Freeze behavior has its
+// own coverage in tests/unit/services/accounts/accountFreeze.test.ts.
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  assertAccountOperational: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 
 const baseWorkflow = {

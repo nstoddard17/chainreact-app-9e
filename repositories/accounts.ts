@@ -3,6 +3,7 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type {
   AccountRecord,
   AccountType,
+  DeletionStatus,
 } from "@/contracts/accounts";
 
 /**
@@ -26,6 +27,10 @@ interface AccountsRow {
   type: AccountType;
   name: string;
   owner_user_id: string;
+  deletion_status: DeletionStatus;
+  deletion_requested_at: string | null;
+  deletion_requested_by: string | null;
+  purge_after: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +41,9 @@ function rowToRecord(row: AccountsRow): AccountRecord {
     type: row.type,
     name: row.name,
     ownerUserId: row.owner_user_id,
+    deletionStatus: row.deletion_status,
+    deletionRequestedAt: row.deletion_requested_at,
+    purgeAfter: row.purge_after,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -157,4 +165,118 @@ export async function ensurePersonalAccountServiceRole(
   }
 
   return rowToRecord(inserted);
+}
+
+// ─── 4.ACCOUNT-MODEL-10b: deletion lifecycle (service-role) ───────────────────
+//
+// The deletion request/cancel flow runs server-side (self-serve route + admin /
+// service-role path). These helpers use the service-role client so they work
+// without a user session and bypass the account freeze RLS (a frozen account
+// must still be readable + restorable by the flow). Purge itself is 10c.
+
+/**
+ * Service-role read of a single account by id. Mirrors `getById` but bypasses
+ * RLS — the deletion service must resolve a frozen account that the session
+ * client can no longer see through the operational policies.
+ */
+export async function getByIdServiceRole(
+  accountId: string,
+): Promise<AccountRecord | null> {
+  const supabase = getServiceRoleClient(
+    `accounts: getByIdServiceRole for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("*")
+    .eq("id", accountId)
+    .maybeSingle<AccountsRow>();
+  if (error) throw new Error(`accounts.getByIdServiceRole failed: ${error.message}`);
+  return data ? rowToRecord(data) : null;
+}
+
+/**
+ * Service-role read of just the deletion status. Used by the freeze guards
+ * (services/accounts/accountFreeze.ts) on background / service-role paths
+ * (engine billing gate, OAuth refresh, activation) that RLS does not gate.
+ * Returns null when the account does not exist.
+ */
+export async function getDeletionStatusServiceRole(
+  accountId: string,
+): Promise<DeletionStatus | null> {
+  const supabase = getServiceRoleClient(
+    `accounts: getDeletionStatus for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("deletion_status")
+    .eq("id", accountId)
+    .maybeSingle<{ deletion_status: DeletionStatus }>();
+  if (error) {
+    throw new Error(`accounts.getDeletionStatusServiceRole failed: ${error.message}`);
+  }
+  return data ? data.deletion_status : null;
+}
+
+/**
+ * Service-role: flip an account into `pending_deletion`, stamping the request
+ * metadata + purge deadline. Does NOT write the audit row — the service
+ * (services/accounts/accountDeletion.ts) orchestrates both so the audit insert
+ * and the status flip stay together.
+ */
+export async function setDeletionPendingServiceRole(input: {
+  accountId: string;
+  requestedByUserId: string | null;
+  requestedAt: string;
+  purgeAfter: string;
+}): Promise<AccountRecord> {
+  const supabase = getServiceRoleClient(
+    `accounts: setDeletionPending for account ${input.accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .update({
+      deletion_status: "pending_deletion",
+      deletion_requested_at: input.requestedAt,
+      deletion_requested_by: input.requestedByUserId,
+      purge_after: input.purgeAfter,
+    })
+    .eq("id", input.accountId)
+    .select()
+    .single<AccountsRow>();
+  if (error || !data) {
+    throw new Error(
+      `accounts.setDeletionPendingServiceRole failed: ${error?.message ?? "no row"}`,
+    );
+  }
+  return rowToRecord(data);
+}
+
+/**
+ * Service-role: clear the deletion request, returning the account to `active`.
+ * The reversible cancel/restore path. Workflows / integrations / runs are
+ * untouched (no purge has happened), so the account is fully operational again.
+ */
+export async function clearDeletionServiceRole(
+  accountId: string,
+): Promise<AccountRecord> {
+  const supabase = getServiceRoleClient(
+    `accounts: clearDeletion for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .update({
+      deletion_status: "active",
+      deletion_requested_at: null,
+      deletion_requested_by: null,
+      purge_after: null,
+    })
+    .eq("id", accountId)
+    .select()
+    .single<AccountsRow>();
+  if (error || !data) {
+    throw new Error(
+      `accounts.clearDeletionServiceRole failed: ${error?.message ?? "no row"}`,
+    );
+  }
+  return rowToRecord(data);
 }

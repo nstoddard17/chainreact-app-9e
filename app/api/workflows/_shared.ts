@@ -82,6 +82,23 @@ export async function requireUserWithAccount(): Promise<
   const auth = await requireUser();
   if (!auth.ok) return auth;
   const account = await ensurePersonalAccount(auth.userId);
+  // 4.ACCOUNT-MODEL-10b — account freeze. A pending_deletion account is
+  // non-operational: refuse the resolver so every workflow route (create /
+  // list / run-now / AI) is blocked at the gate. The owner can still read the
+  // account row (accounts_select_member is not frozen) to drive cancel. Uses
+  // the already-resolved record — no extra round trip.
+  if (account.deletionStatus === "pending_deletion") {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: "This account is pending deletion.",
+          code: "ACCOUNT_PENDING_DELETION",
+        },
+        { status: 403 },
+      ),
+    };
+  }
   return { ok: true, userId: auth.userId, accountId: account.id };
 }
 

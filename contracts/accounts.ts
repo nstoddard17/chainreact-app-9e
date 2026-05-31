@@ -16,11 +16,24 @@ export type AccountType = z.infer<typeof AccountTypeSchema>;
 export const MembershipRoleSchema = z.enum(["owner"]);
 export type MembershipRole = z.infer<typeof MembershipRoleSchema>;
 
+/**
+ * 4.ACCOUNT-MODEL-10b — account deletion lifecycle state.
+ * `active` is the normal operational state. `pending_deletion` means a deletion
+ * was requested and the account is frozen (non-operational) during the grace
+ * window; cancel returns it to `active`. Purge (10c) removes the account
+ * entirely, so there is no terminal `deleted` literal on the live row.
+ */
+export const DeletionStatusSchema = z.enum(["active", "pending_deletion"]);
+export type DeletionStatus = z.infer<typeof DeletionStatusSchema>;
+
 export const AccountRecordSchema = z.object({
   id: z.string().uuid(),
   type: AccountTypeSchema,
   name: z.string().min(1),
   ownerUserId: z.string().uuid(),
+  deletionStatus: DeletionStatusSchema,
+  deletionRequestedAt: z.string().nullable(),
+  purgeAfter: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

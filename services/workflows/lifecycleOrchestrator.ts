@@ -6,6 +6,7 @@ import {
 import type { WorkflowDisabledReason } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
+import { assertAccountOperational } from "@/services/accounts/accountFreeze";
 
 /**
  * LifecycleOrchestrator — the single mutator of workflows.state.
@@ -88,6 +89,10 @@ export class LifecycleOrchestrator {
 
   async activate(workflowId: string): Promise<WorkflowRecord> {
     const wf = await this.loadOrThrow(workflowId);
+    // 4.ACCOUNT-MODEL-10b — a pending_deletion account cannot activate
+    // workflows (which would register triggers / schedule execution). Throws
+    // AccountFrozenError before any precondition or trigger registration runs.
+    await assertAccountOperational(wf.accountId);
     const toState = assertAllowedTransition(wf.state, "activate");
     await this.runPreconditions(wf, "activate");
 
