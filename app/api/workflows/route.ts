@@ -4,7 +4,7 @@ import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
 import {
   parseJsonBody,
-  requireUser,
+  requireUserWithAccount,
   toWorkflowListItem,
   toWorkflowSummary,
 } from "./_shared";
@@ -17,29 +17,34 @@ import {
  */
 
 export async function POST(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
 
   const parsed = await parseJsonBody(request, CreateWorkflowRequestSchema);
   if (!parsed.ok) return parsed.response;
 
+  // 4.ACCOUNT-MODEL-7: the workflow is owned by the caller's account; the
+  // user is recorded as provenance (created_by_user_id), not as authority.
   const record = await workflowsRepo.create({
-    userId: auth.userId,
+    accountId: auth.accountId,
+    createdByUserId: auth.userId,
     name: parsed.data.name,
   });
   return NextResponse.json(toWorkflowSummary(record), { status: 201 });
 }
 
 export async function GET() {
-  const auth = await requireUser();
+  const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
 
   // Slice 4.WORKFLOWS-PAGE-1 — enrich the list with provider chips (derived
-  // from each draft definition) + lifetime run stats (one view query). Both
-  // reads are user-scoped (workflows by user_id; run stats via the
-  // security_invoker view's RLS) and run in parallel — no client N+1.
+  // from each draft definition) + lifetime run stats (one view query).
+  // 4.ACCOUNT-MODEL-7: workflows are listed by account; run stats stay
+  // user-scoped (workflow_runs is slice -8 / billing is Phase C). For a
+  // single-user personal account the two key off the same workflows. Both
+  // reads run in parallel — no client N+1.
   const [records, runStats] = await Promise.all([
-    workflowsRepo.listByUser(auth.userId),
+    workflowsRepo.listByAccount(auth.accountId),
     workflowRunStatsRepo.getStatsForUser(auth.userId),
   ]);
   return NextResponse.json({

@@ -9,7 +9,7 @@ import {
   buildPersistenceErrorBody,
   formatPersistenceErrorForDev,
 } from "@/core/ai/builderAgentPersistenceDiagnostics";
-import { requireUser } from "../../../_shared";
+import { requireUserWithAccount } from "../../../_shared";
 
 /**
  * GET / DELETE /api/workflows/[id]/ai/thread — Builder Agent thread surface
@@ -25,16 +25,20 @@ import { requireUser } from "../../../_shared";
  *            opened workflow is a no-op (deletedCount: 0). The thread row
  *            itself survives so (user, workflow) → thread is stable.
  *
- * Auth: `requireUser` (401 on no session). Workflow ownership is verified
- * with `workflows.getById` + `record.userId === auth.userId` (404 on miss /
- * not owned — same no-existence-leak convention the plan / apply routes use).
+ * Auth: `requireUserWithAccount` (401 on no session). Workflow access is
+ * verified with `workflows.getById` + `record.accountId === auth.accountId`
+ * (404 on miss / not in the caller's account — same no-existence-leak
+ * convention the plan / apply routes use; 4.ACCOUNT-MODEL-7 moved this from a
+ * user_id check to an account check). The builder_agent_threads rows
+ * themselves stay per-user `(user_id, workflow_id)` — that table is NOT
+ * re-scoped in this slice; only the workflow-access gate is account-based.
  */
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireUser();
+  const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -43,7 +47,7 @@ export async function GET(
   }
 
   const workflow = await getById(id);
-  if (!workflow || workflow.userId !== auth.userId) {
+  if (!workflow || workflow.accountId !== auth.accountId) {
     return NextResponse.json({ error: "Workflow not found." }, { status: 404 });
   }
 
@@ -100,7 +104,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireUser();
+  const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -109,7 +113,7 @@ export async function DELETE(
   }
 
   const workflow = await getById(id);
-  if (!workflow || workflow.userId !== auth.userId) {
+  if (!workflow || workflow.accountId !== auth.accountId) {
     return NextResponse.json({ error: "Workflow not found." }, { status: 404 });
   }
 

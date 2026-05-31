@@ -9,15 +9,19 @@
  * Foundation": this is the proof that the foundation slice ships safely
  * with no application code changes.
  *
- *   - workflows.create({ userId, name }) → row lands; account_id =
- *     user's personal account; created_by_user_id = user; user_id
- *     unchanged.
- *   - integrations.upsertActive({ userId, provider, ... }) → same shape;
- *     connected_by_user_id = user.
+ * SCOPE NOTE — only the workflow_runs compat trigger is still exercised
+ * here. The workflows compat trigger was dropped in Slice
+ * 4.ACCOUNT-MODEL-7 (workflows.create now supplies account_id +
+ * created_by_user_id directly; workflows.user_id is gone) and the
+ * integrations compat trigger was dropped in Slice 4.ACCOUNT-MODEL-6.
+ * The workflow_runs trigger remains until the slice -8 cutover.
+ *
  *   - workflowRuns.createWorkflowRunStart({ runId, workflowId, userId, ... })
- *     → row lands; account_id derived from the workflow.
- *   - When the caller DOES supply account_id, the trigger no-ops
- *     (supplied value wins).
+ *     → row lands; account_id derived from the owning workflow;
+ *     triggered_by_user_id stays NULL (engine populates it per source
+ *     after slice -8).
+ *   - When the caller DOES supply triggered_by_user_id, the trigger
+ *     no-ops (supplied value wins).
  *
  * DESTRUCTIVE: creates throwaway auth users. OPT-IN.
  *
@@ -117,10 +121,15 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
   afterAll(async () => {
     if (!adminClient) return;
     for (const id of createdUserIds) {
+      // workflow_runs.user_id still exists (slice -8). workflows.user_id and
+      // workflow_revisions.user_id were dropped in -7, so delete workflows by
+      // created_by_user_id and let workflow_revisions cascade. integrations.
+      // user_id was dropped in -6 → delete by connected_by_user_id. Order
+      // matters: runs + workflows (both account_id ON DELETE RESTRICT) must go
+      // before their accounts.
       await adminClient.from("workflow_runs").delete().eq("user_id", id);
-      await adminClient.from("workflow_revisions").delete().eq("user_id", id);
-      await adminClient.from("workflows").delete().eq("user_id", id);
-      await adminClient.from("integrations").delete().eq("user_id", id);
+      await adminClient.from("workflows").delete().eq("created_by_user_id", id);
+      await adminClient.from("integrations").delete().eq("connected_by_user_id", id);
       await adminClient.from("user_billing").delete().eq("user_id", id);
       await adminClient.from("account_memberships").delete().eq("user_id", id);
       await adminClient.from("accounts").delete().eq("owner_user_id", id);
@@ -129,39 +138,26 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
     }
   });
 
-  it("workflows.create({ userId, name }) — existing signature inserts successfully + trigger populates account_id + created_by_user_id", async () => {
-    const userId = await createTestUser("wf-create");
-    const personalAccountId = await getPersonalAccountId(userId);
-
-    const wf = await createWorkflow({ userId, name: "Compat trigger workflow" });
-    expect(wf.userId).toBe(userId);
-    expect(wf.name).toBe("Compat trigger workflow");
-
-    // Re-read with the underlying row shape to assert the trigger-set columns.
-    const { data: row, error } = await adminClient!
-      .from("workflows")
-      .select("user_id, account_id, created_by_user_id")
-      .eq("id", wf.id)
-      .single<{ user_id: string; account_id: string; created_by_user_id: string }>();
-    expect(error).toBeNull();
-    expect(row!.user_id).toBe(userId);
-    expect(row!.account_id).toBe(personalAccountId);
-    expect(row!.created_by_user_id).toBe(userId);
-  });
-
-  // The compat-trigger sub-test for integrations was removed in Slice
-  // 4.ACCOUNT-MODEL-6 — the column `integrations.user_id` is gone, the
-  // compat trigger was dropped, and `upsertActive` now requires
-  // `accountId` + `connectedByUserId` directly. See
-  // `tests/integration/security/integrations-account-rls.test.ts` and
-  // the new cross-account isolation tests for the post-cutover surface.
+  // The compat-trigger sub-tests for workflows + integrations were removed in
+  // Slices 4.ACCOUNT-MODEL-7 + -6 respectively — those columns (`workflows.
+  // user_id`, `integrations.user_id`) are gone, their compat triggers were
+  // dropped, and the repositories now supply account_id + provenance directly.
+  // See `tests/integration/security/workflows-account-rls.test.ts`,
+  // `integrations-account-rls.test.ts`, and the cross-account isolation tests
+  // for the post-cutover surface. Only the workflow_runs trigger (dropped in
+  // slice -8) is still exercised below.
 
   it("workflowRunsLifecycle.createWorkflowRunStart({ userId, workflowId, ... }) — existing signature inserts successfully + trigger derives account_id from owning workflow + triggered_by_user_id stays NULL", async () => {
     const userId = await createTestUser("run-start");
     const personalAccountId = await getPersonalAccountId(userId);
 
-    // Need a workflow to point the run at.
-    const wf = await createWorkflow({ userId, name: "Compat trigger run-host" });
+    // Need a workflow to point the run at — created with the post-cutover
+    // account-keyed signature.
+    const wf = await createWorkflow({
+      accountId: personalAccountId,
+      createdByUserId: userId,
+      name: "Compat trigger run-host",
+    });
 
     const runId = crypto.randomUUID();
     const nowIso = new Date().toISOString();
@@ -203,63 +199,18 @@ describeDb("account_id foundation compat trigger — Slice 4.ACCOUNT-MODEL-5", (
     expect(row!.triggered_by_user_id).toBeNull();
   });
 
-  it("trigger no-ops when account_id is explicitly supplied (workflows)", async () => {
-    const userA = await createTestUser("wf-explicit-a");
-    const userB = await createTestUser("wf-explicit-b");
-    const accountA = await getPersonalAccountId(userA);
-    const accountB = await getPersonalAccountId(userB);
-
-    // Insert a workflow rooted at userA but explicitly assign it to userB's
-    // account. (This is an intentionally weird state — the per-table
-    // cutover slice rejects it, but here we just want to prove that the
-    // foundation slice's trigger does not OVERWRITE a supplied account_id.)
-    const { data, error } = await adminClient!
-      .from("workflows")
-      .insert({
-        user_id: userA,
-        name: "Explicit account_id",
-        account_id: accountB,
-        created_by_user_id: userA,
-      })
-      .select("id, user_id, account_id, created_by_user_id")
-      .single<{ id: string; user_id: string; account_id: string; created_by_user_id: string }>();
-    expect(error).toBeNull();
-    expect(data!.user_id).toBe(userA);
-    // Supplied account_id wins — trigger no-ops because NEW.account_id is NOT NULL on entry.
-    expect(data!.account_id).toBe(accountB);
-    expect(data!.account_id).not.toBe(accountA);
-    expect(data!.created_by_user_id).toBe(userA);
-  });
-
-  it("trigger no-ops when connected_by_user_id is explicitly supplied (integrations)", async () => {
-    const userA = await createTestUser("int-explicit-a");
-    const userB = await createTestUser("int-explicit-b");
-    const accountA = await getPersonalAccountId(userA);
-
-    const { data, error } = await adminClient!
-      .from("integrations")
-      .insert({
-        user_id: userA,
-        provider: "slack",
-        provider_account_id: `T-explicit-${Math.random().toString(36).slice(2, 10)}`,
-        display_name: "Explicit connected_by_user_id",
-        access_token_encrypted: "encrypted-bytes",
-        account_id: accountA,
-        connected_by_user_id: userB,
-      })
-      .select("user_id, account_id, connected_by_user_id")
-      .single<{ user_id: string; account_id: string; connected_by_user_id: string }>();
-    expect(error).toBeNull();
-    expect(data!.user_id).toBe(userA);
-    expect(data!.account_id).toBe(accountA);
-    // Supplied connected_by_user_id wins — trigger no-ops because NEW.connected_by_user_id is NOT NULL on entry.
-    expect(data!.connected_by_user_id).toBe(userB);
-  });
+  // The workflows + integrations "trigger no-ops when an explicit value is
+  // supplied" sub-tests were removed alongside their dropped compat triggers
+  // (slices -7 / -6). The workflow_runs equivalent below stays valid until -8.
 
   it("trigger no-ops when triggered_by_user_id is explicitly supplied (workflow_runs)", async () => {
     const userId = await createTestUser("run-explicit");
     const personalAccountId = await getPersonalAccountId(userId);
-    const wf = await createWorkflow({ userId, name: "Explicit triggered_by run-host" });
+    const wf = await createWorkflow({
+      accountId: personalAccountId,
+      createdByUserId: userId,
+      name: "Explicit triggered_by run-host",
+    });
 
     const nowIso = new Date().toISOString();
     const { data, error } = await adminClient!

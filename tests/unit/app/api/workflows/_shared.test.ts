@@ -168,7 +168,7 @@ describe("toWorkflowSummary", () => {
   it("strips userId / activeRevisionId / draftDefinition from the wire shape", () => {
     const record: WorkflowRecord = {
       id: "wf-1",
-      userId: "user-1",
+      createdByUserId: "user-1",
       accountId: "acct-user-1",
       name: "Test",
       state: "active",
@@ -213,7 +213,7 @@ describe("toWorkflowDetail", () => {
   it("includes activeRevisionId + draftDefinition; still strips userId", () => {
     const record: WorkflowRecord = {
       id: "wf-1",
-      userId: "user-1",
+      createdByUserId: "user-1",
       accountId: "acct-user-1",
       name: "Test",
       state: "active",

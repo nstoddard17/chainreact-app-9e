@@ -16,15 +16,29 @@ import type {
 
 export interface WorkflowRecord {
   id: string;
-  userId: string;
   /**
-   * V2 account that owns this workflow. NOT NULL per the 4.ACCOUNT-MODEL-5
-   * foundation. Handlers must use this for integration lookups; never the
-   * workflow's userId. Cross-account integration use is rejected at the
-   * integrations.getActiveForExecution boundary because integrations are
-   * keyed on `account_id`.
+   * V2 account that owns this workflow — the authoritative owner
+   * (4.ACCOUNT-MODEL-7 cutover). NOT NULL per the 4.ACCOUNT-MODEL-5
+   * foundation. Handlers must use this for integration lookups; ownership
+   * checks compare against the caller's account. Cross-account integration
+   * use is rejected at the integrations.getActiveForExecution boundary
+   * because integrations are keyed on `account_id`.
    */
   accountId: string;
+  /**
+   * Provenance only — the human who first created this workflow. NOT
+   * authorization (any account member with sufficient role may edit / run /
+   * delete it). The DB column is `ON DELETE SET NULL`, but for Phase B
+   * (single-user personal accounts) it is always populated: create() sets
+   * it from the authenticated user, the foundation backfill set it from the
+   * pre-cutover user_id, and the owning user cannot be deleted while they
+   * own the personal account (accounts.owner_user_id is ON DELETE RESTRICT).
+   * It can only become null once Phase D introduces team-member deletion —
+   * which lands with the Phase C billing rescope that ends the engine's
+   * dependence on this field for billing attribution. Typed non-null here
+   * to keep that engine path a clean rename.
+   */
+  createdByUserId: string;
   name: string;
   state: WorkflowState;
   disabledReason: WorkflowDisabledReason | null;
@@ -39,15 +53,14 @@ export interface WorkflowRecord {
 export interface WorkflowRevisionRecord {
   id: string;
   workflowId: string;
-  userId: string;
   definition: WorkflowDefinition;
   createdAt: string;
 }
 
 interface WorkflowsRow {
   id: string;
-  user_id: string;
   account_id: string;
+  created_by_user_id: string;
   name: string;
   state: WorkflowState;
   disabled_reason: WorkflowDisabledReason | null;
@@ -62,7 +75,6 @@ interface WorkflowsRow {
 interface WorkflowRevisionsRow {
   id: string;
   workflow_id: string;
-  user_id: string;
   definition: unknown;
   created_at: string;
 }
@@ -70,8 +82,8 @@ interface WorkflowRevisionsRow {
 function rowToRecord(row: WorkflowsRow): WorkflowRecord {
   return {
     id: row.id,
-    userId: row.user_id,
     accountId: row.account_id,
+    createdByUserId: row.created_by_user_id,
     name: row.name,
     state: row.state,
     disabledReason: row.disabled_reason,
@@ -88,7 +100,6 @@ function revisionRowToRecord(row: WorkflowRevisionsRow): WorkflowRevisionRecord 
   return {
     id: row.id,
     workflowId: row.workflow_id,
-    userId: row.user_id,
     definition: (row.definition ?? {}) as WorkflowDefinition,
     createdAt: row.created_at,
   };
@@ -97,17 +108,26 @@ function revisionRowToRecord(row: WorkflowRevisionsRow): WorkflowRevisionRecord 
 // ── workflows ──────────────────────────────────────────────────────────────
 
 export interface CreateWorkflowInput {
-  userId: string;
+  /** V2 account that will own the workflow (the caller's resolved account). */
+  accountId: string;
+  /** Provenance — the human creating it. Stored as created_by_user_id. */
+  createdByUserId: string;
   name: string;
   draftDefinition?: WorkflowDefinition;
 }
 
 export async function create(input: CreateWorkflowInput): Promise<WorkflowRecord> {
   const supabase = await createClient();
+  // 4.ACCOUNT-MODEL-7: supply account_id + created_by_user_id directly. The
+  // foundation compat trigger that used to derive these from user_id is
+  // dropped in this slice's migration. The INSERT must satisfy the
+  // workflows_insert_account_member RLS policy — the caller must be a member
+  // of input.accountId (true for the personal-account resolver path).
   const { data, error } = await supabase
     .from("workflows")
     .insert({
-      user_id: input.userId,
+      account_id: input.accountId,
+      created_by_user_id: input.createdByUserId,
       name: input.name,
       draft_definition: input.draftDefinition ?? { nodes: [], edges: [] },
     })
@@ -130,17 +150,24 @@ export async function getById(workflowId: string): Promise<WorkflowRecord | null
   return data ? rowToRecord(data) : null;
 }
 
-export async function listByUser(
-  userId: string,
+/**
+ * List the workflows owned by an account (4.ACCOUNT-MODEL-7 — replaces the
+ * former `listByUser`). Callers resolve the account at route entry via the
+ * personal-account resolver (until the switcher slice ships). RLS
+ * (workflows_select_account_member) gates visibility to account members;
+ * the explicit `.eq("account_id", …)` scopes the result set.
+ */
+export async function listByAccount(
+  accountId: string,
   opts: { includeDeleted?: boolean } = {},
 ): Promise<readonly WorkflowRecord[]> {
   const supabase = await createClient();
-  let query = supabase.from("workflows").select("*").eq("user_id", userId);
+  let query = supabase.from("workflows").select("*").eq("account_id", accountId);
   if (!opts.includeDeleted) {
     query = query.neq("state", "deleted");
   }
   const { data, error } = await query.order("updated_at", { ascending: false });
-  if (error) throw new Error(`workflows.listByUser failed: ${error.message}`);
+  if (error) throw new Error(`workflows.listByAccount failed: ${error.message}`);
   return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
 }
 
@@ -207,7 +234,8 @@ export async function updateDraftDefinition(
 }
 
 export interface UpdateDraftDefinitionGuardedInput {
-  userId: string;
+  /** Owning account (the caller's resolved account) — the ownership guard. */
+  accountId: string;
   workflowId: string;
   draftDefinition: WorkflowDefinition;
   /** The `updatedAt` the caller validated against — the optimistic-lock token. */
@@ -216,9 +244,11 @@ export interface UpdateDraftDefinitionGuardedInput {
 
 /**
  * Write-time optimistic-concurrency variant of `updateDraftDefinition`. The
- * UPDATE only matches when (id, user_id, updated_at) all equal the caller's
+ * UPDATE only matches when (id, account_id, updated_at) all equal the caller's
  * expectation, so a workflow that changed after the caller read + validated it
- * is NOT overwritten. Returns `null` when nothing matched (stale revision) —
+ * is NOT overwritten, and a workflow in another account is never touched
+ * (4.ACCOUNT-MODEL-7 — the guard is now account-scoped, not user-scoped).
+ * Returns `null` when nothing matched (stale revision OR cross-account) —
  * mirrors `applyTransition`'s `.eq(state)` guard pattern.
  *
  * The `set_updated_at` trigger bumps `updated_at` on the matched row, so the
@@ -234,7 +264,7 @@ export async function updateDraftDefinitionIfRevisionMatches(
     .from("workflows")
     .update({ draft_definition: input.draftDefinition })
     .eq("id", input.workflowId)
-    .eq("user_id", input.userId)
+    .eq("account_id", input.accountId)
     .eq("updated_at", input.expectedUpdatedAt)
     .select()
     .maybeSingle<WorkflowsRow>();
@@ -248,7 +278,6 @@ export async function updateDraftDefinitionIfRevisionMatches(
 
 export interface CreateRevisionInput {
   workflowId: string;
-  userId: string;
   definition: WorkflowDefinition;
 }
 
@@ -256,11 +285,14 @@ export async function createRevision(
   input: CreateRevisionInput,
 ): Promise<WorkflowRevisionRecord> {
   const supabase = await createClient();
+  // 4.ACCOUNT-MODEL-7: workflow_revisions.user_id is dropped. The row's
+  // account scope is implicit via its workflow_id FK; RLS
+  // (workflow_revisions_insert_account_member) gates the INSERT by joining
+  // through workflows.account_id to the caller's membership.
   const { data, error } = await supabase
     .from("workflow_revisions")
     .insert({
       workflow_id: input.workflowId,
-      user_id: input.userId,
       definition: input.definition,
     })
     .select()
@@ -320,8 +352,8 @@ export interface ApplyTransitionInput {
  * Engine path: load the full workflow record without a user session. Used by
  * services/execution/engine.ts after a webhook dispatches a run — by then we
  * already verified state===active in the dispatcher, so the engine just
- * needs the full draftDefinition + name + user id (for billing in 1N) to
- * walk the graph.
+ * needs the full draftDefinition + name + createdByUserId (the billing
+ * provenance key, threaded to the billing gate in Phase B) to walk the graph.
  */
 export async function getByIdServiceRole(
   workflowId: string,

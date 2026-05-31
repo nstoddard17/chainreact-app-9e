@@ -157,7 +157,7 @@ export class WorkflowEngine {
         isTest,
         triggeredBy,
       };
-      await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
+      await persistRun(fatalResult, workflow.createdByUserId, workflow.name, input, log);
       return fatalResult;
     }
 
@@ -180,7 +180,7 @@ export class WorkflowEngine {
       const startOutcome = await workflowRunsRepo.createWorkflowRunStart({
         runId,
         workflowId: input.workflowId,
-        userId: workflow.userId,
+        userId: workflow.createdByUserId,
         triggerNodeId: input.triggerNodeId,
         triggerEvent: input.triggerEvent,
         startedAt,
@@ -242,9 +242,9 @@ export class WorkflowEngine {
         } catch (err) {
           log("execution.run.persist_failed", { error: (err as Error).message });
         }
-        await notifyOnFailure(fatalResult, workflow.userId, workflow.name, log, classification);
+        await notifyOnFailure(fatalResult, workflow.createdByUserId, workflow.name, log, classification);
       } else {
-        await persistRun(fatalResult, workflow.userId, workflow.name, input, log);
+        await persistRun(fatalResult, workflow.createdByUserId, workflow.name, input, log);
       }
       return fatalResult;
     };
@@ -279,7 +279,7 @@ export class WorkflowEngine {
       }
       const estimatedTasks = estimateWorkflowTaskCost(def).estimatedTasksPerRun;
       const reservation = await createBillingReservation({
-        userId: workflow.userId,
+        userId: workflow.createdByUserId,
         workflowId: input.workflowId,
         workflowRunId: runId,
         estimatedTasks,
@@ -312,7 +312,7 @@ export class WorkflowEngine {
     } else {
       // Flat path (Slice 1N) — unchanged. Test/dry-run runs return a skipped
       // outcome without touching the balance (COST-2A).
-      gateOutcome = await executionBillingGate(workflow.userId, {
+      gateOutcome = await executionBillingGate(workflow.createdByUserId, {
         testMode: isTest,
       });
       if (!gateOutcome.ok) {
@@ -495,7 +495,7 @@ export class WorkflowEngine {
       try {
         const result = await handler({
           workflowId: input.workflowId,
-          userId: workflow.userId,
+          userId: workflow.createdByUserId,
           accountId: workflow.accountId,
           runId,
           nodeId: node.id,
@@ -598,7 +598,7 @@ export class WorkflowEngine {
     if (reservationActive) {
       const actualTasks = usage ? usage.actualTaskCost : 0;
       const reconcile = await reconcileBillingReservation({
-        userId: workflow.userId,
+        userId: workflow.createdByUserId,
         workflowRunId: runId,
         actualTasks,
       });
@@ -622,7 +622,7 @@ export class WorkflowEngine {
     // already settled (above); this only writes the run row + cost columns.
     await finalizeRun(
       result,
-      workflow.userId,
+      workflow.createdByUserId,
       workflow.name,
       input,
       log,
@@ -634,7 +634,7 @@ export class WorkflowEngine {
         await recordRunActuals({
           runId,
           workflowId: input.workflowId,
-          userId: workflow.userId,
+          userId: workflow.createdByUserId,
           usage,
         });
       } catch (err) {
@@ -654,7 +654,7 @@ export class WorkflowEngine {
     // shadow. Gated ONLY by the shadow flag (never the live billing flag).
     if (usage && isReserveReconcileShadowEnabled()) {
       await recordShadowComparison({
-        userId: workflow.userId,
+        userId: workflow.createdByUserId,
         workflowId: input.workflowId,
         workflowRunId: runId,
         workflowDefinition: def,

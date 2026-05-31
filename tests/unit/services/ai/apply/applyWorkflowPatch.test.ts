@@ -19,6 +19,13 @@ jest.mock("@/repositories/userBilling", () => ({
   deductTasks: (...a: unknown[]) => mockDeductTasks(...a),
   getUsage: jest.fn(),
 }));
+// 4.ACCOUNT-MODEL-7: apply resolves the caller's account and compares it to
+// the workflow's account_id (and the guarded update is account-keyed). Map
+// userId → `acct-<userId>` so "owner-1" matches the record's "acct-owner-1".
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
 
 import { applyWorkflowPatchForAI } from "@/services/ai/apply/applyWorkflowPatch";
 import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefinition";
@@ -43,8 +50,8 @@ const baseDef = (): WorkflowDefinition => ({
 function makeRecord(def: WorkflowDefinition, over: Partial<WorkflowRecord> = {}): WorkflowRecord {
   return {
     id: "wf1",
-    userId: "owner-1",
     accountId: "acct-owner-1",
+    createdByUserId: "owner-1",
     name: "WF",
     state: "draft",
     disabledReason: null,
@@ -88,8 +95,8 @@ describe("applyWorkflowPatchForAI — ownership / loading", () => {
     expect(mockGuardedUpdate).not.toHaveBeenCalled();
   });
 
-  it("returns NOT_FOUND when the caller does not own the workflow", async () => {
-    mockGetById.mockResolvedValue(makeRecord(baseDef(), { userId: "someone-else" }));
+  it("returns NOT_FOUND when the workflow is in another account", async () => {
+    mockGetById.mockResolvedValue(makeRecord(baseDef(), { accountId: "acct-someone-else" }));
     const res = await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 1, y: 1 } }]) });
     expect(res.ok).toBe(false);
     if (res.ok) return;
@@ -288,7 +295,7 @@ describe("applyWorkflowPatchForAI — concurrency", () => {
   it("persists via the guarded update with the workflow's revision token", async () => {
     await applyWorkflowPatchForAI({ ...APPLY, patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 1, y: 1 } }]) });
     expect(mockGuardedUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "owner-1", workflowId: "wf1", expectedUpdatedAt: "rev-1" }),
+      expect.objectContaining({ accountId: "acct-owner-1", workflowId: "wf1", expectedUpdatedAt: "rev-1" }),
     );
   });
 

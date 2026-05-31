@@ -36,7 +36,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/repositories/workflows", () => ({
-  listByUser: jest.fn().mockResolvedValue([]),
+  // 4.ACCOUNT-MODEL-7: the workflows dashboard page lists by account now.
+  listByAccount: jest.fn().mockResolvedValue([]),
   loadDraft: jest.fn(),
   listNamesByIds: jest.fn().mockResolvedValue([]),
 }));

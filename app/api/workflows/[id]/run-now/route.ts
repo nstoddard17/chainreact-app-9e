@@ -14,7 +14,7 @@ import {
   findConfirmationRequiredActions,
   isValidConfirmationText,
 } from "@/services/workflows/riskConfirmation";
-import { requireUser } from "../../_shared";
+import { requireUserWithAccount } from "../../_shared";
 
 /**
  * POST /api/workflows/[id]/run-now — Native-nodes Slice 2 Commit 1.
@@ -23,8 +23,10 @@ import { requireUser } from "../../_shared";
  * docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §4 (NPD-N1).
  *
  * Authentication / authorization:
- *   - `requireUser()` — signed-in Supabase user only (401 otherwise).
- *   - Owner-only check: `workflow.userId === auth.userId` (403 otherwise).
+ *   - `requireUserWithAccount()` — signed-in Supabase user only (401
+ *     otherwise); also resolves the caller's owning account.
+ *   - Account-ownership check: `workflow.accountId === auth.accountId`
+ *     (403 otherwise) — 4.ACCOUNT-MODEL-7 (was a user_id check).
  *   - Workflow state ∈ {active, paused, draft}. Other states return 409.
  *
  * Body (Slice 3.SEC-2 update):
@@ -80,7 +82,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const auth = await requireUser();
+  const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -92,7 +94,10 @@ export async function POST(
       { status: 404 },
     );
   }
-  if (workflow.userId !== auth.userId) {
+  // 4.ACCOUNT-MODEL-7: account-ownership gate. RLS already scopes getById to
+  // the caller's account; this explicit check produces a clean 403 and is
+  // defense-in-depth. created_by_user_id is provenance, never consulted here.
+  if (workflow.accountId !== auth.accountId) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
   if (!ALLOWED_STATES.has(workflow.state)) {

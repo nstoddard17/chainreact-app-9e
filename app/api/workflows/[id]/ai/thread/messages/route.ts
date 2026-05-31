@@ -10,7 +10,7 @@ import {
   buildPersistenceErrorBody,
   formatPersistenceErrorForDev,
 } from "@/core/ai/builderAgentPersistenceDiagnostics";
-import { parseJsonBody, requireUser } from "../../../../_shared";
+import { parseJsonBody, requireUserWithAccount } from "../../../../_shared";
 
 /**
  * POST /api/workflows/[id]/ai/thread/messages — append one sanitized message
@@ -56,7 +56,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireUser();
+  const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -64,8 +64,10 @@ export async function POST(
     return NextResponse.json({ error: "Workflow id is required." }, { status: 400 });
   }
 
+  // 4.ACCOUNT-MODEL-7: gate workflow access by account membership (was a
+  // user_id check). The builder_agent_threads row stays keyed per-user below.
   const workflow = await getById(id);
-  if (!workflow || workflow.userId !== auth.userId) {
+  if (!workflow || workflow.accountId !== auth.accountId) {
     return NextResponse.json({ error: "Workflow not found." }, { status: 404 });
   }
 

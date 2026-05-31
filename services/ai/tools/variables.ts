@@ -23,6 +23,7 @@ import {
   getTriggerMeta as lookupTriggerMeta,
 } from "@/services/discovery/_registry";
 import { getById, type WorkflowRecord } from "@/repositories/workflows";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import {
   aiToolErr,
   aiToolOk,
@@ -120,7 +121,18 @@ export async function getAvailableVariablesForAI(
   } catch {
     return aiToolErr("SERVER_ERROR", "Couldn't load the workflow.");
   }
-  if (!record || record.userId !== userId) {
+  if (!record) {
+    return aiToolErr("NOT_FOUND", `No workflow '${workflowId}'.`);
+  }
+  // 4.ACCOUNT-MODEL-7: account-ownership guard (defense-in-depth atop RLS).
+  // created_by_user_id is provenance and is never consulted here.
+  let accountId: string;
+  try {
+    accountId = (await ensurePersonalAccount(userId)).id;
+  } catch {
+    return aiToolErr("SERVER_ERROR", "Couldn't load the workflow.");
+  }
+  if (record.accountId !== accountId) {
     return aiToolErr("NOT_FOUND", `No workflow '${workflowId}'.`);
   }
 

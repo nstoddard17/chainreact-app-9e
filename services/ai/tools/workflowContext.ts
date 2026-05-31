@@ -4,11 +4,12 @@
  * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §5/§9.
  *
  * Read-only, deterministic, no model calls, no mutation. All three tools take
- * `(userId, workflowId)` and enforce ownership: a workflow the caller doesn't
- * own collapses to NOT_FOUND (existence is never leaked). `getById` is itself
- * RLS-scoped; the explicit `record.userId === userId` guard is defense-in-
- * depth so the tools are safe regardless of which Supabase client the
- * repository uses.
+ * `(userId, workflowId)` and enforce account ownership: a workflow outside the
+ * caller's account collapses to NOT_FOUND (existence is never leaked).
+ * `getById` is itself RLS-scoped to the caller's account; the explicit
+ * `record.accountId === <caller account>` guard (4.ACCOUNT-MODEL-7) is
+ * defense-in-depth so the tools are safe regardless of which Supabase client
+ * the repository uses.
  *
  *   - getWorkflowGraphForAI      — full nodes/edges (config secret-redacted).
  *   - getWorkflowSummaryForAI    — compact, cheap summary (one DB read).
@@ -35,12 +36,23 @@ import {
   getById,
   type WorkflowRecord,
 } from "@/repositories/workflows";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { redactSecrets } from "./redact";
 import { aiToolErr, aiToolOk, type AiToolResult } from "./types";
 
 const TRIGGER_ALIAS = "trigger";
 
-/** Load + ownership-guard a workflow. Both "missing" and "not yours" → NOT_FOUND. */
+/**
+ * Load + account-ownership-guard a workflow. Both "missing" and "not in the
+ * caller's account" collapse to NOT_FOUND (existence is never leaked).
+ *
+ * 4.ACCOUNT-MODEL-7: ownership is account-based. `getById` is itself RLS-
+ * scoped to the caller's account, so the explicit `record.accountId ===
+ * account.id` comparison is defense-in-depth that holds even if a test or
+ * future caller swaps the underlying Supabase client. The caller's account is
+ * their personal account until the switcher slice ships. `created_by_user_id`
+ * is provenance and is NEVER consulted for authorization.
+ */
 async function loadOwned(
   userId: string,
   workflowId: string,
@@ -51,7 +63,16 @@ async function loadOwned(
   } catch {
     return aiToolErr("SERVER_ERROR", "Couldn't load the workflow.");
   }
-  if (!record || record.userId !== userId) {
+  if (!record) {
+    return aiToolErr("NOT_FOUND", `No workflow '${workflowId}'.`);
+  }
+  let accountId: string;
+  try {
+    accountId = (await ensurePersonalAccount(userId)).id;
+  } catch {
+    return aiToolErr("SERVER_ERROR", "Couldn't load the workflow.");
+  }
+  if (record.accountId !== accountId) {
     return aiToolErr("NOT_FOUND", `No workflow '${workflowId}'.`);
   }
   return aiToolOk(record);

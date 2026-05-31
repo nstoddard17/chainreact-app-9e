@@ -23,6 +23,14 @@ jest.mock("@/repositories/taskUsageEvents", () => ({
   listByRun: jest.fn(),
 }));
 
+// 4.ACCOUNT-MODEL-7: the preview resolves the caller's account and compares it
+// to the workflow's account_id. Map userId → `acct-<userId>` so "user-1"
+// matches the seeded "acct-user-1".
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
+
 import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefinition";
 import {
   buildBillingSummary,
@@ -41,8 +49,8 @@ function node(id: string, kind: "trigger" | "action", provider: string, type: st
   return { id, kind, provider, type, config, position: { x: 0, y: 0 } };
 }
 
-function seedWorkflow(def: WorkflowDefinition, userId = "user-1") {
-  mockGetById.mockResolvedValueOnce({ id: "wf-1", userId, draftDefinition: def });
+function seedWorkflow(def: WorkflowDefinition, accountId = "acct-user-1") {
+  mockGetById.mockResolvedValueOnce({ id: "wf-1", accountId, draftDefinition: def });
 }
 
 describe("getWorkflowCostPreview", () => {
@@ -186,8 +194,8 @@ describe("getWorkflowCostPreview", () => {
     expect(await getWorkflowCostPreview({ workflowId: "missing", userId: "user-1" })).toBeNull();
   });
 
-  it("returns null when the workflow is owned by another user", async () => {
-    seedWorkflow({ nodes: [node("t", "trigger", "native", "manual.run")], edges: [] }, "other-user");
+  it("returns null when the workflow is in another account", async () => {
+    seedWorkflow({ nodes: [node("t", "trigger", "native", "manual.run")], edges: [] }, "acct-other-user");
     expect(await getWorkflowCostPreview({ workflowId: "wf-1", userId: "user-1" })).toBeNull();
   });
 });

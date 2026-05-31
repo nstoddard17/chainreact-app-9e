@@ -167,8 +167,11 @@ function labeledEdge(
 
 const baseWorkflow = {
   id: "wf-1",
-  userId: "user-1",
   accountId: "acct-user-1",
+  // 4.ACCOUNT-MODEL-7: the engine threads workflow.createdByUserId (provenance)
+  // to billing gate / run-start / notify paths — the field the billing layer
+  // still keys on in Phase B (renamed from the dropped workflow.userId).
+  createdByUserId: "user-1",
   name: "Test",
   state: "active" as const,
   disabledReason: null,

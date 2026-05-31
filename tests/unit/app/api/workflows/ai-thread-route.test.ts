@@ -22,6 +22,15 @@ jest.mock("@/repositories/workflows", () => ({
   getById: (...a: unknown[]) => mockGetById(...a),
 }));
 
+// 4.ACCOUNT-MODEL-7: the thread routes gate workflow access by account
+// membership (was a user_id check). Map userId → `acct-<userId>` so "user-1"
+// matches the owned workflow's "acct-user-1" and a workflow on "acct-user-2"
+// is 404 for "user-1".
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
+
 const mockGetOrCreateThread = jest.fn();
 const mockListMessages = jest.fn();
 const mockAppendMessage = jest.fn();
@@ -76,7 +85,8 @@ const ownedWorkflow = {
   updatedAt: "2026-01-01T00:00:00Z",
 };
 
-const otherUserWorkflow = { ...ownedWorkflow, userId: "user-2" };
+// A workflow owned by a different account (4.ACCOUNT-MODEL-7 gates by account).
+const otherUserWorkflow = { ...ownedWorkflow, accountId: "acct-user-2" };
 
 const threadRow = {
   id: "thr-1",

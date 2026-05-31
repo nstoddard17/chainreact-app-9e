@@ -1,5 +1,6 @@
 import * as userBillingRepo from "@/repositories/userBilling";
 import * as workflowsRepo from "@/repositories/workflows";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import {
   estimateWorkflowTaskCost,
   type CostWarning,
@@ -94,7 +95,13 @@ export function buildBillingSummary(
 /**
  * Repository-backed preview: load the workflow (RLS-gated) + the caller's
  * billing usage, then build the preview. Returns `null` when the workflow
- * does not exist or is not owned by the caller (the route maps that to 404).
+ * does not exist or is not in the caller's account (the route maps that to
+ * 404).
+ *
+ * 4.ACCOUNT-MODEL-7: workflow ownership is account-based — resolve the
+ * caller's account and require record.accountId to match. The billing read
+ * stays user-scoped (`getUsage(userId)`); billing rescope to account is
+ * Phase C, out of scope here.
  *
  * The billing summary is best-effort — if usage can't be read it is omitted
  * (`billing: null`) rather than failing the whole preview.
@@ -104,7 +111,9 @@ export async function getWorkflowCostPreview(input: {
   userId: string;
 }): Promise<WorkflowCostPreview | null> {
   const record = await workflowsRepo.getById(input.workflowId);
-  if (!record || record.userId !== input.userId) return null;
+  if (!record) return null;
+  const account = await ensurePersonalAccount(input.userId);
+  if (record.accountId !== account.id) return null;
 
   const estimate = estimateWorkflowTaskCost(record.draftDefinition);
 

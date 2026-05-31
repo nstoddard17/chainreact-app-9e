@@ -33,6 +33,7 @@ import {
   updateDraftDefinitionIfRevisionMatches,
   type WorkflowRecord,
 } from "@/repositories/workflows";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import type {
   PatchOperation,
@@ -127,14 +128,29 @@ export async function applyWorkflowPatchForAI(
 ): Promise<ApplyWorkflowPatchResult> {
   const { userId, workflowId, patch, confirmation } = input;
 
-  // 1 + 2. Load the UNREDACTED definition; enforce ownership.
+  // 1 + 2. Load the UNREDACTED definition; enforce account ownership.
+  //   4.ACCOUNT-MODEL-7: the workflow belongs to an account. Resolve the
+  //   caller's account and require record.accountId to match — a workflow in
+  //   another account collapses to NOT_FOUND (no existence leak), and the
+  //   cross-account write is additionally blocked by the account-scoped guard
+  //   on updateDraftDefinitionIfRevisionMatches below. created_by_user_id is
+  //   provenance, never authorization.
   let record: WorkflowRecord | null;
   try {
     record = await getById(workflowId);
   } catch {
     return fail("UPDATE_FAILED", "Couldn't load the workflow.");
   }
-  if (!record || record.userId !== userId) {
+  if (!record) {
+    return fail("NOT_FOUND", `No workflow '${workflowId}'.`);
+  }
+  let accountId: string;
+  try {
+    accountId = (await ensurePersonalAccount(userId)).id;
+  } catch {
+    return fail("UPDATE_FAILED", "Couldn't load the workflow.");
+  }
+  if (record.accountId !== accountId) {
     return fail("NOT_FOUND", `No workflow '${workflowId}'.`);
   }
   const currentDef: WorkflowDefinition = record.draftDefinition;
@@ -213,7 +229,7 @@ export async function applyWorkflowPatchForAI(
   let updated: WorkflowRecord | null;
   try {
     updated = await updateDraftDefinitionIfRevisionMatches({
-      userId,
+      accountId,
       workflowId,
       draftDefinition: candidate,
       expectedUpdatedAt: record.updatedAt,

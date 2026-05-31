@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import { redactOutput } from "@/core/security/redactOutput";
 import { getActionMeta } from "@/services/discovery/_registry";
@@ -56,6 +57,32 @@ export async function requireUser(): Promise<AuthSuccess | AuthFailure> {
     };
   }
   return { ok: true, userId: user.id };
+}
+
+export interface AuthWithAccountSuccess {
+  ok: true;
+  userId: string;
+  /** The caller's owning account (their personal account until the switcher ships). */
+  accountId: string;
+}
+
+/**
+ * 4.ACCOUNT-MODEL-7 — auth gate that also resolves the caller's owning
+ * account. Workflows are account-owned, so any route that creates, lists, or
+ * authorizes against a workflow resolves the account ONCE here at route entry
+ * (per the cutover plan: account resolution at the route, not in repositories)
+ * and threads `accountId` downstream. Until the account-switcher slice ships,
+ * "the caller's account" is their personal account, resolved via
+ * `ensurePersonalAccount` (which never returns null — it creates the personal
+ * account on the rare miss).
+ */
+export async function requireUserWithAccount(): Promise<
+  AuthWithAccountSuccess | AuthFailure
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return auth;
+  const account = await ensurePersonalAccount(auth.userId);
+  return { ok: true, userId: auth.userId, accountId: account.id };
 }
 
 /**

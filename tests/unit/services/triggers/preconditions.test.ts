@@ -22,7 +22,7 @@ function makeWorkflow(
 ): WorkflowRecord {
   return {
     id: "wf-1",
-    userId: "user-1",
+    createdByUserId: "user-1",
     accountId: "acct-user-1",
     name: "Test",
     state: "draft",

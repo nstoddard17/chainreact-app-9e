@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
 import * as notificationsRepo from "@/repositories/notifications";
+import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -19,11 +20,14 @@ import {
  * `WorkflowsDashboard`. The dashboard owns client interactivity (search,
  * status filter, list/grid view, non-optimistic status toggle + refresh).
  *
- * Per CLAUDE.md / data-security: both reads are user-scoped (workflows by
- * user_id; run stats via the `workflow_run_stats` view's security_invoker +
- * underlying `workflow_runs` RLS). No per-row N+1, no client detail fetches,
- * no raw definition / config exposure (the route mapping emits only provider
- * id/label/iconUrl + counts + numeric run stats).
+ * Per CLAUDE.md / data-security: workflows are account-scoped
+ * (4.ACCOUNT-MODEL-7 — listed by the caller's account); run stats stay
+ * user-scoped via the `workflow_run_stats` view's security_invoker +
+ * underlying `workflow_runs` RLS (workflow_runs is slice -8). For a
+ * single-user personal account the two key off the same workflows. No
+ * per-row N+1, no client detail fetches, no raw definition / config exposure
+ * (the route mapping emits only provider id/label/iconUrl + counts +
+ * numeric run stats).
  */
 export default async function WorkflowsPage() {
   const supabase = await createClient();
@@ -32,9 +36,13 @@ export default async function WorkflowsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
 
+  // 4.ACCOUNT-MODEL-7: resolve the caller's account before the parallel
+  // fetch — workflows are now listed by account. Personal account until the
+  // switcher slice ships.
+  const ownerAccount = await ensurePersonalAccount(user.id);
   const [records, runStats, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
-      workflowsRepo.listByUser(user.id),
+      workflowsRepo.listByAccount(ownerAccount.id),
       workflowRunStatsRepo.getStatsForUser(user.id),
       notificationsRepo.countUnreadForUser(user.id),
       notificationsRepo.listForUser(user.id, {

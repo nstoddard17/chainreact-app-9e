@@ -15,6 +15,14 @@ jest.mock("@/repositories/workflows", () => ({
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
 }));
+// 4.ACCOUNT-MODEL-7: loadOwned resolves the caller's account and compares it
+// to the workflow's account_id. Map userId → `acct-<userId>` so "owner-1"
+// resolves to "acct-owner-1" (the record's account) and any other caller
+// (e.g. "intruder") resolves to a different account → NOT_FOUND.
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
 
 import {
   getWorkflowGraphForAI,
@@ -38,8 +46,8 @@ function makeRecord(
 ): WorkflowRecord {
   return {
     id: "wf-1",
-    userId: "owner-1",
     accountId: "acct-owner-1",
+    createdByUserId: "owner-1",
     name: "My Workflow",
     state: "draft",
     disabledReason: null,

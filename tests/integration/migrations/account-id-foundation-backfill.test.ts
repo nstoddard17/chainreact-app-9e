@@ -5,10 +5,16 @@
  *
  * Per docs/slices/phase-4/account-id-cutover-plan.md §"Test plan → Foundation":
  *   1. Every row on workflows/integrations/workflow_runs has account_id
- *      populated after the migration.
- *   2. account_id resolves to a personal account whose owner_user_id
- *      matches the row's pre-cutover user_id.
- *   3. Re-running the backfill UPDATE is a no-op (zero new rows).
+ *      populated (DB-wide invariant).
+ *   2. A freshly inserted workflow_run derives account_id from its owning
+ *      workflow via the workflow_runs compat trigger.
+ *
+ * SCOPE NOTE — the workflows + integrations compat-trigger insert checks were
+ * removed once those tables cut over (workflows in Slice 4.ACCOUNT-MODEL-7,
+ * integrations in -6): their compat triggers are dropped and their user_id
+ * columns are gone, so `insert({ user_id, ... })` no longer applies. Only the
+ * workflow_runs compat trigger survives (until slice -8), so it's the one
+ * trigger-derivation check kept here.
  *
  * DESTRUCTIVE: creates throwaway auth users + workflows + workflow_runs.
  * OPT-IN via ALLOW_DB_INTEGRATION_TESTS=true + service role key.
@@ -83,10 +89,12 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
   afterAll(async () => {
     if (!admin) return;
     for (const id of createdUserIds) {
+      // workflows.user_id + workflow_revisions.user_id dropped in -7;
+      // integrations.user_id in -6. Delete workflows by created_by_user_id
+      // (revisions cascade) and workflow_runs by its still-present user_id.
       await admin.from("workflow_runs").delete().eq("user_id", id);
-      await admin.from("workflow_revisions").delete().eq("user_id", id);
-      await admin.from("workflows").delete().eq("user_id", id);
-      await admin.from("integrations").delete().eq("user_id", id);
+      await admin.from("workflows").delete().eq("created_by_user_id", id);
+      await admin.from("integrations").delete().eq("connected_by_user_id", id);
       await admin.from("user_billing").delete().eq("user_id", id);
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
@@ -95,57 +103,15 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
     }
   });
 
-  it("freshly inserted workflow has account_id populated by the compat trigger", async () => {
-    const userId = await createTestUser("wf");
-    const personalAccountId = await getPersonalAccountId(userId);
-
-    // Insert with the existing column shape — no account_id supplied.
-    const { data, error } = await admin
-      .from("workflows")
-      .insert({ user_id: userId, name: "Backfill test" })
-      .select("id, user_id, account_id, created_by_user_id")
-      .single<{ id: string; user_id: string; account_id: string; created_by_user_id: string }>();
-    expect(error).toBeNull();
-    expect(data).toBeTruthy();
-    expect(data!.user_id).toBe(userId);
-    expect(data!.account_id).toBe(personalAccountId);
-    expect(data!.created_by_user_id).toBe(userId);
-  });
-
-  it("freshly inserted integration has account_id populated by the compat trigger", async () => {
-    const userId = await createTestUser("int");
-    const personalAccountId = await getPersonalAccountId(userId);
-
-    const { data, error } = await admin
-      .from("integrations")
-      .insert({
-        user_id: userId,
-        provider: "slack",
-        provider_account_id: `T-${Math.random().toString(36).slice(2, 10)}`,
-        display_name: "Backfill workspace",
-        access_token_encrypted: "encrypted-bytes",
-      })
-      .select("id, user_id, account_id, connected_by_user_id")
-      .single<{
-        id: string;
-        user_id: string;
-        account_id: string;
-        connected_by_user_id: string;
-      }>();
-    expect(error).toBeNull();
-    expect(data!.user_id).toBe(userId);
-    expect(data!.account_id).toBe(personalAccountId);
-    expect(data!.connected_by_user_id).toBe(userId);
-  });
-
   it("freshly inserted workflow_run has account_id derived from the owning workflow", async () => {
     const userId = await createTestUser("run");
     const personalAccountId = await getPersonalAccountId(userId);
 
-    // Seed a workflow first so the workflow_run has something to point at.
+    // Seed a workflow first (post-cutover account-keyed shape) so the
+    // workflow_run has something to point at.
     const { data: wf, error: wfErr } = await admin
       .from("workflows")
-      .insert({ user_id: userId, name: "Run test workflow" })
+      .insert({ account_id: personalAccountId, created_by_user_id: userId, name: "Run test workflow" })
       .select("id, account_id")
       .single<{ id: string; account_id: string }>();
     expect(wfErr).toBeNull();
@@ -200,34 +166,5 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
     expect(wfNulls).toBe(0);
     expect(intNulls).toBe(0);
     expect(runNulls).toBe(0);
-  });
-
-  it("re-running the backfill UPDATE produces zero changes (idempotency)", async () => {
-    // Mirror the migration's backfill UPDATE shape and assert zero rows affected.
-    // We can't easily count rows-affected via supabase-js, but we can re-run
-    // the UPDATE and assert that account_id values are unchanged for our test
-    // user's rows.
-    const userId = await createTestUser("idem");
-    const personalAccountId = await getPersonalAccountId(userId);
-
-    await admin.from("workflows").insert({ user_id: userId, name: "Idem workflow" });
-
-    // Re-run the workflows backfill via service-role UPDATE. The WHERE
-    // clause requires account_id IS NULL — every row has account_id now,
-    // so this UPDATE should match zero rows.
-    const { error: reErr } = await admin
-      .from("workflows")
-      .update({ account_id: personalAccountId })
-      .eq("user_id", userId)
-      .is("account_id", null); // matches zero rows because trigger already filled it
-    expect(reErr).toBeNull();
-
-    // Assert the workflow row still has the original account_id.
-    const { data: wf } = await admin
-      .from("workflows")
-      .select("account_id")
-      .eq("user_id", userId)
-      .single<{ account_id: string }>();
-    expect(wf!.account_id).toBe(personalAccountId);
   });
 });

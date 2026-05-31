@@ -11,6 +11,13 @@ const mockGetById = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
 }));
+// 4.ACCOUNT-MODEL-7: the tool resolves the caller's account and compares it to
+// the workflow's account_id. Map userId → `acct-<userId>` so "owner-1" matches
+// the record's "acct-owner-1" and "intruder" resolves elsewhere → NOT_FOUND.
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
 
 import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
 import {
@@ -27,8 +34,8 @@ const actionWithOutputs = listAllActionMetas().find((m) => m.outputs.length > 0)
 function makeRecord(draftDefinition: WorkflowDefinition): WorkflowRecord {
   return {
     id: "wf-1",
-    userId: "owner-1",
     accountId: "acct-owner-1",
+    createdByUserId: "owner-1",
     name: "My Workflow",
     state: "draft",
     disabledReason: null,

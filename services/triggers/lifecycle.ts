@@ -95,7 +95,7 @@ export async function registerWorkflowTriggers(
 
     await triggerResourcesRepo.upsert({
       workflowId: workflow.id,
-      userId: workflow.userId,
+      userId: workflow.createdByUserId,
       provider: node.provider,
       eventType: node.type,
       nodeId: node.id,

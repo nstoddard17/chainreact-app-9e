@@ -2,13 +2,19 @@
  * @jest-environment node
  *
  * Tests for repositories/workflows.ts. Mocks the Supabase SSR client and
- * verifies row-to-record translation, insert payload shape, and that listByUser
- * filters out deleted by default.
+ * verifies row-to-record translation, insert payload shape, and that
+ * listByAccount filters out deleted by default.
+ *
+ * 4.ACCOUNT-MODEL-7: workflows are account-owned. The row carries
+ * `account_id` (owner) + `created_by_user_id` (provenance); `user_id` is
+ * gone. create() / listByAccount() / the guarded update are all
+ * account-keyed.
  */
 
 const baseRow = {
   id: "wf-1",
-  user_id: "user-1",
+  account_id: "acct-1",
+  created_by_user_id: "user-1",
   name: "My workflow",
   state: "draft" as const,
   disabled_reason: null,
@@ -65,7 +71,7 @@ jest.mock("@/utils/supabase/server", () => ({
 import {
   create,
   getById,
-  listByUser,
+  listByAccount,
   updateName,
   updateDraftDefinition,
   updateDraftDefinitionIfRevisionMatches,
@@ -84,16 +90,23 @@ function freshState(resultData: unknown = baseRow): ChainState {
 }
 
 describe("repositories/workflows.create", () => {
-  it("inserts a row with the user_id, name, and default empty definition", async () => {
+  it("inserts a row with account_id, created_by_user_id, name, and default empty definition", async () => {
     const state = freshState(baseRow);
     mockSupabase.current = makeMockClient(state);
-    const result = await create({ userId: "user-1", name: "My workflow" });
+    const result = await create({
+      accountId: "acct-1",
+      createdByUserId: "user-1",
+      name: "My workflow",
+    });
     expect(state.insertPayload).toEqual({
-      user_id: "user-1",
+      account_id: "acct-1",
+      created_by_user_id: "user-1",
       name: "My workflow",
       draft_definition: { nodes: [], edges: [] },
     });
     expect(result.id).toBe("wf-1");
+    expect(result.accountId).toBe("acct-1");
+    expect(result.createdByUserId).toBe("user-1");
     expect(result.state).toBe("draft");
     expect(result.draftDefinition).toEqual({ nodes: [], edges: [] });
   });
@@ -114,7 +127,7 @@ describe("repositories/workflows.create", () => {
       ],
       edges: [],
     };
-    await create({ userId: "user-1", name: "X", draftDefinition: def });
+    await create({ accountId: "acct-1", createdByUserId: "user-1", name: "X", draftDefinition: def });
     expect((state.insertPayload as { draft_definition: unknown }).draft_definition).toEqual(def);
   });
 });
@@ -125,6 +138,8 @@ describe("repositories/workflows.getById", () => {
     mockSupabase.current = makeMockClient(state);
     const result = await getById("wf-1");
     expect(result?.id).toBe("wf-1");
+    expect(result?.accountId).toBe("acct-1");
+    expect(result?.createdByUserId).toBe("user-1");
     expect(state.filters).toContainEqual({ op: "eq", args: ["id", "wf-1"] });
   });
 
@@ -136,20 +151,20 @@ describe("repositories/workflows.getById", () => {
   });
 });
 
-describe("repositories/workflows.listByUser", () => {
-  it("filters by user_id and excludes deleted by default", async () => {
+describe("repositories/workflows.listByAccount", () => {
+  it("filters by account_id and excludes deleted by default", async () => {
     const state = freshState([baseRow]);
     mockSupabase.current = makeMockClient(state);
-    await listByUser("user-1");
-    expect(state.filters).toContainEqual({ op: "eq", args: ["user_id", "user-1"] });
+    await listByAccount("acct-1");
+    expect(state.filters).toContainEqual({ op: "eq", args: ["account_id", "acct-1"] });
     expect(state.filters).toContainEqual({ op: "neq", args: ["state", "deleted"] });
   });
 
   it("includes deleted when opts.includeDeleted=true", async () => {
     const state = freshState([baseRow]);
     mockSupabase.current = makeMockClient(state);
-    await listByUser("user-1", { includeDeleted: true });
-    expect(state.filters).toContainEqual({ op: "eq", args: ["user_id", "user-1"] });
+    await listByAccount("acct-1", { includeDeleted: true });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["account_id", "acct-1"] });
     expect(state.filters.find((f) => f.op === "neq" && f.args[0] === "state")).toBeUndefined();
   });
 
@@ -157,7 +172,7 @@ describe("repositories/workflows.listByUser", () => {
     const newer = { ...baseRow, id: "wf-2", updated_at: "2026-05-06T14:00:00Z" };
     const state = freshState([newer, baseRow]);
     mockSupabase.current = makeMockClient(state);
-    const result = await listByUser("user-1");
+    const result = await listByAccount("acct-1");
     expect(result.map((r) => r.id)).toEqual(["wf-2", "wf-1"]);
   });
 });
@@ -197,11 +212,11 @@ describe("repositories/workflows.updateDraftDefinition", () => {
 describe("repositories/workflows.updateDraftDefinitionIfRevisionMatches (AI-6B guarded)", () => {
   const def = { nodes: [], edges: [] };
 
-  it("updates + returns the record when (id, user_id, updated_at) all match", async () => {
+  it("updates + returns the record when (id, account_id, updated_at) all match", async () => {
     const state = freshState({ ...baseRow, draft_definition: def, updated_at: "2026-05-06T14:00:00Z" });
     mockSupabase.current = makeMockClient(state);
     const result = await updateDraftDefinitionIfRevisionMatches({
-      userId: "user-1",
+      accountId: "acct-1",
       workflowId: "wf-1",
       draftDefinition: def,
       expectedUpdatedAt: "2026-05-06T13:00:00Z",
@@ -211,15 +226,15 @@ describe("repositories/workflows.updateDraftDefinitionIfRevisionMatches (AI-6B g
     expect(result!.updatedAt).toBe("2026-05-06T14:00:00Z"); // trigger-bumped revision token
     expect(state.updatePayload).toEqual({ draft_definition: def });
     expect(state.filters).toContainEqual({ op: "eq", args: ["id", "wf-1"] });
-    expect(state.filters).toContainEqual({ op: "eq", args: ["user_id", "user-1"] });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["account_id", "acct-1"] });
     expect(state.filters).toContainEqual({ op: "eq", args: ["updated_at", "2026-05-06T13:00:00Z"] });
   });
 
-  it("returns null when no row matches (stale revision / wrong owner)", async () => {
+  it("returns null when no row matches (stale revision / cross-account)", async () => {
     const state = freshState(null);
     mockSupabase.current = makeMockClient(state);
     const result = await updateDraftDefinitionIfRevisionMatches({
-      userId: "user-1",
+      accountId: "acct-1",
       workflowId: "wf-1",
       draftDefinition: def,
       expectedUpdatedAt: "stale",
@@ -232,13 +247,13 @@ describe("repositories/workflows.updateDraftDefinitionIfRevisionMatches (AI-6B g
     const state: ChainState = { filters: [], resultData: null, resultError: { message: "boom" }, rejectIncludesDeleted: false };
     mockSupabase.current = makeMockClient(state);
     await expect(
-      updateDraftDefinitionIfRevisionMatches({ userId: "user-1", workflowId: "wf-1", draftDefinition: def, expectedUpdatedAt: "x" }),
+      updateDraftDefinitionIfRevisionMatches({ accountId: "acct-1", workflowId: "wf-1", draftDefinition: def, expectedUpdatedAt: "x" }),
     ).rejects.toThrow(/boom/);
   });
 });
 
 describe("repositories/workflows.createRevision + setActiveRevision", () => {
-  it("createRevision inserts an immutable snapshot", async () => {
+  it("createRevision inserts an immutable snapshot (no user_id column)", async () => {
     const def = {
       nodes: [
         {
@@ -255,19 +270,16 @@ describe("repositories/workflows.createRevision + setActiveRevision", () => {
     const state = freshState({
       id: "rev-1",
       workflow_id: "wf-1",
-      user_id: "user-1",
       definition: def,
       created_at: "2026-05-06T13:30:00Z",
     });
     mockSupabase.current = makeMockClient(state);
     const result = await createRevision({
       workflowId: "wf-1",
-      userId: "user-1",
       definition: def,
     });
     expect(state.insertPayload).toEqual({
       workflow_id: "wf-1",
-      user_id: "user-1",
       definition: def,
     });
     expect(result.id).toBe("rev-1");

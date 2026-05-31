@@ -4,19 +4,22 @@
  * Slice 4.ACCOUNT-MODEL-5 — dual RLS: existing user_id policies + new
  * account-membership policies BOTH work simultaneously.
  *
+ * SCOPE NOTE — only `workflow_runs` is still in the dual-RLS state. The
+ * workflows dual-RLS coexistence ended in Slice 4.ACCOUNT-MODEL-7 (the
+ * workflows `_own` policies were dropped + workflows.user_id removed) and the
+ * integrations one ended in Slice 4.ACCOUNT-MODEL-6. Their post-cutover RLS is
+ * proven by `workflows-account-rls.test.ts` /
+ * `integrations-account-rls.test.ts`. workflow_runs keeps both predicate sets
+ * until its slice -8 cutover, so it's the remaining dual-RLS surface here.
+ *
  * Per docs/slices/phase-4/account-id-cutover-plan.md §"RLS migration":
- *   Postgres OR-combines same-op policies. During the foundation slice,
- *   the legacy `_own` policies AND the new `_account_member` policies
- *   coexist, and queries satisfying EITHER predicate succeed.
+ * Postgres OR-combines same-op policies, so a query satisfying EITHER the
+ * legacy `auth.uid() = user_id` predicate OR the account-membership predicate
+ * succeeds. This proves: user A reads their own run (visible under both
+ * predicates), user B does not, anon does not, and service-role bypasses RLS.
  *
- *   This test proves: (a) user A reads their own workflow via the
- *   session client (succeeds — both predicates would let it through),
- *   (b) user B does NOT see user A's workflow (neither predicate
- *   matches), (c) the same is true for integrations + workflow_runs,
- *   (d) service-role bypasses RLS and sees everything.
- *
- * DESTRUCTIVE: creates throwaway auth users + workflows + integrations
- * + workflow_runs. OPT-IN.
+ * DESTRUCTIVE: creates throwaway auth users + workflows + workflow_runs.
+ * OPT-IN.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -53,7 +56,7 @@ if (!RUN) {
   );
 }
 
-describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
+describeDb("account_id foundation dual RLS (workflow_runs) — Slice 4.ACCOUNT-MODEL-5", () => {
   let admin: SupabaseClient;
   const createdUserIds: string[] = [];
   const sessions: Array<{
@@ -61,7 +64,6 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
     email: string;
     password: string;
     workflowId: string;
-    integrationId: string;
     runId: string;
   }> = [];
 
@@ -79,6 +81,17 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
     return { userId: data.user.id, email, password };
   }
 
+  async function personalAccountId(userId: string): Promise<string> {
+    const { data, error } = await admin
+      .from("accounts")
+      .select("id")
+      .eq("type", "personal")
+      .eq("owner_user_id", userId)
+      .single<{ id: string }>();
+    if (error || !data) throw new Error(`personalAccountId: ${error?.message ?? "no row"}`);
+    return data.id;
+  }
+
   async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
     const c = createClient(URL!, ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -88,31 +101,20 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
     return c;
   }
 
-  async function seedRowsFor(userId: string): Promise<{
+  async function seedRowsFor(userId: string, accountId: string): Promise<{
     workflowId: string;
-    integrationId: string;
     runId: string;
   }> {
+    // Post-cutover workflow INSERT shape (account_id + created_by_user_id).
     const { data: wf, error: wfErr } = await admin
       .from("workflows")
-      .insert({ user_id: userId, name: "Dual RLS workflow" })
+      .insert({ account_id: accountId, created_by_user_id: userId, name: "Dual RLS run-host" })
       .select("id")
       .single<{ id: string }>();
     if (wfErr || !wf) throw new Error(`seed workflow: ${wfErr?.message ?? "no row"}`);
 
-    const { data: integ, error: intErr } = await admin
-      .from("integrations")
-      .insert({
-        user_id: userId,
-        provider: "slack",
-        provider_account_id: `T-${Math.random().toString(36).slice(2, 10)}`,
-        display_name: "Dual RLS workspace",
-        access_token_encrypted: "encrypted-bytes",
-      })
-      .select("id")
-      .single<{ id: string }>();
-    if (intErr || !integ) throw new Error(`seed integration: ${intErr?.message ?? "no row"}`);
-
+    // workflow_runs is still user_id-owned (slice -8). The foundation compat
+    // trigger derives account_id from the owning workflow.
     const nowIso = new Date().toISOString();
     const { data: run, error: runErr } = await admin
       .from("workflow_runs")
@@ -136,7 +138,7 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
       .single<{ id: string }>();
     if (runErr || !run) throw new Error(`seed run: ${runErr?.message ?? "no row"}`);
 
-    return { workflowId: wf.id, integrationId: integ.id, runId: run.id };
+    return { workflowId: wf.id, runId: run.id };
   }
 
   beforeAll(async () => {
@@ -145,17 +147,19 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
     });
     const a = await createTestUser("a");
     const b = await createTestUser("b");
-    sessions.push({ ...a, ...(await seedRowsFor(a.userId)) });
-    sessions.push({ ...b, ...(await seedRowsFor(b.userId)) });
+    sessions.push({ ...a, ...(await seedRowsFor(a.userId, await personalAccountId(a.userId))) });
+    sessions.push({ ...b, ...(await seedRowsFor(b.userId, await personalAccountId(b.userId))) });
   });
 
   afterAll(async () => {
     if (!admin) return;
     for (const id of createdUserIds) {
+      // workflows.user_id + workflow_revisions.user_id were dropped in -7;
+      // integrations.user_id in -6. Delete workflows by created_by_user_id
+      // (revisions cascade) and workflow_runs by its still-present user_id.
       await admin.from("workflow_runs").delete().eq("user_id", id);
-      await admin.from("workflow_revisions").delete().eq("user_id", id);
-      await admin.from("workflows").delete().eq("user_id", id);
-      await admin.from("integrations").delete().eq("user_id", id);
+      await admin.from("workflows").delete().eq("created_by_user_id", id);
+      await admin.from("integrations").delete().eq("connected_by_user_id", id);
       await admin.from("user_billing").delete().eq("user_id", id);
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
@@ -164,96 +168,45 @@ describeDb("account_id foundation dual RLS — Slice 4.ACCOUNT-MODEL-5", () => {
     }
   });
 
-  it("workflows: user A sees their own row; user B does not; anon does not", async () => {
+  it("workflow_runs: user A sees their own run; user B does not; anon does not", async () => {
     const a = sessions[0]!;
     const b = sessions[1]!;
     const supaA = await sessionClient(a.email, a.password);
     const supaB = await sessionClient(b.email, b.password);
 
     const { data: aOwn, error: aErr } = await supaA
-      .from("workflows")
+      .from("workflow_runs")
       .select("id")
-      .eq("id", a.workflowId);
+      .eq("id", a.runId);
     expect(aErr).toBeNull();
     expect(aOwn).toHaveLength(1);
 
-    const { data: bOnA } = await supaB
-      .from("workflows")
-      .select("id")
-      .eq("id", a.workflowId);
+    const { data: bOnA } = await supaB.from("workflow_runs").select("id").eq("id", a.runId);
     expect(bOnA).toHaveLength(0);
 
     const anon = createClient(URL!, ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: anonOnA } = await anon
-      .from("workflows")
-      .select("id")
-      .eq("id", a.workflowId);
+    const { data: anonOnA } = await anon.from("workflow_runs").select("id").eq("id", a.runId);
     expect(anonOnA).toHaveLength(0);
   });
 
-  it("integrations: user A sees their own row; user B does not", async () => {
+  it("service-role bypasses RLS and reads every run regardless of caller", async () => {
     const a = sessions[0]!;
     const b = sessions[1]!;
-    const supaA = await sessionClient(a.email, a.password);
-    const supaB = await sessionClient(b.email, b.password);
-
-    const { data: aOwn, error: aErr } = await supaA
-      .from("integrations")
-      .select("id")
-      .eq("id", a.integrationId);
-    expect(aErr).toBeNull();
-    expect(aOwn).toHaveLength(1);
-
-    const { data: bOnA } = await supaB
-      .from("integrations")
-      .select("id")
-      .eq("id", a.integrationId);
-    expect(bOnA).toHaveLength(0);
-  });
-
-  it("workflow_runs: user A sees their own run; user B does not", async () => {
-    const a = sessions[0]!;
-    const b = sessions[1]!;
-    const supaA = await sessionClient(a.email, a.password);
-    const supaB = await sessionClient(b.email, b.password);
-
-    const { data: aOwn, error: aErr } = await supaA
+    const { data: runs, error } = await admin
       .from("workflow_runs")
       .select("id")
-      .eq("id", a.runId);
-    expect(aErr).toBeNull();
-    expect(aOwn).toHaveLength(1);
-
-    const { data: bOnA } = await supaB
-      .from("workflow_runs")
-      .select("id")
-      .eq("id", a.runId);
-    expect(bOnA).toHaveLength(0);
-  });
-
-  it("service-role bypasses RLS and reads every row regardless of caller", async () => {
-    const a = sessions[0]!;
-    const b = sessions[1]!;
-    const { data: wfs, error: wfErr } = await admin
-      .from("workflows")
-      .select("id")
-      .in("id", [a.workflowId, b.workflowId]);
-    expect(wfErr).toBeNull();
-    expect(wfs).toHaveLength(2);
+      .in("id", [a.runId, b.runId]);
+    expect(error).toBeNull();
+    expect(runs).toHaveLength(2);
   });
 
   it("trigger_resources.account_id was NOT renamed (column still selectable by that name)", async () => {
     // Behavioral check: if the column had been renamed (e.g. to
     // provider_account_id), this SELECT would fail with a column-not-found
-    // error. PostgREST doesn't expose information_schema / pg_catalog via
-    // the REST API, so we probe by trying to read the column with LIMIT 0
-    // (no rows fetched; just a column-existence check).
-    const { error } = await admin
-      .from("trigger_resources")
-      .select("account_id")
-      .limit(0);
+    // error. Probe by reading the column with LIMIT 0 (no rows; existence only).
+    const { error } = await admin.from("trigger_resources").select("account_id").limit(0);
     expect(error).toBeNull();
   });
 });

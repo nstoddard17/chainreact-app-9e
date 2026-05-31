@@ -21,6 +21,14 @@ jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
 }));
 
+// 4.ACCOUNT-MODEL-7: requireUserWithAccount resolves the caller's account.
+// Map userId → `acct-<userId>` so "user-1" matches the workflow's
+// "acct-user-1" (202 paths) and "user-other" → "acct-user-other" (403).
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (userId: string) =>
+    Promise.resolve({ id: `acct-${userId}` }),
+}));
+
 const mockEnqueueRun = jest.fn();
 jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: (...args: unknown[]) => mockEnqueueRun(...args),
