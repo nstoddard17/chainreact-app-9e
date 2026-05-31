@@ -31,6 +31,35 @@ export interface AccountRouteFailure {
   response: NextResponse;
 }
 
+export interface AuthedUserSuccess {
+  ok: true;
+  userId: string;
+}
+
+/**
+ * Minimal auth gate: resolve the authenticated caller's user id (or 401). Used
+ * by routes that act on a target named in the body (e.g. set-active-account)
+ * rather than on the caller's personal account. The user id always comes from
+ * the verified session — never from request input — so a caller can only act as
+ * themselves.
+ */
+export async function requireAuthedUserId(): Promise<
+  AuthedUserSuccess | AccountRouteFailure
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  if (error || !user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "unauthenticated" }, { status: 401 }),
+    };
+  }
+  return { ok: true, userId: user.id };
+}
+
 /**
  * Resolve the authenticated caller and their OWN personal account.
  *
@@ -128,6 +157,12 @@ export const RequestDeletionBodySchema = z.object({
     ),
 });
 export type RequestDeletionBody = z.infer<typeof RequestDeletionBodySchema>;
+
+/** Body for POST /api/account/active — the account to make active. */
+export const SetActiveAccountBodySchema = z.object({
+  accountId: z.string().uuid("A valid account id is required."),
+});
+export type SetActiveAccountBody = z.infer<typeof SetActiveAccountBodySchema>;
 
 /** Shape returned by both routes — lifecycle state only, no account graph. */
 export function toDeletionStatusResponse(state: {

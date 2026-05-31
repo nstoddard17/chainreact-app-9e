@@ -57,11 +57,48 @@ export interface ResolveActiveAccountOptions {
   explicitAccountId?: string | null;
 }
 
+export interface SetActiveAccountSuccess {
+  ok: true;
+  account: AccountRecord;
+}
+export interface SetActiveAccountFailure {
+  ok: false;
+  reason: ResolveFailureReason;
+  accountId: string;
+}
+export type SetActiveAccountResult =
+  | SetActiveAccountSuccess
+  | SetActiveAccountFailure;
+
 function ok(source: ResolveSource, account: AccountRecord): ResolvedAccount {
   return { ok: true, source, accountId: account.id, account };
 }
 function fail(reason: ResolveFailureReason, accountId: string): ResolveFailure {
   return { ok: false, reason, accountId };
+}
+
+/**
+ * Membership + freeze gate for a single explicitly-named account. Shared by the
+ * resolver's explicit branch and `setActiveAccount` so a "set" and a later
+ * "resolve" of the same id always agree. `active_account_id` is a default, not
+ * authority — this is where the authority (membership) is actually checked.
+ */
+async function verifyMemberAccount(
+  userId: string,
+  accountId: string,
+): Promise<
+  | { ok: true; account: AccountRecord }
+  | { ok: false; reason: ResolveFailureReason }
+> {
+  const member = await membershipsRepo.isMember(userId, accountId);
+  if (!member) return { ok: false, reason: "not_member" };
+  const account = await accountsRepo.getById(accountId);
+  // Member row but no readable account → not resolvable; treat as not_member.
+  if (!account) return { ok: false, reason: "not_member" };
+  if (account.deletionStatus !== "active") {
+    return { ok: false, reason: "account_frozen" };
+  }
+  return { ok: true, account };
 }
 
 export async function resolveActiveAccount(
@@ -72,16 +109,9 @@ export async function resolveActiveAccount(
 
   // 1. Explicit account id — membership-verified, never downgrades.
   if (explicitAccountId !== null) {
-    const member = await membershipsRepo.isMember(userId, explicitAccountId);
-    if (!member) return fail("not_member", explicitAccountId);
-    const account = await accountsRepo.getById(explicitAccountId);
-    // Member row but no readable account → not resolvable; refuse cleanly rather
-    // than fall through (an explicit id never downgrades).
-    if (!account) return fail("not_member", explicitAccountId);
-    if (account.deletionStatus !== "active") {
-      return fail("account_frozen", explicitAccountId);
-    }
-    return ok("explicit", account);
+    const verified = await verifyMemberAccount(userId, explicitAccountId);
+    if (!verified.ok) return fail(verified.reason, explicitAccountId);
+    return ok("explicit", verified.account);
   }
 
   // Resolve the personal floor once — needed both as the fallback and to know
@@ -93,13 +123,8 @@ export async function resolveActiveAccount(
   // account freeze behavior must be identical to today.
   const stored = await userProfilesRepo.getActiveAccountId(userId);
   if (stored !== null && stored !== personal.id) {
-    const member = await membershipsRepo.isMember(userId, stored);
-    if (member) {
-      const account = await accountsRepo.getById(stored);
-      if (account && account.deletionStatus === "active") {
-        return ok("active", account);
-      }
-    }
+    const verified = await verifyMemberAccount(userId, stored);
+    if (verified.ok) return ok("active", verified.account);
     // Stale / non-member / frozen / vanished non-personal stored pointer →
     // self-heal to the personal fallback. Best-effort; never blocks resolution.
     await clearStoredActive(userId);
@@ -111,6 +136,32 @@ export async function resolveActiveAccount(
     return fail("account_frozen", personal.id);
   }
   return ok("personal", personal);
+}
+
+/**
+ * Set the caller's durable active-account pointer (4.ACCOUNT-MODEL-11d).
+ *
+ * The write happens ONLY after the same membership + freeze gate the resolver
+ * uses passes, so the stored pointer can never name an account the caller may
+ * not operate on. Setting it grants NO access — it is a UI default; authority is
+ * always re-checked at resolve time. `userId` is the authenticated caller (never
+ * taken from request input), so a user can only set their OWN active account.
+ *
+ * Failure does NOT touch `active_account_id` — the previous value is preserved.
+ *
+ *   - not_member    → caller is not a member of the target account.
+ *   - account_frozen → target is pending_deletion (non-operational).
+ *
+ * Not for background work — interactive (switcher) use only.
+ */
+export async function setActiveAccount(
+  userId: string,
+  accountId: string,
+): Promise<SetActiveAccountResult> {
+  const verified = await verifyMemberAccount(userId, accountId);
+  if (!verified.ok) return { ok: false, reason: verified.reason, accountId };
+  await userProfilesRepo.setActiveAccountId(userId, accountId);
+  return { ok: true, account: verified.account };
 }
 
 async function clearStoredActive(userId: string): Promise<void> {

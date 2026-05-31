@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 const mockIsMember = jest.fn();
 const mockGetById = jest.fn();
 const mockGetActiveAccountId = jest.fn();
+const mockSetActiveAccountId = jest.fn();
 const mockClearActiveAccountId = jest.fn();
 const mockEnsurePersonalAccount = jest.fn();
 
@@ -25,13 +26,17 @@ jest.mock("@/repositories/accounts", () => ({
 }));
 jest.mock("@/repositories/userProfiles", () => ({
   getActiveAccountId: (...a: unknown[]) => mockGetActiveAccountId(...a),
+  setActiveAccountId: (...a: unknown[]) => mockSetActiveAccountId(...a),
   clearActiveAccountId: (...a: unknown[]) => mockClearActiveAccountId(...a),
 }));
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (...a: unknown[]) => mockEnsurePersonalAccount(...a),
 }));
 
-import { resolveActiveAccount } from "@/services/accounts/activeAccount";
+import {
+  resolveActiveAccount,
+  setActiveAccount,
+} from "@/services/accounts/activeAccount";
 
 const USER = "user-1";
 const PERSONAL = "acct-personal";
@@ -56,6 +61,7 @@ beforeEach(() => {
   mockIsMember.mockReset();
   mockGetById.mockReset();
   mockGetActiveAccountId.mockReset();
+  mockSetActiveAccountId.mockReset().mockResolvedValue(undefined);
   mockClearActiveAccountId.mockReset().mockResolvedValue(undefined);
   mockEnsurePersonalAccount.mockReset().mockResolvedValue(acct(PERSONAL));
 });
@@ -178,6 +184,63 @@ describe("resolveActiveAccount — personal floor + freeze", () => {
   });
 });
 
+describe("setActiveAccount (11d)", () => {
+  it("writes active_account_id for a valid member + active target", async () => {
+    mockIsMember.mockResolvedValueOnce(true);
+    mockGetById.mockResolvedValueOnce(acct(TEAM));
+    const r = await setActiveAccount(USER, TEAM);
+    expect(r).toEqual({ ok: true, account: acct(TEAM) });
+    expect(mockSetActiveAccountId).toHaveBeenCalledWith(USER, TEAM);
+  });
+
+  it("rejects a non-member target and does NOT write", async () => {
+    mockIsMember.mockResolvedValueOnce(false);
+    const r = await setActiveAccount(USER, TEAM);
+    expect(r).toEqual({ ok: false, reason: "not_member", accountId: TEAM });
+    expect(mockGetById).not.toHaveBeenCalled();
+    expect(mockSetActiveAccountId).not.toHaveBeenCalled();
+  });
+
+  it("rejects a frozen target and does NOT write (previous pointer preserved)", async () => {
+    mockIsMember.mockResolvedValueOnce(true);
+    mockGetById.mockResolvedValueOnce(acct(TEAM, "pending_deletion"));
+    const r = await setActiveAccount(USER, TEAM);
+    expect(r).toEqual({ ok: false, reason: "account_frozen", accountId: TEAM });
+    expect(mockSetActiveAccountId).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unreadable/vanished target and does NOT write", async () => {
+    mockIsMember.mockResolvedValueOnce(true);
+    mockGetById.mockResolvedValueOnce(null);
+    const r = await setActiveAccount(USER, TEAM);
+    expect(r).toEqual({ ok: false, reason: "not_member", accountId: TEAM });
+    expect(mockSetActiveAccountId).not.toHaveBeenCalled();
+  });
+});
+
+describe("setActiveAccount → resolveActiveAccount round-trip (11d)", () => {
+  it("resolveActiveAccount sees the account set by setActiveAccount", async () => {
+    // Stateful active_account_id shared by set + get.
+    let storedActive: string | null = null;
+    mockSetActiveAccountId.mockImplementation(async (_u: string, a: string) => {
+      storedActive = a;
+    });
+    mockGetActiveAccountId.mockImplementation(async () => storedActive);
+    // TEAM is a member + active account throughout.
+    mockIsMember.mockResolvedValue(true);
+    mockGetById.mockResolvedValue(acct(TEAM));
+
+    const setRes = await setActiveAccount(USER, TEAM);
+    expect(setRes.ok).toBe(true);
+    expect(storedActive).toBe(TEAM);
+
+    // No explicit id → the resolver honors the freshly-stored active account.
+    const resolved = await resolveActiveAccount(USER);
+    expect(resolved).toMatchObject({ ok: true, source: "active", accountId: TEAM });
+    expect(mockClearActiveAccountId).not.toHaveBeenCalled();
+  });
+});
+
 describe("resolver wiring is gate-only; background paths never use it (11c)", () => {
   // Walk production source dirs. After 11c the resolver has exactly ONE caller —
   // the route gate (app/api/workflows/_shared.ts). Anything else (and ANY
@@ -186,11 +249,17 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
   const PROD_DIRS = ["app", "lib", "components", "repositories", "core", "integrations", "services"];
   const DEF_FILE = resolve(ROOT, "services/accounts/activeAccount.ts");
   const GATE_FILE = resolve(ROOT, "app/api/workflows/_shared.ts");
-  const ALLOWED = new Set([DEF_FILE, GATE_FILE]);
-  // Background entry points must NEVER consult active-account state.
+  // resolveActiveAccount has exactly one production caller — the route gate.
+  const RESOLVER_ALLOWED = new Set([DEF_FILE, GATE_FILE]);
+  // Background entry points must NEVER consult active-account state (default
+  // OR set): cron/webhook/polling resolve the workflow's owning account instead.
   const BACKGROUND_DIRS = ["app/api/cron", "app/api/webhooks", "services/triggers"];
 
-  const RESOLVER_REF = /resolveActiveAccount|services\/accounts\/activeAccount/;
+  // The resolver (read path) — only the gate may call it.
+  const RESOLVER_REF = /\bresolveActiveAccount\b/;
+  // Any active-account machinery (read OR write) — forbidden in background paths.
+  const ACTIVE_ACCOUNT_REF =
+    /\bresolveActiveAccount\b|\bsetActiveAccount\b|services\/accounts\/activeAccount|api\/account\/active/;
 
   function walk(dir: string): string[] {
     let out: string[] = [];
@@ -213,22 +282,22 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     return out;
   }
 
-  it("only the route gate (workflows/_shared.ts) references the resolver", () => {
+  it("only the route gate (workflows/_shared.ts) calls resolveActiveAccount", () => {
     const offenders: string[] = [];
     for (const d of PROD_DIRS) {
       for (const file of walk(resolve(ROOT, d))) {
-        if (ALLOWED.has(resolve(file))) continue;
+        if (RESOLVER_ALLOWED.has(resolve(file))) continue;
         if (RESOLVER_REF.test(readFileSync(file, "utf8"))) offenders.push(file);
       }
     }
     expect(offenders).toEqual([]);
   });
 
-  it("NO background path (cron / webhook / trigger) imports or uses the resolver", () => {
+  it("NO background path (cron / webhook / trigger) imports or uses the resolver or set-active", () => {
     const offenders: string[] = [];
     for (const d of BACKGROUND_DIRS) {
       for (const file of walk(resolve(ROOT, d))) {
-        if (RESOLVER_REF.test(readFileSync(file, "utf8"))) offenders.push(file);
+        if (ACTIVE_ACCOUNT_REF.test(readFileSync(file, "utf8"))) offenders.push(file);
       }
     }
     expect(offenders).toEqual([]);
