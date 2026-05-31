@@ -12,7 +12,7 @@
 // assert it is never touched. (The estimator does not import it; this proves
 // no transitive call path bills.)
 const mockDeductTasks = jest.fn();
-jest.mock("@/repositories/userBilling", () => ({
+jest.mock("@/repositories/accountBilling", () => ({
   deductTasks: (...args: unknown[]) => mockDeductTasks(...args),
   getUsage: jest.fn(),
 }));

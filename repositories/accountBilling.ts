@@ -3,14 +3,14 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 
 /**
  * Repository for account_billing — the account-scoped billing root
- * (Slice 4.ACCOUNT-MODEL-9c live cutover). Mirrors the former user-keyed
- * repositories/userBilling.ts but keys every operation on `account_id` and
- * calls the account-keyed `_v2` RPCs from the 9b foundation.
+ * (Slice 4.ACCOUNT-MODEL-9c live cutover; 9c2 canonical cleanup). Keys every
+ * operation on `account_id` and calls the canonical account-keyed billing RPCs
+ * (promoted from the 9b `_v2` names; the user-keyed path was removed in 9c2).
  *
  * deduct/reserve/reconcile/release/releaseExpired → service-role RPCs. The
  *   gate/engine run server-side without a user session (background execution),
  *   and the mutations must be atomic per row, so they go through the
- *   SECURITY DEFINER `_v2` RPCs rather than read-modify-write.
+ *   SECURITY DEFINER RPCs rather than read-modify-write.
  *
  * getUsage → SSR-cookie client. RLS gates by account membership, so a call for
  *   an account the caller isn't a member of returns null. Used by cost preview.
@@ -36,12 +36,12 @@ export async function deductTasks(
   const supabase = getServiceRoleClient(
     `billing gate: deductTasks ${amount} for account ${accountId}`,
   );
-  const { data, error } = await supabase.rpc("deduct_tasks_if_available_v2", {
+  const { data, error } = await supabase.rpc("deduct_tasks_if_available", {
     p_account_id: accountId,
     p_amount: amount,
   });
   if (error) {
-    throw new Error(`deduct_tasks_if_available_v2 RPC failed: ${error.message}`);
+    throw new Error(`deduct_tasks_if_available RPC failed: ${error.message}`);
   }
   const response = data as DeductRpcResponse;
   return response.ok
@@ -49,14 +49,14 @@ export async function deductTasks(
     : { ok: false, used: response.used, limit: response.limit };
 }
 
-// ─── Reserve / reconcile wrappers (account-keyed _v2 RPCs) ───────────────────
+// ─── Reserve / reconcile wrappers (canonical account-keyed RPCs) ─────────────
 //
-// Thin pass-throughs over the atomic SECURITY DEFINER `_v2` RPCs from
-// 20260531000001_account_billing_foundation.sql. All go through the
-// service-role client (server-side, no user session); the RPC is the single
-// authoritative balance mutator (no read-then-write here).
+// Thin pass-throughs over the atomic SECURITY DEFINER RPCs (defined account-keyed
+// in 20260531000001 as `_v2`, promoted to these canonical names in 20260531000004).
+// All go through the service-role client (server-side, no user session); the RPC
+// is the single authoritative balance mutator (no read-then-write here).
 
-/** reserve_tasks_if_available_v2 result. */
+/** reserve_tasks_if_available result. */
 export interface ReserveTasksResult {
   ok: boolean;
   reason: string;
@@ -66,7 +66,7 @@ export interface ReserveTasksResult {
   amount: number;
 }
 
-/** reconcile_task_reservation_v2 result. */
+/** reconcile_task_reservation result. */
 export interface ReconcileReservationResult {
   ok: boolean;
   reason: string;
@@ -77,7 +77,7 @@ export interface ReconcileReservationResult {
   refunded?: number;
 }
 
-/** release_task_reservation_v2 result. */
+/** release_task_reservation result. */
 export interface ReleaseReservationResult {
   ok: boolean;
   reason: string;
@@ -86,7 +86,7 @@ export interface ReleaseReservationResult {
   released?: number;
 }
 
-/** release_expired_reservations_v2 result. */
+/** release_expired_reservations result. */
 export interface ReleaseExpiredResult {
   ok: boolean;
   releasedCount: number;
@@ -103,14 +103,14 @@ export async function reserveTasks(
   const supabase = getServiceRoleClient(
     `billing: reserveTasks ${amount} run ${runId} account ${accountId}`,
   );
-  const { data, error } = await supabase.rpc("reserve_tasks_if_available_v2", {
+  const { data, error } = await supabase.rpc("reserve_tasks_if_available", {
     p_account_id: accountId,
     p_amount: amount,
     p_run_id: runId,
     p_expires_at: expiresAt ?? null,
   });
   if (error) {
-    throw new Error(`reserve_tasks_if_available_v2 RPC failed: ${error.message}`);
+    throw new Error(`reserve_tasks_if_available RPC failed: ${error.message}`);
   }
   return data as ReserveTasksResult;
 }
@@ -124,13 +124,13 @@ export async function reconcileReservation(
   const supabase = getServiceRoleClient(
     `billing: reconcileReservation run ${runId} actual ${actual} account ${accountId}`,
   );
-  const { data, error } = await supabase.rpc("reconcile_task_reservation_v2", {
+  const { data, error } = await supabase.rpc("reconcile_task_reservation", {
     p_account_id: accountId,
     p_run_id: runId,
     p_actual: actual,
   });
   if (error) {
-    throw new Error(`reconcile_task_reservation_v2 RPC failed: ${error.message}`);
+    throw new Error(`reconcile_task_reservation RPC failed: ${error.message}`);
   }
   return data as ReconcileReservationResult;
 }
@@ -143,12 +143,12 @@ export async function releaseReservation(
   const supabase = getServiceRoleClient(
     `billing: releaseReservation run ${runId} account ${accountId}`,
   );
-  const { data, error } = await supabase.rpc("release_task_reservation_v2", {
+  const { data, error } = await supabase.rpc("release_task_reservation", {
     p_account_id: accountId,
     p_run_id: runId,
   });
   if (error) {
-    throw new Error(`release_task_reservation_v2 RPC failed: ${error.message}`);
+    throw new Error(`release_task_reservation RPC failed: ${error.message}`);
   }
   return data as ReleaseReservationResult;
 }
@@ -160,11 +160,11 @@ export async function releaseExpiredReservations(
   const supabase = getServiceRoleClient(
     "billing: releaseExpiredReservations sweep",
   );
-  const { data, error } = await supabase.rpc("release_expired_reservations_v2", {
+  const { data, error } = await supabase.rpc("release_expired_reservations", {
     p_now: now ?? new Date().toISOString(),
   });
   if (error) {
-    throw new Error(`release_expired_reservations_v2 RPC failed: ${error.message}`);
+    throw new Error(`release_expired_reservations RPC failed: ${error.message}`);
   }
   const row = data as { released_count: number; released_tasks: number; ok: boolean };
   return {

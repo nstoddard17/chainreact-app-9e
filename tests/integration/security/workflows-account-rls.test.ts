@@ -149,10 +149,15 @@ describeDb("workflows account RLS — Slice 4.ACCOUNT-MODEL-7", () => {
     for (const id of createdUserIds) {
       // user_id is gone on workflows/workflow_revisions post-cutover. Delete
       // workflows by created_by_user_id (revisions cascade), then accounts.
-      await admin.from("workflow_runs").delete().eq("user_id", id);
       await admin.from("workflows").delete().eq("created_by_user_id", id);
       await admin.from("integrations").delete().eq("connected_by_user_id", id);
-      await admin.from("user_billing").delete().eq("user_id", id);
+      // 4.ACCOUNT-MODEL-9c2: handle_new_user seeds account_billing (ON DELETE
+      // RESTRICT to accounts) — clear it before accounts. user_billing is gone;
+      // workflow_runs cascade from workflows (no user_id column anymore).
+      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
+      for (const a of (accts ?? []) as Array<{ id: string }>) {
+        await admin.from("account_billing").delete().eq("account_id", a.id);
+      }
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
       const { error } = await admin.auth.admin.deleteUser(id);

@@ -107,7 +107,10 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
     expect(memberships![0]!.role).toBe("owner");
   });
 
-  it("pre-existing user_profiles + user_billing rows are still created (non-regression)", async () => {
+  it("the pre-existing user_profiles row is still created (non-regression)", async () => {
+    // 4.ACCOUNT-MODEL-9c2: user_billing was dropped; handle_new_user no longer
+    // seeds it. Account billing on signup is asserted by the account_billing
+    // test below. This guards that the user_profiles insert is intact.
     const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email: `signup-trigger-existing-${slug}@chainreact.test`,
@@ -125,15 +128,6 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
       .maybeSingle<{ id: string }>();
     expect(pErr).toBeNull();
     expect(profile?.id).toBe(userId);
-
-    const { data: billing, error: bErr } = await admin
-      .from("user_billing")
-      .select("user_id, tasks_limit, tasks_used")
-      .eq("user_id", userId)
-      .maybeSingle<{ user_id: string; tasks_limit: number; tasks_used: number }>();
-    expect(bErr).toBeNull();
-    expect(billing?.user_id).toBe(userId);
-    expect(billing?.tasks_used).toBe(0);
   });
 
   it("4.ACCOUNT-MODEL-9c: a new signup also gets an account_billing row for its personal account", async () => {

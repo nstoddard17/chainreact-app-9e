@@ -1,24 +1,27 @@
 /**
  * @jest-environment node
  *
- * Static cutover guard for 4.ACCOUNT-MODEL-9c. Reads production billing sources
- * (no DB) so CI proves, on every run, that LIVE billing is account-scoped and no
- * stale user-scoped caller remains:
+ * Static guard for the account billing cutover + canonical cleanup
+ * (4.ACCOUNT-MODEL-9c live cutover, 9c2 canonical cleanup). Reads production
+ * billing sources + the cleanup migration (no DB) so CI proves, on every run,
+ * that there is ONE canonical billing path (account_billing) and the user-scoped
+ * path is gone:
  *   - the production billing callers import accountBilling (not userBilling),
- *     reference account_billing + the `_v2` RPCs, and contain NO user_billing /
- *     user-keyed RPC reference;
- *   - the engine threads workflow.accountId (not createdByUserId) into the
- *     billing gate / reserve / reconcile, while keeping createdByUserId for the
- *     still-user-scoped LEDGERS (task_usage_events / billing_shadow_comparisons,
- *     rescoped in 9d) — proving provenance is NOT a billing key;
- *   - handle_new_user dual-seeds account_billing (and still seeds user_billing
- *     for the deprecation window).
+ *     reference account_billing, key on p_account_id, and contain NO user_billing
+ *     / p_user_id / `_v2` reference;
+ *   - the engine threads workflow.accountId into the billing gate / reserve /
+ *     reconcile, while keeping createdByUserId for the still-user-scoped LEDGERS
+ *     (task_usage_events / billing_shadow_comparisons, rescoped in 9d) — proving
+ *     provenance is NOT a billing key;
+ *   - 9c2 drops user_billing, promotes the `_v2` RPCs to canonical names, and
+ *     handle_new_user seeds account_billing only;
+ *   - repositories/userBilling.ts no longer exists.
  *
- * Behavioral proof (charge lands on account_billing) is the gated DB harness
- * reserveReconcileEngine.dev.test.ts.
+ * Behavioral proof (charge lands on account_billing) is the gated DB harnesses
+ * reserveReconcileEngine.dev.test.ts + accountBillingFoundation.dev.test.ts.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = process.cwd();
@@ -31,7 +34,7 @@ function stripComments(s: string): string {
   return s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 }
 
-const USER_KEYED_RPCS = [
+const CANONICAL_RPCS = [
   "deduct_tasks_if_available",
   "reserve_tasks_if_available",
   "reconcile_task_reservation",
@@ -39,7 +42,6 @@ const USER_KEYED_RPCS = [
   "release_expired_reservations",
 ] as const;
 
-// The production billing callers repointed in 9c.
 const BILLING_CALLERS = [
   "repositories/accountBilling.ts",
   "services/billing/executionBillingGate.ts",
@@ -47,27 +49,26 @@ const BILLING_CALLERS = [
   "services/billing/workflowCostPreview.ts",
 ] as const;
 
-describe("4.ACCOUNT-MODEL-9c — account billing live cutover (static guards)", () => {
+describe("4.ACCOUNT-MODEL-9c/9c2 — canonical account billing path (static guards)", () => {
   describe("no production billing caller references user-scoped billing", () => {
     for (const rel of BILLING_CALLERS) {
-      it(`${rel} does not import userBilling, hit user_billing, or call a user-keyed RPC`, () => {
+      it(`${rel} does not import userBilling, hit user_billing, or key on p_user_id`, () => {
         const code = stripComments(readSrc(rel));
         expect(code).not.toMatch(/@\/repositories\/userBilling/);
         expect(code).not.toMatch(/\buser_billing\b/);
-        for (const rpc of USER_KEYED_RPCS) {
-          // user-keyed name = the bare name NOT followed by _v2.
-          expect(code).not.toMatch(new RegExp(`${rpc}(?!_v2)`));
-        }
+        expect(code).not.toMatch(/p_user_id/);
       });
     }
   });
 
-  describe("production billing callers use the account path", () => {
-    it("accountBilling repo reads account_billing + calls all five _v2 RPCs", () => {
+  describe("production billing callers use the canonical account path", () => {
+    it("accountBilling repo reads account_billing + calls the canonical RPCs with p_account_id (no _v2)", () => {
       const code = stripComments(readSrc("repositories/accountBilling.ts"));
       expect(code).toMatch(/account_billing/);
-      for (const rpc of USER_KEYED_RPCS) {
-        expect(code).toMatch(new RegExp(`${rpc}_v2`));
+      expect(code).not.toMatch(/_v2/);
+      expect(code).toMatch(/p_account_id/);
+      for (const rpc of CANONICAL_RPCS) {
+        expect(code).toMatch(new RegExp(`rpc\\("${rpc}"`));
       }
     });
 
@@ -83,8 +84,7 @@ describe("4.ACCOUNT-MODEL-9c — account billing live cutover (static guards)", 
   });
 
   describe("engine threads the account as the billing key, not the actor", () => {
-    const engine = readSrc("services/execution/engine.ts");
-    const code = stripComments(engine);
+    const code = stripComments(readSrc("services/execution/engine.ts"));
 
     it("flat gate is called with workflow.accountId (never createdByUserId)", () => {
       expect(code).toMatch(/executionBillingGate\(\s*workflow\.accountId/);
@@ -93,7 +93,6 @@ describe("4.ACCOUNT-MODEL-9c — account billing live cutover (static guards)", 
 
     it("reserve + reconcile receive accountId: workflow.accountId", () => {
       const matches = code.match(/accountId:\s*workflow\.accountId/g) ?? [];
-      // createBillingReservation + reconcileBillingReservation.
       expect(matches.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -105,16 +104,31 @@ describe("4.ACCOUNT-MODEL-9c — account billing live cutover (static guards)", 
     });
   });
 
-  describe("handle_new_user dual-seeds account_billing", () => {
-    const sql = readFileSync(
-      resolve(ROOT, "supabase/migrations/20260531000003_handle_new_user_account_billing.sql"),
-      "utf8",
-    );
-    it("inserts account_billing for the new personal account", () => {
-      expect(sql).toMatch(/INSERT\s+INTO\s+public\.account_billing\s*\(account_id\)/i);
+  describe("9c2 canonical cleanup: the user-scoped billing path is gone", () => {
+    const sql = readSrc("supabase/migrations/20260531000004_account_billing_canonical_cleanup.sql");
+
+    it("drops the user_billing table", () => {
+      expect(sql).toMatch(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?public\.user_billing/i);
     });
-    it("still seeds user_billing during the deprecation window", () => {
-      expect(sql).toMatch(/INSERT\s+INTO\s+public\.user_billing/i);
+
+    it("drops the user-keyed RPCs and promotes the _v2 RPCs to canonical names", () => {
+      for (const rpc of CANONICAL_RPCS) {
+        expect(sql).toMatch(
+          new RegExp(`ALTER\\s+FUNCTION\\s+public\\.${rpc}_v2\\([^)]*\\)\\s+RENAME\\s+TO\\s+${rpc}`, "i"),
+        );
+      }
+    });
+
+    it("handle_new_user seeds account_billing and NOT user_billing", () => {
+      expect(sql).toMatch(/INSERT\s+INTO\s+public\.account_billing\s*\(account_id\)/i);
+      const fnStart = sql.indexOf("CREATE OR REPLACE FUNCTION public.handle_new_user");
+      const fnBody = sql.slice(fnStart, sql.indexOf("$$;", fnStart));
+      expect(fnStart).toBeGreaterThanOrEqual(0);
+      expect(fnBody).not.toMatch(/INSERT\s+INTO\s+public\.user_billing/i);
+    });
+
+    it("repositories/userBilling.ts no longer exists", () => {
+      expect(existsSync(resolve(ROOT, "repositories/userBilling.ts"))).toBe(false);
     });
   });
 });

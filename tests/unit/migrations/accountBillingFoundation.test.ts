@@ -15,7 +15,7 @@
  * (accountBillingFoundation.dev.test.ts, account-billing-rls.test.ts).
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ROOT = process.cwd();
@@ -24,9 +24,6 @@ const FND = "20260531000001_account_billing_foundation.sql";
 
 function readMigration(file: string): string {
   return readFileSync(join(MIGRATIONS, file), "utf8");
-}
-function readSrc(rel: string): string {
-  return readFileSync(resolve(ROOT, rel), "utf8");
 }
 
 const fndSql = readMigration(FND);
@@ -136,12 +133,10 @@ describe("4.ACCOUNT-MODEL-9b — account_billing foundation (static guards)", ()
       expect(fndCode).not.toMatch(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.reconcile_task_reservation\(/i);
     });
 
-    it("no migration ever drops the user_billing table", () => {
-      const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql"));
-      for (const f of files) {
-        const code = readMigration(f).replace(/--[^\n]*/g, "");
-        expect(code).not.toMatch(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?public\.user_billing/i);
-      }
+    it("the 9b foundation migration does not drop user_billing (additive only)", () => {
+      // Scoped to the FOUNDATION file: 9b was additive. The drop of user_billing
+      // happens later, in the 9c2 cleanup (asserted by accountBillingCutover.test.ts).
+      expect(fndCode).not.toMatch(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?public\.user_billing/i);
     });
 
     it("does NOT change handle_new_user in this slice (dual-seed deferred to 9c)", () => {
@@ -149,17 +144,9 @@ describe("4.ACCOUNT-MODEL-9b — account_billing foundation (static guards)", ()
     });
   });
 
-  // NOTE: the 9b foundation migration itself repoints nothing — proven by the
-  // fndCode assertions above (no user-keyed RPC redefinition, no handle_new_user
-  // change). The PRODUCTION CALLERS were repointed to the account path in the
-  // 9c live cutover; that reality is asserted by accountBillingCutover.test.ts.
-  // Here we only keep the still-true retention invariant: the user-keyed repo +
-  // RPCs are NOT dropped (9c retains them, deprecated, for the parity reference).
-  describe("user-scoped billing retained (not dropped) through 9c", () => {
-    it("the deprecated userBilling repo still exists and calls the user-keyed RPCs", () => {
-      const src = readSrc("repositories/userBilling.ts");
-      expect(src).toMatch(/rpc\("deduct_tasks_if_available",\s*\{/);
-      expect(src).toMatch(/p_user_id:/);
-    });
-  });
+  // NOTE: the 9b foundation migration itself repoints nothing and drops nothing —
+  // proven by the fndCode assertions above. The PRODUCTION CALLERS were repointed
+  // in the 9c live cutover and the user-scoped path (user_billing + user-keyed
+  // RPCs + repositories/userBilling.ts) was removed in the 9c2 cleanup — both
+  // realities are asserted by accountBillingCutover.test.ts.
 });

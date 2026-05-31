@@ -365,8 +365,7 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     // (user_id dropped) with ON DELETE RESTRICT FKs to accounts, and
     // accounts.owner_user_id is itself ON DELETE RESTRICT (slice -3). So delete
     // those by account_id, and clear all dependents before accounts + the user.
-    // billing_shadow_comparisons / task_usage_events / user_billing stay
-    // user-scoped (rescoped in Phase C).
+    // billing_shadow_comparisons / task_usage_events stay user-scoped (9d).
     const { data: accts } = await admin
       .from("accounts")
       .select("id")
@@ -380,7 +379,6 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
       // 4.ACCOUNT-MODEL-9c: account_billing -> accounts is ON DELETE RESTRICT.
       await admin.from("account_billing").delete().in("account_id", accountIds);
     }
-    await admin.from("user_billing").delete().in("user_id", createdUserIds);
     await admin.from("account_memberships").delete().in("user_id", createdUserIds);
     await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
     for (const id of createdUserIds) {

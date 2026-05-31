@@ -32,7 +32,7 @@ jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
     updatedAt: "2026-05-30T00:00:00Z",
   })),
 }));
-jest.mock("@/repositories/userBilling", () => ({
+jest.mock("@/repositories/accountBilling", () => ({
   deductTasks: jest.fn(),
   getUsage: jest.fn(),
 }));

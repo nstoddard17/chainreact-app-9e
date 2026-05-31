@@ -15,7 +15,7 @@ jest.mock("@/repositories/workflows", () => ({
   getById: (...a: unknown[]) => mockGetById(...a),
   updateDraftDefinitionIfRevisionMatches: (...a: unknown[]) => mockGuardedUpdate(...a),
 }));
-jest.mock("@/repositories/userBilling", () => ({
+jest.mock("@/repositories/accountBilling", () => ({
   deductTasks: (...a: unknown[]) => mockDeductTasks(...a),
   getUsage: jest.fn(),
 }));

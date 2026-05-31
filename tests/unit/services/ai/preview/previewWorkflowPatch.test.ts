@@ -14,7 +14,7 @@ const mockDeductTasks = jest.fn();
 jest.mock("@/services/ai/tools/workflowContext", () => ({
   getWorkflowGraphForAI: (...a: unknown[]) => mockGetWorkflowGraphForAI(...a),
 }));
-jest.mock("@/repositories/userBilling", () => ({
+jest.mock("@/repositories/accountBilling", () => ({
   deductTasks: (...a: unknown[]) => mockDeductTasks(...a),
   getUsage: jest.fn(),
 }));

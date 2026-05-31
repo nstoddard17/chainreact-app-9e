@@ -108,29 +108,29 @@ async function createUser() {
   createdUserIds.push(data.user.id);
   return data.user.id;
 }
-async function setBilling(userId, { limit, used, reserved }) {
+// 4.ACCOUNT-MODEL-9c2: billing is account-scoped — counters live on
+// account_billing (keyed on account_id) and the canonical RPCs take p_account_id.
+async function setBilling(accountId, { limit, used, reserved }) {
   const { error } = await admin
-    .from("user_billing")
+    .from("account_billing")
     .upsert(
-      { user_id: userId, tasks_limit: limit, tasks_used: used, tasks_reserved: reserved },
-      { onConflict: "user_id" },
+      { account_id: accountId, tasks_limit: limit, tasks_used: used, tasks_reserved: reserved },
+      { onConflict: "account_id" },
     );
   if (error) throw new Error(`setBilling: ${error.message}`);
 }
-async function getBilling(userId) {
+async function getBilling(accountId) {
   const { data, error } = await admin
-    .from("user_billing")
+    .from("account_billing")
     .select("tasks_used, tasks_reserved, tasks_limit")
-    .eq("user_id", userId)
+    .eq("account_id", accountId)
     .single();
   if (error) throw new Error(`getBilling: ${error.message}`);
   return data;
 }
 // Phase B (4.ACCOUNT-MODEL-6/7/8) cut workflows + workflow_runs over to
 // account_id ownership and dropped their user_id columns. The personal account
-// is seeded by handle_new_user at createUser time; resolve it to seed rows.
-// Billing stays user-scoped (user_billing keyed by user_id) — the RPCs recover
-// the billed user from the run's account owner (4.ACCOUNT-MODEL-9a fix).
+// is seeded by handle_new_user at createUser time; resolve it to seed rows + bill.
 async function getPersonalAccountId(userId) {
   const { data, error } = await admin
     .from("accounts")
@@ -187,16 +187,17 @@ const rpc = (fn, params) => admin.rpc(fn, params);
 async function main() {
   console.log(`Reserve/Reconcile RPC harness against ${URL}`);
   const userId = await createUser();
+  const accountId = await getPersonalAccountId(userId);
   const workflowId = await createWorkflow(userId);
 
   await section("1. reserve success", async () => {
-    await setBilling(userId, { limit: 10, used: 2, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 2, reserved: 0 });
     const runId = await createRun(workflowId, userId);
     const { data } = await rpc("reserve_tasks_if_available", {
-      p_user_id: userId, p_amount: 3, p_run_id: runId, p_expires_at: null,
+      p_account_id: accountId, p_amount: 3, p_run_id: runId, p_expires_at: null,
     });
     eq(data.ok, true, "reserve ok");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_reserved, 3, "tasks_reserved = 3");
     eq(b.tasks_used, 2, "tasks_used unchanged = 2");
     const r = await getRun(runId);
@@ -205,14 +206,14 @@ async function main() {
   });
 
   await section("2. reserve insufficient balance", async () => {
-    await setBilling(userId, { limit: 10, used: 8, reserved: 1 }); // available 1
+    await setBilling(accountId, { limit: 10, used: 8, reserved: 1 }); // available 1
     const runId = await createRun(workflowId, userId);
     const { data } = await rpc("reserve_tasks_if_available", {
-      p_user_id: userId, p_amount: 3, p_run_id: runId, p_expires_at: null,
+      p_account_id: accountId, p_amount: 3, p_run_id: runId, p_expires_at: null,
     });
     eq(data.ok, false, "reserve refused");
     eq(data.reason, "insufficient_tasks", "reason insufficient_tasks");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_reserved, 1, "tasks_reserved unchanged = 1");
     eq(b.tasks_used, 8, "tasks_used unchanged = 8");
     assert(b.tasks_reserved >= 0 && b.tasks_used >= 0, "counters non-negative");
@@ -221,13 +222,13 @@ async function main() {
   });
 
   await section("3. reserve amount 0", async () => {
-    await setBilling(userId, { limit: 10, used: 2, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 2, reserved: 0 });
     const runId = await createRun(workflowId, userId);
     const { data } = await rpc("reserve_tasks_if_available", {
-      p_user_id: userId, p_amount: 0, p_run_id: runId, p_expires_at: null,
+      p_account_id: accountId, p_amount: 0, p_run_id: runId, p_expires_at: null,
     });
     eq(data.ok, true, "reserve 0 ok");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_reserved, 0, "tasks_reserved stays 0");
     const r = await getRun(runId);
     eq(r.billing_status, "reserved", "billing_status reserved");
@@ -235,25 +236,25 @@ async function main() {
   });
 
   await section("4. reserve idempotency", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 4, p_run_id: runId, p_expires_at: null });
-    const { data } = await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 4, p_run_id: runId, p_expires_at: null });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 4, p_run_id: runId, p_expires_at: null });
+    const { data } = await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 4, p_run_id: runId, p_expires_at: null });
     eq(data.ok, true, "second reserve ok (idempotent)");
     eq(data.reason, "already_reserved", "reason already_reserved");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_reserved, 4, "tasks_reserved not doubled = 4");
   });
 
   await section("5. reconcile exact", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 3, p_run_id: runId, p_expires_at: null });
-    const { data } = await rpc("reconcile_task_reservation", { p_user_id: userId, p_run_id: runId, p_actual: 3 });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 3, p_run_id: runId, p_expires_at: null });
+    const { data } = await rpc("reconcile_task_reservation", { p_account_id: accountId, p_run_id: runId, p_actual: 3 });
     eq(data.ok, true, "reconcile ok");
     eq(data.charged, 3, "charged = 3");
     eq(data.refunded, 0, "refunded = 0");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_used, 3, "tasks_used += 3");
     eq(b.tasks_reserved, 0, "tasks_reserved back to 0");
     const r = await getRun(runId);
@@ -262,50 +263,50 @@ async function main() {
   });
 
   await section("6. reconcile under reserve", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 5, p_run_id: runId, p_expires_at: null });
-    const { data } = await rpc("reconcile_task_reservation", { p_user_id: userId, p_run_id: runId, p_actual: 2 });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 5, p_run_id: runId, p_expires_at: null });
+    const { data } = await rpc("reconcile_task_reservation", { p_account_id: accountId, p_run_id: runId, p_actual: 2 });
     eq(data.charged, 2, "charged = 2");
     eq(data.refunded, 3, "refunded = 3");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_used, 2, "tasks_used += 2");
     eq(b.tasks_reserved, 0, "tasks_reserved fully released to 0");
   });
 
   await section("7. reconcile over reserve (clamp)", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 3, p_run_id: runId, p_expires_at: null });
-    const { data } = await rpc("reconcile_task_reservation", { p_user_id: userId, p_run_id: runId, p_actual: 5 });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 3, p_run_id: runId, p_expires_at: null });
+    const { data } = await rpc("reconcile_task_reservation", { p_account_id: accountId, p_run_id: runId, p_actual: 5 });
     eq(data.reason, "reconcile_over_reserve", "reason reconcile_over_reserve");
     eq(data.charged, 3, "charge clamped to reserved 3");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_used, 3, "tasks_used += 3 (clamped)");
     eq(b.tasks_reserved, 0, "tasks_reserved = 0");
   });
 
   await section("8. reconcile idempotency", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 3, p_run_id: runId, p_expires_at: null });
-    await rpc("reconcile_task_reservation", { p_user_id: userId, p_run_id: runId, p_actual: 3 });
-    const { data } = await rpc("reconcile_task_reservation", { p_user_id: userId, p_run_id: runId, p_actual: 3 });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 3, p_run_id: runId, p_expires_at: null });
+    await rpc("reconcile_task_reservation", { p_account_id: accountId, p_run_id: runId, p_actual: 3 });
+    const { data } = await rpc("reconcile_task_reservation", { p_account_id: accountId, p_run_id: runId, p_actual: 3 });
     eq(data.ok, true, "second reconcile ok (idempotent)");
     eq(data.reason, "already_reconciled", "reason already_reconciled");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_used, 3, "tasks_used not double-charged = 3");
     eq(b.tasks_reserved, 0, "tasks_reserved = 0");
   });
 
   await section("9. release reservation", async () => {
-    await setBilling(userId, { limit: 10, used: 1, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 1, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 4, p_run_id: runId, p_expires_at: null });
-    const { data } = await rpc("release_task_reservation", { p_user_id: userId, p_run_id: runId });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 4, p_run_id: runId, p_expires_at: null });
+    const { data } = await rpc("release_task_reservation", { p_account_id: accountId, p_run_id: runId });
     eq(data.ok, true, "release ok");
     eq(data.released, 4, "released = 4");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_reserved, 0, "tasks_reserved back to 0");
     eq(b.tasks_used, 1, "tasks_used unchanged = 1");
     const r = await getRun(runId);
@@ -313,19 +314,19 @@ async function main() {
   });
 
   await section("10. release idempotency", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId);
-    await rpc("reserve_tasks_if_available", { p_user_id: userId, p_amount: 2, p_run_id: runId, p_expires_at: null });
-    await rpc("release_task_reservation", { p_user_id: userId, p_run_id: runId });
-    const { data } = await rpc("release_task_reservation", { p_user_id: userId, p_run_id: runId });
+    await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 2, p_run_id: runId, p_expires_at: null });
+    await rpc("release_task_reservation", { p_account_id: accountId, p_run_id: runId });
+    const { data } = await rpc("release_task_reservation", { p_account_id: accountId, p_run_id: runId });
     eq(data.ok, true, "second release ok (idempotent)");
     eq(data.reason, "already_released", "reason already_released");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     eq(b.tasks_reserved, 0, "tasks_reserved not negative, = 0");
   });
 
   await section("11. expiry sweep", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 5 }); // 2 expired + 3 active held
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 5 }); // 2 expired + 3 active held
     const past = new Date(Date.now() - 60_000).toISOString();
     const future = new Date(Date.now() + 3_600_000).toISOString();
     const expiredRun = await createRun(workflowId, userId, {
@@ -339,18 +340,18 @@ async function main() {
     eq(data.released_tasks, 2, "released_tasks = 2");
     eq((await getRun(expiredRun)).billing_status, "released", "expired run released");
     eq((await getRun(activeRun)).billing_status, "reserved", "active run still reserved");
-    eq((await getBilling(userId)).tasks_reserved, 3, "tasks_reserved 5 - 2 = 3");
+    eq((await getBilling(accountId)).tasks_reserved, 3, "tasks_reserved 5 - 2 = 3");
     const { data: again } = await rpc("release_expired_reservations", { p_now: new Date().toISOString() });
     eq(again.released_count, 0, "second sweep is a no-op");
   });
 
   await section("12. non-negative invariant after release of NULL-cost run", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
     const runId = await createRun(workflowId, userId); // no billing_status
-    const { data } = await rpc("release_task_reservation", { p_user_id: userId, p_run_id: runId });
+    const { data } = await rpc("release_task_reservation", { p_account_id: accountId, p_run_id: runId });
     eq(data.ok, true, "release of non-reserved run ok");
     eq(data.reason, "nothing_to_release", "reason nothing_to_release");
-    const b = await getBilling(userId);
+    const b = await getBilling(accountId);
     assert(b.tasks_reserved >= 0, "tasks_reserved >= 0");
     eq(b.tasks_reserved, 0, "tasks_reserved still 0");
   });
@@ -362,7 +363,7 @@ async function main() {
     }
     const anon = createClient(URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { error } = await anon.rpc("reserve_tasks_if_available", {
-      p_user_id: userId, p_amount: 1, p_run_id: workflowId, p_expires_at: null,
+      p_account_id: accountId, p_amount: 1, p_run_id: workflowId, p_expires_at: null,
     });
     assert(!!error, "anon execution of reserve_tasks_if_available is rejected");
   });
@@ -389,8 +390,8 @@ async function main() {
   });
 
   await section("15. flat deduct_tasks_if_available still works", async () => {
-    await setBilling(userId, { limit: 10, used: 0, reserved: 0 });
-    const { data } = await rpc("deduct_tasks_if_available", { p_user_id: userId, p_amount: 1 });
+    await setBilling(accountId, { limit: 10, used: 0, reserved: 0 });
+    const { data } = await rpc("deduct_tasks_if_available", { p_account_id: accountId, p_amount: 1 });
     eq(data.ok, true, "deduct ok");
     eq(data.used, 1, "tasks_used = 1 after flat deduct");
   });
@@ -413,6 +414,8 @@ async function cleanup() {
     if (accountIds.length > 0) {
       await admin.from("workflow_runs").delete().in("account_id", accountIds);
       await admin.from("workflows").delete().in("account_id", accountIds);
+      // 4.ACCOUNT-MODEL-9c2: account_billing -> accounts is ON DELETE RESTRICT.
+      await admin.from("account_billing").delete().in("account_id", accountIds);
     }
     await admin.from("account_memberships").delete().eq("user_id", id);
     await admin.from("accounts").delete().eq("owner_user_id", id);

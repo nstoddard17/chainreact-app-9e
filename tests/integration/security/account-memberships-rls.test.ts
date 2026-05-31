@@ -107,6 +107,12 @@ describeDb("account_memberships RLS — Slice 4.ACCOUNT-MODEL-3", () => {
   afterAll(async () => {
     if (!admin) return;
     for (const id of createdUserIds) {
+      // 4.ACCOUNT-MODEL-9c2: handle_new_user seeds account_billing (ON DELETE
+      // RESTRICT to accounts) — clear it before deleting the account.
+      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
+      for (const a of (accts ?? []) as Array<{ id: string }>) {
+        await admin.from("account_billing").delete().eq("account_id", a.id);
+      }
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
       const { error } = await admin.auth.admin.deleteUser(id);

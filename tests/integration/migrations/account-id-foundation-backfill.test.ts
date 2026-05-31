@@ -95,7 +95,12 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
       // connected_by_user_id.
       await admin.from("workflows").delete().eq("created_by_user_id", id);
       await admin.from("integrations").delete().eq("connected_by_user_id", id);
-      await admin.from("user_billing").delete().eq("user_id", id);
+      // 4.ACCOUNT-MODEL-9c2: handle_new_user seeds account_billing (ON DELETE
+      // RESTRICT to accounts) — clear it before accounts. user_billing is gone.
+      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
+      for (const a of (accts ?? []) as Array<{ id: string }>) {
+        await admin.from("account_billing").delete().eq("account_id", a.id);
+      }
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
       const { error } = await admin.auth.admin.deleteUser(id);

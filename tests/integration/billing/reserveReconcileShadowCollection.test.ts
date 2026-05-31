@@ -290,7 +290,6 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
       await admin.from("workflows").delete().in("account_id", accountIds);
       await admin.from("account_billing").delete().in("account_id", accountIds);
     }
-    await admin.from("user_billing").delete().in("user_id", createdUserIds);
     await admin.from("account_memberships").delete().in("user_id", createdUserIds);
     await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
     for (const id of createdUserIds) {

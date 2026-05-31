@@ -87,11 +87,8 @@ describeDb("account_billing RLS — Slice 4.ACCOUNT-MODEL-9b", () => {
     const b = await createTestUser("b");
     const aAccount = await personalAccountId(a.userId);
     const bAccount = await personalAccountId(b.userId);
-    // handle_new_user doesn't seed account_billing in 9b — backfill each new
-    // personal account (scoped, so we don't materialize rows for other tests'
-    // accounts and block their teardown).
-    await admin.rpc("backfill_account_billing", { p_account_id: aAccount });
-    await admin.rpc("backfill_account_billing", { p_account_id: bAccount });
+    // 4.ACCOUNT-MODEL-9c2: handle_new_user seeds account_billing on signup, so
+    // each personal account already has its billing row to read.
     sessions.push({ ...a, accountId: aAccount });
     sessions.push({ ...b, accountId: bAccount });
   });
@@ -104,7 +101,6 @@ describeDb("account_billing RLS — Slice 4.ACCOUNT-MODEL-9b", () => {
       if (accountIds.length > 0) {
         await admin.from("account_billing").delete().in("account_id", accountIds);
       }
-      await admin.from("user_billing").delete().eq("user_id", id);
       await admin.from("account_memberships").delete().eq("user_id", id);
       await admin.from("accounts").delete().eq("owner_user_id", id);
       const { error } = await admin.auth.admin.deleteUser(id);
