@@ -59,7 +59,7 @@ export default async function AppsPage({ searchParams }: Props) {
       unreadNotifications={unreadNotifications}
       recentNotifications={recentNotifications}
     >
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6 sm:p-8">
+      <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />
         <AppsDashboard items={items} categories={categories} />
       </main>

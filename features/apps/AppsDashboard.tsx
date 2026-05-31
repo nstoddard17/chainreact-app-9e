@@ -79,38 +79,40 @@ export function AppsDashboard({ items, categories }: Props) {
         </p>
       </header>
 
-      <AppsStatCards items={items} />
-
-      <AppsToolbar
-        query={query}
-        onQuery={setQuery}
-        statusFilter={statusFilter}
-        onStatusFilter={setStatusFilter}
-        sort={sort}
-        onSort={setSort}
-        counts={counts}
-      />
-
-      <div className="flex flex-col gap-4 md:flex-row">
+      <div className="flex flex-col gap-6 md:flex-row">
         <AppsCategoryNav
           categories={categories}
           selected={category}
           onSelect={setCategory}
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          {!hasAny && <AppsEmptyState kind="no-apps" />}
-          {hasAny && !hasFiltered && <AppsEmptyState kind="no-matches" />}
-          {hasAny && hasFiltered && (
-            <ul
-              data-testid="apps-list"
-              aria-label="Apps list"
-              className="flex flex-col gap-2"
-            >
-              {filtered.map((app) => (
-                <AppCard key={app.providerId} app={app} />
-              ))}
-            </ul>
-          )}
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          <AppsStatCards items={items} />
+
+          <AppsToolbar
+            query={query}
+            onQuery={setQuery}
+            statusFilter={statusFilter}
+            onStatusFilter={setStatusFilter}
+            sort={sort}
+            onSort={setSort}
+            counts={counts}
+          />
+
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {!hasAny && <AppsEmptyState kind="no-apps" />}
+            {hasAny && !hasFiltered && <AppsEmptyState kind="no-matches" />}
+            {hasAny && hasFiltered && (
+              <ul
+                data-testid="apps-list"
+                aria-label="Apps list"
+                className="flex flex-col gap-2"
+              >
+                {filtered.map((app) => (
+                  <AppCard key={app.providerId} app={app} />
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </section>
