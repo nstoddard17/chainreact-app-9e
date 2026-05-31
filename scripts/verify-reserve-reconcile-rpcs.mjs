@@ -126,22 +126,40 @@ async function getBilling(userId) {
   if (error) throw new Error(`getBilling: ${error.message}`);
   return data;
 }
+// Phase B (4.ACCOUNT-MODEL-6/7/8) cut workflows + workflow_runs over to
+// account_id ownership and dropped their user_id columns. The personal account
+// is seeded by handle_new_user at createUser time; resolve it to seed rows.
+// Billing stays user-scoped (user_billing keyed by user_id) — the RPCs recover
+// the billed user from the run's account owner (4.ACCOUNT-MODEL-9a fix).
+async function getPersonalAccountId(userId) {
+  const { data, error } = await admin
+    .from("accounts")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .eq("type", "personal")
+    .single();
+  if (error) throw new Error(`getPersonalAccountId: ${error.message}`);
+  return data.id;
+}
 async function createWorkflow(userId) {
+  const accountId = await getPersonalAccountId(userId);
   const { data, error } = await admin
     .from("workflows")
-    .insert({ user_id: userId, name: "COST-12B harness wf" })
+    .insert({ account_id: accountId, created_by_user_id: userId, name: "COST-12B harness wf" })
     .select("id")
     .single();
   if (error) throw new Error(`createWorkflow: ${error.message}`);
   return data.id;
 }
 async function createRun(workflowId, userId, extra = {}) {
+  const accountId = await getPersonalAccountId(userId);
   const nowIso = new Date().toISOString();
   const { data, error } = await admin
     .from("workflow_runs")
     .insert({
       workflow_id: workflowId,
-      user_id: userId,
+      account_id: accountId,
+      triggered_by_user_id: userId,
       status: "succeeded",
       trigger_node_id: "trigger-1",
       trigger_event: {},
@@ -380,9 +398,22 @@ async function main() {
 
 // ── run + cleanup ────────────────────────────────────────────────────────────
 async function cleanup() {
-  // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT,
-  // so explicitly clear account_memberships + accounts before auth.admin.deleteUser.
+  // Phase B (4.ACCOUNT-MODEL-6/7/8) made workflows + workflow_runs account-owned
+  // with ON DELETE RESTRICT FKs to accounts, and accounts.owner_user_id is itself
+  // ON DELETE RESTRICT (slice -3). So dependents must be cleared in dependency
+  // order before the account + auth user: task_usage_events (still user-scoped
+  // until Phase C) → workflow_runs → workflows → memberships → accounts → user.
   for (const id of createdUserIds) {
+    const { data: accts } = await admin
+      .from("accounts")
+      .select("id")
+      .eq("owner_user_id", id);
+    const accountIds = (accts ?? []).map((a) => a.id);
+    await admin.from("task_usage_events").delete().eq("user_id", id);
+    if (accountIds.length > 0) {
+      await admin.from("workflow_runs").delete().in("account_id", accountIds);
+      await admin.from("workflows").delete().in("account_id", accountIds);
+    }
     await admin.from("account_memberships").delete().eq("user_id", id);
     await admin.from("accounts").delete().eq("owner_user_id", id);
     const { error } = await admin.auth.admin.deleteUser(id);
