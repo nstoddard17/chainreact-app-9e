@@ -237,6 +237,7 @@
     --mk-accent: #fafafa;
     --mk-accent-soft: rgba(255, 255, 255, 0.08);
     --mk-success: #34d399;
+    --mk-success-soft: rgba(52, 211, 153, 0.1);
 
     background: var(--mk-bg);
     color: var(--mk-text);
@@ -256,6 +257,7 @@
     --mk-accent: #0a0a0a;
     --mk-accent-soft: #f5f5f4;
     --mk-success: #16a34a;
+    --mk-success-soft: #dcfce7;
   }
   @media (prefers-reduced-motion: reduce) {
     [data-marketing-surface] *,

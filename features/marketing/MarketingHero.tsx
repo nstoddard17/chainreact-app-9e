@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MarketingHeroMotion } from "./MarketingHeroMotion";
 
 /**
  * Hero section for the marketing landing page (Slice 4.HOMEPAGE-V2-1).
@@ -64,6 +65,7 @@ const HERO_MOMENTS: ReadonlyArray<{
 export function MarketingHero() {
   return (
     <section className="mk-hero" aria-labelledby="mk-hero-h">
+      <MarketingHeroMotion intensity={5} />
       <div className="mk-hero-inner">
         <h1 id="mk-hero-h" className="mk-hero-h">
           <span>Automations,</span>
@@ -97,8 +99,8 @@ export function MarketingHero() {
         </div>
       </div>
       <style>{`
-        .mk-hero { padding: 80px 0 40px; }
-        .mk-hero-inner { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+        .mk-hero { padding: 80px 0 40px; position: relative; isolation: isolate; }
+        .mk-hero-inner { max-width: 1320px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
         .mk-hero-h {
           font-size: clamp(48px, 7vw, 110px);
           line-height: 0.98;

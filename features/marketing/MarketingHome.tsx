@@ -1,37 +1,50 @@
 import { MarketingHeader } from "./MarketingHeader";
 import { MarketingHero } from "./MarketingHero";
 import { MarketingLogoMarquee } from "./MarketingLogoMarquee";
-import { MarketingFeaturedCases } from "./MarketingFeaturedCases";
-import { MarketingMission } from "./MarketingMission";
-import { MarketingFeatureRows } from "./MarketingFeatureRows";
-import { MarketingFinalCta } from "./MarketingFinalCta";
-import { MarketingFooter } from "./MarketingFooter";
+import { MarketingScrollStory } from "./MarketingScrollStory";
+import { MarketingShowcase } from "./MarketingShowcase";
+import { MarketingMissionReveal } from "./MarketingMissionReveal";
+import { MarketingStatsBand } from "./MarketingStatsBand";
+import { MarketingFeatureSticky } from "./MarketingFeatureSticky";
+import { MarketingEnding } from "./MarketingEnding";
+import { MarketingScrollReveal } from "./MarketingScrollReveal";
 import type { MarketingMarqueeProvider } from "./marqueeProviders";
 
 /**
- * Homepage v2 — public marketing landing page (Slice 4.HOMEPAGE-V2-1).
+ * Homepage v5 — public marketing landing page (Slice 4.HOMEPAGE-V5-1).
  *
- * Composition mirrors the Claude Design handoff's `Homepage v2.html` shell
- * (HomeNav → Hero → LogoMarquee → FeaturedCases → Mission → FeatureRows →
- * FinalCta → Footer) with two intentional differences locked with the user:
+ * Upgrades the v2 homepage to the Claude Design handoff's `Homepage v5.html`
+ * — the "full cinematic" version (motion-backed hero, pinned scroll
+ * narratives, count-ups, layered ending). Composition mirrors the design's
+ * v5 shell:
  *
- *   1. The design's `StatsTestimonial` section is OMITTED — it carries a
- *      named-customer quote ("Maria Reyes · Rey's Plumbing & Heating") +
- *      customer-attributed stats. Per the project's honesty rule and
- *      page-implementation-guide.md §"No fake design-only actions" we don't
- *      ship fabricated customer claims as production content.
- *   2. The design's per-case stat tiles inside `FeaturedCases` are OMITTED
- *      (e.g. "$24k recovered per quarter / 94% delivered without owner
- *      involvement"). Same reason — fabricated numbers. The case
- *      categories, name, and description ship as illustrative copy.
+ *   HomeNav → Hero(+motion) → [reveal] LogoMarquee → ScrollStory →
+ *   [reveal] Showcase → MissionReveal → [reveal] StatsBand →
+ *   FeatureSticky → Ending(motion + woven footer)
+ *
+ * Two locked decisions carried from Slice 4.HOMEPAGE-V2-1 and reconfirmed
+ * with the user for v5:
+ *
+ *   1. HONESTY RULE — neutralize fabricated content. v5 reintroduces a
+ *      named-customer testimonial ("Maria Reyes / Rey's Plumbing") + invented
+ *      metrics ("$24k recovered", "$480 recovered this week", per-case stat
+ *      tiles, "0 missed runs / 30 days"). NONE of it ships. The testimonial
+ *      becomes a non-attributed "By the numbers" band over only structurally
+ *      true facts (StatsBand); the showcase drops its stat tiles; the
+ *      scroll-story receipt drops the dollar figure + fake email; the feature
+ *      scenes drop the uptime metric and the drifting "247 apps". Each
+ *      section's JSDoc names the specific neutralization.
+ *
+ *   2. DARK-ONLY — no theme toggle (the marketing nav decision). The motion
+ *      field reads the dark `--mk-*` tokens; the `[data-marketing-theme=
+ *      "light"]` variant CSS still ships but isn't user-switchable.
  *
  * The route shell carries `data-marketing-surface` (declared in
- * `app/globals.css`) which scopes the design's editorial dark palette to
- * this page — never bleeds into the in-app surfaces. Mirrors the existing
- * `[data-builder-surface]` pattern.
+ * `app/globals.css`) which scopes the editorial dark palette to this page —
+ * never bleeds into in-app surfaces.
  *
- * No client state lives here; sub-sections that need interactivity (typed
- * hero prompt, expandable feature rows) are individually `"use client"`.
+ * No client state lives here; interactive sub-sections (hero prompt, pinned
+ * scroll sections, showcase, count-ups) are individually `"use client"`.
  */
 interface Props {
   marqueeProviders: readonly MarketingMarqueeProvider[];
@@ -39,21 +52,24 @@ interface Props {
 
 export function MarketingHome({ marqueeProviders }: Props) {
   return (
-    <div
-      data-marketing-surface
-      data-testid="marketing-home"
-      className="marketing-root"
-    >
+    <div data-marketing-surface data-testid="marketing-home" className="marketing-root">
       <MarketingHeader />
       <main className="marketing-stack">
         <MarketingHero />
-        <MarketingLogoMarquee providers={marqueeProviders} />
-        <MarketingFeaturedCases />
-        <MarketingMission />
-        <MarketingFeatureRows />
-        <MarketingFinalCta />
+        <MarketingScrollReveal>
+          <MarketingLogoMarquee providers={marqueeProviders} />
+        </MarketingScrollReveal>
+        <MarketingScrollStory />
+        <MarketingScrollReveal>
+          <MarketingShowcase />
+        </MarketingScrollReveal>
+        <MarketingMissionReveal />
+        <MarketingScrollReveal>
+          <MarketingStatsBand />
+        </MarketingScrollReveal>
+        <MarketingFeatureSticky />
       </main>
-      <MarketingFooter />
+      <MarketingEnding />
       <style>{`
         .marketing-root {
           position: relative;
