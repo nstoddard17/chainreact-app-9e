@@ -63,6 +63,32 @@ export async function listByUser(
 }
 
 /**
+ * True when `userId` has a membership row on `accountId`.
+ *
+ * Focused existence check for the active-account resolver
+ * (4.ACCOUNT-MODEL-11b) — cheaper than `listByUser`. Session-client/RLS: a user
+ * sees only their own membership rows, so this is meaningful only when `userId`
+ * is the authenticated caller (the resolver's contract). It is one primitive of
+ * the membership verification, not the authority on its own.
+ */
+export async function isMember(
+  userId: string,
+  accountId: string,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("account_memberships")
+    .select("account_id")
+    .eq("account_id", accountId)
+    .eq("user_id", userId)
+    .maybeSingle<{ account_id: string }>();
+  if (error) {
+    throw new Error(`account_memberships.isMember failed: ${error.message}`);
+  }
+  return data !== null;
+}
+
+/**
  * Returns the caller's role on `accountId`, or null when the caller has
  * no membership row on that account. Primitive for future authorization
  * wiring.
