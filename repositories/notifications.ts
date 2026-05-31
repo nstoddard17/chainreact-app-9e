@@ -23,7 +23,8 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 export type NotificationType =
   | "workflow_failed"
   | "workflow_high_risk_activated"
-  | "workflow_high_risk_run";
+  | "workflow_high_risk_run"
+  | "account_invitation";
 export type NotificationSeverity = "warning" | "error";
 
 export interface NotificationRecord {

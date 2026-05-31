@@ -59,6 +59,30 @@ export async function insertOwnerMembershipServiceRole(
   }
 }
 
+/**
+ * Service-role: add a member to a team/org account with a non-owner role
+ * (4.ACCOUNT-MODEL-15 invite acceptance). The personal-invariants trigger is a
+ * no-op for non-personal accounts, so admin/member rows are accepted. Owner is
+ * never inserted this way (owner arrives via creation / future transfer).
+ */
+export async function insertMembershipServiceRole(
+  accountId: string,
+  userId: string,
+  role: Exclude<MembershipRole, "owner">,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: insertMember (${role}) for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_memberships")
+    .insert({ account_id: accountId, user_id: userId, role });
+  if (error) {
+    throw new Error(
+      `account_memberships.insertMembershipServiceRole failed: ${error.message}`,
+    );
+  }
+}
+
 export async function listByAccount(
   accountId: string,
 ): Promise<readonly AccountMembershipRecord[]> {
@@ -109,6 +133,31 @@ export async function isMember(
     .maybeSingle<{ account_id: string }>();
   if (error) {
     throw new Error(`account_memberships.isMember failed: ${error.message}`);
+  }
+  return data !== null;
+}
+
+/**
+ * Service-role membership existence check for an ARBITRARY user (not the caller)
+ * — bypasses RLS. The invite flow (4.ACCOUNT-MODEL-15) uses this to test whether
+ * a prospective invitee is already a member; the session-client `isMember` only
+ * sees the caller's own rows and cannot answer that.
+ */
+export async function isMemberServiceRole(
+  accountId: string,
+  userId: string,
+): Promise<boolean> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: isMemberServiceRole for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_memberships")
+    .select("account_id")
+    .eq("account_id", accountId)
+    .eq("user_id", userId)
+    .maybeSingle<{ account_id: string }>();
+  if (error) {
+    throw new Error(`account_memberships.isMemberServiceRole failed: ${error.message}`);
   }
   return data !== null;
 }

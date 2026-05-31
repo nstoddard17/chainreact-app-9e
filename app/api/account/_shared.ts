@@ -34,14 +34,16 @@ export interface AccountRouteFailure {
 export interface AuthedUserSuccess {
   ok: true;
   userId: string;
+  /** The session user's verified email (used by invite acceptance for the email match). */
+  email: string | null;
 }
 
 /**
- * Minimal auth gate: resolve the authenticated caller's user id (or 401). Used
- * by routes that act on a target named in the body (e.g. set-active-account)
- * rather than on the caller's personal account. The user id always comes from
- * the verified session — never from request input — so a caller can only act as
- * themselves.
+ * Minimal auth gate: resolve the authenticated caller's user id + email (or
+ * 401). Used by routes that act on a target named in the body/path (e.g.
+ * set-active-account, invitation accept) rather than on the caller's personal
+ * account. The user id/email always come from the verified session — never from
+ * request input — so a caller can only act as themselves.
  */
 export async function requireAuthedUserId(): Promise<
   AuthedUserSuccess | AccountRouteFailure
@@ -57,7 +59,7 @@ export async function requireAuthedUserId(): Promise<
       response: NextResponse.json({ error: "unauthenticated" }, { status: 401 }),
     };
   }
-  return { ok: true, userId: user.id };
+  return { ok: true, userId: user.id, email: user.email ?? null };
 }
 
 /**
