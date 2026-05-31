@@ -387,6 +387,33 @@ export async function handleTokenIngest(
   return { integration };
 }
 
+/**
+ * 4.ACCOUNT-MODEL-10c — best-effort provider token revocation for the purge
+ * flow. Looks the provider up in BOTH registries (OAuth + token-ingest) and
+ * calls its `revoke(token)`. Unknown providers (or providers whose `revoke` is
+ * a no-op) simply do nothing. This function does NOT swallow errors — the
+ * caller (purge service) owns the best-effort + bounded-retry policy so a
+ * provider outage is logged/audited but never blocks deletion. NEVER logs the
+ * token.
+ */
+export async function revokeProviderToken(
+  provider: string,
+  token: string,
+): Promise<void> {
+  const oauth = OAUTH_BY_PROVIDER[provider];
+  if (oauth) {
+    await oauth.revoke(token);
+    return;
+  }
+  const ingest = TOKEN_INGEST_BY_PROVIDER[provider];
+  if (ingest) {
+    await ingest.revoke(token);
+    return;
+  }
+  // Unknown provider — nothing to revoke. The local row is still deleted by the
+  // purge teardown regardless.
+}
+
 export interface RefreshInput {
   /**
    * V2 account that owns the integration (post 4.ACCOUNT-MODEL-6

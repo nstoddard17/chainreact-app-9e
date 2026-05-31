@@ -103,6 +103,61 @@ export async function markPendingCancelled(
   }
 }
 
+/**
+ * Mark every still-`pending` audit row for an account as `purged`, stamping
+ * counts + timestamp. Idempotent (filtered to `status='pending'`); a re-run
+ * after the row is already purged updates nothing.
+ */
+export async function markPurged(input: {
+  accountId: string;
+  purgedAt: string;
+  counts: Record<string, number | boolean>;
+}): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_deletions: markPurged for account ${input.accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_deletions")
+    .update({
+      status: "purged",
+      purged_at: input.purgedAt,
+      purge_counts: input.counts,
+    })
+    .eq("account_id", input.accountId)
+    .eq("status", "pending");
+  if (error) {
+    throw new Error(`account_deletions.markPurged failed: ${error.message}`);
+  }
+}
+
+/**
+ * The owner_user_id of the latest still-`pending` audit row for an account that
+ * no longer exists — the recovery key for a purge that died after the account
+ * row was deleted but before auth.users was. Returns null when there is no such
+ * pending row.
+ */
+export async function getPendingOwnerForOrphanedAccount(
+  accountId: string,
+): Promise<string | null> {
+  const supabase = getServiceRoleClient(
+    `account_deletions: getPendingOwner for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_deletions")
+    .select("owner_user_id")
+    .eq("account_id", accountId)
+    .eq("status", "pending")
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ owner_user_id: string }>();
+  if (error) {
+    throw new Error(
+      `account_deletions.getPendingOwnerForOrphanedAccount failed: ${error.message}`,
+    );
+  }
+  return data ? data.owner_user_id : null;
+}
+
 /** Read the most recent audit row for an account (service-role). */
 export async function getLatestForAccount(
   accountId: string,
