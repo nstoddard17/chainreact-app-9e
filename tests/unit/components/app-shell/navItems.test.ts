@@ -13,9 +13,11 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     // `/notifications` is deliberately NOT in the rail nav — the top-bar
     // NotificationBell with real unread badge is the canonical entry
     // point, so a rail row would be duplicative.
+    // `/runs` joined the rail in Slice 4.RUNS-PAGE-1 (read-only history).
     expect(APP_SHELL_NAV_ITEMS.map((i) => i.href)).toEqual([
       "/workflows",
       "/apps",
+      "/runs",
     ]);
     for (const item of APP_SHELL_NAV_ITEMS) {
       expect(item.href.startsWith("/")).toBe(true);
@@ -25,6 +27,13 @@ describe("APP_SHELL_NAV_ITEMS", () => {
 
   it("does NOT include /notifications (covered by the top-bar bell instead)", () => {
     expect(APP_SHELL_NAV_ITEMS.find((i) => i.href === "/notifications")).toBeUndefined();
+  });
+
+  it("includes /runs after the real page landed (Slice 4.RUNS-PAGE-1)", () => {
+    const runs = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/runs");
+    expect(runs).toBeDefined();
+    expect(runs?.id).toBe("runs");
+    expect(runs?.label).toBe("Runs");
   });
 
   it("every item has a stable id, label, and absolute href", () => {

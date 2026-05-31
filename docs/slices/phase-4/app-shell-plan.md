@@ -44,6 +44,19 @@ there — no fabricated label). Tests updated to pin the change:
 `navItems.test.ts`, `AppNav.test.tsx`, `AppMobileNav.test.tsx`,
 `AppPageContext.test.tsx`.
 
+## Runs joined the rail (Slice 4.RUNS-PAGE-1, 2026-05-30)
+
+With the read-only Runs page live ([runs-page-plan.md](./runs-page-plan.md)),
+the rail's primary nav is now Workflows → Apps → Runs. Order is
+product-flow (build → connect → observe). A new monoline `Clock`
+glyph (defined inline in [`navItems.tsx`](../../../components/app-shell/navItems.tsx))
+matches the existing icon stroke + sizing — no new dependency. The
+`APP_SHELL_NAV_ITEMS` test pin grew accordingly
+([`navItems.test.ts`](../../../tests/unit/components/app-shell/navItems.test.ts)),
+and the route-scope test
+([`AppShellRouteScope.test.tsx`](../../../tests/unit/app/AppShellRouteScope.test.tsx))
+gained an INCLUDED case for `/runs`.
+
 ## Design-parity tune — Slice 4.APP-SHELL-DESIGN-PARITY-1 (superseded)
 
 A first design-parity tune restyled the top-header shell (solid panel

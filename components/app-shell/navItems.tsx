@@ -73,16 +73,43 @@ function NavIconLayers() {
   );
 }
 
+// Slice 4.RUNS-PAGE-1 — clock-style glyph for the Runs nav item.
+// Round face + simple hour/minute hands, sized to match the other rail
+// icons (18×18, 1.8 stroke).
+function NavIconClock() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 16 14" />
+    </svg>
+  );
+}
+
 // `/notifications` is intentionally NOT in the rail nav. The top-bar
 // `NotificationBell` (with real unread badge) is the canonical entry
 // point — duplicating it in the rail would be visual clutter without
 // adding access (every authenticated surface already exposes the bell).
 // `AppPageContext` returns null on `/notifications` because the route
 // isn't in this list; that's fine — the page renders its own h1.
+//
+// `/runs` joined the rail in Slice 4.RUNS-PAGE-1 once the page landed
+// (read-only run-history surface). The order is product priority:
+// Workflows (build) → Apps (connect) → Runs (observe).
 
 export const APP_SHELL_NAV_ITEMS: ReadonlyArray<AppShellNavItem> = [
   { id: "workflows", label: "Workflows", href: "/workflows", icon: <NavIconBolt /> },
   { id: "apps", label: "Apps", href: "/apps", icon: <NavIconLayers /> },
+  { id: "runs", label: "Runs", href: "/runs", icon: <NavIconClock /> },
 ];
 
 /**
