@@ -10,13 +10,16 @@ import { CR_WORDMARK } from "./chainReactWordmark";
  *
  * Ported from the design's `IntroSequence` — a classic SVG stroke-draw logo
  * reveal:
- *   1. WARP — a short first-person rush through blue→purple light streaks
+ *   1. WARP — a short first-person rush through sky-blue light streaks
  *      (canvas), whose vanishing point steers onto where the "i" dot will land.
  *   2. The tunnel resolves into a single point of light — the dot of the "i".
  *   3. DRAW — "ChainReact" draws itself on, one stroke path per letter
- *      (stroke-dashoffset), staggering OUTWARD from the "i", then fills with the
- *      brand gradient as the spark hands off to the dot.
- *   4. LOCK — the real logo symbol pops in to complete the lockup + a bloom flash.
+ *      (stroke-dashoffset), staggering OUTWARD from the "i". Two-tone: "Chain"
+ *      in ink, the "i" + "React" in brand sky — matching the wordmark logo.
+ *   4. LOCK — the "Spark Link" symbol locks in and plays the brand signature
+ *      move: the square rocks right, knocks the spark dot loose, the dot laps
+ *      the square's outline at an even gap, then bounces home with a soft sky
+ *      glow (mirrors `MarketingBrandLogo`). A bloom flash punctuates it.
  *   5. OPEN — the lockup accelerates into the gap between "n" and "R" (we travel
  *      through), the dark veil lifts, and the homepage arrives from a slight zoom.
  *
@@ -34,7 +37,12 @@ import { CR_WORDMARK } from "./chainReactWordmark";
  * no ancestor transform can break its fixed pinning.
  */
 const PLAYED_KEY = "cr_intro_played_v1";
-const SYMBOL = "/chainreact-mark.png";
+
+// Brand sky accent (the "Spark Link" mark color). The intro is always on the
+// dark veil, so it uses the dark-surface sky tone. Ink is the near-white the
+// "Chain" letters draw in.
+const BRAND_SKY = "#38bdf8";
+const INK = "#eef3ff";
 
 type RGB = [number, number, number];
 
@@ -81,7 +89,9 @@ export function MarketingIntro() {
     const svg = root.querySelector<SVGSVGElement>(".intro-trace")!;
     const strokesG = root.querySelector<SVGGElement>(".tr-strokes")!;
     const fillG = root.querySelector<SVGGElement>(".tr-fills")!;
-    const symImg = root.querySelector<HTMLElement>(".intro-sym-img")!;
+    const symImg = root.querySelector<SVGSVGElement>(".intro-sym-img")!;
+    const symSq = root.querySelector<SVGGElement>(".intro-sym-sq")!;
+    const symDot = root.querySelector<SVGCircleElement>(".intro-sym-dot")!;
     const bloom = root.querySelector<HTMLElement>(".intro-bloom")!;
     const veil = root.querySelector<HTMLElement>(".intro-veil")!;
     const skip = root.querySelector<HTMLElement>(".intro-skip");
@@ -116,8 +126,9 @@ export function MarketingIntro() {
       y: Math.random() * 2 - 1,
       z: Math.random() * 0.9 + 0.1,
     }));
-    const BLUE: RGB = [120, 170, 255];
-    const PURP: RGB = [180, 110, 250];
+    // Sky-blue streak palette (was blue→purple). Near streaks brighten to white.
+    const BLUE: RGB = [70, 150, 255];
+    const CYAN: RGB = [120, 205, 255];
     const WHITE: RGB = [255, 255, 255];
     const mix = (a: RGB, b: RGB, t: number) => a.map((v, i) => Math.round(v + (b[i]! - v) * t)).join(",");
 
@@ -166,7 +177,7 @@ export function MarketingIntro() {
           const py = cy + (s.y / z0) * proj;
           const r = Math.hypot(sx - cx, sy - cy);
           const tcol = Math.min(1, r / (Math.min(W, H) * 0.55));
-          const base = mix(BLUE, PURP, tcol);
+          const base = mix(BLUE, CYAN, tcol);
           const near = Math.min(1, (1 - s.z) * 1.4);
           const col = mix(base.split(",").map(Number) as RGB, WHITE, near * 0.55);
           ctx.strokeStyle = `rgba(${col},${(0.5 + (1 - s.z) * 0.8) * fade.v})`;
@@ -284,15 +295,66 @@ export function MarketingIntro() {
         { strokeDashoffset: 0, duration: drawDur, stagger: { each: stagger, from: I_INDEX }, ease: "power1.inOut" },
         drawStart,
       );
-      // letters fill with the gradient as the draw completes; the dot fill takes over
+      // letters fill as the draw completes; the dot fill takes over from the spark
       tl.to(fillG, { opacity: 1, duration: 0.7, ease: "power2.out" }, drawEnd - 0.25);
       tl.to(spark, { opacity: 0, scale: 0.42, duration: 0.5, ease: "power2.in" }, drawEnd - 0.18);
-      // 3 — LOCK: the real symbol completes the lockup
-      tl.to(symImg, { opacity: 1, duration: 0.55, ease: "back.out(1.5)" }, drawEnd + 0.05);
-      tl.to(bloom, { opacity: 0.85, scale: 1.3, duration: 0.36, ease: "power2.out" }, drawEnd + 0.15);
-      tl.to(bloom, { opacity: 0, scale: 1.7, duration: 0.6, ease: "power2.in" }, drawEnd + 0.5);
+
+      // 3 — LOCK + SIGNATURE: the "Spark Link" symbol settles, then plays the
+      // brand move — the square rocks right, the dot laps the square's outline
+      // at an even gap, then pops up and bounces into its corner with a soft glow.
+      // Geometry mirrors `MarketingBrandLogo` (guide path = the square's rounded
+      // rect, expanded by `off` so the lap rides a constant gap outside it).
+      let sglen = 0;
+      let sldock = 0;
+      const sguide = document.createElementNS(NS, "path");
+      {
+        const off = 14.5;
+        const gx = 8 - off;
+        const gy = 19 - off;
+        const gsz = 37 + off * 2;
+        const gr = 13 + off;
+        const gd = `M ${gx + gr} ${gy} H ${gx + gsz - gr} A ${gr} ${gr} 0 0 1 ${gx + gsz} ${gy + gr} V ${gy + gsz - gr} A ${gr} ${gr} 0 0 1 ${gx + gsz - gr} ${gy + gsz} H ${gx + gr} A ${gr} ${gr} 0 0 1 ${gx} ${gy + gsz - gr} V ${gy + gr} A ${gr} ${gr} 0 0 1 ${gx + gr} ${gy} Z`;
+        sguide.setAttribute("d", gd);
+        sguide.setAttribute("fill", "none");
+        sguide.setAttribute("stroke", "none");
+        symImg.appendChild(sguide);
+        sglen = sguide.getTotalLength();
+        let best = Infinity;
+        for (let i = 0; i <= 240; i++) {
+          const L = (i / 240) * sglen;
+          const p = sguide.getPointAtLength(L);
+          const dd = (p.x - 51.5) ** 2 + (p.y - 12.5) ** 2;
+          if (dd < best) {
+            best = dd;
+            sldock = L;
+          }
+        }
+      }
+      const lockAt = drawEnd + 0.1;
+      tl.set(symImg, { opacity: 1 }, lockAt);
+      tl.fromTo(symSq, { scale: 0.86, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.32, ease: "power2.out" }, lockAt);
+      tl.set(symDot, { opacity: 1, x: 0, y: 0 }, lockAt);
+      // square rocks to the RIGHT and knocks the dot loose, then springs back
+      tl.to(symSq, { rotation: 14, duration: 0.2, ease: "power2.in" }, lockAt + 0.4);
+      tl.to(symSq, { rotation: 0, duration: 0.85, ease: "elastic.out(1, 0.4)" }, lockAt + 0.6);
+      // the dot circles the square's outline once at a constant gap
+      const sroll = { u: 0 };
+      const splace = () => {
+        const L = (sldock + sroll.u * sglen) % sglen;
+        const p = sguide.getPointAtLength(L);
+        gsap.set(symDot, { x: p.x - 51.5, y: p.y - 12.5 });
+      };
+      tl.to(sroll, { u: 1, duration: 0.92, ease: "power1.inOut", onUpdate: splace }, lockAt + 0.6);
+      // pops a touch past home, then BOUNCES into its corner
+      tl.to(symDot, { x: 7, y: -7, duration: 0.12, ease: "power2.out" }, lockAt + 1.52);
+      tl.to(symDot, { x: 0, y: 0, duration: 0.66, ease: "bounce.out" }, lockAt + 1.64);
+      // soft glow blooms as it lands, fading slowly; a bloom flash punctuates it
+      tl.fromTo(symDot, { filter: "drop-shadow(0 0 0px transparent)" }, { filter: `drop-shadow(0 0 13px ${BRAND_SKY})`, duration: 0.3, ease: "power2.out" }, lockAt + 2.24);
+      tl.to(symDot, { filter: `drop-shadow(0 0 0px ${BRAND_SKY})`, duration: 1.5, ease: "power2.out" }, lockAt + 2.54);
+      tl.to(bloom, { opacity: 0.8, scale: 1.3, duration: 0.34, ease: "power2.out" }, lockAt + 2.2);
+      tl.to(bloom, { opacity: 0, scale: 1.7, duration: 0.7, ease: "power2.in" }, lockAt + 2.55);
       // 4 — OPEN: travel THROUGH the gap between "n" and "R", then arrive on the page
-      const openAt = drawEnd + 1.0;
+      const openAt = lockAt + 2.5;
       const zoomOrigin = () => {
         if (strokes.length > CR_WORDMARK.rIndex) {
           const a = strokes[CR_WORDMARK.nIndex]!.getBoundingClientRect(); // n
@@ -360,7 +422,9 @@ export function MarketingIntro() {
 
   if (!playing || typeof document === "undefined") return null;
 
-  const g = CR_WORDMARK.gradient;
+  // Two-tone wordmark: "Chain" (C h a n) in ink, the "i" + "React" in brand sky
+  // — matching the `MarketingBrandLogo` wordmark. iIndex = "i", rIndex = "R".
+  const colorFor = (i: number) => (i === CR_WORDMARK.iIndex || i >= CR_WORDMARK.rIndex ? BRAND_SKY : INK);
   return createPortal(
     <div className="intro" ref={rootRef} aria-hidden>
       <div className="intro-veil">
@@ -369,8 +433,12 @@ export function MarketingIntro() {
           <div className="intro-bloom" aria-hidden />
           <div className="intro-spark" aria-hidden />
           <div className="intro-lockup">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="intro-sym-img" src={SYMBOL} alt="" draggable={false} />
+            <svg className="intro-sym-img" viewBox="0 0 64 64" fill="none" aria-hidden>
+              <g className="intro-sym-sq">
+                <rect x="8" y="19" width="37" height="37" rx="13" stroke={BRAND_SKY} strokeWidth="7.5" />
+              </g>
+              <circle className="intro-sym-dot" cx="51.5" cy="12.5" r="6.5" fill={BRAND_SKY} />
+            </svg>
             <svg
               className="intro-trace"
               aria-hidden
@@ -379,18 +447,6 @@ export function MarketingIntro() {
               style={{ aspectRatio: String(CR_WORDMARK.aspectRatio) }}
             >
               <defs>
-                <linearGradient
-                  id="crIntroGrad"
-                  gradientUnits="userSpaceOnUse"
-                  x1={g.x1}
-                  y1={g.y1}
-                  x2={g.x2}
-                  y2={g.y2}
-                >
-                  <stop offset="0" stopColor="#5b8bff" />
-                  <stop offset="0.5" stopColor="#7c6bf5" />
-                  <stop offset="1" stopColor="#b95cf0" />
-                </linearGradient>
                 <filter id="crIntroGlow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="2.2" result="b" />
                   <feMerge>
@@ -401,7 +457,7 @@ export function MarketingIntro() {
               </defs>
               <g className="tr-fills">
                 {CR_WORDMARK.paths.map((d, i) => (
-                  <path key={i} d={d} fill="url(#crIntroGrad)" stroke="none" />
+                  <path key={i} d={d} fill={colorFor(i)} stroke="none" />
                 ))}
               </g>
               <g className="tr-strokes">
@@ -410,7 +466,7 @@ export function MarketingIntro() {
                     key={i}
                     d={d}
                     fill="none"
-                    stroke="url(#crIntroGrad)"
+                    stroke={colorFor(i)}
                     strokeWidth={CR_WORDMARK.strokeWidth}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -438,24 +494,26 @@ export function MarketingIntro() {
           gap: 0.16em; font-size: clamp(72px, 13vw, 148px); max-width: 94vw;
         }
         .intro-sym-img {
-          height: 0.86em; width: 0.86em; flex: none; object-fit: contain;
-          filter: drop-shadow(0 0 22px rgba(124,107,245,0.6)); will-change: opacity;
+          height: 0.92em; width: 0.92em; flex: none; overflow: visible;
+          filter: drop-shadow(0 0 22px rgba(56,189,248,0.6)); will-change: opacity;
         }
+        .intro-sym-sq { transform-box: fill-box; transform-origin: center; }
+        .intro-sym-dot { transform-box: fill-box; transform-origin: center; will-change: transform, filter; }
         .intro-trace {
           height: 1em; width: auto; overflow: visible;
-          filter: drop-shadow(0 0 26px rgba(124,107,245,0.4));
+          filter: drop-shadow(0 0 26px rgba(56,189,248,0.4));
         }
         .tr-fills { will-change: opacity; }
         .intro-spark {
           position: absolute; z-index: 2; width: 60px; height: 60px; border-radius: 50%;
-          background: radial-gradient(circle, #ffffff 0%, #dfe6ff 30%, rgba(150,130,255,0) 70%);
-          box-shadow: 0 0 50px 16px rgba(206,216,255,0.85), 0 0 90px 36px rgba(124,107,245,0.55);
+          background: radial-gradient(circle, #ffffff 0%, #d6ecff 30%, rgba(56,189,248,0) 70%);
+          box-shadow: 0 0 50px 16px rgba(206,232,255,0.85), 0 0 90px 36px rgba(56,189,248,0.55);
           will-change: transform, opacity; pointer-events: none;
         }
         .intro-bloom {
           position: absolute; z-index: 1; width: min(80vmin, 640px); height: min(80vmin, 640px);
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(150,130,255,0.6) 22%, rgba(124,107,245,0) 62%);
+          background: radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(120,205,255,0.6) 22%, rgba(56,189,248,0) 62%);
           will-change: transform, opacity; pointer-events: none;
         }
         .intro-skip {

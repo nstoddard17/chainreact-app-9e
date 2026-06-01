@@ -161,7 +161,7 @@ export function MarketingScrollStory() {
         }
         .mk-ss-cap-sub {
           font-size: clamp(16px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-muted);
-          margin: 0; max-width: 440px;
+          margin: 0; max-width: 440px; text-wrap: pretty;
         }
         .mk-ss-progress { display: flex; gap: 10px; margin-top: 40px; }
         .mk-ss-dot {
@@ -206,7 +206,7 @@ export function MarketingScrollStory() {
           font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
           text-transform: uppercase; color: var(--mk-muted-2); margin-bottom: 10px;
         }
-        .mk-ss-prompt-text { font-size: 16.5px; line-height: 1.5; color: var(--mk-text); letter-spacing: -0.01em; }
+        .mk-ss-prompt-text { font-size: 16.5px; line-height: 1.5; color: var(--mk-text); letter-spacing: -0.01em; text-wrap: pretty; }
         .mk-ss-cursor { animation: mk-ss-blink 1.1s steps(1) infinite; color: var(--mk-muted); }
         @keyframes mk-ss-blink { 50% { opacity: 0; } }
         .mk-ss-node {

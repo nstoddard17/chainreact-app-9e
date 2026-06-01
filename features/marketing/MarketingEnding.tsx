@@ -114,8 +114,12 @@ export function MarketingEnding({ motionIntensity = 6 }: { motionIntensity?: num
         <div className="mk-end-foot-grid">
           <div className="mk-end-bcol">
             <div className="mk-end-brand-h">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/chainreact-mark.png" alt="" width={28} height={28} className="mk-end-mark-img" aria-hidden />
+              <span className="mk-end-mark-svg" aria-hidden>
+                <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
+                  <rect x="8" y="19" width="37" height="37" rx="13" stroke="var(--logo-brand, #38bdf8)" strokeWidth="7.5" />
+                  <circle cx="51.5" cy="12.5" r="6.5" fill="var(--logo-brand, #38bdf8)" />
+                </svg>
+              </span>
               <span className="mk-end-brand-name">ChainReact</span>
             </div>
             <p className="mk-end-tag">
@@ -201,7 +205,8 @@ export function MarketingEnding({ motionIntensity = 6 }: { motionIntensity?: num
         .mk-end-foot-grid { display: grid; grid-template-columns: 1.7fr repeat(3, 1fr); gap: 36px; padding-bottom: 44px; border-bottom: 1px solid color-mix(in oklab, var(--mk-text) 12%, transparent); }
         @media (max-width: 980px) { .mk-end-foot-grid { grid-template-columns: 1fr 1fr; gap: 32px; } }
         .mk-end-brand-h { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-        .mk-end-mark-img { display: block; width: 28px; height: 28px; object-fit: contain; }
+        .mk-end-mark-svg { display: inline-flex; flex: none; }
+        .mk-end-mark-svg svg { display: block; overflow: visible; }
         .mk-end-brand-name { font-weight: 700; font-size: 17px; color: var(--mk-text); }
         .mk-end-tag { font-size: 13.5px; color: var(--mk-muted); max-width: 340px; margin: 0; line-height: 1.55; }
         .mk-end-col-h { font-family: var(--font-mono); font-size: 10.5px; color: var(--mk-text); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }

@@ -190,6 +190,7 @@ export function MarketingShowcase() {
         .mk-sw-item-desc {
           display: block;
           font-size: 14.5px; color: var(--mk-muted); line-height: 1.5; margin-top: 8px; max-width: 460px;
+          text-wrap: pretty;
           max-height: 0; opacity: 0; overflow: hidden;
           transition: max-height .4s ease, opacity .35s ease, margin-top .4s ease;
         }

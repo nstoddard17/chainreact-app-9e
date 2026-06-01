@@ -66,7 +66,7 @@ export function MarketingMissionReveal() {
         .mk-mr-eyebrow { font-size: 13px; color: var(--mk-muted); margin-bottom: 40px; }
         .mk-mr-body {
           font-size: clamp(26px, 3.1vw, 44px); line-height: 1.32; letter-spacing: -0.02em;
-          font-weight: 400; max-width: 1120px; margin: 0;
+          font-weight: 400; max-width: 1120px; margin: 0; text-wrap: pretty;
           --reveal: 0;
         }
         .mk-mr-w {
