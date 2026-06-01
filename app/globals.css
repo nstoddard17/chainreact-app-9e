@@ -269,13 +269,29 @@
     }
   }
 
-  /* Purple page scrollbar — marketing surface only. Matches the brand
-     blue→purple gradient used in the intro + animated logo. Scoped via
-     html:has([data-marketing-surface]) (the page-level scrollbar lives on
+  /* Brand logo accent — the "Spark Link" mark. One confident sky-blue, no
+     gradient: #0284c7 on light surfaces, #38bdf8 on dark (brighter so the
+     mark stays legible). The wordmark ink inherits `currentColor` from its
+     context. Consumed by features/marketing/MarketingBrandLogo.tsx. */
+  :root {
+    --logo-brand: #0284c7;
+  }
+  .dark,
+  [data-app-surface="dark"],
+  [data-marketing-surface] {
+    --logo-brand: #38bdf8;
+  }
+  [data-marketing-surface][data-marketing-theme="light"] {
+    --logo-brand: #0284c7;
+  }
+
+  /* Sky-blue page scrollbar — marketing surface only. Matches the single
+     sky-blue brand accent used by the animated logo (--logo-brand). Scoped
+     via html:has([data-marketing-surface]) (the page-level scrollbar lives on
      <html>, not on .marketing-root) so the in-app chrome keeps the native
      scrollbar untouched. */
   html:has([data-marketing-surface]) {
-    scrollbar-color: #8a6bf2 transparent; /* Firefox: thumb track */
+    scrollbar-color: #0ea5e9 transparent; /* Firefox: thumb track */
     scrollbar-width: thin;
   }
   html:has([data-marketing-surface])::-webkit-scrollbar {
@@ -286,13 +302,13 @@
     background: transparent;
   }
   html:has([data-marketing-surface])::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #5b8bff, #7c6bf5 50%, #b95cf0);
+    background: linear-gradient(180deg, #38bdf8, #0ea5e9 50%, #0284c7);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
   html:has([data-marketing-surface])::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #6f9bff, #8f7bff 50%, #c77bf5);
+    background: linear-gradient(180deg, #7dd3fc, #38bdf8 50%, #0ea5e9);
     background-clip: padding-box;
   }
 }

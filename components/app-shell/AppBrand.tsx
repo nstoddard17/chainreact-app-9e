@@ -11,10 +11,10 @@ import { MarketingBrandLogo } from "@/features/marketing/MarketingBrandLogo";
  * authenticated landing surface; marketing `/` is the public route
  * which signed-in users redirect AWAY from.
  *
- * The mark reuses the homepage's animated `MarketingBrandLogo`
- * (glow + idle float + breathing glow + periodic sheen) so the brand
- * reads identically here and on the landing page — wordmark off, sized
- * to the rail tile. `aria-label` carries the wordmark for screen
+ * The mark reuses the homepage's animated `MarketingBrandLogo` — the
+ * "Spark Link" mark (spark roll-in + idle float + breathing glow) — so
+ * the brand reads identically here and on the landing page; wordmark off,
+ * sized to the rail tile. `aria-label` carries the wordmark for screen
  * readers; sighted users see a tooltip on hover.
  */
 export function AppBrand() {
