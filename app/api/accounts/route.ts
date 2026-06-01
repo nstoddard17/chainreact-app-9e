@@ -5,6 +5,7 @@ import {
   parseAccountBody,
 } from "@/app/api/account/_shared";
 import { createTeamAccount } from "@/services/accounts/createTeamAccount";
+import { listUserAccountSummaries } from "@/services/accounts/accountList";
 
 /**
  * POST /api/accounts — create a Team account (4.ACCOUNT-MODEL-13, Phase D).
@@ -40,4 +41,22 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   return NextResponse.json({ ok: true, account }, { status: 201 });
+}
+
+/**
+ * GET /api/accounts — list the caller's accounts for the future account switcher
+ * / Teams UI (4.ACCOUNT-MODEL-18). Backend/API foundation only — NO visible UI.
+ *
+ * Returns UI-ready summaries (id, name, type, role, isActive, deletionStatus) +
+ * the effective `activeAccountId`. READ-ONLY: it computes the effective active
+ * account but never self-heals or writes `active_account_id`. Frozen
+ * (`pending_deletion`) accounts ARE included with their deletionStatus so the
+ * future UI can hide/disable them — this route does not gate them.
+ */
+export async function GET(): Promise<Response> {
+  const auth = await requireAuthedUserId();
+  if (!auth.ok) return auth.response;
+
+  const result = await listUserAccountSummaries(auth.userId);
+  return NextResponse.json(result);
 }
