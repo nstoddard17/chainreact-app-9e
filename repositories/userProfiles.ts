@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 
 /**
  * Repository for user-scoped fields on `user_profiles`.
@@ -58,5 +59,31 @@ export async function clearActiveAccountId(userId: string): Promise<void> {
     .eq("id", userId);
   if (error) {
     throw new Error(`user_profiles.clearActiveAccountId failed: ${error.message}`);
+  }
+}
+
+/**
+ * Service-role: null an ARBITRARY user's active-account pointer IFF it points at
+ * `accountId` (4.ACCOUNT-MODEL-16). Used when removing that user from an account
+ * so their active pointer doesn't dangle at an account they no longer belong to.
+ * Atomic conditional UPDATE — a no-op when the pointer is something else. (The
+ * 11b resolver self-heals a stale pointer anyway; this clears it proactively.)
+ */
+export async function clearActiveAccountIfMatchesServiceRole(
+  userId: string,
+  accountId: string,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `user_profiles: clearActiveAccountIfMatches for user ${userId}`,
+  );
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({ active_account_id: null })
+    .eq("id", userId)
+    .eq("active_account_id", accountId);
+  if (error) {
+    throw new Error(
+      `user_profiles.clearActiveAccountIfMatchesServiceRole failed: ${error.message}`,
+    );
   }
 }

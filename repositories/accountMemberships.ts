@@ -163,6 +163,73 @@ export async function isMemberServiceRole(
 }
 
 /**
+ * Service-role: the role of an ARBITRARY user on an account (or null) — bypasses
+ * RLS. Membership management (4.ACCOUNT-MODEL-16) needs the TARGET member's role
+ * (not the caller's) to enforce the owner-target / admin-manages-members guard.
+ */
+export async function getRoleServiceRole(
+  accountId: string,
+  userId: string,
+): Promise<MembershipRole | null> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: getRoleServiceRole for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_memberships")
+    .select("role")
+    .eq("account_id", accountId)
+    .eq("user_id", userId)
+    .maybeSingle<{ role: MembershipRole }>();
+  if (error) {
+    throw new Error(`account_memberships.getRoleServiceRole failed: ${error.message}`);
+  }
+  return data?.role ?? null;
+}
+
+/**
+ * Service-role: remove a membership row (4.ACCOUNT-MODEL-16). The service guards
+ * against removing an owner; this is the raw delete.
+ */
+export async function removeMembershipServiceRole(
+  accountId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: removeMembership for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_memberships")
+    .delete()
+    .eq("account_id", accountId)
+    .eq("user_id", userId);
+  if (error) {
+    throw new Error(`account_memberships.removeMembershipServiceRole failed: ${error.message}`);
+  }
+}
+
+/**
+ * Service-role: change a member's role (4.ACCOUNT-MODEL-16). Only admin↔member;
+ * the service refuses owner targets / owner promotions (owner is transfer, D5).
+ */
+export async function updateMemberRoleServiceRole(
+  accountId: string,
+  userId: string,
+  role: Exclude<MembershipRole, "owner">,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: updateMemberRole (${role}) for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_memberships")
+    .update({ role })
+    .eq("account_id", accountId)
+    .eq("user_id", userId);
+  if (error) {
+    throw new Error(`account_memberships.updateMemberRoleServiceRole failed: ${error.message}`);
+  }
+}
+
+/**
  * Returns the caller's role on `accountId`, or null when the caller has
  * no membership row on that account. Primitive for future authorization
  * wiring.
