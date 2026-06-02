@@ -14,10 +14,12 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     // NotificationBell with real unread badge is the canonical entry
     // point, so a rail row would be duplicative.
     // `/runs` joined the rail in Slice 4.RUNS-PAGE-1 (read-only history).
+    // `/team` joined the rail in Slice 4.TEAM-PAGE-1 (account/team management).
     expect(APP_SHELL_NAV_ITEMS.map((i) => i.href)).toEqual([
       "/workflows",
       "/apps",
       "/runs",
+      "/team",
     ]);
     for (const item of APP_SHELL_NAV_ITEMS) {
       expect(item.href.startsWith("/")).toBe(true);
@@ -34,6 +36,13 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     expect(runs).toBeDefined();
     expect(runs?.id).toBe("runs");
     expect(runs?.label).toBe("Runs");
+  });
+
+  it("includes /team after the real page landed (Slice 4.TEAM-PAGE-1)", () => {
+    const teamItem = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/team");
+    expect(teamItem).toBeDefined();
+    expect(teamItem?.id).toBe("team");
+    expect(teamItem?.label).toBe("Team");
   });
 
   it("every item has a stable id, label, and absolute href", () => {

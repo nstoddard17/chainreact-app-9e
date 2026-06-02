@@ -69,6 +69,124 @@ export async function setActiveAccount(accountId: string): Promise<void> {
   if (!res.ok) throw await parseError(res);
 }
 
+// ── Team members + invitations (4.TEAM-PAGE-1) ─────────────────────────────────
+// Thin wrappers over the existing account sub-routes so the Teams UI never calls
+// fetch() directly. NO new backend behavior — invites return a copy-link (raw
+// accept token) and no email is sent.
+
+/** A non-`owner` role a member can hold or be invited as. */
+export type TeamManageableRole = "admin" | "member";
+
+export interface MemberSummary {
+  userId: string;
+  role: AccountSummary["role"];
+  joinedAt: string;
+  invitedByUserId: string | null;
+}
+
+export interface InvitationSummary {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface CreatedInvitation {
+  invitation: InvitationSummary;
+  /** Raw accept token — returned ONCE on create, never stored. */
+  acceptToken: string;
+  /** App path carrying the raw token, e.g. `/invitations/accept?token=…`. */
+  acceptPath: string;
+}
+
+/** GET /api/accounts/[id]/members — roster of an account the caller belongs to. */
+export async function listMembers(accountId: string): Promise<MemberSummary[]> {
+  const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/members`);
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { members: MemberSummary[] };
+  return body.members;
+}
+
+/** GET /api/accounts/[id]/invitations — pending invites (owner/admin only). */
+export async function listInvitations(
+  accountId: string,
+): Promise<InvitationSummary[]> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/invitations`,
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { invitations: InvitationSummary[] };
+  return body.invitations;
+}
+
+/** POST /api/accounts/[id]/invitations — create an invite (owner/admin only). */
+export async function createInvitation(
+  accountId: string,
+  email: string,
+  role: TeamManageableRole,
+): Promise<CreatedInvitation> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/invitations`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as CreatedInvitation;
+  return body;
+}
+
+/** DELETE /api/accounts/[id]/invitations/[invitationId] — revoke a pending invite. */
+export async function revokeInvitation(
+  accountId: string,
+  invitationId: string,
+): Promise<void> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/invitations/${encodeURIComponent(
+      invitationId,
+    )}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw await parseError(res);
+}
+
+/** PATCH /api/accounts/[id]/members/[userId] — change a member's role. */
+export async function changeMemberRole(
+  accountId: string,
+  userId: string,
+  role: TeamManageableRole,
+): Promise<void> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/members/${encodeURIComponent(
+      userId,
+    )}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ role }),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+}
+
+/** DELETE /api/accounts/[id]/members/[userId] — remove a non-owner member. */
+export async function removeMember(
+  accountId: string,
+  userId: string,
+): Promise<void> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/members/${encodeURIComponent(
+      userId,
+    )}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw await parseError(res);
+}
+
 async function parseError(res: Response): Promise<AccountApiError> {
   let message = `Request failed (${res.status})`;
   try {
