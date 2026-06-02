@@ -106,4 +106,12 @@ describe("POST /api/invitations/accept", () => {
     const res = await POST(req({ token: "t" }));
     expect(res.status).toBe(404);
   });
+
+  it("409 TEAM_MEMBER_LIMIT_REACHED when the team is full at accept time", async () => {
+    signedIn();
+    mockAccept.mockResolvedValueOnce({ ok: false, reason: "team_member_limit_reached" });
+    const res = await POST(req({ token: "t" }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("TEAM_MEMBER_LIMIT_REACHED");
+  });
 });

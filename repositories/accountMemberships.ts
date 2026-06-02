@@ -138,6 +138,24 @@ export async function isMember(
 }
 
 /**
+ * Service-role count of an account's members (4.ACCOUNT-MODEL-20). Cheap
+ * head/exact count for the Team member-limit guard — owner included.
+ */
+export async function countMembersServiceRole(accountId: string): Promise<number> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: countMembers for account ${accountId}`,
+  );
+  const { count, error } = await supabase
+    .from("account_memberships")
+    .select("*", { count: "exact", head: true })
+    .eq("account_id", accountId);
+  if (error) {
+    throw new Error(`account_memberships.countMembersServiceRole failed: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
+/**
  * Service-role membership existence check for an ARBITRARY user (not the caller)
  * — bypasses RLS. The invite flow (4.ACCOUNT-MODEL-15) uses this to test whether
  * a prospective invitee is already a member; the session-client `isMember` only

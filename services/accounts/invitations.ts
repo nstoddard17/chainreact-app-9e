@@ -10,6 +10,7 @@ import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as usersRepo from "@/repositories/users";
 import * as notificationsRepo from "@/repositories/notifications";
 import { setActiveAccount } from "@/services/accounts/activeAccount";
+import { memberLimitFor } from "@/services/accounts/memberLimits";
 
 /**
  * Team invitation service (4.ACCOUNT-MODEL-15, Phase D D2a).
@@ -53,7 +54,8 @@ export type CreateInvitationReason =
   | "owner_not_invitable"
   | "account_frozen"
   | "already_member"
-  | "duplicate_pending";
+  | "duplicate_pending"
+  | "team_member_limit_reached";
 
 export type CreateInvitationResult =
   | {
@@ -81,9 +83,15 @@ export async function createInvitation(input: {
   const email = normalizeEmail(input.email);
   const now = input.now ?? new Date();
 
-  // Refuse on a frozen account (non-operational).
-  const status = await accountsRepo.getDeletionStatusServiceRole(input.accountId);
-  if (status === "pending_deletion") {
+  // Resolve the account once — type (for the member-limit policy) + deletion
+  // status (freeze) + name (notification).
+  const account = await accountsRepo.getByIdServiceRole(input.accountId);
+  if (!account) {
+    // Caller passed requireAccountRole (is a member) so this is unreachable;
+    // treat a vanished account as frozen rather than proceeding.
+    return { ok: false, reason: "account_frozen" };
+  }
+  if (account.deletionStatus === "pending_deletion") {
     return { ok: false, reason: "account_frozen" };
   }
 
@@ -91,6 +99,21 @@ export async function createInvitation(input: {
   const existingUserId = await usersRepo.findUserIdByEmailServiceRole(email);
   if (existingUserId && (await membershipsRepo.isMemberServiceRole(input.accountId, existingUserId))) {
     return { ok: false, reason: "already_member" };
+  }
+
+  // Team member limit (4.ACCOUNT-MODEL-20): seats used = accepted members +
+  // pending invites; one more (this invite) must not exceed the cap. Team-only —
+  // organization is uncapped (memberLimitFor → null). Expired/revoked invites
+  // don't count (only `pending` is summed), so they free slots naturally.
+  const limit = memberLimitFor(account.type);
+  if (limit !== null) {
+    const [memberCount, pendingCount] = await Promise.all([
+      membershipsRepo.countMembersServiceRole(input.accountId),
+      invitationsRepo.countPendingForAccountServiceRole(input.accountId),
+    ]);
+    if (memberCount + pendingCount + 1 > limit) {
+      return { ok: false, reason: "team_member_limit_reached" };
+    }
   }
 
   const rawToken = generateRawToken();
@@ -120,13 +143,12 @@ export async function createInvitation(input: {
   // blocks invite creation.
   if (existingUserId) {
     try {
-      const account = await accountsRepo.getByIdServiceRole(input.accountId);
       await notificationsRepo.create({
         userId: existingUserId,
         type: "account_invitation",
         severity: "warning",
         title: "You've been invited to a team",
-        body: `You've been invited to join ${account?.name ?? "a team"} on ChainReact.`,
+        body: `You've been invited to join ${account.name} on ChainReact.`,
         actionUrl: acceptPath,
         metadata: { accountId: input.accountId, invitationId: invitation.id },
       });
@@ -183,7 +205,8 @@ export type AcceptInvitationReason =
   | "revoked"
   | "already_accepted"
   | "wrong_email"
-  | "account_frozen";
+  | "account_frozen"
+  | "team_member_limit_reached";
 
 export interface AcceptedAccount {
   id: string;
@@ -225,20 +248,29 @@ export async function acceptInvitation(input: {
     return { ok: false, reason: "wrong_email" };
   }
 
-  // Account must be operational.
-  const status = await accountsRepo.getDeletionStatusServiceRole(invite.accountId);
-  if (status === "pending_deletion") {
-    return { ok: false, reason: "account_frozen" };
-  }
-
+  // Account must exist + be operational.
   const account = await accountsRepo.getByIdServiceRole(invite.accountId);
   if (!account) return { ok: false, reason: "not_found" };
+  if (account.deletionStatus === "pending_deletion") {
+    return { ok: false, reason: "account_frozen" };
+  }
 
   const alreadyMember = await membershipsRepo.isMemberServiceRole(
     invite.accountId,
     input.userId,
   );
   if (!alreadyMember) {
+    // Team member-limit RE-CHECK (4.ACCOUNT-MODEL-20): a real seat is only
+    // consumed here. Refuse if the team is already full even though the invite
+    // was created earlier (e.g. another invite filled the last slot first).
+    // Team-only; organization is uncapped.
+    const limit = memberLimitFor(account.type);
+    if (limit !== null) {
+      const memberCount = await membershipsRepo.countMembersServiceRole(invite.accountId);
+      if (memberCount >= limit) {
+        return { ok: false, reason: "team_member_limit_reached" };
+      }
+    }
     await membershipsRepo.insertMembershipServiceRole(
       invite.accountId,
       input.userId,

@@ -144,6 +144,14 @@ describe("POST /api/accounts/[id]/invitations", () => {
     expect(res2.status).toBe(409);
     expect((await res2.json()).code).toBe("DUPLICATE_PENDING_INVITE");
   });
+
+  it("409 TEAM_MEMBER_LIMIT_REACHED when the team is at its member cap", async () => {
+    asOwner();
+    mockCreate.mockResolvedValueOnce({ ok: false, reason: "team_member_limit_reached" });
+    const res = await POST(req({ email: "a@b.com", role: "member" }), params());
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("TEAM_MEMBER_LIMIT_REACHED");
+  });
 });
 
 describe("GET /api/accounts/[id]/invitations", () => {

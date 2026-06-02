@@ -14,6 +14,7 @@ const mockListPending = jest.fn();
 const mockMarkAccepted = jest.fn();
 const mockMarkRevoked = jest.fn();
 const mockMarkExpired = jest.fn();
+const mockCountPending = jest.fn();
 
 jest.mock("@/repositories/accountInvitations", () => ({
   DUPLICATE_PENDING_INVITE: "DUPLICATE_PENDING_INVITE",
@@ -21,6 +22,7 @@ jest.mock("@/repositories/accountInvitations", () => ({
   getByTokenHashServiceRole: (...a: unknown[]) => mockGetByTokenHash(...a),
   getByIdServiceRole: (...a: unknown[]) => mockGetById(...a),
   listPendingForAccountServiceRole: (...a: unknown[]) => mockListPending(...a),
+  countPendingForAccountServiceRole: (...a: unknown[]) => mockCountPending(...a),
   markAcceptedServiceRole: (...a: unknown[]) => mockMarkAccepted(...a),
   markRevokedServiceRole: (...a: unknown[]) => mockMarkRevoked(...a),
   markExpiredServiceRole: (...a: unknown[]) => mockMarkExpired(...a),
@@ -35,9 +37,11 @@ jest.mock("@/repositories/accounts", () => ({
 
 const mockIsMemberSR = jest.fn();
 const mockInsertMember = jest.fn();
+const mockCountMembers = jest.fn();
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: (...a: unknown[]) => mockIsMemberSR(...a),
   insertMembershipServiceRole: (...a: unknown[]) => mockInsertMember(...a),
+  countMembersServiceRole: (...a: unknown[]) => mockCountMembers(...a),
 }));
 
 const mockFindUserByEmail = jest.fn();
@@ -89,11 +93,14 @@ beforeEach(() => {
     mockInsertPending, mockGetByTokenHash, mockGetById, mockListPending,
     mockMarkAccepted, mockMarkRevoked, mockMarkExpired, mockGetDeletionStatus,
     mockGetAccountById, mockIsMemberSR, mockInsertMember, mockFindUserByEmail,
-    mockNotify, mockSetActiveAccount,
+    mockNotify, mockSetActiveAccount, mockCountMembers, mockCountPending,
   ].forEach((m) => m.mockReset());
 
   mockGetDeletionStatus.mockResolvedValue("active");
-  mockGetAccountById.mockResolvedValue({ id: ACCOUNT, name: "Acme", type: "team" });
+  mockGetAccountById.mockResolvedValue({ id: ACCOUNT, name: "Acme", type: "team", deletionStatus: "active" });
+  // Default well under the 5-member team cap so unrelated tests don't trip it.
+  mockCountMembers.mockResolvedValue(1);
+  mockCountPending.mockResolvedValue(0);
   mockFindUserByEmail.mockResolvedValue(null);
   mockIsMemberSR.mockResolvedValue(false);
   mockSetActiveAccount.mockResolvedValue({ ok: true, account: {} });
@@ -132,7 +139,7 @@ describe("createInvitation", () => {
   });
 
   it("refuses a frozen (pending_deletion) account", async () => {
-    mockGetDeletionStatus.mockResolvedValueOnce("pending_deletion");
+    mockGetAccountById.mockResolvedValueOnce({ id: ACCOUNT, name: "Acme", type: "team", deletionStatus: "pending_deletion" });
     const res = await createInvitation({
       accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member",
     });
@@ -237,7 +244,7 @@ describe("acceptInvitation", () => {
 
   it("refuses to accept into a frozen account", async () => {
     signedInvite();
-    mockGetDeletionStatus.mockResolvedValueOnce("pending_deletion");
+    mockGetAccountById.mockResolvedValueOnce({ id: ACCOUNT, name: "Acme", type: "team", deletionStatus: "pending_deletion" });
     const res = await acceptInvitation({ token: TOKEN, userId: INVITEE, userEmail: "invitee@example.com" });
     expect(res).toEqual({ ok: false, reason: "account_frozen" });
     expect(mockInsertMember).not.toHaveBeenCalled();

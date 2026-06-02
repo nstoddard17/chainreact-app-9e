@@ -148,6 +148,28 @@ export async function listPendingForAccountServiceRole(
   return (data ?? []).map((r) => rowToRecord(r as AccountInvitationsRow));
 }
 
+/**
+ * Service-role count of an account's PENDING invites (4.ACCOUNT-MODEL-20). Cheap
+ * head/exact count for the Team member-limit guard (pending invites count toward
+ * the cap; accepted/expired/revoked do not).
+ */
+export async function countPendingForAccountServiceRole(
+  accountId: string,
+): Promise<number> {
+  const supabase = getServiceRoleClient(
+    `account_invitations: countPending for account ${accountId}`,
+  );
+  const { count, error } = await supabase
+    .from("account_invitations")
+    .select("*", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .eq("status", "pending");
+  if (error) {
+    throw new Error(`account_invitations.countPendingForAccountServiceRole failed: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
 export async function markAcceptedServiceRole(
   invitationId: string,
   acceptedByUserId: string,

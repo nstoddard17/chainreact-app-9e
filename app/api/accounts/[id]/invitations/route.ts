@@ -90,6 +90,15 @@ export async function POST(
           { error: "A pending invite already exists for that email.", code: "DUPLICATE_PENDING_INVITE" },
           { status: 409 },
         );
+      case "team_member_limit_reached":
+        return NextResponse.json(
+          {
+            error:
+              "Teams are limited to 5 members. Organization accounts support larger teams (coming soon).",
+            code: "TEAM_MEMBER_LIMIT_REACHED",
+          },
+          { status: 409 },
+        );
       case "owner_not_invitable":
         return NextResponse.json(
           { error: "Owner is not an invitable role.", code: "OWNER_NOT_INVITABLE" },

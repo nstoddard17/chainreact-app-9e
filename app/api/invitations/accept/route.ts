@@ -68,6 +68,15 @@ export async function POST(request: Request): Promise<Response> {
           { error: "This account is pending deletion.", code: "ACCOUNT_PENDING_DELETION" },
           { status: 403 },
         );
+      case "team_member_limit_reached":
+        return NextResponse.json(
+          {
+            error:
+              "This team is full (5-member limit). Organization accounts support larger teams (coming soon).",
+            code: "TEAM_MEMBER_LIMIT_REACHED",
+          },
+          { status: 409 },
+        );
     }
   }
 
