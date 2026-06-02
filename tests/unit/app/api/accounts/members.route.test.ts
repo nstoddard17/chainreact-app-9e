@@ -71,13 +71,28 @@ describe("GET /api/accounts/[id]/members", () => {
   it("allows ANY member to list (owner/admin/member)", async () => {
     asRole("member");
     mockListMembers.mockResolvedValueOnce([
-      { userId: "a", role: "owner", joinedAt: "t", invitedByUserId: null },
+      { userId: "a", role: "owner", joinedAt: "t", invitedByUserId: null, email: "a@x.io", displayName: "Ada" },
     ]);
     const res = await GET(new Request("https://x"), params());
     expect(res.status).toBe(200);
     expect(mockRequireRole).toHaveBeenCalledWith(CALLER, ACCOUNT, ["owner", "admin", "member"]);
     const body = await res.json();
     expect(body.members).toHaveLength(1);
+  });
+
+  it("projects safe display identity (email + displayName) in the response", async () => {
+    asRole("member");
+    mockListMembers.mockResolvedValueOnce([
+      { userId: "a", role: "owner", joinedAt: "t", invitedByUserId: null, email: "a@x.io", displayName: "Ada" },
+      { userId: "b", role: "member", joinedAt: "t2", invitedByUserId: "a", email: "b@x.io", displayName: null },
+    ]);
+    const res = await GET(new Request("https://x"), params());
+    const body = await res.json();
+    expect(body.members[0]).toEqual({
+      userId: "a", role: "owner", joinedAt: "t", invitedByUserId: null, email: "a@x.io", displayName: "Ada",
+    });
+    expect(body.members[1].email).toBe("b@x.io");
+    expect(body.members[1].displayName).toBeNull();
   });
 });
 

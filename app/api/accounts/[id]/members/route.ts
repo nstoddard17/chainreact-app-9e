@@ -26,11 +26,15 @@ export async function GET(
 
   const members = await listMembers(accountId);
   return NextResponse.json({
+    // Identity (email/displayName) is co-member-only — this route already gated
+    // on membership above, and the underlying RPC re-checks it (4.TEAM-PAGE-2).
     members: members.map((m) => ({
       userId: m.userId,
       role: m.role,
       joinedAt: m.joinedAt,
       invitedByUserId: m.invitedByUserId,
+      email: m.email,
+      displayName: m.displayName,
     })),
   });
 }

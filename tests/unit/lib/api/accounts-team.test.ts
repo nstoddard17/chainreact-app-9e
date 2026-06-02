@@ -30,13 +30,22 @@ function err(status: number, body: unknown = {}) {
 }
 
 describe("listMembers", () => {
-  it("GETs the account members route and unwraps `members`", async () => {
+  it("GETs the account members route and unwraps `members` (incl. display identity)", async () => {
     const members = [
-      { userId: "u1", role: "owner", joinedAt: "2026-05-01T00:00:00Z", invitedByUserId: null },
+      {
+        userId: "u1",
+        role: "owner",
+        joinedAt: "2026-05-01T00:00:00Z",
+        invitedByUserId: null,
+        email: "u1@x.io",
+        displayName: "Ada Lovelace",
+      },
     ];
     mockFetch.mockResolvedValueOnce(ok({ members }));
     const r = await listMembers("acct 1");
     expect(r).toEqual(members);
+    expect(r[0]!.email).toBe("u1@x.io");
+    expect(r[0]!.displayName).toBe("Ada Lovelace");
     expect(mockFetch).toHaveBeenCalledWith("/api/accounts/acct%201/members");
   });
 

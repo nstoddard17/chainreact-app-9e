@@ -160,8 +160,8 @@ describe("TeamPage — team active account (owner)", () => {
       accounts: [personal, { ...team, isActive: true }, { ...personal, isActive: false }],
     });
     mockListMembers.mockResolvedValue([
-      { userId: "u1", role: "owner", joinedAt: "2026-05-01T00:00:00Z", invitedByUserId: null },
-      { userId: "u2", role: "member", joinedAt: "2026-05-02T00:00:00Z", invitedByUserId: "u1" },
+      { userId: "u1", role: "owner", joinedAt: "2026-05-01T00:00:00Z", invitedByUserId: null, email: "u1@x.io", displayName: "Ada" },
+      { userId: "u2", role: "member", joinedAt: "2026-05-02T00:00:00Z", invitedByUserId: "u1", email: "u2@x.io", displayName: null },
     ]);
     mockListInvitations.mockResolvedValue([
       { id: "i1", email: "p@x.io", role: "member", status: "pending", expiresAt: "2026-06-09T00:00:00Z", createdAt: "2026-06-02T00:00:00Z" },
@@ -176,10 +176,16 @@ describe("TeamPage — team active account (owner)", () => {
     expect(props.memberCap).toBe(5);
     expect(props.teamMaxMembers).toBe(5);
     expect(props.members).toEqual([
-      { userId: "u1", role: "owner", joinedAt: "2026-05-01T00:00:00Z", isYou: true },
-      { userId: "u2", role: "member", joinedAt: "2026-05-02T00:00:00Z", isYou: false },
+      { userId: "u1", role: "owner", joinedAt: "2026-05-01T00:00:00Z", email: "u1@x.io", displayName: "Ada", isYou: true },
+      { userId: "u2", role: "member", joinedAt: "2026-05-02T00:00:00Z", email: "u2@x.io", displayName: null, isYou: false },
     ]);
     expect(props.invitations).toHaveLength(1);
+  });
+
+  it("maps display identity (email/displayName) through and marks isYou", async () => {
+    const props = await getDashboardProps();
+    expect(props.members[0]).toMatchObject({ email: "u1@x.io", displayName: "Ada", isYou: true });
+    expect(props.members[1]).toMatchObject({ email: "u2@x.io", displayName: null, isYou: false });
   });
 
   it("never leaks invitedByUserId into the member DTO", async () => {
@@ -196,7 +202,7 @@ describe("TeamPage — team active account (plain member)", () => {
       accounts: [{ ...team, role: "member" }],
     });
     mockListMembers.mockResolvedValue([
-      { userId: "u2", role: "member", joinedAt: "2026-05-02T00:00:00Z", invitedByUserId: "u1" },
+      { userId: "u2", role: "member", joinedAt: "2026-05-02T00:00:00Z", invitedByUserId: "u1", email: "u2@x.io", displayName: null },
     ]);
     const props = await getDashboardProps();
     expect(mockListMembers).toHaveBeenCalledWith("t1");

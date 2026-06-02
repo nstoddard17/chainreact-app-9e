@@ -75,6 +75,9 @@ export default async function TeamPage() {
       userId: m.userId,
       role: m.role,
       joinedAt: m.joinedAt,
+      // `invitedByUserId` is intentionally dropped — not display identity.
+      email: m.email,
+      displayName: m.displayName,
       isYou: m.userId === user.id,
     }));
 

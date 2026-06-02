@@ -57,8 +57,8 @@ describe("TeamDashboard — personal active account", () => {
 
 describe("TeamDashboard — team active account", () => {
   const members = [
-    { userId: "u1", role: "owner" as const, joinedAt: "2026-05-01T00:00:00Z", isYou: true },
-    { userId: "u2", role: "member" as const, joinedAt: "2026-05-02T00:00:00Z", isYou: false },
+    { userId: "u1", role: "owner" as const, joinedAt: "2026-05-01T00:00:00Z", email: "u1@x.io", displayName: "Ada", isYou: true },
+    { userId: "u2", role: "member" as const, joinedAt: "2026-05-02T00:00:00Z", email: "u2@x.io", displayName: null, isYou: false },
   ];
 
   it("renders the members panel with both account rows in the switcher", () => {
@@ -92,6 +92,8 @@ describe("TeamDashboard — team active account", () => {
       userId: `u${i}`,
       role: i === 0 ? ("owner" as const) : ("member" as const),
       joinedAt: "2026-05-01T00:00:00Z",
+      email: `u${i}@x.io`,
+      displayName: null,
       isYou: i === 0,
     }));
     render(

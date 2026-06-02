@@ -97,6 +97,47 @@ export async function listByAccount(
   return (data ?? []).map((r) => rowToRecord(r as AccountMembershipsRow));
 }
 
+/**
+ * Safe display identity for every member of an account (4.TEAM-PAGE-2).
+ *
+ * Reads through the `get_account_member_identities` SECURITY DEFINER RPC, which
+ * joins `auth.users` (email — not PostgREST-exposed) + `user_profiles`
+ * (display_name — RLS owner-only) AFTER verifying the caller is a member of the
+ * account. Session-client ONLY: the RPC keys its co-member gate off `auth.uid()`,
+ * so it must run in the caller's request context (never service-role). A
+ * non-member caller gets a 42501 error surfaced as a thrown Error here — emails
+ * never leak outside an account.
+ */
+export interface AccountMemberIdentity {
+  userId: string;
+  email: string | null;
+  displayName: string | null;
+}
+
+export async function listMemberIdentities(
+  accountId: string,
+): Promise<readonly AccountMemberIdentity[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_account_member_identities", {
+    p_account_id: accountId,
+  });
+  if (error) {
+    throw new Error(
+      `account_memberships.listMemberIdentities failed: ${error.message}`,
+    );
+  }
+  const rows = (data ?? []) as Array<{
+    user_id: string;
+    email: string | null;
+    display_name: string | null;
+  }>;
+  return rows.map((r) => ({
+    userId: r.user_id,
+    email: r.email,
+    displayName: r.display_name,
+  }));
+}
+
 export async function listByUser(
   userId: string,
 ): Promise<readonly AccountMembershipRecord[]> {

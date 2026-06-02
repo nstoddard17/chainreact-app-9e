@@ -13,11 +13,11 @@ import type { TeamMemberView } from "./teamTypes";
 import { formatTeamDate } from "./formatTeamDate";
 
 /**
- * Members roster table (Slice 4.TEAM-PAGE-1).
+ * Members roster table (Slice 4.TEAM-PAGE-1; identity added in 4.TEAM-PAGE-2).
  *
- * Identity honesty: the `/members` API returns only `userId`, so we show the
- * signed-in user's row as "You" and everyone else as a team member identified
- * by role + joined date + a short id. We do NOT invent names/emails.
+ * Display identity comes from the co-member-only `get_account_member_identities`
+ * RPC. The fallback chain is name → email → short user id, and the signed-in
+ * user always carries a "You" badge. We never invent identity we don't have.
  *
  * Manager controls (owner/admin): the owner row is fixed (no controls — owner
  * transfer is deferred). For non-owner, non-self rows, a role select
@@ -33,6 +33,31 @@ interface Props {
 
 function shortId(userId: string): string {
   return userId.length > 8 ? `${userId.slice(0, 8)}…` : userId;
+}
+
+/**
+ * Resolve the two display lines + avatar seed for a member from whatever
+ * identity is available: name → email → short id, with the secondary line
+ * showing the next distinct identifier so a row never reads ambiguously.
+ */
+function memberIdentity(m: TeamMemberView): {
+  primary: string;
+  secondary: string | null;
+  avatar: string;
+} {
+  const name = m.displayName?.trim() || "";
+  const email = m.email?.trim() || "";
+  if (name) {
+    return { primary: name, secondary: email || shortId(m.userId), avatar: name };
+  }
+  if (email) {
+    return { primary: email, secondary: shortId(m.userId), avatar: email };
+  }
+  return {
+    primary: m.isYou ? "You" : "Team member",
+    secondary: shortId(m.userId),
+    avatar: m.userId,
+  };
 }
 
 export function MembersTable({ accountId, members, canManage, onChanged }: Props) {
@@ -77,6 +102,7 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
           const isOwner = m.role === "owner";
           const manageable = canManage && !isOwner && !m.isYou;
           const rowBusy = busyId === m.userId;
+          const identity = memberIdentity(m);
           return (
             <li
               key={m.userId}
@@ -88,20 +114,22 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                   aria-hidden
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold uppercase text-primary"
                 >
-                  {m.userId.slice(0, 2)}
+                  {identity.avatar.slice(0, 2)}
                 </span>
                 <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    {m.isYou ? "You" : "Team member"}
+                  <span className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
+                    {identity.primary}
                     {m.isYou && (
                       <Badge variant="outline" className="border-primary/30 text-primary">
                         You
                       </Badge>
                     )}
                   </span>
-                  <span className="truncate font-mono text-xs text-muted-foreground">
-                    {shortId(m.userId)}
-                  </span>
+                  {identity.secondary && (
+                    <span className="truncate font-mono text-xs text-muted-foreground">
+                      {identity.secondary}
+                    </span>
+                  )}
                 </div>
               </div>
 

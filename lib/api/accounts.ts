@@ -82,6 +82,9 @@ export interface MemberSummary {
   role: AccountSummary["role"];
   joinedAt: string;
   invitedByUserId: string | null;
+  /** Safe display identity (co-member-only). Null when unavailable. */
+  email: string | null;
+  displayName: string | null;
 }
 
 export interface InvitationSummary {

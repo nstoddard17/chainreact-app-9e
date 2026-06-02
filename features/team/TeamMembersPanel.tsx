@@ -49,9 +49,10 @@ export function TeamMembersPanel({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (q.length === 0) return members;
-    return members.filter(
-      (m) =>
-        m.userId.toLowerCase().includes(q) || m.role.toLowerCase().includes(q),
+    return members.filter((m) =>
+      [m.displayName, m.email, m.userId, m.role].some(
+        (field) => field != null && field.toLowerCase().includes(q),
+      ),
     );
   }, [members, query]);
 
@@ -125,7 +126,7 @@ export function TeamMembersPanel({
           <input
             type="search"
             aria-label="Search members"
-            placeholder="Search by member or role…"
+            placeholder="Search by name, email, or role…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

@@ -16,11 +16,13 @@ const mockGetRoleSR = jest.fn();
 const mockRemove = jest.fn();
 const mockUpdateRole = jest.fn();
 const mockListByAccount = jest.fn();
+const mockListIdentities = jest.fn();
 jest.mock("@/repositories/accountMemberships", () => ({
   getRoleServiceRole: (...a: unknown[]) => mockGetRoleSR(...a),
   removeMembershipServiceRole: (...a: unknown[]) => mockRemove(...a),
   updateMemberRoleServiceRole: (...a: unknown[]) => mockUpdateRole(...a),
   listByAccount: (...a: unknown[]) => mockListByAccount(...a),
+  listMemberIdentities: (...a: unknown[]) => mockListIdentities(...a),
 }));
 
 const mockClearActiveIfMatches = jest.fn();
@@ -43,15 +45,38 @@ beforeEach(() => {
   mockRemove.mockReset().mockResolvedValue(undefined);
   mockUpdateRole.mockReset().mockResolvedValue(undefined);
   mockListByAccount.mockReset();
+  mockListIdentities.mockReset().mockResolvedValue([]);
   mockClearActiveIfMatches.mockReset().mockResolvedValue(undefined);
 });
 
 describe("listMembers", () => {
-  it("returns the roster via listByAccount (RLS-scoped to co-members)", async () => {
-    mockListByAccount.mockResolvedValueOnce([{ userId: "a", role: "owner" }]);
+  it("merges roster (role/joined) with co-member display identity by userId", async () => {
+    mockListByAccount.mockResolvedValueOnce([
+      { userId: "a", role: "owner", joinedAt: "t1", invitedByUserId: null },
+      { userId: "b", role: "member", joinedAt: "t2", invitedByUserId: "a" },
+    ]);
+    mockListIdentities.mockResolvedValueOnce([
+      { userId: "a", email: "a@x.io", displayName: "Ada" },
+      { userId: "b", email: "b@x.io", displayName: null },
+    ]);
     const r = await listMembers(ACCOUNT);
-    expect(r).toEqual([{ userId: "a", role: "owner" }]);
+    expect(r).toEqual([
+      { userId: "a", role: "owner", joinedAt: "t1", invitedByUserId: null, email: "a@x.io", displayName: "Ada" },
+      { userId: "b", role: "member", joinedAt: "t2", invitedByUserId: "a", email: "b@x.io", displayName: null },
+    ]);
     expect(mockListByAccount).toHaveBeenCalledWith(ACCOUNT);
+    expect(mockListIdentities).toHaveBeenCalledWith(ACCOUNT);
+  });
+
+  it("falls back to null identity when no identity row matches a member", async () => {
+    mockListByAccount.mockResolvedValueOnce([
+      { userId: "a", role: "owner", joinedAt: "t1", invitedByUserId: null },
+    ]);
+    mockListIdentities.mockResolvedValueOnce([]); // RPC returned nothing for 'a'
+    const r = await listMembers(ACCOUNT);
+    expect(r).toEqual([
+      { userId: "a", role: "owner", joinedAt: "t1", invitedByUserId: null, email: null, displayName: null },
+    ]);
   });
 });
 
