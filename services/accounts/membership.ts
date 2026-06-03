@@ -3,6 +3,7 @@ import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as accountsRepo from "@/repositories/accounts";
 import { softDisconnectPersonalForMember } from "@/repositories/integrations";
 import { clearActiveAccountIfMatchesServiceRole } from "@/repositories/userProfiles";
+import { countImpactedWorkflowsForMember } from "./offboardingImpact";
 
 /**
  * Team membership management service (4.ACCOUNT-MODEL-16, D2b).
@@ -120,6 +121,33 @@ export async function removeMember(input: {
   // account (the 11b resolver self-heals it anyway; this avoids the stale state).
   await clearActiveAccountIfMatchesServiceRole(input.targetUserId, input.accountId);
   return { ok: true };
+}
+
+export type MemberWorkflowImpactResult =
+  | { ok: true; affectedWorkflowCount: number }
+  | { ok: false; reason: MemberMgmtReason };
+
+/**
+ * Advisory pre-removal impact (Slice 4.TEAM-WORKFLOWS-7 / TW-5): how many
+ * workflows the target member created that use a personal-provider step (those
+ * may stop running after removal soft-disconnects their personal Team
+ * credentials — 22C). Applies the SAME gate as `removeMember` (frozen account,
+ * owner-untouchable, admin-manages-members-only) so only a caller authorized to
+ * remove the target can learn the count — an unauthorized caller gets the gate
+ * failure, never the impact. Read-only; changes nothing.
+ */
+export async function getMemberWorkflowImpact(input: {
+  accountId: string;
+  targetUserId: string;
+  actingRole: MembershipRole;
+}): Promise<MemberWorkflowImpactResult> {
+  const gate = await gateTarget(input.accountId, input.targetUserId, input.actingRole);
+  if (!gate.ok) return gate;
+  const affectedWorkflowCount = await countImpactedWorkflowsForMember(
+    input.accountId,
+    input.targetUserId,
+  );
+  return { ok: true, affectedWorkflowCount };
 }
 
 export type ChangeRoleResult = { ok: true } | { ok: false; reason: MemberMgmtReason };

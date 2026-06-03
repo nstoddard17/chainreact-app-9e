@@ -5,14 +5,19 @@
  * badge, and that the owner row is never manageable. Mutations aren't exercised
  * here (the typed client is mocked); we assert render output only.
  */
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MembersTable } from "@/features/team/MembersTable";
 import type { TeamMemberView } from "@/features/team/teamTypes";
 
+const mockChangeRole = jest.fn();
+const mockRemoveMember = jest.fn();
+const mockGetImpact = jest.fn();
 jest.mock("@/lib/api/accounts", () => ({
   AccountApiError: class extends Error {},
-  changeMemberRole: jest.fn(),
-  removeMember: jest.fn(),
+  changeMemberRole: (...a: unknown[]) => mockChangeRole(...a),
+  removeMember: (...a: unknown[]) => mockRemoveMember(...a),
+  getMemberWorkflowImpact: (...a: unknown[]) => mockGetImpact(...a),
 }));
 
 function renderTable(members: TeamMemberView[], canManage = true) {
@@ -89,5 +94,80 @@ describe("MembersTable — display identity", () => {
       { ...base, userId: "u3", role: "member", email: "c@x.io", displayName: "Cara", isYou: false },
     ]);
     expect(screen.getByTestId("team-remove-u3")).toBeInTheDocument();
+  });
+});
+
+// ─── Slice 4.TEAM-WORKFLOWS-7 (TW-5) — removal warning ──────────────────────
+describe("MembersTable — removal workflow-impact warning", () => {
+  const member: TeamMemberView = {
+    joinedAt: "2026-05-01T00:00:00Z",
+    userId: "u9",
+    role: "member",
+    email: "c@x.io",
+    displayName: "Cara",
+    isYou: false,
+  };
+
+  beforeEach(() => {
+    mockChangeRole.mockReset();
+    mockRemoveMember.mockReset().mockResolvedValue(undefined);
+    mockGetImpact.mockReset();
+  });
+
+  it("shows the impact warning when the member created personal-provider workflows (count > 0)", async () => {
+    mockGetImpact.mockResolvedValue(2);
+    const user = userEvent.setup();
+    render(
+      <MembersTable accountId="t1" members={[member]} canManage onChanged={() => {}} />,
+    );
+    await user.click(screen.getByTestId("team-remove-u9"));
+    expect(mockGetImpact).toHaveBeenCalledWith("t1", "u9");
+    const warning = await screen.findByTestId("team-remove-impact-u9");
+    expect(warning).toHaveTextContent(
+      /created 2 workflows with personal app steps.*may stop running/i,
+    );
+    // The removal action is still available (advisory, non-blocking).
+    expect(screen.getByTestId("team-remove-confirm-button-u9")).toBeInTheDocument();
+  });
+
+  it("does NOT show a warning when the count is 0, but still allows removal", async () => {
+    mockGetImpact.mockResolvedValue(0);
+    const user = userEvent.setup();
+    render(
+      <MembersTable accountId="t1" members={[member]} canManage onChanged={() => {}} />,
+    );
+    await user.click(screen.getByTestId("team-remove-u9"));
+    await screen.findByTestId("team-remove-confirm-u9");
+    expect(screen.queryByTestId("team-remove-impact-u9")).toBeNull();
+    expect(screen.getByTestId("team-remove-confirm-button-u9")).toBeInTheDocument();
+  });
+
+  it("removal proceeds on confirm — the warning never blocks it", async () => {
+    mockGetImpact.mockResolvedValue(3);
+    const onChanged = jest.fn();
+    const user = userEvent.setup();
+    render(
+      <MembersTable accountId="t1" members={[member]} canManage onChanged={onChanged} />,
+    );
+    await user.click(screen.getByTestId("team-remove-u9"));
+    await screen.findByTestId("team-remove-impact-u9");
+    await user.click(screen.getByTestId("team-remove-confirm-button-u9"));
+    await waitFor(() => expect(mockRemoveMember).toHaveBeenCalledWith("t1", "u9"));
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("Cancel dismisses the confirmation without removing", async () => {
+    mockGetImpact.mockResolvedValue(1);
+    const user = userEvent.setup();
+    render(
+      <MembersTable accountId="t1" members={[member]} canManage onChanged={() => {}} />,
+    );
+    await user.click(screen.getByTestId("team-remove-u9"));
+    await screen.findByTestId("team-remove-confirm-u9");
+    await user.click(screen.getByTestId("team-remove-cancel-u9"));
+    expect(screen.queryByTestId("team-remove-confirm-u9")).toBeNull();
+    expect(mockRemoveMember).not.toHaveBeenCalled();
+    // The plain Remove control is back.
+    expect(screen.getByTestId("team-remove-u9")).toBeInTheDocument();
   });
 });

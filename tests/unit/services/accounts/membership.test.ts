@@ -35,10 +35,18 @@ jest.mock("@/repositories/integrations", () => ({
   softDisconnectPersonalForMember: (...a: unknown[]) => mockSoftDisconnect(...a),
 }));
 
+// TW-5: getMemberWorkflowImpact → countImpactedWorkflowsForMember reads the
+// workflows repo. Mock it so the impact path can be exercised without a DB.
+const mockWfListByAccount = jest.fn();
+jest.mock("@/repositories/workflows", () => ({
+  listByAccount: (...a: unknown[]) => mockWfListByAccount(...a),
+}));
+
 import {
   listMembers,
   removeMember,
   changeMemberRole,
+  getMemberWorkflowImpact,
 } from "@/services/accounts/membership";
 
 const ACCOUNT = "team-1";
@@ -55,6 +63,79 @@ beforeEach(() => {
   mockSoftDisconnect
     .mockReset()
     .mockResolvedValue({ disconnectedCount: 0, disconnectedProviders: [] });
+  mockWfListByAccount.mockReset().mockResolvedValue([]);
+});
+
+function wfRec(createdByUserId: string, providers: string[]) {
+  return {
+    id: `wf-${providers.join("-")}-${createdByUserId}`,
+    accountId: ACCOUNT,
+    createdByUserId,
+    name: "wf",
+    state: "draft",
+    draftDefinition: {
+      nodes: providers.map((provider, i) => ({
+        id: `n${i}`,
+        kind: "action",
+        provider,
+        type: "x",
+        config: {},
+        position: { x: 0, y: i },
+      })),
+      edges: [],
+    },
+  };
+}
+
+describe("getMemberWorkflowImpact (TW-5)", () => {
+  it("returns the impacted-workflow count for an authorized removal target", async () => {
+    mockGetRoleSR.mockResolvedValue("member"); // target is a removable member
+    mockWfListByAccount.mockResolvedValue([
+      wfRec(TARGET, ["gmail"]), // personal → counts
+      wfRec(TARGET, ["slack"]), // account-only → no
+      wfRec("other", ["gmail"]), // other member → no
+    ]);
+
+    const r = await getMemberWorkflowImpact({
+      accountId: ACCOUNT,
+      targetUserId: TARGET,
+      actingRole: "owner",
+    });
+    expect(r).toEqual({ ok: true, affectedWorkflowCount: 1 });
+  });
+
+  it("refuses (no count) when the target is the owner — gate fails before any workflow read", async () => {
+    mockGetRoleSR.mockResolvedValue("owner");
+    const r = await getMemberWorkflowImpact({
+      accountId: ACCOUNT,
+      targetUserId: TARGET,
+      actingRole: "admin",
+    });
+    expect(r).toEqual({ ok: false, reason: "owner_target" });
+    expect(mockWfListByAccount).not.toHaveBeenCalled();
+  });
+
+  it("refuses (no count) when an admin targets another admin", async () => {
+    mockGetRoleSR.mockResolvedValue("admin");
+    const r = await getMemberWorkflowImpact({
+      accountId: ACCOUNT,
+      targetUserId: TARGET,
+      actingRole: "admin",
+    });
+    expect(r).toEqual({ ok: false, reason: "forbidden_target" });
+    expect(mockWfListByAccount).not.toHaveBeenCalled();
+  });
+
+  it("refuses (no count) on a frozen account", async () => {
+    mockGetDeletionStatus.mockResolvedValue("pending_deletion");
+    const r = await getMemberWorkflowImpact({
+      accountId: ACCOUNT,
+      targetUserId: TARGET,
+      actingRole: "owner",
+    });
+    expect(r).toEqual({ ok: false, reason: "account_frozen" });
+    expect(mockWfListByAccount).not.toHaveBeenCalled();
+  });
 });
 
 describe("listMembers", () => {

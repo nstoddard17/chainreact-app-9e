@@ -176,6 +176,25 @@ export async function changeMemberRole(
   if (!res.ok) throw await parseError(res);
 }
 
+/**
+ * GET /api/accounts/[id]/members/[userId]/workflow-impact — advisory count of
+ * workflows the target created with personal-provider steps that may stop
+ * running after removal (4.TEAM-WORKFLOWS-7 / TW-5). Owner/admin only.
+ */
+export async function getMemberWorkflowImpact(
+  accountId: string,
+  userId: string,
+): Promise<number> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/members/${encodeURIComponent(
+      userId,
+    )}/workflow-impact`,
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { affectedWorkflowCount: number };
+  return body.affectedWorkflowCount;
+}
+
 /** DELETE /api/accounts/[id]/members/[userId] — remove a non-owner member. */
 export async function removeMember(
   accountId: string,

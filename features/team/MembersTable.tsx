@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AccountApiError,
   changeMemberRole,
+  getMemberWorkflowImpact,
   removeMember,
   type TeamManageableRole,
 } from "@/lib/api/accounts";
@@ -68,9 +69,19 @@ function memberIdentity(m: TeamMemberView): {
   };
 }
 
+/**
+ * Per-row removal confirmation state (Slice 4.TEAM-WORKFLOWS-7 / TW-5).
+ * `impact` is null while the advisory workflow-impact count is loading.
+ */
+interface RemoveConfirm {
+  userId: string;
+  impact: number | null;
+}
+
 export function MembersTable({ accountId, members, canManage, onChanged }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<RemoveConfirm | null>(null);
 
   async function withBusy(userId: string, fn: () => Promise<void>) {
     setBusyId(userId);
@@ -85,6 +96,25 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
     } finally {
       setBusyId(null);
     }
+  }
+
+  // Open the removal confirmation and fetch the advisory workflow-impact count.
+  // The impact lookup is best-effort: a failure leaves `impact` null (no
+  // warning shown) — it must never block the ability to remove.
+  async function startRemove(userId: string) {
+    setError(null);
+    setConfirm({ userId, impact: null });
+    try {
+      const impact = await getMemberWorkflowImpact(accountId, userId);
+      setConfirm((c) => (c && c.userId === userId ? { ...c, impact } : c));
+    } catch {
+      setConfirm((c) => (c && c.userId === userId ? { ...c, impact: 0 } : c));
+    }
+  }
+
+  async function confirmRemove(userId: string) {
+    setConfirm(null);
+    await withBusy(userId, () => removeMember(accountId, userId));
   }
 
   return (
@@ -110,13 +140,15 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
           const isOwner = m.role === "owner";
           const manageable = canManage && !isOwner && !m.isYou;
           const rowBusy = busyId === m.userId;
+          const confirming = confirm?.userId === m.userId;
           const identity = memberIdentity(m);
           return (
             <li
               key={m.userId}
               data-testid={`team-member-${m.userId}`}
-              className="grid grid-cols-[2.4fr_1.2fr_1fr_auto] items-center gap-3 border-t border-border px-4 py-3 first:border-t-0"
+              className="border-t border-border first:border-t-0"
             >
+              <div className="grid grid-cols-[2.4fr_1.2fr_1fr_auto] items-center gap-3 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span
                   aria-hidden
@@ -171,22 +203,65 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
               </span>
 
               <div className="flex justify-end">
-                {manageable && (
+                {manageable && !confirming && (
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     data-testid={`team-remove-${m.userId}`}
                     disabled={rowBusy}
-                    onClick={() =>
-                      withBusy(m.userId, () => removeMember(accountId, m.userId))
-                    }
+                    onClick={() => startRemove(m.userId)}
                     className="text-destructive hover:text-destructive"
                   >
                     {rowBusy ? "…" : "Remove"}
                   </Button>
                 )}
               </div>
+              </div>
+
+              {/* TW-5: removal confirmation + advisory workflow-impact warning.
+                  The warning is non-blocking — removal always proceeds via
+                  "Remove member". */}
+              {confirming && (
+                <div
+                  data-testid={`team-remove-confirm-${m.userId}`}
+                  className="flex flex-col gap-2 border-t border-border bg-background/40 px-4 py-3"
+                >
+                  {confirm?.impact != null && confirm.impact > 0 && (
+                    <p
+                      role="alert"
+                      data-testid={`team-remove-impact-${m.userId}`}
+                      className="text-xs text-amber-600 dark:text-amber-400"
+                    >
+                      {`This member created ${confirm.impact} workflow${
+                        confirm.impact === 1 ? "" : "s"
+                      } with personal app steps. Those steps may stop running after removal until reconnected or reassigned.`}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      data-testid={`team-remove-confirm-button-${m.userId}`}
+                      disabled={rowBusy}
+                      onClick={() => confirmRemove(m.userId)}
+                    >
+                      {rowBusy ? "Removing…" : "Remove member"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      data-testid={`team-remove-cancel-${m.userId}`}
+                      disabled={rowBusy}
+                      onClick={() => setConfirm(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </li>
           );
         })}
