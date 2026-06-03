@@ -221,6 +221,9 @@ export async function planWorkflowFromPromptForAI(
     userId,
     userRequest: prompt,
     tier,
+    // TW-4: scope connected-integrations grounding to this workflow's account +
+    // creator policy (Team credential consistency).
+    workflowId,
     ...(input.currentGraph ? { currentGraph: input.currentGraph } : {}),
   });
   // Slice 4.AI-19 — force structured output via provider tool-use (function

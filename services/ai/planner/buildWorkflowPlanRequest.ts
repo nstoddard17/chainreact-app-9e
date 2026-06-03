@@ -63,7 +63,13 @@ export async function buildWorkflowPlanRequestWithAttribution(
   const catalogRes = getProviderCatalog();
   const catalog = catalogRes.ok ? catalogRes.data : EMPTY_CATALOG;
 
-  const integrationsRes = await getConnectedIntegrationsForAI(input.userId);
+  // TW-4: when planning within a workflow, scope the connected-integrations
+  // grounding to that workflow's account + creator policy (22D-3). Without a
+  // workflowId this is the legacy personal-account view (unchanged).
+  const integrationsRes = await getConnectedIntegrationsForAI(
+    input.userId,
+    input.workflowId,
+  );
   const connectedIntegrations: readonly ConnectedIntegrationView[] =
     integrationsRes.ok ? integrationsRes.data.integrations : [];
 

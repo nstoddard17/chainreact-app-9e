@@ -118,9 +118,12 @@ export async function explainNodeForAI(
   const availableVariables = varsRes.ok ? varsRes.data.variables : [];
 
   // Integration connectivity (only when the node needs one).
+  // TW-4: scope to the workflow's account + creator policy (22D-3) so a Team
+  // workflow reports the credential the run will actually use (account-shared
+  // or the creator's), and never a co-member's personal credential.
   let integrationConnected: boolean | null = null;
   if (meta.data.requiresIntegration) {
-    const conn = await getConnectedIntegrationsForAI(userId);
+    const conn = await getConnectedIntegrationsForAI(userId, workflowId);
     integrationConnected = conn.ok
       ? conn.data.integrations.some((i) => i.provider === node.provider)
       : null;

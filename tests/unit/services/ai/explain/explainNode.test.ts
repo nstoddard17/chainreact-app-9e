@@ -54,6 +54,42 @@ beforeEach(() => {
 });
 
 describe("explainNodeForAI", () => {
+  // 4.TEAM-WORKFLOWS-5 (TW-4) — the connectivity check is scoped to the
+  // workflow (account + creator policy), so the workflowId must be threaded
+  // into getConnectedIntegrationsForAI.
+  it("threads workflowId into getConnectedIntegrationsForAI for an integration node", async () => {
+    mockGetWorkflowGraphForAI.mockResolvedValue(
+      graphWith({
+        id: "n2",
+        kind: "action",
+        provider: "slack",
+        type: "send_channel_message",
+        config: {},
+        position: { x: 0, y: 0 },
+      }),
+    );
+    mockGetActionMeta.mockReturnValue(
+      ok({
+        key: "slack:send_channel_message",
+        displayName: "Send Channel Message",
+        description: "Posts a message.",
+        requiresIntegration: true,
+        riskLevel: "medium",
+        isDestructive: false,
+        requiresConfirmation: false,
+        riskDescription: null,
+        fields: [],
+      }),
+    );
+    mockGetConnectedIntegrationsForAI.mockResolvedValue(
+      ok({ integrations: [{ provider: "slack" }] }),
+    );
+
+    const res = await explainNodeForAI("u1", "wf-team-1", "n2");
+    expect(res.ok).toBe(true);
+    expect(mockGetConnectedIntegrationsForAI).toHaveBeenCalledWith("u1", "wf-team-1");
+  });
+
   it("describes config by STATUS and never leaks raw values", async () => {
     mockGetWorkflowGraphForAI.mockResolvedValue(
       graphWith({

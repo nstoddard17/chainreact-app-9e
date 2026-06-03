@@ -18,11 +18,19 @@ const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
   updatedAt: "2026-05-30T00:00:00Z",
 }));
 
+// TW-4: getConnectedIntegrationsForAI runs for real; when a workflowId is
+// threaded it resolves the workflow creator via workflows.getById (RLS). Mock
+// that so the Team-workflow credential path can be exercised without a DB.
+const mockGetById = jest.fn();
+
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
 }));
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
+}));
+jest.mock("@/repositories/workflows", () => ({
+  getById: (...args: unknown[]) => mockGetById(...args),
 }));
 
 import { buildWorkflowPlanRequest } from "@/services/ai/planner/buildWorkflowPlanRequest";
@@ -57,6 +65,72 @@ function systemMessage(messages: readonly { role: string; content: string }[]): 
 beforeEach(() => {
   mockListActiveByUser.mockReset();
   mockListActiveByUser.mockResolvedValue([]);
+  mockGetById.mockReset();
+  mockEnsurePersonalAccount.mockClear();
+});
+
+// ─── Slice 4.TEAM-WORKFLOWS-5 (TW-4) — Team-workflow credential scoping ──────
+describe("buildWorkflowPlanRequest — Team workflow credential scoping (TW-4)", () => {
+  it("scopes connected-integrations grounding to the WORKFLOW account when workflowId is provided", async () => {
+    // workflowId resolves to a Team account; the creator is the caller here.
+    mockGetById.mockResolvedValue({
+      id: "wf-team",
+      createdByUserId: "u2",
+      accountId: "acct-team",
+    });
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({ provider: "slack", connectedByUserId: "u2", displayName: "Team Slack" }),
+    ]);
+
+    await buildWorkflowPlanRequest({
+      userId: "u2",
+      userRequest: "post to slack",
+      workflowId: "wf-team",
+    });
+
+    // Resolved against the workflow's account, NOT the caller's personal account.
+    expect(mockListActiveByUser).toHaveBeenCalledWith("acct-team");
+    expect(mockEnsurePersonalAccount).not.toHaveBeenCalled();
+  });
+
+  it("keeps the legacy personal-account view when no workflowId is provided", async () => {
+    mockListActiveByUser.mockResolvedValue([]);
+    await buildWorkflowPlanRequest({ userId: "u2", userRequest: "anything" });
+    // Legacy path resolves the caller's personal account.
+    expect(mockEnsurePersonalAccount).toHaveBeenCalledWith("u2");
+    expect(mockListActiveByUser).toHaveBeenCalledWith("acct-u2");
+    expect(mockGetById).not.toHaveBeenCalled();
+  });
+
+  it("does NOT leak a co-member's personal credential label/email into the planner prompt (non-creator editor)", async () => {
+    // Caller u2 is NOT the creator (creator-1). Team account has: an account
+    // provider (slack, shared), the creator's personal gmail, and a co-member's
+    // personal dropbox.
+    mockGetById.mockResolvedValue({
+      id: "wf-team",
+      createdByUserId: "creator-1",
+      accountId: "acct-team",
+    });
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({ provider: "slack", connectedByUserId: "creator-1", displayName: "Team Slack" }),
+      makeRecord({ provider: "gmail", connectedByUserId: "creator-1", displayName: "creator@example.com" }),
+      makeRecord({ provider: "dropbox", connectedByUserId: "member-3", displayName: "member3@example.com" }),
+    ]);
+
+    const req = await buildWorkflowPlanRequest({
+      userId: "u2",
+      userRequest: "send an email and post to slack",
+      workflowId: "wf-team",
+    });
+    const sys = systemMessage(req.messages);
+
+    // Account-shared provider remains visible (label included).
+    expect(sys).toContain("Team Slack");
+    // The creator's personal-provider label is redacted (ownerControlled).
+    expect(sys).not.toContain("creator@example.com");
+    // The co-member's personal credential is never enumerated.
+    expect(sys).not.toContain("member3@example.com");
+  });
 });
 
 describe("buildWorkflowPlanRequest — grounding", () => {

@@ -148,6 +148,14 @@ export interface WorkflowPlanRequestInput {
   readonly costAwareness?: WorkflowPlanCostAwareness;
   /** Slice 4.AI-24 — current builder-canvas snapshot; see CurrentWorkflowGraphView. */
   readonly currentGraph?: CurrentWorkflowGraphView;
+  /**
+   * Slice 4.TEAM-WORKFLOWS-5 (TW-4) — the workflow being planned/edited. When
+   * set, the connected-integrations grounding is resolved with the same Team
+   * credential policy as execution/options (account-scoped + creator-pinned +
+   * co-member redaction). Omitted for non-workflow-scoped callers → the legacy
+   * personal-account view (unchanged).
+   */
+  readonly workflowId?: string;
 }
 
 /** The AI feature this planner emits requests under (for tier + future events). */
