@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { TeamMemberView } from "./teamTypes";
 import { formatTeamDate } from "./formatTeamDate";
+import { RoleBadge } from "./RoleBadge";
 
 /**
  * Members roster table (Slice 4.TEAM-PAGE-1; identity added in 4.TEAM-PAGE-2).
@@ -161,9 +162,7 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                     <option value="admin">Admin</option>
                   </select>
                 ) : (
-                  <Badge variant={isOwner ? "default" : "outline"} className="capitalize">
-                    {m.role}
-                  </Badge>
+                  <RoleBadge role={m.role} />
                 )}
               </div>
 

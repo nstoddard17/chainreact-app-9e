@@ -20,6 +20,13 @@ export interface TeamMemberView {
   isYou: boolean;
 }
 
+/**
+ * The settings sub-nav sections that are truthful today (Slice 4.TEAM-PAGE-4).
+ * Billing / Security / Notifications appear in the nav as disabled
+ * "coming soon" entries — they are NOT navigable, so they are not in this union.
+ */
+export type TeamSection = "overview" | "members" | "roles";
+
 export interface TeamInvitationView {
   id: string;
   email: string;

@@ -1,24 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AccountSummary } from "@/lib/api/accounts";
-import { AccountSwitcher } from "./AccountSwitcher";
+import { SettingsNav } from "./SettingsNav";
+import { OverviewSection } from "./OverviewSection";
 import { TeamMembersPanel } from "./TeamMembersPanel";
-import { TeamSettings } from "./TeamSettings";
-import type { TeamInvitationView, TeamMemberView } from "./teamTypes";
+import { SectionHeading } from "./SectionHeading";
+import { RolesTable } from "./RolesTable";
+import type { TeamInvitationView, TeamMemberView, TeamSection } from "./teamTypes";
 
 /**
- * Team page top-level client orchestrator (Slice 4.TEAM-PAGE-1).
+ * Team page top-level client orchestrator (Slice 4.TEAM-PAGE-1; rebuilt as a
+ * settings surface in 4.TEAM-PAGE-4 to match the Teams.html layout).
  *
- * Receives the server-resolved account list + active-account context and renders
- * the account switcher plus, when the active account is a team/org, the members
- * panel. Every mutation (switch, create, invite, revoke, role change, remove)
- * goes through the typed `lib/api/accounts` client inside the child components;
- * on success they call `refresh()` here, which re-runs the server component so
- * the new active context + roster re-render from source-of-truth.
+ * Layout: page header + a design-style two-column settings shell — a left
+ * `SettingsNav` (Overview / Members / Roles, plus disabled "coming soon"
+ * Account items) and a content column that renders the active section. Members
+ * and Roles only exist for a team/org active account; a personal account shows
+ * just Overview (switcher + create-a-team nudge).
  *
- * No optimistic local mutation of the lists — the server read is authoritative
- * (mirrors the Apps page's "full refetch on change" stance).
+ * Every mutation (switch, create, invite, revoke, role change, remove) goes
+ * through the typed `lib/api/accounts` client inside the section components; on
+ * success they call `refresh()` (a `router.refresh()`) so the server component
+ * re-reads the authoritative active context. No optimistic local mutation.
  */
 interface Props {
   accounts: readonly AccountSummary[];
@@ -43,12 +48,19 @@ export function TeamDashboard({
 }: Props) {
   const router = useRouter();
   const refresh = () => router.refresh();
+  const [section, setSection] = useState<TeamSection>("overview");
 
   const active = accounts.find((a) => a.id === activeAccountId) ?? null;
-  const activeIsTeam =
+  const isTeam =
     active !== null &&
     (active.type === "team" || active.type === "organization") &&
     active.deletionStatus === "active";
+
+  // Members/Roles only exist for a team — never strand the view on them.
+  const effectiveSection: TeamSection = isTeam ? section : "overview";
+
+  const seatsUsed =
+    members.length + invitations.filter((iv) => iv.status === "pending").length;
 
   return (
     <section
@@ -64,48 +76,52 @@ export function TeamDashboard({
         </p>
       </header>
 
-      <AccountSwitcher
-        accounts={accounts}
-        activeAccountId={activeAccountId}
-        onChanged={refresh}
-      />
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+        <SettingsNav
+          section={effectiveSection}
+          onSection={setSection}
+          isTeam={isTeam}
+          memberCount={members.length}
+        />
 
-      {activeIsTeam && active ? (
-        <>
-          <TeamMembersPanel
-            account={active}
-            members={members}
-            invitations={invitations}
-            canManage={canManage}
-            memberCap={memberCap}
-            teamMaxMembers={teamMaxMembers}
-            onChanged={refresh}
-          />
-          <TeamSettings
-            account={active}
-            seatsUsed={
-              members.length +
-              invitations.filter((iv) => iv.status === "pending").length
-            }
-            memberCap={memberCap}
-            teamMaxMembers={teamMaxMembers}
-          />
-        </>
-      ) : (
-        <div
-          data-testid="team-personal-notice"
-          className="flex flex-col gap-1 rounded-xl border border-border bg-card p-5"
-        >
-          <h2 className="text-sm font-semibold text-foreground">
-            You&apos;re on a personal account
-          </h2>
-          <p className="max-w-xl text-sm text-muted-foreground">
-            Personal accounts are just for you. Create a team above to invite
-            members and share automations — Teams support up to {teamMaxMembers}{" "}
-            members, billed as one account with shared usage.
-          </p>
+        <div className="min-w-0 flex-1">
+          {effectiveSection === "overview" && (
+            <OverviewSection
+              accounts={accounts}
+              activeAccountId={activeAccountId}
+              active={active}
+              isTeam={isTeam}
+              seatsUsed={seatsUsed}
+              memberCap={memberCap}
+              teamMaxMembers={teamMaxMembers}
+              onChanged={refresh}
+            />
+          )}
+
+          {effectiveSection === "members" && isTeam && active && (
+            <TeamMembersPanel
+              account={active}
+              members={members}
+              invitations={invitations}
+              canManage={canManage}
+              memberCap={memberCap}
+              onChanged={refresh}
+            />
+          )}
+
+          {effectiveSection === "roles" && isTeam && active && (
+            <div data-testid="team-roles-section">
+              <SectionHeading
+                crumbRoot={active.name}
+                crumb="Roles & access"
+                title="Roles & access"
+                sub="What each role can do across this team. Assign roles per member in Members."
+              />
+              <RolesTable />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 }
