@@ -76,6 +76,14 @@ export interface FetchOptionsSourceArgs {
    */
   readonly deps?: Readonly<Record<string, string>>;
   /**
+   * Optional workflow id (Slice 4.ACCOUNT-MODEL-22D-1). When set, it is
+   * serialized as `?workflowId=…` so the route can read the workflow's
+   * creator. PLUMBING ONLY — the route uses it as provenance for the later
+   * 22D-2 credential-policy slice; it changes no request outcome today. The
+   * hook leaves this unset until a caller opts in.
+   */
+  readonly workflowId?: string;
+  /**
    * Optional AbortSignal so the caller (typically the hook) can
    * cancel an in-flight fetch on dep change / unmount.
    */
@@ -100,6 +108,10 @@ export function buildOptionsSourceUrl(
       // Match the route's `deps[<parent>]` key encoding.
       params.set(`deps[${parent}]`, value);
     }
+  }
+  // 22D-1 provenance plumbing. Only serialized when the caller opts in.
+  if (args.workflowId !== undefined && args.workflowId.length > 0) {
+    params.set("workflowId", args.workflowId);
   }
   const qs = params.toString();
   const path = `/api/options/${encodeURIComponent(source)}`;

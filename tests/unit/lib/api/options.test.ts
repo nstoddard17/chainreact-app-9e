@@ -86,6 +86,30 @@ describe("buildOptionsSourceUrl", () => {
     expect(url).toContain("q=Q4+report");
     expect(url).toContain("deps%5Bfolder%5D=a%2Fb+c");
   });
+
+  // ── Slice 4.ACCOUNT-MODEL-22D-1 — workflowId provenance plumbing ──────────
+  it("serializes workflowId when set", () => {
+    expect(
+      buildOptionsSourceUrl("slack:channels", { workflowId: "wf-9" }),
+    ).toBe("/api/options/slack%3Achannels?workflowId=wf-9");
+  });
+
+  it("omits workflowId when empty", () => {
+    expect(
+      buildOptionsSourceUrl("slack:channels", { workflowId: "" }),
+    ).toBe("/api/options/slack%3Achannels");
+  });
+
+  it("serializes workflowId alongside q + deps", () => {
+    const url = buildOptionsSourceUrl("airtable:tables", {
+      q: "x",
+      deps: { baseId: "b1" },
+      workflowId: "wf-9",
+    });
+    expect(url).toContain("q=x");
+    expect(url).toContain("deps%5BbaseId%5D=b1");
+    expect(url).toContain("workflowId=wf-9");
+  });
 });
 
 describe("fetchOptionsSource — happy path", () => {

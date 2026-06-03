@@ -446,6 +446,51 @@ describe("useOptionsSource — refetch", () => {
   });
 });
 
+describe("useOptionsSource — workflowId plumbing (22D-1)", () => {
+  it("forwards workflowId to fetchOptionsSource", async () => {
+    mockFetchOptionsSource.mockResolvedValueOnce(success("native:examples", []));
+    renderHook(() =>
+      useOptionsSource({ source: "native:examples", workflowId: "wf-9" }),
+    );
+    await waitFor(() =>
+      expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1),
+    );
+    const [, args] = mockFetchOptionsSource.mock.calls[0]!;
+    expect(args.workflowId).toBe("wf-9");
+  });
+
+  it("omits workflowId from the fetch args when unset", async () => {
+    mockFetchOptionsSource.mockResolvedValueOnce(success("native:examples", []));
+    renderHook(() => useOptionsSource({ source: "native:examples" }));
+    await waitFor(() =>
+      expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1),
+    );
+    const [, args] = mockFetchOptionsSource.mock.calls[0]!;
+    expect(args.workflowId).toBeUndefined();
+  });
+
+  // The "no behavior change" guard: workflowId is read via a ref, NOT an effect
+  // dependency — so changing it alone must not trigger a re-fetch (it would for
+  // source / deps / query). A builder edits one workflow per mount anyway.
+  it("does NOT re-fetch when only workflowId changes", async () => {
+    mockFetchOptionsSource.mockResolvedValue(success("native:examples", []));
+    const { rerender } = renderHook(
+      ({ wf }: { wf: string }) =>
+        useOptionsSource({ source: "native:examples", workflowId: wf }),
+      { initialProps: { wf: "wf-1" } },
+    );
+    await waitFor(() =>
+      expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1),
+    );
+    rerender({ wf: "wf-2" });
+    // Yield a microtask so any spurious fetch would have landed.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("useOptionsSource — boundary", () => {
   it("does not import services/options (module load smoke test)", () => {
     // The structural boundary test enforces this at the file level.

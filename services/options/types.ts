@@ -103,6 +103,22 @@ export class OptionsResolverError extends Error {
 }
 
 /**
+ * Workflow provenance threaded into an options request when the caller
+ * supplies a `workflowId` (Slice 4.ACCOUNT-MODEL-22D-1).
+ *
+ * PLUMBING ONLY. This carries the workflow's `created_by_user_id` so a LATER
+ * slice (22D-2) can apply the creator-pinned credential policy for personal
+ * providers (see `core/integrations/credentialSharing.ts` + the 22B execution
+ * pin). In 22D-1 NOTHING consumes this for credential resolution — the route
+ * and the AI options tool still resolve the caller's personal-account
+ * integration exactly as before, so behavior is unchanged.
+ */
+export interface WorkflowCreatorContext {
+  readonly workflowId: string;
+  readonly createdByUserId: string;
+}
+
+/**
  * Server-side resolver context built by the route before invocation.
  *   - `integration` is always present when the resolver declares
  *     `requiresIntegration: true`; the route returns
@@ -112,12 +128,17 @@ export class OptionsResolverError extends Error {
  *     missing keys. The route also validates `requiredDeps` upstream
  *     and short-circuits with `MISSING_DEPENDENCY` before resolver
  *     dispatch.
+ *   - `workflowCreator` is present ONLY when the caller supplied a
+ *     `workflowId` that resolved to a visible workflow (Slice 22D-1).
+ *     It is provenance for a future credential-policy slice (22D-2);
+ *     resolvers MUST NOT consult it for credential resolution yet.
  */
 export interface OptionsResolverContext {
   readonly userId: string;
   readonly integration: IntegrationRecord | null;
   readonly q: string;
   readonly deps: Readonly<Record<string, string>>;
+  readonly workflowCreator?: WorkflowCreatorContext;
 }
 
 /**

@@ -16,9 +16,11 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getOptionsResolver } from "@/services/options/_registry";
+import { resolveWorkflowCreatorContext } from "@/services/options/workflowCreatorContext";
 import {
   OptionsResolverError,
   type OptionItem,
+  type WorkflowCreatorContext,
 } from "@/services/options/types";
 import {
   aiToolErr,
@@ -38,6 +40,15 @@ export interface ResolveOptionsInput {
   readonly deps?: Readonly<Record<string, string>>;
   /** Optional search query (trimmed + length-capped). */
   readonly q?: string;
+  /**
+   * Optional workflow id (Slice 4.ACCOUNT-MODEL-22D-1). When present and
+   * resolvable, the tool reads the workflow's `created_by_user_id` and threads
+   * it to the resolver as `ctx.workflowCreator`. PLUMBING ONLY — provenance for
+   * the later 22D-2 credential-policy slice. It does NOT change the integration
+   * lookup (still the caller's personal account) or any tool output in this
+   * slice.
+   */
+  readonly workflowId?: string;
 }
 
 export interface ResolveOptionsView {
@@ -116,8 +127,22 @@ export async function resolveOptionsSourceForAI(
 
   const q = (input.q ?? "").trim().slice(0, MAX_OPTIONS_QUERY_LENGTH);
 
+  // Workflow-creator provenance (Slice 4.ACCOUNT-MODEL-22D-1). Best-effort,
+  // never throws, never changes the integration lookup above — provenance
+  // carry-through for the later 22D-2 credential-policy slice.
+  let workflowCreator: WorkflowCreatorContext | null = null;
+  if (input.workflowId !== undefined) {
+    workflowCreator = await resolveWorkflowCreatorContext(input.workflowId);
+  }
+
   try {
-    const result = await resolver.resolve({ userId, integration, q, deps });
+    const result = await resolver.resolve({
+      userId,
+      integration,
+      q,
+      deps,
+      ...(workflowCreator !== null && { workflowCreator }),
+    });
     const all = result.items;
     const truncated = all.length > MAX_OPTIONS_ITEMS;
     const items = truncated ? all.slice(0, MAX_OPTIONS_ITEMS) : all;

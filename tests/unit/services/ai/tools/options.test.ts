@@ -17,11 +17,20 @@ const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
   updatedAt: "2026-05-30T00:00:00Z",
 }));
 
+// Slice 4.ACCOUNT-MODEL-22D-1: the tool resolves the workflow creator via the
+// real `resolveWorkflowCreatorContext` helper, which reads
+// `repositories/workflows.getById`. Mock the repo so the provenance-plumbing
+// tests drive it without a DB.
+const mockGetById = jest.fn();
+
 jest.mock("@/services/options/_registry", () => ({
   getOptionsResolver: (...args: unknown[]) => mockGetOptionsResolver(...args),
 }));
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: (...args: unknown[]) => mockGetActiveForExecution(...args),
+}));
+jest.mock("@/repositories/workflows", () => ({
+  getById: (...args: unknown[]) => mockGetById(...args),
 }));
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
@@ -34,6 +43,7 @@ import { OptionsResolverError } from "@/services/options/types";
 beforeEach(() => {
   mockGetOptionsResolver.mockReset();
   mockGetActiveForExecution.mockReset();
+  mockGetById.mockReset();
 });
 
 describe("resolveOptionsSourceForAI", () => {
@@ -146,6 +156,80 @@ describe("resolveOptionsSourceForAI", () => {
     if (result.ok) return;
     expect(result.code).toBe("SERVER_ERROR");
     expect(result.message).not.toContain("kaboom");
+  });
+
+  // ── Slice 4.ACCOUNT-MODEL-22D-1 — workflowId provenance plumbing ──────────
+  it("threads workflowCreator when workflowId resolves — WITHOUT changing the integration lookup", async () => {
+    const resolve = jest.fn().mockResolvedValue({
+      items: [{ value: "C1", label: "#general" }],
+      hasMore: false,
+    });
+    mockGetOptionsResolver.mockReturnValue({
+      source: "slack:channels",
+      provider: "slack",
+      requiresIntegration: true,
+      resolve,
+    });
+    mockGetActiveForExecution.mockResolvedValue({ id: "i1", provider: "slack" });
+    mockGetById.mockResolvedValue({
+      id: "wf-9",
+      createdByUserId: "creator-42",
+      accountId: "acct-team",
+    });
+
+    const result = await resolveOptionsSourceForAI({
+      source: "slack:channels",
+      userId: "u1",
+      workflowId: "wf-9",
+    });
+    expect(result.ok).toBe(true);
+
+    // (1) Provenance reached the resolver.
+    expect(resolve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "u1",
+        workflowCreator: { workflowId: "wf-9", createdByUserId: "creator-42" },
+      }),
+    );
+    // (2) NO credential flip — still the caller's personal account (acct-u1),
+    // never the creator.
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-u1", "slack", null);
+  });
+
+  it("omits workflowCreator when the workflowId is not resolvable (no behavior change)", async () => {
+    const resolve = jest.fn().mockResolvedValue({ items: [], hasMore: false });
+    mockGetOptionsResolver.mockReturnValue({
+      source: "slack:channels",
+      provider: "slack",
+      requiresIntegration: true,
+      resolve,
+    });
+    mockGetActiveForExecution.mockResolvedValue({ id: "i1", provider: "slack" });
+    mockGetById.mockResolvedValue(null);
+
+    await resolveOptionsSourceForAI({
+      source: "slack:channels",
+      userId: "u1",
+      workflowId: "wf-foreign",
+    });
+    const ctx = resolve.mock.calls[0]![0];
+    expect(ctx).not.toHaveProperty("workflowCreator");
+  });
+
+  it("does not look up a workflow when no workflowId is supplied", async () => {
+    const resolve = jest.fn().mockResolvedValue({ items: [], hasMore: false });
+    mockGetOptionsResolver.mockReturnValue({
+      source: "native:examples",
+      provider: "native",
+      requiresIntegration: false,
+      resolve,
+    });
+
+    await resolveOptionsSourceForAI({ source: "native:examples", userId: "u1" });
+
+    expect(mockGetById).not.toHaveBeenCalled();
+    const ctx = resolve.mock.calls[0]![0];
+    expect(ctx).not.toHaveProperty("workflowCreator");
   });
 
   it("caps items to MAX_OPTIONS_ITEMS and flags truncated + hasMore", async () => {

@@ -3,10 +3,12 @@ import { requireUser } from "@/app/api/providers/_shared";
 import { getActiveForExecution } from "@/repositories/integrations";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getOptionsResolver } from "@/services/options/_registry";
+import { resolveWorkflowCreatorContext } from "@/services/options/workflowCreatorContext";
 import {
   OptionsResolverError,
   type OptionsSourceErrorCode,
   type OptionsSourceResponse,
+  type WorkflowCreatorContext,
 } from "@/services/options/types";
 
 /**
@@ -34,6 +36,13 @@ import {
  *   - `deps[<parentField>]` — dependsOn parent values. Multiple
  *     parents supported (e.g. `?deps[baseId]=foo&deps[tableId]=bar`).
  *     Empty / whitespace-only values count as missing.
+ *   - `workflowId` — optional (Slice 4.ACCOUNT-MODEL-22D-1). When
+ *     present and resolvable, the route reads the workflow's
+ *     `created_by_user_id` and threads it to the resolver as
+ *     `ctx.workflowCreator`. PLUMBING ONLY — provenance for the later
+ *     22D-2 credential-policy slice. It does NOT change the integration
+ *     lookup (still the caller's personal account) or any other
+ *     behavior in this slice; an absent / unresolvable value is a no-op.
  *
  * Security:
  *   - No token leakage in `message`. No raw provider response bodies.
@@ -119,6 +128,7 @@ export async function GET(
   const rawQ = url.searchParams.get("q") ?? "";
   const q = rawQ.trim().slice(0, MAX_QUERY_LENGTH);
   const deps = extractDeps(url.searchParams);
+  const workflowId = url.searchParams.get("workflowId");
 
   // Required-deps check happens BEFORE integration lookup so a missing
   // parent never costs an integration DB query.
@@ -165,6 +175,14 @@ export async function GET(
     }
   }
 
+  // Workflow-creator provenance (Slice 4.ACCOUNT-MODEL-22D-1). Best-effort,
+  // never throws, never changes the integration lookup above — purely a
+  // provenance carry-through for the later 22D-2 credential-policy slice.
+  let workflowCreator: WorkflowCreatorContext | null = null;
+  if (workflowId !== null) {
+    workflowCreator = await resolveWorkflowCreatorContext(workflowId);
+  }
+
   // Resolver dispatch.
   try {
     const result = await resolver.resolve({
@@ -172,6 +190,7 @@ export async function GET(
       integration,
       q,
       deps,
+      ...(workflowCreator !== null && { workflowCreator }),
     });
     const payload: OptionsSourceResponse = {
       ok: true,

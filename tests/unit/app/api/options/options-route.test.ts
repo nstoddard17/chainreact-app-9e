@@ -27,6 +27,16 @@ jest.mock("@/repositories/integrations", () => ({
     mockGetActiveForExecution(...args),
 }));
 
+// Slice 4.ACCOUNT-MODEL-22D-1: the route resolves the workflow creator via the
+// real `resolveWorkflowCreatorContext` helper, which reads
+// `repositories/workflows.getById`. Mock the repo so the provenance-plumbing
+// tests can drive it without a DB. Existing tests never pass `?workflowId=`,
+// so the helper is never invoked for them and `getById` stays untouched.
+const mockGetById = jest.fn();
+jest.mock("@/repositories/workflows", () => ({
+  getById: (...args: unknown[]) => mockGetById(...args),
+}));
+
 // Slice 4.ACCOUNT-MODEL-6: the route resolves the V2 owner account via
 // this service. Stub to a synthetic personal account so the route doesn't
 // need a real Supabase request context inside the test runner.
@@ -92,6 +102,7 @@ const realGetOptionsResolver =
 beforeEach(() => {
   mockGetUser.mockReset();
   mockGetActiveForExecution.mockReset();
+  mockGetById.mockReset();
   mockConversationsList.mockReset();
   mockDecryptToken.mockReset();
   // Default: delegate to the real registry so the fixture-driven
@@ -693,5 +704,110 @@ describe("GET /api/options/[source] — deps parsing", () => {
       q: "",
       deps: { a: "kept" },
     });
+  });
+});
+
+// ─── Slice 4.ACCOUNT-MODEL-22D-1 — workflowId provenance plumbing ────────────
+//
+// These tests pin TWO things: (1) the new `?workflowId=` contract resolves the
+// creator and threads it to the resolver as `ctx.workflowCreator`; (2) NO
+// credential behavior flipped — the integration lookup still resolves the
+// caller's PERSONAL account, never the creator's. The credential-policy flip
+// is 22D-2, deliberately not in this slice.
+describe("GET /api/options/[source] — workflowId provenance plumbing (22D-1)", () => {
+  const provResolver: OptionsResolver = {
+    source: "synthetic:integration",
+    provider: "synthetic",
+    requiresIntegration: true,
+    resolve: jest.fn(),
+  };
+  // The signed-in caller's personal-account integration row. Note its
+  // connectedByUserId is the CALLER (user-1), NOT the workflow creator.
+  const callerIntegrationRow = {
+    id: "int-1",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
+    provider: "synthetic",
+  };
+
+  beforeEach(() => {
+    (provResolver.resolve as jest.Mock).mockReset();
+    (provResolver.resolve as jest.Mock).mockResolvedValue({
+      items: [{ value: "v1", label: "L1" }],
+      hasMore: false,
+    });
+    mockGetOptionsResolver.mockReturnValue(provResolver);
+  });
+
+  it("threads ctx.workflowCreator when workflowId resolves — WITHOUT changing the integration lookup", async () => {
+    authedUser();
+    mockGetActiveForExecution.mockResolvedValue(callerIntegrationRow);
+    mockGetById.mockResolvedValue({
+      id: "wf-9",
+      createdByUserId: "creator-42",
+      accountId: "acct-team",
+    });
+
+    const res = await getOptions(
+      makeReq("http://x/api/options/synthetic:integration?workflowId=wf-9"),
+      paramsOf("synthetic:integration"),
+    );
+    expect(res.status).toBe(200);
+
+    // (1) Provenance reached the resolver.
+    expect(provResolver.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        integration: callerIntegrationRow,
+        workflowCreator: { workflowId: "wf-9", createdByUserId: "creator-42" },
+      }),
+    );
+    // (2) NO credential flip — integration is STILL resolved against the
+    // caller's personal account (`acct-user-1`), never the creator.
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith(
+      "acct-user-1",
+      "synthetic",
+      null,
+    );
+    expect(mockGetActiveForExecution).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "synthetic",
+      "creator-42",
+    );
+  });
+
+  it("omits ctx.workflowCreator when the workflowId is not resolvable (no behavior change)", async () => {
+    authedUser();
+    mockGetActiveForExecution.mockResolvedValue(callerIntegrationRow);
+    mockGetById.mockResolvedValue(null); // not visible / not found
+
+    await getOptions(
+      makeReq(
+        "http://x/api/options/synthetic:integration?workflowId=wf-foreign",
+      ),
+      paramsOf("synthetic:integration"),
+    );
+
+    const ctx = (provResolver.resolve as jest.Mock).mock.calls[0]![0];
+    expect(ctx).not.toHaveProperty("workflowCreator");
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith(
+      "acct-user-1",
+      "synthetic",
+      null,
+    );
+  });
+
+  it("does not look up a workflow when no workflowId is supplied (existing callers unaffected)", async () => {
+    authedUser();
+    mockGetActiveForExecution.mockResolvedValue(callerIntegrationRow);
+
+    await getOptions(
+      makeReq("http://x/api/options/synthetic:integration"),
+      paramsOf("synthetic:integration"),
+    );
+
+    expect(mockGetById).not.toHaveBeenCalled();
+    const ctx = (provResolver.resolve as jest.Mock).mock.calls[0]![0];
+    expect(ctx).not.toHaveProperty("workflowCreator");
   });
 });
