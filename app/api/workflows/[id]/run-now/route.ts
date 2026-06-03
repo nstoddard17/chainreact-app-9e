@@ -14,7 +14,11 @@ import {
   findConfirmationRequiredActions,
   isValidConfirmationText,
 } from "@/services/workflows/riskConfirmation";
-import { requireUserWithAccount } from "../../_shared";
+import {
+  requireUser,
+  requireWorkflowAccountMember,
+  workflowNotFoundResponse,
+} from "../../_shared";
 
 /**
  * POST /api/workflows/[id]/run-now — Native-nodes Slice 2 Commit 1.
@@ -23,10 +27,14 @@ import { requireUserWithAccount } from "../../_shared";
  * docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §4 (NPD-N1).
  *
  * Authentication / authorization:
- *   - `requireUserWithAccount()` — signed-in Supabase user only (401
- *     otherwise); also resolves the caller's owning account.
- *   - Account-ownership check: `workflow.accountId === auth.accountId`
- *     (403 otherwise) — 4.ACCOUNT-MODEL-7 (was a user_id check).
+ *   - `requireUser()` — signed-in Supabase user only (401 otherwise).
+ *   - Account-membership check (4.TEAM-WORKFLOWS-2B): the caller must be a
+ *     member of `workflow.accountId`. This is MEMBERSHIP-based, not
+ *     active-account equality — a member can run/test a Team workflow even
+ *     while a different account is active (the workflow id is the anchor),
+ *     matching the TW-1 detail/lifecycle routes. A non-member collapses to the
+ *     same 404 the missing/deleted case returns (no existence leak). Roles are
+ *     NOT consulted — any member may run/test.
  *   - Workflow state ∈ {active, paused, draft}. Other states return 409.
  *
  * Body (Slice 3.SEC-2 update):
@@ -82,24 +90,23 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const auth = await requireUserWithAccount();
+  const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
 
   const workflow = await workflowsRepo.getById(id);
   if (!workflow || workflow.state === "deleted") {
-    return NextResponse.json(
-      { error: "Workflow not found." },
-      { status: 404 },
-    );
+    return workflowNotFoundResponse();
   }
-  // 4.ACCOUNT-MODEL-7: account-ownership gate. RLS already scopes getById to
-  // the caller's account; this explicit check produces a clean 403 and is
-  // defense-in-depth. created_by_user_id is provenance, never consulted here.
-  if (workflow.accountId !== auth.accountId) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
-  }
+  // 4.TEAM-WORKFLOWS-2B: account-membership authorization (aligned with the
+  // TW-1 detail/lifecycle routes). Membership-based, not active-account
+  // equality — a member can run a Team workflow while another account is
+  // active. A non-member collapses to the same 404 (no existence leak). RLS
+  // already scopes getById to the caller's account; this is defense-in-depth.
+  // created_by_user_id is provenance, never consulted here.
+  const authorized = await requireWorkflowAccountMember(auth.userId, workflow.accountId);
+  if (!authorized.ok) return authorized.response;
   if (!ALLOWED_STATES.has(workflow.state)) {
     return NextResponse.json(
       {

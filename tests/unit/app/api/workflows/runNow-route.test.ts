@@ -21,19 +21,12 @@ jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
 }));
 
-// 4.ACCOUNT-MODEL-7: requireUserWithAccount resolves the caller's account.
-// Map userId → `acct-<userId>` so "user-1" matches the workflow's
-// "acct-user-1" (202 paths) and "user-other" → "acct-user-other" (403).
-// 4.ACCOUNT-MODEL-11c: the gate now delegates to resolveActiveAccount, which
-// reads the personal account (mocked here) + the active_account_id pointer
-// (mocked NULL below) → resolves to the personal account, exactly as before.
-jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
-  ensurePersonalAccount: (userId: string) =>
-    Promise.resolve({ id: `acct-${userId}`, deletionStatus: "active" }),
-}));
-jest.mock("@/repositories/userProfiles", () => ({
-  getActiveAccountId: () => Promise.resolve(null),
-  clearActiveAccountId: () => Promise.resolve(),
+// 4.TEAM-WORKFLOWS-2B: run-now now authorizes by account MEMBERSHIP of
+// `workflow.accountId` (no active-account equality). Default: caller is a
+// member; the non-member test overrides to false.
+const mockIsMember = jest.fn();
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMember: (...args: unknown[]) => mockIsMember(...args),
 }));
 
 const mockEnqueueRun = jest.fn();
@@ -127,6 +120,9 @@ beforeEach(() => {
   });
   mockNotifyRun.mockReset();
   mockNotifyRun.mockResolvedValue({ outcome: "emitted" });
+  // Default: caller is a member of the workflow's account.
+  mockIsMember.mockReset();
+  mockIsMember.mockResolvedValue(true);
 });
 
 // ── auth + ownership ────────────────────────────────────────────────────────
@@ -162,14 +158,58 @@ describe("POST /run-now — auth + ownership", () => {
     expect(mockEnqueueRun).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when the signed-in user is not the workflow owner", async () => {
+  // 4.TEAM-WORKFLOWS-2B — membership authorization (replaces active-account equality).
+  it("returns 404 (no existence leak) when the caller is NOT a member of the workflow's account", async () => {
     signedInAs("user-other");
-    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, accountId: "acct-team-B" });
+    mockIsMember.mockResolvedValueOnce(false);
     const res = await POST(buildRequest(), {
       params: Promise.resolve({ id: "wf-1" }),
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_NOT_FOUND");
     expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockIsMember).toHaveBeenCalledWith("user-other", "acct-team-B");
+  });
+
+  it("a Team member can run the workflow while a DIFFERENT account is active (membership, not active-account)", async () => {
+    // No active-account resolution happens at all — only isMember of the
+    // workflow's own account is consulted. member-2 belongs to acct-team-A.
+    signedInAs("member-2");
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, accountId: "acct-team-A" });
+    mockIsMember.mockResolvedValueOnce(true);
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+    expect(mockIsMember).toHaveBeenCalledWith("member-2", "acct-team-A");
+    // The actor recorded on the run is the caller.
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      triggeredByUserId: string | null;
+    };
+    expect(enqueueCall.triggeredByUserId).toBe("member-2");
+  });
+
+  it("a plain member (no owner/admin role) can run — roles do NOT gate run-now", async () => {
+    signedInAs("plain-member");
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, accountId: "acct-team-A" });
+    mockIsMember.mockResolvedValueOnce(true); // membership is the only gate
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+  });
+
+  it("personal-account workflow owner still works (owner is a member of their personal account)", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(baseWorkflow); // accountId acct-user-1
+    mockIsMember.mockResolvedValueOnce(true);
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+    expect(mockIsMember).toHaveBeenCalledWith("user-1", "acct-user-1");
   });
 });
 
