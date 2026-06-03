@@ -5,6 +5,15 @@
 **Source of truth:** [team-integration-credential-access-audit.md](./team-integration-credential-access-audit.md) ·
 22A `dc1171922` · 22B `244e0c4d9` · 22C `13e325dcb` · `core/integrations/credentialSharing.ts`
 
+> **STATUS — IMPLEMENTED (2026-06-03).** This plan has shipped: 22D-1 `9abab5385` (options
+> creator context), 22D-2 `57116df28` (options sharing policy), 22D-3 `a209e3996` (AI context
+> redaction/scoping). The recommended policy below is now enforced across builder options, AI
+> options, and AI context — matching execution (22B). See the closeout:
+> [team-credential-access-closeout.md](./team-credential-access-closeout.md). The implementation
+> scoped account-provider lookups to the **workflow account** (carried via the resolved workflow
+> context) rather than a separate active-account switcher, which is the still-pending connect-path
+> decision in §"Open product decisions".
+
 ---
 
 ## TL;DR

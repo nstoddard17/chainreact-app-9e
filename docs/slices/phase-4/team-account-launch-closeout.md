@@ -10,8 +10,9 @@ credential closeouts into one launch-readiness source-of-truth.
 > **Read this first.** The Team page + account model launch foundation is **complete
 > locally**. **Team workflow builder support is intentionally the *next* track and is NOT
 > part of this closeout.** This document is a checklist and handoff — not implementation.
-> Before exposing the Team workflow builder, the credential-consistency blocker
-> (22D-1/2/3) must be resolved (see §6, §8, §9).
+> **Update (2026-06-03):** the credential-consistency arc that previously gated the Team
+> workflow builder is now **complete** (22D-1 `9abab5385`, 22D-2 `57116df28`, 22D-3
+> `a209e3996`); broad Team workflow work is **unblocked** (see §5, §8, §9).
 
 ---
 
@@ -155,9 +156,15 @@ each arc). Plan docs are linked where they exist.
 - **A removed member's personal Team credentials soft-disconnect** on member removal
   (22C); account/service credentials and the member's own personal-account integrations
   are untouched.
-- **Builder / options / AI are still personal-account scoped** (`ensurePersonalAccount`)
-  and **must NOT be flipped to active-account scope until 22D-1/2/3 are implemented.**
-- **Team workflow builder support is blocked on that policy work** (see §6, §8, §9).
+- **Builder options, AI options, and AI context now enforce the same policy** (22D-1
+  `9abab5385`, 22D-2 `57116df28`, 22D-3 `a209e3996`): account providers resolve the
+  workflow account (shared); personal providers are creator-pinned and creator-only; a
+  non-creator editor gets a typed `NOT_WORKFLOW_OWNER` (options) / redacted
+  `ownerControlled` state (AI); co-member personal credentials are **never used,
+  surfaced, or enumerated**; a missing creator credential reports `OWNER_MUST_CONNECT` /
+  `ownerMustConnect`.
+- **Team workflow builder support is no longer blocked on credential policy** — it is
+  enforced. (See [team-credential-access-closeout.md](./team-credential-access-closeout.md).)
 
 Authoritative policy + classification table:
 [team-credential-access-closeout.md](./team-credential-access-closeout.md).
@@ -184,7 +191,7 @@ Run the §10 commands to confirm the green items before any push / PR.
 | No org upgrade / transfer / leave accidentally added | ✅ none added (deferred — §7) |
 | No account-scoped URL scheme accidentally added | ✅ none added (deferred — §7) |
 | Team member cap enforced before UI exposure | ✅ member-limit guard (`059c61c80`) precedes Team page UI |
-| Credential sharing policy documented + execution/offboarding fixed | ✅ 22A/22B/22C shipped; policy locked; 22D builder/AI deferred |
+| Credential sharing policy documented + enforced across execution/offboarding/builder/AI | ✅ 22A/22B/22C + 22D-1/2/3 shipped (`9abab5385` / `57116df28` / `a209e3996`) |
 
 > ☐ = must be confirmed by running §10 in this checkout (status not asserted by this
 > docs-only slice). ✅ = behavioral invariant already established by the landed arcs.
@@ -201,8 +208,11 @@ Intentionally **not** built for this launch:
 - **Owner transfer / leave Team.**
 - **DB ≥1-owner trigger** (database-level guarantee that an account always has ≥1 owner).
 - **Account-scoped URL scheme.**
-- **Team workflow builder support.**
-- **Builder / options / AI active-account credential consistency — 22D-1/2/3.**
+- **Team workflow builder support** (UI/UX) — the credential policy it depends on is now in
+  place (22D-1/2/3); the builder surface itself is the next track.
+- **Active-account connect-path decision** — does connecting a provider while a team is active
+  land on the team account or stay personal? (Prerequisite for *useful* personal-provider
+  connections in a team context; the policy is safe either way.)
 - **Explicit credential-sharing UI** (per-node connection ownership + owner opt-in).
 - **Per-resource roles / ACLs** — intentionally **not planned** for launch.
 - **Team rename** — not currently supported (if confirmed unsupported, treat as deferred).
@@ -220,31 +230,29 @@ Intentionally **not** built for this launch:
 - **No silent double-charging.**
 - **Team members do not require Personal Pro.**
 - **No per-seat billing at launch.**
-- **Do NOT expose the Team workflow builder broadly until the credential-consistency
-  blocker (22D-1/2/3) is resolved.**
-- **Do NOT flip options / AI to active-account scope without the 22D policy
-  implementation.** (Keeping them on `ensurePersonalAccount` is the safe interim state —
-  no co-member leak; the only cost is builder↔execution mismatch for team workflows,
-  which are not broadly exposed yet.)
+- **The credential-sharing policy must stay enforced** across execution, builder options, AI
+  options, and AI context (22A/22B/22C + 22D-1/2/3). Specifically, DO NOT: reintroduce a
+  co-member fallback for personal providers; let options/AI surface another member's personal
+  label/email/resource metadata to a non-creator; or change the unknown-provider default away
+  from **personal**. (The active-account flip already shipped *with* this policy — that is why
+  the prior "do not flip options/AI" blocker is lifted.)
 
 ---
 
 ## 9. Recommended next work after closeout
 
-- **Next track after this closeout: Team workflow support.**
-- **The first Team workflow support slice must start with the credential-consistency
-  arc, in order:**
-  1. **22D-1 — Options Creator Context** (thread `workflowId` / `created_by_user_id` into
-     `/api/options/[source]` + `resolveOptionsSourceForAI`; contract change, no behavior
-     change yet).
-  2. **22D-2 — Options Sharing Policy** (classify provider; account → active-account;
-     personal → creator-pinned + `NOT_WORKFLOW_OWNER` / `OWNER_MUST_CONNECT`; cover both
-     resolver auth styles; flip these paths behind the gate).
-  3. **22D-3 — AI Context Redaction / Scoping** (`integrations` / `workflowContext`
-     filter personal-provider availability to the creator; move ownership guards to
-     active account).
-- **Do NOT start broad builder UI / Team workflow work before those credential-consistency
-  slices land.** Plan: [team-credential-consistency-builder-ai-plan.md](./team-credential-consistency-builder-ai-plan.md).
+- **Next track after this closeout: Team workflow support (builder UI/UX).** The
+  credential-consistency prerequisite is **done** — 22D-1 `9abab5385`, 22D-2 `57116df28`,
+  22D-3 `a209e3996` (see [team-credential-access-closeout.md](./team-credential-access-closeout.md)).
+- **Recommended starting points for the Team workflow track:**
+  1. **Team workflow builder surface** — expose the builder for team-account workflows, relying
+     on the now-enforced options/AI policy (non-creator editors get typed owner-gated states for
+     personal-provider config; account providers resolve the shared team credential).
+  2. **Active-account connect-path decision** — where a new OAuth connection lands when a team is
+     active (team account vs personal). Unblocks *useful* personal-provider connections in a team.
+  3. **Explicit credential-sharing UI** (later) — per-node connection ownership + owner opt-in,
+     so collaborative personal-provider editing becomes first-class.
+- The credential policy is no longer a blocker — but it **must not regress** (see §8).
 
 ---
 
