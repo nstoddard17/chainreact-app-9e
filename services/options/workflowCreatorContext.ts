@@ -33,6 +33,7 @@ export async function resolveWorkflowCreatorContext(
     return {
       workflowId: record.id,
       createdByUserId: record.createdByUserId,
+      accountId: record.accountId,
     };
   } catch {
     return null;

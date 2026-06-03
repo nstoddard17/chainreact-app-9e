@@ -35,6 +35,14 @@
  *   - `PROVIDER_ERROR`          — a downstream provider call failed
  *                                 (sanitized; no raw body / token).
  *   - `SERVER_ERROR`            — an unexpected internal failure (sanitized).
+ *   - `NOT_WORKFLOW_OWNER`      — (Slice 4.ACCOUNT-MODEL-22D-2) a non-creator
+ *                                 editor requested options for a PERSONAL
+ *                                 provider on a team workflow. Execution runs
+ *                                 under the owner's connection (22B); no
+ *                                 resolver runs, no resource labels fetched.
+ *   - `OWNER_MUST_CONNECT`      — (22D-2) the workflow CREATOR is editing but
+ *                                 has no active connection for this PERSONAL
+ *                                 provider (mirrors 22B's execution failure).
  */
 export type AiToolErrorCode =
   | "NOT_FOUND"
@@ -42,7 +50,9 @@ export type AiToolErrorCode =
   | "INTEGRATION_DISCONNECTED"
   | "MISSING_DEPENDENCY"
   | "PROVIDER_ERROR"
-  | "SERVER_ERROR";
+  | "SERVER_ERROR"
+  | "NOT_WORKFLOW_OWNER"
+  | "OWNER_MUST_CONNECT";
 
 export interface AiToolError {
   readonly ok: false;

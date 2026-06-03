@@ -89,6 +89,7 @@ import {
   type OptionsSourceResponse,
   type OptionsResolver,
 } from "@/services/options/types";
+import { getCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 
 // `getOptionsResolver` is jest.mock'd above, so importing it directly
 // from `_registry` returns the mock. `jest.requireActual` returns the
@@ -707,107 +708,158 @@ describe("GET /api/options/[source] — deps parsing", () => {
   });
 });
 
-// ─── Slice 4.ACCOUNT-MODEL-22D-1 — workflowId provenance plumbing ────────────
+// ─── Slice 4.ACCOUNT-MODEL-22D-2 — credential-sharing policy ─────────────────
 //
-// These tests pin TWO things: (1) the new `?workflowId=` contract resolves the
-// creator and threads it to the resolver as `ctx.workflowCreator`; (2) NO
-// credential behavior flipped — the integration lookup still resolves the
-// caller's PERSONAL account, never the creator's. The credential-policy flip
-// is 22D-2, deliberately not in this slice.
-describe("GET /api/options/[source] — workflowId provenance plumbing (22D-1)", () => {
-  const provResolver: OptionsResolver = {
-    source: "synthetic:integration",
-    provider: "synthetic",
+// With a workflow context (`?workflowId=`), the route classifies the provider
+// and resolves the credential the way EXECUTION (22B) does: account providers
+// account-shared on the workflow account; personal providers creator-pinned +
+// creator-only. Without a workflow context, the safe legacy behavior (editor's
+// personal account) is preserved — the existing suite above exercises that.
+describe("GET /api/options/[source] — credential-sharing policy (22D-2)", () => {
+  // `slack` classifies ACCOUNT; `gmail` classifies PERSONAL. Synthetic sources
+  // point at those provider strings so the policy classifier drives behavior.
+  const accountResolver: OptionsResolver = {
+    source: "slackopt:resource",
+    provider: "slack",
     requiresIntegration: true,
     resolve: jest.fn(),
   };
-  // The signed-in caller's personal-account integration row. Note its
-  // connectedByUserId is the CALLER (user-1), NOT the workflow creator.
-  const callerIntegrationRow = {
-    id: "int-1",
-    accountId: "acct-user-1",
-    connectedByUserId: "user-1",
-    provider: "synthetic",
+  const personalResolver: OptionsResolver = {
+    source: "gmailopt:resource",
+    provider: "gmail",
+    requiresIntegration: true,
+    resolve: jest.fn(),
   };
 
   beforeEach(() => {
-    (provResolver.resolve as jest.Mock).mockReset();
-    (provResolver.resolve as jest.Mock).mockResolvedValue({
+    (accountResolver.resolve as jest.Mock).mockReset();
+    (accountResolver.resolve as jest.Mock).mockResolvedValue({
       items: [{ value: "v1", label: "L1" }],
       hasMore: false,
     });
-    mockGetOptionsResolver.mockReturnValue(provResolver);
+    (personalResolver.resolve as jest.Mock).mockReset();
+    (personalResolver.resolve as jest.Mock).mockResolvedValue({
+      items: [{ value: "v1", label: "L1" }],
+      hasMore: false,
+    });
   });
 
-  it("threads ctx.workflowCreator when workflowId resolves — WITHOUT changing the integration lookup", async () => {
+  it("account provider resolves the WORKFLOW account, account-shared (no pin)", async () => {
     authedUser();
-    mockGetActiveForExecution.mockResolvedValue(callerIntegrationRow);
+    mockGetOptionsResolver.mockReturnValue(accountResolver);
+    mockGetActiveForExecution.mockResolvedValue({ id: "int-1", provider: "slack" });
     mockGetById.mockResolvedValue({
       id: "wf-9",
       createdByUserId: "creator-42",
       accountId: "acct-team",
     });
 
+    // Requester (user-1) is NOT the creator — but account providers are shared,
+    // so this still succeeds (no owner gate for account providers).
     const res = await getOptions(
-      makeReq("http://x/api/options/synthetic:integration?workflowId=wf-9"),
-      paramsOf("synthetic:integration"),
+      makeReq("http://x/api/options/slackopt:resource?workflowId=wf-9"),
+      paramsOf("slackopt:resource"),
     );
     expect(res.status).toBe(200);
-
-    // (1) Provenance reached the resolver.
-    expect(provResolver.resolve).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user-1",
-        integration: callerIntegrationRow,
-        workflowCreator: { workflowId: "wf-9", createdByUserId: "creator-42" },
-      }),
-    );
-    // (2) NO credential flip — integration is STILL resolved against the
-    // caller's personal account (`acct-user-1`), never the creator.
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith(
-      "acct-user-1",
-      "synthetic",
-      null,
-    );
-    expect(mockGetActiveForExecution).not.toHaveBeenCalledWith(
-      expect.anything(),
-      "synthetic",
-      "creator-42",
-    );
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(true);
+    // Workflow account, no 4th provenance-pin arg.
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-team", "slack", null);
+    expect(accountResolver.resolve).toHaveBeenCalledTimes(1);
   });
 
-  it("omits ctx.workflowCreator when the workflowId is not resolvable (no behavior change)", async () => {
-    authedUser();
-    mockGetActiveForExecution.mockResolvedValue(callerIntegrationRow);
-    mockGetById.mockResolvedValue(null); // not visible / not found
+  it("personal provider + requester IS the creator resolves PINNED to the creator", async () => {
+    authedUser(); // user-1
+    mockGetOptionsResolver.mockReturnValue(personalResolver);
+    mockGetActiveForExecution.mockResolvedValue({ id: "int-g", provider: "gmail" });
+    mockGetById.mockResolvedValue({
+      id: "wf-9",
+      createdByUserId: "user-1", // requester IS the creator
+      accountId: "acct-team",
+    });
+    // Capture the credential-resolution context visible to the resolver — proves
+    // the refreshable-resolver auth style is pinned too (refreshAndRetry reads
+    // this context).
+    let seenPin: string | null | undefined = "UNSET";
+    (personalResolver.resolve as jest.Mock).mockImplementation(async () => {
+      seenPin = getCredentialResolutionContext()?.createdByUserId;
+      return { items: [{ value: "v1", label: "L1" }], hasMore: false };
+    });
 
-    await getOptions(
-      makeReq(
-        "http://x/api/options/synthetic:integration?workflowId=wf-foreign",
-      ),
-      paramsOf("synthetic:integration"),
+    const res = await getOptions(
+      makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9"),
+      paramsOf("gmailopt:resource"),
     );
-
-    const ctx = (provResolver.resolve as jest.Mock).mock.calls[0]![0];
-    expect(ctx).not.toHaveProperty("workflowCreator");
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith(
-      "acct-user-1",
-      "synthetic",
-      null,
-    );
+    expect(res.status).toBe(200);
+    // Workflow account, pinned to the creator (user-1).
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-team", "gmail", null, {
+      connectedByUserId: "user-1",
+    });
+    expect(seenPin).toBe("user-1");
   });
 
-  it("does not look up a workflow when no workflowId is supplied (existing callers unaffected)", async () => {
-    authedUser();
-    mockGetActiveForExecution.mockResolvedValue(callerIntegrationRow);
+  it("personal provider + requester is NOT the creator returns NOT_WORKFLOW_OWNER and fetches NOTHING", async () => {
+    authedUser(); // user-1
+    mockGetOptionsResolver.mockReturnValue(personalResolver);
+    mockGetById.mockResolvedValue({
+      id: "wf-9",
+      createdByUserId: "creator-42", // someone else owns the workflow
+      accountId: "acct-team",
+    });
 
-    await getOptions(
-      makeReq("http://x/api/options/synthetic:integration"),
-      paramsOf("synthetic:integration"),
+    const res = await getOptions(
+      makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9"),
+      paramsOf("gmailopt:resource"),
     );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(false);
+    if (!body.ok) {
+      expect(body.code).toBe("NOT_WORKFLOW_OWNER");
+    }
+    // NO co-member credential lookup, NO provider fetch — the no-leak guarantee.
+    expect(mockGetActiveForExecution).not.toHaveBeenCalled();
+    expect(personalResolver.resolve).not.toHaveBeenCalled();
+  });
 
+  it("personal provider + creator has no connection returns OWNER_MUST_CONNECT", async () => {
+    authedUser(); // user-1 == creator
+    mockGetOptionsResolver.mockReturnValue(personalResolver);
+    mockGetActiveForExecution.mockResolvedValue(null); // creator hasn't connected
+    mockGetById.mockResolvedValue({
+      id: "wf-9",
+      createdByUserId: "user-1",
+      accountId: "acct-team",
+    });
+
+    const res = await getOptions(
+      makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9"),
+      paramsOf("gmailopt:resource"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(false);
+    if (!body.ok) {
+      expect(body.code).toBe("OWNER_MUST_CONNECT");
+    }
+    expect(personalResolver.resolve).not.toHaveBeenCalled();
+  });
+
+  it("personal provider with NO workflow context keeps the legacy personal-account behavior", async () => {
+    authedUser(); // user-1
+    mockGetOptionsResolver.mockReturnValue(personalResolver);
+    mockGetActiveForExecution.mockResolvedValue({ id: "int-g", provider: "gmail" });
+
+    const res = await getOptions(
+      makeReq("http://x/api/options/gmailopt:resource"),
+      paramsOf("gmailopt:resource"),
+    );
+    expect(res.status).toBe(200);
+    // No workflowId → no workflow lookup, editor's personal account, no pin.
     expect(mockGetById).not.toHaveBeenCalled();
-    const ctx = (provResolver.resolve as jest.Mock).mock.calls[0]![0];
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-user-1", "gmail", null);
+    expect(personalResolver.resolve).toHaveBeenCalledTimes(1);
+    const ctx = (personalResolver.resolve as jest.Mock).mock.calls[0]![0];
     expect(ctx).not.toHaveProperty("workflowCreator");
   });
 });

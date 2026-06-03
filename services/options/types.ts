@@ -50,6 +50,15 @@ export type OptionsSourceErrorCode =
   | "MISSING_DEPENDENCY"
   | "PROVIDER_ERROR"
   | "SERVER_ERROR"
+  // ── Slice 4.ACCOUNT-MODEL-22D-2 — personal-provider credential policy. ──
+  // A non-creator editor requested options for a PERSONAL-credential provider
+  // on a team workflow. Execution runs under the workflow owner's connection
+  // (22B), so no resolver runs and NO resource labels are fetched — only the
+  // owner can configure these.
+  | "NOT_WORKFLOW_OWNER"
+  // The workflow CREATOR is editing but has no active connection for this
+  // PERSONAL provider. Mirrors 22B's execution failure ("connect to run").
+  | "OWNER_MUST_CONNECT"
   | "UNKNOWN";
 
 /**
@@ -116,6 +125,13 @@ export class OptionsResolverError extends Error {
 export interface WorkflowCreatorContext {
   readonly workflowId: string;
   readonly createdByUserId: string;
+  /**
+   * The account that owns the workflow (Slice 4.ACCOUNT-MODEL-22D-2). The scope
+   * for account-shared credential resolution + the account the creator's
+   * personal credential is pinned within — the same account execution (22B)
+   * runs the workflow under.
+   */
+  readonly accountId: string;
 }
 
 /**

@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe("resolveWorkflowCreatorContext", () => {
-  it("returns the workflow id + created_by_user_id when the workflow resolves", async () => {
+  it("returns the workflow id + created_by_user_id + account id when the workflow resolves", async () => {
     mockGetById.mockResolvedValue({
       id: "wf-1",
       createdByUserId: "creator-1",
@@ -32,7 +32,11 @@ describe("resolveWorkflowCreatorContext", () => {
 
     const result = await resolveWorkflowCreatorContext("wf-1");
 
-    expect(result).toEqual({ workflowId: "wf-1", createdByUserId: "creator-1" });
+    expect(result).toEqual({
+      workflowId: "wf-1",
+      createdByUserId: "creator-1",
+      accountId: "acct-x",
+    });
     expect(mockGetById).toHaveBeenCalledWith("wf-1");
   });
 

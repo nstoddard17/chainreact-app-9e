@@ -254,6 +254,9 @@ describe("fetchOptionsSource — error code coverage (matches OptionsSourceError
     "MISSING_DEPENDENCY",
     "PROVIDER_ERROR",
     "SERVER_ERROR",
+    // Slice 4.ACCOUNT-MODEL-22D-2 personal-provider policy states.
+    "NOT_WORKFLOW_OWNER",
+    "OWNER_MUST_CONNECT",
     "UNKNOWN",
   ] as const;
 

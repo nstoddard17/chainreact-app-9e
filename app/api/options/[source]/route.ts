@@ -4,6 +4,8 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getOptionsResolver } from "@/services/options/_registry";
 import { resolveWorkflowCreatorContext } from "@/services/options/workflowCreatorContext";
+import { decideOptionsCredential } from "@/services/options/credentialPolicy";
+import { runWithCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 import {
   OptionsResolverError,
   type OptionsSourceErrorCode,
@@ -49,10 +51,16 @@ import {
  *     Resolvers throw `OptionsResolverError` with caller-friendly
  *     sanitized strings.
  *   - `requireUser()` short-circuits on no session.
- *   - When `resolver.requiresIntegration === true`, the user's active
+ *   - When `resolver.requiresIntegration === true`, the active
  *     integration is looked up via the service-role-backed
- *     `getActiveForExecution(userId, provider, null)`. Missing /
- *     disconnected → `INTEGRATION_DISCONNECTED`.
+ *     `getActiveForExecution`. The account + provenance pin follow the
+ *     22D-2 credential-sharing policy (`decideOptionsCredential`): no
+ *     workflow context → editor's personal account; account provider →
+ *     workflow account, shared; personal provider → workflow account
+ *     pinned to the creator, creator-only (`NOT_WORKFLOW_OWNER` /
+ *     `OWNER_MUST_CONNECT`). A non-creator editor triggers NO lookup, so
+ *     a co-member's personal credential is never fetched. Missing →
+ *     `INTEGRATION_DISCONNECTED` (or `OWNER_MUST_CONNECT` for the creator).
  *
  * The route deliberately does NOT cache. Each request fans out to the
  * resolver. v1 scope.
@@ -145,18 +153,64 @@ export async function GET(
     }
   }
 
-  // Integration lookup (only when the resolver declares it required).
-  // Slice 4.ACCOUNT-MODEL-6: account-scoped. Until the switcher slice
-  // ships, "this user's integrations" means their personal account.
+  // Workflow-creator provenance (Slice 4.ACCOUNT-MODEL-22D-1). Best-effort,
+  // never throws. Drives the credential-sharing decision below (22D-2).
+  let workflowCreator: WorkflowCreatorContext | null = null;
+  if (workflowId !== null) {
+    workflowCreator = await resolveWorkflowCreatorContext(workflowId);
+  }
+
+  // Integration lookup (only when the resolver declares it required), governed
+  // by the 22D-2 credential-sharing policy:
+  //   - no workflow context → editor's personal account (safe legacy behavior);
+  //   - account provider     → the workflow's account, account-shared;
+  //   - personal + creator   → the workflow's account, PINNED to the creator;
+  //   - personal + non-owner → NOT_WORKFLOW_OWNER (no lookup, no provider fetch).
+  // For the pinned case, `pinUserId` also feeds the 22B credential-resolution
+  // context so `refreshAndRetry`-style resolvers re-resolve with the same pin.
   let integration = null;
+  let pinUserId: string | null = null;
   if (resolver.requiresIntegration) {
+    const decision = decideOptionsCredential(
+      resolver.provider,
+      auth.userId,
+      workflowCreator,
+    );
+
+    if (decision.kind === "not-owner") {
+      // No resolver call, no getActiveForExecution call — the creator's
+      // personal credential / resource labels are never fetched.
+      return errorResponse({
+        source,
+        code: "NOT_WORKFLOW_OWNER",
+        message: `This step runs under the workflow owner's ${resolver.provider} connection. Ask the owner to set it up.`,
+      });
+    }
+
     try {
-      const ownerAccount = await ensurePersonalAccount(auth.userId);
-      integration = await getActiveForExecution(
-        ownerAccount.id,
-        resolver.provider,
-        null,
-      );
+      if (decision.kind === "legacy") {
+        const ownerAccount = await ensurePersonalAccount(auth.userId);
+        integration = await getActiveForExecution(
+          ownerAccount.id,
+          resolver.provider,
+          null,
+        );
+      } else if (decision.kind === "account") {
+        integration = await getActiveForExecution(
+          decision.accountId,
+          resolver.provider,
+          null,
+        );
+      } else {
+        // personal-creator — pin the lookup to the creator's connection.
+        pinUserId = decision.connectedByUserId;
+        integration = await getActiveForExecution(
+          decision.accountId,
+          resolver.provider,
+          null,
+          { connectedByUserId: pinUserId },
+        );
+      }
     } catch {
       // Repository-layer failure (e.g. service-role client error).
       // Sanitized — never echo the underlying message.
@@ -167,6 +221,15 @@ export async function GET(
       });
     }
     if (integration === null) {
+      if (decision.kind === "personal-creator") {
+        // The creator is editing but hasn't connected — mirror 22B's
+        // execution failure rather than the generic disconnected state.
+        return errorResponse({
+          source,
+          code: "OWNER_MUST_CONNECT",
+          message: `Connect ${resolver.provider} to configure and run this workflow.`,
+        });
+      }
       return errorResponse({
         source,
         code: "INTEGRATION_DISCONNECTED",
@@ -175,23 +238,26 @@ export async function GET(
     }
   }
 
-  // Workflow-creator provenance (Slice 4.ACCOUNT-MODEL-22D-1). Best-effort,
-  // never throws, never changes the integration lookup above — purely a
-  // provenance carry-through for the later 22D-2 credential-policy slice.
-  let workflowCreator: WorkflowCreatorContext | null = null;
-  if (workflowId !== null) {
-    workflowCreator = await resolveWorkflowCreatorContext(workflowId);
-  }
-
-  // Resolver dispatch.
-  try {
-    const result = await resolver.resolve({
+  // Resolver dispatch. When the credential is creator-pinned, run inside the 22B
+  // credential-resolution context so any internal `refreshAndRetry` re-resolves
+  // the SAME creator-pinned personal credential (covers the refreshable resolver
+  // auth style; decrypt-direct resolvers already use the pre-resolved row).
+  const dispatch = () =>
+    resolver.resolve({
       userId: auth.userId,
       integration,
       q,
       deps,
       ...(workflowCreator !== null && { workflowCreator }),
     });
+  try {
+    const result =
+      pinUserId !== null
+        ? await runWithCredentialResolutionContext(
+            { createdByUserId: pinUserId },
+            dispatch,
+          )
+        : await dispatch();
     const payload: OptionsSourceResponse = {
       ok: true,
       source,

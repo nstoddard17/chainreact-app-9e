@@ -31,6 +31,11 @@ export type OptionsApiErrorCode =
   | "MISSING_DEPENDENCY"
   | "PROVIDER_ERROR"
   | "SERVER_ERROR"
+  // ── Slice 4.ACCOUNT-MODEL-22D-2 — personal-provider credential policy. ──
+  // Mirror of `OptionsSourceErrorCode`. The future builder UI branches on
+  // these to render owner-gated states (no resource list was fetched).
+  | "NOT_WORKFLOW_OWNER"
+  | "OWNER_MUST_CONNECT"
   | "UNKNOWN";
 
 /**
