@@ -36,9 +36,16 @@ function shortId(userId: string): string {
 }
 
 /**
- * Resolve the two display lines + avatar seed for a member from whatever
- * identity is available: name → email → short id, with the secondary line
- * showing the next distinct identifier so a row never reads ambiguously.
+ * Resolve the two display lines + avatar seed for a member.
+ *
+ * Preferred shape: NAME on top (next to the "You" pill), EMAIL underneath.
+ * The raw user id is only ever shown as a last resort when we have neither a
+ * name nor an email — once an email exists it always wins the bottom line over
+ * the id.
+ *   - name + email → name / email
+ *   - name only    → name / (nothing)
+ *   - email only   → email / (nothing — no id)
+ *   - neither      → "You" | "Team member" / short id
  */
 function memberIdentity(m: TeamMemberView): {
   primary: string;
@@ -48,10 +55,10 @@ function memberIdentity(m: TeamMemberView): {
   const name = m.displayName?.trim() || "";
   const email = m.email?.trim() || "";
   if (name) {
-    return { primary: name, secondary: email || shortId(m.userId), avatar: name };
+    return { primary: name, secondary: email || null, avatar: name };
   }
   if (email) {
-    return { primary: email, secondary: shortId(m.userId), avatar: email };
+    return { primary: email, secondary: null, avatar: email };
   }
   return {
     primary: m.isYou ? "You" : "Team member",

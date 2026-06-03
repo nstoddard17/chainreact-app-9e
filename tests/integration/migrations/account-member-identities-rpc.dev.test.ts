@@ -62,9 +62,16 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   const createdUserIds: string[] = [];
   const password = `Pw-${Math.random().toString(36).slice(2)}!`;
 
-  async function createUser(): Promise<{ userId: string; email: string }> {
+  async function createUser(
+    userMetadata?: Record<string, unknown>,
+  ): Promise<{ userId: string; email: string }> {
     const email = `mi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@chainreact.test`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      ...(userMetadata ? { user_metadata: userMetadata } : {}),
+    });
     if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
     createdUserIds.push(data.user.id);
     return { userId: data.user.id, email };
@@ -128,6 +135,19 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
     expect(ownerRow.display_name).toBe("Ada Owner");
     expect(memberRow.email).toBe(member.email);
     expect(memberRow.display_name).toBeNull();
+  });
+
+  it("falls back to auth metadata full_name/name when display_name is unset", async () => {
+    // Owner has no profile display_name but DOES carry an OAuth-style full_name.
+    const owner = await createUser({ full_name: "Dana Metadata" });
+    const teamId = await createTeam(owner.userId);
+
+    const ownerSession = await sessionFor(owner.email);
+    const { data, error } = await ownerSession.rpc("get_account_member_identities", { p_account_id: teamId });
+    expect(error).toBeNull();
+    const rows = (data ?? []) as IdentityRow[];
+    const ownerRow = rows.find((r) => r.user_id === owner.userId)!;
+    expect(ownerRow.display_name).toBe("Dana Metadata");
   });
 
   it("a NON-member gets an error and zero rows (no email leak)", async () => {

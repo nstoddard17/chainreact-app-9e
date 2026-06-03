@@ -38,14 +38,25 @@ describe("MembersTable — display identity", () => {
     expect(within(row).getByText("ada@x.io")).toBeInTheDocument();
   });
 
-  it("falls back to email as primary when displayName is missing", () => {
+  it("falls back to email as primary when displayName is missing — and never shows the raw id alongside an email", () => {
     renderTable([
-      { ...base, userId: "u2", role: "member", email: "bob@x.io", displayName: null, isYou: false },
+      { ...base, userId: "u2abcdef0000", role: "member", email: "bob@x.io", displayName: null, isYou: false },
     ]);
-    const row = screen.getByTestId("team-member-u2");
+    const row = screen.getByTestId("team-member-u2abcdef0000");
     expect(within(row).getByText("bob@x.io")).toBeInTheDocument();
-    // Short id appears as the secondary identifier.
-    expect(within(row).getByText("u2")).toBeInTheDocument();
+    // The short id is suppressed once we have an email to show.
+    expect(within(row).queryByText("u2abcdef…")).toBeNull();
+  });
+
+  it("shows the name on top and the email underneath when both exist", () => {
+    renderTable([
+      { ...base, userId: "u4", role: "member", email: "dana@x.io", displayName: "Dana Scully", isYou: false },
+    ]);
+    const row = screen.getByTestId("team-member-u4");
+    expect(within(row).getByText("Dana Scully")).toBeInTheDocument();
+    expect(within(row).getByText("dana@x.io")).toBeInTheDocument();
+    // No raw id when name + email are present.
+    expect(within(row).queryByText("u4")).toBeNull();
   });
 
   it("falls back to a short user id when neither name nor email is available", () => {
