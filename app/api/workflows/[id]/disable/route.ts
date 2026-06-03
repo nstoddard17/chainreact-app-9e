@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { DisableWorkflowRequestSchema } from "@/contracts/workflow";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 import {
+  authorizeWorkflowLifecycleAccess,
   parseJsonBody,
   requireUser,
   runLifecycle,
@@ -19,6 +20,10 @@ export async function POST(
   if (!parsed.ok) return parsed.response;
 
   const { id } = await params;
+  // 4.TEAM-WORKFLOWS-1 (TW-1): explicit account-membership authorization.
+  const authorized = await authorizeWorkflowLifecycleAccess(id, auth.userId);
+  if (!authorized.ok) return authorized.response;
+
   const orch = createLifecycleOrchestrator();
   return runLifecycle(
     () =>

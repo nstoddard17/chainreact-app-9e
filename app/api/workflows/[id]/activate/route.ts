@@ -10,6 +10,7 @@ import {
 } from "@/services/workflows/riskConfirmation";
 import {
   requireUser,
+  requireWorkflowAccountMember,
   runLifecycle,
   toWorkflowSummary,
 } from "../../_shared";
@@ -99,6 +100,14 @@ export async function POST(
   // extra route-level read is cheap and avoids duplicating
   // LifecycleError translation.)
   const workflow = await workflowsRepo.getById(id);
+  // 4.TEAM-WORKFLOWS-1 (TW-1): explicit account-membership authorization before
+  // any confirmation probing or orchestration. A non-member collapses to the
+  // standard 404 (no existence leak). When the row is missing/deleted we defer
+  // to the orchestrator's LifecycleError mapping (unchanged behavior).
+  if (workflow && workflow.state !== "deleted") {
+    const authorized = await requireWorkflowAccountMember(auth.userId, workflow.accountId);
+    if (!authorized.ok) return authorized.response;
+  }
   let risk: RiskConfirmationResult | null = null;
   if (workflow && workflow.state !== "deleted") {
     risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);

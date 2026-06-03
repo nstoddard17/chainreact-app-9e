@@ -26,6 +26,12 @@ jest.mock("@/repositories/workflows", () => ({
     mockUpdateDraftDefinition(...args),
 }));
 
+// 4.TEAM-WORKFLOWS-1 (TW-1): the route now authorizes by account membership.
+const mockIsMember = jest.fn();
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMember: (...args: unknown[]) => mockIsMember(...args),
+}));
+
 import { GET, PATCH } from "@/app/api/workflows/[id]/route";
 
 const baseRecord = {
@@ -48,6 +54,10 @@ beforeEach(() => {
   mockGetById.mockReset();
   mockUpdateName.mockReset();
   mockUpdateDraftDefinition.mockReset();
+  // Default: caller is a member of the workflow's account. The cross-account
+  // tests override this to false.
+  mockIsMember.mockReset();
+  mockIsMember.mockResolvedValue(true);
 });
 
 function authedUser(): void {
@@ -104,6 +114,31 @@ describe("GET /api/workflows/[id]", () => {
     });
     expect(res.status).toBe(401);
     expect(mockGetById).not.toHaveBeenCalled();
+  });
+
+  // 4.TEAM-WORKFLOWS-1 (TW-1) — account-membership authorization.
+  it("returns 404 (no existence leak) when the caller is NOT a member of the workflow's account", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, accountId: "acct-team-B" });
+    mockIsMember.mockResolvedValueOnce(false); // caller not a member of acct-team-B
+    const res = await GET(new Request("http://x/wf-1"), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_NOT_FOUND");
+    expect(mockIsMember).toHaveBeenCalledWith("user-1", "acct-team-B");
+  });
+
+  it("returns the detail when the caller IS a member of the workflow's account", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, accountId: "acct-team-A" });
+    mockIsMember.mockResolvedValueOnce(true);
+    const res = await GET(new Request("http://x/wf-1"), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(200);
+    expect(mockIsMember).toHaveBeenCalledWith("user-1", "acct-team-A");
   });
 });
 
@@ -219,6 +254,20 @@ describe("PATCH /api/workflows/[id]", () => {
     );
     expect(res.status).toBe(400);
     expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+  });
+
+  // 4.TEAM-WORKFLOWS-1 (TW-1) — account-membership authorization on PATCH.
+  it("returns 404 and does NOT write when the caller is not a member of the workflow's account", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, accountId: "acct-team-B" });
+    mockIsMember.mockResolvedValueOnce(false);
+    const res = await PATCH(patchRequest({ name: "Renamed" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_NOT_FOUND");
+    expect(mockUpdateName).not.toHaveBeenCalled();
   });
 
   it("applies both name and draftDefinition in a single PATCH", async () => {

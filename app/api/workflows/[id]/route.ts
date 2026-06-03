@@ -4,7 +4,9 @@ import * as workflowsRepo from "@/repositories/workflows";
 import {
   parseJsonBody,
   requireUser,
+  requireWorkflowAccountMember,
   toWorkflowDetail,
+  workflowNotFoundResponse,
 } from "../_shared";
 
 /**
@@ -23,20 +25,19 @@ import {
 
 async function loadOrNotFound(
   id: string,
+  userId: string,
 ): Promise<
   | { ok: true; record: import("@/repositories/workflows").WorkflowRecord }
   | { ok: false; response: NextResponse }
 > {
   const record = await workflowsRepo.getById(id);
   if (!record || record.state === "deleted") {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "Workflow not found.", code: "WORKFLOW_NOT_FOUND" },
-        { status: 404 },
-      ),
-    };
+    return { ok: false, response: workflowNotFoundResponse() };
   }
+  // 4.TEAM-WORKFLOWS-1 (TW-1): explicit account-membership authorization.
+  // A non-member collapses to the same 404 — no existence leak.
+  const authorized = await requireWorkflowAccountMember(userId, record.accountId);
+  if (!authorized.ok) return authorized;
   return { ok: true, record };
 }
 
@@ -48,7 +49,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const loaded = await loadOrNotFound(id);
+  const loaded = await loadOrNotFound(id, auth.userId);
   if (!loaded.ok) return loaded.response;
 
   return NextResponse.json(toWorkflowDetail(loaded.record));
@@ -65,7 +66,7 @@ export async function PATCH(
   if (!parsed.ok) return parsed.response;
 
   const { id } = await params;
-  const loaded = await loadOrNotFound(id);
+  const loaded = await loadOrNotFound(id, auth.userId);
   if (!loaded.ok) return loaded.response;
 
   // Slice 1I extends PATCH beyond name-only with draftDefinition. Each

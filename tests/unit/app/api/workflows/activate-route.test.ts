@@ -30,6 +30,12 @@ jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
 }));
 
+// 4.TEAM-WORKFLOWS-1 (TW-1): the route now authorizes by account membership.
+const mockIsMember = jest.fn();
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMember: (...args: unknown[]) => mockIsMember(...args),
+}));
+
 const mockActivate = jest.fn();
 jest.mock("@/services/workflows/orchestratorFactory", () => ({
   createLifecycleOrchestrator: () => ({ activate: mockActivate }),
@@ -119,6 +125,10 @@ beforeEach(() => {
   mockActivate.mockResolvedValue(activatedRecord());
   mockNotifyActivation.mockReset();
   mockNotifyActivation.mockResolvedValue({ outcome: "emitted" });
+  // Default: caller is a member of the workflow's account (cross-account test
+  // overrides to false).
+  mockIsMember.mockReset();
+  mockIsMember.mockResolvedValue(true);
 });
 
 // ── auth gate ───────────────────────────────────────────────────────────────
@@ -132,6 +142,24 @@ describe("POST /activate — auth", () => {
     expect(res.status).toBe(401);
     expect(mockGetById).not.toHaveBeenCalled();
     expect(mockActivate).not.toHaveBeenCalled();
+  });
+
+  // 4.TEAM-WORKFLOWS-1 (TW-1) — account-membership authorization.
+  it("returns 404 and does NOT activate when the caller is not a member of the workflow's account", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce({
+      ...baseWorkflowRecord,
+      accountId: "acct-team-B",
+    });
+    mockIsMember.mockResolvedValueOnce(false);
+    const res = await POST(buildRequest(""), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_NOT_FOUND");
+    expect(mockActivate).not.toHaveBeenCalled();
+    expect(mockIsMember).toHaveBeenCalledWith("user-1", "acct-team-B");
   });
 });
 

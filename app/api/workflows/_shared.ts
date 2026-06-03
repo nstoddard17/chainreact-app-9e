@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
+import { isMember } from "@/repositories/accountMemberships";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import { redactOutput } from "@/core/security/redactOutput";
 import { getActionMeta } from "@/services/discovery/_registry";
 import { getProvider, providerIconUrl } from "@/integrations/_registry";
 import { summarizeDefinition } from "@/core/workflows/definitionSummary";
 import { emptyRunStats } from "@/repositories/workflowRunStats";
+import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type {
@@ -124,6 +126,62 @@ export async function requireUserWithAccount(
   }
 
   return { ok: true, userId: auth.userId, accountId: resolved.accountId };
+}
+
+/**
+ * 4.TEAM-WORKFLOWS-1 (TW-1) — the standard "workflow not found" response.
+ * Non-members collapse to this SAME shape (never a 403 that reveals the
+ * workflow exists in another account), matching the 404 RLS already produces
+ * when `getById` returns null for a non-member.
+ */
+export function workflowNotFoundResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "Workflow not found.", code: "WORKFLOW_NOT_FOUND" },
+    { status: 404 },
+  );
+}
+
+/**
+ * 4.TEAM-WORKFLOWS-1 (TW-1) — explicit route-layer authorization for a
+ * workflow's account. The detail + lifecycle routes load a workflow by id and
+ * call this with the workflow's own `accountId`; a caller who is NOT a member
+ * of that account gets the standard 404 (no existence leak).
+ *
+ * This is **membership-based, not active-account-based**: a member editing a
+ * Team workflow while a different account is active is still authorized (the
+ * workflow id is the anchor; see team-workflows-1-builder-plan.md §4). RLS
+ * already gates `getById` to account members, so this is defense-in-depth that
+ * makes the rule explicit + unit-testable without depending solely on RLS.
+ *
+ * **Roles are NOT consulted** — any member of the account is authorized.
+ * Workflow access is membership-based, not role-gated (TW-1 launch decision).
+ */
+export async function requireWorkflowAccountMember(
+  userId: string,
+  accountId: string,
+): Promise<{ ok: true } | AuthFailure> {
+  const member = await isMember(userId, accountId);
+  if (!member) {
+    return { ok: false, response: workflowNotFoundResponse() };
+  }
+  return { ok: true };
+}
+
+/**
+ * 4.TEAM-WORKFLOWS-1 (TW-1) — membership gate for the lifecycle routes
+ * (activate / pause / resume / disable) that otherwise hand the id straight to
+ * the orchestrator. Loads the workflow and, when it exists and is not deleted,
+ * authorizes the caller against its account. A missing / deleted workflow
+ * (including the RLS-null a non-member sees) is deferred to the orchestrator's
+ * `WORKFLOW_NOT_FOUND` mapping — preserving the existing not-found shape.
+ */
+export async function authorizeWorkflowLifecycleAccess(
+  workflowId: string,
+  userId: string,
+): Promise<{ ok: true } | AuthFailure> {
+  const record = await workflowsRepo.getById(workflowId);
+  if (!record || record.state === "deleted") return { ok: true };
+  return requireWorkflowAccountMember(userId, record.accountId);
 }
 
 /**
