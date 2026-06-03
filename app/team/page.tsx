@@ -103,7 +103,7 @@ export default async function TeamPage() {
       unreadNotifications={unreadNotifications}
       recentNotifications={recentNotifications}
     >
-      <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
+      <main className="flex w-full flex-col p-6 sm:p-8">
         <TeamDashboard
           accounts={accounts}
           activeAccountId={activeAccountId}
