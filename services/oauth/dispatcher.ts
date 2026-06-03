@@ -430,6 +430,14 @@ export interface RefreshInput {
    * SHOULD pass a `providerAccountId` to disambiguate.
    */
   providerAccountId?: string | null;
+  /**
+   * Provenance pin (Slice 4.ACCOUNT-MODEL-22B). When set, the row to refresh
+   * is additionally filtered by `connected_by_user_id` — so a refresh targets
+   * the SAME personal credential the apiCall resolved (never a co-member's
+   * row that happens to share the provider). `refreshAndRetry` passes the
+   * workflow creator's id for personal providers; account providers omit it.
+   */
+  connectedByUserId?: string | null;
 }
 
 export interface RefreshOutput {
@@ -476,10 +484,12 @@ export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
   }
 
   const providerAccountId = input.providerAccountId ?? null;
+  const connectedByUserId = input.connectedByUserId ?? null;
   const lockKey = refreshLockKey({
     accountId: input.accountId,
     provider: input.provider,
     providerAccountId,
+    connectedByUserId,
   });
 
   return withRefreshLock(lockKey, async () => {
@@ -487,12 +497,13 @@ export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
       input.accountId,
       input.provider,
       providerAccountId,
+      connectedByUserId != null ? { connectedByUserId } : undefined,
     );
     if (!row) {
       throw new Error(
         `refresh: no active integration found for account ${input.accountId} provider ${input.provider}${
           providerAccountId !== null ? ` provider-account ${providerAccountId}` : ""
-        }.`,
+        }${connectedByUserId !== null ? ` connected-by ${connectedByUserId}` : ""}.`,
       );
     }
     if (!row.refreshTokenEncrypted) {

@@ -201,11 +201,25 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
  * (services/triggers/preconditions.ts) normally catch this upstream, but
  * the handler-level guard is defense-in-depth for the disconnect-while-
  * running race.
+ *
+ * **Provenance pin (Slice 4.ACCOUNT-MODEL-22B):** `opts.connectedByUserId`
+ * additionally filters `connected_by_user_id = $`. For PERSONAL-credential
+ * providers in a Team account, `refreshAndRetry` passes the workflow creator's
+ * id so a run can only resolve the credential its creator connected — never a
+ * co-member's. Account/service providers pass nothing here and stay
+ * account-shared. The filter is exact: a non-matching `connected_by_user_id`
+ * returns null (no silent fallback to another member's row).
+ *
+ * **Determinism (22B):** results are ordered `created_at ASC` before `limit(1)`,
+ * so when multiple active rows match (e.g. `providerAccountId` omitted and the
+ * account has several rows for the provider) the *earliest-connected* row wins
+ * deterministically — the previous no-ORDER-BY path returned an arbitrary row.
  */
 export async function getActiveForExecution(
   accountId: string,
   provider: string,
   providerAccountId: string | null,
+  opts?: { connectedByUserId?: string | null },
 ): Promise<IntegrationRecord | null> {
   const supabase = getServiceRoleClient(
     `action handler integration lookup: ${provider} for account ${accountId}`,
@@ -219,7 +233,13 @@ export async function getActiveForExecution(
   if (providerAccountId !== null) {
     query = query.eq("provider_account_id", providerAccountId);
   }
-  const { data, error } = await query.limit(1).maybeSingle<IntegrationsRow>();
+  if (opts?.connectedByUserId != null) {
+    query = query.eq("connected_by_user_id", opts.connectedByUserId);
+  }
+  const { data, error } = await query
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<IntegrationsRow>();
   if (error) {
     throw new Error(
       `integrations.getActiveForExecution failed: ${error.message}`,

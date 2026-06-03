@@ -1,10 +1,12 @@
 import { RefreshNotSupportedError } from "@/contracts/integration";
+import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import { decryptToken } from "@/core/encryption/tokens";
 import {
   getActiveForExecution,
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { refresh as dispatcherRefresh } from "@/services/oauth/dispatcher";
+import { getCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 
 /**
  * Reactive refresh-and-retry wrapper.
@@ -156,13 +158,33 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
 
   const providerAccountId = input.providerAccountId ?? null;
 
+  // Personal-credential provenance pin (Slice 4.ACCOUNT-MODEL-22B). For PERSONAL
+  // providers, the engine-set context names the only user whose credential this
+  // run may use (the workflow's created_by_user_id). Account/service providers
+  // are NOT pinned (account-shared). No context (non-engine caller / unit test)
+  // → no pin → pre-22B account-scoped behavior.
+  const connectedByUserId = isPersonalCredentialProvider(input.provider)
+    ? (getCredentialResolutionContext()?.createdByUserId ?? null)
+    : null;
+  const lookupOpts =
+    connectedByUserId !== null ? { connectedByUserId } : undefined;
+
   // First attempt — fetch current row, decrypt access token, run apiCall.
   const initialRow = await getActiveForExecution(
     input.accountId,
     input.provider,
     providerAccountId,
+    lookupOpts,
   );
   if (!initialRow) {
+    // Pinned + missing = the workflow owner hasn't connected this personal
+    // provider. NEVER fall back to a co-member's credential — fail with a
+    // clear connect-required message.
+    if (connectedByUserId !== null) {
+      throw new Error(
+        `refreshAndRetry: the workflow owner has no active ${input.provider} connection. Connect ${input.provider} to run this workflow.`,
+      );
+    }
     throw new Error(
       `refreshAndRetry: no active integration for account ${input.accountId} provider ${input.provider}${
         providerAccountId !== null ? ` provider-account ${providerAccountId}` : ""
@@ -187,12 +209,14 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
     // Fall through to refresh+retry.
   }
 
-  // Refresh.
+  // Refresh — pinned to the same connector so we refresh the SAME row the
+  // apiCall used (not a co-member's row that shares the provider).
   try {
     await dispatcherRefresh({
       accountId: input.accountId,
       provider: input.provider,
       providerAccountId,
+      connectedByUserId,
     });
   } catch (refreshErr) {
     if (refreshErr instanceof RefreshNotSupportedError) {
@@ -213,11 +237,12 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
     });
   }
 
-  // Refresh succeeded — refetch row to read the new access token.
+  // Refresh succeeded — refetch row to read the new access token (same pin).
   const refreshedRow = await getActiveForExecution(
     input.accountId,
     input.provider,
     providerAccountId,
+    lookupOpts,
   );
   if (!refreshedRow) {
     throw new Error(

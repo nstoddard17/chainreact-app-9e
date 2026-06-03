@@ -19,6 +19,7 @@ import {
   createBillingReservation,
   reconcileBillingReservation,
 } from "@/services/billing/reserveReconcileBilling";
+import { runWithCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
@@ -494,18 +495,26 @@ export class WorkflowEngine {
         }
       }
 
-      // 3. Invoke handler.
+      // 3. Invoke handler — inside the credential-resolution context so that,
+      // for PERSONAL-credential providers, refreshAndRetry pins the integration
+      // lookup to the workflow's creator (4.ACCOUNT-MODEL-22B). A Team workflow
+      // can therefore only use the personal credential its creator connected,
+      // never a co-member's. Account/service providers are unaffected.
       try {
-        const result = await handler({
-          workflowId: input.workflowId,
-          userId: workflow.createdByUserId,
-          accountId: workflow.accountId,
-          runId,
-          nodeId: node.id,
-          config: resolvedConfig,
-          triggerEvent: input.triggerEvent,
-          testMode: isTestMode,
-        });
+        const result = await runWithCredentialResolutionContext(
+          { createdByUserId: workflow.createdByUserId },
+          () =>
+            handler({
+              workflowId: input.workflowId,
+              userId: workflow.createdByUserId,
+              accountId: workflow.accountId,
+              runId,
+              nodeId: node.id,
+              config: resolvedConfig,
+              triggerEvent: input.triggerEvent,
+              testMode: isTestMode,
+            }),
+        );
 
         // 4. Label-aware activation. Inspect outgoing edges and decide
         // which ones the handler's branchTaken activates. Catches

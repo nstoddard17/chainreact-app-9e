@@ -71,6 +71,7 @@ function buildQueryMock(match: (filters: Record<string, unknown>) => unknown) {
     filters[`${col}_is`] = val;
     return builder;
   });
+  builder.order = jest.fn(() => builder);
   builder.limit = jest.fn(() => builder);
   builder.maybeSingle = jest.fn(async () => ({
     data: match(filters),

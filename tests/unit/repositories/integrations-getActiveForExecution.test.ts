@@ -16,6 +16,7 @@
 
 interface ChainState {
   filters: Array<{ op: string; args: unknown[] }>;
+  orderBy: Array<{ col: string; opts: unknown }>;
   resultData: unknown;
   resultError: { message: string } | null;
 }
@@ -30,6 +31,10 @@ function makeMockClient(state: ChainState) {
     }),
     is: jest.fn((col: string, val: unknown) => {
       state.filters.push({ op: "is", args: [col, val] });
+      return builder;
+    }),
+    order: jest.fn((col: string, opts: unknown) => {
+      state.orderBy.push({ col, opts });
       return builder;
     }),
     limit: jest.fn(() => builder),
@@ -64,7 +69,7 @@ const baseRow = {
 };
 
 function freshState(resultData: unknown = baseRow): ChainState {
-  return { filters: [], resultData, resultError: null };
+  return { filters: [], orderBy: [], resultData, resultError: null };
 }
 
 describe("getActiveForExecution", () => {
@@ -92,6 +97,37 @@ describe("getActiveForExecution", () => {
     expect(state.filters.find((f) => f.args[0] === "provider_account_id")).toBeUndefined();
   });
 
+  it("pins connected_by_user_id when opts.connectedByUserId is supplied (22B personal-provider pin)", async () => {
+    const state = freshState();
+    mockServiceRole.current = makeMockClient(state);
+    await getActiveForExecution("acct-A", "gmail", null, {
+      connectedByUserId: "user-A",
+    });
+    expect(state.filters).toContainEqual({
+      op: "eq",
+      args: ["connected_by_user_id", "user-A"],
+    });
+  });
+
+  it("does NOT filter connected_by_user_id when opts omitted (account-shared path)", async () => {
+    const state = freshState();
+    mockServiceRole.current = makeMockClient(state);
+    await getActiveForExecution("acct-A", "slack", null);
+    expect(
+      state.filters.find((f) => f.args[0] === "connected_by_user_id"),
+    ).toBeUndefined();
+  });
+
+  it("orders by created_at ASC for a deterministic single-row result (22B)", async () => {
+    const state = freshState();
+    mockServiceRole.current = makeMockClient(state);
+    await getActiveForExecution("acct-A", "gmail", null);
+    expect(state.orderBy).toContainEqual({
+      col: "created_at",
+      opts: { ascending: true },
+    });
+  });
+
   it("returns null when no active row matches", async () => {
     const state = freshState(null);
     mockServiceRole.current = makeMockClient(state);
@@ -102,6 +138,7 @@ describe("getActiveForExecution", () => {
   it("propagates supabase errors", async () => {
     const state: ChainState = {
       filters: [],
+      orderBy: [],
       resultData: null,
       resultError: { message: "permission denied" },
     };

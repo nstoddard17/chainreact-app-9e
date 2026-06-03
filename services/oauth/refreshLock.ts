@@ -30,10 +30,22 @@ export interface RefreshLockKeyInput {
   provider: string;
   /** Provider-side account discriminator (Slack team_id, etc.). */
   providerAccountId: string | null;
+  /**
+   * Provenance pin (Slice 4.ACCOUNT-MODEL-22B). When a PERSONAL-credential
+   * lookup is pinned to a specific connector, the lock must be per-connector
+   * too — otherwise two members refreshing the same provider concurrently
+   * would collapse into one refresh and share a single (wrong) result.
+   * Appended only when present, so account-shared keys stay byte-identical to
+   * the pre-22B format.
+   */
+  connectedByUserId?: string | null;
 }
 
 export function refreshLockKey(input: RefreshLockKeyInput): string {
-  return `${input.accountId}:${input.provider}:${input.providerAccountId ?? "default"}`;
+  const base = `${input.accountId}:${input.provider}:${input.providerAccountId ?? "default"}`;
+  return input.connectedByUserId != null
+    ? `${base}:${input.connectedByUserId}`
+    : base;
 }
 
 /**

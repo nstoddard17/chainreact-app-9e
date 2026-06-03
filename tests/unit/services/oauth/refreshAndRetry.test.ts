@@ -114,6 +114,8 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       accountId: "user-1",
       provider: "gmail",
       providerAccountId: null,
+      // 22B: no engine context here → no provenance pin (null).
+      connectedByUserId: null,
     });
   });
 
@@ -155,22 +157,26 @@ describe("refreshAndRetry — 401 → refresh + retry", () => {
       apiCall,
     });
 
+    // 22B: 4th opts arg is undefined here (no engine context → no pin).
     expect(mockGetActiveForExecution).toHaveBeenNthCalledWith(
       1,
       "user-1",
       "gmail",
       "alice@example.com",
+      undefined,
     );
     expect(mockGetActiveForExecution).toHaveBeenNthCalledWith(
       2,
       "user-1",
       "gmail",
       "alice@example.com",
+      undefined,
     );
     expect(mockDispatcherRefresh).toHaveBeenCalledWith({
       accountId: "user-1",
       provider: "gmail",
       providerAccountId: "alice@example.com",
+      connectedByUserId: null,
     });
   });
 });

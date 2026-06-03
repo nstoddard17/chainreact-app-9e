@@ -116,7 +116,7 @@ describe("dispatcher.refresh — happy path", () => {
 
     await refresh({ accountId: "user-1", provider: "slack", providerAccountId: "T999" });
 
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", "T999");
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", "T999", undefined);
   });
 
   it("treats omitted accountId as null", async () => {
@@ -131,7 +131,7 @@ describe("dispatcher.refresh — happy path", () => {
 
     await refresh({ accountId: "user-1", provider: "slack" });
 
-    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", null);
+    expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", null, undefined);
   });
 });
 
