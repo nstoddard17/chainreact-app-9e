@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { AccountSummary } from "@/lib/api/accounts";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { TeamMembersPanel } from "./TeamMembersPanel";
+import { TeamSettings } from "./TeamSettings";
 import type { TeamInvitationView, TeamMemberView } from "./teamTypes";
 
 /**
@@ -70,15 +71,26 @@ export function TeamDashboard({
       />
 
       {activeIsTeam && active ? (
-        <TeamMembersPanel
-          account={active}
-          members={members}
-          invitations={invitations}
-          canManage={canManage}
-          memberCap={memberCap}
-          teamMaxMembers={teamMaxMembers}
-          onChanged={refresh}
-        />
+        <>
+          <TeamMembersPanel
+            account={active}
+            members={members}
+            invitations={invitations}
+            canManage={canManage}
+            memberCap={memberCap}
+            teamMaxMembers={teamMaxMembers}
+            onChanged={refresh}
+          />
+          <TeamSettings
+            account={active}
+            seatsUsed={
+              members.length +
+              invitations.filter((iv) => iv.status === "pending").length
+            }
+            memberCap={memberCap}
+            teamMaxMembers={teamMaxMembers}
+          />
+        </>
       ) : (
         <div
           data-testid="team-personal-notice"

@@ -50,6 +50,9 @@ describe("TeamDashboard — personal active account", () => {
     );
     expect(screen.getByTestId("team-personal-notice")).toBeInTheDocument();
     expect(screen.queryByTestId("team-members-panel")).toBeNull();
+    // Team-only surfaces stay hidden on a personal account.
+    expect(screen.queryByTestId("team-settings")).toBeNull();
+    expect(screen.queryByTestId("team-role-help")).toBeNull();
     expect(screen.getByTestId("team-account-switcher")).toBeInTheDocument();
     expect(screen.getByText(/u1@x.io/)).toBeInTheDocument();
   });
@@ -85,6 +88,9 @@ describe("TeamDashboard — team active account", () => {
     // Both member rows render.
     expect(screen.getByTestId("team-member-u1")).toBeInTheDocument();
     expect(screen.getByTestId("team-member-u2")).toBeInTheDocument();
+    // Role clarity + settings shell render alongside the roster.
+    expect(screen.getByTestId("team-role-help")).toBeInTheDocument();
+    expect(screen.getByTestId("team-settings")).toBeInTheDocument();
   });
 
   it("shows the Organization-coming-soon limit notice when seats are full", () => {

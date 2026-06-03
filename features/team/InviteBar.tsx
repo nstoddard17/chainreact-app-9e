@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/accounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ROLE_COPY } from "./roleCopy";
 
 /**
  * Invite-by-copy-link bar (Slice 4.TEAM-PAGE-1).
@@ -105,6 +106,11 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
           {pending ? "Creating…" : "Create invite link"}
         </Button>
       </form>
+
+      <p data-testid="team-invite-role-help" className="text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">As {ROLE_COPY[role].label}:</span>{" "}
+        {ROLE_COPY[role].summary}
+      </p>
 
       <p className="text-xs text-muted-foreground">
         We don&apos;t email invites yet — create the link and share it with your

@@ -7,6 +7,7 @@ import type { TeamInvitationView, TeamMemberView } from "./teamTypes";
 import { InviteBar } from "./InviteBar";
 import { MembersTable } from "./MembersTable";
 import { PendingInvites } from "./PendingInvites";
+import { RolePermissionsHelp } from "./RolePermissionsHelp";
 
 /**
  * Members management for the active team account (Slice 4.TEAM-PAGE-1).
@@ -120,6 +121,8 @@ export function TeamMembersPanel({
           onChanged={onChanged}
         />
       )}
+
+      <RolePermissionsHelp />
 
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-xs">
