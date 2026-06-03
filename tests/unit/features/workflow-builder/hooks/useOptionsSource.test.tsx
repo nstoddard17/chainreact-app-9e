@@ -173,6 +173,47 @@ describe("useOptionsSource — error mappings", () => {
     expect(result.current.state.message).toMatch(/Connect slack/);
   });
 
+  // 4.TEAM-WORKFLOWS-2 (TW-2) — owner-gated credential states.
+  it("maps NOT_WORKFLOW_OWNER to a distinct 'owner-gated' status (not generic error) and does not auto-refetch", async () => {
+    mockFetchOptionsSource.mockResolvedValue({
+      ok: false,
+      source: "gmail:labels",
+      code: "NOT_WORKFLOW_OWNER",
+      message: "This step runs under the workflow owner's gmail connection.",
+    });
+    const { result } = renderHook(() =>
+      useOptionsSource({ source: "gmail:labels", workflowId: "wf-9" }),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("owner-gated"));
+    if (result.current.state.status !== "owner-gated") throw new Error("unreachable");
+    expect(result.current.state.provider).toBe("gmail");
+    expect(result.current.state.message).toMatch(/workflow owner/);
+    expect(result.current.state.items).toEqual([]);
+    // No retry loop: the hook fetched exactly once and stayed in the gated state.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps OWNER_MUST_CONNECT to a distinct 'owner-must-connect' status", async () => {
+    mockFetchOptionsSource.mockResolvedValueOnce({
+      ok: false,
+      source: "gmail:labels",
+      code: "OWNER_MUST_CONNECT",
+      message: "Connect gmail to configure and run this workflow.",
+    });
+    const { result } = renderHook(() =>
+      useOptionsSource({ source: "gmail:labels", workflowId: "wf-9" }),
+    );
+    await waitFor(() =>
+      expect(result.current.state.status).toBe("owner-must-connect"),
+    );
+    if (result.current.state.status !== "owner-must-connect") throw new Error("unreachable");
+    expect(result.current.state.provider).toBe("gmail");
+    expect(result.current.state.message).toMatch(/Connect gmail/);
+  });
+
   it("maps generic ok:false codes to status 'error' with the code passed through", async () => {
     mockFetchOptionsSource.mockResolvedValueOnce({
       ok: false,

@@ -25,6 +25,7 @@ import userEvent from "@testing-library/user-event";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { ComboboxField } from "@/features/workflow-builder/config-modal/fields/ComboboxField";
 import type { UseOptionsSourceState } from "@/features/workflow-builder/hooks/useOptionsSource";
+import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
 function field(overrides: Partial<FieldMeta> = {}): FieldMeta {
   return {
@@ -58,6 +59,8 @@ function setHookState(state: UseOptionsSourceState): void {
 beforeEach(() => {
   mockUseOptionsSource.mockReset();
   mockRefetch.mockReset();
+  // TW-2: reset the builder graph store so workflowId doesn't leak between tests.
+  useGraphSlice.getState().reset();
 });
 
 describe("ComboboxField — static options (Slice 3.1 behavior preserved)", () => {
@@ -236,6 +239,67 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     );
     await user.click(screen.getByRole("combobox", { name: "Channel" }));
     expect(await screen.findByText(/No matches/i)).toBeInTheDocument();
+  });
+
+  // 4.TEAM-WORKFLOWS-2 (TW-2) — workflowId plumbing + owner-gated states.
+  it("threads the open workflow's id (from graphSlice) into useOptionsSource", () => {
+    useGraphSlice.getState().hydrate("wf-9", { nodes: [], edges: [] });
+    setHookState({ status: "idle", items: [], hasMore: false });
+    render(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    expect(mockUseOptionsSource).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "slack:channels", workflowId: "wf-9" }),
+    );
+  });
+
+  it("omits workflowId when the builder has no workflow loaded", () => {
+    setHookState({ status: "idle", items: [], hasMore: false });
+    render(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    const arg = mockUseOptionsSource.mock.calls[0]![0];
+    expect(arg).not.toHaveProperty("workflowId");
+  });
+
+  it("owner-gated state renders a typed message and NO retry button", async () => {
+    setHookState({
+      status: "owner-gated",
+      items: [],
+      hasMore: false,
+      provider: "gmail",
+      message:
+        "Only the workflow owner can configure their gmail here — it runs under their connection.",
+    });
+    const user = userEvent.setup();
+    render(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+    expect(await screen.findByTestId("combobox-owner-gated")).toHaveTextContent(
+      /Only the workflow owner can configure/i,
+    );
+    // Owner-gated is not an error and offers no retry.
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+  });
+
+  it("owner-must-connect state renders a typed message and NO retry button", async () => {
+    setHookState({
+      status: "owner-must-connect",
+      items: [],
+      hasMore: false,
+      provider: "gmail",
+      message: "Connect gmail to configure and run this workflow.",
+    });
+    const user = userEvent.setup();
+    render(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+    expect(
+      await screen.findByTestId("combobox-owner-must-connect"),
+    ).toHaveTextContent(/Connect gmail to configure/i);
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
   });
 
   it("error state renders the message and a retry button that calls refetch", async () => {

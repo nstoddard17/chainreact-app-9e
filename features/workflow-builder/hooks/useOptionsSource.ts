@@ -110,6 +110,27 @@ export type UseOptionsSourceState =
       hasMore: false;
       provider: string;
       message: string;
+    }
+  // 4.TEAM-WORKFLOWS-2 (TW-2) — distinct owner-gated states for the 22D-2
+  // credential policy. Both carry the provider so the renderer can name it, and
+  // neither offers a retry (refetch would just re-return the same gated code).
+  // `owner-gated` (NOT_WORKFLOW_OWNER): a non-creator editing a personal-provider
+  // node — the server fetched NOTHING, so there is nothing to retry.
+  | {
+      status: "owner-gated";
+      items: readonly OptionItem[];
+      hasMore: false;
+      provider: string;
+      message: string;
+    }
+  // `owner-must-connect` (OWNER_MUST_CONNECT): the workflow owner is editing but
+  // hasn't connected this personal provider.
+  | {
+      status: "owner-must-connect";
+      items: readonly OptionItem[];
+      hasMore: false;
+      provider: string;
+      message: string;
     };
 
 export interface UseOptionsSourceResult {
@@ -254,6 +275,29 @@ export function useOptionsSource(
         if (response.code === "INTEGRATION_DISCONNECTED") {
           setState({
             status: "disconnected",
+            items: [],
+            hasMore: false,
+            provider: extractProvider(source as string),
+            message: response.message,
+          });
+          return;
+        }
+        // 4.TEAM-WORKFLOWS-2 (TW-2) — owner-gated credential states. Mapped to
+        // distinct statuses (not the generic `error`) so renderers show a
+        // typed, retry-less affordance.
+        if (response.code === "NOT_WORKFLOW_OWNER") {
+          setState({
+            status: "owner-gated",
+            items: [],
+            hasMore: false,
+            provider: extractProvider(source as string),
+            message: response.message,
+          });
+          return;
+        }
+        if (response.code === "OWNER_MUST_CONNECT") {
+          setState({
+            status: "owner-must-connect",
             items: [],
             hasMore: false,
             provider: extractProvider(source as string),

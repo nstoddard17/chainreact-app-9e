@@ -22,6 +22,7 @@ import type { FieldRendererProps } from "./types";
 import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
 import type { OptionItem } from "@/lib/api/options";
 import { normalizeDependsOn } from "@/contracts/actionMeta";
+import { useGraphSlice } from "../../state/graphSlice";
 
 /**
  * `combobox` field renderer. Searchable single-select.
@@ -79,10 +80,17 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
   const [open, setOpen] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState("");
 
+  // 4.TEAM-WORKFLOWS-2 (TW-2): the open workflow's id, read from the builder's
+  // canonical graph store. Threaded into the options request so the server
+  // applies the 22D-2 credential-sharing policy (account-shared vs.
+  // creator-pinned). `null` (no workflow yet) → undefined.
+  const workflowId = useGraphSlice((s) => s.workflowId) ?? undefined;
+
   const { state, refetch } = useOptionsSource({
     source: field.optionsSource ?? null,
     query: searchInput,
     ...(deps !== undefined && { deps }),
+    ...(workflowId !== undefined && { workflowId }),
   });
 
   // Selected-option lookup. When the user picks an option, we cache its
@@ -188,6 +196,29 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
             className="flex flex-col items-start gap-1 px-2 py-3 text-xs text-muted-foreground"
           >
             <span>Connect {state.provider} first to load options.</span>
+          </div>
+        );
+      case "owner-gated":
+        // 4.TEAM-WORKFLOWS-2 (TW-2): non-creator editing a personal-provider
+        // node. No options were fetched; no retry (refetch can't change the
+        // outcome). Minimal copy here — TW-3 owns the polished affordance.
+        return (
+          <div
+            role="status"
+            data-testid="combobox-owner-gated"
+            className="flex flex-col items-start gap-1 px-2 py-3 text-xs text-muted-foreground"
+          >
+            <span>{state.message}</span>
+          </div>
+        );
+      case "owner-must-connect":
+        return (
+          <div
+            role="status"
+            data-testid="combobox-owner-must-connect"
+            className="flex flex-col items-start gap-1 px-2 py-3 text-xs text-muted-foreground"
+          >
+            <span>{state.message}</span>
           </div>
         );
       default: {

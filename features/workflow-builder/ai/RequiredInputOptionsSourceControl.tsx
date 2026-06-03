@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AiRequiredUserInput } from "@/lib/api/ai";
 import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
+import { useGraphSlice } from "../state/graphSlice";
 import type { RequiredInputAnswer } from "./RequiredInputControl";
 
 /**
@@ -33,6 +34,10 @@ export function RequiredInputOptionsSourceControl({
   readonly deps: Readonly<Record<string, string>> | undefined;
 }) {
   const [query, setQuery] = useState<string>(answer?.display ?? "");
+  // 4.TEAM-WORKFLOWS-2 (TW-2): the open workflow's id, from the builder's graph
+  // store. Threaded so the AI option-grounding obeys the same 22D-2 credential
+  // policy as the config-modal picker. `null` → undefined.
+  const workflowId = useGraphSlice((s) => s.workflowId) ?? undefined;
   // Disable the picker when a dependsOn parent isn't staged yet — the
   // resolver would otherwise return MISSING_DEPENDENCY. The user can still
   // type a free-text answer below.
@@ -45,6 +50,7 @@ export function RequiredInputOptionsSourceControl({
     deps: deps ?? {},
     query,
     enabled: depsReady,
+    ...(workflowId !== undefined && { workflowId }),
   });
 
   return (
@@ -104,6 +110,26 @@ export function RequiredInputOptionsSourceControl({
           data-testid="builder-ai-required-input-disconnected"
         >
           Connect {state.provider} to load options.
+        </p>
+      )}
+      {/* 4.TEAM-WORKFLOWS-2 (TW-2) — owner-gated credential states. No options
+          were fetched; the message explains who must configure the provider. */}
+      {depsReady && state.status === "owner-gated" && (
+        <p
+          className="text-[10.5px]"
+          style={{ color: "var(--builder-muted)" }}
+          data-testid="builder-ai-required-input-owner-gated"
+        >
+          {state.message}
+        </p>
+      )}
+      {depsReady && state.status === "owner-must-connect" && (
+        <p
+          className="text-[10.5px]"
+          style={{ color: "var(--builder-warn)" }}
+          data-testid="builder-ai-required-input-owner-must-connect"
+        >
+          {state.message}
         </p>
       )}
       {depsReady &&
