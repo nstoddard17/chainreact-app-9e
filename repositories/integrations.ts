@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import type { EncryptedTokens, ProviderAccountInfo } from "@/contracts/integration";
 
 /**
@@ -317,6 +318,79 @@ export async function listActiveByAccount(
     .order("created_at", { ascending: false });
   if (error) throw new Error(`integrations list failed: ${error.message}`);
   return (data ?? []).map((row) => rowToRecord(row as IntegrationsRow));
+}
+
+/**
+ * Offboarding soft-disconnect (Slice 4.ACCOUNT-MODEL-22C).
+ *
+ * When a member is removed from a Team, the PERSONAL credentials they connected
+ * inside that account must stop being usable by Team workflows. This soft-
+ * disconnects (sets `disconnected_at`) every ACTIVE integration in `accountId`
+ * whose `connected_by_user_id` is the removed member AND whose provider is a
+ * personal-credential provider (see `core/integrations/credentialSharing.ts`).
+ *
+ * Deliberately scoped:
+ *   - `account_id = $` — only THIS team's rows; the member's personal-account
+ *     integrations (a different account_id) are untouched.
+ *   - `connected_by_user_id = $` — only the removed member's rows; other
+ *     members' credentials are untouched.
+ *   - personal providers only — account/service providers (Slack / Notion /
+ *     Stripe / …) represent shared org resources and stay connected.
+ *
+ * Idempotent: the SELECT and UPDATE both filter `disconnected_at IS NULL`, so a
+ * second call (or a re-removal) is a no-op and returns count 0. Service-role:
+ * operates on another user's rows; the caller (member-removal service) has
+ * already authorized via `requireAccountRole`.
+ */
+export async function softDisconnectPersonalForMember(input: {
+  accountId: string;
+  connectedByUserId: string;
+  now?: string;
+}): Promise<{ disconnectedCount: number; disconnectedProviders: string[] }> {
+  const supabase = getServiceRoleClient(
+    `offboarding: softDisconnectPersonalForMember user ${input.connectedByUserId} on account ${input.accountId}`,
+  );
+
+  // 1. Active rows this member connected in this account.
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("id, provider")
+    .eq("account_id", input.accountId)
+    .eq("connected_by_user_id", input.connectedByUserId)
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(
+      `integrations.softDisconnectPersonalForMember lookup failed: ${error.message}`,
+    );
+  }
+
+  // 2. Keep only personal-credential providers (account/service stay connected).
+  //    Classification, not a hardcoded list — unknown providers default personal.
+  const personal = (data ?? []).filter((r) =>
+    isPersonalCredentialProvider((r as { provider: string }).provider),
+  ) as Array<{ id: string; provider: string }>;
+  if (personal.length === 0) {
+    return { disconnectedCount: 0, disconnectedProviders: [] };
+  }
+
+  // 3. Soft-disconnect by id. The `disconnected_at IS NULL` guard keeps it
+  //    idempotent under a concurrent disconnect.
+  const ids = personal.map((r) => r.id);
+  const { error: updateErr } = await supabase
+    .from("integrations")
+    .update({ disconnected_at: input.now ?? new Date().toISOString() })
+    .in("id", ids)
+    .is("disconnected_at", null);
+  if (updateErr) {
+    throw new Error(
+      `integrations.softDisconnectPersonalForMember update failed: ${updateErr.message}`,
+    );
+  }
+
+  return {
+    disconnectedCount: ids.length,
+    disconnectedProviders: personal.map((r) => r.provider),
+  };
 }
 
 export async function markDisconnected(integrationId: string): Promise<void> {

@@ -30,6 +30,11 @@ jest.mock("@/repositories/userProfiles", () => ({
   clearActiveAccountIfMatchesServiceRole: (...a: unknown[]) => mockClearActiveIfMatches(...a),
 }));
 
+const mockSoftDisconnect = jest.fn();
+jest.mock("@/repositories/integrations", () => ({
+  softDisconnectPersonalForMember: (...a: unknown[]) => mockSoftDisconnect(...a),
+}));
+
 import {
   listMembers,
   removeMember,
@@ -47,6 +52,9 @@ beforeEach(() => {
   mockListByAccount.mockReset();
   mockListIdentities.mockReset().mockResolvedValue([]);
   mockClearActiveIfMatches.mockReset().mockResolvedValue(undefined);
+  mockSoftDisconnect
+    .mockReset()
+    .mockResolvedValue({ disconnectedCount: 0, disconnectedProviders: [] });
 });
 
 describe("listMembers", () => {
@@ -87,6 +95,38 @@ describe("removeMember", () => {
     expect(r).toEqual({ ok: true });
     expect(mockRemove).toHaveBeenCalledWith(ACCOUNT, TARGET);
     expect(mockClearActiveIfMatches).toHaveBeenCalledWith(TARGET, ACCOUNT);
+  });
+
+  it("offboarding (22C): soft-disconnects the removed member's personal creds, before membership deletion", async () => {
+    mockGetRoleSR.mockResolvedValueOnce("member");
+    mockSoftDisconnect.mockResolvedValueOnce({
+      disconnectedCount: 1,
+      disconnectedProviders: ["gmail"],
+    });
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "owner" });
+    expect(r).toEqual({ ok: true });
+    expect(mockSoftDisconnect).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      connectedByUserId: TARGET,
+    });
+    // Disconnect happens BEFORE the membership delete (retry-safety).
+    const disconnectOrder = mockSoftDisconnect.mock.invocationCallOrder[0]!;
+    const removeOrder = mockRemove.mock.invocationCallOrder[0]!;
+    expect(disconnectOrder).toBeLessThan(removeOrder);
+  });
+
+  it("does NOT soft-disconnect when the gate fails (owner_target)", async () => {
+    mockGetRoleSR.mockResolvedValueOnce("owner");
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "owner" });
+    expect(r).toEqual({ ok: false, reason: "owner_target" });
+    expect(mockSoftDisconnect).not.toHaveBeenCalled();
+  });
+
+  it("does NOT soft-disconnect on a frozen account", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("pending_deletion");
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "owner" });
+    expect(r).toEqual({ ok: false, reason: "account_frozen" });
+    expect(mockSoftDisconnect).not.toHaveBeenCalled();
   });
 
   it("admin removes a member → allowed", async () => {

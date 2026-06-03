@@ -1,6 +1,7 @@
 import type { MembershipRole, AccountMembershipRecord } from "@/contracts/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as accountsRepo from "@/repositories/accounts";
+import { softDisconnectPersonalForMember } from "@/repositories/integrations";
 import { clearActiveAccountIfMatchesServiceRole } from "@/repositories/userProfiles";
 
 /**
@@ -89,6 +90,30 @@ export async function removeMember(input: {
 }): Promise<RemoveMemberResult> {
   const gate = await gateTarget(input.accountId, input.targetUserId, input.actingRole);
   if (!gate.ok) return gate;
+
+  // Offboarding (4.ACCOUNT-MODEL-22C): soft-disconnect the PERSONAL credentials
+  // this member connected in this account, BEFORE deleting the membership. Doing
+  // it first keeps removeMember retry-safe — if the disconnect fails, the gate
+  // still passes on retry (the member isn't removed yet) and the disconnect is
+  // idempotent. Account/service providers (Slack/Notion/Stripe) stay connected;
+  // the member's personal-account integrations (a different account_id) are
+  // untouched. After this, even workflows the departed member created — which
+  // still pin to their created_by_user_id under 22B — can no longer resolve
+  // their personal credential.
+  const disconnect = await softDisconnectPersonalForMember({
+    accountId: input.accountId,
+    connectedByUserId: input.targetUserId,
+  });
+  if (disconnect.disconnectedCount > 0) {
+    console.info(
+      JSON.stringify({
+        event: "account.member.offboard.personal_integrations_disconnected",
+        accountId: input.accountId,
+        count: disconnect.disconnectedCount,
+        providers: disconnect.disconnectedProviders,
+      }),
+    );
+  }
 
   await membershipsRepo.removeMembershipServiceRole(input.accountId, input.targetUserId);
   // Proactively clear the removed member's active pointer if it named this
