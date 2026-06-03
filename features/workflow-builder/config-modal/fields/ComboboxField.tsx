@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, Loader2, Lock, RefreshCw } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -199,23 +199,15 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
           </div>
         );
       case "owner-gated":
-        // 4.TEAM-WORKFLOWS-2 (TW-2): non-creator editing a personal-provider
-        // node. No options were fetched; no retry (refetch can't change the
-        // outcome). Minimal copy here — TW-3 owns the polished affordance.
-        return (
-          <div
-            role="status"
-            data-testid="combobox-owner-gated"
-            className="flex flex-col items-start gap-1 px-2 py-3 text-xs text-muted-foreground"
-          >
-            <span>{state.message}</span>
-          </div>
-        );
       case "owner-must-connect":
+        // Owner-gated states are normally handled by the inline affordance
+        // above (the popover never opens for them since its trigger is
+        // disabled). This arm is a defensive fallback that keeps the switch
+        // exhaustive; it carries no testid so the inline affordance is the
+        // single rendered source.
         return (
           <div
             role="status"
-            data-testid="combobox-owner-must-connect"
             className="flex flex-col items-start gap-1 px-2 py-3 text-xs text-muted-foreground"
           >
             <span>{state.message}</span>
@@ -227,6 +219,51 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
       }
     }
   };
+
+  // 4.TEAM-WORKFLOWS-4 (TW-3): owner-gated credential states render an INLINE,
+  // disabled, lock-marked affordance (no popover, no retry) so the reason is
+  // visible without a click. `owner-gated` (non-creator): the step runs under
+  // the workflow owner's connection — only they configure it; we name the
+  // PROVIDER only, never a personal label/email. `owner-must-connect` (the
+  // creator hasn't connected): a connect call-to-action.
+  if (state.status === "owner-gated" || state.status === "owner-must-connect") {
+    const mustConnect = state.status === "owner-must-connect";
+    return (
+      <FieldShell
+        controlId={controlId}
+        label={field.label}
+        required={field.required}
+        description={field.description}
+        error={error}
+      >
+        <Button
+          id={controlId}
+          type="button"
+          variant="outline"
+          disabled
+          aria-disabled
+          className="w-full justify-between font-normal text-muted-foreground"
+        >
+          <span className="flex items-center gap-2 truncate">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {mustConnect
+              ? `Connect ${state.provider} to configure`
+              : "Managed by the workflow owner"}
+          </span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+        <p
+          role="status"
+          data-testid={
+            mustConnect ? "combobox-owner-must-connect" : "combobox-owner-gated"
+          }
+          className="text-xs text-muted-foreground"
+        >
+          {state.message}
+        </p>
+      </FieldShell>
+    );
+  }
 
   return (
     <FieldShell

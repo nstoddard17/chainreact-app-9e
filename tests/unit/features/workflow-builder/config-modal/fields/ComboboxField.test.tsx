@@ -262,28 +262,32 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     expect(arg).not.toHaveProperty("workflowId");
   });
 
-  it("owner-gated state renders a typed message and NO retry button", async () => {
+  it("owner-gated state renders an inline, disabled, retry-less affordance (no click needed)", () => {
     setHookState({
       status: "owner-gated",
       items: [],
       hasMore: false,
       provider: "gmail",
       message:
-        "Only the workflow owner can configure their gmail here — it runs under their connection.",
+        "This step runs under the workflow owner's gmail connection. Ask the owner to set it up.",
     });
-    const user = userEvent.setup();
     render(
       <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
     );
-    await user.click(screen.getByRole("combobox", { name: "Channel" }));
-    expect(await screen.findByTestId("combobox-owner-gated")).toHaveTextContent(
-      /Only the workflow owner can configure/i,
+    // Message is visible inline without opening a popover.
+    expect(screen.getByTestId("combobox-owner-gated")).toHaveTextContent(
+      /runs under the workflow owner/i,
     );
+    // The picker trigger is disabled (owner-controlled) and frames it as
+    // owner-managed — no personal label/email is shown.
+    const trigger = screen.getByRole("button", { name: "Channel" });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent(/Managed by the workflow owner/i);
     // Owner-gated is not an error and offers no retry.
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
   });
 
-  it("owner-must-connect state renders a typed message and NO retry button", async () => {
+  it("owner-must-connect state renders an inline connect call-to-action (no retry)", () => {
     setHookState({
       status: "owner-must-connect",
       items: [],
@@ -291,14 +295,15 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
       provider: "gmail",
       message: "Connect gmail to configure and run this workflow.",
     });
-    const user = userEvent.setup();
     render(
       <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
     );
-    await user.click(screen.getByRole("combobox", { name: "Channel" }));
     expect(
-      await screen.findByTestId("combobox-owner-must-connect"),
-    ).toHaveTextContent(/Connect gmail to configure/i);
+      screen.getByTestId("combobox-owner-must-connect"),
+    ).toHaveTextContent(/Connect gmail to configure and run/i);
+    const trigger = screen.getByRole("button", { name: "Channel" });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent(/Connect gmail to configure/i);
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
   });
 
