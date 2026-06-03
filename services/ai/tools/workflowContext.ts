@@ -36,22 +36,34 @@ import {
   getById,
   type WorkflowRecord,
 } from "@/repositories/workflows";
-import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import {
+  listActiveByAccount,
+  type IntegrationRecord,
+} from "@/repositories/integrations";
+import { isMember } from "@/repositories/accountMemberships";
+import {
+  credentialSharingForProvider,
+  type CredentialSharing,
+} from "@/core/integrations/credentialSharing";
 import { redactSecrets } from "./redact";
 import { aiToolErr, aiToolOk, type AiToolResult } from "./types";
 
 const TRIGGER_ALIAS = "trigger";
 
 /**
- * Load + account-ownership-guard a workflow. Both "missing" and "not in the
- * caller's account" collapse to NOT_FOUND (existence is never leaked).
+ * Load + account-membership-guard a workflow. Both "missing" and "not in an
+ * account the caller belongs to" collapse to NOT_FOUND (existence is never
+ * leaked).
  *
- * 4.ACCOUNT-MODEL-7: ownership is account-based. `getById` is itself RLS-
- * scoped to the caller's account, so the explicit `record.accountId ===
- * account.id` comparison is defense-in-depth that holds even if a test or
- * future caller swaps the underlying Supabase client. The caller's account is
- * their personal account until the switcher slice ships. `created_by_user_id`
- * is provenance and is NEVER consulted for authorization.
+ * 4.ACCOUNT-MODEL-22D-3: authorization is **account membership**, so a TEAM
+ * workflow (whose `account_id` is the team account, not anyone's personal
+ * account) is addressable by every member — the pre-22D-3 personal-account
+ * equality guard wrongly returned NOT_FOUND for team workflows. `getById` is
+ * itself RLS-scoped to the caller's account memberships; the explicit
+ * `isMember` check is defense-in-depth that holds even if a test or future
+ * caller swaps the underlying Supabase client. `created_by_user_id` is
+ * provenance — consulted for the credential-sharing policy below, NEVER for
+ * authorization (any member may read the workflow's context).
  */
 async function loadOwned(
   userId: string,
@@ -66,13 +78,13 @@ async function loadOwned(
   if (!record) {
     return aiToolErr("NOT_FOUND", `No workflow '${workflowId}'.`);
   }
-  let accountId: string;
+  let member: boolean;
   try {
-    accountId = (await ensurePersonalAccount(userId)).id;
+    member = await isMember(userId, record.accountId);
   } catch {
     return aiToolErr("SERVER_ERROR", "Couldn't load the workflow.");
   }
-  if (record.accountId !== accountId) {
+  if (!member) {
     return aiToolErr("NOT_FOUND", `No workflow '${workflowId}'.`);
   }
   return aiToolOk(record);
@@ -447,4 +459,112 @@ export async function getWorkflowValidationStateForAI(
       deferredToAI3: VALIDATION_DEFERRED_TO_AI3,
     },
   });
+}
+
+// ─── getWorkflowIntegrationAvailabilityForAI ─────────────────────────────────
+//
+// Slice 4.ACCOUNT-MODEL-22D-3 — per-provider integration availability for the
+// providers a workflow uses, resolved the way EXECUTION (22B) resolves
+// credentials, so the agent never suggests using (or reveals) a co-member's
+// personal credential.
+
+/** Non-OAuth pseudo-providers — no integration row exists; mirrors `preconditions.ts`. */
+const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
+
+export interface WorkflowProviderAvailabilityView {
+  readonly provider: string;
+  readonly sharing: CredentialSharing;
+  /**
+   * For account providers: any active account credential exists. For personal
+   * providers: the workflow CREATOR has an active credential (a co-member's
+   * personal credential is never counted — execution wouldn't use it).
+   */
+  readonly connected: boolean;
+  /**
+   * Personal provider connected by the creator, requester is NOT the creator —
+   * the step runs under the owner's connection. No label/email is ever included.
+   */
+  readonly ownerControlled?: true;
+  /**
+   * Personal provider the workflow OWNER must connect (the creator has no
+   * active credential). Mirrors 22B's execution connect-required failure.
+   */
+  readonly ownerMustConnect?: true;
+}
+
+export interface WorkflowIntegrationAvailabilityView {
+  readonly workflowId: string;
+  readonly providers: readonly WorkflowProviderAvailabilityView[];
+}
+
+/**
+ * Report, per provider the workflow's nodes require, whether the credential the
+ * run will ACTUALLY use is connected — applying the credential-sharing policy:
+ *
+ *   - account/service provider → connected when the account has an active row
+ *     (account-shared); visible to any member.
+ *   - personal provider → connected ONLY when the workflow CREATOR connected it
+ *     (the identity 22B pins execution to). A co-member's personal credential is
+ *     never counted and never revealed. When connected and the requester is not
+ *     the creator → `ownerControlled`; when the creator has not connected →
+ *     `connected: false` + `ownerMustConnect`.
+ *
+ * The view carries provider ids + boolean/flag state only — never a label,
+ * email, in-provider id, token, or scope string. Membership-guarded via
+ * `loadOwned`; a non-member gets NOT_FOUND.
+ */
+export async function getWorkflowIntegrationAvailabilityForAI(
+  userId: string,
+  workflowId: string,
+): Promise<AiToolResult<WorkflowIntegrationAvailabilityView>> {
+  const loaded = await loadOwned(userId, workflowId);
+  if (!loaded.ok) return loaded;
+  const record = loaded.data;
+
+  // Required providers = every non-native provider used by a node (same notion
+  // of "required" the activation precondition gate uses).
+  const requiredProviders = new Set<string>();
+  for (const node of record.draftDefinition.nodes) {
+    if (!node.provider || NON_OAUTH_PROVIDERS.has(node.provider)) continue;
+    requiredProviders.add(node.provider);
+  }
+  if (requiredProviders.size === 0) {
+    return aiToolOk({ workflowId: record.id, providers: [] });
+  }
+
+  let active: readonly IntegrationRecord[];
+  try {
+    active = await listActiveByAccount(record.accountId);
+  } catch {
+    return aiToolErr("SERVER_ERROR", "Couldn't load integration availability.");
+  }
+
+  const isCreator = userId === record.createdByUserId;
+  const providers: WorkflowProviderAvailabilityView[] = [];
+  for (const provider of [...requiredProviders].sort()) {
+    const sharing = credentialSharingForProvider(provider);
+    if (sharing === "account") {
+      providers.push({
+        provider,
+        sharing,
+        connected: active.some((i) => i.provider === provider),
+      });
+      continue;
+    }
+    // personal — count ONLY the creator's credential (mirrors 22B execution).
+    const creatorConnected = active.some(
+      (i) =>
+        i.provider === provider &&
+        i.connectedByUserId === record.createdByUserId,
+    );
+    if (!creatorConnected) {
+      providers.push({ provider, sharing, connected: false, ownerMustConnect: true });
+    } else if (isCreator) {
+      providers.push({ provider, sharing, connected: true });
+    } else {
+      providers.push({ provider, sharing, connected: true, ownerControlled: true });
+    }
+  }
+
+  return aiToolOk({ workflowId: record.id, providers });
 }

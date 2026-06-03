@@ -22,6 +22,8 @@ import {
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
+import { resolveWorkflowCreatorContext } from "@/services/options/workflowCreatorContext";
 import { aiToolErr, aiToolOk, type AiToolResult } from "./types";
 
 export interface ConnectedIntegrationView {
@@ -56,6 +58,16 @@ export interface ConnectedIntegrationView {
    * then asks via `requiredUserInput`.
    */
   readonly currentUserId?: string;
+  /**
+   * Slice 4.ACCOUNT-MODEL-22D-3 — set when this is a PERSONAL-credential
+   * provider connected by the workflow OWNER and the requester is NOT the
+   * owner. The owner's `accountLabel` / `currentUserId` / scope detail are
+   * redacted (label → null, scopeCount → 0, currentUserId omitted): the
+   * requester learns the step will run under the owner's connection WITHOUT any
+   * identifying metadata. Absent for the owner's own view, account providers,
+   * and the no-workflow-context legacy view.
+   */
+  readonly ownerControlled?: true;
 }
 
 export interface ConnectedIntegrationsView {
@@ -93,24 +105,62 @@ function toView(record: IntegrationRecord): ConnectedIntegrationView {
 }
 
 /**
- * List the caller's connected integrations as a redacted availability view.
+ * Redacted view of a PERSONAL provider connected by the workflow OWNER, shown
+ * to a NON-owner editor (Slice 4.ACCOUNT-MODEL-22D-3). Carries the provider +
+ * binding enum only — the owner's display name (often their email), in-provider
+ * id, and scope detail are stripped. The agent learns the step runs under the
+ * owner's connection without any data that identifies the owner.
+ */
+function toOwnerControlledView(record: IntegrationRecord): ConnectedIntegrationView {
+  const manifest = getProvider(record.provider);
+  return {
+    provider: record.provider,
+    connected: true,
+    accountLabel: null,
+    accountScope: manifest?.tokenScope ?? null,
+    scopeCount: 0,
+    ownerControlled: true,
+  };
+}
+
+/**
+ * List the connected integrations as a redacted availability view.
  * Multiple accounts for the same provider produce multiple entries.
  *
- * Slice 4.ACCOUNT-MODEL-6: integrations are account-keyed at the repository
- * layer. The AI surface keeps a `userId` parameter because the AI tool
- * call sites have the caller's user id from auth; this function resolves
- * the user's personal account internally. The future switcher slice will
- * either change this to take `accountId` directly or add an active-account
- * variant — the contract of "give me the integrations the caller can use"
- * stays the same.
+ * **Credential-sharing policy (Slice 4.ACCOUNT-MODEL-22D-3).** When a
+ * `workflowId` is supplied AND resolves (the requester is a member of the
+ * workflow's account — `getById` is RLS-scoped), the view is scoped to that
+ * workflow's account and filtered the way execution (22B) resolves credentials:
+ *   - **account/service providers** (Slack / Notion / Stripe / …) → shown,
+ *     account-shared.
+ *   - **personal providers connected by the workflow creator** → full view for
+ *     the creator; a redacted `ownerControlled` view for a non-creator editor
+ *     (no label / email / in-provider id).
+ *   - **personal providers connected by a CO-MEMBER** → omitted entirely; a
+ *     co-member's personal credential is never enumerated to anyone.
+ *
+ * Without a workflow context the legacy behavior is preserved: the requester's
+ * OWN personal account, full view — every row is the requester's own
+ * credential, so nothing leaks.
+ *
+ * The `workflowId` resolution is best-effort: an absent / unresolvable id falls
+ * back to the legacy personal-account view (never an error).
  */
 export async function getConnectedIntegrationsForAI(
   userId: string,
+  workflowId?: string,
 ): Promise<AiToolResult<ConnectedIntegrationsView>> {
+  const workflowCreator =
+    workflowId !== undefined
+      ? await resolveWorkflowCreatorContext(workflowId)
+      : null;
+
   let records: readonly IntegrationRecord[];
   try {
-    const ownerAccount = await ensurePersonalAccount(userId);
-    records = await listActiveByAccount(ownerAccount.id);
+    const accountId = workflowCreator
+      ? workflowCreator.accountId
+      : (await ensurePersonalAccount(userId)).id;
+    records = await listActiveByAccount(accountId);
   } catch {
     return aiToolErr("SERVER_ERROR", "Couldn't load connected integrations.");
   }
@@ -119,6 +169,27 @@ export async function getConnectedIntegrationsForAI(
   // material is structurally absent — no post-hoc redaction pass is needed
   // (and a blanket pass would wrongly clobber legitimate fields). The no-leak
   // test pins this guarantee.
-  const integrations = records.map(toView);
+
+  // No workflow context → editor's own account; the full view is safe.
+  if (!workflowCreator) {
+    return aiToolOk({ integrations: records.map(toView) });
+  }
+
+  // Workflow context → apply the credential-sharing policy per row.
+  const isCreator = userId === workflowCreator.createdByUserId;
+  const integrations: ConnectedIntegrationView[] = [];
+  for (const record of records) {
+    if (isAccountCredentialProvider(record.provider)) {
+      integrations.push(toView(record)); // account-shared, team-visible
+      continue;
+    }
+    // personal provider — only the creator's credential is ever surfaced.
+    if (record.connectedByUserId !== workflowCreator.createdByUserId) {
+      continue; // co-member personal credential — never enumerated
+    }
+    integrations.push(
+      isCreator ? toView(record) : toOwnerControlledView(record),
+    );
+  }
   return aiToolOk({ integrations });
 }

@@ -15,11 +15,20 @@ const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
   updatedAt: "2026-05-30T00:00:00Z",
 }));
 
+// 22D-3: workflow-context resolution. The real credentialSharing classifier
+// (slack=account, gmail=personal) runs unmocked so the policy is pinned
+// end-to-end.
+const mockResolveWorkflowCreatorContext = jest.fn();
+
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
 }));
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
+}));
+jest.mock("@/services/options/workflowCreatorContext", () => ({
+  resolveWorkflowCreatorContext: (...args: unknown[]) =>
+    mockResolveWorkflowCreatorContext(...args),
 }));
 jest.mock("@/integrations/_registry", () => ({
   getProvider: (id: string) => (id === "slack" ? { tokenScope: "workspace" } : { tokenScope: "user" }),
@@ -61,7 +70,14 @@ function collectKeys(value: unknown, out: string[] = []): string[] {
   return out;
 }
 
-beforeEach(() => mockListActiveByUser.mockReset());
+beforeEach(() => {
+  mockListActiveByUser.mockReset();
+  mockEnsurePersonalAccount.mockClear();
+  // Default: no workflow context (legacy personal-account view). Workflow-policy
+  // tests override per-case.
+  mockResolveWorkflowCreatorContext.mockReset();
+  mockResolveWorkflowCreatorContext.mockResolvedValue(null);
+});
 
 describe("getConnectedIntegrationsForAI", () => {
   it("returns an availability view with allow-listed fields only", async () => {
@@ -217,5 +233,113 @@ describe("getConnectedIntegrationsForAI", () => {
       const serialized = JSON.stringify(result.data);
       expect(serialized).not.toContain("BOT_SECRET");
     });
+  });
+});
+
+// ─── Slice 4.ACCOUNT-MODEL-22D-3 — credential-sharing policy ─────────────────
+describe("getConnectedIntegrationsForAI — credential-sharing policy (22D-3)", () => {
+  const creator = {
+    workflowId: "wf-9",
+    createdByUserId: "creator-1",
+    accountId: "acct-team",
+  };
+
+  it("scopes to the WORKFLOW account and shows account providers as account-shared (even to a non-creator)", async () => {
+    mockResolveWorkflowCreatorContext.mockResolvedValue(creator);
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({ provider: "slack", connectedByUserId: "creator-1", displayName: "Team Slack" }),
+    ]);
+
+    const result = await getConnectedIntegrationsForAI("editor-2", "wf-9");
+    if (!result.ok) throw new Error("expected ok");
+    expect(mockListActiveByUser).toHaveBeenCalledWith("acct-team");
+    expect(mockEnsurePersonalAccount).not.toHaveBeenCalled();
+    expect(result.data.integrations).toEqual([
+      {
+        provider: "slack",
+        connected: true,
+        accountLabel: "Team Slack",
+        accountScope: "workspace",
+        scopeCount: 2,
+      },
+    ]);
+  });
+
+  it("shows the creator their OWN personal provider in full", async () => {
+    mockResolveWorkflowCreatorContext.mockResolvedValue(creator);
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({ provider: "gmail", connectedByUserId: "creator-1", displayName: "creator@example.com" }),
+    ]);
+
+    const result = await getConnectedIntegrationsForAI("creator-1", "wf-9");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.integrations).toEqual([
+      {
+        provider: "gmail",
+        connected: true,
+        accountLabel: "creator@example.com",
+        accountScope: "user",
+        scopeCount: 2,
+      },
+    ]);
+  });
+
+  it("redacts the creator's personal provider for a NON-creator (ownerControlled, no label/email)", async () => {
+    mockResolveWorkflowCreatorContext.mockResolvedValue(creator);
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({
+        provider: "gmail",
+        connectedByUserId: "creator-1",
+        displayName: "creator@example.com",
+        accountMetadata: { email: "creator@example.com" },
+      }),
+    ]);
+
+    const result = await getConnectedIntegrationsForAI("editor-2", "wf-9");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.integrations).toEqual([
+      {
+        provider: "gmail",
+        connected: true,
+        accountLabel: null,
+        accountScope: "user",
+        scopeCount: 0,
+        ownerControlled: true,
+      },
+    ]);
+    // The owner's personal label / email never reaches a non-creator.
+    expect(JSON.stringify(result.data)).not.toContain("creator@example.com");
+  });
+
+  it("NEVER enumerates a co-member's personal provider (dropped entirely; account provider stays)", async () => {
+    mockResolveWorkflowCreatorContext.mockResolvedValue(creator);
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({
+        provider: "gmail",
+        connectedByUserId: "other-member",
+        displayName: "other@example.com",
+        accountMetadata: { email: "other@example.com" },
+      }),
+      makeRecord({ provider: "slack", connectedByUserId: "other-member", displayName: "Team Slack" }),
+    ]);
+
+    const result = await getConnectedIntegrationsForAI("editor-2", "wf-9");
+    if (!result.ok) throw new Error("expected ok");
+    // Co-member's gmail (personal) is absent; slack (account) remains.
+    expect(result.data.integrations.map((i) => i.provider)).toEqual(["slack"]);
+    expect(JSON.stringify(result.data)).not.toContain("other@example.com");
+  });
+
+  it("falls back to the legacy personal-account view when the workflowId does not resolve", async () => {
+    mockResolveWorkflowCreatorContext.mockResolvedValue(null);
+    mockListActiveByUser.mockResolvedValue([
+      makeRecord({ provider: "gmail", connectedByUserId: "u1", displayName: "mine@example.com" }),
+    ]);
+
+    const result = await getConnectedIntegrationsForAI("u1", "wf-foreign");
+    if (!result.ok) throw new Error("expected ok");
+    // Editor's OWN personal account — full view of their own credential.
+    expect(mockEnsurePersonalAccount).toHaveBeenCalledWith("u1");
+    expect(result.data.integrations[0]!.accountLabel).toBe("mine@example.com");
   });
 });

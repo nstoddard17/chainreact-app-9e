@@ -8,6 +8,7 @@
  */
 const mockGetById = jest.fn();
 const mockListActiveByUser = jest.fn();
+const mockIsMember = jest.fn();
 
 jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
@@ -15,19 +16,18 @@ jest.mock("@/repositories/workflows", () => ({
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: (...args: unknown[]) => mockListActiveByUser(...args),
 }));
-// 4.ACCOUNT-MODEL-7: loadOwned resolves the caller's account and compares it
-// to the workflow's account_id. Map userId → `acct-<userId>` so "owner-1"
-// resolves to "acct-owner-1" (the record's account) and any other caller
-// (e.g. "intruder") resolves to a different account → NOT_FOUND.
-jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
-  ensurePersonalAccount: (userId: string) =>
-    Promise.resolve({ id: `acct-${userId}` }),
+// 4.ACCOUNT-MODEL-22D-3: loadOwned now authorizes by ACCOUNT MEMBERSHIP (so
+// team workflows are addressable). Default: anyone except "intruder" is a
+// member; availability tests override per-case.
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMember: (...args: unknown[]) => mockIsMember(...args),
 }));
 
 import {
   getWorkflowGraphForAI,
   getWorkflowSummaryForAI,
   getWorkflowValidationStateForAI,
+  getWorkflowIntegrationAvailabilityForAI,
 } from "@/services/ai/tools/workflowContext";
 import { REDACTED } from "@/services/ai/tools/redact";
 import {
@@ -64,6 +64,9 @@ function makeRecord(
 beforeEach(() => {
   mockGetById.mockReset();
   mockListActiveByUser.mockReset();
+  mockIsMember.mockReset();
+  // Membership default: every caller except "intruder" belongs to the account.
+  mockIsMember.mockImplementation(async (userId: string) => userId !== "intruder");
 });
 
 describe("getWorkflowGraphForAI", () => {
@@ -240,5 +243,119 @@ describe("getWorkflowValidationStateForAI", () => {
     const varIssues = result.data.issues.filter((i) => i.code === "INVALID_VARIABLE_REFERENCE");
     expect(varIssues).toHaveLength(1);
     expect(varIssues[0]!.message).toContain("ghost");
+  });
+});
+
+// ─── Slice 4.ACCOUNT-MODEL-22D-3 — credential-sharing availability ───────────
+describe("getWorkflowIntegrationAvailabilityForAI (22D-3)", () => {
+  function wfWith(
+    providers: { provider: string; type: string }[],
+    overrides: Partial<WorkflowRecord> = {},
+  ): WorkflowRecord {
+    return makeRecord(
+      {
+        nodes: providers.map((p, i) => ({
+          id: `n${i}`,
+          kind: "action",
+          provider: p.provider,
+          type: p.type,
+          config: {},
+          position: { x: 0, y: i },
+        })),
+        edges: [],
+      },
+      overrides,
+    );
+  }
+
+  it("reports account providers as connected when the account has a row (visible to a non-creator)", async () => {
+    mockGetById.mockResolvedValue(wfWith([{ provider: "slack", type: "send" }]));
+    mockListActiveByUser.mockResolvedValue([
+      { provider: "slack", connectedByUserId: "someone-else" },
+    ]);
+    const result = await getWorkflowIntegrationAvailabilityForAI("editor-2", "wf-1");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.providers).toEqual([
+      { provider: "slack", sharing: "account", connected: true },
+    ]);
+  });
+
+  it("reports the creator's personal provider as connected — full state to the creator", async () => {
+    mockGetById.mockResolvedValue(wfWith([{ provider: "gmail", type: "send" }]));
+    mockListActiveByUser.mockResolvedValue([
+      { provider: "gmail", connectedByUserId: "owner-1" },
+    ]);
+    const result = await getWorkflowIntegrationAvailabilityForAI("owner-1", "wf-1");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.providers).toEqual([
+      { provider: "gmail", sharing: "personal", connected: true },
+    ]);
+  });
+
+  it("reports the creator's personal provider as ownerControlled for a non-creator (no labels)", async () => {
+    mockGetById.mockResolvedValue(wfWith([{ provider: "gmail", type: "send" }]));
+    mockListActiveByUser.mockResolvedValue([
+      { provider: "gmail", connectedByUserId: "owner-1", displayName: "owner@example.com" },
+    ]);
+    const result = await getWorkflowIntegrationAvailabilityForAI("editor-2", "wf-1");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.providers).toEqual([
+      { provider: "gmail", sharing: "personal", connected: true, ownerControlled: true },
+    ]);
+    expect(JSON.stringify(result.data)).not.toContain("owner@example.com");
+  });
+
+  it("does NOT count a co-member's personal credential — reports ownerMustConnect (no leak)", async () => {
+    mockGetById.mockResolvedValue(wfWith([{ provider: "gmail", type: "send" }]));
+    mockListActiveByUser.mockResolvedValue([
+      { provider: "gmail", connectedByUserId: "other-member", displayName: "other@example.com" },
+    ]);
+    // Even the creator viewing — a co-member's personal credential is never used.
+    const result = await getWorkflowIntegrationAvailabilityForAI("owner-1", "wf-1");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.providers).toEqual([
+      { provider: "gmail", sharing: "personal", connected: false, ownerMustConnect: true },
+    ]);
+    expect(JSON.stringify(result.data)).not.toContain("other@example.com");
+  });
+
+  it("reports ownerMustConnect when the creator has no personal credential at all", async () => {
+    mockGetById.mockResolvedValue(wfWith([{ provider: "gmail", type: "send" }]));
+    mockListActiveByUser.mockResolvedValue([]);
+    const result = await getWorkflowIntegrationAvailabilityForAI("owner-1", "wf-1");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.providers).toEqual([
+      { provider: "gmail", sharing: "personal", connected: false, ownerMustConnect: true },
+    ]);
+  });
+
+  it("is addressable by a member of a TEAM workflow account, NOT_FOUND for a non-member", async () => {
+    mockGetById.mockResolvedValue(
+      wfWith([{ provider: "slack", type: "send" }], {
+        accountId: "acct-team",
+        createdByUserId: "owner-1",
+      }),
+    );
+    mockListActiveByUser.mockResolvedValue([
+      { provider: "slack", connectedByUserId: "owner-1" },
+    ]);
+
+    mockIsMember.mockResolvedValueOnce(true);
+    const ok = await getWorkflowIntegrationAvailabilityForAI("editor-2", "wf-1");
+    expect(ok.ok).toBe(true);
+
+    mockIsMember.mockResolvedValueOnce(false);
+    const notFound = await getWorkflowIntegrationAvailabilityForAI("stranger", "wf-1");
+    expect(notFound.ok).toBe(false);
+    if (notFound.ok) return;
+    expect(notFound.code).toBe("NOT_FOUND");
+  });
+
+  it("returns an empty provider list when every node is native (no integration required)", async () => {
+    mockGetById.mockResolvedValue(wfWith([{ provider: "native", type: "http_request" }]));
+    const result = await getWorkflowIntegrationAvailabilityForAI("owner-1", "wf-1");
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.providers).toEqual([]);
+    expect(mockListActiveByUser).not.toHaveBeenCalled();
   });
 });

@@ -59,6 +59,7 @@ export {
   getWorkflowGraphForAI,
   getWorkflowSummaryForAI,
   getWorkflowValidationStateForAI,
+  getWorkflowIntegrationAvailabilityForAI,
   type WorkflowGraphView,
   type WorkflowGraphNodeView,
   type WorkflowSummaryView,
@@ -70,6 +71,8 @@ export {
   type ValidationIssue,
   type ValidationIssueCode,
   type ValidationSeverity,
+  type WorkflowProviderAvailabilityView,
+  type WorkflowIntegrationAvailabilityView,
 } from "./workflowContext";
 
 export {
