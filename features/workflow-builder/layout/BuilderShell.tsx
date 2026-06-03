@@ -5,6 +5,12 @@ import type { ReactNode } from "react";
 interface Props {
   header: ReactNode;
   /**
+   * Optional full-width notice rendered directly under the header, above the
+   * workspace row (Slice 4.TEAM-WORKFLOWS-6 / TW-3b — the active-account
+   * mismatch banner). Non-blocking; renders nothing when absent.
+   */
+  banner?: ReactNode;
+  /**
    * Workflow-builder-scoped left rail — the React Agent (BuilderAiPanel).
    * Optional so the shell stays usable from tests that only exercise the
    * header / content split. Slice 4.BUILDER-LEFT-AGENT-1.
@@ -40,6 +46,7 @@ interface Props {
  */
 export function BuilderShell({
   header,
+  banner,
   leftRail,
   rightDrawer,
   children,
@@ -55,6 +62,7 @@ export function BuilderShell({
       }}
     >
       {header}
+      {banner}
       <div
         className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:items-stretch"
         data-testid="builder-workspace-row"

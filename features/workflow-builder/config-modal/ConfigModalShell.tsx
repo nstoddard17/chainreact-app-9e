@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { Button } from "@/components/ui/button";
+import { CredentialOwnershipBadge } from "./CredentialOwnershipBadge";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import {
@@ -210,6 +211,9 @@ export function ConfigModalShell() {
               {activeMeta.description}
             </p>
           ) : null}
+          {/* TW-3b: credential-ownership badge for Team workflows (renders null
+              for personal accounts / non-team builds). */}
+          <CredentialOwnershipBadge provider={activeNode.provider} />
         </div>
         <Button
           variant="ghost"

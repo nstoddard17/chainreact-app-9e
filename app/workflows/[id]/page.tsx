@@ -2,7 +2,11 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { listProviders, providerIconUrl } from "@/integrations/_registry";
 import * as workflowsRepo from "@/repositories/workflows";
+import * as accountsRepo from "@/repositories/accounts";
+import * as membershipsRepo from "@/repositories/accountMemberships";
+import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
+import type { BuilderTeamContextValue } from "@/features/workflow-builder/context/builderTeamContext";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -55,6 +59,45 @@ export default async function WorkflowDetailPage({ params }: Props) {
     updatedAt: record.updatedAt,
   };
 
+  // 4.TEAM-WORKFLOWS-6 (TW-3b) — display-only Team context for the builder
+  // (credential-ownership badges + active-account mismatch banner). Resolved
+  // server-side; never exposes raw account/creator ids or credential labels.
+  // Best-effort: any failure degrades to no Team affordances (builder still
+  // renders). The member-identity lookup runs only when needed (team workflow
+  // viewed by a non-creator → to name the owner).
+  let teamContext: BuilderTeamContextValue | undefined;
+  try {
+    // Read-only active-account resolution (display only): the stored pointer, or
+    // the personal account when unset. Deliberately uses the read-only pointer
+    // getter, NOT the side-effectful route-gate resolver (which self-heals) — a
+    // page render needs only the id+name to compare, never a write.
+    const activeAccountId = await getActiveAccountId(user.id);
+    const [workflowAccount, activeAccount] = await Promise.all([
+      accountsRepo.getById(record.accountId),
+      activeAccountId
+        ? accountsRepo.getById(activeAccountId)
+        : accountsRepo.getPersonalAccountForUser(user.id),
+    ]);
+    const isTeamWorkflow = (workflowAccount?.type ?? "personal") !== "personal";
+    const isViewerCreator = record.createdByUserId === user.id;
+    let creatorDisplayName: string | null = null;
+    if (isTeamWorkflow && !isViewerCreator) {
+      const identities = await membershipsRepo.listMemberIdentities(record.accountId);
+      creatorDisplayName =
+        identities.find((i) => i.userId === record.createdByUserId)?.displayName ?? null;
+    }
+    teamContext = {
+      isTeamWorkflow,
+      isViewerCreator,
+      creatorDisplayName,
+      workflowAccountName: workflowAccount?.name ?? null,
+      activeAccountName: activeAccount?.name ?? null,
+      accountMismatch: activeAccount ? activeAccount.id !== record.accountId : false,
+    };
+  } catch {
+    teamContext = undefined;
+  }
+
   const providers = listProviders();
   const triggerProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.webhookTrigger)
@@ -81,6 +124,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
         workflow={workflow}
         triggerProviders={triggerProviders}
         actionProviders={actionProviders}
+        {...(teamContext ? { teamContext } : {})}
       />
     </main>
   );

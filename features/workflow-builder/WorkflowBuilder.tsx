@@ -5,10 +5,15 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
+import {
+  BuilderTeamProvider,
+  type BuilderTeamContextValue,
+} from "./context/builderTeamContext";
 import { BuilderHeader } from "./layout/BuilderHeader";
 import { BuilderLeftAgentRail } from "./layout/BuilderLeftAgentRail";
 import { BuilderRightDrawer } from "./layout/BuilderRightDrawer";
 import { BuilderShell } from "./layout/BuilderShell";
+import { ActiveAccountMismatchBanner } from "./layout/ActiveAccountMismatchBanner";
 import {
   AddNodePanel,
   type AddNodePanelMode,
@@ -30,6 +35,12 @@ interface Props {
   workflow: WorkflowDetail;
   triggerProviders: readonly ProviderOption[];
   actionProviders: readonly ProviderOption[];
+  /**
+   * Slice 4.TEAM-WORKFLOWS-6 (TW-3b) — display-only Team context (resolved
+   * server-side) for credential-ownership badges + the active-account mismatch
+   * banner. Optional: absent / personal-account workflows render neither.
+   */
+  teamContext?: BuilderTeamContextValue;
 }
 
 /**
@@ -70,6 +81,7 @@ export function WorkflowBuilder({
   workflow,
   triggerProviders,
   actionProviders,
+  teamContext,
 }: Props) {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
@@ -236,6 +248,7 @@ export function WorkflowBuilder({
         : "Node configuration";
 
   return (
+    <BuilderTeamProvider value={teamContext ?? null}>
     <BuilderShell
       header={
         <BuilderHeader
@@ -249,6 +262,7 @@ export function WorkflowBuilder({
           lifecycle={{ workflowId: workflow.id, state: workflow.state }}
         />
       }
+      banner={<ActiveAccountMismatchBanner />}
       leftRail={
         <BuilderLeftAgentRail
           isCollapsed={leftRail.isCollapsed}
@@ -299,6 +313,7 @@ export function WorkflowBuilder({
         ) : null}
       </div>
     </BuilderShell>
+    </BuilderTeamProvider>
   );
 }
 

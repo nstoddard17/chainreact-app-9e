@@ -58,6 +58,37 @@ describe("BuilderShell — two-zone foundation (SHELL-1)", () => {
     expect(screen.queryByTestId("left-rail-slot-content")).toBeNull();
     expect(screen.queryByTestId("right-drawer-slot-content")).toBeNull();
   });
+
+  // 4.TEAM-WORKFLOWS-6 (TW-3b) — optional banner slot under the header.
+  it("renders the banner slot between the header and the workspace row when provided", () => {
+    render(
+      <BuilderShell
+        header={<div data-testid="hdr">h</div>}
+        banner={<div data-testid="banner-slot">banner</div>}
+      >
+        <span>b</span>
+      </BuilderShell>,
+    );
+    const header = screen.getByTestId("hdr");
+    const banner = screen.getByTestId("banner-slot");
+    const row = screen.getByTestId("builder-workspace-row");
+    // header → banner → workspace row.
+    expect(
+      header.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      banner.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it("renders no banner when the slot is omitted", () => {
+    render(
+      <BuilderShell header={<span>h</span>}>
+        <span>b</span>
+      </BuilderShell>,
+    );
+    expect(screen.queryByTestId("banner-slot")).toBeNull();
+  });
 });
 
 describe("BuilderShell — four-zone layout (LEFT-AGENT-1)", () => {
