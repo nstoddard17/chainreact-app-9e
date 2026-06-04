@@ -216,6 +216,30 @@ export async function updateName(
   return rowToRecord(data);
 }
 
+/**
+ * Move a workflow into a folder, or to uncategorized (`folderId = null`).
+ * Slice 4.WORKFLOW-FOLDERS-3 / WF-2 — the only writer of `workflows.folder_id`.
+ * The service validates the folder is live + in the same account first; the
+ * DB same-account trigger (workflows_enforce_same_account_folder) is the
+ * backstop. RLS scopes the write to account members.
+ */
+export async function updateFolder(
+  workflowId: string,
+  folderId: string | null,
+): Promise<WorkflowRecord> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .update({ folder_id: folderId })
+    .eq("id", workflowId)
+    .select()
+    .single<WorkflowsRow>();
+  if (error || !data) {
+    throw new Error(`workflows.updateFolder failed: ${error?.message ?? "no row returned"}`);
+  }
+  return rowToRecord(data);
+}
+
 export async function updateDraftDefinition(
   workflowId: string,
   definition: WorkflowDefinition,

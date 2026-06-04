@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { UpdateWorkflowRequestSchema } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
+import { moveWorkflowToFolder } from "@/services/workflowFolders/folderService";
+import { folderErrorResponse } from "@/app/api/folders/_shared";
 import {
   parseJsonBody,
   requireUser,
@@ -82,6 +84,16 @@ export async function PATCH(
       id,
       parsed.data.draftDefinition,
     );
+  }
+  // 4.WORKFLOW-FOLDERS-3 / WF-2 — move into a folder or uncategorize (null). The
+  // service validates the folder is live + same-account; the DB trigger backstops.
+  if (parsed.data.folderId !== undefined) {
+    const moved = await moveWorkflowToFolder({
+      accountId: loaded.record.accountId,
+      workflowId: id,
+      folderId: parsed.data.folderId,
+    });
+    if (!moved.ok) return folderErrorResponse(moved);
   }
   return NextResponse.json(toWorkflowDetail(next));
 }

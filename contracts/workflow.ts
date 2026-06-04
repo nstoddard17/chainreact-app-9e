@@ -272,9 +272,12 @@ export const UpdateWorkflowRequestSchema = z
   .object({
     name: z.string().trim().min(1, "Workflow name is required.").max(120).optional(),
     draftDefinition: WorkflowDefinitionSchema.optional(),
+    // 4.WORKFLOW-FOLDERS-3 / WF-2 — move into a folder, or null to uncategorize.
+    // `undefined` = leave membership unchanged; explicit `null` = uncategorized.
+    folderId: z.string().uuid().nullable().optional(),
   })
   .refine(
-    (v) => v.name !== undefined || v.draftDefinition !== undefined,
+    (v) => v.name !== undefined || v.draftDefinition !== undefined || v.folderId !== undefined,
     { message: "At least one field must be provided." },
   );
 export type UpdateWorkflowRequest = z.infer<typeof UpdateWorkflowRequestSchema>;
