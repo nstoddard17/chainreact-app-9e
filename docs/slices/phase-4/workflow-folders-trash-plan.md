@@ -16,6 +16,12 @@
 > account-deletion lifecycle** (`purge_after` + partial index + service-role flag-gated purge
 > cron) rather than inventing a new soft-delete mechanism.
 
+> **Product decisions locked (2026-06-03).** The §16 open questions are resolved and folded in:
+> tier caps **Personal/Free 10 · Team 100 · Business 250 · Enterprise 1000-or-config**; **folders
+> available to Free/Personal too** (lower cap); **`deleted` becomes non-terminal** via a
+> `restore → draft` transition; **7-day** trash retention; **last-write-wins** for concurrent
+> folder reorder at launch.
+
 ---
 
 ## 1. Context
@@ -346,8 +352,8 @@ Folders carry no credential or billing risk, so there is nothing for a role gate
 
 **Q21 — limits, not code paths.** A single `FOLDER_LIMITS` config keyed by `account.type`,
 enforced in the folder-create service (same table, same RLS, same cron for every tier). **Max
-depth = 3 for all tiers.** Recommended starting caps (flag as a product decision — easy to
-tune, no schema impact):
+depth = 3 for all tiers.** Caps **confirmed (2026-06-03)** — easy to tune later, no schema
+impact:
 
 | Account type | Max folders | Max depth |
 |--------------|-------------|-----------|
@@ -476,27 +482,29 @@ organization; WF-3/4 deliver the 7-day trash; WF-5 makes it visible.
 
 ## 16. Risks / open questions
 
-1. **Tier limits (product decision).** The §11 caps (10 / 100 / 250 / 1000) are a proposal —
-   confirm the numbers. Pure config, no schema impact.
-2. **Should Personal/Free get folders at all, or is it a paid perk?** Recommended: yes, with a
-   small cap (org hygiene is table-stakes UX, not a monetization lever). Flag if product wants
-   it gated.
-3. **`deleted` becoming non-terminal.** The lifecycle currently documents `deleted` as terminal.
-   Adding a `restore` transition is the cleanest path, but audit/analytics that assume terminal
-   `deleted` must be reviewed (low risk — it's a forward transition to `draft`).
-4. **Concurrent folder moves / reorders** by multiple Team members. `position` writes can race;
-   recommend a per-parent reorder endpoint that takes the full ordered id list (last-write-wins
-   on the sibling group) rather than per-item deltas. UX for "someone else reorganized" is out
-   of scope.
-5. **Purge of a folder whose workflow was un-trashed mid-window.** Handled: purge only deletes
-   rows still `deleted_at IS NOT NULL AND purge_after <= now()`; a restored workflow cleared its
-   trash columns and is skipped.
-6. **Self-cleaning weekly trash parity (V1).** V1 cleaned weekly; V2 uses a per-item 7-day
-   `purge_after` + daily cron. Confirm 7 days (vs V1's weekly folder sweep) is the intended
-   retention.
+**Decided (2026-06-03) — folded into the plan:**
+
+1. ✅ **Tier limits.** Confirmed: Personal/Free **10** · Team **100** · Business **250** ·
+   Enterprise **1000 or config/custom** (§11). Pure config, no schema impact.
+2. ✅ **Folders for Free/Personal.** Yes — available to Free/Personal too, with the lower
+   10-folder cap. Not gated as a paid perk.
+3. ✅ **`deleted` becoming non-terminal.** Accepted — add the `restore → draft` transition.
+   Audit/analytics that assume terminal `deleted` get reviewed during WF-3 (low risk — it's a
+   forward transition to `draft`, not a new sink state).
+4. ✅ **Concurrent folder reorder.** **Last-write-wins** for launch — the per-parent reorder
+   endpoint takes the full ordered id list and overwrites the sibling group's `position` values.
+   No optimistic-lock / "someone else reorganized" UX for v1.
+6. ✅ **Trash retention.** Confirmed **7 days** per-item `purge_after` + daily cron (replaces
+   V1's weekly folder sweep).
+
+**Still open / accept-as-designed:**
+
+5. **Purge of a folder whose workflow was un-trashed mid-window.** Handled by design: purge only
+   deletes rows still `deleted_at IS NOT NULL AND purge_after <= now()`; a restored workflow
+   cleared its trash columns and is skipped. No action needed.
 7. **Folder count vs nesting limit interaction on restore** — restoring a deep batch when the
-   account is near the folder cap. Resolved by degrade-to-root + skip over-cap nesting; confirm
-   that's acceptable UX.
+   account is near the folder cap. Recommendation stands (degrade-to-root + skip over-cap
+   nesting); confirm the UX during WF-3/WF-5 build, not a blocker.
 
 ---
 
@@ -540,6 +548,7 @@ organization; WF-3/4 deliver the 7-day trash; WF-5 makes it visible.
   for all. One config map, no per-tier code paths.
 - **Slice breakdown:** WF-1 schema+RLS → WF-2 folder CRUD/hierarchy → WF-3 trash soft-delete +
   restore → WF-4 purge cron → WF-5 dashboard UI (WF-6 limits config alongside WF-2).
-- **Open product decisions:** (1) confirm tier caps; (2) folders for Free/Personal or paid
-  perk? (3) accept `deleted` becoming non-terminal; (4) confirm 7-day retention vs V1 weekly;
-  (5) concurrent-reorder UX.
+- **Product decisions — all locked (2026-06-03):** tier caps confirmed (10 / 100 / 250 /
+  1000-or-config); folders available to Free/Personal (lower cap); `deleted` becomes
+  non-terminal (`restore → draft`); 7-day trash retention; last-write-wins concurrent reorder.
+  No open product decisions remain — the build (WF-1 → WF-5) is unblocked.
