@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 
 /**
  * Repository for `public.workflow_folders` (Slice 4.WORKFLOW-FOLDERS-3 / WF-2).
@@ -288,4 +289,48 @@ export async function listTrashedByAccount(
     .order("deleted_at", { ascending: false });
   if (error) throw new Error(`workflow_folders.listTrashedByAccount failed: ${error.message}`);
   return (data ?? []).map((r) => rowToRecord(r as WorkflowFoldersRow));
+}
+
+// ── WF-4 service-role purge helpers (purge-cron only) ──────────────────────────
+
+export interface PurgeableFolder {
+  id: string;
+  parentFolderId: string | null;
+}
+
+/**
+ * Service-role: folders whose restore window has elapsed
+ * (deleted_at IS NOT NULL AND purge_after <= `nowIso`) across ALL accounts.
+ * Bypasses RLS. Returns id + current parent_folder_id so the purge service can
+ * order deletes children-before-parents (parent_folder_id is ON DELETE RESTRICT).
+ */
+export async function listPurgeableFoldersServiceRole(
+  nowIso: string,
+): Promise<readonly PurgeableFolder[]> {
+  const supabase = getServiceRoleClient("workflow trash purge: list purgeable folders");
+  const { data, error } = await supabase
+    .from("workflow_folders")
+    .select("id, parent_folder_id")
+    .not("deleted_at", "is", null)
+    .lte("purge_after", nowIso);
+  if (error) {
+    throw new Error(`workflow_folders.listPurgeableFoldersServiceRole failed: ${error.message}`);
+  }
+  return (data ?? []).map((r) => {
+    const row = r as { id: string; parent_folder_id: string | null };
+    return { id: row.id, parentFolderId: row.parent_folder_id };
+  });
+}
+
+/**
+ * Service-role: hard-delete a single folder by id. Idempotent
+ * (delete-where-present). Caller deletes children before parents to satisfy the
+ * parent_folder_id RESTRICT FK.
+ */
+export async function hardDeleteFolderServiceRole(folderId: string): Promise<void> {
+  const supabase = getServiceRoleClient("workflow trash purge: hard-delete folder");
+  const { error } = await supabase.from("workflow_folders").delete().eq("id", folderId);
+  if (error) {
+    throw new Error(`workflow_folders.hardDeleteFolderServiceRole failed: ${error.message}`);
+  }
 }

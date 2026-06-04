@@ -64,7 +64,7 @@ export interface WorkflowRevisionRecord {
   createdAt: string;
 }
 
-interface WorkflowsRow {
+export interface WorkflowsRow {
   id: string;
   account_id: string;
   created_by_user_id: string;
@@ -91,7 +91,7 @@ interface WorkflowRevisionsRow {
   created_at: string;
 }
 
-function rowToRecord(row: WorkflowsRow): WorkflowRecord {
+export function rowToRecord(row: WorkflowsRow): WorkflowRecord {
   return {
     id: row.id,
     accountId: row.account_id,
@@ -514,76 +514,4 @@ export async function applyTransition(
     throw new Error(`workflows.applyTransition failed: ${error.message}`);
   }
   return data ? rowToRecord(data) : null;
-}
-
-// ── WF-3 trash queries ───────────────────────────────────────────────────────
-
-/**
- * Live (non-deleted) workflows whose folder_id is in `folderIds`. Used by the
- * folder delete-with-contents path to collect contained workflows, and by the
- * folder-only promotion bulk reparent. RLS scopes to account members.
- */
-export async function listByFolderIds(
-  folderIds: readonly string[],
-): Promise<readonly WorkflowRecord[]> {
-  if (folderIds.length === 0) return [];
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("workflows")
-    .select("*")
-    .in("folder_id", folderIds as string[])
-    .neq("state", "deleted");
-  if (error) throw new Error(`workflows.listByFolderIds failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
-}
-
-/**
- * Bulk reparent live workflows from one folder to another (or to uncategorized
- * when `toFolderId` is null). Folder-only delete promotes contained workflows
- * one level. The same-account trigger backstops cross-account targets.
- */
-export async function reparentWorkflows(
-  fromFolderId: string,
-  toFolderId: string | null,
-): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("workflows")
-    .update({ folder_id: toFolderId })
-    .eq("folder_id", fromFolderId)
-    .neq("state", "deleted");
-  if (error) throw new Error(`workflows.reparentWorkflows failed: ${error.message}`);
-}
-
-/** All workflows stamped with a trash batch id (for batch restore). */
-export async function listByDeleteOperation(
-  deleteOperationId: string,
-): Promise<readonly WorkflowRecord[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("workflows")
-    .select("*")
-    .eq("delete_operation_id", deleteOperationId);
-  if (error) throw new Error(`workflows.listByDeleteOperation failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
-}
-
-/**
- * Trashed workflows still within the restore window for an account
- * (deleted + purge_after in the future). The Trash listing.
- */
-export async function listTrashedByAccount(
-  accountId: string,
-): Promise<readonly WorkflowRecord[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("workflows")
-    .select("*")
-    .eq("account_id", accountId)
-    .eq("state", "deleted")
-    .not("deleted_at", "is", null)
-    .gt("purge_after", new Date().toISOString())
-    .order("deleted_at", { ascending: false });
-  if (error) throw new Error(`workflows.listTrashedByAccount failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
 }

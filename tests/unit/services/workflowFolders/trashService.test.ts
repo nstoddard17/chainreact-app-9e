@@ -17,6 +17,9 @@ const foldersRepo = {
 };
 const workflowsRepo = {
   getById: jest.fn(),
+};
+// WF-4 extracted the workflow trash helpers into repositories/workflowsTrash.
+const workflowsTrashRepo = {
   reparentWorkflows: jest.fn(),
   listByFolderIds: jest.fn(),
   listByDeleteOperation: jest.fn(),
@@ -26,6 +29,7 @@ const orchestrator = { delete: jest.fn(), restore: jest.fn() };
 
 jest.mock("@/repositories/workflowFolders", () => foldersRepo);
 jest.mock("@/repositories/workflows", () => workflowsRepo);
+jest.mock("@/repositories/workflowsTrash", () => workflowsTrashRepo);
 jest.mock("@/services/workflows/orchestratorFactory", () => ({
   createLifecycleOrchestrator: () => orchestrator,
 }));
@@ -102,8 +106,8 @@ beforeEach(() => {
   foldersRepo.restore.mockResolvedValue(null);
   foldersRepo.updateParentAndPosition.mockResolvedValue(undefined);
   foldersRepo.listByAccount.mockResolvedValue([]);
-  workflowsRepo.reparentWorkflows.mockResolvedValue(undefined);
-  workflowsRepo.listByFolderIds.mockResolvedValue([]);
+  workflowsTrashRepo.reparentWorkflows.mockResolvedValue(undefined);
+  workflowsTrashRepo.listByFolderIds.mockResolvedValue([]);
   orchestrator.delete.mockResolvedValue(undefined);
   orchestrator.restore.mockResolvedValue(undefined);
 });
@@ -188,7 +192,7 @@ describe("deleteFolder — folder_only", () => {
     expect(foldersRepo.updateParentAndPosition).toHaveBeenCalledWith("child1", "p", expect.any(Number));
     expect(foldersRepo.updateParentAndPosition).toHaveBeenCalledWith("child2", "p", expect.any(Number));
     // contained workflows promoted to 'p'
-    expect(workflowsRepo.reparentWorkflows).toHaveBeenCalledWith("a", "p");
+    expect(workflowsTrashRepo.reparentWorkflows).toHaveBeenCalledWith("a", "p");
     // only the folder itself is trashed
     expect(foldersRepo.softDelete).toHaveBeenCalledTimes(1);
     expect(foldersRepo.softDelete).toHaveBeenCalledWith(
@@ -205,7 +209,7 @@ describe("deleteFolder — with_contents", () => {
       folder({ id: "b", parentFolderId: "a" }),
       folder({ id: "c", parentFolderId: "b" }),
     ]);
-    workflowsRepo.listByFolderIds.mockResolvedValue([
+    workflowsTrashRepo.listByFolderIds.mockResolvedValue([
       workflow({ id: "wf1", folderId: "a" }),
       workflow({ id: "wf2", folderId: "c" }),
     ]);
@@ -229,7 +233,7 @@ describe("deleteFolder — with_contents", () => {
       );
     }
     // no promotion happens in with_contents mode
-    expect(workflowsRepo.reparentWorkflows).not.toHaveBeenCalled();
+    expect(workflowsTrashRepo.reparentWorkflows).not.toHaveBeenCalled();
   });
 });
 
@@ -246,7 +250,7 @@ describe("restoreFolder — batch", () => {
       folder({ id: "a", deletedAt: "x", deleteOperationId: "op", deletedFromParentFolderId: null }),
       folder({ id: "b", deletedAt: "x", deleteOperationId: "op", deletedFromParentFolderId: "a" }),
     ]);
-    workflowsRepo.listByDeleteOperation.mockResolvedValue([
+    workflowsTrashRepo.listByDeleteOperation.mockResolvedValue([
       workflow({ id: "wf1", state: "deleted", deletedFromFolderId: "a", deleteOperationId: "op" }),
       workflow({ id: "wf2", state: "deleted", deletedFromFolderId: "c", deleteOperationId: "op" }),
     ]);
@@ -273,7 +277,7 @@ describe("restoreFolder — batch", () => {
     foldersRepo.listByDeleteOperation.mockResolvedValue([
       folder({ id: "x", deletedAt: "x", deleteOperationId: "op", deletedFromParentFolderId: "gone" }),
     ]);
-    workflowsRepo.listByDeleteOperation.mockResolvedValue([]);
+    workflowsTrashRepo.listByDeleteOperation.mockResolvedValue([]);
     foldersRepo.listByAccount.mockResolvedValue([]); // 'gone' is not live
 
     await restoreFolder("x");
@@ -292,12 +296,12 @@ describe("restoreFolder — batch", () => {
 describe("listTrash", () => {
   it("merges trashed folders + workflows for the account", async () => {
     foldersRepo.listTrashedByAccount.mockResolvedValue([folder({ id: "f", deletedAt: "x" })]);
-    workflowsRepo.listTrashedByAccount.mockResolvedValue([workflow({ id: "w", state: "deleted" })]);
+    workflowsTrashRepo.listTrashedByAccount.mockResolvedValue([workflow({ id: "w", state: "deleted" })]);
     const out = await listTrash(ACCT);
     expect(out.folders).toHaveLength(1);
     expect(out.workflows).toHaveLength(1);
     expect(foldersRepo.listTrashedByAccount).toHaveBeenCalledWith(ACCT);
-    expect(workflowsRepo.listTrashedByAccount).toHaveBeenCalledWith(ACCT);
+    expect(workflowsTrashRepo.listTrashedByAccount).toHaveBeenCalledWith(ACCT);
   });
 });
 

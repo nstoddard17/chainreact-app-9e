@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as foldersRepo from "@/repositories/workflowFolders";
 import type { WorkflowFolderRecord } from "@/repositories/workflowFolders";
 import * as workflowsRepo from "@/repositories/workflows";
+import * as workflowsTrashRepo from "@/repositories/workflowsTrash";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 import { LifecycleError } from "@/core/workflows/lifecycle";
@@ -147,7 +148,7 @@ export async function deleteFolder(input: {
       for (const child of live.filter((f) => f.parentFolderId === input.folderId)) {
         await foldersRepo.updateParentAndPosition(child.id, folder.parentFolderId, pos++);
       }
-      await workflowsRepo.reparentWorkflows(input.folderId, folder.parentFolderId);
+      await workflowsTrashRepo.reparentWorkflows(input.folderId, folder.parentFolderId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (/duplicate key|unique constraint|sibling_name/i.test(msg)) {
@@ -169,7 +170,7 @@ export async function deleteFolder(input: {
   // with_contents — soft-delete the whole subtree + every contained workflow
   // under one batch id.
   const subtreeIds = [input.folderId, ...descendantIds(input.folderId, byId)];
-  const contained = await workflowsRepo.listByFolderIds(subtreeIds);
+  const contained = await workflowsTrashRepo.listByFolderIds(subtreeIds);
   const orch = createLifecycleOrchestrator();
   for (const w of contained) {
     try {
@@ -216,7 +217,7 @@ export async function restoreFolder(folderId: string): Promise<TrashResult<Resto
     ? (await foldersRepo.listByDeleteOperation(opId)).filter((f) => f.deletedAt != null)
     : [folder];
   const batchWorkflows = opId
-    ? (await workflowsRepo.listByDeleteOperation(opId)).filter((w) => w.state === "deleted")
+    ? (await workflowsTrashRepo.listByDeleteOperation(opId)).filter((w) => w.state === "deleted")
     : [];
 
   const liveFolderIds = new Set(
@@ -269,7 +270,7 @@ export interface TrashListing {
 export async function listTrash(accountId: string): Promise<TrashListing> {
   const [folders, workflows] = await Promise.all([
     foldersRepo.listTrashedByAccount(accountId),
-    workflowsRepo.listTrashedByAccount(accountId),
+    workflowsTrashRepo.listTrashedByAccount(accountId),
   ]);
   return { folders, workflows };
 }
