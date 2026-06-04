@@ -21,7 +21,7 @@ import {
 import type { WorkflowListItem } from "@/contracts/workflow";
 import type { WorkflowFolder } from "@/contracts/folders";
 import { WorkflowCard } from "./WorkflowCard";
-import { WorkflowRow } from "./WorkflowRow";
+import { WorkflowsTable } from "./WorkflowsTable";
 import { WorkflowsEmptyState } from "./WorkflowsEmptyState";
 import { WorkflowsStatCards } from "./WorkflowsStatCards";
 import {
@@ -161,6 +161,10 @@ export function WorkflowsDashboard({
   const folderCounts = useMemo(() => deriveFolderCounts(workflows), [workflows]);
   const folderNames = useMemo(
     () => folders.map((f) => ({ id: f.id, name: f.name })),
+    [folders],
+  );
+  const folderNameById = useMemo(
+    () => new Map(folders.map((f) => [f.id, f.name])),
     [folders],
   );
 
@@ -364,11 +368,12 @@ export function WorkflowsDashboard({
             <WorkflowsEmptyState kind={folderScopedOnly ? "empty-folder" : "no-matches"} />
           )}
           {hasAny && hasFiltered && view === "list" && (
-            <ul data-testid="workflows-list-view" aria-label="Workflows list" className="flex flex-col gap-2">
-              {filtered.map((w) => (
-                <WorkflowRow key={w.id} workflow={w} onChanged={refresh} folderActions={makeFolderActions(w)} />
-              ))}
-            </ul>
+            <WorkflowsTable
+              workflows={filtered}
+              folderNameById={folderNameById}
+              onChanged={refresh}
+              folderActionsFor={makeFolderActions}
+            />
           )}
           {hasAny && hasFiltered && view === "grid" && (
             <ul

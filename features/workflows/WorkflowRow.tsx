@@ -13,63 +13,86 @@ import { WorkflowStatusBadge } from "./WorkflowStatusBadge";
 import { WorkflowStatusToggle } from "./WorkflowStatusToggle";
 
 /**
- * List-view row for the workflows dashboard (Slice 4.WORKFLOWS-PAGE-1).
+ * Grid-table row for the workflows list view (Slice 4.WORKFLOWS-PAGE-1; relaid
+ * out to the ChainV2Builder design's column grid in WF-5 polish). Columns:
+ * Name (+ run-stats subline) · Apps · Folder · Last changed · Status (toggle +
+ * badge) · actions. Shares `WORKFLOW_ROW_GRID` with the header so columns line
+ * up; the table wrapper handles the bordered card + horizontal scroll.
  *
- * Renders one workflow as a horizontal row: name (link → builder), run-stats
- * sub-line, provider chips, last-changed relative time, status badge,
- * non-optimistic status toggle, actions menu.
- *
- * Pure presentational — all mutation lifts to the toggle/menu, which call the
- * existing lifecycle APIs and propagate success via `onChanged` so the parent
- * (`WorkflowsDashboard`) re-fetches the enriched list.
+ * Pure presentational — mutation lifts to the toggle/menu, which call the
+ * lifecycle APIs and propagate success via `onChanged`.
  */
+export const WORKFLOW_ROW_GRID =
+  "grid items-center gap-4 grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,auto)_44px]";
+
 interface Props {
   workflow: WorkflowListItem;
   onChanged: () => void;
   folderActions?: WorkflowFolderActionProps;
+  /** Resolved folder name for the Folder column; null = uncategorized. */
+  folderName?: string | null;
 }
 
-export function WorkflowRow({ workflow, onChanged, folderActions }: Props) {
+export function WorkflowRow({ workflow, onChanged, folderActions, folderName }: Props) {
   return (
-    <li data-testid="workflow-row" data-workflow-id={workflow.id}>
-      <div className="flex items-center gap-4 rounded-md border border-border bg-card p-4 transition hover:border-foreground/20">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <Link
-            href={`/workflows/${workflow.id}`}
-            data-testid="workflow-row-name"
-            className="truncate text-sm font-semibold text-foreground hover:underline"
-          >
-            {workflow.name}
-          </Link>
-          <p
-            data-testid="workflow-row-runs"
-            className="text-xs text-muted-foreground"
-          >
-            {formatRunStats(workflow.runStats)}
-          </p>
-        </div>
-        <div className="hidden md:block">
-          <WorkflowProviderChips providers={workflow.providers} />
-        </div>
-        <div
-          data-testid="workflow-row-modified"
-          className="hidden w-28 shrink-0 text-right text-xs text-muted-foreground sm:block"
+    <li
+      data-testid="workflow-row"
+      data-workflow-id={workflow.id}
+      className={
+        WORKFLOW_ROW_GRID +
+        " border-t border-border px-4 py-3 transition first:border-t-0 hover:bg-muted/40"
+      }
+    >
+      {/* Name */}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <Link
+          href={`/workflows/${workflow.id}`}
+          data-testid="workflow-row-name"
+          className="truncate text-sm font-semibold text-foreground hover:underline"
         >
-          {formatRelativeTime(workflow.updatedAt)}
-        </div>
-        <div className="shrink-0">
-          <WorkflowStatusBadge workflow={workflow} />
-        </div>
-        <div className="shrink-0">
-          <WorkflowStatusToggle workflow={workflow} onChanged={onChanged} />
-        </div>
-        <div className="shrink-0">
-          <WorkflowActionsMenu
-            workflow={workflow}
-            onChanged={onChanged}
-            {...folderActions}
-          />
-        </div>
+          {workflow.name}
+        </Link>
+        <p data-testid="workflow-row-runs" className="truncate text-xs text-muted-foreground">
+          {formatRunStats(workflow.runStats)}
+        </p>
+      </div>
+
+      {/* Apps */}
+      <div className="min-w-0">
+        <WorkflowProviderChips providers={workflow.providers} />
+      </div>
+
+      {/* Folder */}
+      <div className="min-w-0">
+        {folderName ? (
+          <span
+            data-testid="workflow-row-folder"
+            className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-foreground"
+          >
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden className="shrink-0 text-primary">
+              <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 2h4.5A1.5 1.5 0 0 1 14 6.5v5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
+            </svg>
+            <span className="truncate">{folderName}</span>
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </div>
+
+      {/* Last changed */}
+      <div data-testid="workflow-row-modified" className="truncate text-xs text-muted-foreground">
+        {formatRelativeTime(workflow.updatedAt)}
+      </div>
+
+      {/* Status (toggle + badge) */}
+      <div className="flex items-center gap-2">
+        <WorkflowStatusToggle workflow={workflow} onChanged={onChanged} />
+        <WorkflowStatusBadge workflow={workflow} />
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end">
+        <WorkflowActionsMenu workflow={workflow} onChanged={onChanged} {...folderActions} />
       </div>
     </li>
   );

@@ -64,7 +64,7 @@ export default async function WorkflowsPage() {
       unreadNotifications={unreadNotifications}
       recentNotifications={recentNotifications}
     >
-      <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
+      <main className="flex w-full flex-col p-6 sm:p-8">
         <WorkflowsDashboard
           initialWorkflows={workflows}
           initialFolders={folders}

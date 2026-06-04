@@ -105,15 +105,7 @@ export function WorkflowsToolbar({
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Input
-            type="search"
-            aria-label="Search workflows"
-            data-testid="workflows-search-input"
-            placeholder={placeholder}
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            className="max-w-sm"
-          />
+          {/* Status pills first, then search (swapped per design feedback). */}
           {onAutomations && (
             <div
               data-testid="workflows-status-filter"
@@ -144,6 +136,15 @@ export function WorkflowsToolbar({
               })}
             </div>
           )}
+          <Input
+            type="search"
+            aria-label="Search workflows"
+            data-testid="workflows-search-input"
+            placeholder={placeholder}
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            className="max-w-sm"
+          />
         </div>
         <div className="flex items-center gap-2">
           {onAutomations && (

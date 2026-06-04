@@ -119,6 +119,20 @@ describe("folder navigation", () => {
   });
 });
 
+describe("list grid table", () => {
+  it("renders the design column headers and a Folder chip for a workflow in a folder", () => {
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "In folder", { folderId: "f1" })]}
+        initialFolders={[folder("f1", "Payments")]}
+      />,
+    );
+    const list = screen.getByTestId("workflows-list-view");
+    expect(list).toHaveTextContent("Last changed");
+    expect(screen.getByTestId("workflow-row-folder")).toHaveTextContent("Payments");
+  });
+});
+
 describe("folder create / rename", () => {
   it("creates a folder via the dialog", async () => {
     mockCreateFolder.mockResolvedValueOnce(folder("f2", "Sales"));
