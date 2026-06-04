@@ -46,6 +46,13 @@ export interface WorkflowRecord {
   activeRevisionId: string | null;
   draftDefinition: WorkflowDefinition;
   deletedAt: string | null;
+  /** 4.WORKFLOW-FOLDERS — optional folder membership; null = uncategorized. */
+  folderId: string | null;
+  /** Trash columns (WF-3). Populated only while soft-deleted. */
+  deletedByUserId: string | null;
+  purgeAfter: string | null;
+  deletedFromFolderId: string | null;
+  deleteOperationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,6 +75,11 @@ interface WorkflowsRow {
   active_revision_id: string | null;
   draft_definition: unknown;
   deleted_at: string | null;
+  folder_id: string | null;
+  deleted_by_user_id: string | null;
+  purge_after: string | null;
+  deleted_from_folder_id: string | null;
+  delete_operation_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +103,11 @@ function rowToRecord(row: WorkflowsRow): WorkflowRecord {
     activeRevisionId: row.active_revision_id,
     draftDefinition: (row.draft_definition ?? {}) as WorkflowDefinition,
     deletedAt: row.deleted_at,
+    folderId: row.folder_id,
+    deletedByUserId: row.deleted_by_user_id,
+    purgeAfter: row.purge_after,
+    deletedFromFolderId: row.deleted_from_folder_id,
+    deleteOperationId: row.delete_operation_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -368,8 +385,17 @@ export interface ApplyTransitionInput {
   disabledReason?: WorkflowDisabledReason | null;
   /** `undefined` = leave column untouched. `null` = clear. */
   disabledContext?: string | null;
-  /** When true, set deleted_at = now(). Used by the delete transition. */
+  /** When true, set deleted_at = now(). Legacy delete; ignored if `deletedAt` is set. */
   setDeletedAt?: boolean;
+  // ── WF-3 trash columns. Each `undefined` = leave untouched; `null` = clear. ──
+  /** Explicit deleted_at (so purge_after = deleted_at + 7d aligns exactly). */
+  deletedAt?: string | null;
+  deletedByUserId?: string | null;
+  purgeAfter?: string | null;
+  deletedFromFolderId?: string | null;
+  deleteOperationId?: string | null;
+  /** Relocation on restore. `undefined` = leave untouched; `null` = uncategorize. */
+  folderId?: string | null;
 }
 
 /**
@@ -465,9 +491,18 @@ export async function applyTransition(
   if (input.disabledContext !== undefined) {
     update.disabled_context = input.disabledContext;
   }
-  if (input.setDeletedAt) {
+  // WF-3: explicit deletedAt wins (purge_after = deleted_at + 7d alignment);
+  // legacy setDeletedAt only applies when deletedAt was not supplied.
+  if (input.deletedAt !== undefined) {
+    update.deleted_at = input.deletedAt;
+  } else if (input.setDeletedAt) {
     update.deleted_at = new Date().toISOString();
   }
+  if (input.deletedByUserId !== undefined) update.deleted_by_user_id = input.deletedByUserId;
+  if (input.purgeAfter !== undefined) update.purge_after = input.purgeAfter;
+  if (input.deletedFromFolderId !== undefined) update.deleted_from_folder_id = input.deletedFromFolderId;
+  if (input.deleteOperationId !== undefined) update.delete_operation_id = input.deleteOperationId;
+  if (input.folderId !== undefined) update.folder_id = input.folderId;
   const { data, error } = await supabase
     .from("workflows")
     .update(update)
@@ -479,4 +514,76 @@ export async function applyTransition(
     throw new Error(`workflows.applyTransition failed: ${error.message}`);
   }
   return data ? rowToRecord(data) : null;
+}
+
+// ── WF-3 trash queries ───────────────────────────────────────────────────────
+
+/**
+ * Live (non-deleted) workflows whose folder_id is in `folderIds`. Used by the
+ * folder delete-with-contents path to collect contained workflows, and by the
+ * folder-only promotion bulk reparent. RLS scopes to account members.
+ */
+export async function listByFolderIds(
+  folderIds: readonly string[],
+): Promise<readonly WorkflowRecord[]> {
+  if (folderIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("*")
+    .in("folder_id", folderIds as string[])
+    .neq("state", "deleted");
+  if (error) throw new Error(`workflows.listByFolderIds failed: ${error.message}`);
+  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+}
+
+/**
+ * Bulk reparent live workflows from one folder to another (or to uncategorized
+ * when `toFolderId` is null). Folder-only delete promotes contained workflows
+ * one level. The same-account trigger backstops cross-account targets.
+ */
+export async function reparentWorkflows(
+  fromFolderId: string,
+  toFolderId: string | null,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("workflows")
+    .update({ folder_id: toFolderId })
+    .eq("folder_id", fromFolderId)
+    .neq("state", "deleted");
+  if (error) throw new Error(`workflows.reparentWorkflows failed: ${error.message}`);
+}
+
+/** All workflows stamped with a trash batch id (for batch restore). */
+export async function listByDeleteOperation(
+  deleteOperationId: string,
+): Promise<readonly WorkflowRecord[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("*")
+    .eq("delete_operation_id", deleteOperationId);
+  if (error) throw new Error(`workflows.listByDeleteOperation failed: ${error.message}`);
+  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+}
+
+/**
+ * Trashed workflows still within the restore window for an account
+ * (deleted + purge_after in the future). The Trash listing.
+ */
+export async function listTrashedByAccount(
+  accountId: string,
+): Promise<readonly WorkflowRecord[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("*")
+    .eq("account_id", accountId)
+    .eq("state", "deleted")
+    .not("deleted_at", "is", null)
+    .gt("purge_after", new Date().toISOString())
+    .order("deleted_at", { ascending: false });
+  if (error) throw new Error(`workflows.listTrashedByAccount failed: ${error.message}`);
+  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
 }

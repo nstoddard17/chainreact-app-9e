@@ -14,7 +14,11 @@ import type {
  *     registration; nothing to disable).
  *   - disabled -> active directly is disallowed; must transit
  *     eligible_to_resume so the user explicitly resumes.
- *   - deleted is terminal from the product UI.
+ *   - deleted is NO LONGER terminal (4.WORKFLOW-FOLDERS-4 / WF-3): a soft-deleted
+ *     workflow sits in Trash for 7 days and can be restored via the `restore`
+ *     transition back to `draft`. Restore is the ONLY transition out of deleted;
+ *     a restored workflow is inactive (draft) and must be re-activated explicitly,
+ *     so restore never re-registers triggers.
  *
  * This module is deliberately I/O-free. The cascade predicates
  * (selectWorkflowsToDisable, selectWorkflowsEligibleToResume) consume a
@@ -29,7 +33,8 @@ export type LifecycleTransition =
   | "resume"
   | "disable"
   | "markEligibleToResume"
-  | "delete";
+  | "delete"
+  | "restore";
 
 export type LifecycleErrorCode =
   | "INVALID_TRANSITION"
@@ -72,6 +77,9 @@ const TRANSITIONS: ReadonlyArray<
   ["eligible_to_resume", "resume", "active"],
   ["eligible_to_resume", "disable", "disabled"],
   ["eligible_to_resume", "delete", "deleted"],
+  // WF-3: Trash restore. The only transition out of `deleted`. Lands in `draft`
+  // (inactive) — restore never re-registers triggers.
+  ["deleted", "restore", "draft"],
 ];
 
 const TRANSITION_MAP: ReadonlyMap<string, WorkflowState> = (() => {

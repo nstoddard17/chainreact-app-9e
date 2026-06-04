@@ -43,6 +43,11 @@ function makeRecord(draftDefinition: WorkflowDefinition): WorkflowRecord {
     activeRevisionId: null,
     draftDefinition,
     deletedAt: null,
+    folderId: null,
+    deletedByUserId: null,
+    purgeAfter: null,
+    deletedFromFolderId: null,
+    deleteOperationId: null,
     createdAt: "2026-05-25T00:00:00Z",
     updatedAt: "2026-05-25T00:00:00Z",
   };

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { UpdateWorkflowRequestSchema } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import { moveWorkflowToFolder } from "@/services/workflowFolders/folderService";
-import { folderErrorResponse } from "@/app/api/folders/_shared";
+import { deleteWorkflow } from "@/services/workflowFolders/trashService";
+import { folderErrorResponse, trashErrorResponse } from "@/app/api/folders/_shared";
 import {
   parseJsonBody,
   requireUser,
@@ -96,4 +97,32 @@ export async function PATCH(
     if (!moved.ok) return folderErrorResponse(moved);
   }
   return NextResponse.json(toWorkflowDetail(next));
+}
+
+/**
+ * DELETE /api/workflows/[id] — soft-delete a workflow to Trash (WF-3).
+ *
+ * Stamps the trash columns (purge_after = now + 7 days, deleted_by_user_id,
+ * deleted_from_folder_id, delete_operation_id) and tears down triggers via the
+ * lifecycle orchestrator. The row drops out of the live list and appears in
+ * Trash for 7 days. Returns the delete_operation_id for a future Undo (WF-5).
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const { id } = await params;
+  const loaded = await loadOrNotFound(id, auth.userId);
+  if (!loaded.ok) return loaded.response;
+
+  const result = await deleteWorkflow(id, auth.userId);
+  if (!result.ok) return trashErrorResponse(result);
+  return NextResponse.json({
+    ok: true,
+    deleteOperationId: result.data.deleteOperationId,
+    purgeAfter: result.data.purgeAfter,
+  });
 }

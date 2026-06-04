@@ -82,6 +82,26 @@ interface ApplyOptions {
   /** `undefined` = leave column untouched. `null` = clear. */
   disabledContext?: string | null;
   setDeletedAt?: boolean;
+  // WF-3 trash columns (each undefined = untouched, null = clear).
+  deletedAt?: string | null;
+  deletedByUserId?: string | null;
+  purgeAfter?: string | null;
+  deletedFromFolderId?: string | null;
+  deleteOperationId?: string | null;
+  folderId?: string | null;
+}
+
+/**
+ * WF-3 — trash metadata supplied to `delete()` so the soft-delete transition
+ * stamps the restore-window columns atomically. When omitted, delete falls back
+ * to the legacy `deleted_at = now()` behavior (no trash window).
+ */
+export interface DeleteTrashInput {
+  deletedAt: string;
+  deletedByUserId: string;
+  purgeAfter: string;
+  deletedFromFolderId: string | null;
+  deleteOperationId: string;
 }
 
 export class LifecycleOrchestrator {
@@ -180,15 +200,55 @@ export class LifecycleOrchestrator {
     return next;
   }
 
-  async delete(workflowId: string): Promise<WorkflowRecord> {
+  async delete(
+    workflowId: string,
+    trash?: DeleteTrashInput,
+  ): Promise<WorkflowRecord> {
     const wf = await this.loadOrThrow(workflowId);
     const toState = assertAllowedTransition(wf.state, "delete");
-    const next = await this.applyOrConflict(wf.state, workflowId, {
-      toState,
-      setDeletedAt: true,
-    });
+    const next = await this.applyOrConflict(
+      wf.state,
+      workflowId,
+      trash
+        ? {
+            toState,
+            deletedAt: trash.deletedAt,
+            deletedByUserId: trash.deletedByUserId,
+            purgeAfter: trash.purgeAfter,
+            deletedFromFolderId: trash.deletedFromFolderId,
+            deleteOperationId: trash.deleteOperationId,
+          }
+        : { toState, setDeletedAt: true },
+    );
     await safeUnregister(this.hooks, next);
     await safeNotify(this.hooks, next, "delete", { toState });
+    return next;
+  }
+
+  /**
+   * WF-3 — restore a soft-deleted workflow back to `draft`. Clears every trash
+   * column and relocates to `folderId` (the resolved restore target). NEVER
+   * registers triggers — a restored workflow is inactive and the user must
+   * re-activate explicitly (locked decision).
+   */
+  async restore(
+    workflowId: string,
+    opts: { folderId: string | null },
+  ): Promise<WorkflowRecord> {
+    const wf = await this.loadOrThrow(workflowId);
+    const toState = assertAllowedTransition(wf.state, "restore");
+    const next = await this.applyOrConflict(wf.state, workflowId, {
+      toState,
+      deletedAt: null,
+      deletedByUserId: null,
+      purgeAfter: null,
+      deletedFromFolderId: null,
+      deleteOperationId: null,
+      folderId: opts.folderId,
+      disabledReason: null,
+      disabledContext: null,
+    });
+    await safeNotify(this.hooks, next, "restore", { toState });
     return next;
   }
 
@@ -254,6 +314,16 @@ export class LifecycleOrchestrator {
         ? { disabledContext: options.disabledContext }
         : {}),
       ...(options.setDeletedAt ? { setDeletedAt: true } : {}),
+      ...(options.deletedAt !== undefined ? { deletedAt: options.deletedAt } : {}),
+      ...(options.deletedByUserId !== undefined ? { deletedByUserId: options.deletedByUserId } : {}),
+      ...(options.purgeAfter !== undefined ? { purgeAfter: options.purgeAfter } : {}),
+      ...(options.deletedFromFolderId !== undefined
+        ? { deletedFromFolderId: options.deletedFromFolderId }
+        : {}),
+      ...(options.deleteOperationId !== undefined
+        ? { deleteOperationId: options.deleteOperationId }
+        : {}),
+      ...(options.folderId !== undefined ? { folderId: options.folderId } : {}),
     });
     if (next === null) {
       throw new LifecycleError(

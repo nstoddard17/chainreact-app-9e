@@ -189,6 +189,11 @@ describe("toWorkflowSummary", () => {
         edges: [],
       },
       deletedAt: null,
+      folderId: null,
+      deletedByUserId: null,
+      purgeAfter: null,
+      deletedFromFolderId: null,
+      deleteOperationId: null,
       createdAt: "2026-05-06T00:00:00Z",
       updatedAt: "2026-05-06T01:00:00Z",
     };
@@ -204,6 +209,10 @@ describe("toWorkflowSummary", () => {
       updatedAt: "2026-05-06T01:00:00Z",
     });
     expect(summary).not.toHaveProperty("userId");
+    // WF-3 added folder/trash columns to WorkflowRecord; toWorkflowSummary must
+    // NOT leak them onto the wire shape.
+    expect(summary).not.toHaveProperty("folderId");
+    expect(summary).not.toHaveProperty("deleteOperationId");
     expect(summary).not.toHaveProperty("activeRevisionId");
     expect(summary).not.toHaveProperty("draftDefinition");
   });
@@ -234,6 +243,11 @@ describe("toWorkflowDetail", () => {
         edges: [],
       },
       deletedAt: null,
+      folderId: null,
+      deletedByUserId: null,
+      purgeAfter: null,
+      deletedFromFolderId: null,
+      deleteOperationId: null,
       createdAt: "2026-05-06T00:00:00Z",
       updatedAt: "2026-05-06T01:00:00Z",
     };

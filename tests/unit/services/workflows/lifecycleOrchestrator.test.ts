@@ -50,6 +50,11 @@ function makeWorkflow(
     activeRevisionId: null,
     draftDefinition: { nodes: [], edges: [] },
     deletedAt: null,
+    folderId: null,
+    deletedByUserId: null,
+    purgeAfter: null,
+    deletedFromFolderId: null,
+    deleteOperationId: null,
     createdAt: "2026-05-06T00:00:00Z",
     updatedAt: "2026-05-06T00:00:00Z",
     ...overrides,
@@ -403,6 +408,67 @@ describe("LifecycleOrchestrator.delete", () => {
     mockGetById.mockResolvedValueOnce(makeWorkflow("deleted"));
     const orch = new LifecycleOrchestrator();
     await expect(orch.delete("wf-1")).rejects.toMatchObject({
+      code: "INVALID_TRANSITION",
+    });
+  });
+
+  it("WF-3: delete with trash metadata stamps the trash columns (not legacy setDeletedAt)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("active"));
+    mockApplyTransition.mockResolvedValueOnce(
+      makeWorkflow("deleted", { deletedAt: "2026-06-03T00:00:00Z" }),
+    );
+    const orch = new LifecycleOrchestrator();
+    await orch.delete("wf-1", {
+      deletedAt: "2026-06-03T00:00:00Z",
+      deletedByUserId: "user-1",
+      purgeAfter: "2026-06-10T00:00:00Z",
+      deletedFromFolderId: "folder-1",
+      deleteOperationId: "op-1",
+    });
+    expect(mockApplyTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toState: "deleted",
+        deletedAt: "2026-06-03T00:00:00Z",
+        deletedByUserId: "user-1",
+        purgeAfter: "2026-06-10T00:00:00Z",
+        deletedFromFolderId: "folder-1",
+        deleteOperationId: "op-1",
+      }),
+    );
+    expect(mockApplyTransition.mock.calls[0]![0]).not.toHaveProperty("setDeletedAt");
+  });
+});
+
+describe("LifecycleOrchestrator.restore (WF-3)", () => {
+  it("restores deleted → draft, clears trash columns, relocates folder, and does NOT register triggers", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("deleted", { deletedAt: "2026-06-03T00:00:00Z" }));
+    mockApplyTransition.mockResolvedValueOnce(makeWorkflow("draft"));
+    const registerTrigger = jest.fn(async () => {});
+    const orch = new LifecycleOrchestrator({ registerTrigger });
+
+    const result = await orch.restore("wf-1", { folderId: "folder-1" });
+
+    expect(result.state).toBe("draft");
+    expect(mockApplyTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedFromState: "deleted",
+        toState: "draft",
+        deletedAt: null,
+        deletedByUserId: null,
+        purgeAfter: null,
+        deletedFromFolderId: null,
+        deleteOperationId: null,
+        folderId: "folder-1",
+      }),
+    );
+    // Restored workflow is inactive — never re-register triggers (locked decision).
+    expect(registerTrigger).not.toHaveBeenCalled();
+  });
+
+  it("rejects restore on a non-deleted workflow (INVALID_TRANSITION)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("active"));
+    const orch = new LifecycleOrchestrator();
+    await expect(orch.restore("wf-1", { folderId: null })).rejects.toMatchObject({
       code: "INVALID_TRANSITION",
     });
   });

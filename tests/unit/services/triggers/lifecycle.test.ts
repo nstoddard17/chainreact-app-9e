@@ -55,6 +55,11 @@ function makeWorkflow(
     activeRevisionId: null,
     draftDefinition: { nodes, edges: [] },
     deletedAt: null,
+    folderId: null,
+    deletedByUserId: null,
+    purgeAfter: null,
+    deletedFromFolderId: null,
+    deleteOperationId: null,
     createdAt: "2026-05-07T00:00:00Z",
     updatedAt: "2026-05-07T00:00:00Z",
   };

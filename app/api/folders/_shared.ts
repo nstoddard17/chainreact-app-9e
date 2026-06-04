@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isMember } from "@/repositories/accountMemberships";
 import type { WorkflowFolderRecord } from "@/repositories/workflowFolders";
 import type { FolderErrorCode, FolderResult } from "@/services/workflowFolders/folderService";
+import type { TrashResult } from "@/services/workflowFolders/trashService";
 import type { WorkflowFolder } from "@/contracts/folders";
 
 /**
@@ -56,6 +57,19 @@ export function folderErrorResponse(
   return NextResponse.json(
     { error: result.message, code: result.code },
     { status: FOLDER_HTTP_STATUS[result.code] },
+  );
+}
+
+/**
+ * Map a failed TrashResult to a JSON response. TrashResult carries its own HTTP
+ * status (it spans workflow lifecycle + folder errors), so this is a thin pass-through.
+ */
+export function trashErrorResponse(
+  result: Extract<TrashResult<unknown>, { ok: false }>,
+): NextResponse {
+  return NextResponse.json(
+    { error: result.message, code: result.code },
+    { status: result.status },
   );
 }
 

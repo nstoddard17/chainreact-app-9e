@@ -37,6 +37,8 @@ const ALLOWED: ReadonlyArray<Row> = [
   ["eligible_to_resume", "resume", "active"],
   ["eligible_to_resume", "disable", "disabled"],
   ["eligible_to_resume", "delete", "deleted"],
+  // WF-3: Trash restore — the only transition out of deleted.
+  ["deleted", "restore", "draft"],
 ];
 
 // Disallowed combinations the rule explicitly calls out, plus all
@@ -48,6 +50,7 @@ const ALL_TRANSITIONS: ReadonlyArray<LifecycleTransition> = [
   "disable",
   "markEligibleToResume",
   "delete",
+  "restore",
 ];
 const ALL_STATES: ReadonlyArray<WorkflowState> = [
   "draft",
@@ -74,9 +77,19 @@ describe("getNextState (rule §Allowed transitions table)", () => {
     expect(getNextState("disabled", "activate")).toBeNull();
   });
 
-  it("rule §Allowed: deleted is terminal — every transition returns null", () => {
+  it("WF-3: deleted allows ONLY restore (→ draft); every other transition returns null", () => {
     for (const t of ALL_TRANSITIONS) {
-      expect(getNextState("deleted", t)).toBeNull();
+      if (t === "restore") {
+        expect(getNextState("deleted", t)).toBe("draft");
+      } else {
+        expect(getNextState("deleted", t)).toBeNull();
+      }
+    }
+  });
+
+  it("WF-3: restore is allowed ONLY from deleted", () => {
+    for (const s of ALL_STATES) {
+      expect(getNextState(s, "restore")).toBe(s === "deleted" ? "draft" : null);
     }
   });
 
