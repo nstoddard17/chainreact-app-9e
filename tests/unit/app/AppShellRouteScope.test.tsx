@@ -64,6 +64,20 @@ jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
     updatedAt: "2026-05-30T00:00:00Z",
   })),
 }));
+jest.mock("@/services/accounts/activeAccount", () => ({
+  // 4.WORKFLOW-FOLDERS-6 / WF-5 fix: the page resolves the ACTIVE account.
+  resolveActiveAccount: jest.fn(async (userId: string) => ({
+    ok: true as const,
+    source: "personal" as const,
+    account: {
+      id: `acct-${userId}`,
+      type: "personal" as const,
+      ownerUserId: userId,
+      createdAt: "2026-05-30T00:00:00Z",
+      updatedAt: "2026-05-30T00:00:00Z",
+    },
+  })),
+}));
 jest.mock("@/repositories/notifications", () => ({
   listForUser: jest.fn().mockResolvedValue([]),
   countUnreadForUser: jest.fn().mockResolvedValue(0),

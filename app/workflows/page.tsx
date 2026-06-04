@@ -5,6 +5,7 @@ import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
 import * as notificationsRepo from "@/repositories/notifications";
 import * as foldersRepo from "@/repositories/workflowFolders";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
 import { toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
@@ -39,10 +40,17 @@ export default async function WorkflowsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
 
-  // 4.ACCOUNT-MODEL-7: resolve the caller's account before the parallel
-  // fetch — workflows are now listed by account. Personal account until the
-  // switcher slice ships.
-  const ownerAccount = await ensurePersonalAccount(user.id);
+  // Resolve the caller's ACTIVE account — the same chokepoint the /api/workflows
+  // + /api/folders routes use via requireUserWithAccount (explicit → stored
+  // active_account_id → personal fallback). The page MUST read from the same
+  // account the client APIs mutate, otherwise (e.g. when a Team account is
+  // active) the server-rendered list shows the personal account's folders /
+  // workflows while create/move/delete operate on the active account — folders
+  // appear empty yet collide on create. `resolveActiveAccount` ensures the
+  // personal account exists internally; on the rare frozen-active case we fall
+  // back to the personal floor for display.
+  const resolved = await resolveActiveAccount(user.id);
+  const ownerAccount = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
   const [records, runStats, folderRecords, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
       workflowsRepo.listByAccount(ownerAccount.id),

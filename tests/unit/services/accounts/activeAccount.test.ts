@@ -242,15 +242,22 @@ describe("setActiveAccount → resolveActiveAccount round-trip (11d)", () => {
 });
 
 describe("resolver wiring is gate-only; background paths never use it (11c)", () => {
-  // Walk production source dirs. After 11c the resolver has exactly ONE caller —
-  // the route gate (app/api/workflows/_shared.ts). Anything else (and ANY
+  // Walk production source dirs. The resolver is FOREGROUND-gate-only: it may be
+  // called by the user-session entry points that need the caller's active
+  // account — the route gate (app/api/workflows/_shared.ts) and the SSR
+  // workflows page (app/workflows/page.tsx, which must read from the SAME
+  // account the client folder/trash APIs mutate). Anything else (and ANY
   // background/cron/webhook/trigger path in particular) referencing it is a leak.
   const ROOT = process.cwd();
   const PROD_DIRS = ["app", "lib", "components", "repositories", "core", "integrations", "services"];
   const DEF_FILE = resolve(ROOT, "services/accounts/activeAccount.ts");
   const GATE_FILE = resolve(ROOT, "app/api/workflows/_shared.ts");
-  // resolveActiveAccount has exactly one production caller — the route gate.
-  const RESOLVER_ALLOWED = new Set([DEF_FILE, GATE_FILE]);
+  // The SSR workflows page is the foreground sibling of the route gate
+  // (4.WORKFLOW-FOLDERS-6 / WF-5): it server-renders the list for the active
+  // account so folders/workflows match what the client APIs operate on.
+  const PAGE_FILE = resolve(ROOT, "app/workflows/page.tsx");
+  // resolveActiveAccount's production callers — the foreground gates only.
+  const RESOLVER_ALLOWED = new Set([DEF_FILE, GATE_FILE, PAGE_FILE]);
   // Background entry points must NEVER consult active-account state (default
   // OR set): cron/webhook/polling resolve the workflow's owning account instead.
   const BACKGROUND_DIRS = ["app/api/cron", "app/api/webhooks", "services/triggers"];
@@ -282,7 +289,7 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     return out;
   }
 
-  it("only the route gate (workflows/_shared.ts) calls resolveActiveAccount", () => {
+  it("only the foreground gates (workflows/_shared.ts + workflows/page.tsx) call resolveActiveAccount", () => {
     const offenders: string[] = [];
     for (const d of PROD_DIRS) {
       for (const file of walk(resolve(ROOT, d))) {
