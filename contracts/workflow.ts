@@ -138,6 +138,10 @@ export const WorkflowListItemSchema = WorkflowSummarySchema.extend({
   triggerCount: z.number().int().nonnegative(),
   actionCount: z.number().int().nonnegative(),
   runStats: WorkflowRunStatsSchema,
+  // 4.WORKFLOW-FOLDERS-6 / WF-5 — folder membership for the dashboard folder
+  // navigation. null = uncategorized. Carried on the list item only (NOT the
+  // summary wire shape, which stays folder-agnostic).
+  folderId: z.string().uuid().nullable(),
 });
 export type WorkflowListItem = z.infer<typeof WorkflowListItemSchema>;
 

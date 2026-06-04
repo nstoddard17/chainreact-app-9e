@@ -32,12 +32,29 @@ import { WorkflowActivateConfirmDialog } from "./WorkflowActivateConfirmDialog";
  * endpoints don't exist in V2 yet; rendering them as fake actions would
  * mislead the user. Backlog-safe: when/if they ship, this menu adopts them.
  */
-interface Props {
-  workflow: Pick<WorkflowListItem, "id" | "name" | "state">;
+/**
+ * 4.WORKFLOW-FOLDERS-6 / WF-5 — folder/trash affordances. Rendered only when
+ * the folder-aware dashboard supplies the handlers; callers (and tests) that
+ * omit them keep the prior Open/Activate/Pause/Resume-only menu.
+ */
+export interface WorkflowFolderActionProps {
+  folders?: ReadonlyArray<{ id: string; name: string }>;
+  onMoveToFolder?: (folderId: string | null) => void;
+  onMoveToTrash?: () => void;
+}
+
+interface Props extends WorkflowFolderActionProps {
+  workflow: Pick<WorkflowListItem, "id" | "name" | "state" | "folderId">;
   onChanged: () => void;
 }
 
-export function WorkflowActionsMenu({ workflow, onChanged }: Props) {
+export function WorkflowActionsMenu({
+  workflow,
+  onChanged,
+  folders,
+  onMoveToFolder,
+  onMoveToTrash,
+}: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -137,6 +154,59 @@ export function WorkflowActionsMenu({ workflow, onChanged }: Props) {
               disabled={pending}
               testId="workflow-actions-menu-resume"
             />
+          )}
+          {onMoveToFolder && (
+            <div className="my-1 border-t border-border pt-1">
+              <p className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                Move to folder
+              </p>
+              <div className="max-h-40 overflow-y-auto">
+                {workflow.folderId !== null && (
+                  <MenuItem
+                    label="Uncategorized"
+                    onSelect={() => {
+                      setOpen(false);
+                      onMoveToFolder(null);
+                    }}
+                    testId="workflow-actions-menu-move-uncategorized"
+                  />
+                )}
+                {(folders ?? [])
+                  .filter((f) => f.id !== workflow.folderId)
+                  .map((f) => (
+                    <MenuItem
+                      key={f.id}
+                      label={f.name}
+                      onSelect={() => {
+                        setOpen(false);
+                        onMoveToFolder(f.id);
+                      }}
+                      testId={`workflow-actions-menu-move-${f.id}`}
+                    />
+                  ))}
+                {(folders ?? []).filter((f) => f.id !== workflow.folderId).length === 0 &&
+                  workflow.folderId === null && (
+                    <p className="px-2 py-1 text-[11px] text-muted-foreground">
+                      No folders yet.
+                    </p>
+                  )}
+              </div>
+            </div>
+          )}
+          {onMoveToTrash && (
+            <div className="border-t border-border pt-1">
+              <button
+                type="button"
+                data-testid="workflow-actions-menu-trash"
+                onClick={() => {
+                  setOpen(false);
+                  onMoveToTrash();
+                }}
+                className="block w-full rounded px-2 py-1.5 text-left text-sm text-destructive hover:bg-destructive/10"
+              >
+                Move to Trash
+              </button>
+            </div>
           )}
           {error && (
             <div

@@ -1,50 +1,92 @@
 import { CreateWorkflowButton } from "./CreateWorkflowButton";
 
 /**
- * Empty state for the workflows dashboard (Slice 4.WORKFLOWS-PAGE-1).
+ * Empty states for the workflows dashboard
+ * (Slice 4.WORKFLOWS-PAGE-1 + folders/trash WF-5).
  *
- * Two variants:
- *   - `kind="no-workflows"`: the user has none yet → friendly CTA reusing
- *     the existing `CreateWorkflowButton` (real create flow → builder).
- *   - `kind="no-matches"`: a search/filter combination matched nothing →
- *     prompt to relax the filters (no destructive op).
+ *   - `no-workflows`  : the user has none yet → Create CTA.
+ *   - `no-matches`    : a search/filter combo matched nothing.
+ *   - `empty-folder`  : the selected folder has no workflows.
+ *   - `no-folders`    : the Folders tab with no folders created yet.
+ *   - `empty-trash`   : Trash is empty.
+ *   - `folder-limit`  : the account hit its folder cap.
  */
+type Kind =
+  | "no-workflows"
+  | "no-matches"
+  | "empty-folder"
+  | "no-folders"
+  | "empty-trash"
+  | "folder-limit";
+
 interface Props {
-  kind: "no-workflows" | "no-matches";
+  kind: Kind;
+  /** For `folder-limit`: the cap for messaging. */
+  limit?: number;
 }
 
-export function WorkflowsEmptyState({ kind }: Props) {
-  if (kind === "no-matches") {
+const COPY: Record<
+  Exclude<Kind, "no-workflows">,
+  { testId: string; title: string; body: string }
+> = {
+  "no-matches": {
+    testId: "workflows-empty-no-matches",
+    title: "Nothing matches those filters",
+    body: "Try clearing the search or a filter — or create a new workflow.",
+  },
+  "empty-folder": {
+    testId: "workflows-empty-folder",
+    title: "This folder is empty",
+    body: "Move a workflow here from its actions menu, or create a new one.",
+  },
+  "no-folders": {
+    testId: "workflows-empty-no-folders",
+    title: "No folders yet",
+    body: "Folders are an optional way to organize automations. Create one to group related workflows.",
+  },
+  "empty-trash": {
+    testId: "workflows-empty-trash",
+    title: "Trash is empty",
+    body: "Deleted workflows and folders appear here for 7 days before they're permanently removed.",
+  },
+  "folder-limit": {
+    testId: "workflows-empty-folder-limit",
+    title: "Folder limit reached",
+    body: "You've reached the folder limit for this plan. Delete a folder to make room for a new one.",
+  },
+};
+
+export function WorkflowsEmptyState({ kind, limit }: Props) {
+  if (kind === "no-workflows") {
     return (
       <div
-        data-testid="workflows-empty-no-matches"
+        data-testid="workflows-empty-no-workflows"
         role="status"
-        className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border bg-card p-10 text-center"
+        className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border bg-card p-10 text-center"
       >
-        <p className="text-sm font-semibold text-foreground">
-          Nothing matches those filters
+        <p className="text-sm font-semibold text-foreground">No workflows yet</p>
+        <p className="max-w-md text-xs text-muted-foreground">
+          Workflows automate things across your connected apps. Create your first
+          one to get started — the builder will guide you through picking a
+          trigger and adding actions.
         </p>
-        <p className="text-xs text-muted-foreground">
-          Try clearing the search or status filter — or create a new workflow.
-        </p>
+        <CreateWorkflowButton />
       </div>
     );
   }
+  const c = COPY[kind];
+  const body =
+    kind === "folder-limit" && typeof limit === "number"
+      ? `You've reached your plan's limit of ${limit} folders. Delete a folder to make room for a new one.`
+      : c.body;
   return (
     <div
-      data-testid="workflows-empty-no-workflows"
+      data-testid={c.testId}
       role="status"
-      className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border bg-card p-10 text-center"
+      className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border bg-card p-10 text-center"
     >
-      <p className="text-sm font-semibold text-foreground">
-        No workflows yet
-      </p>
-      <p className="max-w-md text-xs text-muted-foreground">
-        Workflows automate things across your connected apps. Create your first
-        one to get started — the builder will guide you through picking a
-        trigger and adding actions.
-      </p>
-      <CreateWorkflowButton />
+      <p className="text-sm font-semibold text-foreground">{c.title}</p>
+      <p className="max-w-md text-xs text-muted-foreground">{body}</p>
     </div>
   );
 }

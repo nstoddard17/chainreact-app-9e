@@ -51,6 +51,7 @@ function wf(
     disabledReason: state === "disabled" ? "manual_admin" : null,
     disabledContext: null,
     deletedAt: null,
+    folderId: null,
     createdAt: "2026-05-29T00:00:00Z",
     updatedAt: "2026-05-29T00:00:00Z",
     providers,

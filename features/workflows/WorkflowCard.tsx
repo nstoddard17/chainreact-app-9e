@@ -4,7 +4,10 @@ import Link from "next/link";
 import type { WorkflowListItem } from "@/contracts/workflow";
 import { formatRelativeTime } from "./relativeTime";
 import { formatRunStats } from "./formatRunStats";
-import { WorkflowActionsMenu } from "./WorkflowActionsMenu";
+import {
+  WorkflowActionsMenu,
+  type WorkflowFolderActionProps,
+} from "./WorkflowActionsMenu";
 import { WorkflowProviderChips } from "./WorkflowProviderChips";
 import { WorkflowStatusBadge } from "./WorkflowStatusBadge";
 import { WorkflowStatusToggle } from "./WorkflowStatusToggle";
@@ -20,9 +23,10 @@ import { WorkflowStatusToggle } from "./WorkflowStatusToggle";
 interface Props {
   workflow: WorkflowListItem;
   onChanged: () => void;
+  folderActions?: WorkflowFolderActionProps;
 }
 
-export function WorkflowCard({ workflow, onChanged }: Props) {
+export function WorkflowCard({ workflow, onChanged, folderActions }: Props) {
   return (
     <li
       data-testid="workflow-card"
@@ -37,7 +41,11 @@ export function WorkflowCard({ workflow, onChanged }: Props) {
         >
           {workflow.name}
         </Link>
-        <WorkflowActionsMenu workflow={workflow} onChanged={onChanged} />
+        <WorkflowActionsMenu
+          workflow={workflow}
+          onChanged={onChanged}
+          {...folderActions}
+        />
       </div>
       <div className="flex items-center justify-between gap-2">
         <WorkflowStatusBadge workflow={workflow} />

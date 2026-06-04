@@ -3,8 +3,11 @@ import { createClient } from "@/utils/supabase/server";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
 import * as notificationsRepo from "@/repositories/notifications";
+import * as foldersRepo from "@/repositories/workflowFolders";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
 import { toWorkflowListItem } from "@/app/api/workflows/_shared";
+import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
 import {
@@ -40,16 +43,19 @@ export default async function WorkflowsPage() {
   // fetch — workflows are now listed by account. Personal account until the
   // switcher slice ships.
   const ownerAccount = await ensurePersonalAccount(user.id);
-  const [records, runStats, unreadNotifications, recentNotificationRecords] =
+  const [records, runStats, folderRecords, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
       workflowsRepo.listByAccount(ownerAccount.id),
       workflowRunStatsRepo.getStatsForUser(user.id),
+      // 4.WORKFLOW-FOLDERS-6 / WF-5 — live folders for the dashboard folder tree.
+      foldersRepo.listByAccount(ownerAccount.id),
       notificationsRepo.countUnreadForUser(user.id),
       notificationsRepo.listForUser(user.id, {
         limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
       }),
     ]);
   const workflows = records.map((r) => toWorkflowListItem(r, runStats));
+  const folders = folderRecords.map(toWorkflowFolder);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
 
   return (
@@ -59,7 +65,11 @@ export default async function WorkflowsPage() {
       recentNotifications={recentNotifications}
     >
       <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
-        <WorkflowsDashboard initialWorkflows={workflows} />
+        <WorkflowsDashboard
+          initialWorkflows={workflows}
+          initialFolders={folders}
+          folderLimit={folderLimitFor(ownerAccount.type)}
+        />
       </main>
     </AppShell>
   );

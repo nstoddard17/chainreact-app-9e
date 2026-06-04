@@ -278,6 +278,7 @@ export function toWorkflowListItem(
     triggerCount: summary.triggerCount,
     actionCount: summary.actionCount,
     runStats: runStatsByWorkflow.get(record.id) ?? emptyRunStats(),
+    folderId: record.folderId,
   };
 }
 
