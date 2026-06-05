@@ -145,6 +145,17 @@ function toOwnerControlledView(record: IntegrationRecord): ConnectedIntegrationV
  *
  * The `workflowId` resolution is best-effort: an absent / unresolvable id falls
  * back to the legacy personal-account view (never an error).
+ *
+ * **CS-5 documented gap (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-6).** This view
+ * is a FLAT connected-integrations list, NOT node-scoped — an integration row has
+ * no node, so an accepted per-node credential owner (`workflow_node_credentials`)
+ * cannot be applied here without a larger refactor. It therefore stays
+ * CREATOR-PINNED: a co-member who is now an accepted node owner is still shown as
+ * `ownerControlled` (redacted), which is conservative but NEVER leaks (no label /
+ * email / id / owner id). Node-owner-aware availability lives in
+ * `getWorkflowIntegrationAvailabilityForAI` (workflowContext.ts), which is
+ * workflow/node-scoped. Revisit unifying the two surfaces if/when this view
+ * gains node context.
  */
 export async function getConnectedIntegrationsForAI(
   userId: string,

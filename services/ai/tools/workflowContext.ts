@@ -45,6 +45,7 @@ import {
   credentialSharingForProvider,
   type CredentialSharing,
 } from "@/core/integrations/credentialSharing";
+import { loadAcceptedNodeOwners } from "@/services/teamCredentials/nodeCredentialOwners";
 import { redactSecrets } from "./redact";
 import { aiToolErr, aiToolOk, type AiToolResult } from "./types";
 
@@ -476,18 +477,20 @@ export interface WorkflowProviderAvailabilityView {
   readonly sharing: CredentialSharing;
   /**
    * For account providers: any active account credential exists. For personal
-   * providers: the workflow CREATOR has an active credential (a co-member's
-   * personal credential is never counted — execution wouldn't use it).
+   * providers: every EFFECTIVE OWNER of the provider's nodes has an active
+   * credential (a co-member's personal credential that is not an effective owner
+   * is never counted — execution wouldn't use it).
    */
   readonly connected: boolean;
   /**
-   * Personal provider connected by the creator, requester is NOT the creator —
-   * the step runs under the owner's connection. No label/email is ever included.
+   * Personal provider connected by its effective owner, requester is NOT that
+   * owner — the step runs under the owner's connection. No label/email/id is
+   * ever included.
    */
   readonly ownerControlled?: true;
   /**
-   * Personal provider the workflow OWNER must connect (the creator has no
-   * active credential). Mirrors 22B's execution connect-required failure.
+   * Personal provider whose effective OWNER must connect (no active credential).
+   * Mirrors 22B's execution connect-required failure.
    */
   readonly ownerMustConnect?: true;
 }
@@ -499,19 +502,27 @@ export interface WorkflowIntegrationAvailabilityView {
 
 /**
  * Report, per provider the workflow's nodes require, whether the credential the
- * run will ACTUALLY use is connected — applying the credential-sharing policy:
+ * run will ACTUALLY use is connected — applying the credential-sharing policy and
+ * (CS-5) the accepted per-node credential owners:
  *
  *   - account/service provider → connected when the account has an active row
  *     (account-shared); visible to any member.
- *   - personal provider → connected ONLY when the workflow CREATOR connected it
- *     (the identity 22B pins execution to). A co-member's personal credential is
- *     never counted and never revealed. When connected and the requester is not
- *     the creator → `ownerControlled`; when the creator has not connected →
- *     `connected: false` + `ownerMustConnect`.
+ *   - personal provider → resolved against its EFFECTIVE OWNERS across the nodes
+ *     that use it. A node's effective owner is its ACCEPTED reassignment owner
+ *     (`workflow_node_credentials`) when present, else the workflow CREATOR — the
+ *     same identity CS-2 pins execution to. `connected` is true only when EVERY
+ *     effective owner has an active credential. When the requester is the sole
+ *     effective owner → full `connected:true`; otherwise `ownerControlled`; when
+ *     an effective owner has no credential → `connected:false` + `ownerMustConnect`.
+ *     A co-member credential that is not an effective owner is never counted.
  *
- * The view carries provider ids + boolean/flag state only — never a label,
- * email, in-provider id, token, or scope string. Membership-guarded via
- * `loadOwned`; a non-member gets NOT_FOUND.
+ * CS-5 flag gating: accepted owners are batch-loaded ONCE via
+ * `loadAcceptedNodeOwners` (flag OFF → empty map → every effective owner is the
+ * creator, i.e. byte-identical to the 22D-3 behavior). No DB lookup when OFF.
+ *
+ * The view carries provider ids + boolean/flag state only — NEVER a label, email,
+ * in-provider id, token, scope, or the accepted `credentialOwnerUserId`.
+ * Membership-guarded via `loadOwned`; a non-member gets NOT_FOUND.
  */
 export async function getWorkflowIntegrationAvailabilityForAI(
   userId: string,
@@ -521,12 +532,25 @@ export async function getWorkflowIntegrationAvailabilityForAI(
   if (!loaded.ok) return loaded;
   const record = loaded.data;
 
-  // Required providers = every non-native provider used by a node (same notion
-  // of "required" the activation precondition gate uses).
+  // CS-5: accepted per-node owners (flag OFF → empty map, no DB call).
+  const acceptedOwners = await loadAcceptedNodeOwners(record.id);
+
+  // Required providers = every non-native provider used by a node. For PERSONAL
+  // providers, also collect the distinct EFFECTIVE OWNERS across their nodes
+  // (accepted node owner ?? creator) — never surfaced, only used to resolve
+  // connected / ownerControlled / ownerMustConnect below.
   const requiredProviders = new Set<string>();
+  const ownersByPersonalProvider = new Map<string, Set<string>>();
   for (const node of record.draftDefinition.nodes) {
-    if (!node.provider || NON_OAUTH_PROVIDERS.has(node.provider)) continue;
-    requiredProviders.add(node.provider);
+    const provider = node.provider;
+    if (!provider || NON_OAUTH_PROVIDERS.has(provider)) continue;
+    requiredProviders.add(provider);
+    if (credentialSharingForProvider(provider) === "personal") {
+      const owner = acceptedOwners.get(node.id) ?? record.createdByUserId;
+      const set = ownersByPersonalProvider.get(provider) ?? new Set<string>();
+      set.add(owner);
+      ownersByPersonalProvider.set(provider, set);
+    }
   }
   if (requiredProviders.size === 0) {
     return aiToolOk({ workflowId: record.id, providers: [] });
@@ -539,7 +563,6 @@ export async function getWorkflowIntegrationAvailabilityForAI(
     return aiToolErr("SERVER_ERROR", "Couldn't load integration availability.");
   }
 
-  const isCreator = userId === record.createdByUserId;
   const providers: WorkflowProviderAvailabilityView[] = [];
   for (const provider of [...requiredProviders].sort()) {
     const sharing = credentialSharingForProvider(provider);
@@ -551,17 +574,18 @@ export async function getWorkflowIntegrationAvailabilityForAI(
       });
       continue;
     }
-    // personal — count ONLY the creator's credential (mirrors 22B execution).
-    const creatorConnected = active.some(
-      (i) =>
-        i.provider === provider &&
-        i.connectedByUserId === record.createdByUserId,
+    // personal — resolve against the effective owners (mirrors CS-2 execution).
+    const owners = ownersByPersonalProvider.get(provider) ?? new Set([record.createdByUserId]);
+    const allOwnersConnected = [...owners].every((owner) =>
+      active.some((i) => i.provider === provider && i.connectedByUserId === owner),
     );
-    if (!creatorConnected) {
+    if (!allOwnersConnected) {
       providers.push({ provider, sharing, connected: false, ownerMustConnect: true });
-    } else if (isCreator) {
+    } else if (owners.size === 1 && owners.has(userId)) {
+      // The requester is the sole effective owner — full availability.
       providers.push({ provider, sharing, connected: true });
     } else {
+      // Connected, but the requester is not the (only) owner — redacted.
       providers.push({ provider, sharing, connected: true, ownerControlled: true });
     }
   }
