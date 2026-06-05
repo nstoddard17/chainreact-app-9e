@@ -54,7 +54,9 @@ export default async function WorkflowsPage() {
   const [records, runStats, folderRecords, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
       workflowsRepo.listByAccount(ownerAccount.id),
-      workflowRunStatsRepo.getStatsForUser(user.id),
+      // 4.ACCOUNT-SWITCHER-1: run stats scoped to the active account (matches
+      // the workflows + folders lists above).
+      workflowRunStatsRepo.getStatsForAccount(ownerAccount.id),
       // 4.WORKFLOW-FOLDERS-6 / WF-5 — live folders for the dashboard folder tree.
       foldersRepo.listByAccount(ownerAccount.id),
       notificationsRepo.countUnreadForUser(user.id),

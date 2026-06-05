@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as integrationsRepo from "@/repositories/integrations";
 import * as notificationsRepo from "@/repositories/notifications";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -37,10 +38,12 @@ export default async function AppsPage({ searchParams }: Props) {
   if (!user) redirect("/auth/sign-in");
 
   const params = await searchParams;
-  // Slice 4.ACCOUNT-MODEL-6: integrations are account-scoped. Until the
-  // switcher slice ships, "this user's integrations" means their personal
-  // account's integrations.
-  const ownerAccount = await ensurePersonalAccount(user.id);
+  // 4.ACCOUNT-SWITCHER-1: integrations are account-scoped — list the caller's
+  // ACTIVE account's connections (the same account the OAuth-connect APIs write
+  // to via requireUserWithAccount). Falls back to the personal floor if the
+  // active account can't be resolved (e.g. frozen).
+  const resolved = await resolveActiveAccount(user.id);
+  const ownerAccount = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
   const [records, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
       integrationsRepo.listActiveByAccount(ownerAccount.id),

@@ -1,3 +1,4 @@
+import { AccountSwitcher } from "./AccountSwitcher";
 import { AppPageContext } from "./AppPageContext";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
@@ -16,9 +17,13 @@ import type { NotificationPreview } from "./notificationPreview";
  *   - Notification bell with real unread-count badge.
  *   - User menu.
  *
+ * The workspace switcher (4.ACCOUNT-SWITCHER-1) sits on the left, ahead of the
+ * page-context label, so the caller's active Personal/Team/Org account is always
+ * visible + switchable.
+ *
  * Excluded design elements (would be fake on V2 today; documented in
  * the slice plan): global ⌘K search, task-usage progress meter, Help
- * button, theme toggle, workspace switcher / breadcrumb.
+ * button, theme toggle.
  *
  * Server component — the user-menu popover and the page-context
  * `usePathname` reader are client islands inside the children.
@@ -40,6 +45,7 @@ export function AppTopBar({
       className="sticky top-0 z-30 hidden h-14 items-center justify-between gap-4 border-b border-border bg-card px-6 md:flex"
     >
       <div className="flex min-w-0 items-center gap-3">
+        <AccountSwitcher />
         <AppPageContext />
       </div>
       <div className="flex items-center gap-2">

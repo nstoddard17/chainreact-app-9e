@@ -252,12 +252,17 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
   const PROD_DIRS = ["app", "lib", "components", "repositories", "core", "integrations", "services"];
   const DEF_FILE = resolve(ROOT, "services/accounts/activeAccount.ts");
   const GATE_FILE = resolve(ROOT, "app/api/workflows/_shared.ts");
-  // The SSR workflows page is the foreground sibling of the route gate
-  // (4.WORKFLOW-FOLDERS-6 / WF-5): it server-renders the list for the active
-  // account so folders/workflows match what the client APIs operate on.
-  const PAGE_FILE = resolve(ROOT, "app/workflows/page.tsx");
+  // Foreground SSR pages that server-render account-scoped lists must read from
+  // the SAME active account the client APIs mutate (4.WORKFLOW-FOLDERS-6 /
+  // 4.ACCOUNT-SWITCHER-1): /workflows, /apps, /runs. They are the SSR siblings
+  // of the route gate. Background paths are still forbidden (see below).
+  const FOREGROUND_PAGE_FILES = [
+    resolve(ROOT, "app/workflows/page.tsx"),
+    resolve(ROOT, "app/apps/page.tsx"),
+    resolve(ROOT, "app/runs/page.tsx"),
+  ];
   // resolveActiveAccount's production callers — the foreground gates only.
-  const RESOLVER_ALLOWED = new Set([DEF_FILE, GATE_FILE, PAGE_FILE]);
+  const RESOLVER_ALLOWED = new Set([DEF_FILE, GATE_FILE, ...FOREGROUND_PAGE_FILES]);
   // Background entry points must NEVER consult active-account state (default
   // OR set): cron/webhook/polling resolve the workflow's owning account instead.
   const BACKGROUND_DIRS = ["app/api/cron", "app/api/webhooks", "services/triggers"];
@@ -289,7 +294,7 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     return out;
   }
 
-  it("only the foreground gates (workflows/_shared.ts + workflows/page.tsx) call resolveActiveAccount", () => {
+  it("only the foreground gates (route gate + SSR pages) call resolveActiveAccount", () => {
     const offenders: string[] = [];
     for (const d of PROD_DIRS) {
       for (const file of walk(resolve(ROOT, d))) {

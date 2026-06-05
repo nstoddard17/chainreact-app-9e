@@ -38,6 +38,22 @@ const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
+// 4.ACCOUNT-SWITCHER-1: the page now resolves the ACTIVE account. Mock it to the
+// same personal account so the existing acct-${userId} assertions still hold.
+const mockResolveActiveAccount = jest.fn(async (userId: string) => ({
+  ok: true as const,
+  source: "personal" as const,
+  account: {
+    id: `acct-${userId}`,
+    type: "personal" as const,
+    ownerUserId: userId,
+    createdAt: "2026-05-30T00:00:00Z",
+    updatedAt: "2026-05-30T00:00:00Z",
+  },
+}));
+jest.mock("@/services/accounts/activeAccount", () => ({
+  resolveActiveAccount: (userId: string) => mockResolveActiveAccount(userId),
+}));
 
 const mockCountUnread = jest.fn();
 const mockListNotifications = jest.fn();

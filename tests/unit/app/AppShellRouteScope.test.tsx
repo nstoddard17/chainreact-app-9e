@@ -42,7 +42,7 @@ jest.mock("@/repositories/workflows", () => ({
   listNamesByIds: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("@/repositories/workflowRunStats", () => ({
-  getStatsForUser: jest.fn().mockResolvedValue(new Map()),
+  getStatsForAccount: jest.fn().mockResolvedValue(new Map()),
 }));
 jest.mock("@/repositories/workflowFolders", () => ({
   // 4.WORKFLOW-FOLDERS-6 / WF-5: the dashboard page lists folders now.

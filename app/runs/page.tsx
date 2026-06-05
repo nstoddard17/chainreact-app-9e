@@ -4,6 +4,7 @@ import * as notificationsRepo from "@/repositories/notifications";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import * as workflowsRepo from "@/repositories/workflows";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { RunsDashboard } from "@/features/runs/RunsDashboard";
 import {
@@ -32,10 +33,11 @@ import { RUN_LIST_DEFAULT_LIMIT, toRunListItem } from "./_shared";
  *     by account membership (4.ACCOUNT-MODEL-8).
  *   - No per-row N+1: the name join is one IN-list query.
  *
- * **Account-ownership (landed, 4.ACCOUNT-MODEL-8):** the run scope is now
- * "runs across this account" — resolved at page entry (the personal account
- * until the switcher ships) and threaded to the repository's account_id WHERE
- * predicate. The route DTO + UI components stayed shape-stable, as planned.
+ * **Account-ownership (4.ACCOUNT-MODEL-8; active-scoped in 4.ACCOUNT-SWITCHER-1):**
+ * the run scope is "runs across the caller's ACTIVE account" — resolved at page
+ * entry via `resolveActiveAccount` (the same chokepoint the APIs use) and
+ * threaded to the repository's account_id WHERE predicate. The route DTO + UI
+ * components stay shape-stable.
  */
 export default async function RunsPage() {
   const supabase = await createClient();
@@ -44,7 +46,8 @@ export default async function RunsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
 
-  const account = await ensurePersonalAccount(user.id);
+  const resolved = await resolveActiveAccount(user.id);
+  const account = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
   const [
     runRecords,
     unreadNotifications,

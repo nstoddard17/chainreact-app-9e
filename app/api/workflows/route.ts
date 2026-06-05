@@ -45,7 +45,9 @@ export async function GET() {
   // reads run in parallel — no client N+1.
   const [records, runStats] = await Promise.all([
     workflowsRepo.listByAccount(auth.accountId),
-    workflowRunStatsRepo.getStatsForUser(auth.userId),
+    // 4.ACCOUNT-SWITCHER-1: run stats scoped to the SAME active account the
+    // list is scoped to (not user-wide), so refreshed stats match the rows.
+    workflowRunStatsRepo.getStatsForAccount(auth.accountId),
   ]);
   return NextResponse.json({
     workflows: records.map((r) => toWorkflowListItem(r, runStats)),
