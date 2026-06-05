@@ -69,6 +69,40 @@ export async function setActiveAccount(accountId: string): Promise<void> {
   if (!res.ok) throw await parseError(res);
 }
 
+export interface TransferOwnershipResult {
+  ok: true;
+  account: { id: string; name: string; type: AccountSummary["type"]; ownerUserId: string };
+  transfer: {
+    previousOwnerUserId: string;
+    previousOwnerRole: "admin";
+    newOwnerUserId: string;
+    newOwnerRole: "owner";
+  };
+}
+
+/**
+ * POST /api/accounts/[id]/transfer-ownership — owner-initiated ownership
+ * transfer (4.ACCOUNT-MODEL-TRANSFER-LEAVE-3 / TL-2). Owner-only + password
+ * step-up; the target must already be a member. The old owner becomes admin and
+ * the target becomes owner. Errors surface as `AccountApiError` (e.g. code
+ * NOT_OWNER / TARGET_NOT_MEMBER / REAUTH_FAILED) so the future UI can branch.
+ */
+export async function transferOwnership(
+  accountId: string,
+  input: { targetUserId: string; password: string },
+): Promise<TransferOwnershipResult> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/transfer-ownership`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransferOwnershipResult;
+}
+
 // ── Team members + invitations (4.TEAM-PAGE-1) ─────────────────────────────────
 // Thin wrappers over the existing account sub-routes so the Teams UI never calls
 // fetch() directly. NO new backend behavior — invites return a copy-link (raw
