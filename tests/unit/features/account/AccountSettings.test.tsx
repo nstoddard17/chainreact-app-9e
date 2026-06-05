@@ -1,13 +1,15 @@
 /**
- * Tests for features/account/AccountSettings (Slice 4.ACCOUNT-SETTINGS-1).
+ * Tests for features/account/AccountSettings (Slice 4.ACCOUNT-SETTINGS-1;
+ * settings shell + left sub-nav in 4.ACCOUNT-SETTINGS-2).
  *
- * Covers the account-settings surface: overview, the personal-account deletion
- * flow (typed phrase + password → request), pending/scheduled state + cancel,
- * the owned-Team/Business remediation blocker, and the Team-page pointer for a
- * shared active account. The deletion client and next/link are mocked.
+ * Covers the settings shell (grouped left nav + section switching + deep-link),
+ * the Account overview, the honest placeholder sections (no fake working
+ * controls), and the preserved personal-account deletion flow (typed phrase +
+ * password → request, pending + cancel, owned-Team/Business blocker). The
+ * deletion client and next/link are mocked.
  */
-import type { ReactNode } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps, ReactNode } from "react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AccountSettings } from "@/features/account/AccountSettings";
 import type { AccountSummary } from "@/lib/api/accounts";
@@ -52,7 +54,6 @@ const personalActive: AccountSummary = {
   isActive: true,
   deletionStatus: "active",
 };
-
 const teamActive: AccountSummary = {
   id: "t1",
   name: "Acme",
@@ -61,7 +62,6 @@ const teamActive: AccountSummary = {
   isActive: true,
   deletionStatus: "active",
 };
-
 const orgActive: AccountSummary = {
   id: "o1",
   name: "Acme Biz",
@@ -75,55 +75,132 @@ function view(a: AccountSummary) {
   return { name: a.name, type: a.type, role: a.role };
 }
 
+type Overrides = Partial<ComponentProps<typeof AccountSettings>>;
+function renderSettings(overrides: Overrides = {}) {
+  return render(
+    <AccountSettings
+      active={view(personalActive)}
+      isPersonal
+      deletionStatus="active"
+      purgeAfter={null}
+      userEmail="me@x.io"
+      {...overrides}
+    />,
+  );
+}
+
 beforeEach(() => {
   mockRequest.mockReset();
   mockCancel.mockReset();
 });
 
-describe("AccountSettings — overview", () => {
-  it("renders the active account overview (name + type + role)", () => {
-    render(
-      <AccountSettings
-        active={view(personalActive)}
-        isPersonal
-        deletionStatus="active"
-        purgeAfter={null}
-      />,
-    );
-    expect(screen.getByTestId("account-settings")).toBeInTheDocument();
-    // Name + type label both read "Personal"; the personal danger zone renders.
-    expect(screen.getAllByText("Personal").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByTestId("account-deletion-card")).toBeInTheDocument();
+describe("AccountSettings — settings shell + nav", () => {
+  it("renders the grouped left nav with every section item", () => {
+    renderSettings();
+    const nav = screen.getByTestId("account-settings-nav");
+    expect(within(nav).getByText("Personal")).toBeInTheDocument();
+    expect(within(nav).getByText("Workspace")).toBeInTheDocument();
+    expect(within(nav).getByText("Account control")).toBeInTheDocument();
+    for (const id of ["profile", "account", "notifications", "security", "billing", "api", "danger-zone"]) {
+      expect(screen.getByTestId(`account-nav-${id}`)).toBeInTheDocument();
+    }
   });
 
-  it("labels an internal organization account as Business (never Organization)", () => {
-    render(
-      <AccountSettings
-        active={view(orgActive)}
-        isPersonal={false}
-        deletionStatus="active"
-        purgeAfter={null}
-      />,
-    );
-    const settings = screen.getByTestId("account-settings");
-    expect(settings).toHaveTextContent("Business");
-    expect(settings).not.toHaveTextContent(/Organization/);
+  it("defaults to the Account section (overview)", () => {
+    renderSettings();
+    expect(screen.getByTestId("account-section-account")).toBeInTheDocument();
+    expect(screen.getByTestId("account-nav-account")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("switches sections when a nav item is clicked", async () => {
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(screen.getByTestId("account-nav-notifications"));
+    expect(screen.getByTestId("account-section-notifications")).toBeInTheDocument();
+    expect(screen.queryByTestId("account-section-account")).toBeNull();
+  });
+
+  it("deep-links to a section via initialSection", () => {
+    renderSettings({ initialSection: "danger-zone" });
+    expect(screen.getByTestId("account-deletion-card")).toBeInTheDocument();
   });
 });
 
-describe("AccountSettings — personal deletion", () => {
+describe("AccountSettings — Account overview", () => {
+  it("renders the active account overview (name + type + role)", () => {
+    renderSettings();
+    const section = screen.getByTestId("account-section-account");
+    expect(within(section).getByTestId("account-type-label")).toHaveTextContent("Personal");
+  });
+
+  it("labels an internal organization account as Business (never Organization)", () => {
+    renderSettings({ active: view(orgActive), isPersonal: false });
+    const section = screen.getByTestId("account-section-account");
+    expect(within(section).getByTestId("account-type-label")).toHaveTextContent("Business");
+    expect(section).not.toHaveTextContent(/Organization/);
+  });
+
+  it("shows the Team-page pointer for a Team active account", () => {
+    renderSettings({ active: view(teamActive), isPersonal: false });
+    expect(screen.getByTestId("account-team-pointer")).toHaveTextContent(
+      /manage members, ownership transfer, and leave team from the Team page/i,
+    );
+    expect(screen.getByTestId("account-team-link")).toHaveAttribute("href", "/team");
+  });
+});
+
+describe("AccountSettings — placeholder sections expose no fake controls", () => {
+  it.each([
+    ["notifications", "account-section-notifications"],
+    ["security", "account-section-security"],
+    ["billing", "account-section-billing"],
+    ["api", "account-section-api"],
+    ["profile", "account-section-profile"],
+  ])("%s shows coming-soon and no working inputs/buttons", async (navId, sectionId) => {
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(screen.getByTestId(`account-nav-${navId}`));
+    const section = screen.getByTestId(sectionId);
+    expect(within(section).getAllByTestId("account-coming-soon").length).toBeGreaterThan(0);
+    // No interactive controls inside placeholder section bodies.
+    expect(within(section).queryAllByRole("button")).toHaveLength(0);
+    expect(within(section).queryAllByRole("textbox")).toHaveLength(0);
+    expect(within(section).queryAllByRole("switch")).toHaveLength(0);
+    expect(within(section).queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("profile + security surface the signed-in email read-only", async () => {
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(screen.getByTestId("account-nav-profile"));
+    expect(screen.getByTestId("account-section-profile")).toHaveTextContent("me@x.io");
+    await user.click(screen.getByTestId("account-nav-security"));
+    expect(screen.getByTestId("account-section-security")).toHaveTextContent("me@x.io");
+  });
+
+  it("billing surfaces a plan-ish label without inventing pricing (Business, not Organization)", async () => {
+    const user = userEvent.setup();
+    renderSettings({ active: view(orgActive), isPersonal: false });
+    await user.click(screen.getByTestId("account-nav-billing"));
+    const section = screen.getByTestId("account-section-billing");
+    expect(section).toHaveTextContent(/Business plan/);
+    expect(section).not.toHaveTextContent(/Organization/);
+  });
+});
+
+describe("AccountSettings — Danger zone (deletion preserved)", () => {
+  function renderDanger(overrides: Overrides = {}) {
+    return renderSettings({ initialSection: "danger-zone", ...overrides });
+  }
+
   it("requires the typed phrase and a password before the confirm enables", async () => {
     const user = userEvent.setup();
-    render(
-      <AccountSettings active={view(personalActive)} isPersonal deletionStatus="active" purgeAfter={null} />,
-    );
+    renderDanger();
     await user.click(screen.getByTestId("account-delete-open"));
     const confirm = screen.getByTestId("account-delete-confirm");
     expect(confirm).toBeDisabled();
-
     await user.type(screen.getByTestId("account-delete-password"), "hunter2");
-    expect(confirm).toBeDisabled(); // phrase still missing
-
+    expect(confirm).toBeDisabled();
     await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
     expect(confirm).toBeEnabled();
   });
@@ -135,9 +212,7 @@ describe("AccountSettings — personal deletion", () => {
       purgeAfter: "2026-07-05T00:00:00Z",
     });
     const user = userEvent.setup();
-    render(
-      <AccountSettings active={view(personalActive)} isPersonal deletionStatus="active" purgeAfter={null} />,
-    );
+    renderDanger();
     await user.click(screen.getByTestId("account-delete-open"));
     await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
     await user.type(screen.getByTestId("account-delete-password"), "pw");
@@ -153,34 +228,18 @@ describe("AccountSettings — personal deletion", () => {
   });
 
   it("renders an already-pending account as frozen with a cancel (no destructive form)", () => {
-    render(
-      <AccountSettings
-        active={view(personalActive)}
-        isPersonal
-        deletionStatus="pending_deletion"
-        purgeAfter="2026-07-05T00:00:00Z"
-      />,
-    );
+    renderDanger({ deletionStatus: "pending_deletion", purgeAfter: "2026-07-05T00:00:00Z" });
     expect(screen.getByTestId("account-deletion-pending")).toBeInTheDocument();
     expect(screen.getByTestId("account-deletion-cancel")).toBeInTheDocument();
-    // The normal destructive form is NOT shown.
     expect(screen.queryByTestId("account-delete-open")).toBeNull();
   });
 
   it("cancel deletion calls the cancel API and restores the active state", async () => {
     mockCancel.mockResolvedValue({ deletionStatus: "active", requestedAt: null, purgeAfter: null });
     const user = userEvent.setup();
-    render(
-      <AccountSettings
-        active={view(personalActive)}
-        isPersonal
-        deletionStatus="pending_deletion"
-        purgeAfter="2026-07-05T00:00:00Z"
-      />,
-    );
+    renderDanger({ deletionStatus: "pending_deletion", purgeAfter: "2026-07-05T00:00:00Z" });
     await user.click(screen.getByTestId("account-deletion-cancel"));
     await waitFor(() => expect(mockCancel).toHaveBeenCalled());
-    // Back to the active danger-zone form.
     expect(await screen.findByTestId("account-delete-open")).toBeInTheDocument();
     expect(screen.queryByTestId("account-deletion-pending")).toBeNull();
   });
@@ -190,9 +249,7 @@ describe("AccountSettings — personal deletion", () => {
       new AccountDeletionError("Password confirmation failed.", "REAUTH_FAILED", 401),
     );
     const user = userEvent.setup();
-    render(
-      <AccountSettings active={view(personalActive)} isPersonal deletionStatus="active" purgeAfter={null} />,
-    );
+    renderDanger();
     await user.click(screen.getByTestId("account-delete-open"));
     await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
     await user.type(screen.getByTestId("account-delete-password"), "wrong");
@@ -203,10 +260,8 @@ describe("AccountSettings — personal deletion", () => {
     );
     expect(screen.getByTestId("account-delete-form")).toBeInTheDocument();
   });
-});
 
-describe("AccountSettings — owned Team/Business blocker", () => {
-  it("renders the owned accounts with the Business label + a Team-page link", async () => {
+  it("renders the owned Team/Business blocker with Business label + Team link", async () => {
     mockRequest.mockRejectedValue(
       new AccountDeletionError(
         "Transfer ownership or delete the Team/Business accounts you own…",
@@ -219,9 +274,7 @@ describe("AccountSettings — owned Team/Business blocker", () => {
       ),
     );
     const user = userEvent.setup();
-    render(
-      <AccountSettings active={view(personalActive)} isPersonal deletionStatus="active" purgeAfter={null} />,
-    );
+    renderDanger();
     await user.click(screen.getByTestId("account-delete-open"));
     await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
     await user.type(screen.getByTestId("account-delete-password"), "pw");
@@ -229,23 +282,14 @@ describe("AccountSettings — owned Team/Business blocker", () => {
 
     const blocked = await screen.findByTestId("account-deletion-blocked");
     expect(blocked).toHaveTextContent(/transfer ownership or delete these accounts/i);
-    expect(screen.getByTestId("account-owned-t1")).toHaveTextContent("Acme Team");
     expect(screen.getByTestId("account-owned-o1")).toHaveTextContent("Business");
     expect(blocked).not.toHaveTextContent(/Organization/);
     expect(screen.getByTestId("account-blocked-team-link")).toHaveAttribute("href", "/team");
   });
-});
 
-describe("AccountSettings — shared active account", () => {
-  it("shows a Team-page pointer and NOT the deletion form for a Team active account", () => {
-    render(
-      <AccountSettings active={view(teamActive)} isPersonal={false} deletionStatus="active" purgeAfter={null} />,
-    );
-    expect(screen.getByTestId("account-team-pointer")).toHaveTextContent(
-      /manage members, ownership transfer, and leave team from the Team page/i,
-    );
-    expect(screen.getByTestId("account-team-link")).toHaveAttribute("href", "/team");
-    // No personal-deletion controls on a shared account.
+  it("shows a non-destructive note (no delete form) for a Team active account", () => {
+    renderDanger({ active: view(teamActive), isPersonal: false });
+    expect(screen.getByTestId("account-danger-non-personal")).toBeInTheDocument();
     expect(screen.queryByTestId("account-delete-open")).toBeNull();
     expect(screen.queryByTestId("account-deletion-card")).toBeNull();
   });

@@ -1,46 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import {
-  AccountDeletionError,
-  cancelAccountDeletion,
-  requestAccountDeletion,
-  type AccountSummary,
-  type DeletionStatusResult,
-  type OwnedAccountSummary,
-} from "@/lib/api/accounts";
-import { Button } from "@/components/ui/button";
-import { Panel } from "@/features/team/Panel";
 import { SectionHeading } from "@/features/team/SectionHeading";
-import { SettingRow } from "@/features/team/SettingRow";
-import { RoleBadge } from "@/features/team/RoleBadge";
-import { accountTypeLabel } from "@/features/team/accountTypeLabel";
+import {
+  ACCOUNT_NAV_GROUPS,
+  ACCOUNT_SECTION_HEADINGS,
+  DEFAULT_ACCOUNT_SECTION,
+  type AccountSection,
+} from "./accountNav";
+import {
+  AccountOverview,
+  ApiSection,
+  BillingSection,
+  NotificationsSection,
+  ProfileSection,
+  SecuritySection,
+  type ActiveAccountView,
+} from "./AccountSections";
+import { AccountDeletionCard } from "./AccountDeletionCard";
 
 /**
- * Account settings surface (Slice 4.ACCOUNT-SETTINGS-1).
+ * Account settings shell (Slice 4.ACCOUNT-SETTINGS-1; design-faithful settings
+ * shell + left sub-nav added in 4.ACCOUNT-SETTINGS-2).
  *
- * Adapts the `Account Settings.html` design to what V2's backend actually
- * supports today: an account overview + the personal-account deletion lifecycle
- * (request → freeze/grace → cancel) and the owned-Team/Business remediation
- * blocker. Profile/security/2FA/billing/notifications/API and the design's
- * deactivate + reason-capture + data-export controls are omitted — no backend.
+ * Ports the `Account Settings.html` layout: a grouped left sub-nav
+ * (Personal / Workspace / Account control) driving a single content column —
+ * mirroring the Team page's settings shell (same `flex-col lg:flex-row`
+ * responsive idiom; the nav stacks above content on narrow viewports). Only the
+ * Account + Danger-zone sections carry real behavior; the rest are honest
+ * "coming soon" placeholders. The personal-deletion flow from
+ * 4.ACCOUNT-SETTINGS-1 is preserved verbatim under Danger zone.
  *
- * Deletion always targets the caller's OWN personal account. We only show the
- * destructive flow when the active account IS that personal account; for a
- * Team/Business active account we point the user at the Team page (which owns
- * member management, ownership transfer, and leave).
- *
- * Uses the existing Team settings primitives (Panel / SettingRow / RoleBadge /
- * SectionHeading) — no modal primitive exists, so the design's multi-step modal
- * is realized as an inline confirm flow, consistent with the Team page.
+ * Section state is client-side; an optional `initialSection` (from the page's
+ * `?section=` query) deep-links to a section without overbuilding routing.
  */
-interface ActiveAccountView {
-  name: string;
-  type: AccountSummary["type"];
-  role: AccountSummary["role"];
-}
-
 interface Props {
   active: ActiveAccountView | null;
   /** True when the active account is the caller's personal account. */
@@ -48,21 +41,26 @@ interface Props {
   /** The caller's PERSONAL account deletion lifecycle state. */
   deletionStatus: "active" | "pending_deletion";
   purgeAfter: string | null;
+  userEmail: string;
+  initialSection?: AccountSection;
 }
 
-/** Typed confirmation phrase — mirrors the backend `DELETION_CONFIRM_PHRASE`. */
-const CONFIRM_PHRASE = "delete my account";
-
-function formatPurgeDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+function NavGlyph({ d }: { d: string }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d={d} />
+    </svg>
+  );
 }
 
 export function AccountSettings({
@@ -70,354 +68,113 @@ export function AccountSettings({
   isPersonal,
   deletionStatus,
   purgeAfter,
+  userEmail,
+  initialSection,
 }: Props) {
+  const [section, setSection] = useState<AccountSection>(
+    initialSection ?? DEFAULT_ACCOUNT_SECTION,
+  );
+  const heading = ACCOUNT_SECTION_HEADINGS[section];
   const crumbRoot = active?.name ?? "Personal";
 
   return (
     <section
       data-testid="account-settings"
       aria-label="Account settings"
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10"
     >
-      <SectionHeading
-        crumbRoot={crumbRoot}
-        crumb="Account"
-        title="Account"
-        sub="Manage your personal account and the data tied to it."
-      />
+      {/* Left sub-nav — sidebar on lg+, stacked above content on mobile. */}
+      <aside
+        data-testid="account-settings-nav"
+        aria-label="Account settings sections"
+        className="flex shrink-0 flex-col gap-5 lg:sticky lg:top-6 lg:w-56"
+      >
+        {ACCOUNT_NAV_GROUPS.map((group) => (
+          <nav key={group.head} className="flex flex-col gap-0.5">
+            <div className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+              {group.head}
+            </div>
+            {group.items.map((item) => {
+              const isActive = section === item.id;
+              const danger = item.tone === "danger";
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-testid={`account-nav-${item.id}`}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => setSection(item.id)}
+                  className={
+                    "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm font-medium transition " +
+                    (isActive
+                      ? danger
+                        ? "border-destructive/30 bg-destructive/10 text-destructive"
+                        : "border-primary/25 bg-primary/10 text-primary"
+                      : danger
+                        ? "border-transparent text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground")
+                  }
+                >
+                  <NavGlyph d={item.glyph} />
+                  <span className="flex-1">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        ))}
+      </aside>
 
-      {active && (
-        <Panel
-          title="Account overview"
-          desc="The workspace you're currently working in."
-        >
-          <SettingRow label="Account name">
-            <span className="text-sm font-medium text-foreground">{active.name}</span>
-          </SettingRow>
-          <SettingRow label="Account type">
-            <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-              {accountTypeLabel(active.type)}
-            </span>
-          </SettingRow>
-          <SettingRow label="Your role">
-            <RoleBadge role={active.role} />
-          </SettingRow>
-        </Panel>
-      )}
-
-      {isPersonal ? (
-        <PersonalDeletionCard
-          initialStatus={deletionStatus}
-          initialPurgeAfter={purgeAfter}
+      {/* Content column. */}
+      <div className="min-w-0 flex-1">
+        <SectionHeading
+          crumbRoot={crumbRoot}
+          crumb={heading.title}
+          title={heading.title}
+          sub={heading.sub}
         />
-      ) : (
-        active && <TeamPointerCard accountName={active.name} />
-      )}
+
+        {section === "account" && (
+          <AccountOverview active={active} isPersonal={isPersonal} />
+        )}
+        {section === "profile" && (
+          <ProfileSection email={userEmail} role={active?.role ?? null} />
+        )}
+        {section === "notifications" && <NotificationsSection />}
+        {section === "security" && <SecuritySection email={userEmail} />}
+        {section === "billing" && <BillingSection active={active} />}
+        {section === "api" && <ApiSection />}
+        {section === "danger-zone" &&
+          (isPersonal ? (
+            <AccountDeletionCard
+              initialStatus={deletionStatus}
+              initialPurgeAfter={purgeAfter}
+            />
+          ) : (
+            <NonPersonalDangerNote />
+          ))}
+      </div>
     </section>
   );
 }
 
 /**
- * Pointer shown when a Team/Business account is active — destructive account
- * deletion isn't supported for shared accounts, so we route the user to the
- * Team page where transfer/leave/member management live.
+ * Danger-zone content when a Team/Business account is active: personal-account
+ * deletion targets the personal account, so we don't expose the destructive
+ * form here — we explain how to reach it. No shared-account delete exists.
  */
-function TeamPointerCard({ accountName }: { accountName: string }) {
+function NonPersonalDangerNote() {
   return (
-    <Panel
-      title="Team & Business accounts"
-      desc="Shared accounts are managed from the Team page."
+    <div
+      data-testid="account-danger-non-personal"
+      className="rounded-xl border border-border bg-card p-5"
     >
-      <div
-        data-testid="account-team-pointer"
-        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <p className="max-w-xl text-sm text-muted-foreground">
-          Manage members, ownership transfer, and leave team from the Team page.
-          To delete <span className="font-medium text-foreground">{accountName}</span>,
-          transfer or remove its members there first.
-        </p>
-        <Button asChild size="sm" variant="outline" className="shrink-0">
-          <Link href="/team" data-testid="account-team-link">
-            Go to Team page
-          </Link>
-        </Button>
-      </div>
-    </Panel>
-  );
-}
-
-/**
- * The personal-account danger zone: explains the freeze/grace/purge flow, then
- * either (a) the request form behind a typed phrase + password, (b) the
- * owned-Team/Business blocker, or (c) the pending/scheduled state with a cancel.
- */
-function PersonalDeletionCard({
-  initialStatus,
-  initialPurgeAfter,
-}: {
-  initialStatus: "active" | "pending_deletion";
-  initialPurgeAfter: string | null;
-}) {
-  const [status, setStatus] = useState(initialStatus);
-  const [purgeAfter, setPurgeAfter] = useState(initialPurgeAfter);
-
-  // request-form state
-  const [formOpen, setFormOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [blocked, setBlocked] = useState<readonly OwnedAccountSummary[] | null>(
-    null,
-  );
-
-  const phraseOK = confirmText.trim().toLowerCase() === CONFIRM_PHRASE;
-  const purgeDate = formatPurgeDate(purgeAfter);
-
-  function applyResult(result: DeletionStatusResult) {
-    setStatus(result.deletionStatus);
-    setPurgeAfter(result.purgeAfter);
-  }
-
-  function openForm() {
-    setError(null);
-    setBlocked(null);
-    setConfirmText("");
-    setPassword("");
-    setFormOpen(true);
-  }
-
-  function cancelForm() {
-    setFormOpen(false);
-    setError(null);
-  }
-
-  async function submitDelete() {
-    if (!phraseOK || password.length === 0) return;
-    setBusy(true);
-    setError(null);
-    setBlocked(null);
-    try {
-      const result = await requestAccountDeletion({ password, confirmText });
-      setFormOpen(false);
-      applyResult(result);
-    } catch (err) {
-      if (err instanceof AccountDeletionError) {
-        if (err.code === "ACCOUNT_HAS_OWNED_TEAMS") {
-          setFormOpen(false);
-          setBlocked(err.ownedAccounts ?? []);
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError("Couldn't request deletion. Try again.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function doCancel() {
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await cancelAccountDeletion();
-      applyResult(result);
-    } catch (err) {
-      setError(
-        err instanceof AccountDeletionError
-          ? err.message
-          : "Couldn't cancel deletion. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // ── Pending / scheduled state ──────────────────────────────────────────────
-  if (status === "pending_deletion") {
-    return (
-      <Panel title="Account deletion" desc="Your personal account is scheduled for deletion.">
-        <div data-testid="account-deletion-pending" className="flex flex-col gap-3">
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-            <p className="text-sm font-semibold text-foreground">
-              Pending deletion — your account is frozen.
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {purgeDate
-                ? `It stays recoverable until ${purgeDate}. Cancel any time before then to restore full access.`
-                : "It stays recoverable during the grace window. Cancel any time before then to restore full access."}
-            </p>
-          </div>
-
-          {error && (
-            <p role="alert" data-testid="account-deletion-error" className="text-xs text-destructive">
-              {error}
-            </p>
-          )}
-
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              data-testid="account-deletion-cancel"
-              disabled={busy}
-              onClick={doCancel}
-            >
-              {busy ? "Cancelling…" : "Cancel deletion"}
-            </Button>
-          </div>
-        </div>
-      </Panel>
-    );
-  }
-
-  // ── Owned Team/Business blocker ────────────────────────────────────────────
-  if (blocked) {
-    return (
-      <Panel title="Account deletion" desc="Resolve your owned accounts first.">
-        <div data-testid="account-deletion-blocked" className="flex flex-col gap-3">
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-            <p className="text-sm font-semibold text-foreground">
-              Transfer ownership or delete these accounts before deleting your
-              personal account.
-            </p>
-            <ul className="mt-3 flex flex-col gap-2">
-              {blocked.map((a) => (
-                <li
-                  key={a.id}
-                  data-testid={`account-owned-${a.id}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 px-3 py-2"
-                >
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {a.name}
-                  </span>
-                  <span className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                    {a.typeLabel}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild size="sm" variant="outline">
-              <Link href="/team" data-testid="account-blocked-team-link">
-                Go to Team page
-              </Link>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              data-testid="account-blocked-dismiss"
-              onClick={() => setBlocked(null)}
-            >
-              Back
-            </Button>
-          </div>
-        </div>
-      </Panel>
-    );
-  }
-
-  // ── Active state: explanation + request form ───────────────────────────────
-  return (
-    <Panel title="Danger zone" desc="Irreversible once the grace window ends. Please be certain.">
-      <div data-testid="account-deletion-card" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">Delete personal account</p>
-          <p className="max-w-xl text-xs text-muted-foreground">
-            Deleting your account starts a 30-day grace period — your account is
-            frozen immediately and your automations stop running. It stays
-            reversible during that window; the final, permanent purge happens
-            after it ends.
-          </p>
-        </div>
-
-        {!formOpen ? (
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              data-testid="account-delete-open"
-              onClick={openForm}
-              className="text-destructive hover:text-destructive"
-            >
-              Delete account
-            </Button>
-          </div>
-        ) : (
-          <div
-            data-testid="account-delete-form"
-            className="flex flex-col gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4"
-          >
-            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
-              Type <span className="font-mono text-destructive">{CONFIRM_PHRASE}</span> to confirm
-              <input
-                type="text"
-                aria-label="Confirmation phrase"
-                data-testid="account-delete-confirm-input"
-                value={confirmText}
-                disabled={busy}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => setConfirmText(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
-              Enter your password
-              <input
-                type="password"
-                aria-label="Password"
-                data-testid="account-delete-password"
-                value={password}
-                disabled={busy}
-                autoComplete="current-password"
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              />
-            </label>
-
-            <p className="text-xs text-muted-foreground">
-              Your account stays recoverable for 30 days. Sign in any time before
-              then to cancel.
-            </p>
-
-            {error && (
-              <p role="alert" data-testid="account-deletion-error" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
-
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                data-testid="account-delete-confirm"
-                disabled={busy || !phraseOK || password.length === 0}
-                onClick={submitDelete}
-              >
-                {busy ? "Scheduling…" : "Delete account"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                data-testid="account-delete-cancel"
-                disabled={busy}
-                onClick={cancelForm}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </Panel>
+      <p className="text-sm font-medium text-foreground">
+        Switch to your personal account to manage its deletion.
+      </p>
+      <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+        Account deletion applies to your personal account. Team and Business
+        accounts are managed from the Team page — there's no delete here.
+      </p>
+    </div>
   );
 }

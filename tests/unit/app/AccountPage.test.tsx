@@ -91,6 +91,8 @@ interface SettingsProps {
   isPersonal: boolean;
   deletionStatus: string;
   purgeAfter: string | null;
+  userEmail: string;
+  initialSection?: string;
 }
 
 function findElement(
@@ -117,8 +119,10 @@ function findElement(
   return null;
 }
 
-async function getSettingsProps(): Promise<SettingsProps> {
-  const result = await AccountPage();
+async function getSettingsProps(
+  params: Record<string, string | string[] | undefined> = {},
+): Promise<SettingsProps> {
+  const result = await AccountPage({ searchParams: Promise.resolve(params) });
   const el = findElement(result, (e) => e.type === AccountSettingsRef);
   if (!el) throw new Error("AccountSettings not found in render tree");
   return el.props as unknown as SettingsProps;
@@ -127,7 +131,9 @@ async function getSettingsProps(): Promise<SettingsProps> {
 describe("AccountPage — auth", () => {
   it("redirects signed-out users to /auth/sign-in", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
-    await expect(AccountPage()).rejects.toThrow(/NEXT_REDIRECT/);
+    await expect(
+      AccountPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow(/NEXT_REDIRECT/);
     expect(mockRedirect).toHaveBeenCalledWith("/auth/sign-in");
   });
 });
@@ -143,6 +149,19 @@ describe("AccountPage — personal active account", () => {
     expect(props.active).toEqual({ name: "Personal", type: "personal", role: "owner" });
     expect(props.deletionStatus).toBe("active");
     expect(props.purgeAfter).toBeNull();
+    expect(props.userEmail).toBe("u1@x.io");
+    // No ?section → default (Account).
+    expect(props.initialSection).toBe("account");
+  });
+
+  it("resolves a ?section deep-link to a known section (else default)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    mockListSummaries.mockResolvedValue({ activeAccountId: "p1", accounts: [personal] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+
+    expect((await getSettingsProps({ section: "danger-zone" })).initialSection).toBe("danger-zone");
+    // Unknown value falls back to the default.
+    expect((await getSettingsProps({ section: "bogus" })).initialSection).toBe("account");
   });
 
   it("surfaces a pending personal account (frozen) with its purgeAfter", async () => {

@@ -5,10 +5,15 @@ import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { AccountSettings } from "@/features/account/AccountSettings";
+import { resolveAccountSection } from "@/features/account/accountNav";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
 } from "@/app/notifications/notificationPreview";
+
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
 /**
  * Account settings route (Slice 4.ACCOUNT-SETTINGS-1).
@@ -33,12 +38,16 @@ import {
  * Auth + scoping mirror the sibling `/team` route: `auth.getUser()` gate, then
  * service reads.
  */
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: Props) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
+
+  const params = await searchParams;
+  const sectionParam = typeof params.section === "string" ? params.section : undefined;
+  const initialSection = resolveAccountSection(sectionParam);
 
   const [{ accounts, activeAccountId }, unreadNotifications, recentRecords, personal] =
     await Promise.all([
@@ -70,6 +79,8 @@ export default async function AccountPage() {
           isPersonal={Boolean(isPersonal)}
           deletionStatus={personal.deletionStatus}
           purgeAfter={personal.purgeAfter}
+          userEmail={user.email ?? ""}
+          initialSection={initialSection}
         />
       </main>
     </AppShell>
