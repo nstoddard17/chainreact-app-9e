@@ -103,6 +103,31 @@ export async function transferOwnership(
   return (await res.json()) as TransferOwnershipResult;
 }
 
+/**
+ * POST /api/accounts/[id]/leave — the caller leaves the account
+ * (4.ACCOUNT-MODEL-TRANSFER-LEAVE-4 / TL-3). Reuses removal offboarding. A sole
+ * owner is refused (`AccountApiError` code SOLE_OWNER_MUST_TRANSFER) and must
+ * transfer ownership first.
+ */
+export async function leaveAccount(accountId: string): Promise<void> {
+  const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/leave`, {
+    method: "POST",
+  });
+  if (!res.ok) throw await parseError(res);
+}
+
+/**
+ * GET /api/accounts/[id]/leave-impact — count of the CALLER's own workflows in
+ * this account that use a personal-provider step (may stop running after leave).
+ * Self-scoped advisory; count only.
+ */
+export async function getLeaveImpact(accountId: string): Promise<number> {
+  const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/leave-impact`);
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { affectedWorkflowCount: number };
+  return body.affectedWorkflowCount;
+}
+
 // ── Team members + invitations (4.TEAM-PAGE-1) ─────────────────────────────────
 // Thin wrappers over the existing account sub-routes so the Teams UI never calls
 // fetch() directly. NO new backend behavior — invites return a copy-link (raw

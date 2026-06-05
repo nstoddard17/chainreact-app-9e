@@ -8,7 +8,7 @@
  * "transfer and leave" doesn't trip the symbol checks.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(__dirname, "../..");
@@ -36,11 +36,6 @@ describe("TL-2 — transfer ownership stays in scope (structural)", () => {
     const code = codeOf(ROUTE);
     expect(code).not.toMatch(/softDisconnect|offboard/i);
     expect(code).not.toMatch(/listOwnedTeamOrgAccountIds|ACCOUNT_HAS_OWNED_TEAMS/);
-  });
-
-  it("no leave-team route exists yet (deferred to TL-3)", () => {
-    expect(existsSync(resolve(ROOT, "app/api/accounts/[id]/leave/route.ts"))).toBe(false);
-    expect(existsSync(resolve(ROOT, "services/accounts/leaveAccount.ts"))).toBe(false);
   });
 
   it("the account-deletion route's ACCOUNT_HAS_OWNED_TEAMS guard is untouched (TL-4 owns its remediation)", () => {
