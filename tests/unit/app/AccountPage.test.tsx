@@ -99,6 +99,8 @@ interface SettingsProps {
   purgeAfter: string | null;
   userEmail: string;
   displayName: string | null;
+  emailVerified: boolean;
+  signInMethod: string;
   initialSection?: string;
 }
 
@@ -193,6 +195,36 @@ describe("AccountPage — personal active account", () => {
     const props = await getSettingsProps();
     expect(props.deletionStatus).toBe("pending_deletion");
     expect(props.purgeAfter).toBe("2026-07-05T00:00:00Z");
+  });
+});
+
+describe("AccountPage — security summary", () => {
+  beforeEach(() => {
+    mockListSummaries.mockResolvedValue({ activeAccountId: "p1", accounts: [personal] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+  });
+
+  it("derives emailVerified=false + Email & password when the session has no confirmation/providers", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    const props = await getSettingsProps();
+    expect(props.emailVerified).toBe(false);
+    expect(props.signInMethod).toBe("Email & password");
+  });
+
+  it("derives emailVerified=true from email_confirmed_at", async () => {
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: {
+          id: "u1",
+          email: "u1@x.io",
+          email_confirmed_at: "2026-01-01T00:00:00Z",
+          app_metadata: { providers: ["email"] },
+        },
+      },
+    });
+    const props = await getSettingsProps();
+    expect(props.emailVerified).toBe(true);
+    expect(props.signInMethod).toBe("Email & password");
   });
 });
 

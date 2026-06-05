@@ -44,6 +44,10 @@ interface Props {
   userEmail: string;
   /** The caller's stored display name (`user_profiles.display_name`), or null. */
   displayName: string | null;
+  /** Whether the signed-in email is verified (`user.email_confirmed_at`). */
+  emailVerified: boolean;
+  /** User-facing sign-in method label, e.g. "Email & password". */
+  signInMethod: string;
   initialSection?: AccountSection;
 }
 
@@ -72,6 +76,8 @@ export function AccountSettings({
   purgeAfter,
   userEmail,
   displayName,
+  emailVerified,
+  signInMethod,
   initialSection,
 }: Props) {
   const [section, setSection] = useState<AccountSection>(
@@ -147,7 +153,13 @@ export function AccountSettings({
           />
         )}
         {section === "notifications" && <NotificationsSection />}
-        {section === "security" && <SecuritySection email={userEmail} />}
+        {section === "security" && (
+          <SecuritySection
+            email={userEmail}
+            emailVerified={emailVerified}
+            signInMethod={signInMethod}
+          />
+        )}
         {section === "billing" && <BillingSection active={active} />}
         {section === "api" && <ApiSection />}
         {section === "danger-zone" &&

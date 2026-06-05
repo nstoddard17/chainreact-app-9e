@@ -120,18 +120,68 @@ function TeamPointerCard({ accountName }: { accountName: string }) {
 
 // (Notifications is now a functional section — see NotificationsSection.tsx.)
 
-// ── Security & access (placeholder) ──────────────────────────────────────────
-export function SecuritySection({ email }: { email: string }) {
+// ── Security & access (read-only — SEC-1) ────────────────────────────────────
+// Per-user (NOT per-account): reflects the signed-in identity's credentials and
+// renders identically for personal / Team / Business active accounts. Every row
+// is a real read-only value or an honest "coming soon" — no toggles, no inputs,
+// no fabricated "last changed" date. Password change / 2FA / sessions land later.
+export function SecuritySection({
+  email,
+  emailVerified,
+  signInMethod,
+}: {
+  email: string;
+  emailVerified: boolean;
+  signInMethod: string;
+}) {
   return (
     <div data-testid="account-section-security" className="flex flex-col gap-5">
-      <Panel title="Sign-in & security" desc="The email you use to access your account.">
-        <ReadOnlyRow label="Email address" value={email || "—"} />
-        <ComingSoonRow label="Password" desc="Change your password — coming soon." />
+      <Panel title="Sign-in & security" desc="How you sign in to ChainReact.">
+        <SettingRow label="Email address" desc="The address you use to sign in.">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{email || "—"}</span>
+            {emailVerified ? (
+              <span
+                data-testid="security-email-status"
+                className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+              >
+                Verified
+              </span>
+            ) : (
+              <span
+                data-testid="security-email-status"
+                className="inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+              >
+                Unverified
+              </span>
+            )}
+          </div>
+        </SettingRow>
+
+        <ReadOnlyRow
+          label="Sign-in method"
+          desc="How your account authenticates."
+          value={<span data-testid="security-signin-method">{signInMethod}</span>}
+        />
+
+        <SettingRow label="Password" desc="Changing your password is coming soon.">
+          <div className="flex items-center gap-2">
+            <span data-testid="security-password-status" className="text-sm font-medium text-foreground">
+              Set
+            </span>
+            <ComingSoon />
+          </div>
+        </SettingRow>
+
         <ComingSoonRow
           label="Two-factor authentication"
           desc="Add an authenticator-app code — coming soon."
         />
-        <ComingSoonRow label="Active sessions" desc="Review and revoke sessions — coming soon." />
+        <ComingSoonRow label="Sessions & devices" desc="Review and revoke sessions — coming soon." />
+        <ComingSoonRow
+          label="Connected accounts"
+          desc="Sign in with Google or GitHub — coming soon."
+        />
       </Panel>
     </div>
   );

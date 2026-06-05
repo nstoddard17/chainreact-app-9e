@@ -107,6 +107,8 @@ function renderSettings(overrides: Overrides = {}) {
       purgeAfter={null}
       userEmail="me@x.io"
       displayName={null}
+      emailVerified
+      signInMethod="Email & password"
       {...overrides}
     />,
   );
@@ -206,6 +208,53 @@ describe("AccountSettings — placeholder sections expose no fake controls", () 
     const section = screen.getByTestId("account-section-billing");
     expect(section).toHaveTextContent(/Business plan/);
     expect(section).not.toHaveTextContent(/Organization/);
+  });
+});
+
+describe("AccountSettings — Security & access (read-only)", () => {
+  async function openSecurity(overrides: Overrides = {}) {
+    const user = userEvent.setup();
+    renderSettings(overrides);
+    await user.click(screen.getByTestId("account-nav-security"));
+    return screen.getByTestId("account-section-security");
+  }
+
+  it("renders email, sign-in method, and password status", async () => {
+    const section = await openSecurity();
+    expect(section).toHaveTextContent("me@x.io");
+    expect(screen.getByTestId("security-signin-method")).toHaveTextContent("Email & password");
+    expect(screen.getByTestId("security-password-status")).toHaveTextContent("Set");
+  });
+
+  it("shows Verified when the email is verified", async () => {
+    await openSecurity({ emailVerified: true });
+    expect(screen.getByTestId("security-email-status")).toHaveTextContent(/verified/i);
+    expect(screen.getByTestId("security-email-status")).not.toHaveTextContent(/unverified/i);
+  });
+
+  it("shows Unverified when the email is not verified", async () => {
+    await openSecurity({ emailVerified: false });
+    expect(screen.getByTestId("security-email-status")).toHaveTextContent(/unverified/i);
+  });
+
+  it("renders identically for a Team/Business active account (per-user, not per-account)", async () => {
+    const section = await openSecurity({ active: view(teamActive), isPersonal: false });
+    expect(section).toHaveTextContent("me@x.io");
+    expect(screen.getByTestId("security-signin-method")).toHaveTextContent("Email & password");
+    expect(screen.getByTestId("security-password-status")).toHaveTextContent("Set");
+  });
+
+  it("exposes no working controls (no toggles/inputs/buttons in the section body)", async () => {
+    const section = await openSecurity();
+    expect(within(section).queryAllByRole("button")).toHaveLength(0);
+    expect(within(section).queryAllByRole("textbox")).toHaveLength(0);
+    expect(within(section).queryAllByRole("switch")).toHaveLength(0);
+    expect(within(section).getAllByTestId("account-coming-soon").length).toBeGreaterThan(0);
+  });
+
+  it("deep-links to Security via initialSection", () => {
+    renderSettings({ initialSection: "security" });
+    expect(screen.getByTestId("account-section-security")).toBeInTheDocument();
   });
 });
 

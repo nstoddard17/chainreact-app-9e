@@ -7,6 +7,7 @@ import { getDisplayName } from "@/repositories/userProfiles";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { AccountSettings } from "@/features/account/AccountSettings";
 import { resolveAccountSection } from "@/features/account/accountNav";
+import { getSecurityAccessSummary } from "@/features/account/securitySummary";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -70,6 +71,19 @@ export default async function AccountPage({ searchParams }: Props) {
   const isPersonal = active?.type === "personal";
   const recentNotifications = recentRecords.map(toNotificationPreview);
 
+  // Security & access is per-USER (not per-account): derive read-only sign-in
+  // facts from the verified session user. `app_metadata.providers` is the
+  // supabase provider list (['email'] today — no OAuth wired yet).
+  const security = getSecurityAccessSummary({
+    email: user.email ?? null,
+    emailConfirmedAt: user.email_confirmed_at ?? null,
+    providers:
+      (user.app_metadata?.providers as string[] | undefined) ??
+      (typeof user.app_metadata?.provider === "string"
+        ? [user.app_metadata.provider]
+        : undefined),
+  });
+
   return (
     <AppShell
       userEmail={user.email ?? ""}
@@ -88,6 +102,8 @@ export default async function AccountPage({ searchParams }: Props) {
           purgeAfter={personal.purgeAfter}
           userEmail={user.email ?? ""}
           displayName={displayName}
+          emailVerified={security.emailVerified}
+          signInMethod={security.signInMethod}
           initialSection={initialSection}
         />
       </main>
