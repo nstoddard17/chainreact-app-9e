@@ -128,6 +128,27 @@ export async function getLeaveImpact(accountId: string): Promise<number> {
   return body.affectedWorkflowCount;
 }
 
+// ── Profile basics (4.ACCOUNT-SETTINGS-3) ──────────────────────────────────────
+
+/**
+ * PATCH /api/account/profile — update the caller's OWN display name. Empty
+ * string clears it (stored as null). Returns the canonical stored value.
+ * Failures surface as `AccountApiError` (code VALIDATION on a too-long /
+ * malformed payload, UNAUTHENTICATED on 401).
+ */
+export async function updateDisplayName(
+  displayName: string,
+): Promise<{ displayName: string | null }> {
+  const res = await fetch("/api/account/profile", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ displayName }),
+  });
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { ok: true; displayName: string | null };
+  return { displayName: body.displayName };
+}
+
 // ── Personal account deletion (4.ACCOUNT-SETTINGS-1) ───────────────────────────
 // Wrappers over the self-serve deletion lifecycle routes. The request route is a
 // reversible FREEZE (grace window), not a hard delete; cancel restores during the

@@ -14,6 +14,45 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * membership check — never by this column. Writing it here grants nothing.
  */
 
+/**
+ * Read the caller's OWN stored display name (4.ACCOUNT-SETTINGS-3). Session
+ * client — `user_profiles_select_own` gates on `auth.uid() = id`. Returns the
+ * raw column value (NOT the OAuth-metadata fallback the member-identities RPC
+ * applies); the Profile editor edits this exact column. `null` when unset.
+ */
+export async function getDisplayName(userId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("display_name")
+    .eq("id", userId)
+    .maybeSingle<{ display_name: string | null }>();
+  if (error) {
+    throw new Error(`user_profiles.getDisplayName failed: ${error.message}`);
+  }
+  return data?.display_name ?? null;
+}
+
+/**
+ * Set the caller's OWN display name (4.ACCOUNT-SETTINGS-3). Session client —
+ * `user_profiles_update_own` gates on `auth.uid() = id`, so a caller can only
+ * ever write their own row. `null` clears it (downstream reads fall back to
+ * OAuth metadata via the member-identities RPC).
+ */
+export async function updateDisplayName(
+  userId: string,
+  displayName: string | null,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({ display_name: displayName })
+    .eq("id", userId);
+  if (error) {
+    throw new Error(`user_profiles.updateDisplayName failed: ${error.message}`);
+  }
+}
+
 export async function getActiveAccountId(userId: string): Promise<string | null> {
   const supabase = await createClient();
   const { data, error } = await supabase

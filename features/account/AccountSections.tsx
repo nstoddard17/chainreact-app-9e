@@ -116,35 +116,7 @@ function TeamPointerCard({ accountName }: { accountName: string }) {
   );
 }
 
-// ── Profile (placeholder) ────────────────────────────────────────────────────
-export function ProfileSection({
-  email,
-  role,
-}: {
-  email: string;
-  role: AccountSummary["role"] | null;
-}) {
-  return (
-    <div data-testid="account-section-profile" className="flex flex-col gap-5">
-      <Panel title="Profile" desc="How you appear across ChainReact.">
-        <ReadOnlyRow
-          label="Email"
-          desc="The address you sign in with."
-          value={email || "—"}
-        />
-        {role && (
-          <SettingRow label="Role on this account">
-            <RoleBadge role={role} />
-          </SettingRow>
-        )}
-        <ComingSoonRow
-          label="Display name & avatar"
-          desc="Profile editing coming soon."
-        />
-      </Panel>
-    </div>
-  );
-}
+// (Profile is now a functional section — see ProfileSection.tsx.)
 
 // ── Notifications (placeholder) ──────────────────────────────────────────────
 export function NotificationsSection() {

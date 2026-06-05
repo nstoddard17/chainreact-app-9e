@@ -13,10 +13,10 @@ import {
   ApiSection,
   BillingSection,
   NotificationsSection,
-  ProfileSection,
   SecuritySection,
   type ActiveAccountView,
 } from "./AccountSections";
+import { ProfileSection } from "./ProfileSection";
 import { AccountDeletionCard } from "./AccountDeletionCard";
 
 /**
@@ -42,6 +42,8 @@ interface Props {
   deletionStatus: "active" | "pending_deletion";
   purgeAfter: string | null;
   userEmail: string;
+  /** The caller's stored display name (`user_profiles.display_name`), or null. */
+  displayName: string | null;
   initialSection?: AccountSection;
 }
 
@@ -69,6 +71,7 @@ export function AccountSettings({
   deletionStatus,
   purgeAfter,
   userEmail,
+  displayName,
   initialSection,
 }: Props) {
   const [section, setSection] = useState<AccountSection>(
@@ -137,7 +140,11 @@ export function AccountSettings({
           <AccountOverview active={active} isPersonal={isPersonal} />
         )}
         {section === "profile" && (
-          <ProfileSection email={userEmail} role={active?.role ?? null} />
+          <ProfileSection
+            email={userEmail}
+            role={active?.role ?? null}
+            initialDisplayName={displayName}
+          />
         )}
         {section === "notifications" && <NotificationsSection />}
         {section === "security" && <SecuritySection email={userEmail} />}

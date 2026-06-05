@@ -166,6 +166,18 @@ export const SetActiveAccountBodySchema = z.object({
 });
 export type SetActiveAccountBody = z.infer<typeof SetActiveAccountBodySchema>;
 
+/**
+ * Body for PATCH /api/account/profile — the caller's own display name
+ * (4.ACCOUNT-SETTINGS-3). Empty string is allowed (clears to null in the
+ * service); max length mirrors `MAX_DISPLAY_NAME_LENGTH`.
+ */
+export const UpdateDisplayNameBodySchema = z.object({
+  displayName: z
+    .string()
+    .max(80, "Display name must be 80 characters or fewer."),
+});
+export type UpdateDisplayNameBody = z.infer<typeof UpdateDisplayNameBodySchema>;
+
 /** Shape returned by both routes — lifecycle state only, no account graph. */
 export function toDeletionStatusResponse(state: {
   deletionStatus: string;

@@ -16,6 +16,7 @@ import type { AccountSummary } from "@/lib/api/accounts";
 
 const mockRequest = jest.fn();
 const mockCancel = jest.fn();
+const mockUpdateDisplayName = jest.fn();
 jest.mock("@/lib/api/accounts", () => {
   class AccountDeletionError extends Error {
     code: string;
@@ -28,10 +29,21 @@ jest.mock("@/lib/api/accounts", () => {
       this.ownedAccounts = ownedAccounts;
     }
   }
+  class AccountApiError extends Error {
+    code: string;
+    status: number;
+    constructor(message: string, code = "VALIDATION", status = 400) {
+      super(message);
+      this.code = code;
+      this.status = status;
+    }
+  }
   return {
     AccountDeletionError,
+    AccountApiError,
     requestAccountDeletion: (...a: unknown[]) => mockRequest(...a),
     cancelAccountDeletion: (...a: unknown[]) => mockCancel(...a),
+    updateDisplayName: (...a: unknown[]) => mockUpdateDisplayName(...a),
   };
 });
 
@@ -84,6 +96,7 @@ function renderSettings(overrides: Overrides = {}) {
       deletionStatus="active"
       purgeAfter={null}
       userEmail="me@x.io"
+      displayName={null}
       {...overrides}
     />,
   );
@@ -155,7 +168,6 @@ describe("AccountSettings — placeholder sections expose no fake controls", () 
     ["security", "account-section-security"],
     ["billing", "account-section-billing"],
     ["api", "account-section-api"],
-    ["profile", "account-section-profile"],
   ])("%s shows coming-soon and no working inputs/buttons", async (navId, sectionId) => {
     const user = userEvent.setup();
     renderSettings();

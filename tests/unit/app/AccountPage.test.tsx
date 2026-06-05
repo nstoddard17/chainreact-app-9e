@@ -31,6 +31,11 @@ jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (...a: unknown[]) => mockEnsurePersonal(...a),
 }));
 
+const mockGetDisplayName = jest.fn();
+jest.mock("@/repositories/userProfiles", () => ({
+  getDisplayName: (...a: unknown[]) => mockGetDisplayName(...a),
+}));
+
 const mockCountUnread = jest.fn();
 const mockListNotifications = jest.fn();
 jest.mock("@/repositories/notifications", () => ({
@@ -52,6 +57,7 @@ beforeEach(() => {
   mockEnsurePersonal.mockReset();
   mockCountUnread.mockReset().mockResolvedValue(0);
   mockListNotifications.mockReset().mockResolvedValue([]);
+  mockGetDisplayName.mockReset().mockResolvedValue(null);
 });
 
 const personal = {
@@ -92,6 +98,7 @@ interface SettingsProps {
   deletionStatus: string;
   purgeAfter: string | null;
   userEmail: string;
+  displayName: string | null;
   initialSection?: string;
 }
 
@@ -150,8 +157,20 @@ describe("AccountPage — personal active account", () => {
     expect(props.deletionStatus).toBe("active");
     expect(props.purgeAfter).toBeNull();
     expect(props.userEmail).toBe("u1@x.io");
+    expect(props.displayName).toBeNull();
     // No ?section → default (Account).
     expect(props.initialSection).toBe("account");
+  });
+
+  it("passes the caller's stored display name through to the Profile section", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    mockListSummaries.mockResolvedValue({ activeAccountId: "p1", accounts: [personal] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+    mockGetDisplayName.mockResolvedValue("Ada Lovelace");
+
+    const props = await getSettingsProps();
+    expect(mockGetDisplayName).toHaveBeenCalledWith("u1");
+    expect(props.displayName).toBe("Ada Lovelace");
   });
 
   it("resolves a ?section deep-link to a known section (else default)", async () => {

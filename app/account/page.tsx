@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as notificationsRepo from "@/repositories/notifications";
 import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { getDisplayName } from "@/repositories/userProfiles";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { AccountSettings } from "@/features/account/AccountSettings";
 import { resolveAccountSection } from "@/features/account/accountNav";
@@ -49,15 +50,21 @@ export default async function AccountPage({ searchParams }: Props) {
   const sectionParam = typeof params.section === "string" ? params.section : undefined;
   const initialSection = resolveAccountSection(sectionParam);
 
-  const [{ accounts, activeAccountId }, unreadNotifications, recentRecords, personal] =
-    await Promise.all([
-      listUserAccountSummaries(user.id),
-      notificationsRepo.countUnreadForUser(user.id),
-      notificationsRepo.listForUser(user.id, {
-        limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
-      }),
-      ensurePersonalAccount(user.id),
-    ]);
+  const [
+    { accounts, activeAccountId },
+    unreadNotifications,
+    recentRecords,
+    personal,
+    displayName,
+  ] = await Promise.all([
+    listUserAccountSummaries(user.id),
+    notificationsRepo.countUnreadForUser(user.id),
+    notificationsRepo.listForUser(user.id, {
+      limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
+    }),
+    ensurePersonalAccount(user.id),
+    getDisplayName(user.id),
+  ]);
 
   const active = accounts.find((a) => a.id === activeAccountId) ?? null;
   const isPersonal = active?.type === "personal";
@@ -80,6 +87,7 @@ export default async function AccountPage({ searchParams }: Props) {
           deletionStatus={personal.deletionStatus}
           purgeAfter={personal.purgeAfter}
           userEmail={user.email ?? ""}
+          displayName={displayName}
           initialSection={initialSection}
         />
       </main>
