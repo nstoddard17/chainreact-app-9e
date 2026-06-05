@@ -2,10 +2,13 @@
 
 import type { AccountSummary } from "@/lib/api/accounts";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { AccountActions } from "./AccountActions";
 import { Panel } from "./Panel";
 import { SectionHeading } from "./SectionHeading";
 import { SettingRow } from "./SettingRow";
 import { RoleBadge } from "./RoleBadge";
+import { accountTypeLabel as typeLabel } from "./accountTypeLabel";
+import type { TeamMemberView } from "./teamTypes";
 
 /**
  * Overview section (Slice 4.TEAM-PAGE-4) — the settings landing surface.
@@ -24,16 +27,11 @@ interface Props {
   activeAccountId: string | null;
   active: AccountSummary | null;
   isTeam: boolean;
+  members: readonly TeamMemberView[];
   seatsUsed: number;
   memberCap: number | null;
   teamMaxMembers: number;
   onChanged: () => void;
-}
-
-function typeLabel(type: AccountSummary["type"]): string {
-  if (type === "organization") return "Organization";
-  if (type === "personal") return "Personal";
-  return "Team";
 }
 
 export function OverviewSection({
@@ -41,6 +39,7 @@ export function OverviewSection({
   activeAccountId,
   active,
   isTeam,
+  members,
   seatsUsed,
   memberCap,
   teamMaxMembers,
@@ -92,7 +91,13 @@ export function OverviewSection({
             <span className="text-sm font-medium text-foreground">{planLine}</span>
           </SettingRow>
         </Panel>
-      ) : (
+      ) : null}
+
+      {isTeam && active && (
+        <AccountActions account={active} members={members} onChanged={onChanged} />
+      )}
+
+      {!isTeam && (
         <Panel title="You're on a personal account">
           <p className="max-w-xl text-sm text-muted-foreground">
             Personal accounts are just for you. Create a team above to invite

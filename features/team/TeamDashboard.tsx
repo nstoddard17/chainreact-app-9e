@@ -91,6 +91,7 @@ export function TeamDashboard({
               activeAccountId={activeAccountId}
               active={active}
               isTeam={isTeam}
+              members={members}
               seatsUsed={seatsUsed}
               memberCap={memberCap}
               teamMaxMembers={teamMaxMembers}
