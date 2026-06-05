@@ -20,6 +20,10 @@ import {
   reconcileBillingReservation,
 } from "@/services/billing/reserveReconcileBilling";
 import { runWithCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
+import {
+  loadAcceptedNodeOwners,
+  effectiveCredentialOwner,
+} from "@/services/teamCredentials/nodeCredentialOwners";
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
@@ -358,6 +362,12 @@ export class WorkflowEngine {
     const steps: RunStepResult[] = [];
     let runFailed = false;
 
+    // CS-2 — batch-load this workflow's ACCEPTED per-node credential owners ONCE
+    // per run (flag-gated; flag OFF → empty map, NO DB call). Each personal-
+    // provider node then resolves credentials under its accepted owner if one
+    // exists, else the workflow creator. Account/service providers are unaffected.
+    const acceptedNodeOwners = await loadAcceptedNodeOwners(input.workflowId);
+
     for (const node of order) {
       // Skip nodes that no activated edge has reached. The trigger is
       // always seeded as reachable, so the first iteration always runs.
@@ -497,12 +507,24 @@ export class WorkflowEngine {
 
       // 3. Invoke handler — inside the credential-resolution context so that,
       // for PERSONAL-credential providers, refreshAndRetry pins the integration
-      // lookup to the workflow's creator (4.ACCOUNT-MODEL-22B). A Team workflow
-      // can therefore only use the personal credential its creator connected,
-      // never a co-member's. Account/service providers are unaffected.
+      // lookup to the node's EFFECTIVE OWNER (4.ACCOUNT-MODEL-22B + CS-2). That
+      // is the accepted per-node credential owner from workflow_node_credentials
+      // when one exists (flag ON), else the workflow creator — so a Team workflow
+      // still never silently uses an unassigned co-member's credential. If an
+      // accepted owner has no active connection, refreshAndRetry throws the clear
+      // owner-must-connect error (no runtime fallback to the creator). Account/
+      // service providers ignore the owner and stay account-shared. The handler's
+      // `userId` stays the creator — it is provenance/billing only, never used for
+      // integration lookups (see handlers/types.ts).
+      const effectiveOwner = effectiveCredentialOwner({
+        provider: node.provider,
+        nodeId: node.id,
+        creatorUserId: workflow.createdByUserId,
+        acceptedOwners: acceptedNodeOwners,
+      });
       try {
         const result = await runWithCredentialResolutionContext(
-          { createdByUserId: workflow.createdByUserId },
+          { createdByUserId: effectiveOwner },
           () =>
             handler({
               workflowId: input.workflowId,
