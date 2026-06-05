@@ -7,6 +7,7 @@ import {
   createFolder,
   deleteFolder,
   listFolders,
+  reorderFolders,
   restoreFolder,
   updateFolder,
   type DeleteFolderResult,
@@ -35,6 +36,8 @@ import { WorkflowsTrashView } from "./folders/WorkflowsTrashView";
 import { WorkflowsUndoToast } from "./folders/WorkflowsUndoToast";
 import { FolderFormDialog } from "./folders/FolderFormDialog";
 import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
+import { FolderMoveDialog } from "./folders/FolderMoveDialog";
+import { childrenOf } from "./folders/folderTree";
 import {
   WorkflowsFiltersPanel,
   DEFAULT_FILTERS,
@@ -89,9 +92,13 @@ export function WorkflowsDashboard({
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [undoPending, setUndoPending] = useState(false);
 
+  // Folder tab nesting navigation (null = root / top level).
+  const [folderNav, setFolderNav] = useState<string | null>(null);
+
   // Folder dialogs.
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<WorkflowFolder | null>(null);
+  const [moveTarget, setMoveTarget] = useState<WorkflowFolder | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkflowFolder | null>(null);
 
   // Trash (lazy).
@@ -156,6 +163,14 @@ export function WorkflowsDashboard({
     const id = setTimeout(() => setUndo(null), UNDO_TIMEOUT_MS);
     return () => clearTimeout(id);
   }, [undo]);
+
+  // If the browsed folder disappears (deleted / moved to Trash / restored away),
+  // fall back to the top level rather than stranding the navigator on a ghost.
+  useEffect(() => {
+    if (folderNav && !folders.some((f) => f.id === folderNav)) {
+      setFolderNav(null);
+    }
+  }, [folders, folderNav]);
 
   const appOptions = useMemo(() => deriveAppOptions(workflows), [workflows]);
   const folderCounts = useMemo(() => deriveFolderCounts(workflows), [workflows]);
@@ -231,10 +246,12 @@ export function WorkflowsDashboard({
 
   const handleCreateFolder = useCallback(
     async (name: string) => {
-      await createFolder({ name });
+      // Create inside the folder currently being browsed (null → top level).
+      // Omit parentFolderId at root so the request shape stays minimal.
+      await createFolder(folderNav ? { name, parentFolderId: folderNav } : { name });
       await refreshFolders();
     },
-    [refreshFolders],
+    [refreshFolders, folderNav],
   );
 
   const handleRenameFolder = useCallback(
@@ -243,6 +260,35 @@ export function WorkflowsDashboard({
       await refreshFolders();
     },
     [refreshFolders],
+  );
+
+  const handleMoveFolder = useCallback(
+    async (folder: WorkflowFolder, parentFolderId: string | null) => {
+      // Reparent. The server re-validates cycle + depth (FOLDER_CYCLE /
+      // FOLDER_TOO_DEEP); the dialog surfaces those errors.
+      await updateFolder(folder.id, { parentFolderId });
+      await refreshFolders();
+    },
+    [refreshFolders],
+  );
+
+  const handleReorderFolder = useCallback(
+    async (folder: WorkflowFolder, dir: "up" | "down") => {
+      const parentId = folder.parentFolderId ?? null;
+      const siblings = childrenOf(folders, parentId);
+      const idx = siblings.findIndex((f) => f.id === folder.id);
+      const swap = dir === "up" ? idx - 1 : idx + 1;
+      if (idx < 0 || swap < 0 || swap >= siblings.length) return;
+      const ordered = siblings.map((f) => f.id);
+      [ordered[idx], ordered[swap]] = [ordered[swap]!, ordered[idx]!];
+      try {
+        await reorderFolders({ parentFolderId: parentId, orderedIds: ordered });
+        await refreshFolders();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't reorder folders.");
+      }
+    },
+    [folders, refreshFolders],
   );
 
   const handleDeleteFolder = useCallback(
@@ -395,10 +441,14 @@ export function WorkflowsDashboard({
           folders={folders}
           counts={folderCounts}
           limit={folderLimit}
+          currentParentId={folderNav}
+          onNavigate={setFolderNav}
           onOpen={openFolder}
           onCreate={() => setCreateOpen(true)}
           onRename={(f) => setRenameTarget(f)}
+          onMove={(f) => setMoveTarget(f)}
           onDelete={(f) => setDeleteTarget(f)}
+          onReorder={(f, dir) => void handleReorderFolder(f, dir)}
         />
       )}
 
@@ -434,6 +484,14 @@ export function WorkflowsDashboard({
           initialName={renameTarget.name}
           onSubmit={(name) => handleRenameFolder(renameTarget.id, name)}
           onClose={() => setRenameTarget(null)}
+        />
+      )}
+      {moveTarget && (
+        <FolderMoveDialog
+          folder={moveTarget}
+          folders={folders}
+          onConfirm={(parentFolderId) => handleMoveFolder(moveTarget, parentFolderId)}
+          onClose={() => setMoveTarget(null)}
         />
       )}
       {deleteTarget && (

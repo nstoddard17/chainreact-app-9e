@@ -14,6 +14,7 @@ jest.mock("@/lib/api/workflows", () => {
 const mockListFolders = jest.fn();
 const mockCreateFolder = jest.fn();
 const mockUpdateFolder = jest.fn();
+const mockReorderFolders = jest.fn();
 const mockDeleteFolder = jest.fn();
 const mockRestoreFolder = jest.fn();
 jest.mock("@/lib/api/folders", () => {
@@ -23,6 +24,7 @@ jest.mock("@/lib/api/folders", () => {
     listFolders: (...a: unknown[]) => mockListFolders(...a),
     createFolder: (...a: unknown[]) => mockCreateFolder(...a),
     updateFolder: (...a: unknown[]) => mockUpdateFolder(...a),
+    reorderFolders: (...a: unknown[]) => mockReorderFolders(...a),
     deleteFolder: (...a: unknown[]) => mockDeleteFolder(...a),
     restoreFolder: (...a: unknown[]) => mockRestoreFolder(...a),
   };
@@ -68,7 +70,11 @@ function wf(
   };
 }
 
-function folder(id: string, name: string): WorkflowFolder {
+function folder(
+  id: string,
+  name: string,
+  overrides: Partial<WorkflowFolder> = {},
+): WorkflowFolder {
   return {
     id,
     accountId: "acct",
@@ -77,6 +83,7 @@ function folder(id: string, name: string): WorkflowFolder {
     position: 0,
     createdAt: "2026-06-01T00:00:00Z",
     updatedAt: "2026-06-01T00:00:00Z",
+    ...overrides,
   };
 }
 
@@ -313,5 +320,96 @@ describe("filters panel", () => {
     await user.click(screen.getByTestId("workflows-tab-folders"));
     await user.click(screen.getByTestId("workflow-folder-open-f1"));
     expect(screen.getByTestId("workflows-empty-folder")).toBeInTheDocument();
+  });
+});
+
+describe("nested folder tree", () => {
+  // root "Payments" (p) → child "Cards" (c) → grandchild "Visa" (g)
+  const nested = [
+    folder("p", "Payments"),
+    folder("c", "Cards", { parentFolderId: "p", position: 0 }),
+    folder("g", "Visa", { parentFolderId: "c", position: 0 }),
+  ];
+
+  it("drills into a folder to reveal its subfolders, then a breadcrumb walks back", async () => {
+    const user = userEvent.setup();
+    render(<WorkflowsDashboard initialWorkflows={[wf("a", "A")]} initialFolders={nested} />);
+    await user.click(screen.getByTestId("workflows-tab-folders"));
+
+    // Root level shows only top-level folders (Payments), not its descendants.
+    expect(screen.getByTestId("workflow-folder-drill-p")).toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-folder-drill-c")).toBeNull();
+
+    // Drill into Payments → its child Cards appears; Payments no longer a card.
+    await user.click(screen.getByTestId("workflow-folder-drill-p"));
+    expect(screen.getByTestId("workflow-folder-drill-c")).toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-folder-drill-p")).toBeNull();
+
+    // Breadcrumb back to All folders.
+    await user.click(screen.getByTestId("workflow-folder-crumb-root"));
+    expect(screen.getByTestId("workflow-folder-drill-p")).toBeInTheDocument();
+  });
+
+  it("creates a subfolder inside the browsed folder (parentFolderId threaded)", async () => {
+    mockCreateFolder.mockResolvedValueOnce(folder("n", "New", { parentFolderId: "p" }));
+    const user = userEvent.setup();
+    render(<WorkflowsDashboard initialWorkflows={[wf("a", "A")]} initialFolders={nested} />);
+    await user.click(screen.getByTestId("workflows-tab-folders"));
+    await user.click(screen.getByTestId("workflow-folder-drill-p"));
+    await user.click(screen.getByTestId("workflow-folder-new"));
+    await user.type(screen.getByTestId("folder-form-name"), "Refunds");
+    await user.click(screen.getByTestId("folder-form-submit"));
+    await waitFor(() =>
+      expect(mockCreateFolder).toHaveBeenCalledWith({ name: "Refunds", parentFolderId: "p" }),
+    );
+  });
+
+  it("disables New subfolder once the depth-3 cap is reached", async () => {
+    const user = userEvent.setup();
+    render(<WorkflowsDashboard initialWorkflows={[wf("a", "A")]} initialFolders={nested} folderLimit={100} />);
+    await user.click(screen.getByTestId("workflows-tab-folders"));
+    await user.click(screen.getByTestId("workflow-folder-drill-p")); // browse Payments (a depth-2 child is ok)
+    await user.click(screen.getByTestId("workflow-folder-drill-c")); // browse Cards (a depth-3 child is ok)
+    await user.click(screen.getByTestId("workflow-folder-drill-g")); // browse Visa (depth 3) — a child would be depth 4
+    expect(screen.getByTestId("workflow-folder-new")).toBeDisabled();
+  });
+
+  it("moves a folder to the top level via the Move dialog", async () => {
+    mockUpdateFolder.mockResolvedValueOnce(folder("c", "Cards"));
+    const user = userEvent.setup();
+    render(<WorkflowsDashboard initialWorkflows={[wf("a", "A")]} initialFolders={nested} />);
+    await user.click(screen.getByTestId("workflows-tab-folders"));
+    await user.click(screen.getByTestId("workflow-folder-drill-p"));
+    await user.click(screen.getByTestId("workflow-folder-menu-c"));
+    await user.click(screen.getByTestId("workflow-folder-move-c"));
+    // Cards is nested under Payments → "Top level" is offered; pick + confirm.
+    await user.click(screen.getByTestId("folder-move-target-root"));
+    await user.click(screen.getByTestId("folder-move-confirm"));
+    await waitFor(() =>
+      expect(mockUpdateFolder).toHaveBeenCalledWith("c", { parentFolderId: null }),
+    );
+  });
+
+  it("reorders sibling folders with the up/down controls", async () => {
+    mockReorderFolders.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "A")]}
+        initialFolders={[
+          folder("f1", "Alpha", { position: 0 }),
+          folder("f2", "Beta", { position: 1 }),
+        ]}
+      />,
+    );
+    await user.click(screen.getByTestId("workflows-tab-folders"));
+    // Move Beta up → siblings reordered to [f2, f1] within the root group.
+    await user.click(screen.getByTestId("workflow-folder-up-f2"));
+    await waitFor(() =>
+      expect(mockReorderFolders).toHaveBeenCalledWith({
+        parentFolderId: null,
+        orderedIds: ["f2", "f1"],
+      }),
+    );
   });
 });

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { WorkflowFolder } from "@/contracts/folders";
+import { flattenForDisplay } from "./folderTree";
 
 /**
  * Right slide-in filters panel (Slice 4.WF-5), adapted from the design's
@@ -139,11 +140,12 @@ export function WorkflowsFiltersPanel({
                   onChange({ ...filters, folderIds: toggle(filters.folderIds, UNCATEGORIZED) })
                 }
               />
-              {folders.map((f) => (
+              {flattenForDisplay(folders).map(({ folder: f, depth }) => (
                 <FolderCheck
                   key={f.id}
                   id={f.id}
                   label={f.name}
+                  indent={depth - 1}
                   checked={filters.folderIds.includes(f.id)}
                   onToggle={() =>
                     onChange({ ...filters, folderIds: toggle(filters.folderIds, f.id) })
@@ -221,15 +223,18 @@ function FolderCheck({
   label,
   checked,
   onToggle,
+  indent = 0,
 }: {
   id: string;
   label: string;
   checked: boolean;
   onToggle: () => void;
+  indent?: number;
 }) {
   return (
     <label
       data-testid={`workflows-filters-folder-${id}`}
+      style={indent > 0 ? { paddingLeft: `${0.25 + indent * 0.9}rem` } : undefined}
       className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 text-sm text-foreground hover:bg-muted/40"
     >
       <input type="checkbox" checked={checked} onChange={onToggle} />
