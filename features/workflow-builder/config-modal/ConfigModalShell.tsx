@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { Button } from "@/components/ui/button";
-import { CredentialOwnershipBadge } from "./CredentialOwnershipBadge";
+import { NodeCredentialOwnerSection } from "./NodeCredentialOwnerSection";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import {
@@ -78,6 +78,8 @@ export function ConfigModalShell() {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const updateNodeConfig = useGraphSlice((s) => s.updateNodeConfig);
   const renameNode = useGraphSlice((s) => s.renameNode);
+  // CS-4b: the open workflow's id, for the per-node credential-owner section.
+  const workflowId = useGraphSlice((s) => s.workflowId);
 
   const nativeActions = useNativeActions();
   const nativeTriggers = useNativeTriggers();
@@ -211,9 +213,14 @@ export function ConfigModalShell() {
               {activeMeta.description}
             </p>
           ) : null}
-          {/* TW-3b: credential-ownership badge for Team workflows (renders null
-              for personal accounts / non-team builds). */}
-          <CredentialOwnershipBadge provider={activeNode.provider} />
+          {/* TW-3b + CS-4b: credential-ownership badge + per-node reassignment
+              affordance for Team workflows (renders null badge for personal
+              accounts / non-team builds). */}
+          <NodeCredentialOwnerSection
+            workflowId={workflowId}
+            nodeId={activeNode.id}
+            provider={activeNode.provider}
+          />
         </div>
         <Button
           variant="ghost"

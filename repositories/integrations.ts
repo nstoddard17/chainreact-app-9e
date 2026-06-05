@@ -321,6 +321,40 @@ export async function listActiveByAccount(
 }
 
 /**
+ * Service-role: the set of distinct user ids that have an ACTIVE connection for
+ * `provider` in `accountId` (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-5B / CS-4b).
+ *
+ * Used to compute eligible reassignment targets (members who already have the
+ * node's personal provider connected). Service-role on purpose: it answers a
+ * presence question across members WITHOUT returning any integration row — only
+ * the caller-side service maps these ids to display names, and the endpoint that
+ * exposes them is owner/admin/creator-gated. NO token, label, or scope leaves
+ * this query; it selects only `connected_by_user_id`.
+ */
+export async function listActiveConnectedUserIdsServiceRole(
+  accountId: string,
+  provider: string,
+): Promise<ReadonlySet<string>> {
+  const supabase = getServiceRoleClient(
+    `integrations: listActiveConnectedUserIds for account ${accountId} / ${provider}`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("connected_by_user_id")
+    .eq("account_id", accountId)
+    .eq("provider", provider)
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(`integrations.listActiveConnectedUserIdsServiceRole failed: ${error.message}`);
+  }
+  const ids = new Set<string>();
+  for (const r of (data ?? []) as Array<{ connected_by_user_id: string | null }>) {
+    if (r.connected_by_user_id) ids.add(r.connected_by_user_id);
+  }
+  return ids;
+}
+
+/**
  * Offboarding soft-disconnect (Slice 4.ACCOUNT-MODEL-22C).
  *
  * When a member is removed from a Team, the PERSONAL credentials they connected
