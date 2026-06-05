@@ -13,6 +13,7 @@ import {
   ApiSection,
   BillingSection,
   SecuritySection,
+  type AccountBillingView,
   type ActiveAccountView,
 } from "./AccountSections";
 import { ProfileSection } from "./ProfileSection";
@@ -48,6 +49,8 @@ interface Props {
   emailVerified: boolean;
   /** User-facing sign-in method label, e.g. "Email & password". */
   signInMethod: string;
+  /** Read-only billing/limit facts for the active account (BILL-1). */
+  billing: AccountBillingView;
   initialSection?: AccountSection;
 }
 
@@ -78,6 +81,7 @@ export function AccountSettings({
   displayName,
   emailVerified,
   signInMethod,
+  billing,
   initialSection,
 }: Props) {
   const [section, setSection] = useState<AccountSection>(
@@ -160,7 +164,7 @@ export function AccountSettings({
             signInMethod={signInMethod}
           />
         )}
-        {section === "billing" && <BillingSection active={active} />}
+        {section === "billing" && <BillingSection active={active} billing={billing} />}
         {section === "api" && <ApiSection />}
         {section === "danger-zone" &&
           (isPersonal ? (

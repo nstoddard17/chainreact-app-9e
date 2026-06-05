@@ -36,6 +36,16 @@ jest.mock("@/repositories/userProfiles", () => ({
   getDisplayName: (...a: unknown[]) => mockGetDisplayName(...a),
 }));
 
+const mockGetUsage = jest.fn();
+jest.mock("@/repositories/accountBilling", () => ({
+  getUsage: (...a: unknown[]) => mockGetUsage(...a),
+}));
+
+const mockListMembers = jest.fn();
+jest.mock("@/services/accounts/membership", () => ({
+  listMembers: (...a: unknown[]) => mockListMembers(...a),
+}));
+
 const mockCountUnread = jest.fn();
 const mockListNotifications = jest.fn();
 jest.mock("@/repositories/notifications", () => ({
@@ -58,6 +68,8 @@ beforeEach(() => {
   mockCountUnread.mockReset().mockResolvedValue(0);
   mockListNotifications.mockReset().mockResolvedValue([]);
   mockGetDisplayName.mockReset().mockResolvedValue(null);
+  mockGetUsage.mockReset().mockResolvedValue(null);
+  mockListMembers.mockReset().mockResolvedValue([]);
 });
 
 const personal = {
@@ -101,6 +113,13 @@ interface SettingsProps {
   displayName: string | null;
   emailVerified: boolean;
   signInMethod: string;
+  billing: {
+    usage: { tasksUsed: number; tasksLimit: number; periodStartedAt: string | null } | null;
+    memberLimit: number | null;
+    memberCount: number | null;
+    folderLimit: number;
+    frozen: boolean;
+  };
   initialSection?: string;
 }
 
@@ -225,6 +244,38 @@ describe("AccountPage — security summary", () => {
     const props = await getSettingsProps();
     expect(props.emailVerified).toBe(true);
     expect(props.signInMethod).toBe("Email & password");
+  });
+});
+
+describe("AccountPage — billing summary", () => {
+  it("passes real usage + member/folder limits for a team active account", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    mockListSummaries.mockResolvedValue({ activeAccountId: "t1", accounts: [personal, team] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+    mockGetUsage.mockResolvedValue({ tasksUsed: 7, tasksLimit: 100, periodStartedAt: "2026-06-01T00:00:00Z" });
+    mockListMembers.mockResolvedValue([{ userId: "a" }, { userId: "b" }]);
+
+    const props = await getSettingsProps();
+    expect(mockGetUsage).toHaveBeenCalledWith("t1");
+    expect(mockListMembers).toHaveBeenCalledWith("t1");
+    expect(props.billing.usage).toEqual({ tasksUsed: 7, tasksLimit: 100, periodStartedAt: "2026-06-01T00:00:00Z" });
+    expect(props.billing.memberLimit).toBe(5); // team
+    expect(props.billing.memberCount).toBe(2);
+    expect(props.billing.folderLimit).toBe(100); // team
+    expect(props.billing.frozen).toBe(false);
+  });
+
+  it("does not load a member count for a personal active account; usage may be null", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    mockListSummaries.mockResolvedValue({ activeAccountId: "p1", accounts: [personal] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+    mockGetUsage.mockResolvedValue(null);
+
+    const props = await getSettingsProps();
+    expect(mockListMembers).not.toHaveBeenCalled();
+    expect(props.billing.usage).toBeNull();
+    expect(props.billing.memberLimit).toBe(1); // personal
+    expect(props.billing.folderLimit).toBe(10); // personal
   });
 });
 

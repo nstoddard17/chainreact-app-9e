@@ -188,22 +188,139 @@ export function SecuritySection({
   );
 }
 
-// ── Plan & billing (placeholder) ─────────────────────────────────────────────
-export function BillingSection({ active }: { active: ActiveAccountView | null }) {
-  const planLabel = active ? `${accountTypeLabel(active.type)} plan` : "—";
+// ── Plan & billing (read-only — BILL-1) ──────────────────────────────────────
+/** Account billing/limit facts the page resolves for the ACTIVE account. */
+export interface AccountBillingView {
+  /** Real task usage from `account_billing`, or null when unavailable. */
+  usage: { tasksUsed: number; tasksLimit: number; periodStartedAt: string | null } | null;
+  /** Total-member cap (team/business); null for personal / uncapped. */
+  memberLimit: number | null;
+  /** Current member count (team/business), or null when not loaded/applicable. */
+  memberCount: number | null;
+  /** Workflow-folder cap for the active account's tier. */
+  folderLimit: number;
+  /** True when the active account is pending deletion (frozen). */
+  frozen: boolean;
+}
+
+/**
+ * Billing tier label (NOT the account-type label): a personal account is the
+ * **Free** tier until Pro plan metadata exists; team → Team; organization →
+ * Business. Never surfaces the raw "Organization" word.
+ */
+function billingTierLabel(type: AccountSummary["type"]): string {
+  if (type === "personal") return "Free";
+  if (type === "organization") return "Business";
+  return "Team";
+}
+
+export function BillingSection({
+  active,
+  billing,
+}: {
+  active: ActiveAccountView | null;
+  billing: AccountBillingView;
+}) {
+  const isShared = active != null && active.type !== "personal";
+  const tier = active ? billingTierLabel(active.type) : "—";
+  const periodStart =
+    billing.usage?.periodStartedAt != null
+      ? new Date(billing.usage.periodStartedAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          timeZone: "UTC",
+        })
+      : null;
+
   return (
     <div data-testid="account-section-billing" className="flex flex-col gap-5">
+      {billing.frozen && (
+        <div
+          data-testid="billing-frozen"
+          className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4"
+        >
+          <p className="text-sm font-semibold text-foreground">
+            This account is pending deletion.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Billing is read-only while the account is frozen.
+          </p>
+        </div>
+      )}
+
       <Panel
         title="Plan & billing"
-        desc="Billing management coming soon. Teams and Business accounts are billed as one account with shared usage."
+        desc="Paid plans and billing management are coming soon."
       >
+        {active && (
+          <ReadOnlyRow label="Account" value={active.name} />
+        )}
+        <SettingRow label="Plan" desc="Your current tier.">
+          <span
+            data-testid="billing-tier"
+            className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
+          >
+            {tier}
+          </span>
+        </SettingRow>
+
+        {billing.usage ? (
+          <SettingRow
+            label="Task usage"
+            desc={periodStart ? `This period — since ${periodStart}.` : "This period."}
+          >
+            <span data-testid="billing-usage" className="text-sm font-medium text-foreground">
+              {billing.usage.tasksUsed} / {billing.usage.tasksLimit} tasks
+            </span>
+          </SettingRow>
+        ) : (
+          <ReadOnlyRow
+            label="Task usage"
+            value={
+              <span data-testid="billing-usage-unavailable" className="text-muted-foreground">
+                Usage unavailable
+              </span>
+            }
+          />
+        )}
+
+        {billing.memberLimit !== null && (
+          <ReadOnlyRow
+            label="Members"
+            desc="Billed as one account with shared usage."
+            value={
+              <span data-testid="billing-members">
+                {billing.memberCount != null ? `${billing.memberCount} of ` : "Up to "}
+                {billing.memberLimit} members
+              </span>
+            }
+          />
+        )}
+
         <ReadOnlyRow
-          label="Current plan"
-          desc="Based on your active account type."
-          value={planLabel}
+          label="Folders"
+          value={<span data-testid="billing-folders">Up to {billing.folderLimit} folders</span>}
         />
+
+        {isShared && (
+          <SettingRow label="Seats" stacked>
+            <p data-testid="billing-no-pro-copy" className="text-xs text-muted-foreground">
+              Team and Business are billed as one account with shared usage —
+              members don&apos;t need their own Pro.
+            </p>
+          </SettingRow>
+        )}
+
         <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
         <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />
+        {!billing.frozen && (
+          <ComingSoonRow
+            label="Upgrade or change plan"
+            desc="Checkout and plan changes — coming soon."
+          />
+        )}
+        <ComingSoonRow label="Next billing date" desc="Available once paid plans launch." />
       </Panel>
     </div>
   );

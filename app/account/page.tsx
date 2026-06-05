@@ -4,8 +4,13 @@ import * as notificationsRepo from "@/repositories/notifications";
 import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getDisplayName } from "@/repositories/userProfiles";
+import { getUsage } from "@/repositories/accountBilling";
+import { listMembers } from "@/services/accounts/membership";
+import { memberLimitFor } from "@/services/accounts/memberLimits";
+import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { AccountSettings } from "@/features/account/AccountSettings";
+import type { AccountBillingView } from "@/features/account/AccountSections";
 import { resolveAccountSection } from "@/features/account/accountNav";
 import { getSecurityAccessSummary } from "@/features/account/securitySummary";
 import {
@@ -84,6 +89,36 @@ export default async function AccountPage({ searchParams }: Props) {
         : undefined),
   });
 
+  // BILL-1: read-only billing/limit facts for the ACTIVE account. Usage comes
+  // from the real `account_billing` row (null → "unavailable", never faked); the
+  // member count is loaded only for shared (team/business) accounts. Limits come
+  // from the central member/folder helpers. No Stripe / plan-metadata reads.
+  const frozen = active?.deletionStatus === "pending_deletion";
+  let billing: AccountBillingView = {
+    usage: null,
+    memberLimit: null,
+    memberCount: null,
+    folderLimit: 0,
+    frozen,
+  };
+  if (active) {
+    const [usage, memberCount] = await Promise.all([
+      getUsage(active.id).catch(() => null),
+      active.type !== "personal"
+        ? listMembers(active.id)
+            .then((m) => m.length)
+            .catch(() => null)
+        : Promise.resolve<number | null>(null),
+    ]);
+    billing = {
+      usage,
+      memberLimit: memberLimitFor(active.type),
+      memberCount,
+      folderLimit: folderLimitFor(active.type),
+      frozen,
+    };
+  }
+
   return (
     <AppShell
       userEmail={user.email ?? ""}
@@ -104,6 +139,7 @@ export default async function AccountPage({ searchParams }: Props) {
           displayName={displayName}
           emailVerified={security.emailVerified}
           signInMethod={security.signInMethod}
+          billing={billing}
           initialSection={initialSection}
         />
       </main>

@@ -110,6 +110,13 @@ function renderSettings(overrides: Overrides = {}) {
       displayName={null}
       emailVerified
       signInMethod="Email & password"
+      billing={{
+        usage: { tasksUsed: 0, tasksLimit: 100, periodStartedAt: null },
+        memberLimit: null,
+        memberCount: null,
+        folderLimit: 10,
+        frozen: false,
+      }}
       {...overrides}
     />,
   );
@@ -201,12 +208,12 @@ describe("AccountSettings — placeholder sections expose no fake controls", () 
     expect(screen.getByTestId("account-section-security")).toHaveTextContent("me@x.io");
   });
 
-  it("billing surfaces a plan-ish label without inventing pricing (Business, not Organization)", async () => {
+  it("billing shows the Business tier (never Organization) for an organization account", async () => {
     const user = userEvent.setup();
     renderSettings({ active: view(orgActive), isPersonal: false });
     await user.click(screen.getByTestId("account-nav-billing"));
     const section = screen.getByTestId("account-section-billing");
-    expect(section).toHaveTextContent(/Business plan/);
+    expect(screen.getByTestId("billing-tier")).toHaveTextContent("Business");
     expect(section).not.toHaveTextContent(/Organization/);
   });
 });
