@@ -25,24 +25,58 @@ import { WorkflowStatusToggle } from "./WorkflowStatusToggle";
 export const WORKFLOW_ROW_GRID =
   "grid items-center gap-4 grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,auto)_44px]";
 
+// Same columns with a leading 28px checkbox lane for multi-select mode. Kept as
+// a separate literal (not interpolated) so Tailwind's content scanner emits the
+// arbitrary grid-cols value.
+export const WORKFLOW_ROW_GRID_SELECTABLE =
+  "grid items-center gap-4 grid-cols-[28px_minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,auto)_44px]";
+
 interface Props {
   workflow: WorkflowListItem;
   onChanged: () => void;
   folderActions?: WorkflowFolderActionProps;
   /** Resolved folder name for the Folder column; null = uncategorized. */
   folderName?: string | null;
+  /** Multi-select: render a leading checkbox when true. */
+  selectable?: boolean;
+  selected?: boolean;
+  onSelectChange?: (checked: boolean) => void;
 }
 
-export function WorkflowRow({ workflow, onChanged, folderActions, folderName }: Props) {
+export function WorkflowRow({
+  workflow,
+  onChanged,
+  folderActions,
+  folderName,
+  selectable = false,
+  selected = false,
+  onSelectChange,
+}: Props) {
   return (
     <li
       data-testid="workflow-row"
       data-workflow-id={workflow.id}
+      aria-selected={selectable ? selected : undefined}
       className={
-        WORKFLOW_ROW_GRID +
-        " border-t border-border px-4 py-3 transition first:border-t-0 hover:bg-muted/40"
+        (selectable ? WORKFLOW_ROW_GRID_SELECTABLE : WORKFLOW_ROW_GRID) +
+        " border-t border-border px-4 py-3 transition first:border-t-0 hover:bg-muted/40" +
+        (selected ? " bg-primary/5" : "")
       }
     >
+      {/* Select */}
+      {selectable && (
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            data-testid={`workflow-row-select-${workflow.id}`}
+            aria-label={`Select ${workflow.name}`}
+            checked={selected}
+            onChange={(e) => onSelectChange?.(e.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-primary"
+          />
+        </div>
+      )}
+
       {/* Name */}
       <div className="flex min-w-0 flex-col gap-0.5">
         <Link

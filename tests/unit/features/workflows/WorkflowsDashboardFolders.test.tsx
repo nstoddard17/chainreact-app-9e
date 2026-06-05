@@ -323,6 +323,114 @@ describe("filters panel", () => {
   });
 });
 
+describe("multi-select bulk actions", () => {
+  it("selecting a row reveals the bulk bar; selecting all checks every row", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "A"), wf("b", "B"), wf("c", "C")]}
+        initialFolders={[]}
+      />,
+    );
+    // No selection → no bulk bar.
+    expect(screen.queryByTestId("workflows-bulk-bar")).toBeNull();
+
+    await user.click(screen.getByTestId("workflow-row-select-a"));
+    expect(screen.getByTestId("workflows-bulk-bar")).toHaveTextContent("1 selected");
+
+    // Select-all header → 3 selected.
+    await user.click(screen.getByTestId("workflows-select-all"));
+    expect(screen.getByTestId("workflows-bulk-count")).toHaveTextContent("3");
+    expect(screen.getByTestId("workflow-row-select-b")).toBeChecked();
+
+    // Clear resets selection + hides the bar.
+    await user.click(screen.getByTestId("workflows-bulk-clear"));
+    expect(screen.queryByTestId("workflows-bulk-bar")).toBeNull();
+  });
+
+  it("bulk-moves every selected workflow into a folder (fan-out over the move API)", async () => {
+    mockMoveWorkflow.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "A"), wf("b", "B")]}
+        initialFolders={[folder("f1", "Payments")]}
+      />,
+    );
+    await user.click(screen.getByTestId("workflows-select-all"));
+    await user.click(screen.getByTestId("workflows-bulk-move-trigger"));
+    await user.click(await screen.findByTestId("workflows-bulk-move-f1"));
+    await waitFor(() => {
+      expect(mockMoveWorkflow).toHaveBeenCalledWith("a", "f1");
+      expect(mockMoveWorkflow).toHaveBeenCalledWith("b", "f1");
+    });
+  });
+
+  it("bulk-moves selected workflows to Uncategorized", async () => {
+    mockMoveWorkflow.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "A", { folderId: "f1" })]}
+        initialFolders={[folder("f1", "Payments")]}
+      />,
+    );
+    await user.click(screen.getByTestId("workflow-row-select-a"));
+    await user.click(screen.getByTestId("workflows-bulk-move-trigger"));
+    await user.click(await screen.findByTestId("workflows-bulk-move-uncategorized"));
+    await waitFor(() => expect(mockMoveWorkflow).toHaveBeenCalledWith("a", null));
+  });
+
+  it("bulk-trashes selected workflows and offers Undo (restores each)", async () => {
+    mockDeleteWorkflow.mockResolvedValue({
+      ok: true,
+      deleteOperationId: "op",
+      purgeAfter: "2026-06-11T00:00:00Z",
+    });
+    mockRestoreWorkflow.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "A"), wf("b", "B")]}
+        initialFolders={[]}
+      />,
+    );
+    await user.click(screen.getByTestId("workflows-select-all"));
+    await user.click(screen.getByTestId("workflows-bulk-trash"));
+    await waitFor(() => {
+      expect(mockDeleteWorkflow).toHaveBeenCalledWith("a");
+      expect(mockDeleteWorkflow).toHaveBeenCalledWith("b");
+    });
+    const toast = await screen.findByTestId("workflows-undo-toast");
+    expect(toast).toHaveTextContent("2 workflows moved to Trash");
+    await user.click(within(toast).getByTestId("workflows-undo-button"));
+    await waitFor(() => {
+      expect(mockRestoreWorkflow).toHaveBeenCalledWith("a");
+      expect(mockRestoreWorkflow).toHaveBeenCalledWith("b");
+    });
+  });
+
+  it("drops selection that filters out of view (can't act on hidden rows)", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[
+          wf("a", "Alpha", { providers: [{ id: "stripe", label: "Stripe", iconUrl: null }] }),
+          wf("b", "Beta", { providers: [{ id: "gmail", label: "Gmail", iconUrl: null }] }),
+        ]}
+        initialFolders={[]}
+      />,
+    );
+    await user.click(screen.getByTestId("workflows-select-all")); // 2 selected
+    expect(screen.getByTestId("workflows-bulk-count")).toHaveTextContent("2");
+    // Search narrows to just "Alpha" → selection prunes to 1.
+    await user.type(screen.getByTestId("workflows-search-input"), "Alpha");
+    await waitFor(() =>
+      expect(screen.getByTestId("workflows-bulk-count")).toHaveTextContent("1"),
+    );
+  });
+});
+
 describe("nested folder tree", () => {
   // root "Payments" (p) → child "Cards" (c) → grandchild "Visa" (g)
   const nested = [

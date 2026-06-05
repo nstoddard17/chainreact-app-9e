@@ -37,7 +37,9 @@ import { WorkflowsUndoToast } from "./folders/WorkflowsUndoToast";
 import { FolderFormDialog } from "./folders/FolderFormDialog";
 import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
 import { FolderMoveDialog } from "./folders/FolderMoveDialog";
-import { childrenOf } from "./folders/folderTree";
+import { WorkflowsBulkActions } from "./folders/WorkflowsBulkActions";
+import { useWorkflowSelection } from "./folders/useWorkflowSelection";
+import { childrenOf, flattenForDisplay } from "./folders/folderTree";
 import {
   WorkflowsFiltersPanel,
   DEFAULT_FILTERS,
@@ -106,6 +108,7 @@ export function WorkflowsDashboard({
   const [trashLoading, setTrashLoading] = useState(false);
   const [trashError, setTrashError] = useState<string | null>(null);
   const [trashPendingId, setTrashPendingId] = useState<string | null>(null);
+
 
   const refreshSeqRef = useRef(0);
   const refresh = useCallback(async () => {
@@ -186,6 +189,24 @@ export function WorkflowsDashboard({
   const filtered = useMemo(
     () => applyFilters(workflows, query, statusFilter, filters),
     [workflows, query, statusFilter, filters],
+  );
+
+  const selection = useWorkflowSelection({
+    filtered,
+    active: tab === "automations" && view === "list",
+    refresh,
+    onError: setError,
+    onUndo: setUndo,
+  });
+
+  const folderOptions = useMemo(
+    () =>
+      flattenForDisplay(folders).map(({ folder: f, depth }) => ({
+        id: f.id,
+        name: f.name,
+        depth,
+      })),
+    [folders],
   );
 
   // Breadcrumb folder name when exactly one real folder is selected.
@@ -413,12 +434,25 @@ export function WorkflowsDashboard({
           {hasAny && !hasFiltered && (
             <WorkflowsEmptyState kind={folderScopedOnly ? "empty-folder" : "no-matches"} />
           )}
+          {hasAny && hasFiltered && view === "list" && selection.selectedIds.size > 0 && (
+            <WorkflowsBulkActions
+              count={selection.selectedIds.size}
+              folders={folderOptions}
+              pending={selection.bulkPending}
+              onMove={(folderId) => void selection.bulkMove(folderId)}
+              onTrash={() => void selection.bulkTrash()}
+              onClear={selection.clear}
+            />
+          )}
           {hasAny && hasFiltered && view === "list" && (
             <WorkflowsTable
               workflows={filtered}
               folderNameById={folderNameById}
               onChanged={refresh}
               folderActionsFor={makeFolderActions}
+              selectedIds={selection.selectedIds}
+              onToggleSelect={selection.toggleSelect}
+              onToggleSelectAll={selection.toggleSelectAll}
             />
           )}
           {hasAny && hasFiltered && view === "grid" && (
