@@ -1,4 +1,7 @@
 import type { AccountSummary, UserAccountsResult } from "@/services/accounts/accountList";
+import type { NotificationPreferences } from "@/contracts/notificationPreferences";
+
+export type { NotificationPreferences };
 
 /**
  * Typed client for the account APIs (4.ACCOUNT-MODEL-18).
@@ -147,6 +150,35 @@ export async function updateDisplayName(
   if (!res.ok) throw await parseError(res);
   const body = (await res.json()) as { ok: true; displayName: string | null };
   return { displayName: body.displayName };
+}
+
+// ── Notification preferences (4.ACCOUNT-SETTINGS-4) ────────────────────────────
+
+/** GET /api/account/notification-preferences — the caller's own toggles. */
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+  const res = await fetch("/api/account/notification-preferences");
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { ok: true; preferences: NotificationPreferences };
+  return body.preferences;
+}
+
+/**
+ * PATCH /api/account/notification-preferences — replace the caller's own
+ * toggles. Returns the canonical stored shape. Failures surface as
+ * `AccountApiError` (code VALIDATION on a malformed payload, UNAUTHENTICATED on
+ * 401).
+ */
+export async function updateNotificationPreferences(
+  preferences: NotificationPreferences,
+): Promise<NotificationPreferences> {
+  const res = await fetch("/api/account/notification-preferences", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(preferences),
+  });
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { ok: true; preferences: NotificationPreferences };
+  return body.preferences;
 }
 
 // ── Personal account deletion (4.ACCOUNT-SETTINGS-1) ───────────────────────────

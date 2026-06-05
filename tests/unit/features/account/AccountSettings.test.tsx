@@ -44,6 +44,16 @@ jest.mock("@/lib/api/accounts", () => {
     requestAccountDeletion: (...a: unknown[]) => mockRequest(...a),
     cancelAccountDeletion: (...a: unknown[]) => mockCancel(...a),
     updateDisplayName: (...a: unknown[]) => mockUpdateDisplayName(...a),
+    getNotificationPreferences: jest.fn().mockResolvedValue({
+      productUpdates: false,
+      workflowAlerts: true,
+      teamActivity: true,
+    }),
+    updateNotificationPreferences: jest.fn().mockResolvedValue({
+      productUpdates: false,
+      workflowAlerts: true,
+      teamActivity: true,
+    }),
   };
 });
 
@@ -128,8 +138,8 @@ describe("AccountSettings — settings shell + nav", () => {
   it("switches sections when a nav item is clicked", async () => {
     const user = userEvent.setup();
     renderSettings();
-    await user.click(screen.getByTestId("account-nav-notifications"));
-    expect(screen.getByTestId("account-section-notifications")).toBeInTheDocument();
+    await user.click(screen.getByTestId("account-nav-security"));
+    expect(screen.getByTestId("account-section-security")).toBeInTheDocument();
     expect(screen.queryByTestId("account-section-account")).toBeNull();
   });
 
@@ -164,7 +174,6 @@ describe("AccountSettings — Account overview", () => {
 
 describe("AccountSettings — placeholder sections expose no fake controls", () => {
   it.each([
-    ["notifications", "account-section-notifications"],
     ["security", "account-section-security"],
     ["billing", "account-section-billing"],
     ["api", "account-section-api"],

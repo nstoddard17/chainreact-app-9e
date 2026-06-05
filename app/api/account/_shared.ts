@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import type { AccountRecord } from "@/contracts/accounts";
+import { NotificationPreferencesSchema } from "@/contracts/notificationPreferences";
 
 /**
  * Shared route-layer helpers for /api/account.
@@ -177,6 +178,14 @@ export const UpdateDisplayNameBodySchema = z.object({
     .max(80, "Display name must be 80 characters or fewer."),
 });
 export type UpdateDisplayNameBody = z.infer<typeof UpdateDisplayNameBodySchema>;
+
+/**
+ * Body for PATCH /api/account/notification-preferences — the caller's own
+ * boolean toggles (4.ACCOUNT-SETTINGS-4). Re-exported from the cross-layer
+ * contract; `.strict()` rejects unknown keys so a malformed payload 400s.
+ */
+export const UpdateNotificationPreferencesBodySchema =
+  NotificationPreferencesSchema.strict();
 
 /** Shape returned by both routes — lifecycle state only, no account graph. */
 export function toDeletionStatusResponse(state: {

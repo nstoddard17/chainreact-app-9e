@@ -118,21 +118,7 @@ function TeamPointerCard({ accountName }: { accountName: string }) {
 
 // (Profile is now a functional section — see ProfileSection.tsx.)
 
-// ── Notifications (placeholder) ──────────────────────────────────────────────
-export function NotificationsSection() {
-  return (
-    <div data-testid="account-section-notifications" className="flex flex-col gap-5">
-      <Panel
-        title="Notifications"
-        desc="Notification preferences aren't configurable yet — coming soon."
-      >
-        <ComingSoonRow label="Product updates" desc="News and changes to ChainReact." />
-        <ComingSoonRow label="Workflow alerts" desc="When a workflow run fails or needs attention." />
-        <ComingSoonRow label="Team & member activity" desc="Invites, joins, and role changes." />
-      </Panel>
-    </div>
-  );
-}
+// (Notifications is now a functional section — see NotificationsSection.tsx.)
 
 // ── Security & access (placeholder) ──────────────────────────────────────────
 export function SecuritySection({ email }: { email: string }) {

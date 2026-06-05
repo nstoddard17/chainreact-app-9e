@@ -12,11 +12,11 @@ import {
   AccountOverview,
   ApiSection,
   BillingSection,
-  NotificationsSection,
   SecuritySection,
   type ActiveAccountView,
 } from "./AccountSections";
 import { ProfileSection } from "./ProfileSection";
+import { NotificationsSection } from "./NotificationsSection";
 import { AccountDeletionCard } from "./AccountDeletionCard";
 
 /**

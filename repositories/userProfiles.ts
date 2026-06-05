@@ -1,5 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  type NotificationPreferences,
+} from "@/contracts/notificationPreferences";
 
 /**
  * Repository for user-scoped fields on `user_profiles`.
@@ -50,6 +54,65 @@ export async function updateDisplayName(
     .eq("id", userId);
   if (error) {
     throw new Error(`user_profiles.updateDisplayName failed: ${error.message}`);
+  }
+}
+
+/**
+ * Read the caller's OWN notification preferences (4.ACCOUNT-SETTINGS-4). Session
+ * client — `user_profiles_select_own` gates on `auth.uid() = id`. Falls back to
+ * the launch defaults if the row is somehow absent (the columns are NOT NULL
+ * with defaults, so a present row always has concrete booleans).
+ */
+export async function getNotificationPreferences(
+  userId: string,
+): Promise<NotificationPreferences> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select(
+      "notify_product_updates, notify_workflow_alerts, notify_team_activity",
+    )
+    .eq("id", userId)
+    .maybeSingle<{
+      notify_product_updates: boolean;
+      notify_workflow_alerts: boolean;
+      notify_team_activity: boolean;
+    }>();
+  if (error) {
+    throw new Error(
+      `user_profiles.getNotificationPreferences failed: ${error.message}`,
+    );
+  }
+  if (!data) return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+  return {
+    productUpdates: data.notify_product_updates,
+    workflowAlerts: data.notify_workflow_alerts,
+    teamActivity: data.notify_team_activity,
+  };
+}
+
+/**
+ * Set the caller's OWN notification preferences (4.ACCOUNT-SETTINGS-4). Session
+ * client — `user_profiles_update_own` gates on `auth.uid() = id`, so a caller
+ * can only ever write their own row.
+ */
+export async function updateNotificationPreferences(
+  userId: string,
+  prefs: NotificationPreferences,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({
+      notify_product_updates: prefs.productUpdates,
+      notify_workflow_alerts: prefs.workflowAlerts,
+      notify_team_activity: prefs.teamActivity,
+    })
+    .eq("id", userId);
+  if (error) {
+    throw new Error(
+      `user_profiles.updateNotificationPreferences failed: ${error.message}`,
+    );
   }
 }
 
