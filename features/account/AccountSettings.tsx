@@ -165,7 +165,7 @@ export function AccountSettings({
           />
         )}
         {section === "billing" && <BillingSection active={active} billing={billing} />}
-        {section === "api" && <ApiSection />}
+        {section === "api" && <ApiSection active={active} />}
         {section === "danger-zone" &&
           (isPersonal ? (
             <AccountDeletionCard
