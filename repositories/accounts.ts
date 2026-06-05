@@ -227,6 +227,39 @@ export async function listOwnedTeamOrgAccountIds(
   return ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
 }
 
+// ─── 4.ACCOUNT-MODEL-TRANSFER-LEAVE-2 / TL-1: owner transfer (service-role) ────
+
+/**
+ * Service-role: atomically transfer ownership of a team/org account via the
+ * `transfer_account_ownership` SECURITY DEFINER RPC. The RPC validates the
+ * account is team/org + active, that `currentOwnerUserId` is the present owner,
+ * and that `targetUserId` is already a member; it then promotes the target to
+ * `owner`, repoints `accounts.owner_user_id`, and demotes the old owner to
+ * `admin` — all in one transaction guarded by the >=1-owner + owner-consistency
+ * triggers. NOT a client-reachable path (the RPC is granted to service_role
+ * only). The "transfer and leave" offboarding is layered on top by the TL-2
+ * service, not here.
+ */
+export async function transferAccountOwnershipServiceRole(input: {
+  accountId: string;
+  currentOwnerUserId: string;
+  targetUserId: string;
+}): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `accounts: transferOwnership account ${input.accountId} -> user ${input.targetUserId}`,
+  );
+  const { error } = await supabase.rpc("transfer_account_ownership", {
+    p_account_id: input.accountId,
+    p_current_owner_user_id: input.currentOwnerUserId,
+    p_target_user_id: input.targetUserId,
+  });
+  if (error) {
+    throw new Error(
+      `accounts.transferAccountOwnershipServiceRole failed: ${error.message}`,
+    );
+  }
+}
+
 /**
  * Service-role read of a single account by id. Mirrors `getById` but bypasses
  * RLS — the deletion service must resolve a frozen account that the session
