@@ -34,7 +34,7 @@ jest.mock("@/services/accounts/accountDeletion", () => ({
 // 4.ACCOUNT-MODEL-13 deletion guard — owned team/org accounts block deletion.
 const mockListOwnedTeamOrg = jest.fn();
 jest.mock("@/repositories/accounts", () => ({
-  listOwnedTeamOrgAccountIds: (...a: unknown[]) => mockListOwnedTeamOrg(...a),
+  listOwnedTeamOrgAccountSummaries: (...a: unknown[]) => mockListOwnedTeamOrg(...a),
 }));
 
 import { POST } from "@/app/api/account/delete/route";
@@ -95,14 +95,27 @@ describe("POST /api/account/delete", () => {
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
 
-  it("409s when the user owns a team/org account (deletion guard) — never reaches re-auth or the service", async () => {
+  it("409s when the user owns Team/Business accounts — returns owned summaries + transfer-or-delete copy, never reaches re-auth or the service", async () => {
     signedIn();
-    mockListOwnedTeamOrg.mockResolvedValueOnce(["team-1", "team-2"]);
+    mockListOwnedTeamOrg.mockResolvedValueOnce([
+      { id: "team-1", name: "Acme Team", type: "team" },
+      { id: "org-1", name: "Acme Biz", type: "organization" },
+    ]);
     const res = await POST(req({ password: "pw", confirmText: "delete my account" }));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("ACCOUNT_HAS_OWNED_TEAMS");
     expect(body.ownedAccountCount).toBe(2);
+    // Owned-account summaries, with the org→Business label (never "Organization").
+    expect(body.ownedAccounts).toEqual([
+      { id: "team-1", name: "Acme Team", type: "team", typeLabel: "Team" },
+      { id: "org-1", name: "Acme Biz", type: "organization", typeLabel: "Business" },
+    ]);
+    // Copy says transfer or delete, and never surfaces "Organization" as a tier.
+    expect(body.error).toMatch(/transfer ownership or delete/i);
+    expect(body.error).not.toMatch(/organization/i);
+    // Scoped to the caller's own owned accounts (no other user's accounts).
+    expect(mockListOwnedTeamOrg).toHaveBeenCalledWith(USER_ID);
     expect(mockVerifyReauth).not.toHaveBeenCalled();
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });

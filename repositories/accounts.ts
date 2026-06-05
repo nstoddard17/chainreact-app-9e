@@ -204,27 +204,42 @@ export async function createTeamAccountServiceRole(input: {
   return rowToRecord(data);
 }
 
+/** A minimal owned-account summary for the deletion-guard remediation (TL-4). */
+export interface OwnedAccountSummary {
+  id: string;
+  name: string;
+  /** Internal type — 'team' | 'organization'. The route maps it to a label. */
+  type: AccountType;
+}
+
 /**
- * Service-role: ids of every NON-personal account `userId` owns. Backs the
- * deletion guard — a user may not delete their personal account / themselves
- * while they solely own team/org accounts (the `owner_user_id ON DELETE RESTRICT`
- * FK would otherwise block the user purge). Empty array = clear to delete.
+ * Service-role: id + name + type of every NON-personal account `userId` owns.
+ * Backs the deletion guard — a user may not delete their personal account /
+ * themselves while they solely own team/org accounts (the `owner_user_id
+ * ON DELETE RESTRICT` FK would otherwise block the user purge). The guard
+ * (4.ACCOUNT-MODEL-TRANSFER-LEAVE-5 / TL-4) returns these summaries so the user
+ * can transfer or delete each. Empty array = clear to delete. Member counts are
+ * intentionally omitted (not cheaply available without a second aggregate query).
  */
-export async function listOwnedTeamOrgAccountIds(
+export async function listOwnedTeamOrgAccountSummaries(
   userId: string,
-): Promise<string[]> {
+): Promise<OwnedAccountSummary[]> {
   const supabase = getServiceRoleClient(
-    `accounts: listOwnedTeamOrg for user ${userId}`,
+    `accounts: listOwnedTeamOrgSummaries for user ${userId}`,
   );
   const { data, error } = await supabase
     .from("accounts")
-    .select("id")
+    .select("id, name, type")
     .eq("owner_user_id", userId)
     .neq("type", "personal");
   if (error) {
-    throw new Error(`accounts.listOwnedTeamOrgAccountIds failed: ${error.message}`);
+    throw new Error(
+      `accounts.listOwnedTeamOrgAccountSummaries failed: ${error.message}`,
+    );
   }
-  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+  return ((data ?? []) as Array<{ id: string; name: string; type: AccountType }>).map(
+    (r) => ({ id: r.id, name: r.name, type: r.type }),
+  );
 }
 
 // ─── 4.ACCOUNT-MODEL-TRANSFER-LEAVE-2 / TL-1: owner transfer (service-role) ────
