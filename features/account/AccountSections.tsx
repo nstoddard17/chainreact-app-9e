@@ -6,6 +6,7 @@ import { SettingRow } from "@/features/team/SettingRow";
 import { RoleBadge } from "@/features/team/RoleBadge";
 import { accountTypeLabel } from "@/features/team/accountTypeLabel";
 import type { AccountSummary } from "@/lib/api/accounts";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -164,12 +165,12 @@ export function SecuritySection({
           value={<span data-testid="security-signin-method">{signInMethod}</span>}
         />
 
-        <SettingRow label="Password" desc="Changing your password is coming soon.">
-          <div className="flex items-center gap-2">
+        <SettingRow label="Password" desc="Set a new password for your account." stacked>
+          <div className="flex flex-col gap-2">
             <span data-testid="security-password-status" className="text-sm font-medium text-foreground">
               Set
             </span>
-            <ComingSoon />
+            <ChangePasswordForm />
           </div>
         </SettingRow>
 

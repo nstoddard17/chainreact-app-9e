@@ -44,6 +44,7 @@ jest.mock("@/lib/api/accounts", () => {
     requestAccountDeletion: (...a: unknown[]) => mockRequest(...a),
     cancelAccountDeletion: (...a: unknown[]) => mockCancel(...a),
     updateDisplayName: (...a: unknown[]) => mockUpdateDisplayName(...a),
+    changePassword: jest.fn().mockResolvedValue(undefined),
     getNotificationPreferences: jest.fn().mockResolvedValue({
       productUpdates: false,
       workflowAlerts: true,
@@ -176,7 +177,6 @@ describe("AccountSettings — Account overview", () => {
 
 describe("AccountSettings — placeholder sections expose no fake controls", () => {
   it.each([
-    ["security", "account-section-security"],
     ["billing", "account-section-billing"],
     ["api", "account-section-api"],
   ])("%s shows coming-soon and no working inputs/buttons", async (navId, sectionId) => {
@@ -244,11 +244,12 @@ describe("AccountSettings — Security & access (read-only)", () => {
     expect(screen.getByTestId("security-password-status")).toHaveTextContent("Set");
   });
 
-  it("exposes no working controls (no toggles/inputs/buttons in the section body)", async () => {
+  it("exposes no fake toggles; the only real control is Change password", async () => {
     const section = await openSecurity();
-    expect(within(section).queryAllByRole("button")).toHaveLength(0);
-    expect(within(section).queryAllByRole("textbox")).toHaveLength(0);
+    // No switches, and the password inputs aren't mounted until the form opens.
     expect(within(section).queryAllByRole("switch")).toHaveLength(0);
+    expect(within(section).queryAllByRole("textbox")).toHaveLength(0);
+    expect(within(section).getByTestId("security-change-password-open")).toBeInTheDocument();
     expect(within(section).getAllByTestId("account-coming-soon").length).toBeGreaterThan(0);
   });
 

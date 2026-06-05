@@ -187,6 +187,22 @@ export type UpdateDisplayNameBody = z.infer<typeof UpdateDisplayNameBodySchema>;
 export const UpdateNotificationPreferencesBodySchema =
   NotificationPreferencesSchema.strict();
 
+/**
+ * Body for PATCH /api/account/password — current-password step-up + new password
+ * (4.ACCOUNT-SETTINGS-7 / SEC-2). Min length mirrors `MIN_PASSWORD_LENGTH`; the
+ * new password must differ from the current. Confirmation is a client concern.
+ */
+export const ChangePasswordBodySchema = z
+  .object({
+    currentPassword: z.string().min(1, "Your current password is required."),
+    newPassword: z.string().min(8, "New password must be at least 8 characters."),
+  })
+  .refine((d) => d.newPassword !== d.currentPassword, {
+    message: "New password must be different from your current password.",
+    path: ["newPassword"],
+  });
+export type ChangePasswordBody = z.infer<typeof ChangePasswordBodySchema>;
+
 /** Shape returned by both routes — lifecycle state only, no account graph. */
 export function toDeletionStatusResponse(state: {
   deletionStatus: string;

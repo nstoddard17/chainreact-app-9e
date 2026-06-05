@@ -152,6 +152,27 @@ export async function updateDisplayName(
   return { displayName: body.displayName };
 }
 
+// ── Password change (4.ACCOUNT-SETTINGS-7 / SEC-2) ─────────────────────────────
+
+/**
+ * PATCH /api/account/password — change the caller's own password. Requires the
+ * current password (step-up) + a new password (≥ 8 chars, different from
+ * current). Failures surface as `AccountApiError` — the message carries the
+ * backend reason (e.g. "Password confirmation failed." on a wrong current
+ * password). Never returns the password.
+ */
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const res = await fetch("/api/account/password", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await parseError(res);
+}
+
 // ── Notification preferences (4.ACCOUNT-SETTINGS-4) ────────────────────────────
 
 /** GET /api/account/notification-preferences — the caller's own toggles. */
