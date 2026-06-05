@@ -84,12 +84,16 @@ export function TeamMembersPanel({
           className="flex flex-col gap-1 rounded-xl border border-warning/40 bg-warning/10 p-4"
         >
           <p className="text-sm font-semibold text-foreground">
-            This team is at its {memberCap}-member limit.
+            This {isTeam ? "team" : "workspace"} is at its {memberCap}-member limit.
           </p>
           <p className="text-xs text-muted-foreground">
             Revoke a pending invite or remove a member to free a seat.
-            Organization accounts support larger teams —{" "}
-            <span className="font-medium text-foreground">coming soon.</span>
+            {isTeam && (
+              <>
+                {" "}Business accounts support up to 25 members —{" "}
+                <span className="font-medium text-foreground">coming soon.</span>
+              </>
+            )}
           </p>
         </div>
       )}

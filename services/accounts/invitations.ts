@@ -101,10 +101,12 @@ export async function createInvitation(input: {
     return { ok: false, reason: "already_member" };
   }
 
-  // Team member limit (4.ACCOUNT-MODEL-20): seats used = accepted members +
-  // pending invites; one more (this invite) must not exceed the cap. Team-only —
-  // organization is uncapped (memberLimitFor → null). Expired/revoked invites
-  // don't count (only `pending` is summed), so they free slots naturally.
+  // Member limit (4.ACCOUNT-MODEL-20; Business cap 4.ACCOUNT-MODEL-BUSINESS-LIMIT-1):
+  // seats used = accepted members + pending invites; one more (this invite) must
+  // not exceed the cap. Applies to Team (5) and Business/organization (25);
+  // `memberLimitFor` returns null only for a future uncapped tier (none today).
+  // Expired/revoked invites don't count (only `pending` is summed), so they free
+  // slots naturally.
   const limit = memberLimitFor(account.type);
   if (limit !== null) {
     const [memberCount, pendingCount] = await Promise.all([
@@ -260,10 +262,11 @@ export async function acceptInvitation(input: {
     input.userId,
   );
   if (!alreadyMember) {
-    // Team member-limit RE-CHECK (4.ACCOUNT-MODEL-20): a real seat is only
-    // consumed here. Refuse if the team is already full even though the invite
-    // was created earlier (e.g. another invite filled the last slot first).
-    // Team-only; organization is uncapped.
+    // Member-limit RE-CHECK (4.ACCOUNT-MODEL-20): a real seat is only consumed
+    // here. Refuse if the account is already full even though the invite was
+    // created earlier (e.g. another invite filled the last slot first). Applies
+    // to Team (5) and Business/organization (25); null only for a future
+    // uncapped tier (none today).
     const limit = memberLimitFor(account.type);
     if (limit !== null) {
       const memberCount = await membershipsRepo.countMembersServiceRole(invite.accountId);

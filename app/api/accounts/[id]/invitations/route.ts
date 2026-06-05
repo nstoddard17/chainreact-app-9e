@@ -94,7 +94,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "Teams are limited to 5 members. Organization accounts support larger teams (coming soon).",
+              "This account is at its member limit. Teams allow up to 5 members and Business up to 25.",
             code: "TEAM_MEMBER_LIMIT_REACHED",
           },
           { status: 409 },

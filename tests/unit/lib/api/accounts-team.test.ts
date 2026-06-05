@@ -91,14 +91,14 @@ describe("createInvitation", () => {
     mockFetch.mockResolvedValueOnce(
       err(409, {
         error:
-          "Teams are limited to 5 members. Organization accounts support larger teams (coming soon).",
+          "This account is at its member limit. Teams allow up to 5 members and Business up to 25.",
         code: "TEAM_MEMBER_LIMIT_REACHED",
       }),
     );
     await expect(createInvitation("a", "x@y.z", "admin")).rejects.toMatchObject({
       code: "CONFLICT",
       status: 409,
-      message: expect.stringContaining("Organization accounts support larger teams"),
+      message: expect.stringContaining("Business up to 25"),
     });
   });
 });

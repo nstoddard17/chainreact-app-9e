@@ -72,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
         return NextResponse.json(
           {
             error:
-              "This team is full (5-member limit). Organization accounts support larger teams (coming soon).",
+              "This account is full and can't add another member right now.",
             code: "TEAM_MEMBER_LIMIT_REACHED",
           },
           { status: 409 },

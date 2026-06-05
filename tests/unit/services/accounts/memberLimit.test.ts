@@ -8,13 +8,18 @@
  */
 
 // ── policy helper (pure) ──────────────────────────────────────────────────────
-import { TEAM_MAX_MEMBERS, memberLimitFor } from "@/services/accounts/memberLimits";
+import {
+  TEAM_MAX_MEMBERS,
+  BUSINESS_MAX_MEMBERS,
+  memberLimitFor,
+} from "@/services/accounts/memberLimits";
 
 describe("memberLimitFor", () => {
-  it("caps team at 5, leaves organization uncapped, personal at 1", () => {
+  it("caps team at 5, Business (organization) at 25, personal at 1", () => {
     expect(TEAM_MAX_MEMBERS).toBe(5);
+    expect(BUSINESS_MAX_MEMBERS).toBe(25);
     expect(memberLimitFor("team")).toBe(5);
-    expect(memberLimitFor("organization")).toBeNull();
+    expect(memberLimitFor("organization")).toBe(25);
     expect(memberLimitFor("personal")).toBe(1);
   });
 });
@@ -113,13 +118,22 @@ describe("createInvitation — Team member limit", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("does NOT cap an Organization account (uncapped)", async () => {
+  it("allows a Business (organization) invite while under the 25-member cap", async () => {
     mockGetAccountById.mockResolvedValueOnce(account("organization"));
+    mockCountMembers.mockResolvedValueOnce(20); // owner + 19
+    mockCountPending.mockResolvedValueOnce(4);  // 24 seats used → +1 = 25 ≤ 25
     const r = await createInvitation({ accountId: ACCOUNT, inviterUserId: "o", email: "n@x.com", role: "member" });
     expect(r.ok).toBe(true);
-    // limit short-circuits → counts never consulted.
-    expect(mockCountMembers).not.toHaveBeenCalled();
-    expect(mockCountPending).not.toHaveBeenCalled();
+    expect(mockInsertPending).toHaveBeenCalled();
+  });
+
+  it("blocks a Business (organization) invite that would exceed 25 (members + pending + 1 > 25)", async () => {
+    mockGetAccountById.mockResolvedValueOnce(account("organization"));
+    mockCountMembers.mockResolvedValueOnce(23); // owner + 22
+    mockCountPending.mockResolvedValueOnce(2);  // 25 seats used → +1 = 26 > 25
+    const r = await createInvitation({ accountId: ACCOUNT, inviterUserId: "o", email: "n@x.com", role: "member" });
+    expect(r).toEqual({ ok: false, reason: "team_member_limit_reached" });
+    expect(mockInsertPending).not.toHaveBeenCalled();
   });
 });
 
@@ -140,12 +154,21 @@ describe("acceptInvitation — Team member limit re-check", () => {
     expect(mockInsertMember).toHaveBeenCalled();
   });
 
-  it("does not re-check the cap for an organization (uncapped)", async () => {
+  it("blocks Business (organization) acceptance when already at 25 members", async () => {
     mockGetByTokenHash.mockResolvedValueOnce(pendingInvite());
     mockGetAccountById.mockResolvedValueOnce(account("organization"));
+    mockCountMembers.mockResolvedValueOnce(25); // full
+    const r = await acceptInvitation({ token: "t", userId: "u", userEmail: "x@example.com" });
+    expect(r).toEqual({ ok: false, reason: "team_member_limit_reached" });
+    expect(mockInsertMember).not.toHaveBeenCalled();
+  });
+
+  it("accepts into a Business (organization) with room (24 members)", async () => {
+    mockGetByTokenHash.mockResolvedValueOnce(pendingInvite());
+    mockGetAccountById.mockResolvedValueOnce(account("organization"));
+    mockCountMembers.mockResolvedValueOnce(24);
     const r = await acceptInvitation({ token: "t", userId: "u", userEmail: "x@example.com" });
     expect(r.ok).toBe(true);
-    expect(mockCountMembers).not.toHaveBeenCalled();
     expect(mockInsertMember).toHaveBeenCalled();
   });
 
