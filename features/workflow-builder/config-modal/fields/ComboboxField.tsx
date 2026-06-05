@@ -23,6 +23,7 @@ import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSo
 import type { OptionItem } from "@/lib/api/options";
 import { normalizeDependsOn } from "@/contracts/actionMeta";
 import { useGraphSlice } from "../../state/graphSlice";
+import { useConfigSlice } from "../../state/configSlice";
 
 /**
  * `combobox` field renderer. Searchable single-select.
@@ -86,11 +87,17 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
   // creator-pinned). `null` (no workflow yet) → undefined.
   const workflowId = useGraphSlice((s) => s.workflowId) ?? undefined;
 
+  // CS-4: the node being configured (config rail's active node). Threaded so the
+  // server resolves an ACCEPTED per-node credential owner (flag-gated). `null`
+  // (no open node) → undefined.
+  const nodeId = useConfigSlice((s) => s.activeNodeId) ?? undefined;
+
   const { state, refetch } = useOptionsSource({
     source: field.optionsSource ?? null,
     query: searchInput,
     ...(deps !== undefined && { deps }),
     ...(workflowId !== undefined && { workflowId }),
+    ...(nodeId !== undefined && { nodeId }),
   });
 
   // Selected-option lookup. When the user picks an option, we cache its

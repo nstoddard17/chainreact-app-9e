@@ -89,6 +89,15 @@ export interface UseOptionsSourceArgs {
    * debounce / abort machinery. Most callers leave it unset until 22D-2.
    */
   workflowId?: string;
+  /**
+   * Optional node id (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-5 / CS-4).
+   * Forwarded to the options route so the server resolves an ACCEPTED per-node
+   * credential owner (flag-gated). Like `workflowId`, it is read at fetch time via
+   * a ref and is intentionally NOT an effect dependency — a field configures one
+   * node per mount, and the credential decision is resolved server-side per
+   * request. Unset → today's creator-pinned behavior.
+   */
+  nodeId?: string;
 }
 
 export type UseOptionsSourceState =
@@ -168,7 +177,7 @@ function extractProvider(source: string): string {
 export function useOptionsSource(
   args: UseOptionsSourceArgs,
 ): UseOptionsSourceResult {
-  const { source, deps, query, enabled, workflowId } = args;
+  const { source, deps, query, enabled, workflowId, nodeId } = args;
   const isEnabled = enabled !== false;
   const trimmedQuery = (query ?? "").trim();
   const depsKey = canonicalDepsKey(deps);
@@ -185,6 +194,10 @@ export function useOptionsSource(
   // dependency (see the field doc on UseOptionsSourceArgs.workflowId).
   const workflowIdRef = useRef<string | undefined>(workflowId);
   workflowIdRef.current = workflowId;
+
+  // CS-4 — node id, read at fetch time via a ref (same rationale as workflowId).
+  const nodeIdRef = useRef<string | undefined>(nodeId);
+  nodeIdRef.current = nodeId;
 
   // Track the (source, depsKey) the current items belong to. When the
   // user only changes `query` for the same source/deps, the loading
@@ -246,12 +259,15 @@ export function useOptionsSource(
       currentDeps !== undefined && Object.keys(currentDeps).length > 0;
 
     const currentWorkflowId = workflowIdRef.current;
+    const currentNodeId = nodeIdRef.current;
 
     fetchOptionsSource(source as string, {
       ...(debouncedQuery.length > 0 && { q: debouncedQuery }),
       ...(hasDeps && { deps: currentDeps as Readonly<Record<string, string>> }),
       ...(currentWorkflowId !== undefined &&
         currentWorkflowId.length > 0 && { workflowId: currentWorkflowId }),
+      ...(currentNodeId !== undefined &&
+        currentNodeId.length > 0 && { nodeId: currentNodeId }),
       signal: controller.signal,
     })
       .then((response) => {

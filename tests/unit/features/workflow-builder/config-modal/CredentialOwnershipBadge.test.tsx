@@ -25,10 +25,11 @@ const team = (overrides: Partial<BuilderTeamContextValue> = {}): BuilderTeamCont
 function renderBadge(
   provider: string,
   ctx: BuilderTeamContextValue | null,
+  assignedOwner?: { displayName: string | null },
 ): void {
   render(
     <BuilderTeamProvider value={ctx}>
-      <CredentialOwnershipBadge provider={provider} />
+      <CredentialOwnershipBadge provider={provider} assignedOwner={assignedOwner} />
     </BuilderTeamProvider>,
   );
 }
@@ -78,5 +79,33 @@ describe("CredentialOwnershipBadge", () => {
     renderBadge("", team());
     expect(screen.queryByTestId("credential-badge-shared")).toBeNull();
     expect(screen.queryByTestId("credential-badge-owner")).toBeNull();
+  });
+
+  describe("CS-4 — accepted node-owner override", () => {
+    it("names the ASSIGNED member when an accepted override is present (not the creator)", () => {
+      renderBadge("gmail", team({ creatorDisplayName: "Alice Carter", isViewerCreator: true }), {
+        displayName: "Dana Reyes",
+      });
+      const badge = screen.getByTestId("credential-badge-owner");
+      expect(badge).toHaveTextContent(/Runs under Dana Reyes's connection/i);
+      // The creator copy is overridden; no email/label leaks.
+      expect(badge).not.toHaveTextContent(/Alice Carter/);
+      expect(badge.textContent).not.toMatch(/@/);
+    });
+
+    it("falls back to generic 'assigned member' copy when the owner display name is unknown", () => {
+      renderBadge("gmail", team({ creatorDisplayName: "Alice Carter" }), { displayName: null });
+      expect(screen.getByTestId("credential-badge-owner")).toHaveTextContent(
+        /Runs under the assigned member's connection/i,
+      );
+    });
+
+    it("account/service providers ignore the assigned owner (stay 'Shared team connection')", () => {
+      renderBadge("slack", team(), { displayName: "Dana Reyes" });
+      expect(screen.getByTestId("credential-badge-shared")).toHaveTextContent(
+        /Shared team connection/i,
+      );
+      expect(screen.queryByTestId("credential-badge-owner")).toBeNull();
+    });
   });
 });

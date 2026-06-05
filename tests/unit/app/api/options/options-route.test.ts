@@ -27,6 +27,16 @@ jest.mock("@/repositories/integrations", () => ({
     mockGetActiveForExecution(...args),
 }));
 
+// CS-4: the route resolves an ACCEPTED per-node credential owner via
+// `resolveEffectiveNodeOwner`. Mock it so route tests drive the override without
+// the flag/DB. Default null = no override (existing tests, which pass no nodeId,
+// never invoke it). The helper's own flag-gating + accepted-only logic is unit-
+// tested in tests/unit/services/teamCredentials/nodeCredentialOwners.test.ts.
+const mockResolveOwner = jest.fn();
+jest.mock("@/services/teamCredentials/nodeCredentialOwners", () => ({
+  resolveEffectiveNodeOwner: (...args: unknown[]) => mockResolveOwner(...args),
+}));
+
 // Slice 4.ACCOUNT-MODEL-22D-1: the route resolves the workflow creator via the
 // real `resolveWorkflowCreatorContext` helper, which reads
 // `repositories/workflows.getById`. Mock the repo so the provenance-plumbing
@@ -843,6 +853,125 @@ describe("GET /api/options/[source] — credential-sharing policy (22D-2)", () =
       expect(body.code).toBe("OWNER_MUST_CONNECT");
     }
     expect(personalResolver.resolve).not.toHaveBeenCalled();
+  });
+
+  describe("CS-4 — accepted per-node credential owner", () => {
+    beforeEach(() => {
+      mockResolveOwner.mockReset();
+      mockResolveOwner.mockResolvedValue(null);
+    });
+
+    it("accepted owner B + requester IS B → resolves PINNED to B (assigned owner)", async () => {
+      authedUser(); // user-1
+      mockGetOptionsResolver.mockReturnValue(personalResolver);
+      mockResolveOwner.mockResolvedValue("user-1"); // user-1 is the assigned owner
+      mockGetActiveForExecution.mockResolvedValue({ id: "int-g", provider: "gmail" });
+      mockGetById.mockResolvedValue({
+        id: "wf-9",
+        createdByUserId: "creator-42", // creator is NOT user-1
+        accountId: "acct-team",
+      });
+
+      let seenPin: string | null | undefined = "UNSET";
+      (personalResolver.resolve as jest.Mock).mockImplementation(async () => {
+        seenPin = getCredentialResolutionContext()?.createdByUserId;
+        return { items: [{ value: "v1", label: "L1" }], hasMore: false };
+      });
+
+      const res = await getOptions(
+        makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9&nodeId=node-7"),
+        paramsOf("gmailopt:resource"),
+      );
+      expect(res.status).toBe(200);
+      // Pinned to the ASSIGNED owner (user-1), not the creator.
+      expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-team", "gmail", null, {
+        connectedByUserId: "user-1",
+      });
+      expect(seenPin).toBe("user-1");
+      expect(mockResolveOwner).toHaveBeenCalledWith("wf-9", "node-7");
+    });
+
+    it("accepted owner B + requester is the CREATOR → NOT_WORKFLOW_OWNER, fetches NOTHING", async () => {
+      authedUser(); // user-1 == creator, but no longer the effective owner
+      mockGetOptionsResolver.mockReturnValue(personalResolver);
+      mockResolveOwner.mockResolvedValue("owner-B");
+      mockGetById.mockResolvedValue({
+        id: "wf-9",
+        createdByUserId: "user-1",
+        accountId: "acct-team",
+      });
+
+      const res = await getOptions(
+        makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9&nodeId=node-7"),
+        paramsOf("gmailopt:resource"),
+      );
+      const body = (await res.json()) as OptionsSourceResponse;
+      expect(body.ok).toBe(false);
+      if (!body.ok) expect(body.code).toBe("NOT_WORKFLOW_OWNER");
+      expect(mockGetActiveForExecution).not.toHaveBeenCalled();
+      expect(personalResolver.resolve).not.toHaveBeenCalled();
+    });
+
+    it("no accepted owner (null) → falls back to creator-pinned", async () => {
+      authedUser(); // user-1 == creator
+      mockGetOptionsResolver.mockReturnValue(personalResolver);
+      mockResolveOwner.mockResolvedValue(null);
+      mockGetActiveForExecution.mockResolvedValue({ id: "int-g", provider: "gmail" });
+      mockGetById.mockResolvedValue({
+        id: "wf-9",
+        createdByUserId: "user-1",
+        accountId: "acct-team",
+      });
+
+      const res = await getOptions(
+        makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9&nodeId=node-7"),
+        paramsOf("gmailopt:resource"),
+      );
+      expect(res.status).toBe(200);
+      expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-team", "gmail", null, {
+        connectedByUserId: "user-1",
+      });
+    });
+
+    it("assigned owner without a connection → OWNER_MUST_CONNECT", async () => {
+      authedUser(); // user-1 is the assigned owner
+      mockGetOptionsResolver.mockReturnValue(personalResolver);
+      mockResolveOwner.mockResolvedValue("user-1");
+      mockGetActiveForExecution.mockResolvedValue(null); // owner hasn't connected
+      mockGetById.mockResolvedValue({
+        id: "wf-9",
+        createdByUserId: "creator-42",
+        accountId: "acct-team",
+      });
+
+      const res = await getOptions(
+        makeReq("http://x/api/options/gmailopt:resource?workflowId=wf-9&nodeId=node-7"),
+        paramsOf("gmailopt:resource"),
+      );
+      const body = (await res.json()) as OptionsSourceResponse;
+      expect(body.ok).toBe(false);
+      if (!body.ok) expect(body.code).toBe("OWNER_MUST_CONNECT");
+    });
+
+    it("account/service provider ignores the node owner (never even looks it up)", async () => {
+      authedUser();
+      mockGetOptionsResolver.mockReturnValue(accountResolver);
+      mockGetActiveForExecution.mockResolvedValue({ id: "int-1", provider: "slack" });
+      mockGetById.mockResolvedValue({
+        id: "wf-9",
+        createdByUserId: "creator-42",
+        accountId: "acct-team",
+      });
+
+      const res = await getOptions(
+        makeReq("http://x/api/options/slackopt:resource?workflowId=wf-9&nodeId=node-7"),
+        paramsOf("slackopt:resource"),
+      );
+      expect(res.status).toBe(200);
+      // Account-shared, no pin — and the node-owner lookup is skipped entirely.
+      expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-team", "slack", null);
+      expect(mockResolveOwner).not.toHaveBeenCalled();
+    });
   });
 
   it("personal provider with NO workflow context keeps the legacy personal-account behavior", async () => {

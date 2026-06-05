@@ -5,6 +5,8 @@ import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount
 import { getOptionsResolver } from "@/services/options/_registry";
 import { resolveWorkflowCreatorContext } from "@/services/options/workflowCreatorContext";
 import { decideOptionsCredential } from "@/services/options/credentialPolicy";
+import { credentialSharingForProvider } from "@/core/integrations/credentialSharing";
+import { resolveEffectiveNodeOwner } from "@/services/teamCredentials/nodeCredentialOwners";
 import { runWithCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 import {
   OptionsResolverError,
@@ -137,6 +139,10 @@ export async function GET(
   const q = rawQ.trim().slice(0, MAX_QUERY_LENGTH);
   const deps = extractDeps(url.searchParams);
   const workflowId = url.searchParams.get("workflowId");
+  // CS-4 — the node being configured. Threaded so the server can resolve an
+  // ACCEPTED per-node credential owner; client-supplied owner identity is never
+  // trusted (the owner is read from workflow_node_credentials, not the request).
+  const nodeId = url.searchParams.get("nodeId");
 
   // Required-deps check happens BEFORE integration lookup so a missing
   // parent never costs an integration DB query.
@@ -171,10 +177,27 @@ export async function GET(
   let integration = null;
   let pinUserId: string | null = null;
   if (resolver.requiresIntegration) {
+    // CS-4 — for a PERSONAL provider on a team workflow, resolve the accepted
+    // per-node credential owner (flag-gated; null when OFF, no nodeId, or no
+    // accepted grant — and NO DB lookup for account/service providers). It
+    // overrides the creator as the effective owner in the decision below.
+    let effectiveOwnerUserId: string | null = null;
+    if (
+      workflowCreator !== null &&
+      nodeId !== null &&
+      credentialSharingForProvider(resolver.provider) === "personal"
+    ) {
+      effectiveOwnerUserId = await resolveEffectiveNodeOwner(
+        workflowCreator.workflowId,
+        nodeId,
+      );
+    }
+
     const decision = decideOptionsCredential(
       resolver.provider,
       auth.userId,
       workflowCreator,
+      effectiveOwnerUserId,
     );
 
     if (decision.kind === "not-owner") {

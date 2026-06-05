@@ -65,4 +65,54 @@ describe("decideOptionsCredential", () => {
       connectedByUserId: "creator-1",
     });
   });
+
+  describe("CS-4 — accepted per-node credential owner override", () => {
+    it("pins a personal provider to the ASSIGNED OWNER when the requester IS the owner", () => {
+      expect(decideOptionsCredential("gmail", "owner-B", creator, "owner-B")).toEqual({
+        kind: "personal-creator",
+        accountId: "acct-team",
+        connectedByUserId: "owner-B",
+      });
+    });
+
+    it("gates the CREATOR to not-owner once a different member owns the node", () => {
+      // The creator is no longer the effective owner for this node.
+      expect(decideOptionsCredential("gmail", "creator-1", creator, "owner-B")).toEqual({
+        kind: "not-owner",
+        provider: "gmail",
+      });
+    });
+
+    it("a third member is still not-owner", () => {
+      expect(decideOptionsCredential("gmail", "user-3", creator, "owner-B")).toEqual({
+        kind: "not-owner",
+        provider: "gmail",
+      });
+    });
+
+    it("null/undefined effective owner falls back to creator-pinned (today's behavior)", () => {
+      expect(decideOptionsCredential("gmail", "creator-1", creator, null)).toEqual({
+        kind: "personal-creator",
+        accountId: "acct-team",
+        connectedByUserId: "creator-1",
+      });
+      expect(decideOptionsCredential("gmail", "creator-1", creator, undefined)).toEqual({
+        kind: "personal-creator",
+        accountId: "acct-team",
+        connectedByUserId: "creator-1",
+      });
+    });
+
+    it("account/service providers ignore the node owner entirely (stay account-shared)", () => {
+      expect(decideOptionsCredential("slack", "owner-B", creator, "owner-B")).toEqual({
+        kind: "account",
+        accountId: "acct-team",
+      });
+      // Even a non-owner requester is account-shared for slack.
+      expect(decideOptionsCredential("slack", "user-3", creator, "owner-B")).toEqual({
+        kind: "account",
+        accountId: "acct-team",
+      });
+    });
+  });
 });

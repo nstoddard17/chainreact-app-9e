@@ -89,6 +89,15 @@ export interface FetchOptionsSourceArgs {
    */
   readonly workflowId?: string;
   /**
+   * Optional node id (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-5 / CS-4).
+   * Serialized as `?nodeId=…` so the route can resolve an ACCEPTED per-node
+   * credential owner (flag-gated) for the node being configured. The server reads
+   * the owner from `workflow_node_credentials`, never from this value, so a forged
+   * nodeId can at most reference a different node in the SAME workflow. Unset until
+   * a caller (ComboboxField) opts in.
+   */
+  readonly nodeId?: string;
+  /**
    * Optional AbortSignal so the caller (typically the hook) can
    * cancel an in-flight fetch on dep change / unmount.
    */
@@ -117,6 +126,11 @@ export function buildOptionsSourceUrl(
   // 22D-1 provenance plumbing. Only serialized when the caller opts in.
   if (args.workflowId !== undefined && args.workflowId.length > 0) {
     params.set("workflowId", args.workflowId);
+  }
+  // CS-4 — node id for per-node credential-owner resolution. Only serialized
+  // when the caller opts in (alongside workflowId).
+  if (args.nodeId !== undefined && args.nodeId.length > 0) {
+    params.set("nodeId", args.nodeId);
   }
   const qs = params.toString();
   const path = `/api/options/${encodeURIComponent(source)}`;

@@ -510,6 +510,26 @@ describe("useOptionsSource — workflowId plumbing (22D-1)", () => {
     expect(args.workflowId).toBeUndefined();
   });
 
+  // CS-4 — nodeId is threaded the same way as workflowId (ref, not effect dep).
+  it("forwards nodeId (with workflowId) to fetchOptionsSource", async () => {
+    mockFetchOptionsSource.mockResolvedValueOnce(success("native:examples", []));
+    renderHook(() =>
+      useOptionsSource({ source: "native:examples", workflowId: "wf-9", nodeId: "node-7" }),
+    );
+    await waitFor(() => expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1));
+    const [, args] = mockFetchOptionsSource.mock.calls[0]!;
+    expect(args.workflowId).toBe("wf-9");
+    expect(args.nodeId).toBe("node-7");
+  });
+
+  it("omits nodeId from the fetch args when unset", async () => {
+    mockFetchOptionsSource.mockResolvedValueOnce(success("native:examples", []));
+    renderHook(() => useOptionsSource({ source: "native:examples", workflowId: "wf-9" }));
+    await waitFor(() => expect(mockFetchOptionsSource).toHaveBeenCalledTimes(1));
+    const [, args] = mockFetchOptionsSource.mock.calls[0]!;
+    expect(args.nodeId).toBeUndefined();
+  });
+
   // The "no behavior change" guard: workflowId is read via a ref, NOT an effect
   // dependency — so changing it alone must not trigger a re-fetch (it would for
   // source / deps / query). A builder edits one workflow per mount anyway.

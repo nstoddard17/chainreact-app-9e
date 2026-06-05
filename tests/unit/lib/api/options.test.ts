@@ -110,6 +110,22 @@ describe("buildOptionsSourceUrl", () => {
     expect(url).toContain("deps%5BbaseId%5D=b1");
     expect(url).toContain("workflowId=wf-9");
   });
+
+  // ── CS-4 — nodeId for per-node credential-owner resolution ────────────────
+  it("serializes nodeId alongside workflowId when set", () => {
+    const url = buildOptionsSourceUrl("gmail:labels", {
+      workflowId: "wf-9",
+      nodeId: "node-7",
+    });
+    expect(url).toContain("workflowId=wf-9");
+    expect(url).toContain("nodeId=node-7");
+  });
+
+  it("omits nodeId when empty", () => {
+    expect(
+      buildOptionsSourceUrl("gmail:labels", { workflowId: "wf-9", nodeId: "" }),
+    ).toBe("/api/options/gmail%3Alabels?workflowId=wf-9");
+  });
 });
 
 describe("fetchOptionsSource — happy path", () => {

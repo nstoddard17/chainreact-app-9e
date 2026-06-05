@@ -1,5 +1,8 @@
 import { isNodeCredentialReassignmentEnabled } from "./flags";
-import { listAcceptedByWorkflowServiceRole } from "@/repositories/workflowNodeCredentials";
+import {
+  listAcceptedByWorkflowServiceRole,
+  getForNodeServiceRole,
+} from "@/repositories/workflowNodeCredentials";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 
 /**
@@ -65,4 +68,24 @@ export function effectiveCredentialOwner(input: {
   if (!provider || !nodeId) return creatorUserId;
   if (!isPersonalCredentialProvider(provider)) return creatorUserId;
   return acceptedOwners.get(nodeId) ?? creatorUserId;
+}
+
+/**
+ * Resolve the ACCEPTED credential owner for a SINGLE node (CS-4 — builder/options
+ * path), or null when none / flag OFF.
+ *
+ * Flag OFF or no `nodeId` → null with NO DB call. Only an `accepted` grant
+ * overrides; a `pending` grant does NOT change options resolution (the assigned
+ * member only becomes effective on accept, mirroring CS-2 execution). Returns the
+ * owner's user id only — the caller pins the lookup to it; no label/email is ever
+ * read or returned.
+ */
+export async function resolveEffectiveNodeOwner(
+  workflowId: string,
+  nodeId: string | null | undefined,
+): Promise<string | null> {
+  if (!isNodeCredentialReassignmentEnabled()) return null;
+  if (!nodeId) return null;
+  const grant = await getForNodeServiceRole(workflowId, nodeId);
+  return grant && grant.status === "accepted" ? grant.credentialOwnerUserId : null;
 }

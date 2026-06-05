@@ -11,17 +11,20 @@
 
 const mockFlag = jest.fn();
 const mockListAccepted = jest.fn();
+const mockGetForNode = jest.fn();
 
 jest.mock("@/services/teamCredentials/flags", () => ({
   isNodeCredentialReassignmentEnabled: () => mockFlag(),
 }));
 jest.mock("@/repositories/workflowNodeCredentials", () => ({
   listAcceptedByWorkflowServiceRole: (...a: unknown[]) => mockListAccepted(...a),
+  getForNodeServiceRole: (...a: unknown[]) => mockGetForNode(...a),
 }));
 
 import {
   loadAcceptedNodeOwners,
   effectiveCredentialOwner,
+  resolveEffectiveNodeOwner,
   type AcceptedNodeOwners,
 } from "@/services/teamCredentials/nodeCredentialOwners";
 
@@ -44,6 +47,7 @@ function acceptedRow(nodeId: string, ownerUserId: string) {
 beforeEach(() => {
   mockFlag.mockReset();
   mockListAccepted.mockReset();
+  mockGetForNode.mockReset();
 });
 
 describe("loadAcceptedNodeOwners — flag gating + batch-once", () => {
@@ -134,5 +138,38 @@ describe("effectiveCredentialOwner — decision matrix (pure)", () => {
     expect(
       effectiveCredentialOwner({ provider: "", nodeId: "", creatorUserId: "creatorA", acceptedOwners: owners }),
     ).toBe("creatorA");
+  });
+});
+
+describe("resolveEffectiveNodeOwner — single-node (options path)", () => {
+  it("flag OFF → null and NO repo/DB call", async () => {
+    mockFlag.mockReturnValue(false);
+    expect(await resolveEffectiveNodeOwner("wf-1", "node-1")).toBeNull();
+    expect(mockGetForNode).not.toHaveBeenCalled();
+  });
+
+  it("flag ON, no nodeId → null and NO repo call", async () => {
+    mockFlag.mockReturnValue(true);
+    expect(await resolveEffectiveNodeOwner("wf-1", null)).toBeNull();
+    expect(mockGetForNode).not.toHaveBeenCalled();
+  });
+
+  it("flag ON + ACCEPTED grant → the assigned owner id", async () => {
+    mockFlag.mockReturnValue(true);
+    mockGetForNode.mockResolvedValue(acceptedRow("node-1", "userB"));
+    expect(await resolveEffectiveNodeOwner("wf-1", "node-1")).toBe("userB");
+    expect(mockGetForNode).toHaveBeenCalledWith("wf-1", "node-1");
+  });
+
+  it("flag ON + PENDING grant → null (a pending request is not yet effective)", async () => {
+    mockFlag.mockReturnValue(true);
+    mockGetForNode.mockResolvedValue({ ...acceptedRow("node-1", "userB"), status: "pending" });
+    expect(await resolveEffectiveNodeOwner("wf-1", "node-1")).toBeNull();
+  });
+
+  it("flag ON + no grant → null", async () => {
+    mockFlag.mockReturnValue(true);
+    mockGetForNode.mockResolvedValue(null);
+    expect(await resolveEffectiveNodeOwner("wf-1", "node-1")).toBeNull();
   });
 });

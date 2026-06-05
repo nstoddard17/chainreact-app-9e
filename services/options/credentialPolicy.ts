@@ -48,6 +48,15 @@ export function decideOptionsCredential(
   provider: string,
   requesterUserId: string,
   workflowCreator: WorkflowCreatorContext | null,
+  /**
+   * CS-4 — the ACCEPTED per-node credential owner from `workflow_node_credentials`,
+   * resolved server-side (flag-gated) by the caller. When present, it OVERRIDES
+   * the workflow creator as the personal-provider owner: only this user resolves
+   * the credential; everyone else is `not-owner`. Omitted / null → today's
+   * creator-pinned behavior (so the AI options tool, which does not pass it, is
+   * unchanged). Account/service providers ignore it entirely.
+   */
+  effectiveOwnerUserId?: string | null,
 ): OptionsCredentialDecision {
   // No workflow context → the credential-sharing flip does not apply; keep the
   // safe legacy behavior (editor's own personal account).
@@ -56,19 +65,23 @@ export function decideOptionsCredential(
   const sharing = credentialSharingForProvider(provider);
 
   // Account/service providers are shared org resources — resolve the workflow's
-  // account, no provenance pin (matches execution's account-shared path).
+  // account, no provenance pin (matches execution's account-shared path). A node
+  // owner never applies to them.
   if (sharing === "account") {
     return { kind: "account", accountId: workflowCreator.accountId };
   }
 
-  // Personal providers are creator-pinned + creator-only.
-  if (requesterUserId !== workflowCreator.createdByUserId) {
-    // A non-creator editor never resolves the creator's personal credential.
+  // Personal providers are owner-pinned + owner-only. The effective owner is the
+  // accepted node owner when present, else the workflow creator (mirrors CS-2
+  // execution resolution).
+  const ownerUserId = effectiveOwnerUserId ?? workflowCreator.createdByUserId;
+  if (requesterUserId !== ownerUserId) {
+    // A non-owner editor never resolves the owner's personal credential.
     return { kind: "not-owner", provider };
   }
   return {
     kind: "personal-creator",
     accountId: workflowCreator.accountId,
-    connectedByUserId: workflowCreator.createdByUserId,
+    connectedByUserId: ownerUserId,
   };
 }
