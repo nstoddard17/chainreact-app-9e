@@ -8,7 +8,7 @@
  *   - Clicking an item closes the popover.
  *   - Active-state highlight mirrors desktop semantics.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockPathname = jest.fn<string, []>();
@@ -16,11 +16,39 @@ jest.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
 }));
 
+// The drawer now mounts the mobile workspace switcher (4.ACCOUNT-SWITCHER-MOBILE-1),
+// which self-fetches accounts. Mock the API so the drawer renders deterministically.
+const mockList = jest.fn();
+const mockSetActive = jest.fn();
+jest.mock("@/lib/api/accounts", () => {
+  const actual = jest.requireActual("@/lib/api/accounts");
+  return {
+    ...actual,
+    listAccounts: (...a: unknown[]) => mockList(...a),
+    setActiveAccount: (...a: unknown[]) => mockSetActive(...a),
+  };
+});
+
 import { AppMobileNav } from "@/components/app-shell/AppMobileNav";
 
 beforeEach(() => {
   mockPathname.mockReset();
   mockPathname.mockReturnValue("/workflows");
+  mockList.mockReset();
+  mockList.mockResolvedValue({
+    activeAccountId: "personal-1",
+    accounts: [
+      {
+        id: "personal-1",
+        name: "Personal",
+        type: "personal",
+        role: "owner",
+        isActive: true,
+        deletionStatus: "active",
+      },
+    ],
+  });
+  mockSetActive.mockReset();
 });
 
 describe("AppMobileNav", () => {
@@ -66,6 +94,21 @@ describe("AppMobileNav", () => {
         .getByTestId("app-shell-mobile-nav-workflows")
         .getAttribute("aria-current"),
     ).toBe(null);
+  });
+
+  it("the drawer exposes the workspace switcher with the member accounts (mobile access path)", async () => {
+    const user = userEvent.setup();
+    render(<AppMobileNav />);
+    await user.click(screen.getByTestId("app-shell-mobile-trigger"));
+    const content = screen.getByTestId("app-shell-mobile-content");
+    const switcher = within(content).getByTestId(
+      "app-shell-mobile-account-switcher",
+    );
+    expect(
+      await within(switcher).findByTestId(
+        "app-shell-mobile-account-item-personal-1",
+      ),
+    ).toHaveTextContent("Personal");
   });
 
   it("clicking an item closes the popover", async () => {

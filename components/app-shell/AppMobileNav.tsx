@@ -8,15 +8,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { AppMobileAccountSwitcher } from "./AppMobileAccountSwitcher";
 import { APP_SHELL_NAV_ITEMS, isNavItemActive } from "./navItems";
 
 /**
- * Mobile primary-nav popover (Slice 4.APP-SHELL-1).
+ * Mobile primary-nav popover (Slice 4.APP-SHELL-1; workspace switcher
+ * added in 4.ACCOUNT-SWITCHER-MOBILE-1).
  *
  * Renders below `md` (≤ 640px) — the hamburger button + popover replace
- * the inline `AppNav`. Items match `AppNav` exactly (single source of
- * truth: `APP_SHELL_NAV_ITEMS`). Clicking an item closes the popover so
- * the user lands on the destination without lingering chrome.
+ * the inline `AppNav`. The drawer carries two sections: the workspace
+ * switcher (so the active account is visible + switchable on mobile, the
+ * counterpart of the desktop top-bar `AccountSwitcher`) and the primary
+ * nav items, which match `AppNav` exactly (single source of truth:
+ * `APP_SHELL_NAV_ITEMS`). Clicking a nav item closes the popover so the
+ * user lands on the destination without lingering chrome.
  *
  * `usePathname()` drives the active highlight, identical semantics to
  * the desktop nav.
@@ -40,12 +45,14 @@ export function AppMobileNav() {
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-56 p-1"
+          className="w-64 p-1"
           // Pinned dark scope — see UserMenu.tsx note about the
           // portaled-popover scope problem.
           data-app-surface="dark"
           data-testid="app-shell-mobile-content"
         >
+          <AppMobileAccountSwitcher />
+          <div className="my-1 h-px bg-border" aria-hidden />
           <ul className="flex flex-col gap-0.5" role="menu">
             {APP_SHELL_NAV_ITEMS.map((item) => {
               const active = isNavItemActive(item.href, pathname);

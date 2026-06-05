@@ -17,8 +17,9 @@ import type { NotificationPreview } from "./notificationPreview";
  * NO top utility content beyond what V2 can ship truthfully — same
  * scope rules as the desktop `AppTopBar`: no search, no task meter,
  * no help link, no theme toggle. The workspace switcher
- * (4.ACCOUNT-SWITCHER-1) lives in the desktop top bar; on mobile the
- * active account is reachable via the nav drawer (follow-up).
+ * (4.ACCOUNT-SWITCHER-1) lives in the desktop top bar; on mobile it
+ * lives in the nav drawer (`AppMobileNav` → `AppMobileAccountSwitcher`,
+ * 4.ACCOUNT-SWITCHER-MOBILE-1) rather than this space-constrained bar.
  *
  * Server component.
  */
