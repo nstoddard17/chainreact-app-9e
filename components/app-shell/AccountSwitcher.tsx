@@ -14,7 +14,7 @@ import { TYPE_LABEL, useAccountSwitcher } from "./useAccountSwitcher";
  * in 4.ACCOUNT-SWITCHER-MOBILE-1).
  *
  * Desktop top-bar control. Shows the caller's ACTIVE account (name +
- * Personal/Team/Organization) and lets them switch between accounts they're a
+ * Personal/Team/Business) and lets them switch between accounts they're a
  * member of. State + switching live in the shared `useAccountSwitcher` hook so
  * the mobile-drawer switcher reuses the exact same fetch + switch path (no
  * second workspace-state system); the per-account row markup lives in the shared

@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { accountTypeLabel } from "./accountTypeLabel";
 
 /**
  * Account switcher (Slice 4.TEAM-PAGE-1).
@@ -26,12 +27,6 @@ interface Props {
   accounts: readonly AccountSummary[];
   activeAccountId: string | null;
   onChanged: () => void;
-}
-
-function typeLabel(type: AccountSummary["type"]): string {
-  if (type === "personal") return "Personal";
-  if (type === "organization") return "Organization";
-  return "Team";
 }
 
 export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props) {
@@ -171,7 +166,7 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
                     {acct.name}
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {typeLabel(acct.type)} · {acct.role}
+                    {accountTypeLabel(acct.type)} · {acct.role}
                     {frozen && (
                       <Badge variant="outline" className="border-warning/40 text-warning">
                         Pending deletion

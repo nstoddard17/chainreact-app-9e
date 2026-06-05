@@ -64,6 +64,22 @@ describe("AccountSwitcher", () => {
     expect(within(menu).getByTestId("account-switcher-item-team-1")).toHaveTextContent("Test Team");
   });
 
+  it("renders Business (never Organization) for an internal organization account", async () => {
+    mockList.mockResolvedValue({
+      activeAccountId: "personal-1",
+      accounts: [
+        acct({ id: "personal-1", name: "Personal", type: "personal", isActive: true }),
+        acct({ id: "org-1", name: "Acme Biz", type: "organization" }),
+      ],
+    });
+    render(<AccountSwitcher />);
+    await waitFor(() => expect(mockList).toHaveBeenCalled());
+    await userEvent.click(screen.getByTestId("account-switcher-trigger"));
+    const item = await screen.findByTestId("account-switcher-item-org-1");
+    expect(item).toHaveTextContent("Business");
+    expect(item).not.toHaveTextContent("Organization");
+  });
+
   it("switching to another account calls setActiveAccount then reloads", async () => {
     mockList.mockResolvedValue({
       activeAccountId: "personal-1",

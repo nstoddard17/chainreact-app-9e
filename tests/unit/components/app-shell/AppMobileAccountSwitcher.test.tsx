@@ -73,6 +73,20 @@ describe("AppMobileAccountSwitcher", () => {
     expect(team).toHaveAttribute("aria-current", "true");
   });
 
+  it("renders Business (never Organization) for an internal organization account", async () => {
+    mockList.mockResolvedValue({
+      activeAccountId: "personal-1",
+      accounts: [
+        acct({ id: "personal-1", name: "Personal", type: "personal", isActive: true }),
+        acct({ id: "org-1", name: "Acme Biz", type: "organization" }),
+      ],
+    });
+    render(<AppMobileAccountSwitcher />);
+    const item = await screen.findByTestId("app-shell-mobile-account-item-org-1");
+    expect(item).toHaveTextContent("Business");
+    expect(item).not.toHaveTextContent("Organization");
+  });
+
   it("switching to another account calls setActiveAccount then reloads", async () => {
     mockList.mockResolvedValue({
       activeAccountId: "personal-1",

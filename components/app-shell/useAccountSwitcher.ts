@@ -26,10 +26,17 @@ import {
  * This is a thin control over the 11b/11d active-account model — it never touches
  * the foreground-gate-only active-account resolver (11c guard).
  */
+/**
+ * User-facing tier labels for the account switcher (desktop + mobile via
+ * `AccountSwitcherList`). The internal type stays `organization`, but the product
+ * surfaces it as **Business** — never the raw "Organization" word. Mirrors the
+ * canonical `features/team/accountTypeLabel.ts` mapping (kept in sync by hand;
+ * this lives in `components/` to avoid a component→feature import).
+ */
 export const TYPE_LABEL: Record<AccountSummary["type"], string> = {
   personal: "Personal",
   team: "Team",
-  organization: "Organization",
+  organization: "Business",
 };
 
 export interface UseAccountSwitcher {

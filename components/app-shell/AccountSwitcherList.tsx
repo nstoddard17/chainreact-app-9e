@@ -7,7 +7,7 @@ import { TYPE_LABEL, type UseAccountSwitcher } from "./useAccountSwitcher";
  *
  * Shared by the desktop popover (`AccountSwitcher`) and the mobile drawer
  * section (`AppMobileAccountSwitcher`) so both render the SAME list — header,
- * per-account row (avatar + name + Personal/Team/Organization + pending-deletion
+ * per-account row (avatar + name + Personal/Team/Business + pending-deletion
  * note), active checkmark, "Switching…" affordance, frozen-disabled state, and
  * error line. The two surfaces differ only in their chrome (popover vs. inline
  * drawer block) and `testIdPrefix`.
