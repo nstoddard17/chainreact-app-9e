@@ -1,10 +1,11 @@
 /**
- * Tests for components/app-shell/UserMenu (Slice 4.APP-SHELL-1).
+ * Tests for components/app-shell/UserMenu (Slice 4.APP-SHELL-1; Account
+ * settings link added in 4.ACCOUNT-SETTINGS-1).
  *
- * The user menu MUST only expose menu items backed by real APIs. Only
- * "Sign out" is wired (existing `signOut` server action); no Settings,
- * Billing, or Account links are rendered because those routes don't
- * exist yet (page guide §4 — no fake actions).
+ * The user menu MUST only expose menu items backed by real routes/APIs:
+ * an "Account settings" link to the real `/account` route + "Sign out"
+ * (existing `signOut` server action). No Billing / Settings-hub links —
+ * those routes don't exist yet (page guide §4 — no fake actions).
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -36,7 +37,7 @@ describe("UserMenu", () => {
     );
   });
 
-  it("opens the popover, shows the email + a Sign out form (and nothing else)", async () => {
+  it("opens the popover, shows the email + an Account settings link + a Sign out form", async () => {
     const user = userEvent.setup();
     render(<UserMenu userEmail="marcus@example.com" />);
     await user.click(screen.getByTestId("app-shell-user-menu-trigger"));
@@ -45,15 +46,15 @@ describe("UserMenu", () => {
       screen.getByTestId("app-shell-user-email"),
     ).toHaveTextContent("marcus@example.com");
     expect(screen.getByTestId("app-shell-sign-out")).toBeInTheDocument();
-    // No fake account/settings/billing items.
+    // Account settings links to the real /account route.
+    const account = screen.getByTestId("app-shell-account");
+    expect(account).toHaveAttribute("href", "/account");
+    // Still no fake settings-hub / billing items (no backing route yet).
     expect(
       content.querySelector("[data-testid='app-shell-settings']"),
     ).toBeNull();
     expect(
       content.querySelector("[data-testid='app-shell-billing']"),
-    ).toBeNull();
-    expect(
-      content.querySelector("[data-testid='app-shell-account']"),
     ).toBeNull();
   });
 

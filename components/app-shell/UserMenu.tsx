@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Popover,
   PopoverContent,
@@ -14,11 +15,11 @@ import { signOut } from "@/app/auth/actions";
  *
  * Trigger: a circular initials avatar that sits at the bottom of the
  * left rail (mirrors design `sb-avatar` — `workflows-page.jsx:107-116`).
- * Popover content: full email + a Sign out form bound to the existing
- * `signOut` server action (which destroys the session + redirects to
- * `/`). NO other menu items — Settings / Billing / Account routes
- * don't exist yet, and the page guide forbids rendering CTAs that
- * aren't backed by a real route.
+ * Popover content: full email + an "Account settings" link (the real
+ * `/account` route, Slice 4.ACCOUNT-SETTINGS-1) + a Sign out form bound
+ * to the existing `signOut` server action (which destroys the session +
+ * redirects to `/`). Still NO Billing/Settings-hub items — those routes
+ * don't exist yet, and the page guide forbids CTAs without a real route.
  *
  * Notes:
  *   - The `<form action={signOut}>` is the standard Next.js server-
@@ -70,6 +71,14 @@ export function UserMenu({ userEmail }: Props) {
           </span>
         </div>
         <div className="my-1 h-px bg-border" />
+        <Link
+          href="/account"
+          data-testid="app-shell-account"
+          onClick={() => setOpen(false)}
+          className="block w-full rounded-sm px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+        >
+          Account settings
+        </Link>
         <form action={signOut}>
           <button
             type="submit"

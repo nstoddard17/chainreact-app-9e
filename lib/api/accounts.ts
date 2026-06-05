@@ -128,6 +128,128 @@ export async function getLeaveImpact(accountId: string): Promise<number> {
   return body.affectedWorkflowCount;
 }
 
+// ── Personal account deletion (4.ACCOUNT-SETTINGS-1) ───────────────────────────
+// Wrappers over the self-serve deletion lifecycle routes. The request route is a
+// reversible FREEZE (grace window), not a hard delete; cancel restores during the
+// window. Deletion errors carry a backend `code` so the settings UI can branch —
+// surfaced via the dedicated `AccountDeletionError` (the owned-teams case also
+// carries the `ownedAccounts` summaries for the remediation blocker).
+
+/** Backend error codes for the deletion lifecycle routes. */
+export type AccountDeletionErrorCode =
+  | "ACCOUNT_HAS_OWNED_TEAMS"
+  | "REAUTH_FAILED"
+  | "INVALID_CONFIRMATION"
+  | "ACCOUNT_PENDING_DELETION"
+  | "UNKNOWN";
+
+/** An owned Team/Business account blocking personal deletion (TL-4 shape). */
+export interface OwnedAccountSummary {
+  id: string;
+  name: string;
+  type: AccountSummary["type"];
+  /** User-facing tier label (org → "Business"); never the raw internal type. */
+  typeLabel: string;
+}
+
+export class AccountDeletionError extends Error {
+  readonly code: AccountDeletionErrorCode;
+  readonly status: number;
+  /** Present only for `ACCOUNT_HAS_OWNED_TEAMS` — the accounts to resolve first. */
+  readonly ownedAccounts?: readonly OwnedAccountSummary[];
+  constructor(
+    message: string,
+    code: AccountDeletionErrorCode,
+    status: number,
+    ownedAccounts?: readonly OwnedAccountSummary[],
+  ) {
+    super(message);
+    this.name = "AccountDeletionError";
+    this.code = code;
+    this.status = status;
+    this.ownedAccounts = ownedAccounts;
+  }
+}
+
+/** Lifecycle state returned by both deletion routes (no account graph). */
+export interface DeletionStatusResult {
+  deletionStatus: "active" | "pending_deletion";
+  requestedAt: string | null;
+  purgeAfter: string | null;
+}
+
+/**
+ * POST /api/account/delete — request deletion of the caller's OWN personal
+ * account. Requires the typed confirmation phrase ("delete my account") + a
+ * password re-auth. Freezes the account (reversible during the grace window) and
+ * returns the lifecycle state. Throws `AccountDeletionError` on failure — code
+ * ACCOUNT_HAS_OWNED_TEAMS (with `ownedAccounts`), REAUTH_FAILED, or
+ * INVALID_CONFIRMATION.
+ */
+export async function requestAccountDeletion(input: {
+  password: string;
+  confirmText: string;
+}): Promise<DeletionStatusResult> {
+  const res = await fetch("/api/account/delete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await parseDeletionError(res);
+  return (await res.json()) as DeletionStatusResult;
+}
+
+/**
+ * POST /api/account/delete/cancel — cancel a pending deletion during the grace
+ * window (no re-auth; a safe restore must never strand the owner). Returns the
+ * account to `active`.
+ */
+export async function cancelAccountDeletion(): Promise<DeletionStatusResult> {
+  const res = await fetch("/api/account/delete/cancel", { method: "POST" });
+  if (!res.ok) throw await parseDeletionError(res);
+  return (await res.json()) as DeletionStatusResult;
+}
+
+async function parseDeletionError(res: Response): Promise<AccountDeletionError> {
+  let body: {
+    error?: string;
+    code?: string;
+    ownedAccounts?: OwnedAccountSummary[];
+  } = {};
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    // Non-JSON body — fall through to the status-derived defaults.
+  }
+  const message =
+    typeof body.error === "string" && body.error.length > 0
+      ? body.error
+      : `Request failed (${res.status})`;
+  const code = deletionCodeFor(body.code, res.status);
+  const ownedAccounts = Array.isArray(body.ownedAccounts)
+    ? body.ownedAccounts
+    : undefined;
+  return new AccountDeletionError(message, code, res.status, ownedAccounts);
+}
+
+/**
+ * Map the backend `code` (authoritative) + HTTP status to a typed deletion code.
+ * The backend names ACCOUNT_HAS_OWNED_TEAMS / REAUTH_FAILED explicitly; a bare
+ * 400 is the Zod validation failure on the confirmation phrase / password.
+ */
+function deletionCodeFor(
+  serverCode: string | undefined,
+  status: number,
+): AccountDeletionErrorCode {
+  if (serverCode === "ACCOUNT_HAS_OWNED_TEAMS") return "ACCOUNT_HAS_OWNED_TEAMS";
+  if (serverCode === "REAUTH_FAILED") return "REAUTH_FAILED";
+  if (serverCode === "ACCOUNT_PENDING_DELETION") return "ACCOUNT_PENDING_DELETION";
+  if (status === 409) return "ACCOUNT_HAS_OWNED_TEAMS";
+  if (status === 400) return "INVALID_CONFIRMATION";
+  if (status === 401) return "REAUTH_FAILED";
+  return "UNKNOWN";
+}
+
 // ── Team members + invitations (4.TEAM-PAGE-1) ─────────────────────────────────
 // Thin wrappers over the existing account sub-routes so the Teams UI never calls
 // fetch() directly. NO new backend behavior — invites return a copy-link (raw
