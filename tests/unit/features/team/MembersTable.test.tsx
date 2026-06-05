@@ -124,7 +124,7 @@ describe("MembersTable — removal workflow-impact warning", () => {
     expect(mockGetImpact).toHaveBeenCalledWith("t1", "u9");
     const warning = await screen.findByTestId("team-remove-impact-u9");
     expect(warning).toHaveTextContent(
-      /created 2 workflows with personal app steps.*may stop running/i,
+      /runs 2 workflows with personal app steps.*creator or assigned owner.*may stop running/i,
     );
     // The removal action is still available (advisory, non-blocking).
     expect(screen.getByTestId("team-remove-confirm-button-u9")).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import * as accountsRepo from "@/repositories/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import { softDisconnectPersonalForMember } from "@/repositories/integrations";
+import { revokeLiveForMemberServiceRole } from "@/repositories/workflowNodeCredentials";
 import { clearActiveAccountIfMatchesServiceRole } from "@/repositories/userProfiles";
 
 /**
@@ -45,10 +46,29 @@ export async function leaveAccount(input: {
   if (role === null) return { ok: false, reason: "not_member" };
   if (role === "owner") return { ok: false, reason: "sole_owner_must_transfer" };
 
-  // Offboarding — identical order to removeMember. Soft-disconnect BEFORE the
-  // membership delete so a failed disconnect is retry-safe (the member is still
-  // present) and idempotent. Only PERSONAL providers connected by this user in
-  // this account are disconnected; account/service providers are untouched.
+  // Offboarding — identical order to removeMember. First revoke any live
+  // (pending|accepted) per-node credential grants this user OWNS in the account
+  // (CS-6), so nodes that ran under their connection fall back to the workflow
+  // creator (CS-2) with no dangling grant. Idempotent; a no-op when they own
+  // none; independent of the reassignment flag.
+  const revoked = await revokeLiveForMemberServiceRole({
+    accountId: input.accountId,
+    credentialOwnerUserId: input.userId,
+  });
+  if (revoked.revokedCount > 0) {
+    console.info(
+      JSON.stringify({
+        event: "account.member.leave.node_credentials_revoked",
+        accountId: input.accountId,
+        count: revoked.revokedCount,
+      }),
+    );
+  }
+
+  // Then soft-disconnect BEFORE the membership delete so a failed disconnect is
+  // retry-safe (the member is still present) and idempotent. Only PERSONAL
+  // providers connected by this user in this account are disconnected;
+  // account/service providers are untouched.
   const disconnect = await softDisconnectPersonalForMember({
     accountId: input.accountId,
     connectedByUserId: input.userId,

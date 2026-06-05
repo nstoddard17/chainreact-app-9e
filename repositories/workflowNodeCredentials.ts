@@ -231,3 +231,87 @@ export async function markRevokedServiceRole(
     throw new Error(`workflow_node_credentials.markRevokedServiceRole failed: ${error.message}`);
   }
 }
+
+/**
+ * All ACCEPTED grants OWNED BY `ownerUserId` across the workflows in `accountId`
+ * (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-7 / CS-6 — offboarding impact).
+ *
+ * The side table has no `account_id`, so scope is resolved through the
+ * `workflow_id → workflows` FK embed (`workflows!inner(account_id)` +
+ * `eq("workflows.account_id", …)`). ACCEPTED-only on purpose: a `pending` grant
+ * is inert (CS-2 never resolves to it), so it does NOT represent a step that
+ * "will stop running" if the owner leaves — only accepted grants do. Service-role.
+ */
+export async function listAcceptedOwnedByUserInAccountServiceRole(
+  accountId: string,
+  ownerUserId: string,
+): Promise<readonly WorkflowNodeCredentialRecord[]> {
+  const supabase = getServiceRoleClient(
+    `workflow_node_credentials: listAcceptedOwnedByUserInAccount ${accountId}/${ownerUserId}`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_node_credentials")
+    .select("*, workflows!inner(account_id)")
+    .eq("workflows.account_id", accountId)
+    .eq("credential_owner_user_id", ownerUserId)
+    .eq("status", "accepted");
+  if (error) {
+    throw new Error(
+      `workflow_node_credentials.listAcceptedOwnedByUserInAccountServiceRole failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).map((r) => rowToRecord(r as unknown as WorkflowNodeCredentialsRow));
+}
+
+/**
+ * Revoke EVERY live (pending|accepted) grant OWNED BY `credentialOwnerUserId`
+ * across the workflows in `accountId` — Slice 4.TEAM-WORKFLOWS-CREDENTIAL-
+ * SHARING-7 / CS-6 offboarding (member remove / leave). After revoke those nodes
+ * deterministically fall back to the workflow creator (CS-2), so no accepted
+ * grant is ever left pointing at a removed / disconnected user.
+ *
+ * Always safe to call: a member who owns no live grants yields a 0-row no-op
+ * (one cheap indexed read, no write). Idempotent — the live-status guard means a
+ * second call revokes nothing. Independent of the reassignment feature flag: it
+ * is pure data hygiene, not a runtime resolution decision.
+ *
+ * An UPDATE cannot filter on an embedded resource, so the in-account live grant
+ * ids are resolved via the FK embed first, then revoked by id under the
+ * live-status guard. Returns the number of rows actually transitioned to
+ * `revoked`. Service-role.
+ */
+export async function revokeLiveForMemberServiceRole(input: {
+  accountId: string;
+  credentialOwnerUserId: string;
+  now?: string;
+}): Promise<{ revokedCount: number }> {
+  const supabase = getServiceRoleClient(
+    `workflow_node_credentials: revokeLiveForMember ${input.accountId}/${input.credentialOwnerUserId}`,
+  );
+  const { data: live, error: selectError } = await supabase
+    .from("workflow_node_credentials")
+    .select("id, workflows!inner(account_id)")
+    .eq("workflows.account_id", input.accountId)
+    .eq("credential_owner_user_id", input.credentialOwnerUserId)
+    .in("status", ["pending", "accepted"]);
+  if (selectError) {
+    throw new Error(
+      `workflow_node_credentials.revokeLiveForMemberServiceRole select failed: ${selectError.message}`,
+    );
+  }
+  const ids = (live ?? []).map((r) => (r as { id: string }).id);
+  if (ids.length === 0) return { revokedCount: 0 };
+
+  const { data: revoked, error: updateError } = await supabase
+    .from("workflow_node_credentials")
+    .update({ status: "revoked", decided_at: input.now ?? new Date().toISOString() })
+    .in("id", ids)
+    .in("status", ["pending", "accepted"])
+    .select("id");
+  if (updateError) {
+    throw new Error(
+      `workflow_node_credentials.revokeLiveForMemberServiceRole update failed: ${updateError.message}`,
+    );
+  }
+  return { revokedCount: (revoked ?? []).length };
+}

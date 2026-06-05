@@ -33,6 +33,14 @@ jest.mock("@/repositories/integrations", () => ({
   },
 }));
 
+const mockRevokeGrants = jest.fn();
+jest.mock("@/repositories/workflowNodeCredentials", () => ({
+  revokeLiveForMemberServiceRole: (...a: unknown[]) => {
+    order.push("revoke");
+    return mockRevokeGrants(...a);
+  },
+}));
+
 const mockClearActive = jest.fn();
 jest.mock("@/repositories/userProfiles", () => ({
   clearActiveAccountIfMatchesServiceRole: (...a: unknown[]) => {
@@ -68,18 +76,20 @@ beforeEach(() => {
   mockGetRoleSR.mockReset();
   mockRemove.mockReset().mockResolvedValue(undefined);
   mockSoftDisconnect.mockReset().mockResolvedValue({ disconnectedCount: 0, disconnectedProviders: [] });
+  mockRevokeGrants.mockReset().mockResolvedValue({ revokedCount: 0 });
   mockClearActive.mockReset().mockResolvedValue(undefined);
 });
 
 describe("leaveAccount", () => {
-  it("a member leaves: runs offboarding in order (disconnect → remove → clearActive)", async () => {
+  it("a member leaves: runs offboarding in order (revoke → disconnect → remove → clearActive)", async () => {
     mockGetById.mockResolvedValueOnce(acct());
     mockGetRoleSR.mockResolvedValueOnce("member");
 
     const r = await leaveAccount({ accountId: ACCOUNT, userId: USER });
 
     expect(r).toEqual({ ok: true });
-    expect(order).toEqual(["disconnect", "remove", "clearActive"]);
+    expect(order).toEqual(["revoke", "disconnect", "remove", "clearActive"]);
+    expect(mockRevokeGrants).toHaveBeenCalledWith({ accountId: ACCOUNT, credentialOwnerUserId: USER });
     expect(mockSoftDisconnect).toHaveBeenCalledWith({ accountId: ACCOUNT, connectedByUserId: USER });
     expect(mockRemove).toHaveBeenCalledWith(ACCOUNT, USER);
     expect(mockClearActive).toHaveBeenCalledWith(USER, ACCOUNT);
@@ -90,7 +100,7 @@ describe("leaveAccount", () => {
     mockGetRoleSR.mockResolvedValueOnce("admin");
     const r = await leaveAccount({ accountId: ACCOUNT, userId: USER });
     expect(r).toEqual({ ok: true });
-    expect(order).toEqual(["disconnect", "remove", "clearActive"]);
+    expect(order).toEqual(["revoke", "disconnect", "remove", "clearActive"]);
   });
 
   it("a sole owner is blocked and NO offboarding runs", async () => {
@@ -99,6 +109,7 @@ describe("leaveAccount", () => {
     const r = await leaveAccount({ accountId: ACCOUNT, userId: USER });
     expect(r).toEqual({ ok: false, reason: "sole_owner_must_transfer" });
     expect(order).toEqual([]);
+    expect(mockRevokeGrants).not.toHaveBeenCalled();
     expect(mockSoftDisconnect).not.toHaveBeenCalled();
     expect(mockRemove).not.toHaveBeenCalled();
   });

@@ -35,6 +35,14 @@ jest.mock("@/repositories/integrations", () => ({
   softDisconnectPersonalForMember: (...a: unknown[]) => mockSoftDisconnect(...a),
 }));
 
+// CS-6: node-credential grant revoke on offboarding + owned-grant impact lookup.
+const mockRevokeGrants = jest.fn();
+const mockListAcceptedOwned = jest.fn();
+jest.mock("@/repositories/workflowNodeCredentials", () => ({
+  revokeLiveForMemberServiceRole: (...a: unknown[]) => mockRevokeGrants(...a),
+  listAcceptedOwnedByUserInAccountServiceRole: (...a: unknown[]) => mockListAcceptedOwned(...a),
+}));
+
 // TW-5: getMemberWorkflowImpact → countImpactedWorkflowsForMember reads the
 // workflows repo. Mock it so the impact path can be exercised without a DB.
 const mockWfListByAccount = jest.fn();
@@ -63,6 +71,8 @@ beforeEach(() => {
   mockSoftDisconnect
     .mockReset()
     .mockResolvedValue({ disconnectedCount: 0, disconnectedProviders: [] });
+  mockRevokeGrants.mockReset().mockResolvedValue({ revokedCount: 0 });
+  mockListAcceptedOwned.mockReset().mockResolvedValue([]);
   mockWfListByAccount.mockReset().mockResolvedValue([]);
 });
 
@@ -194,6 +204,46 @@ describe("removeMember", () => {
     const disconnectOrder = mockSoftDisconnect.mock.invocationCallOrder[0]!;
     const removeOrder = mockRemove.mock.invocationCallOrder[0]!;
     expect(disconnectOrder).toBeLessThan(removeOrder);
+  });
+
+  it("offboarding (CS-6): revokes the member's live node-credential grants, before soft-disconnect", async () => {
+    mockGetRoleSR.mockResolvedValueOnce("member");
+    mockRevokeGrants.mockResolvedValueOnce({ revokedCount: 2 });
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "owner" });
+    expect(r).toEqual({ ok: true });
+    expect(mockRevokeGrants).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      credentialOwnerUserId: TARGET,
+    });
+    // Order: revoke grants → soft-disconnect → remove membership.
+    const revokeOrder = mockRevokeGrants.mock.invocationCallOrder[0]!;
+    const disconnectOrder = mockSoftDisconnect.mock.invocationCallOrder[0]!;
+    const removeOrder = mockRemove.mock.invocationCallOrder[0]!;
+    expect(revokeOrder).toBeLessThan(disconnectOrder);
+    expect(disconnectOrder).toBeLessThan(removeOrder);
+  });
+
+  it("revoke runs regardless of the reassignment flag (data hygiene) and is a no-op when none are owned", async () => {
+    mockGetRoleSR.mockResolvedValueOnce("member");
+    // default mock → { revokedCount: 0 }; still invoked.
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "admin" });
+    expect(r).toEqual({ ok: true });
+    expect(mockRevokeGrants).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT revoke grants when the gate fails (owner_target)", async () => {
+    mockGetRoleSR.mockResolvedValueOnce("owner");
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "owner" });
+    expect(r).toEqual({ ok: false, reason: "owner_target" });
+    expect(mockRevokeGrants).not.toHaveBeenCalled();
+    expect(mockSoftDisconnect).not.toHaveBeenCalled();
+  });
+
+  it("does NOT revoke grants on a frozen account", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("pending_deletion");
+    const r = await removeMember({ accountId: ACCOUNT, targetUserId: TARGET, actingRole: "owner" });
+    expect(r).toEqual({ ok: false, reason: "account_frozen" });
+    expect(mockRevokeGrants).not.toHaveBeenCalled();
   });
 
   it("does NOT soft-disconnect when the gate fails (owner_target)", async () => {

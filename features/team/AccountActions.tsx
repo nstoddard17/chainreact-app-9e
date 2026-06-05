@@ -333,8 +333,8 @@ export function AccountActions({ account, members, onChanged }: Props) {
                   Personal app connections you added to this team will be disconnected.
                 </li>
                 <li>
-                  Workflows you created with personal app steps may stop running until
-                  reconnected or reassigned.
+                  Steps that run under your connection — in workflows you created or
+                  ones assigned to you — may stop running until reconnected or reassigned.
                 </li>
               </ul>
 
@@ -344,9 +344,9 @@ export function AccountActions({ account, members, onChanged }: Props) {
                   data-testid="team-leave-impact"
                   className="text-xs text-amber-600 dark:text-amber-400"
                 >
-                  {`You created ${leaveImpact} workflow${
+                  {`You run ${leaveImpact} workflow${
                     leaveImpact === 1 ? "" : "s"
-                  } with personal app steps. Those steps may stop running after you leave.`}
+                  } with personal app steps under your connection (as creator or assigned owner). Those steps may stop running after you leave.`}
                 </p>
               )}
 

@@ -120,9 +120,10 @@ export async function leaveAccount(accountId: string): Promise<void> {
 }
 
 /**
- * GET /api/accounts/[id]/leave-impact — count of the CALLER's own workflows in
- * this account that use a personal-provider step (may stop running after leave).
- * Self-scoped advisory; count only.
+ * GET /api/accounts/[id]/leave-impact — count of workflows in this account whose
+ * personal-provider steps run under the CALLER's connection (as creator, or —
+ * when reassignment is enabled — as the accepted per-node owner) and may stop
+ * running after leave. Self-scoped advisory; count only.
  */
 export async function getLeaveImpact(accountId: string): Promise<number> {
   const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/leave-impact`);
@@ -433,8 +434,10 @@ export async function changeMemberRole(
 
 /**
  * GET /api/accounts/[id]/members/[userId]/workflow-impact — advisory count of
- * workflows the target created with personal-provider steps that may stop
- * running after removal (4.TEAM-WORKFLOWS-7 / TW-5). Owner/admin only.
+ * workflows whose personal-provider steps run under the target's connection (as
+ * creator, or — when reassignment is enabled — as the accepted per-node owner)
+ * and may stop running after removal (4.TEAM-WORKFLOWS-7 / TW-5, extended CS-6).
+ * Owner/admin only.
  */
 export async function getMemberWorkflowImpact(
   accountId: string,

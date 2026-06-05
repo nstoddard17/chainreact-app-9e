@@ -2,6 +2,7 @@ import type { MembershipRole, AccountMembershipRecord } from "@/contracts/accoun
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as accountsRepo from "@/repositories/accounts";
 import { softDisconnectPersonalForMember } from "@/repositories/integrations";
+import { revokeLiveForMemberServiceRole } from "@/repositories/workflowNodeCredentials";
 import { clearActiveAccountIfMatchesServiceRole } from "@/repositories/userProfiles";
 import { countImpactedWorkflowsForMember } from "./offboardingImpact";
 
@@ -91,6 +92,27 @@ export async function removeMember(input: {
 }): Promise<RemoveMemberResult> {
   const gate = await gateTarget(input.accountId, input.targetUserId, input.actingRole);
   if (!gate.ok) return gate;
+
+  // Offboarding (CS-6): revoke any live (pending|accepted) per-node credential
+  // grants this member OWNS in the account BEFORE disconnecting / removing, so
+  // every node that ran under their connection deterministically falls back to
+  // the workflow creator (CS-2) — no accepted grant is left dangling at a
+  // removed user. Runs before the membership delete for retry-safety (the gate
+  // still passes on retry); idempotent and a no-op when they own no grants.
+  // Independent of the reassignment flag — pure data hygiene.
+  const revoked = await revokeLiveForMemberServiceRole({
+    accountId: input.accountId,
+    credentialOwnerUserId: input.targetUserId,
+  });
+  if (revoked.revokedCount > 0) {
+    console.info(
+      JSON.stringify({
+        event: "account.member.offboard.node_credentials_revoked",
+        accountId: input.accountId,
+        count: revoked.revokedCount,
+      }),
+    );
+  }
 
   // Offboarding (4.ACCOUNT-MODEL-22C): soft-disconnect the PERSONAL credentials
   // this member connected in this account, BEFORE deleting the membership. Doing

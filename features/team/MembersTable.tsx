@@ -233,9 +233,9 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                       data-testid={`team-remove-impact-${m.userId}`}
                       className="text-xs text-amber-600 dark:text-amber-400"
                     >
-                      {`This member created ${confirm.impact} workflow${
+                      {`This member runs ${confirm.impact} workflow${
                         confirm.impact === 1 ? "" : "s"
-                      } with personal app steps. Those steps may stop running after removal until reconnected or reassigned.`}
+                      } with personal app steps under their connection (as creator or assigned owner). Those steps may stop running after removal until reconnected or reassigned.`}
                     </p>
                   )}
                   <div className="flex items-center gap-2">

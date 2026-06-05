@@ -169,7 +169,9 @@ describe("AccountActions — leave team", () => {
     await user.click(screen.getByTestId("team-leave-open"));
     expect(mockLeaveImpact).toHaveBeenCalledWith("t1");
     const warning = await screen.findByTestId("team-leave-impact");
-    expect(warning).toHaveTextContent(/created 2 workflows with personal app steps.*may stop running/i);
+    expect(warning).toHaveTextContent(
+      /run 2 workflows with personal app steps.*creator or assigned owner.*may stop running/i,
+    );
     expect(screen.getByTestId("team-leave-confirm")).toBeInTheDocument();
   });
 
