@@ -1,10 +1,18 @@
 # 4.API-KEYS-FOUNDATION-CLOSEOUT — API Keys Foundation Closeout
 
 **Type:** Docs-only closeout / handoff. No source, migrations, tests, or UI changes.
-**Date:** 2026-06-05 (updated 2026-06-05 — RATE-LIMIT-1 durable limiter)
+**Date:** 2026-06-05 (updated 2026-06-05 — RATE-LIMIT-1 durable limiter; run-history
+arc RH-1→RH-3; **all three API-key migrations applied to the V2 DB**)
 **Branch:** `builder-ui-v1-audit-1`
-**Arc:** API-KEYS-FOUNDATION plan → FK-1 → FK-2 → FK-3 → FK-4 → RATE-LIMIT-1
-(all shipped) → **this closeout**.
+**Arc:** API-KEYS-FOUNDATION plan → FK-1 → FK-2 → FK-3 → FK-4 → RATE-LIMIT-1 →
+run-history (RUN-HISTORY-1 plan → RH-1 → RH-2 → RH-3) (all shipped) → **this closeout**.
+
+> **Migration status (2026-06-05):** the three migrations this arc authored —
+> `20260607000000_account_api_keys.sql`, `20260608000000_api_key_rate_limits.sql`, and
+> `20260609000000_workflow_runs_api_key_source.sql` — were **applied to the V2
+> database** via `supabase db push --include-all` (Session pooler, port 5432). The
+> earlier "must be applied / db:push not run" caveats are resolved; remaining gating
+> for the public endpoint is purely the `ENABLE_PUBLIC_API_KEYS` flag flip.
 
 ---
 
@@ -37,6 +45,10 @@ public workflow trigger endpoint**.
 | FK-3 | `6207b9030` | Account Settings API keys UI — real list/create/reveal/revoke for owner/admin; member + frozen read-only states; webhooks stays coming-soon. |
 | FK-4 | `10873e15a` | Public API-key workflow trigger endpoint — `POST /api/v1/workflows/[workflowId]/trigger`, flag-gated default OFF, verify primitive, rate-limit seam. |
 | RATE-LIMIT-1 | `f332dd240` | Durable Postgres rate limiter — replaces the permissive seam; `api_key_rate_limits` table + atomic increment RPC, per-key/workflow/account windows, route returns 429 + `Retry-After`. |
+| RUN-HISTORY-1 (plan) | `d0d320a94` | Plan for distinguishing API-key runs from human manual runs ([api-keys-run-history-plan.md](./api-keys-run-history-plan.md)). |
+| RH-1 | `b78e1cb47` | `api_key` run trigger source — `20260609000000` migration (CHECK + `triggered_by_api_key_id` FK + `triggered_by_api_key_prefix`) + the two TS unions + zod enum. |
+| RH-2 | `9663bc17a` | Public trigger route persists `triggeredBy:"api_key"` + key id/prefix provenance (no human actor); threaded through enqueue → engine → persistence. |
+| RH-3 | `f1803a6d8` | Run-history list shows "Triggered via API key · `<prefix>`"; the non-secret prefix is projected to the display DTO (id/hash never are). |
 
 ---
 
@@ -110,10 +122,11 @@ public workflow trigger endpoint**.
   account **300/min**. Centralized + easy to tune.
 - Cross-instance safe (the RPC's UPSERT row lock serializes same-bucket writers).
   Bucket keys derive from key id / account id / workflow id — **never** a raw key.
-- **Migration `20260608000000_api_key_rate_limits.sql` exists** (table + RPC,
-  service-role only). It **must be applied** (`supabase db push`) in any target
-  environment **before enabling `ENABLE_PUBLIC_API_KEYS`** — the limiter RPC must
-  exist or the trigger route will error.
+- **Migration `20260608000000_api_key_rate_limits.sql` is APPLIED** (table + RPC,
+  service-role only) to the V2 DB (`supabase db push --include-all`, 2026-06-05). The
+  limiter RPC now exists, so the trigger route can call it. **Applying the migration
+  does NOT enable the endpoint** — that is still the separate `ENABLE_PUBLIC_API_KEYS`
+  flag flip.
 - **`ENABLE_PUBLIC_API_KEYS` remains default OFF.**
 - The existing **execution billing gate** remains an **economic backstop** (caps cost
   per run), complementary to the limiter's **traffic** cap (request rate).
@@ -129,19 +142,22 @@ public workflow trigger endpoint**.
   accounts are refused up-front; task-limit refusals surface via
   `workflow_runs.status`.
 - `triggeredByUserId` is **null** (no human actor).
-- `triggeredBy` remains **`manual`** for now — a dedicated `api_key` source requires
-  a migration + a `workflow_runs` CHECK-constraint update (the source is a closed
-  union).
-- **Future migration opportunity:** add `triggered_by = 'api_key'` for clearer run
-  history / observability.
+- `triggeredBy` is **`api_key`** (RH-2) — the `api_key` source + the
+  `triggered_by_api_key_id` / `_prefix` columns shipped in RH-1's `20260609000000`
+  migration, now **applied** to the V2 DB. Runs write the key id + a non-secret prefix
+  snapshot (never the raw key/hash); RH-3 surfaces "Triggered via API key · `<prefix>`"
+  in run history. `workflow_runs` now accepts `triggered_by = 'api_key'` end-to-end.
 
 ---
 
 ## 7. Deferred / known limitations
 
-- **Rate-limit migration not applied in this local report** — `db:push` was NOT run;
-  `20260608000000_api_key_rate_limits.sql` must be applied in the target environment
-  before the limiter RPC works (and before `ENABLE_PUBLIC_API_KEYS` is turned on).
+- **Migrations applied (2026-06-05)** — all three (`20260607000000_account_api_keys`,
+  `20260608000000_api_key_rate_limits`, `20260609000000_workflow_runs_api_key_source`)
+  were pushed to the V2 DB via `supabase db push --include-all`. Pre-apply
+  `workflow_runs` rows simply carry a null `triggered_by_api_key_prefix` (safe +
+  expected — the read path is null-safe). Turning on the public endpoint remains a
+  separate `ENABLE_PUBLIC_API_KEYS` flag flip.
 - **`ENABLE_PUBLIC_API_KEYS` remains default OFF** — flip it only after the limiter
   migration is applied in that environment.
 - **Rate-limit tuning** is a future task — the per-key/workflow/account constants are
@@ -160,24 +176,30 @@ public workflow trigger endpoint**.
   mints `live` only).
 - No **trigger payload schema/UI** beyond a capped JSON body passed through as
   manual trigger input (`{ inputs }`).
-- No dedicated **`api_key` run source** yet (see §6).
+- A dedicated **`api_key` run source** now exists and is applied (RH-1→RH-3; see §6).
 
 ---
 
-## 8. Verification baseline (as of RATE-LIMIT-1, `f332dd240`)
+## 8. Verification baseline
 
-- Full Jest: **16,049 passed / 0 failed** (121 skipped).
+**Inherited from RH-3 (`f1803a6d8`) — not re-measured in this docs-only update:**
+- Full Jest: **16,076 passed / 0 failed** (121 skipped).
 - `npm run typecheck` — clean.
 - `npm run lint` — **0 errors** (pre-existing warnings only).
 - `npm run lint:migrations` — OK.
 - `npm run lint:structure` — OK.
+- FK-1 / FK-2 / FK-3 / FK-4 / RATE-LIMIT-1 / RH-1 / RH-2 / RH-3 and run-now suites — green.
 
-- FK-1 / FK-2 / FK-3 / FK-4 / RATE-LIMIT-1 and run-now suites — green.
-- `db:push` was **not** run in this local report. Migrations authored across the arc:
-  FK-1's `account_api_keys` schema and RATE-LIMIT-1's `api_key_rate_limits` table +
-  RPC (FK-2–FK-4 added none). Both must be applied in the target environment.
+**Run THIS session (CLOSEOUT-UPDATE, docs-only):**
+- `npm run lint:structure` — OK (re-run; see report).
+- The full Jest / typecheck / lint suites were **NOT re-run this session** (no code changed).
 
-_(Prior baseline at FK-4 `10873e15a`: 16,017 passed / 0 failed.)_
+**Migrations — APPLIED (2026-06-05):** `supabase db push --include-all` applied
+`20260607000000_account_api_keys`, `20260608000000_api_key_rate_limits`, and
+`20260609000000_workflow_runs_api_key_source` to the V2 DB (Session pooler, port 5432).
+No migrations remain pending for this arc.
+
+_(Earlier baselines: RATE-LIMIT-1 `f332dd240` 16,049/0; FK-4 `10873e15a` 16,017/0.)_
 
 ### Structure-guard note (RATE-LIMIT-1)
 
@@ -192,11 +214,12 @@ other leaves remain capped at 50.
 
 ## 9. Recommended next tracks
 
-- **A. Durable rate limiter for public API keys** — ✅ **SHIPPED** (RATE-LIMIT-1,
-  `f332dd240`). Remaining op step before flipping `ENABLE_PUBLIC_API_KEYS` ON: apply
-  `20260608000000_api_key_rate_limits.sql` (`db:push`) in the target environment.
-- **B. `triggered_by = 'api_key'` migration** — distinguish API-key runs from human
-  manual runs in run history (`workflow_runs` CHECK + engine source value). Planned in
+- **A. Durable rate limiter for public API keys** — ✅ **SHIPPED + APPLIED**
+  (RATE-LIMIT-1, `f332dd240`; migration applied 2026-06-05). The only remaining step to
+  go live is flipping `ENABLE_PUBLIC_API_KEYS` ON (a deliberate decision).
+- **B. `triggered_by = 'api_key'` run history** — ✅ **SHIPPED + APPLIED** (RH-1
+  `b78e1cb47` → RH-2 `9663bc17a` → RH-3 `f1803a6d8`; migration applied 2026-06-05).
+  API-key runs are distinguished from human manual runs end-to-end. Planned in
   [api-keys-run-history-plan.md](./api-keys-run-history-plan.md) (4.API-KEYS-RUN-HISTORY-1).
 - **C. API docs / developer docs page** — document the public endpoint, auth, scope,
   and response envelope.
@@ -207,10 +230,10 @@ other leaves remain capped at 50.
 - **F. Plan metadata / Stripe billing planning** — paid plans + monetization.
 
 **Suggested priority (by goal):**
-- Enabling public API keys → **A is done**; apply the limiter migration, then flip
-  `ENABLE_PUBLIC_API_KEYS` ON.
-- Observability → **B (`triggered_by = api_key`)** — now the top open track.
-- Developer UX → **C (API docs page).**
+- Enabling public API keys → **A + B done and migrations applied**; the only remaining
+  step is the deliberate `ENABLE_PUBLIC_API_KEYS` flag flip.
+- Developer UX → **C (API docs page)** — now the top open track.
+- Notifications → **D (API-key audit notifications).**
 - Monetization → **F (plan metadata / Stripe billing).**
 
 ---
@@ -219,14 +242,16 @@ other leaves remain capped at 50.
 
 - **Arc complete:** account-scoped, owner/admin-managed, `workflows:trigger`-only API
   keys — schema + crypto + repo (FK-1), management routes (FK-2), Account Settings UI
-  (FK-3), public trigger endpoint (FK-4), durable Postgres rate limiter (RATE-LIMIT-1).
-  Public triggering is flag-gated default OFF.
+  (FK-3), public trigger endpoint (FK-4), durable Postgres rate limiter (RATE-LIMIT-1),
+  and API-key run-history attribution (RH-1→RH-3). Public triggering is flag-gated
+  default OFF.
 - **Security:** raw key shown once / never stored; SHA-256 + prefix at rest;
   prefix-lookup + timing-safe compare; opaque 401 / generic 404 / scope 403 / freeze
-  reject; no token exposure; no cross-account leak. Rate-limit bucket keys derive from
-  ids only — never a raw key.
-- **Gating step:** apply the limiter migration `20260608000000_api_key_rate_limits.sql`
-  (`db:push`) in the target environment before `ENABLE_PUBLIC_API_KEYS` is turned ON.
-- **Recommended next track:** **B — `triggered_by = 'api_key'`** run-history
-  observability (planned in `api-keys-run-history-plan.md`), now that the rate-limiter
-  prerequisite (A) is shipped.
+  reject; no token exposure; no cross-account leak. Rate-limit bucket keys + run-history
+  attribution use ids / a non-secret prefix only — never a raw key or hash.
+- **Migrations:** all three (`20260607000000`, `20260608000000`, `20260609000000`)
+  **applied** to the V2 DB on 2026-06-05 (`supabase db push --include-all`). None pending.
+- **Gating step:** the public endpoint is fully built + migrated; turning it on is the
+  single remaining `ENABLE_PUBLIC_API_KEYS` flag flip (deliberate).
+- **Recommended next track:** **C — API docs / developer docs page**, now that the
+  rate-limiter (A) and run-history observability (B) are shipped and applied.
