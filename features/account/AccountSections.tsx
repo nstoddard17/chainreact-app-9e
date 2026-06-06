@@ -8,6 +8,7 @@ import { accountTypeLabel } from "@/features/team/accountTypeLabel";
 import type { AccountSummary } from "@/lib/api/accounts";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { ApiKeysPanel } from "./ApiKeysPanel";
+import { ApiDocsPanel } from "./ApiDocsPanel";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -391,6 +392,13 @@ export function ApiSection({
             </p>
           )}
         </SettingRow>
+      </Panel>
+
+      <Panel
+        title="Using the API"
+        desc="Trigger workflows programmatically with an API key."
+      >
+        <ApiDocsPanel />
       </Panel>
 
       <Panel title="Webhooks" desc="Event webhooks to your URLs — coming soon.">
