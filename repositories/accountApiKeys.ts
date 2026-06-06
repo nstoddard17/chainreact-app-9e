@@ -151,6 +151,29 @@ export async function listApiKeyMetadataByAccountServiceRole(
 }
 
 /**
+ * Fetch a single key's metadata scoped to its account (FK-2 revoke existence
+ * check). Account-scoped so a key id from another account resolves to null — the
+ * caller maps that to a 404 with no cross-account existence leak. Metadata only
+ * (no `key_hash`).
+ */
+export async function getApiKeyMetadataByIdServiceRole(
+  accountId: string,
+  keyId: string,
+): Promise<ApiKeyMetadata | null> {
+  const supabase = getServiceRoleClient(`account_api_keys: getById ${accountId}/${keyId}`);
+  const { data, error } = await supabase
+    .from("account_api_keys")
+    .select(METADATA_COLUMNS)
+    .eq("id", keyId)
+    .eq("account_id", accountId)
+    .maybeSingle<AccountApiKeysRow>();
+  if (error) {
+    throw new Error(`account_api_keys.getApiKeyMetadataByIdServiceRole failed: ${error.message}`);
+  }
+  return data ? rowToMetadata(data) : null;
+}
+
+/**
  * Primary verification lookup (FK-4): exact match on the UNIQUE `key_hash`, O(1).
  * Returns the service-side record (incl. status fields) regardless of
  * revoked/expired state, so the caller can DISTINGUISH and reject precisely.

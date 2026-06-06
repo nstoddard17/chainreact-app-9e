@@ -44,6 +44,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
 import {
   createApiKeyMetadataServiceRole,
   listApiKeyMetadataByAccountServiceRole,
+  getApiKeyMetadataByIdServiceRole,
   findApiKeyByHashServiceRole,
   getApiKeyForVerificationByPrefixServiceRole,
   revokeApiKeyServiceRole,
@@ -127,6 +128,23 @@ describe("listApiKeyMetadataByAccountServiceRole", () => {
     expect(rows[0]).not.toHaveProperty("keyHash");
     expect(state.selectCols.join(" ")).not.toContain("key_hash");
     expect(state.filters).toContainEqual(["eq", "account_id", "acct-1"]);
+  });
+});
+
+describe("getApiKeyMetadataByIdServiceRole", () => {
+  it("returns account-scoped metadata (no key_hash) or null", async () => {
+    const state = setup({ data: META_ROW, error: null });
+    const meta = await getApiKeyMetadataByIdServiceRole("acct-1", "key-1");
+    expect(meta).toMatchObject({ id: "key-1", accountId: "acct-1" });
+    expect(meta).not.toHaveProperty("keyHash");
+    expect(state.selectCols.join(" ")).not.toContain("key_hash");
+    expect(state.filters).toContainEqual(["eq", "id", "key-1"]);
+    expect(state.filters).toContainEqual(["eq", "account_id", "acct-1"]); // account-scoped
+  });
+
+  it("returns null when the key is not in the account", async () => {
+    setup({ data: null, error: null });
+    expect(await getApiKeyMetadataByIdServiceRole("acct-1", "other")).toBeNull();
   });
 });
 
