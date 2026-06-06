@@ -1,31 +1,32 @@
+import {
+  alignWindowStartMs,
+  buildRateLimitBucketKeys,
+  evaluateRateLimit,
+  API_KEY_RATE_LIMIT_WINDOW_SECONDS,
+} from "@/core/apiKeys/rateLimitPolicy";
+import { incrementApiKeyRateLimitWindowsServiceRole } from "@/repositories/apiKeyRateLimits";
+
 /**
- * Public API-key trigger rate-limit SEAM (Slice 4.API-KEYS-FOUNDATION-5 / FK-4).
+ * Public API-key trigger rate limiter (Slice 4.API-KEYS-RATE-LIMIT-1).
  *
- * ┌─ HONEST STATUS ─────────────────────────────────────────────────────────────┐
- * │ This is a SWAPPABLE SEAM, not a production-grade limiter. The default         │
- * │ implementation is PERMISSIVE (always allows). It exists so the public         │
- * │ trigger route has a single, well-typed chokepoint to call today and a real    │
- * │ limiter (per-key + per-account sliding window, durable across instances —     │
- * │ Upstash Redis / Postgres token bucket) can drop in WITHOUT touching the       │
- * │ route. See foundation plan §10.                                               │
- * │                                                                               │
- * │ BECAUSE no real backend is wired, the public endpoint MUST stay gated OFF     │
- * │ (`ENABLE_PUBLIC_API_KEYS` default false). Do NOT flip the flag ON in          │
- * │ production until this seam is replaced with a durable limiter. The execution  │
- * │ billing gate (1 task/run, refuse on exhaustion) is the only economic backstop │
- * │ in the meantime — it caps cost, not request rate.                             │
- * └───────────────────────────────────────────────────────────────────────────────┘
+ * Durable, cross-instance, Postgres-backed fixed-window limiter — the production
+ * replacement for the original permissive placeholder. Enforces three dimensions
+ * (per key / per workflow / per account) in one atomic RPC, then maps the
+ * post-increment counts to an allow/deny decision via the centralized policy.
  *
- * An in-memory limiter is deliberately NOT shipped as the default: module-level
- * counters are per-instance (useless behind multiple serverless instances) and
- * would pretend to a guarantee we cannot make. A swap target should set
- * `allowed: false` + `retryAfterSeconds` when a window is exceeded; the route maps
- * that to a 429.
+ * Called by the public trigger route AFTER key verification, scope, ownership, and
+ * freeze checks pass — but BEFORE enqueue — so a denied request never enqueues a
+ * run, never touches billing/task usage, and never updates `last_used_at`.
+ *
+ * No raw key material reaches the limiter: bucket keys are derived from the key id /
+ * account id / workflow id only. Responses stay generic (the route maps a denial to
+ * a 429 + `Retry-After`).
  */
 
 export interface RateLimitInput {
   keyId: string;
   accountId: string;
+  workflowId: string;
 }
 
 export interface RateLimitResult {
@@ -34,13 +35,27 @@ export interface RateLimitResult {
   retryAfterSeconds?: number;
 }
 
-/**
- * Decide whether one API-key trigger request may proceed. DEFAULT: permissive
- * (always allowed) — see the file banner. Replace the body with a durable limiter
- * before enabling `ENABLE_PUBLIC_API_KEYS` in production.
- */
 export async function rateLimitApiKeyTrigger(
-  _input: RateLimitInput,
+  input: RateLimitInput,
 ): Promise<RateLimitResult> {
-  return { allowed: true };
+  const nowMs = Date.now();
+  const windowStartMs = alignWindowStartMs(nowMs);
+  const windowExpiresMs = windowStartMs + API_KEY_RATE_LIMIT_WINDOW_SECONDS * 1000;
+
+  const buckets = buildRateLimitBucketKeys({
+    keyId: input.keyId,
+    accountId: input.accountId,
+    workflowId: input.workflowId,
+    windowStartMs,
+  });
+
+  const counts = await incrementApiKeyRateLimitWindowsServiceRole({
+    keyBucket: buckets.key,
+    workflowBucket: buckets.workflow,
+    accountBucket: buckets.account,
+    windowStart: new Date(windowStartMs).toISOString(),
+    expiresAt: new Date(windowExpiresMs).toISOString(),
+  });
+
+  return evaluateRateLimit({ counts, nowMs, windowStartMs });
 }

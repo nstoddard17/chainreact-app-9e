@@ -9,7 +9,7 @@
  * .next, .git, build/, dist/, coverage/, playwright-report/, test-results/.
  */
 import { readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 const ROOT = resolve(process.cwd());
 const LIMIT = 50;
@@ -24,6 +24,19 @@ const IGNORED = new Set([
   "test-results",
   ".turbo",
 ]);
+
+/**
+ * Leaf folders exempt from the file-count cap because the "split the folder / add
+ * structure" remedy structurally cannot apply.
+ *
+ * - `supabase/migrations` is an APPEND-ONLY, FORWARD-ONLY ledger that MUST remain a
+ *   single flat directory: the Supabase CLI applies `supabase/migrations/*.sql` and
+ *   does not recurse subfolders, so the files cannot be reorganized into subdirs.
+ *   The 50-file leaf limit is documented as tunable
+ *   (project-structure-and-module-boundaries.md §"Tunable post-Slice 1"); this
+ *   carves out the one directory that legitimately grows without bound.
+ */
+const COUNT_EXEMPT_LEAVES = new Set(["supabase/migrations"]);
 
 let violations = 0;
 
@@ -45,8 +58,9 @@ function walk(dir) {
     }
   }
 
-  if (fileCount > LIMIT) {
-    const rel = dir.slice(ROOT.length + 1) || ".";
+  const rel = dir.slice(ROOT.length + 1) || ".";
+  const relPosix = rel.split(sep).join("/");
+  if (fileCount > LIMIT && !COUNT_EXEMPT_LEAVES.has(relPosix)) {
     console.error(
       `LEAF-COUNT VIOLATION: ${rel} contains ${fileCount} files (limit ${LIMIT}).`,
     );

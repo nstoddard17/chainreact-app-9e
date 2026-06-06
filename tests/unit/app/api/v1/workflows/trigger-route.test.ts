@@ -173,18 +173,52 @@ describe("scope", () => {
 // ── rate limit ──────────────────────────────────────────────────────────────────
 
 describe("rate limit", () => {
-  it("allowed (default) → proceeds", async () => {
+  it("allowed → proceeds; limiter keyed on key/account/workflow", async () => {
     const res = await POST(buildRequest({ auth: VALID_AUTH, body: "{}" }), params());
-    expect(mockRateLimit).toHaveBeenCalledWith({ keyId: "k1", accountId: "acct-1" });
+    expect(mockRateLimit).toHaveBeenCalledWith({
+      keyId: "k1",
+      accountId: "acct-1",
+      workflowId: "wf-1",
+    });
     expect(res.status).toBe(202);
   });
 
-  it("refused → 429 with Retry-After, no enqueue", async () => {
+  it("refused → 429 with Retry-After; no enqueue, no last_used touch", async () => {
     mockRateLimit.mockResolvedValue({ allowed: false, retryAfterSeconds: 30 });
     const res = await POST(buildRequest({ auth: VALID_AUTH, body: "{}" }), params());
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("30");
+    expect((await res.json()).code).toBe("rate_limited");
     expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockTouchLastUsed).not.toHaveBeenCalled();
+  });
+
+  it("runs AFTER ownership/freeze/state (cross-account → 404, limiter NOT consulted)", async () => {
+    mockGetByIdServiceRole.mockResolvedValue(workflow({ accountId: "acct-OTHER" }));
+    const res = await POST(buildRequest({ auth: VALID_AUTH, body: "{}" }), params());
+    expect(res.status).toBe(404);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("not consulted for an invalid key (opaque 401 first)", async () => {
+    mockVerify.mockResolvedValue({ ok: false, reason: "invalid" });
+    const res = await POST(buildRequest({ auth: VALID_AUTH }), params());
+    expect(res.status).toBe(401);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("not consulted for a wrong-scope key (403 first)", async () => {
+    mockVerify.mockResolvedValue({ ok: true, keyId: "k1", accountId: "acct-1", scopes: ["workflows:read"] });
+    const res = await POST(buildRequest({ auth: VALID_AUTH, body: "{}" }), params());
+    expect(res.status).toBe(403);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("not consulted for a frozen account (403 first)", async () => {
+    mockIsFrozen.mockResolvedValue(true);
+    const res = await POST(buildRequest({ auth: VALID_AUTH, body: "{}" }), params());
+    expect(res.status).toBe(403);
+    expect(mockRateLimit).not.toHaveBeenCalled();
   });
 });
 

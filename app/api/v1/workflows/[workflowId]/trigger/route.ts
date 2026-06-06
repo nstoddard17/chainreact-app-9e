@@ -27,23 +27,25 @@ import {
  * ships here.
  *
  * Gated by `ENABLE_PUBLIC_API_KEYS` (default OFF) — when off the endpoint is a 404
- * BEFORE any key lookup (no oracle that the route exists). Stays OFF until the
- * rate-limit seam (`services/apiKeys/rateLimit.ts`) is replaced by a durable
- * limiter; the execution billing gate is the interim economic backstop.
+ * BEFORE any key lookup (no oracle that the route exists). The rate limiter
+ * (`services/apiKeys/rateLimit.ts`) is now a DURABLE, cross-instance Postgres
+ * fixed-window limiter (per key / workflow / account), so the flag can be enabled
+ * outside local/dev; the execution billing gate remains the economic backstop.
  *
  * Handler order (mirrors the webhook-route template, swapping signature → key auth):
  *   1. Flag gate           → 404 if OFF (no key lookup).
  *   2. verifyApiKey        → opaque 401 (missing / malformed / unknown / revoked /
  *                            expired all collapse to the same 401 — no oracle).
  *   3. scope check         → 403 `insufficient_scope` if `workflows:trigger` absent.
- *   4. rate-limit seam     → 429 if refused.
- *   5. workflow resolve    → service-role (no RLS/session); missing / deleted /
+ *   4. workflow resolve    → service-role (no RLS/session); missing / deleted /
  *      + ownership            cross-account → the SAME generic 404 (no existence leak).
- *   6. freeze              → 403 if the key's account is pending deletion.
- *   7. state gate          → 409 if the workflow is not in a triggerable state.
+ *   5. freeze              → 403 if the key's account is pending deletion.
+ *   6. state gate          → 409 if the workflow is not in a triggerable state.
+ *   7. rate limit          → 429 + `Retry-After` if a per-key/workflow/account
+ *                            window is exceeded (after a valid key + owned target).
  *   8. body                → JSON, ≤256 KiB; passed through as manual trigger input.
  *   9. enqueueRun          → 202 `{ ok, runId, enqueuedAt }`.
- *  10. last_used_at        → best-effort, swallowed; never fails a successful run.
+ *  10. last_used_at        → best-effort, swallowed; only on a successful (allowed) run.
  *
  * Billing: NOT deducted here. Exactly like run-now, billing/task usage is enforced
  * IN-ENGINE (`executionBillingGate`) after enqueue — adding a second deduction in
@@ -98,10 +100,41 @@ export async function POST(
     return jsonError(403, "Insufficient scope.", { code: "insufficient_scope" });
   }
 
-  // 4. Rate-limit seam (permissive default; see services/apiKeys/rateLimit.ts).
+  // 4. Resolve the workflow with the SERVICE-ROLE client (no user session / RLS).
+  const { workflowId } = await params;
+  const workflow = await workflowsRepo.getByIdServiceRole(workflowId);
+
+  // 5. Existence + ownership: a missing workflow, a deleted one, OR one owned by a
+  //    DIFFERENT account all collapse to the same generic 404 — a key never learns
+  //    whether another account's workflow exists. This is the core isolation rule.
+  //    Runs BEFORE the rate limiter so a cross-account probe gets 404, never a 429
+  //    that would confirm the target (no limiter oracle for non-owned workflows).
+  if (!workflow || workflow.state === "deleted" || workflow.accountId !== verified.accountId) {
+    return notFound();
+  }
+
+  // 6. Freeze — a pending-deletion account is non-operational (read-only check; no
+  //    side effect, mirrors the engine's billing-gate freeze guard).
+  if (await isAccountFrozen(verified.accountId)) {
+    return jsonError(403, "This account is not available.", { code: "account_frozen" });
+  }
+
+  // 7. Triggerable-state gate (same set as run-now).
+  if (!ALLOWED_STATES.has(workflow.state)) {
+    return jsonError(409, "Workflow is not in a triggerable state.", {
+      code: "workflow_not_triggerable",
+      state: workflow.state,
+    });
+  }
+
+  // 8. Durable rate limit (per key / per workflow / per account) — runs only after
+  //    a VALID key + scope + owned, non-frozen, triggerable target pass the earlier
+  //    checks, and BEFORE enqueue. A denial returns 429 and does NOT enqueue a run,
+  //    touch billing/task usage, or update `last_used_at`.
   const rl = await rateLimitApiKeyTrigger({
     keyId: verified.keyId,
     accountId: verified.accountId,
+    workflowId: workflow.id,
   });
   if (!rl.allowed) {
     const res = jsonError(429, "Rate limit exceeded.", { code: "rate_limited" });
@@ -109,31 +142,6 @@ export async function POST(
       res.headers.set("Retry-After", String(rl.retryAfterSeconds));
     }
     return res;
-  }
-
-  // 5. Resolve the workflow with the SERVICE-ROLE client (no user session / RLS).
-  const { workflowId } = await params;
-  const workflow = await workflowsRepo.getByIdServiceRole(workflowId);
-
-  // 6. Existence + ownership: a missing workflow, a deleted one, OR one owned by a
-  //    DIFFERENT account all collapse to the same generic 404 — a key never learns
-  //    whether another account's workflow exists. This is the core isolation rule.
-  if (!workflow || workflow.state === "deleted" || workflow.accountId !== verified.accountId) {
-    return notFound();
-  }
-
-  // 7. Freeze — a pending-deletion account is non-operational (read-only check; no
-  //    side effect, mirrors the engine's billing-gate freeze guard).
-  if (await isAccountFrozen(verified.accountId)) {
-    return jsonError(403, "This account is not available.", { code: "account_frozen" });
-  }
-
-  // 8. Triggerable-state gate (same set as run-now).
-  if (!ALLOWED_STATES.has(workflow.state)) {
-    return jsonError(409, "Workflow is not in a triggerable state.", {
-      code: "workflow_not_triggerable",
-      state: workflow.state,
-    });
   }
 
   // 9. Body — optional JSON, capped, passed through as the manual trigger input.
