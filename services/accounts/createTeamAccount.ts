@@ -3,6 +3,7 @@ import * as accountsRepo from "@/repositories/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as accountBillingRepo from "@/repositories/accountBilling";
 import { setActiveAccount } from "@/services/accounts/activeAccount";
+import { defaultPlanForAccountType } from "@/core/billing/planPolicy";
 
 /**
  * Team account creation service (4.ACCOUNT-MODEL-13, Phase D).
@@ -50,8 +51,12 @@ export async function createTeamAccount(
   // 2. Owner membership for the creator.
   await membershipsRepo.insertOwnerMembershipServiceRole(account.id, input.userId);
 
-  // 3. Free billing root (defaults = 100 tasks; no Stripe).
-  await accountBillingRepo.initAccountBillingServiceRole(account.id);
+  // 3. Billing root (defaults = 100 tasks; no Stripe). CS-1: seed the type's default
+  //    plan ('team') so the stored plan metadata is truthful; limits are unchanged.
+  await accountBillingRepo.initAccountBillingServiceRole(
+    account.id,
+    defaultPlanForAccountType(account.type),
+  );
 
   // 4. Auto-activate via the existing foundation (membership + freeze re-checked
   //    inside setActiveAccount; the row was just committed service-role, so the

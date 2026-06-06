@@ -43,6 +43,17 @@ describe("BillingSection — tier label", () => {
     expect(screen.getByTestId("billing-tier")).toHaveTextContent("Business");
     expect(section).not.toHaveTextContent(/Organization/);
   });
+
+  it("prefers the explicit stored plan over the type default (CS-1)", () => {
+    // A personal account on the Pro plan shows "Pro", not the type-default "Free".
+    renderBilling(active("personal", "Personal"), { plan: "pro" });
+    expect(screen.getByTestId("billing-tier")).toHaveTextContent("Pro");
+  });
+
+  it("falls back to the type-default label when no explicit plan is provided", () => {
+    renderBilling(active("personal"), { plan: null });
+    expect(screen.getByTestId("billing-tier")).toHaveTextContent("Free");
+  });
 });
 
 describe("BillingSection — usage", () => {

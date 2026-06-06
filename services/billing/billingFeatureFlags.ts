@@ -35,3 +35,19 @@ export const RESERVE_RECONCILE_SHADOW_FLAG = "ENABLE_RESERVE_RECONCILE_SHADOW";
 export function isReserveReconcileShadowEnabled(): boolean {
   return process.env[RESERVE_RECONCILE_SHADOW_FLAG] === "true";
 }
+
+/**
+ * Env var gating PLATFORM Stripe billing (Slice 4.BILLING-PLAN-METADATA / CS-1).
+ *
+ * DEFAULT OFF. CS-1 wires NOTHING to this flag — it only ships plan METADATA + the
+ * central plan policy (no Stripe, checkout, portal, webhook, or payment behavior).
+ * The flag exists so the later payment slices (CS-3+ checkout / portal / webhook /
+ * lifecycle) gate their user-facing surfaces behind it. Read at call time. Separate
+ * from the WORKFLOW Stripe provider (integrations/stripe/).
+ */
+export const PLATFORM_BILLING_FLAG = "ENABLE_PLATFORM_BILLING";
+
+/** True only when ENABLE_PLATFORM_BILLING === "true". Default false. */
+export function isPlatformBillingEnabled(): boolean {
+  return process.env[PLATFORM_BILLING_FLAG] === "true";
+}

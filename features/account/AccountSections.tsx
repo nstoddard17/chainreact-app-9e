@@ -9,6 +9,7 @@ import type { AccountSummary } from "@/lib/api/accounts";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ApiDocsPanel } from "./ApiDocsPanel";
+import { planTierLabel, type PlanTier } from "@/core/billing/planPolicy";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -203,6 +204,12 @@ export interface AccountBillingView {
   folderLimit: number;
   /** True when the active account is pending deletion (frozen). */
   frozen: boolean;
+  /**
+   * Explicit billing tier from `account_billing.plan` (CS-1). When present it is the
+   * source of truth for the displayed tier (e.g. a personal account on `pro` shows
+   * "Pro"); when null/absent the label falls back to the account-type default.
+   */
+  plan?: PlanTier | null;
 }
 
 /**
@@ -224,7 +231,12 @@ export function BillingSection({
   billing: AccountBillingView;
 }) {
   const isShared = active != null && active.type !== "personal";
-  const tier = active ? billingTierLabel(active.type) : "—";
+  // CS-1: prefer the explicit stored plan; fall back to the account-type default.
+  const tier = active
+    ? billing.plan
+      ? planTierLabel(billing.plan)
+      : billingTierLabel(active.type)
+    : "—";
   const periodStart =
     billing.usage?.periodStartedAt != null
       ? new Date(billing.usage.periodStartedAt).toLocaleDateString("en-US", {

@@ -65,7 +65,7 @@ describe("createTeamAccount", () => {
     expect(result).toEqual({ id: TEAM_ID, name: "Acme", type: "team" });
     expect(mockCreateTeamAccount).toHaveBeenCalledWith({ name: "Acme", ownerUserId: USER });
     expect(mockInsertOwner).toHaveBeenCalledWith(TEAM_ID, USER);
-    expect(mockInitBilling).toHaveBeenCalledWith(TEAM_ID);
+    expect(mockInitBilling).toHaveBeenCalledWith(TEAM_ID, "team");
     expect(mockSetActiveAccount).toHaveBeenCalledWith(USER, TEAM_ID);
   });
 

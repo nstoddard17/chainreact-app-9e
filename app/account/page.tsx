@@ -123,6 +123,8 @@ export default async function AccountPage({ searchParams }: Props) {
       memberCount,
       folderLimit: folderLimitFor(active.type),
       frozen,
+      // CS-1: explicit billing tier from account_billing (null → type-default label).
+      plan: usage?.plan ?? null,
     };
   }
 

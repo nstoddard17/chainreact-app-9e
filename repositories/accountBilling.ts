@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import type { PlanTier, PlanStatus } from "@/core/billing/planPolicy";
 
 /**
  * Repository for account_billing — the account-scoped billing root
@@ -178,12 +179,18 @@ export interface AccountBillingUsage {
   tasksUsed: number;
   tasksLimit: number;
   periodStartedAt: string;
+  /** Billing tier (CS-1 plan metadata). */
+  plan: PlanTier;
+  /** Subscription lifecycle state (CS-1). */
+  planStatus: PlanStatus;
 }
 
 interface AccountBillingRow {
   tasks_used: number;
   tasks_limit: number;
   period_started_at: string;
+  plan: PlanTier;
+  plan_status: PlanStatus;
 }
 
 /**
@@ -196,13 +203,19 @@ interface AccountBillingRow {
  */
 export async function initAccountBillingServiceRole(
   accountId: string,
+  plan?: PlanTier,
 ): Promise<void> {
   const supabase = getServiceRoleClient(
     `account_billing: init for account ${accountId}`,
   );
+  // CS-1: a new team/org account seeds its type's default plan (the column default
+  // 'free' is correct for the trigger-seeded personal path). Limits are unchanged —
+  // tasks_limit still defaults to 100; `plan` is metadata only.
+  const row: { account_id: string; plan?: PlanTier } = { account_id: accountId };
+  if (plan) row.plan = plan;
   const { error } = await supabase
     .from("account_billing")
-    .upsert({ account_id: accountId }, { onConflict: "account_id", ignoreDuplicates: true });
+    .upsert(row, { onConflict: "account_id", ignoreDuplicates: true });
   if (error) {
     throw new Error(
       `account_billing.initAccountBillingServiceRole failed: ${error.message}`,
@@ -214,7 +227,7 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("account_billing")
-    .select("tasks_used, tasks_limit, period_started_at")
+    .select("tasks_used, tasks_limit, period_started_at, plan, plan_status")
     .eq("account_id", accountId)
     .maybeSingle<AccountBillingRow>();
   if (error) {
@@ -225,5 +238,7 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
     tasksUsed: data.tasks_used,
     tasksLimit: data.tasks_limit,
     periodStartedAt: data.period_started_at,
+    plan: data.plan,
+    planStatus: data.plan_status,
   };
 }
