@@ -2,9 +2,9 @@
 
 **Type:** Closeout / handoff. **Docs only — no source, migrations, tests, UI, or
 behavior changes.** Nothing pushed.
-**Date:** 2026-06-05 (CS-7 update appended)
+**Date:** 2026-06-05 (CS-7 + CS-8 updates appended)
 **Branch:** `builder-ui-v1-audit-1`
-**Arc:** plan → CS-1 … CS-7 (all shipped). This doc closes the arc and records the
+**Arc:** plan → CS-1 … CS-8 (all shipped). This doc closes the arc and records the
 verified end state + next-track options.
 
 **Source of truth (verified current state):**
@@ -19,6 +19,7 @@ verified end state + next-track options.
 [feature flag](../../../../services/teamCredentials/flags.ts) ·
 [consent inbox service](../../../../services/teamCredentials/credentialRequestsInbox.ts) ·
 [inbox panel](../../../../features/team/CredentialRequestsPanel.tsx) ·
+[bell notice helper](../../../../app/notifications/credentialRequestNotice.ts) ·
 [migration](../../../../supabase/migrations/20260606000000_workflow_node_credentials.sql) ·
 [plan](../team-workflows-credential-sharing-plan.md) · [22A–22D closeout](./team-credential-access-closeout.md).
 
@@ -53,6 +54,7 @@ verified end state + next-track options.
 | CS-5 — AI availability | `15a4abb98` | `getWorkflowIntegrationAvailabilityForAI` node-owner-aware; flags only, no identity. |
 | CS-6 — offboarding evolution | `54b7ba5ff` | Impact counts owned nodes; remove/leave revokes the member's live grants. |
 | CS-7 — consent inbox surface | `9ad1d4c50` | Team-page `CredentialRequestsPanel` + account-scoped inbox endpoint; target accepts/declines via the CS-3 routes; no notification-enum migration. |
+| CS-8 — NotificationBell badge | `f524f982d` | Server-derived pending-request count → synthetic, count-only NotificationBell row linking to `/team`; no notification-enum migration, no new endpoint, no component prop changes. |
 
 ---
 
@@ -115,6 +117,21 @@ verified end state + next-track options.
   inserts a pending `workflow_node_credentials` row, so the inbox item *is* that
   row; CS-7 only adds the self-scoped reader + UI.
 
+**Active discovery (CS-8)**
+- the count of the caller's pending reassignment requests on their **active
+  account** is **derived server-side** (no persisted `notifications` row) and
+  merged into the existing top-bar `NotificationBell` data each render.
+- when the count > 0, the bell shows a **synthetic, non-persisted row** ("N
+  credential reassignment request(s)") and adds the count to the badge total; the
+  row **links to `/team`** where the `CredentialRequestsPanel` lives.
+- **accept / decline still happen only in the Team-page `CredentialRequestsPanel`
+  via the CS-3 routes** — the bell row is discovery-only (no inline consent logic).
+- **flag OFF leaves the bell byte-identical to today** — the helper returns an
+  empty notice without resolving the account or touching the DB.
+- like CS-7, **no new `notification_type` / migration and no new endpoint** — the
+  count reuses the pending-grant rows; `NotificationBell` / `AppShell` / the top
+  bars are untouched (the row renders via the existing `actionUrl` path).
+
 ---
 
 ## 4. Security / no-leak guarantees
@@ -138,6 +155,11 @@ verified end state + next-track options.
   **no OAuth tokens, no provider account labels / emails, no scopes**. The endpoint
   is **self-scoped to `auth.userId`** (never request input), so it can't probe
   another member; **non-members get no-leak behavior** (403, never the list).
+- **NotificationBell badge (CS-8):** the bell row is **count-only** — it carries
+  **no workflow name, provider, requester, provider account label, email, token,
+  or scope** (the count is the only datum). It is **self-scoped to `auth.userId`**
+  on the active account, and **fails quiet** (empty notice) if resolving the count
+  errors, so the app-shell bell is never broken by this feature.
 
 ---
 
@@ -191,10 +213,12 @@ verified end state + next-track options.
 
 - ✅ **In-app consent surface — RESOLVED (CS-7).** The target now sees + accepts /
   declines pending requests via the Team-page `CredentialRequestsPanel`.
-- **Discovery is pull-based** — the inbox is only visible when the target **visits
-  the Team page**. There is **no NotificationBell badge / push** yet; active
-  notification needs a future `notification_type` migration (out of scope for CS-7
-  under the no-migration boundary). This is the natural next track — §9.A.
+- ✅ **NotificationBell badge — SHIPPED (CS-8).** The bell now shows a count-only,
+  `/team`-linked row when the caller has pending requests. **Discovery is
+  render-time / navigation-based, not real-time push/polling** — the badge updates
+  on the next page render (consistent with the rest of the notification bell). True
+  real-time push would still need a `notification_type` migration + delivery path
+  (deferred).
 - **No multi-connection-per-provider** selection (a member with two connections of
   the same provider can't pick which at the node level — Option C, future).
 - **No whole-workflow "runs-as member X"** shortcut (Option E was not needed).
@@ -203,56 +227,50 @@ verified end state + next-track options.
   the leaver's grants (falls back to the creator, or fails clearly); it does not
   auto-assign a replacement.
 - **No migration of existing plaintext provider webhook secrets** (out of arc).
-- `lint:structure` docs-folder file-count debt remains — **pre-existing and
-  unrelated** to this arc.
+- ✅ `lint:structure` docs-folder file-count debt — **RESOLVED** by
+  `4.DOCS-STRUCTURE-1` (`bf92a667f`); the Phase-4 slice docs are now grouped into
+  subfolders and the check passes.
 
 ---
 
-## 8. Verification baseline (as of CS-7, `9ad1d4c50`)
+## 8. Verification baseline (as of CS-8, `f524f982d`)
 
-- **Full Jest:** 15,873 passed / 0 failed (28 suites skipped — gated DB harness).
+- **Full Jest:** 15,888 passed / 0 failed (28 suites skipped — gated DB harness).
 - **typecheck:** clean (`tsc --noEmit`).
 - **lint:** 0 errors on changed files.
-- **CS-1 … CS-6 suites:** green.
+- **lint:structure:** OK (every leaf ≤ 50 files).
+- **CS-1 … CS-7 suites:** green.
 - **CS-3 route/service, CS-4b builder-request, NotificationBell, and Team suites:**
-  green (untouched by CS-7 — accept/decline reuse the existing CS-3 routes).
+  green (untouched by CS-8 — accept/decline reuse the CS-3 routes; the bell renders
+  the derived row via its existing `actionUrl` path).
 - **Existing 22C + leave/remove offboarding suites:** green (incl. the TL-3
-  leave-account structural scope guard).
+  leave-account structural scope guard) + the `resolveActiveAccount` foreground-only
+  architecture guard (CS-8 helper registered as an approved foreground caller).
 
 > No source / migration / test / behavior was changed by this closeout-update slice
-> — the baseline above is inherited from CS-7, not re-measured here.
+> — the baseline above is inherited from CS-8, not re-measured here.
 
 ---
 
 ## 9. Recommended next tracks
 
-**First:** run a full local baseline if one hasn't been run since CS-7 (`tsc
---noEmit`, `eslint .`, `jest`) to confirm the arc end state on a clean tree.
+**The credential-sharing arc is now functionally + discovery complete** (consent
+inbox CS-7 + bell badge CS-8). Remaining items are either deferred enhancements
+(§7) or separate tracks:
 
-**Then choose one:**
-
-- **A. NotificationBell badge / active notification** for credential requests —
-  turns CS-7's pull-based inbox into active discovery (needs a `notification_type`
-  migration; the one remaining caveat in §7).
-- **B. Docs structure reorg** to resolve `lint:structure` file-count debt.
-- **C. API keys / webhooks Phase B planning** — developer-platform foundation.
+- ✅ **A. NotificationBell badge — DONE (CS-8).** Render-time discovery shipped;
+  true real-time push remains a deferred enhancement (needs a `notification_type`
+  migration + delivery path).
+- ✅ **B. Docs structure reorg — DONE (`4.DOCS-STRUCTURE-1`, `bf92a667f`).**
+  `lint:structure` passes; the §7 docs-debt caveat is resolved.
+- **C. API keys / webhooks foundation planning** — developer-platform foundation
+  (**next track — `4.API-KEYS-FOUNDATION-1`**).
 - **D. Plan metadata / Stripe billing planning** — monetization.
 - **E. 2FA / session future security planning.**
 
-**Suggested priority by goal:**
-
-| Goal | Pick |
-|---|---|
-| Collaboration polish | **A** — NotificationBell badge / active notification |
-| Local hygiene | **B** — docs structure reorg |
-| Developer platform | **C** — API keys foundation planning |
-| Monetization | **D** — plan metadata / Stripe planning |
-
-**Recommendation:** with the consent surface now shipped (CS-7), the collaboration
-loop is **functionally complete**; **A** (NotificationBell badge / active
-notification) is now a polish item, not a blocker. Pick the next track by the goal
-above rather than defaulting to A — **B** is the cheapest hygiene win if no product
-goal is pressing.
+**Recommendation:** the collaboration loop and local hygiene are both closed out,
+so the next track is **C — API keys foundation planning** (the developer-platform
+on-ramp). **D** (monetization) is the alternative if revenue is the pressing goal.
 
 ---
 
@@ -264,12 +282,14 @@ goal is pressing.
   account/service unchanged, no broad sharing, `created_by_user_id` never rewritten.
 - **Commit chain:** plan `b9327d4ca` → CS-1 `1b19e4386` → CS-2 `3b3c668bd` → CS-3
   `db4e3fe9d` → CS-4 `3473352bd` → CS-4b `c7496a071` → CS-5 `15a4abb98` → CS-6
-  `54b7ba5ff` → CS-7 `9ad1d4c50`.
+  `54b7ba5ff` → CS-7 `9ad1d4c50` → CS-8 `f524f982d`.
 - **End state:** `workflow_node_credentials` (one live grant per node, history
   preserved, service-role writes, membership-gated freeze-aware SELECT); execution /
   options / AI all node-owner-aware behind the flag; offboarding counts + revokes
-  owned grants; the target consents via the Team-page inbox panel (CS-7).
-- **Deferred:** NotificationBell badge / active notification (pull-based inbox only),
+  owned grants; the target consents via the Team-page inbox panel (CS-7) and is
+  alerted by a count-only NotificationBell badge (CS-8).
+- **Deferred:** real-time push notification (render-time discovery only),
   multi-connection-per-provider, whole-workflow runs-as, auto-reassign-on-leave.
-- **Recommended next track:** pick by goal (§9) — the consent loop is complete, so
-  **A** (active notification) is polish; **B** (docs reorg) is the cheapest hygiene win.
+- **Recommended next track:** **C — API keys foundation planning**
+  (`4.API-KEYS-FOUNDATION-1`); the consent loop, discovery, and docs hygiene are all
+  closed out.
