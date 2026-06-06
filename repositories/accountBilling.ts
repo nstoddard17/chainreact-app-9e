@@ -3,6 +3,51 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { PlanTier, PlanStatus } from "@/core/billing/planPolicy";
 
 /**
+ * Authoritative billing-state sync from a VERIFIED Stripe billing webhook (CS-4). The
+ * webhook handler is the SOLE writer of plan / plan_status — no client route may set
+ * them (Q15 of the billing plan). Only the keys present on `fields` are written; a
+ * missing key leaves the column untouched (so e.g. a subscription event can update
+ * status + period without disturbing the plan when its metadata is incomplete).
+ * Service-role only. No-op on an empty patch.
+ */
+export interface BillingSubscriptionSync {
+  plan?: PlanTier;
+  planStatus?: PlanStatus;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+}
+
+export async function applyBillingSubscriptionSyncServiceRole(
+  accountId: string,
+  fields: BillingSubscriptionSync,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if ("plan" in fields) patch.plan = fields.plan;
+  if ("planStatus" in fields) patch.plan_status = fields.planStatus;
+  if ("currentPeriodEnd" in fields) patch.current_period_end = fields.currentPeriodEnd ?? null;
+  if ("cancelAtPeriodEnd" in fields) patch.cancel_at_period_end = fields.cancelAtPeriodEnd;
+  if ("stripeCustomerId" in fields) patch.stripe_customer_id = fields.stripeCustomerId ?? null;
+  if ("stripeSubscriptionId" in fields)
+    patch.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
+  if (Object.keys(patch).length === 0) return;
+
+  const supabase = getServiceRoleClient(
+    `account_billing: apply Stripe subscription sync for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_billing")
+    .update(patch)
+    .eq("account_id", accountId);
+  if (error) {
+    throw new Error(
+      `account_billing.applyBillingSubscriptionSyncServiceRole failed: ${error.message}`,
+    );
+  }
+}
+
+/**
  * Repository for account_billing — the account-scoped billing root
  * (Slice 4.ACCOUNT-MODEL-9c live cutover; 9c2 canonical cleanup). Keys every
  * operation on `account_id` and calls the canonical account-keyed billing RPCs
