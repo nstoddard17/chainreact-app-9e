@@ -304,6 +304,40 @@ export async function getStripeAttachmentServiceRole(
   };
 }
 
+/**
+ * Race-safe lazy attach of a Stripe customer id (CS-3). Writes `customerId` ONLY when
+ * the account currently has none (`stripe_customer_id IS NULL`). Returns `stored: true`
+ * with the written id when this caller won; on a lost race (another writer set it first,
+ * or it was already set) returns `stored: false` with the EFFECTIVE (winner's) id so the
+ * caller uses the canonical customer and can discard its just-created duplicate. The
+ * partial unique index on `stripe_customer_id` is the final backstop. Service-role only.
+ */
+export async function attachStripeCustomerIfAbsentServiceRole(
+  accountId: string,
+  customerId: string,
+): Promise<{ stored: boolean; customerId: string }> {
+  const supabase = getServiceRoleClient(
+    `account_billing: attach Stripe customer (if absent) for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .update({ stripe_customer_id: customerId })
+    .eq("account_id", accountId)
+    .is("stripe_customer_id", null)
+    .select("stripe_customer_id");
+  if (error) {
+    throw new Error(
+      `account_billing.attachStripeCustomerIfAbsentServiceRole failed: ${error.message}`,
+    );
+  }
+  if (data && data.length > 0) {
+    return { stored: true, customerId };
+  }
+  // Lost the race (or already attached) — re-read the canonical id.
+  const existing = await getStripeAttachmentServiceRole(accountId);
+  return { stored: false, customerId: existing?.stripeCustomerId ?? customerId };
+}
+
 /** Partial Stripe-attachment update (only provided fields are written). */
 export interface StripeAttachmentUpdate {
   stripeCustomerId?: string | null;
