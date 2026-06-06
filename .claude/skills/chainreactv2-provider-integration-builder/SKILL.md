@@ -78,8 +78,10 @@ Get this right — it controls sharing, options access, AI redaction, and offboa
 - **OAuth scopes:** requested scopes match the manifest.
 - **e2e / walkthrough** (Playwright under `tests/e2e`) if a user-facing flow warrants it.
 
-Run `npm run typecheck`, `npm run lint`, and the focused `npm test` suites. Local commit.
-No push.
+Run `npm run typecheck`, `npm run lint`, and the focused `npm test` suites. If the slice
+creates a migration, also run `npm run lint:migrations` and apply it to the V2 dev DB with
+`npm run db:push` by default (unless Marcus explicitly says not to). `db:push` ≠ git push —
+only git push stays forbidden. Local commit. No git push.
 
 ## Final report
 

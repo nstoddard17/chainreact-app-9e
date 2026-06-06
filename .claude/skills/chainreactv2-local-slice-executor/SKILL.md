@@ -13,6 +13,9 @@ pass.
 
 1. **Local only. Never push.** No `git push`, no PRs, no remote triggers unless Marcus
    explicitly asks in this conversation. Approval to push one time does not carry over.
+   **`db:push` is the exception, not git push:** if the slice creates a migration, apply
+   it to the V2 dev DB with `npm run db:push` by default unless Marcus explicitly says not
+   to. This is separate from git push, which remains forbidden unless explicitly requested.
 2. **Inspect before you change.** Read the actual current code paths before editing.
    Trace the real call chain — don't assume. Compare working vs. broken when debugging.
 3. **Small/medium scope, clear boundaries.** Prefer the smallest change that fully does
@@ -78,7 +81,9 @@ Pick the lightest set that actually proves the slice:
 
 - Type safety: `npm run typecheck`
 - Lint: `npm run lint` (and `npm run lint:structure` if you added/moved files)
-- Migrations: `npm run lint:migrations` if you touched `supabase/migrations/`
+- Migrations: `npm run lint:migrations` if you touched `supabase/migrations/`, then apply
+  the migration to the V2 dev DB with `npm run db:push` by default (unless Marcus says not
+  to). `db:push` ≠ git push — only git push stays forbidden.
 - Tests: `npm test` (Jest, under `tests/`) — run the focused suite for what you changed,
   not the whole tree unless warranted. Add/extend tests for new behavior.
 

@@ -83,7 +83,10 @@ billing/usage gates · any public (unauthenticated) endpoint.
   this skill's threat note. Docs-only, local commit, no push.
 - **Implementation:** the change + no-leak tests + the security report. Run
   `npm run typecheck`, `npm run lint:migrations` (if migrations), and the relevant
-  `npm test` suites. Local commit, no push.
+  `npm test` suites. If the slice creates a migration, also apply it to the V2 dev DB with
+  `npm run db:push` by default (unless Marcus explicitly says not to) — only after the
+  RLS + GRANT review passes. `db:push` ≠ git push; only git push stays forbidden. Local
+  commit, no git push.
 
 Use [`no-leak-test-checklist.md`](./no-leak-test-checklist.md) to make the test pass
 meaningful.
