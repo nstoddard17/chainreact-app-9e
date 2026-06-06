@@ -18,8 +18,8 @@ webhook, or UI implementation in this slice.
 [core/encryption/tokens.ts](../../../core/encryption/tokens.ts) (`encryptToken` / `decryptToken`) ·
 [repositories/notifications.ts](../../../repositories/notifications.ts) (`create`) ·
 [contracts/accounts.ts](../../../contracts/accounts.ts) (`AccountType`, `MembershipRole`) ·
-[docs/slices/phase-4/account-settings-plan-billing-plan.md](./account-settings-plan-billing-plan.md) ·
-[docs/slices/phase-4/account-settings-security-access-plan.md](./account-settings-security-access-plan.md).
+[docs/slices/phase-4/account-settings/account-settings-plan-billing-plan.md](./account-settings/account-settings-plan-billing-plan.md) ·
+[docs/slices/phase-4/account-settings/account-settings-security-access-plan.md](./account-settings/account-settings-security-access-plan.md).
 
 > **Headline:** ChainReactV2 has **no public API and no customer-facing webhooks
 > today.** The "API & webhooks" settings section is an honest "No API access yet —

@@ -8,8 +8,8 @@
 Source of truth:
 [`account-ownership-model.md`](../../rules/account-ownership-model.md) (canonical —
 §"Account switching behavior" already fixes the contract this plan implements),
-[`account-model-closeout.md`](./account-model-closeout.md),
-[`account-deletion-flow-closeout.md`](./account-deletion-flow-closeout.md).
+[`account-model-closeout.md`](./account-model/account-model-closeout.md),
+[`account-deletion-flow-closeout.md`](./account-model/account-deletion-flow-closeout.md).
 
 ---
 

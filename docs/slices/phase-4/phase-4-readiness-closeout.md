@@ -57,9 +57,9 @@ User-facing honesty held throughout: every unsupported area is an **honest
 - Owner-transfer + leave-team (TL-1…TL-5); transfer RPC locked to service_role.
 - Business member cap = **25** (`4.ACCOUNT-MODEL-BUSINESS-LIMIT-1`, `13ba61960`) —
   resolves the brief-vs-code mismatch the billing plan flagged.
-- **Closeouts:** [account-model-closeout.md](./account-model-closeout.md),
-  [account-deletion-flow-closeout.md](./account-deletion-flow-closeout.md),
-  [account-switcher-closeout.md](./account-switcher-closeout.md).
+- **Closeouts:** [account-model-closeout.md](./account-model/account-model-closeout.md),
+  [account-deletion-flow-closeout.md](./account-model/account-deletion-flow-closeout.md),
+  [account-switcher-closeout.md](./account-model/account-switcher-closeout.md).
 
 ### 2.2 Teams — COMPLETE (local)
 - Team page: members roster (identity via `get_account_member_identities` RPC),
@@ -67,9 +67,9 @@ User-facing honesty held throughout: every unsupported area is an **honest
   member-limit guard (`memberLimitFor`: team 5, org 25, personal 1).
 - Credential access: audit + execution-time pin + offboarding revoke; builder/options/AI
   credential consistency (22D-1/2/3) done.
-- **Closeouts:** [team-account-launch-closeout.md](./team-account-launch-closeout.md),
-  [team-workflows-closeout.md](./team-workflows-closeout.md),
-  [team-credential-access-closeout.md](./team-credential-access-closeout.md).
+- **Closeouts:** [team-account-launch-closeout.md](./team/team-account-launch-closeout.md),
+  [team-workflows-closeout.md](./team/team-workflows-closeout.md),
+  [team-credential-access-closeout.md](./team/team-credential-access-closeout.md).
 
 ### 2.3 Workflows — COMPLETE (local, for the Phase-4 scope)
 - Dashboard renders for the **active account** (fixed the folders create-but-not-shown
@@ -93,8 +93,8 @@ User-facing honesty held throughout: every unsupported area is an **honest
 - **Read-only / coming-soon:** Plan & billing (BILL-1, real tier label + real task
   usage + member/folder limits, no fake meters), **API & webhooks** (API-WEBHOOKS-2,
   two honest panels: account-scoped API keys + outbound webhooks, both "coming soon").
-- **Closeouts:** [account-settings-closeout.md](./account-settings-closeout.md),
-  [account-settings-billing-closeout.md](./account-settings-billing-closeout.md);
+- **Closeouts:** [account-settings-closeout.md](./account-settings/account-settings-closeout.md),
+  [account-settings-billing-closeout.md](./account-settings/account-settings-billing-closeout.md);
   API/webhooks plan: [account-settings-api-webhooks-plan.md](./account-settings-api-webhooks-plan.md).
 
 ---
@@ -142,7 +142,7 @@ User-facing honesty held throughout: every unsupported area is an **honest
   (e.g. `phase-4/closeouts/`), archive completed audits, or raise the limit. **Not done
   here.**
 
-**Billing / payments** (per [account-settings-plan-billing-plan.md](./account-settings-plan-billing-plan.md))
+**Billing / payments** (per [account-settings-plan-billing-plan.md](./account-settings/account-settings-plan-billing-plan.md))
 - **No Stripe / payments** — no checkout, portal, invoices, payment method, next-billing
   date, or per-tier prices. Deferred to a real Stripe slice (BILL-PAYMENTS).
 - **No plan/tier metadata** — tier is derived from account `type` only; **Pro** and
@@ -165,7 +165,7 @@ User-facing honesty held throughout: every unsupported area is an **honest
 - **Hygiene:** inbound provider webhook secrets are stored **plaintext** in
   `trigger_resources.config`; migrate to encrypted storage in a separate slice.
 
-**Security & access** (per [account-settings-security-access-plan.md](./account-settings-security-access-plan.md))
+**Security & access** (per [account-settings-security-access-plan.md](./account-settings/account-settings-security-access-plan.md))
 - **2FA**, **sessions/devices**, and **connected accounts** (OAuth/SSO sign-in) remain
   honest "coming soon" — auth is email + password only today. **Avatar** also deferred.
 

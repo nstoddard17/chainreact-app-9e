@@ -29,10 +29,10 @@
 
 Team accounts, invitations, member management, Team workflow support, credential scoping,
 member-removal offboarding warnings, and workflow folders/trash are all in place locally
-(closeouts: [team-account-launch-closeout.md](./team-account-launch-closeout.md),
-[team-workflows-closeout.md](./team-workflows-closeout.md),
-[team-credential-access-closeout.md](./team-credential-access-closeout.md),
-[account-deletion-flow-closeout.md](./account-deletion-flow-closeout.md),
+(closeouts: [team-account-launch-closeout.md](./team/team-account-launch-closeout.md),
+[team-workflows-closeout.md](./team/team-workflows-closeout.md),
+[team-credential-access-closeout.md](./team/team-credential-access-closeout.md),
+[account-deletion-flow-closeout.md](./account-model/account-deletion-flow-closeout.md),
 [workflow-folders-trash-plan.md](./workflow-folders-trash-plan.md)). The major remaining Team
 account lifecycle gap is **owner transfer / leave Team**.
 

@@ -21,7 +21,7 @@ or credential-sharing behavior changes** in this slice. Nothing pushed.
 [services/accounts/membership.ts](../../../services/accounts/membership.ts) (`getMemberWorkflowImpact`, `removeMember`) ·
 [services/accounts/offboardingImpact.ts](../../../services/accounts/offboardingImpact.ts) ·
 [services/accounts/transferOwnership.ts](../../../services/accounts/transferOwnership.ts) (does NOT touch creds/`created_by_user_id`) ·
-[docs/slices/phase-4/team-credential-access-closeout.md](./team-credential-access-closeout.md) ·
+[docs/slices/phase-4/team/team-credential-access-closeout.md](./team/team-credential-access-closeout.md) ·
 [docs/slices/phase-4/phase-4-readiness-closeout.md](./phase-4-readiness-closeout.md) (`b3e55f3b2`).
 
 > **Headline:** Today every personal-provider step in a Team workflow runs under
