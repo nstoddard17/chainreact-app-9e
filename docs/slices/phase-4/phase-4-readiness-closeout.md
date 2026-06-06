@@ -125,22 +125,26 @@ User-facing honesty held throughout: every unsupported area is an **honest
 | `npm run typecheck` (`tsc --noEmit`) | ✅ Clean |
 | `npm run lint` (`eslint .`) | ✅ **0 errors**, 17 warnings — all pre-existing (`scripts/trash/*`, one `max-lines` in `services/ai/tools/workflowContext.ts` at 423/400, one unused eslint-disable in a test). None from Phase-4 settings work. |
 | `npm run lint:migrations` | ✅ OK — every user-data table migration enables RLS + has ≥1 policy. |
-| `npm run lint:structure` | ❌ **FAIL** — `docs/slices/phase-4` has 64 files (limit 50). **Pre-existing docs-accumulation debt, not a code/behavior issue** (see §5). |
+| `npm run lint:structure` | ✅ **OK** — **resolved by `4.DOCS-STRUCTURE-1`**. _This baseline originally recorded a FAIL (`docs/slices/phase-4` had 64 files, limit 50); the docs reorg subfoldered them into topical directories, and the leaf is now ≤ 50. Re-verified green 2026-06-05 (see §5)._ |
 | `npx jest` | ✅ **15,688 passed**, 113 skipped, **0 failed** (1385 suites passed, 27 skipped — the skips are live-DB `.dev` integration tests). |
 
-> Net: the code baseline is green (typecheck, lint, migration-RLS, full jest). The
-> only red is the **documentation** leaf-count limit on `docs/slices/phase-4`.
+> Net: the baseline is fully green — typecheck, lint, migration-RLS, full jest, **and
+> `lint:structure`** (the documentation leaf-count limit on `docs/slices/phase-4` was
+> resolved by the `4.DOCS-STRUCTURE-1` reorg).
 
 ---
 
 ## 5. Remaining known deferrals
 
 **Documentation / structure**
-- **`docs/slices/phase-4` leaf-count violation (64 > 50).** Pre-existing; this readiness
-  doc does not resolve it (a docs reorg re-homing ~64 files + fixing their relative
-  cross-links is a separate, link-risk-bearing slice). Options: subfolder the closeouts
-  (e.g. `phase-4/closeouts/`), archive completed audits, or raise the limit. **Not done
-  here.**
+- **`docs/slices/phase-4` leaf-count violation (64 > 50) — RESOLVED by `4.DOCS-STRUCTURE-1`.**
+  The docs reorg re-homed the files into six topical subfolders (`account-model/`,
+  `account-settings/`, `ai/`, `providers/`, `team/`, `workflows/`) and updated their
+  relative cross-links; **`npm run lint:structure` is now green** (root leaf = 29 files,
+  ≤ 50). The subsequent `4.DOCS-HYGIENE-1` audit
+  ([docs-hygiene-audit.md](./docs-hygiene-audit.md)) confirmed no code references broke and
+  found nothing to delete/move. (This bullet was the open deferral when this closeout was
+  first written; it is retained here, corrected, for traceability.)
 
 **Billing / payments** (per [account-settings-plan-billing-plan.md](./account-settings/account-settings-plan-billing-plan.md))
 - **No Stripe / payments** — no checkout, portal, invoices, payment method, next-billing
@@ -190,14 +194,15 @@ User-facing honesty held throughout: every unsupported area is an **honest
   the notification-preferences "db:push debt" is **resolved** (columns + version verified
   directly against the DB). **No unapplied migrations.**
 - **Baseline:** typecheck clean · lint 0 errors (17 pre-existing warnings) ·
-  lint:migrations OK · **lint:structure FAIL (docs leaf-count 64 > 50, pre-existing)** ·
-  jest 15,688 passed / 113 skipped / 0 failed.
+  lint:migrations OK · **lint:structure OK** (the original baseline FAIL — docs leaf-count
+  64 > 50 — was resolved by `4.DOCS-STRUCTURE-1`) · jest 15,688 passed / 113 skipped /
+  0 failed.
 - **Phase-4 subsystems** (account model, teams, workflows, folders/trash, account
   settings) are **complete locally** on `builder-ui-v1-audit-1` with honest
   coming-soon placeholders for everything not yet supported.
 - **Key deferrals:** Stripe/payments + plan metadata + account-billing rescope (-9a…-9d);
   API-keys/webhooks implementation (Phases B–D) + rate limiting; 2FA / sessions /
-  connected accounts / avatar; account-model Phase D + Enterprise; the
-  `docs/slices/phase-4` leaf-count reorg.
+  connected accounts / avatar; account-model Phase D + Enterprise. (The
+  `docs/slices/phase-4` leaf-count reorg is **done** — `4.DOCS-STRUCTURE-1`.)
 - This is a **docs-only readiness/handoff** slice — no source, schema, migration, test,
   or UI changes.

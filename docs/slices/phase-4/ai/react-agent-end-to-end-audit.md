@@ -25,7 +25,7 @@
 
 Steady-state interactions (Plan / Apply / Clear / typing) work because those are user-event-driven, not effect-driven, so they are not subject to the Strict Mode double-invoke.
 
-`reactStrictMode: true` is set in [`next.config.mjs`](../../../next.config.mjs). This affects dev only; production builds do not double-invoke, so prod refresh likely DOES rehydrate correctly. Marcus is running `npm run dev` → he hits the dev-only path.
+`reactStrictMode: true` is set in [`next.config.mjs`](../../../../next.config.mjs). This affects dev only; production builds do not double-invoke, so prod refresh likely DOES rehydrate correctly. Marcus is running `npm run dev` → he hits the dev-only path.
 
 This is the only P0 finding in this audit.
 
