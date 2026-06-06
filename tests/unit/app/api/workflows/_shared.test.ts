@@ -287,6 +287,8 @@ describe("toWorkflowRunSummary", () => {
     createdAt: "2026-05-07T00:00:00Z",
     isTest: false,
     triggeredBy: "unknown",
+    triggeredByApiKeyId: null,
+    triggeredByApiKeyPrefix: null,
   };
 
   it("strips userId / steps / triggerEvent / fatalError from the wire shape", () => {
@@ -346,6 +348,8 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       createdAt: "2026-05-22T00:00:00Z",
       isTest: false,
       triggeredBy: "unknown",
+      triggeredByApiKeyId: null,
+      triggeredByApiKeyPrefix: null,
     };
   }
 

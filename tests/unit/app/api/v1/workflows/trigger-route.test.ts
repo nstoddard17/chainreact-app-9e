@@ -100,6 +100,7 @@ beforeEach(() => {
     ok: true,
     keyId: "k1",
     accountId: "acct-1",
+    prefix: "crk_live_ab12…wxyz",
     scopes: ["workflows:trigger"],
   });
   mockRateLimit.mockReset().mockResolvedValue({ allowed: true });
@@ -308,16 +309,31 @@ describe("run enqueue", () => {
     expect(await res.json()).toEqual({ ok: true, runId: "run-1", enqueuedAt: "2026-06-05T00:00:00Z" });
   });
 
-  it("enqueues a real manual run with no human actor (api-key)", async () => {
+  it("enqueues a real api_key run: no human actor, with key id + prefix provenance", async () => {
     await POST(buildRequest({ auth: VALID_AUTH, body: "{}" }), params());
     const arg = mockEnqueueRun.mock.calls[0]![0];
     expect(arg).toMatchObject({
       workflowId: "wf-1",
       triggerNodeId: "trigger-node",
       testMode: false,
-      triggeredBy: "manual",
+      triggeredBy: "api_key",
       triggeredByUserId: null,
+      triggeredByApiKeyId: "k1",
+      triggeredByApiKeyPrefix: "crk_live_ab12…wxyz",
     });
+  });
+
+  it("never forwards a raw key or key_hash into the run path", async () => {
+    await POST(
+      buildRequest({ auth: "Bearer crk_live_THE_RAW_SECRET_VALUE_aaaaaaaaaaaaaaaaaaaa", body: "{}" }),
+      params(),
+    );
+    const arg = mockEnqueueRun.mock.calls[0]![0];
+    const serialized = JSON.stringify(arg);
+    // Only the non-secret prefix snapshot + key id are present.
+    expect(arg.triggeredByApiKeyPrefix).toBe("crk_live_ab12…wxyz");
+    expect(serialized).not.toContain("THE_RAW_SECRET_VALUE");
+    expect(serialized).not.toMatch(/key_?hash/i);
   });
 });
 

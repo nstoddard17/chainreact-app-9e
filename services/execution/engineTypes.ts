@@ -117,6 +117,15 @@ export interface RunWorkflowInput {
    * run OWNERSHIP comes from the workflow's account_id, not this field.
    */
   triggeredByUserId?: string | null;
+  /**
+   * RH-2 — public API-key provenance, persisted to
+   * `workflow_runs.triggered_by_api_key_id` / `_prefix`. Set ONLY by the public
+   * API-key trigger route (with `triggeredBy: "api_key"`, `triggeredByUserId: null`).
+   * Every other entry path (manual/retry/webhook/cron) leaves them undefined → NULL.
+   * The prefix is a non-secret snapshot; the raw key/hash never reach here.
+   */
+  triggeredByApiKeyId?: string | null;
+  triggeredByApiKeyPrefix?: string | null;
 }
 
 export interface EngineDependencies {

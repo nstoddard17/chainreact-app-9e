@@ -46,6 +46,8 @@ export async function persistRun(
       // the human caller (manual/retry) or NULL (webhook/polling/cron/scheduled).
       accountId,
       triggeredByUserId: input.triggeredByUserId ?? null,
+      triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
+      triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
       status: result.status,
       triggerNodeId: input.triggerNodeId,
       triggerEvent: input.triggerEvent,
@@ -121,6 +123,8 @@ export async function finalizeRun(
         workflowId: result.workflowId,
         accountId,
         triggeredByUserId: input.triggeredByUserId ?? null,
+        triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
+        triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
         status: result.status,
         triggerNodeId: input.triggerNodeId,
         triggerEvent: input.triggerEvent,

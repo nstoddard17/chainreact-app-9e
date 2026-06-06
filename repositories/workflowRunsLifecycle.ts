@@ -61,6 +61,13 @@ export interface CreateWorkflowRunStartInput {
   startedAt: string;
   isTest: boolean;
   triggeredBy: WorkflowRunTriggeredBy;
+  /**
+   * RH-2 — public API-key provenance. Optional; default NULL for every non-API-key
+   * run. The id is a nullable FK to account_api_keys; the prefix is a non-secret
+   * snapshot. Never the raw key/hash.
+   */
+  triggeredByApiKeyId?: string | null;
+  triggeredByApiKeyPrefix?: string | null;
   /** COST-2 estimate, known pre-execution. Optional. */
   estimatedTaskCost?: number | null;
   taskCostPolicyVersion?: string | null;
@@ -98,6 +105,8 @@ export async function createWorkflowRunStart(
     finished_at: null,
     is_test: input.isTest,
     triggered_by: input.triggeredBy,
+    triggered_by_api_key_id: input.triggeredByApiKeyId ?? null,
+    triggered_by_api_key_prefix: input.triggeredByApiKeyPrefix ?? null,
     estimated_task_cost: input.estimatedTaskCost ?? null,
     actual_task_cost: null,
     task_cost_policy_version: input.taskCostPolicyVersion ?? null,

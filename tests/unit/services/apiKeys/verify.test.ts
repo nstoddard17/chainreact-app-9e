@@ -22,6 +22,7 @@ function record(over: Record<string, unknown> = {}) {
   return {
     id: "k1",
     accountId: "acct-1",
+    prefix: "crk_live_ab12…wxyz",
     keyHash: "deadbeef",
     scopes: ["workflows:trigger"],
     expiresAt: null,
@@ -79,18 +80,26 @@ describe("verifyApiKey — failure modes (all opaque to the caller)", () => {
 });
 
 describe("verifyApiKey — success", () => {
-  it("matching hash → ok with keyId/accountId/scopes (no hash echoed)", async () => {
+  it("matching hash → ok with keyId/accountId/prefix/scopes (no hash echoed)", async () => {
     const { raw, keyHash } = generateApiKey("live");
     mockGetByPrefix.mockResolvedValue([
-      record({ id: "k9", accountId: "acct-9", keyHash, scopes: ["workflows:trigger"] }),
+      record({
+        id: "k9",
+        accountId: "acct-9",
+        prefix: "crk_live_zz99…aa11",
+        keyHash,
+        scopes: ["workflows:trigger"],
+      }),
     ]);
     const r = await verifyApiKey(`Bearer ${raw}`);
     expect(r).toEqual({
       ok: true,
       keyId: "k9",
       accountId: "acct-9",
+      prefix: "crk_live_zz99…aa11",
       scopes: ["workflows:trigger"],
     });
+    // The non-secret prefix is surfaced; the hash + raw key never are.
     expect(JSON.stringify(r)).not.toContain(keyHash);
     expect(JSON.stringify(r)).not.toContain(raw);
   });

@@ -34,7 +34,7 @@ export type VerifyApiKeyFailureReason =
   | "expired"; // matched a key whose `expires_at` is in the past
 
 export type VerifyApiKeyResult =
-  | { ok: true; keyId: string; accountId: string; scopes: string[] }
+  | { ok: true; keyId: string; accountId: string; prefix: string; scopes: string[] }
   | { ok: false; reason: VerifyApiKeyFailureReason };
 
 /**
@@ -69,6 +69,7 @@ export async function verifyApiKey(
     ok: true,
     keyId: match.id,
     accountId: match.accountId,
+    prefix: match.prefix,
     scopes: match.scopes,
   };
 }

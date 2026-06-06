@@ -81,6 +81,13 @@ export interface WorkflowRunRecord {
   isTest: boolean;
   /** Slice 3.SEC-2 — how the run was started. */
   triggeredBy: WorkflowRunTriggeredBy;
+  /**
+   * RH-2 — public API-key provenance. Both NULL for every non-API-key run. The
+   * id is a (nullable) FK to account_api_keys; the prefix is a NON-SECRET snapshot
+   * that survives the key being revoked/renamed/deleted. Never the raw key/hash.
+   */
+  triggeredByApiKeyId: string | null;
+  triggeredByApiKeyPrefix: string | null;
 }
 
 interface WorkflowRunsRow {
@@ -99,6 +106,8 @@ interface WorkflowRunsRow {
   created_at: string;
   is_test: boolean;
   triggered_by: WorkflowRunTriggeredBy;
+  triggered_by_api_key_id: string | null;
+  triggered_by_api_key_prefix: string | null;
 }
 
 function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
@@ -118,6 +127,8 @@ function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
     createdAt: row.created_at,
     isTest: row.is_test,
     triggeredBy: row.triggered_by,
+    triggeredByApiKeyId: row.triggered_by_api_key_id,
+    triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
   };
 }
 
@@ -144,6 +155,13 @@ export interface RecordRunInput {
    */
   isTest: boolean;
   triggeredBy: WorkflowRunTriggeredBy;
+  /**
+   * RH-2 — public API-key provenance. Optional; default NULL for every non-API-key
+   * run (manual/test/webhook/scheduled/retry). The id is a nullable FK to
+   * account_api_keys; the prefix is a non-secret snapshot. Never the raw key/hash.
+   */
+  triggeredByApiKeyId?: string | null;
+  triggeredByApiKeyPrefix?: string | null;
   /**
    * Slice 4.COST-3 — per-run cost columns (ledger-only; live billing is
    * still flat 1/run). Populated for real runs; null for test runs and
@@ -174,6 +192,8 @@ export async function recordRun(input: RecordRunInput): Promise<void> {
     finished_at: input.finishedAt,
     is_test: input.isTest,
     triggered_by: input.triggeredBy,
+    triggered_by_api_key_id: input.triggeredByApiKeyId ?? null,
+    triggered_by_api_key_prefix: input.triggeredByApiKeyPrefix ?? null,
     estimated_task_cost: input.estimatedTaskCost ?? null,
     actual_task_cost: input.actualTaskCost ?? null,
     task_cost_policy_version: input.taskCostPolicyVersion ?? null,

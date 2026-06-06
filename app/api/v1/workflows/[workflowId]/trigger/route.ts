@@ -188,18 +188,20 @@ export async function POST(
     payload: parsed.data,
   };
 
-  // 11. Enqueue via the SAME path as run-now. `triggeredBy: "manual"` reuses an
-  //     existing RunTriggerSource value (a dedicated "api_key" source is a closed
-  //     union + a workflow_runs CHECK-constraint change → deferred to a migration
-  //     slice); `triggeredByUserId: null` records that there is NO human actor,
-  //     which distinguishes an API-key run from a human manual run.
+  // 11. Enqueue via the SAME path as run-now. RH-2: the run is marked
+  //     `triggeredBy: "api_key"` with NO human actor (`triggeredByUserId: null`) and
+  //     non-secret provenance — the verified key's id (FK) + prefix snapshot. The
+  //     raw key and key_hash never reach the run path. Billing is unchanged (still
+  //     in-engine, billed to the workflow's account).
   const enqueued = await enqueueRun({
     workflowId: workflow.id,
     triggerNodeId: triggerNode.id,
     event,
     testMode: false,
-    triggeredBy: "manual",
+    triggeredBy: "api_key",
     triggeredByUserId: null,
+    triggeredByApiKeyId: verified.keyId,
+    triggeredByApiKeyPrefix: verified.prefix,
   });
 
   // 12. last_used_at — best-effort, throttled in SQL, errors swallowed: a stale

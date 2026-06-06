@@ -44,6 +44,14 @@ export interface EnqueueRunInput {
    * caller's id; webhook dispatchers + cron omit it (→ NULL: no human actor).
    */
   triggeredByUserId?: string | null;
+  /**
+   * RH-2 — public API-key provenance, forwarded to
+   * `workflow_runs.triggered_by_api_key_id` / `_prefix`. Set ONLY by the public
+   * API-key trigger route; every other dispatcher omits them (→ NULL). The prefix
+   * is a non-secret snapshot; the raw key/hash never reach the run path.
+   */
+  triggeredByApiKeyId?: string | null;
+  triggeredByApiKeyPrefix?: string | null;
 }
 
 export interface EnqueueRunResult {
@@ -90,6 +98,8 @@ async function runWorkflowInBackground(
       testMode: input.testMode === true,
       triggeredBy: input.triggeredBy ?? "unknown",
       triggeredByUserId: input.triggeredByUserId ?? null,
+      triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
+      triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
     });
   } catch (err) {
     console.error(

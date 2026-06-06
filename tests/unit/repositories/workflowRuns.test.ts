@@ -127,7 +127,38 @@ describe("workflowRuns.recordRun", () => {
       // Slice 3.SEC-2 — provenance columns always written by the engine.
       is_test: false,
       triggered_by: "unknown",
+      // RH-2 — API-key provenance defaults NULL for non-API-key runs.
+      triggered_by_api_key_id: null,
+      triggered_by_api_key_prefix: null,
     });
+  });
+
+  it("persists triggered_by='api_key' + key id/prefix provenance (RH-2)", async () => {
+    const state: ChainState = { filters: [], resultData: null, resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    await recordRun({
+      runId: "run-ak",
+      workflowId: "wf-1",
+      accountId: "acct-1",
+      triggeredByUserId: null,
+      triggeredByApiKeyId: "key-9",
+      triggeredByApiKeyPrefix: "crk_live_ab12…wxyz",
+      status: "succeeded",
+      triggerNodeId: "t1",
+      triggerEvent,
+      steps: [{ nodeId: "t1", status: "succeeded", output: {} }],
+      startedAt: "2026-06-05T00:00:00Z",
+      finishedAt: "2026-06-05T00:00:01Z",
+      isTest: false,
+      triggeredBy: "api_key",
+    });
+    const payload = state.insertPayload as Record<string, unknown>;
+    expect(payload.triggered_by).toBe("api_key");
+    expect(payload.triggered_by_user_id).toBeNull();
+    expect(payload.triggered_by_api_key_id).toBe("key-9");
+    expect(payload.triggered_by_api_key_prefix).toBe("crk_live_ab12…wxyz");
+    // No raw key / hash is ever written to workflow_runs.
+    expect(JSON.stringify(payload)).not.toMatch(/key_?hash/i);
   });
 
   it("persists is_test=true and triggered_by='test' when supplied (Slice 3.SEC-2)", async () => {

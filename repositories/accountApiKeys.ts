@@ -37,6 +37,8 @@ export interface ApiKeyMetadata {
 export interface ApiKeyVerificationRecord {
   id: string;
   accountId: string;
+  /** Non-secret display prefix — safe to snapshot onto run history (RH-2). */
+  prefix: string;
   keyHash: string;
   scopes: string[];
   expiresAt: string | null;
@@ -79,6 +81,7 @@ function rowToVerification(row: AccountApiKeysRow): ApiKeyVerificationRecord {
   return {
     id: row.id,
     accountId: row.account_id,
+    prefix: row.prefix,
     keyHash: row.key_hash,
     scopes: row.scopes ?? [],
     expiresAt: row.expires_at,
@@ -184,7 +187,7 @@ export async function findApiKeyByHashServiceRole(
   const supabase = getServiceRoleClient("account_api_keys: findByHash");
   const { data, error } = await supabase
     .from("account_api_keys")
-    .select("id, account_id, key_hash, scopes, expires_at, revoked_at")
+    .select("id, account_id, prefix, key_hash, scopes, expires_at, revoked_at")
     .eq("key_hash", keyHash)
     .maybeSingle<AccountApiKeysRow>();
   if (error) {
@@ -204,7 +207,7 @@ export async function getApiKeyForVerificationByPrefixServiceRole(
   const supabase = getServiceRoleClient("account_api_keys: getByPrefix");
   const { data, error } = await supabase
     .from("account_api_keys")
-    .select("id, account_id, key_hash, scopes, expires_at, revoked_at")
+    .select("id, account_id, prefix, key_hash, scopes, expires_at, revoked_at")
     .eq("prefix", prefix)
     .is("revoked_at", null);
   if (error) {

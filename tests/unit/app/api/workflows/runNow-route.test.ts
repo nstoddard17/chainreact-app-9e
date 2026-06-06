@@ -469,9 +469,14 @@ describe("POST /run-now — testMode flag (Slice 3.SEC-2)", () => {
     const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
       testMode: boolean;
       triggeredBy: string;
+      triggeredByApiKeyId?: string | null;
+      triggeredByApiKeyPrefix?: string | null;
     };
     expect(enqueueCall.testMode).toBe(false);
     expect(enqueueCall.triggeredBy).toBe("manual");
+    // RH-2 — manual run-now carries NO API-key provenance.
+    expect(enqueueCall.triggeredByApiKeyId ?? null).toBeNull();
+    expect(enqueueCall.triggeredByApiKeyPrefix ?? null).toBeNull();
   });
 
   it("4.ACCOUNT-MODEL-8: records the caller as the actor (triggeredByUserId) for a manual run", async () => {

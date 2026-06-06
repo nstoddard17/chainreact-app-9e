@@ -189,6 +189,8 @@ export class WorkflowEngine {
         // the human caller (manual/retry) or NULL (webhook/polling/cron/scheduled).
         accountId: workflow.accountId,
         triggeredByUserId: input.triggeredByUserId ?? null,
+        triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
+        triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
         triggerNodeId: input.triggerNodeId,
         triggerEvent: input.triggerEvent,
         startedAt,
