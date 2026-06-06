@@ -66,6 +66,11 @@ export interface RunResult {
  * - `webhook`   — provider webhook delivery dispatched the run.
  * - `scheduled` — cron-triggered run.
  * - `retry`     — a failed run was retried.
+ * - `api_key`   — public API-key trigger (`POST /api/v1/workflows/[id]/trigger`).
+ *                 No human actor (`triggered_by_user_id` stays null); attribution
+ *                 is carried by `triggered_by_api_key_id` / `_prefix`
+ *                 (4.API-KEYS-RUN-HISTORY). RH-1 adds the value only — the public
+ *                 route still enqueues as `manual` until RH-2 threads it.
  * - `unknown`   — pre-SEC-2 rows + any future entry path that hasn't
  *                 declared its source yet.
  *
@@ -79,6 +84,7 @@ export type RunTriggerSource =
   | "webhook"
   | "scheduled"
   | "retry"
+  | "api_key"
   | "unknown";
 
 export interface RunWorkflowInput {

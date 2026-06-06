@@ -225,6 +225,7 @@ export const WorkflowRunTriggeredBySchema = z.enum([
   "webhook",
   "scheduled",
   "retry",
+  "api_key",
   "unknown",
 ]);
 export type WorkflowRunTriggeredBy = z.infer<typeof WorkflowRunTriggeredBySchema>;

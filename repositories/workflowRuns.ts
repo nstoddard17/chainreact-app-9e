@@ -40,7 +40,8 @@ export interface WorkflowRunErrorClassification {
 
 /**
  * Slice 3.SEC-2 — `triggered_by` value set. Mirrors the CHECK constraint
- * in `supabase/migrations/20260523000000_workflow_runs_test_mode.sql`.
+ * in `supabase/migrations/20260523000000_workflow_runs_test_mode.sql`
+ * (expanded with `api_key` in `20260609000000_workflow_runs_api_key_source.sql`).
  * Adding a new source = migration + this union edit.
  */
 export type WorkflowRunTriggeredBy =
@@ -49,6 +50,7 @@ export type WorkflowRunTriggeredBy =
   | "webhook"
   | "scheduled"
   | "retry"
+  | "api_key"
   | "unknown";
 
 export interface WorkflowRunRecord {

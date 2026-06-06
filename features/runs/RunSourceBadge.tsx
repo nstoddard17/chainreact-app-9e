@@ -29,5 +29,9 @@ export const SOURCE_LABELS: Readonly<Record<WorkflowRunTriggeredBy, string>> = {
   webhook: "Webhook",
   scheduled: "Scheduled",
   retry: "Retry",
+  // RH-1: required to keep this exhaustive map total now that `api_key` is a valid
+  // source. Unreachable in the UI until RH-2 threads it (the public trigger route
+  // still enqueues `manual`); RH-3 owns the richer run-history attribution display.
+  api_key: "API key",
   unknown: "—",
 };
