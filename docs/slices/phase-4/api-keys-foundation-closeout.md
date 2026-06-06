@@ -1,18 +1,24 @@
 # 4.API-KEYS-FOUNDATION-CLOSEOUT — API Keys Foundation Closeout
 
 **Type:** Docs-only closeout / handoff. No source, migrations, tests, or UI changes.
-**Date:** 2026-06-05 (updated 2026-06-05 — RATE-LIMIT-1 durable limiter; run-history
-arc RH-1→RH-3; **all three API-key migrations applied to the V2 DB**)
+**Date:** 2026-06-05 (updated 2026-06-06 — DOCS-1 developer docs panel + AUDIT-1
+create/revoke audit notifications; 3 of 4 arc migrations applied, AUDIT-1's enum
+migration pending)
 **Branch:** `builder-ui-v1-audit-1`
 **Arc:** API-KEYS-FOUNDATION plan → FK-1 → FK-2 → FK-3 → FK-4 → RATE-LIMIT-1 →
-run-history (RUN-HISTORY-1 plan → RH-1 → RH-2 → RH-3) (all shipped) → **this closeout**.
+run-history (RUN-HISTORY-1 plan → RH-1 → RH-2 → RH-3) → DOCS-1 → AUDIT-1 (all
+shipped) → **this closeout**.
 
-> **Migration status (2026-06-05):** the three migrations this arc authored —
-> `20260607000000_account_api_keys.sql`, `20260608000000_api_key_rate_limits.sql`, and
-> `20260609000000_workflow_runs_api_key_source.sql` — were **applied to the V2
-> database** via `supabase db push --include-all` (Session pooler, port 5432). The
-> earlier "must be applied / db:push not run" caveats are resolved; remaining gating
-> for the public endpoint is purely the `ENABLE_PUBLIC_API_KEYS` flag flip.
+> **Migration status:** three of the four arc migrations are **applied** to the V2 DB
+> (2026-06-05, `supabase db push --include-all`, Session pooler port 5432):
+> `20260607000000_account_api_keys.sql`, `20260608000000_api_key_rate_limits.sql`,
+> `20260609000000_workflow_runs_api_key_source.sql`. The fourth —
+> `20260610000000_notifications_api_key_audit_types.sql` (API-KEYS-AUDIT-1, the
+> notification-enum extension) — is **authored but NOT yet applied** (`db:push` not run
+> for it this session). Until it is applied, audit-notification inserts fail on the
+> unknown enum value and are **swallowed** (create/revoke still succeed; the notice
+> just isn't persisted). Remaining gating for the public endpoint is purely the
+> `ENABLE_PUBLIC_API_KEYS` flag flip.
 
 ---
 
@@ -49,6 +55,8 @@ public workflow trigger endpoint**.
 | RH-1 | `b78e1cb47` | `api_key` run trigger source — `20260609000000` migration (CHECK + `triggered_by_api_key_id` FK + `triggered_by_api_key_prefix`) + the two TS unions + zod enum. |
 | RH-2 | `9663bc17a` | Public trigger route persists `triggeredBy:"api_key"` + key id/prefix provenance (no human actor); threaded through enqueue → engine → persistence. |
 | RH-3 | `f1803a6d8` | Run-history list shows "Triggered via API key · `<prefix>`"; the non-secret prefix is projected to the display DTO (id/hash never are). |
+| DOCS-1 | `dc7882e97` | Developer docs — a static "Using the API" panel in Account Settings (endpoint, bearer header, curl, 202 shape, error table, rate limits + `Retry-After`, run-history label, security + flag notes). No fake keys/URLs; no new routes. |
+| AUDIT-1 | `138563e29` | Create/revoke audit notifications — `notification_type` enum + `20260610000000` migration; best-effort per-user notice to the acting owner/admin with safe fields only (name/prefix/ids), idempotent on first-revoke. |
 
 ---
 
@@ -67,13 +75,28 @@ public workflow trigger endpoint**.
 - see the raw key **once** (create response only)
 - revoke a key (soft revoke; revoked keys stay listed with `revoked` status)
 
-**Account Settings API keys panel**
-- list
-- create
-- one-time reveal (copy + "won't see it again" warning; discarded on dismiss)
-- revoke (inline confirmation)
-- **frozen account** → read-only (list visible; create/revoke hidden)
-- **member (non-owner/admin)** → read-only note, no list fetch
+**Account Settings → API & webhooks** (three panels)
+- **API keys** (owner/admin manager): list · create · one-time reveal (copy + "won't
+  see it again" warning; discarded on dismiss) · revoke (inline confirmation).
+  **frozen account** → read-only (list visible; create/revoke hidden);
+  **member (non-owner/admin)** → read-only note, no list fetch.
+- **Using the API** (DOCS-1): a static developer reference — endpoint path, bearer
+  header, curl example (placeholder key), 202 success shape, error table
+  (401/403/404/409/422/429), rate limits + `Retry-After`, the run-history label, a
+  security note, and the `ENABLE_PUBLIC_API_KEYS` flag note. No fake per-key URLs; it
+  does not claim the endpoint works while the flag is off.
+- **Webhooks** — still an honest "coming soon" (Phase D).
+
+**Audit notifications (AUDIT-1)**
+- Creating or revoking a key writes a **best-effort, per-user in-app notice** to the
+  acting owner/admin (`notification_type` `api_key_created` / `api_key_revoked`),
+  deep-linking to `/account?section=api`.
+- Safe fields only — key **name + display prefix + ids + actor**; **never** the raw
+  key, `key_hash`, OAuth/integration tokens, or provider labels.
+- Idempotent: the notice fires only on the **first** transition to revoked (re-DELETE
+  of an already-revoked key produces no duplicate). A notification failure never fails
+  the create/revoke action. Rendering is generic (title/body), so the bell +
+  `/notifications` surface the new types with no UI change.
 
 **Public endpoint**
 - `POST /api/v1/workflows/[workflowId]/trigger`
@@ -107,6 +130,9 @@ public workflow trigger endpoint**.
 - **No raw key** appears in any log.
 - **No OAuth/integration tokens** are touched.
 - **No workflow existence leak** across accounts.
+- **Audit notifications carry no secret** (AUDIT-1): name + display prefix + ids only —
+  never the raw key, `key_hash`, or a token, and the best-effort failure log is
+  ids-only. Notices are per-user (RLS `auth.uid() = user_id`) → no cross-account leak.
 
 ---
 
@@ -152,14 +178,17 @@ public workflow trigger endpoint**.
 
 ## 7. Deferred / known limitations
 
-- **Migrations applied (2026-06-05)** — all three (`20260607000000_account_api_keys`,
-  `20260608000000_api_key_rate_limits`, `20260609000000_workflow_runs_api_key_source`)
+- **Migrations — 3 of 4 applied (2026-06-05)** — `20260607000000_account_api_keys`,
+  `20260608000000_api_key_rate_limits`, `20260609000000_workflow_runs_api_key_source`
   were pushed to the V2 DB via `supabase db push --include-all`. Pre-apply
   `workflow_runs` rows simply carry a null `triggered_by_api_key_prefix` (safe +
-  expected — the read path is null-safe). Turning on the public endpoint remains a
-  separate `ENABLE_PUBLIC_API_KEYS` flag flip.
+  expected — the read path is null-safe).
+- **`20260610000000_notifications_api_key_audit_types` (AUDIT-1) is NOT yet applied** —
+  authored this session; `db:push` not run for it. Until applied, audit-notification
+  inserts fail on the unknown enum value and are swallowed (create/revoke unaffected;
+  the notice just isn't persisted). Apply it to enable persisted audit notices.
 - **`ENABLE_PUBLIC_API_KEYS` remains default OFF** — flip it only after the limiter
-  migration is applied in that environment.
+  migration is applied in that environment (it is).
 - **Rate-limit tuning** is a future task — the per-key/workflow/account constants are
   launch defaults (centralized in `core/apiKeys/rateLimitPolicy.ts`) and may need
   adjustment under real traffic.
@@ -182,24 +211,28 @@ public workflow trigger endpoint**.
 
 ## 8. Verification baseline
 
-**Inherited from RH-3 (`f1803a6d8`) — not re-measured in this docs-only update:**
-- Full Jest: **16,076 passed / 0 failed** (121 skipped).
+**Inherited from AUDIT-1 (`138563e29`) — not re-measured in this docs-only update:**
+- Full Jest: **16,097 passed / 0 failed** (121 skipped).
 - `npm run typecheck` — clean.
 - `npm run lint` — **0 errors** (pre-existing warnings only).
 - `npm run lint:migrations` — OK.
 - `npm run lint:structure` — OK.
-- FK-1 / FK-2 / FK-3 / FK-4 / RATE-LIMIT-1 / RH-1 / RH-2 / RH-3 and run-now suites — green.
+- FK-1…FK-4 / RATE-LIMIT-1 / RH-1…RH-3 / DOCS-1 / AUDIT-1 and run-now suites — green.
 
-**Run THIS session (CLOSEOUT-UPDATE, docs-only):**
+**Run THIS session (CLOSEOUT-UPDATE-2, docs-only):**
 - `npm run lint:structure` — OK (re-run; see report).
 - The full Jest / typecheck / lint suites were **NOT re-run this session** (no code changed).
 
-**Migrations — APPLIED (2026-06-05):** `supabase db push --include-all` applied
-`20260607000000_account_api_keys`, `20260608000000_api_key_rate_limits`, and
-`20260609000000_workflow_runs_api_key_source` to the V2 DB (Session pooler, port 5432).
-No migrations remain pending for this arc.
+**Migrations — 3 of 4 APPLIED:**
+- **Applied** (2026-06-05, `supabase db push --include-all`, Session pooler port 5432):
+  `20260607000000_account_api_keys`, `20260608000000_api_key_rate_limits`,
+  `20260609000000_workflow_runs_api_key_source`.
+- **Pending (authored, NOT applied):** `20260610000000_notifications_api_key_audit_types`
+  (AUDIT-1). Apply with `supabase db push` (or `npm run db:push`) to persist audit
+  notifications; until then the audit insert is swallowed (create/revoke unaffected).
 
-_(Earlier baselines: RATE-LIMIT-1 `f332dd240` 16,049/0; FK-4 `10873e15a` 16,017/0.)_
+_(Earlier baselines: RH-3 `f1803a6d8` 16,076/0; RATE-LIMIT-1 `f332dd240` 16,049/0;
+FK-4 `10873e15a` 16,017/0.)_
 
 ### Structure-guard note (RATE-LIMIT-1)
 
@@ -221,20 +254,21 @@ other leaves remain capped at 50.
   `b78e1cb47` → RH-2 `9663bc17a` → RH-3 `f1803a6d8`; migration applied 2026-06-05).
   API-key runs are distinguished from human manual runs end-to-end. Planned in
   [api-keys-run-history-plan.md](./api-keys-run-history-plan.md) (4.API-KEYS-RUN-HISTORY-1).
-- **C. API docs / developer docs page** — document the public endpoint, auth, scope,
-  and response envelope.
-- **D. API-key audit notifications** — `notification_type` enum entries
-  (`api_key_created` / `api_key_revoked`) + delivery, replacing the interim ops logs.
+- **C. API docs / developer docs page** — ✅ **SHIPPED** (DOCS-1, `dc7882e97`): the
+  "Using the API" panel documents the public endpoint, auth, scope, and envelope.
+- **D. API-key audit notifications** — ✅ **SHIPPED** (AUDIT-1, `138563e29`):
+  `notification_type` `api_key_created` / `api_key_revoked` + best-effort delivery.
+  **Op step:** apply `20260610000000_notifications_api_key_audit_types.sql` (`db:push`)
+  so the notices persist (until then they're swallowed; create/revoke unaffected).
 - **E. Outbound webhooks** — planning/implementation (Phase D of the parent API &
   webhooks plan).
 - **F. Plan metadata / Stripe billing planning** — paid plans + monetization.
 
 **Suggested priority (by goal):**
-- Enabling public API keys → **A + B done and migrations applied**; the only remaining
-  step is the deliberate `ENABLE_PUBLIC_API_KEYS` flag flip.
-- Developer UX → **C (API docs page)** — now the top open track.
-- Notifications → **D (API-key audit notifications).**
-- Monetization → **F (plan metadata / Stripe billing).**
+- Enabling public API keys → **A + B done and applied**; remaining step is the
+  deliberate `ENABLE_PUBLIC_API_KEYS` flag flip.
+- Persisting audit notices → **apply the AUDIT-1 migration** (`20260610000000`).
+- Outbound delivery → **E (outbound webhooks).** Monetization → **F (Stripe).**
 
 ---
 
@@ -243,15 +277,18 @@ other leaves remain capped at 50.
 - **Arc complete:** account-scoped, owner/admin-managed, `workflows:trigger`-only API
   keys — schema + crypto + repo (FK-1), management routes (FK-2), Account Settings UI
   (FK-3), public trigger endpoint (FK-4), durable Postgres rate limiter (RATE-LIMIT-1),
-  and API-key run-history attribution (RH-1→RH-3). Public triggering is flag-gated
-  default OFF.
+  run-history attribution (RH-1→RH-3), developer docs panel (DOCS-1), and create/revoke
+  audit notifications (AUDIT-1). Public triggering is flag-gated default OFF.
 - **Security:** raw key shown once / never stored; SHA-256 + prefix at rest;
   prefix-lookup + timing-safe compare; opaque 401 / generic 404 / scope 403 / freeze
-  reject; no token exposure; no cross-account leak. Rate-limit bucket keys + run-history
-  attribution use ids / a non-secret prefix only — never a raw key or hash.
-- **Migrations:** all three (`20260607000000`, `20260608000000`, `20260609000000`)
-  **applied** to the V2 DB on 2026-06-05 (`supabase db push --include-all`). None pending.
+  reject; no token exposure; no cross-account leak. Rate-limit bucket keys, run-history
+  attribution, and audit notices use ids / a non-secret prefix only — never a raw key
+  or hash.
+- **Migrations:** 3 of 4 **applied** to the V2 DB on 2026-06-05 (`20260607000000`,
+  `20260608000000`, `20260609000000`). `20260610000000` (AUDIT-1 enum) is **authored
+  but not yet applied** — apply it to persist audit notices (swallowed until then).
 - **Gating step:** the public endpoint is fully built + migrated; turning it on is the
   single remaining `ENABLE_PUBLIC_API_KEYS` flag flip (deliberate).
-- **Recommended next track:** **C — API docs / developer docs page**, now that the
-  rate-limiter (A) and run-history observability (B) are shipped and applied.
+- **Recommended next track:** **E — outbound webhooks** (or **F — Stripe/plan
+  metadata**); the API-key arc itself (A–D) is shipped, with the AUDIT-1 migration the
+  one outstanding op step.
