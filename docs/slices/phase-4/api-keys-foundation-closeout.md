@@ -2,23 +2,21 @@
 
 **Type:** Docs-only closeout / handoff. No source, migrations, tests, or UI changes.
 **Date:** 2026-06-05 (updated 2026-06-06 — DOCS-1 developer docs panel + AUDIT-1
-create/revoke audit notifications; 3 of 4 arc migrations applied, AUDIT-1's enum
-migration pending)
+create/revoke audit notifications; AUDIT-2 applied the AUDIT-1 enum migration — **all
+four arc migrations now applied to the V2 dev DB**)
 **Branch:** `builder-ui-v1-audit-1`
 **Arc:** API-KEYS-FOUNDATION plan → FK-1 → FK-2 → FK-3 → FK-4 → RATE-LIMIT-1 →
-run-history (RUN-HISTORY-1 plan → RH-1 → RH-2 → RH-3) → DOCS-1 → AUDIT-1 (all
-shipped) → **this closeout**.
+run-history (RUN-HISTORY-1 plan → RH-1 → RH-2 → RH-3) → DOCS-1 → AUDIT-1 → AUDIT-2
+(migration apply) (all shipped) → **this closeout**.
 
-> **Migration status:** three of the four arc migrations are **applied** to the V2 DB
-> (2026-06-05, `supabase db push --include-all`, Session pooler port 5432):
+> **Migration status:** **all four** arc migrations are **applied** to the V2 dev DB —
 > `20260607000000_account_api_keys.sql`, `20260608000000_api_key_rate_limits.sql`,
-> `20260609000000_workflow_runs_api_key_source.sql`. The fourth —
-> `20260610000000_notifications_api_key_audit_types.sql` (API-KEYS-AUDIT-1, the
-> notification-enum extension) — is **authored but NOT yet applied** (`db:push` not run
-> for it this session). Until it is applied, audit-notification inserts fail on the
-> unknown enum value and are **swallowed** (create/revoke still succeed; the notice
-> just isn't persisted). Remaining gating for the public endpoint is purely the
-> `ENABLE_PUBLIC_API_KEYS` flag flip.
+> `20260609000000_workflow_runs_api_key_source.sql` (2026-06-05), and
+> `20260610000000_notifications_api_key_audit_types.sql` (API-KEYS-AUDIT-2, 2026-06-06,
+> `npm run db:push`). The audit-notification enum values (`api_key_created` /
+> `api_key_revoked`) exist in the DB and a gated DB test confirms create/revoke notices
+> now **persist**. Remaining gating for the public endpoint is purely the
+> `ENABLE_PUBLIC_API_KEYS` flag flip. **No git push — branch remains local.**
 
 ---
 
@@ -178,15 +176,12 @@ public workflow trigger endpoint**.
 
 ## 7. Deferred / known limitations
 
-- **Migrations — 3 of 4 applied (2026-06-05)** — `20260607000000_account_api_keys`,
+- **Migrations — all 4 applied to the V2 dev DB** — `20260607000000_account_api_keys`,
   `20260608000000_api_key_rate_limits`, `20260609000000_workflow_runs_api_key_source`
-  were pushed to the V2 DB via `supabase db push --include-all`. Pre-apply
-  `workflow_runs` rows simply carry a null `triggered_by_api_key_prefix` (safe +
-  expected — the read path is null-safe).
-- **`20260610000000_notifications_api_key_audit_types` (AUDIT-1) is NOT yet applied** —
-  authored this session; `db:push` not run for it. Until applied, audit-notification
-  inserts fail on the unknown enum value and are swallowed (create/revoke unaffected;
-  the notice just isn't persisted). Apply it to enable persisted audit notices.
+  (2026-06-05), and `20260610000000_notifications_api_key_audit_types` (AUDIT-2,
+  2026-06-06). Pre-apply `workflow_runs` rows simply carry a null
+  `triggered_by_api_key_prefix` (safe + expected — the read path is null-safe); the
+  audit enum values now exist so create/revoke notices persist.
 - **`ENABLE_PUBLIC_API_KEYS` remains default OFF** — flip it only after the limiter
   migration is applied in that environment (it is).
 - **Rate-limit tuning** is a future task — the per-key/workflow/account constants are
@@ -219,20 +214,24 @@ public workflow trigger endpoint**.
 - `npm run lint:structure` — OK.
 - FK-1…FK-4 / RATE-LIMIT-1 / RH-1…RH-3 / DOCS-1 / AUDIT-1 and run-now suites — green.
 
-**Run THIS session (CLOSEOUT-UPDATE-2, docs-only):**
-- `npm run lint:structure` — OK (re-run; see report).
-- The full Jest / typecheck / lint suites were **NOT re-run this session** (no code changed).
+**Run THIS session (AUDIT-2):**
+- `npm run db:push` — **applied** `20260610000000_notifications_api_key_audit_types`.
+- Direct DB check (`pg` against the Session pooler): `notification_type` now contains
+  `api_key_created` + `api_key_revoked`; `schema_migrations` records `20260610000000`.
+- Gated DB persistence test (`ALLOW_DB_INTEGRATION_TESTS=true npx jest
+  tests/integration/security/api-key-audit-notifications.test.ts`) — **2 passed**:
+  create + revoke write real, secret-free notification rows. Skips by default.
+- `npm run lint:migrations` — OK. `npm run lint:structure` — OK. Targeted audit /
+  management / migration unit suites — **20 passed**.
+- Full Jest / typecheck / lint not re-run this session (inherited from AUDIT-1).
 
-**Migrations — 3 of 4 APPLIED:**
-- **Applied** (2026-06-05, `supabase db push --include-all`, Session pooler port 5432):
-  `20260607000000_account_api_keys`, `20260608000000_api_key_rate_limits`,
-  `20260609000000_workflow_runs_api_key_source`.
-- **Pending (authored, NOT applied):** `20260610000000_notifications_api_key_audit_types`
-  (AUDIT-1). Apply with `supabase db push` (or `npm run db:push`) to persist audit
-  notifications; until then the audit insert is swallowed (create/revoke unaffected).
+**Migrations — all 4 APPLIED to the V2 dev DB:**
+- 2026-06-05 (`supabase db push --include-all`): `20260607000000_account_api_keys`,
+  `20260608000000_api_key_rate_limits`, `20260609000000_workflow_runs_api_key_source`.
+- 2026-06-06 (`npm run db:push`, AUDIT-2): `20260610000000_notifications_api_key_audit_types`.
 
-_(Earlier baselines: RH-3 `f1803a6d8` 16,076/0; RATE-LIMIT-1 `f332dd240` 16,049/0;
-FK-4 `10873e15a` 16,017/0.)_
+_(Earlier baselines: AUDIT-1 `138563e29` 16,097/0; RH-3 `f1803a6d8` 16,076/0;
+RATE-LIMIT-1 `f332dd240` 16,049/0; FK-4 `10873e15a` 16,017/0.)_
 
 ### Structure-guard note (RATE-LIMIT-1)
 
@@ -256,10 +255,9 @@ other leaves remain capped at 50.
   [api-keys-run-history-plan.md](./api-keys-run-history-plan.md) (4.API-KEYS-RUN-HISTORY-1).
 - **C. API docs / developer docs page** — ✅ **SHIPPED** (DOCS-1, `dc7882e97`): the
   "Using the API" panel documents the public endpoint, auth, scope, and envelope.
-- **D. API-key audit notifications** — ✅ **SHIPPED** (AUDIT-1, `138563e29`):
-  `notification_type` `api_key_created` / `api_key_revoked` + best-effort delivery.
-  **Op step:** apply `20260610000000_notifications_api_key_audit_types.sql` (`db:push`)
-  so the notices persist (until then they're swallowed; create/revoke unaffected).
+- **D. API-key audit notifications** — ✅ **SHIPPED + APPLIED** (AUDIT-1 `138563e29`;
+  AUDIT-2 applied `20260610000000` on 2026-06-06). `api_key_created` / `api_key_revoked`
+  notices persist (gated DB test confirms). No outstanding op step.
 - **E. Outbound webhooks** — planning/implementation (Phase D of the parent API &
   webhooks plan).
 - **F. Plan metadata / Stripe billing planning** — paid plans + monetization.
@@ -267,7 +265,6 @@ other leaves remain capped at 50.
 **Suggested priority (by goal):**
 - Enabling public API keys → **A + B done and applied**; remaining step is the
   deliberate `ENABLE_PUBLIC_API_KEYS` flag flip.
-- Persisting audit notices → **apply the AUDIT-1 migration** (`20260610000000`).
 - Outbound delivery → **E (outbound webhooks).** Monetization → **F (Stripe).**
 
 ---
@@ -284,11 +281,11 @@ other leaves remain capped at 50.
   reject; no token exposure; no cross-account leak. Rate-limit bucket keys, run-history
   attribution, and audit notices use ids / a non-secret prefix only — never a raw key
   or hash.
-- **Migrations:** 3 of 4 **applied** to the V2 DB on 2026-06-05 (`20260607000000`,
-  `20260608000000`, `20260609000000`). `20260610000000` (AUDIT-1 enum) is **authored
-  but not yet applied** — apply it to persist audit notices (swallowed until then).
+- **Migrations:** **all 4 applied** to the V2 dev DB — `20260607000000` /
+  `20260608000000` / `20260609000000` (2026-06-05) and `20260610000000` (AUDIT-2,
+  2026-06-06). A gated DB test confirms audit notices persist. Git not pushed.
 - **Gating step:** the public endpoint is fully built + migrated; turning it on is the
   single remaining `ENABLE_PUBLIC_API_KEYS` flag flip (deliberate).
 - **Recommended next track:** **E — outbound webhooks** (or **F — Stripe/plan
-  metadata**); the API-key arc itself (A–D) is shipped, with the AUDIT-1 migration the
-  one outstanding op step.
+  metadata**); the API-key arc itself (A–D) is fully shipped + migrated, with the only
+  remaining product decision being the `ENABLE_PUBLIC_API_KEYS` flag flip.
