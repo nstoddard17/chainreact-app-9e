@@ -87,3 +87,20 @@ export async function listIncomingCredentialRequests(input: {
   }
   return views;
 }
+
+/**
+ * Count of the caller's pending credential-reassignment requests in the account
+ * (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-9 / CS-8 — NotificationBell badge).
+ *
+ * Counts the SAME visible set as {@link listIncomingCredentialRequests} (flag-
+ * gated, soft-deleted workflows excluded) so the bell badge equals the Team-page
+ * panel exactly — never a confusing badge/panel mismatch. Count-only; surfaces no
+ * workflow names, providers, requesters, or any provider identity.
+ */
+export async function countIncomingCredentialRequests(input: {
+  accountId: string;
+  userId: string;
+}): Promise<number> {
+  const requests = await listIncomingCredentialRequests(input);
+  return requests.length;
+}

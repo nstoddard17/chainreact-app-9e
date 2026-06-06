@@ -11,6 +11,7 @@ import { toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -67,12 +68,19 @@ export default async function WorkflowsPage() {
   const workflows = records.map((r) => toWorkflowListItem(r, runStats));
   const folders = folderRecords.map(toWorkflowFolder);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
+  // CS-8: surface pending credential-reassignment requests in the bell (derived,
+  // count-only, flag-gated, fail-quiet).
+  const bell = await applyCredentialRequestNotice(
+    user.id,
+    unreadNotifications,
+    recentNotifications,
+  );
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
-      unreadNotifications={unreadNotifications}
-      recentNotifications={recentNotifications}
+      unreadNotifications={bell.unreadNotifications}
+      recentNotifications={bell.recentNotifications}
     >
       <main className="flex w-full flex-col p-6 sm:p-8">
         <WorkflowsDashboard

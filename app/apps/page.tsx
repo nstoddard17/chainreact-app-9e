@@ -7,6 +7,7 @@ import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -55,12 +56,18 @@ export default async function AppsPage({ searchParams }: Props) {
   const items = resolveAppCatalog(records);
   const categories = buildCategoryList(items);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
+  // CS-8: surface pending credential-reassignment requests in the bell.
+  const bell = await applyCredentialRequestNotice(
+    user.id,
+    unreadNotifications,
+    recentNotifications,
+  );
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
-      unreadNotifications={unreadNotifications}
-      recentNotifications={recentNotifications}
+      unreadNotifications={bell.unreadNotifications}
+      recentNotifications={bell.recentNotifications}
     >
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />

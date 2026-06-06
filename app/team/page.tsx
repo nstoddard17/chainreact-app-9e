@@ -6,6 +6,7 @@ import { listMembers } from "@/services/accounts/membership";
 import { listInvitations } from "@/services/accounts/invitations";
 import { memberLimitFor, TEAM_MAX_MEMBERS } from "@/services/accounts/memberLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { TeamDashboard } from "@/features/team/TeamDashboard";
 import type {
   TeamInvitationView,
@@ -96,12 +97,18 @@ export default async function TeamPage() {
 
   const memberCap = active ? memberLimitFor(active.type) : null;
   const recentNotifications = recentRecords.map(toNotificationPreview);
+  // CS-8: surface pending credential-reassignment requests in the bell.
+  const bell = await applyCredentialRequestNotice(
+    user.id,
+    unreadNotifications,
+    recentNotifications,
+  );
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
-      unreadNotifications={unreadNotifications}
-      recentNotifications={recentNotifications}
+      unreadNotifications={bell.unreadNotifications}
+      recentNotifications={bell.recentNotifications}
     >
       <main className="flex w-full flex-col p-6 sm:p-8">
         <TeamDashboard

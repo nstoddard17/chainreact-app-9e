@@ -208,3 +208,39 @@ describe("NotificationBell — popover behavior", () => {
     expect(viewAll).toHaveAttribute("href", "/notifications");
   });
 });
+
+// ── CS-8: derived credential-reassignment notice row ─────────────────────────
+describe("NotificationBell — credential reassignment notice (CS-8)", () => {
+  it("renders the derived credential row linking to the Team page, count in the badge", async () => {
+    const user = userEvent.setup();
+    const credentialItem = fixturePreview({
+      id: "credential-requests",
+      title: "2 credential reassignment requests",
+      body: "A teammate asked to run a workflow step under your connection. Review on the Team page.",
+      severity: "warning",
+      actionUrl: "/team",
+      isUnread: true,
+      createdAt: "", // synthetic — no relative-time label
+    });
+    render(<NotificationBell unreadCount={2} recentNotifications={[credentialItem]} />);
+    await user.click(screen.getByTestId("app-shell-notification-bell"));
+    const row = screen.getByTestId(
+      "app-shell-notification-bell-row-credential-requests",
+    );
+    expect(row.tagName.toLowerCase()).toBe("a");
+    expect(row).toHaveAttribute("href", "/team");
+    expect(
+      screen.getByText("2 credential reassignment requests"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("app-shell-notification-bell-badge"),
+    ).toHaveTextContent("2");
+  });
+
+  it("renders no credential row when the merge produced none (count-0 / flag-off path)", () => {
+    render(<NotificationBell unreadCount={0} recentNotifications={[]} />);
+    expect(
+      screen.queryByTestId("app-shell-notification-bell-row-credential-requests"),
+    ).toBeNull();
+  });
+});

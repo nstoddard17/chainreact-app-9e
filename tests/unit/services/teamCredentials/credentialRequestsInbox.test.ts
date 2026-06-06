@@ -23,7 +23,10 @@ jest.mock("@/repositories/workflows", () => ({
   getByIdServiceRole: (...a: unknown[]) => mockGetWorkflow(...a),
 }));
 
-import { listIncomingCredentialRequests } from "@/services/teamCredentials/credentialRequestsInbox";
+import {
+  listIncomingCredentialRequests,
+  countIncomingCredentialRequests,
+} from "@/services/teamCredentials/credentialRequestsInbox";
 
 const ACCOUNT = "acct-1";
 const ME = "user-me";
@@ -148,5 +151,35 @@ describe("listIncomingCredentialRequests — mapping (flag ON)", () => {
     expect(serialized).not.toContain("user-req");
     expect(serialized.toLowerCase()).not.toContain("token");
     expect(serialized.toLowerCase()).not.toContain("scope");
+  });
+});
+
+// ── CS-8: count (NotificationBell badge) ─────────────────────────────────────
+describe("countIncomingCredentialRequests (CS-8)", () => {
+  it("returns 0 when the flag is OFF (never touches the repo)", async () => {
+    delete process.env[FLAG];
+    mockListPending.mockResolvedValue([grant(), grant({ workflowId: "wf-2" })]);
+    expect(await countIncomingCredentialRequests({ accountId: ACCOUNT, userId: ME })).toBe(0);
+    expect(mockListPending).not.toHaveBeenCalled();
+  });
+
+  it("counts the same visible set as the list (flag ON, soft-deleted excluded)", async () => {
+    process.env[FLAG] = "true";
+    mockListPending.mockResolvedValue([
+      grant({ workflowId: "wf-live" }),
+      grant({ workflowId: "wf-gone", nodeId: "n9" }),
+    ]);
+    mockGetWorkflow.mockImplementation(async (id: string) =>
+      id === "wf-gone" ? wf({ id, state: "deleted" }) : wf({ id }),
+    );
+    mockListIdentities.mockResolvedValue([]);
+    // wf-gone is soft-deleted → excluded from the list AND the count.
+    expect(await countIncomingCredentialRequests({ accountId: ACCOUNT, userId: ME })).toBe(1);
+  });
+
+  it("returns 0 when there are no pending requests", async () => {
+    process.env[FLAG] = "true";
+    mockListPending.mockResolvedValue([]);
+    expect(await countIncomingCredentialRequests({ accountId: ACCOUNT, userId: ME })).toBe(0);
   });
 });

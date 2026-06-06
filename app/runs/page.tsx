@@ -6,6 +6,7 @@ import * as workflowsRepo from "@/repositories/workflows";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { RunsDashboard } from "@/features/runs/RunsDashboard";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -67,12 +68,18 @@ export default async function RunsPage() {
   const workflowNameById = new Map(nameRows.map((w) => [w.id, w.name]));
   const runs = runRecords.map((r) => toRunListItem(r, workflowNameById));
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
+  // CS-8: surface pending credential-reassignment requests in the bell.
+  const bell = await applyCredentialRequestNotice(
+    user.id,
+    unreadNotifications,
+    recentNotifications,
+  );
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
-      unreadNotifications={unreadNotifications}
-      recentNotifications={recentNotifications}
+      unreadNotifications={bell.unreadNotifications}
+      recentNotifications={bell.recentNotifications}
     >
       <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
         <RunsDashboard initialRuns={runs} />

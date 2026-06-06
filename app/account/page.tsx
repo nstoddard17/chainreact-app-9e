@@ -9,6 +9,7 @@ import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AccountSettings } from "@/features/account/AccountSettings";
 import type { AccountBillingView } from "@/features/account/AccountSections";
 import { resolveAccountSection } from "@/features/account/accountNav";
@@ -75,6 +76,12 @@ export default async function AccountPage({ searchParams }: Props) {
   const active = accounts.find((a) => a.id === activeAccountId) ?? null;
   const isPersonal = active?.type === "personal";
   const recentNotifications = recentRecords.map(toNotificationPreview);
+  // CS-8: surface pending credential-reassignment requests in the bell.
+  const bell = await applyCredentialRequestNotice(
+    user.id,
+    unreadNotifications,
+    recentNotifications,
+  );
 
   // Security & access is per-USER (not per-account): derive read-only sign-in
   // facts from the verified session user. `app_metadata.providers` is the
@@ -122,8 +129,8 @@ export default async function AccountPage({ searchParams }: Props) {
   return (
     <AppShell
       userEmail={user.email ?? ""}
-      unreadNotifications={unreadNotifications}
-      recentNotifications={recentNotifications}
+      unreadNotifications={bell.unreadNotifications}
+      recentNotifications={bell.recentNotifications}
     >
       <main className="flex w-full flex-col p-6 sm:p-8">
         <AccountSettings

@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as notificationsRepo from "@/repositories/notifications";
 import { NotificationsList } from "@/features/notifications/NotificationsList";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -31,12 +32,18 @@ export default async function NotificationsPage() {
   const recentNotifications = notifications
     .slice(0, NOTIFICATION_BELL_PREVIEW_LIMIT)
     .map(toNotificationPreview);
+  // CS-8: surface pending credential-reassignment requests in the bell.
+  const bell = await applyCredentialRequestNotice(
+    user.id,
+    unreadNotifications,
+    recentNotifications,
+  );
 
   return (
     <AppShell
       userEmail={user.email ?? ""}
-      unreadNotifications={unreadNotifications}
-      recentNotifications={recentNotifications}
+      unreadNotifications={bell.unreadNotifications}
+      recentNotifications={bell.recentNotifications}
     >
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6 sm:p-8">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">

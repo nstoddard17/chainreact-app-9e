@@ -261,8 +261,21 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     resolve(ROOT, "app/apps/page.tsx"),
     resolve(ROOT, "app/runs/page.tsx"),
   ];
-  // resolveActiveAccount's production callers — the foreground gates only.
-  const RESOLVER_ALLOWED = new Set([DEF_FILE, GATE_FILE, ...FOREGROUND_PAGE_FILES]);
+  // CS-8: the NotificationBell credential-request notice helper resolves the
+  // caller's active account to count their pending reassignment requests. It is
+  // imported ONLY by foreground SSR pages (the bell data load) and never by a
+  // background path, so it belongs with the foreground gates — the invariant this
+  // test protects (no cron/webhook/trigger use of active-account state) is intact.
+  const FOREGROUND_HELPER_FILES = [
+    resolve(ROOT, "app/notifications/credentialRequestNotice.ts"),
+  ];
+  // resolveActiveAccount's production callers — the foreground gates + helpers only.
+  const RESOLVER_ALLOWED = new Set([
+    DEF_FILE,
+    GATE_FILE,
+    ...FOREGROUND_PAGE_FILES,
+    ...FOREGROUND_HELPER_FILES,
+  ]);
   // Background entry points must NEVER consult active-account state (default
   // OR set): cron/webhook/polling resolve the workflow's owning account instead.
   const BACKGROUND_DIRS = ["app/api/cron", "app/api/webhooks", "services/triggers"];
