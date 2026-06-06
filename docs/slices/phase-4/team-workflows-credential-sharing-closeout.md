@@ -2,9 +2,9 @@
 
 **Type:** Closeout / handoff. **Docs only — no source, migrations, tests, UI, or
 behavior changes.** Nothing pushed.
-**Date:** 2026-06-05
+**Date:** 2026-06-05 (CS-7 update appended)
 **Branch:** `builder-ui-v1-audit-1`
-**Arc:** plan → CS-1 … CS-6 (all shipped). This doc closes the arc and records the
+**Arc:** plan → CS-1 … CS-7 (all shipped). This doc closes the arc and records the
 verified end state + next-track options.
 
 **Source of truth (verified current state):**
@@ -17,6 +17,8 @@ verified end state + next-track options.
 [membership remove](../../../services/accounts/membership.ts) ·
 [leave account](../../../services/accounts/leaveAccount.ts) ·
 [feature flag](../../../services/teamCredentials/flags.ts) ·
+[consent inbox service](../../../services/teamCredentials/credentialRequestsInbox.ts) ·
+[inbox panel](../../../features/team/CredentialRequestsPanel.tsx) ·
 [migration](../../../supabase/migrations/20260606000000_workflow_node_credentials.sql) ·
 [plan](./team-workflows-credential-sharing-plan.md) · [22A–22D closeout](./team-credential-access-closeout.md).
 
@@ -50,6 +52,7 @@ verified end state + next-track options.
 | CS-4b — metadata + request UI | `c7496a071` | Node credential-owner metadata + minimal reassignment-request UI. |
 | CS-5 — AI availability | `15a4abb98` | `getWorkflowIntegrationAvailabilityForAI` node-owner-aware; flags only, no identity. |
 | CS-6 — offboarding evolution | `54b7ba5ff` | Impact counts owned nodes; remove/leave revokes the member's live grants. |
+| CS-7 — consent inbox surface | `9ad1d4c50` | Team-page `CredentialRequestsPanel` + account-scoped inbox endpoint; target accepts/declines via the CS-3 routes; no notification-enum migration. |
 
 ---
 
@@ -99,6 +102,19 @@ verified end state + next-track options.
   before soft-disconnect, so revoked nodes fall back to the workflow creator (CS-2).
 - existing personal-credential **soft-disconnect (22C) is unchanged**.
 
+**Consent inbox (CS-7)**
+- pending reassignment requests **surface on the Team page Overview** in a
+  `CredentialRequestsPanel`, so the target member can discover them.
+- the target can **accept** or **decline** each request from the panel; accept calls
+  the existing CS-3 accept route (**making the grant effective**), decline calls the
+  CS-3 decline route (**the grant stays inert / creator-pinned**).
+- the panel **hides entirely** when there are no pending requests or the feature
+  flag is OFF (the account-scoped inbox endpoint returns an empty list) — the page
+  is unchanged for everyone else.
+- **no new notification type / migration** was needed: a CS-3 request already
+  inserts a pending `workflow_node_credentials` row, so the inbox item *is* that
+  row; CS-7 only adds the self-scoped reader + UI.
+
 ---
 
 ## 4. Security / no-leak guarantees
@@ -117,6 +133,11 @@ verified end state + next-track options.
   the impact warning.
 - **AI prompts / tool results / persisted messages never receive** the
   `credentialOwnerUserId` (identity stays server-internal).
+- **Consent inbox (CS-7):** the inbox payload carries **only** workflow id + name,
+  node id, provider **type**, the requester's **display name**, and `requestedAt` —
+  **no OAuth tokens, no provider account labels / emails, no scopes**. The endpoint
+  is **self-scoped to `auth.userId`** (never request input), so it can't probe
+  another member; **non-members get no-leak behavior** (403, never the list).
 
 ---
 
@@ -154,15 +175,26 @@ verified end state + next-track options.
 - **No broad redesign** — this layers onto the existing TW-3/3b badge + config UX.
 - **No personal-provider token or provider account label** is ever shown.
 
+**Consent inbox panel (CS-7) — `features/team/CredentialRequestsPanel.tsx`:**
+- a **self-fetching** panel on the Team page Overview that **renders nothing** while
+  loading, when empty, or when the feature is OFF (no layout change for others).
+- each request reads: *"‹requester display name› wants the ‹Provider› step in
+  ‹workflow name› to run under your connection,"* plus a line clarifying that
+  **accepting lets that step act using the user's connected app account**.
+- **Accept / Decline** buttons call the existing CS-3 per-node routes; the item
+  **resolves out of the list** on success.
+- **inline error** on action failure; the item stays so the user can retry.
+
 ---
 
 ## 7. Deferred / known limitations
 
-- **In-app consent/notification surface** for reassignment requests is **not built**
-  — a target member is not actively notified when asked to run a step under their
-  connection (needs a new `notification_type`).
-- **Acceptance / decline routes exist**, but the target-member **UX is minimal /
-  deferred** (the inbox is the natural next track — §9.A).
+- ✅ **In-app consent surface — RESOLVED (CS-7).** The target now sees + accepts /
+  declines pending requests via the Team-page `CredentialRequestsPanel`.
+- **Discovery is pull-based** — the inbox is only visible when the target **visits
+  the Team page**. There is **no NotificationBell badge / push** yet; active
+  notification needs a future `notification_type` migration (out of scope for CS-7
+  under the no-migration boundary). This is the natural next track — §9.A.
 - **No multi-connection-per-provider** selection (a member with two connections of
   the same provider can't pick which at the node level — Option C, future).
 - **No whole-workflow "runs-as member X"** shortcut (Option E was not needed).
@@ -176,29 +208,32 @@ verified end state + next-track options.
 
 ---
 
-## 8. Verification baseline (as of CS-6, `54b7ba5ff`)
+## 8. Verification baseline (as of CS-7, `9ad1d4c50`)
 
-- **Full Jest:** 15,851 passed / 0 failed (28 suites skipped — gated DB harness).
+- **Full Jest:** 15,873 passed / 0 failed (28 suites skipped — gated DB harness).
 - **typecheck:** clean (`tsc --noEmit`).
 - **lint:** 0 errors on changed files.
-- **CS-1 … CS-5 suites:** green.
+- **CS-1 … CS-6 suites:** green.
+- **CS-3 route/service, CS-4b builder-request, NotificationBell, and Team suites:**
+  green (untouched by CS-7 — accept/decline reuse the existing CS-3 routes).
 - **Existing 22C + leave/remove offboarding suites:** green (incl. the TL-3
   leave-account structural scope guard).
 
-> No source / migration / test / behavior was changed by this closeout slice — the
-> baseline above is inherited from CS-6, not re-measured here.
+> No source / migration / test / behavior was changed by this closeout-update slice
+> — the baseline above is inherited from CS-7, not re-measured here.
 
 ---
 
 ## 9. Recommended next tracks
 
-**First:** run a full local baseline if one hasn't been run since CS-6 (`tsc
+**First:** run a full local baseline if one hasn't been run since CS-7 (`tsc
 --noEmit`, `eslint .`, `jest`) to confirm the arc end state on a clean tree.
 
 **Then choose one:**
 
-- **A. Consent notification / inbox surface** for reassignment requests — completes
-  the collaboration loop CS-3…CS-4b started (needs a `notification_type`).
+- **A. NotificationBell badge / active notification** for credential requests —
+  turns CS-7's pull-based inbox into active discovery (needs a `notification_type`
+  migration; the one remaining caveat in §7).
 - **B. Docs structure reorg** to resolve `lint:structure` file-count debt.
 - **C. API keys / webhooks Phase B planning** — developer-platform foundation.
 - **D. Plan metadata / Stripe billing planning** — monetization.
@@ -208,14 +243,16 @@ verified end state + next-track options.
 
 | Goal | Pick |
 |---|---|
-| Collaboration completeness | **A** — consent notification / inbox surface |
+| Collaboration polish | **A** — NotificationBell badge / active notification |
 | Local hygiene | **B** — docs structure reorg |
 | Developer platform | **C** — API keys foundation planning |
 | Monetization | **D** — plan metadata / Stripe planning |
 
-**Recommendation:** **A (consent notification / inbox surface)** — it is the single
-named gap in §7 that blocks the feature from being end-to-end usable for the
-target member, and it directly continues this arc rather than opening a new one.
+**Recommendation:** with the consent surface now shipped (CS-7), the collaboration
+loop is **functionally complete**; **A** (NotificationBell badge / active
+notification) is now a polish item, not a blocker. Pick the next track by the goal
+above rather than defaulting to A — **B** is the cheapest hygiene win if no product
+goal is pressing.
 
 ---
 
@@ -227,11 +264,12 @@ target member, and it directly continues this arc rather than opening a new one.
   account/service unchanged, no broad sharing, `created_by_user_id` never rewritten.
 - **Commit chain:** plan `b9327d4ca` → CS-1 `1b19e4386` → CS-2 `3b3c668bd` → CS-3
   `db4e3fe9d` → CS-4 `3473352bd` → CS-4b `c7496a071` → CS-5 `15a4abb98` → CS-6
-  `54b7ba5ff`.
+  `54b7ba5ff` → CS-7 `9ad1d4c50`.
 - **End state:** `workflow_node_credentials` (one live grant per node, history
   preserved, service-role writes, membership-gated freeze-aware SELECT); execution /
   options / AI all node-owner-aware behind the flag; offboarding counts + revokes
-  owned grants.
-- **Deferred:** consent notification/inbox UX, multi-connection-per-provider,
-  whole-workflow runs-as, auto-reassign-on-leave.
-- **Recommended next track:** **A — consent notification / inbox surface.**
+  owned grants; the target consents via the Team-page inbox panel (CS-7).
+- **Deferred:** NotificationBell badge / active notification (pull-based inbox only),
+  multi-connection-per-provider, whole-workflow runs-as, auto-reassign-on-leave.
+- **Recommended next track:** pick by goal (§9) — the consent loop is complete, so
+  **A** (active notification) is polish; **B** (docs reorg) is the cheapest hygiene win.
