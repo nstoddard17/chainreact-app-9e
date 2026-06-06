@@ -264,6 +264,34 @@ export async function listAcceptedOwnedByUserInAccountServiceRole(
 }
 
 /**
+ * All PENDING grants OWNED BY `ownerUserId` (i.e. awaiting that user's consent)
+ * across the workflows in `accountId` — Slice 4.TEAM-WORKFLOWS-CREDENTIAL-
+ * SHARING-8 / CS-7 (consent inbox). Same account-scoping FK embed as the
+ * accepted-owner read; PENDING-only, since the inbox surfaces requests the target
+ * has not yet accepted / declined. Service-role.
+ */
+export async function listPendingForCredentialOwnerServiceRole(
+  accountId: string,
+  ownerUserId: string,
+): Promise<readonly WorkflowNodeCredentialRecord[]> {
+  const supabase = getServiceRoleClient(
+    `workflow_node_credentials: listPendingForCredentialOwner ${accountId}/${ownerUserId}`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_node_credentials")
+    .select("*, workflows!inner(account_id)")
+    .eq("workflows.account_id", accountId)
+    .eq("credential_owner_user_id", ownerUserId)
+    .eq("status", "pending");
+  if (error) {
+    throw new Error(
+      `workflow_node_credentials.listPendingForCredentialOwnerServiceRole failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).map((r) => rowToRecord(r as unknown as WorkflowNodeCredentialsRow));
+}
+
+/**
  * Revoke EVERY live (pending|accepted) grant OWNED BY `credentialOwnerUserId`
  * across the workflows in `accountId` — Slice 4.TEAM-WORKFLOWS-CREDENTIAL-
  * SHARING-7 / CS-6 offboarding (member remove / leave). After revoke those nodes

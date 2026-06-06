@@ -132,6 +132,69 @@ export async function getLeaveImpact(accountId: string): Promise<number> {
   return body.affectedWorkflowCount;
 }
 
+// ── Credential reassignment consent inbox (CS-7) ──────────────────────────────
+
+/**
+ * A pending per-node credential-reassignment request awaiting the caller's
+ * consent. No-leak view — carries the workflow/node/provider-type + requester
+ * display name only; never a token, provider account label, email, or scope.
+ */
+export interface CredentialRequestView {
+  workflowId: string;
+  nodeId: string;
+  provider: string;
+  workflowName: string;
+  requestedByLabel: string;
+  requestedAt: string;
+}
+
+/**
+ * GET /api/accounts/[id]/credential-requests — the caller's own pending
+ * credential-reassignment requests in this account. Self-scoped; empty when the
+ * feature is off.
+ */
+export async function listCredentialRequests(
+  accountId: string,
+): Promise<CredentialRequestView[]> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/credential-requests`,
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { requests: CredentialRequestView[] };
+  return body.requests;
+}
+
+/**
+ * POST .../credential-owner/accept — the target consents; the step will run under
+ * their connection (CS-3 route). Reuses the existing per-node credential route.
+ */
+export async function acceptCredentialRequest(
+  workflowId: string,
+  nodeId: string,
+): Promise<void> {
+  const res = await fetch(
+    `/api/workflows/${encodeURIComponent(workflowId)}/nodes/${encodeURIComponent(
+      nodeId,
+    )}/credential-owner/accept`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await parseError(res);
+}
+
+/** POST .../credential-owner/decline — the target declines; execution stays creator-pinned. */
+export async function declineCredentialRequest(
+  workflowId: string,
+  nodeId: string,
+): Promise<void> {
+  const res = await fetch(
+    `/api/workflows/${encodeURIComponent(workflowId)}/nodes/${encodeURIComponent(
+      nodeId,
+    )}/credential-owner/decline`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await parseError(res);
+}
+
 // ── Profile basics (4.ACCOUNT-SETTINGS-3) ──────────────────────────────────────
 
 /**

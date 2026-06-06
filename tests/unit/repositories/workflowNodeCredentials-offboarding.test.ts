@@ -63,6 +63,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
 
 import {
   listAcceptedOwnedByUserInAccountServiceRole,
+  listPendingForCredentialOwnerServiceRole,
   revokeLiveForMemberServiceRole,
 } from "@/repositories/workflowNodeCredentials";
 
@@ -126,6 +127,45 @@ describe("listAcceptedOwnedByUserInAccountServiceRole", () => {
     await expect(
       listAcceptedOwnedByUserInAccountServiceRole(ACCOUNT, OWNER),
     ).rejects.toThrow(/boom/);
+  });
+});
+
+describe("listPendingForCredentialOwnerServiceRole (CS-7 inbox)", () => {
+  it("scopes by the account FK embed + owner + status=pending, mapping to records", async () => {
+    const state: ChainState = {
+      filters: [],
+      selectCols: [],
+      stages: [{ data: [ownedRow({ status: "pending", decided_at: null })], error: null }],
+    };
+    mockServiceRole.current = makeMockClient(state);
+
+    const rows = await listPendingForCredentialOwnerServiceRole(ACCOUNT, OWNER);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: "grant-1", workflowId: "wf-1", status: "pending" });
+    expect((rows[0] as unknown as Record<string, unknown>).workflows).toBeUndefined();
+    expect(state.selectCols).toContainEqual("*, workflows!inner(account_id)");
+    expect(state.filters).toContainEqual({ op: "eq", args: ["workflows.account_id", ACCOUNT] });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["credential_owner_user_id", OWNER] });
+    expect(state.filters).toContainEqual({ op: "eq", args: ["status", "pending"] });
+  });
+
+  it("returns [] when the member has no pending requests", async () => {
+    const state: ChainState = { filters: [], selectCols: [], stages: [{ data: [], error: null }] };
+    mockServiceRole.current = makeMockClient(state);
+    expect(await listPendingForCredentialOwnerServiceRole(ACCOUNT, OWNER)).toEqual([]);
+  });
+
+  it("propagates a Supabase error", async () => {
+    const state: ChainState = {
+      filters: [],
+      selectCols: [],
+      stages: [{ data: null, error: { message: "pending boom" } }],
+    };
+    mockServiceRole.current = makeMockClient(state);
+    await expect(
+      listPendingForCredentialOwnerServiceRole(ACCOUNT, OWNER),
+    ).rejects.toThrow(/pending boom/);
   });
 });
 

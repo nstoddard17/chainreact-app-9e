@@ -3,6 +3,7 @@
 import type { AccountSummary } from "@/lib/api/accounts";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { AccountActions } from "./AccountActions";
+import { CredentialRequestsPanel } from "./CredentialRequestsPanel";
 import { Panel } from "./Panel";
 import { SectionHeading } from "./SectionHeading";
 import { SettingRow } from "./SettingRow";
@@ -67,6 +68,10 @@ export function OverviewSection({
         activeAccountId={activeAccountId}
         onChanged={onChanged}
       />
+
+      {/* CS-7: pending credential-reassignment requests for the current user.
+          Self-fetching + self-hiding when there are none / the feature is off. */}
+      {isTeam && active && <CredentialRequestsPanel accountId={active.id} />}
 
       {isTeam && active ? (
         <Panel
