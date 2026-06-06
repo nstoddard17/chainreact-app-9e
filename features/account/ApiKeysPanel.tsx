@@ -152,15 +152,33 @@ export function ApiKeysPanel({ accountId, frozen }: Props) {
 
   return (
     <div data-testid="api-keys-panel" className="flex flex-col gap-4">
-      <p className="max-w-xl text-xs text-muted-foreground">
-        Account-scoped keys that act as this account. The only capability today is{" "}
-        <span className="font-medium text-foreground">triggering your workflows</span> once
-        public trigger endpoints are enabled. Keys{" "}
-        <span className="font-medium text-foreground">
-          never expose your connected app or OAuth tokens
-        </span>
-        .
-      </p>
+      <div className="flex max-w-xl flex-col gap-2">
+        <p className="text-xs text-muted-foreground">
+          Account-scoped keys that act as this account. Use a key to{" "}
+          <span className="font-medium text-foreground">trigger a workflow</span> with a
+          bearer token. Keys{" "}
+          <span className="font-medium text-foreground">
+            never expose your connected app or OAuth tokens
+          </span>
+          .
+        </p>
+        <div
+          data-testid="api-keys-endpoint-note"
+          className="rounded-md border border-border bg-background/40 p-2 text-[11px] text-muted-foreground"
+        >
+          <code className="font-mono text-foreground">
+            POST /api/v1/workflows/{"{workflowId}"}/trigger
+          </code>
+          <div className="mt-1">
+            Header: <code className="font-mono">Authorization: Bearer crk_…</code> · scope{" "}
+            <code className="font-mono">workflows:trigger</code>
+          </div>
+          <p className="mt-1">
+            Public API access is gated by a server setting — if requests return 404, an admin
+            still needs to enable it.
+          </p>
+        </div>
+      </div>
 
       {frozen && (
         <p
