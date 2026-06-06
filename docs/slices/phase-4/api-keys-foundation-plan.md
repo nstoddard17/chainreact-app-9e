@@ -109,8 +109,12 @@ routes / billing / push).
 - **Audit surface:** the `notifications` table (service-role `create`, user-scoped
   RLS, `type` enum + narrow `metadata`). **No dedicated audit-log table.** Append-only
   ledgers (`task_usage_events`, `ai_cost_events`) are the precedent for high-volume
-  events. The notification enum migration `20260605000002` is **still unapplied** —
-  extending the enum must sequence after it (parent §16).
+  events. The notification preferences migration `20260605000002` is **applied and
+  verified** in the dev DB (recorded in `schema_migrations`; all three preference
+  columns exist; `db:push` reports remote up to date; 48 local = 48 recorded). A
+  future `notification_type` **enum** extension for key events still needs careful
+  sequencing, but it is **no longer blocked** by an unapplied preferences migration
+  (corrects the earlier note carried from parent §16).
 - **No rate-limiter anywhere** (zero `ratelimit`/`upstash`/`throttle`). Must be built
   (or the public endpoint flag-gated OFF) before public exposure.
 - **Anti-pattern not to replicate:** inbound webhook signing secrets are stored
@@ -382,8 +386,9 @@ auth):**
 ## 13. Audit / notification model (Q18)
 
 - **Reuse `notifications`** — extend `notification_type` with **`api_key_created`** and
-  **`api_key_revoked`** (a small enum-`ALTER` migration in FK-2, **sequenced after the
-  unapplied `20260605000002`** notification migration — parent §16). Write via
+  **`api_key_revoked`** (a small enum-`ALTER` migration in FK-2). The preferences
+  migration `20260605000002` is **already applied** (§2), so this is now just normal
+  enum-extension sequencing, not a blocked dependency. Write via
   `notificationsRepo.create()` (service-role, user-scoped) to the **acting
   owner/admin**, with **narrow metadata**: `{ keyId, prefix, actorUserId, accountId }`
   — **never** the raw key, `key_hash`, or full key.
@@ -450,9 +455,9 @@ Land the **management plane before the public surface**; keep the public route d
   **hash-omitting DTOs**. Scope allowlist. Unit tests only.
 - **FK-2 — management routes + audit.** `GET/POST /api/accounts/[id]/api-keys`,
   `DELETE …/[keyId]`; `requireAccountRole(["owner","admin"])` + freeze reject;
-  one-time-reveal create; `notification_type` enum `ALTER` (sequenced after
-  `20260605000002`) + `api_key_created/revoked` writes. (Optional FK-2b: `PATCH`
-  rename.)
+  one-time-reveal create; `notification_type` enum `ALTER` (normal enum-extension
+  sequencing — `20260605000002` is already applied) + `api_key_created/revoked`
+  writes. (Optional FK-2b: `PATCH` rename.)
 - **FK-3 — Account Settings UI.** Real key list + create-reveal modal + revoke;
   owner/admin gating; webhooks stays coming-soon.
 - **FK-4 — public trigger endpoint (flag-gated OFF).**
@@ -517,8 +522,9 @@ service-role only; SELECT policy is membership + freeze gated.
   FK-4 scheduling.
 - **Member visibility of key metadata (Q20/Q21):** owner/admin-only listing
   (recommended) vs. all-members-read for transparency.
-- **Notification enum sequencing:** `api_key_created/revoked` depend on the
-  **unapplied `20260605000002`** notification migration — apply/sequence first.
+- **Notification enum sequencing:** `api_key_created/revoked` is a `notification_type`
+  enum extension. The preferences migration `20260605000002` is **already applied**
+  (dev DB verified), so this is routine migration ordering — not a blocked dependency.
 - **Public-API contract:** `/api/v1` versioning, the error envelope (`{ error, code }`
   shape used elsewhere), and pagination conventions for future list endpoints —
   settle the envelope at FK-4 (the first public route).
@@ -572,7 +578,7 @@ service-role only; SELECT policy is membership + freeze gated.
   refuses on frozen/limit) as the interim economic backstop; per-key/per-account
   limiter deferred (backend = open decision).
 - **Audit:** `notifications` `api_key_created/revoked` (masked metadata) + structured
-  ops logs; enum extension sequenced after the unapplied `20260605000002`.
+  ops logs; the enum extension is routine sequencing (`20260605000002` already applied).
 - **UI:** `ApiSection` → real owner/admin key list + create-reveal modal + revoke;
   webhooks stays coming-soon.
 - **No-leak:** keys never read/return/decrypt OAuth tokens, are not credential sharing,
