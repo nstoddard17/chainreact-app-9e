@@ -62,7 +62,7 @@ describe("DELETE /api/accounts/[id]/api-keys/[keyId]", () => {
     expect(body).toEqual({ ok: true, alreadyRevoked: false });
     expect(JSON.stringify(body)).not.toContain("key_hash");
     expect(JSON.stringify(body)).not.toContain("crk_");
-    expect(mockRevoke).toHaveBeenCalledWith({ accountId: ACCOUNT, keyId: KEY });
+    expect(mockRevoke).toHaveBeenCalledWith({ accountId: ACCOUNT, keyId: KEY, actorUserId: CALLER });
   });
 
   it("idempotent: already-revoked key → 200 alreadyRevoked true", async () => {

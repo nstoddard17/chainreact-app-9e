@@ -24,7 +24,11 @@ export type NotificationType =
   | "workflow_failed"
   | "workflow_high_risk_activated"
   | "workflow_high_risk_run"
-  | "account_invitation";
+  | "account_invitation"
+  // Slice 4.API-KEYS-AUDIT-1 — API-key create/revoke audit events. Carry only
+  // non-secret fields (name + display prefix + ids); never the raw key/hash.
+  | "api_key_created"
+  | "api_key_revoked";
 export type NotificationSeverity = "warning" | "error";
 
 export interface NotificationRecord {

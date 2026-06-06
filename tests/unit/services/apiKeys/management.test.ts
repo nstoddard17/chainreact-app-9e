@@ -24,6 +24,13 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
   isAccountFrozen: (...a: unknown[]) => mockFrozen(...a),
 }));
 
+const mockCreatedNotif = jest.fn();
+const mockRevokedNotif = jest.fn();
+jest.mock("@/services/apiKeys/auditNotifications", () => ({
+  recordApiKeyCreatedNotification: (...a: unknown[]) => mockCreatedNotif(...a),
+  recordApiKeyRevokedNotification: (...a: unknown[]) => mockRevokedNotif(...a),
+}));
+
 import { listApiKeys, createApiKey, revokeApiKey } from "@/services/apiKeys/management";
 import { hashApiKey, deriveApiKeyPrefix } from "@/core/apiKeys/keys";
 
@@ -60,6 +67,8 @@ beforeEach(() => {
   mockRevoke.mockReset().mockResolvedValue({ revoked: false });
   mockGetById.mockReset().mockResolvedValue(null);
   mockFrozen.mockReset().mockResolvedValue(false);
+  mockCreatedNotif.mockReset().mockResolvedValue(undefined);
+  mockRevokedNotif.mockReset().mockResolvedValue(undefined);
 });
 
 describe("listApiKeys — status derivation", () => {
@@ -175,5 +184,64 @@ describe("revokeApiKey — account-scoped + idempotent", () => {
     mockFrozen.mockResolvedValue(true);
     expect(await revokeApiKey({ accountId: ACCOUNT, keyId: "key-1" })).toEqual({ ok: false, reason: "account_frozen" });
     expect(mockRevoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("audit notifications (API-KEYS-AUDIT-1)", () => {
+  it("create writes a safe created-notification (name + prefix + ids; no raw key)", async () => {
+    const res = await createApiKey({
+      accountId: ACCOUNT,
+      createdByUserId: ACTOR,
+      name: "CI trigger",
+      scopes: ["workflows:trigger"],
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(mockCreatedNotif).toHaveBeenCalledTimes(1);
+    const arg = mockCreatedNotif.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg).toMatchObject({
+      recipientUserId: ACTOR,
+      accountId: ACCOUNT,
+      keyId: "new-key",
+      name: "CI trigger",
+      prefix: deriveApiKeyPrefix(res.rawKey),
+      actorUserId: ACTOR,
+    });
+    // No-leak: the audit call never carries the raw key or a hash.
+    const serialized = JSON.stringify(arg);
+    expect(serialized).not.toContain(res.rawKey);
+    expect(serialized).not.toMatch(/key_?hash/i);
+  });
+
+  it("revoke (first transition, with actor) writes a safe revoked-notification", async () => {
+    mockRevoke.mockResolvedValue({ revoked: true });
+    mockGetById.mockResolvedValue(meta({ id: "key-1", name: "CI trigger", prefix: "crk_live_AbCd1234" }));
+    const res = await revokeApiKey({ accountId: ACCOUNT, keyId: "key-1", actorUserId: ACTOR });
+    expect(res).toEqual({ ok: true, alreadyRevoked: false });
+    expect(mockRevokedNotif).toHaveBeenCalledTimes(1);
+    expect(mockRevokedNotif.mock.calls[0]![0]).toMatchObject({
+      recipientUserId: ACTOR,
+      accountId: ACCOUNT,
+      keyId: "key-1",
+      name: "CI trigger",
+      prefix: "crk_live_AbCd1234",
+      actorUserId: ACTOR,
+    });
+    expect(JSON.stringify(mockRevokedNotif.mock.calls[0]![0])).not.toMatch(/key_?hash/i);
+  });
+
+  it("does NOT notify when re-revoking an already-revoked key (no duplicate)", async () => {
+    mockRevoke.mockResolvedValue({ revoked: false });
+    mockGetById.mockResolvedValue(meta({ revokedAt: "2026-06-01T00:00:00Z" }));
+    const res = await revokeApiKey({ accountId: ACCOUNT, keyId: "key-1", actorUserId: ACTOR });
+    expect(res).toEqual({ ok: true, alreadyRevoked: true });
+    expect(mockRevokedNotif).not.toHaveBeenCalled();
+  });
+
+  it("does NOT notify on revoke when no actor is supplied", async () => {
+    mockRevoke.mockResolvedValue({ revoked: true });
+    mockGetById.mockResolvedValue(meta());
+    await revokeApiKey({ accountId: ACCOUNT, keyId: "key-1" });
+    expect(mockRevokedNotif).not.toHaveBeenCalled();
   });
 });

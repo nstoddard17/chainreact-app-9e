@@ -33,7 +33,7 @@ export async function DELETE(
   const role = await requireAccountRole(auth.userId, accountId, ["owner", "admin"]);
   if (!role.ok) return roleGateFailure(role.reason);
 
-  const result = await revokeApiKey({ accountId, keyId });
+  const result = await revokeApiKey({ accountId, keyId, actorUserId: auth.userId });
   if (!result.ok) {
     if (result.reason === "account_frozen") {
       return NextResponse.json(

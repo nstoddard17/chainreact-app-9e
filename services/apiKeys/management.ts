@@ -3,6 +3,10 @@ import { validateApiKeyScopes } from "@/core/apiKeys/scopes";
 import { isAccountFrozen } from "@/services/accounts/accountFreeze";
 import * as apiKeysRepo from "@/repositories/accountApiKeys";
 import type { ApiKeyMetadata } from "@/repositories/accountApiKeys";
+import {
+  recordApiKeyCreatedNotification,
+  recordApiKeyRevokedNotification,
+} from "@/services/apiKeys/auditNotifications";
 
 /**
  * API-key management service (Slice 4.API-KEYS-FOUNDATION-3 / FK-2).
@@ -119,6 +123,17 @@ export async function createApiKey(input: {
     }),
   );
 
+  // Best-effort audit notification to the acting owner/admin (never the raw key).
+  // The helper swallows its own errors, so create never fails because of it.
+  await recordApiKeyCreatedNotification({
+    recipientUserId: input.createdByUserId,
+    accountId: input.accountId,
+    keyId: meta.id,
+    name: meta.name,
+    prefix: meta.prefix,
+    actorUserId: input.createdByUserId,
+  });
+
   return { ok: true, key: withStatus(meta), rawKey: generated.raw };
 }
 
@@ -138,6 +153,12 @@ export type RevokeApiKeyResult =
 export async function revokeApiKey(input: {
   accountId: string;
   keyId: string;
+  /**
+   * The acting owner/admin (from the route session). When present, a one-time audit
+   * notification is written to them on the FIRST transition to revoked. Optional so
+   * non-route callers / tests don't have to supply it.
+   */
+  actorUserId?: string | null;
 }): Promise<RevokeApiKeyResult> {
   if (await isAccountFrozen(input.accountId)) return { ok: false, reason: "account_frozen" };
 
@@ -153,6 +174,25 @@ export async function revokeApiKey(input: {
         keyId: input.keyId,
       }),
     );
+    // First transition → one audit notification (idempotent: the already-revoked
+    // branch below never reaches here, so re-DELETE produces no duplicate). Fetch
+    // the metadata for the safe name + prefix; best-effort.
+    if (input.actorUserId) {
+      const meta = await apiKeysRepo.getApiKeyMetadataByIdServiceRole(
+        input.accountId,
+        input.keyId,
+      );
+      if (meta) {
+        await recordApiKeyRevokedNotification({
+          recipientUserId: input.actorUserId,
+          accountId: input.accountId,
+          keyId: meta.id,
+          name: meta.name,
+          prefix: meta.prefix,
+          actorUserId: input.actorUserId,
+        });
+      }
+    }
     return { ok: true, alreadyRevoked: false };
   }
 
