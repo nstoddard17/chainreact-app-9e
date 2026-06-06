@@ -225,6 +225,10 @@ export async function initAccountBillingServiceRole(
 
 export async function getUsage(accountId: string): Promise<AccountBillingUsage | null> {
   const supabase = await createClient();
+  // CLIENT-FACING projection (SSR-cookie / RLS). Selects an EXPLICIT non-secret column
+  // list — `stripe_customer_id` / `stripe_subscription_id` are deliberately omitted so
+  // the Stripe attachment never reaches Account Settings or any client surface (CS-2).
+  // Those ids are read only via getStripeAttachmentServiceRole below (service-role).
   const { data, error } = await supabase
     .from("account_billing")
     .select("tasks_used, tasks_limit, period_started_at, plan, plan_status")
@@ -241,4 +245,100 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
     plan: data.plan,
     planStatus: data.plan_status,
   };
+}
+
+// ─── Stripe attachment (CS-2) — service-role ONLY ────────────────────────────
+//
+// The Stripe customer/subscription ids attach platform billing to the account
+// (one each per account_id, enforced by partial unique indexes in
+// 20260612000000). They are NEVER part of the client-facing `getUsage` projection
+// and have NO authenticated write path (account_billing has no client write
+// policy) — only the future checkout/portal/webhook slices (CS-3/CS-4) read/write
+// them through these service-role helpers. CS-2 adds the helpers + columns only;
+// it creates no Stripe customer and wires no payment behavior.
+
+/** Server-only view of an account's Stripe attachment. */
+export interface StripeAttachment {
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+}
+
+interface StripeAttachmentRow {
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  cancel_at_period_end: boolean;
+  current_period_end: string | null;
+}
+
+/**
+ * Service-role read of the account's Stripe attachment. Server-only — these ids must
+ * never be surfaced to a client (see the `getUsage` projection note). Returns null when
+ * the account has no billing row.
+ */
+export async function getStripeAttachmentServiceRole(
+  accountId: string,
+): Promise<StripeAttachment | null> {
+  const supabase = getServiceRoleClient(
+    `account_billing: read Stripe attachment for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .select(
+      "stripe_customer_id, stripe_subscription_id, cancel_at_period_end, current_period_end",
+    )
+    .eq("account_id", accountId)
+    .maybeSingle<StripeAttachmentRow>();
+  if (error) {
+    throw new Error(
+      `account_billing.getStripeAttachmentServiceRole failed: ${error.message}`,
+    );
+  }
+  if (!data) return null;
+  return {
+    stripeCustomerId: data.stripe_customer_id,
+    stripeSubscriptionId: data.stripe_subscription_id,
+    cancelAtPeriodEnd: data.cancel_at_period_end,
+    currentPeriodEnd: data.current_period_end,
+  };
+}
+
+/** Partial Stripe-attachment update (only provided fields are written). */
+export interface StripeAttachmentUpdate {
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string | null;
+}
+
+/**
+ * Service-role write of Stripe attachment fields. Server-only; the sole write path for
+ * these columns (no client/RLS write policy exists). Only keys present on `fields` are
+ * updated — a missing key leaves the column untouched. No-op when `fields` is empty.
+ */
+export async function updateStripeAttachmentServiceRole(
+  accountId: string,
+  fields: StripeAttachmentUpdate,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if ("stripeCustomerId" in fields) patch.stripe_customer_id = fields.stripeCustomerId ?? null;
+  if ("stripeSubscriptionId" in fields)
+    patch.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
+  if ("cancelAtPeriodEnd" in fields) patch.cancel_at_period_end = fields.cancelAtPeriodEnd;
+  if ("currentPeriodEnd" in fields) patch.current_period_end = fields.currentPeriodEnd ?? null;
+  if (Object.keys(patch).length === 0) return;
+
+  const supabase = getServiceRoleClient(
+    `account_billing: update Stripe attachment for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_billing")
+    .update(patch)
+    .eq("account_id", accountId);
+  if (error) {
+    throw new Error(
+      `account_billing.updateStripeAttachmentServiceRole failed: ${error.message}`,
+    );
+  }
 }
