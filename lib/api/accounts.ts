@@ -530,6 +530,84 @@ export async function removeMember(
   if (!res.ok) throw await parseError(res);
 }
 
+// ── Account API keys (4.API-KEYS-FOUNDATION-4 / FK-3) ──────────────────────────
+// Thin wrappers over the owner/admin-only FK-2 management routes. The raw key is
+// returned by `createApiKey` EXACTLY ONCE (the create response) and must be shown
+// once and never refetched, persisted, or logged. No route ever returns the
+// `key_hash`; lists carry display metadata only.
+
+/** The only scope enabled at launch. */
+export const LAUNCH_API_KEY_SCOPE = "workflows:trigger";
+
+export type ApiKeyStatus = "active" | "revoked" | "expired";
+
+/** Display metadata for one API key — NEVER the raw key or `key_hash`. */
+export interface ApiKeyMetadataView {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  status: ApiKeyStatus;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+/** The result of creating a key — the raw secret is present ONLY here. */
+export interface CreatedApiKey {
+  metadata: ApiKeyMetadataView;
+  /** Raw secret — shown to the user exactly once; never refetch or persist it. */
+  key: string;
+}
+
+export interface CreateApiKeyInput {
+  name: string;
+  /** Defaults to `[LAUNCH_API_KEY_SCOPE]`; only `workflows:trigger` is enabled. */
+  scopes?: string[];
+  /** Optional ISO-8601 expiry. Null/omitted = no expiry. */
+  expiresAt?: string | null;
+}
+
+/** GET /api/accounts/[id]/api-keys — list this account's key metadata (owner/admin). */
+export async function listApiKeys(accountId: string): Promise<ApiKeyMetadataView[]> {
+  const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/api-keys`);
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { apiKeys: ApiKeyMetadataView[] };
+  return body.apiKeys;
+}
+
+/**
+ * POST /api/accounts/[id]/api-keys — mint a key (owner/admin). The raw secret is
+ * returned ONCE in `key`; reveal it to the user a single time and never store it.
+ */
+export async function createApiKey(
+  accountId: string,
+  input: CreateApiKeyInput,
+): Promise<CreatedApiKey> {
+  const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/api-keys`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      name: input.name,
+      scopes: input.scopes ?? [LAUNCH_API_KEY_SCOPE],
+      expiresAt: input.expiresAt ?? null,
+    }),
+  });
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { apiKey: ApiKeyMetadataView; key: string };
+  return { metadata: body.apiKey, key: body.key };
+}
+
+/** DELETE /api/accounts/[id]/api-keys/[keyId] — soft-revoke a key (owner/admin). */
+export async function revokeApiKey(accountId: string, keyId: string): Promise<void> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/api-keys/${encodeURIComponent(keyId)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw await parseError(res);
+}
+
 async function parseError(res: Response): Promise<AccountApiError> {
   let message = `Request failed (${res.status})`;
   try {

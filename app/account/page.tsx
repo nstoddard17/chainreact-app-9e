@@ -139,6 +139,7 @@ export default async function AccountPage({ searchParams }: Props) {
               ? { name: active.name, type: active.type, role: active.role }
               : null
           }
+          activeAccountId={active?.id ?? null}
           isPersonal={Boolean(isPersonal)}
           deletionStatus={personal.deletionStatus}
           purgeAfter={personal.purgeAfter}

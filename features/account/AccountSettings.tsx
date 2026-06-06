@@ -37,6 +37,8 @@ import { AccountDeletionCard } from "./AccountDeletionCard";
  */
 interface Props {
   active: ActiveAccountView | null;
+  /** The active account's id — needed by the API-keys management routes (FK-3). */
+  activeAccountId?: string | null;
   /** True when the active account is the caller's personal account. */
   isPersonal: boolean;
   /** The caller's PERSONAL account deletion lifecycle state. */
@@ -74,6 +76,7 @@ function NavGlyph({ d }: { d: string }) {
 
 export function AccountSettings({
   active,
+  activeAccountId,
   isPersonal,
   deletionStatus,
   purgeAfter,
@@ -165,7 +168,13 @@ export function AccountSettings({
           />
         )}
         {section === "billing" && <BillingSection active={active} billing={billing} />}
-        {section === "api" && <ApiSection active={active} />}
+        {section === "api" && (
+          <ApiSection
+            active={active}
+            accountId={activeAccountId ?? null}
+            frozen={billing.frozen}
+          />
+        )}
         {section === "danger-zone" &&
           (isPersonal ? (
             <AccountDeletionCard

@@ -7,6 +7,7 @@ import { RoleBadge } from "@/features/team/RoleBadge";
 import { accountTypeLabel } from "@/features/team/accountTypeLabel";
 import type { AccountSummary } from "@/lib/api/accounts";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { ApiKeysPanel } from "./ApiKeysPanel";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -326,17 +327,33 @@ export function BillingSection({
   );
 }
 
-// ── API & webhooks (read-only — API-WEBHOOKS-2) ──────────────────────────────
+// ── API & webhooks (API-KEYS-FOUNDATION-4 / FK-3) ────────────────────────────
 // Account-scoped (like Plan & billing): the section reflects the ACTIVE account.
-// There is no public API, no API keys, and no customer-facing webhooks yet — both
-// panels are honest "coming soon". No fake keys, endpoints, delivery logs, or
-// setup forms. The provider webhooks under `app/api/webhooks/<provider>` are a
+// The API keys panel is REAL for owner/admin (list / create with one-time reveal /
+// revoke, via the FK-2 management routes); members see a read-only note. The
+// Webhooks panel stays an honest "coming soon" (Phase D) — no fake endpoints or
+// delivery logs. The provider webhooks under `app/api/webhooks/<provider>` are a
 // separate internal concern (they power triggers) and are deliberately NOT shown.
-// See docs/slices/phase-4/account-settings-api-webhooks-plan.md.
-export function ApiSection({ active }: { active: ActiveAccountView | null }) {
+// See docs/slices/phase-4/api-keys-foundation-plan.md.
+export function ApiSection({
+  active,
+  accountId,
+  frozen,
+}: {
+  active: ActiveAccountView | null;
+  /** The active account's id (needed for the management routes). */
+  accountId: string | null;
+  /** True when the active account is pending deletion (read-only). */
+  frozen: boolean;
+}) {
+  const canManage = active?.role === "owner" || active?.role === "admin";
+
   return (
     <div data-testid="account-section-api" className="flex flex-col gap-5">
-      <Panel title="API keys" desc="Programmatic access to ChainReact — coming soon.">
+      <Panel
+        title="API keys"
+        desc="Programmatic, account-scoped access to ChainReact's own API."
+      >
         {active && (
           <SettingRow label="Account" desc="Developer access is scoped to this account.">
             <span className="flex items-center gap-2">
@@ -357,22 +374,23 @@ export function ApiSection({ active }: { active: ActiveAccountView | null }) {
         )}
 
         <SettingRow label="Developer access" stacked>
-          <p data-testid="api-keys-copy" className="max-w-xl text-xs text-muted-foreground">
-            API keys will give this account programmatic, account-scoped access to
-            ChainReact&apos;s own API — created and revoked by account owners and
-            admins. The first planned use is triggering your workflows
-            programmatically. Keys act as this account and will{" "}
-            <span className="font-medium text-foreground">
-              never expose your connected app or OAuth tokens
-            </span>
-            .
-          </p>
+          {canManage && accountId ? (
+            <ApiKeysPanel accountId={accountId} frozen={frozen} />
+          ) : (
+            <p data-testid="api-keys-member-note" className="max-w-xl text-xs text-muted-foreground">
+              {accountId ? (
+                <>Owners and admins manage this account&apos;s API keys.</>
+              ) : (
+                <>API keys are managed per account — there&apos;s no active account to manage.</>
+              )}{" "}
+              Keys give programmatic access to trigger this account&apos;s workflows and{" "}
+              <span className="font-medium text-foreground">
+                never expose your connected app or OAuth tokens
+              </span>
+              .
+            </p>
+          )}
         </SettingRow>
-
-        <ComingSoonRow
-          label="Create an API key"
-          desc="Owner/admin-managed keys to trigger workflows — coming soon."
-        />
       </Panel>
 
       <Panel title="Webhooks" desc="Event webhooks to your URLs — coming soon.">
