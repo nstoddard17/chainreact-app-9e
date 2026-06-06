@@ -80,6 +80,8 @@ describe("workflowRuns.listByAccountForDisplay", () => {
         "status",
         "is_test",
         "triggered_by",
+        // RH-3 — non-secret API-key prefix snapshot (display attribution).
+        "triggered_by_api_key_prefix",
         "started_at",
         "finished_at",
         "error_classification",
@@ -90,6 +92,9 @@ describe("workflowRuns.listByAccountForDisplay", () => {
       "steps",
       "fatal_error",
       "user_id",
+      // Sensitive API-key material must NEVER be in the display projection.
+      "triggered_by_api_key_id",
+      "key_hash",
       "reserved_task_cost",
       "actual_task_cost",
       "estimated_task_cost",

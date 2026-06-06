@@ -20,6 +20,7 @@ function fixtureRun(overrides: Partial<RunListItem> = {}): RunListItem {
     status: "succeeded",
     isTest: false,
     triggeredBy: "manual",
+    triggeredByApiKeyPrefix: null,
     startedAt: new Date(Date.now() - 60_000).toISOString(),
     finishedAt: new Date(Date.now()).toISOString(),
     durationMs: 60_000,

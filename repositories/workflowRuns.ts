@@ -323,6 +323,11 @@ export interface WorkflowRunDisplayRecord {
   status: WorkflowRunStatus;
   isTest: boolean;
   triggeredBy: WorkflowRunTriggeredBy;
+  /**
+   * RH-3 — non-secret API-key prefix snapshot for `api_key` runs (null otherwise).
+   * Display-only attribution; never the raw key or hash.
+   */
+  triggeredByApiKeyPrefix: string | null;
   startedAt: string;
   finishedAt: string | null;
   errorClassification: WorkflowRunErrorClassification | null;
@@ -334,13 +339,14 @@ interface WorkflowRunDisplayRow {
   status: WorkflowRunStatus;
   is_test: boolean;
   triggered_by: WorkflowRunTriggeredBy;
+  triggered_by_api_key_prefix: string | null;
   started_at: string;
   finished_at: string | null;
   error_classification: WorkflowRunErrorClassification | null;
 }
 
 const DISPLAY_RUN_COLUMNS =
-  "id,workflow_id,status,is_test,triggered_by,started_at,finished_at,error_classification";
+  "id,workflow_id,status,is_test,triggered_by,triggered_by_api_key_prefix,started_at,finished_at,error_classification";
 
 export interface ListRunsForDisplayOptions {
   /** Defaults to 50, capped at 200 to keep the list-page render bounded. */
@@ -371,6 +377,7 @@ export async function listByAccountForDisplay(
       status: row.status,
       isTest: row.is_test,
       triggeredBy: row.triggered_by,
+      triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
       startedAt: row.started_at,
       finishedAt: row.finished_at,
       errorClassification: row.error_classification,

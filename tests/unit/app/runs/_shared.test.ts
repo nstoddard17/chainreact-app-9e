@@ -18,6 +18,7 @@ const baseRecord: WorkflowRunDisplayRecord = {
   status: "succeeded",
   isTest: false,
   triggeredBy: "manual",
+  triggeredByApiKeyPrefix: null,
   startedAt: "2026-05-30T12:00:00Z",
   finishedAt: "2026-05-30T12:00:01.500Z",
   errorClassification: null,
@@ -41,6 +42,24 @@ describe("toRunListItem", () => {
   it("falls back to 'Untitled workflow' when the id is missing from the map", () => {
     const result = toRunListItem(baseRecord, new Map());
     expect(result.workflowName).toBe("Untitled workflow");
+  });
+
+  it("maps the non-secret API-key prefix through to the DTO (RH-3)", () => {
+    const apiKeyRun = {
+      ...baseRecord,
+      triggeredBy: "api_key" as const,
+      triggeredByApiKeyPrefix: "crk_live_ab12…wxyz",
+    };
+    const result = toRunListItem(apiKeyRun, new Map());
+    expect(result.triggeredBy).toBe("api_key");
+    expect(result.triggeredByApiKeyPrefix).toBe("crk_live_ab12…wxyz");
+    // Schema-valid + no hash leaked.
+    expect(RunListItemSchema.parse(result).triggeredByApiKeyPrefix).toBe("crk_live_ab12…wxyz");
+    expect(JSON.stringify(result)).not.toMatch(/key_?hash/i);
+  });
+
+  it("leaves triggeredByApiKeyPrefix null for non-api_key runs", () => {
+    expect(toRunListItem(baseRecord, new Map()).triggeredByApiKeyPrefix).toBeNull();
   });
 
   it("computes durationMs = finishedAt − startedAt", () => {

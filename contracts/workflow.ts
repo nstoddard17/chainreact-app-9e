@@ -260,6 +260,11 @@ export const RunListItemSchema = z.object({
   status: WorkflowRunStatusSchema,
   isTest: z.boolean(),
   triggeredBy: WorkflowRunTriggeredBySchema,
+  /**
+   * RH-3 — non-secret API-key prefix snapshot for `api_key` runs (null
+   * otherwise). Display-only attribution; never the raw key or hash.
+   */
+  triggeredByApiKeyPrefix: z.string().nullable(),
   startedAt: z.string(),
   finishedAt: z.string().nullable(),
   durationMs: z.number().nullable(),

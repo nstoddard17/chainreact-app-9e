@@ -44,7 +44,10 @@ export function RunRow({ run }: Props) {
         >
           {run.workflowName}
         </Link>
-        <RunSourceBadge triggeredBy={run.triggeredBy} />
+        <RunSourceBadge
+          triggeredBy={run.triggeredBy}
+          apiKeyPrefix={run.triggeredByApiKeyPrefix}
+        />
         {run.isTest && (
           <span
             data-testid={`runs-row-${run.id}-test-marker`}

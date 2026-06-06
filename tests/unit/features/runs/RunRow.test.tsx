@@ -13,6 +13,7 @@ function fixtureRun(overrides: Partial<RunListItem> = {}): RunListItem {
     status: "succeeded",
     isTest: false,
     triggeredBy: "manual",
+    triggeredByApiKeyPrefix: null,
     startedAt: new Date(Date.now() - 60_000).toISOString(),
     finishedAt: new Date(Date.now()).toISOString(),
     durationMs: 60_000,
@@ -52,6 +53,21 @@ describe("RunRow", () => {
     expect(
       screen.getByTestId("run-source-badge-webhook"),
     ).toHaveTextContent(/webhook/i);
+  });
+
+  it("renders an api_key run with the prefix-aware copy (RH-3)", () => {
+    const run = fixtureRun({
+      triggeredBy: "api_key",
+      triggeredByApiKeyPrefix: "crk_live_ab12…wxyz",
+    });
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    const badge = screen.getByTestId("run-source-badge-api_key");
+    expect(badge).toHaveTextContent("Triggered via API key · crk_live_ab12…wxyz");
+    expect(badge.textContent ?? "").not.toMatch(/key_?hash/i);
   });
 
   it("shows the Test marker only for isTest=true rows", () => {

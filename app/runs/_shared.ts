@@ -30,6 +30,7 @@ export function toRunListItem(
     status: record.status,
     isTest: record.isTest,
     triggeredBy: record.triggeredBy,
+    triggeredByApiKeyPrefix: record.triggeredByApiKeyPrefix,
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
     durationMs: computeDurationMs(record.startedAt, record.finishedAt),
