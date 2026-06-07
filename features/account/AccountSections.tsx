@@ -1,17 +1,17 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/features/team/Panel";
 import { SettingRow } from "@/features/team/SettingRow";
 import { RoleBadge } from "@/features/team/RoleBadge";
 import { accountTypeLabel } from "@/features/team/accountTypeLabel";
-import type { AccountSummary } from "@/lib/api/accounts";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ApiDocsPanel } from "./ApiDocsPanel";
-import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
-import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
-import { PersonalPlanPanel } from "./PersonalPlanPanel";
+import {
+  ComingSoonRow,
+  ReadOnlyRow,
+  type ActiveAccountView,
+} from "./settingsRows";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -20,51 +20,16 @@ import { PersonalPlanPanel } from "./PersonalPlanPanel";
  * non-deletion section is an HONEST placeholder: read-only values that are
  * safely available, plus "coming soon" rows — never a fake working toggle,
  * input, or fabricated key. No backend is added by any of these.
+ *
+ * The Plan & billing section lives in `./BillingSection.tsx`; the shared row
+ * primitives + `ActiveAccountView` live in `./settingsRows.tsx`. Both are re-exported
+ * below so existing `@/features/account/AccountSections` imports keep resolving
+ * (4.ACCOUNT-SETTINGS-BILLING-REFACTOR-1 — extraction only, no behavior change).
  */
 
-export interface ActiveAccountView {
-  name: string;
-  type: AccountSummary["type"];
-  role: AccountSummary["role"];
-}
-
-/** A non-interactive "coming soon" pill used to mark deferred controls. */
-function ComingSoon() {
-  return (
-    <span
-      data-testid="account-coming-soon"
-      className="inline-flex items-center rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70"
-    >
-      Coming soon
-    </span>
-  );
-}
-
-/** A read-only setting row whose control slot is a coming-soon marker. */
-function ComingSoonRow({ label, desc }: { label: string; desc?: string }) {
-  return (
-    <SettingRow label={label} desc={desc}>
-      <ComingSoon />
-    </SettingRow>
-  );
-}
-
-/** A read-only value row (no edit affordance). */
-function ReadOnlyRow({
-  label,
-  desc,
-  value,
-}: {
-  label: string;
-  desc?: string;
-  value: ReactNode;
-}) {
-  return (
-    <SettingRow label={label} desc={desc}>
-      <span className="text-sm font-medium text-foreground">{value}</span>
-    </SettingRow>
-  );
-}
+// Backward-compatible re-exports (consumers import these from AccountSections today).
+export type { ActiveAccountView } from "./settingsRows";
+export { BillingSection, type AccountBillingView } from "./BillingSection";
 
 // ── Account (real) ───────────────────────────────────────────────────────────
 export function AccountOverview({
@@ -188,224 +153,6 @@ export function SecuritySection({
           label="Connected accounts"
           desc="Sign in with Google or GitHub — coming soon."
         />
-      </Panel>
-    </div>
-  );
-}
-
-// ── Plan & billing (read-only — BILL-1) ──────────────────────────────────────
-/** Account billing/limit facts the page resolves for the ACTIVE account. */
-export interface AccountBillingView {
-  /** Real task usage from `account_billing`, or null when unavailable. */
-  usage: { tasksUsed: number; tasksLimit: number; periodStartedAt: string | null } | null;
-  /** Total-member cap (team/business); null for personal / uncapped. */
-  memberLimit: number | null;
-  /** Current member count (team/business), or null when not loaded/applicable. */
-  memberCount: number | null;
-  /** Workflow-folder cap for the active account's tier. */
-  folderLimit: number;
-  /** True when the active account is pending deletion (frozen). */
-  frozen: boolean;
-  /**
-   * Explicit billing tier from `account_billing.plan` (CS-1). When present it is the
-   * source of truth for the displayed tier (e.g. a personal account on `pro` shows
-   * "Pro"); when null/absent the label falls back to the account-type default.
-   */
-  plan?: PlanTier | null;
-  /** Subscription lifecycle status (CS-5) — drives the warning banner copy. */
-  planStatus?: PlanStatus | null;
-  /** ISO subscription period end (CS-5); null when no subscription. */
-  currentPeriodEnd?: string | null;
-  /** Whether the subscription is set to cancel at period end (CS-5). */
-  cancelAtPeriodEnd?: boolean | null;
-  /** ENABLE_PLATFORM_BILLING (PPT-3) — gates the interactive personal-plan panel. */
-  platformBillingEnabled?: boolean;
-}
-
-/**
- * Billing tier label (NOT the account-type label): a personal account is the
- * **Free** tier until Pro plan metadata exists; team → Team; organization →
- * Business. Never surfaces the raw "Organization" word.
- */
-function billingTierLabel(type: AccountSummary["type"]): string {
-  if (type === "personal") return "Free";
-  if (type === "organization") return "Business";
-  return "Team";
-}
-
-export function BillingSection({
-  active,
-  accountId,
-  billing,
-}: {
-  active: ActiveAccountView | null;
-  /** The active account's id (for the personal-plan panel routes). */
-  accountId?: string | null;
-  billing: AccountBillingView;
-}) {
-  // PPT-3: the interactive personal-plan panel renders only for an owner/admin on a
-  // personal account when platform billing is enabled.
-  const showPersonalPlan =
-    Boolean(billing.platformBillingEnabled) &&
-    Boolean(accountId) &&
-    active?.type === "personal" &&
-    (active.role === "owner" || active.role === "admin");
-  const isShared = active != null && active.type !== "personal";
-  // CS-1: prefer the explicit stored plan; fall back to the account-type default.
-  const tier = active
-    ? billing.plan
-      ? planTierLabel(billing.plan)
-      : billingTierLabel(active.type)
-    : "—";
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: "UTC",
-    });
-  const periodStart =
-    billing.usage?.periodStartedAt != null ? formatDate(billing.usage.periodStartedAt) : null;
-
-  // CS-5: derive the warning-first lifecycle state from the synced billing facts. Only
-  // shown when we have an explicit plan + status (paid accounts); free/active stays
-  // banner-less. Never blocks runs — copy is warn-first by design.
-  const lifecycle =
-    active && billing.plan && billing.planStatus
-      ? deriveBillingLifecycle({
-          plan: billing.plan,
-          planStatus: billing.planStatus,
-          cancelAtPeriodEnd: billing.cancelAtPeriodEnd ?? false,
-          currentPeriodEnd: billing.currentPeriodEnd ?? null,
-        })
-      : null;
-  const lifecycleBanner = lifecycle && lifecycle.level !== "none" ? lifecycle : null;
-  const periodEnd = lifecycle?.periodEnd ?? null;
-
-  return (
-    <div data-testid="account-section-billing" className="flex flex-col gap-5">
-      {billing.frozen && (
-        <div
-          data-testid="billing-frozen"
-          className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4"
-        >
-          <p className="text-sm font-semibold text-foreground">
-            This account is pending deletion.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Billing is read-only while the account is frozen.
-          </p>
-        </div>
-      )}
-
-      {lifecycleBanner && (
-        <div
-          data-testid="billing-status"
-          data-level={lifecycleBanner.level}
-          className={
-            lifecycleBanner.level === "warning"
-              ? "rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 dark:border-amber-400/30 dark:bg-amber-400/10"
-              : "rounded-xl border border-blue-500/40 bg-blue-500/10 p-4 dark:border-blue-400/30 dark:bg-blue-400/10"
-          }
-        >
-          <p data-testid="billing-status-label" className="text-sm font-semibold text-foreground">
-            {lifecycleBanner.statusLabel}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">{lifecycleBanner.description}</p>
-        </div>
-      )}
-
-      <Panel
-        title="Plan & billing"
-        desc="Paid plans and billing management are coming soon."
-      >
-        {active && (
-          <ReadOnlyRow label="Account" value={active.name} />
-        )}
-        <SettingRow label="Plan" desc="Your current tier.">
-          <span
-            data-testid="billing-tier"
-            className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
-          >
-            {tier}
-          </span>
-        </SettingRow>
-
-        {billing.usage ? (
-          <SettingRow
-            label="Task usage"
-            desc={periodStart ? `This period — since ${periodStart}.` : "This period."}
-          >
-            <span data-testid="billing-usage" className="text-sm font-medium text-foreground">
-              {billing.usage.tasksUsed} / {billing.usage.tasksLimit} tasks
-            </span>
-          </SettingRow>
-        ) : (
-          <ReadOnlyRow
-            label="Task usage"
-            value={
-              <span data-testid="billing-usage-unavailable" className="text-muted-foreground">
-                Usage unavailable
-              </span>
-            }
-          />
-        )}
-
-        {billing.memberLimit !== null && (
-          <ReadOnlyRow
-            label="Members"
-            desc="Billed as one account with shared usage."
-            value={
-              <span data-testid="billing-members">
-                {billing.memberCount != null ? `${billing.memberCount} of ` : "Up to "}
-                {billing.memberLimit} members
-              </span>
-            }
-          />
-        )}
-
-        <ReadOnlyRow
-          label="Folders"
-          value={<span data-testid="billing-folders">Up to {billing.folderLimit} folders</span>}
-        />
-
-        {isShared && (
-          <SettingRow label="Seats" stacked>
-            <p data-testid="billing-no-pro-copy" className="text-xs text-muted-foreground">
-              Team and Business are billed as one account with shared usage —
-              members don&apos;t need their own Pro.
-            </p>
-          </SettingRow>
-        )}
-
-        {periodEnd ? (
-          <ReadOnlyRow
-            label={periodEnd.kind === "renews" ? "Renews on" : "Access ends"}
-            value={
-              <span data-testid="billing-period-end" data-kind={periodEnd.kind}>
-                {formatDate(periodEnd.iso)}
-              </span>
-            }
-          />
-        ) : null}
-
-        {showPersonalPlan && accountId && (
-          <SettingRow label="Personal plan" stacked>
-            <PersonalPlanPanel accountId={accountId} frozen={billing.frozen} />
-          </SettingRow>
-        )}
-
-        <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
-        <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />
-        {!billing.frozen && (
-          <ComingSoonRow
-            label="Upgrade or change plan"
-            desc="Checkout and plan changes — coming soon."
-          />
-        )}
-        {!periodEnd && (
-          <ComingSoonRow label="Next billing date" desc="Available once paid plans launch." />
-        )}
       </Panel>
     </div>
   );
