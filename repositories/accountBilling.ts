@@ -1,6 +1,57 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
-import type { PlanTier, PlanStatus } from "@/core/billing/planPolicy";
+import { planLimitsFor, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
+
+/**
+ * Atomic Team → Business upgrade (Slice 4.BILLING-BUSINESS-UPGRADE-2 / BU-1). Service-role
+ * wrapper over the `apply_business_upgrade` SECURITY DEFINER RPC, which flips
+ * `accounts.type` team→organization AND sets `account_billing.plan='business'` (+ status /
+ * period / cancel / Stripe ids / tasks_limit) in ONE transaction. The webhook (BU-3) is the
+ * only intended caller; there is no client write path. The RPC re-validates server-side and
+ * is idempotent (no-op when already organization / not a team / frozen). `tasksLimit`
+ * defaults to the Business policy cap so the number stays authoritative in TS, not SQL.
+ */
+export interface ApplyBusinessUpgradeInput {
+  accountId: string;
+  planStatus: PlanStatus;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  stripeSubscriptionId?: string | null;
+  stripeCustomerId?: string | null;
+  /** Defaults to `planLimitsFor('business').taskLimit`. */
+  tasksLimit?: number;
+}
+
+export interface ApplyBusinessUpgradeResult {
+  ok: boolean;
+  /** True only when this call performed the flip (false on an idempotent no-op). */
+  applied: boolean;
+  /** upgraded | already_upgraded | account_not_found | account_frozen | not_upgradeable. */
+  reason: string;
+}
+
+export async function applyBusinessUpgradeServiceRole(
+  input: ApplyBusinessUpgradeInput,
+): Promise<ApplyBusinessUpgradeResult> {
+  const tasksLimit = input.tasksLimit ?? planLimitsFor("business").taskLimit ?? 100;
+  const supabase = getServiceRoleClient(
+    `account upgrade: team→business for account ${input.accountId}`,
+  );
+  const { data, error } = await supabase.rpc("apply_business_upgrade", {
+    p_account_id: input.accountId,
+    p_plan_status: input.planStatus,
+    p_current_period_end: input.currentPeriodEnd ?? null,
+    p_cancel_at_period_end: input.cancelAtPeriodEnd ?? false,
+    p_stripe_subscription_id: input.stripeSubscriptionId ?? null,
+    p_stripe_customer_id: input.stripeCustomerId ?? null,
+    p_tasks_limit: tasksLimit,
+  });
+  if (error) {
+    throw new Error(`apply_business_upgrade RPC failed: ${error.message}`);
+  }
+  const row = data as { ok: boolean; applied: boolean; reason: string };
+  return { ok: row.ok, applied: row.applied, reason: row.reason };
+}
 
 /**
  * Authoritative billing-state sync from a VERIFIED Stripe billing webhook (CS-4). The
