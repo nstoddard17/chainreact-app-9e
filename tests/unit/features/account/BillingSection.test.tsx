@@ -284,16 +284,30 @@ describe("BillingSection — Business upgrade gating (BU-4)", () => {
 
 describe("BillingSection — Personal Free → Pro upgrade (4.PLATFORM-BILLING-UI-1)", () => {
   const ACCT = "personal-1";
+  // CS-PRO-1: the upgrade now requires BOTH platform billing AND the personal-pro dark-launch flag.
   function personalBilling(over: Partial<AccountBillingView> = {}) {
-    return { ...baseBilling, platformBillingEnabled: true, ...over };
+    return { ...baseBilling, platformBillingEnabled: true, personalProEnabled: true, ...over };
   }
 
-  it("shows 'Upgrade to Pro' for a personal Free owner with the flag ON", () => {
+  it("shows 'Upgrade to Pro' for a personal Free owner with both flags ON", () => {
     render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling()} />);
     const panel = screen.getByTestId("personal-upgrade-panel");
     expect(within(panel).getByTestId("ccb")).toHaveAttribute("data-plan", "pro");
     // the redundant coming-soon "Upgrade or change plan" row is suppressed.
     expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/Upgrade or change plan/);
+  });
+
+  it("hides 'Upgrade to Pro' when ENABLE_PERSONAL_PRO is OFF (dark-launch) even with platform billing ON", () => {
+    render(
+      <BillingSection
+        active={active("personal")}
+        accountId={ACCT}
+        billing={personalBilling({ personalProEnabled: false })}
+      />,
+    );
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+    // and the honest coming-soon "Upgrade or change plan" row is shown instead.
+    expect(screen.getByTestId("account-section-billing")).toHaveTextContent(/Upgrade or change plan/);
   });
 
   it("does NOT show Upgrade to Pro for a paid Pro personal account", () => {
@@ -336,6 +350,26 @@ describe("BillingSection — Personal Free → Pro upgrade (4.PLATFORM-BILLING-U
   it("hides Upgrade to Pro on a frozen account (payment controls hidden)", () => {
     render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling({ frozen: true })} />);
     expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+
+  it("Team → Business upgrade is UNAFFECTED by ENABLE_PERSONAL_PRO (off)", () => {
+    render(
+      <BillingSection
+        active={active("team")}
+        accountId="team-1"
+        billing={{
+          ...baseBilling,
+          platformBillingEnabled: true,
+          personalProEnabled: false,
+          plan: "team",
+          memberLimit: 5,
+          memberCount: 2,
+          folderLimit: 100,
+          personalAccountId: "personal-1",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("business-upgrade-panel")).toBeInTheDocument();
   });
 });
 

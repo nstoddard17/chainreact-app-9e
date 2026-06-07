@@ -8,8 +8,10 @@
  */
 
 const mockIsFlagOn = jest.fn();
+const mockIsProOn = jest.fn();
 jest.mock("@/services/billing/billingFeatureFlags", () => ({
   isPlatformBillingEnabled: () => mockIsFlagOn(),
+  isPersonalProEnabled: () => mockIsProOn(),
 }));
 
 const mockGetUser = jest.fn();
@@ -48,10 +50,12 @@ function req(body: unknown) {
 
 beforeEach(() => {
   mockIsFlagOn.mockReset();
+  mockIsProOn.mockReset();
   mockGetUser.mockReset();
   mockRequireRole.mockReset();
   mockCreateCheckout.mockReset();
   mockIsFlagOn.mockReturnValue(true); // default ON; flag-off test overrides
+  mockIsProOn.mockReturnValue(true); // default ON; personal-pro-off test overrides
 });
 
 describe("feature flag", () => {
@@ -107,6 +111,62 @@ describe("body validation (client cannot choose a price)", () => {
     const res = await POST(req({ plan: "pro", priceId: "price_evil", customer: "cus_evil" }), params());
     expect(res.status).toBe(400);
     expect(mockCreateCheckout).not.toHaveBeenCalled();
+  });
+});
+
+describe("Personal Pro dark-launch gate (CS-PRO-1)", () => {
+  it("400 PLAN_NOT_AVAILABLE for plan=pro when ENABLE_PERSONAL_PRO is OFF — no Stripe/service call", async () => {
+    mockIsProOn.mockReturnValue(false);
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    const res = await POST(req({ plan: "pro" }), params());
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("PLAN_NOT_AVAILABLE");
+    // The route gate fires BEFORE the session service — no Stripe customer/session is created.
+    expect(mockCreateCheckout).not.toHaveBeenCalled();
+  });
+
+  it("allows plan=pro when BOTH platform billing and personal-pro flags are ON", async () => {
+    // both default ON in beforeEach
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/pro" });
+    const res = await POST(req({ plan: "pro" }), params());
+    expect(res.status).toBe(200);
+    expect((await res.json()).url).toBe("https://stripe.test/pro");
+    expect(mockCreateCheckout).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      requestedPlan: "pro",
+      contactEmail: "m@x.test",
+    });
+  });
+
+  it("does NOT affect Team checkout when ENABLE_PERSONAL_PRO is OFF", async () => {
+    mockIsProOn.mockReturnValue(false);
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/team" });
+    const res = await POST(req({ plan: "team" }), params());
+    expect(res.status).toBe(200);
+    expect(mockCreateCheckout).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      requestedPlan: "team",
+      contactEmail: "m@x.test",
+    });
+  });
+
+  it("does NOT affect Business checkout when ENABLE_PERSONAL_PRO is OFF", async () => {
+    mockIsProOn.mockReturnValue(false);
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "admin" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/biz" });
+    const res = await POST(req({ plan: "business" }), params());
+    expect(res.status).toBe(200);
+    expect(mockCreateCheckout).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      requestedPlan: "business",
+      contactEmail: "m@x.test",
+    });
   });
 });
 

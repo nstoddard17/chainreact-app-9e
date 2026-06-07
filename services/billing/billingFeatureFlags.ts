@@ -51,3 +51,20 @@ export const PLATFORM_BILLING_FLAG = "ENABLE_PLATFORM_BILLING";
 export function isPlatformBillingEnabled(): boolean {
   return process.env[PLATFORM_BILLING_FLAG] === "true";
 }
+
+/**
+ * Env var dark-launching the PERSONAL PRO tier (Slice 4.PLATFORM-BILLING-PRO-VALUE-2 / CS-PRO-1).
+ *
+ * DEFAULT OFF. SEPARATE from ENABLE_PLATFORM_BILLING: the initial billing rollout launches
+ * Team/Business while Personal Pro stays dark until it carries real value (see
+ * docs/slices/phase-4/account-settings/personal-pro-value-plan.md). When OFF, the personal
+ * Free → Pro upgrade affordance is hidden AND the checkout route rejects `plan="pro"` BEFORE
+ * any Stripe call — UI hiding alone is not the protection (the route gate is). Has no effect
+ * unless ENABLE_PLATFORM_BILLING is also ON. Read at call time. Does NOT touch Team/Business.
+ */
+export const PERSONAL_PRO_FLAG = "ENABLE_PERSONAL_PRO";
+
+/** True only when ENABLE_PERSONAL_PRO === "true". Default false. */
+export function isPersonalProEnabled(): boolean {
+  return process.env[PERSONAL_PRO_FLAG] === "true";
+}

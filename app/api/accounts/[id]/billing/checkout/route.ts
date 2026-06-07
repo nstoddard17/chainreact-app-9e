@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
-import { isPlatformBillingEnabled } from "@/services/billing/billingFeatureFlags";
+import {
+  isPlatformBillingEnabled,
+  isPersonalProEnabled,
+} from "@/services/billing/billingFeatureFlags";
 import {
   createCheckoutSession,
   type CheckoutFailureReason,
@@ -95,6 +98,17 @@ export async function POST(
 
   const body = await parseAccountBody(request, CheckoutBodySchema);
   if (!body.ok) return body.response;
+
+  // CS-PRO-1: Personal Pro is dark-launched behind ENABLE_PERSONAL_PRO (default OFF). Reject a
+  // `pro` checkout BEFORE any Stripe call when the flag is off — the UI hides the button, but
+  // this route gate is the authoritative protection (a crafted POST must not be able to buy
+  // Pro). Generic typed error, no config leak. Team/Business checkouts are unaffected.
+  if (body.data.plan === "pro" && !isPersonalProEnabled()) {
+    return NextResponse.json(
+      { error: "That plan isn't available right now.", code: "PLAN_NOT_AVAILABLE" },
+      { status: 400 },
+    );
+  }
 
   try {
     const result = await createCheckoutSession({

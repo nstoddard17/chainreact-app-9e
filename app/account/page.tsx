@@ -5,7 +5,10 @@ import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getDisplayName } from "@/repositories/userProfiles";
 import { getUsage } from "@/repositories/accountBilling";
-import { isPlatformBillingEnabled } from "@/services/billing/billingFeatureFlags";
+import {
+  isPlatformBillingEnabled,
+  isPersonalProEnabled,
+} from "@/services/billing/billingFeatureFlags";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
@@ -132,6 +135,8 @@ export default async function AccountPage({ searchParams }: Props) {
       cancelAtPeriodEnd: usage?.cancelAtPeriodEnd ?? null,
       // PPT-3: gate the interactive personal-plan panel on the platform-billing flag.
       platformBillingEnabled: isPlatformBillingEnabled(),
+      // CS-PRO-1: dark-launch gate for the personal Free → Pro upgrade affordance.
+      personalProEnabled: isPersonalProEnabled(),
       // BU-4: the viewer's personal account id, so a Team→Business upgrade can run the
       // Personal-Pro choice dialog. Always available via ensurePersonalAccount.
       personalAccountId: personal.id,

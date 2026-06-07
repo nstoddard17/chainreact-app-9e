@@ -45,6 +45,10 @@ export interface AccountBillingView {
   cancelAtPeriodEnd?: boolean | null;
   /** ENABLE_PLATFORM_BILLING (PPT-3) — gates the interactive personal-plan panel. */
   platformBillingEnabled?: boolean;
+  /** ENABLE_PERSONAL_PRO (CS-PRO-1) — dark-launch gate for the personal Free → Pro upgrade.
+   *  When false (default), the upgrade affordance is hidden even with platform billing ON
+   *  (the checkout route also rejects `plan="pro"`). Does not affect Team/Business. */
+  personalProEnabled?: boolean;
   /** The viewer's personal account id (BU-4) — lets the Business upgrade run the
    *  Personal-Pro choice dialog. Null when unavailable. */
   personalAccountId?: string | null;
@@ -90,8 +94,11 @@ export function BillingSection({
   // 4.PLATFORM-BILLING-UI-1: Personal Free → Pro upgrade. Owner/admin on a personal account
   // whose current plan is Free (or unset), not frozen, flag ON. Hidden for paid Pro (handled
   // by PersonalPlanPanel), team/business, members, frozen, or flag-OFF.
+  // CS-PRO-1: ALSO gated on ENABLE_PERSONAL_PRO (dark-launch) — when off, no upgrade button
+  // even with platform billing on (the checkout route is the authoritative gate).
   const showPersonalUpgrade =
     Boolean(billing.platformBillingEnabled) &&
+    Boolean(billing.personalProEnabled) &&
     Boolean(accountId) &&
     !billing.frozen &&
     active?.type === "personal" &&
