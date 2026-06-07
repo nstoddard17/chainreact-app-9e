@@ -6,6 +6,13 @@ this slice. Nothing pushed.**
 **Branch:** `builder-ui-v1-audit-1`
 **Arc range:** `66bedf73b` (2026-06-06) → `7a888a155` (2026-06-07)
 
+> **Update (2026-06-07, docs-only, slice `853c26390`):** the two billing UI affordances this
+> closeout listed as deferred — Personal Free → Pro upgrade and Manage Billing portal — have
+> since shipped behind `ENABLE_PLATFORM_BILLING` (still default OFF). See §6 (UI behavior), §7
+> (deferred — item now resolved), §9 (Track C narrowed), and the
+> [go-live checklist](./platform-billing-go-live-checklist.md). No backend route, webhook,
+> Stripe client, schema, pricing, metering, or plan-sync behavior changed in that UI slice.
+
 **Source of truth (the shipped code this closeout describes):**
 [core/billing/planPolicy.ts](../../../../core/billing/planPolicy.ts) ·
 [core/billing/billingLifecycle.ts](../../../../core/billing/billingLifecycle.ts) ·
@@ -131,8 +138,10 @@ max-lines warning.)
 - **Lifecycle banners** (CS-5) — warn-first copy for past_due / canceled / trialing / cancel-at-period-end + a "Renews on / Access ends" dated row.
 - **PersonalPlanPanel** (PPT-3) — for an owner/admin on a personal account (flag ON): schedule/undo cancel-at-period-end, with over-limit blockers; read-only when frozen.
 - **BusinessUpgradePanel** (BU-4) — for an owner/admin on a non-frozen Team account (flag ON): "Upgrade to Business" with capacity copy.
-- **CheckoutChoiceButton** (PPT-4) — runs the Personal-Pro choice dialog (Keep / Downgrade-at-period-end) before a Team/Business checkout when the viewer has Personal Pro.
-- **No pricing table, no fake/unsupported controls** — every button maps to a real, flag-gated route; the section renders no Stripe id.
+- **PersonalUpgradePanel** (4.PLATFORM-BILLING-UI-1 / `853c26390`) — for an owner/admin on a non-frozen **personal** account whose current plan is **Free** (flag ON): "Upgrade to Pro". Wraps `CheckoutChoiceButton` with the personal account as both checkout + personal id, so the Personal-Pro choice dialog is skipped (no self-conflict) and it goes straight to the `pro` checkout. Copy is **mechanics-only** and honestly does NOT claim extra capacity — Pro currently shares Free's caps in `planPolicy.ts`.
+- **ManageBillingButton** (4.PLATFORM-BILLING-UI-1 / `853c26390`) — for an owner/admin (flag ON, not frozen) **only when a subscription is synced** (`currentPeriodEnd` set — written solely by the CS-4 webhook, a reliable "Stripe customer exists" signal). Opens the existing CS-3 Customer Portal route; a `no_customer` (409) shows honest "available after you start a paid plan" copy, not an error. When shown, it suppresses the contradictory "Payment method"/"Invoices" coming-soon rows.
+- **CheckoutChoiceButton** (PPT-4) — runs the Personal-Pro choice dialog (Keep / Downgrade-at-period-end) before a Team/Business checkout when the viewer has Personal Pro; skips the dialog when the checkout account IS the personal account (the path PersonalUpgradePanel uses).
+- **No pricing table, no fake/unsupported controls** — every button maps to a real, flag-gated route; the section renders no Stripe customer/subscription id.
 
 ---
 
@@ -147,7 +156,7 @@ max-lines warning.)
 - **No payment-failure enforcement / run-blocking** (past_due is warn-only by decision).
 - **No customer-support / admin billing tools.**
 - **No billing-specific audit notifications** added in this arc (the API-keys audit-notification work is separate).
-- **`CheckoutChoiceButton` is not yet mounted for the personal Pro upgrade path** itself (it is mounted only for the Business upgrade via BU-4; personal free→Pro mount is part of future pricing/upgrade UI).
+- ~~**`CheckoutChoiceButton` is not yet mounted for the personal Pro upgrade path**~~ — **RESOLVED** in slice `853c26390` (4.PLATFORM-BILLING-UI-1): `PersonalUpgradePanel` now mounts the personal Free → Pro upgrade and `ManageBillingButton` mounts the portal, both flag-gated. Still deferred: a full pricing/plan-comparison table (see §9 Track C).
 
 ---
 
@@ -171,7 +180,7 @@ max-lines warning.)
 
 - **A. Platform billing go-live checklist / env-readiness plan** — Stripe keys, webhook endpoint registration, `STRIPE_PRICE_*` ids, the flag-flip runbook. *(Pick first if launch readiness is the goal.)*
 - **B. Business → Team downgrade plan** — reuse `evaluateDowngrade('team')` for over-cap blocking + type-revert-on-cancel. *(Pick first if product completeness is the goal.)*
-- **C. BillingSection pricing / upgrade UI polish** — personal free→Pro upgrade mount, plan comparison, Manage (portal) button. *(Pick first if UX polish is the goal.)*
+- **C. BillingSection pricing / upgrade UI polish** — ~~personal free→Pro upgrade mount~~ ✓ + ~~Manage (portal) button~~ ✓ shipped in `853c26390`; remaining: a full plan-comparison / pricing table. *(Pick first if UX polish is the goal.)*
 - **D. Enterprise / contact-sales plan.**
 - **E. Payment-failure enforcement policy** (if/when past_due should escalate beyond warn).
 - **F. Metered usage / overage planning.** *(Pick first if monetization depth is the goal.)*

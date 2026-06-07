@@ -16,15 +16,26 @@ dashboard, or behavior changed in this slice. Nothing pushed.**
 [app/api/accounts/[id]/billing/checkout/route.ts](../../../../app/api/accounts/[id]/billing/checkout/route.ts) · [portal/route.ts](../../../../app/api/accounts/[id]/billing/portal/route.ts) · [personal/route.ts](../../../../app/api/accounts/[id]/billing/personal/route.ts) ·
 [app/api/webhooks/stripe-billing/route.ts](../../../../app/api/webhooks/stripe-billing/route.ts) ·
 [core/billing/planPolicy.ts](../../../../core/billing/planPolicy.ts) (tiers + limits) ·
-[features/account/BillingSection.tsx](../../../../features/account/BillingSection.tsx) · [PersonalPlanPanel.tsx](../../../../features/account/PersonalPlanPanel.tsx) · [BusinessUpgradePanel.tsx](../../../../features/account/BusinessUpgradePanel.tsx) · [CheckoutChoiceButton.tsx](../../../../features/account/CheckoutChoiceButton.tsx) ·
+[features/account/BillingSection.tsx](../../../../features/account/BillingSection.tsx) · [PersonalPlanPanel.tsx](../../../../features/account/PersonalPlanPanel.tsx) · [BusinessUpgradePanel.tsx](../../../../features/account/BusinessUpgradePanel.tsx) · [CheckoutChoiceButton.tsx](../../../../features/account/CheckoutChoiceButton.tsx) · [PersonalUpgradePanel.tsx](../../../../features/account/PersonalUpgradePanel.tsx) _(853c26390)_ · [ManageBillingButton.tsx](../../../../features/account/ManageBillingButton.tsx) _(853c26390)_ ·
 `.env.example` (lines 14–26: `STRIPE_SECRET_KEY`, `STRIPE_BILLING_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_PRICE_PRO/TEAM/BUSINESS`; line 126: `NEXT_PUBLIC_APP_URL`) ·
 migrations: `20260611000000_account_billing_plan_metadata.sql` · `20260612000000_account_billing_stripe_attachment.sql` · `20260613000000_stripe_billing_events.sql` · `20260614000000_apply_business_upgrade.sql` ·
 parent closeout: [billing-plan-metadata-closeout.md](./billing-plan-metadata-closeout.md).
 
 > **This is a runbook, not a code change.** Every checkbox below maps to a real file,
 > route, env var, or Stripe dashboard action verified against the repo at branch
-> `builder-ui-v1-audit-1` (HEAD `dd0c616c7`). It is the procedure to safely flip
-> `ENABLE_PLATFORM_BILLING` — it ships zero behavior.
+> `builder-ui-v1-audit-1` (originally written at HEAD `dd0c616c7`). It is the procedure to
+> safely flip `ENABLE_PLATFORM_BILLING` — it ships zero behavior.
+
+> **Update (2026-06-07, slice `853c26390` — 4.PLATFORM-BILLING-UI-1):** the Personal Free → Pro
+> upgrade and Manage Billing portal now have **real Account Settings UI affordances**
+> ([features/account/PersonalUpgradePanel.tsx](../../../../features/account/PersonalUpgradePanel.tsx),
+> [features/account/ManageBillingButton.tsx](../../../../features/account/ManageBillingButton.tsx),
+> mounted in [BillingSection.tsx](../../../../features/account/BillingSection.tsx)), both
+> owner/admin-gated and behind `ENABLE_PLATFORM_BILLING`. This **resolves the prior
+> "Personal Free → Pro has no UI mount yet" caveat** (§10, §16, §17 updated below). No backend
+> route, webhook, Stripe client, schema, pricing, metering, or plan-sync behavior changed in
+> that UI slice. The remaining go-live blockers are now purely **environment / config /
+> manual-test** (see §2–§5, §10–§13) plus the deliberate flag flip (§8).
 
 ---
 
@@ -217,17 +228,22 @@ Coverage map (each maps to a real surface):
 For each: act as an **owner/admin** of the target account (the routes require it —
 `requireAccountRole(..., ["owner","admin"])`), with `ENABLE_PLATFORM_BILLING=true`.
 
-- [ ] **Personal Free → Pro.** From a personal account, trigger checkout for `pro`. Expect a
-      redirect URL from `POST /api/accounts/[id]/billing/checkout` `{plan:"pro"}` → `{url}`.
+- [ ] **Personal Free → Pro.** From a personal account, in **Account Settings → Plan & billing**
+      click **"Upgrade to Pro"** (the `PersonalUpgradePanel`, shown for an owner/admin on a Free
+      personal account, flag ON, not frozen — slice `853c26390`). It calls
+      `POST /api/accounts/[id]/billing/checkout` `{plan:"pro"}` → `{url}` and redirects to Stripe.
       Pay with test card. Expect redirect to `…/account?billing=success`. Webhook then sets
-      `plan=pro`, `plan_status=active`. **Note:** the closeout (§7) says the personal Free→Pro
-      mount via `CheckoutChoiceButton` is **not yet wired in the UI** — for now drive this via
-      the API/route directly until that mount ships.
+      `plan=pro`, `plan_status=active`. The UI copy is honest that Pro activates only after the
+      webhook confirms payment (and does not claim extra capacity — Pro shares Free's caps today).
 - [ ] **Team paid checkout** (only if launching paid Team). From a team account, checkout
       `team`. Expect `plan=team`, `plan_status=active` after webhook.
-- [ ] **Customer Portal.** After a subscription exists, `POST /api/accounts/[id]/billing/portal`
-      → `{url}`. Open it; confirm cancel/payment-method controls render. With **no** subscription
-      yet, expect **409** `NO_BILLING_CUSTOMER` (verified portal `no_customer` path).
+- [ ] **Customer Portal.** After a subscription exists, in **Account Settings → Plan & billing**
+      click **"Manage billing"** (the `ManageBillingButton`, shown only when `currentPeriodEnd`
+      is set — owner/admin, flag ON, not frozen — slice `853c26390`). It calls
+      `POST /api/accounts/[id]/billing/portal` → `{url}` and redirects. Open it; confirm
+      cancel/payment-method controls render. With **no** synced subscription the button is hidden
+      (and the route would answer **409** `NO_BILLING_CUSTOMER`, which the button surfaces as
+      honest "available after you start a paid plan" copy rather than an error).
 - [ ] **Non-purchasable guards.** Checkout `enterprise`/`free` is blocked by the body schema
       (`z.enum(["pro","team","business"])` → 400). A paid tier with its `STRIPE_PRICE_*` unset
       → **503** `PRICE_NOT_CONFIGURED`. `STRIPE_SECRET_KEY` unset → **503**
@@ -367,9 +383,11 @@ launch of the Pro/Team/Business monthly tiers, but support must know them:
 - **No annual pricing / trials** — single monthly price per tier.
 - **No full pricing table** in the UI.
 - **No customer-support / admin billing tooling** — corrections go through the Stripe dashboard.
-- **`CheckoutChoiceButton` is not yet mounted for the personal Free → Pro upgrade path** (only
-  mounted for the Business upgrade via BU-4). Personal Pro purchase is API-drivable but lacks a
-  dedicated UI entry point until the future pricing/upgrade UI slice.
+- ~~**`CheckoutChoiceButton` is not yet mounted for the personal Free → Pro upgrade path**~~ —
+  **RESOLVED** in slice `853c26390`: `PersonalUpgradePanel` mounts the Free → Pro upgrade and
+  `ManageBillingButton` mounts the portal, both owner/admin-gated and flag-gated. Still deferred:
+  a **full plan-comparison / pricing table** (the upgrade is a single honest button, not a
+  pricing grid).
 
 ---
 
@@ -388,8 +406,9 @@ Explicitly out of scope for this go-live — **do not** turn these on as part of
   and credentials.
 - **Do not** reuse the workflow webhook `/api/webhooks/stripe` for platform events — use
   `/api/webhooks/stripe-billing`.
-- **Do not** mount a personal Free → Pro checkout button until that UI slice ships (the backend
-  works, the UI entry point is deferred).
+- **Do not** add a full pricing / plan-comparison table or a free→Pro pricing grid — the
+  personal upgrade is a single honest flag-gated button (mounted in `853c26390`); a pricing
+  table is a separate deferred UX track.
 
 ---
 
