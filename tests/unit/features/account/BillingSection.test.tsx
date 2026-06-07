@@ -107,6 +107,69 @@ describe("BillingSection — copy + controls", () => {
   });
 });
 
+describe("BillingSection — lifecycle status (CS-5)", () => {
+  it("shows NO status banner for a healthy active plan", () => {
+    renderBilling(active("personal"), { plan: "pro", planStatus: "active" });
+    expect(screen.queryByTestId("billing-status")).toBeNull();
+  });
+
+  it("shows a past_due warning that keeps access (never says blocked)", () => {
+    renderBilling(active("personal"), { plan: "pro", planStatus: "past_due" });
+    const banner = screen.getByTestId("billing-status");
+    expect(banner).toHaveAttribute("data-level", "warning");
+    expect(screen.getByTestId("billing-status-label")).toHaveTextContent(/past due/i);
+    expect(banner).toHaveTextContent(/still active/i);
+    expect(banner).not.toHaveTextContent(/blocked|cannot run|can.t run/i);
+  });
+
+  it("shows a canceled warning with no auto-downgrade language", () => {
+    renderBilling(active("organization"), {
+      plan: "business",
+      planStatus: "canceled",
+      memberLimit: 25,
+      memberCount: 2,
+      folderLimit: 250,
+    });
+    const banner = screen.getByTestId("billing-status");
+    expect(screen.getByTestId("billing-status-label")).toHaveTextContent("Canceled");
+    expect(banner).toHaveTextContent(/still have access/i);
+    // Business label is never the raw "Organization" word.
+    expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/Organization/);
+  });
+
+  it("shows cancel_at_period_end copy + an 'Access ends' dated row", () => {
+    renderBilling(active("personal"), {
+      plan: "pro",
+      planStatus: "active",
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: "2026-07-15T00:00:00Z",
+    });
+    expect(screen.getByTestId("billing-status-label")).toHaveTextContent(/cancel/i);
+    const periodRow = screen.getByTestId("billing-period-end");
+    expect(periodRow).toHaveAttribute("data-kind", "ends");
+    expect(periodRow).toHaveTextContent(/July 15, 2026/);
+  });
+
+  it("shows a 'Renews on' dated row for a healthy active subscription", () => {
+    renderBilling(active("personal"), {
+      plan: "pro",
+      planStatus: "active",
+      currentPeriodEnd: "2026-08-01T00:00:00Z",
+    });
+    const periodRow = screen.getByTestId("billing-period-end");
+    expect(periodRow).toHaveAttribute("data-kind", "renews");
+    expect(periodRow).toHaveTextContent(/August 1, 2026/);
+  });
+
+  it("renders no payment/checkout controls even with a status banner (warn-only)", () => {
+    renderBilling(active("personal"), { plan: "pro", planStatus: "past_due" });
+    const section = screen.getByTestId("account-section-billing");
+    expect(within(section).queryAllByRole("button")).toHaveLength(0);
+    expect(within(section).queryAllByRole("link")).toHaveLength(0);
+    expect(within(section).queryAllByRole("textbox")).toHaveLength(0);
+  });
+});
+
 describe("BillingSection — frozen account", () => {
   it("renders a read-only pending-deletion warning and no upgrade affordance", () => {
     renderBilling(active("team"), { memberLimit: 5, memberCount: 2, frozen: true });

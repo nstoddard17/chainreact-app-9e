@@ -9,7 +9,8 @@ import type { AccountSummary } from "@/lib/api/accounts";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ApiDocsPanel } from "./ApiDocsPanel";
-import { planTierLabel, type PlanTier } from "@/core/billing/planPolicy";
+import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
+import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -210,6 +211,12 @@ export interface AccountBillingView {
    * "Pro"); when null/absent the label falls back to the account-type default.
    */
   plan?: PlanTier | null;
+  /** Subscription lifecycle status (CS-5) — drives the warning banner copy. */
+  planStatus?: PlanStatus | null;
+  /** ISO subscription period end (CS-5); null when no subscription. */
+  currentPeriodEnd?: string | null;
+  /** Whether the subscription is set to cancel at period end (CS-5). */
+  cancelAtPeriodEnd?: boolean | null;
 }
 
 /**
@@ -237,15 +244,30 @@ export function BillingSection({
       ? planTierLabel(billing.plan)
       : billingTierLabel(active.type)
     : "—";
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    });
   const periodStart =
-    billing.usage?.periodStartedAt != null
-      ? new Date(billing.usage.periodStartedAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          timeZone: "UTC",
+    billing.usage?.periodStartedAt != null ? formatDate(billing.usage.periodStartedAt) : null;
+
+  // CS-5: derive the warning-first lifecycle state from the synced billing facts. Only
+  // shown when we have an explicit plan + status (paid accounts); free/active stays
+  // banner-less. Never blocks runs — copy is warn-first by design.
+  const lifecycle =
+    active && billing.plan && billing.planStatus
+      ? deriveBillingLifecycle({
+          plan: billing.plan,
+          planStatus: billing.planStatus,
+          cancelAtPeriodEnd: billing.cancelAtPeriodEnd ?? false,
+          currentPeriodEnd: billing.currentPeriodEnd ?? null,
         })
       : null;
+  const lifecycleBanner = lifecycle && lifecycle.level !== "none" ? lifecycle : null;
+  const periodEnd = lifecycle?.periodEnd ?? null;
 
   return (
     <div data-testid="account-section-billing" className="flex flex-col gap-5">
@@ -260,6 +282,23 @@ export function BillingSection({
           <p className="mt-1 text-xs text-muted-foreground">
             Billing is read-only while the account is frozen.
           </p>
+        </div>
+      )}
+
+      {lifecycleBanner && (
+        <div
+          data-testid="billing-status"
+          data-level={lifecycleBanner.level}
+          className={
+            lifecycleBanner.level === "warning"
+              ? "rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 dark:border-amber-400/30 dark:bg-amber-400/10"
+              : "rounded-xl border border-blue-500/40 bg-blue-500/10 p-4 dark:border-blue-400/30 dark:bg-blue-400/10"
+          }
+        >
+          <p data-testid="billing-status-label" className="text-sm font-semibold text-foreground">
+            {lifecycleBanner.statusLabel}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{lifecycleBanner.description}</p>
         </div>
       )}
 
@@ -326,6 +365,17 @@ export function BillingSection({
           </SettingRow>
         )}
 
+        {periodEnd ? (
+          <ReadOnlyRow
+            label={periodEnd.kind === "renews" ? "Renews on" : "Access ends"}
+            value={
+              <span data-testid="billing-period-end" data-kind={periodEnd.kind}>
+                {formatDate(periodEnd.iso)}
+              </span>
+            }
+          />
+        ) : null}
+
         <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
         <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />
         {!billing.frozen && (
@@ -334,7 +384,9 @@ export function BillingSection({
             desc="Checkout and plan changes — coming soon."
           />
         )}
-        <ComingSoonRow label="Next billing date" desc="Available once paid plans launch." />
+        {!periodEnd && (
+          <ComingSoonRow label="Next billing date" desc="Available once paid plans launch." />
+        )}
       </Panel>
     </div>
   );

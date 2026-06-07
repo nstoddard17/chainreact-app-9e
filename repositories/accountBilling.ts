@@ -228,6 +228,10 @@ export interface AccountBillingUsage {
   plan: PlanTier;
   /** Subscription lifecycle state (CS-1). */
   planStatus: PlanStatus;
+  /** Subscription period end from Stripe (CS-5 surfaced); null when no subscription. */
+  currentPeriodEnd: string | null;
+  /** Whether the subscription is set to cancel at period end (CS-5 surfaced). */
+  cancelAtPeriodEnd: boolean;
 }
 
 interface AccountBillingRow {
@@ -236,6 +240,8 @@ interface AccountBillingRow {
   period_started_at: string;
   plan: PlanTier;
   plan_status: PlanStatus;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
 }
 
 /**
@@ -276,7 +282,9 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
   // Those ids are read only via getStripeAttachmentServiceRole below (service-role).
   const { data, error } = await supabase
     .from("account_billing")
-    .select("tasks_used, tasks_limit, period_started_at, plan, plan_status")
+    .select(
+      "tasks_used, tasks_limit, period_started_at, plan, plan_status, current_period_end, cancel_at_period_end",
+    )
     .eq("account_id", accountId)
     .maybeSingle<AccountBillingRow>();
   if (error) {
@@ -289,6 +297,8 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
     periodStartedAt: data.period_started_at,
     plan: data.plan,
     planStatus: data.plan_status,
+    currentPeriodEnd: data.current_period_end,
+    cancelAtPeriodEnd: data.cancel_at_period_end,
   };
 }
 

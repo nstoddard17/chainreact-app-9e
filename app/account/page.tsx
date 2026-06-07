@@ -125,6 +125,10 @@ export default async function AccountPage({ searchParams }: Props) {
       frozen,
       // CS-1: explicit billing tier from account_billing (null → type-default label).
       plan: usage?.plan ?? null,
+      // CS-5: lifecycle facts for the warning banner / period-end row (non-secret).
+      planStatus: usage?.planStatus ?? null,
+      currentPeriodEnd: usage?.currentPeriodEnd ?? null,
+      cancelAtPeriodEnd: usage?.cancelAtPeriodEnd ?? null,
     };
   }
 
