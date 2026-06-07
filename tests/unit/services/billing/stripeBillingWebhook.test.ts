@@ -20,8 +20,10 @@ jest.mock("@/repositories/stripeBillingEvents", () => ({
 }));
 
 const mockApplySync = jest.fn();
+const mockApplyUpgrade = jest.fn();
 jest.mock("@/repositories/accountBilling", () => ({
   applyBillingSubscriptionSyncServiceRole: (...a: unknown[]) => mockApplySync(...a),
+  applyBusinessUpgradeServiceRole: (...a: unknown[]) => mockApplyUpgrade(...a),
 }));
 
 const mockGetAccount = jest.fn();
@@ -52,6 +54,7 @@ beforeEach(() => {
   mockHasProcessed.mockReset().mockResolvedValue(false);
   mockRecordProcessed.mockReset().mockResolvedValue(undefined);
   mockApplySync.mockReset().mockResolvedValue(undefined);
+  mockApplyUpgrade.mockReset().mockResolvedValue({ ok: true, applied: true, reason: "upgraded" });
   mockGetAccount.mockReset();
   process.env = { ...origEnv };
   process.env[STRIPE_BILLING_WEBHOOK_SECRET_ENV] = SECRET;
@@ -277,5 +280,127 @@ describe("metadata / account safety (never write an unsafe plan)", () => {
     expect(r.ok && r.outcome).toBe("ignored");
     expect(mockGetAccount).not.toHaveBeenCalled();
     expect(mockApplySync).not.toHaveBeenCalled();
+  });
+});
+
+describe("Team → Business upgrade (BU-3)", () => {
+  const UPGRADE_META = { accountId: "team-1", plan: "business", targetAccountType: "organization" };
+
+  it("checkout.session.completed with upgrade metadata on a TEAM account calls the upgrade RPC", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "team-1", type: "team", deletionStatus: "active" });
+    const obj = { customer: "cus_t", subscription: "sub_t", metadata: UPGRADE_META };
+    const body = event("checkout.session.completed", obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    expect(mockApplyUpgrade).toHaveBeenCalledWith({
+      accountId: "team-1",
+      planStatus: "active",
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      stripeSubscriptionId: "sub_t",
+      stripeCustomerId: "cus_t",
+    });
+    expect(mockApplySync).not.toHaveBeenCalled(); // upgrade path, not the normal sync
+    expect(mockRecordProcessed).toHaveBeenCalled();
+  });
+
+  it("subscription.created/updated with upgrade metadata on a TEAM account calls the upgrade RPC", async () => {
+    for (const type of ["customer.subscription.created", "customer.subscription.updated"] as const) {
+      mockGetAccount.mockResolvedValueOnce({ id: "team-1", type: "team", deletionStatus: "active" });
+      const obj = {
+        id: "sub_t",
+        customer: "cus_t",
+        status: "active",
+        cancel_at_period_end: false,
+        current_period_end: 1_701_000_000,
+        metadata: UPGRADE_META,
+      };
+      const body = event(type, obj);
+      const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+      expect(r.ok && r.outcome).toBe("processed");
+      expect(mockApplyUpgrade).toHaveBeenCalledWith({
+        accountId: "team-1",
+        planStatus: "active",
+        currentPeriodEnd: new Date(1_701_000_000 * 1000).toISOString(),
+        cancelAtPeriodEnd: false,
+        stripeSubscriptionId: "sub_t",
+        stripeCustomerId: "cus_t",
+      });
+      mockApplyUpgrade.mockClear();
+    }
+    expect(mockApplySync).not.toHaveBeenCalled();
+  });
+
+  it("a duplicate (already-processed) upgrade event is deduped, not re-applied", async () => {
+    mockHasProcessed.mockResolvedValueOnce(true);
+    const body = event("checkout.session.completed", { customer: "cus_t", subscription: "sub_t", metadata: UPGRADE_META });
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("deduped");
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+  });
+
+  it("a deterministic BU-1 no-op (frozen) is recorded, not retried (no throw)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "team-1", type: "team", deletionStatus: "active" });
+    mockApplyUpgrade.mockResolvedValueOnce({ ok: false, applied: false, reason: "account_frozen" });
+    const body = event("customer.subscription.updated", { id: "sub_t", status: "active", metadata: UPGRADE_META });
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    expect(mockRecordProcessed).toHaveBeenCalled(); // recorded → Stripe won't loop
+  });
+
+  it("an RPC error propagates (so the route 5xx's and Stripe retries) — NOT recorded", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "team-1", type: "team", deletionStatus: "active" });
+    mockApplyUpgrade.mockRejectedValueOnce(new Error("db boom"));
+    const body = event("customer.subscription.updated", { id: "sub_t", status: "active", metadata: UPGRADE_META });
+    await expect(handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW })).rejects.toThrow(/db boom/);
+    expect(mockRecordProcessed).not.toHaveBeenCalled();
+  });
+
+  it("MISSING targetAccountType → no upgrade (normal sync drops the business plan)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "team-1", type: "team", deletionStatus: "active" });
+    const obj = { id: "sub_t", status: "active", metadata: { accountId: "team-1", plan: "business" } };
+    const body = event("customer.subscription.updated", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields).not.toHaveProperty("plan"); // business dropped for a team account
+  });
+
+  it("WRONG targetAccountType → no upgrade, no escalation", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "team-1", type: "team", deletionStatus: "active" });
+    const obj = { id: "sub_t", status: "active", metadata: { accountId: "team-1", plan: "business", targetAccountType: "personal" } };
+    const body = event("customer.subscription.updated", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+  });
+
+  it("plan='business' upgrade metadata on a PERSONAL account does NOT upgrade", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "p-1", type: "personal", deletionStatus: "active" });
+    const obj = { id: "sub_p", status: "active", metadata: { accountId: "p-1", plan: "business", targetAccountType: "organization" } };
+    const body = event("customer.subscription.updated", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+  });
+
+  it("an already-ORGANIZATION account with business metadata uses the normal sync (no upgrade RPC)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "org-1", type: "organization", deletionStatus: "active" });
+    const obj = { id: "sub_o", status: "active", metadata: { accountId: "org-1", plan: "business", targetAccountType: "organization" } };
+    const body = event("customer.subscription.updated", obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.plan).toBe("business"); // org may hold business → normal sync writes it
+  });
+
+  it("subscription.deleted for a Business (organization) account: canceled, type/plan LEFT", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "org-1", type: "organization", deletionStatus: "active" });
+    const obj = { id: "sub_o", customer: "cus_o", metadata: { accountId: "org-1", plan: "business", targetAccountType: "organization" } };
+    const body = event("customer.subscription.deleted", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.planStatus).toBe("canceled");
+    expect(fields).not.toHaveProperty("plan"); // no downgrade / no type revert (deferred)
   });
 });

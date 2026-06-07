@@ -3,12 +3,16 @@ import {
   isPlanAllowedForType,
   isPlanTier,
   planLimitsFor,
+  upgradeTargetAccountType,
   type PlanStatus,
 } from "@/core/billing/planPolicy";
+import type { AccountType } from "@/contracts/accounts";
 import { verifyStripeSignature } from "@/integrations/_shared/stripe/webhooks/signature";
 import { getByIdServiceRole } from "@/repositories/accounts";
 import {
   applyBillingSubscriptionSyncServiceRole,
+  applyBusinessUpgradeServiceRole,
+  type ApplyBusinessUpgradeInput,
   type BillingSubscriptionSync,
 } from "@/repositories/accountBilling";
 import { hasProcessed, recordProcessed } from "@/repositories/stripeBillingEvents";
@@ -101,7 +105,37 @@ function unixSecondsToIso(value: unknown): string | null {
 
 type EventResolution =
   | { kind: "sync"; accountId: string; fields: BillingSubscriptionSync }
+  | { kind: "upgrade"; input: ApplyBusinessUpgradeInput }
   | { kind: "ignore"; accountId: string | null };
+
+/**
+ * True when this verified event is a recognized Team → Business UPGRADE (BU-3): the trusted
+ * metadata declares `plan='business'` + a `targetAccountType` that matches the account's
+ * recognized upgrade target (team → organization). Forged/mismatched metadata, a non-team
+ * account, or a missing target all return false → the event falls through to the normal sync
+ * path (which drops a type-disallowed plan), so type can never be escalated.
+ */
+function isBusinessUpgrade(accountType: AccountType, obj: Record<string, unknown>): boolean {
+  const plan = metadataPlan(obj);
+  const targetType = stringField(asRecord(obj.metadata).targetAccountType);
+  if (plan !== "business" || targetType === null) return false;
+  return upgradeTargetAccountType(accountType, plan) === targetType;
+}
+
+/** Build the BU-1 RPC input from the resolved Stripe fields (RPC sets plan + tasks_limit). */
+function toUpgradeInput(
+  accountId: string,
+  fields: BillingSubscriptionSync,
+): ApplyBusinessUpgradeInput {
+  return {
+    accountId,
+    planStatus: fields.planStatus ?? "active",
+    currentPeriodEnd: fields.currentPeriodEnd ?? null,
+    cancelAtPeriodEnd: fields.cancelAtPeriodEnd ?? false,
+    stripeSubscriptionId: fields.stripeSubscriptionId ?? null,
+    stripeCustomerId: fields.stripeCustomerId ?? null,
+  };
+}
 
 /**
  * Resolve a verified Stripe event into the billing fields to write, or an "ignore"
@@ -136,6 +170,9 @@ async function resolveEvent(
     const subscription = stringField(obj.subscription);
     if (subscription) fields.stripeSubscriptionId = subscription;
     fields.planStatus = "active";
+    if (isBusinessUpgrade(account.type, obj)) {
+      return { kind: "upgrade", input: toUpgradeInput(accountId, fields) };
+    }
     const plan = metadataPlan(obj);
     if (plan && isPlanAllowedForType(account.type, plan)) fields.plan = plan;
     return { kind: "sync", accountId, fields };
@@ -169,6 +206,9 @@ async function resolveEvent(
 
   const status = mapStripeSubscriptionStatus(stringField(obj.status));
   if (status) fields.planStatus = status;
+  if (isBusinessUpgrade(account.type, obj)) {
+    return { kind: "upgrade", input: toUpgradeInput(accountId, fields) };
+  }
   const plan = metadataPlan(obj);
   if (plan && isPlanAllowedForType(account.type, plan)) fields.plan = plan;
   return { kind: "sync", accountId, fields };
@@ -205,6 +245,17 @@ export async function handleStripeBillingWebhook(
   if (resolution.kind === "ignore") {
     await recordProcessed({ eventId, eventType, accountId: resolution.accountId });
     return { ok: true, outcome: "ignored", eventType };
+  }
+
+  if (resolution.kind === "upgrade") {
+    // Atomic Team → Business flip via the BU-1 RPC (re-validates team / not-frozen and is
+    // idempotent). A thrown RPC/DB error propagates → route returns 5xx → Stripe retries
+    // (event UNrecorded). A deterministic BU-1 no-op (already_upgraded / account_frozen /
+    // not_upgradeable) returns normally and IS recorded — retrying would give the same
+    // result, so we don't loop Stripe on a frozen / non-team account.
+    await applyBusinessUpgradeServiceRole(resolution.input);
+    await recordProcessed({ eventId, eventType, accountId: resolution.input.accountId });
+    return { ok: true, outcome: "processed", eventType };
   }
 
   // Sync FIRST, then record — a sync failure leaves the event unrecorded for retry.
