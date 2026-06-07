@@ -1,6 +1,8 @@
 import {
+  defaultPlanForAccountType,
   isPlanAllowedForType,
   isPlanTier,
+  planLimitsFor,
   type PlanStatus,
 } from "@/core/billing/planPolicy";
 import { verifyStripeSignature } from "@/integrations/_shared/stripe/webhooks/signature";
@@ -151,9 +153,17 @@ async function resolveEvent(
   if (periodEnd) fields.currentPeriodEnd = periodEnd;
 
   if (eventType === "customer.subscription.deleted") {
-    // CS-4: mark canceled only. The plan is LEFT as the last paid plan — revert /
-    // downgrade / limit changes belong to CS-5. No hard delete.
     fields.planStatus = "canceled";
+    // D2 (CS-PPT-1): a PERSONAL account reverts to its base plan (free) when its
+    // subscription is deleted — and its task cap resets from Free policy. Team/org keep
+    // CS-4 behavior (canceled, plan LEFT as last paid) — their revert/downgrade is a
+    // separate, not-yet-planned decision. No hard delete, no data touched.
+    if (account.type === "personal") {
+      const basePlan = defaultPlanForAccountType(account.type); // 'free'
+      fields.plan = basePlan;
+      const baseTaskLimit = planLimitsFor(basePlan).taskLimit;
+      if (baseTaskLimit !== null) fields.tasksLimit = baseTaskLimit;
+    }
     return { kind: "sync", accountId, fields };
   }
 

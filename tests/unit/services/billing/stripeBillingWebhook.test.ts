@@ -176,7 +176,7 @@ describe("event processing", () => {
     });
   });
 
-  it("customer.subscription.deleted marks canceled WITHOUT changing the plan", async () => {
+  it("customer.subscription.deleted reverts a PERSONAL account to free (D2)", async () => {
     mockGetAccount.mockResolvedValueOnce({ id: "a1", type: "personal", deletionStatus: "active" });
     const obj = { id: "sub_3", customer: "cus_3", metadata: { accountId: "a1", plan: "pro" } };
     const body = event("customer.subscription.deleted", obj);
@@ -184,7 +184,29 @@ describe("event processing", () => {
     expect(r.ok && r.outcome).toBe("processed");
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.planStatus).toBe("canceled");
-    expect(fields).not.toHaveProperty("plan"); // no downgrade in CS-4
+    expect(fields.plan).toBe("free");
+    expect(fields.tasksLimit).toBe(100); // Free policy task cap
+  });
+
+  it("customer.subscription.deleted LEAVES a team/org plan (CS-4 behavior unchanged)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "a1", type: "team", deletionStatus: "active" });
+    const obj = { id: "sub_3", customer: "cus_3", metadata: { accountId: "a1", plan: "team" } };
+    const body = event("customer.subscription.deleted", obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.planStatus).toBe("canceled");
+    expect(fields).not.toHaveProperty("plan"); // team/org revert is not planned in PPT-1
+    expect(fields).not.toHaveProperty("tasksLimit");
+  });
+
+  it("personal subscription.deleted is idempotent (dedup short-circuits a replay)", async () => {
+    mockHasProcessed.mockResolvedValueOnce(true);
+    const obj = { id: "sub_3", metadata: { accountId: "a1", plan: "pro" } };
+    const body = event("customer.subscription.deleted", obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r).toEqual({ ok: true, outcome: "deduped", eventType: "customer.subscription.deleted" });
+    expect(mockApplySync).not.toHaveBeenCalled();
   });
 
   it("records AFTER a successful sync (order)", async () => {

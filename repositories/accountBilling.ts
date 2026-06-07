@@ -17,6 +17,8 @@ export interface BillingSubscriptionSync {
   cancelAtPeriodEnd?: boolean;
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
+  /** Task cap written from plan policy on a plan revert (D2). Omit to leave unchanged. */
+  tasksLimit?: number;
 }
 
 export async function applyBillingSubscriptionSyncServiceRole(
@@ -31,6 +33,7 @@ export async function applyBillingSubscriptionSyncServiceRole(
   if ("stripeCustomerId" in fields) patch.stripe_customer_id = fields.stripeCustomerId ?? null;
   if ("stripeSubscriptionId" in fields)
     patch.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
+  if ("tasksLimit" in fields) patch.tasks_limit = fields.tasksLimit;
   if (Object.keys(patch).length === 0) return;
 
   const supabase = getServiceRoleClient(
