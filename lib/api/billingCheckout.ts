@@ -51,3 +51,22 @@ export async function startCheckout(
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as { url: string };
 }
+
+/**
+ * POST /api/accounts/[id]/billing/portal → the Stripe Customer Portal redirect url.
+ *
+ * Thin wrapper over the existing CS-3 portal route (no backend added). Returns ONLY the
+ * Stripe-hosted portal `url`. The route answers 409 (→ `AccountApiError` code `CONFLICT`)
+ * when the account has no Stripe customer yet — callers branch on that to show "start a
+ * paid plan first" copy rather than a raw error. No customer/subscription id is returned.
+ */
+export async function startBillingPortal(
+  accountId: string,
+): Promise<{ url: string }> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/billing/portal`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as { url: string };
+}

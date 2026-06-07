@@ -4,7 +4,9 @@ import type { AccountSummary } from "@/lib/api/accounts";
 import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
 import { PersonalPlanPanel } from "./PersonalPlanPanel";
+import { PersonalUpgradePanel } from "./PersonalUpgradePanel";
 import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
+import { ManageBillingButton } from "./ManageBillingButton";
 import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRows";
 
 /**
@@ -85,6 +87,27 @@ export function BillingSection({
     !billing.frozen &&
     active?.type === "team" &&
     (active.role === "owner" || active.role === "admin");
+  // 4.PLATFORM-BILLING-UI-1: Personal Free → Pro upgrade. Owner/admin on a personal account
+  // whose current plan is Free (or unset), not frozen, flag ON. Hidden for paid Pro (handled
+  // by PersonalPlanPanel), team/business, members, frozen, or flag-OFF.
+  const showPersonalUpgrade =
+    Boolean(billing.platformBillingEnabled) &&
+    Boolean(accountId) &&
+    !billing.frozen &&
+    active?.type === "personal" &&
+    (active.role === "owner" || active.role === "admin") &&
+    (billing.plan == null || billing.plan === "free");
+  // 4.PLATFORM-BILLING-UI-1: "Manage billing" portal. Shown only when a Stripe subscription
+  // has actually been synced — `currentPeriodEnd` is written ONLY by the CS-4 webhook from a
+  // real subscription, so it is a reliable "a Stripe customer exists / the portal will work"
+  // signal (account-type default plans like Team carry no such period). Owner/admin, not
+  // frozen, flag ON.
+  const showManageBilling =
+    Boolean(billing.platformBillingEnabled) &&
+    Boolean(accountId) &&
+    !billing.frozen &&
+    (active?.role === "owner" || active?.role === "admin") &&
+    billing.currentPeriodEnd != null;
   const isShared = active != null && active.type !== "personal";
   // CS-1: prefer the explicit stored plan; fall back to the account-type default.
   const tier = active
@@ -230,6 +253,12 @@ export function BillingSection({
           </SettingRow>
         )}
 
+        {showPersonalUpgrade && accountId && (
+          <SettingRow label="Upgrade plan" stacked>
+            <PersonalUpgradePanel accountId={accountId} frozen={billing.frozen} />
+          </SettingRow>
+        )}
+
         {showBusinessUpgrade && accountId && (
           <SettingRow label="Upgrade plan" stacked>
             <BusinessUpgradePanel
@@ -240,9 +269,21 @@ export function BillingSection({
           </SettingRow>
         )}
 
-        <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
-        <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />
-        {!billing.frozen && !showBusinessUpgrade && (
+        {showManageBilling && accountId && (
+          <SettingRow label="Billing" desc="Update payment method, view invoices, or cancel.">
+            <ManageBillingButton accountId={accountId} frozen={billing.frozen} />
+          </SettingRow>
+        )}
+
+        {/* When the portal is available it covers payment method + invoices — don't
+            contradict it with "coming soon" rows. */}
+        {!showManageBilling && (
+          <>
+            <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
+            <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />
+          </>
+        )}
+        {!billing.frozen && !showBusinessUpgrade && !showPersonalUpgrade && (
           <ComingSoonRow
             label="Upgrade or change plan"
             desc="Checkout and plan changes — coming soon."

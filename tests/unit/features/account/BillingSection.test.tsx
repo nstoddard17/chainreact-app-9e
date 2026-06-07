@@ -282,6 +282,115 @@ describe("BillingSection — Business upgrade gating (BU-4)", () => {
   });
 });
 
+describe("BillingSection — Personal Free → Pro upgrade (4.PLATFORM-BILLING-UI-1)", () => {
+  const ACCT = "personal-1";
+  function personalBilling(over: Partial<AccountBillingView> = {}) {
+    return { ...baseBilling, platformBillingEnabled: true, ...over };
+  }
+
+  it("shows 'Upgrade to Pro' for a personal Free owner with the flag ON", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling()} />);
+    const panel = screen.getByTestId("personal-upgrade-panel");
+    expect(within(panel).getByTestId("ccb")).toHaveAttribute("data-plan", "pro");
+    // the redundant coming-soon "Upgrade or change plan" row is suppressed.
+    expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/Upgrade or change plan/);
+  });
+
+  it("does NOT show Upgrade to Pro for a paid Pro personal account", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling({ plan: "pro" })} />);
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+
+  it("does NOT show Upgrade to Pro for a Team account", () => {
+    render(
+      <BillingSection
+        active={active("team")}
+        accountId={ACCT}
+        billing={personalBilling({ memberLimit: 5, memberCount: 2, folderLimit: 100, plan: "team" })}
+      />,
+    );
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+
+  it("does NOT show Upgrade to Pro for a Business/organization account", () => {
+    render(
+      <BillingSection
+        active={active("organization")}
+        accountId={ACCT}
+        billing={personalBilling({ memberLimit: 25, memberCount: 1, folderLimit: 250, plan: "business" })}
+      />,
+    );
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+
+  it("hides Upgrade to Pro for a non-owner/admin member", () => {
+    render(<BillingSection active={active("personal", "Personal", "member")} accountId={ACCT} billing={personalBilling()} />);
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+
+  it("hides Upgrade to Pro when the platform-billing flag is OFF", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling({ platformBillingEnabled: false })} />);
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+
+  it("hides Upgrade to Pro on a frozen account (payment controls hidden)", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling({ frozen: true })} />);
+    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
+  });
+});
+
+describe("BillingSection — Manage billing portal (4.PLATFORM-BILLING-UI-1)", () => {
+  const ACCT = "acct-1";
+  function subscribed(over: Partial<AccountBillingView> = {}) {
+    return {
+      ...baseBilling,
+      platformBillingEnabled: true,
+      plan: "pro" as const,
+      planStatus: "active" as const,
+      currentPeriodEnd: "2026-08-01T00:00:00Z",
+      ...over,
+    };
+  }
+
+  it("shows Manage billing for an owner with a synced subscription + flag ON", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed()} />);
+    expect(screen.getByTestId("manage-billing")).toBeInTheDocument();
+    expect(screen.getByTestId("manage-billing-trigger")).toHaveTextContent(/Manage billing/i);
+  });
+
+  it("hides Manage billing with no synced subscription (no Stripe customer state)", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed({ currentPeriodEnd: null })} />);
+    expect(screen.queryByTestId("manage-billing")).toBeNull();
+  });
+
+  it("hides Manage billing when the flag is OFF", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed({ platformBillingEnabled: false })} />);
+    expect(screen.queryByTestId("manage-billing")).toBeNull();
+  });
+
+  it("hides Manage billing on a frozen account", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed({ frozen: true })} />);
+    expect(screen.queryByTestId("manage-billing")).toBeNull();
+  });
+
+  it("hides Manage billing for a non-owner/admin member", () => {
+    render(<BillingSection active={active("personal", "Personal", "member")} accountId={ACCT} billing={subscribed()} />);
+    expect(screen.queryByTestId("manage-billing")).toBeNull();
+  });
+
+  it("suppresses the payment-method / invoices coming-soon rows when the portal is available", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed()} />);
+    const section = screen.getByTestId("account-section-billing");
+    expect(section).not.toHaveTextContent(/Manage your card/i);
+    expect(section).not.toHaveTextContent(/Download past invoices/i);
+  });
+
+  it("never renders a Stripe customer/subscription id", () => {
+    const { container } = render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed()} />);
+    expect(container.innerHTML).not.toMatch(/cus_|sub_/);
+  });
+});
+
 describe("BillingSection — frozen account", () => {
   it("renders a read-only pending-deletion warning and no upgrade affordance", () => {
     renderBilling(active("team"), { memberLimit: 5, memberCount: 2, frozen: true });
