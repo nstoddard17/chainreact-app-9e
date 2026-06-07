@@ -7,8 +7,15 @@ import { render, screen, within } from "@testing-library/react";
 import { BillingSection, type AccountBillingView } from "@/features/account/AccountSections";
 import type { AccountSummary } from "@/lib/api/accounts";
 
-function active(type: AccountSummary["type"], name = "Acct") {
-  return { name, type, role: "owner" as const };
+// The interactive personal-plan panel fetches on mount; keep it in its loading state so
+// BillingSection gating can be asserted by the panel container's presence/absence.
+jest.mock("@/lib/api/personalBilling", () => ({
+  getPersonalBillingState: jest.fn(() => new Promise(() => {})),
+  setPersonalCancelAtPeriodEnd: jest.fn(),
+}));
+
+function active(type: AccountSummary["type"], name = "Acct", role: "owner" | "admin" | "member" = "owner") {
+  return { name, type, role };
 }
 
 const baseBilling: AccountBillingView = {
@@ -167,6 +174,54 @@ describe("BillingSection — lifecycle status (CS-5)", () => {
     expect(within(section).queryAllByRole("button")).toHaveLength(0);
     expect(within(section).queryAllByRole("link")).toHaveLength(0);
     expect(within(section).queryAllByRole("textbox")).toHaveLength(0);
+  });
+});
+
+describe("BillingSection — personal-plan panel gating (PPT-3)", () => {
+  const ACCT = "acct-1";
+
+  it("renders the personal-plan panel for a personal owner when the flag is ON", () => {
+    render(
+      <BillingSection
+        active={active("personal")}
+        accountId={ACCT}
+        billing={{ ...baseBilling, platformBillingEnabled: true }}
+      />,
+    );
+    expect(screen.getByTestId("personal-plan-panel")).toBeInTheDocument();
+  });
+
+  it("does NOT render the panel when the platform-billing flag is OFF", () => {
+    render(
+      <BillingSection
+        active={active("personal")}
+        accountId={ACCT}
+        billing={{ ...baseBilling, platformBillingEnabled: false }}
+      />,
+    );
+    expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
+  });
+
+  it("does NOT render the panel for a Team/Business account", () => {
+    render(
+      <BillingSection
+        active={active("organization")}
+        accountId={ACCT}
+        billing={{ ...baseBilling, platformBillingEnabled: true, memberLimit: 25, memberCount: 2, folderLimit: 250 }}
+      />,
+    );
+    expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
+  });
+
+  it("does NOT render the panel for a non-owner/admin member", () => {
+    render(
+      <BillingSection
+        active={active("personal", "Personal", "member")}
+        accountId={ACCT}
+        billing={{ ...baseBilling, platformBillingEnabled: true }}
+      />,
+    );
+    expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
   });
 });
 

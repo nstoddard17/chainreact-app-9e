@@ -167,7 +167,9 @@ export function AccountSettings({
             signInMethod={signInMethod}
           />
         )}
-        {section === "billing" && <BillingSection active={active} billing={billing} />}
+        {section === "billing" && (
+          <BillingSection active={active} accountId={activeAccountId ?? null} billing={billing} />
+        )}
         {section === "api" && (
           <ApiSection
             active={active}

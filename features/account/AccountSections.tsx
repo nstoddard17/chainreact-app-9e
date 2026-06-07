@@ -11,6 +11,7 @@ import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ApiDocsPanel } from "./ApiDocsPanel";
 import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
+import { PersonalPlanPanel } from "./PersonalPlanPanel";
 
 /**
  * Account-settings section bodies (Slice 4.ACCOUNT-SETTINGS-2).
@@ -217,6 +218,8 @@ export interface AccountBillingView {
   currentPeriodEnd?: string | null;
   /** Whether the subscription is set to cancel at period end (CS-5). */
   cancelAtPeriodEnd?: boolean | null;
+  /** ENABLE_PLATFORM_BILLING (PPT-3) — gates the interactive personal-plan panel. */
+  platformBillingEnabled?: boolean;
 }
 
 /**
@@ -232,11 +235,21 @@ function billingTierLabel(type: AccountSummary["type"]): string {
 
 export function BillingSection({
   active,
+  accountId,
   billing,
 }: {
   active: ActiveAccountView | null;
+  /** The active account's id (for the personal-plan panel routes). */
+  accountId?: string | null;
   billing: AccountBillingView;
 }) {
+  // PPT-3: the interactive personal-plan panel renders only for an owner/admin on a
+  // personal account when platform billing is enabled.
+  const showPersonalPlan =
+    Boolean(billing.platformBillingEnabled) &&
+    Boolean(accountId) &&
+    active?.type === "personal" &&
+    (active.role === "owner" || active.role === "admin");
   const isShared = active != null && active.type !== "personal";
   // CS-1: prefer the explicit stored plan; fall back to the account-type default.
   const tier = active
@@ -375,6 +388,12 @@ export function BillingSection({
             }
           />
         ) : null}
+
+        {showPersonalPlan && accountId && (
+          <SettingRow label="Personal plan" stacked>
+            <PersonalPlanPanel accountId={accountId} frozen={billing.frozen} />
+          </SettingRow>
+        )}
 
         <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
         <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />

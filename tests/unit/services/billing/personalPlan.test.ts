@@ -163,6 +163,10 @@ describe("setPersonalCancelAtPeriodEnd", () => {
     const request = clientOk();
     const r = await setPersonalCancelAtPeriodEnd(ACCOUNT, false);
     expect(r).toEqual({ ok: true, cancelAtPeriodEnd: false });
-    expect(request.mock.calls[0]![0].body).toEqual({ cancel_at_period_end: false });
+    expect(request).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/v1/subscriptions/sub_1",
+      body: { cancel_at_period_end: false },
+    });
   });
 });

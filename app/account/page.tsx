@@ -5,6 +5,7 @@ import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getDisplayName } from "@/repositories/userProfiles";
 import { getUsage } from "@/repositories/accountBilling";
+import { isPlatformBillingEnabled } from "@/services/billing/billingFeatureFlags";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
@@ -129,6 +130,8 @@ export default async function AccountPage({ searchParams }: Props) {
       planStatus: usage?.planStatus ?? null,
       currentPeriodEnd: usage?.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: usage?.cancelAtPeriodEnd ?? null,
+      // PPT-3: gate the interactive personal-plan panel on the platform-billing flag.
+      platformBillingEnabled: isPlatformBillingEnabled(),
     };
   }
 
