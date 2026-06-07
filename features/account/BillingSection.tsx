@@ -4,6 +4,7 @@ import type { AccountSummary } from "@/lib/api/accounts";
 import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
 import { PersonalPlanPanel } from "./PersonalPlanPanel";
+import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
 import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRows";
 
 /**
@@ -42,6 +43,9 @@ export interface AccountBillingView {
   cancelAtPeriodEnd?: boolean | null;
   /** ENABLE_PLATFORM_BILLING (PPT-3) — gates the interactive personal-plan panel. */
   platformBillingEnabled?: boolean;
+  /** The viewer's personal account id (BU-4) — lets the Business upgrade run the
+   *  Personal-Pro choice dialog. Null when unavailable. */
+  personalAccountId?: string | null;
 }
 
 /**
@@ -71,6 +75,15 @@ export function BillingSection({
     Boolean(billing.platformBillingEnabled) &&
     Boolean(accountId) &&
     active?.type === "personal" &&
+    (active.role === "owner" || active.role === "admin");
+  // BU-4: the Team → Business upgrade action shows only for an owner/admin on a (non-frozen)
+  // Team account when platform billing is enabled. An organization (already Business),
+  // personal account, member, or flag-OFF never sees it.
+  const showBusinessUpgrade =
+    Boolean(billing.platformBillingEnabled) &&
+    Boolean(accountId) &&
+    !billing.frozen &&
+    active?.type === "team" &&
     (active.role === "owner" || active.role === "admin");
   const isShared = active != null && active.type !== "personal";
   // CS-1: prefer the explicit stored plan; fall back to the account-type default.
@@ -217,9 +230,19 @@ export function BillingSection({
           </SettingRow>
         )}
 
+        {showBusinessUpgrade && accountId && (
+          <SettingRow label="Upgrade plan" stacked>
+            <BusinessUpgradePanel
+              accountId={accountId}
+              personalAccountId={billing.personalAccountId ?? accountId}
+              frozen={billing.frozen}
+            />
+          </SettingRow>
+        )}
+
         <ComingSoonRow label="Payment method" desc="Manage your card — coming soon." />
         <ComingSoonRow label="Invoices" desc="Download past invoices — coming soon." />
-        {!billing.frozen && (
+        {!billing.frozen && !showBusinessUpgrade && (
           <ComingSoonRow
             label="Upgrade or change plan"
             desc="Checkout and plan changes — coming soon."

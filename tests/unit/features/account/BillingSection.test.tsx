@@ -14,6 +14,16 @@ jest.mock("@/lib/api/personalBilling", () => ({
   setPersonalCancelAtPeriodEnd: jest.fn(),
 }));
 
+// Stub the interactive checkout button so the Business upgrade panel renders trivially;
+// gating is asserted via the BusinessUpgradePanel container test id.
+jest.mock("@/features/account/CheckoutChoiceButton", () => ({
+  CheckoutChoiceButton: (props: Record<string, unknown>) => (
+    <button data-testid="ccb" data-plan={props.plan as string}>
+      {props.label as string}
+    </button>
+  ),
+}));
+
 function active(type: AccountSummary["type"], name = "Acct", role: "owner" | "admin" | "member" = "owner") {
   return { name, type, role };
 }
@@ -222,6 +232,53 @@ describe("BillingSection — personal-plan panel gating (PPT-3)", () => {
       />,
     );
     expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
+  });
+});
+
+describe("BillingSection — Business upgrade gating (BU-4)", () => {
+  const ACCT = "team-1";
+  function teamBilling(over: Partial<AccountBillingView> = {}) {
+    return { ...baseBilling, platformBillingEnabled: true, plan: "team" as const, memberLimit: 5, memberCount: 2, folderLimit: 100, personalAccountId: "personal-1", ...over };
+  }
+
+  it("shows 'Upgrade to Business' for a Team owner/admin with the flag ON", () => {
+    render(<BillingSection active={active("team")} accountId={ACCT} billing={teamBilling()} />);
+    const panel = screen.getByTestId("business-upgrade-panel");
+    expect(panel).toBeInTheDocument();
+    expect(within(panel).getByTestId("ccb")).toHaveAttribute("data-plan", "business");
+    // the redundant coming-soon "Upgrade or change plan" row is suppressed.
+    expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/Upgrade or change plan/);
+  });
+
+  it("hides the upgrade for a Team MEMBER", () => {
+    render(<BillingSection active={active("team", "T", "member")} accountId={ACCT} billing={teamBilling()} />);
+    expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
+  });
+
+  it("hides the upgrade when the flag is OFF", () => {
+    render(<BillingSection active={active("team")} accountId={ACCT} billing={teamBilling({ platformBillingEnabled: false })} />);
+    expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
+  });
+
+  it("hides the upgrade on a frozen Team account", () => {
+    render(<BillingSection active={active("team")} accountId={ACCT} billing={teamBilling({ frozen: true })} />);
+    expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
+  });
+
+  it("hides the upgrade on a personal account", () => {
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={{ ...baseBilling, platformBillingEnabled: true }} />);
+    expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
+  });
+
+  it("hides the upgrade on a Business/organization account (already upgraded)", () => {
+    render(
+      <BillingSection
+        active={active("organization")}
+        accountId={ACCT}
+        billing={teamBilling({ memberLimit: 25, folderLimit: 250, plan: "business" })}
+      />,
+    );
+    expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
   });
 });
 

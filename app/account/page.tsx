@@ -132,6 +132,9 @@ export default async function AccountPage({ searchParams }: Props) {
       cancelAtPeriodEnd: usage?.cancelAtPeriodEnd ?? null,
       // PPT-3: gate the interactive personal-plan panel on the platform-billing flag.
       platformBillingEnabled: isPlatformBillingEnabled(),
+      // BU-4: the viewer's personal account id, so a Team→Business upgrade can run the
+      // Personal-Pro choice dialog. Always available via ensurePersonalAccount.
+      personalAccountId: personal.id,
     };
   }
 
