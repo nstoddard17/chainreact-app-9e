@@ -263,3 +263,77 @@ describe("createPortalSession", () => {
     expect(portal.body).toMatchObject({ customer: "cus_x", return_url: "https://app.test/account" });
   });
 });
+
+describe("createCheckoutSession — Team → Business upgrade (BU-2)", () => {
+  it("a Team account can start a Business checkout, with targetAccountType metadata", async () => {
+    process.env.STRIPE_PRICE_BUSINESS = "price_biz_upgrade";
+    mockGetAccount.mockResolvedValueOnce(account("team"));
+    mockGetAttachment.mockResolvedValueOnce({
+      stripeCustomerId: "cus_team",
+      stripeSubscriptionId: null,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    });
+    const { request, calls } = clientReturning();
+    mockGetClient.mockReturnValueOnce({ apiBase: "x", apiVersion: "v", request });
+
+    const r = await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "business" });
+    expect(r.ok).toBe(true);
+
+    const checkout = calls.find((c) => c.path === "/v1/checkout/sessions")!;
+    // server-resolved Business price (client never supplies it).
+    expect(checkout.body).toMatchObject({
+      line_items: [{ price: "price_biz_upgrade", quantity: 1 }],
+      metadata: { accountId: ACCOUNT, plan: "business", targetAccountType: "organization" },
+      subscription_data: { metadata: { accountId: ACCOUNT, plan: "business", targetAccountType: "organization" } },
+    });
+  });
+
+  it("does NOT mutate account type or plan (only checkout is called; no upgrade RPC)", async () => {
+    process.env.STRIPE_PRICE_BUSINESS = "price_biz_1";
+    mockGetAccount.mockResolvedValueOnce(account("team"));
+    mockGetAttachment.mockResolvedValueOnce({
+      stripeCustomerId: "cus_team",
+      stripeSubscriptionId: null,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    });
+    const { request, calls } = clientReturning();
+    mockGetClient.mockReturnValueOnce({ apiBase: "x", apiVersion: "v", request });
+
+    await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "business" });
+    // The only Stripe call is the checkout session — no /v1/customers (existing customer),
+    // and certainly no account/plan write path exists in checkout.
+    expect(calls.map((c) => c.path)).toEqual(["/v1/checkout/sessions"]);
+  });
+
+  it("non-upgrade cross-type requests still reject (team→pro, personal→business, org→team)", async () => {
+    for (const [type, plan] of [
+      ["team", "pro"],
+      ["personal", "business"],
+      ["organization", "team"],
+    ] as const) {
+      mockGetAccount.mockResolvedValueOnce(account(type));
+      const r = await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: plan });
+      expect(r).toEqual({ ok: false, reason: "invalid_plan_for_type" });
+    }
+  });
+
+  it("a non-upgrade plan carries NO targetAccountType metadata (org buys business directly)", async () => {
+    process.env.STRIPE_PRICE_BUSINESS = "price_biz_1";
+    mockGetAccount.mockResolvedValueOnce(account("organization"));
+    mockGetAttachment.mockResolvedValueOnce({
+      stripeCustomerId: "cus_org",
+      stripeSubscriptionId: null,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    });
+    const { request, calls } = clientReturning();
+    mockGetClient.mockReturnValueOnce({ apiBase: "x", apiVersion: "v", request });
+
+    await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "business" });
+    const checkout = calls.find((c) => c.path === "/v1/checkout/sessions")!;
+    expect(checkout.body!.metadata).toEqual({ accountId: ACCOUNT, plan: "business" });
+    expect(checkout.body!.metadata).not.toHaveProperty("targetAccountType");
+  });
+});

@@ -147,6 +147,20 @@ describe("happy path", () => {
     });
   });
 
+  it("owner/admin Team can start a Business checkout (plan='business' accepted) → 200 { url }", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "admin" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/biz" });
+    const res = await POST(req({ plan: "business" }), params());
+    expect(res.status).toBe(200);
+    expect((await res.json()).url).toBe("https://stripe.test/biz");
+    expect(mockCreateCheckout).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      requestedPlan: "business",
+      contactEmail: "m@x.test",
+    });
+  });
+
   it("500 (generic) when the service throws — no detail leaked", async () => {
     signedIn();
     mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });

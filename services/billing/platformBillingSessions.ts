@@ -1,5 +1,5 @@
 import type { PlanTier } from "@/core/billing/planPolicy";
-import { isPlanAllowedForType } from "@/core/billing/planPolicy";
+import { isPlanAllowedForType, upgradeTargetAccountType } from "@/core/billing/planPolicy";
 import { getByIdServiceRole } from "@/repositories/accounts";
 import {
   attachStripeCustomerIfAbsentServiceRole,
@@ -90,8 +90,12 @@ export async function createCheckoutSession(
   }
 
   // Plan must be valid for the account's structural type (personal→pro, team→team,
-  // organization→business/enterprise). Server-enforced — the client cannot bypass it.
-  if (!isPlanAllowedForType(account.type, requestedPlan)) {
+  // organization→business/enterprise) OR a recognized in-place UPGRADE (BU-2: team→business,
+  // which the webhook later flips to `organization`). Server-enforced — the client cannot
+  // bypass it. This slice only PERMITS the upgrade checkout + stamps trusted metadata; it
+  // does NOT mutate accounts.type or account_billing.plan.
+  const upgradeTargetType = upgradeTargetAccountType(account.type, requestedPlan);
+  if (!isPlanAllowedForType(account.type, requestedPlan) && upgradeTargetType === null) {
     return { ok: false, reason: "invalid_plan_for_type" };
   }
 
@@ -134,6 +138,14 @@ export async function createCheckoutSession(
     customerId = attach.customerId;
   }
 
+  // Metadata lets the CS-4 webhook map the resulting subscription → account + plan, and
+  // (for an upgrade) carries the trusted `targetAccountType` the BU-3 webhook re-validates
+  // before flipping the account type. Stamped on BOTH the session and the subscription.
+  const checkoutMetadata: Record<string, string> = { accountId, plan: requestedPlan };
+  if (upgradeTargetType !== null) {
+    checkoutMetadata.targetAccountType = upgradeTargetType;
+  }
+
   const base = appBaseUrl();
   const session = await client.request<StripeUrlResponse>({
     method: "POST",
@@ -144,9 +156,8 @@ export async function createCheckoutSession(
       line_items: [{ price: price.priceId, quantity: 1 }],
       success_url: `${base}/account?billing=success`,
       cancel_url: `${base}/account?billing=canceled`,
-      // Metadata lets the CS-4 webhook map the resulting subscription → account + plan.
-      metadata: { accountId, plan: requestedPlan },
-      subscription_data: { metadata: { accountId, plan: requestedPlan } },
+      metadata: checkoutMetadata,
+      subscription_data: { metadata: checkoutMetadata },
     },
   });
 

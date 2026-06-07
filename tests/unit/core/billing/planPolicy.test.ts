@@ -14,6 +14,8 @@ import {
   isPlanTier,
   isPlanStatus,
   isPlanAllowedForType,
+  isUpgradeAllowedForType,
+  upgradeTargetAccountType,
   defaultPlanForAccountType,
   planTierLabel,
 } from "@/core/billing/planPolicy";
@@ -108,5 +110,29 @@ describe("platform billing flag", () => {
     expect(isPlatformBillingEnabled()).toBe(true);
     process.env[PLATFORM_BILLING_FLAG] = "1";
     expect(isPlatformBillingEnabled()).toBe(false);
+  });
+});
+
+describe("planPolicy — cross-type upgrades (BU-2)", () => {
+  it("allows Team → Business as an in-place upgrade", () => {
+    expect(isUpgradeAllowedForType("team", "business")).toBe(true);
+    expect(upgradeTargetAccountType("team", "business")).toBe("organization");
+  });
+
+  it("does NOT treat personal → business as an upgrade", () => {
+    expect(isUpgradeAllowedForType("personal", "business")).toBe(false);
+    expect(upgradeTargetAccountType("personal", "business")).toBeNull();
+  });
+
+  it("does NOT treat team → pro or organization → team as upgrades", () => {
+    expect(isUpgradeAllowedForType("team", "pro")).toBe(false);
+    expect(isUpgradeAllowedForType("organization", "team")).toBe(false);
+    expect(upgradeTargetAccountType("team", "pro")).toBeNull();
+    expect(upgradeTargetAccountType("organization", "team")).toBeNull();
+  });
+
+  it("a directly-allowed plan is NOT an upgrade (team→team, org→business)", () => {
+    expect(isUpgradeAllowedForType("team", "team")).toBe(false);
+    expect(isUpgradeAllowedForType("organization", "business")).toBe(false);
   });
 });

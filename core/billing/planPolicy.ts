@@ -77,6 +77,37 @@ export function isPlanAllowedForType(type: AccountType, plan: PlanTier): boolean
 }
 
 /**
+ * In-place tier+shape UPGRADES that cross account type (Slice 4.BILLING-BUSINESS-UPGRADE-2 /
+ * BU-2). Maps an upgrade `(fromType → toPlan)` to the account type that plan requires:
+ * a Team account buying the Business plan upgrades to `organization`. This is the ONLY
+ * cross-type upgrade today; everything else is governed by `isPlanAllowedForType`. The
+ * actual `accounts.type` flip happens later, atomically, in the webhook (BU-3) via the
+ * BU-1 RPC — this map only declares which checkouts are permitted as upgrades.
+ */
+const UPGRADE_TARGET_TYPE: Readonly<
+  Partial<Record<AccountType, Partial<Record<PlanTier, AccountType>>>>
+> = {
+  team: { business: "organization" },
+};
+
+/** True when `(type, plan)` is a recognized in-place cross-type upgrade (e.g. team→business). */
+export function isUpgradeAllowedForType(type: AccountType, plan: PlanTier): boolean {
+  return UPGRADE_TARGET_TYPE[type]?.[plan] !== undefined;
+}
+
+/**
+ * The account type a recognized upgrade moves to (e.g. team + business → `organization`),
+ * or null when `(type, plan)` is not an upgrade. Used to stamp `targetAccountType` into the
+ * checkout metadata the webhook trusts.
+ */
+export function upgradeTargetAccountType(
+  type: AccountType,
+  plan: PlanTier,
+): AccountType | null {
+  return UPGRADE_TARGET_TYPE[type]?.[plan] ?? null;
+}
+
+/**
  * The default plan for a freshly-created account of `type` — the free/base tier of
  * that shape: personal → free, team → team, organization → business. Used for the
  * existing-row backfill, new-account seeding, and (in CS-1) to key the limit helpers
