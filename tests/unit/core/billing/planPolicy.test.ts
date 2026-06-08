@@ -18,6 +18,11 @@ import {
   upgradeTargetAccountType,
   defaultPlanForAccountType,
   planTierLabel,
+  templateLimitFor,
+  canBulkExportForPlan,
+  canCreateTemplatesForPlan,
+  canUseBuiltInTemplatesForPlan,
+  planCapabilitiesFor,
 } from "@/core/billing/planPolicy";
 import {
   memberLimitFor,
@@ -33,13 +38,13 @@ describe("planPolicy — tiers + limits", () => {
     expect([...PLAN_STATUSES]).toEqual(["active", "trialing", "past_due", "canceled", "incomplete"]);
   });
 
-  it("carries the launch limit numbers (Pro task cap raised in CS-PRO-2)", () => {
-    expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100 });
+  it("carries the launch limit numbers (Pro task cap raised in CS-PRO-2; template caps CS-XT-1)", () => {
+    expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0 });
     // CS-PRO-2: Pro keeps Free's member/folder caps but gets a higher monthly task cap.
-    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 1000 });
-    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 100 });
-    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 100 });
-    expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null });
+    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25 });
+    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50 });
+    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250 });
+    expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null });
   });
 
   it("Pro's task cap is higher than Free's (the CS-PRO-2 benefit), member/folder caps equal", () => {
@@ -98,6 +103,56 @@ describe("delegated limit helpers — no behavior change", () => {
     expect(folderLimitFor("team")).toBe(100);
     expect(folderLimitFor("organization")).toBe(250);
     expect(FOLDER_LIMITS).toEqual({ personal: 10, team: 100, organization: 250 });
+  });
+});
+
+describe("template limits + feature capabilities (CS-XT-1)", () => {
+  it("template caps: Free 0 / Pro 25 / Team 50 / Business 250 / Enterprise null", () => {
+    expect(templateLimitFor("free")).toBe(0);
+    expect(templateLimitFor("pro")).toBe(25);
+    expect(templateLimitFor("team")).toBe(50);
+    expect(templateLimitFor("business")).toBe(250);
+    expect(templateLimitFor("enterprise")).toBeNull();
+  });
+
+  it("bulk export: false for Free, true for every paid tier", () => {
+    expect(canBulkExportForPlan("free")).toBe(false);
+    for (const plan of ["pro", "team", "business", "enterprise"] as const) {
+      expect(canBulkExportForPlan(plan)).toBe(true);
+    }
+  });
+
+  it("custom-template authoring derives from the cap (Free 0 → false; positive/uncapped → true)", () => {
+    expect(canCreateTemplatesForPlan("free")).toBe(false);
+    expect(canCreateTemplatesForPlan("pro")).toBe(true);
+    expect(canCreateTemplatesForPlan("team")).toBe(true);
+    expect(canCreateTemplatesForPlan("business")).toBe(true);
+    expect(canCreateTemplatesForPlan("enterprise")).toBe(true); // null cap = uncapped, not blocked
+  });
+
+  it("built-in template use is true for EVERY tier", () => {
+    for (const plan of PLAN_TIERS) {
+      expect(canUseBuiltInTemplatesForPlan(plan)).toBe(true);
+    }
+  });
+
+  it("planCapabilitiesFor bundles plan + booleans with NO Stripe identifiers", () => {
+    expect(planCapabilitiesFor("free")).toEqual({
+      plan: "free",
+      canBulkExport: false,
+      canCreateTemplates: false,
+      canUseBuiltInTemplates: true,
+    });
+    expect(planCapabilitiesFor("pro")).toEqual({
+      plan: "pro",
+      canBulkExport: true,
+      canCreateTemplates: true,
+      canUseBuiltInTemplates: true,
+    });
+    // No stray fields (e.g. a leaked stripe id) ever appear in the bundle.
+    expect(Object.keys(planCapabilitiesFor("business")).sort()).toEqual(
+      ["canBulkExport", "canCreateTemplates", "canUseBuiltInTemplates", "plan"],
+    );
   });
 });
 

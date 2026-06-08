@@ -401,6 +401,27 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
   };
 }
 
+/**
+ * Lean read of an account's CURRENT billing tier (4.WORKFLOW-PORTABILITY-TEMPLATES-TIER-POLICY-2
+ * / CS-XT-1). Selects ONLY the `plan` column via the SSR-cookie / RLS client — no Stripe ids, no
+ * usage, no period data ever reach the caller. Returns null when no billing row exists (caller
+ * decides the fallback — `resolveAccountPlan` fails closed to "free"). This is the actual stored
+ * billing plan (NOT `defaultPlanForAccountType`), which is what feature-tier gates must use so a
+ * personal Pro account resolves Pro capabilities rather than the Free type default.
+ */
+export async function getPlan(accountId: string): Promise<PlanTier | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("account_billing")
+    .select("plan")
+    .eq("account_id", accountId)
+    .maybeSingle<{ plan: PlanTier }>();
+  if (error) {
+    throw new Error(`account_billing.getPlan failed: ${error.message}`);
+  }
+  return data?.plan ?? null;
+}
+
 // ─── Stripe attachment (CS-2) — service-role ONLY ────────────────────────────
 //
 // The Stripe customer/subscription ids attach platform billing to the account

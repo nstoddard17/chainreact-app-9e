@@ -36,6 +36,16 @@ export interface PlanLimits {
   /** Monthly task cap; null = uncapped/config (enterprise). Authoritative copy is
    *  still `account_billing.tasks_limit` (CS-1 does NOT rewire task-limit writes). */
   taskLimit: number | null;
+  /**
+   * Max CUSTOM (user-authored) workflow templates the account may hold
+   * (4.WORKFLOW-PORTABILITY-TEMPLATES-TIER-POLICY-2 / CS-XT-1). `0` = cannot author custom
+   * templates (Free — built-in templates remain usable); `null` = uncapped/config
+   * (enterprise). Built-in template USE is governed by {@link canUseBuiltInTemplatesForPlan},
+   * not by this number. Template creation is paid productivity; export is data portability —
+   * the two are deliberately separate (see the plan doc). NOT yet enforced anywhere: CS-XT-1
+   * ships the policy + helpers only; no table/route/UI consumes it until later slices.
+   */
+  templateLimit: number | null;
 }
 
 /**
@@ -49,15 +59,77 @@ export interface PlanLimits {
  * default). `enterprise` is uncapped/config (null).
  */
 export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
-  free: { memberLimit: 1, folderLimit: 10, taskLimit: 100 },
-  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 1000 },
-  team: { memberLimit: 5, folderLimit: 100, taskLimit: 100 },
-  business: { memberLimit: 25, folderLimit: 250, taskLimit: 100 },
-  enterprise: { memberLimit: null, folderLimit: null, taskLimit: null },
+  free: { memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0 },
+  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25 },
+  team: { memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50 },
+  business: { memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250 },
+  enterprise: { memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null },
 };
 
 export function planLimitsFor(plan: PlanTier): PlanLimits {
   return PLAN_LIMITS[plan];
+}
+
+/**
+ * Max custom (user-authored) templates for a plan, or `null` when uncapped/config (enterprise).
+ * `0` for Free. The single source for the template-count gate the future create-template path
+ * enforces (count `source='user'` rows vs this number) — same pattern as `memberLimitFor` /
+ * `folderLimitFor`.
+ */
+export function templateLimitFor(plan: PlanTier): number | null {
+  return PLAN_LIMITS[plan].templateLimit;
+}
+
+// ─── Feature capabilities (4.WORKFLOW-PORTABILITY-TEMPLATES-TIER-POLICY-2 / CS-XT-1) ──────────
+//
+// Pure per-tier feature decisions, layered ON TOP of (never replacing) the account-membership /
+// role chokepoint (services/accounts/accountAuthz.ts). These answer "does this PLAN permit the
+// feature at all"; the route additionally checks membership + role (e.g. bulk export on a
+// shared account is owner/admin-only — that role gate is a ROUTE concern, not a plan one, so it
+// is NOT modeled here). NOTHING enforces these yet — CS-XT-1 is policy + helpers only.
+
+export interface PlanCapabilities {
+  /** The plan these capabilities describe. NO Stripe / subscription identifiers — ever. */
+  plan: PlanTier;
+  /**
+   * May the plan perform a BULK (whole-account / multi-workflow) export. Free = false (the
+   * single-workflow export stays available to every tier as the data-portability floor and is
+   * NOT gated here). Pro+ = true. Role gating (owner/admin on shared accounts) and the
+   * destructive-downgrade bypass are applied at the route, not here.
+   */
+  canBulkExport: boolean;
+  /** May the plan author CUSTOM templates. Derived from {@link templateLimitFor} (`0` → false;
+   *  any positive number or `null`/uncapped → true) so the boolean can never drift from the cap. */
+  canCreateTemplates: boolean;
+  /** May the plan USE first-party built-in templates. TRUE for every tier (an onboarding/value
+   *  driver — gating consumption of built-ins would hurt activation). */
+  canUseBuiltInTemplates: boolean;
+}
+
+/** Whether `plan` may perform a bulk (whole-account) export. Free = false; Pro+ = true. */
+export function canBulkExportForPlan(plan: PlanTier): boolean {
+  return plan !== "free";
+}
+
+/** Whether `plan` may author custom templates. Derived from the cap (`0` → false; positive or
+ *  uncapped → true) so it cannot diverge from {@link templateLimitFor}. */
+export function canCreateTemplatesForPlan(plan: PlanTier): boolean {
+  return templateLimitFor(plan) !== 0;
+}
+
+/** Whether `plan` may use first-party built-in templates. TRUE for all tiers. */
+export function canUseBuiltInTemplatesForPlan(_plan: PlanTier): boolean {
+  return true;
+}
+
+/** The full capability bundle for a plan — only plan + boolean capabilities, no Stripe data. */
+export function planCapabilitiesFor(plan: PlanTier): PlanCapabilities {
+  return {
+    plan,
+    canBulkExport: canBulkExportForPlan(plan),
+    canCreateTemplates: canCreateTemplatesForPlan(plan),
+    canUseBuiltInTemplates: canUseBuiltInTemplatesForPlan(plan),
+  };
 }
 
 export function isPlanTier(value: string): value is PlanTier {
