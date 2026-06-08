@@ -6,6 +6,7 @@ import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
 import { PersonalPlanPanel } from "./PersonalPlanPanel";
 import { PersonalUpgradePanel } from "./PersonalUpgradePanel";
 import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
+import { BusinessDowngradePanel } from "./BusinessDowngradePanel";
 import { ManageBillingButton } from "./ManageBillingButton";
 import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRows";
 
@@ -49,6 +50,9 @@ export interface AccountBillingView {
    *  When false (default), the upgrade affordance is hidden even with platform billing ON
    *  (the checkout route also rejects `plan="pro"`). Does not affect Team/Business. */
   personalProEnabled?: boolean;
+  /** ENABLE_BUSINESS_DOWNGRADE (CS-BD-3) — dark-launch gate for the destructive Business → Team
+   *  downgrade. When false (default), the downgrade affordance is hidden (the route also 404s). */
+  businessDowngradeEnabled?: boolean;
   /** The viewer's personal account id (BU-4) — lets the Business upgrade run the
    *  Personal-Pro choice dialog. Null when unavailable. */
   personalAccountId?: string | null;
@@ -115,6 +119,16 @@ export function BillingSection({
     !billing.frozen &&
     (active?.role === "owner" || active?.role === "admin") &&
     billing.currentPeriodEnd != null;
+  // CS-BD-3: the destructive Business → Team downgrade. OWNER-only (admins/members never see it),
+  // on a non-frozen organization (Business) account, with BOTH platform billing AND the
+  // ENABLE_BUSINESS_DOWNGRADE dark-launch flag on. The backend route is itself owner-only.
+  const showBusinessDowngrade =
+    Boolean(billing.platformBillingEnabled) &&
+    Boolean(billing.businessDowngradeEnabled) &&
+    Boolean(accountId) &&
+    !billing.frozen &&
+    active?.type === "organization" &&
+    active.role === "owner";
   const isShared = active != null && active.type !== "personal";
   // CS-1: prefer the explicit stored plan; fall back to the account-type default.
   const tier = active
@@ -279,6 +293,12 @@ export function BillingSection({
         {showManageBilling && accountId && (
           <SettingRow label="Billing" desc="Update payment method, view invoices, or cancel.">
             <ManageBillingButton accountId={accountId} frozen={billing.frozen} />
+          </SettingRow>
+        )}
+
+        {showBusinessDowngrade && accountId && (
+          <SettingRow label="Downgrade plan" stacked>
+            <BusinessDowngradePanel accountId={accountId} frozen={billing.frozen} />
           </SettingRow>
         )}
 

@@ -425,6 +425,59 @@ describe("BillingSection — Manage billing portal (4.PLATFORM-BILLING-UI-1)", (
   });
 });
 
+describe("BillingSection — Business → Team downgrade gating (CS-BD-3)", () => {
+  const ACCT = "org-1";
+  function orgBilling(over: Partial<AccountBillingView> = {}) {
+    return {
+      ...baseBilling,
+      platformBillingEnabled: true,
+      businessDowngradeEnabled: true,
+      plan: "business" as const,
+      memberLimit: 25,
+      memberCount: 4,
+      folderLimit: 250,
+      ...over,
+    };
+  }
+
+  it("shows the downgrade panel for a Business OWNER with both flags ON", () => {
+    render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling()} />);
+    expect(screen.getByTestId("business-downgrade-panel")).toBeInTheDocument();
+  });
+
+  it("hides the downgrade for an admin (owner-only destructive control)", () => {
+    render(<BillingSection active={active("organization", "Org", "admin")} accountId={ACCT} billing={orgBilling()} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+  });
+
+  it("hides the downgrade for a member", () => {
+    render(<BillingSection active={active("organization", "Org", "member")} accountId={ACCT} billing={orgBilling()} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+  });
+
+  it("hides the downgrade when ENABLE_BUSINESS_DOWNGRADE is OFF", () => {
+    render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling({ businessDowngradeEnabled: false })} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+  });
+
+  it("hides the downgrade when platform billing is OFF", () => {
+    render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling({ platformBillingEnabled: false })} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+  });
+
+  it("hides the downgrade on a frozen account", () => {
+    render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling({ frozen: true })} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+  });
+
+  it("hides the downgrade on Team / personal accounts", () => {
+    render(<BillingSection active={active("team")} accountId={ACCT} billing={orgBilling({ plan: "team", memberLimit: 5, folderLimit: 100 })} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={{ ...baseBilling, platformBillingEnabled: true, businessDowngradeEnabled: true }} />);
+    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
+  });
+});
+
 describe("BillingSection — frozen account", () => {
   it("renders a read-only pending-deletion warning and no upgrade affordance", () => {
     renderBilling(active("team"), { memberLimit: 5, memberCount: 2, frozen: true });

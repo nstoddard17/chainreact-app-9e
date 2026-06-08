@@ -8,6 +8,7 @@ import { getUsage } from "@/repositories/accountBilling";
 import {
   isPlatformBillingEnabled,
   isPersonalProEnabled,
+  isBusinessDowngradeEnabled,
 } from "@/services/billing/billingFeatureFlags";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
@@ -137,6 +138,8 @@ export default async function AccountPage({ searchParams }: Props) {
       platformBillingEnabled: isPlatformBillingEnabled(),
       // CS-PRO-1: dark-launch gate for the personal Free → Pro upgrade affordance.
       personalProEnabled: isPersonalProEnabled(),
+      // CS-BD-3: dark-launch gate for the destructive Business → Team downgrade affordance.
+      businessDowngradeEnabled: isBusinessDowngradeEnabled(),
       // BU-4: the viewer's personal account id, so a Team→Business upgrade can run the
       // Personal-Pro choice dialog. Always available via ensurePersonalAccount.
       personalAccountId: personal.id,

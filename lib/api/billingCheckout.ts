@@ -70,3 +70,33 @@ export async function startBillingPortal(
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as { url: string };
 }
+
+/** Safe result of a confirmed Business → Team downgrade (counts only — no Stripe/credential data). */
+export interface BusinessDowngradeOutcome {
+  alreadyTeam: boolean;
+  removedMembers: number;
+  flattenedFolders: number;
+}
+
+/**
+ * POST /api/accounts/[id]/billing/downgrade-to-team (Slice 4.PLATFORM-BILLING-BUSINESS-DOWNGRADE-5
+ * / CS-BD-3) — runs the explicit, owner-confirmed DESTRUCTIVE Business → Team downgrade. Thin
+ * wrapper over the route (no client-side mutation logic). Returns only safe counts; failures
+ * surface as `AccountApiError` so the UI shows a generic message. The caller must have already
+ * confirmed the destructive warning.
+ */
+export async function startBusinessDowngrade(
+  accountId: string,
+): Promise<BusinessDowngradeOutcome> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/billing/downgrade-to-team`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as Partial<BusinessDowngradeOutcome>;
+  return {
+    alreadyTeam: Boolean(body.alreadyTeam),
+    removedMembers: body.removedMembers ?? 0,
+    flattenedFolders: body.flattenedFolders ?? 0,
+  };
+}
