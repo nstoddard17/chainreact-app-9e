@@ -1,19 +1,13 @@
 /**
  * @jest-environment node
  *
- * POST /api/workflow-templates/[templateId]/use + /fork (CS-XT-5B). Mocks auth, the flag, and
- * the service. Proves flag-off dark 404; auth required; strict bodies; and the typed-reason →
- * HTTP mapping for both routes.
+ * POST /api/workflow-templates/[templateId]/use + /fork (CS-XT-5B). Mocks auth and the service.
+ * Proves auth required; strict bodies; and the typed-reason → HTTP mapping for both routes.
  */
 
 const mockGetUser = jest.fn();
 jest.mock("@/utils/supabase/server", () => ({
   createClient: jest.fn(async () => ({ auth: { getUser: () => mockGetUser() } })),
-}));
-
-const mockFlag = jest.fn();
-jest.mock("@/services/workflows/portabilityFlags", () => ({
-  isWorkflowTemplatesEnabled: () => mockFlag(),
 }));
 
 const mockUse = jest.fn();
@@ -41,18 +35,11 @@ function req(body: unknown) {
 beforeEach(() => {
   jest.clearAllMocks();
   authed();
-  mockFlag.mockReturnValue(true);
   mockUse.mockResolvedValue({ ok: true, workflowId: "wf-new", workflowName: "T" });
   mockFork.mockResolvedValue({ ok: true, template: { id: "tpl-fork", visibility: "private" } });
 });
 
 describe("use route", () => {
-  it("404 when the flag is off (no auth check)", async () => {
-    mockFlag.mockReturnValue(false);
-    expect((await USE(req({ targetAccountId: ACCT }), params())).status).toBe(404);
-    expect(mockGetUser).not.toHaveBeenCalled();
-  });
-
   it("401 unauthenticated", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     expect((await USE(req({ targetAccountId: ACCT }), params())).status).toBe(401);
@@ -92,11 +79,6 @@ describe("use route", () => {
 });
 
 describe("fork route", () => {
-  it("404 when off", async () => {
-    mockFlag.mockReturnValue(false);
-    expect((await FORK(req({ targetAccountId: ACCT }), params())).status).toBe(404);
-  });
-
   it("forks (201)", async () => {
     const res = await FORK(req({ targetAccountId: ACCT, name: "My copy" }), params());
     expect(res.status).toBe(201);

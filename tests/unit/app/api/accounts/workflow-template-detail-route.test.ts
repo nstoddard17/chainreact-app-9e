@@ -2,8 +2,8 @@
  * @jest-environment node
  *
  * PATCH/DELETE /api/accounts/[id]/workflow-templates/[templateId] (CS-XT-5A). Mocks auth, the
- * role gate, the flag, and the management service. Proves flag-off dark 404; owner/admin role
- * gate; creator-only edit (non-creator → 403 FORBIDDEN_NOT_CREATOR); not-found 404; success.
+ * role gate, and the management service. Proves owner/admin role gate; creator-only edit
+ * (non-creator → 403 FORBIDDEN_NOT_CREATOR); not-found 404; success.
  */
 
 const mockGetUser = jest.fn();
@@ -14,11 +14,6 @@ jest.mock("@/utils/supabase/server", () => ({
 const mockRequireRole = jest.fn();
 jest.mock("@/services/accounts/accountAuthz", () => ({
   requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
-}));
-
-const mockFlag = jest.fn();
-jest.mock("@/services/workflows/portabilityFlags", () => ({
-  isWorkflowTemplatesEnabled: () => mockFlag(),
 }));
 
 const mockUpdate = jest.fn();
@@ -45,21 +40,9 @@ function patchReq(body: unknown) {
 beforeEach(() => {
   jest.clearAllMocks();
   authed();
-  mockFlag.mockReturnValue(true);
   mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
   mockUpdate.mockResolvedValue({ ok: true, template: { id: TPL, visibility: "public" } });
   mockDelete.mockResolvedValue({ ok: true });
-});
-
-describe("flag gating", () => {
-  it("PATCH 404 when off", async () => {
-    mockFlag.mockReturnValue(false);
-    expect((await PATCH(patchReq({ name: "x" }), params())).status).toBe(404);
-  });
-  it("DELETE 404 when off", async () => {
-    mockFlag.mockReturnValue(false);
-    expect((await DELETE(new Request("http://x", { method: "DELETE" }), params())).status).toBe(404);
-  });
 });
 
 describe("PATCH — creator-only update", () => {

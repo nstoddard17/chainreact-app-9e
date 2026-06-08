@@ -1,19 +1,14 @@
 /**
  * @jest-environment node
  *
- * GET /api/workflow-templates/marketplace (CS-XT-5A). Mocks auth, the flag, and the service.
- * Proves flag-off dark 404; auth required; authenticated users get public/official summaries;
+ * GET /api/workflow-templates/marketplace (CS-XT-5A). Mocks auth and the service.
+ * Proves auth required; authenticated users get public/official summaries;
  * the response carries NO account_id / created_by_user_id (public-safe DTO passthrough).
  */
 
 const mockGetUser = jest.fn();
 jest.mock("@/utils/supabase/server", () => ({
   createClient: jest.fn(async () => ({ auth: { getUser: () => mockGetUser() } })),
-}));
-
-const mockFlag = jest.fn();
-jest.mock("@/services/workflows/portabilityFlags", () => ({
-  isWorkflowTemplatesEnabled: () => mockFlag(),
 }));
 
 const mockListMarketplace = jest.fn();
@@ -25,18 +20,10 @@ import { GET } from "@/app/api/workflow-templates/marketplace/route";
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFlag.mockReturnValue(true);
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "u@x.test" } }, error: null });
   mockListMarketplace.mockResolvedValue([
     { id: "tpl-1", name: "Official Starter", description: null, source: "official", isOfficial: true, visibility: "public", creatorDisplayName: "ChainReact", usageCount: 3, forkCount: 1, forkedFromTemplateId: null, publishedAt: "2026-06-01T00:00:00Z", schemaVersion: 1, createdAt: "2026-06-01T00:00:00Z" },
   ]);
-});
-
-it("404 when the flag is off (no auth check)", async () => {
-  mockFlag.mockReturnValue(false);
-  const res = await GET();
-  expect(res.status).toBe(404);
-  expect(mockGetUser).not.toHaveBeenCalled();
 });
 
 it("401 when unauthenticated", async () => {

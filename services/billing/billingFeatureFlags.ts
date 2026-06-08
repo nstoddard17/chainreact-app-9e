@@ -7,8 +7,10 @@
  *
  * DEFAULT OFF — live billing stays the flat `deduct_tasks_if_available` path
  * (Slice 1N) until the COST-16 cutover. When this flag is false, the
- * reserve/reconcile service performs NO balance mutations (it returns
- * skipped results); the engine is not wired to it at all yet (COST-14).
+ * reserve/reconcile service performs NO balance mutations (it returns skipped
+ * results). The engine IS wired to the reserve/reconcile lifecycle (COST-15H,
+ * services/execution/engine.ts) — this flag is the switch that selects it for
+ * live runs, so flipping it ON changes real billing behavior.
  *
  * Read at call time (not module load) so tests + future rollout can toggle it
  * without re-importing.

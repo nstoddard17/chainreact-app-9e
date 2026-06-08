@@ -6,11 +6,12 @@
  * re-importing — mirrors services/workflowFolders/trashFlags.ts and
  * services/accounts/accountDeletionFlags.ts.
  *
- * CS-1 (this slice) ADDS the flag but DOES NOT consume it — there is no behavior
- * to gate yet. Later slices (CS-2 execution resolution, CS-3 consent routes,
- * CS-4 builder/options, CS-5 AI, CS-6 offboarding) read it. Default OFF: until the
- * whole arc lands and is verified, the absence of an `accepted` row keeps the
- * current creator-pin behavior unchanged regardless of this flag.
+ * The whole CS-1..CS-8 arc has landed: this flag is now read by execution
+ * resolution (engine), consent routes, builder/options, AI availability, and
+ * offboarding. It is the global rollout kill-switch for per-node credential
+ * reassignment. Default OFF: while off, the absence of an `accepted` row keeps the
+ * current creator-pin behavior unchanged and every gated path is inert — the
+ * feature stays dark until deliberately enabled and production-verified.
  */
 
 /** Env var gating per-node credential ownership / reassignment behavior. */

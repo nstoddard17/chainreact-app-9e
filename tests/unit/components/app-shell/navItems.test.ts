@@ -15,8 +15,7 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     // point, so a rail row would be duplicative.
     // `/runs` joined the rail in Slice 4.RUNS-PAGE-1 (read-only history).
     // `/team` joined the rail in Slice 4.TEAM-PAGE-1 (account/team management).
-    // `/templates` joined the rail in Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 (route always
-    // resolves — coming-soon panel when ENABLE_WORKFLOW_TEMPLATES is off).
+    // `/templates` joined the rail in Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 (live marketplace).
     expect(APP_SHELL_NAV_ITEMS.map((i) => i.href)).toEqual([
       "/workflows",
       "/templates",

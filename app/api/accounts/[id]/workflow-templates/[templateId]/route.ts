@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
-import { isWorkflowTemplatesEnabled } from "@/services/workflows/portabilityFlags";
 import {
   updateAccountTemplate,
   deleteAccountTemplate,
@@ -16,9 +15,9 @@ import {
  *            unpublishing (→ private) stamps unpublished_at.
  *   DELETE — hard delete. Creator OR the account OWNER (moderation/account control).
  *
- * Dark behind ENABLE_WORKFLOW_TEMPLATES → 404 when off. Owner/admin role gate at the route;
- * creator-ownership enforced in the service. A template id from another account → 404 (no
- * cross-account leak). The client can never set source/counters/snapshot (strict body).
+ * Owner/admin role gate at the route; creator-ownership enforced in the service. A template id
+ * from another account → 404 (no cross-account leak). The client can never set
+ * source/counters/snapshot (strict body).
  */
 
 function notFound(code = "NOT_FOUND", error = "Not found."): NextResponse {
@@ -54,8 +53,6 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; templateId: string }> },
 ): Promise<Response> {
-  if (!isWorkflowTemplatesEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId, templateId } = await params;
@@ -86,8 +83,6 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string; templateId: string }> },
 ): Promise<Response> {
-  if (!isWorkflowTemplatesEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId, templateId } = await params;

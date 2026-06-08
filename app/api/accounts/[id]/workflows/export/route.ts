@@ -4,7 +4,6 @@ import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as accountsRepo from "@/repositories/accounts";
 import { buildAccountWorkflowsExport } from "@/services/workflows/exportWorkflow";
-import { isExportTierGatingEnabled } from "@/services/workflows/portabilityFlags";
 import { isBusinessDowngradeEnabled } from "@/services/billing/billingFeatureFlags";
 import { resolveAccountCapabilities } from "@/services/billing/planCapabilities";
 
@@ -16,14 +15,12 @@ import { resolveAccountCapabilities } from "@/services/billing/planCapabilities"
  * Returns a CREDENTIAL-FREE JSON snapshot of ALL active (non-deleted) workflows in an account.
  * Two modes:
  *
- *  • **Normal bulk export** (no `purpose`): a data-portability convenience.
- *    - `ENABLE_EXPORT_TIER_GATING` OFF (default) → today's behavior EXACTLY: any account member
- *      (owner/admin/member) may bulk-export; non-member → 403 NOT_ACCOUNT_MEMBER (no oracle).
- *    - `ENABLE_EXPORT_TIER_GATING` ON → tier + role gated using the account's ACTUAL stored plan
- *      (CS-XT-1 resolver): bulk export is owner/admin-only on shared accounts (member → 403
- *      FORBIDDEN), and the plan must permit bulk export (Free → 403 UPGRADE_REQUIRED; Pro/Team/
- *      Business/Enterprise permitted). The single-workflow export floor
- *      (GET /api/workflows/[id]/export) is NEVER gated and is unchanged.
+ *  • **Normal bulk export** (no `purpose`): tier + role gated using the account's ACTUAL stored
+ *    plan (CS-XT-1 resolver). Bulk export is owner/admin-only on shared accounts (member → 403
+ *    FORBIDDEN), and the plan must permit bulk export (Free → 403 UPGRADE_REQUIRED; Pro/Team/
+ *    Business/Enterprise permitted); non-member → 403 NOT_ACCOUNT_MEMBER (no oracle). The
+ *    single-workflow export floor (GET /api/workflows/[id]/export) is NEVER gated and is
+ *    unchanged — it remains available to every tier and every member.
  *
  *  • **Downgrade safety export** (`?purpose=downgrade`): the owner's "save your work before the
  *    destructive Business → Team downgrade" path. OWNER-only, organization-account-only, gated by
@@ -107,17 +104,12 @@ export async function GET(
     return bulkExportResponse(accountId);
   }
 
-  // ── Normal bulk export ──────────────────────────────────────────────────────────────────────
-  const gatingOn = isExportTierGatingEnabled();
-  // Flag OFF preserves today's any-member access EXACTLY; flag ON tightens shared-account bulk
-  // export to owner/admin (a real, deliberate authorization change).
-  const allowedRoles = gatingOn
-    ? (["owner", "admin"] as const)
-    : (["owner", "admin", "member"] as const);
-  const role = await requireAccountRole(auth.userId, accountId, allowedRoles);
+  // ── Normal bulk export — tier + role gated ──────────────────────────────────────────────────
+  // Bulk export of a whole (shared) account is an owner/admin action; members keep single-workflow
+  // export. A non-member gets NOT_ACCOUNT_MEMBER (no existence oracle); a member without
+  // owner/admin gets FORBIDDEN.
+  const role = await requireAccountRole(auth.userId, accountId, ["owner", "admin"]);
   if (!role.ok) {
-    // not_member → no existence oracle (same as before). forbidden only reachable when gating ON
-    // and the caller is a member without owner/admin — a non-member can never reach it.
     return role.reason === "not_member"
       ? notAccountMember()
       : NextResponse.json(
@@ -129,19 +121,17 @@ export async function GET(
         );
   }
 
-  if (gatingOn) {
-    // Plan must permit bulk export (Free blocked). Uses the account's ACTUAL stored plan; resolver
-    // fails closed to Free and returns plan + booleans only — no Stripe ids ever.
-    const { capabilities } = await resolveAccountCapabilities(accountId);
-    if (!capabilities.canBulkExport) {
-      return NextResponse.json(
-        {
-          error: "Bulk export isn't available on your current plan. Upgrade to export all at once.",
-          code: "UPGRADE_REQUIRED",
-        },
-        { status: 403 },
-      );
-    }
+  // Plan must permit bulk export (Free blocked). Uses the account's ACTUAL stored plan; resolver
+  // fails closed to Free and returns plan + booleans only — no Stripe ids ever.
+  const { capabilities } = await resolveAccountCapabilities(accountId);
+  if (!capabilities.canBulkExport) {
+    return NextResponse.json(
+      {
+        error: "Bulk export isn't available on your current plan. Upgrade to export all at once.",
+        code: "UPGRADE_REQUIRED",
+      },
+      { status: 403 },
+    );
   }
 
   return bulkExportResponse(accountId);

@@ -6,9 +6,10 @@ import { isReserveReconcileEnabled } from "./billingFeatureFlags";
  *
  * Typed application primitives over the COST-12 atomic RPCs (via the
  * `userBilling` repo wrappers), gated by the COST-13 feature flag
- * (`ENABLE_RESERVE_RECONCILE_BILLING`, default off). This is what COST-14
- * shadow mode will call — it is NOT wired into the engine here, and live
- * billing is unchanged (flat `deduct_tasks_if_available` remains the path).
+ * (`ENABLE_RESERVE_RECONCILE_BILLING`, default off). The engine calls these
+ * primitives for live runs when the flag is ON (wired in COST-15H,
+ * services/execution/engine.ts); with the flag OFF live billing stays the flat
+ * `deduct_tasks_if_available` path and these functions return skipped results.
  *
  * Behavior contract:
  *  - `testMode: true` → no DB call, returns a skipped (`test_mode`) result.

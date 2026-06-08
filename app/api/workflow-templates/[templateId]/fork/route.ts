@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
-import { isWorkflowTemplatesEnabled } from "@/services/workflows/portabilityFlags";
 import { forkTemplateToAccount } from "@/services/workflows/templateManagement";
 
 /**
@@ -13,7 +12,6 @@ import { forkTemplateToAccount } from "@/services/workflows/templateManagement";
  * headroom (Free blocked; capped by templateLimit). The copy carries the SANITIZED definition
  * only, sets `forked_from_template_id`, is always `source='user'`, defaults `visibility`
  * private, and records a `forked` usage event. Editing the fork never touches the original.
- * Dark behind ENABLE_WORKFLOW_TEMPLATES → 404 when off.
  */
 
 const ForkTemplateBodySchema = z
@@ -28,10 +26,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ templateId: string }> },
 ): Promise<Response> {
-  if (!isWorkflowTemplatesEnabled()) {
-    return NextResponse.json({ error: "Not found.", code: "NOT_FOUND" }, { status: 404 });
-  }
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { templateId } = await params;

@@ -1,10 +1,9 @@
 /**
  * @jest-environment node
  *
- * GET/POST /api/accounts/[id]/workflow-templates (CS-XT-5A). Mocks auth, the role gate, the
- * flag, and the management service. Proves: flag-off dark 404; member-only list; owner/admin
- * create with tier/limit/workflow error mapping; strict body rejects privileged fields; no
- * Stripe/secret leak.
+ * GET/POST /api/accounts/[id]/workflow-templates (CS-XT-5A). Mocks auth, the role gate, and the
+ * management service. Proves: member-only list; owner/admin create with tier/limit/workflow
+ * error mapping; strict body rejects privileged fields; no Stripe/secret leak.
  */
 
 const mockGetUser = jest.fn();
@@ -15,11 +14,6 @@ jest.mock("@/utils/supabase/server", () => ({
 const mockRequireRole = jest.fn();
 jest.mock("@/services/accounts/accountAuthz", () => ({
   requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
-}));
-
-const mockFlag = jest.fn();
-jest.mock("@/services/workflows/portabilityFlags", () => ({
-  isWorkflowTemplatesEnabled: () => mockFlag(),
 }));
 
 const mockList = jest.fn();
@@ -45,24 +39,9 @@ function postReq(body: unknown) {
 beforeEach(() => {
   jest.clearAllMocks();
   authed();
-  mockFlag.mockReturnValue(true);
   mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
   mockList.mockResolvedValue([]);
   mockCreate.mockResolvedValue({ ok: true, template: { id: "tpl-1", name: "T", visibility: "private" } });
-});
-
-describe("flag gating", () => {
-  it("GET 404 when ENABLE_WORKFLOW_TEMPLATES is off", async () => {
-    mockFlag.mockReturnValue(false);
-    const res = await GET(new Request("http://x"), params());
-    expect(res.status).toBe(404);
-    expect(mockRequireRole).not.toHaveBeenCalled();
-  });
-  it("POST 404 when off", async () => {
-    mockFlag.mockReturnValue(false);
-    const res = await POST(postReq({ workflowId: "11111111-1111-1111-1111-111111111111" }), params());
-    expect(res.status).toBe(404);
-  });
 });
 
 describe("GET — list (any member)", () => {

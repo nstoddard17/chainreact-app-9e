@@ -120,8 +120,7 @@ function NavIconTeam() {
 }
 
 // Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 — grid/template glyph for the Templates
-// marketplace nav item. The /templates route always resolves (it renders a coming-soon
-// panel when ENABLE_WORKFLOW_TEMPLATES is off), so it satisfies the "no 404" nav rule.
+// marketplace nav item. The /templates route renders the live marketplace dashboard.
 function NavIconTemplates() {
   return (
     <svg

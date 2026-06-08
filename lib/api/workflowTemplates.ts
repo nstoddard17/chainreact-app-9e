@@ -10,8 +10,8 @@ import type {
  * this module, never `fetch()` directly. Failures surface as `TemplateApiError` so the UI can
  * branch on `code` (e.g. TEMPLATES_REQUIRE_UPGRADE / TEMPLATE_LIMIT_REACHED → upgrade copy).
  *
- * All routes are dark behind ENABLE_WORKFLOW_TEMPLATES (404 when off). The marketplace DTO is
- * already credential-free + omits account_id / created_by_user_id; this client adds no ids.
+ * The marketplace DTO is already credential-free + omits account_id / created_by_user_id; this
+ * client adds no ids.
  */
 
 export class TemplateApiError extends Error {

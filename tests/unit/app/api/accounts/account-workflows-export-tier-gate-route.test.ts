@@ -2,11 +2,11 @@
  * @jest-environment node
  *
  * Slice 4.WORKFLOW-PORTABILITY-TEMPLATES-TIER-POLICY-3 / CS-XT-2+3 — tier gating + downgrade
- * bypass on GET /api/accounts/[id]/workflows/export. Mocks supabase auth, the role gate, the
- * workflows + accounts repos, the export-tier + downgrade flags, and the plan-capability resolver.
- * Proves: flag OFF preserves any-member access (no capability read); flag ON tier+role-gates the
- * normal bulk export using the ACTUAL plan; and the `?purpose=downgrade` owner-only org-only path
- * bypasses the tier gate while still sanitizing.
+ * bypass on GET /api/accounts/[id]/workflows/export. Tier+role gating is always on (the env flag
+ * was removed). Mocks supabase auth, the role gate, the workflows + accounts repos, the downgrade
+ * flag, and the plan-capability resolver. Proves: normal bulk export tier+role-gates using the
+ * ACTUAL plan (owner/admin only, Free blocked); and the `?purpose=downgrade` owner-only org-only
+ * path bypasses the tier gate while still sanitizing.
  */
 
 const mockGetUser = jest.fn();
@@ -27,11 +27,6 @@ jest.mock("@/repositories/workflows", () => ({
 const mockGetAccount = jest.fn();
 jest.mock("@/repositories/accounts", () => ({
   getById: (...a: unknown[]) => mockGetAccount(...a),
-}));
-
-const mockTierGatingEnabled = jest.fn();
-jest.mock("@/services/workflows/portabilityFlags", () => ({
-  isExportTierGatingEnabled: () => mockTierGatingEnabled(),
 }));
 
 const mockDowngradeEnabled = jest.fn();
@@ -94,27 +89,13 @@ beforeEach(() => {
   authed();
   mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
   mockListByAccount.mockResolvedValue([rec("wf-1", "Alpha", "xoxb-planted-1234567")]);
-  mockTierGatingEnabled.mockReturnValue(false);
   mockDowngradeEnabled.mockReturnValue(false);
   mockGetAccount.mockResolvedValue({ id: ACCOUNT, type: "organization" });
 });
 
-// ── Normal bulk export — flag OFF (preserve today's behavior) ──────────────────────────────────
+// ── Normal bulk export — tier + role gate (always on) ───────────────────────────────────────────
 
-describe("normal bulk export — ENABLE_EXPORT_TIER_GATING OFF", () => {
-  it("allows any member (owner/admin/member) and never reads capabilities", async () => {
-    const res = await GET(req(), params());
-    expect(res.status).toBe(200);
-    expect(mockRequireRole).toHaveBeenCalledWith("user-1", ACCOUNT, ["owner", "admin", "member"]);
-    expect(mockResolveCaps).not.toHaveBeenCalled();
-  });
-});
-
-// ── Normal bulk export — flag ON (tier + role gate) ─────────────────────────────────────────────
-
-describe("normal bulk export — ENABLE_EXPORT_TIER_GATING ON", () => {
-  beforeEach(() => mockTierGatingEnabled.mockReturnValue(true));
-
+describe("normal bulk export — tier + role gate", () => {
   it("tightens the role set to owner/admin", async () => {
     mockResolveCaps.mockResolvedValue(caps(true, "team"));
     await GET(req(), params());
@@ -195,9 +176,8 @@ describe("downgrade export bypass — ?purpose=downgrade", () => {
     expect(mockRequireRole).not.toHaveBeenCalled();
   });
 
-  it("Business owner exports even when the normal tier gate would block — bypasses capabilities", async () => {
+  it("Business owner exports even though the normal tier gate would block — bypasses capabilities", async () => {
     mockDowngradeEnabled.mockReturnValue(true);
-    mockTierGatingEnabled.mockReturnValue(true); // normal gate would apply…
     const res = await GET(req("?purpose=downgrade"), params());
     expect(res.status).toBe(200);
     expect(mockRequireRole).toHaveBeenCalledWith("user-1", ACCOUNT, ["owner"]);

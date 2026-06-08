@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
-import { isWorkflowTemplatesEnabled } from "@/services/workflows/portabilityFlags";
 import { createWorkflowFromTemplate } from "@/services/workflows/templateManagement";
 
 /**
@@ -12,8 +11,7 @@ import { createWorkflowFromTemplate } from "@/services/workflows/templateManagem
  * id collapses to 404, no existence oracle). The caller must be a member of the TARGET
  * account. The new workflow gets the template's SANITIZED definition with `__REDACTED__`
  * markers (the user reconnects credentials); a `used_to_create_workflow` usage event is
- * recorded. Dark behind ENABLE_WORKFLOW_TEMPLATES → 404 when off. Editing the new workflow
- * never touches the template.
+ * recorded. Editing the new workflow never touches the template.
  */
 
 const UseTemplateBodySchema = z
@@ -27,10 +25,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ templateId: string }> },
 ): Promise<Response> {
-  if (!isWorkflowTemplatesEnabled()) {
-    return NextResponse.json({ error: "Not found.", code: "NOT_FOUND" }, { status: 404 });
-  }
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { templateId } = await params;

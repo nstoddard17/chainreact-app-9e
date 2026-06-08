@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
-import { isWorkflowTemplatesEnabled } from "@/services/workflows/portabilityFlags";
 import {
   listAccountTemplates,
   createAccountTemplate,
@@ -15,13 +14,9 @@ import {
  *          (Free blocked; Pro/Team/Business capped by templateLimit); the definition is always
  *          run through the export sanitizer; the client can never set source/counters/snapshot.
  *
- * Dark behind ENABLE_WORKFLOW_TEMPLATES → 404 when off. Non-member → 403 NOT_ACCOUNT_MEMBER
- * (no existence oracle). No credentials / Stripe ids / raw draftDefinition ever appear.
+ * Non-member → 403 NOT_ACCOUNT_MEMBER (no existence oracle). No credentials / Stripe ids / raw
+ * draftDefinition ever appear.
  */
-
-function notFound(): NextResponse {
-  return NextResponse.json({ error: "Not found.", code: "NOT_FOUND" }, { status: 404 });
-}
 
 function roleGateFailure(reason: "not_member" | "forbidden"): NextResponse {
   return NextResponse.json(
@@ -47,8 +42,6 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  if (!isWorkflowTemplatesEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId } = await params;
@@ -65,8 +58,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  if (!isWorkflowTemplatesEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId } = await params;

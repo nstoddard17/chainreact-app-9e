@@ -22,6 +22,13 @@ jest.mock("@/repositories/workflows", () => ({
   listByAccount: (...a: unknown[]) => mockListByAccount(...a),
 }));
 
+// Tier+role gating is always on (the env flag was removed): normal bulk export is owner/admin
+// only AND the plan must permit bulk export. These no-leak / metadata cases mock a permitting plan.
+const mockResolveCaps = jest.fn();
+jest.mock("@/services/billing/planCapabilities", () => ({
+  resolveAccountCapabilities: (...a: unknown[]) => mockResolveCaps(...a),
+}));
+
 import { GET } from "@/app/api/accounts/[id]/workflows/export/route";
 import { REDACTION_MARKER, ACCOUNT_WORKFLOW_EXPORT_LIMIT } from "@/services/workflows/exportWorkflow";
 
@@ -60,6 +67,11 @@ function authed() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
+  mockResolveCaps.mockResolvedValue({
+    plan: "business",
+    fallback: false,
+    capabilities: { plan: "business", canBulkExport: true, canCreateTemplates: false, canUseBuiltInTemplates: true },
+  });
   mockListByAccount.mockResolvedValue([
     rec("wf-1", "Alpha", "xoxb-planted-A-1234567"),
     rec("wf-2", "Beta", "ya29.plantedB12345678"),
@@ -83,13 +95,13 @@ it("403 NOT_ACCOUNT_MEMBER for a non-member (no leak) — no repo read", async (
   expect(mockListByAccount).not.toHaveBeenCalled();
 });
 
-it("allows any member (owner/admin/member)", async () => {
+it("requires owner/admin (bulk export of a whole account is an admin action)", async () => {
   authed();
   await GET(new Request("http://x"), params());
-  expect(mockRequireRole).toHaveBeenCalledWith("user-1", ACCOUNT, ["owner", "admin", "member"]);
+  expect(mockRequireRole).toHaveBeenCalledWith("user-1", ACCOUNT, ["owner", "admin"]);
 });
 
-it("member gets the bulk export with metadata, per-workflow graphs + attachment header", async () => {
+it("owner/admin gets the bulk export with metadata, per-workflow graphs + attachment header", async () => {
   authed();
   const res = await GET(new Request("http://x"), params());
   expect(res.status).toBe(200);
