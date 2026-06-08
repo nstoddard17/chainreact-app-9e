@@ -82,7 +82,7 @@ export function TemplateCard(props: TemplateCardProps) {
         <span className="inline-flex items-center gap-1" title="Times used">
           <IconDownload /> {props.usageCount}
         </span>
-        <span className="inline-flex items-center gap-1" title="Times forked">
+        <span className="inline-flex items-center gap-1" title="Times copied">
           <IconFork /> {props.forkCount}
         </span>
       </div>
@@ -91,8 +91,9 @@ export function TemplateCard(props: TemplateCardProps) {
         <Button size="sm" data-testid="template-use" disabled={props.busy} onClick={props.onUse} className="gap-1.5">
           <IconBolt /> Use
         </Button>
+        {/* "Save a copy" (not "Fork" — dev jargon): creates the user's own editable copy. */}
         <Button size="sm" variant="outline" data-testid="template-fork" disabled={props.busy} onClick={props.onFork} className="gap-1.5">
-          <IconFork /> Fork
+          <IconFork /> Save a copy
         </Button>
         {manage && (
           <>

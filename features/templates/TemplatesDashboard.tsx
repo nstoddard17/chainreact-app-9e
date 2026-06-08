@@ -228,7 +228,7 @@ export function TemplatesDashboard({ accountId, currentUserId, initialMarketplac
           </div>
           <div className="max-w-sm text-sm text-muted-foreground">
             {showingMine
-              ? "Fork a marketplace template or save one of your workflows to build your library."
+              ? "Save a copy of a marketplace template, or turn one of your workflows into a template, to build your library."
               : "Try a different tab or clear your search."}
           </div>
         </div>
