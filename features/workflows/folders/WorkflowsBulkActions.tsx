@@ -28,7 +28,8 @@ interface Props {
   count: number;
   folders: readonly BulkFolderOption[];
   pending: boolean;
-  onMove: (folderId: string | null) => void;
+  /** `label` is the human destination name ("Uncategorized" or the folder name) for the confirmation toast. */
+  onMove: (folderId: string | null, label: string) => void;
   onTrash: () => void;
   onClear: () => void;
 }
@@ -77,7 +78,7 @@ export function WorkflowsBulkActions({
                 data-testid="workflows-bulk-move-uncategorized"
                 onClick={() => {
                   setMoveOpen(false);
-                  onMove(null);
+                  onMove(null, "Uncategorized");
                 }}
                 className="block w-full rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
               >
@@ -90,7 +91,7 @@ export function WorkflowsBulkActions({
                   data-testid={`workflows-bulk-move-${f.id}`}
                   onClick={() => {
                     setMoveOpen(false);
-                    onMove(f.id);
+                    onMove(f.id, f.name);
                   }}
                   style={{ paddingLeft: `${0.5 + (f.depth - 1) * 0.85}rem` }}
                   className="block w-full truncate rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"

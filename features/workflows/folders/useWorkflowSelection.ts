@@ -35,7 +35,7 @@ export interface WorkflowSelection {
   toggleSelect: (id: string, checked: boolean) => void;
   toggleSelectAll: (checked: boolean) => void;
   clear: () => void;
-  bulkMove: (folderId: string | null) => Promise<void>;
+  bulkMove: (folderId: string | null, destinationLabel: string) => Promise<void>;
   bulkTrash: () => Promise<void>;
 }
 
@@ -88,21 +88,34 @@ export function useWorkflowSelection({
   const clear = useCallback(() => setSelectedIds(new Set()), []);
 
   const bulkMove = useCallback(
-    async (folderId: string | null) => {
+    async (folderId: string | null, destinationLabel: string) => {
       const ids = [...selectedIds];
       if (ids.length === 0) return;
+      // Capture each workflow's current folder BEFORE the move so Undo can return
+      // every item to exactly where it came from (selection is confined to the
+      // visible list, so every id is present in `filtered`).
+      const priorFolderById = new Map(filtered.map((w) => [w.id, w.folderId]));
       setBulkPending(true);
       try {
         await Promise.all(ids.map((id) => moveWorkflowToFolder(id, folderId)));
         setSelectedIds(new Set());
         await refresh();
+        onUndo({
+          message: `${ids.length} workflow${ids.length === 1 ? "" : "s"} moved to ${destinationLabel}`,
+          run: async () => {
+            await Promise.all(
+              ids.map((id) => moveWorkflowToFolder(id, priorFolderById.get(id) ?? null)),
+            );
+            await refresh();
+          },
+        });
       } catch (err) {
         onError(err instanceof Error ? err.message : "Couldn't move the workflows.");
       } finally {
         setBulkPending(false);
       }
     },
-    [selectedIds, refresh, onError],
+    [selectedIds, filtered, refresh, onError, onUndo],
   );
 
   const bulkTrash = useCallback(async () => {

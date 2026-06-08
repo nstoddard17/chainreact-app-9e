@@ -450,7 +450,7 @@ export function WorkflowsDashboard({
               count={selection.selectedIds.size}
               folders={folderOptions}
               pending={selection.bulkPending}
-              onMove={(folderId) => void selection.bulkMove(folderId)}
+              onMove={(folderId, label) => void selection.bulkMove(folderId, label)}
               onTrash={() => void selection.bulkTrash()}
               onClear={selection.clear}
             />

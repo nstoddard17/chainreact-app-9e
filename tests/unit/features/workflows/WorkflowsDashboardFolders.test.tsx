@@ -381,6 +381,36 @@ describe("multi-select bulk actions", () => {
     await waitFor(() => expect(mockMoveWorkflow).toHaveBeenCalledWith("a", null));
   });
 
+  it("bulk-move shows a confirmation toast naming the destination and Undo returns each to its prior folder", async () => {
+    mockMoveWorkflow.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[wf("a", "A", { folderId: null }), wf("b", "B", { folderId: "f2" })]}
+        initialFolders={[folder("f1", "Payments"), folder("f2", "Archive")]}
+      />,
+    );
+    await user.click(screen.getByTestId("workflows-select-all"));
+    await user.click(screen.getByTestId("workflows-bulk-move-trigger"));
+    await user.click(await screen.findByTestId("workflows-bulk-move-f1"));
+    await waitFor(() => {
+      expect(mockMoveWorkflow).toHaveBeenCalledWith("a", "f1");
+      expect(mockMoveWorkflow).toHaveBeenCalledWith("b", "f1");
+    });
+
+    // Confirmation toast names the destination folder.
+    const toast = await screen.findByTestId("workflows-undo-toast");
+    expect(toast).toHaveTextContent("2 workflows moved to Payments");
+
+    // Undo returns each workflow to exactly its prior folder (a → Uncategorized, b → f2).
+    mockMoveWorkflow.mockClear();
+    await user.click(within(toast).getByTestId("workflows-undo-button"));
+    await waitFor(() => {
+      expect(mockMoveWorkflow).toHaveBeenCalledWith("a", null);
+      expect(mockMoveWorkflow).toHaveBeenCalledWith("b", "f2");
+    });
+  });
+
   it("bulk-trashes selected workflows and offers Undo (restores each)", async () => {
     mockDeleteWorkflow.mockResolvedValue({
       ok: true,
