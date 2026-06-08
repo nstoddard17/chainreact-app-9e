@@ -32,7 +32,9 @@ export function BusinessDowngradePanel({ accountId, frozen = false, onComplete }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const done = onComplete ?? (() => window.location.reload());
-  const exportHref = `/api/accounts/${encodeURIComponent(accountId)}/workflows/export`;
+  // Downgrade-purpose export: owner-only, organization-only, and BYPASSES the normal bulk-export
+  // tier gate (a destructive safety flow must never be blocked by tier policy — CS-XT-3).
+  const exportHref = `/api/accounts/${encodeURIComponent(accountId)}/workflows/export?purpose=downgrade`;
 
   async function onSubmit() {
     if (!confirmed || frozen || busy) return;

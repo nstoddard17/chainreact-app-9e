@@ -39,10 +39,14 @@ it("shows the destructive warnings (members removed, personal creds, folders fla
   expect(warnings).toHaveTextContent(/nothing moves to your personal account/i);
 });
 
-it("offers a workflow export download link to the bulk export route", () => {
+it("offers a workflow export download link to the downgrade-purpose bulk export route", () => {
   renderPanel();
   const link = screen.getByTestId("business-downgrade-export");
-  expect(link).toHaveAttribute("href", `/api/accounts/${ACCOUNT}/workflows/export`);
+  // CS-XT-3: the downgrade export bypasses the normal bulk-export tier gate.
+  expect(link).toHaveAttribute(
+    "href",
+    `/api/accounts/${ACCOUNT}/workflows/export?purpose=downgrade`,
+  );
 });
 
 it("requires the confirm checkbox before the destructive button is enabled / POSTs", async () => {
