@@ -11,6 +11,8 @@ import {
   sanitizeConfigForExport,
   sanitizeWorkflowDefinitionForExport,
   buildWorkflowExport,
+  buildAccountWorkflowsExport,
+  ACCOUNT_WORKFLOW_EXPORT_LIMIT,
   REDACTION_MARKER,
   EXPORT_SOURCE,
   EXPORT_SCHEMA_VERSION,
@@ -207,5 +209,95 @@ describe("buildWorkflowExport — DTO", () => {
     expect(json).not.toMatch(/user-secret-1/);
     expect(json).not.toMatch(/createdByUserId|accountId/);
     expect(json).not.toMatch(/xoxb-leak/);
+  });
+});
+
+describe("buildAccountWorkflowsExport — bulk DTO", () => {
+  function rec(id: string, name: string, token: string): WorkflowRecord {
+    return {
+      id,
+      accountId: "acct-bulk-1",
+      createdByUserId: "user-bulk-secret",
+      name,
+      state: "draft",
+      draftDefinition: {
+        nodes: [
+          {
+            id: "n1",
+            kind: "action",
+            provider: "slack",
+            type: "post",
+            position: { x: 0, y: 0 },
+            config: { channel: "C9", botToken: token, contact: "owner@acme.com" },
+          },
+        ],
+        edges: [],
+      },
+    } as unknown as WorkflowRecord;
+  }
+
+  it("exports multiple workflows with metadata + workflowCount + accountId", () => {
+    const r = buildAccountWorkflowsExport(
+      "acct-bulk-1",
+      [rec("wf-1", "First", "xoxb-leak-A-1234567"), rec("wf-2", "Second", "xoxb-leak-B-1234567")],
+      "2026-06-07T00:00:00.000Z",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.export).toMatchObject({
+      source: EXPORT_SOURCE,
+      schemaVersion: EXPORT_SCHEMA_VERSION,
+      exportedAt: "2026-06-07T00:00:00.000Z",
+      redactionMarker: REDACTION_MARKER,
+      accountId: "acct-bulk-1",
+      workflowCount: 2,
+    });
+    expect(r.export.workflows.map((w) => w.name)).toEqual(["First", "Second"]);
+    // graph preserved per workflow
+    expect(r.export.workflows[0]!.definition.nodes[0]!.config.channel).toBe("C9");
+  });
+
+  it("runs EVERY workflow through the sanitizer — no planted token/email across the bulk JSON", () => {
+    const r = buildAccountWorkflowsExport(
+      "acct-bulk-1",
+      [rec("wf-1", "First", "xoxb-leak-A-1234567"), rec("wf-2", "Second", "ya29.leakB12345678")],
+      "2026-06-07T00:00:00.000Z",
+    );
+    if (!r.ok) throw new Error("expected ok");
+    const json = JSON.stringify(r.export);
+    expect(json).not.toMatch(/xoxb-leak-A/);
+    expect(json).not.toMatch(/ya29\.leakB/);
+    expect(json).not.toMatch(/owner@acme\.com/);
+    expect(json).not.toMatch(/user-bulk-secret/); // createdByUserId never included
+    expect(r.export.workflows[0]!.definition.nodes[0]!.config.botToken).toBe(REDACTION_MARKER);
+  });
+
+  it("handles an empty account (zero workflows)", () => {
+    const r = buildAccountWorkflowsExport("acct-bulk-1", [], "2026-06-07T00:00:00.000Z");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.export.workflowCount).toBe(0);
+    expect(r.export.workflows).toEqual([]);
+  });
+
+  it("refuses over the per-export limit with a typed reason (no unbounded payload)", () => {
+    const many = Array.from({ length: ACCOUNT_WORKFLOW_EXPORT_LIMIT + 1 }, (_, i) =>
+      rec(`wf-${i}`, `W${i}`, "xoxb-x-1234567"),
+    );
+    const r = buildAccountWorkflowsExport("acct-bulk-1", many, "2026-06-07T00:00:00.000Z");
+    expect(r).toEqual({
+      ok: false,
+      reason: "too_many_workflows",
+      count: ACCOUNT_WORKFLOW_EXPORT_LIMIT + 1,
+      limit: ACCOUNT_WORKFLOW_EXPORT_LIMIT,
+    });
+  });
+
+  it("allows exactly the limit", () => {
+    const exact = Array.from({ length: ACCOUNT_WORKFLOW_EXPORT_LIMIT }, (_, i) =>
+      rec(`wf-${i}`, `W${i}`, "xoxb-x-1234567"),
+    );
+    const r = buildAccountWorkflowsExport("acct-bulk-1", exact, "2026-06-07T00:00:00.000Z");
+    expect(r.ok).toBe(true);
   });
 });

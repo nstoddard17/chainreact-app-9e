@@ -138,16 +138,32 @@ export function sanitizeWorkflowDefinitionForExport(
   };
 }
 
+/** One workflow inside an export — its name + sanitized graph. No ids, no credentials. */
+export interface ExportedWorkflowEntry {
+  name: string;
+  definition: ExportedWorkflowDefinition;
+}
+
+/**
+ * Build a single credential-free workflow entry (name + sanitized definition). The single shared
+ * builder used by BOTH the single-workflow and bulk-account exports, so the redaction/whitelist
+ * logic is never duplicated. Reads ONLY `name` + `draftDefinition` — no integrations / credentials
+ * / ids.
+ */
+export function buildWorkflowEntry(record: WorkflowRecord): ExportedWorkflowEntry {
+  return {
+    name: record.name,
+    definition: sanitizeWorkflowDefinitionForExport(record.draftDefinition),
+  };
+}
+
 export interface WorkflowExport {
   source: typeof EXPORT_SOURCE;
   schemaVersion: typeof EXPORT_SCHEMA_VERSION;
   exportedAt: string;
   /** The sentinel used for redacted (reconnect-required) values, so import can detect them. */
   redactionMarker: typeof REDACTION_MARKER;
-  workflow: {
-    name: string;
-    definition: ExportedWorkflowDefinition;
-  };
+  workflow: ExportedWorkflowEntry;
 }
 
 /**
@@ -161,9 +177,65 @@ export function buildWorkflowExport(record: WorkflowRecord, nowIso: string): Wor
     schemaVersion: EXPORT_SCHEMA_VERSION,
     exportedAt: nowIso,
     redactionMarker: REDACTION_MARKER,
-    workflow: {
-      name: record.name,
-      definition: sanitizeWorkflowDefinitionForExport(record.draftDefinition),
+    workflow: buildWorkflowEntry(record),
+  };
+}
+
+/**
+ * Max workflows in one bulk account export (CS-BD-4B). A safe v1 cap (there is no streaming/ZIP
+ * precedent in the repo) — over the cap the route returns a typed error telling the user to export
+ * individually. Generous vs Business's 250-folder cap, since a workflow definition is small.
+ */
+export const ACCOUNT_WORKFLOW_EXPORT_LIMIT = 200;
+
+export interface AccountWorkflowsExport {
+  source: typeof EXPORT_SOURCE;
+  schemaVersion: typeof EXPORT_SCHEMA_VERSION;
+  exportedAt: string;
+  redactionMarker: typeof REDACTION_MARKER;
+  /** The account these workflows came from (the caller's own membership-gated account; not a
+   *  secret). NO user / Stripe / credential ids are included. */
+  accountId: string;
+  workflowCount: number;
+  workflows: ExportedWorkflowEntry[];
+}
+
+export type BuildAccountWorkflowsExportResult =
+  | { ok: true; export: AccountWorkflowsExport }
+  | { ok: false; reason: "too_many_workflows"; count: number; limit: number };
+
+/**
+ * Build the credential-free BULK export DTO for an account (CS-BD-4B) — for saving work before a
+ * destructive Business → Team downgrade. Pure: the route passes the already RLS-scoped,
+ * non-deleted workflow records (`workflowsRepo.listByAccount` excludes soft-deleted) + `nowIso`.
+ * Every workflow runs through the SAME {@link buildWorkflowEntry} sanitizer. Over
+ * {@link ACCOUNT_WORKFLOW_EXPORT_LIMIT} it returns `too_many_workflows` (the route maps to a typed
+ * 413) rather than producing an unbounded payload. Folder hierarchy is intentionally OMITTED —
+ * downgrade flattens it, so there is no active structure worth exporting.
+ */
+export function buildAccountWorkflowsExport(
+  accountId: string,
+  records: readonly WorkflowRecord[],
+  nowIso: string,
+): BuildAccountWorkflowsExportResult {
+  if (records.length > ACCOUNT_WORKFLOW_EXPORT_LIMIT) {
+    return {
+      ok: false,
+      reason: "too_many_workflows",
+      count: records.length,
+      limit: ACCOUNT_WORKFLOW_EXPORT_LIMIT,
+    };
+  }
+  return {
+    ok: true,
+    export: {
+      source: EXPORT_SOURCE,
+      schemaVersion: EXPORT_SCHEMA_VERSION,
+      exportedAt: nowIso,
+      redactionMarker: REDACTION_MARKER,
+      accountId,
+      workflowCount: records.length,
+      workflows: records.map(buildWorkflowEntry),
     },
   };
 }
