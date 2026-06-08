@@ -229,6 +229,14 @@ export function WorkflowsDashboard({
 
   // ── handlers ──────────────────────────────────────────────────────────────
 
+  // One-click recovery from the over-filtered ("no matches") empty state: reset
+  // search + status pills + the facet panel back to their defaults in one go.
+  const clearFilters = useCallback(() => {
+    setQuery("");
+    setStatusFilter("all");
+    setFilters(DEFAULT_FILTERS);
+  }, []);
+
   const handleMoveToFolder = useCallback(
     async (workflowId: string, folderId: string | null) => {
       try {
@@ -432,7 +440,10 @@ export function WorkflowsDashboard({
         <>
           {!hasAny && <WorkflowsEmptyState kind="no-workflows" />}
           {hasAny && !hasFiltered && (
-            <WorkflowsEmptyState kind={folderScopedOnly ? "empty-folder" : "no-matches"} />
+            <WorkflowsEmptyState
+              kind={folderScopedOnly ? "empty-folder" : "no-matches"}
+              onClearFilters={folderScopedOnly ? undefined : clearFilters}
+            />
           )}
           {hasAny && hasFiltered && view === "list" && selection.selectedIds.size > 0 && (
             <WorkflowsBulkActions

@@ -25,6 +25,12 @@ interface Props {
   kind: Kind;
   /** For `folder-limit`: the cap for messaging. */
   limit?: number;
+  /**
+   * For `no-matches`: one-click recovery that resets the search + status + facet
+   * filters. Only rendered when provided (the dashboard wires it for the
+   * over-filtered state, never for a legitimately empty folder).
+   */
+  onClearFilters?: () => void;
 }
 
 const COPY: Record<
@@ -58,7 +64,7 @@ const COPY: Record<
   },
 };
 
-export function WorkflowsEmptyState({ kind, limit }: Props) {
+export function WorkflowsEmptyState({ kind, limit, onClearFilters }: Props) {
   if (kind === "no-workflows") {
     return (
       <div
@@ -92,6 +98,7 @@ export function WorkflowsEmptyState({ kind, limit }: Props) {
     kind === "folder-limit" && typeof limit === "number"
       ? `You've reached your plan's limit of ${limit} folders. Delete a folder to make room for a new one.`
       : c.body;
+  const showClearFilters = kind === "no-matches" && typeof onClearFilters === "function";
   return (
     <div
       data-testid={c.testId}
@@ -100,6 +107,16 @@ export function WorkflowsEmptyState({ kind, limit }: Props) {
     >
       <p className="text-sm font-semibold text-foreground">{c.title}</p>
       <p className="max-w-md text-xs text-muted-foreground">{body}</p>
+      {showClearFilters && (
+        <button
+          type="button"
+          data-testid="workflows-empty-clear-filters"
+          onClick={onClearFilters}
+          className="mt-1 inline-flex items-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:border-foreground/30"
+        >
+          Clear search &amp; filters
+        </button>
+      )}
     </div>
   );
 }

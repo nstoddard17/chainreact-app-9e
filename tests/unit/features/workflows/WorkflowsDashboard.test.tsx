@@ -147,6 +147,20 @@ describe("WorkflowsDashboard — empty + filtered-empty states", () => {
     expect(screen.getByTestId("workflows-empty-no-matches")).toBeInTheDocument();
     expect(screen.queryByTestId("workflow-row")).toBeNull();
   });
+
+  it("no-matches state offers a Clear search & filters button that restores the list", async () => {
+    const user = userEvent.setup();
+    render(<WorkflowsDashboard initialWorkflows={[wf("a", "Stripe ops", "active")]} />);
+    await user.type(screen.getByTestId("workflows-search-input"), "no-such-name");
+    expect(screen.getByTestId("workflows-empty-no-matches")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("workflows-empty-clear-filters"));
+
+    // Filters reset → the workflow is visible again and the empty state is gone.
+    expect(screen.queryByTestId("workflows-empty-no-matches")).toBeNull();
+    expect(screen.getByTestId("workflow-row")).toBeInTheDocument();
+    expect(screen.getByTestId("workflows-search-input")).toHaveValue("");
+  });
 });
 
 describe("WorkflowsDashboard — search + status filter + view toggle", () => {
