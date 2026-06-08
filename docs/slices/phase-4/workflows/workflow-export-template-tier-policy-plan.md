@@ -1,5 +1,12 @@
 # 4.WORKFLOW-PORTABILITY-TEMPLATES-TIER-POLICY-1 — Export + Template Tier Policy Plan
 
+> **SUPERSEDED (2026-06-07):** this is a point-in-time planning doc. Its current-state findings
+> (notably §2.2 "templates do not exist" and §2.1's "no plan-tier gate") were accurate when
+> written, but the arc has since shipped — `workflow_templates`, the marketplace, the management/
+> use/fork APIs, and the `/templates` page all now exist. See
+> [workflow-templates-marketplace-closeout.md](./workflow-templates-marketplace-closeout.md) for
+> the current shipped state. The recommendations below remain the design rationale.
+
 **Type:** Planning / design only. **No source, migrations, tests, UI, env, or Stripe
 changes in this slice. Nothing pushed.**
 **Date:** 2026-06-07
