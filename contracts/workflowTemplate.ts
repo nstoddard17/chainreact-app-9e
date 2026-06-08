@@ -138,9 +138,10 @@ export interface MarketplaceTemplateSummary {
 
 /**
  * ACCOUNT-INTERNAL listing summary (CS-XT-5A) — what an account member sees on the
- * account's own Templates list. Carries `createdByUserId` (account-internal; drives the
- * "only the creator can edit" affordance) but OMITS the `definition` (not needed for a
- * list; instantiation is a later slice). Never carries credentials.
+ * account's own Templates list. The raw `createdByUserId` is NEVER surfaced; the
+ * server resolves the management affordance into a `canManage` boolean against the
+ * authenticated viewer instead (data minimization — no internal user id reaches the
+ * client). OMITS the `definition` (not needed for a list). Never carries credentials.
  */
 export interface AccountTemplateSummary {
   id: string;
@@ -148,8 +149,12 @@ export interface AccountTemplateSummary {
   description: string | null;
   source: TemplateSource;
   visibility: TemplateVisibility;
-  /** Provenance — account-internal only (used for the creator-edit gate). */
-  createdByUserId: string | null;
+  /**
+   * Server-computed: true when the authenticated viewer may manage (edit / publish /
+   * delete) this template. Today that is creator-only — matching the service's
+   * creator-edit gate. Replaces the raw `createdByUserId` so no internal id leaks.
+   */
+  canManage: boolean;
   forkedFromTemplateId: string | null;
   usageCount: number;
   forkCount: number;

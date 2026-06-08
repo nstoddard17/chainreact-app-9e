@@ -44,16 +44,15 @@ export default async function TemplatesPage() {
 
   const [marketplace, mineRecords] = await Promise.all([
     listMarketplaceTemplates(),
-    listAccountTemplates(account.id),
+    listAccountTemplates(account.id, user.id),
   ]);
-  const mine = mineRecords.map((r) => toMyTemplateItem(r, user.id));
+  const mine = mineRecords.map((r) => toMyTemplateItem(r));
 
   return (
     <AppShell userEmail={user.email ?? ""} unreadNotifications={unread} recentNotifications={recentNotifications}>
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <TemplatesDashboard
           accountId={account.id}
-          currentUserId={user.id}
           initialMarketplace={marketplace}
           initialMine={mine}
         />

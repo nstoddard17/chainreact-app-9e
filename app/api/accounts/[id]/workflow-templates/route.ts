@@ -50,7 +50,9 @@ export async function GET(
   const role = await requireAccountRole(auth.userId, accountId, ["owner", "admin", "member"]);
   if (!role.ok) return roleGateFailure(role.reason);
 
-  const templates = await listAccountTemplates(accountId);
+  // canManage is resolved server-side against the authed actor; the raw creator id never
+  // leaves the server (data minimization — see AccountTemplateSummary).
+  const templates = await listAccountTemplates(accountId, auth.userId);
   return NextResponse.json({ templates });
 }
 

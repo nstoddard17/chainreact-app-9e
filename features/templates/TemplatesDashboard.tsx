@@ -44,12 +44,11 @@ const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
 
 interface Props {
   accountId: string;
-  currentUserId: string;
   initialMarketplace: readonly MarketplaceTemplateSummary[];
   initialMine: readonly MyTemplateItem[];
 }
 
-export function TemplatesDashboard({ accountId, currentUserId, initialMarketplace, initialMine }: Props) {
+export function TemplatesDashboard({ accountId, initialMarketplace, initialMine }: Props) {
   const router = useRouter();
   const [marketplace] = useState<readonly MarketplaceTemplateSummary[]>(initialMarketplace);
   const [mine, setMine] = useState<readonly MyTemplateItem[]>(initialMine);
@@ -77,7 +76,7 @@ export function TemplatesDashboard({ accountId, currentUserId, initialMarketplac
   async function refreshMine() {
     try {
       const rows = await listAccountTemplates(accountId);
-      setMine(rows.map((r) => toMyTemplateItem(r, currentUserId)));
+      setMine(rows.map((r) => toMyTemplateItem(r)));
     } catch {
       /* keep current list; the action's own toast already informed the user */
     }
@@ -114,7 +113,7 @@ export function TemplatesDashboard({ accountId, currentUserId, initialMarketplac
     const next = item.visibility === "private" ? "public" : "private";
     try {
       const updated = await updateAccountTemplate(accountId, item.id, { visibility: next });
-      setMine((list) => list.map((m) => (m.id === item.id ? toMyTemplateItem(updated, currentUserId) : m)));
+      setMine((list) => list.map((m) => (m.id === item.id ? toMyTemplateItem(updated) : m)));
       flash(next === "public" ? "Template published." : "Template set to private.");
     } catch (err) {
       flash(err instanceof TemplateApiError ? err.message : "Couldn't update that template.", "error");

@@ -8,9 +8,9 @@ import type {
  * Client-facing template view models (CS-XT-7A).
  *
  * `MyTemplateItem` is the no-leak projection of an account template for the "Your templates"
- * tab: it DROPS `createdByUserId` (a raw user id is never rendered) and replaces it with a
- * `canManage` boolean computed against the viewer's own id. The marketplace summary is already
- * safe (omits account_id / created_by_user_id) and is used as-is.
+ * tab. The raw creator id never reaches the client: the server already resolves the management
+ * affordance into `AccountTemplateSummary.canManage`, which this passes through. The marketplace
+ * summary is already safe (omits account_id / created_by_user_id) and is used as-is.
  */
 export type { MarketplaceTemplateSummary };
 
@@ -23,15 +23,12 @@ export interface MyTemplateItem {
   usageCount: number;
   forkCount: number;
   publishedAt: string | null;
-  /** True when the viewer authored it → may publish/unpublish/delete (creator-only). */
+  /** Server-resolved: true when the viewer may publish/unpublish/delete (creator-only today). */
   canManage: boolean;
 }
 
-/** Map an account template summary → the client item, stripping the raw creator id. */
-export function toMyTemplateItem(
-  summary: AccountTemplateSummary,
-  currentUserId: string,
-): MyTemplateItem {
+/** Map an account template summary → the client item. `canManage` is already server-resolved. */
+export function toMyTemplateItem(summary: AccountTemplateSummary): MyTemplateItem {
   return {
     id: summary.id,
     name: summary.name,
@@ -41,6 +38,6 @@ export function toMyTemplateItem(
     usageCount: summary.usageCount,
     forkCount: summary.forkCount,
     publishedAt: summary.publishedAt,
-    canManage: summary.createdByUserId === currentUserId,
+    canManage: summary.canManage,
   };
 }

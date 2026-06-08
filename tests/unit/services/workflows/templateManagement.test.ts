@@ -31,6 +31,7 @@ jest.mock("@/services/billing/planCapabilities", () => ({
 }));
 
 import {
+  listAccountTemplates,
   createAccountTemplate,
   updateAccountTemplate,
   deleteAccountTemplate,
@@ -90,6 +91,42 @@ beforeEach(() => {
   );
   mockGetWorkflow.mockResolvedValue(workflow());
   mockGetDisplayName.mockResolvedValue("Jane Doe");
+});
+
+describe("listAccountTemplates — data minimization (no raw creator id) + canManage", () => {
+  it("never surfaces createdByUserId and resolves canManage per the authed viewer", async () => {
+    const OTHER = "user-2";
+    repo.listTemplatesByAccountServiceRole.mockResolvedValue([
+      templateRecord({ id: "mine", createdByUserId: ACTOR }), // creator → manageable
+      templateRecord({ id: "theirs", createdByUserId: OTHER }), // co-member → not manageable
+      templateRecord({ id: "orphan", createdByUserId: null }), // deleted author → manageable by nobody
+    ]);
+
+    const summaries = await listAccountTemplates(ACCOUNT, ACTOR);
+
+    // No raw user id (the viewer's OR a co-member's) and no createdByUserId key leaves the service.
+    const blob = JSON.stringify(summaries);
+    expect(blob).not.toContain(OTHER);
+    expect(blob).not.toContain(ACTOR);
+    expect(blob).not.toContain("createdByUserId");
+    for (const s of summaries) expect(s).not.toHaveProperty("createdByUserId");
+
+    // canManage is creator-only — matching the updateAccountTemplate gate.
+    expect(summaries.map((s) => [s.id, s.canManage])).toEqual([
+      ["mine", true],
+      ["theirs", false],
+      ["orphan", false],
+    ]);
+  });
+
+  it("an official record (source='official', null creator) returned here is canManage:false", async () => {
+    repo.listTemplatesByAccountServiceRole.mockResolvedValue([
+      templateRecord({ id: "off", source: "official", createdByUserId: null }),
+    ]);
+    const summary = (await listAccountTemplates(ACCOUNT, ACTOR))[0]!;
+    expect(summary.source).toBe("official");
+    expect(summary.canManage).toBe(false);
+  });
 });
 
 describe("createAccountTemplate — tier + binding", () => {

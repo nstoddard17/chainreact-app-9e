@@ -30,14 +30,20 @@ import { templateLimitFor } from "@/core/billing/planPolicy";
  * client can never set source/account_id/counters/snapshot — those are server-decided here.
  */
 
-function toAccountSummary(r: WorkflowTemplateRecord): AccountTemplateSummary {
+/**
+ * Project a stored record → the client-facing summary. The raw `createdByUserId` is
+ * dropped here (never leaves the server) and resolved into `canManage` against the
+ * authenticated actor. Management is creator-only — the same gate `updateAccountTemplate`
+ * enforces; a null creator (deleted author / official template) is manageable by nobody.
+ */
+function toAccountSummary(r: WorkflowTemplateRecord, actorUserId: string): AccountTemplateSummary {
   return {
     id: r.id,
     name: r.name,
     description: r.description,
     source: r.source,
     visibility: r.visibility,
-    createdByUserId: r.createdByUserId,
+    canManage: r.createdByUserId !== null && r.createdByUserId === actorUserId,
     forkedFromTemplateId: r.forkedFromTemplateId,
     usageCount: r.usageCount,
     forkCount: r.forkCount,
@@ -50,9 +56,12 @@ function toAccountSummary(r: WorkflowTemplateRecord): AccountTemplateSummary {
 }
 
 /** List the account's own templates (account-internal summaries; no definition). */
-export async function listAccountTemplates(accountId: string): Promise<AccountTemplateSummary[]> {
+export async function listAccountTemplates(
+  accountId: string,
+  actorUserId: string,
+): Promise<AccountTemplateSummary[]> {
   const records = await templatesRepo.listTemplatesByAccountServiceRole(accountId);
-  return records.map(toAccountSummary);
+  return records.map((r) => toAccountSummary(r, actorUserId));
 }
 
 /** The public marketplace catalog (official + public), safe summaries only. */
@@ -115,7 +124,7 @@ export async function createAccountTemplate(input: CreateTemplateInput): Promise
     publishedAt: publishing ? nowIso : null,
     creatorDisplayNameSnapshot,
   });
-  return { ok: true, template: toAccountSummary(record) };
+  return { ok: true, template: toAccountSummary(record, input.actorUserId) };
 }
 
 // ── update (creator-only) ──────────────────────────────────────────────────────
@@ -170,7 +179,7 @@ export async function updateAccountTemplate(input: UpdateTemplateInput): Promise
     patch,
   );
   if (!updated) return { ok: false, reason: "not_found" };
-  return { ok: true, template: toAccountSummary(updated) };
+  return { ok: true, template: toAccountSummary(updated, input.actorUserId) };
 }
 
 // ── delete (creator OR account owner) ──────────────────────────────────────────
@@ -356,5 +365,5 @@ export async function forkTemplateToAccount(input: ForkTemplateInput): Promise<F
     createdTemplateId: record.id,
   });
 
-  return { ok: true, template: toAccountSummary(record) };
+  return { ok: true, template: toAccountSummary(record, input.actorUserId) };
 }

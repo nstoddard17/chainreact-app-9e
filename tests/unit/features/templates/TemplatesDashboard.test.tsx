@@ -56,7 +56,6 @@ function renderDash(over: Partial<Parameters<typeof TemplatesDashboard>[0]> = {}
   return render(
     <TemplatesDashboard
       accountId={ACCOUNT}
-      currentUserId={ME}
       initialMarketplace={[official, community]}
       initialMine={[mineItem, notMine]}
       {...over}
@@ -132,7 +131,7 @@ it("Use calls the API and navigates to the created workflow", async () => {
 it("Fork calls the API, refetches own templates, and switches to the mine tab", async () => {
   api.forkTemplate.mockResolvedValue({ template: { id: "tpl-fork" } });
   api.listAccountTemplates.mockResolvedValue([
-    { id: "tpl-fork", name: "Lead capture to CRM", description: null, source: "user", visibility: "private", createdByUserId: ME, forkedFromTemplateId: "com-1", usageCount: 0, forkCount: 0, publishedAt: null, unpublishedAt: null, schemaVersion: 1, createdAt: "x", updatedAt: "x" },
+    { id: "tpl-fork", name: "Lead capture to CRM", description: null, source: "user", visibility: "private", canManage: true, forkedFromTemplateId: "com-1", usageCount: 0, forkCount: 0, publishedAt: null, unpublishedAt: null, schemaVersion: 1, createdAt: "x", updatedAt: "x" },
   ]);
   renderDash({ initialMine: [] });
   const card = screen.getByText("Lead capture to CRM").closest("[data-testid='template-card']")!;

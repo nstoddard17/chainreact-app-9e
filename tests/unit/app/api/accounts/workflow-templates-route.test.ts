@@ -1,9 +1,11 @@
 /**
  * @jest-environment node
  *
- * GET/POST /api/accounts/[id]/workflow-templates (CS-XT-5A). Mocks auth, the role gate, and the
- * management service. Proves: member-only list; owner/admin create with tier/limit/workflow
- * error mapping; strict body rejects privileged fields; no Stripe/secret leak.
+ * GET/POST /api/accounts/[id]/workflow-templates (CS-XT-5A + created_by_user_id data-
+ * minimization hardening). Mocks auth, the role gate, and the management service. Proves:
+ * member-only list; the list forwards the AUTHED actor id so canManage is resolved server-side
+ * and no raw creator id reaches the client; owner/admin create with tier/limit/workflow error
+ * mapping; strict body rejects privileged fields; no Stripe/secret leak.
  */
 
 const mockGetUser = jest.fn();
@@ -55,12 +57,42 @@ describe("GET — list (any member)", () => {
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("NOT_ACCOUNT_MEMBER");
   });
-  it("allows any member to list", async () => {
-    mockList.mockResolvedValue([{ id: "tpl-1", name: "T" }]);
+  it("allows any member to list, forwarding the AUTHED actor id (canManage resolved server-side)", async () => {
+    mockList.mockResolvedValue([{ id: "tpl-1", name: "T", canManage: true }]);
     const res = await GET(new Request("http://x"), params());
     expect(res.status).toBe(200);
     expect(mockRequireRole).toHaveBeenCalledWith("user-1", ACCOUNT, ["owner", "admin", "member"]);
+    // The actor id comes from the verified session — never request input — so canManage is
+    // computed against the right viewer.
+    expect(mockList).toHaveBeenCalledWith(ACCOUNT, "user-1");
     expect((await res.json()).templates).toHaveLength(1);
+  });
+
+  it("returns canManage and NEVER a raw creator id (data minimization)", async () => {
+    // The service already strips createdByUserId → canManage; the route forwards verbatim.
+    mockList.mockResolvedValue([
+      { id: "mine", name: "Mine", source: "user", visibility: "private", canManage: true, usageCount: 0, forkCount: 0, publishedAt: null, unpublishedAt: null, forkedFromTemplateId: null, schemaVersion: 1, createdAt: "t", updatedAt: "t" },
+      { id: "theirs", name: "Theirs", source: "user", visibility: "public", canManage: false, usageCount: 0, forkCount: 0, publishedAt: null, unpublishedAt: null, forkedFromTemplateId: null, schemaVersion: 1, createdAt: "t", updatedAt: "t" },
+      { id: "official", name: "Official", source: "official", visibility: "public", canManage: false, usageCount: 0, forkCount: 0, publishedAt: null, unpublishedAt: null, forkedFromTemplateId: null, schemaVersion: 1, createdAt: "t", updatedAt: "t" },
+    ]);
+    const res = await GET(new Request("http://x"), params());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.templates.map((t: { id: string; canManage: boolean }) => [t.id, t.canManage])).toEqual([
+      ["mine", true],
+      ["theirs", false],
+      ["official", false],
+    ]);
+
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain("created_by_user_id");
+    expect(raw).not.toContain("createdByUserId");
+    expect(raw).not.toContain("user-1"); // the caller's own id never round-trips
+    for (const t of body.templates) {
+      expect(t).not.toHaveProperty("createdByUserId");
+      expect(t).not.toHaveProperty("created_by_user_id");
+    }
   });
 });
 
