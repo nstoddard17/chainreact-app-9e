@@ -53,6 +53,8 @@ const DEF = { nodes: [], edges: [] };
 describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
   let admin: SupabaseClient;
   const createdUserIds: string[] = [];
+  let publicTemplateId = "";
+  let officialTemplateId = "";
   const sessions: Array<{
     userId: string;
     email: string;
@@ -107,6 +109,27 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
     const bAccount = await personalAccountId(b.userId);
     sessions.push({ ...a, accountId: aAccount, templateId: await seedTemplate(aAccount, a.userId, "A Template") });
     sessions.push({ ...b, accountId: bAccount, templateId: await seedTemplate(bAccount, b.userId, "B Template") });
+
+    // A PUBLIC template owned by A's account (visible to any authenticated user).
+    {
+      const { data, error } = await admin
+        .from("workflow_templates")
+        .insert({ account_id: aAccount, created_by_user_id: a.userId, name: "A Public", definition: DEF, schema_version: 1, visibility: "public", published_at: new Date().toISOString() })
+        .select("id")
+        .single<{ id: string }>();
+      if (error || !data) throw new Error(`seed public: ${error?.message ?? "no row"}`);
+      publicTemplateId = data.id;
+    }
+    // An OFFICIAL template (platform-owned: account_id NULL, source 'official').
+    {
+      const { data, error } = await admin
+        .from("workflow_templates")
+        .insert({ account_id: null, created_by_user_id: a.userId, name: "Official Starter", definition: DEF, schema_version: 1, source: "official", visibility: "public", creator_display_name_snapshot: "ChainReact" })
+        .select("id")
+        .single<{ id: string }>();
+      if (error || !data) throw new Error(`seed official: ${error?.message ?? "no row"}`);
+      officialTemplateId = data.id;
+    }
   });
 
   afterAll(async () => {
@@ -171,5 +194,74 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
 
     const { data: gone } = await admin.from("workflow_templates").select("id").eq("id", tplId);
     expect(gone ?? []).toHaveLength(0);
+  });
+
+  // ── marketplace visibility (CS-XT-4B) ──────────────────────────────────────
+  it("marketplace: a non-member authenticated user SEES a PUBLIC template; anon does not", async () => {
+    const b = sessions[1]!; // B is not a member of A's account
+    const supaB = await sessionClient(b.email, b.password);
+    const { data: bOnPublic } = await supaB.from("workflow_templates").select("id").eq("id", publicTemplateId);
+    expect(bOnPublic).toHaveLength(1);
+
+    const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: anonOnPublic } = await anon.from("workflow_templates").select("id").eq("id", publicTemplateId);
+    expect(anonOnPublic ?? []).toHaveLength(0);
+  });
+
+  it("marketplace: a non-member authenticated user SEES an OFFICIAL template; anon does not", async () => {
+    const b = sessions[1]!;
+    const supaB = await sessionClient(b.email, b.password);
+    const { data: bOnOfficial } = await supaB.from("workflow_templates").select("id").eq("id", officialTemplateId);
+    expect(bOnOfficial).toHaveLength(1);
+
+    const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: anonOnOfficial } = await anon.from("workflow_templates").select("id").eq("id", officialTemplateId);
+    expect(anonOnOfficial ?? []).toHaveLength(0);
+  });
+
+  it("marketplace: B's own PRIVATE template stays invisible to A (private not exposed)", async () => {
+    const a = sessions[0]!;
+    const b = sessions[1]!;
+    const supaA = await sessionClient(a.email, a.password);
+    const { data: aOnBprivate } = await supaA.from("workflow_templates").select("id").eq("id", b.templateId);
+    expect(aOnBprivate ?? []).toHaveLength(0);
+  });
+
+  // ── usage ledger (CS-XT-4B) ────────────────────────────────────────────────
+  it("authenticated cannot read or write the usage ledger (service-role only)", async () => {
+    const a = sessions[0]!;
+    const supaA = await sessionClient(a.email, a.password);
+    const { data: readRows } = await supaA.from("workflow_template_usage_events").select("id");
+    expect(readRows ?? []).toHaveLength(0); // no grant → empty/denied
+    const { error: writeErr } = await supaA
+      .from("workflow_template_usage_events")
+      .insert({ template_id: publicTemplateId, event_type: "used_to_create_workflow" });
+    expect(writeErr).not.toBeNull();
+  });
+
+  it("service-role records a usage event and the counter trigger bumps usage_count", async () => {
+    const a = sessions[0]!;
+    const before = await admin.from("workflow_templates").select("usage_count").eq("id", publicTemplateId).single<{ usage_count: number }>();
+    const { error } = await admin.from("workflow_template_usage_events").insert({
+      template_id: publicTemplateId,
+      actor_user_id: a.userId,
+      target_account_id: a.accountId,
+      event_type: "used_to_create_workflow",
+    });
+    expect(error).toBeNull();
+    const after = await admin.from("workflow_templates").select("usage_count").eq("id", publicTemplateId).single<{ usage_count: number }>();
+    expect(after.data!.usage_count).toBe(before.data!.usage_count + 1);
+  });
+
+  it("service-role 'forked' event bumps fork_count (not usage_count)", async () => {
+    const before = await admin.from("workflow_templates").select("usage_count, fork_count").eq("id", officialTemplateId).single<{ usage_count: number; fork_count: number }>();
+    const { error } = await admin.from("workflow_template_usage_events").insert({
+      template_id: officialTemplateId,
+      event_type: "forked",
+    });
+    expect(error).toBeNull();
+    const after = await admin.from("workflow_templates").select("usage_count, fork_count").eq("id", officialTemplateId).single<{ usage_count: number; fork_count: number }>();
+    expect(after.data!.fork_count).toBe(before.data!.fork_count + 1);
+    expect(after.data!.usage_count).toBe(before.data!.usage_count); // unchanged
   });
 });

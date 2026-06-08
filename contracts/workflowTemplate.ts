@@ -54,27 +54,96 @@ export const TemplateDefinitionSchema = z
   .strict();
 export type TemplateDefinition = z.infer<typeof TemplateDefinitionSchema>;
 
-/** Origin of a template. Only 'user' today; 'builtin' is deferred (static catalog). */
-export const TemplateSourceSchema = z.enum(["user"]);
+/**
+ * Origin of a template (CS-XT-4B): 'user' = account-authored; 'official' =
+ * platform/ChainReact-made ("official" badge). Official templates are platform-owned
+ * (account-less).
+ */
+export const TemplateSourceSchema = z.enum(["user", "official"]);
 export type TemplateSource = z.infer<typeof TemplateSourceSchema>;
 
 /**
- * A stored workflow template record (repository DTO). Carries ONLY template fields — no
- * credentials, no Stripe/integration ids, no per-node grants.
+ * Marketplace visibility (CS-XT-4B): 'private' (members only — default), 'public' (listed
+ * in the marketplace), 'unlisted' (link-accessible, not listed).
+ */
+export const TemplateVisibilitySchema = z.enum(["private", "public", "unlisted"]);
+export type TemplateVisibility = z.infer<typeof TemplateVisibilitySchema>;
+
+/** Usage-ledger event kinds (CS-XT-4B) — the contributor-reward source of truth. */
+export const TemplateUsageEventTypeSchema = z.enum([
+  "used_to_create_workflow",
+  "forked",
+  "saved_copy",
+]);
+export type TemplateUsageEventType = z.infer<typeof TemplateUsageEventTypeSchema>;
+
+/**
+ * A stored workflow template record (INTERNAL repository DTO). Carries template fields +
+ * marketplace metadata — no credentials, no Stripe/integration ids, no per-node grants.
+ * `accountId` / `createdByUserId` are INTERNAL (the platform's own ownership/provenance)
+ * and MUST NOT be surfaced to marketplace viewers — use {@link MarketplaceTemplateSummary}
+ * for cross-account/public surfaces.
  */
 export interface WorkflowTemplateRecord {
   id: string;
-  /** Owning account — the authority root. */
-  accountId: string;
-  /** Provenance only (nullable once the author is deleted). NOT authorization. */
+  /** Owning account — null for OFFICIAL (platform-owned) templates. Internal-only. */
+  accountId: string | null;
+  /** Provenance only (nullable once the author is deleted). NOT authorization. Internal. */
   createdByUserId: string | null;
   name: string;
   description: string | null;
   source: TemplateSource;
+  visibility: TemplateVisibility;
   /** The sanitized, credential-free graph. */
   definition: TemplateDefinition;
   /** Export schema version the definition was produced under. */
   schemaVersion: number;
+  /** Marketplace publish/unpublish timestamps (null until published). */
+  publishedAt: string | null;
+  unpublishedAt: string | null;
+  /** The template this was forked/copied from (null = original). Lineage, not authority. */
+  forkedFromTemplateId: string | null;
+  /** SAFE display-name snapshot of the creator (never email / user id). */
+  creatorDisplayNameSnapshot: string | null;
+  /** Denormalized caches maintained by the usage ledger trigger. */
+  usageCount: number;
+  forkCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * PUBLIC-SAFE marketplace summary (CS-XT-4B). Deliberately OMITS `accountId` and
+ * `createdByUserId` (which tenant owns it / which raw user authored it) — a marketplace
+ * viewer sees only the safe display-name snapshot + the `isOfficial` badge. Never exposes
+ * credentials, emails, account membership, or internal ids.
+ */
+export interface MarketplaceTemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  source: TemplateSource;
+  /** Convenience flag for the "official" badge (source === 'official'). */
+  isOfficial: boolean;
+  visibility: TemplateVisibility;
+  /** Safe creator attribution — display-name snapshot only (no email / id). */
+  creatorDisplayName: string | null;
+  usageCount: number;
+  forkCount: number;
+  forkedFromTemplateId: string | null;
+  publishedAt: string | null;
+  schemaVersion: number;
+  createdAt: string;
+}
+
+/** A usage-ledger row (INTERNAL — service-role only; never client-facing). */
+export interface WorkflowTemplateUsageEventRecord {
+  id: string;
+  templateId: string;
+  actorUserId: string | null;
+  targetAccountId: string | null;
+  eventType: TemplateUsageEventType;
+  createdWorkflowId: string | null;
+  createdTemplateId: string | null;
+  createdAt: string;
 }
