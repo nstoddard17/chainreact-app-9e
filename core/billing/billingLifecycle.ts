@@ -74,9 +74,14 @@ export function deriveBillingLifecycle(input: BillingLifecycleInput): BillingLif
       return {
         level: "warning",
         statusLabel: "Canceled",
-        // No auto-downgrade / no hard delete — access is retained for now (CS-5).
+        // No auto-downgrade / no hard delete — access is retained for now (CS-5). For a Business
+        // (business tier) account, cancellation PRESERVES the workspace (CS-BD-2): members,
+        // folders, and workflows are kept; simplifying to a Team account is a separate, explicit,
+        // owner-initiated action — never automatic. Copy stays free of "deleted"/"downgrade" words.
         description:
-          "Your subscription was canceled. You still have access for now — choose a plan to keep your current features.",
+          input.plan === "business"
+            ? "Your Business subscription was canceled. Your workspace is preserved — members, folders, and workflows are kept — and you still have access for now."
+            : "Your subscription was canceled. You still have access for now — choose a plan to keep your current features.",
         periodEnd: boundary(input.currentPeriodEnd, "ends"),
       };
     case "trialing":

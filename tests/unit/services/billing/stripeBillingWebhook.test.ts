@@ -21,9 +21,13 @@ jest.mock("@/repositories/stripeBillingEvents", () => ({
 
 const mockApplySync = jest.fn();
 const mockApplyUpgrade = jest.fn();
+const mockApplyDowngrade = jest.fn();
 jest.mock("@/repositories/accountBilling", () => ({
   applyBillingSubscriptionSyncServiceRole: (...a: unknown[]) => mockApplySync(...a),
   applyBusinessUpgradeServiceRole: (...a: unknown[]) => mockApplyUpgrade(...a),
+  // CS-BD-2: the webhook must NEVER call the destructive downgrade primitive. Mocked so the
+  // tests can assert it is never invoked from any cancellation path.
+  applyBusinessDowngradeServiceRole: (...a: unknown[]) => mockApplyDowngrade(...a),
 }));
 
 const mockGetAccount = jest.fn();
@@ -55,6 +59,7 @@ beforeEach(() => {
   mockRecordProcessed.mockReset().mockResolvedValue(undefined);
   mockApplySync.mockReset().mockResolvedValue(undefined);
   mockApplyUpgrade.mockReset().mockResolvedValue({ ok: true, applied: true, reason: "upgraded" });
+  mockApplyDowngrade.mockReset().mockResolvedValue({ ok: true, applied: true, reason: "downgraded" });
   mockGetAccount.mockReset();
   process.env = { ...origEnv };
   process.env[STRIPE_BILLING_WEBHOOK_SECRET_ENV] = SECRET;
@@ -456,5 +461,47 @@ describe("Team → Business upgrade (BU-3)", () => {
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.planStatus).toBe("canceled");
     expect(fields).not.toHaveProperty("plan"); // no downgrade / no type revert (deferred)
+  });
+});
+
+describe("Business cancellation preserves the workspace — never destructive (CS-BD-2)", () => {
+  it.each([
+    "customer.subscription.deleted",
+    "customer.subscription.updated",
+    "customer.subscription.created",
+  ])("%s on an organization account NEVER calls the downgrade primitive", async (type) => {
+    mockGetAccount.mockResolvedValueOnce({ id: "org-1", type: "organization", deletionStatus: "active" });
+    const obj = { id: "sub_o", customer: "cus_o", status: "canceled", metadata: { accountId: "org-1", plan: "business" } };
+    const body = event(type, obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    // The destructive Business → Team downgrade is owner-confirmed UI only — never webhook-driven.
+    expect(mockApplyDowngrade).not.toHaveBeenCalled();
+  });
+
+  it("organization subscription.deleted preserves type+plan: canceled only, no member/folder/workflow ops", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "org-1", type: "organization", deletionStatus: "active" });
+    const obj = { id: "sub_o", customer: "cus_o", metadata: { accountId: "org-1", plan: "business" } };
+    const body = event("customer.subscription.deleted", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.planStatus).toBe("canceled");
+    expect(fields).not.toHaveProperty("plan"); // plan kept (business)
+    expect(fields).not.toHaveProperty("tasksLimit"); // task cap untouched (no revert)
+    expect(mockApplyDowngrade).not.toHaveBeenCalled();
+    expect(mockApplyUpgrade).not.toHaveBeenCalled();
+    // The webhook only writes the billing sync — it cannot remove members or flatten folders
+    // (it imports no membership/folder/workflow service; see the static guard test).
+  });
+
+  it("personal subscription.deleted still reverts to Free + resets the task cap (unchanged)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "p-1", type: "personal", deletionStatus: "active" });
+    const obj = { id: "sub_p", metadata: { accountId: "p-1", plan: "pro" } };
+    const body = event("customer.subscription.deleted", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.plan).toBe("free");
+    expect(fields.tasksLimit).toBe(100);
+    expect(mockApplyDowngrade).not.toHaveBeenCalled();
   });
 });

@@ -150,6 +150,9 @@ describe("BillingSection — lifecycle status (CS-5)", () => {
     const banner = screen.getByTestId("billing-status");
     expect(screen.getByTestId("billing-status-label")).toHaveTextContent("Canceled");
     expect(banner).toHaveTextContent(/still have access/i);
+    // CS-BD-2: canceled Business shows preservation-oriented copy (workspace kept, no auto-downgrade).
+    expect(banner).toHaveTextContent(/preserved/i);
+    expect(banner).not.toHaveTextContent(/downgrad|deleted/i);
     // Business label is never the raw "Organization" word.
     expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/Organization/);
   });

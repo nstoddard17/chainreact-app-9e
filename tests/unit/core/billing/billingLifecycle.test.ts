@@ -50,6 +50,16 @@ describe("deriveBillingLifecycle", () => {
     expect(s.description).not.toMatch(/downgrad|deleted/i);
   });
 
+  it("canceled Business → preservation copy (workspace kept, no auto-downgrade) — CS-BD-2", () => {
+    const s = deriveBillingLifecycle(input({ plan: "business", planStatus: "canceled" }));
+    expect(s.statusLabel).toBe("Canceled");
+    expect(s.description).toMatch(/preserved/i);
+    expect(s.description).toMatch(/members, folders, and workflows are kept/i);
+    expect(s.description).toMatch(/still have access/i);
+    // never implies automatic destruction / downgrade
+    expect(s.description).not.toMatch(/downgrad|deleted|removed/i);
+  });
+
   it("active + cancel_at_period_end → warning 'canceling', ends boundary", () => {
     const s = deriveBillingLifecycle(input({ planStatus: "active", cancelAtPeriodEnd: true }));
     expect(s.level).toBe("warning");
