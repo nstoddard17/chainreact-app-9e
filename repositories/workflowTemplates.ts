@@ -264,6 +264,51 @@ export async function deleteTemplateServiceRole(
   return { deleted: (data ?? []).length > 0 };
 }
 
+/**
+ * Update SAFE metadata on a template, scoped to its account (no cross-account write). Only
+ * the provided fields are written — callers (the management service) decide name /
+ * description / visibility / publish-timestamps / creator snapshot; the repo never invents
+ * them. Returns the updated record, or null when the id is absent / belongs to another
+ * account. NEVER writes source / account_id / counters / definition.
+ */
+export interface UpdateTemplateMetadataPatch {
+  name?: string;
+  description?: string | null;
+  visibility?: TemplateVisibility;
+  publishedAt?: string | null;
+  unpublishedAt?: string | null;
+  creatorDisplayNameSnapshot?: string | null;
+}
+
+export async function updateTemplateMetadataServiceRole(
+  accountId: string,
+  templateId: string,
+  patch: UpdateTemplateMetadataPatch,
+): Promise<WorkflowTemplateRecord | null> {
+  const update: Record<string, unknown> = {};
+  if (patch.name !== undefined) update.name = patch.name;
+  if (patch.description !== undefined) update.description = patch.description;
+  if (patch.visibility !== undefined) update.visibility = patch.visibility;
+  if (patch.publishedAt !== undefined) update.published_at = patch.publishedAt;
+  if (patch.unpublishedAt !== undefined) update.unpublished_at = patch.unpublishedAt;
+  if (patch.creatorDisplayNameSnapshot !== undefined) {
+    update.creator_display_name_snapshot = patch.creatorDisplayNameSnapshot;
+  }
+
+  const supabase = getServiceRoleClient(`workflow_templates: update ${accountId}/${templateId}`);
+  const { data, error } = await supabase
+    .from("workflow_templates")
+    .update(update)
+    .eq("id", templateId)
+    .eq("account_id", accountId)
+    .select(TEMPLATE_COLUMNS)
+    .maybeSingle<WorkflowTemplatesRow>();
+  if (error) {
+    throw new Error(`workflow_templates.updateTemplateMetadataServiceRole failed: ${error.message}`);
+  }
+  return data ? rowToRecord(data) : null;
+}
+
 // ── Usage ledger (service-role only) ─────────────────────────────────────────
 
 interface UsageEventRow {

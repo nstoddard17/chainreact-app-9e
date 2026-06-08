@@ -136,6 +136,30 @@ export interface MarketplaceTemplateSummary {
   createdAt: string;
 }
 
+/**
+ * ACCOUNT-INTERNAL listing summary (CS-XT-5A) — what an account member sees on the
+ * account's own Templates list. Carries `createdByUserId` (account-internal; drives the
+ * "only the creator can edit" affordance) but OMITS the `definition` (not needed for a
+ * list; instantiation is a later slice). Never carries credentials.
+ */
+export interface AccountTemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  source: TemplateSource;
+  visibility: TemplateVisibility;
+  /** Provenance — account-internal only (used for the creator-edit gate). */
+  createdByUserId: string | null;
+  forkedFromTemplateId: string | null;
+  usageCount: number;
+  forkCount: number;
+  publishedAt: string | null;
+  unpublishedAt: string | null;
+  schemaVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** A usage-ledger row (INTERNAL — service-role only; never client-facing). */
 export interface WorkflowTemplateUsageEventRecord {
   id: string;

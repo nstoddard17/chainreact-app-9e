@@ -7,6 +7,7 @@ import { createTemplateServiceRole } from "@/repositories/workflowTemplates";
 import {
   TemplateDefinitionSchema,
   type TemplateDefinition,
+  type TemplateVisibility,
   type WorkflowTemplateRecord,
 } from "@/contracts/workflowTemplate";
 
@@ -37,6 +38,12 @@ export interface CreateTemplateFromWorkflowInput {
   description?: string | null;
   /** Provenance — the user authoring the template (nullable for system callers). */
   createdByUserId: string | null;
+  /** Marketplace visibility (defaults to 'private' at the repo). */
+  visibility?: TemplateVisibility;
+  /** Publish timestamp — set by the management service when created non-private. */
+  publishedAt?: string | null;
+  /** SAFE creator display-name snapshot (never email / id) — set by the service. */
+  creatorDisplayNameSnapshot?: string | null;
 }
 
 /** Build the sanitized, validated template definition from a workflow record. */
@@ -58,5 +65,9 @@ export async function createTemplateFromWorkflow(
     description: input.description ?? null,
     definition,
     schemaVersion: EXPORT_SCHEMA_VERSION,
+    // source stays 'user' (repo default); a client can never mint an 'official' template.
+    visibility: input.visibility,
+    publishedAt: input.publishedAt,
+    creatorDisplayNameSnapshot: input.creatorDisplayNameSnapshot,
   });
 }
