@@ -15,6 +15,7 @@ and `CLAUDE.md` conflict, `CLAUDE.md` and explicit user instructions win.
 | [`chainreactv2-planning-doc-writer`](./chainreactv2-planning-doc-writer/SKILL.md) | A **planning-only** slice — design before implementation. | A grounded planning doc under `docs/slices/...`. No source changes. |
 | [`chainreactv2-closeout-writer`](./chainreactv2-closeout-writer/SKILL.md) | An arc / slice-group is finished and needs a handoff. | A concise closeout doc. Docs-only. |
 | [`chainreactv2-provider-integration-builder`](./chainreactv2-provider-integration-builder/SKILL.md) | Adding a **new app/provider integration** end-to-end. | Manifest + actions/triggers + handlers + tests + owner-task report. |
+| [`chainreactv2-official-template-builder`](./chainreactv2-official-template-builder/SKILL.md) | Adding **official ChainReact workflow templates** / seeding the marketplace catalog. | `source='official'` template(s) on real, supported, credential-free nodes + no-leak tests + local commit. |
 
 ## Always-on project rules (every skill inherits these)
 
