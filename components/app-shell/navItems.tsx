@@ -119,6 +119,30 @@ function NavIconTeam() {
   );
 }
 
+// Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 — grid/template glyph for the Templates
+// marketplace nav item. The /templates route always resolves (it renders a coming-soon
+// panel when ENABLE_WORKFLOW_TEMPLATES is off), so it satisfies the "no 404" nav rule.
+function NavIconTemplates() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
 // `/notifications` is intentionally NOT in the rail nav. The top-bar
 // `NotificationBell` (with real unread badge) is the canonical entry
 // point — duplicating it in the rail would be visual clutter without
@@ -132,6 +156,7 @@ function NavIconTeam() {
 
 export const APP_SHELL_NAV_ITEMS: ReadonlyArray<AppShellNavItem> = [
   { id: "workflows", label: "Workflows", href: "/workflows", icon: <NavIconBolt /> },
+  { id: "templates", label: "Templates", href: "/templates", icon: <NavIconTemplates /> },
   { id: "apps", label: "Apps", href: "/apps", icon: <NavIconLayers /> },
   { id: "runs", label: "Runs", href: "/runs", icon: <NavIconClock /> },
   { id: "team", label: "Team", href: "/team", icon: <NavIconTeam /> },

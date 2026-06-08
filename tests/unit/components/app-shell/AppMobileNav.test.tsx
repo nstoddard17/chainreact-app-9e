@@ -74,6 +74,11 @@ describe("AppMobileNav", () => {
       "href",
       "/apps",
     );
+    // 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 — Templates joined the rail (route always resolves).
+    expect(screen.getByTestId("app-shell-mobile-nav-templates")).toHaveAttribute(
+      "href",
+      "/templates",
+    );
     expect(
       screen.queryByTestId("app-shell-mobile-nav-notifications"),
     ).toBeNull();

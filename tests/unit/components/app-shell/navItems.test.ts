@@ -15,8 +15,11 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     // point, so a rail row would be duplicative.
     // `/runs` joined the rail in Slice 4.RUNS-PAGE-1 (read-only history).
     // `/team` joined the rail in Slice 4.TEAM-PAGE-1 (account/team management).
+    // `/templates` joined the rail in Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 (route always
+    // resolves — coming-soon panel when ENABLE_WORKFLOW_TEMPLATES is off).
     expect(APP_SHELL_NAV_ITEMS.map((i) => i.href)).toEqual([
       "/workflows",
+      "/templates",
       "/apps",
       "/runs",
       "/team",
@@ -29,6 +32,13 @@ describe("APP_SHELL_NAV_ITEMS", () => {
 
   it("does NOT include /notifications (covered by the top-bar bell instead)", () => {
     expect(APP_SHELL_NAV_ITEMS.find((i) => i.href === "/notifications")).toBeUndefined();
+  });
+
+  it("includes /templates (Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5)", () => {
+    const tpl = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/templates");
+    expect(tpl).toBeDefined();
+    expect(tpl?.id).toBe("templates");
+    expect(tpl?.label).toBe("Templates");
   });
 
   it("includes /runs after the real page landed (Slice 4.RUNS-PAGE-1)", () => {

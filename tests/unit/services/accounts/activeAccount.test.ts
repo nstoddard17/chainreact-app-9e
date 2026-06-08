@@ -260,6 +260,9 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     resolve(ROOT, "app/workflows/page.tsx"),
     resolve(ROOT, "app/apps/page.tsx"),
     resolve(ROOT, "app/runs/page.tsx"),
+    // Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 — Templates SSR page resolves the active
+    // account to scope the "Your templates" list + the use/fork target account.
+    resolve(ROOT, "app/templates/page.tsx"),
   ];
   // CS-8: the NotificationBell credential-request notice helper resolves the
   // caller's active account to count their pending reassignment requests. It is
