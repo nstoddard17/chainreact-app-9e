@@ -124,6 +124,15 @@ describe("WorkflowsDashboard — empty + filtered-empty states", () => {
     expect(screen.queryByTestId("workflow-row")).toBeNull();
   });
 
+  it("no-workflows empty state surfaces a Browse-templates link to the /templates marketplace", () => {
+    render(<WorkflowsDashboard initialWorkflows={[]} />);
+    const link = within(screen.getByTestId("workflows-empty-no-workflows")).getByTestId(
+      "workflows-empty-browse-templates",
+    );
+    expect(link).toHaveAttribute("href", "/templates");
+    expect(link).toHaveTextContent(/browse templates/i);
+  });
+
   it("renders the no-matches empty state when filters exclude every workflow", async () => {
     const user = userEvent.setup();
     render(

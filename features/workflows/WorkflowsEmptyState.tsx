@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { CreateWorkflowButton } from "./CreateWorkflowButton";
 
 /**
  * Empty states for the workflows dashboard
  * (Slice 4.WORKFLOWS-PAGE-1 + folders/trash WF-5).
  *
- *   - `no-workflows`  : the user has none yet → Create CTA.
+ *   - `no-workflows`  : the user has none yet → Create CTA + a secondary
+ *                       "Browse templates" link to the live `/templates` marketplace.
  *   - `no-matches`    : a search/filter combo matched nothing.
  *   - `empty-folder`  : the selected folder has no workflows.
  *   - `no-folders`    : the Folders tab with no folders created yet.
@@ -71,6 +73,17 @@ export function WorkflowsEmptyState({ kind, limit }: Props) {
           trigger and adding actions.
         </p>
         <CreateWorkflowButton />
+        <p className="text-xs text-muted-foreground">
+          Not sure where to start?{" "}
+          <Link
+            href="/templates"
+            data-testid="workflows-empty-browse-templates"
+            className="font-medium text-sky-700 hover:underline dark:text-sky-300"
+          >
+            Browse templates
+          </Link>{" "}
+          for an automation that already works.
+        </p>
       </div>
     );
   }
