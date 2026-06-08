@@ -68,3 +68,20 @@ export const PERSONAL_PRO_FLAG = "ENABLE_PERSONAL_PRO";
 export function isPersonalProEnabled(): boolean {
   return process.env[PERSONAL_PRO_FLAG] === "true";
 }
+
+/**
+ * Env var gating the BUSINESS → TEAM downgrade path (Slice 4.PLATFORM-BILLING-BUSINESS-DOWNGRADE-2
+ * / CS-BD-1).
+ *
+ * DEFAULT OFF. Downgrade is **destructive** (removes non-owner members via the existing
+ * offboarding sequence and flattens the folder hierarchy to Trash; workflows are kept). It is an
+ * explicit, owner-confirmed action — NEVER webhook-driven — and ships dark until deliberately
+ * enabled (and only meaningful when ENABLE_PLATFORM_BILLING is also on). Read at call time.
+ * Separate from Personal Pro + platform billing flags.
+ */
+export const BUSINESS_DOWNGRADE_FLAG = "ENABLE_BUSINESS_DOWNGRADE";
+
+/** True only when ENABLE_BUSINESS_DOWNGRADE === "true". Default false. */
+export function isBusinessDowngradeEnabled(): boolean {
+  return process.env[BUSINESS_DOWNGRADE_FLAG] === "true";
+}

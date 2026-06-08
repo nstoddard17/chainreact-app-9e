@@ -54,6 +54,51 @@ export async function applyBusinessUpgradeServiceRole(
 }
 
 /**
+ * Atomic Business → Team downgrade (Slice 4.PLATFORM-BILLING-BUSINESS-DOWNGRADE-2 / CS-BD-1).
+ * Service-role wrapper over the `apply_business_downgrade` SECURITY DEFINER RPC — the mirror of
+ * the upgrade primitive. It flips `accounts.type` organization→team AND sets
+ * `account_billing.plan='team'` (+ status + tasks_limit) in ONE transaction. The owner-confirmed
+ * `downgradeBusinessToTeam` orchestration is the only intended caller, and only AFTER it has
+ * removed non-owner members + flattened folders; there is no client write path. The RPC
+ * re-validates server-side and is idempotent (no-op `already_team`; rejects personal/frozen/
+ * missing). It deliberately does NOT touch the Stripe attachment columns (the customer is kept).
+ * `tasksLimit` defaults to the Team policy cap so the number stays authoritative in TS, not SQL.
+ */
+export interface ApplyBusinessDowngradeInput {
+  accountId: string;
+  planStatus: PlanStatus;
+  /** Defaults to `planLimitsFor('team').taskLimit`. */
+  tasksLimit?: number;
+}
+
+export interface ApplyBusinessDowngradeResult {
+  ok: boolean;
+  /** True only when this call performed the flip (false on an idempotent no-op). */
+  applied: boolean;
+  /** downgraded | already_team | account_not_found | account_frozen | not_downgradeable. */
+  reason: string;
+}
+
+export async function applyBusinessDowngradeServiceRole(
+  input: ApplyBusinessDowngradeInput,
+): Promise<ApplyBusinessDowngradeResult> {
+  const tasksLimit = input.tasksLimit ?? planLimitsFor("team").taskLimit ?? 100;
+  const supabase = getServiceRoleClient(
+    `account downgrade: organization→team for account ${input.accountId}`,
+  );
+  const { data, error } = await supabase.rpc("apply_business_downgrade", {
+    p_account_id: input.accountId,
+    p_plan_status: input.planStatus,
+    p_tasks_limit: tasksLimit,
+  });
+  if (error) {
+    throw new Error(`apply_business_downgrade RPC failed: ${error.message}`);
+  }
+  const row = data as { ok: boolean; applied: boolean; reason: string };
+  return { ok: row.ok, applied: row.applied, reason: row.reason };
+}
+
+/**
  * Authoritative billing-state sync from a VERIFIED Stripe billing webhook (CS-4). The
  * webhook handler is the SOLE writer of plan / plan_status — no client route may set
  * them (Q15 of the billing plan). Only the keys present on `fields` are written; a
