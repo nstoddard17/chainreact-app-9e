@@ -39,15 +39,18 @@ export interface PlanLimits {
 }
 
 /**
- * Launch limits per tier. The capped-tier numbers EQUAL today's constants
- * (memberLimits: team 5 / org 25; folderLimits: personal 10 / team 100 / org 250;
- * tasks_limit default 100), so CS-1 changes no behavior. `pro` mirrors `free` for now
- * (Pro-specific limits are a later, deliberate decision). `enterprise` is
- * uncapped/config (null) and is never reached by the AccountType-keyed helpers today.
+ * Launch limits per tier. The capped-tier member/folder numbers EQUAL today's constants
+ * (memberLimits: team 5 / org 25; folderLimits: personal 10 / team 100 / org 250). `pro`
+ * matches `free` on members/folders but carries a HIGHER monthly task cap
+ * (4.PLATFORM-BILLING-PRO-VALUE-3 / CS-PRO-2 — Pro's first real benefit: 1,000 vs Free 100).
+ * The Pro task cap is applied to `account_billing.tasks_limit` by the billing webhook on a
+ * verified personal Pro activation (this policy is the single source of the number; it is NOT
+ * read by the AccountType-keyed member/folder helpers, which still resolve via the type
+ * default). `enterprise` is uncapped/config (null).
  */
 export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
   free: { memberLimit: 1, folderLimit: 10, taskLimit: 100 },
-  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 100 },
+  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 1000 },
   team: { memberLimit: 5, folderLimit: 100, taskLimit: 100 },
   business: { memberLimit: 25, folderLimit: 250, taskLimit: 100 },
   enterprise: { memberLimit: null, folderLimit: null, taskLimit: null },

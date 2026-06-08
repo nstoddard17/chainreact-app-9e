@@ -38,9 +38,13 @@ it("forwards plan='pro' with the personal account as both checkout + personal id
   expect(screen.getByTestId("ccb")).toHaveTextContent("Upgrade to Pro");
 });
 
-it("uses honest mechanics-only copy (no invented Pro benefits) and renders no Stripe id", () => {
+it("states the real Pro benefit (1,000 monthly tasks) + honest activation copy, no Stripe id", () => {
   const { container } = render(<PersonalUpgradePanel accountId="personal-1" frozen={false} />);
   const panel = screen.getByTestId("personal-upgrade-panel");
+  // CS-PRO-2: copy states the real task-cap benefit (sourced from planPolicy), not a fake one.
+  expect(panel).toHaveTextContent(/1,000 monthly tasks/i);
+  expect(panel).toHaveTextContent(/up from 100 on Free/i);
+  // …and stays honest that activation only happens after Stripe payment + webhook.
   expect(panel).toHaveTextContent(/Checkout opens Stripe/i);
   expect(panel).toHaveTextContent(/activates only after your payment is confirmed/i);
   expect(container.innerHTML).not.toMatch(/cus_|sub_/);

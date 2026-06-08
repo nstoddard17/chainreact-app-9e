@@ -148,6 +148,7 @@ describe("event processing", () => {
       stripeSubscriptionId: "sub_1",
       planStatus: "active",
       plan: "pro",
+      tasksLimit: 1000, // CS-PRO-2: personal Pro activation sets the Pro task cap from policy
     });
     expect(mockRecordProcessed).toHaveBeenCalledWith({
       eventId: "evt_1",
@@ -220,6 +221,59 @@ describe("event processing", () => {
     const syncOrder = mockApplySync.mock.invocationCallOrder[0]!;
     const recordOrder = mockRecordProcessed.mock.invocationCallOrder[0]!;
     expect(syncOrder).toBeLessThan(recordOrder);
+  });
+});
+
+describe("Personal Pro task cap (CS-PRO-2)", () => {
+  it("personal subscription.updated for Pro syncs the Pro task cap (1,000)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "p1", type: "personal", deletionStatus: "active" });
+    const obj = {
+      id: "sub_pro",
+      customer: "cus_pro",
+      status: "active",
+      current_period_end: 1_701_000_000,
+      metadata: { accountId: "p1", plan: "pro" },
+    };
+    const body = event("customer.subscription.updated", obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.plan).toBe("pro");
+    expect(fields.tasksLimit).toBe(1000);
+  });
+
+  it("personal subscription.deleted resets the task cap back to Free (100)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "p1", type: "personal", deletionStatus: "active" });
+    const obj = { id: "sub_pro", metadata: { accountId: "p1", plan: "pro" } };
+    const body = event("customer.subscription.deleted", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.plan).toBe("free");
+    expect(fields.tasksLimit).toBe(100);
+  });
+
+  it("a TEAM checkout does NOT set a personal task cap (account-level billing unchanged)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "t1", type: "team", deletionStatus: "active" });
+    const obj = { customer: "cus_t", subscription: "sub_t", metadata: { accountId: "t1", plan: "team" } };
+    const body = event("checkout.session.completed", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.plan).toBe("team");
+    expect(fields).not.toHaveProperty("tasksLimit"); // team task cap is not touched here
+  });
+
+  it("an invalid/disallowed plan sets NEITHER plan NOR a task limit (no unsafe cap)", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "p1", type: "personal", deletionStatus: "active" });
+    const obj = {
+      id: "sub_x",
+      status: "active",
+      metadata: { accountId: "p1", plan: "team" }, // team invalid for a personal account
+    };
+    const body = event("customer.subscription.updated", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields).not.toHaveProperty("plan");
+    expect(fields).not.toHaveProperty("tasksLimit");
   });
 });
 

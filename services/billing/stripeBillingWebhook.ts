@@ -138,6 +138,30 @@ function toUpgradeInput(
 }
 
 /**
+ * Apply the resolved (signed-metadata) plan to the sync fields — and, for a PERSONAL
+ * account, set its monthly task cap from policy (CS-PRO-2). The plan is validated against
+ * plan policy before any write (an invalid / type-disallowed plan sets NOTHING, so an
+ * unsafe plan can never carry an unsafe task limit). The number lives ONLY in `planPolicy`
+ * (never duplicated here); `tasks_limit` is webhook-set (source-of-truth), never
+ * client/route-supplied. Mirrors the personal `subscription.deleted` reset-to-Free task cap,
+ * for the activation/sync path. Team/organization task caps are unchanged (account-level
+ * billing, not personal Pro).
+ */
+function applyResolvedPlan(
+  accountType: AccountType,
+  obj: Record<string, unknown>,
+  fields: BillingSubscriptionSync,
+): void {
+  const plan = metadataPlan(obj);
+  if (!plan || !isPlanAllowedForType(accountType, plan)) return;
+  fields.plan = plan;
+  if (accountType === "personal") {
+    const taskLimit = planLimitsFor(plan).taskLimit;
+    if (taskLimit !== null) fields.tasksLimit = taskLimit;
+  }
+}
+
+/**
  * Resolve a verified Stripe event into the billing fields to write, or an "ignore"
  * (with a best-effort account id for the dedup record). The account is re-read by id so
  * an event naming an unknown account is ignored, not written.
@@ -173,8 +197,7 @@ async function resolveEvent(
     if (isBusinessUpgrade(account.type, obj)) {
       return { kind: "upgrade", input: toUpgradeInput(accountId, fields) };
     }
-    const plan = metadataPlan(obj);
-    if (plan && isPlanAllowedForType(account.type, plan)) fields.plan = plan;
+    applyResolvedPlan(account.type, obj, fields);
     return { kind: "sync", accountId, fields };
   }
 
@@ -209,8 +232,7 @@ async function resolveEvent(
   if (isBusinessUpgrade(account.type, obj)) {
     return { kind: "upgrade", input: toUpgradeInput(accountId, fields) };
   }
-  const plan = metadataPlan(obj);
-  if (plan && isPlanAllowedForType(account.type, plan)) fields.plan = plan;
+  applyResolvedPlan(account.type, obj, fields);
   return { kind: "sync", accountId, fields };
 }
 

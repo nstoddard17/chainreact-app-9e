@@ -33,12 +33,20 @@ describe("planPolicy — tiers + limits", () => {
     expect([...PLAN_STATUSES]).toEqual(["active", "trialing", "past_due", "canceled", "incomplete"]);
   });
 
-  it("carries the launch limit numbers (equal to today's constants)", () => {
+  it("carries the launch limit numbers (Pro task cap raised in CS-PRO-2)", () => {
     expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100 });
-    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100 });
+    // CS-PRO-2: Pro keeps Free's member/folder caps but gets a higher monthly task cap.
+    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 1000 });
     expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 100 });
     expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 100 });
     expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null });
+  });
+
+  it("Pro's task cap is higher than Free's (the CS-PRO-2 benefit), member/folder caps equal", () => {
+    expect(planLimitsFor("pro").taskLimit).toBe(1000);
+    expect(planLimitsFor("free").taskLimit).toBe(100);
+    expect(planLimitsFor("pro").memberLimit).toBe(planLimitsFor("free").memberLimit);
+    expect(planLimitsFor("pro").folderLimit).toBe(planLimitsFor("free").folderLimit);
   });
 
   it("type guards accept known values and reject unknown", () => {
