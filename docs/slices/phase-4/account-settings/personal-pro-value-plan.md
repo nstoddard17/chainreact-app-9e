@@ -24,6 +24,18 @@ parent audit: [platform-billing-remaining-work-audit.md](./platform-billing-rema
 > **Decision plan, not implementation.** Every "today it works like X" is verified against a
 > file; every "we should do Y" is a labeled recommendation. This doc changes nothing.
 
+> **Update (2026-06-07 — IMPLEMENTED):** the recommendation in this plan has shipped.
+> **CS-PRO-1** (`03f4ef3b8`) added the `ENABLE_PERSONAL_PRO` dark-launch flag (default OFF),
+> gating the `PersonalUpgradePanel` UI **and** the checkout route's acceptance of `plan="pro"`.
+> **CS-PRO-2** (`8ebaa44d1`) gave Pro its first real benefit: `PLAN_LIMITS.pro.taskLimit` is now
+> **1,000** (Free stays 100), applied to `account_billing.tasks_limit` by the verified billing
+> webhook on personal Pro activation (reset to Free on `subscription.deleted`); the upgrade copy
+> states the benefit, sourced from policy. The findings below (esp. **F1** "Pro == Free" and the
+> §6 "task cap is the open number") describe the **planning-time** state and the decision that was
+> made — they are NOT current state. Open decisions §15.1 (Option B) and §15.2 (task cap = 1,000)
+> are **resolved**; §15.3 (Pro price point) and §15.5 (folders later) remain open. Pro stays dark
+> behind `ENABLE_PERSONAL_PRO` until Marcus enables it.
+
 ---
 
 ## 1. Context

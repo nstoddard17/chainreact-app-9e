@@ -37,6 +37,15 @@ parent closeout: [billing-plan-metadata-closeout.md](./billing-plan-metadata-clo
 > that UI slice. The remaining go-live blockers are now purely **environment / config /
 > manual-test** (see §2–§5, §10–§13) plus the deliberate flag flip (§8).
 
+> **Update (2026-06-07, slices `03f4ef3b8` + `8ebaa44d1` — CS-PRO-1/2):** Personal Pro is now
+> dark-launched behind a **second flag, `ENABLE_PERSONAL_PRO`** (default OFF), and has a **real
+> benefit — 1,000 monthly tasks** (vs Free 100), set on `account_billing.tasks_limit` by the
+> verified webhook on personal Pro activation (reset to Free on cancel). To test the Free → Pro
+> flow, set **both** `ENABLE_PLATFORM_BILLING=true` **and** `ENABLE_PERSONAL_PRO=true` in the
+> dev/test env (both default OFF). Team/Business need only `ENABLE_PLATFORM_BILLING`. No Stripe
+> price/webhook/route/schema change in those slices; the Pro task cap is enforced in-app, so no
+> separate Stripe price is needed for it.
+
 ---
 
 ## 1. Context
@@ -111,7 +120,7 @@ Tiers and what each price must represent (verified from
 | Tier | Env var | Caps (members / folders / tasks) | Notes |
 |---|---|---|---|
 | `free` | — (no price) | 1 / 10 / 100 | No charge; `resolvePlanPrice` returns `missing:false`. |
-| `pro` | `STRIPE_PRICE_PRO` | 1 / 10 / 100 | Personal Pro. Same caps as Free today (Pro is a paid personal tier; cap differentiation deferred). |
+| `pro` | `STRIPE_PRICE_PRO` | 1 / 10 / 1,000 | Personal Pro. Higher monthly **task** cap than Free (1,000 vs 100, CS-PRO-2); member/folder caps still match Free (differentiation deferred). Dark behind `ENABLE_PERSONAL_PRO`. |
 | `team` | `STRIPE_PRICE_TEAM` | 5 / 100 / 100 | Team account paid plan. |
 | `business` | `STRIPE_PRICE_BUSINESS` | 25 / 250 / 100 | The Team → Business in-place upgrade target. |
 | `enterprise` | — (no price) | unlimited / unlimited / unlimited | Contact-sales; **no online checkout** (`resolvePlanPrice` returns `envVar:null`, route → `plan_not_purchasable`). |
@@ -379,7 +388,7 @@ launch of the Pro/Team/Business monthly tiers, but support must know them:
 - **No payment-failure enforcement / run-blocking.** `past_due` warns and keeps running by
   decision; a failing card does not pause workflows.
 - **No per-seat billing** — flat per-tier pricing.
-- **No metered usage / overage** — task cap is a flat 100 across paid tiers today.
+- **No metered usage / overage** — fixed per-tier task caps (Free 100 / Pro 1,000 / Team/Business 100), no pay-as-you-go.
 - **No annual pricing / trials** — single monthly price per tier.
 - **No full pricing table** in the UI.
 - **No customer-support / admin billing tooling** — corrections go through the Stripe dashboard.

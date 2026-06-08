@@ -13,6 +13,15 @@ this slice. Nothing pushed.**
 > [go-live checklist](./platform-billing-go-live-checklist.md). No backend route, webhook,
 > Stripe client, schema, pricing, metering, or plan-sync behavior changed in that UI slice.
 
+> **Update (2026-06-07, docs-only, slices `03f4ef3b8` + `8ebaa44d1`):** Personal Pro now has a
+> real benefit and a dedicated dark-launch gate. **CS-PRO-1** added `ENABLE_PERSONAL_PRO`
+> (default OFF) gating the Pro upgrade UI **and** the checkout route's `plan="pro"`. **CS-PRO-2**
+> raised `PLAN_LIMITS.pro.taskLimit` to **1,000** (Free stays 100) and wired the billing webhook
+> to set `account_billing.tasks_limit` from policy on a verified personal Pro activation (reset to
+> Free on `subscription.deleted`). This supersedes the "task cap 100 across tiers" note in §5 and
+> the "Personal Pro mount is future UI" deferral. Team/Business caps unchanged; folder/member Pro
+> differentiation still deferred. Pro remains dark until `ENABLE_PERSONAL_PRO` is flipped.
+
 **Source of truth (the shipped code this closeout describes):**
 [core/billing/planPolicy.ts](../../../../core/billing/planPolicy.ts) ·
 [core/billing/billingLifecycle.ts](../../../../core/billing/billingLifecycle.ts) ·
@@ -138,7 +147,7 @@ max-lines warning.)
 - **Lifecycle banners** (CS-5) — warn-first copy for past_due / canceled / trialing / cancel-at-period-end + a "Renews on / Access ends" dated row.
 - **PersonalPlanPanel** (PPT-3) — for an owner/admin on a personal account (flag ON): schedule/undo cancel-at-period-end, with over-limit blockers; read-only when frozen.
 - **BusinessUpgradePanel** (BU-4) — for an owner/admin on a non-frozen Team account (flag ON): "Upgrade to Business" with capacity copy.
-- **PersonalUpgradePanel** (4.PLATFORM-BILLING-UI-1 / `853c26390`) — for an owner/admin on a non-frozen **personal** account whose current plan is **Free** (flag ON): "Upgrade to Pro". Wraps `CheckoutChoiceButton` with the personal account as both checkout + personal id, so the Personal-Pro choice dialog is skipped (no self-conflict) and it goes straight to the `pro` checkout. Copy is **mechanics-only** and honestly does NOT claim extra capacity — Pro currently shares Free's caps in `planPolicy.ts`.
+- **PersonalUpgradePanel** (4.PLATFORM-BILLING-UI-1 / `853c26390`) — for an owner/admin on a non-frozen **personal** account whose current plan is **Free** (flag ON): "Upgrade to Pro". Wraps `CheckoutChoiceButton` with the personal account as both checkout + personal id, so the Personal-Pro choice dialog is skipped (no self-conflict) and it goes straight to the `pro` checkout. Copy states Pro's real benefit — **1,000 monthly tasks** (vs Free 100) — sourced from `planPolicy.ts` (updated in CS-PRO-2 `8ebaa44d1`; earlier mechanics-only copy is superseded), staying honest that Pro activates only after Stripe payment + webhook confirmation. Gated by `ENABLE_PERSONAL_PRO` (CS-PRO-1, default OFF).
 - **ManageBillingButton** (4.PLATFORM-BILLING-UI-1 / `853c26390`) — for an owner/admin (flag ON, not frozen) **only when a subscription is synced** (`currentPeriodEnd` set — written solely by the CS-4 webhook, a reliable "Stripe customer exists" signal). Opens the existing CS-3 Customer Portal route; a `no_customer` (409) shows honest "available after you start a paid plan" copy, not an error. When shown, it suppresses the contradictory "Payment method"/"Invoices" coming-soon rows.
 - **CheckoutChoiceButton** (PPT-4) — runs the Personal-Pro choice dialog (Keep / Downgrade-at-period-end) before a Team/Business checkout when the viewer has Personal Pro; skips the dialog when the checkout account IS the personal account (the path PersonalUpgradePanel uses).
 - **No pricing table, no fake/unsupported controls** — every button maps to a real, flag-gated route; the section renders no Stripe customer/subscription id.

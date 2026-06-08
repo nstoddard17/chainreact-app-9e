@@ -15,7 +15,7 @@ dashboard, or behavior changed in this slice. Nothing pushed.**
 [integrations/_shared/stripe/webhooks/signature.ts](../../../../integrations/_shared/stripe/webhooks/signature.ts) (300s replay tolerance) ·
 [app/api/accounts/[id]/billing/checkout/route.ts](../../../../app/api/accounts/[id]/billing/checkout/route.ts) · [portal/route.ts](../../../../app/api/accounts/[id]/billing/portal/route.ts) · [personal/route.ts](../../../../app/api/accounts/[id]/billing/personal/route.ts) ·
 [app/api/webhooks/stripe-billing/route.ts](../../../../app/api/webhooks/stripe-billing/route.ts) ·
-[core/billing/planPolicy.ts](../../../../core/billing/planPolicy.ts) (tiers + limits; Pro == Free caps today) ·
+[core/billing/planPolicy.ts](../../../../core/billing/planPolicy.ts) (tiers + limits; Pro task cap 1,000 vs Free 100 since CS-PRO-2) ·
 [features/account/BillingSection.tsx](../../../../features/account/BillingSection.tsx) · [PersonalUpgradePanel.tsx](../../../../features/account/PersonalUpgradePanel.tsx) · [ManageBillingButton.tsx](../../../../features/account/ManageBillingButton.tsx) · [PersonalPlanPanel.tsx](../../../../features/account/PersonalPlanPanel.tsx) · [BusinessUpgradePanel.tsx](../../../../features/account/BusinessUpgradePanel.tsx) · [CheckoutChoiceButton.tsx](../../../../features/account/CheckoutChoiceButton.tsx) ·
 [lib/api/billingCheckout.ts](../../../../lib/api/billingCheckout.ts) (`startCheckout` / `startBillingPortal`) ·
 `.env.example` (lines 14–26 Stripe vars; line 126 `NEXT_PUBLIC_APP_URL=http://localhost:3000`) ·
@@ -26,6 +26,17 @@ docs: [billing-plan-metadata-closeout.md](./billing-plan-metadata-closeout.md) �
 > **Audit, not a runbook.** Every "shipped" claim is verified against a file read this
 > session; every "remaining" item is classified by the rules below. This doc implements
 > nothing.
+
+> **Update (2026-06-07, docs-only):** §5.A ("Personal Pro grants no extra capacity") is now
+> **RESOLVED**. Two slices shipped after this audit: `03f4ef3b8` (CS-PRO-1 — `ENABLE_PERSONAL_PRO`
+> dark-launch gate, default OFF, gating the UI **and** the checkout route's acceptance of
+> `plan="pro"`) and `8ebaa44d1` (CS-PRO-2 — Pro now grants **1,000 monthly tasks** vs Free's
+> **100**, applied to `account_billing.tasks_limit` by the verified billing webhook on personal
+> Pro activation; personal `subscription.deleted` resets it to Free). **Personal Pro is no longer
+> a no-value tier**, but it **remains dark** behind `ENABLE_PERSONAL_PRO` (default OFF) until
+> Marcus deliberately enables it. Team/Business unaffected; folder/member differentiation for Pro
+> stays deferred. The §4 production-launch decision on Pro value is satisfied; the remaining
+> blockers are now env/config/manual-test (see §3, §8, §9) plus the deliberate flag flip(s).
 
 **Classification rules (as given):**
 - **Pre-live-test blocker** — manual Stripe testing cannot be *meaningfully run* without it.
@@ -44,9 +55,10 @@ begin dev/test-mode Stripe testing** — what remains before a live test is pure
 **environment / Stripe-dashboard configuration** (keys, prices, webhook endpoint) plus the
 deliberate flag flip *in a test environment*. Before **production launch**, the gates are:
 live-mode config, a clean pass of the manual test-mode scenarios, a per-environment
-migration confirmation, and an explicit product decision on two real gaps — **selling
-Personal Pro that grants no extra capacity** and **no Business→Team downgrade / revert-on-
-cancel**. Everything else (Enterprise, per-seat, metered overage, annual/trials, full
+migration confirmation, and an explicit product decision on the remaining gap — **no
+Business→Team downgrade / revert-on-cancel** (the former "Personal Pro grants no extra
+capacity" gap is now **resolved** — Pro grants 1,000 monthly tasks via CS-PRO-2, still dark
+behind `ENABLE_PERSONAL_PRO`). Everything else (Enterprise, per-seat, metered overage, annual/trials, full
 pricing table, support tooling, billing audit notifications) is correctly deferred.
 
 **Bottom line:** *Ready to dev-test after config.* *Not ready for real-user launch* until
@@ -59,7 +71,7 @@ the two product decisions are made and test-mode scenarios pass.
 | Capability | Where | State |
 |---|---|---|
 | Plan metadata (`free/pro/team/business/enterprise` + status) | `account_billing` (CS-1) | Shipped |
-| Central plan policy (caps per tier) | [planPolicy.ts:48-53](../../../../core/billing/planPolicy.ts) | Shipped — **Pro caps == Free caps** (1/10/100) |
+| Central plan policy (caps per tier) | [planPolicy.ts:48-54](../../../../core/billing/planPolicy.ts) | Shipped — **Pro task cap 1,000** vs Free 100 (CS-PRO-2); member/folder still match Free |
 | Stripe attachment columns + lazy server-only client | CS-2 / [platformStripeClient.ts](../../../../services/billing/platformStripeClient.ts) | Shipped |
 | Price config resolver (env-driven, no hardcoded ids) | [platformStripePrices.ts](../../../../services/billing/platformStripePrices.ts) | Shipped |
 | Checkout + Customer Portal routes (owner/admin, flag-gated, freeze-rejecting, `{url}`-only) | CS-3 / checkout+portal routes | Shipped |
@@ -125,10 +137,10 @@ Test mode can proceed without these, but **real users must not get billing** unt
    applied (closeout §5); that claim is **not verifiable from code** and must be re-confirmed per
    environment (see Risk R9).
 5. **A clean pass of the §10 manual test-mode scenarios** on dev **and** staging.
-6. **Product decision on Personal Pro value (see §5.A).** Charging real users for a "Pro" tier
-   that grants the *same caps as Free* is a trust/correctness problem. **Launch blocker for the
-   Pro tier specifically** — either define a concrete Pro benefit, or do not expose Personal
-   Free → Pro at launch (launch Team/Business only) and keep the upgrade button dark.
+6. **~~Product decision on Personal Pro value (see §5.A).~~ RESOLVED (CS-PRO-2, `8ebaa44d1`).**
+   Pro now grants a real benefit — **1,000 monthly tasks** vs Free's 100. It also stays dark
+   behind `ENABLE_PERSONAL_PRO` (CS-PRO-1) until deliberately enabled, so the launch can ship
+   Team/Business first and turn Pro on only after its test-mode validation. No longer a blocker.
 7. **Product decision on Business→Team downgrade / revert-on-cancel (see §5.B).** Acceptable to
    launch *with manual handling*, but must be a conscious decision, not a surprise.
 8. **The deliberate `ENABLE_PLATFORM_BILLING=true` flip in production** — the final switch,
@@ -138,14 +150,16 @@ Test mode can proceed without these, but **real users must not get billing** unt
 
 ## 5. Product-completeness gaps
 
-### A. Personal Pro grants no extra capacity (elevated)
-`PLAN_LIMITS.pro === PLAN_LIMITS.free` (1 member / 10 folders / 100 tasks) —
-[planPolicy.ts:49-50](../../../../core/billing/planPolicy.ts). The Personal Free → Pro button
-ships with deliberately honest *mechanics-only* copy (no invented benefit), so the **UI is not
-lying** — but **billing a customer for Pro that does nothing is a product gap**, not just polish.
-*Recommendation:* before launching the Pro tier, either (i) define and wire a real Pro benefit
-(higher caps / feature gate), or (ii) keep Personal Pro dark at launch and ship Team/Business
-only. **This is the single most important pre-launch product decision.**
+### A. ~~Personal Pro grants no extra capacity~~ — RESOLVED (CS-PRO-2, `8ebaa44d1`)
+**Status at audit time:** `PLAN_LIMITS.pro === PLAN_LIMITS.free` (100 tasks) — Pro granted nothing.
+**Now:** `PLAN_LIMITS.pro.taskLimit` is **1,000** (Free stays 100); member/folder caps still match
+Free ([planPolicy.ts:48-54](../../../../core/billing/planPolicy.ts)). The billing webhook sets
+`account_billing.tasks_limit` from policy on a verified personal Pro activation, and resets it to
+Free on `subscription.deleted` ([stripeBillingWebhook.ts](../../../../services/billing/stripeBillingWebhook.ts)).
+The `PersonalUpgradePanel` copy now states the real benefit (sourced from policy). Pro **remains
+dark** behind `ENABLE_PERSONAL_PRO` (CS-PRO-1, default OFF) until deliberately enabled. Folder/member
+differentiation for Pro stays deferred (would need the `folderLimitFor`/`memberLimitFor` stored-plan
+rewire — F3).
 
 ### B. No Business→Team downgrade / no team-org revert-on-cancel (elevated)
 The webhook's `customer.subscription.deleted` reverts **only personal** accounts to Free;
@@ -164,8 +178,8 @@ indefinitely without paying (Risk R3). *Recommendation:* product-completeness �
 
 - **No full pricing / plan-comparison table** — the upgrade is a single honest button, not a
   grid. Fine for launch.
-- **Personal upgrade copy is benefit-free** — correct today (Pro == Free); should state real
-  benefits once §5.A is resolved.
+- ~~**Personal upgrade copy is benefit-free**~~ — RESOLVED (CS-PRO-2): the copy now states
+  "1,000 monthly tasks (up from 100 on Free)", sourced from policy.
 - **Manage billing edge:** a personal account reverted to Free that still has a stale
   `currentPeriodEnd` would still show "Manage billing" — benign (the Stripe customer persists,
   the portal genuinely works), but slightly surprising. Polish only.
@@ -176,8 +190,9 @@ indefinitely without paying (Risk R3). *Recommendation:* product-completeness �
 
 - **Enterprise / contact-sales** — no price id; not online-purchasable by design.
 - **Per-seat billing** — account-level billing only at launch.
-- **Metered usage / overage** — flat 100-task cap across tiers; the separate
-  reserve/reconcile track (`ENABLE_RESERVE_RECONCILE_BILLING`) is unrelated and not wired.
+- **Metered usage / overage** — fixed per-tier task caps (Free 100 / Pro 1,000 / Team/Business
+  100), no pay-as-you-go; the separate reserve/reconcile track (`ENABLE_RESERVE_RECONCILE_BILLING`)
+  is unrelated and not wired.
 - **Annual pricing / trials** — single monthly price per tier (resolver is single-price-per-tier).
 - **Customer-support / admin billing tools** — corrections via Stripe dashboard.
 - **Billing-specific audit notifications** — not in this arc.
@@ -251,7 +266,7 @@ human round-trips that the unit/integration suites cannot cover.
 | R2 | **Wrong/cross-mode webhook secret** → events 400/500 → user pays, never gets Pro | Med | High | Watch endpoint delivery + 400/500 rate during test (§10.6) |
 | R3 | **Business cancel never reverts plan/type** → churned customer keeps Business caps free | Med | Med (revenue leak) | Manual dashboard handling at launch; build Track B (§5.B) |
 | R4 | Forged upgrade metadata escalates account type | Low | High | **Already mitigated** — `apply_business_upgrade` RPC re-validates team + not-frozen |
-| R5 | **Charging for Personal Pro that grants nothing** | High (if Pro launched as-is) | Med (trust) | §5.A decision before launch |
+| R5 | ~~**Charging for Personal Pro that grants nothing**~~ — RESOLVED (CS-PRO-2) | — | — | Pro grants 1,000 monthly tasks (vs Free 100); still dark behind `ENABLE_PERSONAL_PRO` until enabled |
 | R6 | `currentPeriodEnd` not cleared on personal delete → Manage billing shows for reverted-free personal | Low | Low (benign) | Polish only (§6) |
 | R7 | Retry replays session-scoped side effects (foundation Q4) | Low | Low/Med | Out of UI scope; covered by foundation idempotency design |
 | R8 | `NEXT_PUBLIC_APP_URL` left at localhost in prod → broken redirects | Med | High | Env checklist (§8); part of prod-launch gate |
@@ -267,9 +282,8 @@ dev dry-run:
 
 1. **(No-code) Dev test-mode dry run** — execute §3 + §9 + §10 in dev. *This is the actual next
    action.* Surfaces real bugs that no unit test can.
-2. **`4.PLATFORM-BILLING-PRO-VALUE-1`** — resolve §5.A: either wire a real Pro benefit (cap/
-   feature gate via `planPolicy`) **or** a tiny slice to keep Personal Pro dark at launch
-   (flag/condition) so Team/Business can launch first. *Launch-gating for the Pro tier.*
+2. ~~**`4.PLATFORM-BILLING-PRO-VALUE-1`**~~ — **DONE**: CS-PRO-1 (`03f4ef3b8`, dark-launch flag)
+   + CS-PRO-2 (`8ebaa44d1`, 1,000-task Pro benefit). §5.A resolved; Pro dark until enabled.
 3. **`4.PLATFORM-BILLING-BUSINESS-DOWNGRADE-1`** (Track B) — Business→Team downgrade flow +
    team/org revert-on-cancel, reusing `evaluateDowngrade('team')`. Closes R3.
 4. **Bug-fix micro-slices** for anything the dev dry-run finds (smallest possible).
@@ -298,16 +312,19 @@ dev dry-run:
       `STRIPE_PRICE_*` set and mode-matched.
 - [ ] Test-mode products/prices created; Customer Portal activated.
 - [ ] Webhook endpoint reachable (registered or `stripe listen`) with the four events.
-- [ ] `ENABLE_PLATFORM_BILLING=true` in the dev/test env only.
+- [ ] `ENABLE_PLATFORM_BILLING=true` in the dev/test env only — **and `ENABLE_PERSONAL_PRO=true`
+      too if exercising the Free → Pro flow** (both default OFF; Pro is gated by the second flag).
 - [ ] (Local) `NEXT_PUBLIC_APP_URL` default OK, or set for staging.
-- [ ] No code changes needed — the UI + routes + webhook are already in place.
+- [ ] No code changes needed — the UI + routes + webhook are already in place (incl. the Pro
+      task-cap benefit + dark-launch gate, CS-PRO-1/2).
 
 ## 15. Acceptance criteria — "ready to launch"
 
 - [ ] All §14 satisfied in **live** mode (mode-matched), real `NEXT_PUBLIC_APP_URL`.
 - [ ] §10 manual scenarios pass on dev **and** staging (test mode).
 - [ ] The four migrations confirmed applied to the **prod** DB (R9).
-- [ ] §5.A resolved — Pro grants a real benefit, **or** Personal Pro stays dark at launch.
+- [x] §5.A resolved — Pro grants a real benefit (1,000 monthly tasks, CS-PRO-2) **and** stays
+      dark behind `ENABLE_PERSONAL_PRO` until deliberately enabled.
 - [ ] §5.B decided — Business downgrade handled (manually accepted or flow built).
 - [ ] Risk register R1/R2/R8/R10 mitigations verified in prod config.
 - [ ] A **final full local baseline** (`npx jest`, typecheck, lint, lint:structure,
