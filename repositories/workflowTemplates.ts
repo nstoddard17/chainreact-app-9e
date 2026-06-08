@@ -228,6 +228,29 @@ export async function getMarketplaceTemplateByIdServiceRole(
 }
 
 /**
+ * Fetch a single template by id ACROSS accounts (CS-XT-5B) — for the use/fork access
+ * resolver, which must read the row's visibility/source/account_id to decide access
+ * (public/official → any authed user; private → owning-account members only). The CALLER
+ * (templateManagement.resolveTemplateForAccess) enforces that access rule; this raw read
+ * is service-role and MUST NOT be returned to a client without that gate. Returns the full
+ * internal record (so the caller sees `accountId` for the membership check) or null.
+ */
+export async function getTemplateByIdAnyAccountServiceRole(
+  templateId: string,
+): Promise<WorkflowTemplateRecord | null> {
+  const supabase = getServiceRoleClient(`workflow_templates: getByIdAnyAccount ${templateId}`);
+  const { data, error } = await supabase
+    .from("workflow_templates")
+    .select(TEMPLATE_COLUMNS)
+    .eq("id", templateId)
+    .maybeSingle<WorkflowTemplatesRow>();
+  if (error) {
+    throw new Error(`workflow_templates.getTemplateByIdAnyAccountServiceRole failed: ${error.message}`);
+  }
+  return data ? rowToRecord(data) : null;
+}
+
+/**
  * Count an account's USER templates — the input to the tier-limit gate (CS-XT-5).
  * Service-role, exact head count.
  */

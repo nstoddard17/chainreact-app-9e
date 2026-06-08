@@ -5,11 +5,14 @@ import type {
   TemplateVisibility,
   WorkflowTemplateRecord,
 } from "@/contracts/workflowTemplate";
+import { TemplateDefinitionSchema } from "@/contracts/workflowTemplate";
+import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import * as templatesRepo from "@/repositories/workflowTemplates";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as userProfilesRepo from "@/repositories/userProfiles";
 import { createTemplateFromWorkflow } from "@/services/workflows/createTemplateFromWorkflow";
 import { resolveAccountCapabilities } from "@/services/billing/planCapabilities";
+import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { templateLimitFor } from "@/core/billing/planPolicy";
 
 /**
@@ -194,4 +197,164 @@ export async function deleteAccountTemplate(input: DeleteTemplateInput): Promise
 
   await templatesRepo.deleteTemplateServiceRole(input.accountId, input.templateId);
   return { ok: true };
+}
+
+// ── access resolver (used by use + fork) ───────────────────────────────────────
+
+/**
+ * Resolve a template the caller is ALLOWED to use/fork (CS-XT-5B). Access rule:
+ *   - OFFICIAL / PUBLIC / UNLISTED → any authenticated user;
+ *   - PRIVATE → members of the owning account only.
+ * An inaccessible or missing id resolves to `null` — the caller maps that to the SAME 404 as
+ * a nonexistent template, so a non-member can't probe private-template existence.
+ */
+async function resolveTemplateForAccess(
+  templateId: string,
+  actorUserId: string,
+): Promise<WorkflowTemplateRecord | null> {
+  const tpl = await templatesRepo.getTemplateByIdAnyAccountServiceRole(templateId);
+  if (!tpl) return null;
+  const publiclyAccessible =
+    tpl.source === "official" || tpl.visibility === "public" || tpl.visibility === "unlisted";
+  if (publiclyAccessible) return tpl;
+  // private — require membership of the owning account (account_id is non-null for user rows).
+  if (tpl.accountId === null) return null;
+  const role = await requireAccountRole(actorUserId, tpl.accountId, ["owner", "admin", "member"]);
+  return role.ok ? tpl : null;
+}
+
+// ── use template → create a workflow ────────────────────────────────────────────
+
+export type UseTemplateResult =
+  | { ok: true; workflowId: string; workflowName: string }
+  | { ok: false; reason: "template_not_found" }
+  | { ok: false; reason: "target_not_member" }
+  | { ok: false; reason: "invalid_template" };
+
+export interface UseTemplateInput {
+  templateId: string;
+  targetAccountId: string;
+  actorUserId: string;
+  workflowName?: string;
+}
+
+/**
+ * Create a workflow in the target account FROM a template. The created workflow gets the
+ * template's SANITIZED definition verbatim (with `__REDACTED__` markers where credentials
+ * were stripped), so the user must reconnect/reselect — no credential ever travels. Records a
+ * `used_to_create_workflow` usage event. Editing this workflow never touches the template.
+ */
+export async function createWorkflowFromTemplate(input: UseTemplateInput): Promise<UseTemplateResult> {
+  const tpl = await resolveTemplateForAccess(input.templateId, input.actorUserId);
+  if (!tpl) return { ok: false, reason: "template_not_found" };
+
+  // Target account: any member may create a workflow there (normal workflow-creation rule).
+  const role = await requireAccountRole(input.actorUserId, input.targetAccountId, ["owner", "admin", "member"]);
+  if (!role.ok) return { ok: false, reason: "target_not_member" };
+
+  // Validate the sanitized template graph against the WORKFLOW schema before persisting it as
+  // a draft (coerces kinds, re-checks the one-trigger / edge invariants). It is already
+  // credential-free; this never re-introduces secrets.
+  const parsed = WorkflowDefinitionSchema.safeParse(tpl.definition);
+  if (!parsed.success) return { ok: false, reason: "invalid_template" };
+
+  const name = input.workflowName?.trim() || tpl.name;
+  const workflow = await workflowsRepo.create({
+    accountId: input.targetAccountId,
+    createdByUserId: input.actorUserId,
+    name,
+    draftDefinition: parsed.data,
+  });
+
+  await templatesRepo.recordTemplateUsageEventServiceRole({
+    templateId: tpl.id,
+    actorUserId: input.actorUserId,
+    targetAccountId: input.targetAccountId,
+    eventType: "used_to_create_workflow",
+    createdWorkflowId: workflow.id,
+  });
+
+  return { ok: true, workflowId: workflow.id, workflowName: workflow.name };
+}
+
+// ── fork/copy template → new template in target account ─────────────────────────
+
+export type ForkTemplateResult =
+  | { ok: true; template: AccountTemplateSummary }
+  | { ok: false; reason: "template_not_found" }
+  | { ok: false; reason: "target_not_member" }
+  | { ok: false; reason: "target_forbidden" }
+  | { ok: false; reason: "tier_forbidden" }
+  | { ok: false; reason: "limit_reached"; limit: number; count: number };
+
+export interface ForkTemplateInput {
+  templateId: string;
+  targetAccountId: string;
+  actorUserId: string;
+  name?: string;
+  visibility?: TemplateVisibility;
+  now?: () => string;
+}
+
+/**
+ * Fork/copy a template into the target account as a NEW user template (CS-XT-5B). Requires
+ * template-CREATE capability + role in the target (owner/admin on shared; owner on personal)
+ * and is tier-limited like a normal create. The copy carries the SANITIZED definition only,
+ * sets `forked_from_template_id`, is always `source='user'` (a client can never mint an
+ * official), and records a `forked` usage event. Editing the fork never touches the original.
+ */
+export async function forkTemplateToAccount(input: ForkTemplateInput): Promise<ForkTemplateResult> {
+  const nowIso = (input.now ?? (() => new Date().toISOString()))();
+
+  const tpl = await resolveTemplateForAccess(input.templateId, input.actorUserId);
+  if (!tpl) return { ok: false, reason: "template_not_found" };
+
+  // Target account: authoring requires owner/admin (personal owner is "owner").
+  const role = await requireAccountRole(input.actorUserId, input.targetAccountId, ["owner", "admin"]);
+  if (!role.ok) {
+    return { ok: false, reason: role.reason === "not_member" ? "target_not_member" : "target_forbidden" };
+  }
+
+  // Tier: target plan must permit custom templates + be under the cap.
+  const { plan, capabilities } = await resolveAccountCapabilities(input.targetAccountId);
+  if (!capabilities.canCreateTemplates) return { ok: false, reason: "tier_forbidden" };
+  const limit = templateLimitFor(plan);
+  if (limit !== null) {
+    const count = await templatesRepo.countTemplatesByAccountServiceRole(input.targetAccountId);
+    if (count >= limit) return { ok: false, reason: "limit_reached", limit, count };
+  }
+
+  // Re-validate the sanitized definition against the strict template schema (whitelist) — the
+  // source is already credential-free; this is belt-and-braces, never re-adds secrets.
+  const definition = TemplateDefinitionSchema.parse(tpl.definition);
+
+  const visibility = input.visibility ?? "private";
+  const publishing = visibility !== "private";
+  const creatorDisplayNameSnapshot = publishing
+    ? await userProfilesRepo.getDisplayName(input.actorUserId)
+    : null;
+
+  const record = await templatesRepo.createTemplateServiceRole({
+    accountId: input.targetAccountId,
+    createdByUserId: input.actorUserId,
+    name: input.name?.trim() || tpl.name,
+    description: tpl.description,
+    definition,
+    schemaVersion: tpl.schemaVersion,
+    source: "user",
+    visibility,
+    forkedFromTemplateId: tpl.id,
+    publishedAt: publishing ? nowIso : null,
+    creatorDisplayNameSnapshot,
+  });
+
+  await templatesRepo.recordTemplateUsageEventServiceRole({
+    templateId: tpl.id,
+    actorUserId: input.actorUserId,
+    targetAccountId: input.targetAccountId,
+    eventType: "forked",
+    createdTemplateId: record.id,
+  });
+
+  return { ok: true, template: toAccountSummary(record) };
 }
