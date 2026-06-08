@@ -168,6 +168,26 @@ export async function requireWorkflowAccountMember(
 }
 
 /**
+ * Load a workflow by id and authorize the caller as a member of its account.
+ * A missing / soft-deleted workflow AND a non-member both collapse to the same
+ * `WORKFLOW_NOT_FOUND` 404 (no existence leak) — the standard TW-1 shape. Shared
+ * by routes that need the workflow RECORD after the membership gate (e.g. the
+ * in-builder create-from-template route needs the workflow's `accountId`).
+ */
+export async function loadWorkflowForMember(
+  workflowId: string,
+  userId: string,
+): Promise<{ ok: true; record: WorkflowRecord } | AuthFailure> {
+  const record = await workflowsRepo.getById(workflowId);
+  if (!record || record.state === "deleted") {
+    return { ok: false, response: workflowNotFoundResponse() };
+  }
+  const authorized = await requireWorkflowAccountMember(userId, record.accountId);
+  if (!authorized.ok) return authorized;
+  return { ok: true, record };
+}
+
+/**
  * 4.TEAM-WORKFLOWS-1 (TW-1) — membership gate for the lifecycle routes
  * (activate / pause / resume / disable) that otherwise hand the id straight to
  * the orchestrator. Loads the workflow and, when it exists and is not deleted,

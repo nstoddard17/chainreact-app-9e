@@ -9,7 +9,9 @@ import { TemplateDefinitionSchema } from "@/contracts/workflowTemplate";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import * as templatesRepo from "@/repositories/workflowTemplates";
 import * as workflowsRepo from "@/repositories/workflows";
+import type { WorkflowRecord } from "@/repositories/workflows";
 import * as userProfilesRepo from "@/repositories/userProfiles";
+import { isMember } from "@/repositories/accountMemberships";
 import { createTemplateFromWorkflow } from "@/services/workflows/createTemplateFromWorkflow";
 import { resolveAccountCapabilities } from "@/services/billing/planCapabilities";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
@@ -366,4 +368,59 @@ export async function forkTemplateToAccount(input: ForkTemplateInput): Promise<F
   });
 
   return { ok: true, template: toAccountSummary(record, input.actorUserId) };
+}
+
+// ── replace current workflow's definition with a template (CS-XT-IN-BUILDER) ─────
+
+export type ReplaceWorkflowWithTemplateResult =
+  | { ok: true; workflow: WorkflowRecord }
+  | { ok: false; reason: "workflow_not_found" }
+  | { ok: false; reason: "template_not_found" }
+  | { ok: false; reason: "invalid_template" };
+
+export interface ReplaceWorkflowWithTemplateInput {
+  /** The CURRENTLY-OPEN workflow whose draft definition is being overwritten. */
+  workflowId: string;
+  /** The template to apply. */
+  templateId: string;
+  actorUserId: string;
+}
+
+/**
+ * Overwrite an existing workflow's draft definition with a template's SANITIZED
+ * (credential-free) definition — the explicit "replace current workflow" path from the
+ * in-builder Templates modal. Authorization is the SAME membership gate the workflow
+ * edit/save path uses (member of the workflow's account); a missing workflow OR a
+ * non-member collapses to the SAME `workflow_not_found` (no existence leak), and the
+ * workflow's account ownership is never changed (only `draft_definition` is written).
+ *
+ * Template access reuses {@link resolveTemplateForAccess} (official/public/unlisted → any
+ * authed user; private → owning-account member). The definition is re-validated against
+ * the WORKFLOW schema before persistence (credential-free already; this never re-adds
+ * secrets — the `__REDACTED__` markers travel so the user reconnects). The TEMPLATE ROW IS
+ * NEVER MUTATED (read-only resolve) and NO usage event is recorded (replacing an existing
+ * workflow is not a "use" — it neither creates a workflow nor forks the template).
+ */
+export async function replaceWorkflowWithTemplate(
+  input: ReplaceWorkflowWithTemplateInput,
+): Promise<ReplaceWorkflowWithTemplateResult> {
+  // 1. Target workflow must exist AND the caller must be a member of its account.
+  //    Both the missing and the non-member case return the SAME shape — no existence leak.
+  const workflow = await workflowsRepo.getById(input.workflowId);
+  if (!workflow || workflow.state === "deleted") return { ok: false, reason: "workflow_not_found" };
+  const member = await isMember(input.actorUserId, workflow.accountId);
+  if (!member) return { ok: false, reason: "workflow_not_found" };
+
+  // 2. Template must be accessible to the caller; resolve is READ-ONLY (template untouched).
+  const tpl = await resolveTemplateForAccess(input.templateId, input.actorUserId);
+  if (!tpl) return { ok: false, reason: "template_not_found" };
+
+  // 3. Validate the sanitized graph against the WORKFLOW schema before persisting (coerces
+  //    kinds, re-checks one-trigger / edge invariants). Already credential-free.
+  const parsed = WorkflowDefinitionSchema.safeParse(tpl.definition);
+  if (!parsed.success) return { ok: false, reason: "invalid_template" };
+
+  // 4. Overwrite ONLY the draft definition — account ownership / id / name are unchanged.
+  const updated = await workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data);
+  return { ok: true, workflow: updated };
 }

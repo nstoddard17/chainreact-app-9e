@@ -42,6 +42,15 @@ jest.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// The Templates entry point opens BuilderTemplatesModal, which lists the marketplace on
+// open. Mock the client so the modal can mount without a real fetch.
+jest.mock("@/lib/api/workflowTemplates", () => ({
+  listMarketplaceTemplates: jest.fn().mockResolvedValue([]),
+  createWorkflowFromTemplateForCurrent: jest.fn(),
+  replaceCurrentWorkflowFromTemplate: jest.fn(),
+  TemplateApiError: class TemplateApiError extends Error {},
+}));
+
 import { BuilderHeader } from "@/features/workflow-builder/layout/BuilderHeader";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
@@ -314,6 +323,26 @@ describe("BuilderHeader — validation pill (VALIDATION-1)", () => {
     expect(
       screen.getByRole("button", { name: /open validation summary/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("BuilderHeader — Templates entry point (CS-XT-IN-BUILDER)", () => {
+  it("does NOT render the Templates button without a workflowId (isolated-header baseline)", () => {
+    render(<BuilderHeader workflowName="x" />);
+    expect(screen.queryByTestId("builder-header-templates-button")).toBeNull();
+  });
+
+  it("renders the Templates button when a workflowId is present", () => {
+    render(<BuilderHeader workflowName="x" workflowId="wf-1" />);
+    expect(screen.getByTestId("builder-header-templates-button")).toBeInTheDocument();
+  });
+
+  it("clicking Templates opens the templates modal", async () => {
+    const user = userEvent.setup();
+    render(<BuilderHeader workflowName="x" workflowId="wf-1" />);
+    expect(screen.queryByTestId("builder-templates-modal")).toBeNull();
+    await user.click(screen.getByTestId("builder-header-templates-button"));
+    expect(await screen.findByTestId("builder-templates-modal")).toBeInTheDocument();
   });
 });
 

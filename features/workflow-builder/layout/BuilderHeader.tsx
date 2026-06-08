@@ -24,6 +24,7 @@ import {
   type SaveStatus,
 } from "./_BuilderHeaderPills";
 import { HeaderRunControls } from "./HeaderRunControls";
+import { BuilderTemplatesModal } from "../panels/BuilderTemplatesModal";
 
 interface Props {
   workflowName: string;
@@ -80,6 +81,7 @@ export function BuilderHeader({
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const validationCounts = validation
     ? countBuilderValidationIssues(
@@ -102,32 +104,43 @@ export function BuilderHeader({
   const status = deriveStatus({ isDirty, isSaving, saveError, savedAt });
 
   return (
-    <header
-      aria-label="Workflow builder header"
-      data-testid="builder-header"
-      className="grid h-12 shrink-0 items-center gap-3 px-2"
-      style={{
-        gridTemplateColumns: "1fr auto 1fr",
-        background: "var(--builder-panel)",
-        borderBottom: "1px solid var(--builder-border)",
-      }}
-    >
-      <HeaderLeft
-        workflowName={workflowName}
-        leftRail={leftRail}
-        status={status}
-        saveError={saveError}
-      />
-      <HeaderCenterMeta workflowId={workflowId} />
-      <HeaderRight
-        isDirty={isDirty}
-        isSaving={isSaving}
-        onSave={handleSave}
-        validation={validation}
-        validationCounts={validationCounts}
-        lifecycle={lifecycle}
-      />
-    </header>
+    <>
+      <header
+        aria-label="Workflow builder header"
+        data-testid="builder-header"
+        className="grid h-12 shrink-0 items-center gap-3 px-2"
+        style={{
+          gridTemplateColumns: "1fr auto 1fr",
+          background: "var(--builder-panel)",
+          borderBottom: "1px solid var(--builder-border)",
+        }}
+      >
+        <HeaderLeft
+          workflowName={workflowName}
+          leftRail={leftRail}
+          status={status}
+          saveError={saveError}
+        />
+        <HeaderCenterMeta workflowId={workflowId} />
+        <HeaderRight
+          isDirty={isDirty}
+          isSaving={isSaving}
+          onSave={handleSave}
+          workflowId={workflowId}
+          onOpenTemplates={() => setTemplatesOpen(true)}
+          validation={validation}
+          validationCounts={validationCounts}
+          lifecycle={lifecycle}
+        />
+      </header>
+      {templatesOpen && workflowId ? (
+        <BuilderTemplatesModal
+          workflowId={workflowId}
+          isDirty={isDirty}
+          onClose={() => setTemplatesOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -256,6 +269,8 @@ function HeaderRight({
   isDirty,
   isSaving,
   onSave,
+  workflowId,
+  onOpenTemplates,
   validation,
   validationCounts,
   lifecycle,
@@ -263,6 +278,8 @@ function HeaderRight({
   isDirty: boolean;
   isSaving: boolean;
   onSave: () => void;
+  workflowId?: string;
+  onOpenTemplates: () => void;
   validation?: { onOpen: () => void };
   validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
   lifecycle?: { workflowId: string; state: WorkflowState };
@@ -286,6 +303,23 @@ function HeaderRight({
           <HistoryIcon />
         </BuilderIconButton>
       </div>
+      {/* In-builder template entry point — opens the create-new / replace-current modal. */}
+      {workflowId ? (
+        <button
+          type="button"
+          onClick={onOpenTemplates}
+          data-testid="builder-header-templates-button"
+          className="inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[12px] font-medium"
+          style={{
+            background: "var(--builder-panel-2)",
+            color: "var(--builder-text-2)",
+            border: "1px solid var(--builder-border)",
+          }}
+          title="Browse templates"
+        >
+          Templates
+        </button>
+      ) : null}
       {validation && validationCounts ? (
         <HeaderValidationPill
           counts={validationCounts}

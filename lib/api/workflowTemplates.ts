@@ -3,6 +3,7 @@ import type {
   MarketplaceTemplateSummary,
   TemplateVisibility,
 } from "@/contracts/workflowTemplate";
+import type { WorkflowDetail } from "@/contracts/workflow";
 
 /**
  * Typed client for the workflow-templates API (Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 /
@@ -108,4 +109,40 @@ export async function forkTemplate(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as { template: AccountTemplateSummary };
+}
+
+// ── in-builder template actions (workflow-centric — no account id from the client) ─────
+
+/**
+ * POST /api/workflows/[currentWorkflowId]/create-from-template — create a NEW workflow
+ * from a template in the SAME account as the currently-open workflow (resolved
+ * server-side). Does NOT mutate the current workflow. Returns the new workflow id to open.
+ */
+export async function createWorkflowFromTemplateForCurrent(
+  currentWorkflowId: string,
+  templateId: string,
+): Promise<{ workflowId: string; name: string }> {
+  const res = await fetch(
+    `/api/workflows/${encodeURIComponent(currentWorkflowId)}/create-from-template`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ templateId }) },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as { workflowId: string; name: string };
+}
+
+/**
+ * POST /api/workflows/[currentWorkflowId]/replace-from-template — overwrite the current
+ * workflow's draft definition with the template's sanitized graph (explicit + confirmed by
+ * the caller). Returns the updated WorkflowDetail so the builder can re-hydrate the canvas.
+ */
+export async function replaceCurrentWorkflowFromTemplate(
+  currentWorkflowId: string,
+  templateId: string,
+): Promise<WorkflowDetail> {
+  const res = await fetch(
+    `/api/workflows/${encodeURIComponent(currentWorkflowId)}/replace-from-template`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ templateId }) },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as WorkflowDetail;
 }
