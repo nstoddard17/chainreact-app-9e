@@ -41,10 +41,17 @@ const fixSql = read(FIX);
 const fixCode = fixSql.replace(/--[^\n]*/g, "");
 
 describe("4.ACCOUNT-MODEL-9a — reserve/reconcile RPC hygiene fix", () => {
-  it("is the LAST migration that (re)defines each of the four RPCs", () => {
+  it("is the effective (last) definer of each RPC — fix, except reserve which rollover supersedes", () => {
     const files = readdirSync(MIGRATIONS)
       .filter((f) => f.endsWith(".sql"))
       .sort();
+    // reserve_tasks_if_available is legitimately redefined LAST by the lazy
+    // task-period rollover (20260620000000), which preserves the 9a account-keyed
+    // run lookup and only adds period rollover. The other three remain fix-last.
+    const ROLLOVER = "20260620000000_lazy_task_period_rollover.sql";
+    const expectedLast: Partial<Record<(typeof RPCS)[number], string>> = {
+      reserve_tasks_if_available: ROLLOVER,
+    };
     for (const rpc of RPCS) {
       const definers = files.filter((f) =>
         new RegExp(
@@ -52,11 +59,19 @@ describe("4.ACCOUNT-MODEL-9a — reserve/reconcile RPC hygiene fix", () => {
           "i",
         ).test(read(f)),
       );
-      // defined originally in 20260525000002, re-created in the fix — the fix
-      // must be the effective (last-applied) definition.
+      // defined originally in 20260525000002, re-created in the fix (and, for
+      // reserve, again in the rollover) — the last one is the effective definition.
       expect(definers.length).toBeGreaterThanOrEqual(2);
-      expect(definers[definers.length - 1]).toBe(FIX);
+      expect(definers[definers.length - 1]).toBe(expectedLast[rpc] ?? FIX);
     }
+  });
+
+  it("the rollover supersession of reserve keeps it account-keyed (no dropped user_id)", () => {
+    const rollover = read("20260620000000_lazy_task_period_rollover.sql").replace(/--[^\n]*/g, "");
+    expect(rollover).toMatch(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.reserve_tasks_if_available\(\s*p_account_id\s+uuid/i);
+    expect(rollover).not.toMatch(/\bwr\.user_id\b/i);
+    expect(rollover).not.toMatch(/workflow_runs\.user_id/i);
+    expect(rollover).toMatch(/wr\.account_id\s*=\s*p_account_id/i);
   });
 
   it("redefines all four RPCs", () => {

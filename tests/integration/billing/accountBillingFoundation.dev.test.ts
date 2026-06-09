@@ -103,6 +103,23 @@ describeDb("4.ACCOUNT-MODEL-9c2 — canonical account billing RPCs (dev DB)", ()
     if (error) throw new Error(`getAccountBilling: ${error.message}`);
     return data;
   }
+  async function setPeriodStart(accountId: string, iso: string): Promise<void> {
+    const { error } = await admin
+      .from("account_billing")
+      .update({ period_started_at: iso })
+      .eq("account_id", accountId);
+    if (error) throw new Error(`setPeriodStart: ${error.message}`);
+  }
+  async function getPeriodStart(accountId: string): Promise<string> {
+    const { data, error } = await admin
+      .from("account_billing")
+      .select("period_started_at")
+      .eq("account_id", accountId)
+      .single<{ period_started_at: string }>();
+    if (error) throw new Error(`getPeriodStart: ${error.message}`);
+    return data.period_started_at;
+  }
+  const DAYS_70_AGO = () => new Date(Date.now() - 70 * 24 * 3600 * 1000).toISOString();
 
   async function seedWorkflow(userId: string, accountId: string): Promise<string> {
     const { data, error } = await admin
@@ -255,5 +272,83 @@ describeDb("4.ACCOUNT-MODEL-9c2 — canonical account billing RPCs (dev DB)", ()
     const ab = await getAccountBilling(accountId);
     expect(ab.tasks_used).toBe(5);
     expect(ab.tasks_used).toBeLessThanOrEqual(ab.tasks_limit);
+  });
+
+  // ── Lazy task-period rollover (20260620000000) ─────────────────────────────
+
+  it("inside the period: no reset — deduct increments normally", async () => {
+    const userId = await createUser();
+    const accountId = await personalAccountId(userId);
+    await setAccountBilling(accountId, { tasks_limit: 10, tasks_used: 2, tasks_reserved: 0 });
+    await setPeriodStart(accountId, new Date().toISOString()); // fresh period
+
+    const { data } = await rpc("deduct_tasks_if_available", { p_account_id: accountId, p_amount: 1 });
+    expect(data.ok).toBe(true);
+    expect(data.used).toBe(3); // incremented, NOT reset
+  });
+
+  it("expired period + previously exhausted: resets usage, then allows the deduction", async () => {
+    const userId = await createUser();
+    const accountId = await personalAccountId(userId);
+    await setAccountBilling(accountId, { tasks_limit: 5, tasks_used: 5, tasks_reserved: 0 }); // exhausted
+    const oldStart = DAYS_70_AGO();
+    await setPeriodStart(accountId, oldStart);
+
+    const { data } = await rpc("deduct_tasks_if_available", { p_account_id: accountId, p_amount: 1 });
+    expect(data.ok).toBe(true);
+    expect(data.used).toBe(1); // reset to 0, then +1
+    const newStart = await getPeriodStart(accountId);
+    expect(new Date(newStart).getTime()).toBeGreaterThan(new Date(oldStart).getTime());
+    expect(new Date(newStart).getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+    // advanced to the CURRENT period, not merely +1 month
+    expect(Date.now() - new Date(newStart).getTime()).toBeLessThanOrEqual(32 * 24 * 3600 * 1000);
+  });
+
+  it("expired period + deduction over the fresh cap: still refused after reset", async () => {
+    const userId = await createUser();
+    const accountId = await personalAccountId(userId);
+    await setAccountBilling(accountId, { tasks_limit: 3, tasks_used: 0, tasks_reserved: 0 });
+    await setPeriodStart(accountId, DAYS_70_AGO());
+
+    const { data } = await rpc("deduct_tasks_if_available", { p_account_id: accountId, p_amount: 5 }); // > fresh cap 3
+    expect(data.ok).toBe(false);
+    expect((await getAccountBilling(accountId)).tasks_used).toBe(0); // reset, not charged
+  });
+
+  it("rollover resets tasks_reserved too", async () => {
+    const userId = await personalAccountId(await createUser());
+    await setAccountBilling(userId, { tasks_limit: 10, tasks_used: 3, tasks_reserved: 2 });
+    await setPeriodStart(userId, DAYS_70_AGO());
+
+    const { data } = await rpc("deduct_tasks_if_available", { p_account_id: userId, p_amount: 1 });
+    expect(data.ok).toBe(true);
+    const ab = await getAccountBilling(userId);
+    expect(ab).toMatchObject({ tasks_used: 1, tasks_reserved: 0 }); // both reset, then +1 used
+  });
+
+  it("rollover NEVER overwrites a custom tasks_limit", async () => {
+    const userId = await personalAccountId(await createUser());
+    await setAccountBilling(userId, { tasks_limit: 777, tasks_used: 777, tasks_reserved: 0 }); // custom cap, exhausted
+    await setPeriodStart(userId, DAYS_70_AGO());
+
+    const { data } = await rpc("deduct_tasks_if_available", { p_account_id: userId, p_amount: 1 });
+    expect(data.ok).toBe(true);
+    expect(data.limit).toBe(777); // custom cap preserved
+    expect((await getAccountBilling(userId)).tasks_used).toBe(1);
+  });
+
+  it("reserve path rolls over too (resets reserved before the fresh reservation)", async () => {
+    const userId = await createUser();
+    const accountId = await personalAccountId(userId);
+    const wf = await seedWorkflow(userId, accountId);
+    await setAccountBilling(accountId, { tasks_limit: 10, tasks_used: 8, tasks_reserved: 2 }); // full last period
+    await setPeriodStart(accountId, DAYS_70_AGO());
+    const runId = await createRun(wf, userId, accountId);
+
+    const { data } = await rpc("reserve_tasks_if_available", { p_account_id: accountId, p_amount: 4, p_run_id: runId, p_expires_at: null });
+    expect(data.ok).toBe(true);
+    expect(data.reason).toBe("reserved");
+    // fresh period: used reset to 0, then 4 reserved.
+    expect(await getAccountBilling(accountId)).toMatchObject({ tasks_used: 0, tasks_reserved: 4 });
   });
 });
