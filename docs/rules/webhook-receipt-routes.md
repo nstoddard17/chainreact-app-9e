@@ -10,10 +10,10 @@ Define how V2 receives, verifies, normalizes, and dispatches incoming webhook ev
 - Each provider has thin modules at `integrations/<provider>/webhooks/receive.ts` (verify + parse, returns normalized events) and `integrations/<provider>/webhooks/normalize.ts` (pure transformation).
 - Thin route at `app/api/webhooks/<provider>/route.ts` (~30 lines) calls receive → for each event → normalize → dispatch.
 - **Two normalized event contracts (decided):**
-  - **Trigger webhooks** normalize to `contracts/triggerEvent.ts`. These feed `core/triggers/dispatch.ts` and enqueue workflow runs.
+  - **Trigger webhooks** normalize to `contracts/triggerEvent.ts`. These feed `services/triggers/dispatch.ts` and enqueue workflow runs.
   - **Billing / system webhooks (Stripe, etc.)** normalize to `contracts/billingEvent.ts` (or `contracts/providerEvent.ts` for non-billing system events that aren't workflow triggers). These feed billing services or other system orchestrators, NOT the trigger dispatcher.
   - The route → receive → normalize **pattern** is shared. The downstream **contract** and **dispatcher target** differ when the event is not a workflow trigger.
-- Trigger dispatcher in `core/triggers/dispatch.ts` is provider-agnostic and reads canonical `triggerEvent.ts` events. Provider-specific quirks end at `normalize.ts`.
+- Trigger dispatcher in `services/triggers/dispatch.ts` is provider-agnostic and reads canonical `triggerEvent.ts` events. Provider-specific quirks end at `normalize.ts`.
 - Idempotency dedup via Postgres table `webhook_event_dedup` keyed by `(provider, event_id)`, daily cleanup cron. Defer Redis migration.
 - Dedup outage policy: **fail-open** — dispatch and rely on Q4 session-side-effects idempotency further down the chain to prevent duplicate side effects.
 - Provider event-id field declared in the manifest. Where no stable id exists, manifest declares a deterministic-hash strategy.
@@ -61,10 +61,10 @@ Plus a thin route at `app/api/webhooks/<provider>/route.ts` (~30 lines):
 POST /api/webhooks/<provider>
   → integrations/<provider>/webhooks/receive.ts
   → for each normalized event:
-      → core/triggers/dispatch.ts  (find matching active workflows, enqueue runs)
+      → services/triggers/dispatch.ts  (find matching active workflows, enqueue runs)
 ```
 
-The dispatcher in `core/triggers/dispatch.ts` is provider-agnostic. It receives a canonical event, queries `trigger_resources` for active workflows whose triggers match the event's provider + type + filters, and enqueues runs through the execution service.
+The dispatcher in `services/triggers/dispatch.ts` is provider-agnostic. It receives a canonical event, queries `trigger_resources` for active workflows whose triggers match the event's provider + type + filters, and enqueues runs through the execution service.
 
 ## Single source of truth
 
@@ -74,7 +74,7 @@ The dispatcher in `core/triggers/dispatch.ts` is provider-agnostic. It receives 
   - `contracts/triggerEvent.ts` — Zod schema for workflow trigger events (`provider`, `eventType`, `eventId`, `occurredAt`, `payload`, `accountId`). Consumed by the trigger dispatcher.
   - `contracts/billingEvent.ts` — Zod schema for billing/system webhooks (Stripe). Consumed by billing services. Distinct from triggerEvent because the routing target differs.
   - Future-room: `contracts/providerEvent.ts` for non-billing system events (e.g. provider connection-changed signals from a webhook). Slice 1 ships only the first two.
-- Trigger dispatch: `core/triggers/dispatch.ts` — looks up active workflows, deduplicates, enqueues runs.
+- Trigger dispatch: `services/triggers/dispatch.ts` — looks up active workflows, deduplicates, enqueues runs.
 - Idempotency dedup: a Postgres table `webhook_event_dedup` keyed by `(provider, eventId)` with TTL (or a Redis equivalent if added). The dedup field per provider is declared in the manifest.
 
 ## Allowed flows
@@ -89,7 +89,7 @@ The dispatcher in `core/triggers/dispatch.ts` is provider-agnostic. It receives 
 
 - Verification logic inline in the route file. Always in `receive.ts`.
 - Normalization logic mixed with HTTP handling. Always in `normalize.ts`, pure.
-- Trigger lookup inside the webhook route or in `receive.ts`. Always in `core/triggers/dispatch.ts`.
+- Trigger lookup inside the webhook route or in `receive.ts`. Always in `services/triggers/dispatch.ts`.
 - Provider-specific quirks leaking into the dispatcher. The dispatcher reads the canonical event; provider differences end at `normalize.ts`.
 - Synchronous execution from inside the webhook handler. Webhook routes enqueue and return; execution runs asynchronously.
 - Dropping verification because "the request is signed by Cloudflare" or any other shortcut. Verify the provider's signature against the provider's secret. Always.
@@ -129,7 +129,7 @@ Unit tests in `tests/unit/integrations/<p>/webhooks/`:
    - Future non-billing system webhooks validate against `contracts/providerEvent.ts` if introduced.
 9. `normalize` is pure: same input → same output, no side effects.
 
-Unit tests in `tests/unit/core/triggers/dispatch.test.ts`:
+Unit tests in `tests/unit/services/triggers/dispatch.test.ts`:
 
 10. Dispatcher matches event to active workflow with matching trigger config.
 11. Dispatcher does not match disabled / paused / draft workflows.
