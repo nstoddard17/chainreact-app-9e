@@ -32,7 +32,28 @@ jest.mock("@/repositories/accountMemberships", () => ({
   isMember: (...args: unknown[]) => mockIsMember(...args),
 }));
 
+// Active-edit stale-trigger fix: a trigger change on an active workflow deactivates it via
+// the existing orchestrator. Mock the factory so the test asserts the disable call without
+// standing up the trigger registry. (triggerChanged itself runs for real — it's pure.)
+const mockDisable = jest.fn();
+jest.mock("@/services/workflows/orchestratorFactory", () => ({
+  createLifecycleOrchestrator: () => ({ disable: (...a: unknown[]) => mockDisable(...a) }),
+}));
+
 import { GET, PATCH } from "@/app/api/workflows/[id]/route";
+
+const slackTrigger = {
+  id: "t1",
+  kind: "trigger",
+  provider: "slack",
+  type: "message_received",
+  config: { channel: "C1" },
+  position: { x: 0, y: 0 },
+};
+const defWith = (over: Partial<typeof slackTrigger> = {}) => ({
+  nodes: [{ ...slackTrigger, ...over }],
+  edges: [],
+});
 
 const baseRecord = {
   id: "wf-1",
@@ -54,6 +75,7 @@ beforeEach(() => {
   mockGetById.mockReset();
   mockUpdateName.mockReset();
   mockUpdateDraftDefinition.mockReset();
+  mockDisable.mockReset();
   // Default: caller is a member of the workflow's account. The cross-account
   // tests override this to false.
   mockIsMember.mockReset();
@@ -287,5 +309,123 @@ describe("PATCH /api/workflows/[id]", () => {
     expect(res.status).toBe(200);
     expect(mockUpdateName).toHaveBeenCalledWith("wf-1", "Renamed");
     expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", validDef);
+  });
+});
+
+describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation", () => {
+  function patchRequest(body: unknown): Request {
+    return new Request("http://x/wf-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+  const params = { params: Promise.resolve({ id: "wf-1" }) };
+  // An ACTIVE workflow whose previous draft has a Slack trigger on channel C1.
+  const activeRecord = { ...baseRecord, state: "active" as const, draftDefinition: defWith() };
+
+  it("active + trigger CONFIG change → writes draft then disables (reason/context); response is disabled, no id leak", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce(activeRecord);
+    const newDef = defWith({ config: { channel: "C2" } });
+    mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
+    mockDisable.mockResolvedValueOnce({
+      ...activeRecord,
+      state: "disabled",
+      disabledReason: "manual_admin",
+      disabledContext: "Trigger changed — reconnect and reactivate.",
+      draftDefinition: newDef,
+    });
+
+    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    expect(res.status).toBe(200);
+    // Draft written BEFORE disable.
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", newDef);
+    expect(mockDisable).toHaveBeenCalledWith({
+      workflowId: "wf-1",
+      reason: "manual_admin",
+      context: "Trigger changed — reconnect and reactivate.",
+    });
+    const body = await res.json();
+    expect(body.state).toBe("disabled");
+    // toWorkflowDetail must not surface account / creator ids.
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain("acct-user-1");
+    expect(body).not.toHaveProperty("accountId");
+    expect(body).not.toHaveProperty("createdByUserId");
+  });
+
+  it("active + trigger PROVIDER change → disables", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce(activeRecord);
+    const newDef = defWith({ provider: "gmail", type: "new_email" });
+    mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
+    mockDisable.mockResolvedValueOnce({ ...activeRecord, state: "disabled", draftDefinition: newDef });
+    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    expect(res.status).toBe(200);
+    expect(mockDisable).toHaveBeenCalledTimes(1);
+  });
+
+  it("active + trigger REMOVED → disables", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce(activeRecord);
+    const newDef = { nodes: [], edges: [] };
+    mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
+    mockDisable.mockResolvedValueOnce({ ...activeRecord, state: "disabled", draftDefinition: newDef });
+    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    expect(res.status).toBe(200);
+    expect(mockDisable).toHaveBeenCalledTimes(1);
+  });
+
+  it("active + ACTION-ONLY change (trigger untouched) → stays active, NO disable", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce(activeRecord);
+    // Same trigger, plus a new action node.
+    const newDef = {
+      nodes: [
+        { ...slackTrigger },
+        { id: "a1", kind: "action", provider: "slack", type: "post_message", config: { text: "hi" }, position: { x: 0, y: 120 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    };
+    mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
+    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    expect(res.status).toBe(200);
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect((await res.json()).state).toBe("active");
+  });
+
+  it.each(["draft", "paused", "disabled", "eligible_to_resume"] as const)(
+    "%s + trigger change → NO disable (not actively dispatching)",
+    async (state) => {
+      authedUser();
+      mockGetById.mockResolvedValueOnce({ ...baseRecord, state, draftDefinition: defWith() });
+      const newDef = defWith({ config: { channel: "C2" } });
+      mockUpdateDraftDefinition.mockResolvedValueOnce({ ...baseRecord, state, draftDefinition: newDef });
+      const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+      expect(res.status).toBe(200);
+      expect(mockDisable).not.toHaveBeenCalled();
+    },
+  );
+
+  it("non-member with a trigger change → 404, NO write, NO disable", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce({ ...activeRecord, accountId: "acct-team-B" });
+    mockIsMember.mockResolvedValueOnce(false);
+    const res = await PATCH(patchRequest({ draftDefinition: defWith({ config: { channel: "C2" } }) }), params);
+    expect(res.status).toBe(404);
+    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
+  });
+
+  it("invalid definition on an active workflow → 400, NO write, NO disable", async () => {
+    authedUser();
+    // Two triggers → fails WorkflowDefinitionSchema at parse, before any load/write.
+    const invalid = { nodes: [{ ...slackTrigger }, { ...slackTrigger, id: "t2" }], edges: [] };
+    const res = await PATCH(patchRequest({ draftDefinition: invalid }), params);
+    expect(res.status).toBe(400);
+    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,7 @@
 import { create } from "zustand";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
-import type {
-  WorkflowDefinition,
-  WorkflowEdge,
-  WorkflowNode,
-} from "@/contracts/workflow";
+import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
 import {
   WorkflowApiError,
@@ -158,7 +154,9 @@ export interface GraphSliceActions {
    * slice state. Never throws.
    */
   deleteNodeAndRewire(nodeId: string): DeleteNodeOutcome;
-  save(): Promise<void>;
+  /** Persist the pending graph → updated detail (callers react to server-side lifecycle
+   * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
+  save(): Promise<WorkflowDetail | undefined>;
 }
 
 /**
@@ -593,6 +591,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
           : { isDirty: true }),
         isSaving: false,
       });
+      return updated;
     } catch (err) {
       const message =
         err instanceof WorkflowApiError ? err.message : "Failed to save workflow.";

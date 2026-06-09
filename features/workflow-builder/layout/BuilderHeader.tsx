@@ -82,6 +82,7 @@ export function BuilderHeader({
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const router = useRouter();
 
   const validationCounts = validation
     ? countBuilderValidationIssues(
@@ -92,12 +93,18 @@ export function BuilderHeader({
   const handleSave = useCallback(async () => {
     if (!isDirty || isSaving) return;
     try {
-      await save();
+      const updated = await save();
       setSavedAt(Date.now());
+      // A trigger edit on an ACTIVE workflow deactivates it server-side. The lifecycle
+      // state is a server prop, so refresh to surface the disabled banner + Reactivate
+      // when the save changed it. Non-trigger edits leave the state unchanged → no refresh.
+      if (updated && lifecycle && updated.state !== lifecycle.state) {
+        router.refresh();
+      }
     } catch {
       // Error already captured into slice.saveError; no extra UI work here.
     }
-  }, [isDirty, isSaving, save]);
+  }, [isDirty, isSaving, save, router, lifecycle]);
 
   useBuilderShortcuts({ onSave: handleSave });
 

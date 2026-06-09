@@ -13,7 +13,7 @@
  * file targets the header surface in isolation: status pill states, save
  * button accessibility, and the Cmd+S keyboard wiring.
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateWorkflow = jest.fn();
@@ -29,10 +29,11 @@ jest.mock("@/lib/api/workflows", () => {
 // `useRouter().push("/workflows")`. Override the global jest.setup default
 // so the test can assert on the navigation target.
 const mockPush = jest.fn();
+const mockRefresh = jest.fn();
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
-    refresh: jest.fn(),
+    refresh: mockRefresh,
     replace: jest.fn(),
     back: jest.fn(),
     forward: jest.fn(),
@@ -57,6 +58,7 @@ import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
   mockPush.mockReset();
+  mockRefresh.mockReset();
   useGraphSlice.getState().reset();
   useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
 });
@@ -343,6 +345,40 @@ describe("BuilderHeader — Templates entry point (CS-XT-IN-BUILDER)", () => {
     expect(screen.queryByTestId("builder-templates-modal")).toBeNull();
     await user.click(screen.getByTestId("builder-header-templates-button"));
     expect(await screen.findByTestId("builder-templates-modal")).toBeInTheDocument();
+  });
+});
+
+describe("BuilderHeader — save that deactivates (active-edit trigger change)", () => {
+  function disabledDetail() {
+    return {
+      id: "wf-1", name: "x", state: "disabled",
+      disabledReason: "manual_admin", disabledContext: "Trigger changed — reconnect and reactivate.",
+      activeRevisionId: null, draftDefinition: { nodes: [], edges: [] },
+      deletedAt: null, createdAt: "2026-05-25T00:00:00Z", updatedAt: "2026-05-25T01:00:00Z",
+    };
+  }
+
+  it("refreshes the route when the save response state differs from the active lifecycle state", async () => {
+    const user = userEvent.setup();
+    mockUpdateWorkflow.mockResolvedValueOnce(disabledDetail());
+    render(<BuilderHeader workflowName="x" workflowId="wf-1" lifecycle={{ workflowId: "wf-1", state: "active" }} />);
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+    });
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("does NOT refresh when the save leaves the lifecycle state unchanged (active stays active)", async () => {
+    const user = userEvent.setup();
+    mockUpdateWorkflow.mockResolvedValueOnce({ ...disabledDetail(), state: "active", disabledReason: null, disabledContext: null });
+    render(<BuilderHeader workflowName="x" workflowId="wf-1" lifecycle={{ workflowId: "wf-1", state: "active" }} />);
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+    });
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(mockUpdateWorkflow).toHaveBeenCalled());
+    expect(mockRefresh).not.toHaveBeenCalled();
   });
 });
 
