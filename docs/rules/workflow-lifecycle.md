@@ -17,7 +17,7 @@ Define every state a workflow can be in, every allowed transition between states
   - `eligible_to_resume` does NOT auto-restore trigger registration. User explicitly resumes; resumption re-registers the trigger.
 - `eligible_to_resume` is a distinct state, not an attribute of `disabled`.
 - **Soft-delete is the `deleted` lifecycle state itself**, not a separate `is_deleted` flag. `workflows.state = 'deleted'` is the canonical marker. `workflows.deleted_at` (timestamp) records when. A retention policy hard-deletes the row after the 30-day undelete window. UI hides `state = 'deleted'` workflows by default. Run history is retained through the soft-delete window.
-- Manual-only workflows (no trigger): activation skips trigger registration but runs precondition checks.
+- **Manual-trigger workflows** carry a native `manual.run` trigger node (meta `activation: "manual"`). It needs no integration and is **not activatable**: it fires only via `POST /api/workflows/[id]/run-now`, which reads `draftDefinition` and bypasses trigger registration + dispatch entirely. Activation/resume register **no** `trigger_resources` row for it; action-only workflows (zero trigger nodes) likewise register nothing. Precondition checks still run. See "Manual vs activatable triggers" below.
 - `disabled_reason` is a typed enum (`integration_revoked`, `billing_exhausted`, `repeated_failure`, `manual_admin`) plus optional context string.
 - Failed trigger registration during activation: retry once with short backoff inside the orchestrator; longer retries belong to a separate cron path.
 - In-flight runs during pause/disable: V2 follows V1 — let the run finish; pause/disable means "no new runs."
@@ -30,8 +30,10 @@ Define every state a workflow can be in, every allowed transition between states
   - Examples: Slack trigger + Slack action with Slack disconnected → disabled. Slack trigger + Gmail action with Gmail disconnected → disabled. Slack trigger + Gmail action with an unrelated Notion integration disconnecting → remains active. Disabled workflow's Gmail reconnects but Slack is now disconnected too → remains disabled (or resume fails); never silently active.
 
 **Deferred decisions:**
-- **Versioning model details:** publish creates an immutable revision; lifecycle state is on the workflow, not the revision; the `active_revision_id` column points at the running version. Pattern is clear; implementation details (revision storage, diff display, rollback UX) finalized during workflow CRUD / revision work.
+- **Versioning model details:** publish creates an immutable revision; lifecycle state is on the workflow, not the revision; the `active_revision_id` column points at the running version. Pattern is clear; implementation details (revision storage, diff display, rollback UX) finalized during workflow CRUD / revision work. **This `publish` / `active_revision` model remains the long-term durable fix for active-edit safety** — until it lands, the active-edit deactivation below ("Trigger-changing saves & template replace") is the interim guard.
 - When/whether to add `archived` later.
+- **No dedicated manual/"ready" lifecycle state.** Manual-trigger workflows use the normal states and are simply runnable via run-now in `{active, paused, draft}`. Not adding a new state.
+- **No inert-row backfill migration.** Pre-existing `native:manual.run` `trigger_resources` rows (written before activation stopped creating them) are harmless, never read, and clear on the next deactivate/delete.
 
 **Decisions requiring product-owner input:**
 - None for Slice 1. (Multi-integration disable cascade is now locked above.)
@@ -101,7 +103,7 @@ UI reads derived state via selectors (e.g. `isExecutable(workflow)`, `displaySta
 
 | From → To | Trigger | Preconditions | Side effects |
 |---|---|---|---|
-| `draft` → `active` | `activate(id)` | All required fields filled. Connected integration healthy. Trigger registration succeeds. | Register trigger; emit health-engine signal; first revision published. |
+| `draft` → `active` | `activate(id)` | All required fields filled. Connected integration healthy. Trigger registration succeeds. | Register **activatable** triggers (webhook / polling / scheduled); the `manual.run` trigger registers nothing. Emit health-engine signal; first revision published. |
 | `active` → `paused` | `pause(id)` (user) | None. | Stop dispatch (in-flight runs complete); retain trigger registration. |
 | `paused` → `active` | `resume(id)` (user) | Connected integration healthy. | Resume dispatch. |
 | `active` → `disabled` | `disable(id, reason)` | None — system-initiated. | Unregister trigger (best-effort — provider-side deregistration may fail or lag); stop dispatch; emit notification. Webhook dispatcher must independently guard against disabled workflows for any leftover provider deliveries. |
@@ -113,6 +115,50 @@ UI reads derived state via selectors (e.g. `isExecutable(workflow)`, `displaySta
 | `draft` → `deleted` | `delete(id)` | User confirms. | No trigger unregistration needed (drafts have no registration). Soft-delete: `state = 'deleted'`, `deleted_at = now`. |
 | `active` / `paused` / `disabled` / `eligible_to_resume` → `deleted` | `delete(id)` | User confirms. | Best-effort trigger unregistration; cascade related rows; retain run history. Soft-delete: `state = 'deleted'`, `deleted_at = now`. |
 | `deleted` → (terminal) | n/a | `deleted` is terminal from the product UI unless an explicit undelete flow is added during the 30-day window. After the retention period, the row is hard-deleted by the retention policy. | n/a |
+
+## Manual vs activatable triggers
+
+Trigger nodes split into two classes by their meta `activation` field (resolved via
+`getTriggerMeta` in [`services/discovery/_registry.ts`](../../services/discovery/_registry.ts)):
+
+- **Activatable** — `webhook` / `polling` / `scheduled`. Activation/resume register a
+  `trigger_resources` row (plus any provider-side subscription) that the webhook dispatcher / polling
+  cron reads; disable/delete tear them down.
+- **Manual** — the native `manual.run` trigger (`activation: "manual"`). Needs no integration,
+  registers **nothing**, and has no dispatch path: runs start only via
+  `POST /api/workflows/[id]/run-now`, which reads `draftDefinition` and bypasses `trigger_resources`
+  + `dispatchTriggerEvent`. run-now is allowed for state ∈ `{active, paused, draft}`.
+
+The canonical classifier is `getTriggerMeta("provider:type")?.activation !== "manual"`. **Unknown
+trigger metadata is treated fail-safe as activatable** (assume it registers something). Pre-existing
+inert `manual.run` `trigger_resources` rows are harmless (never read) and clear on the next
+deactivate/delete.
+
+## Trigger-changing saves & template replace
+
+The shared save path ([`services/workflows/saveDraftDefinition.ts`](../../services/workflows/saveDraftDefinition.ts),
+used by both `PATCH /api/workflows/[id]` and AI-apply) deactivates an **`active`** workflow only when
+the set of **activatable** triggers changes — so a stale external registration is never left pointing
+at an old node id / filter. The workflow lands `disabled` (reason `manual_admin`) and recovers via
+**Reactivate → Resume**.
+
+| Edit on an `active` workflow | Deactivates? | Disabled context |
+|---|---|---|
+| Activatable trigger added / removed / id / provider / type / config change | **Yes** | "Trigger changed — reconnect and reactivate." |
+| External → manual-only (`manual.run`) | **Yes** (tears down the old external listener) | manual-specific: "…now runs manually — nothing to reconnect." |
+| `manual.run` ↔ `manual.run` config edit | **No** | — |
+| Action / label / layout / edge-only edit | **No** | — |
+| Null / stale (no-op) write | **No** | — |
+
+**Template replace** of an `active` workflow is itself a trigger-changing operation: it deactivates
+the same way (behind a stronger confirmation). Recovery is again Reactivate → Resume.
+
+Recovery is the standard two-step model: **Reactivate** moves `disabled → eligible_to_resume`;
+**Resume** re-runs activation preconditions and re-registers the activatable triggers off the current
+draft — never silently re-activating if a precondition still fails.
+
+Historical arc detail:
+[manual-trigger-lifecycle-closeout.md](../slices/phase-4/workflows/manual-trigger-lifecycle-closeout.md).
 
 ## Disallowed behavior
 
@@ -131,7 +177,7 @@ UI reads derived state via selectors (e.g. `isExecutable(workflow)`, `displaySta
 - **Disable cascade:** integration `slack-conn-123` is revoked → orchestrator finds all workflows using it → calls `disable(id, 'integration_revoked')` for each. Workflows using *other* integrations are unaffected.
 - **Pause during active run:** the in-flight execution completes (or is killed at the next-step boundary, depending on retry-resume design). No new runs are dispatched.
 - **Disable during active run:** same as pause for in-flight runs. The workflow does not auto-resume after the run completes; it stays disabled.
-- **Manual-only workflows (no trigger):** activation skips trigger registration but still runs the precondition checks. Lifecycle state is identical; the difference is in execution dispatch.
+- **Manual-trigger / action-only workflows:** a `manual.run` trigger (or zero trigger nodes) registers nothing on activation — `manual.run` is not activatable and runs via run-now, which bypasses dispatch. Precondition checks still run; lifecycle state is identical to any other workflow. Editing a `manual.run` trigger on an `active` workflow does NOT deactivate it (see "Trigger-changing saves & template replace").
 - **Workflow with multiple triggers (future):** activation must register all triggers; partial failure rolls back all.
 - **Versioned workflows / revisions:** lifecycle state is per workflow, not per revision. Activation publishes a revision; revisions are immutable; the workflow points at the active revision.
 - **Soft-deleted workflow with active triggers:** deletion unregisters triggers. A "deleted" workflow can never receive an event.
@@ -152,7 +198,7 @@ Unit tests in `tests/unit/core/workflows/lifecycle.test.ts`:
 7. Lifecycle transitions are idempotent at the API boundary (calling `pause` on an already-paused workflow is a no-op or a typed error, not a state corruption).
 8. Concurrent transitions on the same workflow serialize via lock.
 9. Q5 invariant: a workflow with `null` integration field never transitions to active (precondition fails).
-10. Manual-only workflow: activation skips trigger registration but runs precondition checks.
+10. Manual-trigger / action-only workflow: activation registers nothing (`manual.run` is not activatable) but still runs precondition checks.
 
 Integration tests in `tests/integration/lifecycle/`:
 
@@ -175,7 +221,7 @@ Parity test in `tests/parity/`:
 - The `eligible_to_resume` concept — users explicitly resume disabled workflows after reconnection.
 - Per-integration disable cascade (don't disable unrelated workflows).
 - Run history retention through deletion.
-- Manual-only workflow activation (no trigger required).
+- Manual-trigger workflow activation (the `manual.run` trigger needs no integration and registers nothing).
 
 ## V1 behavior to drop
 
