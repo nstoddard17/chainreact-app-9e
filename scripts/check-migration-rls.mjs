@@ -77,17 +77,77 @@ for (const file of files) {
   }
 }
 
+// ── GRANT coverage (Supabase Data API, Oct 30 2026 cutover) ──────────────────
+// Per docs/rules/database-security.md: after Supabase removes implicit Data API
+// grants on public-schema tables, any table WITHOUT explicit GRANTs returns
+// `42501` to PostgREST / supabase-js / GraphQL. RLS still gates ROWS; a GRANT
+// only lets the role TOUCH the table.
+//
+// Rule: every `CREATE TABLE public.<x>` must have at least one explicit
+// `GRANT … ON public.<x> … TO <role>` somewhere in the migration set (the grant
+// may live in a later corrective/backfill migration, so this check is
+// corpus-wide, NOT same-file like the RLS check above).
+//
+// We require *coverage*, not a specific role: the authenticated-vs-service_role
+// split per table is an intentional design choice — e.g. `account_api_keys` is
+// deliberately service_role-only at the Data API layer (clients never read key
+// hashes directly), and the `oauth_states` / `webhook_event_dedup` / `hubspot_*`
+// system tables are service_role-only. Function grants (`GRANT EXECUTE ON
+// FUNCTION …`) are not table grants and are ignored.
+const createdTables = new Map(); // table -> first migration file that creates it
+const grantedTables = new Set();
+const droppedTables = new Set(); // tables a later migration removed (skip the GRANT check)
+for (const file of files) {
+  const sql = readFileSync(join(MIGRATIONS, file), "utf8");
+  for (const m of sql.matchAll(
+    /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?public\.(\w+)/gi,
+  )) {
+    const t = m[1].toLowerCase();
+    if (!createdTables.has(t)) createdTables.set(t, file);
+  }
+  // Line-anchored so commented `-- … DROP TABLE …` rollback notes don't count.
+  for (const d of sql.matchAll(
+    /^[ \t]*DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?public\.(\w+)/gim,
+  )) {
+    droppedTables.add(d[1].toLowerCase());
+  }
+  // Match each GRANT statement (GRANT … ;) — statements may wrap across lines,
+  // so scan per-statement rather than per-line. Anchor to line start so the
+  // word "GRANT" inside `--` comments can't spawn phantom matches.
+  for (const stmt of sql.matchAll(/^[ \t]*GRANT\b[\s\S]*?;/gim)) {
+    const st = stmt[0];
+    if (/\bON\s+FUNCTION\b/i.test(st)) continue; // GRANT EXECUTE ON FUNCTION …
+    const g = st.match(/\bON\s+public\.(\w+)\b/i);
+    if (g && /\bTO\b/i.test(st)) grantedTables.add(g[1].toLowerCase());
+  }
+}
+for (const table of droppedTables) createdTables.delete(table); // dropped → no longer needs a grant
+for (const [table, file] of createdTables) {
+  if (!grantedTables.has(table)) {
+    console.error(
+      `MIGRATION-GRANT VIOLATION: ${file} creates public.${table} but no migration GRANTs it to a Data API role.`,
+    );
+    console.error(
+      `  Add: GRANT <privs> ON public.${table} TO authenticated;  (RLS-gated — match the table's policies)`,
+    );
+    console.error(
+      `   and GRANT SELECT, INSERT, UPDATE, DELETE ON public.${table} TO service_role;  (or service_role-only for internal tables)`,
+    );
+    violations += 1;
+  }
+}
+
 if (violations > 0) {
   console.error(
-    `\n${violations} migration RLS violation(s). See docs/rules/database-security.md.`,
+    `\n${violations} migration RLS/GRANT violation(s). See docs/rules/database-security.md.`,
   );
   console.error(
-    `Either add policies, or mark the table system-only with a header comment:`,
+    `Either add policies/GRANTs, or mark the table system-only with a header comment:`,
   );
   console.error(`  -- system-table: <table_name> — <reason>`);
   process.exit(1);
 }
 
 console.log(
-  "OK — every migration that creates a user-data table enables RLS + has at least one policy.",
+  "OK — every migration that creates a user-data table enables RLS + has at least one policy, and every created table has explicit Data API GRANTs.",
 );
