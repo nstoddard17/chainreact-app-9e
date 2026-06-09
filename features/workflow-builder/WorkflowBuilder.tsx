@@ -14,6 +14,7 @@ import { BuilderLeftAgentRail } from "./layout/BuilderLeftAgentRail";
 import { BuilderRightDrawer } from "./layout/BuilderRightDrawer";
 import { BuilderShell } from "./layout/BuilderShell";
 import { ActiveAccountMismatchBanner } from "./layout/ActiveAccountMismatchBanner";
+import { WorkflowDisabledBanner } from "./layout/WorkflowDisabledBanner";
 import {
   AddNodePanel,
   type AddNodePanelMode,
@@ -262,7 +263,16 @@ export function WorkflowBuilder({
           lifecycle={{ workflowId: workflow.id, state: workflow.state }}
         />
       }
-      banner={<ActiveAccountMismatchBanner />}
+      banner={
+        <>
+          <ActiveAccountMismatchBanner />
+          <WorkflowDisabledBanner
+            state={workflow.state}
+            disabledReason={workflow.disabledReason}
+            disabledContext={workflow.disabledContext}
+          />
+        </>
+      }
       leftRail={
         <BuilderLeftAgentRail
           isCollapsed={leftRail.isCollapsed}

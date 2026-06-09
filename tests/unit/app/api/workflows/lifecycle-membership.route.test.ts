@@ -34,17 +34,20 @@ jest.mock("@/repositories/accountMemberships", () => ({
 const mockPause = jest.fn();
 const mockResume = jest.fn();
 const mockDisable = jest.fn();
+const mockMarkEligible = jest.fn();
 jest.mock("@/services/workflows/orchestratorFactory", () => ({
   createLifecycleOrchestrator: () => ({
     pause: mockPause,
     resume: mockResume,
     disable: mockDisable,
+    markEligibleToResume: mockMarkEligible,
   }),
 }));
 
 import { POST as PAUSE } from "@/app/api/workflows/[id]/pause/route";
 import { POST as RESUME } from "@/app/api/workflows/[id]/resume/route";
 import { POST as DISABLE } from "@/app/api/workflows/[id]/disable/route";
+import { POST as REACTIVATE } from "@/app/api/workflows/[id]/reactivate/route";
 
 const baseRecord = {
   id: "wf-1",
@@ -76,6 +79,7 @@ beforeEach(() => {
   mockPause.mockReset();
   mockResume.mockReset();
   mockDisable.mockReset();
+  mockMarkEligible.mockReset();
 });
 
 const disableReq = () =>
@@ -120,6 +124,16 @@ describe("lifecycle routes — membership authorization (TW-1)", () => {
       expect(res.status).toBe(404);
       expect(mockDisable).not.toHaveBeenCalled();
     });
+
+    it("reactivate", async () => {
+      authedAs("user-1");
+      mockGetById.mockResolvedValueOnce({ ...baseRecord, accountId: "acct-team-B" });
+      mockIsMember.mockResolvedValueOnce(false);
+      const res = await REACTIVATE(emptyReq(), params);
+      expect(res.status).toBe(404);
+      expect((await res.json()).code).toBe("WORKFLOW_NOT_FOUND");
+      expect(mockMarkEligible).not.toHaveBeenCalled();
+    });
   });
 
   describe("member proceeds to the orchestrator", () => {
@@ -155,6 +169,40 @@ describe("lifecycle routes — membership authorization (TW-1)", () => {
         expect.objectContaining({ workflowId: "wf-1", reason: "manual_admin" }),
       );
     });
+
+    it("reactivate → markEligibleToResume, returns eligible_to_resume, no id leak", async () => {
+      authedAs("member-2");
+      mockGetById.mockResolvedValueOnce({ ...baseRecord, state: "disabled" });
+      mockIsMember.mockResolvedValueOnce(true);
+      mockMarkEligible.mockResolvedValueOnce(summaryRecord("eligible_to_resume"));
+      const res = await REACTIVATE(emptyReq(), params);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.state).toBe("eligible_to_resume");
+      expect(mockMarkEligible).toHaveBeenCalledWith("wf-1");
+      // Summary DTO never surfaces account / creator ids.
+      const raw = JSON.stringify(body);
+      expect(raw).not.toContain("acct-team-A");
+      expect(raw).not.toContain("owner-1");
+      expect(body).not.toHaveProperty("accountId");
+      expect(body).not.toHaveProperty("createdByUserId");
+    });
+  });
+
+  it("reactivate on a non-disabled workflow → typed 409 INVALID_TRANSITION (no raw detail leak)", async () => {
+    authedAs("member-2");
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, state: "active" });
+    mockIsMember.mockResolvedValueOnce(true);
+    const { LifecycleError } = await import("@/core/workflows/lifecycle");
+    mockMarkEligible.mockRejectedValueOnce(
+      new LifecycleError("INVALID_TRANSITION", "Cannot reactivate from active.", {
+        from: "active",
+        transition: "markEligibleToResume",
+      }),
+    );
+    const res = await REACTIVATE(emptyReq(), params);
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("INVALID_TRANSITION");
   });
 
   it("a missing workflow defers to the orchestrator (membership check skipped)", async () => {

@@ -390,6 +390,18 @@ export async function disableWorkflow(
   );
 }
 
+/**
+ * Recover a DISABLED workflow: `disabled -> eligible_to_resume` (the existing
+ * `markEligibleToResume` transition). The caller then uses the normal Resume flow to go
+ * live, which runs activation preconditions + re-registers triggers off the current draft.
+ */
+export async function reactivateWorkflow(id: string): Promise<WorkflowSummary> {
+  return postJson<WorkflowSummary>(
+    `/api/workflows/${encodeURIComponent(id)}/reactivate`,
+    undefined,
+  );
+}
+
 export interface RunNowRequest {
   /** Key/value bag delivered to the workflow as `{{trigger.inputs.*}}`. */
   inputs?: Record<string, unknown>;

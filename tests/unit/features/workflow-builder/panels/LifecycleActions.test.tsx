@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 const mockActivate = jest.fn();
 const mockPause = jest.fn();
 const mockResume = jest.fn();
+const mockReactivate = jest.fn();
 const mockRefresh = jest.fn();
 
 jest.mock("@/lib/api/workflows", () => {
@@ -19,6 +20,7 @@ jest.mock("@/lib/api/workflows", () => {
     activateWorkflow: (...args: unknown[]) => mockActivate(...args),
     pauseWorkflow: (...args: unknown[]) => mockPause(...args),
     resumeWorkflow: (...args: unknown[]) => mockResume(...args),
+    reactivateWorkflow: (...args: unknown[]) => mockReactivate(...args),
   };
 });
 
@@ -37,6 +39,7 @@ beforeEach(() => {
   mockActivate.mockReset();
   mockPause.mockReset();
   mockResume.mockReset();
+  mockReactivate.mockReset();
   mockRefresh.mockReset();
   useGraphSlice.getState().reset();
   useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
@@ -64,11 +67,11 @@ describe("LifecycleActions — per-state action set", () => {
     expect(screen.getByRole("button", { name: /resume/i })).toBeInTheDocument();
   });
 
-  it("renders nothing when state is disabled (system-controlled)", () => {
-    const { container } = render(
-      <LifecycleActions workflowId="wf-1" state="disabled" />,
-    );
-    expect(container).toBeEmptyDOMElement();
+  it("shows Reactivate when state is disabled (recovery via markEligibleToResume → Resume)", () => {
+    render(<LifecycleActions workflowId="wf-1" state="disabled" />);
+    expect(screen.getByRole("button", { name: /reactivate/i })).toBeInTheDocument();
+    // Not a direct activate/resume — those appear only after the workflow is eligible.
+    expect(screen.queryByRole("button", { name: /^activate$|^resume$|^pause$/i })).toBeNull();
   });
 });
 
@@ -106,6 +109,18 @@ describe("LifecycleActions — interactions", () => {
     await waitFor(() => {
       expect(mockPause).toHaveBeenCalledWith("wf-1");
     });
+  });
+
+  it("calls reactivateWorkflow and refreshes when disabled (recovery handoff to Resume)", async () => {
+    mockReactivate.mockResolvedValueOnce({ id: "wf-1", state: "eligible_to_resume" });
+    const user = userEvent.setup();
+    render(<LifecycleActions workflowId="wf-1" state="disabled" />);
+    await user.click(screen.getByRole("button", { name: /reactivate/i }));
+    await waitFor(() => {
+      expect(mockReactivate).toHaveBeenCalledWith("wf-1");
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+    expect(mockActivate).not.toHaveBeenCalled();
   });
 
   it("surfaces a WorkflowApiError message inline; does NOT refresh", async () => {

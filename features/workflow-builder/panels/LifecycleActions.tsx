@@ -8,6 +8,7 @@ import {
   activateWorkflow,
   isConfirmationRequiredError,
   pauseWorkflow,
+  reactivateWorkflow,
   resumeWorkflow,
   type WorkflowConfirmationRequiredDetail,
 } from "@/lib/api/workflows";
@@ -19,7 +20,7 @@ interface Props {
   state: WorkflowState;
 }
 
-type ActionKind = "activate" | "pause" | "resume";
+type ActionKind = "activate" | "pause" | "resume" | "reactivate";
 
 interface Action {
   kind: ActionKind;
@@ -38,9 +39,11 @@ function actionsForState(state: WorkflowState): readonly Action[] {
     case "eligible_to_resume":
       return [{ kind: "resume", label: "Resume", variant: "primary" }];
     case "disabled":
-      // System-disabled workflows surface a reconnect path elsewhere
-      // (Slice 1J+ wires that to the integrations page).
-      return [];
+      // Recover a disabled workflow: "Reactivate" runs the markEligibleToResume
+      // transition (disabled -> eligible_to_resume); the Resume action that then
+      // appears runs activation preconditions + re-registers triggers off the
+      // current draft. The reconnect path lives on the node config / integrations.
+      return [{ kind: "reactivate", label: "Reactivate", variant: "primary" }];
     case "deleted":
       return [];
   }
@@ -86,6 +89,10 @@ export function LifecycleActions({ workflowId, state }: Props) {
     }
     if (kind === "pause") {
       await pauseWorkflow(workflowId);
+      return;
+    }
+    if (kind === "reactivate") {
+      await reactivateWorkflow(workflowId);
       return;
     }
     await resumeWorkflow(workflowId);
