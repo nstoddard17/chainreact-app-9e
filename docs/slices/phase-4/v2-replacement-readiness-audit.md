@@ -15,6 +15,21 @@ live-test end-to-end?*
 > `db:push`.** `check-migration-rls.mjs` now enforces GRANT coverage (DROP-aware), so the gap can't
 > recur. Mentions of "10 tables" below are kept for historical accuracy and annotated.
 
+> **PRODUCT DECISION (2026-06-08, Marcus): live provider/connection readiness is deferred to the
+> live-validation phase — it is NOT a local build blocker.** Work that *requires external provider
+> setup* — live OAuth round-trips, live webhook delivery, live Stripe checkout/webhook round-trips,
+> provider app-credential / redirect-URI registration, and per-provider live testing — **happens after
+> the V1 → V2 switch path is ready**, not before. These items remain in the risk register below
+> (§D / §E) and are **still required before full public/live validation** — they are NOT downgraded in
+> importance, only **re-sequenced** out of the immediate local-readiness queue. The §D "Hard blockers"
+> list is therefore retitled **"Required before full live/public validation (post-switch)."** The one
+> exception: any sub-part of these that can be **proven fully locally without external provider setup**
+> (e.g. *that the OAuth write path encrypts before persisting*, *that RLS predicates deny cross-account
+> reads against a local Supabase*, *that webhook normalize/dedup logic is pure and idempotent*) stays
+> in-scope as local readiness and is being knocked out as unit/gated-DB tests (see the security-test
+> arc in §C / §F). **The next local slices are non-provider** (security hardening, product completion,
+> local billing/account behavior, readiness closeout). Nothing here is pushed; V1 is untouched.
+
 **Method:** 14 read-only subsystem agents mapped completion status (done / partial / missing /
 needs-live-testing / unknown) against live code + tests + closeout docs; synthesized into the
 roadmap below. Test baselines were measured this session (not inherited).
@@ -121,17 +136,23 @@ of local commits; **none pushed.**
 - **App catalog / onboarding / mobile** — *mostly-complete.* `/apps` catalog with search/filter/sort,
   expandable accounts, real OAuth connect, marketing homepage, app-shell + mobile drawer, DTO no-leak
   verified. Health-status pills, disconnect UI, workflow-linkage deferred.
-- **Database security tests** — *mostly-complete.* RLS+policy on all 61 migrations, 16 integration
+- **Database security tests** — *mostly-complete.* RLS+policy on all 61 migrations, 17+ integration
   security tests, service-role boundary enforced. **GRANT gap RESOLVED** (`20260619000000`): 12 live
   tables backfilled with policy-matched authenticated + service_role grants; `check-migration-rls.mjs`
-  now enforces GRANT coverage. Remaining: live RLS cross-account pen-test + no-cleartext-token scan.
+  now enforces GRANT coverage. **`integrations` RLS + no-cleartext-at-rest suite added** (gated DB) +
+  **OAuth write-path encryption contract** (unit) + **always-on encryption-primitive no-cleartext
+  guard.** Remaining: live RLS cross-account pen-test (post-switch, real Supabase).
 
 ---
 
 ## D. Remaining blockers
 
-### Hard blockers before *trustworthy* end-to-end live testing
-*(None block local testing today; all block a credible live-cutover dry-run.)*
+### Required before full live/public validation (post-switch)
+*(Per the PRODUCT DECISION above: **none of these block local readiness today** — they require external
+provider/Stripe/Supabase setup and are sequenced to the **live-validation phase after the V1 → V2
+switch path is ready**. They remain mandatory before full public/live validation and stay in the risk
+register; they are re-sequenced, not de-prioritized. Locally-provable sub-parts (encryption-before-
+persist, RLS denial against a local DB, normalize purity/dedup) are split out as in-scope local tests.)*
 
 1. ~~**GRANT backfill on 10 early migrations**~~ — **✅ DONE (`0a6ba7efe`, applied via `db:push`).**
    13 missing-GRANT tables found; `user_billing` dropped/superseded; **12 live tables** backfilled
@@ -141,7 +162,12 @@ of local commits; **none pushed.**
    `check-migration-rls.mjs` now enforces GRANT coverage (DROP-aware). No longer a blocker.
 2. **Live OAuth round-trip per provider** — connect → callback → token-encrypt → first action → 401
    → refresh+retry → recover. Mock-only across all 25 OAuth providers; real redirect-URI mismatches
-   fail silently. **Hard.**
+   fail silently. **Hard. Post-switch.** *(Locally-proven sub-part — DONE: the **encryption-before-
+   persist** contract of the callback **and** refresh write paths is unit-verified end-to-end —
+   `tests/unit/services/oauth/dispatcher-encryption-contract.test.ts` runs the real dispatcher + real
+   HubSpot handler + real `encryptToken` and asserts the repo boundary receives ciphertext that
+   decrypts back to the fixtures. The live network round-trip + redirect-URI registration is the
+   remaining post-switch part. Token-ingest (Trello) write-path encryption is still unproven — see §E.)*
 3. **Live webhook delivery + dedup per provider** — real provider POST → signature verify → normalize
    → dispatch → run enqueued, plus retry-storm dedup. Mock-only; **no `tests/integration/webhooks/`
    exists.** **Hard.**
@@ -162,7 +188,11 @@ of local commits; **none pushed.**
 - Invitation rate-limiting (TODO in `invitations.ts`) before any public invite UI.
 - Business→Team downgrade + revert-on-cancel (designed, flag OFF; churned Business customer keeps caps).
 - Outbound notification channels (email/Slack/Discord/SMS) — scaffolded, no implementations.
-- Plaintext-token detection lint on `integrations` encrypted columns.
+- ~~Plaintext-token detection lint on `integrations` encrypted columns.~~ **✅ DONE (test-based).** Gated
+  DB no-cleartext-at-rest assertion (`tests/integration/security/integrations-rls.test.ts`) + an
+  always-on encryption-primitive guard over 9 provider token shapes
+  (`tests/unit/core/encryption/tokenNoCleartext.test.ts`). A standalone CI grep-lint over migration
+  seed data was judged redundant given the test coverage; revisit only if seed fixtures grow.
 
 ---
 
@@ -171,7 +201,7 @@ of local commits; **none pushed.**
 | Risk | Severity | Area | How to verify / mitigate |
 |---|---|---|---|
 | ~~Migrations lack GRANTs → `42501` after Oct 30 2026~~ **RESOLVED** | ~~high~~ done | db-security | Closed by `0a6ba7efe` (`20260619000000`): 12 live tables backfilled, lint hardened (DROP-aware GRANT coverage), applied via `db:push` |
-| OAuth refresh/revoke unproven against any real provider | high | oauth-tokens | E2E connect→action→401→refresh→retry per provider in a deployed env with real redirect-URI registration |
+| OAuth refresh/revoke unproven against any real provider (post-switch) | high | oauth-tokens | E2E connect→action→401→refresh→retry per provider in a deployed env with real redirect-URI registration. *Locally-proven part DONE: callback+refresh write paths encrypt before persisting (`dispatcher-encryption-contract.test.ts`).* |
 | Webhook delivery + dedup mock-only (no integration suite) | high | webhooks | Add `tests/integration/webhooks/<p>.test.ts`; replay same `eventId` 100× → assert 1 row + 99 drops |
 | RLS cross-account isolation verified in unit only | high | account-model / db-security | Live probe: Team A user queries Team B resources; `ALLOW_DB_INTEGRATION_TESTS=true` run + manual pen-test |
 | Stripe checkout/webhook never run against real Stripe | high | billing | Real Stripe test-mode round-trip; verify signature, dedup, plan/status sync |
@@ -182,7 +212,8 @@ of local commits; **none pushed.**
 | Reserve/reconcile live wiring present but flag OFF (synthetic data only) | med | billing | Enable `ENABLE_RESERVE_RECONCILE_BILLING` in dev with organic runs; check ledger parity invariant |
 | Polling first-poll-miss + cursor correctness unproven on live fields | med | webhooks / providers | Live poll cycle per provider; verify snapshot seeded at activation, no event dropped |
 | Some `normalize` functions may not be pure (I/O) | med | webhooks | Scan every `receive.ts`/`normalize.ts` for `await`/`fetch`/`supabase` |
-| No plaintext-token detection on encrypted columns | med | db-security | CI pattern-scan for `xoxb-`/`gho_`/`sk-` in `integrations` |
+| ~~No plaintext-token detection on encrypted columns~~ **RESOLVED (test-based)** | ~~med~~ done | db-security | Closed: gated DB no-cleartext-at-rest assertion + always-on encryption-primitive guard (9 token shapes). See §D polish list. |
+| Token-ingest (Trello) write-path encryption unproven | med | oauth-tokens | `handleTokenIngest → trelloAuth.verifyAndIngestToken → upsertActive` is a second write path into the repo; encryption-before-persist not yet unit-pinned. Deferred with the Trello live-ingest work (post-switch) per the product decision; revisit if Trello enters local scope. |
 | Bulk-action fan-out partial-success undo untested | low | dashboard | Mock 50% API failure; verify undo restores only succeeded items |
 | Search has no debounce; O(n) per keystroke | low | dashboard | Load 1000+ workflows; measure lag; add debounce if needed |
 | API-key public-trigger source attribution unreachable in UI | low | runs / settings | Confirm public trigger route passes `triggeredBy='api_key'` |
@@ -198,16 +229,21 @@ of local commits; **none pushed.**
 2. ~~**Plan-enforcement in the execution billing gate**~~ — **✅ DONE / reframed.** Re-audit disproved
    the "not enforced" premise; the genuine gap was **no task-period reset** (lifetime caps), fixed by
    lazy period rollover in the deduct/reserve RPCs (`20260620000000`, applied via `db:push`).
-3. **`integrations`-table RLS + no-cleartext-token test suite** — the highest-sensitivity table has no
-   dedicated security test. Add a four-op RLS denial test + a pattern-scan asserting no plaintext
-   `xoxb-`/`gho_`/`sk-`. Defense-in-depth before any live token flows.
-4. **Webhook integration-test harness (3–4 representative providers)** — unblocks trustworthy live
-   webhook testing and pins dedup/normalize/dispatch end-to-end. Stand up `tests/integration/webhooks/`
-   for one webhook (Stripe), one polling (Gmail), one subscription-watch (Google Calendar), one
-   signature-verify (Slack).
-5. **Health-engine signal listener + minimal reconnect surface** — OAuth flows already *emit*
-   `action_required`/`recovered` but nothing *consumes* them. Locate-or-build the listener and add a
-   single "needs attention" pill + reconnect button on `/apps`. Closes the most user-visible OAuth gap.
+3. ~~**`integrations`-table RLS + no-cleartext-token test suite**~~ — **✅ DONE.** Account-membership RLS
+   denial suite (member/non-member/anon, cross-account UPDATE/DELETE no-op, service-role read,
+   personal/team separation) at `tests/integration/security/integrations-rls.test.ts` (gated DB) +
+   no-cleartext-at-rest assertion there + always-on encryption-primitive guard
+   (`tests/unit/core/encryption/tokenNoCleartext.test.ts`). The OAuth write-path encryption contract
+   (`dispatcher-encryption-contract.test.ts`) landed alongside.
+4. **Webhook normalize-purity + dedup-idempotency local test harness** — the **locally-provable** half of
+   the live-webhook blocker (no external provider needed): a static/unit pass asserting every
+   `receive.ts`/`normalize.ts` is pure (no `await`/`fetch`/`supabase`) and that the dispatcher's dedup
+   path drops a replayed `eventId` idempotently against mocked storage. *(The live signed-POST delivery
+   half is post-switch per the product decision.)*
+5. **Non-provider local readiness** — pick from: API-route authorization tests (membership/role guards,
+   no-raw-service-client rule), local billing/account behavior + usage visibility (task-period reset
+   surfaced to users), dashboard partial-success undo, or readiness-map closeout. *(Health-engine
+   listener + reconnect UI is **provider-adjacent** and re-sequenced to the live-validation phase.)*
 
 ---
 
