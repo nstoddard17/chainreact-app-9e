@@ -36,22 +36,55 @@ no self-healing path on save. Deactivating routes recovery through the existing
 **re-registers triggers off the current draft** — the only path that re-syncs cleanly.
 
 ## 4. Decision (implemented)
-On `PATCH /api/workflows/[id]`, when `draftDefinition` is supplied:
-1. Write the new draft (`updateDraftDefinition`).
-2. If the workflow **was `active`** AND `triggerChanged(prev, next)` is true, deactivate via
-   the existing `createLifecycleOrchestrator().disable({ reason: "manual_admin", context:
+There is ONE authoritative save path —
+[services/workflows/saveDraftDefinition.ts](../../../services/workflows/saveDraftDefinition.ts)
+`saveDraftDefinition({ previousState, previousDefinition, nextDefinition, write })` — used by
+**both** the manual `PATCH /api/workflows/[id]` save **and** AI-apply
+([services/ai/apply/applyWorkflowPatch.ts](../../../services/ai/apply/applyWorkflowPatch.ts)).
+It:
+1. Runs the caller's `write` strategy (PATCH → `updateDraftDefinition`; AI-apply →
+   `updateDraftDefinitionIfRevisionMatches`). A `null` result (AI-apply's optimistic guard
+   didn't match) means the write did NOT land → nothing is deactivated.
+2. If the workflow **was `active`** AND `activatableTriggerChanged(prev, next)` is true,
+   deactivates via `createLifecycleOrchestrator().disable({ reason: "manual_admin", context:
    "Trigger changed — reconnect and reactivate." })`. Teardown of stale `trigger_resources` +
    provider subscriptions runs inside disable.
-3. Non-trigger edits (action/label/layout/edge) leave the workflow active and update live.
-4. `draft / paused / disabled / eligible_to_resume` are never deactivated (not actively
-   dispatching against the new graph).
+3. Non-trigger edits (action/label/layout/edge) and **manual-trigger** edits leave the
+   workflow active and update live.
+4. `draft / paused / disabled / eligible_to_resume` are never deactivated.
 
 `triggerChanged` ([core/workflows/triggerChange.ts](../../../core/workflows/triggerChange.ts))
-is pure + order-independent: it compares the set of trigger nodes by
-`(id, provider, type, stable(config))`, ignoring position + displayName. The route returns the
-(now disabled) `WorkflowDetail`; the builder's save handler calls `router.refresh()` when the
-returned state differs from the header's lifecycle state, surfacing the existing
-**disabled banner** + **Reactivate** action.
+is pure + order-independent: it compares trigger nodes by `(id, provider, type, stable(config))`,
+ignoring position + displayName, and takes an `isActivatable` predicate.
+`activatableTriggerChanged` (in the save service) supplies that predicate via
+`getTriggerMeta(...).activation !== "manual"` (see §4a). The route returns the (now disabled)
+`WorkflowDetail`; the builder's save handler calls `router.refresh()` when the returned state
+differs from the header's lifecycle state, surfacing the existing **disabled banner** +
+**Reactivate** action.
+
+## 4a. Manual triggers are NOT activatable (correction)
+A trigger's `TriggerMeta.activation` ∈ {`webhook`, `polling`, `manual`, `scheduled`}. Only the
+native **`manual.run`** trigger is `activation: "manual"`: it is `requiresIntegration: false`,
+has empty config, registers **no** `trigger_resources` row that dispatch uses, and is fired
+**only** by `POST /api/workflows/[id]/run-now` (allowed in `active | paused | draft`, bypassing
+`dispatchTriggerEvent`). So a manual-run workflow does not need activation to run, and changing
+its manual trigger leaves **no** stale registration. Therefore `activatableTriggerChanged`
+**excludes manual triggers** — editing/adding/removing a `manual.run` trigger on an active
+workflow does NOT deactivate it. (Unknown meta → treated as activatable, fail-safe.)
+
+Cross-category cases (active workflow), all handled by the activatable symmetric-difference:
+- **external → manual.run:** the old external trigger is removed from the activatable set →
+  deactivate, tearing down the orphaned external registration. The workflow lands `disabled`;
+  the user recovers via Reactivate → Resume (Resume re-registers off the new draft = an inert
+  manual row, preconditions pass because manual `requiresIntegration: false`, → `active`, and
+  run-now works). **Caveat (§6):** this makes a now-manual workflow briefly require a
+  reactivate; landing it directly in a runnable state needs an `active → draft` transition the
+  state machine doesn't have today — deferred (no new state/transition added here).
+- **manual.run → external:** a new external trigger appears in the activatable set →
+  deactivate, so the new trigger is NOT silently left unregistered — the user must Resume,
+  which registers it (and runs preconditions). Matches "require activation; don't silently
+  activate."
+- **manual.run → manual.run:** activatable set unchanged → stays active (live edit).
 
 ### Why auto-refresh of `trigger_resources.config` was rejected (for now)
 A same-node trigger-config edit *could* be handled by just rewriting `trigger_resources.config`
@@ -70,14 +103,19 @@ providers.
 - Disable reuses the existing orchestrator (no inline teardown).
 
 ## 6. Residual risk / follow-ups
-- **AI-apply path not covered.** `services/ai/apply/applyWorkflowPatch.ts` writes the draft via
-  `updateDraftDefinitionIfRevisionMatches` (a separate revision-guarded repo call that bypasses
-  the PATCH route). A trigger change applied through the AI agent on an active workflow carries
-  the **same stale-trigger risk** and is NOT deactivated by this slice. Recommended follow-up:
-  route AI-apply's draft write through a shared "save draft + deactivate-on-trigger-change"
-  service so both entry paths share the rule.
+- **AI-apply now covered.** ✅ Both the manual PATCH save and `applyWorkflowPatch` route their
+  draft write through `saveDraftDefinition`, so an AI-applied activatable-trigger change on an
+  active workflow deactivates identically (and a write-time STALE_PATCH never deactivates).
+- **external → manual.run lands `disabled`, not directly runnable.** A now-manual workflow is
+  runnable via run-now in `active | paused | draft` but NOT `disabled`, so after the cleanup
+  deactivation the user must Reactivate → Resume to run it. Avoiding that "reactivate a manual
+  workflow" step would require an `active → draft` (or equivalent) teardown transition the
+  state machine doesn't have. Deferred as a deliberate policy decision (no new state added).
 - If `disable()` throws (rare optimistic-concurrency conflict), the draft is already written but
   state stays active — pre-fix broken state, not made worse; the error surfaces to the caller.
+- **Registration hygiene (minor):** activating a manual-only workflow upserts an inert
+  `trigger_resources` row for the `manual.run` node (no activation hook, never dispatched).
+  Harmless; a future cleanup could skip the upsert for `activation: "manual"` triggers.
 - **Long-term:** adopt the deferred **publish / active-revision** model — execution + dispatch
   read an immutable active revision promoted on activate/publish, while `draftDefinition` is
   freely editable and never affects the running workflow until publish (which atomically

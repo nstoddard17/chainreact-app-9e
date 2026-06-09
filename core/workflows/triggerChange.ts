@@ -17,19 +17,32 @@ import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflow";
  * trigger registration: action nodes, edges, node positions (layout), and `displayName`
  * (labels) — those are safe to keep live on an active workflow.
  *
+ * `isActivatable` scopes WHICH trigger nodes count: callers pass a predicate so that
+ * non-registering triggers (the native `manual.run`, fired only by run-now and never
+ * registered/dispatched) are excluded — changing a manual trigger must NOT deactivate an
+ * active workflow. Default = all trigger nodes (every caller that cares about registration
+ * passes the activatable predicate; see services/workflows/saveDraftDefinition.ts).
+ *
  * Pure + order-independent. Config is compared by a stable (recursively key-sorted) value so
  * key reordering is not treated as a change.
  */
-export function triggerChanged(prev: WorkflowDefinition, next: WorkflowDefinition): boolean {
-  const prevSigs = triggerSignatures(prev);
-  const nextSigs = triggerSignatures(next);
+export function triggerChanged(
+  prev: WorkflowDefinition,
+  next: WorkflowDefinition,
+  isActivatable: (node: WorkflowNode) => boolean = () => true,
+): boolean {
+  const prevSigs = triggerSignatures(prev, isActivatable);
+  const nextSigs = triggerSignatures(next, isActivatable);
   if (prevSigs.length !== nextSigs.length) return true;
   return prevSigs.some((sig, i) => sig !== nextSigs[i]);
 }
 
-function triggerSignatures(def: WorkflowDefinition): string[] {
+function triggerSignatures(
+  def: WorkflowDefinition,
+  isActivatable: (node: WorkflowNode) => boolean,
+): string[] {
   return def.nodes
-    .filter((n) => n.kind === "trigger")
+    .filter((n) => n.kind === "trigger" && isActivatable(n))
     .map(triggerSignature)
     .sort();
 }

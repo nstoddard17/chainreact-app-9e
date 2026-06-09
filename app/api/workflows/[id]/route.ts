@@ -3,8 +3,7 @@ import { UpdateWorkflowRequestSchema } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import { moveWorkflowToFolder } from "@/services/workflowFolders/folderService";
 import { deleteWorkflow } from "@/services/workflowFolders/trashService";
-import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
-import { triggerChanged } from "@/core/workflows/triggerChange";
+import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
 import { folderErrorResponse, trashErrorResponse } from "@/app/api/folders/_shared";
 import {
   parseJsonBody,
@@ -83,31 +82,18 @@ export async function PATCH(
     next = await workflowsRepo.updateName(id, parsed.data.name);
   }
   if (parsed.data.draftDefinition !== undefined) {
-    const previousDefinition = loaded.record.draftDefinition;
-    next = await workflowsRepo.updateDraftDefinition(
-      id,
-      parsed.data.draftDefinition,
-    );
-    // Lifecycle honesty (active-edit stale-trigger fix). An ACTIVE workflow registers its
-    // triggers (trigger_resources + provider subscriptions) at activation keyed by node
-    // id/provider/type/config, while the runtime reads draftDefinition LIVE. A save that
-    // changes the trigger leaves those registrations stale — the dispatcher fires the old
-    // node id (TRIGGER_NODE_NOT_FOUND) or the old filter, and the new trigger is never
-    // registered. Deactivate via the existing disable path so the teardown runs; the user
-    // re-registers cleanly through Reactivate → Resume. Non-trigger edits (actions / labels
-    // / layout / edges) stay live. Only ACTIVE workflows are affected — draft / paused /
-    // disabled / eligible_to_resume aren't actively dispatching against the new graph.
-    // See docs/slices/phase-4/workflows/active-edit-stale-trigger-audit.md.
-    if (
-      loaded.record.state === "active" &&
-      triggerChanged(previousDefinition, parsed.data.draftDefinition)
-    ) {
-      next = await createLifecycleOrchestrator().disable({
-        workflowId: id,
-        reason: "manual_admin",
-        context: "Trigger changed — reconnect and reactivate.",
-      });
-    }
+    const definition = parsed.data.draftDefinition;
+    // Shared save path: writes the draft, and if an ACTIVE workflow's ACTIVATABLE trigger
+    // changed (stale trigger_resources / provider subscription), deactivates it so the
+    // teardown runs and the user re-registers via Reactivate → Resume. Manual-trigger and
+    // action/label/layout/edge edits stay live. The unguarded write never returns null.
+    const saved = await saveDraftDefinition({
+      previousState: loaded.record.state,
+      previousDefinition: loaded.record.draftDefinition,
+      nextDefinition: definition,
+      write: () => workflowsRepo.updateDraftDefinition(id, definition),
+    });
+    if (saved) next = saved;
   }
   // 4.WORKFLOW-FOLDERS-3 / WF-2 — move into a folder or uncategorize (null). The
   // service validates the folder is live + same-account; the DB trigger backstops.

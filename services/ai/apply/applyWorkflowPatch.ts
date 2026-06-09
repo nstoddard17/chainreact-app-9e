@@ -33,6 +33,7 @@ import {
   updateDraftDefinitionIfRevisionMatches,
   type WorkflowRecord,
 } from "@/repositories/workflows";
+import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import type {
@@ -223,16 +224,26 @@ export async function applyWorkflowPatchForAI(
     }
   }
 
-  // 7. Persist via the write-time guarded update (optimistic concurrency).
-  //    A null result means the workflow changed after our read-time check —
-  //    the patch is stale. We do NOT pretend success or auto-rebase here.
+  // 7. Persist via the shared save path: the write-time guarded update (optimistic
+  //    concurrency) PLUS the active-trigger-change deactivation rule (shared with the manual
+  //    PATCH save). A null result means the workflow changed after our read-time check — the
+  //    patch is stale; nothing is deactivated. We do NOT pretend success or auto-rebase here.
+  //    If the AI patch changed an ACTIVATABLE trigger on an active workflow, the shared path
+  //    deactivates it (the returned record is `disabled`) so the user re-registers via
+  //    Reactivate → Resume — exactly like a manual trigger edit.
   let updated: WorkflowRecord | null;
   try {
-    updated = await updateDraftDefinitionIfRevisionMatches({
-      accountId,
-      workflowId,
-      draftDefinition: candidate,
-      expectedUpdatedAt: record.updatedAt,
+    updated = await saveDraftDefinition({
+      previousState: record.state,
+      previousDefinition: currentDef,
+      nextDefinition: candidate,
+      write: () =>
+        updateDraftDefinitionIfRevisionMatches({
+          accountId,
+          workflowId,
+          draftDefinition: candidate,
+          expectedUpdatedAt: record.updatedAt,
+        }),
     });
   } catch {
     return fail("UPDATE_FAILED", "Couldn't save the updated workflow. Try again.");

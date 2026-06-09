@@ -377,6 +377,20 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
     expect(mockDisable).toHaveBeenCalledTimes(1);
   });
 
+  it("active + MANUAL trigger (native:manual.run) change → does NOT deactivate (manual isn't activatable)", async () => {
+    authedUser();
+    const manual = (config: Record<string, unknown>) => ({
+      nodes: [{ id: "t1", kind: "trigger", provider: "native", type: "manual.run", config, position: { x: 0, y: 0 } }],
+      edges: [],
+    });
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, state: "active", draftDefinition: manual({ a: 1 }) });
+    mockUpdateDraftDefinition.mockResolvedValueOnce({ ...baseRecord, state: "active", draftDefinition: manual({ a: 2 }) });
+    const res = await PATCH(patchRequest({ draftDefinition: manual({ a: 2 }) }), params);
+    expect(res.status).toBe(200);
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect((await res.json()).state).toBe("active");
+  });
+
   it("active + ACTION-ONLY change (trigger untouched) → stays active, NO disable", async () => {
     authedUser();
     mockGetById.mockResolvedValueOnce(activeRecord);

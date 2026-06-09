@@ -26,6 +26,13 @@ jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) =>
     Promise.resolve({ id: `acct-${userId}` }),
 }));
+// AI-apply now routes its write through the shared saveDraftDefinition path, which
+// deactivates an active workflow on an activatable-trigger change. Mock the orchestrator so
+// that deactivation is observable without the real trigger registry.
+const mockDisable = jest.fn();
+jest.mock("@/services/workflows/orchestratorFactory", () => ({
+  createLifecycleOrchestrator: () => ({ disable: (...a: unknown[]) => mockDisable(...a) }),
+}));
 
 import { applyWorkflowPatchForAI } from "@/services/ai/apply/applyWorkflowPatch";
 import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefinition";
@@ -84,6 +91,10 @@ beforeEach(() => {
   mockGetById.mockReset();
   mockGuardedUpdate.mockReset();
   mockDeductTasks.mockReset();
+  mockDisable.mockReset();
+  mockDisable.mockImplementation(async () =>
+    makeRecord(baseDef(), { state: "disabled", disabledReason: "manual_admin", updatedAt: "rev-3" }),
+  );
   mockGetById.mockResolvedValue(makeRecord(baseDef()));
   mockGuardedUpdate.mockImplementation((input: { draftDefinition: WorkflowDefinition }) =>
     Promise.resolve(makeRecord(input.draftDefinition, { updatedAt: "rev-2" })),
@@ -285,6 +296,64 @@ describe("applyWorkflowPatchForAI — persistence", () => {
     });
     expect(res.ok).toBe(true);
     expect(persistedDef().nodes.filter((n) => n.kind === "trigger")).toHaveLength(1);
+  });
+
+  it("draft workflow + trigger change → does NOT deactivate (not active)", async () => {
+    // base record is draft; replaceTrigger changes the trigger but nothing is dispatching.
+    const res = await applyWorkflowPatchForAI({
+      ...APPLY,
+      patch: patch([{ op: "replaceTrigger", node: node("t2", "trigger", "native", "manual.run") }]),
+      confirmation: { confirmed: true },
+    });
+    expect(res.ok).toBe(true);
+    expect(mockDisable).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyWorkflowPatchForAI — active-trigger-change shares the deactivation rule", () => {
+  it("ACTIVE workflow + activatable trigger replaced → deactivates; result reflects disabled", async () => {
+    mockGetById.mockResolvedValue(makeRecord(baseDef(), { state: "active" }));
+    const res = await applyWorkflowPatchForAI({
+      ...APPLY,
+      // gmail trigger (activatable) → native:manual.run: the old external registration is stale.
+      patch: patch([{ op: "replaceTrigger", node: node("t2", "trigger", "native", "manual.run") }]),
+      confirmation: { confirmed: true },
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(mockGuardedUpdate).toHaveBeenCalledTimes(1); // draft written first
+    expect(mockDisable).toHaveBeenCalledWith({
+      workflowId: "wf1",
+      reason: "manual_admin",
+      context: "Trigger changed — reconnect and reactivate.",
+    });
+    expect(res.workflow.state).toBe("disabled");
+  });
+
+  it("ACTIVE workflow + action-only change → stays active (no deactivation)", async () => {
+    mockGetById.mockResolvedValue(makeRecord(baseDef(), { state: "active" }));
+    const res = await applyWorkflowPatchForAI({
+      ...APPLY,
+      patch: patch([{ op: "updateNodeConfig", nodeId: "a1", config: { to: "new@y.com" } }]),
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect(res.workflow.state).not.toBe("disabled");
+  });
+
+  it("ACTIVE workflow + WRITE-time stale patch → STALE_PATCH, no deactivation", async () => {
+    mockGetById.mockResolvedValue(makeRecord(baseDef(), { state: "active" }));
+    mockGuardedUpdate.mockResolvedValueOnce(null); // revision moved under us
+    const res = await applyWorkflowPatchForAI({
+      ...APPLY,
+      patch: patch([{ op: "replaceTrigger", node: node("t2", "trigger", "native", "manual.run") }]),
+      confirmation: { confirmed: true },
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.code).toBe("STALE_PATCH");
+    expect(mockDisable).not.toHaveBeenCalled();
   });
 });
 
