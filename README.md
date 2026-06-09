@@ -1,5 +1,7 @@
 # ChainReact V2
 
+> **✅ Primary / active app (since 2026-06-09).** This is the ChainReact codebase under active development. V1 ([chainreact-app-9e](../nstoddard17/chainreact-app-9e)) is now **archived reference only**. Local-only, in-place switch — no files moved; V1 and V2 are separate clones of the same remote and this branch is unpushed. GitHub `main` promotion + live-provider validation are separate, later (push-gated) steps. See V1's `LEGACY.md`.
+
 Workflow automation platform — architecture reset of [chainreact-app-9e](../nstoddard17/chainreact-app-9e). Same product and UI; rebuilt internal architecture per the [V2 architecture baseline](../../../.claude/plans/you-are-helping-me-happy-nebula.md).
 
 ## Status

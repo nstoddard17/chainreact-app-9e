@@ -1,5 +1,13 @@
 # ChainReactV2 — Claude Instructions
 
+> ## ✅ PRIMARY / ACTIVE APP
+> As of **2026-06-09**, ChainReactV2 is the **primary ChainReact app/codebase** —
+> build all new work here. V1 (`chainreact-app-9e`) is now **archived reference
+> only**. This was a **local-only, in-place** switch (no files moved; V1 and V2
+> are separate local clones of the same remote, and this branch is unpushed).
+> Promoting V2 to GitHub `main` (what deploys) and live-provider validation are
+> **separate, later** steps and remain deferred (no push / no public launch yet).
+
 ## Project Purpose
 
 ChainReactV2 is the cleaner rebuild of the original ChainReact app.
