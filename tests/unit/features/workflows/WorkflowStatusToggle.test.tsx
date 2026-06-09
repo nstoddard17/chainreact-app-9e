@@ -111,6 +111,21 @@ describe("WorkflowStatusToggle — routes to the right lifecycle API", () => {
     expect(mockPause).not.toHaveBeenCalled();
     expect(mockResume).not.toHaveBeenCalled();
   });
+
+  it("disabled state → shows a visible 'Open builder to reactivate' link to the builder", () => {
+    render(<WorkflowStatusToggle workflow={wf("disabled")} onChanged={jest.fn()} />);
+    const link = screen.getByTestId("workflow-status-toggle-reactivate");
+    expect(link).toHaveTextContent(/open builder to reactivate/i);
+    expect(link).toHaveAttribute("href", "/workflows/wf-1");
+  });
+
+  it("non-disabled states do NOT show the reactivate link", () => {
+    for (const state of ["draft", "active", "paused", "eligible_to_resume"] as const) {
+      const { unmount } = render(<WorkflowStatusToggle workflow={wf(state)} onChanged={jest.fn()} />);
+      expect(screen.queryByTestId("workflow-status-toggle-reactivate")).toBeNull();
+      unmount();
+    }
+  });
 });
 
 describe("WorkflowStatusToggle — NON-OPTIMISTIC behavior", () => {

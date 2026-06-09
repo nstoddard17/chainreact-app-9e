@@ -103,6 +103,19 @@ export function WorkflowStatusToggle({ workflow, onChanged }: Props) {
             : `Activate workflow ${workflow.name}`
         }
       />
+      {cannotToggle && (
+        // A disabled workflow can't be re-enabled from the inert switch — recovery
+        // (Reactivate → Resume) lives in the builder. Surface that direction visibly,
+        // not just in the switch's aria-label. (handleToggle no-ops for disabled, so
+        // `error` is never set here — this and the error block never co-render.)
+        <Link
+          href={`/workflows/${workflow.id}`}
+          data-testid="workflow-status-toggle-reactivate"
+          className="text-[11px] text-muted-foreground underline hover:text-foreground"
+        >
+          Open builder to reactivate
+        </Link>
+      )}
       {error && (
         <div
           role="alert"
