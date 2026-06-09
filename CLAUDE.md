@@ -1,3 +1,12 @@
+> # ⚠️ ARCHIVED / REFERENCE ONLY — V1
+> This repository (`chainreact-app-9e`) is the **V1 legacy app**, kept as
+> **archived reference**. Active development has moved to **ChainReactV2**, the
+> primary app/codebase, at:
+> `c:\Users\marcu\source\repos\ChainReactV2`
+> Build new work in ChainReactV2. Treat this repo as read-only reference — do not
+> add features here. See [LEGACY.md](./LEGACY.md). _(Local-only switch, 2026-06-09;
+> the GitHub `main` promotion is a separate, later push-gated step.)_
+
 **Update CLAUDE.md before every git commit**
 
 # CLAUDE.md
