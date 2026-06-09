@@ -3,22 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { listWorkflows, WorkflowApiError } from "@/lib/api/workflows";
-import {
-  createFolder,
-  deleteFolder,
-  listFolders,
-  reorderFolders,
-  restoreFolder,
-  updateFolder,
-  type DeleteFolderResult,
-} from "@/lib/api/folders";
-import {
-  deleteWorkflow,
-  listTrash,
-  moveWorkflowToFolder,
-  restoreWorkflow,
-  type TrashListing,
-} from "@/lib/api/trash";
 import type { WorkflowListItem } from "@/contracts/workflow";
 import type { WorkflowFolder } from "@/contracts/folders";
 import { WorkflowCard } from "./WorkflowCard";
@@ -39,7 +23,8 @@ import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
 import { FolderMoveDialog } from "./folders/FolderMoveDialog";
 import { WorkflowsBulkActions } from "./folders/WorkflowsBulkActions";
 import { useWorkflowSelection } from "./folders/useWorkflowSelection";
-import { childrenOf, flattenForDisplay } from "./folders/folderTree";
+import { useFolderManagement, type UndoState } from "./folders/useFolderManagement";
+import { flattenForDisplay } from "./folders/folderTree";
 import {
   WorkflowsFiltersPanel,
   DEFAULT_FILTERS,
@@ -58,10 +43,11 @@ import {
  * (Slice 4.WORKFLOWS-PAGE-1; folders/trash/filters added in WF-5).
  *
  * Server-provided `initialWorkflows` + `initialFolders` avoid a first-paint
- * flash. Folder/trash mutations route through lib/api/folders + lib/api/trash;
- * the live workflow list re-fetches after each (non-optimistic). Trash is
- * lazy-loaded only when its tab opens — initial render makes NO folder/trash
- * API calls.
+ * flash. The folder / Trash / move / undo concern lives in `useFolderManagement`
+ * (folder list, nesting cursor, dialog targets, Trash, and the CRUD/restore
+ * handlers); the dashboard owns the workflow list, filters/tabs, and the shared
+ * error + undo surfaces. Trash is lazy-loaded only when its tab opens — initial
+ * render makes NO folder/trash API calls.
  */
 interface Props {
   initialWorkflows: readonly WorkflowListItem[];
@@ -71,18 +57,12 @@ interface Props {
 
 const UNDO_TIMEOUT_MS = 8000;
 
-interface UndoState {
-  message: string;
-  run: () => Promise<void>;
-}
-
 export function WorkflowsDashboard({
   initialWorkflows,
   initialFolders = [],
   folderLimit = 10,
 }: Props) {
   const [workflows, setWorkflows] = useState<readonly WorkflowListItem[]>(initialWorkflows);
-  const [folders, setFolders] = useState<readonly WorkflowFolder[]>(initialFolders);
   const [tab, setTab] = useState<WorkflowsTab>("automations");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusFilter>("all");
@@ -93,22 +73,6 @@ export function WorkflowsDashboard({
   const [error, setError] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [undoPending, setUndoPending] = useState(false);
-
-  // Folder tab nesting navigation (null = root / top level).
-  const [folderNav, setFolderNav] = useState<string | null>(null);
-
-  // Folder dialogs.
-  const [createOpen, setCreateOpen] = useState(false);
-  const [renameTarget, setRenameTarget] = useState<WorkflowFolder | null>(null);
-  const [moveTarget, setMoveTarget] = useState<WorkflowFolder | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<WorkflowFolder | null>(null);
-
-  // Trash (lazy).
-  const [trash, setTrash] = useState<TrashListing | null>(null);
-  const [trashLoading, setTrashLoading] = useState(false);
-  const [trashError, setTrashError] = useState<string | null>(null);
-  const [trashPendingId, setTrashPendingId] = useState<string | null>(null);
-
 
   const refreshSeqRef = useRef(0);
   const refresh = useCallback(async () => {
@@ -131,34 +95,39 @@ export function WorkflowsDashboard({
     }
   }, []);
 
-  const refreshFolders = useCallback(async () => {
-    try {
-      setFolders(await listFolders());
-    } catch {
-      /* folder list is non-critical; the next mutation surfaces errors */
-    }
-  }, []);
-
-  const loadTrash = useCallback(async () => {
-    setTrashLoading(true);
-    setTrashError(null);
-    try {
-      setTrash(await listTrash());
-    } catch (err) {
-      setTrashError(
-        err instanceof Error ? err.message : "Couldn't load Trash. Please try again.",
-      );
-    } finally {
-      setTrashLoading(false);
-    }
-  }, []);
-
-  // Lazy-load Trash the first time its tab opens.
-  useEffect(() => {
-    if (tab === "trash" && trash === null && !trashLoading && trashError === null) {
-      void loadTrash();
-    }
-  }, [tab, trash, trashLoading, trashError, loadTrash]);
+  // Folder / Trash / move-to-folder / undo-producing concern (see hook docs).
+  const {
+    folders,
+    folderNav,
+    setFolderNav,
+    createOpen,
+    setCreateOpen,
+    renameTarget,
+    setRenameTarget,
+    moveTarget,
+    setMoveTarget,
+    deleteTarget,
+    setDeleteTarget,
+    handleCreateFolder,
+    handleRenameFolder,
+    handleMoveFolder,
+    handleReorderFolder,
+    handleDeleteFolder,
+    handleMoveToFolder,
+    handleMoveToTrash,
+    trash,
+    trashLoading,
+    trashError,
+    trashPendingId,
+    loadTrash,
+    handleRestoreFromTrash,
+  } = useFolderManagement({
+    initialFolders,
+    refresh,
+    trashActive: tab === "trash",
+    onError: setError,
+    onUndo: setUndo,
+  });
 
   // Auto-dismiss the undo toast.
   useEffect(() => {
@@ -166,14 +135,6 @@ export function WorkflowsDashboard({
     const id = setTimeout(() => setUndo(null), UNDO_TIMEOUT_MS);
     return () => clearTimeout(id);
   }, [undo]);
-
-  // If the browsed folder disappears (deleted / moved to Trash / restored away),
-  // fall back to the top level rather than stranding the navigator on a ghost.
-  useEffect(() => {
-    if (folderNav && !folders.some((f) => f.id === folderNav)) {
-      setFolderNav(null);
-    }
-  }, [folders, folderNav]);
 
   const appOptions = useMemo(() => deriveAppOptions(workflows), [workflows]);
   const folderCounts = useMemo(() => deriveFolderCounts(workflows), [workflows]);
@@ -237,119 +198,10 @@ export function WorkflowsDashboard({
     setFilters(DEFAULT_FILTERS);
   }, []);
 
-  const handleMoveToFolder = useCallback(
-    async (workflowId: string, folderId: string | null) => {
-      try {
-        await moveWorkflowToFolder(workflowId, folderId);
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't move the workflow.");
-      }
-    },
-    [refresh],
-  );
-
-  const handleMoveToTrash = useCallback(
-    async (wf: WorkflowListItem) => {
-      try {
-        await deleteWorkflow(wf.id);
-        await refresh();
-        setUndo({
-          message: `“${wf.name}” moved to Trash`,
-          run: async () => {
-            await restoreWorkflow(wf.id);
-            await refresh();
-          },
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't move the workflow to Trash.");
-      }
-    },
-    [refresh],
-  );
-
   const openFolder = useCallback((folderId: string) => {
     setFilters((f) => ({ ...f, folderIds: [folderId] }));
     setTab("automations");
   }, []);
-
-  const handleCreateFolder = useCallback(
-    async (name: string) => {
-      // Create inside the folder currently being browsed (null → top level).
-      // Omit parentFolderId at root so the request shape stays minimal.
-      await createFolder(folderNav ? { name, parentFolderId: folderNav } : { name });
-      await refreshFolders();
-    },
-    [refreshFolders, folderNav],
-  );
-
-  const handleRenameFolder = useCallback(
-    async (id: string, name: string) => {
-      await updateFolder(id, { name });
-      await refreshFolders();
-    },
-    [refreshFolders],
-  );
-
-  const handleMoveFolder = useCallback(
-    async (folder: WorkflowFolder, parentFolderId: string | null) => {
-      // Reparent. The server re-validates cycle + depth (FOLDER_CYCLE /
-      // FOLDER_TOO_DEEP); the dialog surfaces those errors.
-      await updateFolder(folder.id, { parentFolderId });
-      await refreshFolders();
-    },
-    [refreshFolders],
-  );
-
-  const handleReorderFolder = useCallback(
-    async (folder: WorkflowFolder, dir: "up" | "down") => {
-      const parentId = folder.parentFolderId ?? null;
-      const siblings = childrenOf(folders, parentId);
-      const idx = siblings.findIndex((f) => f.id === folder.id);
-      const swap = dir === "up" ? idx - 1 : idx + 1;
-      if (idx < 0 || swap < 0 || swap >= siblings.length) return;
-      const ordered = siblings.map((f) => f.id);
-      [ordered[idx], ordered[swap]] = [ordered[swap]!, ordered[idx]!];
-      try {
-        await reorderFolders({ parentFolderId: parentId, orderedIds: ordered });
-        await refreshFolders();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't reorder folders.");
-      }
-    },
-    [folders, refreshFolders],
-  );
-
-  const handleDeleteFolder = useCallback(
-    async (folder: WorkflowFolder, mode: DeleteFolderResult["mode"]) => {
-      await deleteFolder(folder.id, mode);
-      await Promise.all([refreshFolders(), refresh()]);
-      setUndo({
-        message: `“${folder.name}” moved to Trash`,
-        run: async () => {
-          await restoreFolder(folder.id);
-          await Promise.all([refreshFolders(), refresh()]);
-        },
-      });
-    },
-    [refreshFolders, refresh],
-  );
-
-  const handleRestoreFromTrash = useCallback(
-    async (kind: "workflow" | "folder", id: string) => {
-      setTrashPendingId(id);
-      try {
-        if (kind === "workflow") await restoreWorkflow(id);
-        else await restoreFolder(id);
-        await Promise.all([loadTrash(), refresh(), refreshFolders()]);
-      } catch (err) {
-        setTrashError(err instanceof Error ? err.message : "Couldn't restore. Please try again.");
-      } finally {
-        setTrashPendingId(null);
-      }
-    },
-    [loadTrash, refresh, refreshFolders],
-  );
 
   const runUndo = useCallback(async () => {
     if (!undo) return;
@@ -558,4 +410,3 @@ export function WorkflowsDashboard({
     </section>
   );
 }
-
