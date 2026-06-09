@@ -15,11 +15,8 @@ jest.mock("@/services/execution/staleWorkflowRunSweep", () => ({
   sweepStaleRunningWorkflowRuns: (...args: unknown[]) => mockSweep(...args),
 }));
 
-import {
-  GET,
-  POST,
-  DEFAULT_BATCH_LIMIT,
-} from "@/app/api/cron/sweep-stale-runs/route";
+import { GET, POST } from "@/app/api/cron/sweep-stale-runs/route";
+import { DEFAULT_BATCH_LIMIT } from "@/app/api/cron/sweep-stale-runs/constants";
 
 const SECRET = "cost15k-test-secret";
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
 import { sweepStaleRunningWorkflowRuns } from "@/services/execution/staleWorkflowRunSweep";
+import { DEFAULT_BATCH_LIMIT } from "./constants";
 
 /**
  * Cron entrypoint for the stale-'running' workflow-run sweep (Slice 4.COST-15K).
@@ -31,9 +32,6 @@ import { sweepStaleRunningWorkflowRuns } from "@/services/execution/staleWorkflo
  * Response shape — counts only (no run ids; those would leak workflow metadata
  * into the cron monitor): { ok, sweptCount, cutoff, olderThanMs }.
  */
-
-/** Default per-tick cap so a backlog can't sweep an unbounded set in one call. */
-export const DEFAULT_BATCH_LIMIT = 500;
 
 /** Parse an optional positive-int `limit` query param; undefined when absent/invalid. */
 function parseLimit(request: Request): number | undefined {
