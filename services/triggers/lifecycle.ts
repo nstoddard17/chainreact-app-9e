@@ -1,6 +1,8 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import type { WorkflowRecord } from "@/repositories/workflows";
+import type { WorkflowNode } from "@/contracts/workflow";
+import { getTriggerMeta } from "@/services/discovery/_registry";
 import {
   findActivation,
   findNativeActivation,
@@ -39,18 +41,35 @@ import "@/integrations/_registry";
  * a baseline and silently drops events that arrived between activation
  * and the first poll (V1 CLAUDE.md "first poll miss" bug).
  *
- * Manual-only workflows (zero trigger nodes) are a no-op — registration
- * doesn't apply, but the precondition checks in services/triggers/
+ * Manual-only workflows register nothing — whether action-only (zero trigger
+ * nodes) OR using the native `manual.run` trigger (which is not activatable, see
+ * `isActivatableTrigger`). The precondition checks in services/triggers/
  * preconditions.ts still run.
  */
+
+/**
+ * Does this trigger node register a runtime dispatch resource? The native
+ * `manual.run` trigger (meta `activation: "manual"`) does NOT: it fires only via
+ * `POST /api/workflows/[id]/run-now`, which bypasses dispatch + trigger_resources
+ * entirely (see integrations/native/triggers/manualTrigger.ts). Writing a
+ * trigger_resources row for it produced an inert row no dispatch / polling /
+ * receive / renewal reader ever consumes, so we skip it. UNKNOWN meta is treated
+ * as activatable (fail-safe — assume it registers something).
+ *
+ * Mirrors `isActivatableTrigger` in services/workflows/saveDraftDefinition.ts
+ * (the active-edit-stale-trigger guard) — same `activation: "manual"` classifier.
+ */
+function isActivatableTrigger(node: WorkflowNode): boolean {
+  return getTriggerMeta(`${node.provider}:${node.type}`)?.activation !== "manual";
+}
 
 export async function registerWorkflowTriggers(
   workflow: WorkflowRecord,
 ): Promise<void> {
   const triggers = workflow.draftDefinition.nodes.filter(
-    (n) => n.kind === "trigger",
+    (n) => n.kind === "trigger" && isActivatableTrigger(n),
   );
-  if (triggers.length === 0) return; // manual-only workflow
+  if (triggers.length === 0) return; // manual-only / action-only workflow
 
   for (const node of triggers) {
     let mergedConfig: Record<string, unknown> = { ...node.config };

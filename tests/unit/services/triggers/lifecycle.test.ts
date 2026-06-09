@@ -188,7 +188,10 @@ describe("registerWorkflowTriggers", () => {
     });
   });
 
-  it("manual_trigger workflow (no native + no provider activation registered) upserts the empty config straight through", async () => {
+  it("manual.run trigger is NOT activatable → registers nothing (no inert trigger_resources row)", async () => {
+    // native:manual.run (meta activation:"manual") fires only via run-now, which
+    // bypasses dispatch/trigger_resources — so registration must skip it rather
+    // than write an inert row no dispatch/poll/receive reader ever consumes.
     await registerWorkflowTriggers(
       makeWorkflow([
         {
@@ -202,11 +205,36 @@ describe("registerWorkflowTriggers", () => {
       ]),
     );
     expect(mockGetActiveForExecution).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("a manual.run trigger alongside an activatable trigger → only the activatable one registers", async () => {
+    mockUpsert.mockResolvedValue({ id: "tr-1" });
+    await registerWorkflowTriggers(
+      makeWorkflow([
+        {
+          id: "n-manual",
+          kind: "trigger",
+          provider: "native",
+          type: "manual.run",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "n-slack",
+          kind: "trigger",
+          provider: "slack",
+          type: "message_received",
+          config: { channelId: "C1" },
+          position: { x: 0, y: 100 },
+        },
+      ]),
+    );
     expect(mockUpsert).toHaveBeenCalledTimes(1);
     expect(mockUpsert.mock.calls[0]![0]).toMatchObject({
-      provider: "native",
-      eventType: "manual.run",
-      config: {},
+      provider: "slack",
+      eventType: "message_received",
+      nodeId: "n-slack",
     });
   });
 
