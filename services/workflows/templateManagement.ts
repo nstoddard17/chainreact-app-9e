@@ -13,6 +13,7 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 import * as userProfilesRepo from "@/repositories/userProfiles";
 import { isMember } from "@/repositories/accountMemberships";
 import { createTemplateFromWorkflow } from "@/services/workflows/createTemplateFromWorkflow";
+import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 import { resolveAccountCapabilities } from "@/services/billing/planCapabilities";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { templateLimitFor } from "@/core/billing/planPolicy";
@@ -422,5 +423,25 @@ export async function replaceWorkflowWithTemplate(
 
   // 4. Overwrite ONLY the draft definition — account ownership / id / name are unchanged.
   const updated = await workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data);
+
+  // 5. Lifecycle honesty for an ACTIVE workflow. The runtime executes draftDefinition
+  //    directly (no published snapshot), and trigger_resources / provider subscriptions are
+  //    keyed to the OLD graph's node ids. After the replace those rows are stale (their node
+  //    ids no longer exist → dispatched runs fail with TRIGGER_NODE_NOT_FOUND) AND the new
+  //    template triggers are unregistered until (re)activation. Leaving the workflow "active"
+  //    is therefore a silently-broken state. Deactivate it through the EXISTING disable path,
+  //    which tears down the stale registrations + provider subscriptions; the user reconnects
+  //    and reactivates, and activation re-registers triggers off the new draft. Only ACTIVE
+  //    workflows are touched — draft / paused / disabled / eligible_to_resume have nothing
+  //    actively dispatching against the replaced graph. No new state, no auto re-register.
+  if (workflow.state === "active") {
+    const disabled = await createLifecycleOrchestrator().disable({
+      workflowId: input.workflowId,
+      reason: "manual_admin",
+      context: "Definition replaced from a template — reconnect and reactivate.",
+    });
+    return { ok: true, workflow: disabled };
+  }
+
   return { ok: true, workflow: updated };
 }

@@ -108,13 +108,17 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
       // Re-hydrate the canvas to the template at a clean, server-confirmed baseline. The
       // fresh `updatedAt` clears the revision guard so this isn't treated as stale.
       useGraphSlice.getState().hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
+      // Refresh the server-rendered lifecycle state: replacing an ACTIVE workflow deactivates
+      // it server-side, so the header's state pill / activate controls must re-read from the
+      // server (the lifecycle state is a server prop, not graph-slice state).
+      router.refresh();
       onClose();
     } catch (err) {
       setActionError(err instanceof TemplateApiError ? err.message : "Couldn't replace the workflow.");
       setBusyId(null);
       setConfirmReplace(null);
     }
-  }, [confirmReplace, workflowId, onClose]);
+  }, [confirmReplace, workflowId, onClose, router]);
 
   return (
     <div
@@ -259,8 +263,9 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
                 data-testid="builder-templates-replace-active-warning"
                 className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs font-medium text-amber-700 dark:text-amber-300"
               >
-                This workflow is currently active. Replacing it overwrites its steps but
-                leaves it active — review its connections and test it before relying on it.
+                This workflow is currently active. Replacing it will overwrite its steps and
+                deactivate it so old triggers can be cleaned up. Reconnect accounts, review the
+                workflow, and reactivate it when ready.
               </p>
             )}
             {isDirty && (

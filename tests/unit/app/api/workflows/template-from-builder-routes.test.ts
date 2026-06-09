@@ -166,4 +166,22 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
       expect.objectContaining({ workflowId: WF, templateId: TPL, actorUserId: CALLER }),
     );
   });
+
+  it("surfaces the disabled state when replacing an active workflow (service deactivated it)", async () => {
+    signedIn();
+    mockReplaceWithTemplate.mockResolvedValueOnce({
+      ok: true,
+      workflow: workflowRecord({ state: "disabled", disabledReason: "manual_admin" }),
+    });
+    const res = await replacePost(req({ templateId: TPL }), params());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // The builder reads this to reflect that the workflow is no longer active.
+    expect(body.state).toBe("disabled");
+    expect(body.id).toBe(WF);
+    // disabledReason is NOT part of the WorkflowDetail DTO (summary-level only).
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain(WF_ACCOUNT);
+    expect(raw).not.toContain(CALLER);
+  });
 });

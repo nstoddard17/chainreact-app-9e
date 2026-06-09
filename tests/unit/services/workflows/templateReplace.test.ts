@@ -38,6 +38,14 @@ jest.mock("@/services/accounts/accountAuthz", () => ({
   requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
 }));
 
+// The disable-on-active path reuses the real lifecycle orchestrator (which tears down
+// trigger_resources / provider subscriptions). Mock the factory so we can assert the
+// disable call without standing up the trigger registry.
+const mockDisable = jest.fn();
+jest.mock("@/services/workflows/orchestratorFactory", () => ({
+  createLifecycleOrchestrator: () => ({ disable: (...a: unknown[]) => mockDisable(...a) }),
+}));
+
 import { replaceWorkflowWithTemplate } from "@/services/workflows/templateManagement";
 
 const ACTOR = "user-1";
@@ -102,6 +110,9 @@ beforeEach(() => {
   mockUpdateDraftDefinition.mockImplementation(async (_id: string, def: unknown) =>
     workflowRecord({ draftDefinition: def, updatedAt: "2026-06-08T00:00:00Z" }),
   );
+  mockDisable.mockResolvedValue(
+    workflowRecord({ state: "disabled", disabledReason: "manual_admin", updatedAt: "2026-06-08T00:01:00Z" }),
+  );
 });
 
 describe("replaceWorkflowWithTemplate — authorization", () => {
@@ -157,8 +168,8 @@ describe("replaceWorkflowWithTemplate — template resolution + validation", () 
   });
 });
 
-describe("replaceWorkflowWithTemplate — happy path", () => {
-  it("overwrites ONLY the draft definition with the validated graph; template untouched", async () => {
+describe("replaceWorkflowWithTemplate — happy path (non-active: no lifecycle change)", () => {
+  it("draft workflow → overwrites ONLY the draft definition; template untouched; NO disable", async () => {
     const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
     expect(r.ok).toBe(true);
 
@@ -168,10 +179,62 @@ describe("replaceWorkflowWithTemplate — happy path", () => {
     expect(calledWorkflowId).toBe(WF);
     expect(JSON.stringify(calledDef)).toContain("__REDACTED__"); // sanitized markers travel
 
+    // A draft workflow has no live trigger registration → not disabled.
+    expect(mockDisable).not.toHaveBeenCalled();
+
     // The TEMPLATE ROW is never mutated, and no usage event is recorded.
     expect(repo.createTemplateServiceRole).not.toHaveBeenCalled();
     expect(repo.updateTemplateMetadataServiceRole).not.toHaveBeenCalled();
     expect(repo.deleteTemplateServiceRole).not.toHaveBeenCalled();
     expect(repo.recordTemplateUsageEventServiceRole).not.toHaveBeenCalled();
+  });
+
+  it.each(["draft", "paused", "disabled", "eligible_to_resume"] as const)(
+    "%s workflow → does NOT disable (nothing actively dispatching the replaced graph)",
+    async (state) => {
+      mockGetWorkflow.mockResolvedValue(workflowRecord({ state }));
+      const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+      expect(r.ok).toBe(true);
+      expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
+      expect(mockDisable).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("replaceWorkflowWithTemplate — ACTIVE workflow is deactivated (lifecycle honesty)", () => {
+  it("replaces the draft, THEN disables via the orchestrator (reason + context), returns disabled record", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord({ state: "active" }));
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    expect(r.ok).toBe(true);
+
+    // Definition written first (so the re-registration on a later reactivation uses the new graph).
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
+
+    // Then deactivated through the EXISTING disable path (tears down stale trigger_resources).
+    expect(mockDisable).toHaveBeenCalledTimes(1);
+    expect(mockDisable).toHaveBeenCalledWith({
+      workflowId: WF,
+      reason: "manual_admin",
+      context: "Definition replaced from a template — reconnect and reactivate.",
+    });
+
+    // The returned record reflects the disabled state (so the route surfaces it).
+    expect(r.ok && r.workflow.state).toBe("disabled");
+
+    // Account / id / name preserved; template never mutated.
+    expect(r.ok && r.workflow.id).toBe(WF);
+    expect(r.ok && r.workflow.accountId).toBe(WF_ACCOUNT);
+    expect(r.ok && r.workflow.name).toBe("Current workflow");
+    expect(repo.createTemplateServiceRole).not.toHaveBeenCalled();
+    expect(repo.recordTemplateUsageEventServiceRole).not.toHaveBeenCalled();
+  });
+
+  it("does NOT disable when template resolution fails for an active workflow (no half-apply of lifecycle)", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord({ state: "active" }));
+    repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(null);
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    expect(r).toEqual({ ok: false, reason: "template_not_found" });
+    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
   });
 });

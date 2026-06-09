@@ -27,7 +27,8 @@ jest.mock("@/lib/api/workflowTemplates", () => ({
 }));
 
 const mockPush = jest.fn();
-jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockRefresh = jest.fn();
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, refresh: mockRefresh }) }));
 
 const mockHydrate = jest.fn();
 jest.mock("@/features/workflow-builder/state/graphSlice", () => ({
@@ -66,6 +67,7 @@ function renderModal(
 beforeEach(() => {
   Object.values(api).forEach((m) => m.mockReset());
   mockPush.mockReset();
+  mockRefresh.mockReset();
   mockHydrate.mockReset();
   api.listMarketplaceTemplates.mockResolvedValue([tpl()]);
 });
@@ -150,6 +152,8 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     await user.click(screen.getByTestId("builder-templates-replace-confirm-button"));
     await waitFor(() => expect(api.replaceCurrentWorkflowFromTemplate).toHaveBeenCalledWith(WF, "tpl-1"));
     expect(mockHydrate).toHaveBeenCalledWith(WF, newDef, "2026-06-09T00:00:00Z");
+    // Refresh pulls the (possibly now-disabled) lifecycle state from the server.
+    expect(mockRefresh).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -161,7 +165,7 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     expect(screen.getByTestId("builder-templates-replace-dirty-warning")).toBeInTheDocument();
   });
 
-  it("shows a stronger warning when the current workflow is ACTIVE (stays active; review/test)", async () => {
+  it("shows a stronger warning when the current workflow is ACTIVE (will deactivate; reactivate when ready)", async () => {
     const user = userEvent.setup();
     renderModal({ workflowState: "active" });
     await screen.findByText("Failed payment recovery");
@@ -169,7 +173,8 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     const warning = screen.getByTestId("builder-templates-replace-active-warning");
     expect(warning).toBeInTheDocument();
     expect(warning).toHaveTextContent(/currently active/i);
-    expect(warning).toHaveTextContent(/review its connections and test it/i);
+    expect(warning).toHaveTextContent(/deactivate it/i);
+    expect(warning).toHaveTextContent(/reactivate it when ready/i);
   });
 
   it("does NOT show the active warning for a draft workflow", async () => {
