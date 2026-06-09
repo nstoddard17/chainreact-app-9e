@@ -235,15 +235,47 @@ persist, RLS denial against a local DB, normalize purity/dedup) are split out as
    no-cleartext-at-rest assertion there + always-on encryption-primitive guard
    (`tests/unit/core/encryption/tokenNoCleartext.test.ts`). The OAuth write-path encryption contract
    (`dispatcher-encryption-contract.test.ts`) landed alongside.
-4. **Webhook normalize-purity + dedup-idempotency local test harness** — the **locally-provable** half of
-   the live-webhook blocker (no external provider needed): a static/unit pass asserting every
-   `receive.ts`/`normalize.ts` is pure (no `await`/`fetch`/`supabase`) and that the dispatcher's dedup
-   path drops a replayed `eventId` idempotently against mocked storage. *(The live signed-POST delivery
-   half is post-switch per the product decision.)*
-5. **Non-provider local readiness** — pick from: API-route authorization tests (membership/role guards,
-   no-raw-service-client rule), local billing/account behavior + usage visibility (task-period reset
-   surfaced to users), dashboard partial-success undo, or readiness-map closeout. *(Health-engine
-   listener + reconnect UI is **provider-adjacent** and re-sequenced to the live-validation phase.)*
+4. **Webhook normalize-purity** ✅ **DONE** + **dedup-idempotency local test harness (OPEN).** The
+   normalize-purity half shipped: `tests/structure/webhook-normalize-purity.test.ts` (`5055e0cd3`)
+   sweeps every `normalize.ts` (no `await`/`fetch`/`supabase`/impure imports/`Math.random`/`Date.now`/
+   `process.env`) and pins **eventId determinism** (the dedup key never derived from a clock/RNG); it
+   also caught + fixed two `Date.now()` eventId fallbacks (discord/trello) that would have broken replay
+   dedup. **Still OPEN (local):** a `dispatch.ts` unit test that replays the same `(provider, eventId)`
+   against mocked dedup storage → asserts 1 enqueue + N drops. *(The live signed-POST delivery half is
+   post-switch.)*
+5. ~~**Local billing usage visibility**~~ ✅ **DONE (`01521990f`).** Account Settings now shows
+   current-period used/limit + remaining + reset date; `core/billing/taskUsagePeriod.ts` mirrors the
+   SQL rollover anchor so a stale (elapsed-but-unreset) period renders effective-0, not lifetime usage.
+   **Next non-provider candidates** (see Re-rank below): API-route authorization / no-service-client
+   coverage, dispatch dedup-idempotency unit harness, runs/debug local polish, readiness-map closeout.
+   *(Health-engine listener + reconnect UI is **provider-adjacent** → live-validation phase.)*
+
+---
+
+## F.1 Re-rank (2026-06-09) — local-only priorities after the recent arc
+
+Eight readiness items have closed or reclassified since the original audit (GRANT backfill, migration
+lint, task-period rollover, billing usage visibility, integrations RLS + no-cleartext, OAuth
+encryption contract, normalize purity, live-provider re-sequencing). Current **local-only** standing:
+
+**Still local build-readiness (in priority order):**
+1. **API-route authorization / no-raw-service-client coverage** — verify every mutating `app/api/**`
+   route enforces membership/role and routes writes through scoped helpers (not raw service clients).
+   Highest-sensitivity untested surface; 90 route tests exist but the *guard* (a structural sweep) and
+   the gap audit don't. Local, security-adjacent, test-led.
+2. **Dispatch dedup-idempotency unit harness** — the open half of item #4: replay `(provider, eventId)`
+   through `services/triggers/dispatch.ts` against mocked `webhookEventDedup` → 1 enqueue + N drops,
+   plus the dedup-outage fail-open path. Local, pins an idempotency invariant without any provider.
+3. **Runs/debug UX local polish OR readiness-map closeout** — smaller; pick if 1–2 are deferred.
+
+**Post-switch / live-validation (deferred, still mandatory before public launch):** live OAuth
+round-trips, live webhook delivery, live Stripe round-trip, live RLS cross-account pen-test, provider
+credential/redirect-URI setup, per-provider live testing, health-engine listener + reconnect UI
+(provider-adjacent).
+
+**Deferred long-term architecture (do NOT start):** `publish`/`active_revision` versioning,
+loops/pause-resume/HITL/`wait_for_event`, reserve/reconcile live cutover (flag OFF), outbound
+notification channels, non-Anthropic AI routing at scale.
 
 ---
 
