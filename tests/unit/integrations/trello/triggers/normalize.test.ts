@@ -148,8 +148,11 @@ describe("normalizeTrelloEvent — common fields", () => {
     expect(event.providerAccountId).toBe("b1");
   });
 
-  it("falls back to a derived eventId when action.id is missing", () => {
-    const event = normalizeTrelloEvent({
+  it("falls back to a DETERMINISTIC content-hashed eventId when action.id is missing", () => {
+    // The fallback is defensive (real Trello webhooks always carry action.id).
+    // It must be deterministic — NOT clock-based — so a replayed event yields
+    // the same eventId and the dispatcher's (provider, eventId) dedup holds.
+    const input = {
       triggerEventType: "new_card",
       classifiedType: "trello.card.created",
       body: {
@@ -159,8 +162,21 @@ describe("normalizeTrelloEvent — common fields", () => {
           data: { board: { id: "b1" } },
         },
       },
+    } as const;
+    const event = normalizeTrelloEvent(input);
+    expect(event.eventId.startsWith("trello-")).toBe(true);
+
+    // Determinism: normalizing the SAME payload again yields the SAME id
+    // (a replay dedups). The old `Date.now()` fallback would have differed.
+    expect(normalizeTrelloEvent(input).eventId).toBe(event.eventId);
+
+    // Distinctness: a genuinely different action (still no id) yields a
+    // DIFFERENT id, so two distinct events are not wrongly collapsed.
+    const other = normalizeTrelloEvent({
+      ...input,
+      body: { action: { ...input.body.action, date: "2026-05-12T09:00:00Z" } },
     });
-    expect(event.eventId.startsWith("b1:")).toBe(true);
+    expect(other.eventId).not.toBe(event.eventId);
   });
 });
 

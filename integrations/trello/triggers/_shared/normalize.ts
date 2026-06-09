@@ -1,4 +1,5 @@
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import { hashPayload } from "@/core/workflows/idempotency";
 
 /**
  * Trello webhook event normalization — Slice 17 Commit 5.
@@ -264,7 +265,11 @@ export function normalizeTrelloEvent(
     body,
   };
 
-  const eventId = action.id ?? `${board?.id ?? "no-board"}:${action.date ?? Date.now()}`;
+  // `action.id` is the dedup key (always present on a real Trello webhook).
+  // The fallback is defensive: a DETERMINISTIC content hash (NOT a clock) so a
+  // replayed event yields the same eventId and dedups — `Date.now()` here would
+  // mint a fresh id per call and silently break replay dedup.
+  const eventId = action.id ?? `trello-${hashPayload(action)}`;
   const occurredAt = action.date ?? new Date().toISOString();
   const providerAccountId = board?.id ?? "unknown-board";
 

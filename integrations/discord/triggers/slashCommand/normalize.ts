@@ -1,4 +1,5 @@
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import { hashPayload } from "@/core/workflows/idempotency";
 
 /**
  * Convert a Discord interactions POST body into V2's canonical
@@ -160,7 +161,13 @@ export function normalizeSlashCommand(
   input: NormalizeSlashCommandInput,
 ): TriggerEvent {
   const body = input.body as InteractionPayloadShape;
-  const interactionId = stringOrNull(body.id) ?? `discord-interaction-${Date.now()}`;
+  // `body.id` (the interaction snowflake) is the dedup key and is guaranteed
+  // unique per request by Discord. The fallback is purely defensive: derive a
+  // DETERMINISTIC id from the payload content (NOT a clock) so a replay of the
+  // same event hashes to the same eventId and still dedups — `Date.now()` here
+  // would mint a fresh id per call and silently break replay dedup.
+  const interactionId =
+    stringOrNull(body.id) ?? `discord-interaction-${hashPayload(body)}`;
   const guildId = stringOrNull(body.guild_id);
   const channelId = stringOrNull(body.channel_id) ?? stringOrNull(body.channel?.id);
   const channelName = stringOrNull(body.channel?.name);
