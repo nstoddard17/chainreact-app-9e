@@ -9,6 +9,11 @@ behavior, this re-audits every path that sets `account_billing.plan` vs `tasks_l
 
 ---
 
+> **Status (2026-06-08):** Recommendation #2 **IMPLEMENTED** — lazy task-period rollover landed in
+> `20260620000000_lazy_task_period_rollover.sql` (deduct + reserve), applied via `db:push`. The
+> deduct/reserve RPCs now reset `tasks_used`/`tasks_reserved` and advance `period_started_at` when the
+> account's billing period has elapsed, before the cap check. The gate was NOT changed (#1 honored).
+
 ## TL;DR — the audit's framing was wrong (twice)
 
 1. **Plan limits ARE enforced.** The execution billing gate already refuses over-cap runs, and

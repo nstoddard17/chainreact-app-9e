@@ -33,12 +33,15 @@ The single biggest gap is **live-provider / live-DB validation**: OAuth connect�
 webhook delivery+dedup, polling snapshots, Stripe checkout/webhook round-trips, and RLS
 cross-account isolation are all proven against **mocks only**. ~~The one concrete compliance defect is
 10 early migrations missing explicit `GRANT` statements~~ → **RESOLVED** (see Status update above: 12
-live tables backfilled + lint hardened). The one remaining functional gap is **plan limits are not
-enforced in the execution billing gate** (caps are budget-row level, not plan-differentiated).
+live tables backfilled + lint hardened). The functional item originally flagged here ("plan limits
+not enforced") was **disproven on re-audit** — the gate already enforces a plan-synced cap. The real
+gap was **task usage never reset by billing period (lifetime caps)**, now **RESOLVED** by lazy period
+rollover (`20260620000000`). See
+[plan-enforcement-and-task-period-audit.md](./account-settings/plan-enforcement-and-task-period-audit.md).
 
 **Rough readiness: ~85% to full live-testing.** The remaining ~15% is almost entirely "run it
-against real providers + real Supabase and watch it work," plus the GRANT backfill and the
-plan-enforcement wire-up.
+against real providers + real Supabase and watch it work." (The GRANT backfill and the task-period
+rollover — the two non-provider items originally flagged here — are now both done.)
 
 > Scope note: this is **pre-cutover live testing of V2 in isolation.** V1 is NOT being replaced in
 > this pass, and nothing is pushed.
@@ -110,7 +113,8 @@ of local commits; **none pushed.**
   (Retry/Replay/Cancel correctly omitted).
 - **Billing** — *mostly-complete.* Cost estimation, flat 1-task/run gate, usage ledger, plan
   metadata + limits, Stripe checkout/webhook, reserve/reconcile foundation + shadow mode (flag OFF).
-  **Plan-enforcement NOT wired into the execution gate** (see §D).
+  **Task-period reset** added (`20260620000000`, lazy rollover) — caps are now monthly, not lifetime.
+  The "plan-enforcement" concern was disproven on re-audit (the gate already enforces a plan-synced cap).
 - **Settings / notifications / API keys** — *mostly-complete.* Account settings shell, profile/
   security/danger-zone, full API-keys arc (create/reveal-once/revoke/rate-limit/attribution, flag
   OFF), in-app notifications. Email/Slack/Discord/SMS channels **scaffolded only.**
@@ -149,8 +153,9 @@ of local commits; **none pushed.**
    **Hard (security).**
 
 ### Polish / soft (should land but don't block live testing *starting*)
-- **Plan-enforcement wired into `executionBillingGate`** — today a Free account over its 100-task cap
-  can still start a run (caps are budget-row, not plan-differentiated).
+- ~~Plan-enforcement wired into `executionBillingGate`~~ — **reframed + DONE.** Re-audit disproved the
+  "not enforced" claim (gate already enforces a plan-synced cap); the real gap was **no task-period
+  reset** (lifetime caps), fixed by lazy rollover (`20260620000000`).
 - Health-engine signal **listener** + integration-status / reconnect UX (infra emits signals; nothing
   consumes them).
 - Per-account disconnect/reconnect UI + `/api/integrations/[id]/disconnect` route.
@@ -170,7 +175,7 @@ of local commits; **none pushed.**
 | Webhook delivery + dedup mock-only (no integration suite) | high | webhooks | Add `tests/integration/webhooks/<p>.test.ts`; replay same `eventId` 100× → assert 1 row + 99 drops |
 | RLS cross-account isolation verified in unit only | high | account-model / db-security | Live probe: Team A user queries Team B resources; `ALLOW_DB_INTEGRATION_TESTS=true` run + manual pen-test |
 | Stripe checkout/webhook never run against real Stripe | high | billing | Real Stripe test-mode round-trip; verify signature, dedup, plan/status sync |
-| Plan limits not enforced at run-time (only budget-row) | med | billing | Read `executionBillingGate`; add cap check vs `PLAN_LIMITS`; Free account at 100 → expect `BILLING_EXHAUSTED` |
+| ~~Plan limits not enforced at run-time~~ **DISPROVEN** → real gap: **task usage never reset by billing period (lifetime caps)** **RESOLVED** | ~~med~~ done | billing | Closed by `20260620000000` (lazy period rollover in deduct/reserve); re-audit confirmed the gate already enforces a plan-synced cap |
 | Churned Business customer keeps Business caps (no revert-on-cancel) | med | billing | Build Track-B downgrade flow; interim manual dashboard handling |
 | Health-engine signal listener not located in codebase | med | oauth-tokens | Grep `services/` for the action-required listener; confirm deferred vs missing |
 | Personal-credential soft-disconnect on member removal unverified live | med | account-model | Remove member, then attempt real Gmail/Outlook call with `disconnected_at` token → expect reject |
@@ -189,10 +194,10 @@ of local commits; **none pushed.**
 
 1. ~~**GRANT-backfill + lint hardening**~~ — **✅ DONE (`0a6ba7efe`).** Superseded by the Status update;
    12 live tables backfilled (`20260619000000`), lint now enforces DROP-aware GRANT coverage, applied
-   via `db:push`. **→ The new next-up slice is #2 below (plan-enforcement).**
-2. **Plan-enforcement in the execution billing gate** — billing's single functional gap; metadata +
-   `PLAN_LIMITS` already exist, only the gate read is missing. Wire `executionBillingGate` to read the
-   plan and refuse over-cap runs with `BILLING_EXHAUSTED`. Makes plan caps real.
+   via `db:push`.
+2. ~~**Plan-enforcement in the execution billing gate**~~ — **✅ DONE / reframed.** Re-audit disproved
+   the "not enforced" premise; the genuine gap was **no task-period reset** (lifetime caps), fixed by
+   lazy period rollover in the deduct/reserve RPCs (`20260620000000`, applied via `db:push`).
 3. **`integrations`-table RLS + no-cleartext-token test suite** — the highest-sensitivity table has no
    dedicated security test. Add a four-op RLS denial test + a pattern-scan asserting no plaintext
    `xoxb-`/`gho_`/`sk-`. Defense-in-depth before any live token flows.
