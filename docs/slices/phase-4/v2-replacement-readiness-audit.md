@@ -30,6 +30,15 @@ live-test end-to-end?*
 > arc in §C / §F). **The next local slices are non-provider** (security hardening, product completion,
 > local billing/account behavior, readiness closeout). Nothing here is pushed; V1 is untouched.
 
+> **SWITCH UPDATE (2026-06-09):** the local V1 → V2 switch has since happened —
+> **ChainReactV2 is now the active app/build target; `chainreact-app-9e` (V1) is archived reference
+> only.** This was a local-only, in-place archive (no files moved, nothing pushed). Where the dated
+> body below says things like "V1 is NOT being replaced in this pass" or "V1 remains the production
+> path" (§A scope note, §H), read them as **point-in-time wording from the 2026-06-08 audit**: V2 is
+> now the active build target, while GitHub `main` (what deploys) **still points at V1** and the
+> remote/`main` promotion + live-provider validation remain **deferred (push-gated)**. Canonical
+> record: [`v1-to-v2-local-switch-closeout.md`](./v1-to-v2-local-switch-closeout.md).
+
 **Method:** 14 read-only subsystem agents mapped completion status (done / partial / missing /
 needs-live-testing / unknown) against live code + tests + closeout docs; synthesized into the
 roadmap below. Test baselines were measured this session (not inherited).
