@@ -36,11 +36,18 @@ const baseBilling: AccountBillingView = {
   frozen: false,
 };
 
+// Fixed "now" so current-period derivation (remaining / reset date / rollover)
+// is deterministic in tests. 8 days after the base period start.
+const NOW = new Date("2026-06-09T00:00:00Z");
+
 function renderBilling(
   acct: ReturnType<typeof active> | null,
   billing: Partial<AccountBillingView> = {},
+  now: Date = NOW,
 ) {
-  return render(<BillingSection active={acct} billing={{ ...baseBilling, ...billing }} />);
+  return render(
+    <BillingSection active={acct} billing={{ ...baseBilling, ...billing }} now={now} />,
+  );
 }
 
 describe("BillingSection — tier label", () => {
@@ -79,9 +86,53 @@ describe("BillingSection — usage", () => {
     expect(screen.getByTestId("billing-usage")).toHaveTextContent("12 / 100 tasks");
   });
 
+  it("shows remaining tasks for the current period", () => {
+    renderBilling(active("personal"));
+    expect(screen.getByTestId("billing-usage-remaining")).toHaveTextContent("88 remaining");
+  });
+
+  it("shows the reset date derived from period_started_at (period start + 1 month)", () => {
+    renderBilling(active("personal"));
+    expect(screen.getByTestId("account-section-billing")).toHaveTextContent(
+      /resets July 1, 2026/i,
+    );
+  });
+
+  it("exhausted state shows no-tasks-left copy WITH the reset date", () => {
+    renderBilling(active("personal"), {
+      usage: { tasksUsed: 100, tasksLimit: 100, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    const remaining = screen.getByTestId("billing-usage-remaining");
+    expect(remaining).toHaveTextContent(/No tasks left/i);
+    expect(remaining).toHaveTextContent(/resets July 1, 2026/i);
+  });
+
+  it("lazy rollover: a stored period that already elapsed shows 0 used + advanced reset (not stale lifetime usage)", () => {
+    // Row still says 95/100 from a period that started 2 months before NOW; the
+    // UI must reflect the pending reset the next run will apply: 0 used.
+    renderBilling(active("personal"), {
+      usage: { tasksUsed: 95, tasksLimit: 100, periodStartedAt: "2026-04-01T00:00:00Z" },
+    });
+    expect(screen.getByTestId("billing-usage")).toHaveTextContent("0 / 100 tasks");
+    expect(screen.getByTestId("billing-usage-remaining")).toHaveTextContent("100 remaining");
+    expect(screen.getByTestId("account-section-billing")).toHaveTextContent(
+      /resets July 1, 2026/i,
+    );
+  });
+
+  it("missing period_started_at: still renders used/limit + remaining, no reset date", () => {
+    renderBilling(active("personal"), {
+      usage: { tasksUsed: 12, tasksLimit: 100, periodStartedAt: null },
+    });
+    expect(screen.getByTestId("billing-usage")).toHaveTextContent("12 / 100 tasks");
+    expect(screen.getByTestId("billing-usage-remaining")).toHaveTextContent("88 remaining");
+    expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/resets/i);
+  });
+
   it("renders an unavailable state (not fake usage) when usage is null", () => {
     renderBilling(active("personal"), { usage: null });
     expect(screen.queryByTestId("billing-usage")).toBeNull();
+    expect(screen.queryByTestId("billing-usage-remaining")).toBeNull();
     expect(screen.getByTestId("billing-usage-unavailable")).toHaveTextContent(/unavailable/i);
   });
 });

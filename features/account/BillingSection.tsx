@@ -3,6 +3,7 @@ import { SettingRow } from "@/features/team/SettingRow";
 import type { AccountSummary } from "@/lib/api/accounts";
 import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
+import { computeTaskUsageView } from "@/core/billing/taskUsagePeriod";
 import { PersonalPlanPanel } from "./PersonalPlanPanel";
 import { PersonalUpgradePanel } from "./PersonalUpgradePanel";
 import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
@@ -73,11 +74,14 @@ export function BillingSection({
   active,
   accountId,
   billing,
+  now,
 }: {
   active: ActiveAccountView | null;
   /** The active account's id (for the personal-plan panel routes). */
   accountId?: string | null;
   billing: AccountBillingView;
+  /** Injectable "now" for deterministic current-period derivation in tests. */
+  now?: Date;
 }) {
   // PPT-3: the interactive personal-plan panel renders only for an owner/admin on a
   // personal account when platform billing is enabled.
@@ -143,8 +147,19 @@ export function BillingSection({
       day: "numeric",
       timeZone: "UTC",
     });
-  const periodStart =
-    billing.usage?.periodStartedAt != null ? formatDate(billing.usage.periodStartedAt) : null;
+  // Effective CURRENT-period usage — mirrors the lazy-rollover SQL anchor so a
+  // stored row whose period already elapsed shows the reset (0 used) the next
+  // run will apply, never stale lifetime-looking usage. Reset date is derived
+  // from period_started_at (no DB/API change needed).
+  const usageView = billing.usage
+    ? computeTaskUsageView({
+        tasksUsed: billing.usage.tasksUsed,
+        tasksLimit: billing.usage.tasksLimit,
+        periodStartedAt: billing.usage.periodStartedAt,
+        now: now ?? new Date(),
+      })
+    : null;
+  const resetsOn = usageView?.resetsAt != null ? formatDate(usageView.resetsAt) : null;
 
   // CS-5: derive the warning-first lifecycle state from the synced billing facts. Only
   // shown when we have an explicit plan + status (paid accounts); free/active stays
@@ -210,13 +225,33 @@ export function BillingSection({
           </span>
         </SettingRow>
 
-        {billing.usage ? (
+        {billing.usage && usageView ? (
           <SettingRow
             label="Task usage"
-            desc={periodStart ? `This period — since ${periodStart}.` : "This period."}
+            desc={
+              resetsOn
+                ? `This billing period — resets ${resetsOn}.`
+                : "This billing period."
+            }
           >
-            <span data-testid="billing-usage" className="text-sm font-medium text-foreground">
-              {billing.usage.tasksUsed} / {billing.usage.tasksLimit} tasks
+            <span className="flex flex-col items-end gap-0.5 text-sm">
+              <span data-testid="billing-usage" className="font-medium text-foreground">
+                {usageView.tasksUsed} / {usageView.tasksLimit} tasks
+              </span>
+              <span
+                data-testid="billing-usage-remaining"
+                className={
+                  usageView.exhausted
+                    ? "text-xs font-medium text-amber-600 dark:text-amber-400"
+                    : "text-xs text-muted-foreground"
+                }
+              >
+                {usageView.exhausted
+                  ? resetsOn
+                    ? `No tasks left — resets ${resetsOn}`
+                    : "No tasks left this period"
+                  : `${usageView.tasksRemaining} remaining`}
+              </span>
             </span>
           </SettingRow>
         ) : (
