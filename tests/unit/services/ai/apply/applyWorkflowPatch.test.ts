@@ -311,11 +311,12 @@ describe("applyWorkflowPatchForAI — persistence", () => {
 });
 
 describe("applyWorkflowPatchForAI — active-trigger-change shares the deactivation rule", () => {
-  it("ACTIVE workflow + activatable trigger replaced → deactivates; result reflects disabled", async () => {
+  it("ACTIVE workflow + external→manual trigger replace → deactivates with manual-specific copy", async () => {
     mockGetById.mockResolvedValue(makeRecord(baseDef(), { state: "active" }));
     const res = await applyWorkflowPatchForAI({
       ...APPLY,
-      // gmail trigger (activatable) → native:manual.run: the old external registration is stale.
+      // gmail trigger (activatable) → native:manual.run: the old external registration is stale,
+      // and the result is a manual-only definition → manual-specific disabled copy (not "reconnect").
       patch: patch([{ op: "replaceTrigger", node: node("t2", "trigger", "native", "manual.run") }]),
       confirmation: { confirmed: true },
     });
@@ -325,7 +326,8 @@ describe("applyWorkflowPatchForAI — active-trigger-change shares the deactivat
     expect(mockDisable).toHaveBeenCalledWith({
       workflowId: "wf1",
       reason: "manual_admin",
-      context: "Trigger changed — reconnect and reactivate.",
+      context:
+        "The previous trigger was removed and its connection disconnected. This workflow now runs manually — nothing to reconnect.",
     });
     expect(res.workflow.state).toBe("disabled");
   });
