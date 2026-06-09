@@ -94,10 +94,13 @@ describe("saveDraftDefinition — deactivation decision", () => {
     expect(result).toMatchObject({ state: "active" });
   });
 
-  it("active external → manual.run → disables (tears down the old external registration)", async () => {
+  it("active external → manual.run → disables with MANUAL-specific copy (no 'reconnect')", async () => {
     const write = writeReturning(recordFor(manualDef()));
     await saveDraftDefinition({ previousState: "active", previousDefinition: webhookDef(), nextDefinition: manualDef(), write });
     expect(mockDisable).toHaveBeenCalledTimes(1);
+    const context = mockDisable.mock.calls[0][0].context as string;
+    expect(context).toContain("runs manually");
+    expect(context).not.toMatch(/reconnect and reactivate/);
   });
 
   it("active manual.run → external → disables (forces Reactivate→Resume to register the new trigger)", async () => {

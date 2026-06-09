@@ -41,6 +41,11 @@ export function activatableTriggerChanged(
   return triggerChanged(prev, next, isActivatableTrigger);
 }
 
+/** Does this definition register anything the runtime dispatches against? Manual-only = no. */
+function hasActivatableTrigger(def: WorkflowDefinition): boolean {
+  return def.nodes.some((n) => n.kind === "trigger" && isActivatableTrigger(n));
+}
+
 export interface SaveDraftDefinitionInput {
   /** The workflow's state BEFORE the save (drives the deactivation decision). */
   previousState: WorkflowState;
@@ -76,10 +81,16 @@ export async function saveDraftDefinition(
     input.previousState === "active" &&
     activatableTriggerChanged(input.previousDefinition, input.nextDefinition)
   ) {
+    // External → manual edits leave a manual-only definition: the old external registration is
+    // torn down (so we still deactivate), but there is nothing to reconnect. Telling the user to
+    // "reconnect" is misleading here — manual.run has no integration. Give manual-specific copy.
+    const context = hasActivatableTrigger(input.nextDefinition)
+      ? "Trigger changed — reconnect and reactivate."
+      : "The previous trigger was removed and its connection disconnected. This workflow now runs manually — nothing to reconnect.";
     return createLifecycleOrchestrator().disable({
       workflowId: updated.id,
       reason: "manual_admin",
-      context: "Trigger changed — reconnect and reactivate.",
+      context,
     });
   }
   return updated;
