@@ -7,6 +7,14 @@ separately, see §B). Nothing pushed.**
 **Question answered:** *What remains before ChainReactV2 can fully replace V1 and become the app we
 live-test end-to-end?*
 
+> **Status update (2026-06-08, post-audit):** Hard blocker **D-1 (Data API GRANT backfill) is CLOSED.**
+> The initial audit estimated **10** early tables missing explicit GRANTs. Hardening the GRANT lint
+> found **13** missing-GRANT `CREATE` targets; one (`user_billing`) was later **dropped/superseded by
+> `account_billing`**, leaving **12 live tables** — all backfilled by
+> `20260619000000_backfill_data_api_grants.sql` (commit `0a6ba7efe`) and **applied to the dev DB via
+> `db:push`.** `check-migration-rls.mjs` now enforces GRANT coverage (DROP-aware), so the gap can't
+> recur. Mentions of "10 tables" below are kept for historical accuracy and annotated.
+
 **Method:** 14 read-only subsystem agents mapped completion status (done / partial / missing /
 needs-live-testing / unknown) against live code + tests + closeout docs; synthesized into the
 roadmap below. Test baselines were measured this session (not inherited).
@@ -23,10 +31,10 @@ RLS+policy exists on every user-data table.
 
 The single biggest gap is **live-provider / live-DB validation**: OAuth connect→refresh→revoke,
 webhook delivery+dedup, polling snapshots, Stripe checkout/webhook round-trips, and RLS
-cross-account isolation are all proven against **mocks only**. The one concrete compliance defect is
-**10 early migrations missing explicit `GRANT` statements** (hard Supabase Oct-30-2026 cutover
-deadline; not a launch blocker today). The one functional gap is **plan limits are not enforced in
-the execution billing gate** (caps are budget-row level, not plan-differentiated).
+cross-account isolation are all proven against **mocks only**. ~~The one concrete compliance defect is
+10 early migrations missing explicit `GRANT` statements~~ → **RESOLVED** (see Status update above: 12
+live tables backfilled + lint hardened). The one remaining functional gap is **plan limits are not
+enforced in the execution billing gate** (caps are budget-row level, not plan-differentiated).
 
 **Rough readiness: ~85% to full live-testing.** The remaining ~15% is almost entirely "run it
 against real providers + real Supabase and watch it work," plus the GRANT backfill and the
@@ -109,9 +117,10 @@ of local commits; **none pushed.**
 - **App catalog / onboarding / mobile** — *mostly-complete.* `/apps` catalog with search/filter/sort,
   expandable accounts, real OAuth connect, marketing homepage, app-shell + mobile drawer, DTO no-leak
   verified. Health-status pills, disconnect UI, workflow-linkage deferred.
-- **Database security tests** — *partial.* RLS+policy on all 61 migrations, 16 integration security
-  tests, service-role boundary enforced. **Gap: 10 early migrations missing GRANTs; lint does not
-  check GRANTs.**
+- **Database security tests** — *mostly-complete.* RLS+policy on all 61 migrations, 16 integration
+  security tests, service-role boundary enforced. **GRANT gap RESOLVED** (`20260619000000`): 12 live
+  tables backfilled with policy-matched authenticated + service_role grants; `check-migration-rls.mjs`
+  now enforces GRANT coverage. Remaining: live RLS cross-account pen-test + no-cleartext-token scan.
 
 ---
 
@@ -120,11 +129,12 @@ of local commits; **none pushed.**
 ### Hard blockers before *trustworthy* end-to-end live testing
 *(None block local testing today; all block a credible live-cutover dry-run.)*
 
-1. **GRANT backfill on 10 early migrations** — `user_profiles`, `integrations`, `workflows`,
-   `trigger_resources`, `workflow_runs`, `oauth_states`, `notifications`, `hubspot_app_subscriptions`,
-   `hubspot_subscription_refs`, `workflow_files`. After Oct 30 2026 these return `42501` to the Data
-   API. Also extend `check-migration-rls.mjs` to verify GRANTs so it can't recur. **Hard,
-   deadline-driven; mechanical.**
+1. ~~**GRANT backfill on 10 early migrations**~~ — **✅ DONE (`0a6ba7efe`, applied via `db:push`).**
+   13 missing-GRANT tables found; `user_billing` dropped/superseded; **12 live tables** backfilled
+   (`user_profiles`, `integrations`, `workflows`, `workflow_revisions`, `trigger_resources`,
+   `notifications`, `workflow_files`, `workflow_runs` + the service-role-only `oauth_states`,
+   `webhook_event_dedup`, `hubspot_app_subscriptions`, `hubspot_subscription_refs`).
+   `check-migration-rls.mjs` now enforces GRANT coverage (DROP-aware). No longer a blocker.
 2. **Live OAuth round-trip per provider** — connect → callback → token-encrypt → first action → 401
    → refresh+retry → recover. Mock-only across all 25 OAuth providers; real redirect-URI mismatches
    fail silently. **Hard.**
@@ -155,7 +165,7 @@ of local commits; **none pushed.**
 
 | Risk | Severity | Area | How to verify / mitigate |
 |---|---|---|---|
-| 10 migrations lack GRANTs → `42501` after Oct 30 2026 | high | db-security | Backfill GRANTs; extend `check-migration-rls.mjs` to assert ≥1 GRANT/table; `db:push` to test schema + attempt Data API CRUD |
+| ~~Migrations lack GRANTs → `42501` after Oct 30 2026~~ **RESOLVED** | ~~high~~ done | db-security | Closed by `0a6ba7efe` (`20260619000000`): 12 live tables backfilled, lint hardened (DROP-aware GRANT coverage), applied via `db:push` |
 | OAuth refresh/revoke unproven against any real provider | high | oauth-tokens | E2E connect→action→401→refresh→retry per provider in a deployed env with real redirect-URI registration |
 | Webhook delivery + dedup mock-only (no integration suite) | high | webhooks | Add `tests/integration/webhooks/<p>.test.ts`; replay same `eventId` 100× → assert 1 row + 99 drops |
 | RLS cross-account isolation verified in unit only | high | account-model / db-security | Live probe: Team A user queries Team B resources; `ALLOW_DB_INTEGRATION_TESTS=true` run + manual pen-test |
@@ -177,10 +187,9 @@ of local commits; **none pushed.**
 
 ## F. Recommended next 5 local slices
 
-1. **GRANT-backfill + lint hardening** — the only hard, deadline-driven compliance defect; cheap and
-   mechanical. Add explicit `GRANT … TO authenticated, service_role` to the 10 early migrations and
-   extend `check-migration-rls.mjs` to fail when a table lacks a GRANT. Closes the Oct-30 cutover risk
-   and prevents recurrence. *(New migration(s) — applied via `db:push` per repo convention.)*
+1. ~~**GRANT-backfill + lint hardening**~~ — **✅ DONE (`0a6ba7efe`).** Superseded by the Status update;
+   12 live tables backfilled (`20260619000000`), lint now enforces DROP-aware GRANT coverage, applied
+   via `db:push`. **→ The new next-up slice is #2 below (plan-enforcement).**
 2. **Plan-enforcement in the execution billing gate** — billing's single functional gap; metadata +
    `PLAN_LIMITS` already exist, only the gate read is missing. Wire `executionBillingGate` to read the
    plan and refuse over-cap runs with `BILLING_EXHAUSTED`. Makes plan caps real.
@@ -203,7 +212,7 @@ Full live testing may begin when **all** of the following hold:
 
 - [x] **Full Jest sweep green** — 16,757/16,919 this session (`69bc051f3` fixed the lone stale assertion).
 - [x] `tsc` clean, `lint:structure` OK, `lint:migrations` OK.
-- [ ] **GRANTs present on all 61 migrations**, and the migration lint verifies GRANTs (not just RLS+policy).
+- [x] **GRANTs present on all live tables**, and the migration lint verifies GRANT coverage (DROP-aware) — `20260619000000` / `0a6ba7efe`.
 - [ ] **A real Supabase instance** provisioned with all 61 migrations applied (confirm none unapplied per environment).
 - [ ] **≥1 real OAuth round-trip per OAuth provider**: connect → callback → encrypted token stored →
   action fires → 401 triggers refresh-and-retry (refreshable) or `action_required` (non-refreshable).
