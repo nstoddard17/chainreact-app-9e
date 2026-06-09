@@ -10,6 +10,7 @@ import {
   replaceCurrentWorkflowFromTemplate,
 } from "@/lib/api/workflowTemplates";
 import type { MarketplaceTemplateSummary } from "@/contracts/workflowTemplate";
+import type { WorkflowState } from "@/contracts/workflow";
 import { useGraphSlice } from "../state/graphSlice";
 
 /**
@@ -34,6 +35,13 @@ interface Props {
   workflowId: string;
   /** True when the builder has unsaved edits — strengthens the replace warning. */
   isDirty: boolean;
+  /**
+   * The current workflow's lifecycle state. When `active`, the replace confirmation
+   * carries an extra warning: replace writes the DEFINITION ONLY (it does not pause the
+   * workflow — matching normal save/edit behavior), so an active workflow keeps running
+   * with the new steps and must be reviewed/reconnected/tested first.
+   */
+  workflowState?: WorkflowState;
   onClose: () => void;
 }
 
@@ -42,7 +50,8 @@ type ListState =
   | { status: "error" }
   | { status: "ready"; templates: readonly MarketplaceTemplateSummary[] };
 
-export function BuilderTemplatesModal({ workflowId, isDirty, onClose }: Props) {
+export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onClose }: Props) {
+  const isActiveWorkflow = workflowState === "active";
   const router = useRouter();
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -241,14 +250,24 @@ export function BuilderTemplatesModal({ workflowId, isDirty, onClose }: Props) {
               Replace this workflow with “{confirmReplace.name}”?
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              This erases the current workflow&apos;s contents and replaces them with the
-              template. This can&apos;t be undone.
-              {isDirty && (
-                <span data-testid="builder-templates-replace-dirty-warning" className="mt-1 block font-medium text-destructive">
-                  You have unsaved changes — they will be discarded.
-                </span>
-              )}
+              This replaces the current workflow&apos;s steps with the template. You&apos;ll
+              need to reconnect any accounts and test it before relying on it — this
+              can&apos;t be undone.
             </p>
+            {isActiveWorkflow && (
+              <p
+                data-testid="builder-templates-replace-active-warning"
+                className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs font-medium text-amber-700 dark:text-amber-300"
+              >
+                This workflow is currently active. Replacing it overwrites its steps but
+                leaves it active — review its connections and test it before relying on it.
+              </p>
+            )}
+            {isDirty && (
+              <p data-testid="builder-templates-replace-dirty-warning" className="mt-2 text-xs font-medium text-destructive">
+                You have unsaved changes — they will be discarded.
+              </p>
+            )}
             {actionError && (
               <p role="alert" data-testid="builder-templates-replace-error" className="mt-2 text-xs text-destructive">
                 {actionError}

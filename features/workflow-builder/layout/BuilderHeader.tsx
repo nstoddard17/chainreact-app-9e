@@ -137,6 +137,7 @@ export function BuilderHeader({
         <BuilderTemplatesModal
           workflowId={workflowId}
           isDirty={isDirty}
+          workflowState={lifecycle?.state}
           onClose={() => setTemplatesOpen(false)}
         />
       ) : null}

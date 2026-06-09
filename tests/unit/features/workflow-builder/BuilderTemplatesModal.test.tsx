@@ -48,9 +48,18 @@ function tpl(over: Record<string, unknown> = {}) {
   };
 }
 
-function renderModal(over: { isDirty?: boolean; onClose?: () => void } = {}) {
+function renderModal(
+  over: { isDirty?: boolean; workflowState?: "draft" | "active" | "paused" | "disabled"; onClose?: () => void } = {},
+) {
   const onClose = over.onClose ?? jest.fn();
-  render(<BuilderTemplatesModal workflowId={WF} isDirty={over.isDirty ?? false} onClose={onClose} />);
+  render(
+    <BuilderTemplatesModal
+      workflowId={WF}
+      isDirty={over.isDirty ?? false}
+      workflowState={over.workflowState ?? "draft"}
+      onClose={onClose}
+    />,
+  );
   return { onClose };
 }
 
@@ -150,6 +159,27 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     await screen.findByText("Failed payment recovery");
     await user.click(screen.getByTestId("builder-template-replace-tpl-1"));
     expect(screen.getByTestId("builder-templates-replace-dirty-warning")).toBeInTheDocument();
+  });
+
+  it("shows a stronger warning when the current workflow is ACTIVE (stays active; review/test)", async () => {
+    const user = userEvent.setup();
+    renderModal({ workflowState: "active" });
+    await screen.findByText("Failed payment recovery");
+    await user.click(screen.getByTestId("builder-template-replace-tpl-1"));
+    const warning = screen.getByTestId("builder-templates-replace-active-warning");
+    expect(warning).toBeInTheDocument();
+    expect(warning).toHaveTextContent(/currently active/i);
+    expect(warning).toHaveTextContent(/review its connections and test it/i);
+  });
+
+  it("does NOT show the active warning for a draft workflow", async () => {
+    const user = userEvent.setup();
+    renderModal({ workflowState: "draft" });
+    await screen.findByText("Failed payment recovery");
+    await user.click(screen.getByTestId("builder-template-replace-tpl-1"));
+    expect(screen.queryByTestId("builder-templates-replace-active-warning")).toBeNull();
+    // The base copy still steers users to reconnect + test before relying on it.
+    expect(screen.getByTestId("builder-templates-replace-confirm")).toHaveTextContent(/reconnect any accounts and test/i);
   });
 
   it("surfaces a permission/update error visibly and does not hydrate or close", async () => {
