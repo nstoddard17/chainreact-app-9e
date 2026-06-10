@@ -14,7 +14,12 @@ export default function SignUpPage() {
           <span className="text-xs text-muted-foreground">or</span>
           <span className="h-px flex-1 bg-border" />
         </div>
-        <AuthForm action={signUp} submitLabel="Sign up" />
+        <AuthForm
+          action={signUp}
+          submitLabel="Sign up"
+          passwordAutoComplete="new-password"
+          successMessage="Check your email to confirm your account, then sign in."
+        />
         <p className="text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link href="/auth/sign-in" className="underline">

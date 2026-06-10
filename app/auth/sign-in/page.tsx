@@ -25,12 +25,17 @@ export default async function SignInPage({
           <span className="h-px flex-1 bg-border" />
         </div>
         <AuthForm action={signIn} submitLabel="Sign in" />
-        <p className="text-sm text-muted-foreground">
-          No account?{" "}
-          <Link href="/auth/sign-up" className="underline">
-            Sign up
+        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+          <Link href="/auth/forgot-password" className="underline">
+            Forgot password?
           </Link>
-        </p>
+          <p>
+            No account?{" "}
+            <Link href="/auth/sign-up" className="underline">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </main>
   );
