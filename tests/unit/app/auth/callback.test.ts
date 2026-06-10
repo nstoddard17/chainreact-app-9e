@@ -40,6 +40,18 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/integrations");
   });
 
+  it("forwards sign-up confirmation to the confirmed screen (next=/auth/confirmed)", async () => {
+    mockExchangeCodeForSession.mockResolvedValueOnce({ error: null });
+    const res = await GET(makeRequest("?code=valid-code&next=/auth/confirmed"));
+    expect(res.headers.get("location")).toBe("http://localhost:3000/auth/confirmed");
+  });
+
+  it("forwards password recovery to reset-password (next=/auth/reset-password) — unchanged", async () => {
+    mockExchangeCodeForSession.mockResolvedValueOnce({ error: null });
+    const res = await GET(makeRequest("?code=valid-code&next=/auth/reset-password"));
+    expect(res.headers.get("location")).toBe("http://localhost:3000/auth/reset-password");
+  });
+
   it("rejects an open-redirect via // in `next`", async () => {
     mockExchangeCodeForSession.mockResolvedValueOnce({ error: null });
     const res = await GET(makeRequest("?code=valid-code&next=//evil.com/x"));

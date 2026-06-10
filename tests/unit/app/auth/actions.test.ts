@@ -111,10 +111,21 @@ describe("auth actions — supabase error surfacing", () => {
   it("signUp passes trimmed email to supabase", async () => {
     mockSignUp.mockResolvedValueOnce({ error: { message: "any" } });
     await signUp(null, fd({ email: "  user@example.test  ", password: "password123" }));
-    expect(mockSignUp).toHaveBeenCalledWith({
-      email: "user@example.test",
-      password: "password123",
-    });
+    expect(mockSignUp).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "user@example.test", password: "password123" }),
+    );
+  });
+
+  it("signUp sets emailRedirectTo so the confirmation link lands on /auth/confirmed", async () => {
+    mockSignUp.mockResolvedValueOnce({ error: { message: "any" } });
+    await signUp(null, fd({ email: "user@example.test", password: "password123" }));
+    expect(mockSignUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: {
+          emailRedirectTo: "https://chainreact.app/auth/callback?next=/auth/confirmed",
+        },
+      }),
+    );
   });
 });
 

@@ -48,7 +48,15 @@ export async function signUp(_prev: AuthActionResult | null, formData: FormData)
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp(creds);
+  const origin = await resolveOrigin();
+  const { data, error } = await supabase.auth.signUp({
+    email: creds.email,
+    password: creds.password,
+    // The confirmation email link routes through /auth/callback (which exchanges
+    // the code for a session) and forwards to a clear "Email confirmed" screen —
+    // not the bare homepage. Mirrors the recovery flow's next= plumbing.
+    options: { emailRedirectTo: `${origin}/auth/callback?next=/auth/confirmed` },
+  });
   if (error) return { ok: false, error: error.message };
   // When "Confirm email" is ON in Supabase Auth, signUp returns NO session —
   // the user must click the email link first. Surface a "check your email"
