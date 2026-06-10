@@ -48,6 +48,8 @@ This reads `POSTGRES_URL_NON_POOLING` from `.env.local` and applies any pending 
 
 **Connection-string note:** `POSTGRES_URL_NON_POOLING` should be the **Session pooler** URL from Supabase Dashboard → Project Settings → Database → "Connect" panel. New projects sit behind `aws-1-<region>.pooler.supabase.com:5432` (Supavisor v2); the direct `db.<ref>.supabase.co` hostname is IPv6-only and won't resolve from most networks.
 
+**Target safety:** `db:push` is guarded by `npm run check:db-target` (`scripts/lib/db-target.mjs`). It **fails closed** unless `POSTGRES_URL_NON_POOLING` targets the same project ref as `NEXT_PUBLIC_SUPABASE_URL` — so V2 migrations can never land on the V1 project (`xzwsdwllmrnrgbltibxt`) or any other database. Run `npm run check:db-target` anytime to print the per-var project refs (secret-safe — refs only).
+
 ## Scripts
 
 | Command | What it does |
@@ -57,7 +59,8 @@ This reads `POSTGRES_URL_NON_POOLING` from `.env.local` and applies any pending 
 | `npm run lint` | ESLint (boundary rules + style) |
 | `npm run lint:structure` | Leaf-folder file-count check (≤ 50 per leaf) |
 | `npm run lint:migrations` | Migration RLS lint — every user-data table enables RLS + has policies in the same file |
-| `npm run db:push` | Apply pending migrations to the V2 Supabase project (reads `POSTGRES_URL_NON_POOLING` from `.env.local`) |
+| `npm run check:db-target` | Assert the migration DB target matches the app's Supabase project (secret-safe; prints refs only) |
+| `npm run db:push` | Apply pending migrations to the V2 Supabase project (reads `POSTGRES_URL_NON_POOLING` from `.env.local`; guarded by `check:db-target`) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Jest unit / integration / parity / structure tests |
 | `npm run test:e2e` | Playwright E2E |

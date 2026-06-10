@@ -9,20 +9,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (!m) continue;
-    let v = m[2].trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-      v = v.slice(1, -1);
-    }
-    env[m[1]] = v;
-  }
-  return env;
-}
+import { loadEnvFile, validateMigrationTarget } from "./lib/db-target.mjs";
 
 const envPath = resolve(process.cwd(), ".env.local");
 if (!existsSync(envPath)) {
@@ -30,12 +17,21 @@ if (!existsSync(envPath)) {
   process.exit(1);
 }
 
-const env = loadEnv(envPath);
+const env = loadEnvFile(readFileSync, envPath);
 const dbUrl = env.POSTGRES_URL_NON_POOLING;
 if (!dbUrl) {
   console.error("ABORT — POSTGRES_URL_NON_POOLING missing from .env.local.");
   process.exit(1);
 }
+
+// Fail closed if the migration target isn't the app's own Supabase project.
+// Prevents pushing V2 migrations into V1 (or any other) database.
+const guard = validateMigrationTarget(env);
+if (!guard.ok) {
+  console.error(`ABORT — DB-target guard: ${guard.reason}`);
+  process.exit(1);
+}
+console.log(`DB-target guard OK — target project ref: ${guard.targetRef}`);
 
 const hostMatch = dbUrl.match(/@([^/:]+):(\d+)/);
 console.log(`Pushing migrations to: ${hostMatch ? hostMatch[1] + ":" + hostMatch[2] : "(unparsed)"}`);
