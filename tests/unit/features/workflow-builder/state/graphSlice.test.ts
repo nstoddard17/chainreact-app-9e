@@ -141,6 +141,95 @@ describe("graphSlice.hydrate — revision guard", () => {
   });
 });
 
+// ─── Launch-blocker BUILDER-SAVE-WIPE-1 — re-hydrate must not wipe edits ──────
+//
+// Production repro: new workflow → add manual trigger + native action → a late
+// RSC re-render re-fires the mount hydrate with the SAME revision + still-empty
+// server draft → pendingNodes were wiped to [] → Save persisted the empty graph
+// (PATCH 200), workflow empty on reopen.
+
+describe("graphSlice.hydrate — unsaved-edit protection (BUILDER-SAVE-WIPE-1)", () => {
+  const REV = "2026-06-11T00:00:00.000Z";
+
+  function hydrateEmptyThenAddTwoNodes(rev?: string): void {
+    const s = useGraphSlice.getState();
+    s.hydrate("wf-1", EMPTY_DEF, rev);
+    s.addTrigger({ provider: "manual", type: "run" });
+    s.addAction({ provider: "http", type: "request" });
+  }
+
+  it("does NOT wipe unsaved edits on a SAME-revision re-hydrate (prod repro)", () => {
+    hydrateEmptyThenAddTwoNodes(REV);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+    // Late RSC re-render: same revision, still-empty server draft.
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, REV);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("does NOT wipe unsaved edits on a revision-less re-hydrate", () => {
+    hydrateEmptyThenAddTwoNodes(REV);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+  });
+
+  it("does NOT wipe unsaved edits on an older-revision re-hydrate", () => {
+    hydrateEmptyThenAddTwoNodes(REV);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2025-01-01T00:00:00.000Z");
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+  });
+
+  it("still applies a clean (non-dirty) equal-revision re-hydrate (idempotent)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, REV);
+    // not dirty → an equal-revision re-hydrate may replace.
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, REV);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  });
+
+  it("still applies a strictly-NEWER revision even with edits (external write wins)", () => {
+    hydrateEmptyThenAddTwoNodes(REV);
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, "2027-01-01T00:00:00.000Z");
+    expect(useGraphSlice.getState().pendingNodes).toEqual(TRIGGER_DEF.nodes);
+  });
+});
+
+describe("graphSlice.save — persists the current graph after a same-revision re-hydrate", () => {
+  const REV = "2026-06-11T00:00:00.000Z";
+  const SERVER_REV = "2026-06-11T00:10:00.000Z";
+
+  it("sends the added nodes (never the wiped empty graph) and tracks the new revision", async () => {
+    const s = useGraphSlice.getState();
+    s.hydrate("wf-1", EMPTY_DEF, REV);
+    s.addTrigger({ provider: "manual", type: "run" });
+    s.addAction({ provider: "http", type: "request" });
+    // Late RSC re-render — same revision, still-empty server draft (pre-fix wiped).
+    s.hydrate("wf-1", EMPTY_DEF, REV);
+
+    mockUpdateWorkflow.mockResolvedValueOnce({
+      id: "wf-1",
+      updatedAt: SERVER_REV,
+      draftDefinition: {
+        nodes: useGraphSlice.getState().pendingNodes,
+        edges: useGraphSlice.getState().pendingEdges,
+      },
+    });
+
+    await useGraphSlice.getState().save();
+
+    expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
+    const body = mockUpdateWorkflow.mock.calls[0]![1] as {
+      draftDefinition: { nodes: unknown[]; edges: unknown[] };
+    };
+    // The PATCH payload must carry the trigger + action — never an empty graph.
+    expect(body.draftDefinition.nodes).toHaveLength(2);
+    expect(body.draftDefinition.edges).toHaveLength(1);
+    // Revision now tracks the server so further edits aren't clobbered.
+    expect(useGraphSlice.getState().hydratedRevision).toBe(SERVER_REV);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});
+
 describe("graphSlice.addTrigger", () => {
   it("adds a trigger node and marks dirty", () => {
     useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
@@ -1297,20 +1386,29 @@ describe("graphSlice — delete + save persistence (AI-25 regression)", () => {
     expect(s.isDirty).toBe(false);
   });
 
-  it("simulated page refresh BEFORE save — old saved draft returns (expected; unsaved changes don't survive refresh)", () => {
+  it("real page refresh BEFORE save discards unsaved changes (full remount resets in-memory state)", () => {
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
     useGraphSlice.getState().deleteNodeAndRewire("act-1");
     useGraphSlice.getState().deleteNodeAndRewire("trig-1");
     expect(useGraphSlice.getState().isDirty).toBe(true);
 
-    // Page refresh: WorkflowBuilder mount effect re-runs hydrate() with the
-    // SAVED server draft (which still has the pre-delete nodes — the user
-    // never clicked Save). The local delete is overridden by design.
+    // A REAL page refresh tears down the whole client: the module-level store is
+    // recreated from INITIAL_STATE (equivalently, the builder's unmount runs
+    // reset()). The fresh mount then hydrates the SAVED server draft — which
+    // still has the pre-delete nodes because the user never clicked Save. So
+    // unsaved changes are discarded by design.
+    //
+    // NOTE (BUILDER-SAVE-WIPE-1): the discard happens because of the reset, NOT
+    // because hydrate clobbers dirty edits. A SPURIOUS same-session re-hydrate
+    // WITHOUT a reset must NOT wipe unsaved edits — that path is what caused the
+    // prod save-wipe bug and is now guarded (see the unsaved-edit-protection
+    // suite). This test models the real-refresh remount: reset → hydrate.
+    useGraphSlice.getState().reset();
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_PLUS_ACTION_DEF);
     const s = useGraphSlice.getState();
     expect(s.pendingNodes.map((n) => n.id)).toEqual(["trig-1", "act-1"]);
     expect(s.pendingEdges.map((e) => e.id)).toEqual(["e-1"]);
-    // isDirty resets because pending* now matches saved*.
+    // isDirty is false: a fresh hydrate sets pending* === saved*.
     expect(s.isDirty).toBe(false);
   });
 

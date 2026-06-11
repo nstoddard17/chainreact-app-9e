@@ -263,6 +263,21 @@ function isStaleRevision(incoming: string | undefined, current: string | null): 
 }
 
 /**
+ * Launch-blocker BUILDER-SAVE-WIPE-1 — is an incoming hydrate revision STRICTLY
+ * NEWER than the currently-accepted one? Only a strictly-newer revision
+ * represents genuinely fresh server data (e.g. an AI apply or an external
+ * write). Unknown / unparseable / equal / older revisions are NOT newer, so a
+ * re-hydrate carrying one must not clobber unsaved edits. Compared as epoch ms.
+ */
+function isStrictlyNewerRevision(incoming: string | undefined, current: string | null): boolean {
+  if (incoming === undefined || current === null) return false;
+  const a = Date.parse(incoming);
+  const b = Date.parse(current);
+  if (Number.isNaN(a) || Number.isNaN(b)) return false;
+  return a > b;
+}
+
+/**
  * Random id generator. Uses crypto.randomUUID when available; falls back to
  * a timestamp+random combination for environments without it. Slice tests
  * inject `__nodeIdGen` via setState if they need deterministic ids.
@@ -291,6 +306,20 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     // same workflow so a late/older prop hydrate can't overwrite a freshly
     // applied (newer) graph. A different workflow id always hydrates.
     if (sameWorkflow && isStaleRevision(revision, state.hydratedRevision)) {
+      return;
+    }
+    // Launch-blocker BUILDER-SAVE-WIPE-1 — never let a re-hydrate that is NOT
+    // strictly newer clobber UNSAVED edits. A late RSC re-render delivering the
+    // same still-empty server draft (equal revision) would otherwise wipe the
+    // nodes the user just added, and the next Save would persist the empty graph
+    // (observed in prod: PATCH 200 carrying an empty draftDefinition; workflow
+    // empty on reopen). Strictly-newer revisions still apply (AI apply / genuine
+    // external write); a fresh mount is unaffected because isDirty is false.
+    if (
+      sameWorkflow &&
+      state.isDirty &&
+      !isStrictlyNewerRevision(revision, state.hydratedRevision)
+    ) {
       return;
     }
     const nextRevision = sameWorkflow
@@ -583,6 +612,10 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       set({
         savedNodes: updated.draftDefinition.nodes,
         savedEdges: updated.draftDefinition.edges,
+        // BUILDER-SAVE-WIPE-1 — track the server revision the save advanced to,
+        // so a post-save RSC re-render at the SAME revision can't clobber any
+        // further edits the user makes (the hydrate guard keys off this).
+        hydratedRevision: updated.updatedAt,
         // The user could keep editing during save; the pending* values they
         // see should not snap back to the server payload. Reconcile only
         // when pending == what we just sent, otherwise leave dirty.
