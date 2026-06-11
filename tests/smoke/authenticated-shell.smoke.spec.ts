@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { assertNoServerError, gotoOk } from "./helpers/assertions";
+import { assertNoServerError, clickToReveal, gotoOk } from "./helpers/assertions";
 import { hasSmokeCredentials } from "./helpers/env";
 
 /**
@@ -30,9 +30,10 @@ test.describe("Authenticated shell smoke", () => {
     await gotoOk(page, "/account");
     await expect(page.getByTestId("account-settings")).toBeVisible();
 
-    await page.getByTestId("account-nav-billing").click();
+    // The section nav is a client onClick that switches React state — retry the
+    // click through hydration until the billing section actually mounts.
     const billing = page.getByTestId("account-section-billing");
-    await expect(billing).toBeVisible();
+    await clickToReveal(page.getByTestId("account-nav-billing"), billing);
 
     // used / limit
     const usage = page.getByTestId("billing-usage");

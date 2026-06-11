@@ -1,4 +1,4 @@
-import { expect, type Page, type Response } from "@playwright/test";
+import { expect, type Locator, type Page, type Response } from "@playwright/test";
 
 /**
  * Server-error markers that indicate a 500 / React Server Components render
@@ -37,4 +37,28 @@ export async function assertNoServerError(page: Page): Promise<void> {
   for (const marker of SERVER_ERROR_MARKERS) {
     expect(body, `Page shows server-error marker: "${marker}"`).not.toContain(marker);
   }
+}
+
+/**
+ * Click `trigger` and wait for `revealed` to appear, retrying the click if
+ * nothing happened.
+ *
+ * Client `onClick` handlers aren't wired until React hydrates; a click fired in
+ * the window between `domcontentloaded` and hydration is silently dropped (the
+ * DOM element exists, but no listener is attached yet). Plain `.click()` +
+ * `toBeVisible()` then fails because the first click was a no-op. Retrying until
+ * the post-condition holds makes the interaction resilient without touching
+ * product behavior. Idempotent: once `revealed` is visible we stop before
+ * re-clicking a now-covered trigger.
+ */
+export async function clickToReveal(
+  trigger: Locator,
+  revealed: Locator,
+  opts: { timeout?: number } = {},
+): Promise<void> {
+  await expect(async () => {
+    if (await revealed.isVisible().catch(() => false)) return;
+    await trigger.click({ timeout: 2_000 });
+    await expect(revealed).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: opts.timeout ?? 25_000, intervals: [400, 800, 1200, 2000] });
 }
