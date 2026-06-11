@@ -121,6 +121,8 @@ Lives in `tests/e2e/playwright/`. Reserved for **critical user journeys only**:
 
 E2E is not for edge cases. Edge cases live in unit / integration layers.
 
+**Shared-mock e2e execution.** Shared provider-mock e2e specs that mutate shared workflow/provider fixtures must run serially with `--workers=1`; apply required workflow/provider migrations, including `workflow_files` where file-output flows are involved, before running those specs. (Slice-specific history: [`../slices/phase-2/slack-2-4-outcomes.md`](../slices/phase-2/slack-2-4-outcomes.md).)
+
 ### H. Parity / regression tests
 
 Lives in `tests/parity/`. Tests created from known V1 bugs. Each named after the V1 incident. Initial seed list:
