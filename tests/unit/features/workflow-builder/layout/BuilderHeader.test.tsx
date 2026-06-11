@@ -369,7 +369,11 @@ describe("BuilderHeader — save that deactivates (active-edit trigger change)",
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
   });
 
-  it("does NOT refresh when the save leaves the lifecycle state unchanged (active stays active)", async () => {
+  // BUILDER-SAVE-STALE-NAV-1 — every successful save must invalidate the App
+  // Router cache, even when the lifecycle state is unchanged. Otherwise a draft
+  // save → navigate to the list → reopen builder serves the stale pre-save RSC
+  // payload (empty draft) until the cache expires.
+  it("refreshes the route on a successful save even when the lifecycle state is unchanged", async () => {
     const user = userEvent.setup();
     mockUpdateWorkflow.mockResolvedValueOnce({ ...disabledDetail(), state: "active", disabledReason: null, disabledContext: null });
     render(<BuilderHeader workflowName="x" workflowId="wf-1" lifecycle={{ workflowId: "wf-1", state: "active" }} />);
@@ -377,7 +381,18 @@ describe("BuilderHeader — save that deactivates (active-edit trigger change)",
       useGraphSlice.getState().addTrigger({ provider: "slack" });
     });
     await user.click(screen.getByRole("button", { name: /^save$/i }));
-    await waitFor(() => expect(mockUpdateWorkflow).toHaveBeenCalled());
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("does NOT refresh when there is nothing to save (clean slice → no-op)", async () => {
+    const user = userEvent.setup();
+    render(<BuilderHeader workflowName="x" workflowId="wf-1" lifecycle={{ workflowId: "wf-1", state: "active" }} />);
+    // Slice is clean — the Save button is disabled, so a click cannot fire a
+    // save and must not refresh the route.
+    const btn = screen.getByRole("button", { name: /^save$/i });
+    expect(btn).toBeDisabled();
+    await user.click(btn);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
     expect(mockRefresh).not.toHaveBeenCalled();
   });
 });

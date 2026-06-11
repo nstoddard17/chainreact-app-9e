@@ -95,16 +95,23 @@ export function BuilderHeader({
     try {
       const updated = await save();
       setSavedAt(Date.now());
-      // A trigger edit on an ACTIVE workflow deactivates it server-side. The lifecycle
-      // state is a server prop, so refresh to surface the disabled banner + Reactivate
-      // when the save changed it. Non-trigger edits leave the state unchanged → no refresh.
-      if (updated && lifecycle && updated.state !== lifecycle.state) {
+      // BUILDER-SAVE-STALE-NAV-1 — invalidate the App Router cache after every
+      // successful save. The save is a client fetch (PATCH), which does NOT
+      // invalidate Next's client-side Router Cache, so navigating away to the
+      // workflows list and back into the builder would re-render the STALE
+      // pre-save RSC payload (empty draft) until the cache expired — the user
+      // saw the workflow open empty on the first reopen, then correct on the
+      // next. router.refresh() re-fetches the route and clears that cache so the
+      // freshly-saved draft is what a later navigation hydrates. This also
+      // surfaces any server-side lifecycle change (e.g. a trigger edit that
+      // deactivated an active workflow → disabled banner + Reactivate).
+      if (updated) {
         router.refresh();
       }
     } catch {
       // Error already captured into slice.saveError; no extra UI work here.
     }
-  }, [isDirty, isSaving, save, router, lifecycle]);
+  }, [isDirty, isSaving, save, router]);
 
   useBuilderShortcuts({ onSave: handleSave });
 
