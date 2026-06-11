@@ -29,8 +29,9 @@ jest.mock("@/lib/api/workflows", () => {
 });
 
 const mockPush = jest.fn();
+const mockRefresh = jest.fn();
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
 }));
 
 import { WorkflowApiError } from "@/lib/api/workflows";
@@ -75,6 +76,11 @@ beforeEach(() => {
   mockPause.mockReset();
   mockResume.mockReset();
   mockPush.mockReset();
+  mockRefresh.mockReset();
+  // Note: refetch-on-mount (BUILDER-LIST-CACHE) calls listWorkflows() once per
+  // render. With mockList reset to undefined, the dashboard's array guard makes
+  // that mount call a no-op (keeps the rendered `initialWorkflows`). Tests that
+  // assert refresh behavior queue a mount return value FIRST, then the action's.
 });
 
 describe("WorkflowsDashboard — initial render with real data", () => {
@@ -222,6 +228,8 @@ describe("WorkflowsDashboard — search + status filter + view toggle", () => {
 
 describe("WorkflowsDashboard — refresh after a status change + loading + error states", () => {
   it("pausing a workflow triggers a refresh; loading indicator then updated rows render", async () => {
+    // 1st listWorkflows = refetch-on-mount (same data, no-op); 2nd = the pause refresh.
+    mockList.mockResolvedValueOnce([wf("a", "Running one", "active")]);
     mockPause.mockResolvedValueOnce({ id: "a", state: "paused" });
     mockList.mockResolvedValueOnce([
       wf("a", "Running one", "paused"), // server says paused now
@@ -230,12 +238,17 @@ describe("WorkflowsDashboard — refresh after a status change + loading + error
     render(
       <WorkflowsDashboard initialWorkflows={[wf("a", "Running one", "active")]} />,
     );
-    await user.click(screen.getByTestId("workflow-status-toggle-switch"));
-    // Refresh fired → listWorkflows called once.
+    // Let the mount refetch settle first.
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByTestId("workflow-status-toggle-switch"));
+    // Pause → router.refresh() (cache invalidate) + reloadList() (2nd fetch).
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2));
   });
 
   it("refresh failure shows an error banner with a Retry button (data load fails)", async () => {
+    // 1st listWorkflows = refetch-on-mount (ok); 2nd = the pause refresh (fails).
+    mockList.mockResolvedValueOnce([wf("a", "Running one", "active")]);
     mockPause.mockResolvedValueOnce({ id: "a", state: "paused" });
     mockList.mockRejectedValueOnce(
       new WorkflowApiError("Server is unavailable.", "SERVER_ERROR", 500),
@@ -244,13 +257,62 @@ describe("WorkflowsDashboard — refresh after a status change + loading + error
     render(
       <WorkflowsDashboard initialWorkflows={[wf("a", "Running one", "active")]} />,
     );
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
     await user.click(screen.getByTestId("workflow-status-toggle-switch"));
     const banner = await screen.findByTestId("workflows-dashboard-error");
     expect(banner).toHaveTextContent(/Server is unavailable/i);
-    // Retry triggers another listWorkflows call.
+    // Retry triggers another listWorkflows call (3rd overall: mount + failed + retry).
     mockList.mockResolvedValueOnce([wf("a", "Running one", "paused")]);
     await user.click(screen.getByTestId("workflows-dashboard-retry"));
-    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(3));
+  });
+});
+
+describe("WorkflowsDashboard — BUILDER-LIST-CACHE freshness", () => {
+  it("refetches on mount and reconciles a stale initial list to server truth", async () => {
+    // The cached server prop still lists a workflow the DB no longer has.
+    mockList.mockResolvedValueOnce([wf("a", "Still here", "active")]);
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[
+          wf("a", "Still here", "active"),
+          wf("gone", "Deleted elsewhere", "active"),
+        ]}
+      />,
+    );
+    // Mount refetch (BUILDER-LIST-CACHE) replaces the stale list with the truth.
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.queryByText("Deleted elsewhere")).toBeNull(),
+    );
+    expect(screen.getByText("Still here")).toBeInTheDocument();
+  });
+
+  it("a deleted workflow does not reappear after the mount refetch", async () => {
+    mockList.mockResolvedValueOnce([wf("a", "Survivor", "active")]); // server: only 'a'
+    render(
+      <WorkflowsDashboard
+        initialWorkflows={[
+          wf("a", "Survivor", "active"),
+          wf("d", "Deleted one", "active"),
+        ]}
+      />,
+    );
+    await waitFor(() => expect(screen.queryByText("Deleted one")).toBeNull());
+  });
+
+  it("syncs the list when the server initialWorkflows prop changes", async () => {
+    const { rerender } = render(
+      <WorkflowsDashboard initialWorkflows={[wf("a", "First", "active")]} />,
+    );
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1)); // mount settles (no-op)
+    expect(screen.getByText("First")).toBeInTheDocument();
+    // A fresh RSC payload arrives as a new prop (e.g. after router.refresh()).
+    rerender(
+      <WorkflowsDashboard initialWorkflows={[wf("b", "Second", "active")]} />,
+    );
+    await waitFor(() => expect(screen.getByText("Second")).toBeInTheDocument());
+    expect(screen.queryByText("First")).toBeNull();
   });
 });
 

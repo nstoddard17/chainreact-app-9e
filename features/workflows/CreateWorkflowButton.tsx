@@ -28,6 +28,11 @@ export function CreateWorkflowButton() {
       const created = await createWorkflow({ name: name.trim() });
       setName("");
       setOpen(false);
+      // BUILDER-LIST-CACHE — invalidate Next's Router Cache before navigating so
+      // the stale /workflows list payload is refreshed (the new workflow appears
+      // on return) and the builder loads the fresh create-time detail rather than
+      // a cached one.
+      router.refresh();
       router.push(`/workflows/${created.id}`);
     } catch (err) {
       const message =

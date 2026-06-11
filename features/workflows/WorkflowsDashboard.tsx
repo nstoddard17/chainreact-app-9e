@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { listWorkflows, WorkflowApiError } from "@/lib/api/workflows";
 import type { WorkflowListItem } from "@/contracts/workflow";
@@ -74,15 +75,21 @@ export function WorkflowsDashboard({
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [undoPending, setUndoPending] = useState(false);
 
+  const router = useRouter();
   const refreshSeqRef = useRef(0);
-  const refresh = useCallback(async () => {
+
+  // Client-side reload of the workflow list. Used on mount (to correct a stale
+  // cached server payload — BUILDER-LIST-CACHE) and as the data half of
+  // refresh(). Guards against a non-array result so an unconfigured/failed fetch
+  // never replaces the list with `undefined`.
+  const reloadList = useCallback(async () => {
     const seq = ++refreshSeqRef.current;
     setRefreshing(true);
     setError(null);
     try {
       const next = await listWorkflows();
       if (seq !== refreshSeqRef.current) return;
-      setWorkflows(next);
+      if (Array.isArray(next)) setWorkflows(next);
     } catch (err) {
       if (seq !== refreshSeqRef.current) return;
       setError(
@@ -94,6 +101,15 @@ export function WorkflowsDashboard({
       if (seq === refreshSeqRef.current) setRefreshing(false);
     }
   }, []);
+
+  // Mutation refresh (BUILDER-LIST-CACHE): invalidate Next's client Router Cache
+  // so navigating away and back reflects the post-mutation truth (deleted rows
+  // stay gone; created rows appear), THEN reload the visible list now. Passed to
+  // every list-mutating handler (delete/trash/restore/move/folder/bulk).
+  const refresh = useCallback(async () => {
+    router.refresh();
+    await reloadList();
+  }, [router, reloadList]);
 
   // Folder / Trash / move-to-folder / undo-producing concern (see hook docs).
   const {
@@ -135,6 +151,28 @@ export function WorkflowsDashboard({
     const id = setTimeout(() => setUndo(null), UNDO_TIMEOUT_MS);
     return () => clearTimeout(id);
   }, [undo]);
+
+  // BUILDER-LIST-CACHE — self-correct on mount. `initialWorkflows` can be a
+  // STALE prefetched / Router-Cached server payload (e.g. after a create/delete
+  // performed on another route, or a back-navigation), so a fresh client fetch
+  // reconciles the list to the DB truth. `reloadList` is stable (no deps), so
+  // this runs once per mount — no loop.
+  useEffect(() => {
+    void reloadList();
+  }, [reloadList]);
+
+  // Keep list state in sync when the SERVER prop itself changes (e.g. a
+  // router.refresh() merged a fresh RSC payload into this mounted instance).
+  // Skipped while a client reload is in flight so an in-progress fresh fetch is
+  // not clobbered by a possibly-older prop, and a no-op on the initial prop
+  // (the ref starts equal). Never wipes mid-mutation optimistic state because
+  // the mutation handlers drive `setWorkflows` through reloadList, not the prop.
+  const prevInitialRef = useRef(initialWorkflows);
+  useEffect(() => {
+    if (prevInitialRef.current === initialWorkflows) return;
+    prevInitialRef.current = initialWorkflows;
+    if (!refreshing) setWorkflows(initialWorkflows);
+  }, [initialWorkflows, refreshing]);
 
   const appOptions = useMemo(() => deriveAppOptions(workflows), [workflows]);
   const folderCounts = useMemo(() => deriveFolderCounts(workflows), [workflows]);

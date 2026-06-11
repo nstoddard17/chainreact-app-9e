@@ -41,7 +41,7 @@ jest.mock("@/lib/api/trash", () => ({
   moveWorkflowToFolder: (...a: unknown[]) => mockMoveWorkflow(...a),
 }));
 
-jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }) }));
 
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import type { WorkflowListItem } from "@/contracts/workflow";
@@ -89,7 +89,8 @@ function folder(
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockList.mockResolvedValue([]);
+  // listWorkflows is left undefined so the BUILDER-LIST-CACHE refetch-on-mount is
+  // a guarded no-op (keeps each test's rendered `initialWorkflows`).
   mockListFolders.mockResolvedValue([]);
 });
 
@@ -242,7 +243,7 @@ describe("trash view", () => {
     mockListTrash.mockResolvedValueOnce({
       folders: [],
       workflows: [
-        { id: "t1", name: "Deleted one", deletedAt: "2026-06-04T00:00:00Z", purgeAfter: "2026-06-11T00:00:00Z", deletedFromFolderId: null, deleteOperationId: "op" },
+        { id: "t1", name: "Deleted one", deletedAt: "2026-06-04T00:00:00Z", purgeAfter: "2099-06-11T00:00:00Z", deletedFromFolderId: null, deleteOperationId: "op" },
       ],
     });
     mockRestoreWorkflow.mockResolvedValueOnce(undefined);

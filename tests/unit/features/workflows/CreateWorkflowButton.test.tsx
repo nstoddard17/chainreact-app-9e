@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 
 const mockCreateWorkflow = jest.fn();
 const mockPush = jest.fn();
+const mockRefresh = jest.fn();
 
 jest.mock("@/lib/api/workflows", () => {
   // Re-export the real WorkflowApiError so the component's `instanceof` check works.
@@ -21,7 +22,7 @@ jest.mock("@/lib/api/workflows", () => {
 });
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
 }));
 
 import { CreateWorkflowButton } from "@/features/workflows/CreateWorkflowButton";
@@ -30,6 +31,7 @@ import { WorkflowApiError } from "@/lib/api/workflows";
 beforeEach(() => {
   mockCreateWorkflow.mockReset();
   mockPush.mockReset();
+  mockRefresh.mockReset();
 });
 
 describe("CreateWorkflowButton", () => {
@@ -61,6 +63,9 @@ describe("CreateWorkflowButton", () => {
       expect(mockCreateWorkflow).toHaveBeenCalledWith({ name: "Onboarding" });
       expect(mockPush).toHaveBeenCalledWith("/workflows/wf-1");
     });
+    // BUILDER-LIST-CACHE — invalidate the Router Cache before navigating so the
+    // list + new builder detail are fresh, not a stale cached payload.
+    expect(mockRefresh).toHaveBeenCalled();
   });
 
   it("renders a user-facing error from WorkflowApiError and does NOT navigate", async () => {

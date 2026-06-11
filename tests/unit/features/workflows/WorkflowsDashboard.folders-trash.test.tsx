@@ -57,7 +57,8 @@ jest.mock("@/lib/api/trash", () => {
 });
 
 const mockPush = jest.fn();
-jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockRefresh = jest.fn();
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, refresh: mockRefresh }) }));
 
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import type { WorkflowListItem } from "@/contracts/workflow";
@@ -113,7 +114,10 @@ function folder(
 const FUTURE = "2099-01-01T00:00:00Z";
 
 beforeEach(() => {
-  mockList.mockReset().mockResolvedValue([]);
+  // Default to undefined so the BUILDER-LIST-CACHE refetch-on-mount is a guarded
+  // no-op (keeps each test's rendered `initialWorkflows`). Tests that assert a
+  // post-action reload queue their own listWorkflows value.
+  mockList.mockReset();
   mockListFolders.mockReset().mockResolvedValue([]);
   mockCreateFolder.mockReset();
   mockUpdateFolder.mockReset();
@@ -130,6 +134,7 @@ beforeEach(() => {
   mockRestoreWorkflow.mockReset().mockResolvedValue(undefined);
   mockMoveWorkflowToFolder.mockReset().mockResolvedValue(undefined);
   mockPush.mockReset();
+  mockRefresh.mockReset();
 });
 
 async function openFoldersTab(user: ReturnType<typeof userEvent.setup>) {
@@ -300,7 +305,8 @@ describe("WorkflowsDashboard — workflow move + trash from the row menu", () =>
       deleteOperationId: "op",
       purgeAfter: FUTURE,
     });
-    mockList.mockResolvedValue([]);
+    // Mount refetch keeps the rendered row; the post-trash reload returns [].
+    mockList.mockResolvedValueOnce([wf("a", "Payments")]).mockResolvedValue([]);
 
     render(<WorkflowsDashboard initialWorkflows={[wf("a", "Payments")]} />);
 
