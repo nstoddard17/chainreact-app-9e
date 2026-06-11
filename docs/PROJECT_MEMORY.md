@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-10 @ 0bdea78dd
+> Last curated: 2026-06-11 @ 845c8c6e9
 
 ## Current status
 
@@ -31,8 +31,11 @@
 
 - [Marcus] Authed-flow + log go-live checks **pending manual verification** →
   [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md) (separate chat owns this).
-- [Marcus] **9 of 26 providers builder-invisible** (`hasMetadata:false` → "coming soon") →
-  [`provider-metadata-launch-gap-tracker.md`](./slices/phase-4/provider-metadata-launch-gap-tracker.md).
+- [Marcus] Provider builder-metadata launch gap **CLOSED 26/26** (2026-05-25; was
+  "9 of 26 builder-invisible") — enforced live by `COVERED_PROVIDERS` /
+  `tests/structure/discovery-meta-coverage.test.ts`. Residual post-26/26 deferred
+  backlog (trigger arcs / resolvers / FileRef) is **non-launch-blocking** →
+  [`provider-metadata-launch-gap-tracker.md`](./slices/phase-4/provider-metadata-launch-gap-tracker.md) §8–§9.
 - [Claude] `chainreactv2-parity-auditor` skill **deferred** until recurring new-provider
   parity-audit demand.
 - [Marcus] V1 (`chainreact-app-9e`) CLAUDE.md trim **shelved** (`git stash@{0}` on `marcus_dev`)
