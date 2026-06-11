@@ -1,12 +1,18 @@
 # ChainReactV2 — Claude Instructions
 
-> ## ✅ PRIMARY / ACTIVE APP
-> As of **2026-06-09**, ChainReactV2 is the **primary ChainReact app/codebase** —
-> build all new work here. V1 (`chainreact-app-9e`) is now **archived reference
-> only**. This was a **local-only, in-place** switch (no files moved; V1 and V2
-> are separate local clones of the same remote, and this branch is unpushed).
-> Promoting V2 to GitHub `main` (what deploys) and live-provider validation are
-> **separate, later** steps and remain deferred (no push / no public launch yet).
+## ✅ PRIMARY / ACTIVE APP — LIVE IN PRODUCTION
+
+ChainReactV2 is the primary ChainReact app/codebase — build all new work here.
+V1 (`chainreact-app-9e`) is archived reference only.
+
+**V2 is live in production** at `https://chainreact.app`, deploying from the
+`v2-main` branch. Authoritative status, including current verification state:
+[`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md).
+
+**Local work is still push-gated:** the current working branch is local-only.
+Do not push it, open PRs, deploy, or change public launch posture unless Marcus
+explicitly says so. "Don't push this branch" does not mean "V2 isn't live" —
+both facts can be true at once.
 
 ## Project Purpose
 
