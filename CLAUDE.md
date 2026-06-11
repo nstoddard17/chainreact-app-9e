@@ -291,9 +291,13 @@ Before pushing, Claude should explicitly report:
 ## Internal developer tooling
 
 - **Local MCP server** (read-only repo/doc/provider-metadata context for AI coding
-  hosts): [`scripts/mcp/`](./scripts/mcp/) → run `npm run mcp:build && npm run mcp:start`.
-  What it exposes / deliberately does NOT expose (no prod data, no DB, no secrets,
-  no mutation): [`docs/runbooks/internal-mcp-server.md`](./docs/runbooks/internal-mcp-server.md).
+  hosts): [`scripts/mcp/`](./scripts/mcp/) → `npm run mcp:build && npm run mcp:start`
+  (health check: `npm run mcp:smoke`). At the start of a coding session, prefer its
+  context tools (`get_project_memory`, `get_claude_instructions_summary`,
+  `read_rule_doc`, `get_provider_manifest_summary`, `list_builder_metadata_gaps`)
+  to ground in the repo's source of truth. What it exposes / deliberately does NOT
+  expose (no prod data, no DB, no secrets, no mutation) + the Claude usage workflow:
+  [`docs/runbooks/internal-mcp-server.md`](./docs/runbooks/internal-mcp-server.md).
 
 ## Reminders
 

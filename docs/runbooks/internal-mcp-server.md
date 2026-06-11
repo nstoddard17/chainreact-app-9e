@@ -116,14 +116,19 @@ npm run mcp:start
 ```
 
 The server speaks newline-delimited JSON-RPC 2.0 on stdio. Diagnostics go to
-**stderr only** — stdout is reserved for the protocol stream. Quick manual check:
+**stderr only** — stdout is reserved for the protocol stream.
+
+**One-command health check:**
 
 ```bash
-printf '%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' \
-  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-  | node scripts/mcp/dist/server.js
+npm run mcp:smoke
 ```
+
+`mcp:smoke` builds the server, then runs [`scripts/mcp/smoke.mjs`](../../scripts/mcp/smoke.mjs),
+which spawns the built `dist/server.js` and drives `initialize` → `tools/list` →
+one read-only `tools/call` (`list_provider_manifests`), asserting stdout is pure
+JSON-RPC. It is read-only, spawns the fixed server with no arguments, and exits
+non-zero on any failure. Use it after pulling changes or before wiring a host.
 
 ## Connect from an AI host
 
@@ -163,6 +168,50 @@ path.
 own location — but setting it explicitly is safest when the host launches with an
 unrelated working directory. Codex / other MCP hosts use the same
 `command` + `args` shape in their own config format.
+
+## Claude usage workflow
+
+Start the MCP server (or have the host launch it) at the **beginning of a
+ChainReactV2 coding session**, before planning a slice. Use the read-only context
+tools to ground in the repo's own source of truth instead of guessing.
+
+**Recommended order in a fresh chat:**
+
+1. `get_project_memory` — current status, durable decisions, open follow-ups.
+2. `get_claude_instructions_summary` — the CLAUDE.md outline (operating rules).
+3. `list_rule_docs` → `read_rule_doc <name>` — pull the rule(s) relevant to the
+   slice (e.g. `account-ownership-model`, `provider-registry`, `testing-strategy`).
+4. When the work touches a provider: `list_provider_manifests` →
+   `get_provider_manifest_summary <provider>` to confirm capabilities/scopes.
+5. When the work concerns builder/provider readiness:
+   `list_builder_metadata_gaps` for the launch-gap tracker state.
+6. `search_project_docs <term>` to locate a specific decision or pattern.
+
+Then plan and implement. The command wrappers (`run_typecheck`, `run_lint`,
+`run_structure_lint`) are available for quick local gates during the session.
+
+**Example prompts Marcus can use:**
+
+- "Use the ChainReactV2 MCP server to read project memory and the relevant rule
+  docs before planning this slice."
+- "Use MCP to inspect the provider manifests before proposing this provider slice."
+- "Use MCP to check the builder-metadata gap tracker before recommending the next
+  provider work."
+
+## Do NOT use the MCP server for
+
+This is a context tool, not an operations tool. It cannot — and must not be asked
+to — do any of the following (they are out of Stage-1 scope by design):
+
+- **Production data inspection** — it has no production access of any kind.
+- **Database reads or writes** — no DB/Supabase/service-role connection exists.
+- **Migrations / `db:push`** — not exposed; run those through the normal flow.
+- **Deployment / `git push` / PR creation** — no mutating or remote commands.
+- **Workflow mutation** — it never touches the workflow engine or runtime state.
+- **Broad secret scanning** — redaction is a safety net, not a discovery feature;
+  do not point it at secret stores or env files (they are blocked anyway).
+- **Replacing the source-of-truth repo docs** — its output is a convenience view;
+  the files under `docs/` and the live code remain authoritative.
 
 ## How to extend it (deliberately)
 
@@ -213,5 +262,6 @@ this tool by design.
   import-boundary scan asserting every `scripts/mcp` import is a `node:` builtin
   or a relative local module.
 
-Plus a manual stdio smoke test (see Host-verification status) that exercises the
-full protocol surface against the built server.
+Plus `npm run mcp:smoke` ([`scripts/mcp/smoke.mjs`](../../scripts/mcp/smoke.mjs)) —
+a build-and-drive stdio check against the built server (`initialize` →
+`tools/list` → one read-only `tools/call`, asserting pure-JSON-RPC stdout).
