@@ -288,6 +288,13 @@ Before pushing, Claude should explicitly report:
 
 ---
 
+## Internal developer tooling
+
+- **Local MCP server** (read-only repo/doc/provider-metadata context for AI coding
+  hosts): [`scripts/mcp/`](./scripts/mcp/) → run `npm run mcp:build && npm run mcp:start`.
+  What it exposes / deliberately does NOT expose (no prod data, no DB, no secrets,
+  no mutation): [`docs/runbooks/internal-mcp-server.md`](./docs/runbooks/internal-mcp-server.md).
+
 ## Reminders
 
 - **Do not push unless Marcus explicitly says to push.**

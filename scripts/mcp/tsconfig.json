@@ -1,0 +1,21 @@
+{
+  "//": "Build config for the internal developer MCP server ONLY. Emits runnable CommonJS to scripts/mcp/dist/ (gitignored). The root tsconfig still typechecks these .ts sources via `npm run typecheck`; this file exists solely to produce a node-runnable build with zero new dependencies.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": false,
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

@@ -18,6 +18,8 @@
     "db:push": "node scripts/db-push.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
+    "mcp:build": "tsc -p scripts/mcp/tsconfig.json",
+    "mcp:start": "node scripts/mcp/dist/server.js",
     "test:e2e": "playwright test",
     "smoke:prod": "playwright test --config=playwright.smoke.config.ts",
     "typecheck": "tsc --noEmit"
