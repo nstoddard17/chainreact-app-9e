@@ -228,7 +228,7 @@ describe("ConfigModalShell — native action open state", () => {
     expect(useConfigSlice.getState().drafts[nodeId]!.isDirty).toBe(false);
   });
 
-  it("Cancel discards the draft and closes the rail without changing graphSlice", async () => {
+  it("Cancel on a dirty draft warns first, then Discard closes the rail without changing graphSlice", async () => {
     const { nodeId } = bootWithNativeAction();
     const before = useGraphSlice
       .getState()
@@ -239,8 +239,14 @@ describe("ConfigModalShell — native action open state", () => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
     await user.type(screen.getByLabelText("URL"), "https://nope");
+    // C — Cancel on a dirty draft asks before discarding (no silent loss).
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
-    // Modal closes (returns null).
+    expect(
+      screen.getByTestId("config-modal-discard-confirm"),
+    ).toBeInTheDocument();
+    expect(useConfigSlice.getState().activeNodeId).toBe(nodeId); // still open
+    await user.click(screen.getByTestId("config-modal-discard-confirm-button"));
+    // Modal closes (returns null) and graphSlice is unchanged.
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
     const after = useGraphSlice
       .getState()
@@ -255,6 +261,63 @@ describe("ConfigModalShell — native action open state", () => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  });
+});
+
+describe("ConfigModalShell — C: unsaved-edit discard guard", () => {
+  it("× on a dirty draft warns instead of silently discarding; draft is preserved", async () => {
+    const { nodeId } = bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("URL"), "https://keep.me");
+    await user.click(
+      screen.getByRole("button", { name: /close configuration/i }),
+    );
+    expect(
+      screen.getByTestId("config-modal-discard-confirm"),
+    ).toBeInTheDocument();
+    // Still open; the in-progress edit survives the warning.
+    expect(useConfigSlice.getState().activeNodeId).toBe(nodeId);
+    expect(useConfigSlice.getState().drafts[nodeId]!.values.url).toBe(
+      "https://keep.me",
+    );
+  });
+
+  it("'Keep editing' dismisses the warning and preserves the in-progress field value", async () => {
+    const { nodeId } = bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("URL"), "https://keep.me");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    await user.click(screen.getByTestId("config-modal-discard-keep"));
+    expect(
+      screen.queryByTestId("config-modal-discard-confirm"),
+    ).not.toBeInTheDocument();
+    expect(useConfigSlice.getState().activeNodeId).toBe(nodeId);
+    expect(screen.getByLabelText("URL")).toHaveValue("https://keep.me");
+    expect(useConfigSlice.getState().drafts[nodeId]!.isDirty).toBe(true);
+  });
+
+  it("× on a CLEAN draft closes immediately without a warning", async () => {
+    bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /close configuration/i }),
+    );
+    expect(
+      screen.queryByTestId("config-modal-discard-confirm"),
+    ).not.toBeInTheDocument();
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 });
 
@@ -505,7 +568,9 @@ describe("ConfigModalShell — provider trigger SchemaForm (Slice 3.10)", () => 
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
     await user.type(screen.getByLabelText("Repository"), "octocat/x");
+    // C — Cancel on a dirty draft confirms before discarding.
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    await user.click(screen.getByTestId("config-modal-discard-confirm-button"));
     // Draft reset; rail closed.
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
     expect(useConfigSlice.getState().drafts[node.id]!.isDirty).toBe(false);
@@ -795,7 +860,9 @@ describe("ConfigModalShell — provider action open state", () => {
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
     await user.type(screen.getByLabelText("Repository"), "abandoned");
+    // C — Cancel on a dirty draft confirms before discarding.
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    await user.click(screen.getByTestId("config-modal-discard-confirm-button"));
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
     const after = useGraphSlice
       .getState()

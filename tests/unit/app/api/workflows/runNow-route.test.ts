@@ -244,6 +244,112 @@ describe("POST /run-now — workflow state gate", () => {
   );
 });
 
+// ── A: Run-Manually readiness preflight ──────────────────────────────────────
+
+/** A workflow whose action node is a native HTTP Request with the given config. */
+function workflowWithHttpAction(config: Record<string, unknown>) {
+  return {
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [
+        {
+          id: "trigger-node",
+          kind: "trigger" as const,
+          provider: "native",
+          type: "manual.run",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "http-node",
+          kind: "action" as const,
+          provider: "native",
+          type: "http_request",
+          config,
+          position: { x: 0, y: 100 },
+        },
+      ],
+      edges: [{ id: "e1", from: "trigger-node", to: "http-node" }],
+    },
+  };
+}
+
+describe("POST /run-now — A: readiness preflight (missing required fields)", () => {
+  it("blocks a real run with 422 + friendly message when HTTP Request has no Method/URL — no enqueue, no raw Zod dump", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(workflowWithHttpAction({}));
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("MISSING_REQUIRED_FIELDS");
+    expect(body.message).toBe(
+      "HTTP Request is missing required fields: Method, URL.",
+    );
+    expect(body.nodes[0].nodeId).toBe("http-node");
+    expect(body.nodes[0].missingFields).toEqual(["Method", "URL"]);
+    // The user must NEVER see a raw handler Zod dump for obvious missing config.
+    expect(JSON.stringify(body)).not.toContain("invalid_type");
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("blocks when only Method is missing", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(
+      workflowWithHttpAction({ url: "https://example.com" }),
+    );
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toContain("Method");
+    expect(body.message).not.toContain("URL");
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("blocks when only URL is missing", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(workflowWithHttpAction({ method: "GET" }));
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toContain("URL");
+    expect(body.message).not.toContain("Method");
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("runs (202) when Method + URL are both present", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(
+      workflowWithHttpAction({ method: "GET", url: "https://example.com" }),
+    );
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalled();
+  });
+
+  it("does NOT block a TEST-mode run of an unconfigured node (test mode skips external handlers)", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(workflowWithHttpAction({}));
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ testMode: true }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalled();
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+    };
+    expect(enqueueCall.testMode).toBe(true);
+  });
+});
+
 // ── body parsing + cap ──────────────────────────────────────────────────────
 
 describe("POST /run-now — body parsing", () => {
@@ -726,7 +832,11 @@ describe("POST /run-now — POSTSEC-3 newly-confirmed Stripe money-moving action
             kind: "action" as const,
             provider: action.provider,
             type: action.type,
-            config: { internal: "do-not-leak" },
+            // amount/currency satisfy create_payment_intent's required-field
+            // preflight (A) on the enqueue path; the no-confirmation cases never
+            // reach the preflight (the 409 gate fires first). `internal` proves
+            // raw config is never echoed in the CONFIRMATION_REQUIRED response.
+            config: { amount: 10, currency: "usd", internal: "do-not-leak" },
             position: { x: 0, y: 100 },
           },
         ],

@@ -19,6 +19,10 @@ import {
   requireWorkflowAccountMember,
   workflowNotFoundResponse,
 } from "../../_shared";
+import {
+  findUnconfiguredNodes,
+  formatUnconfiguredMessage,
+} from "./preflightReadiness";
 
 /**
  * POST /api/workflows/[id]/run-now — Native-nodes Slice 2 Commit 1.
@@ -212,6 +216,31 @@ export async function POST(
           actions: risk.actions,
         },
         { status: 409 },
+      );
+    }
+
+    // A (Run-Manually readiness preflight) — placed AFTER the destructive-
+    // confirmation gate so a destructive workflow still surfaces
+    // CONFIRMATION_REQUIRED (409) first. Blocks a real run when a node still
+    // has empty required config, with a friendly message, instead of executing
+    // and surfacing a raw handler Zod dump (`HANDLER_FAILED: [...]`). Reuses the
+    // builder's metadata-derived required-field rules so the server's verdict
+    // matches "Needs setup" (no parallel hardcoded rules). The handler Zod
+    // schemas remain the final runtime safety net.
+    //
+    // Real runs only: test-mode runs skip external / high-risk handlers via the
+    // testModeGate (native:http_request is explicitly blocked), so an
+    // unconfigured action never actually executes in test mode — gating it
+    // there would only reduce test-mode's usefulness on a partial workflow.
+    const unconfigured = findUnconfiguredNodes(workflow.draftDefinition.nodes);
+    if (unconfigured.length > 0) {
+      return NextResponse.json(
+        {
+          error: "MISSING_REQUIRED_FIELDS",
+          message: formatUnconfiguredMessage(unconfigured),
+          nodes: unconfigured,
+        },
+        { status: 422 },
       );
     }
   }

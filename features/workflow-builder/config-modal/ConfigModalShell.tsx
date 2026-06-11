@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,9 @@ export function ConfigModalShell() {
   const resetNode = useConfigSlice((s) => s.resetNode);
   const markSaved = useConfigSlice((s) => s.markSaved);
   const closeNode = useConfigSlice((s) => s.closeNode);
+
+  // C — confirm-before-discard state for the close (`×` / Cancel) affordances.
+  const [pendingClose, setPendingClose] = useState(false);
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const updateNodeConfig = useGraphSlice((s) => s.updateNodeConfig);
@@ -156,6 +159,28 @@ export function ConfigModalShell() {
     closeNode();
   }
 
+  // C (unsaved-edit footgun) — `×` / Cancel discard the in-progress draft via
+  // resetNode. Without this guard, a user who filled fields (e.g. Method / URL)
+  // and closed the panel silently loses those edits and never realizes the
+  // node was never configured. When the draft is dirty, intercept the close
+  // and ask first; a clean draft closes immediately.
+  function requestClose(): void {
+    if (isDirty) {
+      setPendingClose(true);
+      return;
+    }
+    handleCancel();
+  }
+
+  function confirmDiscard(): void {
+    setPendingClose(false);
+    handleCancel();
+  }
+
+  function keepEditing(): void {
+    setPendingClose(false);
+  }
+
   const isNative = activeNode.provider === NATIVE_PROVIDER;
   const isProviderAction =
     !isNative && activeNode.kind === "action";
@@ -225,7 +250,7 @@ export function ConfigModalShell() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleCancel}
+          onClick={requestClose}
           aria-label="Close configuration"
         >
           ×
@@ -311,24 +336,59 @@ export function ConfigModalShell() {
         )}
       </section>
 
-      <footer className="flex items-center justify-between gap-3 border-t pt-3">
-        <span className="text-xs text-muted-foreground">
-          {isDirty ? "Unsaved changes" : "No changes"}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!isDirty || !activeMeta || hasBlockingValidationError}
-            data-testid="config-modal-save-button"
-          >
-            Save
-          </Button>
+      {pendingClose ? (
+        <div
+          role="alertdialog"
+          aria-label="Discard unsaved changes"
+          data-testid="config-modal-discard-confirm"
+          className="flex flex-col gap-2 rounded border border-input bg-muted/40 p-3"
+        >
+          <p className="text-sm font-medium">
+            Discard unsaved changes to this node?
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Your edits haven&rsquo;t been added to the workflow yet. Use Save to
+            keep them, or discard to lose them.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={keepEditing}
+              data-testid="config-modal-discard-keep"
+            >
+              Keep editing
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={confirmDiscard}
+              data-testid="config-modal-discard-confirm-button"
+            >
+              Discard changes
+            </Button>
+          </div>
         </div>
-      </footer>
+      ) : (
+        <footer className="flex items-center justify-between gap-3 border-t pt-3">
+          <span className="text-xs text-muted-foreground">
+            {isDirty ? "Unsaved changes" : "No changes"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={requestClose}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!isDirty || !activeMeta || hasBlockingValidationError}
+              data-testid="config-modal-save-button"
+            >
+              Save
+            </Button>
+          </div>
+        </footer>
+      )}
     </aside>
   );
 }
