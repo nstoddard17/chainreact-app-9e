@@ -10,13 +10,16 @@ import path from "node:path";
  *   - PRODUCTION_SMOKE_EMAIL      (authenticated smoke; absent → those specs skip)
  *   - PRODUCTION_SMOKE_PASSWORD   (authenticated smoke; absent → those specs skip)
  *   - PRODUCTION_SMOKE_PREFIX     (disposable-workflow name prefix; default "Smoke Test")
- *   - PRODUCTION_SMOKE_RUN_EXECUTION  ("true" opts into actually executing the
- *                                       manual run; default OFF → run is skipped,
- *                                       readiness/save/reopen still verified)
+ *   - PRODUCTION_SMOKE_RUN_EXECUTION  ("true" PERMITS real external execution/
+ *                                       posting; default OFF → live-run steps are
+ *                                       skipped. Gates the builder HTTP run AND the
+ *                                       Slack message post — readiness/save/config
+ *                                       checks still run.)
  *   - PRODUCTION_SMOKE_SLACK_CHANNEL_NAME  (visible Slack channel name, e.g. "general"
- *                                       or "#general"; absent → the Slack action smoke
- *                                       self-skips. Its presence is the explicit opt-in
- *                                       to post a real message to that channel.)
+ *                                       or "#general"; CONFIGURES the target channel.
+ *                                       Absent → the Slack action smoke self-skips. A
+ *                                       channel name alone does NOT post — the real
+ *                                       send additionally requires RUN_EXECUTION=true.)
  *
  * NEVER hardcode credentials OR channel names here. The values come from the
  * shell / CI secret store.
@@ -50,11 +53,11 @@ export function smokeSlackChannelName(): string | undefined {
 }
 
 /**
- * The Slack-action smoke runs only when credentials AND a target channel name
- * are present. Supplying the channel name is the explicit opt-in to post a real
- * message — there is no separate dry-run mode, because the send IS the
- * validation (distinct from PRODUCTION_SMOKE_RUN_EXECUTION, which gates the
- * generic HTTP run in the builder smoke).
+ * The Slack-action smoke is collected only when credentials AND a target
+ * channel name are present — the channel name configures WHERE a message would
+ * go. It does NOT by itself authorize posting: the real send is additionally
+ * gated by PRODUCTION_SMOKE_RUN_EXECUTION=true (see RUN_EXECUTION), so the safe
+ * build/config/readiness checks can run as a dry run without touching Slack.
  */
 export function hasSlackSmokeConfig(): boolean {
   return hasSmokeCredentials() && Boolean(smokeSlackChannelName());
@@ -68,10 +71,12 @@ export function hasSlackSmokeConfig(): boolean {
 export const SMOKE_PREFIX = process.env.PRODUCTION_SMOKE_PREFIX?.trim() || "Smoke Test";
 
 /**
- * Opt-in flag for actually executing the manual run. Default OFF: running an
- * arbitrary outbound HTTP request from production infra (and consuming a task
- * quota) is the one genuinely side-effecting step, so it stays gated. When off,
- * the builder spec still proves readiness → save → reopen → persistence.
+ * Opt-in flag for actually executing live runs that cause real external side
+ * effects. Default OFF: a genuine outbound call from production infra (the
+ * builder smoke's HTTP request, the Slack smoke's chat.postMessage) — and the
+ * task-quota spend — is gated behind this single switch. When off, the builder
+ * spec still proves readiness → save → reopen → persistence, and the Slack spec
+ * still proves channel-pick-by-name → readiness without posting anything.
  */
 export const RUN_EXECUTION = process.env.PRODUCTION_SMOKE_RUN_EXECUTION === "true";
 

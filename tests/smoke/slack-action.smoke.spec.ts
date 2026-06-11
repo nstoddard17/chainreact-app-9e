@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { assertNoServerError, clickToReveal, gotoOk } from "./helpers/assertions";
 import {
+  RUN_EXECUTION,
   SMOKE_PREFIX,
   STORAGE_STATE,
   baseUrl,
@@ -25,16 +26,19 @@ import {
  *   3. Add a Manual trigger + the Slack `send_channel_message` action.
  *   4. Pick the channel by its visible picker label (PRODUCTION_SMOKE_SLACK_
  *      CHANNEL_NAME) and set the message → node + header become Ready.
- *   5. Save, then Run Manually.
- *   6. Confirm a Succeeded run for this workflow appears in Runs.
- *   7. Cleanup — delete the smoke workflow.
+ *   5. Save, Run Manually, confirm a Succeeded run in Runs. (RUN_EXECUTION-gated.)
+ *   6. Cleanup — delete the smoke workflow.
  *
- * Opt-in / safety:
- *   - Self-skips unless credentials AND PRODUCTION_SMOKE_SLACK_CHANNEL_NAME are
- *     set. Supplying the channel name IS the explicit consent to post a real
- *     message (the send is the validation — there is no dry-run). This is
- *     deliberately independent of PRODUCTION_SMOKE_RUN_EXECUTION, which only
- *     gates the generic HTTP run in builder.smoke.spec.ts.
+ * Two-key gating / safety:
+ *   - PRODUCTION_SMOKE_SLACK_CHANNEL_NAME configures the TARGET channel. Absent
+ *     (or no credentials) → the whole suite self-skips with a clear message.
+ *   - PRODUCTION_SMOKE_RUN_EXECUTION=true PERMITS the real external post. The
+ *     build/config steps (create, add nodes, pick channel by visible name,
+ *     readiness → Ready) are side-effect-free and always run when the channel
+ *     name is set — they never post to Slack. Only the save+run+success step is
+ *     gated, mirroring builder.smoke.spec.ts, so a channel name ALONE never
+ *     posts a message. With RUN_EXECUTION off, the disposable workflow is still
+ *     created and cleaned up (delete by id works whether or not it was saved).
  *   - Only ever touches the single workflow it created, whose name starts with
  *     SMOKE_PREFIX. Never deletes anything else.
  *   - Selects the channel by visible name only — never types or asserts a
@@ -219,6 +223,11 @@ test.describe.serial("Slack action smoke", () => {
   });
 
   test("save, run manually, and the run Succeeds", async () => {
+    test.skip(
+      !RUN_EXECUTION,
+      "PRODUCTION_SMOKE_RUN_EXECUTION not 'true' — skipping the real Slack post + run (no message sent); channel pick + readiness already verified.",
+    );
+
     // Persist the graph.
     const saveBtn = page.getByTestId("builder-header-save-button");
     await expect(saveBtn).toBeEnabled({ timeout: 20_000 });
