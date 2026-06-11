@@ -47,6 +47,51 @@ These need a real sign-in (which would create real rows in the prod DB) and/or t
 | 11 | Plan & billing usage renders used/limit + remaining + reset date | Account → Plan & billing (the shipped `taskUsagePeriod` UI) |
 | 14 | Vercel production logs: no repeated server failures | Vercel dashboard → Deployments → Logs |
 
+---
+
+## Cross-device email confirmation fix — `1c1e00d9a` (2026-06-10)
+
+**Issue:** With the Supabase SSR **PKCE** flow, email confirmation (and password
+recovery) can fail when sign-up starts on one device and the emailed link is
+opened on another. The link carried a one-time `code`, and
+`exchangeCodeForSession` needs the **verifier cookie stored in the originating
+browser** — a second device (e.g. confirming on a phone) doesn't have it, so the
+exchange failed. This hits the very common "sign up on desktop, confirm on
+phone" pattern.
+
+**Fix (code — shipped):** [`app/auth/callback/route.ts`](../../../app/auth/callback/route.ts)
+now also accepts a device-independent `token_hash` + `type` link and verifies it
+via `supabase.auth.verifyOtp` (narrow allow-list: `email`, `recovery`). The
+existing `code` → `exchangeCodeForSession` path is **unchanged** for Google OAuth
+and same-device PKCE. Invalid/missing `type`, failed verification, and missing
+params all redirect to `/auth/sign-in?error=…`; token values are never placed in
+the redirect target or logs. 15 callback tests + full auth suite, `tsc`, eslint,
+`next build` all green (see commit).
+
+**Fix (Supabase templates — REQUIRED for the fix to take effect):**
+- **Confirm signup:** `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/auth/confirmed`
+- **Reset password:** `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/auth/reset-password`
+- **URL Configuration:** Site URL = `https://chainreact.app`; Redirect URLs include `https://chainreact.app/auth/callback` (or `https://chainreact.app/**`).
+
+### ✅ Verified this session — production (`https://chainreact.app`)
+| Check | Result |
+|---|---|
+| Commit `1c1e00d9a` pushed to `v2-main` | ✅ `43bf442e6..1c1e00d9a` |
+| Vercel production deploy | ✅ **Ready** (`chainreact-mhezy020x`, ~2m build, no error state) |
+| Public auth smoke | ✅ `/`, `/auth/sign-in`, `/auth/sign-up`, `/auth/forgot-password`, `/auth/confirmed` → `200`; `/workflows` → `307` → sign-in; no 500s / RSC errors |
+| `/auth/reset-password` without a recovery session | ✅ `307` → `/auth/forgot-password?error=…invalid or has expired` (safe, no crash) |
+| `/auth/callback` no params | ✅ `307` → `…?error=oauth_missing_code` |
+| `/auth/callback?type=email_change` (disallowed) | ✅ `307` → `…?error=invalid_confirmation` (allow-list live) |
+| `/auth/callback?type=email&token_hash=bogus` | ✅ `307` → `…?error=Email link is invalid or has expired` — **verifyOtp path live; Vercel server reaches Supabase; token not leaked** |
+
+### ⏳ Pending — manual (NOT verified here)
+- **Supabase template update** — set the two templates + URL config above. Until then the code path is live but Supabase still emits PKCE `code` links, so the cross-device bug persists in the email itself.
+- **Real cross-device email smoke** (needs the template change + two physical devices):
+  - Desktop sign-up → open confirmation email on phone → lands on `/auth/confirmed` → Continue → dashboard.
+  - Desktop forgot-password → open reset email on phone → lands on `/auth/reset-password` → set new password → sign in.
+
+**Honesty note:** the ✅ rows were actually run this session (git push output, `vercel ls`, and curl probes against the live domain — the bogus-token verifyOtp probes create nothing). The ⏳ rows need Marcus's dashboard change and physical devices and are **not** claimed as passing. The DNS failure to resolve `*.supabase.co` seen during this work was **local to the dev machine only** — the Vercel server reaches Supabase fine (proven by the verifyOtp probe above).
+
 ## What remains deferred (unchanged)
 - **Live-provider validation** — OAuth connect/refresh/revoke, webhook delivery+dedup, Stripe checkout/webhook round-trips, per-provider live testing. Not started.
 - **Developer-portal redirect URLs** — leave as-is until testing a specific provider.
