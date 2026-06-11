@@ -18,6 +18,13 @@ import { DestructiveActionConfirmationModal } from "./DestructiveActionConfirmat
 interface Props {
   workflowId: string;
   state: WorkflowState;
+  /**
+   * BUILDER-READINESS — number of blocking validation errors (missing required
+   * fields, no trigger, unconfigured nodes, invalid router routes). When > 0,
+   * the go-live transitions (Activate / Resume) are disabled so an incomplete
+   * workflow can't be put into production. Pause / Reactivate are unaffected.
+   */
+  blockingIssueCount?: number;
 }
 
 type ActionKind = "activate" | "pause" | "resume" | "reactivate";
@@ -63,7 +70,7 @@ function actionsForState(state: WorkflowState): readonly Action[] {
  * SEC-4B (the route's risk check fires only on activate / run-now), so
  * they go straight through to the typed client without the modal.
  */
-export function LifecycleActions({ workflowId, state }: Props) {
+export function LifecycleActions({ workflowId, state, blockingIssueCount = 0 }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState<ActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,8 +171,16 @@ export function LifecycleActions({ workflowId, state }: Props) {
     <div className="flex flex-col items-end gap-1" aria-label="Lifecycle actions">
       <div className="flex gap-2">
         {actions.map((action) => {
+          // BUILDER-READINESS — block go-live transitions while the workflow has
+          // unresolved validation errors. Pause / Reactivate are not go-live and
+          // stay available.
+          const isGoLive = action.kind === "activate" || action.kind === "resume";
+          const blockedByValidation = isGoLive && blockingIssueCount > 0;
           const disabled =
-            pending !== null || hasUnsavedChanges || confirmationDetail !== null;
+            pending !== null ||
+            hasUnsavedChanges ||
+            confirmationDetail !== null ||
+            blockedByValidation;
           const baseClasses =
             "rounded px-3 py-1.5 text-sm font-medium disabled:opacity-60";
           const variantClasses =
@@ -178,10 +193,13 @@ export function LifecycleActions({ workflowId, state }: Props) {
               type="button"
               onClick={() => run(action.kind)}
               disabled={disabled}
+              data-blocked-by-validation={blockedByValidation ? "true" : undefined}
               title={
-                hasUnsavedChanges
-                  ? "Save your changes before changing lifecycle state."
-                  : undefined
+                blockedByValidation
+                  ? `Resolve ${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} before ${action.label.toLowerCase()} — open the validation panel.`
+                  : hasUnsavedChanges
+                    ? "Save your changes before changing lifecycle state."
+                    : undefined
               }
               className={`${baseClasses} ${variantClasses}`}
             >

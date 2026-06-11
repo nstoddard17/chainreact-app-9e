@@ -16,6 +16,9 @@
  */
 export type NodeStatus =
   | "configured"
+  // BUILDER-READINESS — node picked a type but is missing a required config
+  // field (e.g. HTTP Request without Method/URL). Surfaced as "Needs setup".
+  | "needs_setup"
   | "unconfigured"
   // Reserved for follow-up slices. Not currently emitted.
   | "running"
@@ -38,10 +41,17 @@ export interface ClassifyNodeStatusInput {
    * projection. Honored as-is when present (so the helper stays a pure
    * branch table); for now the canvas never passes this.
    */
-  runStatus?: Exclude<NodeStatus, "configured" | "unconfigured">;
+  runStatus?: Exclude<NodeStatus, "configured" | "unconfigured" | "needs_setup">;
+  /**
+   * BUILDER-READINESS — true when the node picked its type but a required
+   * config field is empty. Computed by the canvas adapter from the metadata
+   * required-field lookup + live `node.config`. Drives the "Needs setup" state.
+   */
+  missingRequiredConfig?: boolean;
 }
 
 export function classifyNodeStatus(input: ClassifyNodeStatusInput): NodeStatus {
   if (input.runStatus) return input.runStatus;
-  return input.type ? "configured" : "unconfigured";
+  if (!input.type) return "unconfigured";
+  return input.missingRequiredConfig ? "needs_setup" : "configured";
 }

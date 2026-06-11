@@ -43,3 +43,33 @@ describe("classifyNodeStatus", () => {
     ).toBe("paused");
   });
 });
+
+describe("classifyNodeStatus — needs_setup (BUILDER-READINESS)", () => {
+  it("returns needs_setup when the type is set but a required field is missing", () => {
+    expect(
+      classifyNodeStatus({ type: "http_request", missingRequiredConfig: true }),
+    ).toBe("needs_setup");
+  });
+
+  it("returns configured when the type is set and nothing is missing", () => {
+    expect(
+      classifyNodeStatus({ type: "http_request", missingRequiredConfig: false }),
+    ).toBe("configured");
+  });
+
+  it("returns unconfigured when the type is empty, regardless of missing flag", () => {
+    expect(classifyNodeStatus({ type: "", missingRequiredConfig: true })).toBe(
+      "unconfigured",
+    );
+  });
+
+  it("runStatus still wins over needs_setup", () => {
+    expect(
+      classifyNodeStatus({
+        type: "http_request",
+        missingRequiredConfig: true,
+        runStatus: "running",
+      }),
+    ).toBe("running");
+  });
+});

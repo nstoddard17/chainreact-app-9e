@@ -129,3 +129,43 @@ describe("flowNodePositionPatch", () => {
     ).toEqual({ nodeId: "act-1", position: { x: 42, y: 96 } });
   });
 });
+
+describe("workflowNodesToFlowNodes — missingRequiredConfig (BUILDER-READINESS)", () => {
+  const required = {
+    "native:http_request": {
+      displayName: "HTTP Request",
+      requiredFields: [
+        { name: "method", label: "Method" },
+        { name: "url", label: "URL" },
+      ],
+    },
+  };
+  const http = (config: Record<string, unknown>): WorkflowNode => ({
+    id: "h1",
+    kind: "action",
+    provider: "native",
+    type: "http_request",
+    config,
+    position: { x: 0, y: 0 },
+  });
+
+  it("flags missingRequiredConfig when a required field is empty", () => {
+    const [n] = workflowNodesToFlowNodes([http({ url: "https://x.test" })], {
+      requiredFieldsByType: required,
+    });
+    expect(n!.data.missingRequiredConfig).toBe(true);
+  });
+
+  it("does not flag when all required fields are filled", () => {
+    const [n] = workflowNodesToFlowNodes(
+      [http({ method: "GET", url: "https://x.test" })],
+      { requiredFieldsByType: required },
+    );
+    expect(n!.data.missingRequiredConfig).toBe(false);
+  });
+
+  it("does not flag when no lookup is supplied (back-compat)", () => {
+    const [n] = workflowNodesToFlowNodes([http({})]);
+    expect(n!.data.missingRequiredConfig).toBe(false);
+  });
+});

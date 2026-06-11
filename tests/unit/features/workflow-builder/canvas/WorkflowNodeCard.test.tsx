@@ -328,3 +328,30 @@ describe("computeInitials (pure helper)", () => {
     expect(computeInitials("   ")).toBe("?");
   });
 });
+
+describe("WorkflowNodeCard — Needs setup (BUILDER-READINESS)", () => {
+  const base = {
+    kind: "action" as const,
+    provider: "native",
+    type: "http_request",
+    displayName: "HTTP Request",
+  };
+
+  it("renders the Needs setup badge when a required field is missing", () => {
+    renderCard({ data: { ...base, missingRequiredConfig: true } });
+    expect(screen.getByTestId("needs-setup-badge")).toBeInTheDocument();
+    expect(screen.getByTestId("workflow-node-view")).toHaveAttribute(
+      "data-status",
+      "needs_setup",
+    );
+  });
+
+  it("renders Ready (no Needs setup badge) when required fields are present", () => {
+    renderCard({ data: { ...base, missingRequiredConfig: false } });
+    expect(screen.queryByTestId("needs-setup-badge")).toBeNull();
+    expect(screen.getByTestId("workflow-node-view")).toHaveAttribute(
+      "data-status",
+      "configured",
+    );
+  });
+});

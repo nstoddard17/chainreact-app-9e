@@ -8,6 +8,10 @@ import type {
   WorkflowNode,
 } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import {
+  missingRequiredFields,
+  type RequiredFieldsByType,
+} from "../validation/collectBuilderValidationIssues";
 
 /**
  * Pure converters between the workflow-definition shape (the
@@ -51,6 +55,12 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   /** Optional provider-friendly label (e.g. "Slack" instead of "slack"). */
   providerLabel?: string;
   /**
+   * BUILDER-READINESS — true when the node picked a type but a required config
+   * field is empty. Computed here (the adapter has the live `node.config` + the
+   * metadata lookup) and read by `WorkflowNodeCard` to show "Needs setup".
+   */
+  missingRequiredConfig?: boolean;
+  /**
    * Optional public SVG icon URL for the provider. Sourced from
    * `integrations/_registry:providerIconUrl(id)` and threaded through
    * `NodeConversionContext.providerIcons`. When present,
@@ -70,6 +80,13 @@ export interface NodeConversionContext {
    * entries leave the node card on the initials-avatar fallback.
    */
   providerIcons?: Readonly<Record<string, string>>;
+  /**
+   * BUILDER-READINESS — required-field metadata per `provider:type`. When
+   * supplied, the adapter flags nodes missing a required field so the card
+   * renders "Needs setup". Omitting it preserves the prior configured/
+   * unconfigured-only behavior.
+   */
+  requiredFieldsByType?: RequiredFieldsByType;
 }
 
 export interface EdgeConversionContext {
@@ -98,6 +115,8 @@ export function workflowNodesToFlowNodes(
       displayName: getNodeDisplayName(node),
       providerLabel: ctx.providerLabels?.[node.provider],
       providerIcon: ctx.providerIcons?.[node.provider],
+      missingRequiredConfig:
+        missingRequiredFields(node, ctx.requiredFieldsByType).length > 0,
     },
   }));
 }

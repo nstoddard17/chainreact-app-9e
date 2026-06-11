@@ -33,7 +33,18 @@ import { DestructiveActionConfirmationModal } from "../panels/DestructiveActionC
  * text-content assertions ("Runs safely without calling connected
  * provider APIs", etc.) keep matching.
  */
-export function HeaderRunControls() {
+/**
+ * BUILDER-READINESS — number of blocking validation errors (missing required
+ * fields, no trigger, unconfigured nodes, invalid router routes). When > 0,
+ * Run Manually is disabled; the visible validation pill opens the summary that
+ * lists what's missing and which node. Test Workflow stays enabled — test mode
+ * skips external/high-risk handlers, so an incomplete action isn't executed.
+ */
+export interface HeaderRunControlsProps {
+  blockingIssueCount?: number;
+}
+
+export function HeaderRunControls({ blockingIssueCount = 0 }: HeaderRunControlsProps = {}) {
   const {
     workflowId,
     isDirty,
@@ -49,6 +60,7 @@ export function HeaderRunControls() {
     handleConfirmRunManually,
     handleCancelConfirm,
   } = useRunControls();
+  const runBlocked = blockingIssueCount > 0;
 
   // Hidden when there is no trigger yet OR the workflow hasn't
   // hydrated. Mirrors the old RunNowPanel guard.
@@ -113,13 +125,28 @@ export function HeaderRunControls() {
           size="sm"
           variant="destructive"
           onClick={handleRunManually}
-          disabled={anyRunning}
+          disabled={anyRunning || runBlocked}
           data-testid="run-controls-run-manually-button"
-          title="Runs for real and may call connected apps. Destructive actions require a typed confirmation before they fire."
+          title={
+            runBlocked
+              ? `Resolve ${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} before running — open the validation panel to see what's missing.`
+              : "Runs for real and may call connected apps. Destructive actions require a typed confirmation before they fire."
+          }
         >
           {runningMode === "manual" ? "Running…" : "Run Manually"}
         </Button>
       </div>
+      {runBlocked ? (
+        <p
+          role="status"
+          className="sr-only"
+          data-testid="run-controls-blocked-status"
+        >
+          Run Manually is disabled: resolve {blockingIssueCount} setup{" "}
+          {blockingIssueCount === 1 ? "issue" : "issues"} first. Open the
+          validation panel to see which nodes need attention.
+        </p>
+      ) : null}
       <p className="sr-only">
         Runs safely without calling connected provider APIs. External
         actions are skipped with test-mode outputs.

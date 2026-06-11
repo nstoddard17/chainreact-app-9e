@@ -96,6 +96,12 @@ interface Props {
    * trigger is configured.
    */
   triggerTagText?: string;
+  /**
+   * BUILDER-READINESS — required-field metadata per `provider:type`. Threaded
+   * into the node adapter so a node missing a required field renders the
+   * "Needs setup" chip instead of "Ready". Optional (no map → prior behavior).
+   */
+  requiredFieldsByType?: import("../validation/collectBuilderValidationIssues").RequiredFieldsByType;
 }
 
 const NODE_TYPES = {
@@ -122,6 +128,7 @@ function WorkflowCanvasInner({
   onAddAction,
   canAddAction,
   triggerTagText,
+  requiredFieldsByType,
 }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -153,12 +160,13 @@ function WorkflowCanvasInner({
     const base = workflowNodesToFlowNodes(pendingNodes, {
       providerLabels,
       providerIcons,
+      requiredFieldsByType,
     });
     if (!activeNodeId) return base;
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [pendingNodes, providerLabels, providerIcons, activeNodeId]);
+  }, [pendingNodes, providerLabels, providerIcons, requiredFieldsByType, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
     () => workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),

@@ -60,7 +60,32 @@ export type BuilderValidationSeverity = "error" | "warning";
 export type BuilderValidationIssueCode =
   | "no_trigger"
   | "unconfigured_node"
-  | "router_routes_invalid";
+  | "router_routes_invalid"
+  | "missing_required_field";
+
+/**
+ * BUILDER-READINESS — one required field of a node type, sourced from the
+ * action/trigger metadata's `fields[].required`. `name` keys into `node.config`;
+ * `label` is the author-facing field name used in messages ("…needs a Method").
+ */
+export interface NodeTypeRequirement {
+  readonly name: string;
+  readonly label: string;
+}
+
+/** Required-field requirements for one node type, keyed by `provider:type`. */
+export interface NodeTypeRequirements {
+  readonly displayName: string;
+  readonly requiredFields: readonly NodeTypeRequirement[];
+}
+
+/**
+ * Map of `provider:type` (== ActionMeta/TriggerMeta `key`) → its required-field
+ * requirements. Computed server-side from the discovery registry and threaded
+ * into the builder; the values are STATIC (the set of required fields for a node
+ * type never changes), so the client validates the LIVE config against them.
+ */
+export type RequiredFieldsByType = Readonly<Record<string, NodeTypeRequirements>>;
 
 export interface BuilderValidationIssue {
   /** Stable id for React keys. Built from `code` + `nodeId` so two
@@ -83,9 +108,59 @@ export interface BuilderValidationIssue {
 export interface CollectBuilderValidationIssuesInput {
   readonly pendingNodes: readonly WorkflowNode[];
   readonly pendingEdges: readonly WorkflowEdge[];
+  /**
+   * BUILDER-READINESS — required-field metadata per node type. Optional so
+   * existing callers / tests that don't pass it keep their behavior (no
+   * `missing_required_field` issues). When supplied, each typed node is checked
+   * for empty required fields.
+   */
+  readonly requiredFieldsByType?: RequiredFieldsByType;
 }
 
 const ROUTER_NODE_TYPE = "native:router";
+
+/**
+ * The `provider:type` key a node maps to in `RequiredFieldsByType`. Real nodes
+ * store a bare `type` (e.g. `http_request`) so the key is `provider:type`; some
+ * call sites / fixtures store the already-combined key (e.g. `native:router`) —
+ * tolerated by passing it through unchanged when it already contains a colon.
+ */
+export function requirementLookupKey(node: WorkflowNode): string {
+  return node.type.includes(":") ? node.type : `${node.provider}:${node.type}`;
+}
+
+/**
+ * A required value is MISSING when it is undefined, null, an empty/whitespace
+ * string, or an empty array. `0` and `false` are valid explicit choices and are
+ * NOT missing (mirrors the handler-defaults Q5 rule).
+ */
+export function isRequiredValueMissing(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string" && value.trim() === "") return true;
+  if (Array.isArray(value) && value.length === 0) return true;
+  return false;
+}
+
+/**
+ * The required fields of `node` that are currently empty, per the metadata
+ * lookup. Single source of truth shared by the validation issue collector and
+ * the canvas node-status adapter so the header pill and the node chip never
+ * diverge. Router nodes are excluded — their `routes` config has a dedicated
+ * structural validator (`router_routes_invalid`).
+ */
+export function missingRequiredFields(
+  node: WorkflowNode,
+  requiredFieldsByType: RequiredFieldsByType | undefined,
+): readonly NodeTypeRequirement[] {
+  if (!node.type) return [];
+  const key = requirementLookupKey(node);
+  if (key === ROUTER_NODE_TYPE) return [];
+  const reqs = requiredFieldsByType?.[key];
+  if (!reqs) return [];
+  return reqs.requiredFields.filter((f) =>
+    isRequiredValueMissing((node.config ?? {})[f.name]),
+  );
+}
 
 export function collectBuilderValidationIssues(
   input: CollectBuilderValidationIssuesInput,
@@ -129,6 +204,27 @@ export function collectBuilderValidationIssues(
           message: result.error,
           nodeId: node.id,
           fieldName: "routes",
+        });
+      }
+      // Router routes are validated above; skip the generic required-field pass.
+      continue;
+    }
+
+    // BUILDER-READINESS — a node that picked its type but left a required field
+    // empty is NOT ready. Sourced from the action/trigger metadata (no parallel
+    // hardcoded rules). The display name prefers the node's user label, falling
+    // back to the metadata display name.
+    const reqs = input.requiredFieldsByType?.[requirementLookupKey(node)];
+    if (reqs) {
+      const displayName = node.displayName ?? reqs.displayName;
+      for (const field of missingRequiredFields(node, input.requiredFieldsByType)) {
+        issues.push({
+          id: `missing_required_field:${node.id}:${field.name}`,
+          code: "missing_required_field",
+          severity: "error",
+          message: `${displayName} needs a ${field.label}.`,
+          nodeId: node.id,
+          fieldName: field.name,
         });
       }
     }

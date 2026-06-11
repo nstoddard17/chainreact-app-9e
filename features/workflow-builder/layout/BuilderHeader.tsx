@@ -9,6 +9,7 @@ import { LifecycleActions } from "../panels/LifecycleActions";
 import {
   collectBuilderValidationIssues,
   countBuilderValidationIssues,
+  type RequiredFieldsByType,
 } from "../validation/collectBuilderValidationIssues";
 import {
   BuilderIconButton,
@@ -46,6 +47,13 @@ interface Props {
     workflowId: string;
     state: WorkflowState;
   };
+  /**
+   * BUILDER-READINESS — required-field metadata per `provider:type` (from the
+   * discovery registry, server-computed). Feeds the validation pill + Run/
+   * Activate gating so "Ready" reflects required-config completeness. Optional
+   * so isolated tests keep passing (no map → no required-field issues).
+   */
+  requiredFieldsByType?: RequiredFieldsByType;
 }
 
 /**
@@ -73,6 +81,7 @@ export function BuilderHeader({
   leftRail,
   validation,
   lifecycle,
+  requiredFieldsByType,
 }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
@@ -86,7 +95,11 @@ export function BuilderHeader({
 
   const validationCounts = validation
     ? countBuilderValidationIssues(
-        collectBuilderValidationIssues({ pendingNodes, pendingEdges }),
+        collectBuilderValidationIssues({
+          pendingNodes,
+          pendingEdges,
+          requiredFieldsByType,
+        }),
       )
     : null;
 
@@ -299,6 +312,10 @@ function HeaderRight({
   validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
   lifecycle?: { workflowId: string; state: WorkflowState };
 }) {
+  // BUILDER-READINESS — any validation error (missing required field, no
+  // trigger, unconfigured node, invalid router routes) blocks Run Manually +
+  // go-live transitions.
+  const blockingIssueCount = validationCounts?.errorCount ?? 0;
   return (
     <div className="flex items-center justify-end gap-1.5">
       <div
@@ -341,7 +358,7 @@ function HeaderRight({
           onOpen={validation.onOpen}
         />
       ) : null}
-      <HeaderRunControls />
+      <HeaderRunControls blockingIssueCount={blockingIssueCount} />
       <button
         type="button"
         onClick={onSave}
@@ -365,6 +382,7 @@ function HeaderRight({
         <LifecycleActions
           workflowId={lifecycle.workflowId}
           state={lifecycle.state}
+          blockingIssueCount={blockingIssueCount}
         />
       ) : null}
     </div>

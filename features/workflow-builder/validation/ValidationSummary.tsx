@@ -28,6 +28,13 @@ interface Props {
    * `openTriggerPicker`.
    */
   onChooseTrigger?: () => void;
+  /**
+   * BUILDER-READINESS — required-field metadata per `provider:type`. Threaded so
+   * the summary lists `missing_required_field` issues (e.g. "HTTP Request needs a
+   * Method"), staying in sync with the header pill count. Optional (no map → no
+   * required-field rows), preserving isolated-test behavior.
+   */
+  requiredFieldsByType?: import("./collectBuilderValidationIssues").RequiredFieldsByType;
 }
 
 /**
@@ -50,7 +57,11 @@ interface Props {
  *     mutate graphSlice (no add / remove / config-change side effects).
  *   - No fetch. No backend call. No AI service call.
  */
-export function ValidationSummary({ onOpenNode, onChooseTrigger }: Props) {
+export function ValidationSummary({
+  onOpenNode,
+  onChooseTrigger,
+  requiredFieldsByType,
+}: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const openNode = useConfigSlice((s) => s.openNode);
@@ -58,6 +69,7 @@ export function ValidationSummary({ onOpenNode, onChooseTrigger }: Props) {
   const issues = collectBuilderValidationIssues({
     pendingNodes,
     pendingEdges,
+    requiredFieldsByType,
   });
 
   const errors = issues.filter((i) => i.severity === "error");

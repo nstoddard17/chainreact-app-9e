@@ -730,3 +730,25 @@ describe("HeaderRunControls (migrated from RunNowPanel) — dirty-state warning 
     ).not.toBeInTheDocument();
   });
 });
+
+describe("HeaderRunControls — BUILDER-READINESS gating", () => {
+  it("disables Run Manually when there are blocking validation issues", () => {
+    bootWithManualTrigger();
+    render(<HeaderRunControls blockingIssueCount={2} />);
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeDisabled();
+    // Test Workflow stays enabled (test mode skips external handlers).
+    expect(screen.getByTestId("run-controls-test-button")).not.toBeDisabled();
+    expect(screen.getByTestId("run-controls-blocked-status")).toBeInTheDocument();
+  });
+
+  it("enables Run Manually when there are no blocking issues", () => {
+    bootWithManualTrigger();
+    render(<HeaderRunControls blockingIssueCount={0} />);
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).not.toBeDisabled();
+    expect(screen.queryByTestId("run-controls-blocked-status")).toBeNull();
+  });
+});

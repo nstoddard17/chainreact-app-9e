@@ -10,7 +10,32 @@ import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import {
   collectBuilderValidationIssues,
   countBuilderValidationIssues,
+  isRequiredValueMissing,
+  missingRequiredFields,
+  type RequiredFieldsByType,
 } from "@/features/workflow-builder/validation/collectBuilderValidationIssues";
+
+// BUILDER-READINESS — minimal lookup mirroring native:http_request metadata.
+const HTTP_REQUIRED: RequiredFieldsByType = {
+  "native:http_request": {
+    displayName: "HTTP Request",
+    requiredFields: [
+      { name: "method", label: "Method" },
+      { name: "url", label: "URL" },
+    ],
+  },
+};
+
+function httpNode(config: Record<string, unknown>): WorkflowNode {
+  return {
+    id: "h1",
+    kind: "action",
+    provider: "native",
+    type: "http_request",
+    config,
+    position: { x: 0, y: 0 },
+  };
+}
 
 function makeNode(partial: Partial<WorkflowNode> & Pick<WorkflowNode, "id" | "kind">): WorkflowNode {
   return {
@@ -313,5 +338,104 @@ describe("countBuilderValidationIssues", () => {
       warningCount: 0,
       totalCount: 0,
     });
+  });
+});
+
+describe("collectBuilderValidationIssues — missing_required_field (BUILDER-READINESS)", () => {
+  it("flags HTTP Request missing Method (not ready)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [httpNode({ url: "https://x.test" })],
+      pendingEdges: NO_EDGES,
+      requiredFieldsByType: HTTP_REQUIRED,
+    });
+    const m = issues.find(
+      (i) => i.code === "missing_required_field" && i.fieldName === "method",
+    );
+    expect(m).toBeDefined();
+    expect(m?.severity).toBe("error");
+    expect(m?.nodeId).toBe("h1");
+    expect(m?.message).toBe("HTTP Request needs a Method.");
+  });
+
+  it("flags HTTP Request missing URL (not ready)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [httpNode({ method: "GET" })],
+      pendingEdges: NO_EDGES,
+      requiredFieldsByType: HTTP_REQUIRED,
+    });
+    const m = issues.find(
+      (i) => i.code === "missing_required_field" && i.fieldName === "url",
+    );
+    expect(m?.message).toBe("HTTP Request needs a URL.");
+  });
+
+  it("flags BOTH when method and url are empty", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [httpNode({})],
+      pendingEdges: NO_EDGES,
+      requiredFieldsByType: HTTP_REQUIRED,
+    });
+    const missing = issues.filter((i) => i.code === "missing_required_field");
+    expect(missing.map((i) => i.fieldName).sort()).toEqual(["method", "url"]);
+  });
+
+  it("is READY when method + url are filled (no missing_required_field)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [httpNode({ method: "POST", url: "https://x.test" })],
+      pendingEdges: NO_EDGES,
+      requiredFieldsByType: HTTP_REQUIRED,
+    });
+    expect(issues.some((i) => i.code === "missing_required_field")).toBe(false);
+  });
+
+  it("emits NO required-field issues when no lookup is supplied (back-compat)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [httpNode({})],
+      pendingEdges: NO_EDGES,
+    });
+    expect(issues.some((i) => i.code === "missing_required_field")).toBe(false);
+  });
+
+  it("treats undefined / null / empty-string / empty-array as missing; 0 and false as present", () => {
+    expect(isRequiredValueMissing(undefined)).toBe(true);
+    expect(isRequiredValueMissing(null)).toBe(true);
+    expect(isRequiredValueMissing("")).toBe(true);
+    expect(isRequiredValueMissing("   ")).toBe(true);
+    expect(isRequiredValueMissing([])).toBe(true);
+    expect(isRequiredValueMissing(0)).toBe(false);
+    expect(isRequiredValueMissing(false)).toBe(false);
+    expect(isRequiredValueMissing("GET")).toBe(false);
+  });
+
+  it("missingRequiredFields helper agrees with the collector (single source)", () => {
+    expect(missingRequiredFields(httpNode({ method: "GET" }), HTTP_REQUIRED)).toEqual([
+      { name: "url", label: "URL" },
+    ]);
+    expect(
+      missingRequiredFields(httpNode({ method: "GET", url: "https://x.test" }), HTTP_REQUIRED),
+    ).toEqual([]);
+  });
+
+  it("does not double-validate the native router (its routes have a dedicated check)", () => {
+    const routerLookup: RequiredFieldsByType = {
+      "native:router": { displayName: "Router", requiredFields: [{ name: "routes", label: "Routes" }] },
+    };
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        {
+          id: "r1",
+          kind: "action",
+          provider: "native",
+          type: "native:router",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+      ],
+      pendingEdges: NO_EDGES,
+      requiredFieldsByType: routerLookup,
+    });
+    // router_routes_invalid (the dedicated validator) — NOT missing_required_field.
+    expect(issues.some((i) => i.code === "missing_required_field")).toBe(false);
+    expect(issues.some((i) => i.code === "router_routes_invalid")).toBe(true);
   });
 });

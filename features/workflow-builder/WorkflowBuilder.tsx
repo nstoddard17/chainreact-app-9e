@@ -42,6 +42,13 @@ interface Props {
    * banner. Optional: absent / personal-account workflows render neither.
    */
   teamContext?: BuilderTeamContextValue;
+  /**
+   * BUILDER-READINESS — required-field metadata per `provider:type`, computed
+   * server-side from the discovery registry. Drives required-config readiness
+   * (node "Needs setup" chip, header pill, Run/Activate gating). Optional so
+   * isolated builder tests keep passing.
+   */
+  requiredFieldsByType?: import("./validation/collectBuilderValidationIssues").RequiredFieldsByType;
 }
 
 /**
@@ -83,6 +90,7 @@ export function WorkflowBuilder({
   triggerProviders,
   actionProviders,
   teamContext,
+  requiredFieldsByType,
 }: Props) {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
@@ -261,6 +269,7 @@ export function WorkflowBuilder({
           }}
           validation={{ onOpen: handleOpenValidation }}
           lifecycle={{ workflowId: workflow.id, state: workflow.state }}
+          requiredFieldsByType={requiredFieldsByType}
         />
       }
       banner={
@@ -290,7 +299,10 @@ export function WorkflowBuilder({
             {mode === "inspector" ? <NodeInspectorPanel /> : null}
             {mode === "results" ? <RunResultsPanel /> : null}
             {mode === "validation" ? (
-              <ValidationSummary onChooseTrigger={openTriggerPicker} />
+              <ValidationSummary
+                onChooseTrigger={openTriggerPicker}
+                requiredFieldsByType={requiredFieldsByType}
+              />
             ) : null}
           </BuilderRightDrawer>
         ) : null
@@ -309,6 +321,7 @@ export function WorkflowBuilder({
           onAddAction={openActionPicker}
           canAddAction={hasTrigger}
           triggerTagText={triggerTagText}
+          requiredFieldsByType={requiredFieldsByType}
         />
         {addPanelMode !== null ? (
           <AddNodePanel

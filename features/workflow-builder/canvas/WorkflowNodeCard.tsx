@@ -42,11 +42,17 @@ export function WorkflowNodeCard({
 }: NodeProps & { data: WorkflowNodeData }) {
   const isTrigger = data.kind === "trigger";
   const providerLabel = data.providerLabel ?? data.provider;
-  const status: NodeStatus = classifyNodeStatus({ type: data.type });
+  const status: NodeStatus = classifyNodeStatus({
+    type: data.type,
+    missingRequiredConfig: data.missingRequiredConfig,
+  });
   const isUnconfigured = status === "unconfigured";
+  const needsSetup = status === "needs_setup";
+  // Amber rail for both "not configured" (no type) and "needs setup" (required
+  // field empty); accent for ready actions, success for triggers.
   const railColor = isTrigger
     ? "var(--builder-success)"
-    : isUnconfigured
+    : isUnconfigured || needsSetup
       ? "var(--builder-warn)"
       : "var(--builder-accent)";
 
@@ -125,7 +131,13 @@ export function WorkflowNodeCard({
           borderTop: "1px dashed var(--builder-border)",
         }}
       >
-        {isUnconfigured ? <NotConfiguredBadge /> : <ReadyBadge />}
+        {isUnconfigured ? (
+          <NotConfiguredBadge />
+        ) : needsSetup ? (
+          <NeedsSetupBadge />
+        ) : (
+          <ReadyBadge />
+        )}
       </div>
 
       <Handle
@@ -235,6 +247,22 @@ function NotConfiguredBadge() {
       }}
     >
       Not configured
+    </span>
+  );
+}
+
+function NeedsSetupBadge() {
+  return (
+    <span
+      data-testid="needs-setup-badge"
+      className="builder-mono inline-flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[9.5px] font-medium"
+      style={{
+        background: "var(--builder-warn-soft)",
+        color: "var(--builder-warn)",
+        border: "1px solid var(--builder-warn)",
+      }}
+    >
+      Needs setup
     </span>
   );
 }

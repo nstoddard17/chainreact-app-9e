@@ -6,6 +6,11 @@ import * as accountsRepo from "@/repositories/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
+import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
+import {
+  listAllActionMetas,
+  listAllTriggerMetas,
+} from "@/services/discovery/_registry";
 import type { BuilderTeamContextValue } from "@/features/workflow-builder/context/builderTeamContext";
 
 interface Props {
@@ -98,6 +103,14 @@ export default async function WorkflowDetailPage({ params }: Props) {
     teamContext = undefined;
   }
 
+  // BUILDER-READINESS — required-field metadata per node type, from the
+  // discovery registry. Static (a node type's required fields never change), so
+  // computed once here; the client validates the live config against it.
+  const requiredFieldsByType = buildRequiredFieldsByType(
+    listAllActionMetas(),
+    listAllTriggerMetas(),
+  );
+
   const providers = listProviders();
   const triggerProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.webhookTrigger)
@@ -124,6 +137,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
         workflow={workflow}
         triggerProviders={triggerProviders}
         actionProviders={actionProviders}
+        requiredFieldsByType={requiredFieldsByType}
         {...(teamContext ? { teamContext } : {})}
       />
     </main>

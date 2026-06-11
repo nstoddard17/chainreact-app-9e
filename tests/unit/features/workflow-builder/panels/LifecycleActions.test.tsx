@@ -291,3 +291,28 @@ describe("LifecycleActions — destructive-action confirmation (Slice 3.POSTSEC-
     expect(modal).not.toHaveTextContent(/draftDefinition/);
   });
 });
+
+describe("LifecycleActions — BUILDER-READINESS gating", () => {
+  it("disables Activate when there are blocking validation issues", () => {
+    render(
+      <LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={1} />,
+    );
+    const activate = screen.getByRole("button", { name: /activate/i });
+    expect(activate).toBeDisabled();
+    expect(activate).toHaveAttribute("data-blocked-by-validation", "true");
+  });
+
+  it("enables Activate when there are no blocking issues", () => {
+    render(
+      <LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={0} />,
+    );
+    expect(screen.getByRole("button", { name: /activate/i })).not.toBeDisabled();
+  });
+
+  it("does NOT block Pause for blocking issues (pause is always safe)", () => {
+    render(
+      <LifecycleActions workflowId="wf-1" state="active" blockingIssueCount={3} />,
+    );
+    expect(screen.getByRole("button", { name: /pause/i })).not.toBeDisabled();
+  });
+});
