@@ -168,11 +168,11 @@ E2E tests should use real V2 internals and mock only the external provider bound
 ChainReactV2 is the primary app. Live status is tracked in maintained docs —
 do NOT keep a duplicate point-in-time status list here (it goes stale). Source of truth:
 
-* **Phases & roadmap:** docs/roadmap/chainreact-v2-roadmap.md
-* **Production go-live status:** docs/slices/phase-4/v2-go-live-status.md
-* **Builder-metadata launch gap (9 providers):** docs/slices/phase-4/provider-metadata-launch-gap-tracker.md
-* **Revived/deferred providers:** docs/slices/phase-3/missing-providers-status.md → provider-completion-closeout.md
-* **Per-slice plans & outcomes:** docs/slices/phase-{1,2,3}/ and docs/slices/parity/
+* **Phases & roadmap:** [`docs/roadmap/chainreact-v2-roadmap.md`](./docs/roadmap/chainreact-v2-roadmap.md)
+* **Production go-live status:** [`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md)
+* **Builder-metadata launch gap (9 providers):** [`docs/slices/phase-4/provider-metadata-launch-gap-tracker.md`](./docs/slices/phase-4/provider-metadata-launch-gap-tracker.md)
+* **Revived/deferred providers:** [`docs/slices/phase-3/missing-providers-status.md`](./docs/slices/phase-3/missing-providers-status.md) → [`provider-completion-closeout.md`](./docs/slices/phase-3/provider-completion-closeout.md)
+* **Per-slice plans & outcomes:** [`docs/slices/phase-1/`](./docs/slices/phase-1/), [`phase-2/`](./docs/slices/phase-2/), [`phase-3/`](./docs/slices/phase-3/) and [`parity/`](./docs/slices/parity/)
 
 **Provider-addition gate (durable):** no net-new provider without a parity/audit doc
 and a roadmap entry (roadmap §Phase 2). Local work is not pushed without Marcus.
