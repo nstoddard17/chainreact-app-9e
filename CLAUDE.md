@@ -172,7 +172,11 @@ E2E tests should use real V2 internals and mock only the external provider bound
 ## Current State & Status
 
 ChainReactV2 is the primary app. Live status is tracked in maintained docs —
-do NOT keep a duplicate point-in-time status list here (it goes stale). Source of truth:
+do NOT keep a duplicate point-in-time status list here (it goes stale).
+
+**Start here:** [`docs/PROJECT_MEMORY.md`](./docs/PROJECT_MEMORY.md) — compact rolling curated state (status, durable decisions, open follow-ups). Points to the authoritative docs below; never overrides them.
+
+Source of truth:
 
 * **Phases & roadmap:** [`docs/roadmap/chainreact-v2-roadmap.md`](./docs/roadmap/chainreact-v2-roadmap.md)
 * **Production go-live status:** [`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md)
