@@ -44,6 +44,15 @@ jest.mock("@/services/notifications/notifyHighRiskWorkflowEvent", () => ({
   notifyHighRiskActivation: jest.fn(),
 }));
 
+// Stub Next's `after` (the serverless lifecycle extender) while keeping the
+// real NextResponse the route relies on for status/json. Lets us assert the
+// route's keepAlive wiring without a live request lifecycle.
+const mockAfter = jest.fn();
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: (cb: unknown) => mockAfter(cb),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/run-now/route";
 
 const baseWorkflow = {
@@ -1112,5 +1121,72 @@ describe("POST /run-now — high-risk audit event emission (Slice 3.POSTSEC-8)",
     // it MUST NOT reach the audit emission.
     expect(text).not.toContain("ch_internal_leak");
     expect(text).not.toContain("chargeId");
+  });
+});
+
+// ── manual-run async reliability — keepAlive → after() wiring ───────────────
+//
+// run-now is fire-and-forget at the engine boundary; on serverless the
+// instance can freeze the instant the 202 is sent, leaving the run stuck
+// `running` and invisible on the Runs page. The route now hands the engine
+// promise to `after()` so the platform keeps the instance alive until the run
+// finalizes. enqueueRun is mocked here, so it does NOT invoke keepAlive during
+// the request — we invoke the supplied extender ourselves to prove it routes
+// to after(), exactly as enqueueRun does in production.
+describe("POST /run-now — keepAlive serverless lifecycle wiring", () => {
+  beforeEach(() => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValue(baseWorkflow);
+    mockAfter.mockReset();
+  });
+
+  it("supplies a keepAlive extender to enqueueRun", async () => {
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      keepAlive?: (p: Promise<void>) => void;
+    };
+    expect(typeof enqueueCall.keepAlive).toBe("function");
+  });
+
+  it("the supplied keepAlive routes the engine promise to after() (Vercel waitUntil)", async () => {
+    await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      keepAlive: (p: Promise<void>) => void;
+    };
+    // Mocked enqueueRun never calls keepAlive itself → after() not yet hit.
+    expect(mockAfter).not.toHaveBeenCalled();
+    const executionPromise = Promise.resolve();
+    enqueueCall.keepAlive(executionPromise);
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockAfter).toHaveBeenCalledWith(executionPromise);
+  });
+
+  it("test-mode runs also get the keepAlive extender (test runs must finalize too)", async () => {
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ testMode: true, inputs: {} }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      testMode: boolean;
+      keepAlive?: (p: Promise<void>) => void;
+    };
+    expect(enqueueCall.testMode).toBe(true);
+    expect(typeof enqueueCall.keepAlive).toBe("function");
+  });
+
+  it("a readiness-blocked run (422) never enqueues, so no keepAlive/after path runs", async () => {
+    mockGetById.mockResolvedValueOnce(workflowWithHttpAction({})); // no method/url
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockAfter).not.toHaveBeenCalled();
   });
 });

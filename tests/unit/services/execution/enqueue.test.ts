@@ -90,3 +90,72 @@ describe("enqueueRun", () => {
     await new Promise((r) => setImmediate(r));
   });
 });
+
+describe("enqueueRun — keepAlive serverless lifecycle extender", () => {
+  it("hands the execution promise to keepAlive when provided (request-scoped caller)", async () => {
+    mockRunWorkflow.mockResolvedValueOnce(undefined);
+    const keepAlive = jest.fn();
+
+    const result = await enqueueRun({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      event: triggerEvent,
+      keepAlive,
+    });
+
+    expect(result.runId).toBeTruthy();
+    // The engine is kicked off AND its promise is handed to the platform
+    // lifecycle extender (Next `after` → Vercel `waitUntil`) exactly once.
+    expect(mockRunWorkflow).toHaveBeenCalledTimes(1);
+    expect(keepAlive).toHaveBeenCalledTimes(1);
+    expect(typeof keepAlive.mock.calls[0]![0].then).toBe("function");
+  });
+
+  it("the kept-alive promise resolves after a successful engine run", async () => {
+    mockRunWorkflow.mockResolvedValueOnce(undefined);
+    let captured: Promise<void> | undefined;
+
+    await enqueueRun({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      event: triggerEvent,
+      keepAlive: (p) => {
+        captured = p;
+      },
+    });
+
+    // after() would await this; it must settle so the instance can be freed.
+    await expect(captured).resolves.toBeUndefined();
+  });
+
+  it("the kept-alive promise still resolves when the engine throws (never rejects → after never crashes)", async () => {
+    mockRunWorkflow.mockRejectedValueOnce(new Error("handler exploded"));
+    let captured: Promise<void> | undefined;
+
+    await enqueueRun({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      event: triggerEvent,
+      keepAlive: (p) => {
+        captured = p;
+      },
+    });
+
+    // runWorkflowInBackground swallows engine errors → the promise resolves,
+    // so handing it to after()/waitUntil can never surface an unhandled
+    // rejection. The engine itself finalizes the run row to 'failed'.
+    await expect(captured).resolves.toBeUndefined();
+  });
+
+  it("falls back to fire-and-forget (no throw) when keepAlive is omitted", async () => {
+    mockRunWorkflow.mockResolvedValueOnce(undefined);
+    const result = await enqueueRun({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      event: triggerEvent,
+    });
+    expect(result.runId).toBeTruthy();
+    expect(mockRunWorkflow).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setImmediate(r));
+  });
+});

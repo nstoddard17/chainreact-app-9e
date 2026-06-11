@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -53,6 +53,13 @@ import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness"
  *   - 202 Accepted — `{ runId, enqueuedAt, isTest, triggeredBy }`.
  *     Engine runs asynchronously after enqueue; failures surface via
  *     workflow_runs.status + the existing notification orchestrator.
+ *     The background engine promise is handed to `after()` (Next →
+ *     Vercel `waitUntil`) so the serverless instance is kept alive until
+ *     the run finalizes (running → succeeded/failed). Without this the
+ *     instance could freeze the moment the 202 is sent, leaving the run
+ *     stuck `running` and invisible on the Runs page. `maxDuration`
+ *     bounds that background window. The stale-running sweep remains a
+ *     safety net, not the normal path.
  *
  * Bypasses `dispatchTriggerEvent` (which does dedup + state gate +
  * trigger_resources lookup) because the route already knows
@@ -61,6 +68,15 @@ import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness"
  */
 
 const BODY_BYTES_CAP = 256 * 1024;
+
+/**
+ * Upper bound (seconds) on the serverless invocation, including the
+ * `after()` background engine work kicked off post-202. A manual run of a
+ * small workflow (an HTTP request, a Slack post) finalizes in seconds; this
+ * gives comfortable headroom so the run reaches a terminal status before the
+ * platform reclaims the instance. Clamped by the deployment plan's ceiling.
+ */
+export const maxDuration = 60;
 
 const ALLOWED_STATES: ReadonlySet<string> = new Set([
   "active",
@@ -264,6 +280,12 @@ export async function POST(
     // caller as the actor (workflow_runs.triggered_by_user_id). Webhook/cron
     // paths omit this → NULL.
     triggeredByUserId: auth.userId,
+    // Keep the serverless instance alive until the fire-and-forget engine
+    // promise finalizes the run, instead of letting it freeze when the 202
+    // is sent (which left runs stuck `running` / invisible on /runs).
+    keepAlive: (executionPromise) => {
+      after(executionPromise);
+    },
   });
 
   // Slice 3.POSTSEC-8 — emit a high-risk audit event when the run is

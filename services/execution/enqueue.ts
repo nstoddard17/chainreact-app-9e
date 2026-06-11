@@ -52,6 +52,25 @@ export interface EnqueueRunInput {
    */
   triggeredByApiKeyId?: string | null;
   triggeredByApiKeyPrefix?: string | null;
+  /**
+   * Serverless lifecycle extender. The background engine promise is
+   * fire-and-forget by default, which on a serverless platform can be
+   * frozen/recycled the instant the caller's HTTP response is sent — the
+   * run then never finalizes and its `workflow_runs` row is left stuck in
+   * `status='running'` (hidden by the Runs-page `neq('status','running')`
+   * read). Request-scoped callers (the run-now route) pass an extender —
+   * Next's `after` (backed by Vercel `waitUntil`) — so the platform keeps
+   * the instance alive until the engine reaches a terminal status.
+   *
+   * Layering: this service stays framework-agnostic; the route owns the
+   * `next/server` primitive and hands it in here. Omitted by non-request
+   * callers (webhook/cron dispatchers — out of scope for this slice) and
+   * unit tests → best-effort fire-and-forget, exactly as before.
+   *
+   * `runWorkflowInBackground` swallows engine errors, so the promise NEVER
+   * rejects — the extender never sees an unhandled rejection.
+   */
+  keepAlive?: (executionPromise: Promise<void>) => void;
 }
 
 export interface EnqueueRunResult {
@@ -77,9 +96,18 @@ export async function enqueueRun(input: EnqueueRunInput): Promise<EnqueueRunResu
     }),
   );
 
-  // Fire-and-forget. The webhook caller already returned 200; the engine
-  // owns its own errors via structured logs.
-  void runWorkflowInBackground(input, runId);
+  // Kick off execution immediately. The promise never rejects
+  // (runWorkflowInBackground catches + logs engine errors). When a
+  // request-scoped caller supplies `keepAlive`, hand the promise to the
+  // platform lifecycle (Next `after` → Vercel `waitUntil`) so the instance
+  // is kept alive until the run finalizes; otherwise fall back to the
+  // legacy best-effort fire-and-forget.
+  const executionPromise = runWorkflowInBackground(input, runId);
+  if (input.keepAlive) {
+    input.keepAlive(executionPromise);
+  } else {
+    void executionPromise;
+  }
 
   return { runId, enqueuedAt };
 }
