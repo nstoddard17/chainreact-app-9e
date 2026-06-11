@@ -22,10 +22,13 @@ const RULES: readonly RedactionRule[] = [
     pattern:
       /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
   },
-  // JWTs (three base64url segments).
+  // JWTs (three base64url segments). No leading \b — Supabase service-role
+  // keys are JWTs, and a token glued to preceding word chars (no delimiter)
+  // must still be caught. The `eyJ.<seg>.<seg>` shape is specific enough that
+  // dropping the boundary does not cause realistic false positives.
   {
     label: "jwt",
-    pattern: /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\b/g,
+    pattern: /eyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g,
   },
   // Slack tokens.
   { label: "slack-token", pattern: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g },

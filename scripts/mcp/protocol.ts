@@ -8,6 +8,7 @@
  */
 import { LIMITS } from "./config";
 import type { ToolRegistry } from "./registry";
+import { redactSecrets } from "./security/redact";
 import { truncateOutput } from "./security/truncate";
 
 export const SERVER_INFO = {
@@ -87,8 +88,17 @@ export async function handleRpc(
       if (!tool) return err(id, -32601, `Unknown tool: ${name}`);
       try {
         const text = await tool.handler(args);
-        const bounded = truncateOutput(String(text), LIMITS.maxOutputChars);
-        return ok(id, { content: [{ type: "text", text: bounded }] });
+        // Egress guarantee: redact BEFORE truncating. Order matters — truncating
+        // first could split a credential so its tail (the part the regex needs
+        // to match) is cut, leaving the head un-redacted. Redacting the full
+        // string first, then bounding length, can never leak a partial secret.
+        // Per-read redaction in lib/files.ts is defense-in-depth; this is the
+        // single point every tool's output must pass through.
+        const safe = truncateOutput(
+          redactSecrets(String(text)),
+          LIMITS.maxOutputChars,
+        );
+        return ok(id, { content: [{ type: "text", text: safe }] });
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         return ok(id, {

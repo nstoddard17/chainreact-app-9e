@@ -36,7 +36,19 @@ This is the security contract. The server has **no** path to any of these:
   side-effectful manifest body is never executed.)
 - **No mutation.** No `db:push`, migrations, deploy, `git push`, PR creation, or
   shell passthrough. The only commands it can run are three exact, read-only npm
-  scripts (below).
+  scripts (below). The script name is a compile-time constant from the allowlist
+  — **no tool argument ever reaches the command line**, so there is no
+  argument-injection surface. (On Windows a shell is required to launch the
+  `npm.cmd` shim; it is enabled only there and only over the static allowlist.)
+- **Redact-before-truncate.** Output is secret-redacted **first**, then length-
+  capped. Truncating first could cut a credential so its tail no longer matches
+  the redaction regex, leaking the head; redacting the full string first makes a
+  partial-secret leak impossible. Redaction is applied at the single protocol
+  egress point (every tool passes through it) plus per-file at read time
+  (defense-in-depth).
+- **Cross-platform traversal guard.** Absolute paths, `..`/`.` segments (split on
+  both `/` and `\`), and percent-encoded sequences (`%2e`/`%2f`/`%5c`) are
+  rejected before resolution; blocked filename patterns match case-insensitively.
 - **No architecture bypass.** It does not touch the account-ownership model, RLS,
   the OAuth dispatcher, the workflow engine, or the provider registry at runtime.
 
@@ -64,7 +76,33 @@ npm script with a timeout and truncated output):
 | `run_lint` | `npm run lint` (`eslint .`) |
 | `run_structure_lint` | `npm run lint:structure` (leaf-folder counts) |
 
-Every result is secret-redacted and size-capped before it leaves the process.
+Every result is **redacted then size-capped** before it leaves the process (order
+matters — see Security boundaries).
+
+## Implemented MCP protocol subset
+
+The server is a hand-rolled, **zero-dependency** implementation of the subset of
+MCP that stdio hosts (Claude Desktop / Codex / Claude Code) actually drive. We do
+**not** vendor an MCP SDK: the surface below is small, fully covered by tests +
+a stdio smoke test, and an SDK would add a dependency to the live app's tree for
+no behavioural gain. If a future host needs resources/prompts/sampling, revisit.
+
+**Transport:** newline-delimited JSON-RPC 2.0 over stdio — one JSON object per
+line, no embedded newlines (the MCP stdio framing). `stdout` carries **only**
+JSON-RPC responses; all diagnostics go to `stderr`.
+
+| Method | Behaviour |
+|---|---|
+| `initialize` | Returns `protocolVersion` (echoes the client's requested version), `capabilities: { tools: {} }`, and `serverInfo`. Version-agnostic by design — the implemented methods are stable across current MCP revisions. |
+| `tools/list` | Returns `{ tools: [{ name, description, inputSchema }] }`. No cursor pagination (tool set is small + static). |
+| `tools/call` | Returns `{ content: [{ type: "text", text }] }`. Tool-execution failures return `isError: true` with a text message (not a transport error); unknown tool / missing `name` return a JSON-RPC error. |
+| `ping` | Returns `{}`. |
+| Notifications (no `id`, e.g. `notifications/initialized`) | Processed, no response emitted. |
+| Malformed JSON line | JSON-RPC `-32700` (Parse error), `id: null`. |
+| Unknown method (with `id`) | JSON-RPC `-32601` (Method not found). |
+
+JSON-RPC error objects use the standard `{ code, message }` shape. Batch arrays
+are not supported (batching was removed from MCP in the 2025-06-18 revision).
 
 ## Run it locally
 
@@ -88,6 +126,18 @@ printf '%s\n' \
 ```
 
 ## Connect from an AI host
+
+**Host-verification status:**
+
+- ✅ **Raw stdio protocol — verified locally.** A scripted stdio smoke test
+  drives `initialize` → `tools/list` → a read-only `tools/call` → a rejected
+  unsafe (path-traversal) `tools/call` → `ping` → a malformed line → the
+  `run_structure_lint` wrapper → an unknown method → a notification, and confirms
+  `stdout` contains only JSON-RPC while logs stay on `stderr`.
+- 📄 **Claude Desktop / Codex host config — documented but NOT host-verified.**
+  The config blocks below follow each host's documented MCP-server schema but
+  have not been launched end-to-end from the GUI app in this environment. Treat
+  them as a starting point; verify in your host before relying on them.
 
 The host launches the **built** server as a subprocess. Build once
 (`npm run mcp:build`), then point the host at the compiled entry with an absolute
@@ -136,9 +186,32 @@ this tool by design.
   Jest; built to runnable CommonJS via `scripts/mcp/tsconfig.json` (zero new
   dependencies). The `dist/` output is gitignored.
 
+## Known limitations
+
+- **`dist/` must be built before launch.** `npm run mcp:start` runs the compiled
+  `scripts/mcp/dist/server.js`; run `npm run mcp:build` first (zero-dependency
+  tradeoff — no on-the-fly TS runner). `dist/` is gitignored and excluded from
+  the leaf-folder structure lint.
+- **GUI host configs are unverified** (see Host-verification status above).
+- **No resources / prompts / sampling / cursor pagination** — only the
+  `tools/*` + `initialize`/`ping` subset is implemented. Add deliberately if a
+  host needs more.
+- **Command wrappers run real npm scripts** and can take time (`run_lint`,
+  `run_typecheck`); each has a wall-clock timeout and capped, redacted output.
+
 ## Tests
 
-`tests/unit/mcp/` (34 tests): path whitelist + traversal rejection, secret
-redaction, output truncation, manifest text-parse-without-execution, the
-allowed-doc-read happy path, registry/protocol wiring, and the no-DB-import /
-command-allowlist safety guards.
+`tests/unit/mcp/` (46 tests):
+
+- **Core:** path whitelist + traversal rejection, secret redaction, output
+  truncation, manifest text-parse-without-execution, allowed-doc-read happy path,
+  registry/protocol wiring, no-DB-import / command-allowlist safety guards.
+- **Hardening (`security-hardening.test.ts`):** Windows backslash + percent-
+  encoded traversal, case-insensitive blocked-name rejection, command-argument
+  injection (`npmArgsFor` allowlist), redact-before-truncate ordering + protocol
+  egress redaction, search-cannot-dump-blocked-files (live fixture), and an
+  import-boundary scan asserting every `scripts/mcp` import is a `node:` builtin
+  or a relative local module.
+
+Plus a manual stdio smoke test (see Host-verification status) that exercises the
+full protocol surface against the built server.

@@ -16,20 +16,48 @@ import { redactSecrets } from "../security/redact";
 import { truncateOutput } from "../security/truncate";
 import type { ToolDefinition } from "../registry";
 
-function runNpmScript(scriptKey: string): string {
+/**
+ * Build the exact, injection-proof argv for an allowlisted npm script.
+ *
+ * Returns `["run", <script>]` where `<script>` is the value from the static
+ * `ALLOWED_NPM_SCRIPTS` map — never the caller's string. An unknown key throws
+ * before any process is spawned. Because the script name comes from the
+ * allowlist (not from tool arguments) and is passed as a discrete argv element
+ * with `shell: false`, there is no shell-metacharacter or argument-injection
+ * surface. Exported for direct testing.
+ */
+export function npmArgsFor(scriptKey: string): [string, string] {
   const script = ALLOWED_NPM_SCRIPTS[scriptKey];
   if (!script) {
-    return `Error: '${scriptKey}' is not an allowlisted command.`;
+    throw new Error(`'${scriptKey}' is not an allowlisted command.`);
+  }
+  return ["run", script];
+}
+
+function runNpmScript(scriptKey: string): string {
+  let args: [string, string];
+  try {
+    args = npmArgsFor(scriptKey);
+  } catch (e) {
+    return `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
   // `npm run <script>` — npm itself resolves the exact script from package.json.
   // No user-supplied arguments are forwarded.
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  const result = spawnSync(npmCmd, ["run", script], {
+  //
+  // Windows needs a shell to launch the `npm.cmd` batch shim (spawning it with
+  // shell:false raises EINVAL), so `shell` is enabled only on win32. This is
+  // injection-safe because EVERY token in `args` is a compile-time constant
+  // from ALLOWED_NPM_SCRIPTS — no tool argument ever reaches the command line
+  // (proven by npmArgsFor's tests). On POSIX we keep shell:false.
+  const isWin = process.platform === "win32";
+  const npmCmd = isWin ? "npm.cmd" : "npm";
+  const script = args[1];
+  const result = spawnSync(npmCmd, args, {
     cwd: REPO_ROOT,
     timeout: LIMITS.commandTimeoutMs,
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
-    shell: false,
+    shell: isWin,
   });
 
   if (result.error) {

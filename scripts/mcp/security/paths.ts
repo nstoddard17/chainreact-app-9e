@@ -79,6 +79,18 @@ export function resolveAllowedPath(
   if (relPath.includes("\0")) {
     throw new PathNotAllowedError("null byte in path");
   }
+  // Reject URL-encoded path separators / dots so a percent-encoded traversal
+  // (e.g. `%2e%2e%2f`, `%5c`) can never be decoded into `../` downstream.
+  if (/%2e|%2f|%5c/i.test(relPath)) {
+    throw new PathNotAllowedError("percent-encoded path sequence");
+  }
+  // Reject relative-traversal segments explicitly, splitting on BOTH separators
+  // so Windows-style `..\..\x` is caught the same as POSIX `../../x`, on every
+  // platform — independent of how `path.resolve` would later normalize it.
+  const rawSegments = relPath.split(/[\\/]+/);
+  if (rawSegments.some((s) => s === ".." || s === ".")) {
+    throw new PathNotAllowedError("relative traversal segment");
+  }
 
   const abs = resolve(REPO_ROOT, relPath);
 
