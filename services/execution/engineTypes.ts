@@ -20,6 +20,15 @@ export type RunFailureCode =
   | "MISSING_VARIABLE"
   | "HANDLER_FAILED"
   /**
+   * B — pre-dispatch execution-readiness backstop. The workflow is structurally
+   * invalid (orphan/unreachable action, stale edge, no/multiple triggers) or has
+   * an action with empty required config. Fails the run with a friendly message
+   * instead of silently skipping orphans or dumping a raw handler Zod error.
+   * Real runs only (test mode skips external handlers). The detail (missing
+   * fields vs invalid graph) rides in the fatalError message.
+   */
+  | "WORKFLOW_NOT_READY"
+  /**
    * COST-15C — a run row already exists for this runId when the engine tried
    * to create the pre-run row. The dispatch is a duplicate/replay; the engine
    * refuses to re-execute (no double side effects / double billing). Not

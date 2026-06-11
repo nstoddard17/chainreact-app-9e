@@ -51,6 +51,12 @@ jest.mock("@/services/notifications/notifyWorkflowFailure", () => ({
 const mockGetActionMeta = jest.fn();
 jest.mock("@/services/discovery/_registry", () => ({
   getActionMeta: (...args: unknown[]) => mockGetActionMeta(...args),
+  // B — the engine's pre-dispatch readiness gate builds requiredFieldsByType
+  // from these. Engine tests use synthetic action types with no registry
+  // metadata, so empty lists mean readiness validates GRAPH integrity only
+  // (which is what these traversal/billing fixtures exercise).
+  listAllActionMetas: () => [],
+  listAllTriggerMetas: () => [],
 }));
 
 // Slice 4.COST-3 — the engine records actual task usage post-run. Mock the
@@ -315,6 +321,45 @@ describe("WorkflowEngine — fatal errors", () => {
       triggerEvent,
     });
     expect(result.fatalError?.code).toBe("TRIGGER_NODE_NOT_FOUND");
+  });
+
+  // B — engine pre-dispatch readiness backstop (the universal choke point that
+  // also covers webhook + scheduled, which reach the engine via enqueueRun).
+  it("fails with WORKFLOW_NOT_READY when an action is unreachable (real run), instead of silently skipping it", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [], // a1 orphaned — no path from the trigger
+      },
+    });
+    const engine = new WorkflowEngine({ resolveStrict: (v) => v });
+    const result = await engine.runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.fatalError?.code).toBe("WORKFLOW_NOT_READY");
+    expect(result.steps).toEqual([]);
+  });
+
+  it("does NOT apply the readiness gate in test mode (orphans tolerated when validating a partial workflow)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [],
+      },
+    });
+    const engine = new WorkflowEngine({ resolveStrict: (v) => v });
+    const result = await engine.runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+    expect(result.fatalError?.code).not.toBe("WORKFLOW_NOT_READY");
   });
 });
 

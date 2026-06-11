@@ -14,6 +14,7 @@ import {
   runLifecycle,
   toWorkflowSummary,
 } from "../../_shared";
+import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
 
 /**
  * POST /api/workflows/[id]/activate
@@ -121,6 +122,17 @@ export async function POST(
         },
         { status: 409 },
       );
+    }
+  }
+
+  // B — execution-readiness gate. Block activation of a structurally-invalid or
+  // unconfigured workflow with a clear typed error (after the destructive gate
+  // so CONFIRMATION_REQUIRED still takes precedence). Missing/deleted rows defer
+  // to the orchestrator's LifecycleError mapping below (unchanged).
+  if (workflow && workflow.state !== "deleted") {
+    const readinessError = checkWorkflowReadiness(workflow.draftDefinition);
+    if (readinessError) {
+      return NextResponse.json(readinessError, { status: 422 });
     }
   }
 

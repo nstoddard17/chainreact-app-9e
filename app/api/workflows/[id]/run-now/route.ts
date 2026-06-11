@@ -19,10 +19,7 @@ import {
   requireWorkflowAccountMember,
   workflowNotFoundResponse,
 } from "../../_shared";
-import {
-  findUnconfiguredNodes,
-  formatUnconfiguredMessage,
-} from "./preflightReadiness";
+import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
 
 /**
  * POST /api/workflows/[id]/run-now — Native-nodes Slice 2 Commit 1.
@@ -232,16 +229,13 @@ export async function POST(
     // testModeGate (native:http_request is explicitly blocked), so an
     // unconfigured action never actually executes in test mode — gating it
     // there would only reduce test-mode's usefulness on a partial workflow.
-    const unconfigured = findUnconfiguredNodes(workflow.draftDefinition.nodes);
-    if (unconfigured.length > 0) {
-      return NextResponse.json(
-        {
-          error: "MISSING_REQUIRED_FIELDS",
-          message: formatUnconfiguredMessage(unconfigured),
-          nodes: unconfigured,
-        },
-        { status: 422 },
-      );
+    //
+    // Shared validator (B): required fields AND graph integrity (one trigger,
+    // no orphan/unreachable actions, no edges referencing missing nodes).
+    // Returns MISSING_REQUIRED_FIELDS or INVALID_WORKFLOW_GRAPH.
+    const readinessError = checkWorkflowReadiness(workflow.draftDefinition);
+    if (readinessError) {
+      return NextResponse.json(readinessError, { status: 422 });
     }
   }
 

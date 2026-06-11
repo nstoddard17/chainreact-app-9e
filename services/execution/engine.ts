@@ -25,6 +25,7 @@ import {
   effectiveCredentialOwner,
 } from "@/services/teamCredentials/nodeCredentialOwners";
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
+import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
 import {
@@ -258,6 +259,27 @@ export class WorkflowEngine {
       }
       return fatalResult;
     };
+
+    // B — execution-readiness backstop (the universal choke point). Every entry
+    // path — run-now, webhooks, scheduled (services/triggers/dispatch), v1
+    // trigger — reaches the engine via enqueueRun, so validating here covers
+    // them all without per-route plumbing. Runs BEFORE billing so an unrunnable
+    // workflow never consumes quota. Real runs only: test mode skips external /
+    // high-risk handlers, and the reachability traversal already harmlessly
+    // skips orphan nodes, so gating test mode would only reduce its usefulness.
+    // A structurally-invalid or unconfigured workflow fails the run with a
+    // standardized friendly message instead of silently skipping orphans or
+    // surfacing a raw handler Zod dump.
+    if (!isTest) {
+      const readinessError = checkWorkflowReadiness(def);
+      if (readinessError) {
+        log("execution.run.fatal", {
+          code: "WORKFLOW_NOT_READY",
+          reason: readinessError.error,
+        });
+        return failBeforeExecution("WORKFLOW_NOT_READY", readinessError.message);
+      }
+    }
 
     // COST-15H — billing path selection (pre-launch). The global flag
     // ENABLE_RESERVE_RECONCILE_BILLING is the ONLY switch (no allowlist — the

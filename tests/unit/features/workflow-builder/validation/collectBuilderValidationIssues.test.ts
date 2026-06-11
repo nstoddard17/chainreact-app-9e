@@ -307,9 +307,84 @@ describe("collectBuilderValidationIssues — stable ids + provider-agnostic", ()
           type: "fictional:action",
         }),
       ],
-      pendingEdges: NO_EDGES,
+      // Connected so the action isn't flagged unreachable — this test is about
+      // provider-string branching, not connectivity.
+      pendingEdges: [{ id: "e1", from: "t1", to: "a1" }],
     });
     expect(issues).toHaveLength(0);
+  });
+});
+
+describe("collectBuilderValidationIssues — graph integrity (B)", () => {
+  const trig = () => makeNode({ id: "t1", kind: "trigger", type: "slack:message" });
+  const act = (id: string) => makeNode({ id, kind: "action", type: "slack:send_message" });
+
+  it("flags an unreachable action (no edge from the trigger)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [trig(), act("a1")],
+      pendingEdges: NO_EDGES,
+    });
+    const u = issues.find((i) => i.code === "unreachable_node");
+    expect(u).toBeDefined();
+    expect(u?.nodeId).toBe("a1");
+    expect(u?.severity).toBe("error");
+  });
+
+  it("does NOT flag a connected action", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [trig(), act("a1")],
+      pendingEdges: [{ id: "e1", from: "t1", to: "a1" }],
+    });
+    expect(issues.some((i) => i.code === "unreachable_node")).toBe(false);
+  });
+
+  it("rewired middle-node delete (Trigger → A2) stays valid", () => {
+    // After deleting A1 from Trigger → A1 → A2 the graph is Trigger → A2.
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [trig(), act("a2")],
+      pendingEdges: [{ id: "e", from: "t1", to: "a2" }],
+    });
+    expect(issues).toHaveLength(0);
+  });
+
+  it("flags a stale edge referencing a missing node", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [trig(), act("a1")],
+      pendingEdges: [
+        { id: "e1", from: "t1", to: "a1" },
+        { id: "e-stale", from: "a1", to: "ghost" },
+      ],
+    });
+    const s = issues.find((i) => i.code === "stale_edge");
+    expect(s).toBeDefined();
+    expect(s?.id).toBe("stale_edge:e-stale");
+  });
+
+  it("flags multiple triggers", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "slack:message" }),
+        makeNode({ id: "t2", kind: "trigger", type: "slack:message" }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    expect(issues.some((i) => i.code === "multiple_triggers")).toBe(true);
+  });
+
+  it("suppresses unreachable for an unconfigured (type empty) node — one signal per node", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "slack:message" }),
+        makeNode({ id: "a1", kind: "action", type: "" }),
+      ],
+      pendingEdges: NO_EDGES,
+    });
+    expect(
+      issues.some((i) => i.code === "unconfigured_node" && i.nodeId === "a1"),
+    ).toBe(true);
+    expect(
+      issues.some((i) => i.code === "unreachable_node" && i.nodeId === "a1"),
+    ).toBe(false);
   });
 });
 

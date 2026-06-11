@@ -79,7 +79,10 @@ const baseWorkflowRecord = {
         kind: "action" as const,
         provider: "gmail",
         type: "send_email",
-        config: {},
+        // Configured + connected so the B readiness gate treats the base
+        // fixture as a valid, activatable workflow (gmail send_email requires
+        // `to`). Tests that target the readiness gate override the definition.
+        config: { to: "ops@example.com" },
         position: { x: 0, y: 100 },
       },
     ],
@@ -366,6 +369,56 @@ describe("POST /activate — destructive workflows (Slice 3.SEC-4B)", () => {
 // Activation of any workflow containing one of the 5 POSTSEC-3 actions
 // requires typed confirmation, even though those actions are NOT
 // isDestructive. Supplying the correct confirmation proceeds.
+describe("POST /activate — B: execution-readiness gate", () => {
+  beforeEach(() => signedInAs("user-1"));
+
+  const trigger = baseWorkflowRecord.draftDefinition.nodes[0]!;
+  const emptyGmail = {
+    id: "action-node",
+    kind: "action" as const,
+    provider: "gmail",
+    type: "send_email",
+    config: {},
+    position: { x: 0, y: 100 },
+  };
+  const configuredGmail = { ...emptyGmail, config: { to: "ops@example.com" } };
+  function workflowGraph(nodes: unknown[], edges: unknown[]): typeof baseWorkflowRecord {
+    return {
+      ...baseWorkflowRecord,
+      draftDefinition: { nodes, edges },
+    } as typeof baseWorkflowRecord;
+  }
+
+  it("blocks activation when a required field is missing (422 MISSING_REQUIRED_FIELDS, no activate)", async () => {
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph([trigger, emptyGmail], [{ id: "e1", from: "trigger-node", to: "action-node" }]),
+    );
+    const res = await POST(buildRequest(""), { params: Promise.resolve({ id: "wf-1" }) });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("MISSING_REQUIRED_FIELDS");
+    expect(mockActivate).not.toHaveBeenCalled();
+  });
+
+  it("blocks activation of an orphan action (422 INVALID_WORKFLOW_GRAPH)", async () => {
+    mockGetById.mockResolvedValueOnce(workflowGraph([trigger, configuredGmail], [])); // no edge
+    const res = await POST(buildRequest(""), { params: Promise.resolve({ id: "wf-1" }) });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("INVALID_WORKFLOW_GRAPH");
+    expect(mockActivate).not.toHaveBeenCalled();
+  });
+
+  it("activates a valid, configured, connected workflow (200)", async () => {
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph([trigger, configuredGmail], [{ id: "e1", from: "trigger-node", to: "action-node" }]),
+    );
+    const res = await POST(buildRequest(""), { params: Promise.resolve({ id: "wf-1" }) });
+    expect(res.status).toBe(200);
+    expect(mockActivate).toHaveBeenCalledWith("wf-1");
+  });
+});
+
 describe("POST /activate — POSTSEC-3 newly-confirmed Stripe money-moving actions", () => {
   beforeEach(() => signedInAs("user-1"));
 
@@ -380,7 +433,11 @@ describe("POST /activate — POSTSEC-3 newly-confirmed Stripe money-moving actio
             kind: "action" as const,
             provider: "stripe",
             type,
-            config: { internal: "do-not-leak" },
+            // amount/currency satisfy create_payment_intent's required-field
+            // readiness gate on the proceed path; the no-confirmation cases
+            // never reach it (the 409 destructive gate fires first). `internal`
+            // proves raw config is never echoed in CONFIRMATION_REQUIRED.
+            config: { amount: 10, currency: "usd", internal: "do-not-leak" },
             position: { x: 0, y: 100 },
           },
         ],

@@ -350,6 +350,98 @@ describe("POST /run-now — A: readiness preflight (missing required fields)", (
   });
 });
 
+// ── B: graph-integrity preflight ─────────────────────────────────────────────
+
+describe("POST /run-now — B: graph-integrity preflight", () => {
+  const manualTrigger = {
+    id: "trigger-node",
+    kind: "trigger" as const,
+    provider: "native",
+    type: "manual.run",
+    config: {},
+    position: { x: 0, y: 0 },
+  };
+  const configuredHttp = (id: string) => ({
+    id,
+    kind: "action" as const,
+    provider: "native",
+    type: "http_request",
+    config: { method: "GET", url: "https://example.com" },
+    position: { x: 0, y: 100 },
+  });
+  function workflowGraph(
+    nodes: unknown[],
+    edges: unknown[],
+  ): typeof baseWorkflow {
+    return { ...baseWorkflow, draftDefinition: { nodes, edges } } as typeof baseWorkflow;
+  }
+
+  it("blocks an orphan/unreachable action with INVALID_WORKFLOW_GRAPH — no enqueue", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph([manualTrigger, configuredHttp("http-node")], []), // no edge
+    );
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("INVALID_WORKFLOW_GRAPH");
+    expect(body.graph.some((g: { code: string }) => g.code === "unreachable_node")).toBe(true);
+    expect(JSON.stringify(body)).not.toContain("invalid_type");
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("blocks a stale edge referencing a missing node", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph(
+        [manualTrigger, configuredHttp("http-node")],
+        [
+          { id: "e1", from: "trigger-node", to: "http-node" },
+          { id: "e-stale", from: "http-node", to: "ghost" },
+        ],
+      ),
+    );
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("INVALID_WORKFLOW_GRAPH");
+    expect(body.graph.some((g: { code: string }) => g.code === "stale_edge")).toBe(true);
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("a connected, configured workflow runs (202) — rewired Trigger → Action shape", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph(
+        [manualTrigger, configuredHttp("http-node")],
+        [{ id: "e1", from: "trigger-node", to: "http-node" }],
+      ),
+    );
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalled();
+  });
+
+  it("does NOT block an invalid graph in TEST mode (test mode tolerates orphans)", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph([manualTrigger, configuredHttp("http-node")], []),
+    );
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ testMode: true }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalled();
+  });
+});
+
 // ── body parsing + cap ──────────────────────────────────────────────────────
 
 describe("POST /run-now — body parsing", () => {
