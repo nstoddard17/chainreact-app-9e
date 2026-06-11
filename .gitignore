@@ -9,6 +9,7 @@ playwright-report
 test-results
 .nyc_output
 tests/e2e/.state/
+tests/smoke/.auth/
 
 # next.js
 .next
@@ -49,3 +50,6 @@ supabase/.temp
 
 # turbopack
 .turbo
+
+.vercel
+.env*

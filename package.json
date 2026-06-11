@@ -19,6 +19,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
+    "smoke:prod": "playwright test --config=playwright.smoke.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

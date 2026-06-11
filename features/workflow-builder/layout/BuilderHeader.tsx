@@ -363,6 +363,7 @@ function HeaderRight({
         type="button"
         onClick={onSave}
         disabled={!isDirty || isSaving}
+        data-testid="builder-header-save-button"
         className="inline-flex h-7 items-center gap-1.5 rounded-[5px] px-3 text-[12px] font-medium disabled:opacity-50"
         style={{
           background: "var(--builder-text)",

@@ -323,6 +323,7 @@ export function ConfigModalShell() {
             size="sm"
             onClick={handleSave}
             disabled={!isDirty || !activeMeta || hasBlockingValidationError}
+            data-testid="config-modal-save-button"
           >
             Save
           </Button>
