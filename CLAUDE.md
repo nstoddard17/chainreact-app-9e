@@ -179,6 +179,42 @@ and a roadmap entry (roadmap §Phase 2). Local work is not pushed without Marcus
 
 ---
 
+## V2 Provider Authoring Rules
+
+Universal rules every provider action / trigger / handler MUST follow. Per-provider
+specifics and the full V1-rot rationale live in the outcome docs indexed under
+**Deep Gotchas** below; where a rule has a dedicated reference it is linked here.
+
+**Actions & schemas**
+1. **Typed-and-narrow.** One provider endpoint per action. No generic `operation` / `deleteBy` / `searchColumn` router fields and no multi-purpose dispatchers — ship separate typed actions instead.
+2. **No `make_api_call` escape hatch.** No generic method/path/body passthrough; fill gaps with targeted typed ports.
+3. **`.strict()` schemas; reject raw provider wire-format.** The wrapper synthesizes provider wire-format from V2-shaped inputs — workflow authors never hand-author raw provider payloads.
+4. **Q11 — explicit required fields, no hidden defaults.** High-risk / recipient-visible / behaviour-switching fields are required with no silent default (e.g. Sheets `valueInputOption`, Outlook `replyAll` / `isHtml` / `importance`).
+
+**Outputs**
+5. **Bounded outputs.** Build output from a fixed key set; never spread the raw provider response (`...result`).
+6. **No bytes / base64 / content in outputs** — file-like outputs use `FileRef`. See [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md).
+7. **No provider host / `paging.link` leakage.** Paginate via `nextCursor` + `hasMore`; never surface provider URLs/hosts into workflow variables.
+8. **Errors propagate to the engine.** No `{success:false}` synthetic ActionResult envelope — throw and let the engine classify (`HANDLER_FAILED`).
+
+**Lists & pagination**
+9. **Single-page lists by default.** Return one page; authors compose a loop on `nextCursor` / `hasMore`. No silent auto-pagination.
+
+**Triggers**
+10. **`TriggerEvent.eventType` MUST equal the short form** passed to `registerActivation(provider, eventType, …)` and stored in `trigger_resources.event_type` — it drives dispatch lookup. Namespaced / classified subtypes go in `payload.classifiedType`, never in `eventType`.
+11. **Baseline-first polling.** `onActivate` seeds the snapshot before the first poll; the first poll after activation fires zero events. Throw on seed failure (→ `TRIGGER_REGISTRATION_FAILED`) — never swallow it (the "first-poll-miss" bug).
+12. **Trigger filters are pure.** No enrichment I/O (`*.info`), no `FileRef` construction, no Promises — the trigger emits a thin handle, the action does the I/O. Compose downstream for bytes/metadata.
+13. **DB-backed dedup with stable provider IDs; fail-closed.** Key `webhook_event_dedup` on stable provider ids (hashes, not raw PII); on dedup outage skip-enqueue this tick. Prefix the eventId per-trigger when one entity fans out to multiple triggers.
+
+**Porting & structure**
+14. **Don't port V1 orphans on file-presence alone.** Registry presence — not `.ts` presence — defines the action set; orphan backfill is product-signal-gated.
+15. **Manifest honesty.** Don't set `actions:true` / `webhookTrigger:true` until handlers/triggers are registered. (Also in *Important Defaults*.)
+16. **50-file leaf-folder cap.** Split a provider's `actions/` into domain subfolders (`actions/channels/`, `actions/line_items/`) as it approaches the cap; update registry import paths to match.
+
+**Cross-cutting contracts:** file output → [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md) · token-ingest auth → [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md).
+
+---
+
 ## Deep Gotchas
 
 ### Slack message canonical eventType: `channel_type` is authoritative; `G…`-prefix fallback is intentionally dropped
