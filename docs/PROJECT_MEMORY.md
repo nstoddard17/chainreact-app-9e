@@ -43,6 +43,19 @@
 
 ## Recently completed arcs
 
+- **Internal MCP server — Stage 1.5 HTTP transport** (local-only, uncommitted on
+  `builder-ui-v1-audit-1`). Adds a Streamable HTTP front door (`/mcp`) so a **ChatGPT
+  Developer Mode** custom connector can reach the **same** Stage-1 read-only tool
+  registry — no new tools, no boundary expansion. Stage-1 **stdio** server unchanged.
+  Scripts: `npm run mcp:http`, `npm run mcp:http:smoke`. Security: `MCP_HTTP_TOKEN`
+  required (env-only, redacted), loopback bind by default (external needs explicit
+  `MCP_HTTP_ALLOW_EXTERNAL=1`), Origin validation; inherits Stage-1 (no DB/secrets/
+  arbitrary-read/mutation). Runbooks →
+  [`chatgpt-mcp-developer-mode.md`](./runbooks/chatgpt-mcp-developer-mode.md),
+  [`internal-mcp-server.md`](./runbooks/internal-mcp-server.md). Verified: `mcp:build`,
+  stdio + http `mcp:smoke`, `tests/unit/mcp` 69/69, typecheck, eslint, lint:structure.
+  **Not verified:** live ChatGPT UI end-to-end and whether ChatGPT forwards a static
+  `Authorization: Bearer` header — hence the documented `?key=` token fallback.
 - **CLAUDE.md curation** — 132,565 → 13,211 chars (−90%), 8 commits `c2bbedbff..4cd929c7f`
   (links fixed → dev-state to pointers → V2 Provider Authoring Rules → Deep Gotchas to index →
   banner reconciled).

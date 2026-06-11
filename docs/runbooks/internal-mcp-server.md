@@ -15,6 +15,12 @@ It is a **local developer tool**, not a ChainReact product feature. It is not
 user-facing, opens no network port (stdio transport only), and reaches no
 runtime app code.
 
+> **Stage 1.5 — HTTP transport for ChatGPT.** A second, opt-in transport
+> (Streamable HTTP) exposes this **same** tool registry to a ChatGPT Developer
+> Mode custom connector. It is auth-gated (bearer token), binds loopback by
+> default, and adds no tools. The stdio server described here is unchanged. See
+> [chatgpt-mcp-developer-mode.md](./chatgpt-mcp-developer-mode.md).
+
 ## What it deliberately does NOT expose
 
 This is the security contract. The server has **no** path to any of these:
