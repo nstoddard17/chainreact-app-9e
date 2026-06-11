@@ -13,8 +13,13 @@ import path from "node:path";
  *   - PRODUCTION_SMOKE_RUN_EXECUTION  ("true" opts into actually executing the
  *                                       manual run; default OFF → run is skipped,
  *                                       readiness/save/reopen still verified)
+ *   - PRODUCTION_SMOKE_SLACK_CHANNEL_NAME  (visible Slack channel name, e.g. "general"
+ *                                       or "#general"; absent → the Slack action smoke
+ *                                       self-skips. Its presence is the explicit opt-in
+ *                                       to post a real message to that channel.)
  *
- * NEVER hardcode credentials here. The values come from the shell / CI secret store.
+ * NEVER hardcode credentials OR channel names here. The values come from the
+ * shell / CI secret store.
  */
 
 export const DEFAULT_BASE_URL = "https://chainreact.app";
@@ -33,6 +38,26 @@ export function smokePassword(): string | undefined {
 
 export function hasSmokeCredentials(): boolean {
   return Boolean(smokeEmail() && smokePassword());
+}
+
+/**
+ * Visible Slack channel name the Slack-action smoke posts to (e.g. "general"
+ * or "#general"). Never an ID — the smoke selects the channel by its visible
+ * picker label, and the builder stores the underlying id itself.
+ */
+export function smokeSlackChannelName(): string | undefined {
+  return process.env.PRODUCTION_SMOKE_SLACK_CHANNEL_NAME?.trim() || undefined;
+}
+
+/**
+ * The Slack-action smoke runs only when credentials AND a target channel name
+ * are present. Supplying the channel name is the explicit opt-in to post a real
+ * message — there is no separate dry-run mode, because the send IS the
+ * validation (distinct from PRODUCTION_SMOKE_RUN_EXECUTION, which gates the
+ * generic HTTP run in the builder smoke).
+ */
+export function hasSlackSmokeConfig(): boolean {
+  return hasSmokeCredentials() && Boolean(smokeSlackChannelName());
 }
 
 /**

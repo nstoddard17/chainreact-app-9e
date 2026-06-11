@@ -28,6 +28,7 @@ const ORDER = [
   "Workflow builder smoke",
   "Manual run smoke",
   "Cleanup smoke",
+  "Slack action smoke",
   "Other",
 ] as const;
 
@@ -37,6 +38,7 @@ function categoryFor(test: TestCase): string {
   if (file.includes("auth.setup")) return "Auth setup";
   if (file.includes("public")) return "Public smoke";
   if (file.includes("authenticated-shell")) return "Authenticated shell smoke";
+  if (file.includes("slack-action")) return "Slack action smoke";
   if (file.includes("builder")) {
     if (title.includes("cleanup")) return "Cleanup smoke";
     if (title.includes("manual run")) return "Manual run smoke";

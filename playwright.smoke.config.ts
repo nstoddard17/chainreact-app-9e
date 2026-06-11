@@ -54,7 +54,7 @@ export default defineConfig({
     },
     {
       name: "authenticated",
-      testMatch: /(authenticated-shell|builder)\.smoke\.spec\.ts$/,
+      testMatch: /(authenticated-shell|builder|slack-action)\.smoke\.spec\.ts$/,
       dependencies: ["auth-setup"],
       use: { ...devices["Desktop Chrome"], storageState: STORAGE_STATE },
     },
