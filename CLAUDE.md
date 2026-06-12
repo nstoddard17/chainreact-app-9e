@@ -9,10 +9,15 @@ V1 (`chainreact-app-9e`) is archived reference only.
 `v2-main` branch. Authoritative status, including current verification state:
 [`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md).
 
-**Local work is still push-gated:** the current working branch is local-only.
-Do not push it, open PRs, deploy, or change public launch posture unless Marcus
-explicitly says so. "Don't push this branch" does not mean "V2 isn't live" —
-both facts can be true at once.
+**Push posture (updated 2026-06-12):** local work stays **push-gated** — commit
+locally, do not push by default. **But when Marcus explicitly approves a verified
+batch, pushing to `v2-main` IS allowed and DOES deploy to production** — that is the
+intended path at this stage (there is no separate staging environment yet). The old
+"do not deploy to prod" caution is retired. Still: never push, deploy, open PRs, or
+change public launch posture **without** Marcus's explicit approval; approval is
+per-batch and does not carry over. A proper dev/staging environment will be added
+later, before broad user rollout + taking payments. "Don't push this branch by
+default" does not mean "V2 isn't live" — both facts can be true at once.
 
 ## Project Purpose
 
@@ -35,7 +40,8 @@ Claude should consult V1 for provider behavior, workflows, OAuth flows, triggers
 - Work in meaningful local batches.
 - Do not over-slice into tiny PRs.
 - Local commits are allowed after gates pass.
-- **Do not push unless Marcus explicitly says to push.**
+- **Do not push unless Marcus explicitly says to push.** When he does approve a
+  verified batch, pushing to `v2-main` is allowed and deploys to prod (intended).
 - Do not open PRs unless Marcus explicitly says to.
 - Before major/shared-infrastructure work, write a short plan first.
 - For provider work, audit V1 before coding.
@@ -47,7 +53,9 @@ Most V2 work is local-only for now.
 
 Do not assume work should be pushed after each provider or slice.
 
-Use local branches/commits to keep progress organized, but wait for Marcus before pushing.
+Use local branches/commits to keep progress organized, but wait for Marcus before
+pushing. When he approves a verified batch, the push goes to `v2-main` and deploys
+to production — that is the intended ship path until a dev/staging env exists.
 
 ---
 
@@ -117,7 +125,8 @@ For each provider, prefer this larger batch rhythm:
 4. Triggers/webhooks/polling
 5. E2E walkthrough with mocked external provider boundary
 
-Do not push after each batch unless Marcus explicitly says to.
+Do not push after each batch unless Marcus explicitly says to. On his explicit
+approval, the batch pushes to `v2-main` and deploys to prod (intended at this stage).
 
 ---
 
@@ -301,5 +310,6 @@ Before pushing, Claude should explicitly report:
 
 ## Reminders
 
-- **Do not push unless Marcus explicitly says to push.**
+- **Do not push unless Marcus explicitly says to push.** His approval of a verified
+  batch authorizes a `v2-main` push, which deploys to prod (no staging env yet).
 - **Use `chainreact-app-9e` as the V1 source/reference before implementing provider behavior.**

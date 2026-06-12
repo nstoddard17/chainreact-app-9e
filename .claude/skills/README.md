@@ -9,8 +9,10 @@ and `CLAUDE.md` conflict, `CLAUDE.md` and explicit user instructions win.
 **Project status:** ChainReactV2 is **live in production** at `https://chainreact.app`
 (deploying from `v2-main`). Authoritative live/status detail:
 [`docs/slices/phase-4/v2-go-live-status.md`](../../docs/slices/phase-4/v2-go-live-status.md).
-The **Local only** rule below still applies — it gates the current working branch;
-"don't push this branch" does not mean "V2 isn't live."
+The **Local only** rule below still applies as the **default** — commit locally, don't
+push unless Marcus explicitly approves a batch. On his explicit approval, the push goes
+to `v2-main` and **deploys to prod** (intended; no staging env yet). "Don't push by
+default" does not mean "V2 isn't live."
 
 **Where the durable rules live (reference these, don't copy their bodies):** repo rules →
 [`docs/rules/`](../../docs/rules/); universal provider authoring rules → root

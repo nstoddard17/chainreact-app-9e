@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-12 @ 42fe1ce29 (local; branch builder-ui-v1-audit-1)
+> Last curated: 2026-06-12 @ 43b1a370f (deployed to prod `v2-main`; push posture updated)
 
 ## Current status
 
@@ -14,10 +14,13 @@
   **Authenticated + execution production smoke GREEN (2026-06-11)** — `npm run smoke:prod`,
   30 tests, 29 passed / 1 skipped / 0 failed, on deployed `9abe08ab6`. Vercel log review
   still manual.
-- **Push state:** `origin/v2-main` is at `9abe08ab6` (last prod push). Working branch
-  `builder-ui-v1-audit-1` is **local-only** — incl. the Connected-app disconnect arc (now
-  **LIVE**, flag removed `34b28e045`) and MCP Stage-2B live diagnostics. Push-gated: don't
-  push without Marcus.
+- **Push state:** `origin/v2-main` is at `43b1a370f` — **deployed to prod 2026-06-12**
+  (verified batch of 31 commits: WF-RUNPERM private-credential run/edit policy, Connected-app
+  Disconnect-live, MCP Stage-2B live diagnostics). Prod smoke GREEN post-deploy (22 passed /
+  8 execution-gated skipped / 0 failed). **Push posture updated:** local work stays push-gated
+  (commit locally, don't push by default), but Marcus's explicit approval of a verified batch
+  authorizes a `v2-main` push **which deploys to prod** — that is now the intended ship path
+  (no staging env yet). Approval is per-batch; it does not carry over.
 - **Open threads:** MCP internal diagnostic suite — live run/connection layer **built
   local-only** (Stage 2B: run-failure/visibility, workflow-readiness, integration- +
   workflow-connections); remaining stages **2B-5 (graph) / 2C (doctors) / 2D (reports)
@@ -42,8 +45,13 @@
   [`workflow-run-edit-permission-closeout.md`](./slices/phase-4/workflow-run-edit-permission-closeout.md).
 - [2026-06-10] File output (P-S3) is a durable cross-cutting rule →
   [`docs/rules/file-output-contract.md`](./rules/file-output-contract.md).
-- [2026-06-09] V2 promoted live in production. "Don't push the working branch" does not
-  mean "V2 isn't live" — both are true at once → CLAUDE.md banner @`4cd929c7f`.
+- [2026-06-12] **Push/deploy posture.** Local work is push-gated by default (commit locally,
+  don't push). When Marcus **explicitly approves a verified batch**, pushing to `v2-main` is
+  allowed and **deploys to production** — intended at this stage. The earlier "do not deploy to
+  prod" caution is retired. A proper dev/staging env will be added later, before broad user
+  rollout + taking payments → CLAUDE.md push-posture banner.
+- [2026-06-09] V2 promoted live in production. "Don't push the working branch by default" does
+  not mean "V2 isn't live" — both are true at once → CLAUDE.md banner @`4cd929c7f`.
 
 ## Open risks & follow-ups
 
