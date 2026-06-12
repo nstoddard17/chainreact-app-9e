@@ -47,7 +47,10 @@ jest.mock("@/services/workflows/lifecycleOrchestrator", () => ({
   LifecycleOrchestrator: jest.fn().mockImplementation(() => ({ disable: mockDisable })),
 }));
 
-import { disconnectIntegration } from "@/services/integrations/disconnect";
+import {
+  disconnectIntegration,
+  getIntegrationWorkflowImpact,
+} from "@/services/integrations/disconnect";
 
 const SECRET_ACCESS = "enc-access-SECRET";
 const PLAINTEXT = "ya29.PLAINTEXT-TOKEN";
@@ -250,6 +253,78 @@ describe("disconnectIntegration — revoke & idempotency", () => {
     const res = await disconnectIntegration({ accountId: "acc-1", integrationId: "int-1", callerUserId: "owner-1" });
     expect(res).toEqual({ ok: true, disabledWorkflowCount: 0, providerRevoked: false, alreadyDisconnected: true });
     expect(mockCountActive).not.toHaveBeenCalled();
+    expect(mockRevoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("getIntegrationWorkflowImpact (advisory, read-only)", () => {
+  function workflows() {
+    return [
+      { id: "wf-active-gmail", name: "Daily digest", state: "active", draftDefinition: { nodes: [{ provider: "gmail" }], edges: [] } },
+      { id: "wf-paused-gmail", name: "Paused mailer", state: "paused", draftDefinition: { nodes: [{ provider: "gmail" }], edges: [] } },
+      { id: "wf-draft-gmail", name: "Draft thing", state: "draft", draftDefinition: { nodes: [{ provider: "gmail" }], edges: [] } },
+      { id: "wf-active-slack", name: "Slack alert", state: "active", draftDefinition: { nodes: [{ provider: "slack" }], edges: [] } },
+    ];
+  }
+
+  it("flag OFF ⇒ feature_disabled, no reads", async () => {
+    delete process.env.ENABLE_INTEGRATION_DISCONNECT;
+    const res = await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-1", callerUserId: "owner-1" });
+    expect(res).toEqual({ ok: false, reason: "feature_disabled" });
+    expect(mockGetById).not.toHaveBeenCalled();
+  });
+
+  it("non-member ⇒ not_found (no impact leak)", async () => {
+    mockGetById.mockResolvedValue(gmailRow());
+    mockGetRole.mockResolvedValue(null);
+    const res = await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-1", callerUserId: "stranger" });
+    expect(res).toEqual({ ok: false, reason: "not_found" });
+    expect(mockListByAccount).not.toHaveBeenCalled();
+  });
+
+  it("member on a SHARED provider ⇒ forbidden (same gate as DELETE)", async () => {
+    mockGetById.mockResolvedValue(slackRow());
+    mockGetRole.mockResolvedValue("member");
+    const res = await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-s", callerUserId: "member-1" });
+    expect(res).toEqual({ ok: false, reason: "forbidden" });
+  });
+
+  it("returns count + {id,name} for ACTIVE/PAUSED dependents only (no draft/other-provider, no extra fields)", async () => {
+    mockGetById.mockResolvedValue(gmailRow());
+    mockGetRole.mockResolvedValue("owner");
+    mockCountActive.mockResolvedValue(1); // this is the only active gmail row
+    mockListByAccount.mockResolvedValue(workflows());
+    const res = await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-1", callerUserId: "owner-1" });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.affectedWorkflowCount).toBe(2);
+    expect(res.workflows).toEqual([
+      { id: "wf-active-gmail", name: "Daily digest" },
+      { id: "wf-paused-gmail", name: "Paused mailer" },
+    ]);
+    // Sanitized: only id + name — no state / provider / config leaked.
+    for (const wf of res.workflows) {
+      expect(Object.keys(wf).sort()).toEqual(["id", "name"]);
+    }
+  });
+
+  it("reports 0 affected when another active row for the provider remains", async () => {
+    mockGetById.mockResolvedValue(gmailRow());
+    mockGetRole.mockResolvedValue("owner");
+    mockCountActive.mockResolvedValue(2); // a sibling gmail account is still connected
+    const res = await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-1", callerUserId: "owner-1" });
+    expect(res.ok && res.affectedWorkflowCount).toBe(0);
+    expect(res.ok && res.workflows).toEqual([]);
+    expect(mockListByAccount).not.toHaveBeenCalled(); // no scan needed
+  });
+
+  it("is read-only: never disconnects or disables", async () => {
+    mockGetById.mockResolvedValue(gmailRow());
+    mockGetRole.mockResolvedValue("owner");
+    mockListByAccount.mockResolvedValue(workflows());
+    await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-1", callerUserId: "owner-1" });
+    expect(mockDisconnectById).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
     expect(mockRevoke).not.toHaveBeenCalled();
   });
 });
