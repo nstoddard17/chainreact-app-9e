@@ -8,6 +8,7 @@ import { ToolRegistry } from "../registry";
 import { builderGapsTools } from "./builderGaps";
 import { commandTools } from "./commands";
 import { diagnosisTools } from "./diagnose";
+import { diagnoseLiveTools } from "./diagnoseLive";
 import { docsTools } from "./docs";
 import { providerTools } from "./providers";
 import { smokeTools } from "./smoke";
@@ -23,5 +24,8 @@ export function buildRegistry(): ToolRegistry {
   // / connection-requirements tools). Local-artifact + repo-static only.
   for (const tool of smokeTools) registry.register(tool);
   for (const tool of diagnosisTools) registry.register(tool);
+  // Stage 2B-1 — the single LIVE (Plane-B) tool. It is a `fetch` client onto the
+  // app's internal diagnostics route; the MCP process stays DB-free + import-fenced.
+  for (const tool of diagnoseLiveTools) registry.register(tool);
   return registry;
 }
