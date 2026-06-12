@@ -58,7 +58,7 @@ export async function GET(
   const loaded = await loadOrNotFound(id, auth.userId);
   if (!loaded.ok) return loaded.response;
 
-  return NextResponse.json(toWorkflowDetail(loaded.record, auth.userId));
+  return NextResponse.json(await toWorkflowDetail(loaded.record, auth.userId));
 }
 
 export async function PATCH(
@@ -122,7 +122,7 @@ export async function PATCH(
     });
     if (!moved.ok) return folderErrorResponse(moved);
   }
-  return NextResponse.json(toWorkflowDetail(next, auth.userId));
+  return NextResponse.json(await toWorkflowDetail(next, auth.userId));
 }
 
 /**

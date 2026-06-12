@@ -95,17 +95,18 @@ describe("WF-RUNPERM — DTO booleans (no credential detail)", () => {
   const gmail = recordWith({ createdByUserId: "creator-1", draftDefinition: { nodes: [node("gmail")], edges: [] } as never });
   const slack = recordWith({ createdByUserId: "creator-1", draftDefinition: { nodes: [node("slack")], edges: [] } as never });
 
-  it("detail: creator gets usesPrivateCredential+viewerCanRunEdit; no createdByUserId leak", () => {
-    const d = toWorkflowDetail(gmail, "creator-1");
+  // toWorkflowDetail is now async (CS-5a). Flag OFF (env unset) → exact WF-RUNPERM.
+  it("detail: creator gets usesPrivateCredential+viewerCanRunEdit; no createdByUserId leak", async () => {
+    const d = await toWorkflowDetail(gmail, "creator-1");
     expect(d.usesPrivateCredential).toBe(true);
     expect(d.viewerCanRunEdit).toBe(true);
     expect(d).not.toHaveProperty("createdByUserId");
   });
-  it("detail: non-creator on private → viewerCanRunEdit false", () => {
-    expect(toWorkflowDetail(gmail, "other").viewerCanRunEdit).toBe(false);
+  it("detail: non-creator on private → viewerCanRunEdit false", async () => {
+    expect((await toWorkflowDetail(gmail, "other")).viewerCanRunEdit).toBe(false);
   });
-  it("detail: account-only → not private, runnable by anyone", () => {
-    const d = toWorkflowDetail(slack, "other");
+  it("detail: account-only → not private, runnable by anyone", async () => {
+    const d = await toWorkflowDetail(slack, "other");
     expect(d.usesPrivateCredential).toBe(false);
     expect(d.viewerCanRunEdit).toBe(true);
   });
@@ -308,7 +309,7 @@ describe("toWorkflowSummary", () => {
 });
 
 describe("toWorkflowDetail", () => {
-  it("includes activeRevisionId + draftDefinition; still strips userId", () => {
+  it("includes activeRevisionId + draftDefinition; still strips userId", async () => {
     const record: WorkflowRecord = {
       id: "wf-1",
       createdByUserId: "user-1",
@@ -340,7 +341,7 @@ describe("toWorkflowDetail", () => {
       createdAt: "2026-05-06T00:00:00Z",
       updatedAt: "2026-05-06T01:00:00Z",
     };
-    const detail = toWorkflowDetail(record, "user-1");
+    const detail = await toWorkflowDetail(record, "user-1");
     expect(detail.activeRevisionId).toBe("rev-1");
     expect(detail.draftDefinition.nodes[0]?.id).toBe("n1");
     expect(detail.draftDefinition.edges).toEqual([]);

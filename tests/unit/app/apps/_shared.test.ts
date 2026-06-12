@@ -90,13 +90,18 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
     const item = toAppCatalogItem(mkProvider(), [mkRecord()]);
     expect(item.accounts).toHaveLength(1);
     for (const acc of item.accounts) {
-      // 4.APPS-RECONNECT adds `canReconnect` — a boolean only; still NO identity.
+      // 4.APPS-RECONNECT adds `canReconnect`; CS-5a adds sharingStatus +
+      // sharedWithAccount + canShare + canUnshare — all boolean/enum, still NO identity.
       expect(Object.keys(acc).sort()).toEqual([
         "canDisconnect",
         "canReconnect",
+        "canShare",
+        "canUnshare",
         "connectedAt",
         "displayName",
         "id",
+        "sharedWithAccount",
+        "sharingStatus",
       ]);
     }
     // The provenance input to canDisconnect / canReconnect must never be emitted.
@@ -237,6 +242,92 @@ describe("toAppCatalogItem — canDisconnect derivation (CD-3)", () => {
     // And with no context, both are false (control never renders).
     const noCtx = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })]).accounts[0]!;
     expect(noCtx.canReconnect).toBe(false);
+  });
+});
+
+describe("CS-5a — sharing DTO fields", () => {
+  const FLAG = "ENABLE_CONNECTION_SHARING";
+  const enabled = (over: Partial<{ callerUserId: string; callerRole: "owner" | "admin" | "member" | null }> = {}) => ({
+    callerUserId: "user-1",
+    callerRole: "member" as const,
+    ...over,
+  });
+  function acct(over: { provider: string; connectedBy?: string; scope?: string | null; displayName?: string | null }, ctx: ReturnType<typeof enabled>) {
+    return toAppCatalogItem(
+      mkProvider({ id: over.provider }),
+      [mkRecord({
+        provider: over.provider,
+        connectedByUserId: over.connectedBy ?? "user-1",
+        integrationSharingScope: over.scope ?? null,
+        ...(over.displayName !== undefined ? { displayName: over.displayName } : {}),
+      })],
+      ctx,
+    ).accounts[0]!;
+  }
+
+  afterEach(() => delete process.env[FLAG]);
+
+  it("flag OFF → not_applicable, all sharing booleans false (no behavior change)", () => {
+    const a = acct({ provider: "gmail" }, enabled());
+    expect(a.sharingStatus).toBe("not_applicable");
+    expect(a.sharedWithAccount).toBe(false);
+    expect(a.canShare).toBe(false);
+    expect(a.canUnshare).toBe(false);
+  });
+
+  describe("flag ON", () => {
+    beforeEach(() => { process.env[FLAG] = "true"; });
+
+    it("account provider (slack) → not_applicable, no toggle", () => {
+      const a = acct({ provider: "slack" }, enabled({ callerRole: "owner" }));
+      expect(a.sharingStatus).toBe("not_applicable");
+      expect(a.canShare).toBe(false);
+      expect(a.canUnshare).toBe(false);
+    });
+
+    it("personal PRIVATE row → connector can share; non-connector cannot", () => {
+      const asConnector = acct({ provider: "gmail", connectedBy: "user-1" }, enabled({ callerUserId: "user-1" }));
+      expect(asConnector.sharingStatus).toBe("private_to_connector");
+      expect(asConnector.sharedWithAccount).toBe(false);
+      expect(asConnector.canShare).toBe(true);
+      expect(asConnector.canUnshare).toBe(false);
+
+      // Owner/admin who is NOT the connector cannot share another member's identity.
+      const asOwner = acct({ provider: "gmail", connectedBy: "member-7" }, enabled({ callerRole: "owner", callerUserId: "owner-1" }));
+      expect(asOwner.canShare).toBe(false);
+
+      const asOtherMember = acct({ provider: "gmail", connectedBy: "member-7" }, enabled({ callerRole: "member", callerUserId: "member-OTHER" }));
+      expect(asOtherMember.canShare).toBe(false);
+    });
+
+    it("personal SHARED row → shared status; connector AND owner/admin can unshare", () => {
+      const asConnector = acct({ provider: "gmail", connectedBy: "user-1", scope: "shared_with_account" }, enabled({ callerUserId: "user-1" }));
+      expect(asConnector.sharingStatus).toBe("shared_with_account");
+      expect(asConnector.sharedWithAccount).toBe(true);
+      expect(asConnector.canUnshare).toBe(true);
+      expect(asConnector.canShare).toBe(false);
+
+      const asOwner = acct({ provider: "gmail", connectedBy: "member-7", scope: "shared_with_account" }, enabled({ callerRole: "owner", callerUserId: "owner-1" }));
+      expect(asOwner.canUnshare).toBe(true); // admin-safety removal
+
+      const asOtherMember = acct({ provider: "gmail", connectedBy: "member-7", scope: "shared_with_account" }, enabled({ callerRole: "member", callerUserId: "member-OTHER" }));
+      expect(asOtherMember.canUnshare).toBe(false);
+    });
+
+    it("NO LEAK: sharing fields never carry connector id / raw scope / provider_account_id / metadata", () => {
+      // displayName (the row's own OAuth label) is a pre-existing exposed field —
+      // set it neutral here so the assertion isolates what the SHARING fields add.
+      const a = acct(
+        { provider: "gmail", connectedBy: "member-7", scope: "shared_with_account", displayName: "Gmail" },
+        enabled({ callerRole: "owner", callerUserId: "owner-1" }),
+      );
+      const serialized = JSON.stringify(a);
+      expect(serialized).not.toContain("member-7"); // connector id
+      expect(serialized).not.toContain("T-WORKSPACE-12345"); // provider_account_id / metadata
+      expect(serialized).not.toContain("chat:write"); // scope
+      // Only the safe enum/booleans are present.
+      expect(a.sharingStatus).toBe("shared_with_account");
+    });
   });
 });
 

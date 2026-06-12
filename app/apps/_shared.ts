@@ -2,6 +2,8 @@ import { getProvider, listProviders, providerIconUrl } from "@/integrations/_reg
 import type { IntegrationRecord } from "@/repositories/integrations";
 import { APPS_CATEGORY_ORDER, categoryFor, descriptionFor, type AppsCategory } from "@/lib/apps/providerCategories";
 import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
+import { effectiveIntegrationSharingScope } from "@/core/integrations/sharingScope";
+import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
 import type { MembershipRole } from "@/contracts/accounts";
 import type {
   AppAccountSummary,
@@ -39,10 +41,62 @@ interface IntegrationShape {
   createdAt: string;
   /**
    * SERVER-ONLY provenance — the human who connected this row. Used ONLY to
-   * derive the `canDisconnect` boolean below; it is NEVER copied into the
-   * emitted DTO. (The dto-safety test asserts it never appears in the output.)
+   * derive the `canDisconnect` / sharing booleans below; it is NEVER copied into
+   * the emitted DTO. (The dto-safety test asserts it never appears in the output.)
    */
   connectedByUserId: string | null;
+  /**
+   * SERVER-ONLY raw sharing-scope column (CS-1). Used ONLY to derive the
+   * `sharingStatus` / `sharedWithAccount` / `canShare` / `canUnshare` fields; the
+   * raw value is NEVER emitted. Optional — mirrors the optional column on
+   * `IntegrationRecord`; `undefined` reads as `null` (the helper accepts both).
+   */
+  integrationSharingScope?: string | null;
+}
+
+interface SharingDtoFields {
+  sharingStatus: AppAccountSummary["sharingStatus"];
+  sharedWithAccount: boolean;
+  canShare: boolean;
+  canUnshare: boolean;
+}
+
+/**
+ * Server-derived sharing fields for one row (CS-5a), evaluated for UI gating only
+ * (the POST sharing route re-authorizes authoritatively).
+ *
+ * `not_applicable` (no sharing UI) when the feature flag is OFF or the provider is
+ * account/service (already account-shared). For personal providers with the flag
+ * ON: status from the row's effective scope; `canShare` = the CONNECTOR only on a
+ * still-private row (owner/admin can NOT silently share a member's identity);
+ * `canUnshare` = connector OR owner/admin on a shared row (admin-safety removal).
+ * Rows here are always active (the catalog only contains active integrations), so
+ * disconnected rows never expose a toggle.
+ */
+function computeSharingFields(
+  provider: string,
+  connectedByUserId: string | null,
+  rawSharingScope: string | null | undefined,
+  ctx: DisconnectContext | undefined,
+): SharingDtoFields {
+  const off: SharingDtoFields = {
+    sharingStatus: "not_applicable",
+    sharedWithAccount: false,
+    canShare: false,
+    canUnshare: false,
+  };
+  if (!ctx || !isConnectionSharingEnabled()) return off;
+  if (isAccountCredentialProvider(provider)) return off; // already account-shared
+
+  const scope = effectiveIntegrationSharingScope(provider, rawSharingScope);
+  const isConnector = connectedByUserId !== null && connectedByUserId === ctx.callerUserId;
+  const isOwnerAdmin = ctx.callerRole === "owner" || ctx.callerRole === "admin";
+  return {
+    sharingStatus: scope,
+    sharedWithAccount: scope === "shared_with_account",
+    canShare: scope === "private_to_connector" && isConnector,
+    canUnshare: scope === "shared_with_account" && (isConnector || isOwnerAdmin),
+  };
 }
 
 /**
@@ -91,6 +145,12 @@ function toAppAccountSummary(
     connectedAt: record.createdAt,
     canDisconnect: canManageCredential,
     canReconnect: canManageCredential,
+    ...computeSharingFields(
+      record.provider,
+      record.connectedByUserId,
+      record.integrationSharingScope,
+      ctx,
+    ),
   };
 }
 
@@ -204,8 +264,10 @@ export function projectIntegrationForMapper(r: IntegrationRecord): IntegrationSh
     provider: r.provider,
     displayName: r.displayName,
     createdAt: r.createdAt,
-    // Server-only — consumed by computeCanDisconnect, never emitted in the DTO.
+    // Server-only — consumed by computeCanDisconnect + computeSharingFields,
+    // never emitted in the DTO.
     connectedByUserId: r.connectedByUserId,
+    integrationSharingScope: r.integrationSharingScope ?? null,
   };
 }
 

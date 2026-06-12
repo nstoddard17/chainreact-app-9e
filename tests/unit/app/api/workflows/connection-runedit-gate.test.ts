@@ -14,7 +14,7 @@ jest.mock("@/utils/supabase/server", () => ({
   createClient: jest.fn(async () => ({ auth: { getUser: jest.fn() } })),
 }));
 
-import { assertWorkflowRunEditAllowed } from "@/app/api/workflows/_shared";
+import { assertWorkflowRunEditAllowed, computeViewerCanRunEdit } from "@/app/api/workflows/_shared";
 import type { WorkflowRecord } from "@/repositories/workflows";
 
 const FLAG = "ENABLE_CONNECTION_SHARING";
@@ -76,5 +76,26 @@ describe("CS-4b gate (flag ON)", () => {
     const body = await res!.json();
     expect(body.code).toBe("WORKFLOW_USES_PRIVATE_CREDENTIAL");
     expect(JSON.stringify(body)).not.toMatch(/gmail|creator-1|connector|token|email|scope/i);
+  });
+});
+
+describe("CS-5a — computeViewerCanRunEdit (DTO boolean, flag ON) shares the gate plan", () => {
+  it("creator → true (no plan read)", async () => {
+    expect(await computeViewerCanRunEdit(record(), CREATOR)).toBe(true);
+    expect(mockBuildPlan).not.toHaveBeenCalled();
+  });
+  it("no private providers → true (no plan read)", async () => {
+    expect(
+      await computeViewerCanRunEdit(record({ draftDefinition: { nodes: [node("slack")], edges: [] } as never }), OTHER),
+    ).toBe(true);
+    expect(mockBuildPlan).not.toHaveBeenCalled();
+  });
+  it("non-creator + one shared connector (allTeamRunnable) → true", async () => {
+    mockBuildPlan.mockResolvedValue({ ownerByNode: new Map(), resolutions: new Map(), allTeamRunnable: true });
+    expect(await computeViewerCanRunEdit(record(), OTHER)).toBe(true);
+  });
+  it("non-creator + ambiguous/unshared (not allTeamRunnable) → false", async () => {
+    mockBuildPlan.mockResolvedValue({ ownerByNode: new Map(), resolutions: new Map(), allTeamRunnable: false });
+    expect(await computeViewerCanRunEdit(record(), OTHER)).toBe(false);
   });
 });
