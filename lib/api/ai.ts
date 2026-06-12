@@ -520,6 +520,34 @@ export async function diagnoseWorkflow(
 }
 
 /**
+ * Slice 4.AI-DIAG-2a — optional LLM explanation of the (already-computed) safe
+ * diagnosis. The server re-derives the diagnosis and sends only an allow-listed
+ * projection to the model. Handled failures (402/403/503) return as a structured
+ * `ok:false` result; transport failures (401/404/500) throw `AiApiError`. No raw
+ * model output / config / secrets are ever returned.
+ */
+export interface AiDiagnosisExplanationSuccess {
+  readonly ok: true;
+  readonly explanation: string;
+  readonly priorities?: readonly string[];
+  readonly missingInfo?: readonly string[];
+}
+export interface AiDiagnosisExplanationFailure {
+  readonly ok: false;
+  /** AI_CREDITS_EXHAUSTED | ACCOUNT_PENDING_DELETION | AI_GATE_ERROR | MODEL_FAILED | PARSE_FAILED */
+  readonly code: string;
+  readonly message: string;
+}
+export type AiDiagnosisExplanation = AiDiagnosisExplanationSuccess | AiDiagnosisExplanationFailure;
+
+export async function explainDiagnosis(workflowId: string): Promise<AiDiagnosisExplanation> {
+  return postStructured<AiDiagnosisExplanation>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose/explain`,
+    {},
+  );
+}
+
+/**
  * AI-13 failed-run repair (POST /api/workflows/[id]/runs/[runId]/ai/repair).
  *
  * Client-side view of the AI-7 service's `RepairSuggestionResult`. Like
