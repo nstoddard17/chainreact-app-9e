@@ -21,11 +21,16 @@
   (commit locally, don't push by default), but Marcus's explicit approval of a verified batch
   authorizes a `v2-main` push **which deploys to prod** — that is now the intended ship path
   (no staging env yet). Approval is per-batch; it does not carry over.
-- **Open threads:** MCP internal diagnostic suite — live run/connection layer **built
-  local-only** (Stage 2B: run-failure/visibility, workflow-readiness, integration- +
-  workflow-connections); remaining stages **2B-5 (graph) / 2C (doctors) / 2D (reports)
-  unbuilt** →
-  [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
+- **Open threads:**
+  - MCP internal diagnostic suite — live run/connection layer **built local-only** (Stage 2B:
+    run-failure/visibility, workflow-readiness, integration- + workflow-connections); remaining
+    stages **2B-5 (graph) / 2C (doctors) / 2D (reports) unbuilt** →
+    [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
+  - React Agent now consumes `services/diagnostics/*` directly ("Check workflow" UI, AI-DIAG-1/1b
+    local). **AI credit metering** planned but unbuilt: next is **AI-CREDITS-2** (recording-only,
+    no migration: `aiCreditPolicy` + populate `ai_credits_charged` + 0-credit diagnosis event +
+    OpenAI pricing), then **AI-CREDITS-3** (limits/RPC/gate) before any LLM repair loop →
+    [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
 
 ## Durable decisions
 
@@ -43,6 +48,15 @@
   editable by any member. Non-creators see safe copy + Duplicate. Server (`6a02131ed`) + builder
   UI (`42fe1ce29`); **no migration, no flag**; Disconnect untouched →
   [`workflow-run-edit-permission-closeout.md`](./slices/phase-4/workflow-run-edit-permission-closeout.md).
+- [2026-06-12] **AI credits = a separate billing dimension from workflow tasks.** Meter AI
+  usage in AI credits (own pool, own limits), gate tiers on it. Deterministic checks
+  (`services/diagnostics/*`) free; AI explanation cheap; repair planning costs more; deep
+  multi-step agent loops premium. **Cheap model routing by default**, escalate to strong/premium
+  only on validation-failure/low-confidence/higher-tier. Track AI cost from day one. Future hosted
+  Hermes-style runtime sits behind an **agent-runtime adapter** (OpenAI underneath); ChainReact
+  services stay source of truth; **MCP stays external** (in-app agent never calls MCP). Ledger
+  (`ai_cost_events` + recorders + usage API + model routing/pricing scaffolding) already exists;
+  credit policy/limits/gating do NOT → [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
 - [2026-06-10] File output (P-S3) is a durable cross-cutting rule →
   [`docs/rules/file-output-contract.md`](./rules/file-output-contract.md).
 - [2026-06-12] **Push/deploy posture.** Local work is push-gated by default (commit locally,
