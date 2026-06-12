@@ -38,6 +38,18 @@ export interface IntegrationRecord {
   scopes: readonly string[];
   accountMetadata: Readonly<Record<string, unknown>>;
   disconnectedAt: string | null;
+  /**
+   * Explicit connection-sharing scope (Slice 4.CONN-SHARE / CS-1). NULL = unset
+   * = the derived `private_to_connector` default (see
+   * `core/integrations/sharingScope.ts`). Additive + inert: no execution / DTO
+   * path reads it yet; CS-2 is the first writer (the sharing toggle service).
+   *
+   * OPTIONAL on purpose: `rowToRecord` always populates it from the column, but
+   * the many test fixtures that build an `IntegrationRecord` literal pre-date the
+   * column and must keep compiling without it. Readers treat `undefined` exactly
+   * like `null` (the helper `effectiveIntegrationSharingScope` accepts both).
+   */
+  integrationSharingScope?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +82,7 @@ interface IntegrationsRow {
   scopes: string[];
   account_metadata: Record<string, unknown>;
   disconnected_at: string | null;
+  integration_sharing_scope: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +101,7 @@ function rowToRecord(row: IntegrationsRow): IntegrationRecord {
     scopes: row.scopes,
     accountMetadata: row.account_metadata,
     disconnectedAt: row.disconnected_at,
+    integrationSharingScope: row.integration_sharing_scope ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -458,6 +472,41 @@ export async function getByIdForAccountServiceRole(
     throw new Error(`integrations.getByIdForAccountServiceRole failed: ${error.message}`);
   }
   return data ? rowToRecord(data) : null;
+}
+
+/**
+ * Service-role: set `integration_sharing_scope` on ONE active integration row
+ * (Slice 4.CONN-SHARE / CS-2).
+ *
+ * `scope = 'shared_with_account'` opts the connection in; `scope = null` clears
+ * it back to the unset / derived `private_to_connector` default (we never write
+ * the literal `'private_to_connector'` — the column means "explicitly shared?"
+ * and NULL is the unshared default).
+ *
+ * Guarded `disconnected_at IS NULL` — a disconnected row is NEVER mutated. If the
+ * row was disconnected between the caller's resolve and this write (race), zero
+ * rows match and `updated:false` is returned; the service maps that to a safe
+ * `not_found`. Service-role: the sharing service has already authorized the
+ * caller (connector-only share / connector-or-admin unshare) and operates by
+ * account, not session. Touches no token columns.
+ */
+export async function setSharingScopeByIdServiceRole(input: {
+  integrationId: string;
+  scope: "shared_with_account" | null;
+}): Promise<{ updated: boolean }> {
+  const supabase = getServiceRoleClient(
+    `connection sharing: setSharingScope ${input.integrationId}`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .update({ integration_sharing_scope: input.scope })
+    .eq("id", input.integrationId)
+    .is("disconnected_at", null)
+    .select("id");
+  if (error) {
+    throw new Error(`integrations.setSharingScopeByIdServiceRole failed: ${error.message}`);
+  }
+  return { updated: (data ?? []).length > 0 };
 }
 
 /**
