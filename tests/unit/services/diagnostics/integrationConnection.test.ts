@@ -39,6 +39,7 @@ jest.mock("@/integrations/_registry", () => ({
 
 import {
   diagnoseProviderConnection,
+  diagnoseWorkflowConnections,
   noAccountAccessDto,
 } from "@/services/diagnostics/integrationConnection";
 
@@ -255,6 +256,143 @@ describe("noAccountAccessDto", () => {
       credentialClass: "personal",
     });
     expect(mockGetActive).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────── diagnoseWorkflowConnections ───────────────────
+const workflowRecord = (nodes: unknown[], over: Record<string, unknown> = {}) => ({
+  id: "wf-1",
+  name: "Secret Workflow Name",
+  accountId: ACCT,
+  createdByUserId: "u1",
+  draftDefinition: { nodes, edges: [] },
+  ...over,
+});
+
+const node = (id: string, provider: string, over: Record<string, unknown> = {}) => ({
+  id,
+  kind: "action",
+  provider,
+  type: "do_thing",
+  config: { apiKey: "SECRET_CONFIG_VALUE", channel: "C-SECRET" },
+  ...over,
+});
+
+describe("diagnoseWorkflowConnections", () => {
+  it("NOT_FOUND — no workflow row, no membership/provider fetch", async () => {
+    mockGetWorkflow.mockResolvedValue(null);
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto).toEqual({ workflowId: "wf-1", access: "NOT_FOUND" });
+    expect(mockIsMember).not.toHaveBeenCalled();
+    expect(mockGetActive).not.toHaveBeenCalled();
+  });
+
+  it("NO_ACCOUNT_ACCESS — non-member sees only the wall, no provider fetch", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord([node("n1", "slack")]));
+    mockIsMember.mockResolvedValue(false);
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "outsider", workflowId: "wf-1" });
+    expect(dto).toEqual({ workflowId: "wf-1", access: "NO_ACCOUNT_ACCESS" });
+    expect(mockGetActive).not.toHaveBeenCalled();
+    expect(mockGetById).not.toHaveBeenCalled();
+    expect(mockCountActive).not.toHaveBeenCalled();
+  });
+
+  it("groups node ids per provider and reports a per-provider entry", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflowRecord([
+        node("trigger-1", "slack", { kind: "trigger", type: "message_posted" }),
+        node("action-1", "slack"),
+        node("action-2", "gmail"),
+      ]),
+    );
+    mockGetProvider.mockImplementation((id: string) =>
+      id === "slack"
+        ? manifest()
+        : id === "gmail"
+          ? manifest({ id: "gmail", displayName: "Gmail", scopes: { required: [], optional: [], deprecated: [] } })
+          : undefined,
+    );
+    // slack (account) connected; gmail (personal, creator=u1) connected
+    mockGetActive.mockImplementation((_acct: string, provider: string) =>
+      Promise.resolve(
+        provider === "slack"
+          ? slackRow()
+          : slackRow({ provider: "gmail", connectedByUserId: "u1", scopes: [] }),
+      ),
+    );
+    mockCountActive.mockResolvedValue(1);
+
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto.access).toBe("OK");
+    expect(dto.allRequiredConnected).toBe(true);
+    expect(dto.providers).toHaveLength(2);
+
+    const slack = dto.providers!.find((p) => p.provider === "slack")!;
+    expect(slack).toMatchObject({
+      provider: "slack",
+      name: "Slack",
+      credentialClass: "account",
+      nodeIds: ["trigger-1", "action-1"],
+      nodeCount: 2,
+      status: "CONNECTED",
+      ready: true,
+    });
+    const gmail = dto.providers!.find((p) => p.provider === "gmail")!;
+    expect(gmail).toMatchObject({
+      provider: "gmail",
+      credentialClass: "personal",
+      nodeIds: ["action-2"],
+      nodeCount: 1,
+      status: "CONNECTED",
+    });
+    // account provider used account-wide count; personal provider pinned to creator.
+    expect(mockCountActive).toHaveBeenCalledWith(ACCT, "slack");
+    expect(mockCountActive).not.toHaveBeenCalledWith(ACCT, "gmail");
+    expect(mockGetActive).toHaveBeenCalledWith(ACCT, "gmail", null, { connectedByUserId: "u1" });
+  });
+
+  it("allRequiredConnected=false when any provider is not CONNECTED", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord([node("n1", "slack"), node("n2", "gmail")]));
+    mockGetProvider.mockImplementation((id: string) =>
+      id === "slack" ? manifest() : id === "gmail" ? manifest({ id: "gmail" }) : undefined,
+    );
+    mockGetActive.mockImplementation((_a: string, provider: string) =>
+      Promise.resolve(provider === "slack" ? slackRow() : null), // gmail disconnected
+    );
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto.allRequiredConnected).toBe(false);
+    expect(dto.providers!.find((p) => p.provider === "gmail")!.status).toBe("DISCONNECTED");
+  });
+
+  it("non-creator personal provider → NOT_WORKFLOW_OWNER, owner credential never fetched", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflowRecord([node("n1", "gmail")], { createdByUserId: "owner-99" }),
+    );
+    mockGetProvider.mockReturnValue(manifest({ id: "gmail" }));
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "co-member", workflowId: "wf-1" });
+    const gmail = dto.providers!.find((p) => p.provider === "gmail")!;
+    expect(gmail.status).toBe("NOT_WORKFLOW_OWNER");
+    expect(gmail.credentialClass).toBe("personal");
+    expect(dto.allRequiredConnected).toBe(false);
+    // The owner's personal credential row was NEVER fetched.
+    expect(mockGetActive).not.toHaveBeenCalled();
+    expect(mockGetById).not.toHaveBeenCalled();
+  });
+
+  it("empty graph → access OK, no providers, allRequiredConnected true", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord([]));
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto).toMatchObject({ access: "OK", allRequiredConnected: true, providers: [] });
+  });
+
+  it("no-leak — workflow config values never appear in the DTO", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord([node("n1", "slack")]));
+    mockGetActive.mockResolvedValue(slackRow());
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    const json = JSON.stringify(dto);
+    expect(json).not.toContain("SECRET_CONFIG_VALUE");
+    expect(json).not.toContain("C-SECRET");
+    expect(json).not.toContain("Secret Workflow Name");
   });
 });
 

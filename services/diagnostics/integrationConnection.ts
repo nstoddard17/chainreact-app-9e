@@ -6,6 +6,7 @@ import {
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { isMemberServiceRole } from "@/repositories/accountMemberships";
+import { getByIdServiceRole } from "@/repositories/workflows";
 import { credentialSharingForProvider } from "@/core/integrations/credentialSharing";
 import { decideOptionsCredential } from "@/services/options/credentialPolicy";
 import type { WorkflowCreatorContext } from "@/services/options/types";
@@ -239,4 +240,137 @@ export async function diagnoseProviderConnection(
     precondition,
   );
   return buildDto(provider, accountId, diagnosis);
+}
+
+// ───────────────────────── workflow-wide composition (2B-4) ─────────────────────────
+
+/**
+ * One provider's credential readiness within a workflow. `status` IS the safe
+ * reason code; the human-readable note is rendered MCP-side from the code (no
+ * prose crosses the wire). `nodeIds` are the graph node ids that use this
+ * provider — ids only, never `config` values.
+ */
+export interface WorkflowProviderConnectionEntry {
+  readonly provider: string;
+  /** Public manifest display name, or null when the provider is unregistered. */
+  readonly name: string | null;
+  readonly credentialClass: "personal" | "account";
+  readonly nodeIds: readonly string[];
+  readonly nodeCount: number;
+  readonly status: string;
+  readonly ready: boolean;
+  readonly providerEnabled: boolean;
+  readonly refreshable: boolean;
+  readonly tokenExpired: boolean | null;
+  readonly scopesSatisfied: boolean;
+  readonly missingScopeCount: number;
+  /** Only present in the MISSING_SCOPES arm (public required-scope gap names). */
+  readonly missingScopes?: readonly string[];
+}
+
+export interface WorkflowConnectionsDTO {
+  readonly workflowId: string;
+  readonly access: "OK" | "NOT_FOUND" | "NO_ACCOUNT_ACCESS";
+  // ── Present ONLY when access === "OK" (an authorized member). ──
+  /** True when every provider the graph uses is CONNECTED (trivially true for none). */
+  readonly allRequiredConnected?: boolean;
+  readonly providers?: readonly WorkflowProviderConnectionEntry[];
+}
+
+/** Distinct provider ids in the draft graph → the node ids that use each (first-seen order). */
+function groupNodeIdsByProvider(
+  nodes: ReadonlyArray<{ id: string; provider: string }>,
+): Map<string, string[]> {
+  const byProvider = new Map<string, string[]>();
+  for (const node of nodes) {
+    const provider = node.provider;
+    if (!provider) continue;
+    const existing = byProvider.get(provider);
+    if (existing) existing.push(node.id);
+    else byProvider.set(provider, [node.id]);
+  }
+  return byProvider;
+}
+
+/**
+ * Diagnose every provider a workflow's graph uses, for a subject — "does this
+ * workflow have the required provider connections available, for the correct
+ * account/provenance context." Owns the sessionless service-role workflow read,
+ * membership authz, and per-provider composition over `diagnoseProviderConnection`
+ * (which carries the credential-provenance wall). Reads the SERVICE-ROLE workflow
+ * (not the RLS path), so it works under the machine bearer without a cookie.
+ *
+ * No-leak: node `config` (opaque, secret-bearing) is NEVER read — only node ids,
+ * `provider`/`type`, and the sanitized per-provider connection facts reach the DTO.
+ */
+export async function diagnoseWorkflowConnections(input: {
+  subjectUserId: string;
+  workflowId: string;
+}): Promise<WorkflowConnectionsDTO> {
+  const { subjectUserId, workflowId } = input;
+
+  // 1. Raw read (service-role; sessionless). NON-authorizing by itself.
+  const workflow = await getByIdServiceRole(workflowId);
+
+  // 2. No row → NOT_FOUND, reveal nothing (don't even hit membership).
+  if (workflow === null) {
+    return { workflowId, access: "NOT_FOUND" };
+  }
+
+  // 3. Account-membership authz. A non-member learns only that they have no
+  // access — never the graph, the providers, or any connection state.
+  const authorized = await isMemberServiceRole(workflow.accountId, subjectUserId);
+  if (!authorized) {
+    return { workflowId, access: "NO_ACCOUNT_ACCESS" };
+  }
+
+  // 4. Creator provenance comes straight from the service-role record (the same
+  // identity execution + the builder pin personal providers to).
+  const workflowCreator: WorkflowCreatorContext = {
+    workflowId: workflow.id,
+    createdByUserId: workflow.createdByUserId,
+    accountId: workflow.accountId,
+  };
+
+  const grouped = [...groupNodeIdsByProvider(workflow.draftDefinition.nodes).entries()];
+
+  // 5. Diagnose each distinct provider (independent reads → parallel, order kept).
+  const diagnoses = await Promise.all(
+    grouped.map(([provider]) =>
+      diagnoseProviderConnection({
+        subjectUserId,
+        provider,
+        accountId: workflow.accountId,
+        workflowCreator,
+      }),
+    ),
+  );
+
+  const providers: WorkflowProviderConnectionEntry[] = grouped.map(([provider, nodeIds], i) => {
+    const d = diagnoses[i]!;
+    return {
+      provider,
+      name: getProvider(provider)?.displayName ?? null,
+      credentialClass: d.credentialClass,
+      nodeIds,
+      nodeCount: nodeIds.length,
+      status: d.status,
+      ready: d.ok,
+      providerEnabled: d.providerEnabled,
+      refreshable: d.refreshable,
+      tokenExpired: d.tokenExpired,
+      scopesSatisfied: d.scopesSatisfied,
+      missingScopeCount: d.missingScopeCount,
+      ...(d.status === "MISSING_SCOPES" && d.missingScopes
+        ? { missingScopes: d.missingScopes }
+        : {}),
+    };
+  });
+
+  return {
+    workflowId,
+    access: "OK",
+    allRequiredConnected: providers.every((p) => p.ready),
+    providers,
+  };
 }

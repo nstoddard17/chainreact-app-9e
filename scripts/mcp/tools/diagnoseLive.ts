@@ -22,6 +22,7 @@
  *                          Distinct from MCP_HTTP_TOKEN.
  */
 import { OPTION_SOURCE_DIAGNOSES } from "./diagnose";
+import { CONNECTION_STATUS_NOTES } from "./connectionStatusNotes";
 import { postDiagnostic } from "./diagnoseTransport";
 import type { ToolDefinition } from "../registry";
 
@@ -107,25 +108,6 @@ interface IntegrationConnectionDTO {
   missingScopeCount: number;
   missingScopes?: string[];
 }
-
-/** Plain-English interpretation per status (local; never sent over the wire). */
-const CONNECTION_STATUS_NOTES: Record<string, string> = {
-  CONNECTED: "Connection appears usable from stored state (active, not expired, scopes satisfied).",
-  DISCONNECTED: "No active connection row — the provider is not connected (or was disconnected).",
-  RECONNECT_REQUIRED:
-    "The access token is expired and the provider is NOT refreshable — a reconnect is likely needed.",
-  TOKEN_EXPIRED:
-    "The access token is expired but the provider IS refreshable — the runtime may refresh it on the next run.",
-  MISSING_SCOPES:
-    "Connected, but required scopes are missing — reconnect to re-consent with the missing scopes.",
-  PROVIDER_DISABLED:
-    "The provider is disabled in the manifest — new connects are refused (existing tokens may still work).",
-  PROVIDER_UNKNOWN: "Not a registered provider id — check the spelling against the provider registry.",
-  NO_ACCOUNT_ACCESS:
-    "Authorization wall: the subject is not a member of this account, so no connection was inspected.",
-  NOT_WORKFLOW_OWNER:
-    "Provenance wall: this personal-provider connection belongs to the workflow owner; only they can diagnose it.",
-};
 
 function renderConnectionDto(dto: IntegrationConnectionDTO): string {
   const lines: string[] = [

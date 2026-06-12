@@ -15,9 +15,11 @@
  * as the live-tool set grows; future workflow tools (2B-5 graph) land here too.
  */
 import { postDiagnostic } from "./diagnoseTransport";
+import { CONNECTION_STATUS_NOTES } from "./connectionStatusNotes";
 import type { ToolDefinition } from "../registry";
 
 const WORKFLOW_READINESS_PATH = "/api/internal/diagnostics/workflow-readiness";
+const WORKFLOW_CONNECTIONS_PATH = "/api/internal/diagnostics/workflow-connections";
 
 /** The sanitized DTO shape the workflow-readiness route returns (mirror — no app import). */
 interface WorkflowReadinessDTO {
@@ -100,6 +102,78 @@ async function diagnoseWorkflowReadiness(args: Record<string, unknown>): Promise
   return result.ok ? renderReadinessDto(result.dto) : result.message;
 }
 
+// ─────────────────────── diagnose_workflow_connections ───────────────────────
+
+/** The sanitized DTO shape the workflow-connections route returns (mirror — no app import). */
+interface WorkflowConnectionsDTO {
+  workflowId: string;
+  access: string;
+  // Present ONLY when access === "OK".
+  allRequiredConnected?: boolean;
+  providers?: Array<{
+    provider: string;
+    name: string | null;
+    credentialClass: string;
+    nodeIds: string[];
+    nodeCount: number;
+    status: string;
+    ready: boolean;
+    providerEnabled: boolean;
+    refreshable: boolean;
+    tokenExpired: boolean | null;
+    scopesSatisfied: boolean;
+    missingScopeCount: number;
+    missingScopes?: string[];
+  }>;
+}
+
+function renderWorkflowConnectionsDto(dto: WorkflowConnectionsDTO): string {
+  const lines: string[] = [
+    "diagnose_workflow_connections",
+    `workflowId: ${dto.workflowId}`,
+    `access: ${dto.access}`,
+  ];
+  const accessNote = ACCESS_NOTES[dto.access];
+  if (accessNote) lines.push(`meaning: ${accessNote}`);
+
+  if (dto.access !== "OK") return lines.join("\n");
+
+  lines.push(`allRequiredConnected: ${dto.allRequiredConnected}`);
+
+  if (!Array.isArray(dto.providers) || dto.providers.length === 0) {
+    lines.push("providers: (none — the graph uses no provider connections)");
+    return lines.join("\n");
+  }
+
+  lines.push("providers:");
+  for (const p of dto.providers) {
+    const label = p.name ? ` (${p.name})` : "";
+    lines.push(`  - ${p.provider}${label} [${p.credentialClass}]: ${p.status} (ready=${p.ready})`);
+    const note = CONNECTION_STATUS_NOTES[p.status];
+    if (note) lines.push(`      meaning: ${note}`);
+    lines.push(`      usedBy: ${p.nodeCount} node(s) — ${p.nodeIds.join(", ")}`);
+    if (p.status === "MISSING_SCOPES" && Array.isArray(p.missingScopes)) {
+      lines.push(`      missingScopes: ${p.missingScopes.join(", ")}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+async function diagnoseWorkflowConnections(args: Record<string, unknown>): Promise<string> {
+  const workflowId = typeof args.workflowId === "string" ? args.workflowId.trim() : "";
+  if (!workflowId) return "Error: 'workflowId' is required (the workflow to check).";
+  const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+  if (!userId) {
+    return "Error: 'userId' is required — the subject to check authorization under (must be a member of the workflow's account).";
+  }
+
+  const result = await postDiagnostic<WorkflowConnectionsDTO>(WORKFLOW_CONNECTIONS_PATH, {
+    workflowId,
+    userId,
+  });
+  return result.ok ? renderWorkflowConnectionsDto(result.dto) : result.message;
+}
+
 export const diagnoseWorkflowTools: ToolDefinition[] = [
   {
     name: "diagnose_workflow_readiness",
@@ -119,5 +193,24 @@ export const diagnoseWorkflowTools: ToolDefinition[] = [
       additionalProperties: false,
     },
     handler: diagnoseWorkflowReadiness,
+  },
+  {
+    name: "diagnose_workflow_connections",
+    description:
+      "LIVE provider-connection readiness for a whole workflow, for a specific user: for EACH provider the graph uses, reports whether its connection is available under the correct account + credential-provenance context. Returns per-provider { provider, public name, credentialClass (personal/account), the node ids that use it, a derived status code (CONNECTED / DISCONNECTED / RECONNECT_REQUIRED / TOKEN_EXPIRED / MISSING_SCOPES / PROVIDER_DISABLED / PROVIDER_UNKNOWN / NOT_WORKFLOW_OWNER), ready, and the missing-scope gap names } plus an overall allRequiredConnected. Reads STORED state only — makes NO provider call, decrypts NO token. A personal provider connected by another member surfaces as NOT_WORKFLOW_OWNER with NO row fetched; co-member credential details/counts are never revealed. A workflow in another account reads as NO_ACCOUNT_ACCESS with nothing else. NEVER returns tokens, identity, account labels, full granted scopes, or workflow config values. Requires the diagnostics API to be enabled on the app (dev-only by default).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workflowId: { type: "string", description: "The workflow id to check." },
+        userId: {
+          type: "string",
+          description:
+            "The subject to check authorization + provenance under (must be a member of the workflow's account).",
+        },
+      },
+      required: ["workflowId", "userId"],
+      additionalProperties: false,
+    },
+    handler: diagnoseWorkflowConnections,
   },
 ];
