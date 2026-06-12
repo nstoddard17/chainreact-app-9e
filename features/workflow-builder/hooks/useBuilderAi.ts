@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import {
   AiApiError,
+  AI_CREDITS_EXHAUSTED_MESSAGE,
   applyWorkflowPatch,
   completePlan,
   planWorkflow,
@@ -127,6 +128,11 @@ export interface UseBuilderAi {
 function friendlyError(err: unknown, fallback: string): string {
   if (err instanceof AiApiError) {
     if (err.status === 401) return "Please sign in to use the AI assistant.";
+    // Slice 4.AI-CREDITS-3b-ii — a 402 is the AI-credit gate's "out of credits"
+    // denial. The route normally returns a structured ok:false body (handled by
+    // the plan_result path, NOT a throw); this maps the defensive transport-throw
+    // case to the same safe, credit-specific copy.
+    if (err.status === 402) return AI_CREDITS_EXHAUSTED_MESSAGE;
     if (err.status === 404) return "This workflow couldn’t be found.";
   }
   return fallback;
@@ -327,6 +333,14 @@ export function useBuilderAi({
         // user can retry without re-typing or re-selecting.
         if (!result.ok) {
           setStatus("planned");
+          // Slice 4.AI-CREDITS-3b-ii — a credit-exhaustion denial is terminal for
+          // this turn and must surface its specific message, NOT collapse to the
+          // generic "AI assistant unavailable" retry copy. Return the structured
+          // failure so the panel renders it as a plan_result bubble (PlanFailure
+          // shows the credit-specific message). All OTHER ok:false failures
+          // (RATE_LIMITED / PARSE_FAILED / …) stay retryable — return null so the
+          // panel preserves the chain + restores composer/staged answers (AI-25).
+          if (result.code === "AI_CREDITS_EXHAUSTED") return result;
           return null;
         }
         setPlanResult(result);

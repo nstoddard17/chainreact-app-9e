@@ -141,9 +141,19 @@ export interface AiPlanSuccess {
   readonly model: AiModelMeta;
 }
 
+/**
+ * Slice 4.AI-CREDITS-3b-ii — the single user-facing copy for an AI-credit
+ * exhaustion denial (route returns `code: "AI_CREDITS_EXHAUSTED"`, HTTP 402).
+ * Shared by the failure renderer (`PlanFailure`) and the hook's `friendlyError`
+ * so the message can't drift. Plain, safe copy: no account ids, no raw counters,
+ * no plan internals, no upgrade CTA (paywall UI is a later slice).
+ */
+export const AI_CREDITS_EXHAUSTED_MESSAGE =
+  "You've used all AI credits for this billing period. Try again after your credits reset, or upgrade your plan.";
+
 export interface AiPlanFailure {
   readonly ok: false;
-  /** MODEL_FAILED | PARSE_FAILED | PREVIEW_UNAVAILABLE */
+  /** MODEL_FAILED | PARSE_FAILED | PREVIEW_UNAVAILABLE | AI_CREDITS_EXHAUSTED */
   readonly code: string;
   readonly message: string;
   readonly model?: AiModelMeta;

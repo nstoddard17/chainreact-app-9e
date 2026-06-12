@@ -1,6 +1,6 @@
 "use client";
 
-import type { AiPlanFailure, AiPreview } from "@/lib/api/ai";
+import { AI_CREDITS_EXHAUSTED_MESSAGE, type AiPlanFailure, type AiPreview } from "@/lib/api/ai";
 
 /**
  * Plan-result subcomponents for the BuilderAiPanel
@@ -20,8 +20,13 @@ import type { AiPlanFailure, AiPreview } from "@/lib/api/ai";
  */
 
 export function PlanFailure({ failure }: { failure: AiPlanFailure }) {
-  const message =
-    failure.code === "MODEL_FAILED"
+  // Slice 4.AI-CREDITS-3b-ii — an AI-credit exhaustion denial is a clean product
+  // message, not a planner diagnostic. Render the shared safe copy and SUPPRESS the
+  // technical "Planner error: stage / code" line (no billing internals surfaced).
+  const isCreditDenial = failure.code === "AI_CREDITS_EXHAUSTED";
+  const message = isCreditDenial
+    ? AI_CREDITS_EXHAUSTED_MESSAGE
+    : failure.code === "MODEL_FAILED"
       ? "The AI assistant isn’t available right now. An administrator may still need to finish setting it up — please try again later."
       : failure.code === "PARSE_FAILED"
         ? failure.errors?.[0]?.code === "NOT_JSON"
@@ -30,8 +35,8 @@ export function PlanFailure({ failure }: { failure: AiPlanFailure }) {
         : "Couldn’t preview a plan against this workflow. Please try again.";
   // Value-free diagnostic only (stage + code) — never the raw model
   // output or the detailed parser message, which could echo
-  // model-supplied text.
-  const detail = failure.errors?.[0];
+  // model-supplied text. Omitted entirely for a credit denial.
+  const detail = isCreditDenial ? undefined : failure.errors?.[0];
   return (
     <div
       role="status"
