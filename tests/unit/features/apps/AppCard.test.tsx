@@ -11,7 +11,7 @@
  *   - Expand affordance has aria-expanded + aria-controls semantics.
  *   - Status pill conveys state via icon + text + variant (a11y).
  */
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 jest.mock("@/features/integrations/ConnectButton", () => ({
@@ -262,5 +262,23 @@ describe("AppCard — per-account Disconnect (CD-3)", () => {
     await user.click(screen.getByTestId("app-card-disconnect"));
     expect(screen.getByTestId("disconnect-dialog")).toBeInTheDocument();
     expect(mockGetImpact).toHaveBeenCalledWith("acc-1", "int-1");
+  });
+
+  it("confirming disconnect refreshes the page and shows the success notice", async () => {
+    const user = userEvent.setup();
+    render(<AppCard app={disconnectable} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    await user.click(screen.getByTestId("app-card-disconnect"));
+    await screen.findByTestId("disconnect-dialog");
+    await user.click(screen.getByTestId("disconnect-confirm"));
+
+    await waitFor(() => expect(mockDisconnect).toHaveBeenCalledWith("acc-1", "int-1"));
+    // Page is re-fetched so the soft-disconnected row drops out of the active set.
+    expect(mockRefresh).toHaveBeenCalled();
+    // Dialog closes and a safe success notice (role=status) is shown.
+    expect(screen.queryByTestId("disconnect-dialog")).toBeNull();
+    expect(await screen.findByTestId("app-card-disconnect-notice")).toHaveTextContent(
+      /Disconnected Slack\./,
+    );
   });
 });
