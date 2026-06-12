@@ -5,7 +5,6 @@ import * as notificationsRepo from "@/repositories/notifications";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { getRole } from "@/repositories/accountMemberships";
-import { isIntegrationDisconnectEnabled } from "@/services/integrations/disconnectFlags";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -61,7 +60,6 @@ export default async function AppsPage({ searchParams }: Props) {
   const items = resolveAppCatalog(records, {
     callerUserId: user.id,
     callerRole,
-    enabled: isIntegrationDisconnectEnabled(),
   });
   const categories = buildCategoryList(items);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);

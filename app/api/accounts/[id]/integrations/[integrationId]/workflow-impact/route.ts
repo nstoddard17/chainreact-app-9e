@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { requireAuthedUserId } from "@/app/api/account/_shared";
 import { getIntegrationWorkflowImpact } from "@/services/integrations/disconnect";
-import { isIntegrationDisconnectEnabled } from "@/services/integrations/disconnectFlags";
-import { disconnectFailureResponse, notFoundResponse } from "../_shared";
+import { disconnectFailureResponse } from "../_shared";
 
 /**
  * GET /api/accounts/[id]/integrations/[integrationId]/workflow-impact
- * (Slice 4.APPS-DISCONNECT / CD-2)
+ * (Slice 4.APPS-DISCONNECT / CD-2; live in CD-LIVE)
  *
  * Advisory, READ-ONLY pre-disconnect check: how many of the account's
  * ACTIVE/PAUSED workflows would be disabled if this integration is disconnected.
  * The disconnect UI fetches this to show a non-blocking warning before confirming.
  *
  * Authorization MIRRORS the DELETE exactly — same service gate
- * (`getIntegrationWorkflowImpact` → `resolveAndAuthorize`: flag → frozen → exact
+ * (`getIntegrationWorkflowImpact` → `resolveAndAuthorize`: frozen → exact
  * (account, id) row scope → account-role + provenance). A caller who could not
  * disconnect can not learn the impact; every "can't see it" case is a uniform
  * 404 (no existence / ownership leak).
@@ -28,8 +27,6 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string; integrationId: string }> },
 ): Promise<Response> {
-  if (!isIntegrationDisconnectEnabled()) return notFoundResponse();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
 

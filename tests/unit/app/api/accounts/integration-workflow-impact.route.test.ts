@@ -32,21 +32,9 @@ function signedIn() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_INTEGRATION_DISCONNECT = "true";
-});
-afterEach(() => {
-  delete process.env.ENABLE_INTEGRATION_DISCONNECT;
 });
 
 describe("GET integrations/[integrationId]/workflow-impact", () => {
-  it("flag OFF ⇒ 404 generic, no auth or service work", async () => {
-    delete process.env.ENABLE_INTEGRATION_DISCONNECT;
-    const res = await GET(new Request("http://x"), params());
-    expect(res.status).toBe(404);
-    expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockImpact).not.toHaveBeenCalled();
-  });
-
   it("401 when unauthenticated — service not called", async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
     const res = await GET(new Request("http://x"), params());

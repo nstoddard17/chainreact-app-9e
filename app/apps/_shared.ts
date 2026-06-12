@@ -48,28 +48,26 @@ interface IntegrationShape {
 /**
  * The current caller's disconnect authorization context (Slice 4.APPS-DISCONNECT
  * / CD-3). Resolved once per request in the page; threaded into the projection so
- * each account's `canDisconnect` is computed server-side. `undefined` (or
- * `enabled: false`) ⇒ every `canDisconnect` is `false` (control never renders).
+ * each account's `canDisconnect` is computed server-side. `undefined` ⇒ every
+ * `canDisconnect` is `false` (control never renders).
  */
 export interface DisconnectContext {
   callerUserId: string;
   callerRole: MembershipRole | null;
-  enabled: boolean;
 }
 
 /**
  * Mirror of the disconnect service's `resolveAndAuthorize` rule, evaluated for
  * UI gating only (the DELETE/GET routes re-authorize authoritatively, so this is
  * never the security boundary). Account/service (shared) providers ⇒ owner/admin;
- * personal-credential providers ⇒ owner/admin OR the original connector. Feature
- * flag OFF ⇒ always false.
+ * personal-credential providers ⇒ owner/admin OR the original connector.
  */
 function computeCanDisconnect(
   provider: string,
   connectedByUserId: string | null,
   ctx: DisconnectContext | undefined,
 ): boolean {
-  if (!ctx || !ctx.enabled) return false;
+  if (!ctx) return false;
   const isOwnerAdmin = ctx.callerRole === "owner" || ctx.callerRole === "admin";
   if (isAccountCredentialProvider(provider)) return isOwnerAdmin;
   return isOwnerAdmin || (connectedByUserId !== null && connectedByUserId === ctx.callerUserId);

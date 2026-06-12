@@ -82,7 +82,6 @@ let infoSpy: jest.SpyInstance;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_INTEGRATION_DISCONNECT = "true";
   mockGetDeletionStatus.mockResolvedValue("active");
   mockDisconnectById.mockResolvedValue({ disconnected: true });
   mockCountActive.mockResolvedValue(0);
@@ -93,23 +92,11 @@ beforeEach(() => {
 });
 afterEach(() => {
   infoSpy.mockRestore();
-  delete process.env.ENABLE_INTEGRATION_DISCONNECT;
 });
 
 function allLoggedJson(): string {
   return infoSpy.mock.calls.map((c) => String(c[0])).join("\n");
 }
-
-describe("disconnectIntegration — feature flag", () => {
-  it("flag OFF ⇒ feature_disabled and touches NOTHING", async () => {
-    delete process.env.ENABLE_INTEGRATION_DISCONNECT;
-    const res = await disconnectIntegration({ accountId: "acc-1", integrationId: "int-1", callerUserId: "user-A" });
-    expect(res).toEqual({ ok: false, reason: "feature_disabled" });
-    expect(mockGetDeletionStatus).not.toHaveBeenCalled();
-    expect(mockGetById).not.toHaveBeenCalled();
-    expect(mockDisconnectById).not.toHaveBeenCalled();
-  });
-});
 
 describe("disconnectIntegration — guards & authz", () => {
   it("frozen (pending_deletion) account ⇒ account_frozen, no write", async () => {
@@ -266,13 +253,6 @@ describe("getIntegrationWorkflowImpact (advisory, read-only)", () => {
       { id: "wf-active-slack", name: "Slack alert", state: "active", draftDefinition: { nodes: [{ provider: "slack" }], edges: [] } },
     ];
   }
-
-  it("flag OFF ⇒ feature_disabled, no reads", async () => {
-    delete process.env.ENABLE_INTEGRATION_DISCONNECT;
-    const res = await getIntegrationWorkflowImpact({ accountId: "acc-1", integrationId: "int-1", callerUserId: "owner-1" });
-    expect(res).toEqual({ ok: false, reason: "feature_disabled" });
-    expect(mockGetById).not.toHaveBeenCalled();
-  });
 
   it("non-member ⇒ not_found (no impact leak)", async () => {
     mockGetById.mockResolvedValue(gmailRow());

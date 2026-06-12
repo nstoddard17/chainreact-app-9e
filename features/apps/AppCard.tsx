@@ -18,9 +18,10 @@ import { formatConnectedOn } from "./relativeDate";
  *     integrations → workflows yet; would be a fake count.
  *   - **Per-account Manage buttons are NOT rendered.** No manage endpoint exists.
  *   - **Disconnect IS rendered per-account in the EXPANDED section** (CD-1→CD-3,
- *     behind `ENABLE_INTEGRATION_DISCONNECT`, only when `acc.canDisconnect`). It's
- *     a de-emphasized ghost button (destructive-on-hover, tooltip "Remove this
- *     connection") that opens a confirm dialog — never a top-level card action.
+ *     live; shown only when `acc.canDisconnect` — owner/admin, or the original
+ *     connector of a personal-credential provider). It's a de-emphasized ghost
+ *     button (destructive-on-hover, tooltip "Remove this connection") that opens a
+ *     confirm dialog — never a top-level card action.
  *   - **Reconnect IS rendered on a connected card** (`reconnect` variant —
  *     filled-secondary + refresh glyph + "Refresh this connection" tooltip).
  *     It reuses the same OAuth start flow so an expired/broken token is

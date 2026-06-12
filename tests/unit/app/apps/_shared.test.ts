@@ -178,21 +178,11 @@ describe("toAppCatalogItem — canDisconnect derivation (CD-3)", () => {
   const enabled = (over: Partial<{ callerUserId: string; callerRole: "owner" | "admin" | "member" | null }>) => ({
     callerUserId: "user-1",
     callerRole: "owner" as const,
-    enabled: true,
     ...over,
   });
 
   it("is false when no context is provided", () => {
     const item = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })]);
-    expect(item.accounts[0]?.canDisconnect).toBe(false);
-  });
-
-  it("is false when the feature flag is disabled, even for an owner", () => {
-    const item = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })], {
-      callerUserId: "user-1",
-      callerRole: "owner",
-      enabled: false,
-    });
     expect(item.accounts[0]?.canDisconnect).toBe(false);
   });
 

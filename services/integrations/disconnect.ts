@@ -17,7 +17,6 @@ import { LifecycleOrchestrator } from "@/services/workflows/lifecycleOrchestrato
 import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
 import { decryptToken } from "@/core/encryption/tokens";
 import { revokeProviderToken } from "@/services/oauth/dispatcher";
-import { isIntegrationDisconnectEnabled } from "./disconnectFlags";
 
 /**
  * Connected-app disconnect service core (Slice 4.APPS-DISCONNECT / CD-1 + CD-2).
@@ -26,8 +25,8 @@ import { isIntegrationDisconnectEnabled } from "./disconnectFlags";
  * the single authorized chokepoint for both the advisory impact read and the
  * destructive disconnect of ONE active integration row.
  *
- * `resolveAndAuthorize` is the shared gate for BOTH entry points (flag → frozen
- * → row-scope → role+provenance), so the advisory GET and the DELETE expose
+ * `resolveAndAuthorize` is the shared gate for BOTH entry points (frozen →
+ * row-scope → role+provenance), so the advisory GET and the DELETE expose
  * EXACTLY the same authorization surface — a caller who can't disconnect also
  * can't learn the impact, and every "can't see it" case collapses to a single
  * `not_found` (no existence / ownership inference).
@@ -45,7 +44,6 @@ import { isIntegrationDisconnectEnabled } from "./disconnectFlags";
  */
 
 export type DisconnectFailureReason =
-  | "feature_disabled"
   | "account_frozen"
   | "not_found"
   | "forbidden";
@@ -94,9 +92,9 @@ function audit(event: string, payload: Record<string, string | number>): void {
 }
 
 /**
- * Shared flag + frozen + row-resolution + authorization gate for both entry
- * points. Returns the resolved row on success, or a typed reason that the
- * caller maps to a result / HTTP status.
+ * Shared frozen + row-resolution + authorization gate for both entry points.
+ * Returns the resolved row on success, or a typed reason that the caller maps to
+ * a result / HTTP status.
  *
  * Authorization: account/service (shared) providers ⇒ owner/admin only;
  * personal-credential providers ⇒ owner/admin OR the original connector
@@ -106,10 +104,6 @@ function audit(event: string, payload: Record<string, string | number>): void {
 async function resolveAndAuthorize(
   input: DisconnectInput,
 ): Promise<{ ok: true; row: IntegrationRecord } | { ok: false; reason: DisconnectFailureReason }> {
-  if (!isIntegrationDisconnectEnabled()) {
-    return { ok: false, reason: "feature_disabled" };
-  }
-
   const status = await accountsRepo.getDeletionStatusServiceRole(input.accountId);
   if (status === "pending_deletion") {
     return { ok: false, reason: "account_frozen" };
