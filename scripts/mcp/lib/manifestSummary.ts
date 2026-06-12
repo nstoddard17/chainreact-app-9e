@@ -86,9 +86,63 @@ function extractObjectBlock(text: string, key: string): string | null {
 }
 
 /**
+ * Strip line comments (slash-slash) and C-style block comments from source
+ * text WITHOUT touching characters inside string literals — a char-scan that
+ * copies string bodies verbatim (so a `//` inside a quoted scope can never be
+ * mistaken for a comment) and drops everything between comment delimiters.
+ * Text-only.
+ */
+function stripComments(src: string): string {
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const ch = src[i];
+    // Inside a string literal: copy through to the matching close quote,
+    // honoring backslash escapes. Covers ", ', and ` (template) quotes.
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      out += ch;
+      i += 1;
+      while (i < n) {
+        const c = src[i];
+        out += c;
+        i += 1;
+        if (c === "\\" && i < n) {
+          // Escaped char — copy the next one verbatim, don't end the string.
+          out += src[i];
+          i += 1;
+          continue;
+        }
+        if (c === quote) break;
+      }
+      continue;
+    }
+    // Line comment: skip to (but keep) the newline.
+    if (ch === "/" && src[i + 1] === "/") {
+      i += 2;
+      while (i < n && src[i] !== "\n") i += 1;
+      continue;
+    }
+    // Block comment: skip to the closing delimiter.
+    if (ch === "/" && src[i + 1] === "*") {
+      i += 2;
+      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) i += 1;
+      i += 2; // consume the closing */
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+/**
  * Extract the quoted string entries of a `key: [ ... ]` array within `text`.
- * Returns null when the array can't be located; comments inside the array are
- * ignored because we only collect quoted literals. Text-only, no execution.
+ * Comments are stripped FIRST (string-aware) so only real quoted array members
+ * are collected — comment prose, `//`-line fragments, and stray apostrophes in
+ * comments never leak into the result. Returns null when the array can't be
+ * located. Text-only, no execution.
  */
 function extractStringArray(text: string, key: string): string[] | null {
   const keyIdx = text.search(new RegExp(`\\b${key}\\s*:\\s*\\[`));
@@ -108,12 +162,15 @@ function extractStringArray(text: string, key: string): string[] | null {
     }
   }
   if (close === -1) return null;
-  const body = text.slice(open + 1, close);
+  // Strip comments before collecting literals — this is the fix for comment
+  // prose (e.g. Slack's heavily-annotated scopes array) polluting the output.
+  const body = stripComments(text.slice(open + 1, close));
   const out: string[] = [];
-  const re = /["']([^"']+)["']/g;
+  const re = /"([^"]+)"|'([^']+)'/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body)) !== null) {
-    if (m[1] !== undefined) out.push(m[1]);
+    const value = m[1] ?? m[2];
+    if (value !== undefined) out.push(value);
   }
   return out;
 }
@@ -139,6 +196,17 @@ export function summarizeManifestText(
     : null;
   if (!scopesBlock) notes.push("scopes block not found in text");
 
+  // authFlow falls back to oauthFlows[*] when the manifest declares no explicit
+  // `authFlow` field (e.g. Slack uses `oauthFlows: ["v2"]`), so the connection
+  // view never shows a bare `authFlow: null` for a provider that has a flow.
+  let authFlow = matchString(text, "authFlow");
+  if (authFlow === null) {
+    const oauthFlows = extractStringArray(text, "oauthFlows");
+    if (oauthFlows && oauthFlows.length > 0) {
+      authFlow = oauthFlows.join(", ");
+    }
+  }
+
   const healthMatch = text.match(/\bhealthCheckIntervalMs\s*:\s*([^,\n]+)/);
   const healthExpr = healthMatch?.[1] !== undefined ? healthMatch[1].trim() : null;
 
@@ -150,7 +218,7 @@ export function summarizeManifestText(
     isExperimental: matchBool(text, "isExperimental"),
     apiVersion: matchString(text, "apiVersion"),
     tokenScope: matchString(text, "tokenScope"),
-    authFlow: matchString(text, "authFlow"),
+    authFlow,
     refreshable: matchBool(text, "refreshable"),
     scopesRequired,
     scopesOptional,

@@ -107,9 +107,43 @@ describe("explain_provider_connection_requirements", () => {
     expect(out).toContain("connection requirements for provider: slack");
     expect(out).toContain("required scopes:");
     expect(out).toContain("channels:read"); // a known Slack required scope
+    expect(out).toContain("chat:write");
     expect(out).toContain("refreshable: false");
+    // authFlow falls back to oauthFlows (v2) — never a bare null.
+    expect(out).toContain("authFlow: v2");
+    expect(out).not.toContain("authFlow: null");
     // Lists the option-sources that need the connection.
     expect(out).toContain("slack:channels");
+  });
+
+  it("emits CLEAN scopes with no comment-prose leakage (Stage-2A parser fix)", async () => {
+    const out = String(await explain.handler({ provider: "slack" }));
+    // Isolate the rendered scope lines.
+    const reqLine =
+      out.split("\n").find((l) => l.startsWith("required scopes:")) ?? "";
+    const optLine =
+      out.split("\n").find((l) => l.startsWith("optional scopes:")) ?? "";
+
+    // Required scopes render as a clean comma-separated list of token scopes.
+    expect(reqLine).toContain("channels:read");
+    expect(reqLine).toContain("files:write");
+    expect(optLine).toContain("chat:write.public");
+
+    // None of the previously-leaked comment fragments appear anywhere.
+    for (const junk of [
+      "xoxp",
+      "invite the bot first",
+      "plan §",
+      "Slack 2.",
+      "scope additions",
+      "//",
+    ]) {
+      expect(out).not.toContain(junk);
+    }
+    // The optional line must not be polluted by prose words (has spaces beyond
+    // the "optional scopes:" label + comma-separated tokens). Scopes never
+    // contain spaces, so any leaked prose would add stray alpha words.
+    expect(optLine).not.toMatch(/decision|plan|bot|invite/i);
   });
 
   it("rejects an invalid provider id", async () => {
