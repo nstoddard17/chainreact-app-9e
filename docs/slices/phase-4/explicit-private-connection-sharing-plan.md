@@ -165,7 +165,9 @@ Three touch-points, each extending an existing seam (no new subsystem):
 2. **Execution resolution.** For a shared personal provider, the engine resolves
    `connected_by_user_id = <the connector who shared>` instead of the creator-pin. Cleanest reuse:
    the resolver already supports an explicit owner override (the 22B context + the node-credential
-   override path) — sharing supplies that owner from the shared row.
+   override path) — sharing supplies that owner from the shared row. **Refined by the §14 audit:** when
+   **2+** members share the same provider this must resolve to a **node-bound specific connector**, never
+   by `(account, provider)` alone (which would silently pick the earliest-connected row) — see §14.3–14.5.
 3. **Apps surface + workflow badge.** Connector toggles share/unshare; DTO exposes a boolean
    `sharedWithAccount` (no identity); the workflow run/edit DTO booleans already exist and just need
    the shared-set folded into their computation.
@@ -292,9 +294,13 @@ not applicable (always shared). So the column is **only writable/meaningful for 
    typed errors; no-leak. Mirrors the disconnect service/route.
 3. **CS-3 (run/edit gate).** Thread the account's shared-provider set into `viewerMayRunEdit` /
    `assertWorkflowRunEditAllowed` + the DTO booleans. Behind the flag.
-4. **CS-4 (execution resolution).** Resolve shared personal providers to the connector via the
-   existing owner-override seam. Behind the flag. Heaviest correctness surface → its own slice + parity
-   tests.
+4. **CS-4 (execution resolution).** Resolve shared personal providers to a **specific connector user
+   id** via the existing `effectiveCredentialOwner` → context → pin seam — **never by `(account,
+   provider)` alone** (§14.3 silent-wrong-identity risk). Per the §14 audit this **splits**:
+   **CS-4a** = node-level connector binding (storage + safe `{userId, displayName, role}` builder picker
+   DTO) for the 2+-sharer case; **CS-4b** = resolver precedence (accepted grant → node binding →
+   single-sharer → creator) + the **ambiguity-aware gate** + parity tests. Behind the flag. Heaviest
+   correctness surface.
 5. **CS-5 (Apps UI + workflow badge).** Share/Stop-sharing per-row action, badges, confirmation copy.
 6. **CS-6 (disconnect/offboarding interaction).** Unshare-on-disconnect; connector-offboard reverts
    dependent workflows to creator-only.
@@ -312,16 +318,18 @@ nuance to verify during the slice.
   no silent admin share** (impersonation). The optional admin-*request* flow is **not** adopted.
   Owner/admin retain manage/audit/disable/delete/disconnect per existing admin rules.
 - **OQ-3 — Non-creator author of a workflow on a shared connection.** **DECIDED: execution resolves to
-  the connector**, never the author/runner. *Residual to verify in CS-4:* if multiple members share the
-  same provider on one account, the workflow must bind a **specific** connector (reuse the node-owner
-  override) — **unverified until CS-4 design.**
+  the connector**, never the author/runner. *Residual now RESOLVED by the §14 audit:* if multiple members
+  share the same provider, the node must bind a **specific connector user id** (new CS-4 binding), and an
+  unbound 2+-sharer case **fails closed** to creator-only — never an arbitrary/earliest-row pick. See
+  §14.3–14.5.
 - **OQ-4 — Unshare effect on dependent workflows.** **DECIDED: revert to creator-only; do NOT
   auto-disable.** Non-creators fall back to the existing private-credential blocked state + Duplicate
   CTA. No silent auto-resume. Surface a one-time notice to affected workflow owners.
-- **OQ-5 — Interaction with the shipped per-node system.** **DECIDED: keep separate.** *Residual to
-  verify in CS-4:* when both could set an effective owner for a node, an explicit **accepted
-  node-credential grant** (B) wins over the coarse **connection share** (A); document + cover with a
-  precedence test.
+- **OQ-5 — Interaction with the shipped per-node system.** **DECIDED: keep separate.** *Residual now
+  RESOLVED by the §14 audit:* precedence is **accepted node-credential grant (B) → node connector
+  binding (A) → single-sharer → creator**, implemented by extending the existing
+  `effectiveCredentialOwner` seam (no new precedence machine). See §14.4 + §14.5; cover with a
+  precedence test in CS-4b.
 - **Unshare authz nuance (new, from §0.5):** if owner/admin unshare is implemented, it must be a
   framed **admin safety action** and **audit-logged** — never a silent re-toggle of a member's
   identity into shared.
@@ -366,3 +374,139 @@ changes to the run/edit gate and the execution resolver (both sensitive, both sh
 no longer in question — only the go-ahead to implement is pending. The smallest first step (CS-1) is a
 single additive nullable column behind a temporary guard — low risk, reversible — but still gated on
 explicit start + migration approval per the standing push/migrate policy.
+
+---
+
+## 14. CS-4 pre-implementation audit — shared-connection execution binding (2026-06-12)
+
+**Audit only. No source/test/migration/UI changed; this is docs-only findings.** Resolves the
+"unverified until CS-4 design" residuals on OQ-3/OQ-5 and the CS-4 slice. Every claim below ties to a
+file read for this audit.
+
+### 14.1 Files inspected
+[contracts/workflowDefinition.ts](../../../contracts/workflowDefinition.ts) (node shape) ·
+[repositories/integrations.ts](../../../repositories/integrations.ts) (`getActiveForExecution`,
+`listActiveConnectedUserIdsServiceRole`, ownership model) ·
+[supabase/migrations/20260505000002_integrations.sql](../../../supabase/migrations/20260505000002_integrations.sql)
+(base schema — note `account_id`/`connected_by_user_id` were added by the later 22-x account cutover;
+the repo doc-comment is authoritative for the current columns) ·
+[services/oauth/refreshAndRetry.ts](../../../services/oauth/refreshAndRetry.ts) (pin + no-fallback) ·
+[services/oauth/credentialResolutionContext.ts](../../../services/oauth/credentialResolutionContext.ts)
+(ALS context) · [services/execution/engine.ts](../../../services/execution/engine.ts) (per-node owner
+set, ~543-551) · [services/teamCredentials/nodeCredentialOwners.ts](../../../services/teamCredentials/nodeCredentialOwners.ts)
+(`effectiveCredentialOwner`) · [repositories/workflowNodeCredentials.ts](../../../repositories/workflowNodeCredentials.ts)
+(per-node grant table) · [services/teamCredentials/credentialOwnerMetadata.ts](../../../services/teamCredentials/credentialOwnerMetadata.ts)
+(safe display label + eligible targets) · [services/ai/tools/workflowContext.ts](../../../services/ai/tools/workflowContext.ts)
+(availability-by-effective-owner precedent).
+
+### 14.2 Current execution binding model (verified)
+**A workflow node carries NO connection identity.** `WorkflowNodeSchema` stores `id`, `kind`,
+`provider`, `type`, `config` (opaque), `position`, `displayName` — **no integration id, no
+`providerAccountId`, no credential-owner field** ([workflowDefinition.ts:28-54](../../../contracts/workflowDefinition.ts)).
+A node names a **provider string only**.
+
+The integration row is resolved entirely **at execution time** by *user*, not by any node-stored ref:
+
+1. The engine computes a per-node **effective owner** = `effectiveCredentialOwner(provider, nodeId,
+   creatorUserId, acceptedOwners)` = accepted per-node owner (flag ON) **else the workflow creator**,
+   personal providers only ([engine.ts:543-551](../../../services/execution/engine.ts),
+   [nodeCredentialOwners.ts:61-71](../../../services/teamCredentials/nodeCredentialOwners.ts)).
+2. It wraps the handler in `runWithCredentialResolutionContext({ createdByUserId: effectiveOwner })`.
+3. Inside, for **personal** providers, `refreshAndRetry` pins the lookup to
+   `connected_by_user_id = effectiveOwner` ([refreshAndRetry.ts:166-170](../../../services/oauth/refreshAndRetry.ts)).
+4. `getActiveForExecution(accountId, provider, providerAccountId=null, { connectedByUserId })` filters
+   exact on the pin; with the pin present it returns that user's earliest active row; **a missing
+   pinned row throws "owner has no active <provider> connection" — there is NO silent fallback to a
+   co-member** ([integrations.ts:219-250](../../../repositories/integrations.ts),
+   [refreshAndRetry.ts:179-193](../../../services/oauth/refreshAndRetry.ts)).
+
+So **binding today is by USER (`connected_by_user_id`), not by row id and not by `providerAccountId`**.
+`providerAccountId` is `null` on the engine path (it disambiguates multi-workspace rows for the *same*
+user, e.g. two Slack teams; it is not a cross-member selector). The integrations active-unique index is
+`(account_id, provider, provider_account_id) WHERE disconnected_at IS NULL` — so **two different members
+can each have an active row for the same provider** (Alice's Gmail + Bob's Gmail are distinct rows,
+distinct `connected_by_user_id`).
+
+**Answers to Q1/Q2:** (Q1) a node stores **only provider/type** — not integration id, not
+`providerAccountId`, and it relies on **creator-pinning** (or an accepted node-owner) resolved at run
+time. (Q2) `workflow_node_credentials` binds `(workflow, node, provider) → credential_owner_user_id`
+(**a USER**, consent-gated `pending→accepted`, ≤1 live grant/node) and feeds resolution through the SAME
+`effectiveCredentialOwner` → context → pin seam. That seam can bind a shared connection cleanly **because
+it already binds by user id** — which is exactly what a shared connector is. **Node-level binding IS
+required for row-level sharing to be safe whenever the account has >1 sharer of the same provider** (see
+14.3).
+
+### 14.3 Exact risk with multiple shared connectors
+Provider-level "Gmail is shared" is **not** enough — confirmed. The resolver must pin to a **user**. If
+CS-4 naively drops the creator-pin for a shared provider and lets `getActiveForExecution` run with **no
+`connectedByUserId`**, then when Alice **and** Bob have both shared Gmail, the query matches two active
+rows and the **earliest-connected row wins** (`created_at ASC … limit(1)`,
+[integrations.ts:240-243](../../../repositories/integrations.ts)). That is deterministic but
+**product-wrong**: the run silently executes as "whoever connected first," not the intended connector —
+a **silent wrong-identity / cross-member impersonation** outcome, the exact class the personal/account
+model exists to prevent. **Therefore CS-4 must never resolve a shared personal provider by
+`(account, provider)` alone.** It must resolve to a **specific connector user id**, and when the choice
+is ambiguous it must **fail closed**, not pick.
+
+### 14.4 Recommended binding model
+**Bind at the node level to a CONNECTOR USER ID, reusing the existing `effectiveCredentialOwner` →
+context → pin seam.** Do not bind by integration **row id** — a disconnect+reconnect mints a *new* row
+id (upsertActive inserts a fresh row, preserving `connected_by_user_id`), so a row-id binding would break
+on reconnect while a **user-id binding survives** it. This matches every existing pin in the codebase.
+
+Resolution precedence for a personal-provider node (CS-4):
+
+1. **Accepted `workflow_node_credentials` grant** (Option B) — explicit, consent-gated → **wins**
+   (answers Q4; this is just extending today's `effectiveCredentialOwner`, no new precedence machine).
+2. Else **the node's shared-connection connector binding** (the new CS-4 field, see 14.5) if present.
+3. Else, if **exactly one** account member has `shared_with_account` for that provider → **that
+   connector** (the unambiguous case needs no node binding).
+4. Else (provider shared by **2+** members and no node binding) → **ambiguous → not team-runnable**;
+   fall back to creator-only (the run/edit gate blocks non-creators; matches OQ-4's revert posture).
+5. Else (creator) → today's behavior.
+
+**This means CS-3's gate must be ambiguity-aware:** "team-runnable" requires every private provider to
+be not just shared but **unambiguously resolvable** (single sharer, or an explicit node binding, or an
+accepted Option-B grant) — the plan's §4.1 gate wording ("every private-provider node is account-class
+or a shared personal provider") is **necessary but not sufficient** and must add the resolvability test.
+
+### 14.5 Minimum implementation impact (answers Q6)
+- **CS-1 / CS-2 stand as planned** — the `integration_sharing_scope` column + connector-only toggle are
+  unchanged by this audit.
+- **CS-3 (gate)** grows slightly: fold in the **ambiguity test** (14.4 step 4), not just "is shared."
+- **CS-4 (execution)** needs a **node-level connector binding** when >1 member shares a provider. This is
+  the new finding versus the plan's original CS-4 sketch (which assumed "resolve to the connector"
+  singular). Two ways to store it:
+  - **(B-reuse)** Write the chosen connector into `workflow_node_credentials` as an `accepted` grant.
+    *Cons:* its semantics are **requester-pull + target-consent**; a share is **connector-push, already
+    consented**, so we'd be minting auto-accepted grants and conflating two models §0.3 says to keep
+    separate. Also its provider guard + ≤1-live-grant index would need re-reading. **Not recommended as-is.**
+  - **(small row-reference — recommended)** A minimal per-node `connector_user_id` binding (either a
+    narrow new side table `workflow_node_shared_connection` keyed `(workflow_id, node_id)`, or — only if
+    schema review approves — a single opaque field threaded through node config write). It records **just
+    a user id**, set when a builder picks a connector for an ambiguous shared provider; resolution reads
+    it at 14.4 step 2. Smaller surface than the consent machine, and it composes with B via the
+    precedence in 14.4. **Decide the table-vs-field shape in CS-4 design; lean table** (keeps node config
+    free of identity and keeps it server-authoritative / RLS-gated like the other side tables).
+- Net: **CS-1 → CS-2 → CS-3 → CS-4 ordering still holds.** CS-4 splits into **CS-4a (node connector
+  binding: storage + safe builder picker DTO)** and **CS-4b (resolver precedence + ambiguity gate +
+  parity tests)**.
+
+### 14.6 UX implication (answers Q5)
+The safe display primitive **already exists**: members are surfaced by **`displayName` only** (never
+email / `provider_account_id`) via [credentialOwnerMetadata.ts](../../../services/teamCredentials/credentialOwnerMetadata.ts)
+(`ownerDisplayName`) and `listEligibleReassignmentTargets` (returns `{ userId, displayName, role }`),
+backed by `listActiveConnectedUserIdsServiceRole` which selects **only `connected_by_user_id`**
+([integrations.ts:334-355](../../../repositories/integrations.ts)) and is owner/admin/creator-gated.
+A teammate picks **"Alice" vs "Bob"** (member display names), **not** "alice@gmail.com" — so the picker
+leaks no email/provider account id. **Apps DTO stays identity-free** (boolean `sharedWithAccount`); the
+**builder option DTO** for an ambiguous shared provider exposes only the same safe `{ userId, displayName,
+role }` shape the eligible-targets endpoint already returns. No new label primitive is needed; CS-4a
+reuses it.
+
+### 14.7 Does the plan need updating?
+**Yes — two substantive corrections, both folded in above:** (1) CS-3's gate must be **resolvability/
+ambiguity-aware**, not just "is shared"; (2) CS-4 must add a **node-level connector binding** (recommended:
+a small per-node `connector_user_id` reference, **not** a reuse of the consent-gated per-node table) and
+splits into CS-4a/CS-4b. OQ-3 and OQ-5 residuals are now **resolved** by 14.3/14.4. CS-1/CS-2 are
+unaffected. **No implementation authorized — CS-4 design is documented, not built.**
