@@ -70,6 +70,28 @@ export const INTEGRATIONS_DIR = "integrations";
 export const BUILDER_GAP_TRACKER_FILE =
   "docs/slices/phase-4/provider-metadata-launch-gap-tracker.md";
 
+/**
+ * Stage-2A diagnostics — narrow, purpose-built readable locations.
+ *
+ * These are deliberately NOT folded into `ALLOWED_DOC_ROOTS` (so the docs
+ * search can never sweep them) and NOT into `INTEGRATIONS_DIR`. Each tool
+ * passes the exact root below to `readAllowedFile`, so the path whitelist +
+ * byte cap + redaction still gate every read. Both files are plain JSON.
+ */
+
+/** Committed, generated option-source manifest (read as JSON text; NEVER imports app code). */
+export const MCP_DATA_DIR = "scripts/mcp/data";
+export const OPTION_SOURCE_MANIFEST_FILE =
+  "scripts/mcp/data/option-source-manifest.json";
+
+/**
+ * Sanitized smoke-result artifact root. Runtime-produced + gitignored. The MCP
+ * server reads ONLY the single sanitized JSON below — never `test-results/` or
+ * `playwright-report/`, which remain blocked segments in `security/paths.ts`.
+ */
+export const SMOKE_ARTIFACT_DIR = "artifacts/mcp";
+export const SMOKE_ARTIFACT_FILE = "artifacts/mcp/smoke-latest.json";
+
 /** Output / read limits — guard against accidental huge payloads. */
 export const LIMITS = {
   /** Max bytes read from any single file. */

@@ -7,8 +7,10 @@
 import { ToolRegistry } from "../registry";
 import { builderGapsTools } from "./builderGaps";
 import { commandTools } from "./commands";
+import { diagnosisTools } from "./diagnose";
 import { docsTools } from "./docs";
 import { providerTools } from "./providers";
+import { smokeTools } from "./smoke";
 
 /** Build a registry with every internal MCP tool registered. */
 export function buildRegistry(): ToolRegistry {
@@ -17,5 +19,9 @@ export function buildRegistry(): ToolRegistry {
   for (const tool of providerTools) registry.register(tool);
   for (const tool of builderGapsTools()) registry.register(tool);
   for (const tool of commandTools) registry.register(tool);
+  // Stage 2A diagnostics (CS-1 smoke artifact tools + CS-2 static option-source
+  // / connection-requirements tools). Local-artifact + repo-static only.
+  for (const tool of smokeTools) registry.register(tool);
+  for (const tool of diagnosisTools) registry.register(tool);
   return registry;
 }

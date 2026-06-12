@@ -11,6 +11,11 @@ test-results
 tests/e2e/.state/
 tests/smoke/.auth/
 
+# MCP Stage-2A — runtime-produced sanitized smoke artifact (read by the internal
+# MCP diagnostics tools). The generated option-source manifest under
+# scripts/mcp/data/ is COMMITTED (drift-checked) and is NOT ignored.
+artifacts/
+
 # next.js
 .next
 out

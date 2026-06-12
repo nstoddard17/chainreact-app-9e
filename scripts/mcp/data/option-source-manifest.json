@@ -1,0 +1,429 @@
+{
+  "_comment": "GENERATED from services/options/_registry.ts (listOptionsResolvers). Do NOT hand-edit. Regenerate: UPDATE_OPTION_SOURCE_MANIFEST=1 npx jest tests/unit/mcp/option-source-manifest.test.ts. Drift is enforced by tests/unit/mcp/option-source-manifest.test.ts.",
+  "sources": [
+    {
+      "source": "airtable:attachment_fields",
+      "provider": "airtable",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "baseId",
+        "tableIdOrName"
+      ]
+    },
+    {
+      "source": "airtable:bases",
+      "provider": "airtable",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "airtable:fields",
+      "provider": "airtable",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "baseId",
+        "tableIdOrName"
+      ]
+    },
+    {
+      "source": "airtable:tables",
+      "provider": "airtable",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "baseId"
+      ]
+    },
+    {
+      "source": "airtable:views",
+      "provider": "airtable",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "baseId",
+        "tableIdOrName"
+      ]
+    },
+    {
+      "source": "discord:bot_messages",
+      "provider": "discord",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "channelId"
+      ]
+    },
+    {
+      "source": "discord:channels",
+      "provider": "discord",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "guildId"
+      ]
+    },
+    {
+      "source": "discord:guilds",
+      "provider": "discord",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "discord:members",
+      "provider": "discord",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "guildId"
+      ]
+    },
+    {
+      "source": "discord:messages",
+      "provider": "discord",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "channelId"
+      ]
+    },
+    {
+      "source": "discord:roles",
+      "provider": "discord",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "guildId"
+      ]
+    },
+    {
+      "source": "dropbox:files",
+      "provider": "dropbox",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "folderPath"
+      ]
+    },
+    {
+      "source": "dropbox:folders",
+      "provider": "dropbox",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "facebook:albums",
+      "provider": "facebook",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "pageId"
+      ]
+    },
+    {
+      "source": "facebook:conversations",
+      "provider": "facebook",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "pageId"
+      ]
+    },
+    {
+      "source": "facebook:pages",
+      "provider": "facebook",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "facebook:posts",
+      "provider": "facebook",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "pageId"
+      ]
+    },
+    {
+      "source": "google-analytics:accounts",
+      "provider": "google-analytics",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "google-analytics:conversion_events",
+      "provider": "google-analytics",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "propertyId"
+      ]
+    },
+    {
+      "source": "google-analytics:data_streams",
+      "provider": "google-analytics",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "propertyId"
+      ]
+    },
+    {
+      "source": "google-analytics:properties",
+      "provider": "google-analytics",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "accountId"
+      ]
+    },
+    {
+      "source": "google-docs:documents",
+      "provider": "google-docs",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "google-drive:folders",
+      "provider": "google-drive",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "google-sheets:sheets",
+      "provider": "google-sheets",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "spreadsheetId"
+      ]
+    },
+    {
+      "source": "google-sheets:spreadsheets",
+      "provider": "google-sheets",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:deal_pipelines",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:deal_stages",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "pipeline"
+      ]
+    },
+    {
+      "source": "hubspot:lists",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:owners",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:ticket_pipelines",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:ticket_stages",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "hs_pipeline"
+      ]
+    },
+    {
+      "source": "mailchimp:audiences",
+      "provider": "mailchimp",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "mailchimp:campaigns",
+      "provider": "mailchimp",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "mailchimp:segments",
+      "provider": "mailchimp",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "listId"
+      ]
+    },
+    {
+      "source": "microsoft-excel:tables",
+      "provider": "microsoft-excel",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workbookId"
+      ]
+    },
+    {
+      "source": "microsoft-excel:workbooks",
+      "provider": "microsoft-excel",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "microsoft-excel:worksheets",
+      "provider": "microsoft-excel",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workbookId"
+      ]
+    },
+    {
+      "source": "microsoft-onedrive:folders",
+      "provider": "microsoft-onedrive",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "microsoft-onedrive:items",
+      "provider": "microsoft-onedrive",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "parentItemId"
+      ]
+    },
+    {
+      "source": "microsoft-onenote:notebooks",
+      "provider": "microsoft-onenote",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "microsoft-onenote:pages",
+      "provider": "microsoft-onenote",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "sectionId"
+      ]
+    },
+    {
+      "source": "microsoft-onenote:sections",
+      "provider": "microsoft-onenote",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "notebookId"
+      ]
+    },
+    {
+      "source": "microsoft-teams:channels",
+      "provider": "microsoft-teams",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "teamId"
+      ]
+    },
+    {
+      "source": "microsoft-teams:teams",
+      "provider": "microsoft-teams",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "monday:boards",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "monday:columns",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "monday:file_columns",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "monday:groups",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "monday:item_files",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "itemId",
+        "columnId"
+      ]
+    },
+    {
+      "source": "monday:items",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "monday:users",
+      "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "native:examples",
+      "provider": "native",
+      "requiresIntegration": false,
+      "requiredDeps": [
+        "category"
+      ]
+    },
+    {
+      "source": "slack:channels",
+      "provider": "slack",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "trello:boards",
+      "provider": "trello",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "trello:cards",
+      "provider": "trello",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "trello:labels",
+      "provider": "trello",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "trello:lists",
+      "provider": "trello",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    },
+    {
+      "source": "trello:members",
+      "provider": "trello",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "boardId"
+      ]
+    }
+  ]
+}

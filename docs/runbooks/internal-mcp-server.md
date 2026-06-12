@@ -72,6 +72,10 @@ Read-only context tools:
 | `get_provider_manifest_summary` | Capability summary for one provider (text-parsed, never executed). |
 | `list_builder_metadata_gaps` | The builder-metadata launch-gap tracker's pending section + status snapshot (only registered if the tracker exists). |
 | `get_claude_instructions_summary` | Heading outline of `CLAUDE.md`. |
+| `list_recent_smoke_failures` | Failed/timed-out tests from the latest **sanitized** smoke artifact (`artifacts/mcp/smoke-latest.json`). Local-artifact-only. *(Stage 2A)* |
+| `read_smoke_failure_context` | Sanitized record for one smoke test by title: category, status, errorClass, stepLabel, attachment basenames. No raw error text. *(Stage 2A)* |
+| `diagnose_option_source` | Static diagnosis of a builder options-source key (e.g. `slack:channels`): registration, provider, `requiresIntegration`, `requiredDeps`, and the closed `OptionsSourceErrorCode` taxonomy mapped to cause + next checks. No live call. *(Stage 2A)* |
+| `explain_provider_connection_requirements` | What a provider needs to be connected & usable: enabled state, auth flow, token scope, refreshable, required/optional scopes, and which option-sources need the connection. Manifest text-parsed. *(Stage 2A)* |
 
 Bounded local command wrappers (each runs one **exact** allowlisted, non-mutating
 npm script with a timeout and truncated output):
@@ -84,6 +88,39 @@ npm script with a timeout and truncated output):
 
 Every result is **redacted then size-capped** before it leaves the process (order
 matters — see Security boundaries).
+
+### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
+
+The four `*(Stage 2A)*` tools above add **diagnosis** without adding any live,
+DB, or production access — they preserve every Stage-1 boundary. Plan:
+[mcp-stage-2-diagnostics-plan.md](../slices/phase-4/mcp-stage-2-diagnostics-plan.md).
+
+- **Smoke artifact (CS-1).** The production smoke suite emits a **sanitized**
+  JSON summary to `artifacts/mcp/smoke-latest.json` (gitignored, runtime-
+  produced) via [`tests/smoke/mcpSmokeArtifactReporter.ts`](../../tests/smoke/mcpSmokeArtifactReporter.ts),
+  which routes every field through the pure
+  [`sanitizeSmokeArtifact`](../../tests/smoke/helpers/sanitizeSmokeArtifact.ts)
+  helper. It carries only: run timestamp, category, title, status, durationMs,
+  a coarse **errorClass** (never the raw `error.message`), stepLabel, and
+  attachment **basenames**. URLs, absolute paths, token-shaped values, and
+  trace/screenshot bytes are stripped. The smoke tools read **only** this one
+  file through the whitelist — `test-results/` and `playwright-report/` remain
+  **blocked segments** and are never reachable.
+- **Generated option-source manifest (CS-2).** The MCP server must not import
+  `getOptionsResolver`/app code (import boundary). So the registry shape is
+  exported once into the **committed** JSON
+  [`scripts/mcp/data/option-source-manifest.json`](../../scripts/mcp/data/option-source-manifest.json)
+  (`source`, `provider`, `requiresIntegration`, `requiredDeps`), which the
+  server reads as text. A drift test keeps it in lockstep with the live
+  registry. **Regenerate** after adding/removing an options resolver:
+
+  ```bash
+  UPDATE_OPTION_SOURCE_MANIFEST=1 npx jest tests/unit/mcp/option-source-manifest.test.ts
+  ```
+
+These tools are **read-only and inert**: `diagnose_option_source` maps an
+*observed* error code to causes; it does not call `/api/options`. Live/DB-backed
+diagnosis (Plane B, CS-3+) is **not** implemented and requires separate approval.
 
 ## Implemented MCP protocol subset
 
@@ -256,7 +293,7 @@ this tool by design.
 
 ## Tests
 
-`tests/unit/mcp/` (46 tests):
+`tests/unit/mcp/` (95 tests):
 
 - **Core:** path whitelist + traversal rejection, secret redaction, output
   truncation, manifest text-parse-without-execution, allowed-doc-read happy path,
@@ -267,6 +304,12 @@ this tool by design.
   egress redaction, search-cannot-dump-blocked-files (live fixture), and an
   import-boundary scan asserting every `scripts/mcp` import is a `node:` builtin
   or a relative local module.
+- **Stage 2A (`smoke-artifact.test.ts`, `diagnose-tools.test.ts`,
+  `option-source-manifest.test.ts`):** smoke-artifact sanitizer no-leak proofs,
+  smoke tools read only the sanitized artifact, `test-results/` /
+  `playwright-report/` stay blocked, full `OptionsSourceErrorCode` coverage tied
+  to the app's runtime list, `slack:channels` diagnosis, and option-source
+  manifest drift detection.
 
 Plus `npm run mcp:smoke` ([`scripts/mcp/smoke.mjs`](../../scripts/mcp/smoke.mjs)) —
 a build-and-drive stdio check against the built server (`initialize` →

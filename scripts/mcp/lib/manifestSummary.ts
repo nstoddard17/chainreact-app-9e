@@ -21,6 +21,10 @@ export interface ManifestSummary {
   tokenScope: string | null;
   authFlow: string | null;
   refreshable: boolean | null;
+  /** Required OAuth scopes, text-parsed from the `scopes.required` array (null if not found). */
+  scopesRequired: string[] | null;
+  /** Optional OAuth scopes, text-parsed from the `scopes.optional` array (null if not found). */
+  scopesOptional: string[] | null;
   /** Raw expression text of healthCheckIntervalMs (not evaluated). */
   healthCheckIntervalMsExpr: string | null;
   capabilities: {
@@ -61,6 +65,59 @@ function extractCapabilitiesBlock(text: string): string | null {
   return null;
 }
 
+/**
+ * Find the balanced `{ ... }` body of a named object key (e.g. `scopes`,
+ * `capabilities`). Reused by both block extractors. Text-only, no execution.
+ */
+function extractObjectBlock(text: string, key: string): string | null {
+  const start = text.indexOf(key);
+  if (start === -1) return null;
+  const brace = text.indexOf("{", start);
+  if (brace === -1) return null;
+  let depth = 0;
+  for (let i = brace; i < text.length; i += 1) {
+    if (text[i] === "{") depth += 1;
+    else if (text[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(brace, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract the quoted string entries of a `key: [ ... ]` array within `text`.
+ * Returns null when the array can't be located; comments inside the array are
+ * ignored because we only collect quoted literals. Text-only, no execution.
+ */
+function extractStringArray(text: string, key: string): string[] | null {
+  const keyIdx = text.search(new RegExp(`\\b${key}\\s*:\\s*\\[`));
+  if (keyIdx === -1) return null;
+  const open = text.indexOf("[", keyIdx);
+  if (open === -1) return null;
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < text.length; i += 1) {
+    if (text[i] === "[") depth += 1;
+    else if (text[i] === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+  if (close === -1) return null;
+  const body = text.slice(open + 1, close);
+  const out: string[] = [];
+  const re = /["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    if (m[1] !== undefined) out.push(m[1]);
+  }
+  return out;
+}
+
 /** Parse a manifest summary from raw source text (no execution). */
 export function summarizeManifestText(
   folderId: string,
@@ -70,6 +127,17 @@ export function summarizeManifestText(
 
   const capBlock = extractCapabilitiesBlock(text);
   if (!capBlock) notes.push("capabilities block not found in text");
+
+  // Scopes — scoped to the `scopes { ... }` block so `required`/`optional`
+  // can't collide with same-named keys elsewhere in the manifest.
+  const scopesBlock = extractObjectBlock(text, "scopes");
+  const scopesRequired = scopesBlock
+    ? extractStringArray(scopesBlock, "required")
+    : null;
+  const scopesOptional = scopesBlock
+    ? extractStringArray(scopesBlock, "optional")
+    : null;
+  if (!scopesBlock) notes.push("scopes block not found in text");
 
   const healthMatch = text.match(/\bhealthCheckIntervalMs\s*:\s*([^,\n]+)/);
   const healthExpr = healthMatch?.[1] !== undefined ? healthMatch[1].trim() : null;
@@ -84,6 +152,8 @@ export function summarizeManifestText(
     tokenScope: matchString(text, "tokenScope"),
     authFlow: matchString(text, "authFlow"),
     refreshable: matchBool(text, "refreshable"),
+    scopesRequired,
+    scopesOptional,
     healthCheckIntervalMsExpr: healthExpr,
     capabilities: {
       oauth: capBlock ? matchBool(capBlock, "oauth") : null,
@@ -106,6 +176,52 @@ export function renderManifestSummary(s: ManifestSummary): string {
     `apiVersion: ${s.apiVersion}  tokenScope: ${s.tokenScope}  authFlow: ${s.authFlow}`,
     `refreshable: ${s.refreshable}  healthCheckIntervalMs: ${s.healthCheckIntervalMsExpr}`,
     `capabilities: ${capStr}`,
+  ];
+  if (s.notes.length) lines.push(`notes: ${s.notes.join("; ")}`);
+  return lines.join("\n");
+}
+
+/**
+ * Render a connection-requirements view: what a provider needs to be considered
+ * connected & usable in the builder. Distinct from `renderManifestSummary` (the
+ * raw capability dump) — this is framed for the "why won't this connect / why
+ * is an option source failing for auth reasons" diagnostic.
+ *
+ * `optionSources` is the list of registered option-source keys backed by this
+ * provider (from the generated manifest) — included so the reader sees which
+ * builder pickers depend on the connection. Never includes secrets: scope NAMES
+ * are public OAuth metadata, not credentials.
+ */
+export function renderConnectionRequirements(
+  s: ManifestSummary,
+  optionSources: readonly string[],
+): string {
+  const reqScopes =
+    s.scopesRequired && s.scopesRequired.length
+      ? s.scopesRequired.join(", ")
+      : s.scopesRequired
+        ? "(none declared)"
+        : "(could not parse scopes block)";
+  const optScopes =
+    s.scopesOptional && s.scopesOptional.length
+      ? s.scopesOptional.join(", ")
+      : "(none)";
+  const lines = [
+    `connection requirements for provider: ${s.folderId}`,
+    `displayName: ${s.displayName}`,
+    `isEnabled: ${s.isEnabled}  (a disabled provider cannot be connected)`,
+    `authFlow: ${s.authFlow}  tokenScope: ${s.tokenScope}  apiVersion: ${s.apiVersion}`,
+    `refreshable: ${s.refreshable}  (false → an expired/revoked token needs a manual reconnect, no silent refresh)`,
+    `required scopes: ${reqScopes}`,
+    `optional scopes: ${optScopes}`,
+    optionSources.length
+      ? `builder option-sources requiring this connection: ${optionSources.join(", ")}`
+      : "builder option-sources requiring this connection: (none registered)",
+    "",
+    "To be usable: the provider must be enabled, an active integration row must exist",
+    "for the resolving account, and the token must carry the required scopes above.",
+    "A scope the token lacks surfaces as PROVIDER_ERROR from option-source resolvers",
+    "(the raw provider error code is intentionally hidden from the picker).",
   ];
   if (s.notes.length) lines.push(`notes: ${s.notes.join("; ")}`);
   return lines.join("\n");

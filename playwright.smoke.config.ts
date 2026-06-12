@@ -34,6 +34,10 @@ export default defineConfig({
     ["list"],
     ["html", { outputFolder: "playwright-report/smoke", open: "never" }],
     ["./tests/smoke/smokeReporter.ts"],
+    // Sanitized JSON artifact consumed by the internal MCP diagnostics tools
+    // (Stage 2A CS-1). Writes artifacts/mcp/smoke-latest.json — no raw error
+    // messages, URLs, absolute paths, or trace/screenshot bytes.
+    ["./tests/smoke/mcpSmokeArtifactReporter.ts"],
   ],
   use: {
     baseURL: baseUrl(),

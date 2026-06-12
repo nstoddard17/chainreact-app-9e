@@ -62,6 +62,37 @@ export type OptionsSourceErrorCode =
   | "UNKNOWN";
 
 /**
+ * Runtime list of every `OptionsSourceErrorCode`. Kept beside the type so
+ * tooling that can't read a TS type at runtime (e.g. the internal MCP
+ * diagnostics drift test) has a single source of truth for the closed set.
+ *
+ * The type-level guard below makes the list and the union exhaustive: adding a
+ * member to the union without adding it here is a compile error. `satisfies`
+ * already guarantees the reverse (no stray code that isn't in the union).
+ */
+export const ALL_OPTIONS_SOURCE_ERROR_CODES = [
+  "UNAUTHENTICATED",
+  "INTEGRATION_DISCONNECTED",
+  "SOURCE_NOT_FOUND",
+  "MISSING_DEPENDENCY",
+  "PROVIDER_ERROR",
+  "SERVER_ERROR",
+  "NOT_WORKFLOW_OWNER",
+  "OWNER_MUST_CONNECT",
+  "UNKNOWN",
+] as const satisfies readonly OptionsSourceErrorCode[];
+
+// Every union member must appear in the array above (missing → compile error).
+type _MissingFromErrorCodeList = Exclude<
+  OptionsSourceErrorCode,
+  (typeof ALL_OPTIONS_SOURCE_ERROR_CODES)[number]
+>;
+const _errorCodeListIsExhaustive: _MissingFromErrorCodeList extends never
+  ? true
+  : false = true;
+void _errorCodeListIsExhaustive;
+
+/**
  * Stable HTTP response shape (success arm). The route echoes the
  * `source` key in both arms so log scraping + future client-side
  * cache keys are trivial.
