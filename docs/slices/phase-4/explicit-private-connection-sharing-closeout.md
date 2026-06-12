@@ -1,29 +1,32 @@
 # 4.CONN-SHARE — Explicit Private-Connection Sharing — Verification Closeout
 
-**Type:** Verification + closeout (docs-only). No source/test/migration/UI changed in
-this slice. Nothing pushed. `db:push` NOT run.
-**Date:** 2026-06-12
+**Type:** Verification + closeout (docs-only). Nothing pushed. `db:push` NOT run.
+**Date:** 2026-06-12 (flag-on landed 2026-06-12 — see §7)
 **Branch:** `builder-ui-v1-audit-1`
 **Plan:** [explicit-private-connection-sharing-plan.md](./explicit-private-connection-sharing-plan.md)
 (model locked §0; CS-4 audit §14; CS-4a design §15).
 
+> **STATUS: FLAG-ON — `ENABLE_CONNECTION_SHARING` enabled (local runtime via `.env.local`).**
+> Migrations confirmed applied; full check set re-run green with the flag live. Code stays
+> opt-in (`=== "true"`); production go-live = set the same env var at deploy. See §7. **Not
+> pushed/deployed — awaiting Marcus's deploy approval.**
+
 ---
 
-## 1. Executive summary — GO (flag-on recommended, after the two prerequisites)
+## 1. Executive summary — GO (flag enabled; ready for deploy pending approval)
 
-The explicit private-connection sharing feature (CS-1 → CS-5b) is **functionally
-complete behind `ENABLE_CONNECTION_SHARING` (default OFF)** and verified end-to-end. The
-implementation matches the locked model: connector-push sharing, ambiguity-aware
-fail-closed run/edit gate, node-level connector binding for the 2+-sharer case, a resolver
-that the gate and the executor **share** (cannot drift), and a no-leak surface throughout.
+The explicit private-connection sharing feature (CS-1 → CS-5b) is **complete and now
+ENABLED** via `ENABLE_CONNECTION_SHARING` (env-var convention). The implementation matches
+the locked model: connector-push sharing, ambiguity-aware fail-closed run/edit gate,
+node-level connector binding for the 2+-sharer case, a resolver that the gate and the
+executor **share** (cannot drift), and a no-leak surface throughout.
 
-All five static checks pass and the full unit suite is green except **one pre-existing,
-CONN-SHARE-unrelated** suite (`features/integrations/ConnectButton` — jsdom navigation,
-file untouched by the arc).
+All five static checks pass and the **full unit suite is fully green** (17,766 passed / 0
+failed). The earlier `features/integrations/ConnectButton` failures were **stale test
+assertions** (not jsdom, not CONN-SHARE) and are fixed (`d4a349c36`).
 
-**Recommendation: safe to enable `ENABLE_CONNECTION_SHARING`** once two deploy-time
-prerequisites are met (below). Do not flip the flag until Marcus approves and the
-prerequisites are confirmed.
+**Recommendation: ready to deploy with the feature live.** Set `ENABLE_CONNECTION_SHARING=true`
+in the production environment at deploy. Kill-switch: remove the var / set `=false`.
 
 **Flag-on prerequisites (must hold in the target environment):**
 1. Both migrations are applied to the target DB:
@@ -176,20 +179,66 @@ detached checkout), so this rests on code-level evidence, not a bisect.
 - **List-row resolvability batching** (CS-5b follow-up): the list chip is conservative by
   design; a batched resolvability pass would let non-creator-runnable shared workflows show an
   enabled chip without opening detail. Safe to defer — the gate is the real enforcement.
-- **Migration application is a deploy prerequisite**, not verified here (no `db:push`).
+- **Migrations applied** to the V2 dev DB — confirmed 2026-06-12 (see §7.2). Production
+  go-live still requires the same two migrations applied to the prod DB.
 - **OQ-4a residuals** (plan §15.11): stale-binding rows are left inert (resolve-time recheck
   makes them harmless); multi-node same-provider different-connector is permitted and covered
   by engine parity tests.
-- **ConnectButton jsdom failure** is pre-existing and worth a separate fix (mock
-  `window.location` / navigation), independent of this arc.
+- **List-row resolvability batching** (CS-5b follow-up) remains the one deferred polish; the
+  run/edit gate is the real enforcement, so the conservative list chip never over-permits.
 
 ---
 
 ## 6. Result
 
-- **Verification:** PASS (static checks + 17,727 unit tests; the only failures are a
-  pre-existing, CONN-SHARE-unrelated jsdom suite).
-- **Bugs found/fixed:** none in CONN-SHARE.
-- **Flag-on:** **recommended**, gated on (1) both migrations applied to the target DB and
-  (2) Marcus's approval. Flag remains **OFF** in code; not flipped.
-- **No push / no deploy / no `db:push`. No AI/MCP/billing code changed by this verification.**
+- **Verification:** PASS (all static checks + 17,766 unit tests green; 0 failures).
+- **Bugs found/fixed:** none in CONN-SHARE. The unrelated `ConnectButton` failures were stale
+  test assertions (APPS-RECONNECT added a second `startOAuth` arg) — fixed in `d4a349c36`.
+- **Flag-on:** **DONE** — `ENABLE_CONNECTION_SHARING` enabled via `.env.local` (env-var
+  convention); code stays opt-in; full check set re-run green with the flag live (§7).
+- **No push / no deploy / no `db:push`. No AI/MCP/billing/AI-DIAG code changed.**
+
+---
+
+## 7. Flag-on (go-live) — 2026-06-12
+
+### 7.1 Exact flag change
+- **Mechanism: env-var enablement** (the dominant convention for these rollout guards —
+  `ENABLE_NODE_CREDENTIAL_REASSIGNMENT`, `ENABLE_ACCOUNT_PURGE_CRON`, etc., all
+  `process.env[FLAG] === "true"`). Chosen over a code-default opt-out because the CONN-SHARE
+  suite encodes **"env unset = OFF / WF-RUNPERM"** as its baseline; an opt-out flip would have
+  required rewriting those OFF-path tests. Code stays **unchanged** (`isConnectionSharingEnabled`
+  remains `=== "true"`), so the per-test flag contract holds and the suite stays green.
+- **Local runtime:** added to **`.env.local`** (gitignored — not committed):
+  ```
+  ENABLE_CONNECTION_SHARING=true
+  ```
+- **Kill-switch:** remove that line (or set `=false`) → every path reverts to WF-RUNPERM
+  creator-only behavior (the flag is read at call time, so no redeploy needed to flip).
+- **Jest is unaffected** by `.env.local` — Jest does not load dotenv (verified: no `dotenv`
+  in `jest.config.mjs` / `jest.setup.ts`), and each suite sets the flag per-test.
+
+### 7.2 Migrations (confirmed applied on the V2 dev DB)
+Queried `supabase_migrations.schema_migrations` (Session pooler `aws-1-us-east-1.pooler…`):
+- `20260622000000_add_integration_sharing_scope.sql` → **APPLIED** (column + CHECK present).
+- `20260623000000_workflow_node_connector_bindings.sql` → **APPLIED** (table + RLS policy present).
+
+### 7.3 Checks re-run with the flag live (HEAD at run time `8e090b2f6`)
+| Check | Result |
+|---|---|
+| Targeted: CONN-SHARE + Apps sharing + builder picker + run/edit route + engine cred-resolution + offboarding (19 suites) | ✅ 380/380 |
+| `typecheck` | ✅ 0 source errors |
+| `lint` | ✅ 0 errors (21 warnings, pre-existing/AI-DIAG) |
+| `lint:structure` | ✅ OK |
+| `lint:migrations` | ✅ OK |
+| `build` | ✅ Compiled successfully, 75/75 static pages |
+| full `jest` | ✅ 17,766 passed / 181 skipped / 0 failed |
+
+### 7.4 Push / deploy recommendation
+- **Ready to deploy with the feature live.** At deploy, set
+  `ENABLE_CONNECTION_SHARING=true` in the **production** environment (host/Vercel env), and
+  confirm both migrations §7.2 are applied to the **prod** DB before/with the deploy.
+- **Not pushed/deployed** — awaiting Marcus's explicit approval (standing push/deploy policy).
+- Post-deploy smoke: share a personal connection from Apps; confirm a non-creator teammate can
+  run a single-sharer shared workflow; confirm a 2+-sharer workflow blocks until a connector is
+  bound; confirm unshare reverts to creator-only. Kill-switch (`=false`) reverts instantly.
