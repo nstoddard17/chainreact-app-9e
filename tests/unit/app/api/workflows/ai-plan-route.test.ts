@@ -28,11 +28,20 @@ jest.mock("@/services/ai/events", () => ({
   recordAiPlanOutcome: (...a: unknown[]) => mockRecordPlan(...a),
 }));
 
-// 4.ACCOUNT-MODEL-9d: the route resolves the caller's account for AI-cost ownership.
-jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
-  ensurePersonalAccount: jest.fn(async () => ({ id: "acct-user-1" })),
-}));
+// 4.AI-CREDITS-3b-0: the route resolves the WORKFLOW-OWNING account (+ authorizes
+// membership) via `loadWorkflowForMember` before the planner. Partial-mock `_shared`
+// so `loadWorkflowForMember` is controllable while `requireUser` / `parseJsonBody`
+// stay real (the auth + body-parse contract is still exercised end-to-end).
+const mockLoadWorkflowForMember = jest.fn();
+jest.mock("@/app/api/workflows/_shared", () => {
+  const actual = jest.requireActual("@/app/api/workflows/_shared");
+  return {
+    ...actual,
+    loadWorkflowForMember: (...a: unknown[]) => mockLoadWorkflowForMember(...a),
+  };
+});
 
+import { NextResponse } from "next/server";
 import { POST } from "@/app/api/workflows/[id]/ai/plan/route";
 
 function call(id: string, body: unknown) {
@@ -66,6 +75,13 @@ beforeEach(() => {
   mockPlan.mockReset();
   mockRecordPlan.mockReset();
   mockRecordPlan.mockResolvedValue(undefined);
+  mockLoadWorkflowForMember.mockReset();
+  // Default: caller is a member of the workflow's account. `record.accountId` is
+  // the workflow-owning account (acct-wf-1), distinct from the actor's user id.
+  mockLoadWorkflowForMember.mockResolvedValue({
+    ok: true,
+    record: { id: "wf-1", accountId: "acct-wf-1" },
+  });
 });
 
 describe("auth", () => {
@@ -228,11 +244,11 @@ describe("result mapping", () => {
 });
 
 describe("AI-10 observability (fail-open)", () => {
-  it("records a plan event with the user/workflow + result", async () => {
+  it("records a plan event with the workflow-owning account/user/workflow + result", async () => {
     mockPlan.mockResolvedValueOnce(successResult);
     await call("wf-1", { prompt: "x" });
     expect(mockRecordPlan).toHaveBeenCalledWith(
-      { accountId: "acct-user-1", userId: "user-1", workflowId: "wf-1" },
+      { accountId: "acct-wf-1", userId: "user-1", workflowId: "wf-1" },
       expect.objectContaining({ ok: true }),
     );
   });
@@ -242,6 +258,80 @@ describe("AI-10 observability (fail-open)", () => {
     mockRecordPlan.mockRejectedValueOnce(new Error("ledger down"));
     const res = await call("wf-1", { prompt: "x" });
     expect(res.status).toBe(200);
+  });
+});
+
+// ─── Slice 4.AI-CREDITS-3b-0 — workflow-owning-account attribution + authz ────
+describe("AI-CREDITS-3b-0 — workflow-owning account attribution", () => {
+  it("personal workflow → recorder gets the workflow's account id (= record.accountId)", async () => {
+    // A personal workflow is owned by the user's personal account; record.accountId
+    // carries that account id (not the raw user id).
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-1", accountId: "acct-personal-1" },
+    });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", { prompt: "x" });
+    expect(mockRecordPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: "acct-personal-1", userId: "user-1" }),
+      expect.anything(),
+    );
+  });
+
+  it("team workflow → recorder gets the team/workflow account id, NOT the actor's personal id", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-team", accountId: "acct-team-7" },
+    });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-team", { prompt: "x" });
+    const [scope] = mockRecordPlan.mock.calls[0]!;
+    expect((scope as { accountId: string }).accountId).toBe("acct-team-7");
+    // The actor id must never be used as the cost-owner account.
+    expect((scope as { accountId: string }).accountId).not.toBe("user-1");
+  });
+
+  it("the recorder's accountId equals the resolver's record.accountId", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-9", accountId: "acct-resolved-9" },
+    });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-9", { prompt: "x" });
+    const [scope] = mockRecordPlan.mock.calls[0]!;
+    expect((scope as { accountId: string }).accountId).toBe("acct-resolved-9");
+  });
+
+  it("ignores a client-supplied accountId — uses the resolved workflow account", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    // Malicious/incorrect client tries to choose the cost owner.
+    await call("wf-1", { prompt: "x", accountId: "acct-EVIL" });
+    const [scope] = mockRecordPlan.mock.calls[0]!;
+    expect((scope as { accountId: string }).accountId).toBe("acct-wf-1");
+    expect((scope as { accountId: string }).accountId).not.toBe("acct-EVIL");
+    // The planner is never handed a client accountId either.
+    const [planArg] = mockPlan.mock.calls[0]!;
+    expect(planArg).not.toHaveProperty("accountId");
+  });
+
+  it("returns a no-leak 404 BEFORE the planner when the workflow is missing/non-member/deleted", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json(
+        { error: "Workflow not found.", code: "WORKFLOW_NOT_FOUND" },
+        { status: 404 },
+      ),
+    });
+    const res = await call("wf-forbidden", { prompt: "x" });
+    expect(res.status).toBe(404);
+    // No paid model call for an unauthorized id.
+    expect(mockPlan).not.toHaveBeenCalled();
+    // No telemetry attributed for a request that never reached the planner.
+    expect(mockRecordPlan).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_NOT_FOUND");
+    // No existence leak / no internals.
+    expect(JSON.stringify(body)).not.toContain("acct-");
   });
 });
 

@@ -5,8 +5,7 @@ import {
   type PlanWorkflowFailureCode,
 } from "@/services/ai/planner";
 import { recordAiPlanOutcome } from "@/services/ai/events";
-import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
-import { parseJsonBody, requireUser } from "../../../_shared";
+import { loadWorkflowForMember, parseJsonBody, requireUser } from "../../../_shared";
 
 /**
  * POST /api/workflows/[id]/ai/plan — the first app-facing AI route (Slice 4.AI-9A).
@@ -15,7 +14,8 @@ import { parseJsonBody, requireUser } from "../../../_shared";
  * preview via `planWorkflowFromPromptForAI` (model → parse → AI-3 validate → AI-5
  * preview). It NEVER applies a patch, NEVER mutates the workflow / DB, and NEVER
  * persists the prompt or model output. The route stays thin: auth → validate →
- * call the orchestrator → format response.
+ * resolve+authorize the workflow account (4.AI-CREDITS-3b-0) → call the orchestrator
+ * → format response.
  *
  * Safety / status mapping:
  *   - 401 unauthenticated; 400 invalid body.
@@ -119,6 +119,18 @@ export async function POST(
   const body = await parseJsonBody(request, PlanRequestSchema);
   if (!body.ok) return body.response;
 
+  // Slice 4.AI-CREDITS-3b-0 — resolve the WORKFLOW-OWNING account + authorize
+  // membership BEFORE the paid planner call. `loadWorkflowForMember` is the
+  // canonical resolver: RLS-scoped `getById` + `isMember`, collapsing a missing /
+  // deleted / non-member workflow to the standard no-leak 404 (no existence leak,
+  // and — unlike before — no model call is made for an unauthorized id). The
+  // returned `record.accountId` is the cost owner for AI usage (personal → personal,
+  // team → team pool, business → business pool); it is ALWAYS resolved server-side
+  // and NEVER taken from the client.
+  const wf = await loadWorkflowForMember(id, auth.userId);
+  if (!wf.ok) return wf.response;
+  const accountId = wf.record.accountId;
+
   let result;
   try {
     result = await planWorkflowFromPromptForAI({
@@ -143,11 +155,13 @@ export async function POST(
   // its own errors; the extra try/catch is belt-and-suspenders so analytics can
   // never affect the response. No raw prompt/config is recorded.
   try {
-    // 4.ACCOUNT-MODEL-9d: AI cost is owned by the account; userId is the actor.
-    const account = await ensurePersonalAccount(auth.userId);
+    // 4.AI-CREDITS-3b-0: AI cost is owned by the WORKFLOW-OWNING account (resolved
+    // above), never the actor's personal account — so a Team/Business workflow's
+    // usage attributes to the team/business account, not the member's personal pool.
+    // `userId` remains the actor (provenance, not owner).
     await recordAiPlanOutcome(
       {
-        accountId: account.id,
+        accountId,
         userId: auth.userId,
         workflowId: id,
         ...(body.data.interactionKind ? { interactionKind: body.data.interactionKind } : {}),
