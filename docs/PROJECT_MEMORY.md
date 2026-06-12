@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-11 @ 9abe08ab6 (prod)
+> Last curated: 2026-06-12 @ 8c38d8b60 (local; branch builder-ui-v1-audit-1)
 
 ## Current status
 
@@ -14,11 +14,14 @@
   **Authenticated + execution production smoke GREEN (2026-06-11)** — `npm run smoke:prod`,
   30 tests, 29 passed / 1 skipped / 0 failed, on deployed `9abe08ab6`. Vercel log review
   still manual.
-- **Push state:** `62da1088b..9abe08ab6` is pushed to `origin/v2-main`. Working branch
-  `builder-ui-v1-audit-1` has **local-only** commits on top — docs status (`dd9e69502`) and
-  MCP Stage-2 plan + Stage-2A (`64bfd850a`, `ccace0e23`). Push-gated: don't push without Marcus.
-- **Open threads:** connected-app recovery UX (Reconnect/Disconnect) and a localhost-OAuth
-  session observation — see Open risks.
+- **Push state:** `origin/v2-main` is at `9abe08ab6` (last prod push). Working branch
+  `builder-ui-v1-audit-1` is **ahead 15, local-only** — incl. the Connected-app disconnect
+  arc (CD-1..CD-3 + polish `8c38d8b60`) and MCP Stage-2B live diagnostics. Push-gated: don't
+  push without Marcus.
+- **Open threads:** Connected-app **Disconnect** is built but **flag-gated**
+  (`ENABLE_INTEGRATION_DISCONNECT` default OFF) — turning it on in prod is a separate release
+  decision. MCP internal diagnostic suite has planned-but-unbuilt stages (2B-3+) →
+  [`mcp-internal-diagnostic-suite-roadmap.md`](./slices/phase-4/mcp-internal-diagnostic-suite-roadmap.md).
 
 ## Durable decisions
 
@@ -36,15 +39,6 @@
 
 ## Open risks & follow-ups
 
-- [Marcus/Claude] **Connected-app recovery UX gap** — no visible **Reconnect** on connected
-  app cards; **Disconnect** needs separate backend/API design (`markDisconnected()` is
-  repo-only dead code, no route). Recovery relies on the "Connect another → same workspace"
-  workaround → [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
-- [Marcus] **Localhost OAuth session confusion** observed after Slack re-OAuth (signed-in
-  user appeared to change). Appears explained by the localhost OAuth flow redirecting to
-  production while another production session was active — **not a proven production auth
-  bug**; revisit before building the Reconnect UX →
-  [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
 - [n/a] Slack-side message landing is **not externally verified** — that smoke step is
   intentionally gated (no Slack API read creds in the harness) →
   [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
@@ -58,6 +52,17 @@
 
 ## Recently completed arcs
 
+- **Connected-app recovery + disconnect (local-only, 2026-06-12)** — **Reconnect UX-complete**
+  on connected app cards (provider-level recovery, always visible on collapsed cards;
+  filled-secondary + refresh glyph + "Refresh this connection" tooltip). **"Connect another"
+  UX-complete** ("Add another account"). Per-account **Disconnect UI + backend** (service/repo
+  CD-1, routes CD-2, UI CD-3) shipped but **flag-gated behind `ENABLE_INTEGRATION_DISCONNECT`,
+  default OFF — NOT product-launched**; `markDisconnected()` dead code replaced by a
+  service-role disconnect path. Latest polish (`8c38d8b60`) was tooltips + JSDoc only — no
+  backend/OAuth/DTO/API change. Localhost-OAuth observation audited as a dev redirect artifact,
+  not a prod auth bug → [`connected-app-recovery-ux.md`](./slices/phase-4/connected-app-recovery-ux.md),
+  [`connected-app-disconnect-plan.md`](./slices/phase-4/connected-app-disconnect-plan.md);
+  commits `55c004501`/`deb4897a5`/`9964dc5d3`/`8c38d8b60`.
 - **Production smoke closeout (2026-06-11)** — run-now `after()` reliability validated in
   prod (builder manual-run finalizes + appears on `/runs`); Slack action manual-run
   finalization validated; Slack channel loading recovered after Slack re-OAuth →
