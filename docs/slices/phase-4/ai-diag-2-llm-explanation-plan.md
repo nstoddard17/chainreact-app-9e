@@ -5,6 +5,49 @@ changes in this slice. Nothing pushed.**
 **Date:** 2026-06-12
 **Branch:** `builder-ui-v1-audit-1`
 
+---
+
+## 0. As-built closeout (SHIPPED 2026-06-12 — local-only, flags OFF)
+
+> This plan was implemented across **2-pre → 2a → 2b**. The §1–§13 body below is the
+> design as proposed; this section records the **as-built** state. Everything is **local
+> commits on `builder-ui-v1-audit-1`, not pushed/deployed**. `ENABLE_AI_CREDIT_ENFORCEMENT`
+> is **OFF** and the OpenAI provider is **not enabled**, so the explain endpoint returns a
+> safe **503** until OpenAI is configured.
+
+**Shipped commits:**
+- `a66d0d87e` — **2-pre:** the deterministic `/ai/diagnose` 0-credit telemetry now bills the
+  **workflow-owning account** (via `loadWorkflowForMember`), not the actor's personal account.
+  Still 0-credit, ungated, no model; response DTO unchanged. (Resolves the plan's OQ-1.)
+- `baea491b4` — **2a:** `buildDiagnosisExplainContext` (pure allow-list projector) +
+  `explainWorkflowDiagnosis` (injected client, structured `responseTool`, strict re-validation)
+  + `POST /api/workflows/[id]/ai/diagnose/explain` + `lib/api/ai.explainDiagnosis()`. No UI.
+- `8e090b2f6` — **2b:** Builder "Explain with AI" button + explanation rendering (UI/client only).
+
+**As-built behavior:** deterministic "Check workflow" stays **0-credit / ungated / no model**.
+**"Explain with AI"** is optional and **explicit-click only** (never auto-called). The route
+**re-derives the safe DTO server-side** (never trusts a client-posted DTO), authorizes via
+`loadWorkflowForMember` (no-leak 404 before any model call), requires OpenAI configured
+(`ENABLE_OPENAI_PROVIDER` + `OPENAI_API_KEY` — **not** the planner flag; never charges when
+unconfigured), gates **before** the model call (`workflow_explanation` = **1** credit, existing
+policy), calls **OpenAI fast**, and records an `ai_cost_events` model-call event billed to the
+**workflow-owning account** (fail-open). Denials map to 402 `AI_CREDITS_EXHAUSTED` / 403 frozen /
+503 model|gate. The model receives **only** the allow-listed projection — **no** node/workflow/run
+ids, raw config, tokens, integration rows, provider account labels, account metadata, raw DTO JSON,
+or free-text user Q&A. The UI renders **explanation-only** copy ("doesn't change or run your
+workflow"), session-local messages, disables repeat clicks ("Explained"), and shows safe credit/
+model/transport failure copy. No node/workflow/run id, account id, code, or model metadata renders.
+
+**Deferred / caveats:** free-text Q&A (AI-DIAG-3), repair planning, and **Hermes** (future runtime —
+not now) are deferred; reserve/reconcile + deep-loop cap are **AI-CREDITS-4** (deduct-only can charge
+before a later runtime model failure). Explain returns **safe 503** until OpenAI is configured.
+`BuilderAiPanel.tsx` carries a soft `max-lines` warning post-2b (not an error). **Live browser/OpenAI
+E2E smoke has not been run.** **Hermes sequencing (standing direction):** deterministic diagnosis →
+safe single-call explanation → dev/OpenAI smoke → later Q&A / repair planning → **only then** agent-
+runtime abstraction / Hermes.
+
+---
+
 **Source of truth (verified — every file below was read):**
 [services/ai/diagnostics/diagnoseWorkflowForAgent.ts](../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts) (`AgentWorkflowDiagnosisDTO`, safe-by-construction) ·
 [services/ai/diagnostics/renderWorkflowDiagnosis.ts](../../../services/ai/diagnostics/renderWorkflowDiagnosis.ts) (pure `summaryText`/`nextSteps`) ·

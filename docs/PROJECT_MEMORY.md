@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-12 @ 44566615c (AI-CREDITS-3b arc closeout — gate wired flag-OFF, local-only)
+> Last curated: 2026-06-12 @ 8e090b2f6 (AI-DIAG-2 arc closeout — safe "Explain with AI", local-only, flags OFF)
 
 ## Current status
 
@@ -26,12 +26,16 @@
     run-failure/visibility, workflow-readiness, integration- + workflow-connections); remaining
     stages **2B-5 (graph) / 2C (doctors) / 2D (reports) unbuilt** →
     [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
-  - React Agent consumes `services/diagnostics/*` directly ("Check workflow" UI, AI-DIAG-1/1b local).
-    **AI credit enforcement WIRED, flag-OFF (local-only)** — the paid planner (`workflow_creation`) is
-    gated **before** the model call and bills the **workflow-owning account**; deterministic diagnosis
-    stays 0-credit/ungated. Controlled by `ENABLE_AI_CREDIT_ENFORCEMENT` (literal `"true"`; `"1"` is a
-    no-op), **OFF everywhere**, not pushed/deployed. Reserve/reconcile + deep-loop cap = AI-CREDITS-4;
-    OpenAI pricing still deferred. Before turning it on → [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
+  - **AI diagnosis + explanation (local-only, flags OFF).** Deterministic "Check workflow"
+    (AI-DIAG-1) stays 0-credit/ungated/no-model; its telemetry now bills the workflow-owning
+    account (AI-DIAG-2-pre). **"Explain with AI" SHIPPED** (AI-DIAG-2): explicit-click only; the
+    route re-derives the safe DTO server-side and sends only an allow-listed projection to OpenAI
+    fast, gated **before** the model call (`workflow_explanation`=1, workflow-owning account),
+    explanation-only UI. **Credit enforcement WIRED but OFF** (`ENABLE_AI_CREDIT_ENFORCEMENT` =
+    literal `"true"`); OpenAI provider not enabled → explain returns safe 503. **Next:** dev/OpenAI
+    smoke → later Q&A/repair → **only then** Hermes →
+    [`ai-diag-2-llm-explanation-plan.md` §0](./slices/phase-4/ai-diag-2-llm-explanation-plan.md) ·
+    [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
 
 ## Durable decisions
 
@@ -86,6 +90,13 @@
 
 ## Recently completed arcs
 
+- **AI diagnosis explanation (AI-DIAG-2) — safe single-call "Explain with AI", local-only (2026-06-12)** —
+  deterministic check stays 0-credit/ungated (telemetry now → workflow-owning account); optional
+  explicit-click explanation re-derives the safe DTO server-side, sends only an allow-listed projection
+  to OpenAI fast (no ids/config/tokens/free-text), gated before the model call (`workflow_explanation`=1,
+  workflow-owning account); explanation-only UI. Flags OFF, OpenAI not enabled → safe 503. Q&A/repair/
+  Hermes deferred → `a66d0d87e`/`baea491b4`/`8e090b2f6` +
+  [`ai-diag-2-llm-explanation-plan.md` §0](./slices/phase-4/ai-diag-2-llm-explanation-plan.md).
 - **AI credit enforcement (AI-CREDITS-3b) — gate WIRED flag-OFF, local-only (2026-06-12)** — paid
   planner (`workflow_creation`) gated before the model call → 402 `AI_CREDITS_EXHAUSTED` (planner not
   called) / 403 frozen / 503 fail-closed; bills the workflow-owning account. Migration `20260621000000`
@@ -117,15 +128,6 @@
   prod (builder manual-run finalizes + appears on `/runs`); Slack action manual-run
   finalization validated; Slack channel loading recovered after Slack re-OAuth →
   `dd9e69502` + [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
-- **Slack action smoke** — `tests/smoke/slack-action.smoke.spec.ts` (pick channel by visible
-  name → run → assert finalize), `RUN_EXECUTION`-gated real send → shipped in
-  `62da1088b..9abe08ab6`.
-- **Internal MCP server — Stage 1 + 1.5 HTTP transport SHIPPED to `v2-main`** (in
-  `62da1088b..9abe08ab6`). Streamable HTTP front door (`/mcp`) for a ChatGPT Developer-Mode
-  connector over the same read-only Stage-1 registry. **Stage-2A diagnostics** (smoke artifact
-  + static option-source tools) implemented **locally** (`ccace0e23`, plan `64bfd850a`) — not
-  pushed. Runbooks → [`chatgpt-mcp-developer-mode.md`](./runbooks/chatgpt-mcp-developer-mode.md),
-  [`internal-mcp-server.md`](./runbooks/internal-mcp-server.md).
 
 ## Owner preferences
 
