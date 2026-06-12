@@ -446,6 +446,70 @@ export async function clearBuilderAgentThread(
 }
 
 /**
+ * Slice 4.AI-DIAG-1 — read-only "Check this workflow" / "Why won't this workflow
+ * run?" diagnosis for the React Agent.
+ *
+ * `diagnoseWorkflow(workflowId)` POSTs to `/api/workflows/[id]/ai/diagnose` and
+ * returns the agent-safe DTO. These are CLIENT-OWNED views of the (already-
+ * sanitized) route response — the client may not import the `@/services/**` DTO
+ * types. The DTO carries codes / node ids / provider ids+public names / missing-
+ * field NAMES / public scope-gap names / the stored humanized run classification /
+ * safe deterministic text only. Never tokens, raw config, or integration rows.
+ */
+
+export type AgentDiagnosisAccess = "OK" | "NOT_FOUND" | "NO_ACCESS";
+
+export interface AgentDiagnosisFinding {
+  readonly source: "graph" | "field" | "connection" | "run";
+  readonly code: string;
+  readonly severity: "error" | "warning";
+  readonly title: string;
+  readonly nodeIds?: readonly string[];
+  readonly provider?: string;
+  readonly providerName?: string | null;
+  readonly missingFields?: readonly string[];
+  readonly missingScopes?: readonly string[];
+  readonly credentialClass?: "personal" | "account";
+}
+
+export interface AgentLatestRunSummary {
+  readonly runId: string;
+  readonly status: "succeeded" | "failed" | "running";
+  readonly visibility: string;
+  readonly classificationAvailable: boolean;
+  readonly errorClassification?: {
+    readonly title: string;
+    readonly description: string;
+    readonly hint?: string;
+    readonly action?: "reconnect" | "open_node" | "upgrade_plan";
+    readonly severity: "warning" | "error";
+  } | null;
+  readonly firstFailedNodeId?: string | null;
+}
+
+export interface AgentWorkflowDiagnosis {
+  readonly workflowId: string;
+  readonly access: AgentDiagnosisAccess;
+  // Present only when access === "OK".
+  readonly overallReady?: boolean;
+  readonly runnable?: boolean;
+  readonly allRequiredConnected?: boolean;
+  readonly findings?: readonly AgentDiagnosisFinding[];
+  readonly latestRun?: AgentLatestRunSummary;
+  readonly summaryText?: string;
+  readonly nextSteps?: readonly string[];
+}
+
+export async function diagnoseWorkflow(
+  workflowId: string,
+): Promise<AgentWorkflowDiagnosis> {
+  return fetchJson<AgentWorkflowDiagnosis>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: "{}" },
+  );
+}
+
+/**
  * AI-13 failed-run repair (POST /api/workflows/[id]/runs/[runId]/ai/repair).
  *
  * Client-side view of the AI-7 service's `RepairSuggestionResult`. Like
