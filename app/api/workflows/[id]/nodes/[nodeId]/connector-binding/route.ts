@@ -2,8 +2,40 @@ import { NextResponse } from "next/server";
 import {
   setNodeConnectorBinding,
   clearNodeConnectorBinding,
+  getNodeConnectorBindingState,
 } from "@/services/integrations/connectionBinding";
 import { resolveCaller, connectorBindingErrorResponse } from "./_shared";
+
+/**
+ * GET /api/workflows/[id]/nodes/[nodeId]/connector-binding (Slice 4.CONN-SHARE / CS-5b)
+ *
+ * The builder's per-node binding state: `{ status, connectors, currentConnectorDisplayName }`.
+ * Editor-gated; no-leak (status enum + safe `{userId, displayName, role}` options +
+ * a display name only). not_enabled / non-member collapse to 404.
+ */
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; nodeId: string }> },
+): Promise<Response> {
+  const { id, nodeId } = await params;
+
+  const resolved = await resolveCaller(id);
+  if (!resolved.ok) return resolved.response;
+
+  const result = await getNodeConnectorBindingState({
+    workflowId: id,
+    nodeId,
+    callerUserId: resolved.caller.userId,
+    callerRole: resolved.caller.role,
+  });
+  if (!result.ok) return connectorBindingErrorResponse(result.reason);
+
+  return NextResponse.json({
+    status: result.status,
+    connectors: result.connectors,
+    currentConnectorDisplayName: result.currentConnectorDisplayName,
+  });
+}
 
 /**
  * PUT/DELETE /api/workflows/[id]/nodes/[nodeId]/connector-binding

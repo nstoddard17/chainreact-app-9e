@@ -10,8 +10,10 @@ import {
   setForNodeServiceRole,
   deleteForNodeServiceRole,
   listByWorkflowServiceRole,
+  getForNodeServiceRole,
 } from "@/repositories/workflowNodeConnectorBindings";
 import { isPrivateCredentialProvider } from "@/core/integrations/workflowCredentialScope";
+import { loadAcceptedNodeOwners } from "@/services/teamCredentials/nodeCredentialOwners";
 import { listMembers } from "@/services/accounts/membership";
 import { isConnectionSharingEnabled } from "./connectionSharingFlags";
 
@@ -220,6 +222,100 @@ export async function listEligibleSharedConnectors(input: {
     .filter((m) => sharedSet.has(m.userId))
     .map((m) => ({ userId: m.userId, displayName: m.displayName, role: m.role }));
   return { ok: true, connectors };
+}
+
+/**
+ * The builder's per-node connector-binding STATE (Slice 4.CONN-SHARE / CS-5b) —
+ * the single read the config-modal picker uses. Editor-gated (same as set/clear).
+ *
+ * Status precedence mirrors the CS-4b resolver so the UI and execution agree:
+ *   - `not_applicable` — account/native provider, OR an accepted node-credential
+ *     grant owns the node (the reassignment UI covers it; the binding picker hides).
+ *   - `bound` — a VALID binding (the bound connector is still in the live shared
+ *     set). `currentConnectorDisplayName` names them.
+ *   - `unavailable` — a STALE binding (connector unshared/disconnected/left), OR no
+ *     member shares this provider at all. The UI must offer a re-pick; it must NEVER
+ *     silently switch to another connector.
+ *   - `single_sharer` — exactly one shared connector, auto-resolved (no picker
+ *     required); `currentConnectorDisplayName` names them.
+ *   - `needs_selection` — 2+ shared connectors and no valid binding → show the picker.
+ *
+ * No-leak: returns the status enum + the safe `{ userId, displayName, role }`
+ * options (same shape eligible-targets already exposes) + a display name. Never a
+ * token, provider account id, email, scope, or account metadata.
+ */
+export async function getNodeConnectorBindingState(input: {
+  workflowId: string;
+  nodeId: string;
+  callerUserId: string;
+  callerRole: MembershipRole;
+}): Promise<
+  | {
+      ok: true;
+      status: "not_applicable" | "single_sharer" | "needs_selection" | "bound" | "unavailable";
+      connectors: readonly SharedConnectorOption[];
+      currentConnectorDisplayName: string | null;
+    }
+  | { ok: false; reason: ConnectorBindingReason }
+> {
+  if (!isConnectionSharingEnabled()) return fail("not_enabled");
+
+  const gate = await resolveBindableNode(input);
+  if (!gate.ok) {
+    // Account/service + native nodes are a valid "nothing to bind" STATE for the
+    // builder (200), not an error — the picker simply renders nothing.
+    if (gate.reason === "not_applicable") {
+      return { ok: true, status: "not_applicable", connectors: [], currentConnectorDisplayName: null };
+    }
+    return gate;
+  }
+  const { accountId, provider } = gate;
+
+  // An accepted per-node credential grant WINS over a connection binding — the
+  // reassignment UI owns that node; the connector picker stays out of the way.
+  const acceptedOwners = await loadAcceptedNodeOwners(input.workflowId);
+  if (acceptedOwners.get(input.nodeId)) {
+    return { ok: true, status: "not_applicable", connectors: [], currentConnectorDisplayName: null };
+  }
+
+  const [sharedSet, members, binding] = await Promise.all([
+    listSharedConnectorUserIdsServiceRole(accountId, provider),
+    listMembers(accountId),
+    getForNodeServiceRole(input.workflowId, input.nodeId),
+  ]);
+  const nameByUser = new Map(members.map((m) => [m.userId, m.displayName]));
+  const connectors: SharedConnectorOption[] = members
+    .filter((m) => sharedSet.has(m.userId))
+    .map((m) => ({ userId: m.userId, displayName: m.displayName, role: m.role }));
+
+  const bindingConnector =
+    binding && binding.provider === provider ? binding.connectorUserId : null;
+
+  if (bindingConnector !== null && sharedSet.has(bindingConnector)) {
+    return {
+      ok: true,
+      status: "bound",
+      connectors,
+      currentConnectorDisplayName: nameByUser.get(bindingConnector) ?? null,
+    };
+  }
+  if (bindingConnector !== null) {
+    // Stale binding — the connector unshared / disconnected / left. Never resolve
+    // to anyone else; the UI prompts a re-pick.
+    return { ok: true, status: "unavailable", connectors, currentConnectorDisplayName: null };
+  }
+  if (sharedSet.size === 0) {
+    return { ok: true, status: "unavailable", connectors, currentConnectorDisplayName: null };
+  }
+  if (sharedSet.size === 1) {
+    return {
+      ok: true,
+      status: "single_sharer",
+      connectors,
+      currentConnectorDisplayName: connectors[0]?.displayName ?? null,
+    };
+  }
+  return { ok: true, status: "needs_selection", connectors, currentConnectorDisplayName: null };
 }
 
 /**
