@@ -68,6 +68,21 @@ export interface OAuthStatePayload {
    * unchanged.
    */
   providerHint?: ProviderHint;
+  /**
+   * Reconnect intent (Slice 4.APPS-RECONNECT). Present ONLY when the connect
+   * flow was started in per-account reconnect mode — it binds the SPECIFIC
+   * integration row the user intends to reconnect into the signed state. At
+   * callback time the dispatcher loads that row and refuses to upsert if the
+   * provider-returned identity (`provider_account_id`) doesn't match it — so a
+   * user with several accounts on one provider can't silently refresh the wrong
+   * row. Carries ONLY the opaque integration row id; the row's identity/email is
+   * re-derived server-side at callback, never placed in the token. JWT-only — not
+   * persisted on the `oauth_states` DB row (no migration). Normal Connect /
+   * Connect-another flows omit it and are unchanged.
+   */
+  reconnect?: {
+    integrationId: string;
+  };
 }
 
 export class InvalidStateError extends Error {
@@ -114,6 +129,14 @@ export interface CreateStateInput {
    * Non-tenant providers omit the field.
    */
   providerHint?: ProviderHint;
+  /**
+   * Reconnect intent (Slice 4.APPS-RECONNECT). Baked into the signed JWT,
+   * NOT written to the DB row. Set only when the connect route resolved +
+   * authorized a per-account reconnect target. Normal flows omit it.
+   */
+  reconnect?: {
+    integrationId: string;
+  };
 }
 
 /**
@@ -149,6 +172,9 @@ export async function createState(
     requestedScopes: [...input.requestedScopes],
     ...(input.providerHint !== undefined
       ? { providerHint: { ...input.providerHint } }
+      : {}),
+    ...(input.reconnect !== undefined
+      ? { reconnect: { integrationId: input.reconnect.integrationId } }
       : {}),
   };
 
@@ -215,6 +241,19 @@ export function verifyState(token: string): OAuthStatePayload {
   // upstream; this is defense-in-depth against signing-key compromise.)
   if (payload.providerHint !== undefined && !isValidProviderHint(payload.providerHint)) {
     throw new InvalidStateError("malformed providerHint");
+  }
+  // Reconnect intent (Slice 4.APPS-RECONNECT) — validate shape if present. A
+  // tampered JWT that swapped the opaque id for a non-string would otherwise
+  // propagate into the callback's row lookup. (Tampering also fails the
+  // signature check upstream; this is defense-in-depth.)
+  if (
+    payload.reconnect !== undefined &&
+    (payload.reconnect === null ||
+      typeof payload.reconnect !== "object" ||
+      typeof (payload.reconnect as { integrationId?: unknown }).integrationId !== "string" ||
+      (payload.reconnect as { integrationId: string }).integrationId.length === 0)
+  ) {
+    throw new InvalidStateError("malformed reconnect");
   }
   return payload;
 }

@@ -28,6 +28,17 @@ export const AppAccountSummarySchema = z.object({
    * re-authorize server-side, so a stale `true` cannot bypass anything.
    */
   canDisconnect: z.boolean(),
+  /**
+   * Whether the CURRENT caller may reconnect THIS connection (Slice
+   * 4.APPS-RECONNECT). Same server-derived rule as `canDisconnect` (owner/admin
+   * for account-shared providers; owner/admin OR the original connector for
+   * personal providers) — both are per-account credential operations. Drives
+   * whether the per-row Reconnect control renders. The connect route
+   * re-authorizes server-side, so a stale `true` can't bypass anything. NO
+   * identity (`provider_account_id` / email) is emitted — reconnect sends only
+   * the opaque row id.
+   */
+  canReconnect: z.boolean(),
 });
 export type AppAccountSummary = z.infer<typeof AppAccountSummarySchema>;
 

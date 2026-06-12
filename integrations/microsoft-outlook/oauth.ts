@@ -50,13 +50,14 @@ function getRedirectUrl(): string {
 export const microsoftOutlookOAuth: ProviderOAuth = {
   generatePkce: generateMicrosoftPkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "microsoftOutlookOAuth.buildAuthUrl: PKCE challenge is required for Microsoft Outlook. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildMicrosoftAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

@@ -29,6 +29,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
+  type AccountSteer,
   type EncryptedTokens,
   type PkceGeneration,
 } from "@/contracts/integration";
@@ -81,9 +82,19 @@ export interface BuildGoogleAuthUrlInput {
   scopes: readonly string[];
   pkceChallenge: { codeChallenge: string; codeChallengeMethod: string };
   redirectUrl: string;
+  /**
+   * Per-account reconnect steering (Slice 4.APPS-RECONNECT). When set, pins the
+   * sign-in to a specific Google account: `login_hint` pre-fills the email and
+   * `prompt=select_account consent` forces the account chooser (still keeping
+   * `consent` so offline access re-issues a refresh token). `loginHint` is the
+   * row's email (Google's `provider_account_id`), resolved server-side — never
+   * client-supplied. Omitted on normal connects → behavior unchanged.
+   */
+  accountSteer?: AccountSteer | null;
 }
 
 export function buildGoogleAuthUrl(input: BuildGoogleAuthUrlInput): string {
+  const steer = input.accountSteer ?? null;
   const params = new URLSearchParams({
     response_type: "code",
     client_id: getGoogleClientId(),
@@ -91,10 +102,15 @@ export function buildGoogleAuthUrl(input: BuildGoogleAuthUrlInput): string {
     scope: input.scopes.join(" "), // Google uses space-separated scopes
     state: input.state,
     access_type: "offline",
-    prompt: "consent",
+    // Reconnect steers to the chooser; keep `consent` so offline access still
+    // re-issues a refresh token (Google omits it without prompt=consent).
+    prompt: steer?.forceAccountSelection ? "select_account consent" : "consent",
     code_challenge: input.pkceChallenge.codeChallenge,
     code_challenge_method: input.pkceChallenge.codeChallengeMethod,
   });
+  if (steer?.loginHint) {
+    params.set("login_hint", steer.loginHint);
+  }
   return `${googleAuthorizeBase()}/o/oauth2/v2/auth?${params.toString()}`;
 }
 

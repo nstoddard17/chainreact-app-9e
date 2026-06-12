@@ -11,10 +11,29 @@ export interface StartOAuthResult {
   redirectUrl: string;
 }
 
-export async function startOAuth(provider: string): Promise<StartOAuthResult> {
+/**
+ * Options for {@link startOAuth}. `reconnect` (Slice 4.APPS-RECONNECT) starts the
+ * flow in per-account reconnect mode — the client passes ONLY the opaque
+ * integration row id + the owning account id; the server resolves, authorizes,
+ * and steers/verifies the provider identity. No identity is ever sent or received.
+ */
+export interface StartOAuthOptions {
+  reconnect?: { integrationId: string; accountId: string };
+}
+
+export async function startOAuth(
+  provider: string,
+  opts?: StartOAuthOptions,
+): Promise<StartOAuthResult> {
+  const body =
+    opts?.reconnect !== undefined
+      ? JSON.stringify({ reconnect: opts.reconnect })
+      : undefined;
   const res = await fetch(
     `/api/integrations/oauth/${encodeURIComponent(provider)}/connect`,
-    { method: "POST" },
+    body !== undefined
+      ? { method: "POST", headers: { "content-type": "application/json" }, body }
+      : { method: "POST" },
   );
   if (!res.ok) {
     let message = `Failed to start OAuth (HTTP ${res.status}).`;

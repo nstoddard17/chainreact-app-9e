@@ -49,13 +49,14 @@ function getRedirectUrl(): string {
 export const microsoftOneNoteOAuth: ProviderOAuth = {
   generatePkce: generateMicrosoftPkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "microsoftOneNoteOAuth.buildAuthUrl: PKCE challenge is required for Microsoft OneNote. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildMicrosoftAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

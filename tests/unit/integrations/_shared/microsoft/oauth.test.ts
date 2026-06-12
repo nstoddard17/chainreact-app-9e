@@ -128,6 +128,31 @@ describe("buildMicrosoftAuthUrl", () => {
     expect(u.searchParams.get("code_challenge_method")).toBe("S256");
   });
 
+  it("4.APPS-RECONNECT — steers the sign-in to the intended account (login_hint + prompt=select_account)", () => {
+    const url = buildMicrosoftAuthUrl({
+      state: "x",
+      scopes: ["offline_access", "Mail.Send"],
+      pkceChallenge: PKCE_CHALLENGE,
+      redirectUrl: "https://app.example.test/cb",
+      accountSteer: { loginHint: "marcus@example.com", forceAccountSelection: true },
+    });
+    const u = new URL(url);
+    expect(u.searchParams.get("login_hint")).toBe("marcus@example.com");
+    expect(u.searchParams.get("prompt")).toBe("select_account");
+  });
+
+  it("4.APPS-RECONNECT — a normal connect (no steer) adds no login_hint / prompt", () => {
+    const url = buildMicrosoftAuthUrl({
+      state: "x",
+      scopes: ["offline_access", "Mail.Send"],
+      pkceChallenge: PKCE_CHALLENGE,
+      redirectUrl: "https://app.example.test/cb",
+    });
+    const u = new URL(url);
+    expect(u.searchParams.get("login_hint")).toBeNull();
+    expect(u.searchParams.get("prompt")).toBeNull();
+  });
+
   it("space-separates scopes (Microsoft v2 endpoint convention)", () => {
     const url = buildMicrosoftAuthUrl({
       state: "x",

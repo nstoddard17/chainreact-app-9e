@@ -1,4 +1,5 @@
 import {
+  type AccountSteer,
   type ProviderHint,
   type ProviderOAuth,
   type ProviderTokenIngestAuth,
@@ -33,6 +34,7 @@ import { stripeOAuth } from "@/integrations/stripe/oauth";
 import { trelloAuth } from "@/integrations/trello/auth";
 import {
   getActiveForExecution,
+  getByIdForAccountServiceRole,
   updateTokens,
   upsertActive,
   type IntegrationRecord,
@@ -124,6 +126,59 @@ export interface ConnectInput {
    * raises a typed error.
    */
   providerHint?: ProviderHint;
+  /**
+   * Per-account reconnect intent (Slice 4.APPS-RECONNECT). Set ONLY by the
+   * connect route AFTER the reconnect service has resolved + authorized the
+   * target row (account scope + membership/connector + not-frozen). When present:
+   *   - the OAuth flow writes to `accountId` (the row's account, NOT the personal
+   *     floor) and the bound state carries the opaque `integrationId`;
+   *   - Google/Microsoft sign-in is steered to `expectedProviderAccountId` (the
+   *     row's email) via `login_hint` + force-account-selection;
+   *   - the callback refuses to upsert unless the provider-returned identity
+   *     matches that row (see `ReconnectIdentityMismatchError`).
+   * The route is responsible for authorization; the dispatcher trusts the
+   * already-vetted values. Normal Connect / Connect-another omit this.
+   */
+  reconnect?: {
+    integrationId: string;
+    accountId: string;
+    expectedProviderAccountId: string;
+  };
+}
+
+/**
+ * Thrown by `handleCallback` / `handleTokenIngest` when a per-account reconnect
+ * authorized a DIFFERENT external identity than the row it targeted (e.g. the
+ * user picked the wrong mailbox at Google's chooser). No row is created or
+ * refreshed. The callback route maps this to a stable, non-leaking status code
+ * (`reconnect_account_mismatch`) — never the raw provider identity.
+ */
+export class ReconnectIdentityMismatchError extends Error {
+  constructor() {
+    super("reconnect identity mismatch");
+    this.name = "ReconnectIdentityMismatchError";
+  }
+}
+
+/**
+ * Shared reconnect guard (Slice 4.APPS-RECONNECT) used by both callback paths.
+ * When the consumed state carried a reconnect intent, load the intended row
+ * (account-scoped, service-role) and require the provider-returned identity to
+ * match its stored `provider_account_id`. On any mismatch / missing row, throw
+ * — the caller MUST NOT upsert. No identity value is logged or surfaced.
+ */
+async function assertReconnectIdentityMatch(
+  payload: { accountId: string; reconnect?: { integrationId: string } },
+  authorizedProviderAccountId: string,
+): Promise<void> {
+  if (!payload.reconnect) return;
+  const row = await getByIdForAccountServiceRole(
+    payload.accountId,
+    payload.reconnect.integrationId,
+  );
+  if (!row || row.providerAccountId !== authorizedProviderAccountId) {
+    throw new ReconnectIdentityMismatchError();
+  }
 }
 
 export interface ConnectOutput {
@@ -145,14 +200,24 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   // switcher slice changes only what we resolve here (the active
   // account over personal-account fallback); the dispatcher contract
   // is unchanged.
-  const ownerAccount = await ensurePersonalAccount(input.userId);
-  const accountId = ownerAccount.id;
-
-  // 4.ACCOUNT-MODEL-10b — account freeze. A pending_deletion account cannot
-  // connect new integrations. Checked on the already-resolved record (no extra
-  // round trip) before any state JWT is minted.
-  if (ownerAccount.deletionStatus === "pending_deletion") {
-    throw new AccountFrozenError(accountId);
+  //
+  // Slice 4.APPS-RECONNECT: in reconnect mode the target account is the
+  // intended ROW's account (NOT the personal floor) — the connect route already
+  // resolved + authorized it (membership + not-frozen) via the reconnect
+  // service, so we trust `input.reconnect.accountId` and skip the personal-floor
+  // resolution + freeze check here.
+  let accountId: string;
+  if (input.reconnect) {
+    accountId = input.reconnect.accountId;
+  } else {
+    const ownerAccount = await ensurePersonalAccount(input.userId);
+    accountId = ownerAccount.id;
+    // 4.ACCOUNT-MODEL-10b — account freeze. A pending_deletion account cannot
+    // connect new integrations. Checked on the already-resolved record (no extra
+    // round trip) before any state JWT is minted.
+    if (ownerAccount.deletionStatus === "pending_deletion") {
+      throw new AccountFrozenError(accountId);
+    }
   }
 
   // Token-ingest providers (Slice 17+) take a parallel path. They receive
@@ -180,6 +245,12 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
       accountId,
       provider: input.provider,
       requestedScopes,
+      // Reconnect intent rides into the token-ingest state too, so
+      // `handleTokenIngest` enforces the same identity-match guard (no provider
+      // sign-in to steer here, but the callback still refuses a wrong-row upsert).
+      ...(input.reconnect !== undefined
+        ? { reconnect: { integrationId: input.reconnect.integrationId } }
+        : {}),
     });
     const redirectUrl = ingestAuth.buildAuthUrl(state, requestedScopes);
     return { redirectUrl };
@@ -231,7 +302,17 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     ...(input.providerHint !== undefined
       ? { providerHint: input.providerHint }
       : {}),
+    ...(input.reconnect !== undefined
+      ? { reconnect: { integrationId: input.reconnect.integrationId } }
+      : {}),
   });
+  // Slice 4.APPS-RECONNECT — steer the provider sign-in to the intended account
+  // on reconnect. Only Google/Microsoft `buildAuthUrl` honor this; every other
+  // provider ignores the 5th arg. The hard guarantee is the callback match, not
+  // this hint.
+  const steer: AccountSteer | null = input.reconnect
+    ? { loginHint: input.reconnect.expectedProviderAccountId, forceAccountSelection: true }
+    : null;
   const redirectUrl = oauth.buildAuthUrl(
     state,
     requestedScopes,
@@ -239,6 +320,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
       ? { codeChallenge: pkceGen.codeChallenge, codeChallengeMethod: pkceGen.codeChallengeMethod }
       : null,
     input.providerHint ?? null,
+    steer,
   );
   return { redirectUrl };
 }
@@ -294,6 +376,11 @@ export async function handleCallback(
     pkce,
     providerHint,
   );
+
+  // Slice 4.APPS-RECONNECT — when this flow was a per-account reconnect, refuse
+  // to persist unless the provider-returned identity matches the intended row.
+  // Runs BEFORE upsert, so a wrong-account reconnect creates/refreshes nothing.
+  await assertReconnectIdentityMatch(payload, account.providerAccountId);
 
   const integration = await upsertActive({
     accountId: payload.accountId,
@@ -373,6 +460,9 @@ export async function handleTokenIngest(
     token: input.token,
     state: input.state,
   });
+
+  // Slice 4.APPS-RECONNECT — same identity-match guard on the token-ingest path.
+  await assertReconnectIdentityMatch(payload, account.providerAccountId);
 
   const integration = await upsertActive({
     accountId: payload.accountId,

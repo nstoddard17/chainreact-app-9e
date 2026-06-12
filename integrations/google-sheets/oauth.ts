@@ -57,13 +57,14 @@ interface GoogleUserinfo {
 export const googleSheetsOAuth: ProviderOAuth = {
   generatePkce: generateGooglePkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "googleSheetsOAuth.buildAuthUrl: PKCE challenge is required for Google Sheets. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildGoogleAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

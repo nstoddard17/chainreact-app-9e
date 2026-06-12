@@ -86,18 +86,20 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
     ]);
   });
 
-  it("each account exposes only id + displayName + connectedAt + canDisconnect — no tokens, no providerAccountId, no metadata, no scopes, no expiry, no connectedByUserId", () => {
+  it("each account exposes only id + displayName + connectedAt + canDisconnect + canReconnect — no tokens, no providerAccountId, no metadata, no scopes, no expiry, no connectedByUserId", () => {
     const item = toAppCatalogItem(mkProvider(), [mkRecord()]);
     expect(item.accounts).toHaveLength(1);
     for (const acc of item.accounts) {
+      // 4.APPS-RECONNECT adds `canReconnect` — a boolean only; still NO identity.
       expect(Object.keys(acc).sort()).toEqual([
         "canDisconnect",
+        "canReconnect",
         "connectedAt",
         "displayName",
         "id",
       ]);
     }
-    // The provenance input to canDisconnect must never be emitted.
+    // The provenance input to canDisconnect / canReconnect must never be emitted.
     const serialized = JSON.stringify(item);
     expect(serialized).not.toContain("connectedByUserId");
     expect(serialized).not.toContain("user-1"); // the mkRecord connectedByUserId value
@@ -214,6 +216,27 @@ describe("toAppCatalogItem — canDisconnect derivation (CD-3)", () => {
     expect(
       toAppCatalogItem(mkProvider({ id: "gmail" }), connectedByMember, enabled({ callerRole: "owner", callerUserId: "owner-1" })).accounts[0]?.canDisconnect,
     ).toBe(true);
+  });
+
+  it("4.APPS-RECONNECT — canReconnect mirrors canDisconnect (same per-account credential rule)", () => {
+    const cases = [
+      { provider: "slack", role: "owner" as const, caller: "user-1", connectedBy: "user-1" },
+      { provider: "slack", role: "member" as const, caller: "user-1", connectedBy: "user-1" },
+      { provider: "gmail", role: "member" as const, caller: "member-7", connectedBy: "member-7" },
+      { provider: "gmail", role: "member" as const, caller: "member-OTHER", connectedBy: "member-7" },
+      { provider: "gmail", role: "owner" as const, caller: "owner-1", connectedBy: "member-7" },
+    ];
+    for (const c of cases) {
+      const acc = toAppCatalogItem(
+        mkProvider({ id: c.provider }),
+        [mkRecord({ provider: c.provider, connectedByUserId: c.connectedBy })],
+        enabled({ callerRole: c.role, callerUserId: c.caller }),
+      ).accounts[0]!;
+      expect(acc.canReconnect).toBe(acc.canDisconnect);
+    }
+    // And with no context, both are false (control never renders).
+    const noCtx = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })]).accounts[0]!;
+    expect(noCtx.canReconnect).toBe(false);
   });
 });
 

@@ -47,7 +47,7 @@ interface GmailUserProfile {
 export const gmailOAuth: ProviderOAuth = {
   generatePkce: generateGooglePkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       // Should be impossible — the dispatcher always passes PKCE for
       // Gmail because generatePkce returned a non-null value. Defensive
@@ -58,6 +58,7 @@ export const gmailOAuth: ProviderOAuth = {
       );
     }
     return buildGoogleAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,
