@@ -11,6 +11,7 @@ import {
   PLAN_TIERS,
   PLAN_STATUSES,
   planLimitsFor,
+  aiCreditsMonthlyLimitFor,
   isPlanTier,
   isPlanStatus,
   isPlanAllowedForType,
@@ -38,13 +39,13 @@ describe("planPolicy — tiers + limits", () => {
     expect([...PLAN_STATUSES]).toEqual(["active", "trialing", "past_due", "canceled", "incomplete"]);
   });
 
-  it("carries the launch limit numbers (Pro task cap raised in CS-PRO-2; template caps CS-XT-1)", () => {
-    expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0 });
+  it("carries the launch limit numbers (Pro task cap raised in CS-PRO-2; template caps CS-XT-1; AI credits AI-CREDITS-3)", () => {
+    expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 20 });
     // CS-PRO-2: Pro keeps Free's member/folder caps but gets a higher monthly task cap.
-    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25 });
-    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50 });
-    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250 });
-    expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null });
+    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25, aiCreditsMonthlyLimit: 500 });
+    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50, aiCreditsMonthlyLimit: 2000 });
+    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250, aiCreditsMonthlyLimit: 10000 });
+    expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null, aiCreditsMonthlyLimit: null });
   });
 
   it("Pro's task cap is higher than Free's (the CS-PRO-2 benefit), member/folder caps equal", () => {
@@ -153,6 +154,24 @@ describe("template limits + feature capabilities (CS-XT-1)", () => {
     expect(Object.keys(planCapabilitiesFor("business")).sort()).toEqual(
       ["canBulkExport", "canCreateTemplates", "canUseBuiltInTemplates", "plan"],
     );
+  });
+});
+
+describe("AI credit limits (AI-CREDITS-3)", () => {
+  it("surfaces per-tier monthly AI credit caps: Free 20 / Pro 500 / Team 2k / Business 10k / Enterprise null", () => {
+    expect(aiCreditsMonthlyLimitFor("free")).toBe(20);
+    expect(aiCreditsMonthlyLimitFor("pro")).toBe(500);
+    expect(aiCreditsMonthlyLimitFor("team")).toBe(2000);
+    expect(aiCreditsMonthlyLimitFor("business")).toBe(10000);
+    // Enterprise = custom/null (the per-deal value is set on the DB column directly).
+    expect(aiCreditsMonthlyLimitFor("enterprise")).toBeNull();
+  });
+
+  it("Pro/Team/Business AI caps exceed Free's (AI limits are an upgrade lever)", () => {
+    const free = aiCreditsMonthlyLimitFor("free")!;
+    for (const plan of ["pro", "team", "business"] as const) {
+      expect(aiCreditsMonthlyLimitFor(plan)!).toBeGreaterThan(free);
+    }
   });
 });
 

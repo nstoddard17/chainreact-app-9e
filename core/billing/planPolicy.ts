@@ -46,6 +46,17 @@ export interface PlanLimits {
    * ships the policy + helpers only; no table/route/UI consumes it until later slices.
    */
   templateLimit: number | null;
+  /**
+   * Monthly AI CREDIT cap (Slice 4.AI-CREDITS-3). A SEPARATE billing dimension
+   * from `taskLimit` — AI is token-priced, tasks are per-action. `null` =
+   * uncapped/config (enterprise; a custom value is set directly on
+   * `account_billing.ai_credits_limit`). Authoritative copy is
+   * `account_billing.ai_credits_limit`; this is the single source of the per-plan
+   * NUMBER the backfill + future plan-sync stamp onto that column (same pattern as
+   * `taskLimit`). Placeholders (owner-approved AI-CREDITS-3 OQ-1); recording-only
+   * until `ENABLE_AI_CREDIT_ENFORCEMENT` is flipped + the gate is wired.
+   */
+  aiCreditsMonthlyLimit: number | null;
 }
 
 /**
@@ -59,15 +70,25 @@ export interface PlanLimits {
  * default). `enterprise` is uncapped/config (null).
  */
 export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
-  free: { memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0 },
-  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25 },
-  team: { memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50 },
-  business: { memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250 },
-  enterprise: { memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null },
+  free: { memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 20 },
+  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25, aiCreditsMonthlyLimit: 500 },
+  team: { memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50, aiCreditsMonthlyLimit: 2000 },
+  business: { memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250, aiCreditsMonthlyLimit: 10000 },
+  enterprise: { memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null, aiCreditsMonthlyLimit: null },
 };
 
 export function planLimitsFor(plan: PlanTier): PlanLimits {
   return PLAN_LIMITS[plan];
+}
+
+/**
+ * Monthly AI credit cap for a plan, or `null` when uncapped/config (enterprise).
+ * Single source of the per-plan AI-credit NUMBER (mirrors `templateLimitFor` /
+ * `taskLimit`); the backfill + future plan-sync stamp it onto
+ * `account_billing.ai_credits_limit`. Placeholders pending owner pricing.
+ */
+export function aiCreditsMonthlyLimitFor(plan: PlanTier): number | null {
+  return PLAN_LIMITS[plan].aiCreditsMonthlyLimit;
 }
 
 /**
