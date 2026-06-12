@@ -3,6 +3,7 @@ import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as accountsRepo from "@/repositories/accounts";
 import { softDisconnectPersonalForMember } from "@/repositories/integrations";
 import { revokeLiveForMemberServiceRole } from "@/repositories/workflowNodeCredentials";
+import { deleteForMemberInAccountServiceRole } from "@/repositories/workflowNodeConnectorBindings";
 import { clearActiveAccountIfMatchesServiceRole } from "@/repositories/userProfiles";
 import { countImpactedWorkflowsForMember } from "./offboardingImpact";
 
@@ -110,6 +111,24 @@ export async function removeMember(input: {
         event: "account.member.offboard.node_credentials_revoked",
         accountId: input.accountId,
         count: revoked.revokedCount,
+      }),
+    );
+  }
+
+  // Offboarding (CS-4b): delete any node connector bindings POINTING AT this
+  // member as a shared connector. The resolver already fails closed once their
+  // shared personal rows are disconnected (below) — this is data hygiene so no
+  // binding row is left dangling at a departed user. Idempotent / 0-row no-op.
+  const bindingsDeleted = await deleteForMemberInAccountServiceRole({
+    accountId: input.accountId,
+    connectorUserId: input.targetUserId,
+  });
+  if (bindingsDeleted.deletedCount > 0) {
+    console.info(
+      JSON.stringify({
+        event: "account.member.offboard.connector_bindings_deleted",
+        accountId: input.accountId,
+        count: bindingsDeleted.deletedCount,
       }),
     );
   }

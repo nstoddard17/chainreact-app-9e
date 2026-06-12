@@ -118,6 +118,25 @@ jest.mock("@/services/billing/workflowCostEstimator", () => ({
   estimateWorkflowTaskCost: (...args: unknown[]) => mockEstimateWorkflowTaskCost(...args),
 }));
 
+// CS-4b — capture the credential-resolution context owner per handler call, and
+// stub the shared plan. Flag OFF (default for every other test) → the engine
+// never calls buildWorkflowCredentialPlan, so these stubs are inert there.
+const mockBuildPlan = jest.fn();
+jest.mock("@/services/integrations/connectionResolution", () => ({
+  buildWorkflowCredentialPlan: (...a: unknown[]) => mockBuildPlan(...a),
+}));
+const mockCapturedOwners: Array<string | null> = [];
+jest.mock("@/services/oauth/credentialResolutionContext", () => ({
+  runWithCredentialResolutionContext: (
+    ctx: { createdByUserId: string | null },
+    fn: () => unknown,
+  ) => {
+    mockCapturedOwners.push(ctx.createdByUserId);
+    return fn();
+  },
+  getCredentialResolutionContext: () => undefined,
+}));
+
 const SHADOW_FLAG = "ENABLE_RESERVE_RECONCILE_SHADOW";
 const BILLING_FLAG = "ENABLE_RESERVE_RECONCILE_BILLING";
 
@@ -2733,5 +2752,58 @@ describe("WorkflowEngine — live reserve/reconcile billing (Slice 4.COST-15H)",
     expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
     expect(mockCreateBillingReservation).not.toHaveBeenCalled();
     expect(mockReconcileBillingReservation).not.toHaveBeenCalled();
+  });
+});
+
+describe("CS-4b — execution resolves to the shared plan owner (ENABLE_CONNECTION_SHARING ON)", () => {
+  const CONN_FLAG = "ENABLE_CONNECTION_SHARING";
+  const gmailAction = {
+    id: "a-gmail", kind: "action" as const, provider: "gmail", type: "send",
+    config: {}, position: { x: 0, y: 100 },
+  };
+  const gmailWf = {
+    ...baseWorkflow,
+    createdByUserId: "creator-1",
+    draftDefinition: { nodes: [trigger("t1"), gmailAction], edges: [edge("e1", "t1", "a-gmail")] },
+  };
+
+  beforeEach(() => {
+    mockCapturedOwners.length = 0;
+    process.env[CONN_FLAG] = "true";
+  });
+  afterEach(() => {
+    delete process.env[CONN_FLAG];
+  });
+
+  async function runWithPlanOwner(owner: string) {
+    mockGetByIdServiceRole.mockResolvedValueOnce(gmailWf);
+    mockGetActionHandler.mockReturnValueOnce(async () => ({ output: {} }));
+    mockBuildPlan.mockResolvedValueOnce({
+      ownerByNode: new Map([["a-gmail", owner]]),
+      resolutions: new Map(),
+      allTeamRunnable: true,
+    });
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+    // The gmail action is processed last → its owner is the last captured context.
+    return mockCapturedOwners[mockCapturedOwners.length - 1];
+  }
+
+  it("builds the shared plan and runs the gmail node under the plan's connector (not creator/runner)", async () => {
+    const owner = await runWithPlanOwner("connector-bob");
+    expect(mockBuildPlan).toHaveBeenCalledWith({
+      workflowId: "wf-1", accountId: "acct-user-1", createdByUserId: "creator-1",
+      nodes: gmailWf.draftDefinition.nodes,
+    });
+    expect(owner).toBe("connector-bob");
+  });
+
+  it("when the plan resolves a node to the creator (ambiguous/unshared), execution uses the creator — never an arbitrary co-member", async () => {
+    const owner = await runWithPlanOwner("creator-1");
+    expect(owner).toBe("creator-1");
+    expect(mockCapturedOwners).not.toContain("connector-bob");
   });
 });

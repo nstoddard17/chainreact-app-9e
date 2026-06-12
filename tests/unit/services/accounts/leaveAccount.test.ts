@@ -41,6 +41,14 @@ jest.mock("@/repositories/workflowNodeCredentials", () => ({
   },
 }));
 
+const mockDeleteBindings = jest.fn();
+jest.mock("@/repositories/workflowNodeConnectorBindings", () => ({
+  deleteForMemberInAccountServiceRole: (...a: unknown[]) => {
+    order.push("deleteBindings");
+    return mockDeleteBindings(...a);
+  },
+}));
+
 const mockClearActive = jest.fn();
 jest.mock("@/repositories/userProfiles", () => ({
   clearActiveAccountIfMatchesServiceRole: (...a: unknown[]) => {
@@ -77,6 +85,7 @@ beforeEach(() => {
   mockRemove.mockReset().mockResolvedValue(undefined);
   mockSoftDisconnect.mockReset().mockResolvedValue({ disconnectedCount: 0, disconnectedProviders: [] });
   mockRevokeGrants.mockReset().mockResolvedValue({ revokedCount: 0 });
+  mockDeleteBindings.mockReset().mockResolvedValue({ deletedCount: 0 });
   mockClearActive.mockReset().mockResolvedValue(undefined);
 });
 
@@ -88,7 +97,7 @@ describe("leaveAccount", () => {
     const r = await leaveAccount({ accountId: ACCOUNT, userId: USER });
 
     expect(r).toEqual({ ok: true });
-    expect(order).toEqual(["revoke", "disconnect", "remove", "clearActive"]);
+    expect(order).toEqual(["revoke", "deleteBindings", "disconnect", "remove", "clearActive"]);
     expect(mockRevokeGrants).toHaveBeenCalledWith({ accountId: ACCOUNT, credentialOwnerUserId: USER });
     expect(mockSoftDisconnect).toHaveBeenCalledWith({ accountId: ACCOUNT, connectedByUserId: USER });
     expect(mockRemove).toHaveBeenCalledWith(ACCOUNT, USER);
@@ -100,7 +109,7 @@ describe("leaveAccount", () => {
     mockGetRoleSR.mockResolvedValueOnce("admin");
     const r = await leaveAccount({ accountId: ACCOUNT, userId: USER });
     expect(r).toEqual({ ok: true });
-    expect(order).toEqual(["revoke", "disconnect", "remove", "clearActive"]);
+    expect(order).toEqual(["revoke", "deleteBindings", "disconnect", "remove", "clearActive"]);
   });
 
   it("a sole owner is blocked and NO offboarding runs", async () => {

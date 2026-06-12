@@ -12,6 +12,7 @@ import {
   computeProviderSharingStatus,
   computeRunEditEligibility,
   distinctPrivateProviders,
+  resolveNodeOwner,
 } from "@/core/integrations/sharingEligibility";
 import { viewerMayRunEdit } from "@/core/integrations/workflowCredentialScope";
 
@@ -223,5 +224,51 @@ describe("computeRunEditEligibility — flag ON", () => {
     for (const p of res.providerStatuses) {
       expect(Object.keys(p).sort()).toEqual(["provider", "status"]);
     }
+  });
+});
+
+describe("CS-4b — resolveNodeOwner precedence", () => {
+  const base = { creatorUserId: CREATOR, acceptedGrantOwner: null, bindingConnector: null, sharedConnectors: new Set<string>() };
+
+  it("1. accepted grant WINS over everything (binding + shared set ignored)", () => {
+    expect(
+      resolveNodeOwner({ ...base, acceptedGrantOwner: "grantOwner", bindingConnector: "boundX", sharedConnectors: new Set(["alice", "bob"]) }),
+    ).toEqual({ owner: "grantOwner", via: "grant", teamRunnable: true });
+  });
+
+  it("2. VALID binding wins next (connector in the shared set)", () => {
+    expect(
+      resolveNodeOwner({ ...base, bindingConnector: "alice", sharedConnectors: new Set(["alice", "bob"]) }),
+    ).toEqual({ owner: "alice", via: "binding", teamRunnable: true });
+  });
+
+  it("2b. INVALID binding (connector NOT in shared set) is IGNORED → falls through", () => {
+    // bound to 'carol' who is no longer shared; only 'alice' shares → single-sharer.
+    expect(
+      resolveNodeOwner({ ...base, bindingConnector: "carol", sharedConnectors: new Set(["alice"]) }),
+    ).toEqual({ owner: "alice", via: "single_sharer", teamRunnable: true });
+  });
+
+  it("2c. invalid binding + ambiguous remainder → creator (fail closed), never the bound or an arbitrary connector", () => {
+    const r = resolveNodeOwner({ ...base, bindingConnector: "carol", sharedConnectors: new Set(["alice", "bob"]) });
+    expect(r).toEqual({ owner: CREATOR, via: "creator", teamRunnable: false });
+  });
+
+  it("3. single shared connector → that connector", () => {
+    expect(resolveNodeOwner({ ...base, sharedConnectors: new Set(["solo"]) })).toEqual({
+      owner: "solo", via: "single_sharer", teamRunnable: true,
+    });
+  });
+
+  it("4. unshared (0) → creator pin, NOT team-runnable", () => {
+    expect(resolveNodeOwner({ ...base, sharedConnectors: new Set() })).toEqual({
+      owner: CREATOR, via: "creator", teamRunnable: false,
+    });
+  });
+
+  it("4b. ambiguous (2+) with no binding/grant → creator pin (fail closed), NOT an arbitrary row", () => {
+    expect(resolveNodeOwner({ ...base, sharedConnectors: new Set(["alice", "bob", "carol"]) })).toEqual({
+      owner: CREATOR, via: "creator", teamRunnable: false,
+    });
   });
 });

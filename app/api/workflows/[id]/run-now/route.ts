@@ -129,7 +129,7 @@ export async function POST(
   // OAuth identity (22B creator-pin). Only the creator may run it; non-creators
   // (incl. owner/admin) get a typed 403 and are pointed to Duplicate. Shared/
   // account-only + native-only workflows are unaffected (any member runs).
-  const runEditDenied = assertWorkflowRunEditAllowed(workflow, auth.userId);
+  const runEditDenied = await assertWorkflowRunEditAllowed(workflow, auth.userId);
   if (runEditDenied) return runEditDenied;
   if (!ALLOWED_STATES.has(workflow.state)) {
     return NextResponse.json(

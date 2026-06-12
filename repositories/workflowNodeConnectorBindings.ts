@@ -132,6 +132,48 @@ export async function setForNodeServiceRole(input: {
   return rowToRecord(data);
 }
 
+/**
+ * Delete EVERY binding pointing at `connectorUserId` across the workflows in
+ * `accountId` — offboarding hygiene (CS-4b: member remove / leave). The resolver
+ * already fails closed on an invalid binding (the connector drops out of the live
+ * shared set once their personal rows are disconnected), so this is data hygiene,
+ * not the correctness guarantee. The table has no `account_id`, so scope is
+ * resolved through the `workflow_id → workflows` FK embed first, then deleted by
+ * id. Always safe to call (0-row no-op). Returns the count removed. Service-role.
+ */
+export async function deleteForMemberInAccountServiceRole(input: {
+  accountId: string;
+  connectorUserId: string;
+}): Promise<{ deletedCount: number }> {
+  const supabase = getServiceRoleClient(
+    `workflow_node_connector_bindings: deleteForMember ${input.accountId}/${input.connectorUserId}`,
+  );
+  const { data: rows, error: selectError } = await supabase
+    .from("workflow_node_connector_bindings")
+    .select("id, workflows!inner(account_id)")
+    .eq("workflows.account_id", input.accountId)
+    .eq("connector_user_id", input.connectorUserId);
+  if (selectError) {
+    throw new Error(
+      `workflow_node_connector_bindings.deleteForMemberInAccountServiceRole select failed: ${selectError.message}`,
+    );
+  }
+  const ids = (rows ?? []).map((r) => (r as { id: string }).id);
+  if (ids.length === 0) return { deletedCount: 0 };
+
+  const { data: deleted, error: deleteError } = await supabase
+    .from("workflow_node_connector_bindings")
+    .delete()
+    .in("id", ids)
+    .select("id");
+  if (deleteError) {
+    throw new Error(
+      `workflow_node_connector_bindings.deleteForMemberInAccountServiceRole delete failed: ${deleteError.message}`,
+    );
+  }
+  return { deletedCount: (deleted ?? []).length };
+}
+
 /** Delete the binding for one node. Idempotent — returns whether a row was removed. Service-role. */
 export async function deleteForNodeServiceRole(
   workflowId: string,

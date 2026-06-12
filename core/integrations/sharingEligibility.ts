@@ -157,3 +157,62 @@ export function computeRunEditEligibility(
   // because workflowUsesPrivateCredential was true).
   return { allowed: true, reason: "all_providers_single_shared", providerStatuses };
 }
+
+// ── CS-4b — per-node effective-owner precedence (gate + executor share this) ──
+
+export type NodeOwnerVia = "grant" | "binding" | "single_sharer" | "creator";
+
+export interface NodeOwnerResolution {
+  /**
+   * The user whose personal connection this node runs under. ALWAYS defined — the
+   * creator is the safe deterministic fallback (their OWN connection, never a
+   * co-member). The gate uses `teamRunnable` to decide non-creator access; the
+   * executor uses `owner` to set the credential-resolution context.
+   */
+  readonly owner: string;
+  readonly via: NodeOwnerVia;
+  /**
+   * True when the node resolves to a SPECIFIC shared connector (grant / valid
+   * binding / single sharer) — i.e. a non-creator may run it. False for the
+   * creator fallback (unshared or ambiguous-no-binding), which keeps a workflow
+   * creator-only.
+   */
+  readonly teamRunnable: boolean;
+}
+
+/**
+ * Resolve the effective credential owner for ONE personal-provider node, by the
+ * locked precedence (plan §15.5):
+ *   1. accepted `workflow_node_credentials` grant — wins.
+ *   2. VALID node connector binding — the bound connector is still in the live
+ *      shared set (an unshared / disconnected / departed connector drops out, so
+ *      an invalid binding is IGNORED — never silently used).
+ *   3. single shared connector — exactly one shared connector for the provider.
+ *   4. creator pin — deterministic, safe fallback (unshared OR ambiguous 2+ with
+ *      no valid binding/grant). FAILS CLOSED for non-creators; NEVER picks an
+ *      arbitrary/earliest co-member row.
+ *
+ * Pure — callers gather the inputs. Only call for PERSONAL providers (account /
+ * native nodes are not credential-owned).
+ */
+export function resolveNodeOwner(input: {
+  creatorUserId: string;
+  acceptedGrantOwner: string | null;
+  bindingConnector: string | null;
+  sharedConnectors: ReadonlySet<string>;
+}): NodeOwnerResolution {
+  const { creatorUserId, acceptedGrantOwner, bindingConnector, sharedConnectors } = input;
+
+  if (acceptedGrantOwner) {
+    return { owner: acceptedGrantOwner, via: "grant", teamRunnable: true };
+  }
+  if (bindingConnector && sharedConnectors.has(bindingConnector)) {
+    return { owner: bindingConnector, via: "binding", teamRunnable: true };
+  }
+  if (sharedConnectors.size === 1) {
+    return { owner: [...sharedConnectors][0]!, via: "single_sharer", teamRunnable: true };
+  }
+  // size 0 (unshared) OR size >= 2 with no valid binding/grant (ambiguous) →
+  // creator pin. Safe + deterministic; non-creator is blocked by the gate.
+  return { owner: creatorUserId, via: "creator", teamRunnable: false };
+}

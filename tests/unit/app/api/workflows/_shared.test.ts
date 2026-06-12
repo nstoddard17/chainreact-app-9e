@@ -62,11 +62,13 @@ describe("WF-RUNPERM — assertWorkflowRunEditAllowed", () => {
   const gmail = recordWith({ draftDefinition: { nodes: [node("gmail")], edges: [] } as never, createdByUserId: "creator-1" });
   const slack = recordWith({ draftDefinition: { nodes: [node("slack")], edges: [] } as never, createdByUserId: "creator-1" });
 
-  it("creator may run/edit a private-credential workflow → null (allowed)", () => {
-    expect(assertWorkflowRunEditAllowed(gmail, "creator-1")).toBeNull();
+  // These run with ENABLE_CONNECTION_SHARING unset (OFF) → the gate takes the
+  // flag-off branch, which is byte-identical WF-RUNPERM (now async).
+  it("creator may run/edit a private-credential workflow → null (allowed)", async () => {
+    expect(await assertWorkflowRunEditAllowed(gmail, "creator-1")).toBeNull();
   });
   it("non-creator (incl. owner/admin) blocked on private → typed 403 with SAFE copy", async () => {
-    const res = assertWorkflowRunEditAllowed(gmail, "other-member");
+    const res = await assertWorkflowRunEditAllowed(gmail, "other-member");
     expect(res).not.toBeNull();
     expect(res!.status).toBe(403);
     const body = await res!.json();
@@ -75,17 +77,17 @@ describe("WF-RUNPERM — assertWorkflowRunEditAllowed", () => {
     const serialized = JSON.stringify(body);
     expect(serialized).not.toMatch(/gmail|creator-1|token|email|scope/i);
   });
-  it("null-creator private workflow blocked for everyone", () => {
+  it("null-creator private workflow blocked for everyone", async () => {
     // createdByUserId is typed `string` (DB is ON DELETE SET NULL — a known
     // type-lie for the deleted-member edge); model the null at runtime via cast.
     const orphan = {
       ...recordWith({ draftDefinition: { nodes: [node("gmail")], edges: [] } as never }),
       createdByUserId: null,
     } as unknown as WorkflowRecord;
-    expect(assertWorkflowRunEditAllowed(orphan, "creator-1")).not.toBeNull();
+    expect(await assertWorkflowRunEditAllowed(orphan, "creator-1")).not.toBeNull();
   });
-  it("account-only workflow allowed for any member → null", () => {
-    expect(assertWorkflowRunEditAllowed(slack, "any-member")).toBeNull();
+  it("account-only workflow allowed for any member → null", async () => {
+    expect(await assertWorkflowRunEditAllowed(slack, "any-member")).toBeNull();
   });
 });
 

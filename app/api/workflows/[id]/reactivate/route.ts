@@ -40,7 +40,7 @@ export async function POST(
   // executable; only the creator may do so.
   const record = await workflowsRepo.getById(id);
   if (record && record.state !== "deleted") {
-    const runEditDenied = assertWorkflowRunEditAllowed(record, auth.userId);
+    const runEditDenied = await assertWorkflowRunEditAllowed(record, auth.userId);
     if (runEditDenied) return runEditDenied;
   }
 

@@ -11,6 +11,8 @@ import {
   workflowUsesPrivateCredential,
   viewerMayRunEdit,
 } from "@/core/integrations/workflowCredentialScope";
+import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
+import { buildWorkflowCredentialPlan } from "@/services/integrations/connectionResolution";
 import { emptyRunStats } from "@/repositories/workflowRunStats";
 import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
@@ -339,21 +341,45 @@ export function workflowUsesPrivateCredentialResponse(): NextResponse {
 }
 
 /**
- * WF-RUNPERM — run/edit gate, applied AFTER the membership gate, on an already-
- * loaded (non-deleted, membership-authorized) record. Returns the typed 403 when
- * the workflow is private-credential and the caller is not its creator; `null`
- * when run/edit is allowed. Role-agnostic — owner/admin do not pass for a
- * private-credential workflow (management actions are separate routes).
+ * WF-RUNPERM (+ CS-4b sharing) — run/edit gate, applied AFTER the membership gate,
+ * on an already-loaded (non-deleted, membership-authorized) record. Returns the
+ * typed 403 when the workflow is private-credential and the caller may not run/
+ * edit it; `null` when allowed. Role-agnostic.
+ *
+ * `ENABLE_CONNECTION_SHARING` OFF → EXACT WF-RUNPERM (`viewerMayRunEdit`, no DB).
+ *
+ * Flag ON → a non-creator is allowed only when EVERY personal-provider node
+ * resolves to a specific shared connector under the shared
+ * `buildWorkflowCredentialPlan` precedence (accepted grant → valid binding →
+ * single-sharer). Any unshared or ambiguous-no-binding node keeps it creator-only.
+ * The gate consumes the SAME plan the executor resolves owners from, so they can
+ * never drift. Creator + no-private short-circuit with no DB read.
  */
-export function assertWorkflowRunEditAllowed(
+export async function assertWorkflowRunEditAllowed(
   record: WorkflowRecord,
   callerUserId: string,
-): NextResponse | null {
-  const allowed = viewerMayRunEdit(
-    { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
-    callerUserId,
-  );
-  return allowed ? null : workflowUsesPrivateCredentialResponse();
+): Promise<NextResponse | null> {
+  if (!isConnectionSharingEnabled()) {
+    const allowed = viewerMayRunEdit(
+      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
+      callerUserId,
+    );
+    return allowed ? null : workflowUsesPrivateCredentialResponse();
+  }
+
+  // Flag ON. No private credentials, or the creator → allowed (no DB).
+  if (!workflowUsesPrivateCredential(record.draftDefinition)) return null;
+  if (record.createdByUserId === callerUserId) return null;
+
+  // Non-creator with private providers → resolvable iff every personal node has a
+  // specific shared connector. Fails closed on ambiguous / unshared.
+  const plan = await buildWorkflowCredentialPlan({
+    workflowId: record.id,
+    accountId: record.accountId,
+    createdByUserId: record.createdByUserId,
+    nodes: record.draftDefinition.nodes,
+  });
+  return plan.allTeamRunnable ? null : workflowUsesPrivateCredentialResponse();
 }
 
 export function toWorkflowRunSummary(
