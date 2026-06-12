@@ -369,6 +369,42 @@ export async function listActiveConnectedUserIdsServiceRole(
 }
 
 /**
+ * Service-role: the set of distinct user ids that have an ACTIVE, EXPLICITLY
+ * SHARED (`integration_sharing_scope = 'shared_with_account'`) connection for
+ * `provider` in `accountId` (Slice 4.CONN-SHARE / CS-3a).
+ *
+ * Used to compute per-provider sharing status (0 = unshared, 1 = single
+ * connector, 2+ = ambiguous) for the ambiguity-aware run/edit eligibility. The
+ * CALLER (`computeWorkflowSharingEligibility`) consumes only the SIZE of this set
+ * — the ids never leave the service. Selects ONLY `connected_by_user_id`; no
+ * token, scope, provider_account_id, label, or metadata is read. The
+ * `disconnected_at IS NULL` filter means disconnected shared rows are ignored.
+ */
+export async function listSharedConnectorUserIdsServiceRole(
+  accountId: string,
+  provider: string,
+): Promise<ReadonlySet<string>> {
+  const supabase = getServiceRoleClient(
+    `integrations: listSharedConnectorUserIds for account ${accountId} / ${provider}`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("connected_by_user_id")
+    .eq("account_id", accountId)
+    .eq("provider", provider)
+    .eq("integration_sharing_scope", "shared_with_account")
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(`integrations.listSharedConnectorUserIdsServiceRole failed: ${error.message}`);
+  }
+  const ids = new Set<string>();
+  for (const r of (data ?? []) as Array<{ connected_by_user_id: string | null }>) {
+    if (r.connected_by_user_id) ids.add(r.connected_by_user_id);
+  }
+  return ids;
+}
+
+/**
  * Offboarding soft-disconnect (Slice 4.ACCOUNT-MODEL-22C).
  *
  * When a member is removed from a Team, the PERSONAL credentials they connected
