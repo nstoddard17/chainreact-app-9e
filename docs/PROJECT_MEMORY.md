@@ -5,20 +5,27 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-11 @ 845c8c6e9
+> Last curated: 2026-06-11 @ 9abe08ab6 (prod)
 
 ## Current status
 
 - **LIVE in production** at `https://chainreact.app`, deploying from `v2-main` →
-  [`docs/slices/phase-4/v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md)
-  (public-surface smoke green; authed-flow + log checks still pending manual verification).
-- **Working branch:** `builder-ui-v1-audit-1` — local-only (not on origin), push-gated;
-  upstream is `origin/v2-main`. Do not push without Marcus.
-- **Active focus:** CLAUDE.md curation track (complete); production smoke-test hardening
-  is handled in a separate chat.
+  [`docs/slices/phase-4/v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
+  **Authenticated + execution production smoke GREEN (2026-06-11)** — `npm run smoke:prod`,
+  30 tests, 29 passed / 1 skipped / 0 failed, on deployed `9abe08ab6`. Vercel log review
+  still manual.
+- **Push state:** `62da1088b..9abe08ab6` is pushed to `origin/v2-main`. Working branch
+  `builder-ui-v1-audit-1` has **local-only** commits on top — docs status (`dd9e69502`) and
+  MCP Stage-2 plan + Stage-2A (`64bfd850a`, `ccace0e23`). Push-gated: don't push without Marcus.
+- **Open threads:** connected-app recovery UX (Reconnect/Disconnect) and a localhost-OAuth
+  session observation — see Open risks.
 
 ## Durable decisions
 
+- [2026-06-11] Manual run-now execution is kept alive past the 202 via Next `after()`
+  (→ Vercel `waitUntil`) so runs finalize on serverless instead of sticking in `running` —
+  interim until a durable queue → commit `9abe08ab6` +
+  [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
 - [2026-06-10] CLAUDE.md is the operating constitution; durable repo rules live in
   [`docs/rules/`](./rules/), provider/contract detail in [`docs/slices/`](./slices/) →
   curation commits `c2bbedbff..4cd929c7f`.
@@ -29,38 +36,45 @@
 
 ## Open risks & follow-ups
 
-- [Marcus] Authed-flow + log go-live checks **pending manual verification** →
-  [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md) (separate chat owns this).
-- [Marcus] Provider builder-metadata launch gap **CLOSED 26/26** (2026-05-25; was
-  "9 of 26 builder-invisible") — enforced live by `COVERED_PROVIDERS` /
-  `tests/structure/discovery-meta-coverage.test.ts`. Residual post-26/26 deferred
-  backlog (trigger arcs / resolvers / FileRef) is **non-launch-blocking** →
+- [Marcus/Claude] **Connected-app recovery UX gap** — no visible **Reconnect** on connected
+  app cards; **Disconnect** needs separate backend/API design (`markDisconnected()` is
+  repo-only dead code, no route). Recovery relies on the "Connect another → same workspace"
+  workaround → [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
+- [Marcus] **Localhost OAuth session confusion** observed after Slack re-OAuth (signed-in
+  user appeared to change). Appears explained by the localhost OAuth flow redirecting to
+  production while another production session was active — **not a proven production auth
+  bug**; revisit before building the Reconnect UX →
+  [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
+- [n/a] Slack-side message landing is **not externally verified** — that smoke step is
+  intentionally gated (no Slack API read creds in the harness) →
+  [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
+- [Marcus] Provider builder-metadata launch gap **CLOSED 26/26** (2026-05-25) — enforced by
+  `COVERED_PROVIDERS` / `tests/structure/discovery-meta-coverage.test.ts`; residual backlog
+  non-launch-blocking →
   [`provider-metadata-launch-gap-tracker.md`](./slices/phase-4/provider-metadata-launch-gap-tracker.md) §8–§9.
-- [Claude] `chainreactv2-parity-auditor` skill **deferred** until recurring new-provider
-  parity-audit demand.
-- [Marcus] V1 (`chainreact-app-9e`) CLAUDE.md trim **shelved** (`git stash@{0}` on `marcus_dev`)
-  — leave V1 untouched unless explicitly asked.
+- [Claude] `chainreactv2-parity-auditor` skill **deferred** until recurring demand.
+- [Marcus] V1 (`chainreact-app-9e`) CLAUDE.md trim **shelved** (`git stash@{0}` on
+  `marcus_dev`) — leave V1 untouched unless asked.
 
 ## Recently completed arcs
 
-- **Internal MCP server — Stage 1.5 HTTP transport** (local-only, uncommitted on
-  `builder-ui-v1-audit-1`). Adds a Streamable HTTP front door (`/mcp`) so a **ChatGPT
-  Developer Mode** custom connector can reach the **same** Stage-1 read-only tool
-  registry — no new tools, no boundary expansion. Stage-1 **stdio** server unchanged.
-  Scripts: `npm run mcp:http`, `npm run mcp:http:smoke`. Security: `MCP_HTTP_TOKEN`
-  required (env-only, redacted), loopback bind by default (external needs explicit
-  `MCP_HTTP_ALLOW_EXTERNAL=1`), Origin validation; inherits Stage-1 (no DB/secrets/
-  arbitrary-read/mutation). Runbooks →
-  [`chatgpt-mcp-developer-mode.md`](./runbooks/chatgpt-mcp-developer-mode.md),
-  [`internal-mcp-server.md`](./runbooks/internal-mcp-server.md). Verified: `mcp:build`,
-  stdio + http `mcp:smoke`, `tests/unit/mcp` 69/69, typecheck, eslint, lint:structure.
-  **Not verified:** live ChatGPT UI end-to-end and whether ChatGPT forwards a static
-  `Authorization: Bearer` header — hence the documented `?key=` token fallback.
-- **CLAUDE.md curation** — 132,565 → 13,211 chars (−90%), 8 commits `c2bbedbff..4cd929c7f`
-  (links fixed → dev-state to pointers → V2 Provider Authoring Rules → Deep Gotchas to index →
-  banner reconciled).
-- **Skills README post-go-live refresh** → @`0bdea78dd`.
-- **Memory-curator workflow** — being implemented now (this file + the curator skill).
+- **Production smoke closeout (2026-06-11)** — run-now `after()` reliability validated in
+  prod (builder manual-run finalizes + appears on `/runs`); Slack action manual-run
+  finalization validated; Slack channel loading recovered after Slack re-OAuth →
+  `dd9e69502` + [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
+- **Slack action smoke** — `tests/smoke/slack-action.smoke.spec.ts` (pick channel by visible
+  name → run → assert finalize), `RUN_EXECUTION`-gated real send → shipped in
+  `62da1088b..9abe08ab6`.
+- **Internal MCP server — Stage 1 + 1.5 HTTP transport SHIPPED to `v2-main`** (in
+  `62da1088b..9abe08ab6`). Streamable HTTP front door (`/mcp`) for a ChatGPT Developer-Mode
+  connector over the same read-only Stage-1 registry. **Stage-2A diagnostics** (smoke artifact
+  + static option-source tools) implemented **locally** (`ccace0e23`, plan `64bfd850a`) — not
+  pushed. Runbooks → [`chatgpt-mcp-developer-mode.md`](./runbooks/chatgpt-mcp-developer-mode.md),
+  [`internal-mcp-server.md`](./runbooks/internal-mcp-server.md).
+- **Secret-scan rewrite** — fake Slack-token fixtures in the MCP test commits reassembled at
+  runtime (no literal Slack-bot-token string in source) so GitHub push protection allowed the
+  `v2-main` push; no bypass used → in `62da1088b..9abe08ab6`.
+- **CLAUDE.md curation** — 132,565 → 13,211 chars (−90%), `c2bbedbff..4cd929c7f`.
 
 ## Owner preferences
 
