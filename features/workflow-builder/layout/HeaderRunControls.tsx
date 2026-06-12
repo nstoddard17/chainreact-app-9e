@@ -42,9 +42,30 @@ import { DestructiveActionConfirmationModal } from "../panels/DestructiveActionC
  */
 export interface HeaderRunControlsProps {
   blockingIssueCount?: number;
+  /**
+   * WF-RUNPERM follow-up — true when the viewer may NOT run/edit this workflow
+   * because it runs under the creator's private OAuth connection (server-derived
+   * `viewerCanRunEdit === false`). When set, Test + Run controls are disabled and
+   * the viewer is pointed to Duplicate. This is UI polish only; the run-now /
+   * activate routes already enforce the same policy with a typed 403 — the
+   * disabled control is the friendly front door, not the security boundary.
+   */
+  runEditBlocked?: boolean;
 }
 
-export function HeaderRunControls({ blockingIssueCount = 0 }: HeaderRunControlsProps = {}) {
+/**
+ * Safe, non-leaking copy shown when the viewer can't run/edit a private-
+ * credential workflow. Carries no email / provider label / scope / connection
+ * detail — only the duplicate-to-fix path (matches the list-row badge copy and
+ * the server 403 message).
+ */
+export const PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY =
+  "This workflow runs with the creator’s private connection. Duplicate it to use your own connection.";
+
+export function HeaderRunControls({
+  blockingIssueCount = 0,
+  runEditBlocked = false,
+}: HeaderRunControlsProps = {}) {
   const {
     workflowId,
     isDirty,
@@ -79,10 +100,24 @@ export function HeaderRunControls({ blockingIssueCount = 0 }: HeaderRunControlsP
           variant="default"
           disabled
           data-testid="run-controls-test-button"
-          title="Test runs for automated workflows are in development."
+          title={
+            runEditBlocked
+              ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
+              : "Test runs for automated workflows are in development."
+          }
         >
           Test Workflow
         </Button>
+        {runEditBlocked ? (
+          <p
+            role="status"
+            data-testid="run-controls-private-credential-status"
+            className="max-w-[220px] text-[11px] leading-tight"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            {PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY}
+          </p>
+        ) : null}
         <p className="sr-only">
           This workflow is fired by an external event (scheduled, webhook,
           or provider event). Manual live runs aren&rsquo;t the normal path
@@ -113,9 +148,13 @@ export function HeaderRunControls({ blockingIssueCount = 0 }: HeaderRunControlsP
           size="sm"
           variant="outline"
           onClick={handleTestWorkflow}
-          disabled={anyRunning}
+          disabled={anyRunning || runEditBlocked}
           data-testid="run-controls-test-button"
-          title="Runs safely without calling connected provider APIs. External actions are skipped with test-mode outputs."
+          title={
+            runEditBlocked
+              ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
+              : "Runs safely without calling connected provider APIs. External actions are skipped with test-mode outputs."
+          }
           className="builder-mono inline-flex h-7 items-center gap-1.5 px-2.5 text-[12px]"
         >
           <span>{runningMode === "test" ? "Testing…" : "Test Workflow"}</span>
@@ -125,17 +164,29 @@ export function HeaderRunControls({ blockingIssueCount = 0 }: HeaderRunControlsP
           size="sm"
           variant="destructive"
           onClick={handleRunManually}
-          disabled={anyRunning || runBlocked}
+          disabled={anyRunning || runBlocked || runEditBlocked}
           data-testid="run-controls-run-manually-button"
           title={
-            runBlocked
-              ? `Resolve ${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} before running — open the validation panel to see what's missing.`
-              : "Runs for real and may call connected apps. Destructive actions require a typed confirmation before they fire."
+            runEditBlocked
+              ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
+              : runBlocked
+                ? `Resolve ${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} before running — open the validation panel to see what's missing.`
+                : "Runs for real and may call connected apps. Destructive actions require a typed confirmation before they fire."
           }
         >
           {runningMode === "manual" ? "Running…" : "Run Manually"}
         </Button>
       </div>
+      {runEditBlocked ? (
+        <p
+          role="status"
+          data-testid="run-controls-private-credential-status"
+          className="max-w-[260px] text-[11px] leading-tight"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY}
+        </p>
+      ) : null}
       {runBlocked ? (
         <p
           role="status"

@@ -54,6 +54,13 @@ interface Props {
    * so isolated tests keep passing (no map → no required-field issues).
    */
   requiredFieldsByType?: RequiredFieldsByType;
+  /**
+   * WF-RUNPERM follow-up — server-derived `viewerCanRunEdit === false`: the
+   * viewer can't run/edit because the workflow runs under the creator's private
+   * connection. Disables the header Test/Run controls and points to Duplicate.
+   * Optional so isolated header tests keep passing (undefined → not blocked).
+   */
+  runEditBlocked?: boolean;
 }
 
 /**
@@ -82,6 +89,7 @@ export function BuilderHeader({
   validation,
   lifecycle,
   requiredFieldsByType,
+  runEditBlocked,
 }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
@@ -158,6 +166,7 @@ export function BuilderHeader({
           validation={validation}
           validationCounts={validationCounts}
           lifecycle={lifecycle}
+          runEditBlocked={runEditBlocked}
         />
       </header>
       {templatesOpen && workflowId ? (
@@ -302,6 +311,7 @@ function HeaderRight({
   validation,
   validationCounts,
   lifecycle,
+  runEditBlocked,
 }: {
   isDirty: boolean;
   isSaving: boolean;
@@ -311,6 +321,7 @@ function HeaderRight({
   validation?: { onOpen: () => void };
   validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
   lifecycle?: { workflowId: string; state: WorkflowState };
+  runEditBlocked?: boolean;
 }) {
   // BUILDER-READINESS — any validation error (missing required field, no
   // trigger, unconfigured node, invalid router routes) blocks Run Manually +
@@ -358,7 +369,10 @@ function HeaderRight({
           onOpen={validation.onOpen}
         />
       ) : null}
-      <HeaderRunControls blockingIssueCount={blockingIssueCount} />
+      <HeaderRunControls
+        blockingIssueCount={blockingIssueCount}
+        runEditBlocked={runEditBlocked}
+      />
       <button
         type="button"
         onClick={onSave}

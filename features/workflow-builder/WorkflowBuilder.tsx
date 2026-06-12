@@ -270,6 +270,11 @@ export function WorkflowBuilder({
           validation={{ onOpen: handleOpenValidation }}
           lifecycle={{ workflowId: workflow.id, state: workflow.state }}
           requiredFieldsByType={requiredFieldsByType}
+          // WF-RUNPERM follow-up — disable the header Test/Run controls for a
+          // non-creator viewing a private-credential workflow (server-derived).
+          // Only an explicit `false` blocks; undefined (fixture/back-compat) does
+          // not. The run-now/activate routes still enforce with a typed 403.
+          runEditBlocked={workflow.viewerCanRunEdit === false}
         />
       }
       banner={

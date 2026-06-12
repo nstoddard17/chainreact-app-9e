@@ -1197,4 +1197,59 @@ describe("WorkflowBuilder", () => {
       expect(canvas.className).toMatch(/flex-1/);
     });
   });
+
+  // WF-RUNPERM follow-up — WorkflowBuilder derives the header's run/edit gate
+  // from the server-computed `viewerCanRunEdit` boolean and threads it to the
+  // run controls. A manual-trigger workflow surfaces the Run/Test buttons.
+  describe("WF-RUNPERM private-credential run gating (header derivation)", () => {
+    const manualWorkflow: WorkflowDetail = {
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [
+          {
+            id: "t1",
+            kind: "trigger",
+            provider: "native",
+            type: "manual.run",
+            config: {},
+            position: { x: 0, y: 0 },
+          },
+        ],
+        edges: [],
+      },
+    };
+
+    it("viewerCanRunEdit === false disables the header Run/Test buttons with the safe copy", () => {
+      render(
+        <WorkflowBuilder
+          workflow={{ ...manualWorkflow, viewerCanRunEdit: false }}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(
+        screen.getByTestId("run-controls-run-manually-button"),
+      ).toBeDisabled();
+      expect(screen.getByTestId("run-controls-test-button")).toBeDisabled();
+      expect(
+        screen.getByTestId("run-controls-private-credential-status"),
+      ).toHaveTextContent(/duplicate it to use your own connection/i);
+    });
+
+    it("viewerCanRunEdit === true keeps the header Run Manually button enabled", () => {
+      render(
+        <WorkflowBuilder
+          workflow={{ ...manualWorkflow, viewerCanRunEdit: true }}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      expect(
+        screen.getByTestId("run-controls-run-manually-button"),
+      ).not.toBeDisabled();
+      expect(
+        screen.queryByTestId("run-controls-private-credential-status"),
+      ).toBeNull();
+    });
+  });
 });

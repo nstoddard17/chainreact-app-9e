@@ -752,3 +752,78 @@ describe("HeaderRunControls — BUILDER-READINESS gating", () => {
     expect(screen.queryByTestId("run-controls-blocked-status")).toBeNull();
   });
 });
+
+// ─── WF-RUNPERM follow-up — private-credential run/edit gating ──────────────
+// A workflow with ≥1 personal/member-connected provider node runs under the
+// CREATOR's external identity (22B creator-pin), so non-creators can't run/edit
+// it. The server enforces this with a typed 403 at run-now/activate; this slice
+// adds the matching disabled control + safe copy. `runEditBlocked` is the
+// already-derived `viewerCanRunEdit === false` (computed in WorkflowBuilder).
+describe("HeaderRunControls — WF-RUNPERM private-credential run/edit gating", () => {
+  const SAFE_COPY = /duplicate it to use your own connection/i;
+
+  it("non-creator private-credential workflow: disables Test + Run Manually with safe copy", () => {
+    // Scenario 1 — viewer is a member but NOT the creator; the workflow uses a
+    // private connection (server returned viewerCanRunEdit:false → runEditBlocked).
+    bootWithManualTrigger();
+    render(<HeaderRunControls runEditBlocked />);
+    expect(screen.getByTestId("run-controls-test-button")).toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).toBeDisabled();
+    const status = screen.getByTestId("run-controls-private-credential-status");
+    expect(status).toHaveTextContent(SAFE_COPY);
+    // Safe copy — no email / provider label / scope / connection detail leaks.
+    expect(status).not.toHaveTextContent(/@/);
+  });
+
+  it("non-creator private-credential workflow: the disabled Run button never dispatches a run", async () => {
+    bootWithManualTrigger();
+    const user = userEvent.setup();
+    render(<HeaderRunControls runEditBlocked />);
+    // Clicking a disabled button is a no-op in real browsers; userEvent mirrors
+    // that. Defense-in-depth: the server still 403s, but the UI must not fire.
+    await user.click(screen.getByTestId("run-controls-run-manually-button"));
+    await user.click(screen.getByTestId("run-controls-test-button"));
+    expect(mockRunNowWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("creator of a private-credential workflow: Test + Run Manually stay enabled", () => {
+    // Scenario 2 — the creator CAN run/edit, so the server returns
+    // viewerCanRunEdit:true → runEditBlocked is false. No gating, no copy.
+    bootWithManualTrigger();
+    render(<HeaderRunControls runEditBlocked={false} />);
+    expect(screen.getByTestId("run-controls-test-button")).not.toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).not.toBeDisabled();
+    expect(
+      screen.queryByTestId("run-controls-private-credential-status"),
+    ).toBeNull();
+  });
+
+  it("shared / account-only workflow: any member keeps Test + Run Manually enabled", () => {
+    // Scenario 3 — no private credential involved, so the run controls render
+    // exactly as before for a normal member (prop omitted → back-compat path).
+    bootWithManualTrigger();
+    render(<HeaderRunControls />);
+    expect(screen.getByTestId("run-controls-test-button")).not.toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-run-manually-button"),
+    ).not.toBeDisabled();
+    expect(
+      screen.queryByTestId("run-controls-private-credential-status"),
+    ).toBeNull();
+  });
+
+  it("automated private-credential workflow: keeps Test disabled and shows the safe copy", () => {
+    // The automated Test button is already disabled ("in development"); for a
+    // non-creator we swap in the private-credential copy so the reason is clear.
+    bootWithScheduledTrigger();
+    render(<HeaderRunControls runEditBlocked />);
+    expect(screen.getByTestId("run-controls-test-button")).toBeDisabled();
+    expect(
+      screen.getByTestId("run-controls-private-credential-status"),
+    ).toHaveTextContent(SAFE_COPY);
+  });
+});
