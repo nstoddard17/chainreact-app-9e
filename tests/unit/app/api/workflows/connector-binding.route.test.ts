@@ -25,13 +25,15 @@ jest.mock("@/repositories/accountMemberships", () => ({
 const mockSet = jest.fn();
 const mockClear = jest.fn();
 const mockEligible = jest.fn();
+const mockState = jest.fn();
 jest.mock("@/services/integrations/connectionBinding", () => ({
   setNodeConnectorBinding: (...a: unknown[]) => mockSet(...a),
   clearNodeConnectorBinding: (...a: unknown[]) => mockClear(...a),
   listEligibleSharedConnectors: (...a: unknown[]) => mockEligible(...a),
+  getNodeConnectorBindingState: (...a: unknown[]) => mockState(...a),
 }));
 
-import { PUT, DELETE } from "@/app/api/workflows/[id]/nodes/[nodeId]/connector-binding/route";
+import { PUT, DELETE, GET as GET_STATE } from "@/app/api/workflows/[id]/nodes/[nodeId]/connector-binding/route";
 import { GET } from "@/app/api/workflows/[id]/nodes/[nodeId]/connector-binding/eligible-connectors/route";
 
 const record = {
@@ -126,6 +128,34 @@ describe("DELETE connector-binding", () => {
     mockClear.mockResolvedValue({ ok: false, reason: "forbidden" });
     const res = await DELETE(new Request("http://t/", { method: "DELETE" }), params());
     expect(res.status).toBe(403);
+  });
+});
+
+describe("GET connector-binding (CS-5b state)", () => {
+  it("200 returns {status, connectors, currentConnectorDisplayName}", async () => {
+    mockState.mockResolvedValue({
+      ok: true, status: "needs_selection",
+      connectors: [{ userId: "alice", displayName: "Alice", role: "owner" }],
+      currentConnectorDisplayName: null,
+    });
+    const res = await GET_STATE(new Request("http://t/"), params());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      status: "needs_selection",
+      connectors: [{ userId: "alice", displayName: "Alice", role: "owner" }],
+      currentConnectorDisplayName: null,
+    });
+  });
+  it("404 non-member → state service not called", async () => {
+    mockIsMember.mockResolvedValue(false);
+    const res = await GET_STATE(new Request("http://t/"), params());
+    expect(res.status).toBe(404);
+    expect(mockState).not.toHaveBeenCalled();
+  });
+  it("not_enabled → 404 (feature hidden)", async () => {
+    mockState.mockResolvedValue({ ok: false, reason: "not_enabled" });
+    const res = await GET_STATE(new Request("http://t/"), params());
+    expect(res.status).toBe(404);
   });
 });
 

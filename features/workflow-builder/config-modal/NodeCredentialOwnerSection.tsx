@@ -5,6 +5,7 @@ import { useBuilderTeamContext } from "../context/builderTeamContext";
 import { useNodeCredentialOwners } from "../hooks/useNodeCredentialOwners";
 import { CredentialOwnershipBadge } from "./CredentialOwnershipBadge";
 import { CredentialReassignControl } from "./CredentialReassignControl";
+import { NodeConnectorBindingControl } from "./NodeConnectorBindingControl";
 
 /**
  * Credential-owner section for the active config-modal node (CS-4b).
@@ -60,6 +61,13 @@ export function NodeCredentialOwnerSection({
           nodeId={nodeId}
           onRequested={refetch}
         />
+      ) : null}
+
+      {/* CS-5b — connector binding picker for ambiguous shared personal connections.
+          Self-hides (not_applicable) when an accepted grant owns the node, the
+          provider is account/native, the flag is OFF, or there's no ambiguity. */}
+      {team?.isTeamWorkflow && isPersonal && workflowId && !accepted && !pending ? (
+        <NodeConnectorBindingControl workflowId={workflowId} nodeId={nodeId} />
       ) : null}
     </div>
   );
