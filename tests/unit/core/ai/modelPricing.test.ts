@@ -10,6 +10,7 @@
  */
 import {
   MODEL_PRICING,
+  estimateModelCostMicros,
   estimateModelCostUsd,
   formatUsd,
   getModelPrice,
@@ -73,6 +74,29 @@ describe("estimateModelCostUsd", () => {
     expect(neg!.inputTokens).toBe(0);
     expect(neg!.outputTokens).toBe(0);
     expect(neg!.totalCostUsd).toBe(0);
+  });
+});
+
+describe("estimateModelCostMicros (AI-CREDITS-2 — ledger unit)", () => {
+  it("returns integer micro-USD for a priced model", () => {
+    // 0.924537 USD → 924537 micros.
+    expect(
+      estimateModelCostMicros("claude-sonnet-4-6", { inputTokens: 271_359, outputTokens: 7_364 }),
+    ).toBe(924_537);
+  });
+
+  it("returns null for an unpriced model or missing id (recorded as null, never guessed)", () => {
+    expect(estimateModelCostMicros("gpt-4.1-mini", { inputTokens: 50, outputTokens: 10 })).toBeNull();
+    expect(estimateModelCostMicros(undefined, { inputTokens: 50, outputTokens: 10 })).toBeNull();
+  });
+
+  it("is a whole integer (the column is integer micros)", () => {
+    const micros = estimateModelCostMicros("claude-sonnet-4-6", {
+      inputTokens: 10_820,
+      outputTokens: 392,
+    });
+    expect(micros).not.toBeNull();
+    expect(Number.isInteger(micros)).toBe(true);
   });
 });
 

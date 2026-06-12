@@ -177,6 +177,50 @@ describe("recordAiPlanOutcome — mapping", () => {
   });
 });
 
+// ── AI-CREDITS-2 (recording-only) — credit charge + cost micros on model calls ──
+describe("recordAiPlanOutcome — populates ai_credits_charged + estimated_cost_micros", () => {
+  it("planner (workflow_creation, strong/Sonnet, 10 in / 20 out) → 4 credits + 330 micros", async () => {
+    await recordAiPlanOutcome(
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
+      planSuccess() as never,
+    );
+    const [, modelCall] = recordAiModelCallCompleted.mock.calls[0]!;
+    // workflow_creation base 2 × strong-tier 2 = 4 credits.
+    expect(modelCall.aiCreditsCharged).toBe(4);
+    // Sonnet $3/$15 per MTok: 10*3 + 20*15 = 330 micro-USD.
+    expect(modelCall.estimatedCostMicros).toBe(330);
+    // Policy version is recorded; escalation flag present + false today.
+    expect(modelCall.metadata).toEqual(
+      expect.objectContaining({ creditPolicyVersion: "ai-credits-v1", creditEscalated: false }),
+    );
+    // Mapped feature → NO unmapped flag.
+    expect(modelCall.metadata.creditPolicyUnmapped).toBeUndefined();
+  });
+
+  it("an unpriced planner model still charges credits but records null cost micros", async () => {
+    await recordAiPlanOutcome(
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
+      planSuccess({ model: model({ modelId: "gpt-4.1-mini", tier: "fast" }) }) as never,
+    );
+    const [, modelCall] = recordAiModelCallCompleted.mock.calls[0]!;
+    // fast-tier creation = 2 credits; gpt-4.1-mini is unpriced → no cost micros key.
+    expect(modelCall.aiCreditsCharged).toBe(2);
+    expect(modelCall.estimatedCostMicros).toBeUndefined();
+  });
+
+  it("credit metadata keys are sanitizer-safe (no denylisted substrings)", async () => {
+    await recordAiPlanOutcome(
+      { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
+      planSuccess() as never,
+    );
+    const [, modelCall] = recordAiModelCallCompleted.mock.calls[0]!;
+    const denylist = /token|secret|password|authorization|api[-_]?key|credential|prompt|completion|cot|body|file[-_]?content|config|raw/i;
+    for (const key of Object.keys(modelCall.metadata)) {
+      expect(key).not.toMatch(denylist);
+    }
+  });
+});
+
 describe("recordAiApplyOutcome — mapping", () => {
   it("maps a successful apply to ai_patch_applied", async () => {
     await recordAiApplyOutcome(

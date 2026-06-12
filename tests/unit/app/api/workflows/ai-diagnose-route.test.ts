@@ -19,6 +19,16 @@ jest.mock("@/services/ai/diagnostics/diagnoseWorkflowForAgent", () => ({
   diagnoseWorkflowForAgent: (...a: unknown[]) => mockDiagnose(...a),
 }));
 
+// AI-CREDITS-2 — the route records a 0-credit deterministic telemetry event.
+const mockEnsureAccount = jest.fn();
+jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
+  ensurePersonalAccount: (...a: unknown[]) => mockEnsureAccount(...a),
+}));
+const mockRecordEvent = jest.fn();
+jest.mock("@/services/billing/aiCostEvents", () => ({
+  recordAiCostEvent: (...a: unknown[]) => mockRecordEvent(...a),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/diagnose/route";
 
 function call(id: string) {
@@ -36,6 +46,10 @@ beforeEach(() => {
   mockGetUser.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
   mockDiagnose.mockReset();
+  mockEnsureAccount.mockReset();
+  mockEnsureAccount.mockResolvedValue({ id: "acct-1" });
+  mockRecordEvent.mockReset();
+  mockRecordEvent.mockResolvedValue(undefined);
 });
 
 describe("ai/diagnose route — auth", () => {
@@ -78,5 +92,40 @@ describe("ai/diagnose route — delegation + serialization", () => {
     expect(res.status).toBe(500);
     const body = await res.text();
     expect(body).not.toContain("SECRET_CONN_STRING");
+  });
+});
+
+describe("ai/diagnose route — AI-CREDITS-2 0-credit telemetry", () => {
+  it("records a 0-credit deterministic event on access OK", async () => {
+    mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK", overallReady: true });
+    await call("wf-1");
+    expect(mockEnsureAccount).toHaveBeenCalledWith("user-1");
+    expect(mockRecordEvent).toHaveBeenCalledTimes(1);
+    const event = mockRecordEvent.mock.calls[0]![0];
+    expect(event).toMatchObject({
+      accountId: "acct-1",
+      userId: "user-1",
+      workflowId: "wf-1",
+      feature: "other",
+      eventType: "ai_cost_recorded",
+      aiCreditsCharged: 0,
+      success: true,
+    });
+    expect(event.metadata).toMatchObject({ kind: "workflow_diagnosis", deterministic: true });
+  });
+
+  it("does NOT record an event for an access wall (NO_ACCESS / NOT_FOUND)", async () => {
+    mockDiagnose.mockResolvedValue({ workflowId: "wf-x", access: "NO_ACCESS" });
+    await call("wf-x");
+    expect(mockEnsureAccount).not.toHaveBeenCalled();
+    expect(mockRecordEvent).not.toHaveBeenCalled();
+  });
+
+  it("a telemetry failure NEVER breaks the diagnosis response (fail-open)", async () => {
+    mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK" });
+    mockRecordEvent.mockRejectedValue(new Error("ledger down: SECRET"));
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ workflowId: "wf-1", access: "OK" });
   });
 });

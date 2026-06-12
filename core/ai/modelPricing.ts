@@ -77,6 +77,22 @@ export function estimateModelCostUsd(
   };
 }
 
+/**
+ * Estimate one model call's cost in **micro-USD** (integer millionths), the unit
+ * `ai_cost_events.estimated_cost_micros` stores. Returns `null` when the model is
+ * unpriced (so the ledger records `null`, never a guessed cost). Slice
+ * 4.AI-CREDITS-2 wires this into the recorder so the ledger carries provider cost
+ * alongside the product-unit credit charge.
+ */
+export function estimateModelCostMicros(
+  modelId: string | undefined,
+  usage: { readonly inputTokens?: number; readonly outputTokens?: number } | undefined,
+): number | null {
+  const estimate = estimateModelCostUsd(modelId, usage);
+  if (!estimate) return null;
+  return Math.round(estimate.totalCostUsd * 1_000_000);
+}
+
 function normalizeTokens(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value) || value < 0) return 0;
   return value;
