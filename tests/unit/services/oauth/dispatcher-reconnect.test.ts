@@ -44,6 +44,7 @@ jest.mock("@/integrations/slack/oauth", () => ({
 import {
   connect,
   handleCallback,
+  ReconnectHintUnavailableError,
   ReconnectIdentityMismatchError,
 } from "@/services/oauth/dispatcher";
 import { createState, verifyState } from "@/services/oauth/state";
@@ -51,6 +52,7 @@ import { createState, verifyState } from "@/services/oauth/state";
 beforeEach(() => {
   process.env.OAUTH_STATE_SIGNING_KEY = randomBytes(32).toString("base64");
   process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+  process.env.SHOPIFY_CLIENT_ID = "test-shopify-client-id";
   process.env.NEXT_PUBLIC_APP_URL = "https://app.example.test";
   mockOAuthStatesCreate.mockReset().mockResolvedValue(undefined);
   mockOAuthStatesConsume.mockReset();
@@ -63,6 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.OAUTH_STATE_SIGNING_KEY;
   delete process.env.GOOGLE_CLIENT_ID;
+  delete process.env.SHOPIFY_CLIENT_ID;
   delete process.env.NEXT_PUBLIC_APP_URL;
 });
 
@@ -105,6 +108,83 @@ describe("connect() — reconnect mode", () => {
     expect(u.searchParams.get("prompt")).toBe("consent");
     expect(verifyState(u.searchParams.get("state")!).reconnect).toBeUndefined();
     expect(mockEnsurePersonalAccount).toHaveBeenCalledWith("user-1");
+  });
+});
+
+describe("connect() — Shopify per-tenant reconnect (4.APPS-RECONNECT)", () => {
+  it("derives the shop hint SERVER-SIDE from the row and builds the per-shop authorize URL", async () => {
+    // The reconnect bundle's expectedProviderAccountId IS the shop domain.
+    const { redirectUrl } = await connect({
+      userId: "user-1",
+      provider: "shopify",
+      reconnect: {
+        integrationId: "int-shop",
+        accountId: "team-acct",
+        expectedProviderAccountId: "mystore.myshopify.com",
+      },
+    });
+    const u = new URL(redirectUrl);
+    // Per-shop authorize endpoint — proves the derived shop hint reached buildAuthUrl.
+    expect(u.origin + u.pathname).toBe(
+      "https://mystore.myshopify.com/admin/oauth/authorize",
+    );
+    // State binds BOTH the derived shop hint and the reconnect row id.
+    const payload = verifyState(u.searchParams.get("state")!);
+    expect(payload.providerHint).toEqual({ shop: "mystore.myshopify.com" });
+    expect(payload.reconnect).toEqual({ integrationId: "int-shop" });
+    expect(payload.accountId).toBe("team-acct");
+    expect(mockEnsurePersonalAccount).not.toHaveBeenCalled();
+  });
+
+  it("a corrupt row whose shop can't be derived → safe typed error, no state written", async () => {
+    // A value with a dot but the WRONG TLD can't normalize to *.myshopify.com.
+    await expect(
+      connect({
+        userId: "user-1",
+        provider: "shopify",
+        reconnect: {
+          integrationId: "int-shop",
+          accountId: "team-acct",
+          expectedProviderAccountId: "bad-store.example.com",
+        },
+      }),
+    ).rejects.toBeInstanceOf(ReconnectHintUnavailableError);
+    // The safe message never echoes the stored shop value.
+    await expect(
+      connect({
+        userId: "user-1",
+        provider: "shopify",
+        reconnect: {
+          integrationId: "int-shop",
+          accountId: "team-acct",
+          expectedProviderAccountId: "secret-store.example.com",
+        },
+      }),
+    ).rejects.toThrow(/can.t be reconnected automatically/i);
+    expect(mockOAuthStatesCreate).not.toHaveBeenCalled();
+  });
+
+  it("a NORMAL Shopify connect (client shop hint, no reconnect) is unchanged", async () => {
+    mockEnsurePersonalAccount.mockResolvedValue({
+      id: "acct-user-1",
+      type: "personal",
+      ownerUserId: "user-1",
+      deletionStatus: "active",
+      createdAt: "x",
+      updatedAt: "x",
+    });
+    const { redirectUrl } = await connect({
+      userId: "user-1",
+      provider: "shopify",
+      providerHint: { shop: "client-store.myshopify.com" },
+    });
+    const u = new URL(redirectUrl);
+    expect(u.origin + u.pathname).toBe(
+      "https://client-store.myshopify.com/admin/oauth/authorize",
+    );
+    const payload = verifyState(u.searchParams.get("state")!);
+    expect(payload.providerHint).toEqual({ shop: "client-store.myshopify.com" });
+    expect(payload.reconnect).toBeUndefined();
   });
 });
 

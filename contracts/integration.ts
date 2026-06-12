@@ -238,6 +238,19 @@ export interface ProviderOAuth {
    */
   validateProviderHint?(hint: ProviderHint): void;
   /**
+   * Optional. Per-tenant providers (Shopify) implement this so a per-account
+   * RECONNECT can rebuild the tenant hint the authorize URL needs (the shop
+   * domain) from the intended integration row — SERVER-SIDE, never from the
+   * client (Slice 4.APPS-RECONNECT). Returns the validated hint, or `null` when
+   * it can't be derived (corrupt row) so the dispatcher fails with a safe typed
+   * error instead of leaking the stored value. Generic providers omit this; the
+   * dispatcher derives no hint for them on reconnect.
+   */
+  deriveReconnectHint?(input: {
+    providerAccountId: string;
+    accountMetadata?: Record<string, unknown>;
+  }): ProviderHint | null;
+  /**
    * Builds the redirect URL the user is sent to. `state` is the signed
    * token from `createState()`. `pkce` is non-null only when the provider
    * declared `generatePkce` at connect time; non-PKCE providers receive
