@@ -18,16 +18,103 @@ jest.mock("@/utils/supabase/server", () => ({
 }));
 
 import {
+  assertWorkflowRunEditAllowed,
   lifecycleErrorResponse,
   parseJsonBody,
   requireUser,
   runLifecycle,
   toWorkflowDetail,
+  toWorkflowListItem,
   toWorkflowRunDetail,
   toWorkflowRunSummary,
   toWorkflowSummary,
 } from "@/app/api/workflows/_shared";
 import type { WorkflowRecord } from "@/repositories/workflows";
+
+function recordWith(over: Partial<WorkflowRecord>): WorkflowRecord {
+  return {
+    id: "wf-1",
+    accountId: "acct-1",
+    createdByUserId: "creator-1",
+    name: "WF",
+    state: "draft",
+    disabledReason: null,
+    disabledContext: null,
+    activeRevisionId: null,
+    draftDefinition: { nodes: [], edges: [] },
+    deletedAt: null,
+    folderId: null,
+    deletedByUserId: null,
+    purgeAfter: null,
+    deletedFromFolderId: null,
+    deleteOperationId: null,
+    createdAt: "2026-06-01T00:00:00Z",
+    updatedAt: "2026-06-01T00:00:00Z",
+    ...over,
+  } as WorkflowRecord;
+}
+
+function node(provider: string) {
+  return { id: provider, kind: "action" as const, provider, type: "x", config: {}, position: { x: 0, y: 0 } };
+}
+
+describe("WF-RUNPERM — assertWorkflowRunEditAllowed", () => {
+  const gmail = recordWith({ draftDefinition: { nodes: [node("gmail")], edges: [] } as never, createdByUserId: "creator-1" });
+  const slack = recordWith({ draftDefinition: { nodes: [node("slack")], edges: [] } as never, createdByUserId: "creator-1" });
+
+  it("creator may run/edit a private-credential workflow → null (allowed)", () => {
+    expect(assertWorkflowRunEditAllowed(gmail, "creator-1")).toBeNull();
+  });
+  it("non-creator (incl. owner/admin) blocked on private → typed 403 with SAFE copy", async () => {
+    const res = assertWorkflowRunEditAllowed(gmail, "other-member");
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(403);
+    const body = await res!.json();
+    expect(body.code).toBe("WORKFLOW_USES_PRIVATE_CREDENTIAL");
+    // No leak: no provider id/email/label/scope/token/createdByUserId in the body.
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toMatch(/gmail|creator-1|token|email|scope/i);
+  });
+  it("null-creator private workflow blocked for everyone", () => {
+    // createdByUserId is typed `string` (DB is ON DELETE SET NULL — a known
+    // type-lie for the deleted-member edge); model the null at runtime via cast.
+    const orphan = {
+      ...recordWith({ draftDefinition: { nodes: [node("gmail")], edges: [] } as never }),
+      createdByUserId: null,
+    } as unknown as WorkflowRecord;
+    expect(assertWorkflowRunEditAllowed(orphan, "creator-1")).not.toBeNull();
+  });
+  it("account-only workflow allowed for any member → null", () => {
+    expect(assertWorkflowRunEditAllowed(slack, "any-member")).toBeNull();
+  });
+});
+
+describe("WF-RUNPERM — DTO booleans (no credential detail)", () => {
+  const gmail = recordWith({ createdByUserId: "creator-1", draftDefinition: { nodes: [node("gmail")], edges: [] } as never });
+  const slack = recordWith({ createdByUserId: "creator-1", draftDefinition: { nodes: [node("slack")], edges: [] } as never });
+
+  it("detail: creator gets usesPrivateCredential+viewerCanRunEdit; no createdByUserId leak", () => {
+    const d = toWorkflowDetail(gmail, "creator-1");
+    expect(d.usesPrivateCredential).toBe(true);
+    expect(d.viewerCanRunEdit).toBe(true);
+    expect(d).not.toHaveProperty("createdByUserId");
+  });
+  it("detail: non-creator on private → viewerCanRunEdit false", () => {
+    expect(toWorkflowDetail(gmail, "other").viewerCanRunEdit).toBe(false);
+  });
+  it("detail: account-only → not private, runnable by anyone", () => {
+    const d = toWorkflowDetail(slack, "other");
+    expect(d.usesPrivateCredential).toBe(false);
+    expect(d.viewerCanRunEdit).toBe(true);
+  });
+  it("list item: same booleans, only id+name+counts shape (no createdByUserId)", () => {
+    const item = toWorkflowListItem(gmail, new Map(), "other");
+    expect(item.usesPrivateCredential).toBe(true);
+    expect(item.viewerCanRunEdit).toBe(false);
+    expect(item).not.toHaveProperty("createdByUserId");
+    expect(item).not.toHaveProperty("draftDefinition");
+  });
+});
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import type { WorkflowNode } from "@/contracts/workflowDefinition";
@@ -251,7 +338,7 @@ describe("toWorkflowDetail", () => {
       createdAt: "2026-05-06T00:00:00Z",
       updatedAt: "2026-05-06T01:00:00Z",
     };
-    const detail = toWorkflowDetail(record);
+    const detail = toWorkflowDetail(record, "user-1");
     expect(detail.activeRevisionId).toBe("rev-1");
     expect(detail.draftDefinition.nodes[0]?.id).toBe("n1");
     expect(detail.draftDefinition.edges).toEqual([]);

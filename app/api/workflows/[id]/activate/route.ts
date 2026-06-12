@@ -9,6 +9,7 @@ import {
   type RiskConfirmationResult,
 } from "@/services/workflows/riskConfirmation";
 import {
+  assertWorkflowRunEditAllowed,
   requireUser,
   requireWorkflowAccountMember,
   runLifecycle,
@@ -108,6 +109,10 @@ export async function POST(
   if (workflow && workflow.state !== "deleted") {
     const authorized = await requireWorkflowAccountMember(auth.userId, workflow.accountId);
     if (!authorized.ok) return authorized.response;
+    // WF-RUNPERM — activating arms the workflow to fire under the creator's
+    // identity. Only the creator may activate a private-credential workflow.
+    const runEditDenied = assertWorkflowRunEditAllowed(workflow, auth.userId);
+    if (runEditDenied) return runEditDenied;
   }
   let risk: RiskConfirmationResult | null = null;
   if (workflow && workflow.state !== "deleted") {

@@ -1,15 +1,7 @@
 import * as workflowsRepo from "@/repositories/workflows";
 import { listAcceptedOwnedByUserInAccountServiceRole } from "@/repositories/workflowNodeCredentials";
-import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
+import { workflowUsesPrivateCredential } from "@/core/integrations/workflowCredentialScope";
 import { isNodeCredentialReassignmentEnabled } from "@/services/teamCredentials/flags";
-
-/**
- * Non-OAuth pseudo-providers — they have no integration / credential, so they
- * can never be "impacted" by an offboarding soft-disconnect. Mirrors
- * `services/triggers/preconditions.ts`. (They classify `personal` only as the
- * credential-resolution fail-safe default; that is irrelevant here.)
- */
-const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
 
 /**
  * Offboarding workflow-impact helper (Slice 4.TEAM-WORKFLOWS-7 / TW-5; extended
@@ -58,13 +50,7 @@ export async function countImpactedWorkflowsForMember(
   // Class 1 — workflows the member created with a personal-provider step.
   for (const wf of workflows) {
     if (wf.createdByUserId !== targetUserId) continue;
-    const usesPersonalProvider = wf.draftDefinition.nodes.some(
-      (node) =>
-        !!node.provider &&
-        !NON_OAUTH_PROVIDERS.has(node.provider) &&
-        isPersonalCredentialProvider(node.provider),
-    );
-    if (usesPersonalProvider) impacted.add(wf.id);
+    if (workflowUsesPrivateCredential(wf.draftDefinition)) impacted.add(wf.id);
   }
 
   // Class 2 — workflows where the member is the ACCEPTED node-credential owner.

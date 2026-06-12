@@ -15,6 +15,7 @@ import {
   isValidConfirmationText,
 } from "@/services/workflows/riskConfirmation";
 import {
+  assertWorkflowRunEditAllowed,
   requireUser,
   requireWorkflowAccountMember,
   workflowNotFoundResponse,
@@ -124,6 +125,12 @@ export async function POST(
   // created_by_user_id is provenance, never consulted here.
   const authorized = await requireWorkflowAccountMember(auth.userId, workflow.accountId);
   if (!authorized.ok) return authorized.response;
+  // WF-RUNPERM — a private-credential workflow runs under the CREATOR's external
+  // OAuth identity (22B creator-pin). Only the creator may run it; non-creators
+  // (incl. owner/admin) get a typed 403 and are pointed to Duplicate. Shared/
+  // account-only + native-only workflows are unaffected (any member runs).
+  const runEditDenied = assertWorkflowRunEditAllowed(workflow, auth.userId);
+  if (runEditDenied) return runEditDenied;
   if (!ALLOWED_STATES.has(workflow.state)) {
     return NextResponse.json(
       {

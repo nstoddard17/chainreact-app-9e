@@ -57,6 +57,9 @@ import { POST } from "@/app/api/workflows/[id]/activate/route";
 const baseWorkflowRecord = {
   id: "wf-1",
   userId: "user-1",
+  // WF-RUNPERM: the fixture uses gmail (a private/member-connected provider), so
+  // run/edit is creator-only. Happy-path tests sign in as the creator.
+  createdByUserId: "user-1",
   accountId: "acct-user-1",
   name: "WF",
   state: "draft" as const,
@@ -163,6 +166,23 @@ describe("POST /activate — auth", () => {
     expect(body.code).toBe("WORKFLOW_NOT_FOUND");
     expect(mockActivate).not.toHaveBeenCalled();
     expect(mockIsMember).toHaveBeenCalledWith("user-1", "acct-team-B");
+  });
+
+  // 4.WF-RUNPERM — a same-account NON-creator (incl. owner/admin) may NOT activate
+  // a private-credential workflow (the base fixture uses gmail). Membership passes
+  // (404 gate cleared), then the run/edit gate returns the typed 403.
+  it("returns 403 WORKFLOW_USES_PRIVATE_CREDENTIAL for a non-creator member, no activate", async () => {
+    signedInAs("member-2"); // member of the account, but not the creator (user-1)
+    mockGetById.mockResolvedValueOnce(baseWorkflowRecord);
+    mockIsMember.mockResolvedValueOnce(true);
+    const res = await POST(buildRequest(""), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_USES_PRIVATE_CREDENTIAL");
+    expect(JSON.stringify(body)).not.toMatch(/gmail|user-1|token/i);
+    expect(mockActivate).not.toHaveBeenCalled();
   });
 });
 

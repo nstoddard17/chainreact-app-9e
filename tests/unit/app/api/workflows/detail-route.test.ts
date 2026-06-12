@@ -58,6 +58,9 @@ const defWith = (over: Partial<typeof slackTrigger> = {}) => ({
 const baseRecord = {
   id: "wf-1",
   userId: "user-1",
+  // WF-RUNPERM: caller "user-1" is the creator, so edits to credential-bound
+  // definitions (incl. adding a gmail node) are allowed.
+  createdByUserId: "user-1",
   accountId: "acct-user-1",
   name: "Original",
   state: "draft" as const,

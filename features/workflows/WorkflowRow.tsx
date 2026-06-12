@@ -11,6 +11,7 @@ import {
 import { WorkflowProviderChips } from "./WorkflowProviderChips";
 import { WorkflowStatusBadge } from "./WorkflowStatusBadge";
 import { WorkflowStatusToggle } from "./WorkflowStatusToggle";
+import { PrivateConnectionBadge } from "./PrivateConnectionBadge";
 
 /**
  * Grid-table row for the workflows list view (Slice 4.WORKFLOWS-PAGE-1; relaid
@@ -79,13 +80,17 @@ export function WorkflowRow({
 
       {/* Name */}
       <div className="flex min-w-0 flex-col gap-0.5">
-        <Link
-          href={`/workflows/${workflow.id}`}
-          data-testid="workflow-row-name"
-          className="truncate text-sm font-semibold text-foreground hover:underline"
-        >
-          {workflow.name}
-        </Link>
+        <div className="flex min-w-0 items-center gap-2">
+          <Link
+            href={`/workflows/${workflow.id}`}
+            data-testid="workflow-row-name"
+            className="truncate text-sm font-semibold text-foreground hover:underline"
+          >
+            {workflow.name}
+          </Link>
+          {workflow.usesPrivateCredential === true &&
+            workflow.viewerCanRunEdit === false && <PrivateConnectionBadge />}
+        </div>
         <p data-testid="workflow-row-runs" className="truncate text-xs text-muted-foreground">
           {formatRunStats(workflow.runStats)}
         </p>

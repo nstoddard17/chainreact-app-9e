@@ -7,6 +7,10 @@ import { redactOutput } from "@/core/security/redactOutput";
 import { getActionMeta } from "@/services/discovery/_registry";
 import { getProvider, providerIconUrl } from "@/integrations/_registry";
 import { summarizeDefinition } from "@/core/workflows/definitionSummary";
+import {
+  workflowUsesPrivateCredential,
+  viewerMayRunEdit,
+} from "@/core/integrations/workflowCredentialScope";
 import { emptyRunStats } from "@/repositories/workflowRunStats";
 import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
@@ -264,11 +268,19 @@ export function toWorkflowSummary(record: WorkflowRecord): WorkflowSummary {
   };
 }
 
-export function toWorkflowDetail(record: WorkflowRecord): WorkflowDetail {
+export function toWorkflowDetail(
+  record: WorkflowRecord,
+  callerUserId: string,
+): WorkflowDetail {
   return {
     ...toWorkflowSummary(record),
     activeRevisionId: record.activeRevisionId,
     draftDefinition: record.draftDefinition,
+    usesPrivateCredential: workflowUsesPrivateCredential(record.draftDefinition),
+    viewerCanRunEdit: viewerMayRunEdit(
+      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
+      callerUserId,
+    ),
   };
 }
 
@@ -285,6 +297,7 @@ export function toWorkflowDetail(record: WorkflowRecord): WorkflowDetail {
 export function toWorkflowListItem(
   record: WorkflowRecord,
   runStatsByWorkflow: ReadonlyMap<string, WorkflowRunStats>,
+  callerUserId: string,
 ): WorkflowListItem {
   const summary = summarizeDefinition(record.draftDefinition);
   const providers: WorkflowProviderChip[] = summary.providerIds.map((id) => ({
@@ -299,7 +312,48 @@ export function toWorkflowListItem(
     actionCount: summary.actionCount,
     runStats: runStatsByWorkflow.get(record.id) ?? emptyRunStats(),
     folderId: record.folderId,
+    usesPrivateCredential: workflowUsesPrivateCredential(record.draftDefinition),
+    viewerCanRunEdit: viewerMayRunEdit(
+      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
+      callerUserId,
+    ),
   };
+}
+
+/**
+ * WF-RUNPERM — 403 for a private-credential workflow the caller may not run/edit.
+ * The caller is a member who CAN see the workflow (so this is a 403, not the
+ * non-member 404). Safe copy only — no email / label / scope / token /
+ * providerAccountId / raw provider error. The duplicate hint points members to
+ * the supported path (fork → pick own connection).
+ */
+export function workflowUsesPrivateCredentialResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error:
+        "This workflow runs with the creator's private connection. Duplicate it to use your own connection.",
+      code: "WORKFLOW_USES_PRIVATE_CREDENTIAL",
+    },
+    { status: 403 },
+  );
+}
+
+/**
+ * WF-RUNPERM — run/edit gate, applied AFTER the membership gate, on an already-
+ * loaded (non-deleted, membership-authorized) record. Returns the typed 403 when
+ * the workflow is private-credential and the caller is not its creator; `null`
+ * when run/edit is allowed. Role-agnostic — owner/admin do not pass for a
+ * private-credential workflow (management actions are separate routes).
+ */
+export function assertWorkflowRunEditAllowed(
+  record: WorkflowRecord,
+  callerUserId: string,
+): NextResponse | null {
+  const allowed = viewerMayRunEdit(
+    { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
+    callerUserId,
+  );
+  return allowed ? null : workflowUsesPrivateCredentialResponse();
 }
 
 export function toWorkflowRunSummary(

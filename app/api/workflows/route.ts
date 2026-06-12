@@ -50,6 +50,6 @@ export async function GET() {
     workflowRunStatsRepo.getStatsForAccount(auth.accountId),
   ]);
   return NextResponse.json({
-    workflows: records.map((r) => toWorkflowListItem(r, runStats)),
+    workflows: records.map((r) => toWorkflowListItem(r, runStats, auth.userId)),
   });
 }

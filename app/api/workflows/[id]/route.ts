@@ -11,7 +11,9 @@ import {
   requireWorkflowAccountMember,
   toWorkflowDetail,
   workflowNotFoundResponse,
+  workflowUsesPrivateCredentialResponse,
 } from "../_shared";
+import { workflowUsesPrivateCredential } from "@/core/integrations/workflowCredentialScope";
 
 /**
  * GET   /api/workflows/[id] — full detail for the edit page (Slice 1H.4) /
@@ -56,7 +58,7 @@ export async function GET(
   const loaded = await loadOrNotFound(id, auth.userId);
   if (!loaded.ok) return loaded.response;
 
-  return NextResponse.json(toWorkflowDetail(loaded.record));
+  return NextResponse.json(toWorkflowDetail(loaded.record, auth.userId));
 }
 
 export async function PATCH(
@@ -83,6 +85,21 @@ export async function PATCH(
   }
   if (parsed.data.draftDefinition !== undefined) {
     const definition = parsed.data.draftDefinition;
+    // WF-RUNPERM — credential-bound edit gate. A non-creator may not save the
+    // definition of a private-credential workflow, nor turn a workflow private
+    // (which would bind it to the creator's identity). Name/folder edits above
+    // are NOT credential-bound and stay allowed for any member. Membership is
+    // already verified by loadOrNotFound; this only narrows the private case.
+    const isCreator =
+      loaded.record.createdByUserId !== null &&
+      loaded.record.createdByUserId === auth.userId;
+    if (
+      !isCreator &&
+      (workflowUsesPrivateCredential(loaded.record.draftDefinition) ||
+        workflowUsesPrivateCredential(definition))
+    ) {
+      return workflowUsesPrivateCredentialResponse();
+    }
     // Shared save path: writes the draft, and if an ACTIVE workflow's ACTIVATABLE trigger
     // changed (stale trigger_resources / provider subscription), deactivates it so the
     // teardown runs and the user re-registers via Reactivate → Resume. Manual-trigger and
@@ -105,7 +122,7 @@ export async function PATCH(
     });
     if (!moved.ok) return folderErrorResponse(moved);
   }
-  return NextResponse.json(toWorkflowDetail(next));
+  return NextResponse.json(toWorkflowDetail(next, auth.userId));
 }
 
 /**

@@ -65,7 +65,7 @@ export default async function WorkflowsPage() {
         limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
       }),
     ]);
-  const workflows = records.map((r) => toWorkflowListItem(r, runStats));
+  const workflows = records.map((r) => toWorkflowListItem(r, runStats, user.id));
   const folders = folderRecords.map(toWorkflowFolder);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   // CS-8: surface pending credential-reassignment requests in the bell (derived,

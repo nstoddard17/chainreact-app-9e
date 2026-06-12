@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import * as workflowsRepo from "@/repositories/workflows";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 import {
+  assertWorkflowRunEditAllowed,
   authorizeWorkflowLifecycleAccess,
   requireUser,
   runLifecycle,
@@ -33,6 +35,14 @@ export async function POST(
   // 4.TEAM-WORKFLOWS-1 (TW-1): explicit account-membership authorization.
   const authorized = await authorizeWorkflowLifecycleAccess(id, auth.userId);
   if (!authorized.ok) return authorized.response;
+
+  // WF-RUNPERM — reactivating moves a private-credential workflow toward
+  // executable; only the creator may do so.
+  const record = await workflowsRepo.getById(id);
+  if (record && record.state !== "deleted") {
+    const runEditDenied = assertWorkflowRunEditAllowed(record, auth.userId);
+    if (runEditDenied) return runEditDenied;
+  }
 
   const orch = createLifecycleOrchestrator();
   return runLifecycle(

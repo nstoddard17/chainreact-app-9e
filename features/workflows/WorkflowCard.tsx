@@ -11,6 +11,7 @@ import {
 import { WorkflowProviderChips } from "./WorkflowProviderChips";
 import { WorkflowStatusBadge } from "./WorkflowStatusBadge";
 import { WorkflowStatusToggle } from "./WorkflowStatusToggle";
+import { PrivateConnectionBadge } from "./PrivateConnectionBadge";
 
 /**
  * Grid-view card for the workflows dashboard (Slice 4.WORKFLOWS-PAGE-1).
@@ -51,6 +52,10 @@ export function WorkflowCard({ workflow, onChanged, folderActions }: Props) {
         <WorkflowStatusBadge workflow={workflow} />
         <WorkflowStatusToggle workflow={workflow} onChanged={onChanged} />
       </div>
+      {workflow.usesPrivateCredential === true &&
+        workflow.viewerCanRunEdit === false && (
+          <PrivateConnectionBadge className="self-start" />
+        )}
       <WorkflowProviderChips providers={workflow.providers} />
       <p
         data-testid="workflow-card-runs"

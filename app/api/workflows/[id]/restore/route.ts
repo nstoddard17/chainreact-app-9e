@@ -38,5 +38,5 @@ export async function POST(
   if (!result.ok) return trashErrorResponse(result);
 
   const restored = await workflowsRepo.getById(id);
-  return NextResponse.json(restored ? toWorkflowDetail(restored) : { ok: true });
+  return NextResponse.json(restored ? toWorkflowDetail(restored, auth.userId) : { ok: true });
 }

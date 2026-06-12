@@ -83,6 +83,22 @@ export type DisableWorkflowRequest = z.infer<typeof DisableWorkflowRequestSchema
 export const WorkflowDetailSchema = WorkflowSummarySchema.extend({
   activeRevisionId: z.string().uuid().nullable(),
   draftDefinition: WorkflowDefinitionSchema,
+  /**
+   * WF-RUNPERM — server-derived booleans only (no credential detail). True when
+   * ≥1 node uses a personal / member-connected credential (running resolves the
+   * creator's external identity, so run/edit is creator-only). The server mapper
+   * `toWorkflowDetail` ALWAYS populates this; `.optional()` only spares unrelated
+   * fixtures/consumers — the security boundary is the server route, not this flag.
+   */
+  usesPrivateCredential: z.boolean().optional(),
+  /**
+   * WF-RUNPERM — whether THIS caller may run/edit: true when the workflow is not
+   * private-credential, OR the caller is its creator. Owner/admin do NOT get
+   * run/edit on a private-credential workflow (management is a separate route).
+   * Always populated by the server mapper; `.optional()` for fixture/consumer
+   * back-compat only.
+   */
+  viewerCanRunEdit: z.boolean().optional(),
 });
 export type WorkflowDetail = z.infer<typeof WorkflowDetailSchema>;
 
@@ -142,6 +158,12 @@ export const WorkflowListItemSchema = WorkflowSummarySchema.extend({
   // navigation. null = uncategorized. Carried on the list item only (NOT the
   // summary wire shape, which stays folder-agnostic).
   folderId: z.string().uuid().nullable(),
+  // WF-RUNPERM — server-derived booleans (no credential detail). Drive the
+  // "Private connection" badge + disabled run/edit affordance on the list row.
+  // Always populated by `toWorkflowListItem`; `.optional()` for fixture/consumer
+  // back-compat only.
+  usesPrivateCredential: z.boolean().optional(),
+  viewerCanRunEdit: z.boolean().optional(),
 });
 export type WorkflowListItem = z.infer<typeof WorkflowListItemSchema>;
 

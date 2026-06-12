@@ -49,5 +49,5 @@ export async function POST(
     }
   }
 
-  return NextResponse.json(toWorkflowDetail(result.workflow));
+  return NextResponse.json(toWorkflowDetail(result.workflow, auth.userId));
 }
