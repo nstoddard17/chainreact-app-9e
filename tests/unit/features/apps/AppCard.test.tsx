@@ -20,11 +20,13 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
     label,
     variant,
     testId,
+    title,
   }: {
     provider: string;
     label: string;
     variant?: string;
     testId?: string;
+    title?: string;
   }) => (
     <button
       type="button"
@@ -32,6 +34,7 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
       data-provider={provider}
       data-label={label}
       data-variant={variant ?? "primary"}
+      {...(title !== undefined && { title })}
     >
       {label}
     </button>
@@ -107,12 +110,15 @@ describe("AppCard — connected", () => {
     expect(screen.queryByTestId("mock-connect-button")).toBeNull();
   });
 
-  it("renders a Reconnect button (outline, reuses the OAuth start flow) on a connected provider", () => {
+  it("renders a Reconnect button (reconnect variant + tooltip, reuses the OAuth start flow) on a connected provider", () => {
     render(<AppCard app={connected} />);
     const reconnect = screen.getByTestId("app-card-reconnect");
     expect(reconnect).toHaveAttribute("data-provider", "slack");
     expect(reconnect).toHaveAttribute("data-label", "Reconnect");
-    expect(reconnect).toHaveAttribute("data-variant", "outline");
+    // Stronger affordance than the old flat outline, still subordinate to Connect.
+    expect(reconnect).toHaveAttribute("data-variant", "reconnect");
+    // Tooltip clarifies intent without changing the visible label.
+    expect(reconnect).toHaveAttribute("title", "Refresh this connection");
   });
 
   it("does NOT render Reconnect when canConnect=false", () => {

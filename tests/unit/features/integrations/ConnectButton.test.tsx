@@ -63,7 +63,7 @@ describe("ConnectButton", () => {
     expect(assignSpy).not.toHaveBeenCalled();
   });
 
-  it("the Reconnect variant (outline + testId) starts the SAME OAuth flow", async () => {
+  it("the Reconnect variant (reconnect + testId + title) starts the SAME OAuth flow", async () => {
     mockStartOAuth.mockResolvedValueOnce({
       redirectUrl: "https://slack.com/oauth/v2/authorize?x=2",
     });
@@ -72,12 +72,16 @@ describe("ConnectButton", () => {
       <ConnectButton
         provider="slack"
         label="Reconnect"
-        variant="outline"
+        variant="reconnect"
+        title="Refresh this connection"
         testId="app-card-reconnect"
       />,
     );
     const btn = screen.getByTestId("app-card-reconnect");
     expect(btn).toHaveTextContent("Reconnect");
+    // Stronger affordance: native tooltip + leading refresh glyph.
+    expect(btn).toHaveAttribute("title", "Refresh this connection");
+    expect(btn.querySelector("svg")).not.toBeNull();
     await user.click(btn);
     await waitFor(() => {
       expect(mockStartOAuth).toHaveBeenCalledWith("slack");

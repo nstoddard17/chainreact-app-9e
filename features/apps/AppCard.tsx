@@ -18,14 +18,23 @@ import { formatConnectedOn } from "./relativeDate";
  *     manage/disconnect API endpoint exists yet (markDisconnected is a
  *     repo function, not a wired route). Adding the disconnect endpoint
  *     is a follow-up slice.
- *   - **Reconnect button is NOT rendered.** No health-driven
- *     needs_reconnect state on the DTO today.
+ *   - **Reconnect IS rendered on a connected card** (`reconnect` variant —
+ *     filled-secondary + refresh glyph + "Refresh this connection" tooltip).
+ *     It reuses the same OAuth start flow so an expired/broken token is
+ *     recoverable without discovering the "Connect another" workaround; it's
+ *     deliberately subordinate to the filled-primary Connect CTA and is NOT a
+ *     disconnect control. Not driven by a health/needs_reconnect DTO field
+ *     (none today) — it's always offered on connected providers.
+ *   - **Connect another** stays a separate primary action in the expanded
+ *     account section, shown only for multi-account providers — it ADDS an
+ *     account rather than refreshing the existing one.
  *   - **The animated colored-letter tile is replaced with the real
  *     `/integrations/<id>.svg` asset.** Falls back to two-letter initials
  *     if the file is missing — same pattern WorkflowProviderChips uses.
  *
- * The Connect button funnels through the existing `ConnectButton`, which
- * starts a real OAuth flow via `lib/api/integrations.startOAuth()`.
+ * The Connect / Reconnect / Connect another buttons all funnel through the
+ * existing `ConnectButton`, which starts a real OAuth flow via
+ * `lib/api/integrations.startOAuth()`.
  */
 interface Props {
   app: AppCatalogItem;
@@ -84,12 +93,16 @@ export function AppCard({ app }: Props) {
               recoverable without discovering the "Connect another" workaround.
               Reuses the same OAuth start flow; re-authorizing the same workspace
               refreshes the existing row via upsertActive. Distinct from the
-              expanded "Connect another" (which ADDS an account). */}
+              expanded "Connect another" (which ADDS an account).
+              Uses the `reconnect` treatment (filled-secondary + refresh glyph)
+              so it's noticeable against the card — but it stays subordinate to
+              the filled-primary Connect CTA and never reads as destructive. */}
           {app.isConnected && app.canConnect && (
             <ConnectButton
               provider={app.providerId}
               label="Reconnect"
-              variant="outline"
+              variant="reconnect"
+              title="Refresh this connection"
               testId="app-card-reconnect"
             />
           )}

@@ -7,13 +7,20 @@ interface Props {
   provider: string;
   label: string;
   /**
-   * Visual treatment. `primary` (default) is the filled Connect CTA;
-   * `outline` is a lighter affordance used for Reconnect on an
-   * already-connected card so it reads as secondary to Connect.
+   * Visual treatment.
+   *   - `primary` (default) is the filled Connect CTA.
+   *   - `outline` is a flat bordered, transparent affordance.
+   *   - `reconnect` is a filled-secondary treatment (muted background +
+   *     border + shadow + leading refresh glyph) used for Reconnect on an
+   *     already-connected card. It lifts off the card so the recovery
+   *     action is noticeable, while staying clearly subordinate to the
+   *     filled-primary Connect CTA (never destructive, never primary).
    */
-  variant?: "primary" | "outline";
+  variant?: "primary" | "outline" | "reconnect";
   /** Optional test id so callers (e.g. the Apps card Reconnect) are selectable. */
   testId?: string;
+  /** Optional native tooltip (e.g. Reconnect → "Refresh this connection"). */
+  title?: string;
 }
 
 /**
@@ -30,6 +37,7 @@ export function ConnectButton({
   label,
   variant = "primary",
   testId,
+  title,
 }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +55,11 @@ export function ConnectButton({
   }
 
   const className =
-    variant === "outline"
-      ? "rounded border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
-      : "rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60";
+    variant === "reconnect"
+      ? "inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70 hover:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+      : variant === "outline"
+        ? "rounded border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+        : "rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60";
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -59,7 +69,9 @@ export function ConnectButton({
         disabled={pending}
         className={className}
         {...(testId !== undefined && { "data-testid": testId })}
+        {...(title !== undefined && { title })}
       >
+        {variant === "reconnect" && <RefreshIcon spinning={pending} />}
         {pending ? "Redirecting…" : label}
       </button>
       {error && (
@@ -68,5 +80,29 @@ export function ConnectButton({
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * Circular-arrows glyph that reads as "refresh / re-authorize". Spins while
+ * the OAuth redirect is in flight to reinforce the in-progress state.
+ */
+function RefreshIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={`shrink-0${spinning ? " animate-spin" : ""}`}
+    >
+      <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
+      <polyline points="13.5 2.5 13.5 5 11 5" />
+    </svg>
   );
 }
