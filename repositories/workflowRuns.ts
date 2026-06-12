@@ -393,3 +393,11 @@ export async function listByAccountForDisplay(
 // every consumer (engine, sweep service, route handlers, tests) — no caller
 // needs to change its import.
 export * from "./workflowRunsLifecycle";
+
+// ── Diagnostics readers (service-role, sessionless, INCLUDE running) ──────────
+//
+// Sessionless service-role run readers for the internal diagnostics surface
+// (4.MCP-STAGE-2B-3). Kept in a sibling for file-size hygiene + because they
+// return a WIDENED status type (`running`) the terminal-only display path must
+// not see. NON-authorizing — the diagnostics route gates + checks membership.
+export * from "./workflowRunsDiagnostics";
