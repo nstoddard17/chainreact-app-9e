@@ -1,7 +1,7 @@
 # V2 Go-Live — Production Status
 
 **Type:** Go-live status record. **Date:** 2026-06-09 (UTC date; precise time not captured in this environment).
-**Status:** ✅ **LIVE** — public-surface smoke GREEN; authenticated-flow + log checks **pending manual verification**.
+**Status:** ✅ **LIVE** — public-surface smoke GREEN; **authenticated-flow + execution smoke GREEN (2026-06-11 — see "Production smoke" closeout below)**; Vercel log review remains manual.
 
 ---
 
@@ -91,6 +91,24 @@ the redirect target or logs. 15 callback tests + full auth suite, `tsc`, eslint,
   - Desktop forgot-password → open reset email on phone → lands on `/auth/reset-password` → set new password → sign in.
 
 **Honesty note:** the ✅ rows were actually run this session (git push output, `vercel ls`, and curl probes against the live domain — the bogus-token verifyOtp probes create nothing). The ⏳ rows need Marcus's dashboard change and physical devices and are **not** claimed as passing. The DNS failure to resolve `*.supabase.co` seen during this work was **local to the dev machine only** — the Vercel server reaches Supabase fine (proven by the verifyOtp probe above).
+
+## Production smoke — authenticated + execution closeout — 2026-06-11
+
+**Result:** `npm run smoke:prod` against `https://chainreact.app` — **30 tests: 29 passed, 1 skipped, 0 failed. Overall PASSED.** (Run by Marcus this session; not run from the assistant environment — no smoke credentials there.) Deployed commit under test: `9abe08ab6` on `v2-main`.
+
+**Validates the previously ⏳-pending authenticated/execution checks above:**
+- **Builder manual-run finalizes** to a terminal run status and appears on `/runs` — confirms the run-now `after()` reliability fix (commit `9abe08ab6`, live) in production. Manual runs no longer stick in `running` (invisible to the `neq('status','running')` Runs read).
+- **Slack action manual-run finalizes** (Send Channel Message) — Slack action smoke: 6 passed, 0 failed, 1 skipped.
+- Public surface, authenticated shell, and builder readiness/save — all green.
+- MCP smoke artifact written: `artifacts/mcp/smoke-latest.json`.
+
+**Notes:**
+- **Slack re-OAuth was required** to restore Slack channel option loading. The channel picker had failed with `PROVIDER_ERROR` ("Couldn't load Slack channels. Try again.") because the stored bot token was rejected by Slack's API; reconnecting the **same workspace** (Apps → Slack → "Connect another") refreshed the token in place via `upsertActive` on `(account_id, provider, provider_account_id)`, and channel loading recovered.
+- The **1 skipped test is the Slack-side message verification** — intentionally gated (the smoke harness holds no Slack API read credentials). ChainReact-side run success is the acceptance signal; **the message landing in the Slack channel is not externally verified in Slack.**
+
+### Open follow-ups (not blocking; NOT addressed in this closeout)
+- **Connected-app recovery UX gap:** no obvious **Reconnect** affordance and **no Disconnect** action on connected app cards (`markDisconnected()` is repo-only dead code; no disconnect API route). Recovering a broken token relies on the non-discoverable "Connect another → same workspace" workaround. A scoped recovery-UX slice (visible Reconnect + auth-error clarity; Disconnect designed separately) is queued, not yet built.
+- **Observed on localhost — UNDIAGNOSED, needs investigation before the Reconnect UX:** during a Slack OAuth reconnect on localhost while signed in as one user, the app afterward showed a *different* signed-in user plus a "Connected to slack" banner. Not yet reproduced or root-caused; flagged as a potential auth/session-integrity concern. Production smoke (run as the dedicated smoke account) was unaffected.
 
 ## What remains deferred (unchanged)
 - **Live-provider validation** — OAuth connect/refresh/revoke, webhook delivery+dedup, Stripe checkout/webhook round-trips, per-provider live testing. Not started.
