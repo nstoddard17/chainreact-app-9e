@@ -2,6 +2,7 @@ import * as accountsRepo from "@/repositories/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import { softDisconnectPersonalForMember } from "@/repositories/integrations";
 import { revokeLiveForMemberServiceRole } from "@/repositories/workflowNodeCredentials";
+import { deleteForMemberInAccountServiceRole } from "@/repositories/workflowNodeConnectorBindings";
 import { clearActiveAccountIfMatchesServiceRole } from "@/repositories/userProfiles";
 
 /**
@@ -61,6 +62,23 @@ export async function leaveAccount(input: {
         event: "account.member.leave.node_credentials_revoked",
         accountId: input.accountId,
         count: revoked.revokedCount,
+      }),
+    );
+  }
+
+  // CS-4b: delete node connector bindings POINTING AT this leaver as a shared
+  // connector — data hygiene (the resolver also fails closed once their shared
+  // rows are disconnected below). Idempotent / 0-row no-op.
+  const bindingsDeleted = await deleteForMemberInAccountServiceRole({
+    accountId: input.accountId,
+    connectorUserId: input.userId,
+  });
+  if (bindingsDeleted.deletedCount > 0) {
+    console.info(
+      JSON.stringify({
+        event: "account.member.leave.connector_bindings_deleted",
+        accountId: input.accountId,
+        count: bindingsDeleted.deletedCount,
       }),
     );
   }

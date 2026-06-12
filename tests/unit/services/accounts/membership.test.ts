@@ -43,6 +43,12 @@ jest.mock("@/repositories/workflowNodeCredentials", () => ({
   listAcceptedOwnedByUserInAccountServiceRole: (...a: unknown[]) => mockListAcceptedOwned(...a),
 }));
 
+// CS-4b: node connector binding delete on offboarding.
+const mockDeleteBindings = jest.fn();
+jest.mock("@/repositories/workflowNodeConnectorBindings", () => ({
+  deleteForMemberInAccountServiceRole: (...a: unknown[]) => mockDeleteBindings(...a),
+}));
+
 // TW-5: getMemberWorkflowImpact → countImpactedWorkflowsForMember reads the
 // workflows repo. Mock it so the impact path can be exercised without a DB.
 const mockWfListByAccount = jest.fn();
@@ -72,6 +78,7 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ disconnectedCount: 0, disconnectedProviders: [] });
   mockRevokeGrants.mockReset().mockResolvedValue({ revokedCount: 0 });
+  mockDeleteBindings.mockReset().mockResolvedValue({ deletedCount: 0 });
   mockListAcceptedOwned.mockReset().mockResolvedValue([]);
   mockWfListByAccount.mockReset().mockResolvedValue([]);
 });

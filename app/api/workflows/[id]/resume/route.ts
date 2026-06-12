@@ -25,7 +25,7 @@ export async function POST(
   // identity. Only the creator may resume a private-credential workflow.
   const record = await workflowsRepo.getById(id);
   if (record && record.state !== "deleted") {
-    const runEditDenied = assertWorkflowRunEditAllowed(record, auth.userId);
+    const runEditDenied = await assertWorkflowRunEditAllowed(record, auth.userId);
     if (runEditDenied) return runEditDenied;
   }
 

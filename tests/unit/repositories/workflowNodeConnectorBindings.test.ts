@@ -32,6 +32,10 @@ function makeMockClient(state: ChainState) {
       state.filters.push({ op: "eq", args: [col, val] });
       return builder;
     }),
+    in: jest.fn((col: string, val: unknown) => {
+      state.filters.push({ op: "in", args: [col, val] });
+      return builder;
+    }),
     order: jest.fn(() => builder),
     single: jest.fn(async () => ({ data: state.resultData, error: state.resultError })),
     maybeSingle: jest.fn(async () => ({ data: state.resultData, error: state.resultError })),
@@ -50,6 +54,7 @@ import {
   getForNodeServiceRole,
   setForNodeServiceRole,
   deleteForNodeServiceRole,
+  deleteForMemberInAccountServiceRole,
   listByWorkflowServiceRole,
   ACCOUNT_PROVIDER_NOT_BINDABLE,
 } from "@/repositories/workflowNodeConnectorBindings";
@@ -135,5 +140,25 @@ describe("workflowNodeConnectorBindings repo", () => {
     const state: ChainState = { filters: [], resultData: null, resultError: { message: "permission denied" } };
     mockServiceRole.current = makeMockClient(state);
     await expect(listByWorkflowServiceRole("wf-1")).rejects.toThrow(/permission denied/);
+  });
+
+  describe("deleteForMemberInAccountServiceRole (offboarding)", () => {
+    it("scopes by account_id (via FK embed) + connector_user_id and deletes the matched ids", async () => {
+      const state = freshState([{ id: "b1" }, { id: "b2" }]);
+      mockServiceRole.current = makeMockClient(state);
+      const res = await deleteForMemberInAccountServiceRole({ accountId: "acc-1", connectorUserId: "conn-2" });
+      expect(res).toEqual({ deletedCount: 2 });
+      expect(state.filters).toContainEqual({ op: "eq", args: ["workflows.account_id", "acc-1"] });
+      expect(state.filters).toContainEqual({ op: "eq", args: ["connector_user_id", "conn-2"] });
+      expect(state.filters).toContainEqual({ op: "in", args: ["id", ["b1", "b2"]] });
+    });
+
+    it("0 matches → no delete, deletedCount 0 (idempotent no-op)", async () => {
+      const state = freshState([]);
+      mockServiceRole.current = makeMockClient(state);
+      const res = await deleteForMemberInAccountServiceRole({ accountId: "acc-1", connectorUserId: "nobody" });
+      expect(res).toEqual({ deletedCount: 0 });
+      expect(state.filters).not.toContainEqual({ op: "in", args: ["id", expect.anything()] });
+    });
   });
 });

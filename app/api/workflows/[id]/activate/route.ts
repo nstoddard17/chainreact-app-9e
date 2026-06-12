@@ -111,7 +111,7 @@ export async function POST(
     if (!authorized.ok) return authorized.response;
     // WF-RUNPERM — activating arms the workflow to fire under the creator's
     // identity. Only the creator may activate a private-credential workflow.
-    const runEditDenied = assertWorkflowRunEditAllowed(workflow, auth.userId);
+    const runEditDenied = await assertWorkflowRunEditAllowed(workflow, auth.userId);
     if (runEditDenied) return runEditDenied;
   }
   let risk: RiskConfirmationResult | null = null;

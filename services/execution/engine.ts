@@ -24,6 +24,11 @@ import {
   loadAcceptedNodeOwners,
   effectiveCredentialOwner,
 } from "@/services/teamCredentials/nodeCredentialOwners";
+import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
+import {
+  buildWorkflowCredentialPlan,
+  type WorkflowCredentialPlan,
+} from "@/services/integrations/connectionResolution";
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
@@ -386,11 +391,25 @@ export class WorkflowEngine {
     const steps: RunStepResult[] = [];
     let runFailed = false;
 
-    // CS-2 — batch-load this workflow's ACCEPTED per-node credential owners ONCE
-    // per run (flag-gated; flag OFF → empty map, NO DB call). Each personal-
-    // provider node then resolves credentials under its accepted owner if one
-    // exists, else the workflow creator. Account/service providers are unaffected.
-    const acceptedNodeOwners = await loadAcceptedNodeOwners(input.workflowId);
+    // CS-2 / CS-4b — resolve each personal-provider node's effective credential
+    // owner ONCE per run. With ENABLE_CONNECTION_SHARING ON, the shared
+    // `buildWorkflowCredentialPlan` applies the full precedence (accepted grant →
+    // valid binding → single-sharer → creator) — the SAME plan the run/edit gate
+    // used, so a run that passed the gate resolves to the exact connectors it
+    // validated, and ambiguous/unshared nodes fall to the creator pin (never an
+    // arbitrary co-member row). With the flag OFF, behavior is byte-identical to
+    // CS-2: accepted owner (flag-gated) else creator. Account/service providers are
+    // unaffected (refreshAndRetry ignores the context for them).
+    const sharingOn = isConnectionSharingEnabled();
+    const credentialPlan: WorkflowCredentialPlan | null = sharingOn
+      ? await buildWorkflowCredentialPlan({
+          workflowId: input.workflowId,
+          accountId: workflow.accountId,
+          createdByUserId: workflow.createdByUserId,
+          nodes: def.nodes,
+        })
+      : null;
+    const acceptedNodeOwners = sharingOn ? null : await loadAcceptedNodeOwners(input.workflowId);
 
     for (const node of order) {
       // Skip nodes that no activated edge has reached. The trigger is
@@ -540,12 +559,14 @@ export class WorkflowEngine {
       // service providers ignore the owner and stay account-shared. The handler's
       // `userId` stays the creator — it is provenance/billing only, never used for
       // integration lookups (see handlers/types.ts).
-      const effectiveOwner = effectiveCredentialOwner({
-        provider: node.provider,
-        nodeId: node.id,
-        creatorUserId: workflow.createdByUserId,
-        acceptedOwners: acceptedNodeOwners,
-      });
+      const effectiveOwner = credentialPlan
+        ? (credentialPlan.ownerByNode.get(node.id) ?? workflow.createdByUserId)
+        : effectiveCredentialOwner({
+            provider: node.provider,
+            nodeId: node.id,
+            creatorUserId: workflow.createdByUserId,
+            acceptedOwners: acceptedNodeOwners!,
+          });
       try {
         const result = await runWithCredentialResolutionContext(
           { createdByUserId: effectiveOwner },
