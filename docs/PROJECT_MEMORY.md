@@ -15,12 +15,10 @@
   30 tests, 29 passed / 1 skipped / 0 failed, on deployed `9abe08ab6`. Vercel log review
   still manual.
 - **Push state:** `origin/v2-main` is at `9abe08ab6` (last prod push). Working branch
-  `builder-ui-v1-audit-1` is **ahead 15, local-only** — incl. the Connected-app disconnect
-  arc (CD-1..CD-3 + polish `8c38d8b60`) and MCP Stage-2B live diagnostics. Push-gated: don't
+  `builder-ui-v1-audit-1` is **local-only** — incl. the Connected-app disconnect arc (now
+  **LIVE**, flag removed `34b28e045`) and MCP Stage-2B live diagnostics. Push-gated: don't
   push without Marcus.
-- **Open threads:** Connected-app **Disconnect** is built but **flag-gated**
-  (`ENABLE_INTEGRATION_DISCONNECT` default OFF) — turning it on in prod is a separate release
-  decision. MCP internal diagnostic suite has planned-but-unbuilt stages (2B-3+) →
+- **Open threads:** MCP internal diagnostic suite has planned-but-unbuilt stages (2B-3+) →
   [`mcp-internal-diagnostic-suite-roadmap.md`](./slices/phase-4/mcp-internal-diagnostic-suite-roadmap.md).
 
 ## Durable decisions
@@ -55,14 +53,16 @@
 - **Connected-app recovery + disconnect (local-only, 2026-06-12)** — **Reconnect UX-complete**
   on connected app cards (provider-level recovery, always visible on collapsed cards;
   filled-secondary + refresh glyph + "Refresh this connection" tooltip). **"Connect another"
-  UX-complete** ("Add another account"). Per-account **Disconnect UI + backend** (service/repo
-  CD-1, routes CD-2, UI CD-3) shipped but **flag-gated behind `ENABLE_INTEGRATION_DISCONNECT`,
-  default OFF — NOT product-launched**; `markDisconnected()` dead code replaced by a
-  service-role disconnect path. Latest polish (`8c38d8b60`) was tooltips + JSDoc only — no
-  backend/OAuth/DTO/API change. Localhost-OAuth observation audited as a dev redirect artifact,
-  not a prod auth bug → [`connected-app-recovery-ux.md`](./slices/phase-4/connected-app-recovery-ux.md),
+  UX-complete** ("Add another account"). Per-account **Disconnect is LIVE / product-complete**
+  — UI + backend (service/repo CD-1, routes CD-2, UI CD-3, polish `8c38d8b60`), and the
+  `ENABLE_INTEGRATION_DISCONNECT` rollout flag was **removed `34b28e045`** (renders + works by
+  default; no replacement flag). `markDisconnected()` dead code replaced by a service-role
+  disconnect path. Soft-disconnect + best-effort revoke + `integration_revoked` cascade
+  (last-active-row only; never auto-resume); no token/secret/raw-error leak. Localhost-OAuth
+  observation audited as a dev redirect artifact, not a prod auth bug →
+  [`connected-app-recovery-ux.md`](./slices/phase-4/connected-app-recovery-ux.md),
   [`connected-app-disconnect-plan.md`](./slices/phase-4/connected-app-disconnect-plan.md);
-  commits `55c004501`/`deb4897a5`/`9964dc5d3`/`8c38d8b60`.
+  commits `55c004501`/`deb4897a5`/`9964dc5d3`/`8c38d8b60`/`34b28e045`.
 - **Production smoke closeout (2026-06-11)** — run-now `after()` reliability validated in
   prod (builder manual-run finalizes + appears on `/runs`); Slack action manual-run
   finalization validated; Slack channel loading recovered after Slack re-OAuth →
