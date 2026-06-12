@@ -27,9 +27,12 @@
     stages **2B-5 (graph) / 2C (doctors) / 2D (reports) unbuilt** →
     [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
   - React Agent now consumes `services/diagnostics/*` directly ("Check workflow" UI, AI-DIAG-1/1b
-    local). **AI credit metering** planned but unbuilt: next is **AI-CREDITS-2** (recording-only,
-    no migration: `aiCreditPolicy` + populate `ai_credits_charged` + 0-credit diagnosis event +
-    OpenAI pricing), then **AI-CREDITS-3** (limits/RPC/gate) before any LLM repair loop →
+    local). **AI credit metering: AI-CREDITS-2 SHIPPED** (`7dfaa7d45`, recording-only — `aiCreditPolicy`
+    + `ai_credits_charged`/cost-micros populated + 0-credit diagnosis event; OpenAI pricing still
+    deferred, unpriced→null). **AI-CREDITS-3 PLANNED** (enforcement): deduct-only `account_billing`
+    AI columns + `deduct_ai_credits_if_available` RPC + `aiCreditGate` + planPolicy limits, **flag-OFF,
+    not wired**; reserve/reconcile + deep-loop cap = AI-CREDITS-4. Before any LLM repair loop →
+    [`ai-credits-enforcement-plan.md`](./slices/phase-4/ai-credits-enforcement-plan.md) +
     [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
 
 ## Durable decisions
