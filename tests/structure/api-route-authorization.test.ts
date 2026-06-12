@@ -89,6 +89,7 @@ const AUTH_TOKENS: RegExp[] = [
   /\bresolveCaller\b/, // credential-owner shared resolver (auth+membership+role)
   /\bverifyApiKey\b/, // public API-key routes
   /\bconsumeState\b/, // OAuth callback (signed state token IS the auth)
+  /\bapplyDiagnosticsGate\b/, // internal diagnostics machine-bearer gate (DIAGNOSTICS_API_TOKEN)
   /auth\.getUser\b/, // inline SSR session read (oauth connect/ingest)
   /[Ss]ignature/, // webhook HMAC/signature verification
   /verify(?:Facebook)?Challenge/, // webhook subscription challenge handshakes
