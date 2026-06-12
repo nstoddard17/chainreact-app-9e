@@ -510,3 +510,215 @@ ambiguity-aware**, not just "is shared"; (2) CS-4 must add a **node-level connec
 a small per-node `connector_user_id` reference, **not** a reuse of the consent-gated per-node table) and
 splits into CS-4a/CS-4b. OQ-3 and OQ-5 residuals are now **resolved** by 14.3/14.4. CS-1/CS-2 are
 unaffected. **No implementation authorized — CS-4 design is documented, not built.**
+
+---
+
+## 15. CS-4a design — node connector binding (storage + service model) — 2026-06-12
+
+**Type: Planning / design only. No source, migrations, tests, UI, execution, or run/edit
+behavior changed in this section. Nothing pushed. No migration created.** Decides the exact
+storage + service model so CS-4a implementation is mechanical. Locks the answers to the seven
+CS-4a questions.
+
+**Arc shipped so far (verified by commit):** CS-1 `7dd78d1a4` (column + flag + pure helpers) →
+CS-2 `4b79788c4` (connector-push toggle service/route) → CS-3a `5479edb02` (ambiguity-aware
+eligibility computation, **not wired**). CS-4a is the storage layer the eligibility result needs to
+become *resolvable* for the 2+-sharer case.
+
+**Source of truth (every file read for this design):**
+[supabase/migrations/20260606000000_workflow_node_credentials.sql](../../../supabase/migrations/20260606000000_workflow_node_credentials.sql)
+(the side-table shape CS-4a parallels — FKs, partial-unique, RLS, GRANT) ·
+[repositories/workflowNodeCredentials.ts](../../../repositories/workflowNodeCredentials.ts)
+(consent-grant repo CS-4a deliberately does NOT reuse) ·
+[services/teamCredentials/nodeCredentialOwners.ts](../../../services/teamCredentials/nodeCredentialOwners.ts)
+(`effectiveCredentialOwner` — the resolver seam CS-4b extends) ·
+[services/teamCredentials/credentialOwnerMetadata.ts](../../../services/teamCredentials/credentialOwnerMetadata.ts)
+(`listEligibleReassignmentTargets` → `{userId, displayName, role}` — the safe picker shape to reuse) ·
+[app/api/workflows/[id]/nodes/[nodeId]/credential-owner/eligible-targets/route.ts](../../../app/api/workflows/[id]/nodes/[nodeId]/credential-owner/eligible-targets/route.ts)
+(the `{ members }` DTO + owner/admin/creator gate) ·
+[app/api/workflows/[id]/nodes/[nodeId]/credential-owner/_shared.ts](../../../app/api/workflows/[id]/nodes/[nodeId]/credential-owner/_shared.ts)
+(`resolveCaller` — membership-gated 404-no-leak auth seam) ·
+[services/accounts/membership.ts](../../../services/accounts/membership.ts)
+(`listMembers` → display name via the `get_account_member_identities` SECURITY DEFINER RPC) ·
+[repositories/integrations.ts](../../../repositories/integrations.ts)
+(`listSharedConnectorUserIdsServiceRole` from CS-3a — the shared-set source) ·
+[core/integrations/sharingEligibility.ts](../../../core/integrations/sharingEligibility.ts) (CS-3a status model).
+
+### 15.1 Q1 — Storage: **new small side table `workflow_node_connector_bindings`** (recommended)
+Rejected alternatives, with reasons grounded in the read files:
+- **Extend `workflow_node_credentials`** — its semantics are **consent-grant**: `status pending →
+  accepted`, a partial-unique `one_live_per_node`, `requested_by_user_id`, and a consent inbox
+  ([repositories/workflowNodeCredentials.ts](../../../repositories/workflowNodeCredentials.ts) +
+  the CS-1…CS-8 consent routes). A connection **share** is *connector-push, already-consented* — there
+  is no target to ask. Reusing it means minting **auto-`accepted`** rows and overloading a state
+  machine the locked model (§0.3) says to keep **separate**. Rejected.
+- **Store in `draftDefinition` node `config`** — the definition is **user- AND AI-editable** and
+  republished; the AI-patch path already strips identity-bearing fields it must not own
+  (`materializeAiPatchNodeIds` strips `displayName`, [contracts/workflowDefinition.ts](../../../contracts/workflowDefinition.ts)
+  L42-53). Putting a `connector_user_id` in config invites an AI patch or an import/export to carry or
+  rewrite an identity binding, and it would not be RLS-gated. Rejected — identity binding must be
+  **server-authoritative**, like `workflow_node_credentials`.
+- **New side table (recommended)** — parallels the proven `workflow_node_credentials` shape but with
+  **direct-binding** (no consent machine), RLS-gated, service-role-written. Smallest surface that keeps
+  the two concepts separate.
+
+### 15.2 Q2 — Binding key + columns (reconnect-stable)
+Keyed `(workflow_id, node_id)`; stores `connector_user_id` (the **stable** key — `connected_by_user_id`
+survives reconnect, whereas the integration **row id** changes on a fresh connect, per
+[repositories/integrations.ts](../../../repositories/integrations.ts) `upsertActive`). `provider` is
+stored for validation/precedence (mirrors `workflow_node_credentials.provider`). **No `account_id`
+column** — derive via the `workflow_id → workflows` FK exactly as `workflow_node_credentials` does (one
+fewer denormalized field to keep in sync; the RLS join already needs `workflows`).
+
+```sql
+CREATE TABLE public.workflow_node_connector_bindings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workflow_id uuid NOT NULL REFERENCES public.workflows(id) ON DELETE CASCADE,
+  node_id text NOT NULL,
+  provider text NOT NULL,                          -- personal-only; enforced in code, not SQL
+  connector_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_by_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,  -- who set it (provenance)
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+-- One binding per node (full unique — no status, so no partial predicate needed).
+CREATE UNIQUE INDEX workflow_node_connector_bindings_one_per_node
+  ON public.workflow_node_connector_bindings (workflow_id, node_id);
+CREATE INDEX workflow_node_connector_bindings_workflow_idx
+  ON public.workflow_node_connector_bindings (workflow_id);            -- per-workflow read
+CREATE INDEX workflow_node_connector_bindings_connector_idx
+  ON public.workflow_node_connector_bindings (connector_user_id);      -- offboarding cleanup
+CREATE TRIGGER workflow_node_connector_bindings_set_updated_at
+  BEFORE UPDATE ON public.workflow_node_connector_bindings
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+```
+**No `status` column** — a binding is a direct pointer, not a consent flow. Its *validity* is recomputed
+at resolve time against the live shared set (§15.6), never trusted from storage alone.
+
+### 15.3 Q3 — Authorization to set a binding
+A binding may point ONLY to a `connector_user_id` that, **at set-time**, is in
+`listSharedConnectorUserIdsServiceRole(workflow.accountId, provider)` — i.e. has an **active**,
+`integration_sharing_scope = 'shared_with_account'` personal row for that provider in the workflow's
+account (CS-3a repo). This single check makes "**no silent share of an unshared identity**" *structural*:
+you cannot bind to a connector who has not themselves shared (rejected typed reason
+`connector_not_shared`).
+- **Who may set:** a caller with **edit rights on the workflow** (today: creator, or owner/admin per
+  existing rules — CS-4a does NOT widen edit rights; CS-3b is where non-creators gain them, and only
+  *after* a binding makes the workflow resolvable). The connector may bind their own shared connection;
+  owner/admin may pick among shared connectors — but never an unshared one (the shared-set check blocks
+  it). Reuse the `resolveCaller` membership gate
+  ([credential-owner/_shared.ts](../../../app/api/workflows/[id]/nodes/[nodeId]/credential-owner/_shared.ts)).
+- **Non-member / missing workflow / unknown node** → the same **404 no-leak** the existing credential-
+  owner routes already return.
+- Account/service providers and native nodes → `not_applicable` (only personal providers are bindable),
+  mirroring `ACCOUNT_PROVIDER_NOT_NODE_OWNABLE`.
+
+### 15.4 Q4 — No-leak display model (reuse, don't invent)
+The safe picker already exists. CS-4a adds **one analogous read**: "shared connectors for this provider"
+= map `listSharedConnectorUserIdsServiceRole(account, provider)` → member `displayName` via
+[listMembers](../../../services/accounts/membership.ts) (which sources identity from the
+`get_account_member_identities` **SECURITY DEFINER** RPC — display name only, never the OAuth account
+email/label). The picker DTO is the **exact existing shape**
+`{ userId, displayName, role }` returned by
+[listEligibleReassignmentTargets](../../../services/teamCredentials/credentialOwnerMetadata.ts) /
+[eligible-targets route](../../../app/api/workflows/[id]/nodes/[nodeId]/credential-owner/eligible-targets/route.ts).
+A teammate picks **"Alice (Owner)"**, not `alice@gmail.com`.
+- **No new label primitive needed.** `provider_account_id`, email, token, scope, scope-count, and account
+  metadata never appear — same fence the Apps DTO and eligible-targets already hold.
+- **Apps DTO stays identity-free** (boolean `sharedWithAccount` only; CS-5).
+- The stored binding's *human-facing read* (builder badge) shows the bound connector's `displayName`
+  only; the `userId` is an opaque uuid carried in the set request (the eligible-targets DTO already
+  exposes `userId`, so this is consistent, not a new exposure).
+
+### 15.5 Q5 — Resolver precedence (CS-4b wires this; documented here)
+Extend [`effectiveCredentialOwner`](../../../services/teamCredentials/nodeCredentialOwners.ts) so a
+personal-provider node resolves its credential owner in this order:
+1. **accepted `workflow_node_credentials` grant** (Option B, consent) — **wins** (unchanged today).
+2. else **node connector binding** (CS-4a) — *only if the bound connector is still in the live shared
+   set* (§15.6 validity recheck).
+3. else **single-sharer** — exactly one shared connector for the provider in the account → that connector.
+4. else **creator pin** (today's 22B default).
+5. **2+ shared, no valid binding → fail closed** (no owner ⇒ the run/edit gate blocks the non-creator and
+   the engine never silently picks an arbitrary connector — the §14.3 risk).
+
+### 15.6 Q6 — Lifecycle (fail-closed, never silently-someone-else)
+Validity is **computed at resolve time**, not trusted from the row:
+- **Connector unshares** (`integration_sharing_scope → NULL`, CS-2): the binding row persists but the
+  connector drops out of `listSharedConnectorUserIdsServiceRole` → binding **invalid** → precedence falls
+  through to single-sharer/creator → if now ambiguous/unshared, the non-creator is blocked (CS-3b gate).
+- **Connector disconnects** (`disconnected_at` set): excluded from the shared set by the CS-3a query's
+  `disconnected_at IS NULL` filter → binding invalid → same fail-closed.
+- **Connector leaves the account:** offboarding already soft-disconnects their personal rows
+  ([softDisconnectPersonalForMember](../../../repositories/integrations.ts), 22C) ⇒ binding invalid at
+  resolve. **Plus** a proactive hygiene delete — `deleteBindingsForMemberInAccountServiceRole(accountId,
+  connectorUserId)` from the member-removal/leave path, mirroring
+  [`revokeLiveForMemberServiceRole`](../../../repositories/workflowNodeCredentials.ts). (Resolve-time
+  recheck is the correctness guarantee; the delete is cleanup.)
+- A binding **never** causes a different connector to execute: the resolve-time shared-set recheck is the
+  invariant. `ON DELETE CASCADE` on `connector_user_id` covers hard user deletion.
+
+### 15.7 Q7 — Migration / RLS / GRANT (outline — NOT created in this slice)
+A new table ⇒ a migration is required for CS-4a **implementation**. This design does **not** author it
+(per the "design first" instruction). When authored it must — per
+[migration RLS lint](../../../scripts/check-migration-rls.mjs) + database-security rules — include, in
+the same file, RLS + a policy + explicit GRANTs (mirror `workflow_node_credentials`):
+```sql
+ALTER TABLE public.workflow_node_connector_bindings ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.workflow_node_connector_bindings TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.workflow_node_connector_bindings TO service_role;
+CREATE POLICY workflow_node_connector_bindings_select_account_member
+  ON public.workflow_node_connector_bindings FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.workflows w
+    JOIN public.account_memberships am ON am.account_id = w.account_id
+    JOIN public.accounts a ON a.id = w.account_id
+    WHERE w.id = workflow_node_connector_bindings.workflow_id
+      AND am.user_id = auth.uid() AND a.deletion_status = 'active'));
+```
+- **No client write policy** — every write is service-role (the binding service authorizes). Default-deny
+  prevents a member self-binding a node by writing the table directly (the same fence
+  `workflow_node_credentials` uses).
+- **No SQL provider list** — personal-only is enforced in code (the single classifier), never duplicated
+  in SQL (same rule the node-credentials migration states).
+
+### 15.8 Does CS-4a implementation need a migration? **Yes** — but not now
+CS-4a ships behind `ENABLE_CONNECTION_SHARING` (already exists, default OFF). The table can be created +
+`db:push`ed when CS-4a implementation is explicitly authorized; this design slice creates nothing.
+
+### 15.9 CS-4a / CS-4b slice split (locked)
+- **CS-4a (implementation, next, gated):** the migration above + a repo
+  (`repositories/workflowNodeConnectorBindings.ts`: get-for-node / set / clear / list-for-workflow /
+  delete-for-member, all service-role) + a binding service (set/clear authz = editor + target-in-shared-
+  set; typed no-leak reasons) + the picker read (shared connectors → `{userId, displayName, role}`) +
+  route(s) under `app/api/workflows/[id]/nodes/[nodeId]/connector-binding/` + tests. **Behavior-inert:**
+  the binding is **stored and displayed but NOT yet consulted** by the resolver or the run/edit gate.
+- **CS-4b (after CS-4a):** wire §15.5 precedence into `effectiveCredentialOwner` (resolver) **and** the
+  §14.4 ambiguity-aware gate into `assertWorkflowRunEditAllowed` (= **CS-3b**), behind the flag, **in
+  lockstep** + execution parity tests + the offboarding binding-cleanup hook.
+
+**Ordering invariant (Marcus's constraint):** **CS-3b (let non-creators run/edit) must NOT ship ahead of
+CS-4b (execution resolves to the bound connector).** They land together in CS-4b so run/edit permission
+never gets ahead of execution binding — a workflow only becomes team-runnable at the exact moment its
+private providers resolve to a specific connector.
+
+### 15.10 Tests CS-4a implementation must prove (by area)
+- **Repo/migration:** table shape + one-per-node unique + RLS membership-gated SELECT + service-role-only
+  writes + GRANTs; offboarding delete scoped to `(accountId, connectorUserId)`.
+- **Binding service authz:** editor binds to a shared connector ✓; binding to a **non-shared** connector
+  → `connector_not_shared` (the no-silent-share fence); non-member → 404 no-leak; account/native →
+  `not_applicable`; cross-account workflow/node → 404.
+- **Picker no-leak:** options are `{userId, displayName, role}` only — no email/`provider_account_id`/
+  token/scope/metadata; non-eligible viewer gated.
+- **Inertness:** with the binding stored, the CS-3a eligibility result and execution are **unchanged**
+  until CS-4b (assert the resolver/gate still ignore bindings in CS-4a).
+
+### 15.11 Open questions (recommendation each)
+- **OQ-4a-1 — does an *unshared-then-rebound* node keep a stale binding row?** *Rec:* yes, leave it
+  inert (resolve-time recheck makes it harmless); CS-4b's offboarding hook + an optional "clear invalid
+  bindings" sweep handle hygiene. Don't add a trigger.
+- **OQ-4a-2 — multiple nodes, same provider, different bound connectors in one workflow?** Allowed (the
+  key is per-node). *Rec:* permit it; each node resolves independently. Mark **unverified** against the
+  execution engine's per-node owner context until CS-4b parity tests (the 22B context is already per-node,
+  [engine.ts:543-551](../../../services/execution/engine.ts), so this is expected to hold).
+- **OQ-4a-3 — should setting a binding require the workflow to currently *use* that provider on that
+  node?** *Rec:* yes — validate `node.provider === provider` against the draft definition at set-time
+  (reuse the `node_not_found`/`not_applicable` checks from `listEligibleReassignmentTargets`).
