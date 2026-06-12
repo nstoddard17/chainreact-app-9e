@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { handleCallback } from "@/services/oauth/dispatcher";
+import {
+  handleCallback,
+  ReconnectIdentityMismatchError,
+} from "@/services/oauth/dispatcher";
 
 /**
  * OAuth callback handler. The provider redirects the user here after they
@@ -58,6 +61,14 @@ export async function GET(
       ),
     );
   } catch (err) {
+    // Slice 4.APPS-RECONNECT — a wrong-account reconnect maps to a STABLE,
+    // non-leaking code (never the provider-returned identity or a raw error);
+    // the Apps banner renders the friendly "different account" copy.
+    if (err instanceof ReconnectIdentityMismatchError) {
+      return NextResponse.redirect(
+        new URL("/apps?integration_error=reconnect_account_mismatch", base),
+      );
+    }
     const message = err instanceof Error ? err.message : "callback_failed";
     return NextResponse.redirect(
       new URL(`/apps?integration_error=${encodeURIComponent(message)}`, base),

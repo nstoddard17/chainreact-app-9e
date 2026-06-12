@@ -31,8 +31,8 @@ describe("AppsStatCards", () => {
     render(
       <AppsStatCards
         items={[
-          mkApp({ providerId: "slack", category: "Communication", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false }, { id: "2", displayName: null, connectedAt: "y", canDisconnect: false }] }),
-          mkApp({ providerId: "stripe", category: "Payments", isConnected: true, accounts: [{ id: "3", displayName: null, connectedAt: "x", canDisconnect: false }] }),
+          mkApp({ providerId: "slack", category: "Communication", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false }, { id: "2", displayName: null, connectedAt: "y", canDisconnect: false, canReconnect: false }] }),
+          mkApp({ providerId: "stripe", category: "Payments", isConnected: true, accounts: [{ id: "3", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false }] }),
           mkApp({ providerId: "notion", category: "Productivity", isConnected: false }),
         ]}
       />,
@@ -64,7 +64,7 @@ describe("AppsStatCards", () => {
 
   it("does NOT render the design's 'Powering workflows' or 'Need attention' tiles (locked deferrals)", () => {
     render(
-      <AppsStatCards items={[mkApp({ providerId: "slack", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false }] })]} />,
+      <AppsStatCards items={[mkApp({ providerId: "slack", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false }] })]} />,
     );
     expect(screen.queryByText(/Powering/i)).toBeNull();
     expect(screen.queryByText(/Need attention/i)).toBeNull();

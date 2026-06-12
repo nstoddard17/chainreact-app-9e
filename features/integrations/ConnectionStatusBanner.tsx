@@ -33,9 +33,21 @@ export function ConnectionStatusBanner({ searchParams }: Props) {
         role="alert"
         className="rounded bg-red-100 p-3 text-sm text-red-800 dark:bg-red-500/20 dark:text-red-300"
       >
-        Connection failed: {error}
+        {messageForError(error)}
       </div>
     );
   }
   return null;
+}
+
+/**
+ * Map known stable error codes to friendly copy. Slice 4.APPS-RECONNECT adds the
+ * per-account reconnect-mismatch case; unknown codes fall back to the existing
+ * "Connection failed: <code>" behavior.
+ */
+function messageForError(error: string): string {
+  if (error === "reconnect_account_mismatch") {
+    return "That was a different account. Please choose the original account to reconnect.";
+  }
+  return `Connection failed: ${error}`;
 }

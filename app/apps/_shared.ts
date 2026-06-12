@@ -77,11 +77,20 @@ function toAppAccountSummary(
   record: IntegrationShape,
   ctx: DisconnectContext | undefined,
 ): AppAccountSummary {
+  // Reconnect uses the SAME per-account credential-operation rule as disconnect
+  // (Slice 4.APPS-RECONNECT) — owner/admin for shared providers; owner/admin OR
+  // the connector for personal. The connect route re-authorizes authoritatively.
+  const canManageCredential = computeCanDisconnect(
+    record.provider,
+    record.connectedByUserId,
+    ctx,
+  );
   return {
     id: record.id,
     displayName: record.displayName,
     connectedAt: record.createdAt,
-    canDisconnect: computeCanDisconnect(record.provider, record.connectedByUserId, ctx),
+    canDisconnect: canManageCredential,
+    canReconnect: canManageCredential,
   };
 }
 

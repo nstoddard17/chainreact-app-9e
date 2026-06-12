@@ -57,13 +57,14 @@ interface GoogleUserinfo {
 export const googleDriveOAuth: ProviderOAuth = {
   generatePkce: generateGooglePkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "googleDriveOAuth.buildAuthUrl: PKCE challenge is required for Google Drive. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildGoogleAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

@@ -111,6 +111,24 @@ describe("gmailOAuth.buildAuthUrl", () => {
     expect(() => gmailOAuth.buildAuthUrl("S", SCOPES, null)).toThrow(/PKCE/);
   });
 
+  it("4.APPS-RECONNECT — steers the sign-in to the intended account (login_hint + select_account)", () => {
+    const url = gmailOAuth.buildAuthUrl("STATE-TOKEN", SCOPES, PKCE_CHALLENGE, null, {
+      loginHint: "marcus@example.com",
+      forceAccountSelection: true,
+    });
+    const u = new URL(url);
+    expect(u.searchParams.get("login_hint")).toBe("marcus@example.com");
+    // Forces the chooser AND keeps `consent` so offline access re-issues a refresh token.
+    expect(u.searchParams.get("prompt")).toBe("select_account consent");
+  });
+
+  it("4.APPS-RECONNECT — a normal connect (no steer) is unchanged: no login_hint, prompt=consent", () => {
+    const url = gmailOAuth.buildAuthUrl("STATE-TOKEN", SCOPES, PKCE_CHALLENGE);
+    const u = new URL(url);
+    expect(u.searchParams.get("login_hint")).toBeNull();
+    expect(u.searchParams.get("prompt")).toBe("consent");
+  });
+
   it("throws when GOOGLE_CLIENT_ID is unset", () => {
     delete process.env.GOOGLE_CLIENT_ID;
     expect(() => gmailOAuth.buildAuthUrl("S", SCOPES, PKCE_CHALLENGE)).toThrow(

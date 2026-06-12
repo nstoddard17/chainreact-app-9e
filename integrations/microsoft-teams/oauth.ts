@@ -52,13 +52,14 @@ function getRedirectUrl(): string {
 export const microsoftTeamsOAuth: ProviderOAuth = {
   generatePkce: generateMicrosoftPkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "microsoftTeamsOAuth.buildAuthUrl: PKCE challenge is required for Microsoft Teams. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildMicrosoftAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

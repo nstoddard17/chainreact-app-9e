@@ -19,8 +19,15 @@ interface Props {
   variant?: "primary" | "outline" | "reconnect";
   /** Optional test id so callers (e.g. the Apps card Reconnect) are selectable. */
   testId?: string;
-  /** Optional native tooltip (e.g. Reconnect → "Refresh this connection"). */
+  /** Optional native tooltip (e.g. Reconnect → "Reconnect this account"). */
   title?: string;
+  /**
+   * Per-account reconnect (Slice 4.APPS-RECONNECT). When set, the OAuth flow
+   * targets this SPECIFIC connected row — the server steers the provider sign-in
+   * to it and refuses to refresh a different account. Carries only opaque ids.
+   * Omitted for plain Connect / Connect-another.
+   */
+  reconnect?: { integrationId: string; accountId: string };
 }
 
 /**
@@ -38,6 +45,7 @@ export function ConnectButton({
   variant = "primary",
   testId,
   title,
+  reconnect,
 }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +54,12 @@ export function ConnectButton({
     setPending(true);
     setError(null);
     try {
-      const { redirectUrl } = await startOAuth(provider);
+      // Plain Connect / Connect-another call the one-arg form (unchanged); only a
+      // per-account Reconnect passes the opaque reconnect bundle.
+      const { redirectUrl } =
+        reconnect !== undefined
+          ? await startOAuth(provider, { reconnect })
+          : await startOAuth(provider);
       window.location.assign(redirectUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start OAuth.");

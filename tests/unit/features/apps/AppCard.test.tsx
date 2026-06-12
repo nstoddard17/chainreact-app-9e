@@ -21,12 +21,14 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
     variant,
     testId,
     title,
+    reconnect,
   }: {
     provider: string;
     label: string;
     variant?: string;
     testId?: string;
     title?: string;
+    reconnect?: { integrationId: string; accountId: string };
   }) => (
     <button
       type="button"
@@ -35,6 +37,10 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
       data-label={label}
       data-variant={variant ?? "primary"}
       {...(title !== undefined && { title })}
+      {...(reconnect !== undefined && {
+        "data-reconnect-integration-id": reconnect.integrationId,
+        "data-reconnect-account-id": reconnect.accountId,
+      })}
     >
       {label}
     </button>
@@ -119,8 +125,8 @@ describe("AppCard — connected", () => {
   const connected = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false },
-      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
+      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: false, canReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -138,19 +144,11 @@ describe("AppCard — connected", () => {
     expect(screen.queryByTestId("mock-connect-button")).toBeNull();
   });
 
-  it("renders a Reconnect button (reconnect variant + tooltip, reuses the OAuth start flow) on a connected provider", () => {
+  it("does NOT render a provider-level Reconnect on the collapsed card (4.APPS-RECONNECT)", () => {
+    // The `connected` fixture is multi-account with canReconnect:false — but even
+    // a provider-level Reconnect must never appear on the collapsed card. The
+    // intent is per-account only.
     render(<AppCard app={connected} accountId="acc-1" />);
-    const reconnect = screen.getByTestId("app-card-reconnect");
-    expect(reconnect).toHaveAttribute("data-provider", "slack");
-    expect(reconnect).toHaveAttribute("data-label", "Reconnect");
-    // Stronger affordance than the old flat outline, still subordinate to Connect.
-    expect(reconnect).toHaveAttribute("data-variant", "reconnect");
-    // Tooltip clarifies intent without changing the visible label.
-    expect(reconnect).toHaveAttribute("title", "Refresh this connection");
-  });
-
-  it("does NOT render Reconnect when canConnect=false", () => {
-    render(<AppCard app={{ ...connected, canConnect: false }} accountId="acc-1" />);
     expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
   });
 
@@ -173,12 +171,12 @@ describe("AppCard — connected", () => {
     expect(accounts).toHaveLength(2);
     expect(accounts[0]).toHaveTextContent("Personal · marcus@example.com");
     expect(accounts[0]).toHaveTextContent(/Connected on Apr 15, 2026/);
-    // No manage / workflow pills; and with canDisconnect:false (this fixture) no
-    // per-account Disconnect either. Reconnect lives at the top level, not in a row.
+    // No manage / workflow pills; and with canDisconnect/canReconnect:false (this
+    // fixture) neither per-account Disconnect NOR per-account Reconnect renders.
     for (const acc of accounts) {
       expect(within(acc).queryByRole("button", { name: /manage/i })).toBeNull();
       expect(within(acc).queryByTestId("app-card-disconnect")).toBeNull();
-      expect(within(acc).queryByRole("button", { name: /reconnect/i })).toBeNull();
+      expect(within(acc).queryByTestId("app-card-reconnect")).toBeNull();
       expect(within(acc).queryByText(/workflow/i)).toBeNull();
     }
   });
@@ -224,14 +222,14 @@ describe("AppCard — per-account Disconnect (CD-3)", () => {
   const disconnectable = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
   const notDisconnectable = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -282,5 +280,93 @@ describe("AppCard — per-account Disconnect (CD-3)", () => {
     expect(await screen.findByTestId("app-card-disconnect-notice")).toHaveTextContent(
       /Disconnected Slack\./,
     );
+  });
+});
+
+describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
+  const multiAccount = mkApp({
+    isConnected: true,
+    canConnect: true,
+    accounts: [
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true },
+      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: true, canReconnect: true },
+    ],
+    firstConnectedAt: "2026-04-15T12:00:00Z",
+  });
+  const singleAccount = mkApp({
+    isConnected: true,
+    canConnect: true,
+    supportsMultipleAccounts: false,
+    accounts: [
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true },
+    ],
+    firstConnectedAt: "2026-04-15T12:00:00Z",
+  });
+  const noReconnect = mkApp({
+    isConnected: true,
+    canConnect: true,
+    accounts: [
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
+    ],
+    firstConnectedAt: "2026-04-15T12:00:00Z",
+  });
+
+  it("multi-account provider renders Reconnect PER ROW (not provider-level), each targeting its own row id", async () => {
+    const user = userEvent.setup();
+    render(<AppCard app={multiAccount} accountId="acc-9" />);
+    // No provider-level reconnect on the collapsed card.
+    expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
+    await user.click(screen.getByTestId("app-card-expand"));
+
+    const rows = screen.getAllByTestId("app-card-account");
+    expect(rows).toHaveLength(2);
+    const r0 = within(rows[0]!).getByTestId("app-card-reconnect");
+    const r1 = within(rows[1]!).getByTestId("app-card-reconnect");
+    // Each row's Reconnect sends ONLY that row's opaque id + the active account.
+    expect(r0).toHaveAttribute("data-reconnect-integration-id", "int-1");
+    expect(r0).toHaveAttribute("data-reconnect-account-id", "acc-9");
+    expect(r1).toHaveAttribute("data-reconnect-integration-id", "int-2");
+    expect(r1).toHaveAttribute("data-reconnect-account-id", "acc-9");
+    // Honest copy + recovery affordance.
+    expect(r0).toHaveAttribute("title", "Reconnect this account");
+    expect(r0).toHaveAttribute("data-label", "Reconnect");
+    expect(r0).toHaveAttribute("data-variant", "reconnect");
+  });
+
+  it("single-account provider still has a clear per-account Reconnect on its row", async () => {
+    const user = userEvent.setup();
+    render(<AppCard app={singleAccount} accountId="acc-9" />);
+    expect(screen.queryByTestId("app-card-reconnect")).toBeNull(); // not provider-level
+    await user.click(screen.getByTestId("app-card-expand"));
+    const row = screen.getByTestId("app-card-account");
+    const reconnect = within(row).getByTestId("app-card-reconnect");
+    expect(reconnect).toHaveAttribute("data-reconnect-integration-id", "int-1");
+    expect(reconnect).toHaveAttribute("data-reconnect-account-id", "acc-9");
+    // "Connect another" is NOT shown for a single-account-only provider — so the
+    // only credential actions are this row's Reconnect + Disconnect.
+    const connectAnother = screen
+      .queryAllByTestId("mock-connect-button")
+      .filter((b) => b.getAttribute("data-label") === "Connect another");
+    expect(connectAnother).toHaveLength(0);
+  });
+
+  it("does NOT render per-row Reconnect when canReconnect is false", async () => {
+    const user = userEvent.setup();
+    render(<AppCard app={noReconnect} accountId="acc-9" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
+  });
+
+  it("keeps 'Connect another' provider-level/additive in the expanded header (distinct from per-row Reconnect)", async () => {
+    const user = userEvent.setup();
+    render(<AppCard app={multiAccount} accountId="acc-9" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    // 'Connect another' has NO reconnect ids (it ADDS an account, not refresh).
+    const connectAnother = screen
+      .getAllByTestId("mock-connect-button")
+      .filter((b) => b.getAttribute("data-label") === "Connect another");
+    expect(connectAnother).toHaveLength(1);
+    expect(connectAnother[0]).not.toHaveAttribute("data-reconnect-integration-id");
+    expect(connectAnother[0]).toHaveAttribute("title", "Add another account");
   });
 });

@@ -193,6 +193,25 @@ export interface PkceGeneration extends PkceInputs, PkceChallenge {}
 export type ProviderHint = Readonly<Record<string, string>>;
 
 /**
+ * Per-account OAuth steering (Slice 4.APPS-RECONNECT). Passed to `buildAuthUrl`
+ * ONLY during a per-account reconnect, so the provider's sign-in pre-selects /
+ * forces the chooser onto the SPECIFIC account the user is reconnecting — they
+ * can't accidentally re-authorize a different mailbox/workspace. Best-effort UX:
+ * only providers that natively support account steering honor it (Google +
+ * Microsoft families read `loginHint`/`forceAccountSelection`); every other
+ * provider ignores the 5th `buildAuthUrl` argument. The HARD guarantee is the
+ * callback identity-match in the dispatcher, not this hint.
+ *
+ * `loginHint` is the row's `provider_account_id` (an email for Google/Microsoft).
+ * It is resolved server-side from the intended row and only ever travels to the
+ * provider + the reconnecting user's own browser — never returned to the client.
+ */
+export interface AccountSteer {
+  loginHint: string;
+  forceAccountSelection: boolean;
+}
+
+/**
  * Per-provider OAuth implementation. Each provider in `integrations/<id>/oauth.ts`
  * exports an object that satisfies this shape. The generic dispatcher in
  * `services/oauth/dispatcher.ts` is the only caller.
@@ -232,6 +251,13 @@ export interface ProviderOAuth {
     scopes: readonly string[],
     pkce: PkceChallenge | null,
     providerHint?: ProviderHint | null,
+    /**
+     * Per-account reconnect steering (Slice 4.APPS-RECONNECT). Non-null only
+     * during a reconnect for a provider that supports steering; other providers
+     * (and all normal Connect flows) receive `null` and ignore it. Optional so
+     * existing 3-/4-arg implementations satisfy the interface structurally.
+     */
+    steer?: AccountSteer | null,
   ): string;
   /**
    * Exchanges the authorization code for tokens. `pkce` is non-null only for

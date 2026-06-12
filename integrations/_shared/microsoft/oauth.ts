@@ -38,6 +38,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
+  type AccountSteer,
   type EncryptedTokens,
   type PkceGeneration,
 } from "@/contracts/integration";
@@ -94,9 +95,18 @@ export interface BuildMicrosoftAuthUrlInput {
   scopes: readonly string[];
   pkceChallenge: { codeChallenge: string; codeChallengeMethod: string };
   redirectUrl: string;
+  /**
+   * Per-account reconnect steering (Slice 4.APPS-RECONNECT). When set, pins the
+   * sign-in to a specific Microsoft account: `login_hint` pre-fills the
+   * email/UPN and `prompt=select_account` forces the account chooser.
+   * `loginHint` is the row's email (Microsoft's `provider_account_id`), resolved
+   * server-side — never client-supplied. Omitted on normal connects.
+   */
+  accountSteer?: AccountSteer | null;
 }
 
 export function buildMicrosoftAuthUrl(input: BuildMicrosoftAuthUrlInput): string {
+  const steer = input.accountSteer ?? null;
   const params = new URLSearchParams({
     response_type: "code",
     response_mode: "query",
@@ -108,6 +118,12 @@ export function buildMicrosoftAuthUrl(input: BuildMicrosoftAuthUrlInput): string
     code_challenge: input.pkceChallenge.codeChallenge,
     code_challenge_method: input.pkceChallenge.codeChallengeMethod,
   });
+  if (steer?.forceAccountSelection) {
+    params.set("prompt", "select_account");
+  }
+  if (steer?.loginHint) {
+    params.set("login_hint", steer.loginHint);
+  }
   return `${microsoftAuthorizeBase()}/common/oauth2/v2.0/authorize?${params.toString()}`;
 }
 

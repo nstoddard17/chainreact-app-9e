@@ -59,13 +59,14 @@ interface GoogleUserinfo {
 export const googleAnalyticsOAuth: ProviderOAuth = {
   generatePkce: generateGooglePkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "googleAnalyticsOAuth.buildAuthUrl: PKCE challenge is required for Google Analytics. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildGoogleAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

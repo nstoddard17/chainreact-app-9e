@@ -51,13 +51,14 @@ function getRedirectUrl(): string {
 export const microsoftExcelOAuth: ProviderOAuth = {
   generatePkce: generateMicrosoftPkce,
 
-  buildAuthUrl(state, scopes, pkce) {
+  buildAuthUrl(state, scopes, pkce, _providerHint, steer) {
     if (pkce === null) {
       throw new Error(
         "microsoftExcelOAuth.buildAuthUrl: PKCE challenge is required for Microsoft Excel. The dispatcher should have generated one via generatePkce().",
       );
     }
     return buildMicrosoftAuthUrl({
+      accountSteer: steer ?? null,
       state,
       scopes,
       pkceChallenge: pkce,

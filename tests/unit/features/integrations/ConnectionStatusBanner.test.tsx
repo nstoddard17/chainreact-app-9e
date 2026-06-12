@@ -47,4 +47,18 @@ describe("ConnectionStatusBanner", () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("4.APPS-RECONNECT — renders the friendly 'different account' copy for the mismatch code", () => {
+    render(
+      <ConnectionStatusBanner
+        searchParams={{ integration_error: "reconnect_account_mismatch" }}
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "That was a different account. Please choose the original account to reconnect.",
+    );
+    // The raw stable code is NOT echoed to the user.
+    expect(alert).not.toHaveTextContent("reconnect_account_mismatch");
+  });
 });
