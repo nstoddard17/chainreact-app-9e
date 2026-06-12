@@ -106,13 +106,29 @@ export interface AssistantDiagnosisChatMessage {
   readonly persisted?: boolean;
 }
 
+/**
+ * Slice 4.AI-DIAG-2b — the LLM explanation of a prior "Check this workflow"
+ * result. Session-local only (never persisted). Carries only the safe explanation
+ * fields the route returns — no model metadata, ids, codes, or raw DTO.
+ */
+export interface AssistantDiagnosisExplanationChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "diagnosis_explanation";
+  readonly explanation: string;
+  readonly priorities?: readonly string[];
+  readonly missingInfo?: readonly string[];
+  readonly persisted?: boolean;
+}
+
 export type ChatMessage =
   | UserChatMessage
   | AssistantPlanChatMessage
   | AssistantAppliedChatMessage
   | AssistantApplyFailureChatMessage
   | AssistantErrorChatMessage
-  | AssistantDiagnosisChatMessage;
+  | AssistantDiagnosisChatMessage
+  | AssistantDiagnosisExplanationChatMessage;
 
 let chatMessageIdCounter = 0;
 export function nextChatMessageId(): ChatMessageId {
