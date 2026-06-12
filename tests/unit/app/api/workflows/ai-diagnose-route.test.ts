@@ -19,16 +19,25 @@ jest.mock("@/services/ai/diagnostics/diagnoseWorkflowForAgent", () => ({
   diagnoseWorkflowForAgent: (...a: unknown[]) => mockDiagnose(...a),
 }));
 
-// AI-CREDITS-2 — the route records a 0-credit deterministic telemetry event.
-const mockEnsureAccount = jest.fn();
-jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
-  ensurePersonalAccount: (...a: unknown[]) => mockEnsureAccount(...a),
-}));
+// AI-DIAG-2-pre — the route records the 0-credit telemetry to the WORKFLOW-OWNING
+// account via loadWorkflowForMember. Partial-mock `_shared` so loadWorkflowForMember
+// is controllable while requireUser stays real (the auth contract is still exercised).
+const mockLoadWorkflowForMember = jest.fn();
+jest.mock("@/app/api/workflows/_shared", () => {
+  const actual = jest.requireActual("@/app/api/workflows/_shared");
+  return {
+    ...actual,
+    loadWorkflowForMember: (...a: unknown[]) => mockLoadWorkflowForMember(...a),
+  };
+});
 const mockRecordEvent = jest.fn();
 jest.mock("@/services/billing/aiCostEvents", () => ({
   recordAiCostEvent: (...a: unknown[]) => mockRecordEvent(...a),
 }));
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { NextResponse } from "next/server";
 import { POST } from "@/app/api/workflows/[id]/ai/diagnose/route";
 
 function call(id: string) {
@@ -46,8 +55,11 @@ beforeEach(() => {
   mockGetUser.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
   mockDiagnose.mockReset();
-  mockEnsureAccount.mockReset();
-  mockEnsureAccount.mockResolvedValue({ id: "acct-1" });
+  mockLoadWorkflowForMember.mockReset();
+  mockLoadWorkflowForMember.mockResolvedValue({
+    ok: true,
+    record: { id: "wf-1", accountId: "acct-wf-1" },
+  });
   mockRecordEvent.mockReset();
   mockRecordEvent.mockResolvedValue(undefined);
 });
@@ -95,15 +107,15 @@ describe("ai/diagnose route — delegation + serialization", () => {
   });
 });
 
-describe("ai/diagnose route — AI-CREDITS-2 0-credit telemetry", () => {
-  it("records a 0-credit deterministic event on access OK", async () => {
+describe("ai/diagnose route — 0-credit telemetry on the workflow-owning account (AI-DIAG-2-pre)", () => {
+  it("records a 0-credit deterministic event to the workflow-owning account on access OK", async () => {
     mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK", overallReady: true });
     await call("wf-1");
-    expect(mockEnsureAccount).toHaveBeenCalledWith("user-1");
+    expect(mockLoadWorkflowForMember).toHaveBeenCalledWith("wf-1", "user-1");
     expect(mockRecordEvent).toHaveBeenCalledTimes(1);
     const event = mockRecordEvent.mock.calls[0]![0];
     expect(event).toMatchObject({
-      accountId: "acct-1",
+      accountId: "acct-wf-1",
       userId: "user-1",
       workflowId: "wf-1",
       feature: "other",
@@ -114,11 +126,46 @@ describe("ai/diagnose route — AI-CREDITS-2 0-credit telemetry", () => {
     expect(event.metadata).toMatchObject({ kind: "workflow_diagnosis", deterministic: true });
   });
 
-  it("does NOT record an event for an access wall (NO_ACCESS / NOT_FOUND)", async () => {
+  it("personal workflow → records to the personal/workflow account (record.accountId)", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-1", accountId: "acct-personal-1" },
+    });
+    mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK" });
+    await call("wf-1");
+    expect(mockRecordEvent.mock.calls[0]![0].accountId).toBe("acct-personal-1");
+  });
+
+  it("team workflow → records to the team/workflow account, NOT the actor's personal id", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-team", accountId: "acct-team-7" },
+    });
+    mockDiagnose.mockResolvedValue({ workflowId: "wf-team", access: "OK" });
+    await call("wf-team");
+    const acct = mockRecordEvent.mock.calls[0]![0].accountId;
+    expect(acct).toBe("acct-team-7");
+    expect(acct).not.toBe("user-1");
+  });
+
+  it("does NOT resolve an account or record for an access wall (NO_ACCESS / NOT_FOUND — no leak)", async () => {
     mockDiagnose.mockResolvedValue({ workflowId: "wf-x", access: "NO_ACCESS" });
-    await call("wf-x");
-    expect(mockEnsureAccount).not.toHaveBeenCalled();
+    const res = await call("wf-x");
+    expect(mockLoadWorkflowForMember).not.toHaveBeenCalled();
     expect(mockRecordEvent).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ workflowId: "wf-x", access: "NO_ACCESS" });
+  });
+
+  it("fail-open: skips telemetry (still 200) when the workflow read races to !ok", async () => {
+    mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK" });
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json({ error: "Workflow not found." }, { status: 404 }),
+    });
+    const res = await call("wf-1");
+    expect(mockRecordEvent).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ workflowId: "wf-1", access: "OK" });
   });
 
   it("a telemetry failure NEVER breaks the diagnosis response (fail-open)", async () => {
@@ -127,5 +174,15 @@ describe("ai/diagnose route — AI-CREDITS-2 0-credit telemetry", () => {
     const res = await call("wf-1");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ workflowId: "wf-1", access: "OK" });
+  });
+
+  it("stays 0-credit and ungated — the route imports no gate and makes no model call", () => {
+    const src = readFileSync(
+      resolve(process.cwd(), "app/api/workflows/[id]/ai/diagnose/route.ts"),
+      "utf8",
+    );
+    expect(src).not.toMatch(/aiCreditGate/);
+    expect(src).not.toMatch(/generateStructuredJson|createModelClient|modelClients/);
+    expect(src).not.toMatch(/ENABLE_AI_CREDIT_ENFORCEMENT/);
   });
 });

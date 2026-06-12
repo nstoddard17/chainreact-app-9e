@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { diagnoseWorkflowForAgent } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
-import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { recordAiCostEvent } from "@/services/billing/aiCostEvents";
 import { computeAiCreditCharge } from "@/core/billing/aiCreditPolicy";
-import { requireUser } from "../../../_shared";
+import { loadWorkflowForMember, requireUser } from "../../../_shared";
 
 /**
  * POST /api/workflows/[id]/ai/diagnose — read-only "Check this workflow" for the
@@ -23,22 +22,32 @@ import { requireUser } from "../../../_shared";
  * call, so it records a **0-credit** `ai_cost_events` row for usage observability —
  * never deducts/enforces. Recorded ONLY when access is OK (a non-member/not-found
  * walls out with no event). Fail-open: a telemetry failure never breaks the
- * diagnosis response. Mirrors the plan/apply routes (routes own cost-event
- * emission + `ensurePersonalAccount` cost-owner resolution).
+ * diagnosis response. Slice 4.AI-DIAG-2-pre: the cost event is attributed to the
+ * **workflow-owning account** (via `loadWorkflowForMember`), matching the planner
+ * route's 3b-0 attribution — not the actor's personal account.
  *
  * NEVER returned/recorded: tokens, refresh tokens, providerAccountId, account
  * metadata, integration display names, connectedByUserId, exact expiry, raw
  * granted scopes, external account labels, or workflow config values.
  */
 
-/** Record the 0-credit deterministic-diagnosis observability event. Fail-open. */
+/**
+ * Record the 0-credit deterministic-diagnosis observability event. Fail-open.
+ *
+ * Slice 4.AI-DIAG-2-pre — attribute the event to the WORKFLOW-OWNING account (same
+ * rule the planner route adopted in 3b-0, `e538a6b0c`), NOT the actor's personal
+ * account. This runs only AFTER `diagnoseWorkflowForAgent` returned access==="OK"
+ * (the caller is a confirmed member), so `loadWorkflowForMember` resolves in the
+ * normal path. A race (workflow deleted / membership lost between the two reads)
+ * makes it return `!ok` → SKIP the telemetry (fail-open) rather than mis-attribute.
+ * Still 0-credit, still no gate, still no LLM — only the cost-owner changed.
+ */
 async function recordDiagnosisCostEvent(userId: string, workflowId: string): Promise<void> {
-  // 4.ACCOUNT-MODEL-9d: AI cost is account-owned; userId is the actor. Mirrors the
-  // plan/apply routes' `ensurePersonalAccount(auth.userId)` cost-owner resolution.
-  const account = await ensurePersonalAccount(userId);
+  const wf = await loadWorkflowForMember(workflowId, userId);
+  if (!wf.ok) return; // fail-open: never mis-attribute, never break the response
   const charge = computeAiCreditCharge({ feature: "other", isLlmCall: false });
   await recordAiCostEvent({
-    accountId: account.id,
+    accountId: wf.record.accountId,
     userId,
     workflowId,
     feature: "other",
