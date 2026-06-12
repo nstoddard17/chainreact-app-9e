@@ -9,6 +9,7 @@ import { builderGapsTools } from "./builderGaps";
 import { commandTools } from "./commands";
 import { diagnosisTools } from "./diagnose";
 import { diagnoseLiveTools } from "./diagnoseLive";
+import { diagnoseWorkflowTools } from "./diagnoseWorkflow";
 import { docsTools } from "./docs";
 import { providerTools } from "./providers";
 import { smokeTools } from "./smoke";
@@ -27,5 +28,7 @@ export function buildRegistry(): ToolRegistry {
   // Stage 2B-1 — the single LIVE (Plane-B) tool. It is a `fetch` client onto the
   // app's internal diagnostics route; the MCP process stays DB-free + import-fenced.
   for (const tool of diagnoseLiveTools) registry.register(tool);
+  // Stage 2B-3 CS-1 — live workflow-readiness tool (same `fetch`-client posture).
+  for (const tool of diagnoseWorkflowTools) registry.register(tool);
   return registry;
 }
