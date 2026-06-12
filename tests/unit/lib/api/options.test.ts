@@ -269,6 +269,7 @@ describe("fetchOptionsSource — error code coverage (matches OptionsSourceError
     "SOURCE_NOT_FOUND",
     "MISSING_DEPENDENCY",
     "PROVIDER_ERROR",
+    "PROVIDER_REAUTH_REQUIRED",
     "SERVER_ERROR",
     // Slice 4.ACCOUNT-MODEL-22D-2 personal-provider policy states.
     "NOT_WORKFLOW_OWNER",

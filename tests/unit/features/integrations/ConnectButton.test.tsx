@@ -62,4 +62,28 @@ describe("ConnectButton", () => {
     expect(screen.getByRole("button", { name: /connect slack/i })).not.toBeDisabled();
     expect(assignSpy).not.toHaveBeenCalled();
   });
+
+  it("the Reconnect variant (outline + testId) starts the SAME OAuth flow", async () => {
+    mockStartOAuth.mockResolvedValueOnce({
+      redirectUrl: "https://slack.com/oauth/v2/authorize?x=2",
+    });
+    const user = userEvent.setup();
+    render(
+      <ConnectButton
+        provider="slack"
+        label="Reconnect"
+        variant="outline"
+        testId="app-card-reconnect"
+      />,
+    );
+    const btn = screen.getByTestId("app-card-reconnect");
+    expect(btn).toHaveTextContent("Reconnect");
+    await user.click(btn);
+    await waitFor(() => {
+      expect(mockStartOAuth).toHaveBeenCalledWith("slack");
+      expect(assignSpy).toHaveBeenCalledWith(
+        "https://slack.com/oauth/v2/authorize?x=2",
+      );
+    });
+  });
 });

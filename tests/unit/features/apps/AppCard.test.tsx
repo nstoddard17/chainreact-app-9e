@@ -3,7 +3,9 @@
  *
  * Covers the no-fake-actions invariants locked in the slice plan:
  *   - "Connect" button renders only when (!isConnected && canConnect).
- *   - NO disconnect / manage / reconnect buttons (those APIs aren't wired).
+ *   - "Reconnect" (Connected App Recovery UX) renders only when (isConnected && canConnect),
+ *     reuses the OAuth start flow, and is distinct from "Connect another".
+ *   - NO disconnect / manage buttons (those APIs aren't wired).
  *   - NO per-account workflow pills (no integration↔workflow link yet).
  *   - "Connect another" only on connected + canConnect + supportsMultipleAccounts.
  *   - Expand affordance has aria-expanded + aria-controls semantics.
@@ -13,12 +15,23 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 jest.mock("@/features/integrations/ConnectButton", () => ({
-  ConnectButton: ({ provider, label }: { provider: string; label: string }) => (
+  ConnectButton: ({
+    provider,
+    label,
+    variant,
+    testId,
+  }: {
+    provider: string;
+    label: string;
+    variant?: string;
+    testId?: string;
+  }) => (
     <button
       type="button"
-      data-testid="mock-connect-button"
+      data-testid={testId ?? "mock-connect-button"}
       data-provider={provider}
       data-label={label}
+      data-variant={variant ?? "primary"}
     >
       {label}
     </button>
@@ -64,6 +77,11 @@ describe("AppCard — not connected", () => {
     expect(pill).toHaveAttribute("data-state", "not-connected");
     expect(pill).toHaveTextContent(/not connected/i);
   });
+
+  it("does NOT render a Reconnect button when not connected", () => {
+    render(<AppCard app={mkApp({ isConnected: false, canConnect: true })} />);
+    expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
+  });
 });
 
 describe("AppCard — connected", () => {
@@ -87,6 +105,19 @@ describe("AppCard — connected", () => {
   it("does NOT render a top-level Connect button on a connected provider", () => {
     render(<AppCard app={connected} />);
     expect(screen.queryByTestId("mock-connect-button")).toBeNull();
+  });
+
+  it("renders a Reconnect button (outline, reuses the OAuth start flow) on a connected provider", () => {
+    render(<AppCard app={connected} />);
+    const reconnect = screen.getByTestId("app-card-reconnect");
+    expect(reconnect).toHaveAttribute("data-provider", "slack");
+    expect(reconnect).toHaveAttribute("data-label", "Reconnect");
+    expect(reconnect).toHaveAttribute("data-variant", "outline");
+  });
+
+  it("does NOT render Reconnect when canConnect=false", () => {
+    render(<AppCard app={{ ...connected, canConnect: false }} />);
+    expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
   });
 
   it("exposes an expand affordance with aria-expanded + aria-controls", async () => {

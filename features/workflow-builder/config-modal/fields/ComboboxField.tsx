@@ -205,6 +205,25 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
             <span>Connect {state.provider} first to load options.</span>
           </div>
         );
+      case "needs-reconnect":
+        // Token rejected (auth/scope class) — point at Reconnect, not a bare
+        // retry. Link to Apps (not inline OAuth) so unsaved builder edits survive.
+        return (
+          <div
+            role="alert"
+            data-testid="combobox-needs-reconnect"
+            className="flex flex-col items-start gap-2 px-2 py-3 text-xs text-muted-foreground"
+          >
+            <span>{state.message}</span>
+            <a
+              href="/apps"
+              data-testid="combobox-reconnect-link"
+              className="font-medium text-foreground underline underline-offset-2"
+            >
+              Reconnect {state.provider} in Apps
+            </a>
+          </div>
+        );
       case "owner-gated":
       case "owner-must-connect":
         // Owner-gated states are normally handled by the inline affordance

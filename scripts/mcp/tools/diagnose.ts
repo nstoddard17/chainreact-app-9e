@@ -89,11 +89,19 @@ export const OPTION_SOURCE_DIAGNOSES: Record<
   },
   PROVIDER_ERROR: {
     cause:
-      "The provider was reached but returned a logical failure (e.g. invalid_auth / missing_scope). The raw provider error code is intentionally hidden from the picker.",
+      "The provider was reached but returned a logical failure that is NOT auth/scope-class (e.g. ratelimited / internal_error). Auth/scope/token failures now surface as PROVIDER_REAUTH_REQUIRED instead. The raw provider error code is intentionally hidden from the picker.",
     nextChecks: [
-      "Most often a MISSING OAUTH SCOPE or an expired/revoked token — compare the connected token's scopes to the provider's required scopes (use explain_provider_connection_requirements).",
-      "If a scope is missing, reconnect the provider to re-consent with the current scope set.",
-      "For non-refreshable providers an expired token also surfaces here — reconnect.",
+      "Usually transient (rate limit / provider hiccup) — retry once.",
+      "If it persists, check server logs for the sanitized provider error class; it is not a scope/token problem (those map to PROVIDER_REAUTH_REQUIRED).",
+    ],
+  },
+  PROVIDER_REAUTH_REQUIRED: {
+    cause:
+      "The provider rejected the stored credential on an auth/scope/token-class failure (e.g. Slack invalid_auth / token_revoked / missing_scope). The integration row still EXISTS — this is not INTEGRATION_DISCONNECTED — but the token needs re-authorization.",
+    nextChecks: [
+      "Reconnect the provider (Apps → provider → Reconnect) to re-consent with the current scope set / mint a fresh token.",
+      "Compare the connected token's scopes to the provider's required scopes (use explain_provider_connection_requirements) — a missing scope lands here.",
+      "Non-refreshable providers (e.g. Slack) surface revoked/expired tokens here too — reconnect is the fix.",
     ],
   },
   SERVER_ERROR: {
@@ -138,6 +146,7 @@ const CODE_ORDER: readonly string[] = [
   "OWNER_MUST_CONNECT",
   "NOT_WORKFLOW_OWNER",
   "PROVIDER_ERROR",
+  "PROVIDER_REAUTH_REQUIRED",
   "SERVER_ERROR",
   "UNKNOWN",
 ];
@@ -176,6 +185,7 @@ function renderCodeBlock(code: string, entry: ManifestEntry | null): string {
     if (
       (code === "INTEGRATION_DISCONNECTED" ||
         code === "PROVIDER_ERROR" ||
+        code === "PROVIDER_REAUTH_REQUIRED" ||
         code === "OWNER_MUST_CONNECT" ||
         code === "NOT_WORKFLOW_OWNER") &&
       !entry.requiresIntegration

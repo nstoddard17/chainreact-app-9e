@@ -214,6 +214,26 @@ describe("useOptionsSource — error mappings", () => {
     expect(result.current.state.message).toMatch(/Connect gmail/);
   });
 
+  it("maps PROVIDER_REAUTH_REQUIRED to a distinct 'needs-reconnect' status (not generic error) with the provider", async () => {
+    mockFetchOptionsSource.mockResolvedValueOnce({
+      ok: false,
+      source: "slack:channels",
+      code: "PROVIDER_REAUTH_REQUIRED",
+      message: "Slack needs to be reconnected before its channels can load.",
+    });
+    const { result } = renderHook(() =>
+      useOptionsSource({ source: "slack:channels" }),
+    );
+    await waitFor(() =>
+      expect(result.current.state.status).toBe("needs-reconnect"),
+    );
+    if (result.current.state.status !== "needs-reconnect") {
+      throw new Error("unreachable");
+    }
+    expect(result.current.state.provider).toBe("slack");
+    expect(result.current.state.message).toMatch(/reconnect/i);
+  });
+
   it("maps generic ok:false codes to status 'error' with the code passed through", async () => {
     mockFetchOptionsSource.mockResolvedValueOnce({
       ok: false,

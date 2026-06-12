@@ -1,6 +1,6 @@
 import { decryptToken } from "@/core/encryption/tokens";
 import { conversationsList } from "../api/conversationsList";
-import { SlackApiError } from "../api/errors";
+import { SlackApiError, isSlackAuthError } from "../api/errors";
 import {
   OptionsResolverError,
   type OptionsResolver,
@@ -100,6 +100,26 @@ export const slackChannelsResolver: OptionsResolver = {
       });
     } catch (err) {
       if (err instanceof SlackApiError) {
+        // Classify auth/scope/token-class failures distinctly so the UI can
+        // offer Reconnect instead of a generic retry. Log the (non-secret)
+        // Slack error code + class server-side for observability — it is NEVER
+        // placed in the thrown message or returned to the client. The bot token
+        // is never logged.
+        const reauth = isSlackAuthError(err.slackErrorCode);
+        console.warn(
+          JSON.stringify({
+            event: "options.slack_channels.provider_error",
+            source: "slack:channels",
+            slackErrorClass: reauth ? "auth" : "provider",
+            slackErrorCode: err.slackErrorCode,
+          }),
+        );
+        if (reauth) {
+          throw new OptionsResolverError(
+            "PROVIDER_REAUTH_REQUIRED",
+            "Slack needs to be reconnected before its channels can load.",
+          );
+        }
         throw new OptionsResolverError(
           "PROVIDER_ERROR",
           "Couldn't load Slack channels. Try again.",

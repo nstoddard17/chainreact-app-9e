@@ -80,6 +80,19 @@ export function AppCard({ app }: Props) {
               label={`Connect ${app.name}`}
             />
           )}
+          {/* Reconnect: visible on a CONNECTED card so a broken/expired token is
+              recoverable without discovering the "Connect another" workaround.
+              Reuses the same OAuth start flow; re-authorizing the same workspace
+              refreshes the existing row via upsertActive. Distinct from the
+              expanded "Connect another" (which ADDS an account). */}
+          {app.isConnected && app.canConnect && (
+            <ConnectButton
+              provider={app.providerId}
+              label="Reconnect"
+              variant="outline"
+              testId="app-card-reconnect"
+            />
+          )}
           {canExpand && (
             <button
               type="button"

@@ -140,6 +140,16 @@ export type UseOptionsSourceState =
       hasMore: false;
       provider: string;
       message: string;
+    }
+  // `needs-reconnect` (PROVIDER_REAUTH_REQUIRED): the integration row exists but
+  // the provider rejected its token (auth/scope/token class). Distinct from the
+  // generic `error` so the renderer offers a Reconnect path, not a bare retry.
+  | {
+      status: "needs-reconnect";
+      items: readonly OptionItem[];
+      hasMore: false;
+      provider: string;
+      message: string;
     };
 
 export interface UseOptionsSourceResult {
@@ -314,6 +324,16 @@ export function useOptionsSource(
         if (response.code === "OWNER_MUST_CONNECT") {
           setState({
             status: "owner-must-connect",
+            items: [],
+            hasMore: false,
+            provider: extractProvider(source as string),
+            message: response.message,
+          });
+          return;
+        }
+        if (response.code === "PROVIDER_REAUTH_REQUIRED") {
+          setState({
+            status: "needs-reconnect",
             items: [],
             hasMore: false,
             provider: extractProvider(source as string),

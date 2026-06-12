@@ -307,6 +307,33 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
   });
 
+  it("needs-reconnect state renders reconnect copy + an Apps link, NOT a generic retry, and leaks no raw code", async () => {
+    setHookState({
+      status: "needs-reconnect",
+      items: [],
+      hasMore: false,
+      provider: "slack",
+      message: "Slack needs to be reconnected before its channels can load.",
+    });
+    const user = userEvent.setup();
+    render(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+
+    const block = await screen.findByTestId("combobox-needs-reconnect");
+    expect(block).toHaveTextContent(/needs to be reconnected/i);
+    // Reconnect path: a link to the Apps page (not a full-page OAuth nav from
+    // the builder, which would drop unsaved edits).
+    const link = screen.getByTestId("combobox-reconnect-link");
+    expect(link).toHaveAttribute("href", "/apps");
+    expect(link).toHaveTextContent(/reconnect slack in apps/i);
+    // It is NOT the generic error arm — no "Try again" retry button.
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+    // No-leak: no raw Slack error code / token shape in the rendered output.
+    expect(block.textContent ?? "").not.toMatch(/invalid_auth|missing_scope|token_revoked|xoxb/i);
+  });
+
   it("error state renders the message and a retry button that calls refetch", async () => {
     setHookState({
       status: "error",

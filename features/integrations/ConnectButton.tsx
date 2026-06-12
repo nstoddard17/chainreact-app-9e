@@ -6,6 +6,14 @@ import { startOAuth } from "@/lib/api/integrations";
 interface Props {
   provider: string;
   label: string;
+  /**
+   * Visual treatment. `primary` (default) is the filled Connect CTA;
+   * `outline` is a lighter affordance used for Reconnect on an
+   * already-connected card so it reads as secondary to Connect.
+   */
+  variant?: "primary" | "outline";
+  /** Optional test id so callers (e.g. the Apps card Reconnect) are selectable. */
+  testId?: string;
 }
 
 /**
@@ -17,7 +25,12 @@ interface Props {
  *   - The provider's authorize URL is an external destination, so we use
  *     `window.location.assign(...)` (testable + idiomatic for full-page nav).
  */
-export function ConnectButton({ provider, label }: Props) {
+export function ConnectButton({
+  provider,
+  label,
+  variant = "primary",
+  testId,
+}: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,13 +46,19 @@ export function ConnectButton({ provider, label }: Props) {
     }
   }
 
+  const className =
+    variant === "outline"
+      ? "rounded border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+      : "rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60";
+
   return (
     <div className="flex flex-col items-end gap-1">
       <button
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        className={className}
+        {...(testId !== undefined && { "data-testid": testId })}
       >
         {pending ? "Redirecting…" : label}
       </button>

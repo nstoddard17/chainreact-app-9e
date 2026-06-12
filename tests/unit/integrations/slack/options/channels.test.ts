@@ -244,8 +244,37 @@ describe("slackChannelsResolver — q filtering", () => {
 });
 
 describe("slackChannelsResolver — error sanitization", () => {
-  it("maps SlackApiError to OptionsResolverError(PROVIDER_ERROR) with a sanitized message", async () => {
-    mockConversationsList.mockRejectedValueOnce(new SlackApiError("missing_scope"));
+  it.each([
+    "invalid_auth",
+    "token_revoked",
+    "token_expired",
+    "account_inactive",
+    "missing_scope",
+    "not_authed",
+  ])(
+    "maps auth/scope-class SlackApiError '%s' to OptionsResolverError(PROVIDER_REAUTH_REQUIRED) — sanitized, reconnect-oriented",
+    async (slackCode) => {
+      mockConversationsList.mockRejectedValueOnce(new SlackApiError(slackCode));
+      let thrown: unknown;
+      try {
+        await slackChannelsResolver.resolve(ctx());
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(OptionsResolverError);
+      const optErr = thrown as OptionsResolverError;
+      expect(optErr.code).toBe("PROVIDER_REAUTH_REQUIRED");
+      // No-leak: the raw Slack error code + token never reach the message.
+      expect(optErr.message).not.toMatch(new RegExp(slackCode, "i"));
+      expect(optErr.message).not.toMatch(/xoxb/i);
+      // Reconnect-oriented copy, not the generic retry string.
+      expect(optErr.message).toMatch(/reconnect/i);
+      expect(optErr.message).not.toMatch(/try again/i);
+    },
+  );
+
+  it("maps a NON-auth SlackApiError (ratelimited) to OptionsResolverError(PROVIDER_ERROR) with the generic retry message", async () => {
+    mockConversationsList.mockRejectedValueOnce(new SlackApiError("ratelimited"));
     let thrown: unknown;
     try {
       await slackChannelsResolver.resolve(ctx());
@@ -255,8 +284,8 @@ describe("slackChannelsResolver — error sanitization", () => {
     expect(thrown).toBeInstanceOf(OptionsResolverError);
     const optErr = thrown as OptionsResolverError;
     expect(optErr.code).toBe("PROVIDER_ERROR");
-    // Raw Slack error code MUST NOT leak into the user-visible message.
-    expect(optErr.message).not.toMatch(/missing_scope/i);
+    // No-leak: raw code + token never surface; copy stays the generic retry.
+    expect(optErr.message).not.toMatch(/ratelimited/i);
     expect(optErr.message).not.toMatch(/xoxb/i);
     expect(optErr.message).toMatch(/couldn't load slack channels/i);
   });

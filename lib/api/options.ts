@@ -30,6 +30,11 @@ export type OptionsApiErrorCode =
   | "SOURCE_NOT_FOUND"
   | "MISSING_DEPENDENCY"
   | "PROVIDER_ERROR"
+  // Provider rejected the stored credential (auth/scope/token class). The
+  // integration row still exists; the token needs re-authorization. Renderers
+  // branch on this to show a Reconnect path instead of a generic retry. Mirror
+  // of `OptionsSourceErrorCode`.
+  | "PROVIDER_REAUTH_REQUIRED"
   | "SERVER_ERROR"
   // ── Slice 4.ACCOUNT-MODEL-22D-2 — personal-provider credential policy. ──
   // Mirror of `OptionsSourceErrorCode`. The future builder UI branches on

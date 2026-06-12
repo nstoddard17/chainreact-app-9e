@@ -49,6 +49,13 @@ export type OptionsSourceErrorCode =
   | "SOURCE_NOT_FOUND"
   | "MISSING_DEPENDENCY"
   | "PROVIDER_ERROR"
+  // The provider rejected the stored credential on an auth/scope/token-class
+  // failure (e.g. Slack `invalid_auth` / `token_revoked` / `missing_scope`).
+  // The integration ROW still exists (so this is NOT `INTEGRATION_DISCONNECTED`),
+  // but the token needs re-authorization. Renderers point the user at Reconnect
+  // rather than a generic "try again." The raw provider error code is NEVER
+  // carried in the code or message — only this typed, sanitized classification.
+  | "PROVIDER_REAUTH_REQUIRED"
   | "SERVER_ERROR"
   // ── Slice 4.ACCOUNT-MODEL-22D-2 — personal-provider credential policy. ──
   // A non-creator editor requested options for a PERSONAL-credential provider
@@ -76,6 +83,7 @@ export const ALL_OPTIONS_SOURCE_ERROR_CODES = [
   "SOURCE_NOT_FOUND",
   "MISSING_DEPENDENCY",
   "PROVIDER_ERROR",
+  "PROVIDER_REAUTH_REQUIRED",
   "SERVER_ERROR",
   "NOT_WORKFLOW_OWNER",
   "OWNER_MUST_CONNECT",

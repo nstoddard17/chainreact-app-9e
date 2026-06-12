@@ -16,3 +16,27 @@ export class SlackApiError extends Error {
     this.slackErrorCode = slackErrorCode;
   }
 }
+
+/**
+ * Auth/scope/token-class Slack error codes — the failures a user fixes by
+ * **re-authorizing** the connection (vs transient/server failures like
+ * `ratelimited` / `internal_error`, which a retry may clear). Callers map
+ * these to the typed `PROVIDER_REAUTH_REQUIRED` option-source code so the UI
+ * offers Reconnect instead of a generic retry. The raw code is used only for
+ * this classification + sanitized server logging — never surfaced to the client.
+ */
+const SLACK_AUTH_ERROR_CODES: ReadonlySet<string> = new Set([
+  "invalid_auth",
+  "not_authed",
+  "account_inactive",
+  "token_revoked",
+  "token_expired",
+  "missing_scope",
+  "ekm_access_denied",
+  "no_permission",
+  "org_login_required",
+]);
+
+export function isSlackAuthError(slackErrorCode: string): boolean {
+  return SLACK_AUTH_ERROR_CODES.has(slackErrorCode);
+}
