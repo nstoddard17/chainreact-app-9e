@@ -1,6 +1,8 @@
 # Runbook: Internal Developer MCP Server
 
-**Status:** Stage 1 — local/internal developer tooling only.
+**Status:** Local/internal developer tooling. Stage 1 + 1.5 (HTTP) shipped to
+`v2-main`; Stage 2A (static diagnostics) + Stage 2B (live Plane-B diagnostics)
+implemented **local-only** on `builder-ui-v1-audit-1`.
 **Location:** [`scripts/mcp/`](../../scripts/mcp/)
 **Audience:** Engineers + AI coding hosts (Claude Desktop, Codex, Claude Code).
 
@@ -118,9 +120,48 @@ DB, or production access — they preserve every Stage-1 boundary. Plan:
   UPDATE_OPTION_SOURCE_MANIFEST=1 npx jest tests/unit/mcp/option-source-manifest.test.ts
   ```
 
-These tools are **read-only and inert**: `diagnose_option_source` maps an
+These Stage-2A tools are **read-only and inert**: `diagnose_option_source` maps an
 *observed* error code to causes; it does not call `/api/options`. Live/DB-backed
-diagnosis (Plane B, CS-3+) is **not** implemented and requires separate approval.
+diagnosis (Plane B) is now **implemented locally** — see the next section.
+
+### Stage 2B — Plane-B live diagnostics (SHIPPED, local-only)
+
+Read-only **live** diagnosis. Each live tool is a `fetch` client onto an
+app-owned `/api/internal/diagnostics/*` route gated by `applyDiagnosticsGate`
+([`app/api/internal/diagnostics/_shared.ts`](../../app/api/internal/diagnostics/_shared.ts)).
+The MCP process stays DB-free + import-fenced; **all** data access, authz, and
+sanitization happen inside the route's capability service. Closeout:
+[mcp-diagnostic-suite-closeout.md](../slices/phase-4/mcp-diagnostic-suite-closeout.md).
+
+| Live tool | Route | Capability service |
+|---|---|---|
+| `diagnose_option_source_live` | `…/option-source` | route-resident (runs the real resolver) |
+| `diagnose_integration_connection` | `…/integration-connection` | `services/diagnostics/integrationConnection.ts` |
+| `diagnose_run_failure` | `…/run-failure` | `services/diagnostics/runReport.ts` |
+| `explain_run_visibility` | `…/run-failure` (`mode:"visibility"`) | `services/diagnostics/runReport.ts` |
+| `diagnose_workflow_readiness` | `…/workflow-readiness` | `services/diagnostics/workflowReadiness.ts` |
+| `diagnose_workflow_connections` | `…/workflow-connections` | `services/diagnostics/integrationConnection.ts` |
+
+**Gate (every route):** `DIAGNOSTICS_API_ENABLED` default-OFF → 404; in production
+also requires `DIAGNOSTICS_API_ALLOW_PROD` → else 404; `DIAGNOSTICS_API_TOKEN`
+bearer (constant-time) → else 401, never echoed. Not a browser route — no
+`requireUser`; the subject is an explicit `userId` in the body, and the service
+still applies the V2 account-membership + credential-provenance walls under that
+subject.
+
+**Three-layer rule (enforced; do not regress):** route = gate/validate/serialize
+only · service (`services/diagnostics/*`) = the diagnostic brain (read + authz +
+provenance + derivation + sanitized DTO) · MCP tool = adapter + rendering only
+(status codes → human notes via [`scripts/mcp/tools/connectionStatusNotes.ts`](../../scripts/mcp/tools/connectionStatusNotes.ts),
+never prose in the DTO). DTOs carry enums/counts/booleans/node-ids/public
+scope-gap names + the stored humanized `errorClassification` only — never tokens,
+identity, account labels, full granted scopes, run outputs/error bodies/trigger
+payloads, or workflow config. A non-member or a non-creator on a personal provider
+gets an access/provenance wall with **no** underlying row fetched.
+
+The MCP env vars for the `fetch` client (`MCP_DIAGNOSTICS_URL` /
+`MCP_DIAGNOSTICS_TOKEN`, distinct from `MCP_HTTP_TOKEN`) are documented in
+[diagnoseLive.ts](../../scripts/mcp/tools/diagnoseLive.ts).
 
 ## Implemented MCP protocol subset
 
@@ -293,7 +334,9 @@ this tool by design.
 
 ## Tests
 
-`tests/unit/mcp/` (95 tests):
+`tests/unit/mcp/` (186 tests). The Plane-B routes + capability services also carry
+their own tests under `tests/unit/app/api/internal/diagnostics/` and
+`tests/unit/services/diagnostics/` (gate, authz walls, per-status mapping, no-leak):
 
 - **Core:** path whitelist + traversal rejection, secret redaction, output
   truncation, manifest text-parse-without-execution, allowed-doc-read happy path,

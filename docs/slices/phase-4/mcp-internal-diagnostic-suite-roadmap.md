@@ -5,6 +5,16 @@ changes in this slice. Nothing pushed.**
 **Date:** 2026-06-12
 **Branch:** `builder-ui-v1-audit-1`
 
+> **STATUS (2026-06-12) — partly shipped.** This is the original planning map. The
+> live workflow/run + connection layer landed (run-failure, run-visibility,
+> workflow-readiness, single-provider + workflow-wide connection diagnostics), with
+> the diagnostic brains consolidated into `services/diagnostics/*` and routes
+> reduced to thin gated shells. For the as-built tool/route/service inventory, the
+> three-layer architecture rule, the no-leak guarantees, and remaining stages
+> (2B-5 graph, 2C doctors, 2D reports), see the closeout:
+> [mcp-diagnostic-suite-closeout.md](./mcp-diagnostic-suite-closeout.md). The stage
+> labels below predate the implementation split and are kept as design history.
+
 **Source of truth (verified current state — every file below was read for this roadmap):**
 [scripts/mcp/tools/index.ts](../../../scripts/mcp/tools/index.ts) (the explicit registry — 17 tools today) ·
 [scripts/mcp/tools/diagnoseLive.ts](../../../scripts/mcp/tools/diagnoseLive.ts) (the two shipped Plane-B tools + shared `postDiagnostic` fetch transport; import-fenced) ·

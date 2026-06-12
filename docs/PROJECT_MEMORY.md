@@ -18,8 +18,11 @@
   `builder-ui-v1-audit-1` is **local-only** — incl. the Connected-app disconnect arc (now
   **LIVE**, flag removed `34b28e045`) and MCP Stage-2B live diagnostics. Push-gated: don't
   push without Marcus.
-- **Open threads:** MCP internal diagnostic suite has planned-but-unbuilt stages (2B-3+) →
-  [`mcp-internal-diagnostic-suite-roadmap.md`](./slices/phase-4/mcp-internal-diagnostic-suite-roadmap.md).
+- **Open threads:** MCP internal diagnostic suite — live run/connection layer **built
+  local-only** (Stage 2B: run-failure/visibility, workflow-readiness, integration- +
+  workflow-connections); remaining stages **2B-5 (graph) / 2C (doctors) / 2D (reports)
+  unbuilt** →
+  [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
 
 ## Durable decisions
 
@@ -57,6 +60,14 @@
 
 ## Recently completed arcs
 
+- **Internal MCP — Stage 2B live diagnostics complete + consolidated (local-only, 2026-06-12)** —
+  gated (default-OFF, prod-locked via `applyDiagnosticsGate`) live tools: run-failure,
+  run-visibility, workflow-readiness, integration-connection, workflow-connections. CS-2 added
+  the connection/provenance layer and extracted the integration-connection brain so no live route
+  holds diagnostic logic (route=gate/validate/serialize · `services/diagnostics/*`=brain ·
+  MCP=adapter/render). No token/identity/scope/config leak; sessionless account+provenance walls;
+  OQ-C logged (RLS dependency in the single-provider workflow path) → commits `aaccd237e`/`e5573fc6a`
+  (CS-2) + [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
 - **Connected-app recovery + disconnect (local-only, 2026-06-12)** — **Reconnect UX-complete**
   on connected app cards (provider-level recovery, always visible on collapsed cards;
   filled-secondary + refresh glyph + "Refresh this connection" tooltip). **"Connect another"
