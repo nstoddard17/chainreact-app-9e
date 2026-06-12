@@ -21,10 +21,17 @@ changes in this slice. Nothing pushed.**
 [repositories/accountMemberships.ts](../../../repositories/accountMemberships.ts) (`isMemberServiceRole`) ·
 [services/options/credentialPolicy.ts](../../../services/options/credentialPolicy.ts) (`decideOptionsCredential`)
 
-Prior shipped work: Stage 1/1.5 MCP server + HTTP transport; Stage 2A static/artifact
-diagnostics; `93a2d5484` (2B-1 `diagnose_option_source_live` + gate), `2274e73e4` /
-`ccb8fcd95` (2B-2 `diagnose_integration_connection` derive + route/tool), `e3d76a00b`
-(structural-auth guard recognizes `applyDiagnosticsGate`).
+**Completed stages (shipped):**
+
+| Stage | What shipped | Plane |
+|---|---|---|
+| **1 / 1.5** | Internal MCP server + stdio/**HTTP transport** (`MCP_HTTP_TOKEN`-gated), the `ToolRegistry`, docs + command-wrapper tools | local / static |
+| **2A** | Static + artifact diagnostics: provider-manifest tools, `list_builder_metadata_gaps`, smoke-artifact tools, static `diagnose_option_source` (closed `OPTION_SOURCE_DIAGNOSES`) | repo-static / artifact |
+| **2B-1** (`93a2d5484`) | `diagnose_option_source_live` + the first `/api/internal/diagnostics/*` route + `applyDiagnosticsGate` | live (Plane-B) |
+| **2B-2** (`2274e73e4` derive, `ccb8fcd95` route/tool) | `diagnose_integration_connection` — pure `deriveConnectionDiagnosis` + sessionless authz/provenance route | live (Plane-B) |
+| **(guard)** `e3d76a00b` | structural-auth guard recognizes `applyDiagnosticsGate` so gated routes pass without per-route allow-listing | — |
+
+Result: **17 tools** across two planes behind one gate (enumerated in §2.1).
 
 ---
 
@@ -216,6 +223,20 @@ account-membership authz** (`isMemberServiceRole` on the resolved account → `N
 with no data fetch). Then **provenance** for any personal-credential surface
 (`decideOptionsCredential` → `NOT_WORKFLOW_OWNER`, no fetch). The subject is the explicit
 `userId`; the bearer is the machine trust boundary. No `requireUser` (no cookie).
+
+**The five diagnostics gates (two sides of the same boundary):**
+
+| Env var | Side | Role |
+|---|---|---|
+| `DIAGNOSTICS_API_ENABLED` | app route | Master switch. Unset/false ⇒ every diagnostics route is a generic **404** (capability non-disclosure). |
+| `DIAGNOSTICS_API_ALLOW_PROD` | app route | Production lock. In prod the route stays **404** unless this is also explicitly truthy. |
+| `DIAGNOSTICS_API_TOKEN` | app route | Bearer the route requires (constant-time compare → **401**; never logged/echoed). |
+| `MCP_DIAGNOSTICS_URL` | MCP client | Base origin the tools POST to ([diagnoseLive.ts](../../../scripts/mcp/tools/diagnoseLive.ts) `baseUrl()`); default `http://127.0.0.1:3000`. |
+| `MCP_DIAGNOSTICS_TOKEN` | MCP client | Bearer the tools present; **must match the app's `DIAGNOSTICS_API_TOKEN`**, and is **distinct from `MCP_HTTP_TOKEN`** (the transport-layer token). Unset ⇒ the live tools return a help message, never a request. |
+
+Both client-side vars live only in the developer's environment; the MCP process holds no
+other app secret and is import-fenced from app code (§Q6). Every new live stage reuses
+this exact five-var model — no new gate is introduced.
 
 **Must never leave the app route (Q5):**
 
