@@ -2,7 +2,8 @@
 
 **Type:** Planning / design only. **No source, migrations, tests, UI, or behavior
 changes in this slice. Nothing pushed.**
-**Date:** 2026-06-12
+**Date:** 2026-06-12 · **Revised 2026-06-12** (owner decision: bill the
+**workflow-owning account**, not the actor's personal account — see §3 / §4 / OQ-A).
 **Branch:** `builder-ui-v1-audit-1`
 
 **Source of truth (verified — every file below was read in full unless noted):**
@@ -18,6 +19,8 @@ changes in this slice. Nothing pushed.**
 [lib/api/ai.ts](../../../lib/api/ai.ts) (`planWorkflow`, `postStructured`, `AiApiError`, `AiPlanFailure`) ·
 [features/workflow-builder/hooks/useBuilderAi.ts](../../../features/workflow-builder/hooks/useBuilderAi.ts) (`plan` / `submitFollowUp` / `friendlyError`) ·
 [features/workflow-builder/panels/BuilderAiPanel.tsx](../../../features/workflow-builder/panels/BuilderAiPanel.tsx) (chat rendering of plan / error) ·
+[services/ai/planner/buildWorkflowPlanRequest.ts](../../../services/ai/planner/buildWorkflowPlanRequest.ts) (TW-4 account-scoped grounding, pre-call) ·
+[services/ai/tools/workflowContext.ts](../../../services/ai/tools/workflowContext.ts) (`getWorkflowGraphForAI` — `getById`+`isMember` ownership guard, post-call) ·
 [docs/slices/phase-4/ai-credits-enforcement-plan.md](./ai-credits-enforcement-plan.md) (parent AI-CREDITS-3 plan)
 
 > **Read but not in full:** the apply route's failure-status convention
@@ -92,19 +95,45 @@ sinks → **there is structurally no double-charge** between them. The planner a
 records a **distinct** classifier sub-call event (`provider_discovery`, L133) when the
 AI-34C narrowing classifier ran — telemetry only, not deducted.
 
-### 2.4 Account resolution: two helpers, one inconsistency
+### 2.4 Account resolution: the recorder bills the WRONG account for team workflows
 - The recorder uses `ensurePersonalAccount(auth.userId)` → the actor's **personal**
-  account, always.
-- The canonical workflow-route resolver is `requireUserWithAccount()` →
-  `resolveActiveAccount` ([_shared.ts:99](../../../app/api/workflows/_shared.ts))
-  (precedence: explicit → `active_account_id` → personal fallback), and TW-1 routes
-  authorize against the **workflow's own** `accountId`
-  (`loadWorkflowForMember`, L181).
+  account, **always** — even for a Team/Business workflow. This is the bug the owner's
+  decision corrects (OQ-A): a team member's planner usage would drain *their own
+  personal* pool, not the team's shared pool.
+- The **canonical workflow-owning-account resolver already exists**:
+  `loadWorkflowForMember(workflowId, userId)`
+  ([_shared.ts:181](../../../app/api/workflows/_shared.ts)) does RLS-scoped
+  `getById` → no-leak 404 if missing/deleted → `requireWorkflowAccountMember` (`isMember`)
+  → no-leak 404 for non-members, and returns `record.accountId` = the **workflow-owning**
+  account. This is the same `getById`+`isMember` posture as the planner's own
+  `getWorkflowGraphForAI` ([workflowContext.ts](../../../services/ai/tools/workflowContext.ts),
+  account-equality + `isMember` defense-in-depth → NOT_FOUND).
+- `requireUserWithAccount()`→`resolveActiveAccount` is the *active*-account resolver
+  (explicit → `active_account_id` → personal). It is **not** what we want here — a member
+  can plan a Team workflow while a *different* account is active; cost must follow the
+  **workflow**, not the active account. So we use `loadWorkflowForMember`, not
+  `requireUserWithAccount`.
 
-So "which account owns AI cost" is **already ambiguous** in the codebase: telemetry
-bills personal; workflow ownership/grounding is account-scoped (the planner's
-`buildWorkflowPlanRequestWithAttribution` is TW-4-scoped to the workflow's account).
-This matters for team pooling (Q4 below).
+> **Personal-workflow invariant:** under the account-owned model a personal workflow is
+> owned by the user's personal account, so for personal workflows
+> `record.accountId === ensurePersonalAccount(userId).id`. The decision therefore changes
+> attribution **only for Team/Business/Enterprise** workflows; personal-workflow billing
+> is unchanged.
+
+### 2.5 The paid model call currently runs BEFORE ownership is verified
+The planner's grounding step is workflow-account-scoped *before* the model call
+(`getConnectedIntegrationsForAI(userId, workflowId)`,
+[buildWorkflowPlanRequest.ts:69](../../../services/ai/planner/buildWorkflowPlanRequest.ts),
+TW-4), but the **authoritative ownership/membership guard**
+(`getWorkflowGraphForAI` → NOT_FOUND) runs at
+[planWorkflowFromPrompt.ts:284](../../../services/ai/planner/planWorkflowFromPrompt.ts)
+— **after** the model call at L246. So today a non-member who guesses a `workflowId`
+triggers a **paid model call** and only then gets NOT_FOUND.
+
+**Consequence for 3b:** resolving + authorizing the workflow account *up front* (via
+`loadWorkflowForMember`) is required anyway to bill the right account — and it
+additionally closes this "paid call before authz" gap. That is an intentional,
+beneficial behavior change that occurs **regardless of the flag** (see §4.2 callouts).
 
 ### 2.5 Client + panel failure handling (decides what the user sees)
 - [lib/api/ai.ts](../../../lib/api/ai.ts) `planWorkflow`→`postStructured` (L238):
@@ -144,9 +173,17 @@ returns a typed, no-leak denial.
 - No reserve/reconcile, no `ai_credit_reservations` ledger, no migration, no pricing.
 - No second gate on the classifier sub-call (Q7).
 
-**Account model anchor:** AI credits pool per `account_billing` row (account-scoped),
-consistent with the V2 account-owned model. The team-pool question is the one real
-open decision (Q4).
+**Account model anchor (owner decision — OQ-A resolved):** AI cost + gating bill the
+**workflow-owning account**, never the actor's personal account:
+- personal workflow → personal account AI credits,
+- team workflow → **team** account shared AI pool,
+- business workflow → **business** account shared AI pool,
+- enterprise workflow → enterprise/custom account policy (`ai_credits_limit` set directly).
+
+Pooling is automatic: `account_billing` is keyed by `account_id`, so every member's
+usage on a team workflow deducts from the one team row (atomic via the RPC row lock).
+`accountId` is **always resolved server-side** from the workflow record — **never**
+accepted from the client.
 
 ---
 
@@ -175,27 +212,57 @@ import into a deliberately pure module). When a *second* paid route needs gating
 ### 4.2 Proposed route shape (described, not built)
 ```
 POST /api/workflows/[id]/ai/plan:
-  auth = requireUser()                         // unchanged
-  validate body                                // unchanged
-  account = ensurePersonalAccount(userId)      // MOVED earlier; reused by gate + recorder
+  auth = requireUser()                              // unchanged → userId
+  validate body                                     // unchanged
+  wf = await loadWorkflowForMember(id, userId)      // NEW: resolve+authz workflow account
+  if (!wf.ok) return wf.response                     //   no-leak 404 (missing/deleted/non-member)
+  const accountId = wf.record.accountId             //   WORKFLOW-OWNING account (server-side)
   gate = await aiCreditGate({
-           accountId: account.id,
+           accountId,                                //   NOT ensurePersonalAccount, NOT client-supplied
            feature: "workflow_creation",
            plannedTier: body.modelTier ?? "fast",
          })
-  if (!gate.ok) return creditDenialResponse(gate)   // 402; planner NOT called
-  // gate.ok (incl. skipped:* ) → proceed exactly as today
-  result = await planWorkflowFromPromptForAI({...})  // the paid call
-  recordAiPlanOutcome({ accountId: account.id, ... }, result)   // unchanged, reuses account
+  if (!gate.ok) return creditDenialResponse(gate)   // 402 / 403 / 503; planner NOT called
+  // gate.ok (incl. skipped:* ) → proceed
+  result = await planWorkflowFromPromptForAI({ userId, workflowId: id, ... })  // the paid call
+  recordAiPlanOutcome({ accountId, userId, workflowId: id, ... }, result)      // SAME accountId
   ... existing status mapping ...
 ```
-- `account` is resolved **once** and used by **both** gate and recorder → the gate
-  charges the **same** account the telemetry attributes to (no skew).
-- `ensurePersonalAccount` already runs in the route today (for recording); moving it
-  before the planner adds **zero** new DB calls on the happy path.
-- Resolving the account can throw — wrap it so a resolution failure does **not** 500
-  the whole route when the flag is OFF (fail-open to "proceed" when enforcement is
-  disabled; fail-closed to a 503 only when ON — see Q5/Q8 fail policy).
+- The **workflow-owning** `accountId` is resolved **once** and used by **both** gate
+  and recorder → identical attribution, and the team/business pool is charged for a
+  team/business workflow.
+- `loadWorkflowForMember` is the **existing** canonical resolver (no new authz path; it
+  reuses `getById`+`isMember`, the same posture the planner's own `getWorkflowGraphForAI`
+  enforces). It replaces the post-call `ensurePersonalAccount(userId)` the recorder uses
+  today.
+- The planner is still passed `userId` + `workflowId` exactly as today — its internal
+  grounding/ownership behavior is **unchanged**; we do **not** thread `accountId` into the
+  pure planner service.
+
+### 4.2.1 Intentional behavior deltas (occur regardless of the flag — must be called out)
+Because account resolution + authz must happen **before** the gate, two changes apply
+even when `ENABLE_AI_CREDIT_ENFORCEMENT` is OFF. Both are owner-sanctioned corrections,
+not regressions:
+
+1. **Telemetry attribution correction (the OQ-A fix).** `recordAiPlanOutcome` now bills
+   the **workflow-owning** account. For personal workflows this is byte-identical
+   (personal workflow ⇒ personal account; see §2.4 invariant). For **Team/Business**
+   workflows, `ai_cost_events` rows now attribute to the team/business account instead of
+   the actor's personal account — the intended fix.
+2. **Authz-before-paid-call.** A non-member / missing / deleted `workflowId` now returns
+   a no-leak **404 before** any model call (previously: paid model call, then NOT_FOUND
+   → 404). Legitimate members are unaffected (they pass `loadWorkflowForMember` and
+   proceed exactly as today). This eliminates a paid call for unauthorized requests.
+
+> Because of these, "flag OFF = byte-identical" no longer holds for **team-workflow
+> telemetry** and **unauthorized requests**. It DOES still hold for the happy path of a
+> personal-workflow member (planner behavior, status codes, success body all unchanged).
+
+> **Accepted minor redundancy:** the planner will still call `getWorkflowGraphForAI`
+> later (its own defense-in-depth ownership guard), so a member's request does two
+> RLS-scoped `getById`s. This is cheap and intentional — we do **not** refactor the
+> planner's deeper check (owner direction). The route gate is the authoritative
+> pre-paid-call authz; the planner's remains defense-in-depth.
 
 ### 4.3 Denial response (Q6) — structured `ok:false`, HTTP 402
 Return a body that **carries an `ok` flag** so `postStructured` treats it as a handled
@@ -242,6 +309,13 @@ not deducted; accepted for deduct-only v1.
 | **Structured `ok:false` + 402 (chosen)** | `postStructured` returns it; fresh-plan path renders `message` | **Accept** — graceful now, specific with a tiny touch |
 | Transport error (no `ok`) + 402 | `postStructured` throws `AiApiError`; `friendlyError` lacks a 402 case → generic "unavailable" bubble | Reject — strictly worse UX, needs the same client touch anyway |
 
+| Account resolver | Returns | Authz / no-leak | Verdict |
+|---|---|---|---|
+| **`loadWorkflowForMember(id, userId)` (chosen)** | workflow-owning `record.accountId` | `getById`(RLS)+`isMember` → no-leak 404 | **Accept** — canonical, no new authz path, bills the workflow's account |
+| `ensurePersonalAccount(userId)` (today's recorder) | actor's personal account | none (actor-only) | **Reject** — drains the actor's personal pool for team workflows (the OQ-A bug) |
+| `requireUserWithAccount()`→`resolveActiveAccount` | the *active* account | frozen/not-member mapping | Reject — bills the active account, not the workflow's; wrong when a member plans a team workflow with another account active |
+| client-supplied `accountId` | — | — | Reject — never trust the client for a cost owner |
+
 ---
 
 ## 6. Security / data model
@@ -251,9 +325,9 @@ not deducted; accepted for deduct-only v1.
 - **No-leak denial:** typed code + fixed copy (+ optional integers the member can
   already see). Mirrors the no-leak posture of `workflowNotFoundResponse` /
   `ACCOUNT_PENDING_DELETION` in `_shared.ts`.
-- **Cost-owner resolved server-side**, never client-supplied (the `accountId` comes
-  from `ensurePersonalAccount(userId)`, not the request body) — same rule the gate's
-  own JSDoc states.
+- **Cost-owner resolved server-side**, never client-supplied: the `accountId` is the
+  workflow-owning `record.accountId` from `loadWorkflowForMember`, not the request body —
+  same rule the gate's own JSDoc states.
 - **Atomic + service-role:** all deduction stays inside the existing SECURITY DEFINER
   RPC via the service-role repo; the route never touches `account_billing` directly.
 - **Frozen account** is refused first (the gate already checks
@@ -263,10 +337,13 @@ not deducted; accepted for deduct-only v1.
 
 ## 7. API / service / UI expectations
 
-**Route (`/ai/plan`):** new pre-planner gate; new 402 `AI_CREDITS_EXHAUSTED` handled
+**Route (`/ai/plan`):** new pre-planner workflow-account resolution + membership authz
+(`loadWorkflowForMember`); new pre-planner gate; new 402 `AI_CREDITS_EXHAUSTED` handled
 outcome; 403 reuse for frozen; 503 for `gate_error` (ON only). All other statuses
-unchanged. **When flag OFF: byte-identical to today** (gate returns
-`skipped:enforcement_disabled` before any DB touch).
+unchanged. **When flag OFF:** the gate is a no-op (`skipped:enforcement_disabled`,
+no DB touch); the member happy-path response is unchanged, **except** the two
+owner-sanctioned §4.2.1 corrections (team-workflow telemetry account; 404-before-paid-
+call for non-members), which apply regardless of the flag.
 
 **Client (`lib/api/ai.ts`):** add `AI_CREDITS_EXHAUSTED` to the documented
 `AiPlanFailure.code` union (additive doc/type change; `postStructured` already returns
@@ -286,20 +363,27 @@ pricing/checkout, out of scope). Only the denial message.
 
 Route tests (extend
 [tests/unit/app/api/workflows/ai-plan-route.test.ts](../../../tests/unit/app/api/workflows/ai-plan-route.test.ts)):
-1. **Flag OFF → no-op:** planner called, response identical to today; gate writes
-   nothing (assert `deductAiCredits` not invoked / gate short-circuits).
-2. **Flag ON + sufficient credits → planner proceeds**, 200, normal body; one gate
-   deduction recorded.
-3. **Flag ON + insufficient → planner NOT called** (assert
-   `planWorkflowFromPromptForAI` mock never invoked), 402 `AI_CREDITS_EXHAUSTED`,
+1. **Personal workflow → personal account:** gate + recorder receive the personal
+   account id (= `record.accountId`).
+2. **Team workflow → team/workflow-owning account:** gate + recorder receive the
+   workflow's account id, **NOT** the actor's personal account (assert
+   `ensurePersonalAccount` is not the source; the id equals `record.accountId`).
+3. **Gate + recorder receive the SAME `accountId`** (parity), for both personal and
+   team cases.
+4. **No client-supplied `accountId` is trusted:** an `accountId` in the request body is
+   ignored; the resolved workflow account is used.
+5. **No-leak authz:** non-member / missing / deleted workflow → 404 before the planner
+   is invoked (assert `planWorkflowFromPromptForAI` mock never called).
+6. **Flag OFF → no deduction RPC:** planner called for a member; `deductAiCredits` not
+   invoked (gate short-circuits `enforcement_disabled`). Success body unchanged.
+7. **Flag ON + sufficient credits → planner proceeds**, 200, normal body; exactly one
+   deduction.
+8. **Flag ON + insufficient → planner NOT called**, 402 `AI_CREDITS_EXHAUSTED`,
    no-leak body.
-4. **Flag ON + `gate_error` (RPC throws) → planner NOT called**, 503, fail-closed.
-5. **Flag ON + frozen → planner NOT called**, 403 `ACCOUNT_PENDING_DELETION`.
-6. **No double-charge:** exactly one deduction per user-initiated plan; classifier
-   sub-call does not add a second deduction.
-7. **Recorder still runs after a successful gated call** (telemetry path intact); on
-   denial the planner-outcome recorder is **not** expected to run (no model call).
-8. **Account parity:** gate + recorder receive the **same** `accountId`.
+9. **Flag ON + `gate_error` (RPC throws) → planner NOT called**, 503, fail-closed.
+10. **Flag ON + frozen → planner NOT called**, 403 `ACCOUNT_PENDING_DELETION`.
+11. **No double-charge:** one deduction per plan; the classifier sub-call adds none.
+12. **Existing successful planner behavior preserved** (member happy path: 200 + body).
 
 Gate tests already cover the outcomes
 ([tests/unit/services/billing/aiCreditGate.test.ts](../../../tests/unit/services/billing/aiCreditGate.test.ts),
@@ -312,47 +396,66 @@ credit message on both fresh-plan and follow-up denial.
 
 ## 9. Implementation slice breakdown
 
-- **3b-i (backend wiring, flag-OFF) — the core proof.** Move account resolution
-  before the planner; insert `aiCreditGate` call; add the 402/403/503 denial mapping;
-  route tests 1–8. Ships behind `ENABLE_AI_CREDIT_ENFORCEMENT` (OFF). No migration, no
-  client change strictly required (panel degrades gracefully). **This alone satisfies
-  "prove the gate works."**
+The owner's decision splits the work because correcting attribution to the
+workflow-owning account is a telemetry-semantics change (for team workflows) that is
+**independent of** the enforcement gate and lands **regardless of the flag**.
+Isolating it makes that change independently reviewable + revertable, and keeps the
+gate commit purely additive.
+
+- **3b-0 (RECOMMENDED pre-slice) — attribution + authz correction, no gate.** Resolve
+  the workflow-owning account at the route via `loadWorkflowForMember`; switch
+  `recordAiPlanOutcome` to `record.accountId`; the no-leak-404-before-planner authz
+  falls out of it. **No gate, the flag is not involved.** Tests: personal-workflow
+  telemetry unchanged; **team-workflow telemetry now → team account**; non-member/
+  missing → 404 before planner; member happy path preserved. This is the "small
+  pre-slice" the owner asked me to flag — it is where the called-out behavior deltas
+  (§4.2.1) actually land.
+- **3b-i (the gate) — purely additive on top of 3b-0.** Insert `aiCreditGate({
+  accountId: wf.record.accountId, feature:"workflow_creation", plannedTier })` before
+  the planner; add the 402/403/503 denial mapping; route tests 6–12. Behind
+  `ENABLE_AI_CREDIT_ENFORCEMENT` (OFF). No migration. No client change strictly
+  required (panel degrades gracefully). **This proves the gate works.**
 - **3b-ii (client message polish) — small, optional, same arc.** Add
   `AI_CREDITS_EXHAUSTED` to `AiPlanFailure.code`; map 402 in `friendlyError`; surface
-  the specific bubble on the follow-up `null` path. Client/panel tests.
+  the specific bubble on the follow-up `null` path. Client/panel tests. Only ship the
+  type addition in 3b-i if needed for type-compatibility.
 - **(Deferred, not 3b)** dev-only enablement + dev-DB verification (§13);
-  AI-CREDITS-4 reserve/reconcile + reservation ledger + deep-loop cap; the team-pool
-  account decision (Q4 / OQ-A); any pricing flip.
+  AI-CREDITS-4 reserve/reconcile + reservation ledger + deep-loop cap; any pricing flip.
+
+> **Alternative:** 3b-0 and 3b-i may be **combined into one 3b-i commit** if the owner
+> prefers a single slice — the account resolution is shared infra either way. The
+> recommendation is to split, for the isolation reasons above. Either path keeps tests
+> 1–12 intact.
 
 ---
 
-## 10. Risks / open questions (owner decisions)
+## 10. Owner decisions (RESOLVED) + residual risks
 
-- **OQ-A — which account owns AI cost (Q4).** Today the recorder bills the actor's
-  **personal** account (`ensurePersonalAccount`); for a **team** workflow that means
-  each member draws from their **own** pool, not the team pool — even though the
-  workflow is account-owned and grounding is TW-4-scoped to the workflow's account.
-  *Recommendation:* for 3b keep **parity with the existing recorder** (personal
-  account) so gate == telemetry and we change nothing about AI-CREDITS-2 attribution.
-  Treat "switch AI cost to the workflow's owning / active account (team pooling)" as a
-  dedicated follow-up, because it also moves AI-CREDITS-2 recording. **Decide before
-  enabling the flag for any team account.**
-- **OQ-B — HTTP status for the denial.** *Recommendation:* **402** (quota/payment).
-  Alternative: **403** (the codebase uses 403 for `account_frozen`/`NOT_ACCOUNT_MEMBER`
-  and never returns 402 elsewhere today). 402 is more semantically precise; 403 is more
-  consistent with current account-state denials. Owner's call.
-- **OQ-C — record a denial event?** When the gate denies, no model call happens, so
-  there is nothing in `ai_cost_events` to attribute. *Recommendation:* skip recording
-  in v1 (keep it minimal); optionally add a lightweight `ai_interaction_started` +
-  denial marker later if the funnel needs "attempted-but-blocked" counts.
-- **OQ-D — escalation drift (Q8).** No planner path escalates today (`escalated` is
-  wired but unused; routing returns a single tier). *Recommendation:* deduct the
-  **planned-tier** charge; accept bounded under-count if a future path escalates
-  mid-call; the exact fix is reserve/reconcile (AI-CREDITS-4), **not** 3b. Do **not**
-  pre-emptively over-charge.
-- **OQ-E — deterministic-check abuse.** The 0-credit `/ai/diagnose` stays ungated;
-  abuse is a **rate-limit** concern, not a credit one (carried from parent OQ-3). Not
-  in 3b.
+**All OQs resolved by the owner (2026-06-12):**
+
+- **OQ-A — which account owns AI cost: the WORKFLOW-OWNING account.** Personal workflow
+  → personal account; team → team shared pool; business → business shared pool;
+  enterprise → enterprise/custom policy. Do **not** keep personal-account billing for
+  team workflows. Resolve server-side via `loadWorkflowForMember`; never trust a
+  client `accountId`. (Drives §3 / §4.2 / 3b-0.)
+- **OQ-B — denial status: HTTP 402** `AI_CREDITS_EXHAUSTED`. (Frozen still 403;
+  `gate_error` 503.)
+- **OQ-C — denial events: skip in v1.** No model call on denial → nothing to attribute;
+  no `ai_cost_events` row written on a gate refusal.
+- **OQ-D — escalation drift: accepted (bounded) for now.** Deduct the planned-tier
+  charge; reserve/reconcile is AI-CREDITS-4. No pre-emptive over-charge.
+- **OQ-E — deterministic diagnosis stays 0-credit + ungated.** Abuse/rate-limit is a
+  separate concern, not in 3b.
+
+**Residual risks (not decisions):**
+- **Flag-OFF is no longer fully byte-identical** — team-workflow telemetry moves to the
+  team account, and unauthorized requests 404 before the paid call (§4.2.1). Both are
+  owner-sanctioned corrections; the §9 split isolates them for clean review/rollback.
+- **Double `getById`** for a member's request (route gate + planner's defense-in-depth).
+  Cheap; intentional; we do not refactor the planner's deeper check.
+- **Enterprise** workflows rely on `ai_credits_limit` being set on the team/enterprise
+  `account_billing` row directly (per the parent plan's tier table) — the gate reads
+  that column; no special-casing in 3b.
 
 ---
 
@@ -362,10 +465,14 @@ credit message on both fresh-plan and follow-up denial.
 current-state claim ties to a read file, no source/test/migration/UI changed, nothing
 pushed.
 
-**The 3b implementation must later meet:** flag-OFF leaves `/ai/plan` byte-identical;
-flag-ON denies before the paid call with a typed no-leak 402; gate + recorder bill the
-same account; exactly one deduction per plan; the planner is provably not invoked on
-denial; no migration / `db:push` introduced; the panel does not crash on a denial.
+**The 3b implementation must later meet:** gate + recorder bill the **same
+workflow-owning** account (personal→personal, team→team); no client `accountId` is
+trusted; non-member/missing → no-leak 404 before any model call; flag-ON denies before
+the paid call with a typed no-leak 402 (403 frozen / 503 gate_error); exactly one
+deduction per plan; the planner is provably not invoked on denial; flag-OFF performs no
+deduction RPC and preserves the member happy-path response; the only flag-OFF behavior
+deltas are the two §4.2.1 corrections; no migration / `db:push`; the panel does not
+crash on a denial.
 
 ---
 
@@ -380,8 +487,14 @@ private-connection-sharing. The flag stays **OFF**.
 
 ## 13. Recommended next step
 
-On approval, implement **3b-i** (Q9): the backend route wiring + denial mapping +
-route tests, behind `ENABLE_AI_CREDIT_ENFORCEMENT` (OFF), **no migration**. Resolve
-**OQ-A (account owner)** and **OQ-B (status code)** before enabling the flag in dev;
-3b-ii (client message) follows in the same arc. Reserve/reconcile + deep-loop cap stay
-in AI-CREDITS-4.
+All OQs are resolved (§10). On approval, implement the **3b-0 pre-slice** first
+(workflow-owning-account attribution + the route-level resolve/authz via
+`loadWorkflowForMember`, recorder switched to `record.accountId`, no gate), then
+**3b-i** (the `aiCreditGate` call + 402/403/503 denial mapping), both behind
+`ENABLE_AI_CREDIT_ENFORCEMENT` (OFF), **no migration / no `db:push`**. 3b-ii (client
+message) follows. Reserve/reconcile + deep-loop cap stay in AI-CREDITS-4. Enabling the
+flag in dev is a later, separately-approved step.
+
+> If the owner prefers a single commit, 3b-0 + 3b-i can be merged (§9 alternative) —
+> but the attribution change must still be explicitly called out in that commit
+> message as a team-workflow telemetry correction.
