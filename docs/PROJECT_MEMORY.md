@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-12 @ 8c38d8b60 (local; branch builder-ui-v1-audit-1)
+> Last curated: 2026-06-12 @ 42fe1ce29 (local; branch builder-ui-v1-audit-1)
 
 ## Current status
 
@@ -30,6 +30,13 @@
 - [2026-06-10] CLAUDE.md is the operating constitution; durable repo rules live in
   [`docs/rules/`](./rules/), provider/contract detail in [`docs/slices/`](./slices/) →
   curation commits `c2bbedbff..4cd929c7f`.
+- [2026-06-12] **Team-visible ≠ team-runnable.** A workflow using ≥1 private/member-connected
+  credential runs under the **creator's** OAuth identity (22B pin), so only the creator may
+  run/edit it; owner/admin manage/audit/disable/delete/duplicate/transfer/request-share but do
+  **not** run-as-creator by default. Shared/account-only + native-only workflows stay runnable/
+  editable by any member. Non-creators see safe copy + Duplicate. Server (`6a02131ed`) + builder
+  UI (`42fe1ce29`); **no migration, no flag**; Disconnect untouched →
+  [`workflow-run-edit-permission-closeout.md`](./slices/phase-4/workflow-run-edit-permission-closeout.md).
 - [2026-06-10] File output (P-S3) is a durable cross-cutting rule →
   [`docs/rules/file-output-contract.md`](./rules/file-output-contract.md).
 - [2026-06-09] V2 promoted live in production. "Don't push the working branch" does not
