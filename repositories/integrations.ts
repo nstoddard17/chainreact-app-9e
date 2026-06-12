@@ -427,11 +427,106 @@ export async function softDisconnectPersonalForMember(input: {
   };
 }
 
-export async function markDisconnected(integrationId: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
+/**
+ * Service-role: fetch a single integration row by `(accountId, integrationId)`
+ * for the authorized user-facing disconnect path (Slice 4.APPS-DISCONNECT / CD-1).
+ *
+ * The filter is exact on BOTH columns, so a row belonging to a different account
+ * is invisible — `integrationId` from account B with `accountId = A` returns
+ * null (no cross-account leak; the service maps null → `not_found`). Returns the
+ * full record (incl. the encrypted access token) because the caller needs the
+ * provider + provenance for authz and the encrypted token to best-effort revoke.
+ *
+ * Service-role on purpose: the disconnect service has already authorized the
+ * caller's account role; the row read must also surface the encrypted token,
+ * and the write path that follows operates by account, not by the session user.
+ */
+export async function getByIdForAccountServiceRole(
+  accountId: string,
+  integrationId: string,
+): Promise<IntegrationRecord | null> {
+  const supabase = getServiceRoleClient(
+    `disconnect: getByIdForAccount ${integrationId} on account ${accountId}`,
+  );
+  const { data, error } = await supabase
     .from("integrations")
-    .update({ disconnected_at: new Date().toISOString() })
-    .eq("id", integrationId);
-  if (error) throw new Error(`integrations markDisconnected failed: ${error.message}`);
+    .select("*")
+    .eq("id", integrationId)
+    .eq("account_id", accountId)
+    .maybeSingle<IntegrationsRow>();
+  if (error) {
+    throw new Error(`integrations.getByIdForAccountServiceRole failed: ${error.message}`);
+  }
+  return data ? rowToRecord(data) : null;
+}
+
+/**
+ * Service-role: count ACTIVE integration rows for `(accountId, provider)`
+ * (Slice 4.APPS-DISCONNECT / CD-1). Used AFTER a soft-disconnect to decide
+ * whether the just-disconnected row was the LAST active connection for the
+ * provider on this account — only then does the workflow cascade disable
+ * provider-dependent workflows (a sibling active row can still resolve them).
+ */
+export async function countActiveByAccountProviderServiceRole(
+  accountId: string,
+  provider: string,
+): Promise<number> {
+  const supabase = getServiceRoleClient(
+    `disconnect: countActiveByProvider ${provider} on account ${accountId}`,
+  );
+  const { count, error } = await supabase
+    .from("integrations")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .eq("provider", provider)
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(
+      `integrations.countActiveByAccountProviderServiceRole failed: ${error.message}`,
+    );
+  }
+  return count ?? 0;
+}
+
+/**
+ * Service-role user-facing soft-disconnect of a single integration row
+ * (Slice 4.APPS-DISCONNECT / CD-1). Replaces the former RLS-client
+ * `markDisconnected` (dead code) — the disconnect service needs service-role
+ * (it decrypts the token to revoke and operates by account, not session).
+ *
+ * Sets `disconnected_at` AND clears the NULLABLE token columns
+ * (`refresh_token_encrypted`, `access_token_expires_at`) as defense-in-depth —
+ * a disconnected row can never be re-tokened (`updateTokens` / `getActiveForExecution`
+ * both filter `disconnected_at IS NULL`), so the refresh token on it is dead
+ * weight. `access_token_encrypted` is `NOT NULL` in the schema (migration
+ * 20260505000002) and CANNOT be nulled without a migration, so it is left as-is
+ * — it stays AES-256-GCM encrypted, is never returned by any DTO, is never read
+ * by execution (filtered out), and has been best-effort revoked at the provider.
+ * Fully clearing it is a migration-gated follow-up (see CD-1 report).
+ *
+ * Idempotent: the `disconnected_at IS NULL` guard means a second call transitions
+ * nothing. Returns `{ disconnected: true }` only when THIS call flipped the row,
+ * so the service can skip the cascade/revoke on a replayed disconnect.
+ */
+export async function disconnectByIdServiceRole(input: {
+  integrationId: string;
+  now?: string;
+}): Promise<{ disconnected: boolean }> {
+  const supabase = getServiceRoleClient(
+    `disconnect: disconnectById ${input.integrationId}`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .update({
+      disconnected_at: input.now ?? new Date().toISOString(),
+      refresh_token_encrypted: null,
+      access_token_expires_at: null,
+    })
+    .eq("id", input.integrationId)
+    .is("disconnected_at", null)
+    .select("id");
+  if (error) {
+    throw new Error(`integrations.disconnectByIdServiceRole failed: ${error.message}`);
+  }
+  return { disconnected: (data ?? []).length > 0 };
 }
