@@ -10,6 +10,7 @@ import {
   type ChatMessage,
   type ChatMessageId,
 } from "./_BuilderAiPanelChat";
+import { DiagnosisBody } from "./_BuilderAiPanelDiagnosis";
 
 /**
  * Scrolling message list for the React Agent chat (Slice 4.AI-21C).
@@ -75,6 +76,12 @@ interface Props {
    */
   readonly historyLoadFailed: boolean;
   /**
+   * Slice 4.AI-DIAG-1b — true while a read-only "Check this workflow" diagnosis
+   * round-trip is in flight. Renders a transient assistant indicator (mirrors the
+   * planning indicator); does not affect plan/apply state.
+   */
+  readonly checking: boolean;
+  /**
    * Slice 4.REACT-AGENT-CHAT-QOL-1 — submit handler for the inline "Send
    * details" button rendered under the ACTIVE plan_result's required-input
    * controls. Identical to the composer's `onSubmit` (the panel passes the
@@ -105,6 +112,7 @@ export function BuilderAiPanelMessageList({
   stagedAnswers,
   onStagedAnswerChange,
   historyLoadFailed,
+  checking,
   onSubmitDetails,
   canSubmitDetails,
   submittingDetails,
@@ -224,6 +232,13 @@ export function BuilderAiPanelMessageList({
             </AssistantBubble>
           );
         }
+        if (message.kind === "diagnosis") {
+          return (
+            <AssistantBubble key={message.id}>
+              <DiagnosisBody diagnosis={message.diagnosis} />
+            </AssistantBubble>
+          );
+        }
         if (message.kind === "apply_failure") {
           return (
             <AssistantBubble key={message.id}>
@@ -278,6 +293,18 @@ export function BuilderAiPanelMessageList({
             data-testid="builder-ai-planning"
           >
             Planning your change…
+          </p>
+        </AssistantBubble>
+      )}
+
+      {checking && (
+        <AssistantBubble>
+          <p
+            role="status"
+            className="text-xs text-muted-foreground"
+            data-testid="builder-ai-checking"
+          >
+            Checking workflow…
           </p>
         </AssistantBubble>
       )}

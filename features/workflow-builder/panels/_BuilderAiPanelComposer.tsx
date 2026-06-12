@@ -33,6 +33,14 @@ interface Props {
   readonly busy: boolean;
   readonly hasMessages: boolean;
   /**
+   * Slice 4.AI-DIAG-1b — read-only "Check this workflow" action. `onCheckWorkflow`
+   * runs the deterministic diagnosis; `checking` is true while it's in flight.
+   * The button is disabled during ANY busy state (plan/apply) or an in-flight
+   * check, and a check disables the composer so no conflicting op can start.
+   */
+  readonly onCheckWorkflow: () => void;
+  readonly checking: boolean;
+  /**
    * AI-22 — when true (any staged required-input answers exist), the
    * submit button is enabled even with an empty composer textarea. The
    * user can fill the controls and click Send details with no extra
@@ -52,11 +60,14 @@ export function BuilderAiPanelComposer({
   busy,
   hasMessages,
   hasStagedAnswers,
+  onCheckWorkflow,
+  checking,
 }: Props) {
   const trimmed = prompt.trim();
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
   const hasContent = trimmed.length > 0 || hasStagedAnswers === true;
-  const canSubmit = hasContent && !tooLong && !busy;
+  // A read-only check also blocks submitting so the panel never runs conflicting ops.
+  const canSubmit = hasContent && !tooLong && !busy && !checking;
   const showCounter = prompt.length >= COUNTER_THRESHOLD || tooLong;
 
   return (
@@ -64,8 +75,20 @@ export function BuilderAiPanelComposer({
       data-testid="builder-ai-composer"
       className="shrink-0 flex flex-col gap-1"
     >
-      {hasMessages && !busy ? (
-        <div>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onCheckWorkflow}
+          disabled={busy || checking}
+          data-testid="builder-ai-check-button"
+          className="h-6 px-2 text-[11px]"
+          title="Run a read-only check: is this workflow ready to run?"
+        >
+          {checking ? "Checking…" : "Check workflow"}
+        </Button>
+        {hasMessages && !busy && !checking ? (
           <Button
             type="button"
             size="sm"
@@ -76,8 +99,8 @@ export function BuilderAiPanelComposer({
           >
             Clear conversation
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div
         className="flex flex-col gap-0 rounded-md"
@@ -112,7 +135,7 @@ export function BuilderAiPanelComposer({
             e.preventDefault();
             if (canSubmit) onSubmit();
           }}
-          disabled={busy}
+          disabled={busy || checking}
           maxLength={MAX_PROMPT_LENGTH + 100}
           aria-invalid={tooLong || undefined}
           rows={3}

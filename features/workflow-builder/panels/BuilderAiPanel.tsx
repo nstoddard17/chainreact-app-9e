@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AiApiError,
   clearBuilderAgentThread,
+  diagnoseWorkflow,
   getBuilderAgentThread,
   type CurrentGraphSnapshot,
 } from "@/lib/api/ai";
@@ -82,6 +84,11 @@ export function BuilderAiPanel() {
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  // AI-DIAG-1b — true while a read-only "Check this workflow" diagnosis is in
+  // flight. Independent of the plan/apply state machine (the diagnosis never
+  // mutates graph or hook state); it only gates against starting a SECOND
+  // operation concurrently.
+  const [checking, setChecking] = useState(false);
   // AI-26 — true when the most recent thread-load attempt for the
   // current workflowId failed. Drives a small non-blocking notice in
   // `_BuilderAiPanelMessageList` so a silent load failure is no longer
@@ -405,6 +412,47 @@ export function BuilderAiPanel() {
     });
   }
 
+  async function handleCheckWorkflow(): Promise<void> {
+    // AI-DIAG-1b — read-only diagnosis. Never starts while a plan/apply or a
+    // prior check is running (the button is also disabled in those states).
+    if (busy || checking) return;
+    // Session-local user-gesture marker (kind "action" → NOT a planner prompt,
+    // NOT persisted). The STALE_PATCH re-run scan only picks `prompt` markers.
+    appendMessage({
+      id: nextChatMessageId(),
+      role: "user",
+      kind: "action",
+      content: "Check this workflow",
+    });
+    setChecking(true);
+    try {
+      const diagnosis = await diagnoseWorkflow(wfId);
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "diagnosis",
+        diagnosis,
+      });
+    } catch (err) {
+      // Safe, status-mapped copy — never surface internals. 401 is the only
+      // status our read-only route returns besides 200 (access walls come back
+      // as a 200 DTO the DiagnosisBody renders safely).
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to check this workflow."
+          : "Couldn’t check this workflow right now. Please try again.";
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "error",
+        content,
+      });
+    } finally {
+      setChecking(false);
+    }
+  }
+
   function handleClear(): void {
     // Clear resets the whole conversation: messages, composer text,
     // risk-ack, the hook chain state, AND the staged required-input
@@ -467,6 +515,7 @@ export function BuilderAiPanel() {
         stagedAnswers={stagedAnswers}
         onStagedAnswerChange={handleStagedAnswerChange}
         historyLoadFailed={historyLoadFailed}
+        checking={checking}
         onSubmitDetails={handleSubmit}
         canSubmitDetails={canSubmitDetails}
         submittingDetails={busy}
@@ -481,6 +530,8 @@ export function BuilderAiPanel() {
         busy={busy}
         hasMessages={hasMessages}
         hasStagedAnswers={stagedAnswers.size > 0}
+        onCheckWorkflow={handleCheckWorkflow}
+        checking={checking}
       />
     </section>
   );
