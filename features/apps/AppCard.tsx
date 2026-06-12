@@ -6,6 +6,7 @@ import { ConnectButton } from "@/features/integrations/ConnectButton";
 import type { AppCatalogItem } from "@/contracts/apps";
 import { AppStatusPill } from "./AppStatusPill";
 import { DisconnectDialog } from "./DisconnectDialog";
+import { ShareConnectionDialog } from "./ShareConnectionDialog";
 import { formatConnectedOn } from "./relativeDate";
 
 /**
@@ -62,6 +63,10 @@ export function AppCard({ app, accountId }: Props) {
   >(null);
   // Transient success line after a disconnect (cleared on next interaction).
   const [disconnectedNotice, setDisconnectedNotice] = useState<string | null>(null);
+  // The account row whose share/unshare dialog is open (null = closed).
+  const [shareTarget, setShareTarget] = useState<
+    { id: string; label: string; mode: "share" | "unshare" } | null
+  >(null);
   const canExpand = app.isConnected;
   const accountCount = app.accounts.length;
 
@@ -173,14 +178,67 @@ export function AppCard({ app, accountId }: Props) {
                   className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2"
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-xs font-medium text-foreground">
-                      {label}
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-xs font-medium text-foreground">
+                        {label}
+                      </span>
+                      {/* Sharing status pill — renders only for personal connections
+                          with the feature ON (sharingStatus !== "not_applicable").
+                          Account/shared-service providers + flag-off rows are
+                          not_applicable and show nothing. No identity in the copy. */}
+                      {acc.sharingStatus !== "not_applicable" && (
+                        <span
+                          data-testid="app-card-sharing-pill"
+                          data-shared={acc.sharedWithAccount ? "true" : "false"}
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                            acc.sharedWithAccount
+                              ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              : "border-border bg-muted/40 text-muted-foreground"
+                          }`}
+                        >
+                          {acc.sharedWithAccount ? "Shared with team" : "Private to you"}
+                        </span>
+                      )}
                     </span>
                     <span className="text-[11px] text-muted-foreground">
                       Connected on {formatConnectedOn(acc.connectedAt)}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
+                    {/* Share / Stop sharing — per-account, personal connections only.
+                        canShare = the connector on a private row; canUnshare =
+                        connector or owner/admin on a shared row. Both fold in the
+                        feature flag server-side; the route re-authorizes. */}
+                    {acc.canShare && (
+                      <button
+                        type="button"
+                        data-testid="app-card-share"
+                        data-account-id={acc.id}
+                        title="Let your team run workflows with this connection"
+                        onClick={() => {
+                          setDisconnectedNotice(null);
+                          setShareTarget({ id: acc.id, label, mode: "share" });
+                        }}
+                        className="shrink-0 rounded border border-border bg-transparent px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-foreground/30 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        Share with team
+                      </button>
+                    )}
+                    {acc.canUnshare && (
+                      <button
+                        type="button"
+                        data-testid="app-card-unshare"
+                        data-account-id={acc.id}
+                        title="Stop letting your team use this connection"
+                        onClick={() => {
+                          setDisconnectedNotice(null);
+                          setShareTarget({ id: acc.id, label, mode: "unshare" });
+                        }}
+                        className="shrink-0 rounded border border-border bg-transparent px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-foreground/30 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        Stop sharing
+                      </button>
+                    )}
                     {/* Reconnect: per-account (Slice 4.APPS-RECONNECT). Targets
                         THIS specific row — the server steers the provider sign-in
                         to it and refuses to refresh a different account. Renders
@@ -235,6 +293,28 @@ export function AppCard({ app, accountId }: Props) {
             setDisconnectedNotice(`Disconnected ${app.name}.`);
             // Re-fetch the server component so the connection list reflects the
             // soft-disconnect (the row drops out of the active set).
+            router.refresh();
+          }}
+        />
+      )}
+
+      {shareTarget && (
+        <ShareConnectionDialog
+          accountId={accountId}
+          integrationId={shareTarget.id}
+          appName={app.name}
+          accountLabel={shareTarget.label}
+          mode={shareTarget.mode}
+          onClose={() => setShareTarget(null)}
+          onDone={() => {
+            setDisconnectedNotice(
+              shareTarget.mode === "share"
+                ? `Shared ${app.name} with your team.`
+                : `Stopped sharing ${app.name}.`,
+            );
+            // Re-fetch the server component so the sharing status pill + controls
+            // reflect the new scope (no optimistic state — the disconnect pattern
+            // refetches; sharing follows the same model).
             router.refresh();
           }}
         />

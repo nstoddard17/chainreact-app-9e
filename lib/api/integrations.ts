@@ -127,3 +127,34 @@ export async function disconnectIntegration(
   }
   return (await res.json()) as DisconnectIntegrationResult;
 }
+
+export type IntegrationSharingScope = "private_to_connector" | "shared_with_account";
+
+export interface SetIntegrationSharingResult {
+  scope: IntegrationSharingScope;
+  shared: boolean;
+  changed: boolean;
+}
+
+/**
+ * POST the explicit sharing scope of a personal connection (Slice 4.CONN-SHARE /
+ * CS-2 route). `shared_with_account` shares it with the team; `private_to_connector`
+ * stops sharing. The route re-authorizes (connector-only share; connector-or-admin
+ * unshare) and returns only the safe `{ scope, shared, changed }` DTO. Any failure
+ * (incl. flag-off `not_enabled`) surfaces a SAFE, typed message via `safeError`.
+ */
+export async function setIntegrationSharing(
+  accountId: string,
+  integrationId: string,
+  scope: IntegrationSharingScope,
+): Promise<SetIntegrationSharingResult> {
+  const res = await fetch(`${integrationBasePath(accountId, integrationId)}/sharing`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ scope }),
+  });
+  if (!res.ok) {
+    throw await safeError(res, "Couldn't update sharing for this connection. Please try again.");
+  }
+  return (await res.json()) as SetIntegrationSharingResult;
+}

@@ -125,8 +125,8 @@ describe("AppCard — connected", () => {
   const connected = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
-      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: false, canReconnect: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -181,6 +181,57 @@ describe("AppCard — connected", () => {
     }
   });
 
+  // ── CS-5a — sharing pill + Share/Stop-sharing controls ──────────────────────
+  type AccountSummary = AppCatalogItem["accounts"][number];
+  function shareAccount(over: Partial<AccountSummary>): AccountSummary {
+    return {
+      id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z",
+      canDisconnect: false, canReconnect: false,
+      sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false,
+      ...over,
+    };
+  }
+
+  it("private personal row: shows 'Private to you' pill + 'Share with team'; opens the share confirmation", async () => {
+    const user = userEvent.setup();
+    const app = mkApp({
+      providerId: "gmail", name: "Gmail", isConnected: true,
+      accounts: [shareAccount({ sharingStatus: "private_to_connector", canShare: true })],
+    });
+    render(<AppCard app={app} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    expect(screen.getByTestId("app-card-sharing-pill")).toHaveTextContent("Private to you");
+    await user.click(screen.getByTestId("app-card-share"));
+    expect(screen.getByTestId("share-warning")).toHaveTextContent(
+      "Team members will be able to run workflows using this connection.",
+    );
+  });
+
+  it("shared row: shows 'Shared with team' pill + 'Stop sharing'; opens the stop-sharing confirmation", async () => {
+    const user = userEvent.setup();
+    const app = mkApp({
+      providerId: "gmail", name: "Gmail", isConnected: true,
+      accounts: [shareAccount({ sharingStatus: "shared_with_account", sharedWithAccount: true, canUnshare: true })],
+    });
+    render(<AppCard app={app} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    expect(screen.getByTestId("app-card-sharing-pill")).toHaveTextContent("Shared with team");
+    await user.click(screen.getByTestId("app-card-unshare"));
+    expect(screen.getByTestId("share-warning")).toHaveTextContent(
+      "Team workflows using this connection may become creator-only again.",
+    );
+  });
+
+  it("not_applicable row (account provider / flag off): no sharing pill, no share controls", async () => {
+    const user = userEvent.setup();
+    const app = mkApp({ isConnected: true, accounts: [shareAccount({})] });
+    render(<AppCard app={app} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    expect(screen.queryByTestId("app-card-sharing-pill")).toBeNull();
+    expect(screen.queryByTestId("app-card-share")).toBeNull();
+    expect(screen.queryByTestId("app-card-unshare")).toBeNull();
+  });
+
   it("expanded view renders 'Connect another' when supportsMultipleAccounts && canConnect", async () => {
     const user = userEvent.setup();
     render(<AppCard app={connected} accountId="acc-1" />);
@@ -222,14 +273,14 @@ describe("AppCard — per-account Disconnect (CD-3)", () => {
   const disconnectable = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
   const notDisconnectable = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -288,8 +339,8 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     isConnected: true,
     canConnect: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true },
-      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: true, canReconnect: true },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -298,7 +349,7 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     canConnect: true,
     supportsMultipleAccounts: false,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -306,7 +357,7 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     isConnected: true,
     canConnect: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });

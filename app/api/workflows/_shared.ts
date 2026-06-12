@@ -270,19 +270,45 @@ export function toWorkflowSummary(record: WorkflowRecord): WorkflowSummary {
   };
 }
 
-export function toWorkflowDetail(
+/**
+ * The single async `viewerCanRunEdit` boolean (CS-4b/CS-5a) — the SAME decision
+ * `assertWorkflowRunEditAllowed` enforces, so the DTO hint and the gate can never
+ * drift. Flag OFF → exact `viewerMayRunEdit` (no DB). Flag ON → creator / no-
+ * private short-circuit (no DB), else the shared `buildWorkflowCredentialPlan`
+ * resolvability (`allTeamRunnable`).
+ */
+export async function computeViewerCanRunEdit(
   record: WorkflowRecord,
   callerUserId: string,
-): WorkflowDetail {
+): Promise<boolean> {
+  if (!isConnectionSharingEnabled()) {
+    return viewerMayRunEdit(
+      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
+      callerUserId,
+    );
+  }
+  if (!workflowUsesPrivateCredential(record.draftDefinition)) return true;
+  if (record.createdByUserId === callerUserId) return true;
+  const plan = await buildWorkflowCredentialPlan({
+    workflowId: record.id,
+    accountId: record.accountId,
+    createdByUserId: record.createdByUserId,
+    nodes: record.draftDefinition.nodes,
+  });
+  return plan.allTeamRunnable;
+}
+
+export async function toWorkflowDetail(
+  record: WorkflowRecord,
+  callerUserId: string,
+): Promise<WorkflowDetail> {
   return {
     ...toWorkflowSummary(record),
     activeRevisionId: record.activeRevisionId,
     draftDefinition: record.draftDefinition,
     usesPrivateCredential: workflowUsesPrivateCredential(record.draftDefinition),
-    viewerCanRunEdit: viewerMayRunEdit(
-      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
-      callerUserId,
-    ),
+    // Accurate under the flag — shares the gate's exact computation.
+    viewerCanRunEdit: await computeViewerCanRunEdit(record, callerUserId),
   };
 }
 
@@ -295,6 +321,14 @@ export function toWorkflowDetail(
  * once from the `workflow_run_stats` view. Workflows with no recorded real
  * runs get zeroed stats. Only provider id/label/iconUrl + counts + numeric
  * run stats leave the server — no raw definition, config, or values.
+ *
+ * `viewerCanRunEdit` here stays the CONSERVATIVE sync `viewerMayRunEdit` (creator-
+ * only for private-credential workflows) even with the sharing flag ON: the list
+ * renders N rows and a per-row `buildWorkflowCredentialPlan` (3 DB reads each)
+ * is too costly. This is SAFE — it never over-permits; a non-creator who CAN run a
+ * shared workflow simply sees the conservative chip until they open it (the detail
+ * DTO `toWorkflowDetail` is accurate). Batching list resolvability is a CS-5b
+ * follow-up. The run/edit GATE is the real enforcement regardless.
  */
 export function toWorkflowListItem(
   record: WorkflowRecord,
@@ -359,27 +393,10 @@ export async function assertWorkflowRunEditAllowed(
   record: WorkflowRecord,
   callerUserId: string,
 ): Promise<NextResponse | null> {
-  if (!isConnectionSharingEnabled()) {
-    const allowed = viewerMayRunEdit(
-      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
-      callerUserId,
-    );
-    return allowed ? null : workflowUsesPrivateCredentialResponse();
-  }
-
-  // Flag ON. No private credentials, or the creator → allowed (no DB).
-  if (!workflowUsesPrivateCredential(record.draftDefinition)) return null;
-  if (record.createdByUserId === callerUserId) return null;
-
-  // Non-creator with private providers → resolvable iff every personal node has a
-  // specific shared connector. Fails closed on ambiguous / unshared.
-  const plan = await buildWorkflowCredentialPlan({
-    workflowId: record.id,
-    accountId: record.accountId,
-    createdByUserId: record.createdByUserId,
-    nodes: record.draftDefinition.nodes,
-  });
-  return plan.allTeamRunnable ? null : workflowUsesPrivateCredentialResponse();
+  // Shares `computeViewerCanRunEdit` with the DTO hint — gate and UI can't drift.
+  return (await computeViewerCanRunEdit(record, callerUserId))
+    ? null
+    : workflowUsesPrivateCredentialResponse();
 }
 
 export function toWorkflowRunSummary(

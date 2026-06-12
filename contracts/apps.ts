@@ -39,6 +39,35 @@ export const AppAccountSummarySchema = z.object({
    * the opaque row id.
    */
   canReconnect: z.boolean(),
+  /**
+   * Explicit connection-sharing status of THIS row (Slice 4.CONN-SHARE / CS-5a):
+   *   - `not_applicable` — account/service provider (already account-shared by
+   *     classification), OR the `ENABLE_CONNECTION_SHARING` feature is OFF. No
+   *     sharing UI renders.
+   *   - `private_to_connector` — a personal connection only its connector can use
+   *     for runnable workflows ("Private to you").
+   *   - `shared_with_account` — the connector opted it in; team members may run
+   *     workflows using it ("Shared with team").
+   * Server-derived from the row's sharing scope + provider class + the flag. The
+   * inputs (`integration_sharing_scope`, `connected_by_user_id`) are NEVER emitted.
+   */
+  sharingStatus: z.enum(["not_applicable", "private_to_connector", "shared_with_account"]),
+  /** Convenience boolean — `sharingStatus === "shared_with_account"`. */
+  sharedWithAccount: z.boolean(),
+  /**
+   * Whether the CURRENT caller may SHARE this private connection (CS-5a). True only
+   * for the CONNECTOR of an active personal connection that is currently private,
+   * with the flag ON. Owner/admin can NOT share another member's personal identity,
+   * so this stays false for them. The POST sharing route re-authorizes — a stale
+   * `true` can't bypass anything. No identity emitted.
+   */
+  canShare: z.boolean(),
+  /**
+   * Whether the CURRENT caller may STOP sharing this connection (CS-5a). True for
+   * the connector OR owner/admin (admin-safety removal) on a currently-shared
+   * active personal connection, flag ON. The route re-authorizes server-side.
+   */
+  canUnshare: z.boolean(),
 });
 export type AppAccountSummary = z.infer<typeof AppAccountSummarySchema>;
 

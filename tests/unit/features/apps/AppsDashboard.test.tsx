@@ -63,7 +63,7 @@ describe("AppsDashboard — render", () => {
             category: "Communication",
             isConnected: true,
             accounts: [
-              { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
+              { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
             ],
             firstConnectedAt: "2026-04-15T12:00:00Z",
           }),
@@ -173,7 +173,7 @@ describe("AppsDashboard — status tabs", () => {
       name: "Gmail",
       isConnected: true,
       accounts: [
-        { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false },
+        { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
       ],
       firstConnectedAt: "2026-04-15T12:00:00Z",
     }),
@@ -234,7 +234,7 @@ describe("AppsDashboard — sort", () => {
             isConnected: true,
             firstConnectedAt: "2026-01-10T00:00:00Z",
             accounts: [
-              { id: "int-1", displayName: "a", connectedAt: "2026-01-10T00:00:00Z", canDisconnect: false, canReconnect: false },
+              { id: "int-1", displayName: "a", connectedAt: "2026-01-10T00:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
             ],
           }),
           mkApp({
@@ -243,7 +243,7 @@ describe("AppsDashboard — sort", () => {
             isConnected: true,
             firstConnectedAt: "2026-05-01T00:00:00Z",
             accounts: [
-              { id: "int-2", displayName: "b", connectedAt: "2026-05-01T00:00:00Z", canDisconnect: false, canReconnect: false },
+              { id: "int-2", displayName: "b", connectedAt: "2026-05-01T00:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
             ],
           }),
           mkApp({ providerId: "stripe", name: "Stripe" }),
