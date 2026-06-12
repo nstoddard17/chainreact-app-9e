@@ -70,6 +70,10 @@ export async function POST(request: Request): Promise<Response> {
   const runId = typeof b.runId === "string" ? b.runId.trim() : "";
   if (!runId) return badInput();
   const includeTestRuns = b.includeTestRuns === true;
+  // `visibility` mode (explain_run_visibility) returns ONLY { runId, visibility } —
+  // the failure summary is never computed, so the response is strictly narrower.
+  // `failure` mode (default; diagnose_run_failure) returns the authorized summary.
+  const mode = b.mode === "visibility" ? "visibility" : "failure";
 
   // 1. Raw read (service-role; sees `running`). NON-authorizing by itself.
   const run = await getByIdServiceRole(runId);
@@ -92,8 +96,10 @@ export async function POST(request: Request): Promise<Response> {
     { authorizedAccountId: authorized ? run.accountId : "", includeTestRuns },
   );
 
-  // 4. Unauthorized / not-visible-as-self → visibility ONLY. No summary, no leak.
-  if (!authorized) {
+  // 4. Visibility-only mode, OR unauthorized → visibility ONLY. The summary is
+  // never computed here, so a non-member (WRONG_ACCOUNT) and any visibility-mode
+  // caller both leak nothing beyond the classification.
+  if (mode === "visibility" || !authorized) {
     const dto: RunFailureDTO = { runId, visibility };
     return NextResponse.json(dto);
   }

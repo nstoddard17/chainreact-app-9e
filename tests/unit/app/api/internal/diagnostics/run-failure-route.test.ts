@@ -262,3 +262,95 @@ describe("run-failure — no-leak on the authorized path", () => {
     }
   });
 });
+
+// ───────────────────── mode: "visibility" (explain_run_visibility) ─────────────────────
+describe("run-failure — mode:visibility returns ONLY {runId, visibility}", () => {
+  it("an AUTHORIZED member gets visibility only — NO summary fields", async () => {
+    mockGetRun.mockResolvedValue(fullRun()); // failed run, member authorized
+    const dto = await (
+      await POST(req({ runId: "run-1", userId: "u1", mode: "visibility" }))
+    ).json();
+    expect(dto).toEqual({ runId: "run-1", visibility: "FAILED_VISIBLE" });
+    // None of the summary fields are present even though the member is authorized.
+    for (const k of [
+      "status",
+      "isTest",
+      "triggeredBy",
+      "firstFailedNodeId",
+      "failedStepCount",
+      "classificationAvailable",
+      "errorClassification",
+      "steps",
+    ]) {
+      expect(dto).not.toHaveProperty(k);
+    }
+  });
+
+  it("NOT_FOUND in visibility mode does not call membership", async () => {
+    mockGetRun.mockResolvedValue(null);
+    const dto = await (
+      await POST(req({ runId: "missing", userId: "u1", mode: "visibility" }))
+    ).json();
+    expect(dto).toEqual({ runId: "missing", visibility: "NOT_FOUND" });
+    expect(mockIsMember).not.toHaveBeenCalled();
+  });
+
+  it("WRONG_ACCOUNT in visibility mode reveals only visibility", async () => {
+    mockGetRun.mockResolvedValue(fullRun());
+    mockIsMember.mockResolvedValue(false);
+    const dto = await (
+      await POST(req({ runId: "run-1", userId: "intruder", mode: "visibility" }))
+    ).json();
+    expect(dto).toEqual({ runId: "run-1", visibility: "WRONG_ACCOUNT" });
+    const json = JSON.stringify(dto);
+    for (const forbidden of [
+      "failed",
+      "wf-SECRET",
+      "action-1",
+      "PROVIDER_REAUTH_REQUIRED",
+      "STEP_OUTPUT_SECRET",
+      "user-SECRET-42",
+      ACCT,
+    ]) {
+      expect(json).not.toContain(forbidden);
+    }
+  });
+
+  it("RUNNING is classified after authorization", async () => {
+    mockGetRun.mockResolvedValue(fullRun({ status: "running" }));
+    const dto = await (
+      await POST(req({ runId: "run-1", userId: "u1", mode: "visibility" }))
+    ).json();
+    expect(dto).toEqual({ runId: "run-1", visibility: "RUNNING" });
+    expect(mockIsMember).toHaveBeenCalledWith(ACCT, "u1");
+  });
+
+  it("TEST_RUN classifies before outcome; includeTestRuns flips it", async () => {
+    mockGetRun.mockResolvedValue(fullRun({ isTest: true, status: "failed" }));
+    const off = await (
+      await POST(req({ runId: "run-1", userId: "u1", mode: "visibility" }))
+    ).json();
+    expect(off.visibility).toBe("TEST_RUN");
+
+    mockGetRun.mockResolvedValue(fullRun({ isTest: true, status: "failed" }));
+    const on = await (
+      await POST(req({ runId: "run-1", userId: "u1", mode: "visibility", includeTestRuns: true }))
+    ).json();
+    expect(on.visibility).toBe("FAILED_VISIBLE");
+  });
+
+  it("COMPLETED_VISIBLE for a succeeded run", async () => {
+    mockGetRun.mockResolvedValue(fullRun({ status: "succeeded" }));
+    const dto = await (
+      await POST(req({ runId: "run-1", userId: "u1", mode: "visibility" }))
+    ).json();
+    expect(dto).toEqual({ runId: "run-1", visibility: "COMPLETED_VISIBLE" });
+  });
+
+  it("default mode (no mode field) STILL returns the full failure summary (unchanged)", async () => {
+    mockGetRun.mockResolvedValue(fullRun());
+    const dto = await (await POST(req({ runId: "run-1", userId: "u1" }))).json();
+    expect(dto.visibility).toBe("FAILED_VISIBLE");
+    expect(dto).toHaveProperty("steps"); // summary still present in default mode
+  });
+});

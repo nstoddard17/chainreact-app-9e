@@ -22,104 +22,12 @@
  *                          Distinct from MCP_HTTP_TOKEN.
  */
 import { OPTION_SOURCE_DIAGNOSES } from "./diagnose";
+import { postDiagnostic } from "./diagnoseTransport";
 import type { ToolDefinition } from "../registry";
-
-const DEFAULT_URL = "http://127.0.0.1:3000";
-const REQUEST_TIMEOUT_MS = 20_000;
 
 const OPTION_SOURCE_PATH = "/api/internal/diagnostics/option-source";
 const INTEGRATION_CONNECTION_PATH = "/api/internal/diagnostics/integration-connection";
 const RUN_FAILURE_PATH = "/api/internal/diagnostics/run-failure";
-
-function baseUrl(): string {
-  const raw = (process.env.MCP_DIAGNOSTICS_URL ?? "").trim();
-  return raw.length > 0 ? raw.replace(/\/+$/, "") : DEFAULT_URL;
-}
-
-/** Result of the shared POST: either a parsed DTO or a ready-to-return message. */
-type PostResult<T> = { ok: true; dto: T } | { ok: false; message: string };
-
-/**
- * Shared transport for every Plane-B tool: check the token, POST JSON with the
- * bearer, and map transport / gate statuses to a helpful message. Returns the
- * parsed DTO on 200. Never throws.
- */
-async function postDiagnostic<T>(
-  path: string,
-  payload: Record<string, unknown>,
-): Promise<PostResult<T>> {
-  const token = (process.env.MCP_DIAGNOSTICS_TOKEN ?? "").trim();
-  if (!token) {
-    return {
-      ok: false,
-      message:
-        "Error: MCP_DIAGNOSTICS_TOKEN is not set. Set it (matching the app's " +
-        "DIAGNOSTICS_API_TOKEN) to use live diagnostics. This is a developer tool; " +
-        "the live diagnostics route is OFF by default.",
-    };
-  }
-
-  const url = `${baseUrl()}${path}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e);
-    return {
-      ok: false,
-      message:
-        `Could not reach the diagnostic API at ${url}. Is the app running and is ` +
-        `MCP_DIAGNOSTICS_URL correct? (${reason})`,
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (res.status === 401) {
-    return {
-      ok: false,
-      message:
-        "The diagnostic API rejected the request (401). Check that " +
-        "MCP_DIAGNOSTICS_TOKEN matches the app's DIAGNOSTICS_API_TOKEN.",
-    };
-  }
-  if (res.status === 404) {
-    return {
-      ok: false,
-      message:
-        "Live diagnostics are disabled or not found (404). On the app, set " +
-        "DIAGNOSTICS_API_ENABLED=1 (and DIAGNOSTICS_API_ALLOW_PROD=1 in production) " +
-        "to enable this read-only route.",
-    };
-  }
-  if (res.status === 400) {
-    return {
-      ok: false,
-      message:
-        "The diagnostic API rejected the input (400). Check the required fields " +
-        "for this tool (see its description).",
-    };
-  }
-  if (res.status !== 200) {
-    return { ok: false, message: `The diagnostic API returned an unexpected status ${res.status}.` };
-  }
-
-  try {
-    return { ok: true, dto: (await res.json()) as T };
-  } catch {
-    return { ok: false, message: "The diagnostic API returned a non-JSON body." };
-  }
-}
 
 // ───────────────────────── diagnose_option_source_live ─────────────────────────
 
@@ -352,6 +260,42 @@ async function diagnoseRunFailure(args: Record<string, unknown>): Promise<string
   return result.ok ? renderRunFailureDto(result.dto) : result.message;
 }
 
+// ─────────────────────────── explain_run_visibility ───────────────────────────
+
+/** Visibility-only DTO (the route's `mode: "visibility"` arm returns just these). */
+interface RunVisibilityDTO {
+  runId: string;
+  visibility: string;
+}
+
+function renderRunVisibilityDto(dto: RunVisibilityDTO): string {
+  const lines: string[] = [
+    "explain_run_visibility",
+    `runId: ${dto.runId}`,
+    `visibility: ${dto.visibility}`,
+  ];
+  const note = RUN_VISIBILITY_NOTES[dto.visibility];
+  if (note) lines.push(`meaning: ${note}`);
+  return lines.join("\n");
+}
+
+async function explainRunVisibility(args: Record<string, unknown>): Promise<string> {
+  const runId = typeof args.runId === "string" ? args.runId.trim() : "";
+  if (!runId) return "Error: 'runId' is required (the run to explain).";
+  const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+  if (!userId) {
+    return "Error: 'userId' is required — the subject to check authorization under.";
+  }
+
+  // Same gated route, `mode: "visibility"` → the response carries ONLY
+  // { runId, visibility }; no run summary is ever computed or returned.
+  const payload: Record<string, unknown> = { runId, userId, mode: "visibility" };
+  if (args.includeTestRuns === true) payload.includeTestRuns = true;
+
+  const result = await postDiagnostic<RunVisibilityDTO>(RUN_FAILURE_PATH, payload);
+  return result.ok ? renderRunVisibilityDto(result.dto) : result.message;
+}
+
 // ─────────────────────────────── registry ───────────────────────────────
 
 export const diagnoseLiveTools: ToolDefinition[] = [
@@ -446,5 +390,27 @@ export const diagnoseLiveTools: ToolDefinition[] = [
       additionalProperties: false,
     },
     handler: diagnoseRunFailure,
+  },
+  {
+    name: "explain_run_visibility",
+    description:
+      "Explains WHY a run does or doesn't appear the way you expect on /runs, for a specific user. Returns ONLY the visibility classification (NOT_FOUND / WRONG_ACCOUNT / RUNNING / TEST_RUN / FAILED_VISIBLE / COMPLETED_VISIBLE) — strictly narrower than diagnose_run_failure (no status, steps, errors, or summary). A run in another account reads as WRONG_ACCOUNT with nothing else. Read-only; requires the diagnostics API to be enabled on the app (dev-only by default).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "The run id to explain." },
+        userId: {
+          type: "string",
+          description: "The subject to check authorization under (member of the run's account?).",
+        },
+        includeTestRuns: {
+          type: "boolean",
+          description: "When true, a terminal test run classifies by outcome instead of TEST_RUN.",
+        },
+      },
+      required: ["runId", "userId"],
+      additionalProperties: false,
+    },
+    handler: explainRunVisibility,
   },
 ];
