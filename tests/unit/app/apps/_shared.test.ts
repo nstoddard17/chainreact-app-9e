@@ -86,16 +86,21 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
     ]);
   });
 
-  it("each account exposes only id + displayName + connectedAt — no tokens, no providerAccountId, no metadata, no scopes, no expiry", () => {
+  it("each account exposes only id + displayName + connectedAt + canDisconnect — no tokens, no providerAccountId, no metadata, no scopes, no expiry, no connectedByUserId", () => {
     const item = toAppCatalogItem(mkProvider(), [mkRecord()]);
     expect(item.accounts).toHaveLength(1);
     for (const acc of item.accounts) {
       expect(Object.keys(acc).sort()).toEqual([
+        "canDisconnect",
         "connectedAt",
         "displayName",
         "id",
       ]);
     }
+    // The provenance input to canDisconnect must never be emitted.
+    const serialized = JSON.stringify(item);
+    expect(serialized).not.toContain("connectedByUserId");
+    expect(serialized).not.toContain("user-1"); // the mkRecord connectedByUserId value
   });
 
   it("encrypted token columns do NOT appear anywhere in the projected item, deeply", () => {
@@ -166,6 +171,59 @@ describe("toAppCatalogItem — flags + derived fields", () => {
   it("iconUrl uses /integrations/<id>.svg via the registry helper", () => {
     const item = toAppCatalogItem(mkProvider({ id: "slack" }), []);
     expect(item.iconUrl).toBe("/integrations/slack.svg");
+  });
+});
+
+describe("toAppCatalogItem — canDisconnect derivation (CD-3)", () => {
+  const enabled = (over: Partial<{ callerUserId: string; callerRole: "owner" | "admin" | "member" | null }>) => ({
+    callerUserId: "user-1",
+    callerRole: "owner" as const,
+    enabled: true,
+    ...over,
+  });
+
+  it("is false when no context is provided", () => {
+    const item = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })]);
+    expect(item.accounts[0]?.canDisconnect).toBe(false);
+  });
+
+  it("is false when the feature flag is disabled, even for an owner", () => {
+    const item = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })], {
+      callerUserId: "user-1",
+      callerRole: "owner",
+      enabled: false,
+    });
+    expect(item.accounts[0]?.canDisconnect).toBe(false);
+  });
+
+  it("SHARED provider (slack): owner/admin can, plain member cannot", () => {
+    const rec = [mkRecord({ provider: "slack", connectedByUserId: "user-1" })];
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), rec, enabled({ callerRole: "owner" })).accounts[0]?.canDisconnect,
+    ).toBe(true);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), rec, enabled({ callerRole: "admin" })).accounts[0]?.canDisconnect,
+    ).toBe(true);
+    // A member CANNOT disconnect a shared provider even if they connected it.
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), rec, enabled({ callerRole: "member", callerUserId: "user-1" })).accounts[0]?.canDisconnect,
+    ).toBe(false);
+  });
+
+  it("PERSONAL provider (gmail): the connector OR owner/admin can; a non-connector member cannot", () => {
+    const connectedByMember = [mkRecord({ provider: "gmail", connectedByUserId: "member-7" })];
+    // The connector (member-7) can disconnect their own.
+    expect(
+      toAppCatalogItem(mkProvider({ id: "gmail" }), connectedByMember, enabled({ callerRole: "member", callerUserId: "member-7" })).accounts[0]?.canDisconnect,
+    ).toBe(true);
+    // A different member cannot.
+    expect(
+      toAppCatalogItem(mkProvider({ id: "gmail" }), connectedByMember, enabled({ callerRole: "member", callerUserId: "member-OTHER" })).accounts[0]?.canDisconnect,
+    ).toBe(false);
+    // Owner can disconnect a member's personal credential.
+    expect(
+      toAppCatalogItem(mkProvider({ id: "gmail" }), connectedByMember, enabled({ callerRole: "owner", callerUserId: "owner-1" })).accounts[0]?.canDisconnect,
+    ).toBe(true);
   });
 });
 

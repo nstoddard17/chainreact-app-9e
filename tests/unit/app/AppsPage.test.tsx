@@ -28,6 +28,11 @@ jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: (...a: unknown[]) => mockListActive(...a),
 }));
 
+// CD-3: the page resolves the caller's account role to derive canDisconnect.
+jest.mock("@/repositories/accountMemberships", () => ({
+  getRole: jest.fn().mockResolvedValue("owner"),
+}));
+
 const mockEnsurePersonalAccount = jest.fn(async (userId: string) => ({
   id: `acct-${userId}`,
   type: "personal" as const,

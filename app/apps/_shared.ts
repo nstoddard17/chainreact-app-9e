@@ -1,6 +1,8 @@
 import { getProvider, listProviders, providerIconUrl } from "@/integrations/_registry";
 import type { IntegrationRecord } from "@/repositories/integrations";
 import { APPS_CATEGORY_ORDER, categoryFor, descriptionFor, type AppsCategory } from "@/lib/apps/providerCategories";
+import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
+import type { MembershipRole } from "@/contracts/accounts";
 import type {
   AppAccountSummary,
   AppCatalogItem,
@@ -35,13 +37,53 @@ interface IntegrationShape {
   provider: string;
   displayName: string | null;
   createdAt: string;
+  /**
+   * SERVER-ONLY provenance — the human who connected this row. Used ONLY to
+   * derive the `canDisconnect` boolean below; it is NEVER copied into the
+   * emitted DTO. (The dto-safety test asserts it never appears in the output.)
+   */
+  connectedByUserId: string | null;
 }
 
-function toAppAccountSummary(record: IntegrationShape): AppAccountSummary {
+/**
+ * The current caller's disconnect authorization context (Slice 4.APPS-DISCONNECT
+ * / CD-3). Resolved once per request in the page; threaded into the projection so
+ * each account's `canDisconnect` is computed server-side. `undefined` (or
+ * `enabled: false`) ⇒ every `canDisconnect` is `false` (control never renders).
+ */
+export interface DisconnectContext {
+  callerUserId: string;
+  callerRole: MembershipRole | null;
+  enabled: boolean;
+}
+
+/**
+ * Mirror of the disconnect service's `resolveAndAuthorize` rule, evaluated for
+ * UI gating only (the DELETE/GET routes re-authorize authoritatively, so this is
+ * never the security boundary). Account/service (shared) providers ⇒ owner/admin;
+ * personal-credential providers ⇒ owner/admin OR the original connector. Feature
+ * flag OFF ⇒ always false.
+ */
+function computeCanDisconnect(
+  provider: string,
+  connectedByUserId: string | null,
+  ctx: DisconnectContext | undefined,
+): boolean {
+  if (!ctx || !ctx.enabled) return false;
+  const isOwnerAdmin = ctx.callerRole === "owner" || ctx.callerRole === "admin";
+  if (isAccountCredentialProvider(provider)) return isOwnerAdmin;
+  return isOwnerAdmin || (connectedByUserId !== null && connectedByUserId === ctx.callerUserId);
+}
+
+function toAppAccountSummary(
+  record: IntegrationShape,
+  ctx: DisconnectContext | undefined,
+): AppAccountSummary {
   return {
     id: record.id,
     displayName: record.displayName,
     connectedAt: record.createdAt,
+    canDisconnect: computeCanDisconnect(record.provider, record.connectedByUserId, ctx),
   };
 }
 
@@ -54,9 +96,10 @@ function toAppAccountSummary(record: IntegrationShape): AppAccountSummary {
 export function toAppCatalogItem(
   provider: ProviderShape,
   integrationsForProvider: readonly IntegrationShape[],
+  ctx?: DisconnectContext,
 ): AppCatalogItem {
   const sortedAccounts = [...integrationsForProvider]
-    .map(toAppAccountSummary)
+    .map((record) => toAppAccountSummary(record, ctx))
     .sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
   const isConnected = sortedAccounts.length > 0;
   const canConnect = provider.isEnabled && provider.capabilities.oauth;
@@ -86,6 +129,7 @@ export function toAppCatalogItem(
  */
 export function resolveAppCatalog(
   records: readonly IntegrationRecord[],
+  ctx?: DisconnectContext,
 ): readonly AppCatalogItem[] {
   const providersByUser = new Map<string, IntegrationRecord[]>();
   for (const r of records) {
@@ -96,7 +140,7 @@ export function resolveAppCatalog(
   return listProviders()
     .filter((p) => p.isEnabled && !p.isExperimental)
     .map((p) =>
-      toAppCatalogItem(p, providersByUser.get(p.id) ?? []),
+      toAppCatalogItem(p, providersByUser.get(p.id) ?? [], ctx),
     );
 }
 
@@ -153,6 +197,8 @@ export function projectIntegrationForMapper(r: IntegrationRecord): IntegrationSh
     provider: r.provider,
     displayName: r.displayName,
     createdAt: r.createdAt,
+    // Server-only — consumed by computeCanDisconnect, never emitted in the DTO.
+    connectedByUserId: r.connectedByUserId,
   };
 }
 

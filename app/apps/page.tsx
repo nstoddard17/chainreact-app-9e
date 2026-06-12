@@ -4,6 +4,8 @@ import * as integrationsRepo from "@/repositories/integrations";
 import * as notificationsRepo from "@/repositories/notifications";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
+import { getRole } from "@/repositories/accountMemberships";
+import { isIntegrationDisconnectEnabled } from "@/services/integrations/disconnectFlags";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -45,15 +47,22 @@ export default async function AppsPage({ searchParams }: Props) {
   // active account can't be resolved (e.g. frozen).
   const resolved = await resolveActiveAccount(user.id);
   const ownerAccount = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
-  const [records, unreadNotifications, recentNotificationRecords] =
+  const [records, callerRole, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
       integrationsRepo.listActiveByAccount(ownerAccount.id),
+      // 4.APPS-DISCONNECT / CD-3: the caller's role on the active account drives
+      // the per-account `canDisconnect` flag (session-client, RLS-self).
+      getRole(ownerAccount.id, user.id),
       notificationsRepo.countUnreadForUser(user.id),
       notificationsRepo.listForUser(user.id, {
         limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
       }),
     ]);
-  const items = resolveAppCatalog(records);
+  const items = resolveAppCatalog(records, {
+    callerUserId: user.id,
+    callerRole,
+    enabled: isIntegrationDisconnectEnabled(),
+  });
   const categories = buildCategoryList(items);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   // CS-8: surface pending credential-reassignment requests in the bell.
@@ -71,7 +80,7 @@ export default async function AppsPage({ searchParams }: Props) {
     >
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />
-        <AppsDashboard items={items} categories={categories} />
+        <AppsDashboard items={items} categories={categories} accountId={ownerAccount.id} />
       </main>
     </AppShell>
   );

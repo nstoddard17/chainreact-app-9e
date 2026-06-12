@@ -55,6 +55,9 @@ jest.mock("@/repositories/workflowRuns", () => ({
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: jest.fn().mockResolvedValue([]),
 }));
+jest.mock("@/repositories/accountMemberships", () => ({
+  getRole: jest.fn().mockResolvedValue("owner"),
+}));
 jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: jest.fn(async (userId: string) => ({
     id: `acct-${userId}`,

@@ -18,6 +18,16 @@ export const AppAccountSummarySchema = z.object({
   displayName: z.string().nullable(),
   /** ISO-8601 createdAt of the integration row. */
   connectedAt: z.string(),
+  /**
+   * Whether the CURRENT caller may disconnect THIS connection (Slice
+   * 4.APPS-DISCONNECT / CD-3). Server-derived boolean only — it encodes
+   * "owner/admin, OR a personal-credential provider the caller connected, AND
+   * the disconnect feature is enabled". The inputs (`connected_by_user_id`, the
+   * caller's role, provider credential-class) are NEVER emitted; only this flag.
+   * Drives whether the Disconnect control renders. The DELETE/GET routes
+   * re-authorize server-side, so a stale `true` cannot bypass anything.
+   */
+  canDisconnect: z.boolean(),
 });
 export type AppAccountSummary = z.infer<typeof AppAccountSummarySchema>;
 

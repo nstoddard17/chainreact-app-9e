@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ConnectButton } from "@/features/integrations/ConnectButton";
 import type { AppCatalogItem } from "@/contracts/apps";
 import { AppStatusPill } from "./AppStatusPill";
+import { DisconnectDialog } from "./DisconnectDialog";
 import { formatConnectedOn } from "./relativeDate";
 
 /**
@@ -38,10 +40,19 @@ import { formatConnectedOn } from "./relativeDate";
  */
 interface Props {
   app: AppCatalogItem;
+  /** The active account that owns these connections — needed for the disconnect API path. */
+  accountId: string;
 }
 
-export function AppCard({ app }: Props) {
+export function AppCard({ app, accountId }: Props) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  // The account row whose Disconnect dialog is open (null = closed).
+  const [disconnectTarget, setDisconnectTarget] = useState<
+    { id: string; label: string } | null
+  >(null);
+  // Transient success line after a disconnect (cleared on next interaction).
+  const [disconnectedNotice, setDisconnectedNotice] = useState<string | null>(null);
   const canExpand = app.isConnected;
   const accountCount = app.accounts.length;
 
@@ -143,24 +154,72 @@ export function AppCard({ app }: Props) {
               />
             )}
           </div>
+          {disconnectedNotice && (
+            <p
+              role="status"
+              data-testid="app-card-disconnect-notice"
+              className="mb-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+            >
+              {disconnectedNotice}
+            </p>
+          )}
           <ul className="flex flex-col gap-2">
-            {app.accounts.map((acc) => (
-              <li
-                key={acc.id}
-                data-testid="app-card-account"
-                data-account-id={acc.id}
-                className="flex flex-col gap-0.5 rounded-md border border-border bg-card px-3 py-2"
-              >
-                <span className="text-xs font-medium text-foreground">
-                  {acc.displayName ?? "Connected account"}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Connected on {formatConnectedOn(acc.connectedAt)}
-                </span>
-              </li>
-            ))}
+            {app.accounts.map((acc) => {
+              const label = acc.displayName ?? "Connected account";
+              return (
+                <li
+                  key={acc.id}
+                  data-testid="app-card-account"
+                  data-account-id={acc.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2"
+                >
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate text-xs font-medium text-foreground">
+                      {label}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Connected on {formatConnectedOn(acc.connectedAt)}
+                    </span>
+                  </span>
+                  {/* Disconnect: per-account, in the expanded section only — never a
+                      top-level app-card action. Renders only when the server says the
+                      caller may disconnect THIS connection (canDisconnect already folds
+                      in the feature flag + role + connector rule). */}
+                  {acc.canDisconnect && (
+                    <button
+                      type="button"
+                      data-testid="app-card-disconnect"
+                      data-account-id={acc.id}
+                      onClick={() => {
+                        setDisconnectedNotice(null);
+                        setDisconnectTarget({ id: acc.id, label });
+                      }}
+                      className="shrink-0 rounded border border-border bg-transparent px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
+      )}
+
+      {disconnectTarget && (
+        <DisconnectDialog
+          accountId={accountId}
+          integrationId={disconnectTarget.id}
+          appName={app.name}
+          accountLabel={disconnectTarget.label}
+          onClose={() => setDisconnectTarget(null)}
+          onDisconnected={() => {
+            setDisconnectedNotice(`Disconnected ${app.name}.`);
+            // Re-fetch the server component so the connection list reflects the
+            // soft-disconnect (the row drops out of the active set).
+            router.refresh();
+          }}
+        />
       )}
     </li>
   );

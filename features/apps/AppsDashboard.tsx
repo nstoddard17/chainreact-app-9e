@@ -28,9 +28,11 @@ import {
 interface Props {
   items: readonly AppCatalogItem[];
   categories: readonly AppsCategory[];
+  /** Active account that owns these connections — threaded to AppCard for disconnect. */
+  accountId: string;
 }
 
-export function AppsDashboard({ items, categories }: Props) {
+export function AppsDashboard({ items, categories, accountId }: Props) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AppsStatusFilter>("all");
   const [category, setCategory] = useState<string>("All");
@@ -108,7 +110,7 @@ export function AppsDashboard({ items, categories }: Props) {
                 className="flex flex-col gap-2"
               >
                 {filtered.map((app) => (
-                  <AppCard key={app.providerId} app={app} />
+                  <AppCard key={app.providerId} app={app} accountId={accountId} />
                 ))}
               </ul>
             )}

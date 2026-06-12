@@ -21,6 +21,11 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
   ),
 }));
 
+// AppCard now calls useRouter(); stub it so the dashboard renders in tests.
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+}));
+
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import type { AppCatalogItem, AppsCategory } from "@/contracts/apps";
 
@@ -58,7 +63,7 @@ describe("AppsDashboard — render", () => {
             category: "Communication",
             isConnected: true,
             accounts: [
-              { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z" },
+              { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false },
             ],
             firstConnectedAt: "2026-04-15T12:00:00Z",
           }),
@@ -70,6 +75,7 @@ describe("AppsDashboard — render", () => {
           }),
         ]}
         categories={baseCategories}
+        accountId="acc-1"
       />,
     );
     expect(
@@ -92,14 +98,14 @@ describe("AppsDashboard — render", () => {
   });
 
   it("exposes exactly one <h1> (a11y baseline)", () => {
-    render(<AppsDashboard items={[mkApp()]} categories={baseCategories} />);
+    render(<AppsDashboard items={[mkApp()]} categories={baseCategories} accountId="acc-1" />);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 });
 
 describe("AppsDashboard — empty states", () => {
   it("renders no-apps when the catalog is empty", () => {
-    render(<AppsDashboard items={[]} categories={[{ id: "All", label: "All apps", count: 0 }]} />);
+    render(<AppsDashboard items={[]} categories={[{ id: "All", label: "All apps", count: 0 }]} accountId="acc-1" />);
     expect(screen.getByTestId("apps-empty-no-apps")).toBeInTheDocument();
     expect(screen.queryByTestId("app-card")).toBeNull();
   });
@@ -110,6 +116,7 @@ describe("AppsDashboard — empty states", () => {
       <AppsDashboard
         items={[mkApp({ providerId: "slack", name: "Slack" })]}
         categories={baseCategories}
+        accountId="acc-1"
       />,
     );
     await user.type(screen.getByTestId("apps-search-input"), "no-such-app");
@@ -136,7 +143,7 @@ describe("AppsDashboard — search filters name / description / providerId", () 
 
   it("matches on name", async () => {
     const user = userEvent.setup();
-    render(<AppsDashboard items={items} categories={baseCategories} />);
+    render(<AppsDashboard items={items} categories={baseCategories} accountId="acc-1" />);
     await user.type(screen.getByTestId("apps-search-input"), "Stripe");
     const cards = screen.getAllByTestId("app-card");
     expect(cards).toHaveLength(1);
@@ -145,14 +152,14 @@ describe("AppsDashboard — search filters name / description / providerId", () 
 
   it("matches on description", async () => {
     const user = userEvent.setup();
-    render(<AppsDashboard items={items} categories={baseCategories} />);
+    render(<AppsDashboard items={items} categories={baseCategories} accountId="acc-1" />);
     await user.type(screen.getByTestId("apps-search-input"), "charges");
     expect(screen.getAllByTestId("app-card")).toHaveLength(1);
   });
 
   it("matches on providerId", async () => {
     const user = userEvent.setup();
-    render(<AppsDashboard items={items} categories={baseCategories} />);
+    render(<AppsDashboard items={items} categories={baseCategories} accountId="acc-1" />);
     await user.type(screen.getByTestId("apps-search-input"), "gmail");
     expect(screen.getAllByTestId("app-card")).toHaveLength(1);
   });
@@ -166,7 +173,7 @@ describe("AppsDashboard — status tabs", () => {
       name: "Gmail",
       isConnected: true,
       accounts: [
-        { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z" },
+        { id: "int-1", displayName: "marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false },
       ],
       firstConnectedAt: "2026-04-15T12:00:00Z",
     }),
@@ -174,7 +181,7 @@ describe("AppsDashboard — status tabs", () => {
 
   it("Connected tab filters to connected apps only", async () => {
     const user = userEvent.setup();
-    render(<AppsDashboard items={items} categories={baseCategories} />);
+    render(<AppsDashboard items={items} categories={baseCategories} accountId="acc-1" />);
     await user.click(screen.getByTestId("apps-status-tab-connected"));
     const cards = screen.getAllByTestId("app-card");
     expect(cards).toHaveLength(1);
@@ -183,7 +190,7 @@ describe("AppsDashboard — status tabs", () => {
 
   it("Not-connected tab filters to available apps only", async () => {
     const user = userEvent.setup();
-    render(<AppsDashboard items={items} categories={baseCategories} />);
+    render(<AppsDashboard items={items} categories={baseCategories} accountId="acc-1" />);
     await user.click(screen.getByTestId("apps-status-tab-available"));
     const cards = screen.getAllByTestId("app-card");
     expect(cards).toHaveLength(1);
@@ -205,6 +212,7 @@ describe("AppsDashboard — category nav", () => {
           }),
         ]}
         categories={baseCategories}
+        accountId="acc-1"
       />,
     );
     await user.click(screen.getByTestId("apps-category-Payments"));
@@ -226,7 +234,7 @@ describe("AppsDashboard — sort", () => {
             isConnected: true,
             firstConnectedAt: "2026-01-10T00:00:00Z",
             accounts: [
-              { id: "int-1", displayName: "a", connectedAt: "2026-01-10T00:00:00Z" },
+              { id: "int-1", displayName: "a", connectedAt: "2026-01-10T00:00:00Z", canDisconnect: false },
             ],
           }),
           mkApp({
@@ -235,12 +243,13 @@ describe("AppsDashboard — sort", () => {
             isConnected: true,
             firstConnectedAt: "2026-05-01T00:00:00Z",
             accounts: [
-              { id: "int-2", displayName: "b", connectedAt: "2026-05-01T00:00:00Z" },
+              { id: "int-2", displayName: "b", connectedAt: "2026-05-01T00:00:00Z", canDisconnect: false },
             ],
           }),
           mkApp({ providerId: "stripe", name: "Stripe" }),
         ]}
         categories={baseCategories}
+        accountId="acc-1"
       />,
     );
     const select = within(screen.getByTestId("apps-sort")).getByRole("combobox");
