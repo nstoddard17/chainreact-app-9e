@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-12 @ 43b1a370f (deployed to prod `v2-main`; push posture updated)
+> Last curated: 2026-06-12 @ 44566615c (AI-CREDITS-3b arc closeout — gate wired flag-OFF, local-only)
 
 ## Current status
 
@@ -26,14 +26,12 @@
     run-failure/visibility, workflow-readiness, integration- + workflow-connections); remaining
     stages **2B-5 (graph) / 2C (doctors) / 2D (reports) unbuilt** →
     [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
-  - React Agent now consumes `services/diagnostics/*` directly ("Check workflow" UI, AI-DIAG-1/1b
-    local). **AI credit metering: AI-CREDITS-2 SHIPPED** (`7dfaa7d45`, recording-only — `aiCreditPolicy`
-    + `ai_credits_charged`/cost-micros populated + 0-credit diagnosis event; OpenAI pricing still
-    deferred, unpriced→null). **AI-CREDITS-3 PLANNED** (enforcement): deduct-only `account_billing`
-    AI columns + `deduct_ai_credits_if_available` RPC + `aiCreditGate` + planPolicy limits, **flag-OFF,
-    not wired**; reserve/reconcile + deep-loop cap = AI-CREDITS-4. Before any LLM repair loop →
-    [`ai-credits-enforcement-plan.md`](./slices/phase-4/ai-credits-enforcement-plan.md) +
-    [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
+  - React Agent consumes `services/diagnostics/*` directly ("Check workflow" UI, AI-DIAG-1/1b local).
+    **AI credit enforcement WIRED, flag-OFF (local-only)** — the paid planner (`workflow_creation`) is
+    gated **before** the model call and bills the **workflow-owning account**; deterministic diagnosis
+    stays 0-credit/ungated. Controlled by `ENABLE_AI_CREDIT_ENFORCEMENT` (literal `"true"`; `"1"` is a
+    no-op), **OFF everywhere**, not pushed/deployed. Reserve/reconcile + deep-loop cap = AI-CREDITS-4;
+    OpenAI pricing still deferred. Before turning it on → [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
 
 ## Durable decisions
 
@@ -57,9 +55,12 @@
   multi-step agent loops premium. **Cheap model routing by default**, escalate to strong/premium
   only on validation-failure/low-confidence/higher-tier. Track AI cost from day one. Future hosted
   Hermes-style runtime sits behind an **agent-runtime adapter** (OpenAI underneath); ChainReact
-  services stay source of truth; **MCP stays external** (in-app agent never calls MCP). Ledger
-  (`ai_cost_events` + recorders + usage API + model routing/pricing scaffolding) already exists;
-  credit policy/limits/gating do NOT → [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
+  services stay source of truth; **MCP stays external** (in-app agent never calls MCP). As-built
+  (`AI-CREDITS-3b`, flag-OFF): recording ledger + credit **policy/limits/gating now SHIPPED** — AI
+  usage bills the **workflow-owning account** (personal→personal, team/business→shared pool), gated
+  before the paid planner; deterministic diagnosis stays 0-credit/ungated →
+  [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md) +
+  [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
 - [2026-06-10] File output (P-S3) is a durable cross-cutting rule →
   [`docs/rules/file-output-contract.md`](./rules/file-output-contract.md).
 - [2026-06-12] **Push/deploy posture.** Local work is push-gated by default (commit locally,
@@ -85,6 +86,12 @@
 
 ## Recently completed arcs
 
+- **AI credit enforcement (AI-CREDITS-3b) — gate WIRED flag-OFF, local-only (2026-06-12)** — paid
+  planner (`workflow_creation`) gated before the model call → 402 `AI_CREDITS_EXHAUSTED` (planner not
+  called) / 403 frozen / 503 fail-closed; bills the workflow-owning account. Migration `20260621000000`
+  on dev; gated dev smoke proved the RPC/gate path. Flag OFF everywhere (literal `"true"`). Full
+  as-built + commits + deferred work →
+  [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
 - **Internal MCP — Stage 2B live diagnostics complete + consolidated (local-only, 2026-06-12)** —
   gated (default-OFF, prod-locked via `applyDiagnosticsGate`) live tools: run-failure,
   run-visibility, workflow-readiness, integration-connection, workflow-connections. CS-2 added
@@ -119,10 +126,6 @@
   + static option-source tools) implemented **locally** (`ccace0e23`, plan `64bfd850a`) — not
   pushed. Runbooks → [`chatgpt-mcp-developer-mode.md`](./runbooks/chatgpt-mcp-developer-mode.md),
   [`internal-mcp-server.md`](./runbooks/internal-mcp-server.md).
-- **Secret-scan rewrite** — fake Slack-token fixtures in the MCP test commits reassembled at
-  runtime (no literal Slack-bot-token string in source) so GitHub push protection allowed the
-  `v2-main` push; no bypass used → in `62da1088b..9abe08ab6`.
-- **CLAUDE.md curation** — 132,565 → 13,211 chars (−90%), `c2bbedbff..4cd929c7f`.
 
 ## Owner preferences
 

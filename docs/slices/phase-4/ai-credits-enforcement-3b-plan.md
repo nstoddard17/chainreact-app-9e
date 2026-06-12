@@ -6,6 +6,43 @@ changes in this slice. Nothing pushed.**
 **workflow-owning account**, not the actor's personal account — see §3 / §4 / OQ-A).
 **Branch:** `builder-ui-v1-audit-1`
 
+---
+
+## 0. As-built closeout (SHIPPED 2026-06-12 — local-only, flag OFF)
+
+> This plan was implemented. The §1–§13 body below is the design as proposed; this
+> section records the **as-built** state. Everything is **local commits on
+> `builder-ui-v1-audit-1`, not pushed, not deployed**; `ENABLE_AI_CREDIT_ENFORCEMENT`
+> is **OFF everywhere**.
+
+**Shipped commits (the AI-credit arc):**
+- `7dfaa7d45` — AI-CREDITS-2: recording-only (`ai_credits_charged` + cost micros, 0-credit diagnosis event).
+- `33ac4247c` — AI-CREDITS-3: enforcement **infra** — `account_billing` AI columns + `deduct_ai_credits_if_available` RPC (migration `20260621000000`, **applied to dev DB**), `aiCreditGate`, `PlanLimits.aiCreditsMonthlyLimit`, flag (default OFF). Not wired.
+- `e538a6b0c` — 3b-0: plan route resolves the **workflow-owning account** via `loadWorkflowForMember` (no-leak 404 before any paid call) and bills `recordAiPlanOutcome` to `record.accountId` (was the actor's personal account).
+- `95bb234b3` — 3b-i: `aiCreditGate` wired **before** `planWorkflowFromPromptForAI` (feature `workflow_creation`, `plannedTier = modelTier ?? "fast"`). Denials: 402 `AI_CREDITS_EXHAUSTED` (planner not called) · 403 frozen · 503 `gate_error` (fail-closed).
+- `24815ccd8` — 3b-ii: client denial copy (`AI_CREDITS_EXHAUSTED_MESSAGE`) on fresh-plan + follow-up paths; technical detail line suppressed; no account/code/model leak.
+- `44566615c` — gated dev-DB smoke (`tests/integration/billing/aiCreditGate.dev.test.ts`) — proved the gate↔RPC↔dev-DB path live (deduct on enough, refuse-without-deduct on insufficient, no-op on flag OFF). Skips unless `ALLOW_DB_INTEGRATION_TESTS=true`.
+
+**As-built rules:** AI credits are a **separate billing dimension** from workflow tasks
+and the **upgrade lever** across Free/Pro/Team/Business/Enterprise. Deterministic
+diagnosis (`/ai/diagnose`) is **0-credit and ungated**. AI usage bills the
+**workflow-owning account** — personal workflow → personal account; team/business
+workflow → the shared team/business pool (the gate is **account-id-agnostic**; the route
+resolves which account). The gate runs **before** the paid planner model call.
+
+**Operational caveats:**
+- `ENABLE_AI_CREDIT_ENFORCEMENT` must be the **literal `"true"`** — `"1"` does **NOT**
+  enable the gate (verified live).
+- **Team live DB smoke was not run**; the personal/workflow-owning path was proven live,
+  and team attribution is covered by the route unit tests + the account-id-agnostic gate.
+- **Denial events are skipped in v1** (no model call on denial → nothing to attribute).
+- **Deferred to AI-CREDITS-4:** reserve/reconcile + the `ai_credit_reservations` ledger +
+  the deep-loop hard cap. **OpenAI pricing** still deferred (unpriced → `null` cost).
+- Hermes-style hosted runtime stays a **future** direction (not wired); **MCP stays an
+  external adapter** — the in-app agent never calls MCP.
+
+---
+
 **Source of truth (verified — every file below was read in full unless noted):**
 [services/billing/aiCreditGate.ts](../../../services/billing/aiCreditGate.ts) (the gate, AI-CREDITS-3) ·
 [core/billing/aiCreditPolicy.ts](../../../core/billing/aiCreditPolicy.ts) (`computeAiCreditCharge`, feature→credits map) ·
