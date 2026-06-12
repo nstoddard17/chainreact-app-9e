@@ -29,6 +29,7 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 const OPTION_SOURCE_PATH = "/api/internal/diagnostics/option-source";
 const INTEGRATION_CONNECTION_PATH = "/api/internal/diagnostics/integration-connection";
+const RUN_FAILURE_PATH = "/api/internal/diagnostics/run-failure";
 
 function baseUrl(): string {
   const raw = (process.env.MCP_DIAGNOSTICS_URL ?? "").trim();
@@ -270,6 +271,87 @@ async function diagnoseIntegrationConnection(args: Record<string, unknown>): Pro
   return result.ok ? renderConnectionDto(result.dto) : result.message;
 }
 
+// ─────────────────────────── diagnose_run_failure ───────────────────────────
+
+/** The sanitized DTO shape the run-failure route returns (mirror — no app import). */
+interface RunFailureDTO {
+  runId: string;
+  visibility: string;
+  // Present ONLY when the subject is an authorized member of the run's account.
+  status?: string;
+  isTest?: boolean;
+  triggeredBy?: string;
+  firstFailedNodeId?: string | null;
+  failedStepCount?: number;
+  classificationAvailable?: boolean;
+  errorClassification?: {
+    title: string;
+    description: string;
+    hint?: string;
+    action?: string;
+    severity: string;
+  } | null;
+  steps?: Array<{ nodeId: string; status: string; errorCode: string | null }>;
+}
+
+/** Plain-English interpretation per visibility (local; never sent over the wire). */
+const RUN_VISIBILITY_NOTES: Record<string, string> = {
+  NOT_FOUND: "No run row resolved for this id — it does not exist (or never persisted).",
+  WRONG_ACCOUNT:
+    "Authorization wall: this run belongs to a different account, so nothing about it is revealed.",
+  RUNNING:
+    "The run is still in progress — the /runs list hides non-terminal rows until they finalize.",
+  TEST_RUN: "A terminal TEST run — hidden on /runs unless the test-runs toggle is on.",
+  FAILED_VISIBLE: "A terminal failed run that /runs shows.",
+  COMPLETED_VISIBLE: "A terminal succeeded run that /runs shows.",
+};
+
+function renderRunFailureDto(dto: RunFailureDTO): string {
+  const lines: string[] = ["diagnose_run_failure", `runId: ${dto.runId}`, `visibility: ${dto.visibility}`];
+  const note = RUN_VISIBILITY_NOTES[dto.visibility];
+  if (note) lines.push(`meaning: ${note}`);
+
+  // Summary fields exist only when the subject is authorized (NOT_FOUND /
+  // WRONG_ACCOUNT carry nothing further — by design).
+  if (dto.status !== undefined) {
+    lines.push(`status: ${dto.status}`);
+    lines.push(`isTest: ${dto.isTest}`);
+    lines.push(`triggeredBy: ${dto.triggeredBy}`);
+    lines.push(`firstFailedNodeId: ${dto.firstFailedNodeId ?? "(none)"}`);
+    lines.push(`failedStepCount: ${dto.failedStepCount}`);
+    lines.push(`classificationAvailable: ${dto.classificationAvailable}`);
+    if (dto.classificationAvailable && dto.errorClassification) {
+      const c = dto.errorClassification;
+      lines.push(`diagnosis: ${c.title} — ${c.description}`);
+      if (c.hint) lines.push(`hint: ${c.hint}`);
+      if (c.action) lines.push(`suggestedAction: ${c.action}`);
+      lines.push(`severity: ${c.severity}`);
+    }
+    if (Array.isArray(dto.steps) && dto.steps.length > 0) {
+      lines.push("steps:");
+      for (const s of dto.steps) {
+        lines.push(`  - ${s.nodeId}: ${s.status}${s.errorCode ? ` (${s.errorCode})` : ""}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+async function diagnoseRunFailure(args: Record<string, unknown>): Promise<string> {
+  const runId = typeof args.runId === "string" ? args.runId.trim() : "";
+  if (!runId) return "Error: 'runId' is required (the run to diagnose).";
+  const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+  if (!userId) {
+    return "Error: 'userId' is required — the subject to diagnose under (must be a member of the run's account).";
+  }
+
+  const payload: Record<string, unknown> = { runId, userId };
+  if (args.includeTestRuns === true) payload.includeTestRuns = true;
+
+  const result = await postDiagnostic<RunFailureDTO>(RUN_FAILURE_PATH, payload);
+  return result.ok ? renderRunFailureDto(result.dto) : result.message;
+}
+
 // ─────────────────────────────── registry ───────────────────────────────
 
 export const diagnoseLiveTools: ToolDefinition[] = [
@@ -341,5 +423,28 @@ export const diagnoseLiveTools: ToolDefinition[] = [
       additionalProperties: false,
     },
     handler: diagnoseIntegrationConnection,
+  },
+  {
+    name: "diagnose_run_failure",
+    description:
+      "LIVE diagnosis of a workflow RUN for a specific user: reports the run's visibility (NOT_FOUND / WRONG_ACCOUNT / RUNNING / TEST_RUN / FAILED_VISIBLE / COMPLETED_VISIBLE) and, only when the user is an authorized member of the run's account, a SANITIZED failure summary (status, firstFailedNodeId, per-step nodeId/status/errorCode, and the stored humanized errorClassification). Read-only. NEVER returns raw step outputs, raw provider error messages, trigger payloads, tokens, or user ids. A run in another account reads as WRONG_ACCOUNT with nothing else. Requires the diagnostics API to be enabled on the app (dev-only by default).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "The run id to diagnose." },
+        userId: {
+          type: "string",
+          description:
+            "The subject to diagnose under — must be a member of the run's account to see the summary.",
+        },
+        includeTestRuns: {
+          type: "boolean",
+          description: "When true, a terminal test run classifies by outcome instead of TEST_RUN.",
+        },
+      },
+      required: ["runId", "userId"],
+      additionalProperties: false,
+    },
+    handler: diagnoseRunFailure,
   },
 ];
