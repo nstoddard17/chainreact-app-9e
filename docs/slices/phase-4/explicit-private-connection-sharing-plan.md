@@ -26,6 +26,48 @@ deferring a row-level approach) · [workflow-run-edit-permission-closeout.md](./
 
 ---
 
+## 0. Decision status — LOCKED (2026-06-12, Marcus)
+
+**The model is decided. This remains design-only — do NOT start an implementation slice until
+Marcus explicitly says so.** Marcus confirmed **Option A (row-level connector-push)** and resolved
+every open question. The locked model:
+
+1. **Account ownership unchanged.** `integrations.account_id` owns the row; `connected_by_user_id`
+   stays provenance/audit/display. The row still belongs to the team account.
+2. **Sharing controls usage, not ownership.** `private_to_connector` = only the connector/creator
+   can run/edit private-credential workflows; `shared_with_account` = members with workflow
+   permissions can run/edit workflows using that connection. Account/shared-service providers remain
+   shared by classification and **ignore** this field.
+3. **Row-level, not per-node.** This is per **integration row**, not per workflow node. The existing
+   per-node reassignment/grant system (`workflow_node_credentials`, flag-gated) stays **separate** and
+   remains a future/advanced path. **Do not merge the two concepts.** (Resolves OQ-1 = A; OQ-5 = keep B
+   separate.)
+4. **Who can share: connector only.** Owner/admin may **not** silently share another member's
+   personal external identity. Owner/admin may still manage/audit/disable/delete/disconnect per
+   existing admin rules. (Resolves OQ-2 = connector-only; no silent admin share. The optional
+   "admin-request" flow from the old OQ-2 is **not** adopted.)
+5. **Who can unshare:** connector can unshare. Owner/admin **may** perform a safety/admin removal —
+   but if implemented it must be **framed as an admin safety action and audit-logged**, and must never
+   silently toggle a member's private identity *into* shared.
+6. **Unshare behavior:** do **not** auto-disable workflows. Revert affected workflows to **creator-only
+   run/edit**. Non-creators who could previously run now get the **existing private-credential blocked
+   state + Duplicate CTA**. No silent auto-resume or hidden permission continuation. (Resolves OQ-4.)
+7. **Execution behavior:** a shared personal connection still executes as the **connector's** external
+   OAuth identity (never the runner's/author's). The UI must make this explicit **before** sharing:
+   *"Team members will be able to run workflows using this connection."* (Resolves OQ-3 direction.)
+8. **Data model:** add nullable `integration_sharing_scope` on `integrations` when implementing.
+   Values `private_to_connector | shared_with_account`. `NULL` derives the default from provider
+   credential classification (personal → `private_to_connector`; account → shared by classification).
+   **No backfill.** Add a **CHECK** constraint. **No RLS model change.**
+9. **Feature-flag posture:** this is **not** a permanent hidden feature. A temporary implementation
+   guard during development is fine, but the goal is to **build, verify, and make it live once
+   complete** — not ship it dark indefinitely.
+
+Sections 4–10 below are the design rationale that produced this model; where they describe an option
+as "recommended" or "open," treat §0 as authoritative.
+
+---
+
 ## 1. Context
 
 WF-RUNPERM made "team-visible ≠ team-runnable" real: a workflow with ≥1 private/member-connected
@@ -128,8 +170,10 @@ Three touch-points, each extending an existing seam (no new subsystem):
    `sharedWithAccount` (no identity); the workflow run/edit DTO booleans already exist and just need
    the shared-set folded into their computation.
 
-Ships behind `ENABLE_CONNECTION_SHARING` (default OFF). While off, the column is inert and every
-path behaves exactly as WF-RUNPERM ships today.
+May ship behind a temporary `ENABLE_CONNECTION_SHARING` dev guard so partial slices stay inert
+while in flight (while off, the column is inert and every path behaves exactly as WF-RUNPERM ships
+today) — **but per §0.9 this is not a permanently-hidden feature**; the guard exists to land the work
+safely, and is flipped on (or removed) once the arc is complete and verified.
 
 ---
 
@@ -177,16 +221,18 @@ not applicable (always shared). So the column is **only writable/meaningful for 
   resolve to it server-side (the 22D-2 redaction / `toOwnerControlledView` posture is untouched).
 - The unshare/disconnect error surfaces are typed + generic (no identity).
 
-**Authorization (CS-2):**
-- **Connector** (`connected_by_user_id === caller`) may share / unshare **their own** personal
-  connection. ✅
-- **Owner/admin** may **NOT silently share** a member's personal external identity (Option D
-  rejected — impersonation risk). They may *request* a share (reuse the consent-request notion) or
-  manage account-class shared service integrations (already account-shared, no change). **Default:
-  connector-only for the share toggle.** (OQ-2: optional admin-request flow.)
-- **Normal member** cannot share another member's connection. ✅
-- **Unshare:** connector or owner/admin (owner/admin CAN unshare — that's a restriction, not
-  impersonation). ✅
+**Authorization (CS-2) — per §0.4/§0.5 + §10 (DECIDED 2026-06-12):**
+- **Share — connector only.** The **connector** (`connected_by_user_id === caller`) may share **their
+  own** personal connection. ✅
+- **Owner/admin may NOT silently share** a member's personal external identity (Option D rejected —
+  impersonation risk). The optional admin-*request* flow is **not** adopted. Owner/admin retain
+  manage/audit/disable/delete/disconnect on the row per existing admin rules — but **never** a silent
+  share or any toggle of a member's identity *into* shared. ✅
+- **Normal member** cannot **share or unshare** another member's connection. ✅
+- **Unshare:** the **connector** may unshare their own personal connection. **Owner/admin** may
+  perform an unshare **only as a framed admin safety/removal action, and it must be audit-logged**.
+  Owner/admin unshare is a restriction/removal action — **never** permission to share or to silently
+  toggle a member's identity into shared. ✅
 
 ---
 
@@ -255,25 +301,30 @@ not applicable (always shared). So the column is **only writable/meaningful for 
 
 ---
 
-## 10. Risks / open decisions (each with a recommendation)
+## 10. Decisions (was: open questions) — RESOLVED 2026-06-12
 
-- **OQ-1 — Row-level (A) vs reuse per-node (B).** *Recommendation:* **A** for the connector-push
-  "share my connection" product; keep **B** flag-gated for targeted per-node reassignment. They are
-  different shapes; don't force one to do the other. **Marcus's to confirm** (it partially revisits the
-  2026-06-05 Option-B-only decision).
-- **OQ-2 — Owner/admin share of a member's personal connection.** *Recommendation:* **not silently**
-  (impersonation). Allow owner/admin to *request* via the existing consent notion if demand appears;
-  default connector-only.
-- **OQ-3 — Non-creator author of a workflow on a shared connection.** Execution must resolve to the
-  **connector**, not the author. *Recommendation:* resolve shared personal providers to the row's
-  `connected_by_user_id`; if multiple members share the same provider, the workflow must bind a
-  specific connector (reuse the node-owner override) — mark **unverified** until CS-4 design.
-- **OQ-4 — Unshare effect on dependent workflows.** *Recommendation:* **revert to creator-only**, do
-  not auto-disable (least destructive; matches WF-RUNPERM). Surface a one-time notice to affected
-  workflow owners.
-- **OQ-5 — Interaction with the shipped per-node system.** Both can set an effective owner.
-  *Recommendation:* precedence = an explicit **accepted node-credential grant** (B) wins over the
-  coarse **connection share** (A) for that node; document it; cover with a precedence test.
+All five are now **decided** per §0. Retained here with the resolution + any residual implementation
+nuance to verify during the slice.
+
+- **OQ-1 — Row-level (A) vs reuse per-node (B).** **DECIDED: A** (row-level connector-push). **B stays
+  separate** and flag-gated for targeted per-node reassignment — the two concepts are **not** merged.
+- **OQ-2 — Owner/admin share of a member's personal connection.** **DECIDED: connector-only for share;
+  no silent admin share** (impersonation). The optional admin-*request* flow is **not** adopted.
+  Owner/admin retain manage/audit/disable/delete/disconnect per existing admin rules.
+- **OQ-3 — Non-creator author of a workflow on a shared connection.** **DECIDED: execution resolves to
+  the connector**, never the author/runner. *Residual to verify in CS-4:* if multiple members share the
+  same provider on one account, the workflow must bind a **specific** connector (reuse the node-owner
+  override) — **unverified until CS-4 design.**
+- **OQ-4 — Unshare effect on dependent workflows.** **DECIDED: revert to creator-only; do NOT
+  auto-disable.** Non-creators fall back to the existing private-credential blocked state + Duplicate
+  CTA. No silent auto-resume. Surface a one-time notice to affected workflow owners.
+- **OQ-5 — Interaction with the shipped per-node system.** **DECIDED: keep separate.** *Residual to
+  verify in CS-4:* when both could set an effective owner for a node, an explicit **accepted
+  node-credential grant** (B) wins over the coarse **connection share** (A); document + cover with a
+  precedence test.
+- **Unshare authz nuance (new, from §0.5):** if owner/admin unshare is implemented, it must be a
+  framed **admin safety action** and **audit-logged** — never a silent re-toggle of a member's
+  identity into shared.
 
 ---
 
@@ -302,16 +353,16 @@ Reconnect, and AI/MCP code are all untouched. The model, schema, authz, and slic
 
 ## 13. Recommended next step
 
-Get Marcus's call on **OQ-1** (row-level A as the connector-push model, with per-node B kept separate).
-On confirmation, pick up **CS-1** — the additive nullable `integration_sharing_scope` column + the
-`ENABLE_CONNECTION_SHARING` flag + the pure scope helpers (tested in isolation), `db:push` only with
-explicit approval. Do not start CS-3/CS-4 (gate + execution) until CS-1/CS-2 land and the model is
-confirmed.
+**Model is locked (§0); implementation is NOT authorized yet.** When Marcus explicitly says to start
+the slice, pick up **CS-1** — the additive nullable `integration_sharing_scope` column (+CHECK) + the
+temporary `ENABLE_CONNECTION_SHARING` guard + the pure scope helpers (tested in isolation), `db:push`
+only with explicit approval. Do not start CS-3/CS-4 (gate + execution) until CS-1/CS-2 land. No push,
+no migration, no `db:push`, no AI/MCP changes, no Disconnect changes until then.
 
 ## Build now or defer?
 
-**Design now (this doc); build deferred.** The feature needs a migration + changes to the run/edit
-gate and the execution resolver (both sensitive, both shipped), so it should not be built until Marcus
-confirms the model (OQ-1) and approves the migration. The smallest first step (CS-1) is a single
-additive nullable column behind a default-OFF flag — low risk, reversible — but still gated on explicit
-approval per the standing push/migrate policy.
+**Decision locked now (§0); build deferred until Marcus says go.** The feature needs a migration +
+changes to the run/edit gate and the execution resolver (both sensitive, both shipped). The model is
+no longer in question — only the go-ahead to implement is pending. The smallest first step (CS-1) is a
+single additive nullable column behind a temporary guard — low risk, reversible — but still gated on
+explicit start + migration approval per the standing push/migrate policy.
