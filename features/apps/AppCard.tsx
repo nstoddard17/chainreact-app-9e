@@ -16,10 +16,11 @@ import { formatConnectedOn } from "./relativeDate";
  * locked in the slice plan:
  *   - **Workflows-per-account pills are NOT rendered.** No real link from
  *     integrations → workflows yet; would be a fake count.
- *   - **Per-account Manage / Disconnect buttons are NOT rendered.** No
- *     manage/disconnect API endpoint exists yet (markDisconnected is a
- *     repo function, not a wired route). Adding the disconnect endpoint
- *     is a follow-up slice.
+ *   - **Per-account Manage buttons are NOT rendered.** No manage endpoint exists.
+ *   - **Disconnect IS rendered per-account in the EXPANDED section** (CD-1→CD-3,
+ *     behind `ENABLE_INTEGRATION_DISCONNECT`, only when `acc.canDisconnect`). It's
+ *     a de-emphasized ghost button (destructive-on-hover, tooltip "Remove this
+ *     connection") that opens a confirm dialog — never a top-level card action.
  *   - **Reconnect IS rendered on a connected card** (`reconnect` variant —
  *     filled-secondary + refresh glyph + "Refresh this connection" tooltip).
  *     It reuses the same OAuth start flow so an expired/broken token is
@@ -28,8 +29,14 @@ import { formatConnectedOn } from "./relativeDate";
  *     disconnect control. Not driven by a health/needs_reconnect DTO field
  *     (none today) — it's always offered on connected providers.
  *   - **Connect another** stays a separate primary action in the expanded
- *     account section, shown only for multi-account providers — it ADDS an
- *     account rather than refreshing the existing one.
+ *     account section (tooltip "Add another account"), shown only for
+ *     multi-account providers — it ADDS an account rather than refreshing or
+ *     removing the existing one.
+ *
+ * The three connected-card actions read as three distinct intents — visually
+ * (primary / filled-secondary+icon / destructive-ghost) and via tooltips:
+ *   Reconnect = refresh this connection · Connect another = add another account ·
+ *   Disconnect = remove this connection.
  *   - **The animated colored-letter tile is replaced with the real
  *     `/integrations/<id>.svg` asset.** Falls back to two-letter initials
  *     if the file is missing — same pattern WorkflowProviderChips uses.
@@ -151,6 +158,7 @@ export function AppCard({ app, accountId }: Props) {
               <ConnectButton
                 provider={app.providerId}
                 label="Connect another"
+                title="Add another account"
               />
             )}
           </div>
@@ -190,6 +198,7 @@ export function AppCard({ app, accountId }: Props) {
                       type="button"
                       data-testid="app-card-disconnect"
                       data-account-id={acc.id}
+                      title="Remove this connection"
                       onClick={() => {
                         setDisconnectedNotice(null);
                         setDisconnectTarget({ id: acc.id, label });

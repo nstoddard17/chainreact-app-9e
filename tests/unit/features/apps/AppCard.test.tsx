@@ -246,6 +246,8 @@ describe("AppCard — per-account Disconnect (CD-3)", () => {
     const btn = within(acc).getByTestId("app-card-disconnect");
     expect(btn).toHaveTextContent("Disconnect");
     expect(btn).toHaveAttribute("data-account-id", "int-1");
+    // Tooltip differentiates it from Reconnect ("Refresh…") / Connect another ("Add…").
+    expect(btn).toHaveAttribute("title", "Remove this connection");
   });
 
   it("does NOT render Disconnect when canDisconnect is false", async () => {
