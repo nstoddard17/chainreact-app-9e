@@ -158,7 +158,11 @@ describe("Suggest a fix — happy path", () => {
     const user = await check();
     await user.click(screen.getByTestId("builder-ai-suggest-fix-button"));
     expect(mockRepair).toHaveBeenCalledTimes(1);
-    expect(mockRepair).toHaveBeenCalledWith("wf-1");
+    // AI-DIAG-FIX-1 — Suggest re-derives from the SAME current builder draft.
+    expect(mockRepair).toHaveBeenCalledWith(
+      "wf-1",
+      expect.objectContaining({ nodes: [], edges: [] }),
+    );
 
     await screen.findByTestId("builder-ai-repair-proposal");
     expect(screen.getByTestId("builder-ai-repair-summary").textContent).toContain("reconnect it");

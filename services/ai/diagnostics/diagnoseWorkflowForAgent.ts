@@ -63,7 +63,14 @@ export interface AgentFinding {
   readonly severity: AgentFindingSeverity;
   /** Deterministic, safe one-line title mapped from the code (no raw values). */
   readonly title: string;
+  /** INTERNAL-only opaque node ids (for future repair/apply mapping). Never rendered, never sent to the model. */
   readonly nodeIds?: readonly string[];
+  /**
+   * AI-DIAG-FIX-1 — safe human display labels matching `nodeIds` (custom node name
+   * → action/trigger meta displayName → friendly type). User-facing render +
+   * model context use THESE; raw `nodeIds` never reach user/model text.
+   */
+  readonly nodeLabels?: readonly string[];
   readonly provider?: string;
   readonly providerName?: string | null;
   /** Missing required-field NAMES (never values). */
@@ -190,21 +197,42 @@ async function resolveLatestRun(
 export async function diagnoseWorkflowForAgent(input: {
   subjectUserId: string;
   workflowId: string;
+  /**
+   * AI-DIAG-FIX-1 — the caller's CURRENT builder draft (unsaved edits), validated
+   * by the route. Threaded to BOTH sub-diagnostics so "Check workflow" /
+   * "Explain" / "Suggest a fix" all evaluate what the user sees on the canvas, not
+   * the stale saved `draftDefinition`. Never persisted; authz unchanged.
+   */
+  draftOverride?: import("@/contracts/workflowDefinition").WorkflowDefinition;
 }): Promise<AgentWorkflowDiagnosisDTO> {
-  const { subjectUserId, workflowId } = input;
+  const { subjectUserId, workflowId, draftOverride } = input;
+  const overrideArg = draftOverride ? { draftOverride } : {};
 
   // 1. Readiness FIRST — it owns the access wall. Non-OK short-circuits with NO
   // connection lookup and NO run lookup.
-  const readiness = await diagnoseWorkflowReadiness({ subjectUserId, workflowId });
+  const readiness = await diagnoseWorkflowReadiness({ subjectUserId, workflowId, ...overrideArg });
   if (readiness.access !== "OK") {
     return { workflowId, access: mapAccess(readiness.access) };
   }
 
   // 2. Connection readiness (same authz wall; defensive re-check on disagreement).
-  const connections = await diagnoseWorkflowConnections({ subjectUserId, workflowId });
+  const connections = await diagnoseWorkflowConnections({ subjectUserId, workflowId, ...overrideArg });
   if (connections.access !== "OK") {
     return { workflowId, access: mapAccess(connections.access) };
   }
+
+  // AI-DIAG-FIX-1 — nodeId → safe display label map for the diagnosed graph, so
+  // every finding carries human `nodeLabels` and NO raw node id reaches user/model
+  // text (the render + explain layers use labels; nodeIds stay internal).
+  const labelMap = new Map((readiness.nodeLabels ?? []).map((n) => [n.nodeId, n.label]));
+  const labelsFor = (ids?: readonly string[]): readonly string[] =>
+    (ids ?? [])
+      .map((id) => labelMap.get(id))
+      .filter((l): l is string => typeof l === "string" && l.length > 0);
+  const withLabels = (ids?: readonly string[]): { nodeLabels?: readonly string[] } => {
+    const labels = labelsFor(ids);
+    return labels.length > 0 ? { nodeLabels: labels } : {};
+  };
 
   // 3. Assemble findings from the already-sanitized DTOs (allow-listed fields only).
   const findings: AgentFinding[] = [];
@@ -215,7 +243,7 @@ export async function diagnoseWorkflowForAgent(input: {
       code: g.code,
       severity: "error",
       title: graphTitle(g.code),
-      ...(g.nodeId ? { nodeIds: [g.nodeId] } : {}),
+      ...(g.nodeId ? { nodeIds: [g.nodeId], ...withLabels([g.nodeId]) } : {}),
     });
   }
   for (const f of readiness.fieldGaps ?? []) {
@@ -225,6 +253,7 @@ export async function diagnoseWorkflowForAgent(input: {
       severity: "error",
       title: "Required fields are missing.",
       nodeIds: [f.nodeId],
+      ...withLabels([f.nodeId]),
       missingFields: f.missingFields,
     });
   }
@@ -238,6 +267,7 @@ export async function diagnoseWorkflowForAgent(input: {
       provider: p.provider,
       providerName: p.name,
       nodeIds: p.nodeIds,
+      ...withLabels(p.nodeIds),
       credentialClass: p.credentialClass,
       ...(p.status === "MISSING_SCOPES" && p.missingScopes
         ? { missingScopes: p.missingScopes }
@@ -253,7 +283,9 @@ export async function diagnoseWorkflowForAgent(input: {
       code: "RECENT_RUN_FAILED",
       severity: "warning",
       title: latestRun.errorClassification?.title ?? "The most recent run failed.",
-      ...(latestRun.firstFailedNodeId ? { nodeIds: [latestRun.firstFailedNodeId] } : {}),
+      ...(latestRun.firstFailedNodeId
+        ? { nodeIds: [latestRun.firstFailedNodeId], ...withLabels([latestRun.firstFailedNodeId]) }
+        : {}),
     });
   }
 

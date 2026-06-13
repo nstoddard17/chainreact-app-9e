@@ -307,6 +307,15 @@ function groupNodeIdsByProvider(
 export async function diagnoseWorkflowConnections(input: {
   subjectUserId: string;
   workflowId: string;
+  /**
+   * AI-DIAG-FIX-1 — the client's CURRENT builder draft (unsaved edits), validated
+   * upstream. When present, the per-provider connection inventory is grouped from
+   * its nodes instead of the saved `draftDefinition`, so "Check workflow" reflects
+   * the canvas. Authz still resolves from the SAVED workflow record below (the
+   * override only changes which providers are inspected, for the SAME account the
+   * caller already belongs to — no new exposure). Never persisted.
+   */
+  draftOverride?: import("@/contracts/workflowDefinition").WorkflowDefinition;
 }): Promise<WorkflowConnectionsDTO> {
   const { subjectUserId, workflowId } = input;
 
@@ -342,7 +351,11 @@ export async function diagnoseWorkflowConnections(input: {
   // false "this provider isn't recognized" / "replace the native node" finding for a
   // valid Manual Run trigger. An unknown EXTERNAL provider is still diagnosed (and
   // still yields PROVIDER_UNKNOWN), because this set is narrow by design.
-  const grouped = [...groupNodeIdsByProvider(workflow.draftDefinition.nodes).entries()]
+  // AI-DIAG-FIX-1: group providers from the client's current draft when supplied
+  // (unsaved edits), else the saved definition. Node `config` is still NEVER read
+  // (only provider/type/ids); the override changes which providers are inspected.
+  const diagnosedNodes = (input.draftOverride ?? workflow.draftDefinition).nodes;
+  const grouped = [...groupNodeIdsByProvider(diagnosedNodes).entries()]
     .filter(([provider]) => !isNonOauthProvider(provider));
 
   // 5. Diagnose each distinct provider (independent reads → parallel, order kept).

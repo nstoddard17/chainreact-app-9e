@@ -107,6 +107,65 @@ describe("ai/diagnose route — delegation + serialization", () => {
   });
 });
 
+// ── AI-DIAG-FIX-1: current-builder-draft snapshot (diagnose the canvas, not stale saved) ──
+function callWithBody(id: string, body: unknown) {
+  return POST(
+    new Request(`http://x/api/workflows/${id}/ai/diagnose`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+}
+
+const validDraft = {
+  nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } }],
+  edges: [],
+};
+
+describe("ai/diagnose route — current draft override", () => {
+  beforeEach(() => mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK", overallReady: false }));
+
+  it("forwards a VALID draftDefinition to the diagnosis as draftOverride (diagnoses unsaved state)", async () => {
+    const res = await callWithBody("wf-1", { draftDefinition: validDraft });
+    expect(res.status).toBe(200);
+    expect(mockDiagnose).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subjectUserId: "user-1",
+        workflowId: "wf-1",
+        draftOverride: expect.objectContaining({
+          nodes: expect.arrayContaining([expect.objectContaining({ id: "n1", type: "manual_trigger" })]),
+        }),
+      }),
+    );
+  });
+
+  it("no body → diagnoses the SAVED state (no draftOverride passed) — back-compat", async () => {
+    await call("wf-1");
+    expect(mockDiagnose).toHaveBeenCalledWith({ subjectUserId: "user-1", workflowId: "wf-1" });
+  });
+
+  it("INVALID draftDefinition → 400, the diagnosis service is NEVER called (no save/run either)", async () => {
+    // Two triggers — WorkflowDefinitionSchema rejects it.
+    const res = await callWithBody("wf-1", {
+      draftDefinition: { nodes: [validDraft.nodes[0], { ...validDraft.nodes[0], id: "n2" }], edges: [] },
+    });
+    expect(res.status).toBe(400);
+    expect(mockDiagnose).not.toHaveBeenCalled();
+  });
+
+  it("the route imports no apply/patch/save/run writers (Check mutates nothing)", () => {
+    const src = readFileSync(
+      resolve(process.cwd(), "app/api/workflows/[id]/ai/diagnose/route.ts"),
+      "utf8",
+    );
+    expect(src).not.toMatch(/applyWorkflowPatch|applyPatchToDefinition|updateDraftDefinition/);
+    expect(src).not.toMatch(/saveWorkflow|executeWorkflow|runWorkflow/);
+    expect(src).not.toMatch(/scripts\/mcp/);
+  });
+});
+
 describe("ai/diagnose route — 0-credit telemetry on the workflow-owning account (AI-DIAG-2-pre)", () => {
   it("records a 0-credit deterministic event to the workflow-owning account on access OK", async () => {
     mockDiagnose.mockResolvedValue({ workflowId: "wf-1", access: "OK", overallReady: true });

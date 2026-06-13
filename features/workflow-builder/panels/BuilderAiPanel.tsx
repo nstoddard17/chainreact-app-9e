@@ -10,6 +10,7 @@ import {
   getBuilderAgentThread,
   planWorkflowRepair,
   type CurrentGraphSnapshot,
+  type WorkflowDraftSnapshot,
 } from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
 import type { RequiredInputAnswer } from "../ai";
@@ -129,6 +130,16 @@ export function BuilderAiPanel() {
       })),
       edges: pendingEdges.map((e) => ({ id: e.id, from: e.from, to: e.to })),
     }),
+    [pendingNodes, pendingEdges],
+  );
+
+  // AI-DIAG-FIX-1 — the FULL current builder draft (nodes WITH config + edges), so
+  // "Check workflow" / Explain / Suggest diagnose what the user SEES on the canvas
+  // (incl. unsaved node edits), not the stale server-saved draftDefinition. The
+  // server strictly validates it and uses it for the deterministic diagnosis only —
+  // it is never persisted, and Check stays 0-credit + no-model.
+  const currentDraft = useMemo<WorkflowDraftSnapshot>(
+    () => ({ nodes: [...pendingNodes], edges: [...pendingEdges] }),
     [pendingNodes, pendingEdges],
   );
 
@@ -444,7 +455,7 @@ export function BuilderAiPanel() {
     });
     setChecking(true);
     try {
-      const diagnosis = await diagnoseWorkflow(wfId);
+      const diagnosis = await diagnoseWorkflow(wfId, currentDraft);
       appendMessage({
         id: nextChatMessageId(),
         role: "assistant",
@@ -478,7 +489,7 @@ export function BuilderAiPanel() {
     if (explainedDiagnosisIds.has(diagnosisMessageId)) return;
     setExplaining(true);
     try {
-      const res = await explainDiagnosis(wfId);
+      const res = await explainDiagnosis(wfId, currentDraft);
       if (res.ok) {
         appendMessage({
           id: nextChatMessageId(),
@@ -526,7 +537,7 @@ export function BuilderAiPanel() {
     if (suggestedDiagnosisIds.has(diagnosisMessageId)) return;
     setSuggesting(true);
     try {
-      const res = await planWorkflowRepair(wfId);
+      const res = await planWorkflowRepair(wfId, currentDraft);
       if (res.ok) {
         appendMessage({
           id: nextChatMessageId(),

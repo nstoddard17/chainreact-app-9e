@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { diagnoseWorkflowForAgent } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
+import { parseDraftOverride } from "@/services/ai/diagnostics/draftOverride";
 import { recordAiCostEvent } from "@/services/billing/aiCostEvents";
 import { computeAiCreditCharge } from "@/core/billing/aiCreditPolicy";
 import { loadWorkflowForMember, requireUser } from "../../../_shared";
@@ -63,7 +64,7 @@ async function recordDiagnosisCostEvent(userId: string, workflowId: string): Pro
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireUser();
@@ -74,9 +75,23 @@ export async function POST(
     return NextResponse.json({ error: "Workflow id is required." }, { status: 400 });
   }
 
+  // AI-DIAG-FIX-1 — OPTIONAL current-builder-draft snapshot. Validated (strict
+  // WorkflowDefinitionSchema) and used for the deterministic diagnosis ONLY; never
+  // persisted. Absent body → diagnose the saved state (back-compat). Still 0-credit,
+  // still no LLM — diagnosing the unsaved canvas mutates/saves/runs nothing.
+  const body = await request.json().catch(() => ({}));
+  const override = parseDraftOverride(body);
+  if (!override.ok) {
+    return NextResponse.json({ error: "Invalid workflow draft." }, { status: 400 });
+  }
+
   let dto;
   try {
-    dto = await diagnoseWorkflowForAgent({ subjectUserId: auth.userId, workflowId: id });
+    dto = await diagnoseWorkflowForAgent({
+      subjectUserId: auth.userId,
+      workflowId: id,
+      ...(override.draftOverride ? { draftOverride: override.draftOverride } : {}),
+    });
   } catch {
     // Sanitized — never leak internals / connection strings / stack traces.
     return NextResponse.json({ error: "Failed to diagnose the workflow." }, { status: 500 });

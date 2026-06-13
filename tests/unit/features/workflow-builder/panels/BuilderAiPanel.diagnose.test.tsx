@@ -102,7 +102,11 @@ describe("Check workflow — happy path", () => {
 
     await user.click(screen.getByTestId("builder-ai-check-button"));
 
-    expect(mockDiagnose).toHaveBeenCalledWith("wf-1");
+    // AI-DIAG-FIX-1 — Check sends the CURRENT builder draft snapshot (nodes+edges).
+    expect(mockDiagnose).toHaveBeenCalledWith(
+      "wf-1",
+      expect.objectContaining({ nodes: [], edges: [] }),
+    );
     await screen.findByTestId("builder-ai-diagnosis");
     expect(screen.getByTestId("builder-ai-diagnosis-summary").textContent).toContain(
       "can't run yet",

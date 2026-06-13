@@ -2,6 +2,8 @@ import { getByIdServiceRole } from "@/repositories/workflows";
 import { isMemberServiceRole } from "@/repositories/accountMemberships";
 import { getProvider } from "@/integrations/_registry";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
+import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 
 /**
  * Workflow-readiness diagnostic capability (Slice 4.MCP-STAGE-2B-3 extraction).
@@ -48,6 +50,17 @@ export interface ProviderInventoryDTO {
   readonly enabled: boolean;
 }
 
+/**
+ * Safe nodeId → human display label (AI-DIAG-FIX-1). The label is the user's
+ * custom node name, else the action/trigger meta display name, else a friendly
+ * title-cased type — NEVER a raw node id. Lets the render/explain/repair layers
+ * refer to "Slack — Send Channel Message" instead of leaking `node:<uuid>`.
+ */
+export interface NodeLabelDTO {
+  readonly nodeId: string;
+  readonly label: string;
+}
+
 export interface WorkflowReadinessDTO {
   readonly workflowId: string;
   readonly access: "OK" | "NOT_FOUND" | "NO_ACCOUNT_ACCESS";
@@ -57,6 +70,29 @@ export interface WorkflowReadinessDTO {
   readonly graphIssues?: readonly GraphIssueDTO[];
   readonly fieldGaps?: readonly FieldGapDTO[];
   readonly providers?: readonly ProviderInventoryDTO[];
+  /** nodeId → safe display label for every node in the diagnosed graph. */
+  readonly nodeLabels?: readonly NodeLabelDTO[];
+}
+
+/** Build the nodeId → safe display-label inventory for the diagnosed graph. */
+function buildNodeLabels(
+  nodes: ReadonlyArray<{
+    id: string;
+    kind: "trigger" | "action";
+    provider: string;
+    type: string;
+    displayName?: string;
+  }>,
+): NodeLabelDTO[] {
+  return nodes.map((n) => ({
+    nodeId: n.id,
+    label: resolveNodeDisplayNameFromRegistry({
+      kind: n.kind,
+      provider: n.provider,
+      type: n.type,
+      ...(n.displayName !== undefined ? { displayName: n.displayName } : {}),
+    }),
+  }));
 }
 
 /** Distinct provider ids in the draft graph → static manifest inventory (no DB). */
@@ -88,6 +124,15 @@ function buildProviderInventory(
 export async function diagnoseWorkflowReadiness(input: {
   subjectUserId: string;
   workflowId: string;
+  /**
+   * AI-DIAG-FIX-1 — the client's CURRENT builder draft (unsaved edits), validated
+   * upstream. When present the readiness verdict + inventories are computed against
+   * it instead of the saved `draftDefinition`, so "Check workflow" matches the
+   * canvas. Authorization still comes from the SAVED workflow record below — the
+   * override only changes WHICH graph is analyzed, never WHO may analyze it. Never
+   * persisted.
+   */
+  draftOverride?: WorkflowDefinition;
 }): Promise<WorkflowReadinessDTO> {
   const { subjectUserId, workflowId } = input;
 
@@ -107,8 +152,13 @@ export async function diagnoseWorkflowReadiness(input: {
   }
 
   // 4. Authorized member → the SAME readiness verdict the engine + builder use.
-  const err = checkWorkflowReadiness(workflow.draftDefinition);
-  const providers = buildProviderInventory(workflow.draftDefinition.nodes);
+  // AI-DIAG-FIX-1: diagnose the client's current builder draft when supplied
+  // (unsaved edits), else the saved definition. Authz already passed on the saved
+  // record above; the override changes only WHICH graph is analyzed.
+  const def = input.draftOverride ?? workflow.draftDefinition;
+  const err = checkWorkflowReadiness(def);
+  const providers = buildProviderInventory(def.nodes);
+  const nodeLabels = buildNodeLabels(def.nodes);
 
   const graphIssues: GraphIssueDTO[] =
     err?.error === "INVALID_WORKFLOW_GRAPH"
@@ -139,5 +189,6 @@ export async function diagnoseWorkflowReadiness(input: {
     graphIssues,
     fieldGaps,
     providers,
+    nodeLabels,
   };
 }

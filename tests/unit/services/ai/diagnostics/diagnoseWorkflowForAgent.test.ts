@@ -369,6 +369,55 @@ describe("diagnoseWorkflowForAgent — personal provider non-creator", () => {
   });
 });
 
+// ───────────── AI-DIAG-FIX-1: draftOverride threading + node labels ─────────────
+describe("diagnoseWorkflowForAgent — current-draft override + node labels", () => {
+  it("forwards draftOverride to BOTH readiness and connections (diagnoses current builder state)", async () => {
+    mockReadiness.mockResolvedValue(
+      readinessOk({ runnable: true, readinessError: null, graphIssues: [], fieldGaps: [] }),
+    );
+    mockConnections.mockResolvedValue(connectionsOk({ allRequiredConnected: true, providers: [] }));
+    const draftOverride = {
+      nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } }],
+      edges: [],
+    } as any;
+    await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF, draftOverride });
+    expect(mockReadiness).toHaveBeenCalledWith({ subjectUserId: USER, workflowId: WF, draftOverride });
+    expect(mockConnections).toHaveBeenCalledWith({ subjectUserId: USER, workflowId: WF, draftOverride });
+  });
+
+  it("without a draftOverride, sub-services are called without one (saved-state back-compat)", async () => {
+    mockReadiness.mockResolvedValue(
+      readinessOk({ runnable: true, readinessError: null, graphIssues: [], fieldGaps: [] }),
+    );
+    mockConnections.mockResolvedValue(connectionsOk({ allRequiredConnected: true, providers: [] }));
+    await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(mockReadiness).toHaveBeenCalledWith({ subjectUserId: USER, workflowId: WF });
+    expect(mockConnections).toHaveBeenCalledWith({ subjectUserId: USER, workflowId: WF });
+  });
+
+  it("attaches safe nodeLabels to findings and never leaks the raw node id into summaryText", async () => {
+    const ID = "264806d9-ddb1-4cfd-a068-6089862e15ad";
+    mockReadiness.mockResolvedValue(
+      readinessOk({
+        runnable: false,
+        readinessError: "MISSING_REQUIRED_FIELDS",
+        graphIssues: [],
+        fieldGaps: [{ nodeId: ID, nodeName: "Send Channel Message", missingFields: ["Message"] }],
+        nodeLabels: [{ nodeId: ID, label: "Send Channel Message" }],
+      }),
+    );
+    mockConnections.mockResolvedValue(connectionsOk({ allRequiredConnected: true, providers: [] }));
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const field = dto.findings!.find((f) => f.source === "field")!;
+    expect(field.nodeLabels).toEqual(["Send Channel Message"]);
+    // Internal id is kept on the finding but NEVER rendered into user-facing text.
+    expect(field.nodeIds).toEqual([ID]);
+    expect(dto.summaryText).toContain("Send Channel Message");
+    expect(dto.summaryText).not.toContain(ID);
+    expect(dto.summaryText).not.toContain("264806d9");
+  });
+});
+
 // ───────────────────────────── no-leak ─────────────────────────────
 describe("diagnoseWorkflowForAgent — no-leak (allow-lists fields)", () => {
   it("drops any raw fields a source DTO might carry; only safe fields compose", async () => {

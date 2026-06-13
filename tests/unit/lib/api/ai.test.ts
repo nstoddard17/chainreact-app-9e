@@ -12,6 +12,8 @@ import {
   AiApiError,
   AI_CREDITS_EXHAUSTED_MESSAGE,
   applyWorkflowPatch,
+  diagnoseWorkflow,
+  explainDiagnosis,
   planWorkflow,
   planWorkflowRepair,
   requestWorkflowRepair,
@@ -266,5 +268,37 @@ describe("planWorkflowRepair (AI-REPAIR-1b)", () => {
   it("throws AiApiError for a sanitized 500", async () => {
     mockFetch(jest.fn().mockResolvedValue(jsonResponse(500, { error: "Failed to diagnose the workflow." })));
     await expect(planWorkflowRepair("wf-1")).rejects.toMatchObject({ name: "AiApiError", status: 500 });
+  });
+});
+
+describe("AI-DIAG-FIX-1 — diagnosis clients forward the current builder draft", () => {
+  const draft = {
+    nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } }],
+    edges: [],
+  } as never;
+
+  it("diagnoseWorkflow posts { draftDefinition } with a draft, {} without", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { workflowId: "wf-1", access: "OK" }));
+    mockFetch(fetchMock);
+    await diagnoseWorkflow("wf-1", draft);
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ draftDefinition: draft });
+
+    fetchMock.mockClear();
+    await diagnoseWorkflow("wf-1");
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({});
+  });
+
+  it("explainDiagnosis posts { draftDefinition } when given a draft", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, explanation: "x" }));
+    mockFetch(fetchMock);
+    await explainDiagnosis("wf-1", draft);
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ draftDefinition: draft });
+  });
+
+  it("planWorkflowRepair posts { draftDefinition } when given a draft", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, proposal: {} }));
+    mockFetch(fetchMock);
+    await planWorkflowRepair("wf-1", draft);
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ draftDefinition: draft });
   });
 });

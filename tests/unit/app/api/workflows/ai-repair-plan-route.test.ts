@@ -272,6 +272,47 @@ describe("ai/repair/plan — success + failure + recording", () => {
   });
 });
 
+// ── AI-DIAG-FIX-1: current-builder-draft snapshot (Suggest re-derives current state) ──
+const validDraft = {
+  nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } }],
+  edges: [],
+};
+function callBody(id: string, body: unknown) {
+  return POST(
+    new Request(`http://x/api/workflows/${id}/ai/repair/plan`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+}
+
+describe("ai/repair/plan — current draft override", () => {
+  it("forwards a VALID draftDefinition to the server-side re-derivation", async () => {
+    await callBody("wf-1", { draftDefinition: validDraft });
+    expect(mockDiagnose).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subjectUserId: "user-1",
+        workflowId: "wf-1",
+        draftOverride: expect.objectContaining({
+          nodes: expect.arrayContaining([expect.objectContaining({ id: "n1" })]),
+        }),
+      }),
+    );
+  });
+
+  it("INVALID draftDefinition → 400 BEFORE diagnose / gate / model", async () => {
+    const res = await callBody("wf-1", {
+      draftDefinition: { nodes: [validDraft.nodes[0], { ...validDraft.nodes[0], id: "n2" }], edges: [] },
+    });
+    expect(res.status).toBe(400);
+    expect(mockDiagnose).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockRepair).not.toHaveBeenCalled();
+  });
+});
+
 describe("ai/repair/plan — boundaries (proposal-only)", () => {
   it("the route imports no MCP, no apply/patch writers, and triggers no save/run", () => {
     const src = readFileSync(

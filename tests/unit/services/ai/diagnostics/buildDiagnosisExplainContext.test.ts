@@ -135,6 +135,28 @@ describe("buildDiagnosisExplainContext (AI-DIAG-2a)", () => {
     expect(ctx.findings[0]!.missingScopes).toEqual(["channels:read"]);
   });
 
+  it("AI-DIAG-FIX-1 — forwards safe nodeLabels to the model but NEVER the raw nodeIds", () => {
+    const ctx = buildDiagnosisExplainContext({
+      access: "OK",
+      findings: [
+        {
+          source: "field",
+          code: "MISSING_REQUIRED_FIELD",
+          severity: "error",
+          title: "Required fields are missing.",
+          nodeIds: ["264806d9-ddb1-4cfd-a068-6089862e15ad"],
+          nodeLabels: ["Send Channel Message"],
+          missingFields: ["Message"],
+        },
+      ],
+    } as any);
+    expect(ctx.findings[0]!.nodeLabels).toEqual(["Send Channel Message"]);
+    const s = JSON.stringify(ctx);
+    expect(s).toContain("Send Channel Message");
+    expect(s).not.toContain("264806d9");
+    expect(s).not.toContain("nodeIds");
+  });
+
   it("handles a findings-less / latestRun-less DTO", () => {
     const ctx = buildDiagnosisExplainContext({ access: "OK", overallReady: true } as any);
     expect(ctx.findings).toEqual([]);

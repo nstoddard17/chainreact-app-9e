@@ -44,14 +44,37 @@ describe("renderWorkflowDiagnosis — code → stable strings + safe next steps"
         title: "The provider isn't connected.",
         provider: "gmail",
         providerName: "Gmail",
+        // AI-DIAG-FIX-1 — raw id stays internal; the human label is rendered.
         nodeIds: ["n2"],
+        nodeLabels: ["Send Email"],
         credentialClass: "personal",
       },
     ];
     const out = renderWorkflowDiagnosis({ ...base, findings });
     expect(out.summaryText).toContain("Gmail");
-    expect(out.summaryText).toContain("n2");
+    // The human node LABEL is rendered; the raw node id never is.
+    expect(out.summaryText).toContain("Send Email");
+    expect(out.summaryText).not.toContain("n2");
     expect(out.nextSteps).toContain("Reconnect Gmail.");
+  });
+
+  it("AI-DIAG-FIX-1 — a missing-field finding renders the node LABEL, never the raw id", () => {
+    const findings: AgentFinding[] = [
+      {
+        source: "field",
+        code: "MISSING_REQUIRED_FIELD",
+        severity: "error",
+        title: "Required fields are missing.",
+        nodeIds: ["264806d9-ddb1-4cfd-a068-6089862e15ad"],
+        nodeLabels: ["Send Channel Message"],
+        missingFields: ["Message"],
+      },
+    ];
+    const out = renderWorkflowDiagnosis({ ...base, findings });
+    expect(out.summaryText).toContain("Send Channel Message");
+    expect(out.summaryText).toContain("Message");
+    expect(out.summaryText).not.toContain("264806d9");
+    expect(out.summaryText).not.toMatch(/node:/i);
   });
 
   it("MISSING_SCOPES → step lists the public scope gap names", () => {

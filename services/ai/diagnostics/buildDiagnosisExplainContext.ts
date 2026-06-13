@@ -13,14 +13,16 @@ import type {
  * INCLUDED (all human-meaningful + already client-visible): readiness booleans,
  * `summaryText`, `nextSteps`, and per finding `code` / `source` / `severity` /
  * `title` / `provider` (public id) / `providerName` (public label) / `missingFields`
- * (NAMES) / `missingScopes` (public constants) / `credentialClass`, plus the latest
- * run's safe humanized classification + status.
+ * (NAMES) / `missingScopes` (public constants) / `credentialClass` / `nodeLabels`
+ * (AI-DIAG-FIX-1 — safe human node display labels, e.g. "Slack — Send Channel
+ * Message"; NOT ids), plus the latest run's safe humanized classification + status.
  *
- * EXCLUDED — never placed in the model prompt (Q4 / owner constraints): node ids,
- * the workflow id, run ids, `firstFailedNodeId`, `classificationAvailable`, and the
- * entire space of raw config / tokens / integration rows / providerAccountId /
- * provider account labels / account metadata / connectedByUserId / trigger payloads /
- * PII (none reachable from the DTO type anyway).
+ * EXCLUDED — never placed in the model prompt (Q4 / owner constraints): raw node
+ * ids (`nodeIds`), the workflow id, run ids, `firstFailedNodeId`,
+ * `classificationAvailable`, and the entire space of raw config / tokens /
+ * integration rows / providerAccountId / provider account labels / account metadata
+ * / connectedByUserId / trigger payloads / PII (none reachable from the DTO type
+ * anyway).
  */
 
 export interface DiagnosisExplainFinding {
@@ -33,6 +35,8 @@ export interface DiagnosisExplainFinding {
   readonly missingFields?: readonly string[];
   readonly missingScopes?: readonly string[];
   readonly credentialClass?: string;
+  /** AI-DIAG-FIX-1 — safe human node labels (never ids). */
+  readonly nodeLabels?: readonly string[];
 }
 
 export interface DiagnosisExplainLatestRun {
@@ -75,6 +79,7 @@ export function buildDiagnosisExplainContext(
     ...(f.missingFields !== undefined ? { missingFields: f.missingFields } : {}),
     ...(f.missingScopes !== undefined ? { missingScopes: f.missingScopes } : {}),
     ...(f.credentialClass !== undefined ? { credentialClass: f.credentialClass } : {}),
+    ...(f.nodeLabels !== undefined ? { nodeLabels: f.nodeLabels } : {}),
   }));
 
   const cls = dto.latestRun?.errorClassification;

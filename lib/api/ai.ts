@@ -18,6 +18,16 @@
  * has no `ok` (401 / 404 / 500 / bad-request validation).
  */
 
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
+
+/**
+ * AI-DIAG-FIX-1 — the builder's CURRENT (possibly unsaved) draft, sent with
+ * diagnose / explain / repair so the server diagnoses what the user sees on the
+ * canvas, not the stale saved `draftDefinition`. The server STRICTLY validates it
+ * and uses it for the deterministic diagnosis only — it is never persisted.
+ */
+export type WorkflowDraftSnapshot = WorkflowDefinition;
+
 /** Opaque to the client — produced by the plan route, forwarded to apply. */
 export type AiOpaquePatch = Record<string, unknown>;
 
@@ -474,7 +484,10 @@ export interface AgentDiagnosisFinding {
   readonly code: string;
   readonly severity: "error" | "warning";
   readonly title: string;
+  /** INTERNAL opaque ids — never rendered in user-facing text. Use `nodeLabels`. */
   readonly nodeIds?: readonly string[];
+  /** AI-DIAG-FIX-1 — safe human node display labels (never ids). */
+  readonly nodeLabels?: readonly string[];
   readonly provider?: string;
   readonly providerName?: string | null;
   readonly missingFields?: readonly string[];
@@ -512,10 +525,15 @@ export interface AgentWorkflowDiagnosis {
 
 export async function diagnoseWorkflow(
   workflowId: string,
+  draftDefinition?: WorkflowDraftSnapshot,
 ): Promise<AgentWorkflowDiagnosis> {
   return fetchJson<AgentWorkflowDiagnosis>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose`,
-    { method: "POST", headers: { "content-type": "application/json" }, body: "{}" },
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(draftDefinition ? { draftDefinition } : {}),
+    },
   );
 }
 
@@ -540,10 +558,13 @@ export interface AiDiagnosisExplanationFailure {
 }
 export type AiDiagnosisExplanation = AiDiagnosisExplanationSuccess | AiDiagnosisExplanationFailure;
 
-export async function explainDiagnosis(workflowId: string): Promise<AiDiagnosisExplanation> {
+export async function explainDiagnosis(
+  workflowId: string,
+  draftDefinition?: WorkflowDraftSnapshot,
+): Promise<AiDiagnosisExplanation> {
   return postStructured<AiDiagnosisExplanation>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose/explain`,
-    {},
+    draftDefinition ? { draftDefinition } : {},
   );
 }
 
@@ -597,10 +618,13 @@ function safeRepairFailureMessage(code: string): string {
   }
 }
 
-export async function planWorkflowRepair(workflowId: string): Promise<RepairPlanResult> {
+export async function planWorkflowRepair(
+  workflowId: string,
+  draftDefinition?: WorkflowDraftSnapshot,
+): Promise<RepairPlanResult> {
   const result = await postStructured<RepairPlanResult>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/plan`,
-    {},
+    draftDefinition ? { draftDefinition } : {},
   );
   if (result.ok) return result;
   // Normalize handled-failure copy to a safe, code-keyed constant — no raw server text reaches the UI.

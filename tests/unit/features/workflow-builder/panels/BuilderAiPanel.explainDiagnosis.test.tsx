@@ -162,7 +162,11 @@ describe("Explain with AI — happy path", () => {
     const user = await check();
     await user.click(screen.getByTestId("builder-ai-explain-button"));
     expect(mockExplain).toHaveBeenCalledTimes(1);
-    expect(mockExplain).toHaveBeenCalledWith("wf-1");
+    // AI-DIAG-FIX-1 — Explain re-derives from the SAME current builder draft.
+    expect(mockExplain).toHaveBeenCalledWith(
+      "wf-1",
+      expect.objectContaining({ nodes: [], edges: [] }),
+    );
     const body = await screen.findByTestId("builder-ai-diagnosis-explanation");
     expect(screen.getByTestId("builder-ai-diagnosis-explanation-text").textContent).toContain("Reconnect Gmail");
     expect(screen.getByTestId("builder-ai-diagnosis-explanation-priorities").textContent).toContain("Reconnect Gmail");

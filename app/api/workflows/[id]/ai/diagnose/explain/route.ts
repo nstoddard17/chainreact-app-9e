@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { diagnoseWorkflowForAgent } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
+import { parseDraftOverride } from "@/services/ai/diagnostics/draftOverride";
 import {
   explainWorkflowDiagnosis,
   type ExplainWorkflowDiagnosisResult,
@@ -132,7 +133,7 @@ async function recordExplainEvent(
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireUser();
@@ -141,6 +142,15 @@ export async function POST(
   const { id } = await params;
   if (!id || id.trim() === "") {
     return NextResponse.json({ error: "Workflow id is required." }, { status: 400 });
+  }
+
+  // AI-DIAG-FIX-1 — OPTIONAL current-builder-draft snapshot so Explain re-derives
+  // the SAME current diagnosis "Check workflow" showed (not stale saved state).
+  // Validated; used for the deterministic re-derivation only; never persisted.
+  const body = await request.json().catch(() => ({}));
+  const override = parseDraftOverride(body);
+  if (!override.ok) {
+    return NextResponse.json({ error: "Invalid workflow draft." }, { status: 400 });
   }
 
   // Workflow-owning account + membership (no-leak 404). The cost owner is resolved
@@ -152,7 +162,11 @@ export async function POST(
   // Re-derive the diagnosis server-side — the model never sees a client-posted DTO.
   let dto;
   try {
-    dto = await diagnoseWorkflowForAgent({ subjectUserId: auth.userId, workflowId: id });
+    dto = await diagnoseWorkflowForAgent({
+      subjectUserId: auth.userId,
+      workflowId: id,
+      ...(override.draftOverride ? { draftOverride: override.draftOverride } : {}),
+    });
   } catch {
     return NextResponse.json({ error: "Failed to diagnose the workflow." }, { status: 500 });
   }

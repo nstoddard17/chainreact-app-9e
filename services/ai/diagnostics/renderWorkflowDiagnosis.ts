@@ -106,8 +106,11 @@ export function renderWorkflowDiagnosis(
     if (f.missingScopes && f.missingScopes.length > 0) {
       detail.push(`scopes: ${f.missingScopes.join(", ")}`);
     }
-    if (f.nodeIds && f.nodeIds.length > 0) {
-      detail.push(`node${f.nodeIds.length === 1 ? "" : "s"}: ${f.nodeIds.join(", ")}`);
+    // AI-DIAG-FIX-1 — render human node LABELS, never raw node ids. Raw `nodeIds`
+    // stay internal on the finding (repair/apply use them later); they must never
+    // reach this user-facing (and model-visible, via summaryText) text.
+    if (f.nodeLabels && f.nodeLabels.length > 0) {
+      detail.push(`step${f.nodeLabels.length === 1 ? "" : "s"}: ${f.nodeLabels.join(", ")}`);
     }
     const suffix = detail.length > 0 ? ` (${detail.join("; ")})` : "";
     lines.push(`- ${f.title}${suffix}`);
