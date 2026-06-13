@@ -94,4 +94,27 @@ describe("ConnectButton", () => {
       );
     });
   });
+
+  it("4.APPS-RECONNECT — forwards the reconnect bundle (opaque ids only) to startOAuth", async () => {
+    mockStartOAuth.mockResolvedValueOnce({
+      redirectUrl: "https://accounts.google.com/o/oauth2/v2/auth?x=3",
+    });
+    const user = userEvent.setup();
+    render(
+      <ConnectButton
+        provider="gmail"
+        label="Reconnect"
+        variant="reconnect"
+        title="Reconnect this account"
+        testId="app-card-reconnect"
+        reconnect={{ integrationId: "int-77", accountId: "team-acct" }}
+      />,
+    );
+    await user.click(screen.getByTestId("app-card-reconnect"));
+    await waitFor(() => {
+      expect(mockStartOAuth).toHaveBeenCalledWith("gmail", {
+        reconnect: { integrationId: "int-77", accountId: "team-acct" },
+      });
+    });
+  });
 });
