@@ -10,8 +10,10 @@
  */
 import {
   AiApiError,
+  AI_CREDITS_EXHAUSTED_MESSAGE,
   applyWorkflowPatch,
   planWorkflow,
+  planWorkflowRepair,
   requestWorkflowRepair,
 } from "@/lib/api/ai";
 
@@ -198,5 +200,71 @@ describe("requestWorkflowRepair (AI-13)", () => {
   it("throws AiApiError for a sanitized 500", async () => {
     mockFetch(jest.fn().mockResolvedValue(jsonResponse(500, { error: "Failed to suggest a repair." })));
     await expect(requestWorkflowRepair("wf-1", "run-1")).rejects.toMatchObject({ status: 500 });
+  });
+});
+
+describe("planWorkflowRepair (AI-REPAIR-1b)", () => {
+  it("posts to the diagnosis-scoped repair-plan route and returns the proposal on 200", async () => {
+    const proposal = {
+      summary: "Reconnect Gmail.",
+      recommendedActions: ["Reconnect Gmail"],
+      affectedNodes: ["Gmail — Send Email"],
+      missingInfo: [],
+      riskLevel: "low",
+      canAutoPatchLater: false,
+      requiresUserAction: true,
+      notAppliedNotice: "This is a suggestion only — your workflow wasn't changed, saved, or run.",
+    };
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, proposal }));
+    mockFetch(fetchMock);
+
+    const result = await planWorkflowRepair("wf 1");
+    expect(result).toEqual({ ok: true, proposal });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("/api/workflows/wf%201/ai/repair/plan");
+    expect((init as { method?: string }).method).toBe("POST");
+    expect((init as { body: string }).body).toBe("{}");
+  });
+
+  it("maps a 402 AI_CREDITS_EXHAUSTED to the shared safe credit message (no raw server text)", async () => {
+    mockFetch(
+      jest.fn().mockResolvedValue(
+        jsonResponse(402, { ok: false, code: "AI_CREDITS_EXHAUSTED", message: "raw server copy that must not surface" }),
+      ),
+    );
+    const result = await planWorkflowRepair("wf-1");
+    expect(result).toEqual({ ok: false, code: "AI_CREDITS_EXHAUSTED", message: AI_CREDITS_EXHAUSTED_MESSAGE });
+    if (!result.ok) expect(result.message).not.toContain("raw server copy");
+  });
+
+  it("maps a 503 MODEL_FAILED to a safe generic message (no internals)", async () => {
+    mockFetch(
+      jest.fn().mockResolvedValue(
+        jsonResponse(503, { ok: false, code: "MODEL_FAILED", message: "boom: SECRET-INTERNAL" }),
+      ),
+    );
+    const result = await planWorkflowRepair("wf-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("MODEL_FAILED");
+      expect(result.message).toBe("Couldn't suggest a fix right now. Please try again.");
+      expect(result.message).not.toContain("SECRET-INTERNAL");
+    }
+  });
+
+  it("maps a 503 AI_GATE_ERROR safely too", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(503, { ok: false, code: "AI_GATE_ERROR", message: "x" })));
+    const result = await planWorkflowRepair("wf-1");
+    expect(result).toEqual({ ok: false, code: "AI_GATE_ERROR", message: "Couldn't suggest a fix right now. Please try again." });
+  });
+
+  it("throws AiApiError for a transport failure with no ok flag (401)", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(401, { error: "unauthenticated" })));
+    await expect(planWorkflowRepair("wf-1")).rejects.toBeInstanceOf(AiApiError);
+  });
+
+  it("throws AiApiError for a sanitized 500", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(500, { error: "Failed to diagnose the workflow." })));
+    await expect(planWorkflowRepair("wf-1")).rejects.toMatchObject({ name: "AiApiError", status: 500 });
   });
 });

@@ -548,6 +548,66 @@ export async function explainDiagnosis(workflowId: string): Promise<AiDiagnosisE
 }
 
 /**
+ * Slice 4.AI-REPAIR-1b — optional LLM REPAIR PROPOSAL for the (already-computed)
+ * safe diagnosis (POST /api/workflows/[id]/ai/repair/plan). Proposal-ONLY: the
+ * server re-derives the diagnosis, sends only an allow-listed projection to the
+ * model, and returns plain-language recommendations — it NEVER changes, saves, or
+ * runs the workflow, and returns NO patch. Handled failures (402/403/503) return
+ * as a structured `ok:false` with a SAFE, code-keyed message; transport failures
+ * (401/404/500) throw `AiApiError`.
+ */
+export type RepairRiskLevel = "low" | "medium" | "high";
+
+export interface RepairProposal {
+  readonly summary: string;
+  readonly recommendedActions: readonly string[];
+  /** Safe human labels only — never node ids / config values. */
+  readonly affectedNodes: readonly string[];
+  readonly missingInfo: readonly string[];
+  /** Advisory — never authoritative; the UI labels it as the AI's estimate. */
+  readonly riskLevel: RepairRiskLevel;
+  readonly canAutoPatchLater: boolean;
+  readonly requiresUserAction: boolean;
+  /** Immutable "nothing was changed" line, set by the server. */
+  readonly notAppliedNotice: string;
+}
+
+export interface RepairPlanSuccess {
+  readonly ok: true;
+  readonly proposal: RepairProposal;
+}
+export interface RepairPlanFailure {
+  readonly ok: false;
+  /** AI_CREDITS_EXHAUSTED | ACCOUNT_PENDING_DELETION | AI_GATE_ERROR | MODEL_FAILED | PARSE_FAILED */
+  readonly code: string;
+  readonly message: string;
+}
+export type RepairPlanResult = RepairPlanSuccess | RepairPlanFailure;
+
+/** Safe, code-keyed user-facing copy for a handled repair-plan failure (never raw server/model text). */
+function safeRepairFailureMessage(code: string): string {
+  switch (code) {
+    case "AI_CREDITS_EXHAUSTED":
+      return AI_CREDITS_EXHAUSTED_MESSAGE;
+    case "ACCOUNT_PENDING_DELETION":
+      return "This account is pending deletion.";
+    default:
+      // MODEL_FAILED | AI_GATE_ERROR | PARSE_FAILED | anything else → one safe line.
+      return "Couldn't suggest a fix right now. Please try again.";
+  }
+}
+
+export async function planWorkflowRepair(workflowId: string): Promise<RepairPlanResult> {
+  const result = await postStructured<RepairPlanResult>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/plan`,
+    {},
+  );
+  if (result.ok) return result;
+  // Normalize handled-failure copy to a safe, code-keyed constant — no raw server text reaches the UI.
+  return { ok: false, code: result.code, message: safeRepairFailureMessage(result.code) };
+}
+
+/**
  * AI-13 failed-run repair (POST /api/workflows/[id]/runs/[runId]/ai/repair).
  *
  * Client-side view of the AI-7 service's `RepairSuggestionResult`. Like
