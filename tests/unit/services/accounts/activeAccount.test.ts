@@ -272,12 +272,22 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
   const FOREGROUND_HELPER_FILES = [
     resolve(ROOT, "app/notifications/credentialRequestNotice.ts"),
   ];
+  // OAUTH-ACCT-BIND — the OAuth connect route is a FOREGROUND, user-session entry
+  // point (the user clicks "Connect"). It resolves the caller's active account at
+  // connect-start to bind it into the signed OAuth state, so the new integration
+  // lands on the account the user is actually on (the bug: it used to default to
+  // personal). The dispatcher itself never resolves the active account — the route
+  // passes the resolved id in. This is a foreground gate, NOT a background path.
+  const FOREGROUND_ROUTE_FILES = [
+    resolve(ROOT, "app/api/integrations/oauth/[provider]/connect/route.ts"),
+  ];
   // resolveActiveAccount's production callers — the foreground gates + helpers only.
   const RESOLVER_ALLOWED = new Set([
     DEF_FILE,
     GATE_FILE,
     ...FOREGROUND_PAGE_FILES,
     ...FOREGROUND_HELPER_FILES,
+    ...FOREGROUND_ROUTE_FILES,
   ]);
   // Background entry points must NEVER consult active-account state (default
   // OR set): cron/webhook/polling resolve the workflow's owning account instead.

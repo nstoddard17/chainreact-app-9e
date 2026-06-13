@@ -39,11 +39,8 @@ import {
   upsertActive,
   type IntegrationRecord,
 } from "@/repositories/integrations";
-import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
-import {
-  AccountFrozenError,
-  assertAccountOperational,
-} from "@/services/accounts/accountFreeze";
+import { isMemberServiceRole } from "@/repositories/accountMemberships";
+import { assertAccountOperational } from "@/services/accounts/accountFreeze";
 import { refreshLockKey, withRefreshLock } from "./refreshLock";
 import { createState, consumeState, InvalidStateError } from "./state";
 
@@ -114,6 +111,18 @@ const TOKEN_INGEST_BY_PROVIDER: Readonly<Record<string, ProviderTokenIngestAuth>
 
 export interface ConnectInput {
   userId: string;
+  /**
+   * The V2 account the new integration MUST be written to — resolved by the
+   * connect ROUTE at connect-start from the user's ACTIVE account (the account
+   * switcher), then bound into the signed state JWT so the callback writes to
+   * exactly this account regardless of any active-account/session/cookie change
+   * during the OAuth round trip. NEVER defaulted to the personal account here:
+   * defaulting to personal was the OAUTH-ACCT-BIND bug (a connect started on a
+   * Team account silently landed on Personal). In reconnect mode this is ignored
+   * in favor of the already-authorized `reconnect.accountId` (the target row's
+   * account). Required for the normal connect path.
+   */
+  accountId: string;
   provider: string;
   /**
    * Optional per-tenant provider hint (Slice 12). Set by the connect
@@ -157,6 +166,22 @@ export class ReconnectIdentityMismatchError extends Error {
   constructor() {
     super("reconnect identity mismatch");
     this.name = "ReconnectIdentityMismatchError";
+  }
+}
+
+/**
+ * Thrown by `handleCallback` / `handleTokenIngest` when, at callback time, the
+ * flow-initiating user (from the signed state) is NO LONGER a member of the
+ * state-bound account — e.g. they were removed from the team between connect and
+ * callback. No integration row is created or refreshed. The callback route maps
+ * this to a stable, non-leaking code (`account_access_revoked`) — never the raw
+ * account/user id. This is the membership half of the OAUTH-ACCT-BIND hardening:
+ * the write target is the signed-state account, re-verified for live membership.
+ */
+export class StateAccountAccessError extends Error {
+  constructor() {
+    super("state account access revoked");
+    this.name = "StateAccountAccessError";
   }
 }
 
@@ -210,31 +235,21 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     throw new Error(`Provider '${input.provider}' does not support OAuth.`);
   }
 
-  // Slice 4.ACCOUNT-MODEL-6: resolve the target V2 account at connect
-  // time and bind it into the signed state JWT. No active-account
-  // switcher yet — default to the user's personal account. The future
-  // switcher slice changes only what we resolve here (the active
-  // account over personal-account fallback); the dispatcher contract
-  // is unchanged.
+  // OAUTH-ACCT-BIND fix: the target V2 account is resolved by the connect ROUTE
+  // at connect-start from the user's ACTIVE account (the account switcher) and
+  // passed in as `input.accountId` — it is bound into the signed state JWT below,
+  // so the callback writes the integration to the account the user was actually
+  // on. It is NOT defaulted to the personal account here (that default was the
+  // bug: a connect started on a Team account silently landed on Personal). The
+  // route enforces membership + freeze (via the active-account resolver) before calling
+  // connect; the callback re-verifies both against the signed state.
   //
-  // Slice 4.APPS-RECONNECT: in reconnect mode the target account is the
-  // intended ROW's account (NOT the personal floor) — the connect route already
-  // resolved + authorized it (membership + not-frozen) via the reconnect
-  // service, so we trust `input.reconnect.accountId` and skip the personal-floor
-  // resolution + freeze check here.
-  let accountId: string;
-  if (input.reconnect) {
-    accountId = input.reconnect.accountId;
-  } else {
-    const ownerAccount = await ensurePersonalAccount(input.userId);
-    accountId = ownerAccount.id;
-    // 4.ACCOUNT-MODEL-10b — account freeze. A pending_deletion account cannot
-    // connect new integrations. Checked on the already-resolved record (no extra
-    // round trip) before any state JWT is minted.
-    if (ownerAccount.deletionStatus === "pending_deletion") {
-      throw new AccountFrozenError(accountId);
-    }
-  }
+  // Slice 4.APPS-RECONNECT: in reconnect mode the target account is the intended
+  // ROW's account (NOT the active account) — the connect route already resolved +
+  // authorized it (membership + not-frozen) via the reconnect service, so we use
+  // `input.reconnect.accountId`.
+  const accountId = input.reconnect ? input.reconnect.accountId : input.accountId;
+  if (!accountId) throw new Error("connect: accountId is required.");
 
   // Token-ingest providers (Slice 17+) take a parallel path. They receive
   // the token from the browser via URL fragment + client POST, not via a
@@ -396,6 +411,17 @@ export async function handleCallback(
   // integration. Service-role status read (no session in the callback path).
   await assertAccountOperational(payload.accountId);
 
+  // OAUTH-ACCT-BIND hardening — re-verify the flow initiator is STILL a member of
+  // the state-bound account at callback time (they could have been removed from a
+  // team between connect and callback). The write target is ALWAYS the signed
+  // state's accountId — never the current active account — so it cannot drift; we
+  // only confirm the initiator still has access to it, else fail safe (no upsert).
+  // Service-role read against the signed-state (userId, accountId); no callback
+  // session is required, so cross-redirect cookie loss can't break a legit connect.
+  if (!(await isMemberServiceRole(payload.accountId, payload.userId))) {
+    throw new StateAccountAccessError();
+  }
+
   const oauth = OAUTH_BY_PROVIDER[input.provider];
   if (!oauth) {
     throw new Error(
@@ -487,6 +513,15 @@ export async function handleTokenIngest(
   }
   if (payload.userId !== input.userId) {
     throw new InvalidStateError("session/state user mismatch");
+  }
+
+  // OAUTH-ACCT-BIND hardening (token-ingest parity with handleCallback): refuse to
+  // persist to a frozen state-bound account, and re-verify the initiator is still
+  // a member of it. The write target is the signed-state accountId, never the
+  // current active account.
+  await assertAccountOperational(payload.accountId);
+  if (!(await isMemberServiceRole(payload.accountId, payload.userId))) {
+    throw new StateAccountAccessError();
   }
 
   const { tokens, account } = await ingestAuth.verifyAndIngestToken({

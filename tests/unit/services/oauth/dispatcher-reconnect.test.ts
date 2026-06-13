@@ -28,6 +28,9 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
   assertAccountOperational: jest.fn().mockResolvedValue(undefined),
   AccountFrozenError: class AccountFrozenError extends Error {},
 }));
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMemberServiceRole: jest.fn().mockResolvedValue(true),
+}));
 jest.mock("@/repositories/integrations", () => ({
   upsertActive: (...a: unknown[]) => mockUpsertActive(...a),
   getByIdForAccountServiceRole: (...a: unknown[]) => mockGetByIdForAccount(...a),
@@ -77,7 +80,7 @@ describe("connect() — reconnect mode", () => {
   };
 
   it("binds the row + the ROW's account into state and steers Google sign-in; does NOT touch the personal floor", async () => {
-    const { redirectUrl } = await connect({ userId: "user-1", provider: "gmail", reconnect });
+    const { redirectUrl } = await connect({ userId: "user-1", accountId: "team-acct", provider: "gmail", reconnect });
     const u = new URL(redirectUrl);
 
     // Steering (Google): pre-selects the row's email + forces the chooser.
@@ -93,21 +96,18 @@ describe("connect() — reconnect mode", () => {
     expect(mockEnsurePersonalAccount).not.toHaveBeenCalled();
   });
 
-  it("a normal connect (no reconnect) still resolves the personal floor and adds no steering", async () => {
-    mockEnsurePersonalAccount.mockResolvedValue({
-      id: "acct-user-1",
-      type: "personal",
-      ownerUserId: "user-1",
-      deletionStatus: "active",
-      createdAt: "x",
-      updatedAt: "x",
-    });
-    const { redirectUrl } = await connect({ userId: "user-1", provider: "gmail" });
+  it("a normal connect (no reconnect) binds the route-PASSED account and never touches the personal floor", async () => {
+    // OAUTH-ACCT-BIND: the dispatcher binds `input.accountId` (the route's active
+    // account) and no longer resolves the personal floor — the prior behavior
+    // (always ensurePersonalAccount) was the account-scoping bug.
+    const { redirectUrl } = await connect({ userId: "user-1", accountId: "team-acct", provider: "gmail" });
     const u = new URL(redirectUrl);
     expect(u.searchParams.get("login_hint")).toBeNull();
     expect(u.searchParams.get("prompt")).toBe("consent");
-    expect(verifyState(u.searchParams.get("state")!).reconnect).toBeUndefined();
-    expect(mockEnsurePersonalAccount).toHaveBeenCalledWith("user-1");
+    const payload = verifyState(u.searchParams.get("state")!);
+    expect(payload.reconnect).toBeUndefined();
+    expect(payload.accountId).toBe("team-acct");
+    expect(mockEnsurePersonalAccount).not.toHaveBeenCalled();
   });
 });
 
@@ -116,6 +116,7 @@ describe("connect() — Shopify per-tenant reconnect (4.APPS-RECONNECT)", () => 
     // The reconnect bundle's expectedProviderAccountId IS the shop domain.
     const { redirectUrl } = await connect({
       userId: "user-1",
+      accountId: "team-acct",
       provider: "shopify",
       reconnect: {
         integrationId: "int-shop",
@@ -141,6 +142,7 @@ describe("connect() — Shopify per-tenant reconnect (4.APPS-RECONNECT)", () => 
     await expect(
       connect({
         userId: "user-1",
+        accountId: "team-acct",
         provider: "shopify",
         reconnect: {
           integrationId: "int-shop",
@@ -153,6 +155,7 @@ describe("connect() — Shopify per-tenant reconnect (4.APPS-RECONNECT)", () => 
     await expect(
       connect({
         userId: "user-1",
+        accountId: "team-acct",
         provider: "shopify",
         reconnect: {
           integrationId: "int-shop",
@@ -175,6 +178,7 @@ describe("connect() — Shopify per-tenant reconnect (4.APPS-RECONNECT)", () => 
     });
     const { redirectUrl } = await connect({
       userId: "user-1",
+      accountId: "team-acct",
       provider: "shopify",
       providerHint: { shop: "client-store.myshopify.com" },
     });

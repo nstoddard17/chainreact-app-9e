@@ -24,6 +24,12 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
   AccountFrozenError: class AccountFrozenError extends Error {},
 }));
 
+// OAUTH-ACCT-BIND — handleCallback re-verifies the initiator's membership of the
+// state-bound account. Member-true by default.
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMemberServiceRole: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock("@/integrations/slack/oauth", () => ({
   slackOAuth: {
     buildAuthUrl: jest.fn(() => "https://slack.com/oauth/v2/authorize?test=1"),

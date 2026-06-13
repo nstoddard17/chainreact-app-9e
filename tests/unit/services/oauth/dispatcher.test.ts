@@ -45,7 +45,7 @@ afterEach(() => {
 
 describe("dispatcher.connect", () => {
   it("returns a Slack redirect URL with a verifiable state token AND writes the nonce row", async () => {
-    const { redirectUrl } = await connect({ userId: "user-123", provider: "slack" });
+    const { redirectUrl } = await connect({ userId: "user-123", accountId: "acct-123", provider: "slack" });
     const u = new URL(redirectUrl);
     expect(u.origin + u.pathname).toBe("https://slack.com/oauth/v2/authorize");
     const state = u.searchParams.get("state");
@@ -66,19 +66,19 @@ describe("dispatcher.connect", () => {
   });
 
   it("rejects an unknown provider", async () => {
-    await expect(connect({ userId: "u", provider: "does-not-exist" })).rejects.toThrow(
+    await expect(connect({ userId: "u", accountId: "acct-u", provider: "does-not-exist" })).rejects.toThrow(
       /Unknown provider/,
     );
     expect(mockOAuthStatesCreate).not.toHaveBeenCalled();
   });
 
   it("rejects when userId is empty", async () => {
-    await expect(connect({ userId: "", provider: "slack" })).rejects.toThrow(/userId/);
+    await expect(connect({ userId: "", accountId: "acct-u", provider: "slack" })).rejects.toThrow(/userId/);
     expect(mockOAuthStatesCreate).not.toHaveBeenCalled();
   });
 
   it("includes optional scopes alongside required scopes in the auth URL", async () => {
-    const { redirectUrl } = await connect({ userId: "u", provider: "slack" });
+    const { redirectUrl } = await connect({ userId: "u", accountId: "acct-u", provider: "slack" });
     const scopes = new URL(redirectUrl).searchParams.get("scope")!.split(",");
     expect(scopes).toEqual(
       expect.arrayContaining([
@@ -91,7 +91,7 @@ describe("dispatcher.connect", () => {
   });
 
   it("does NOT pass PKCE for non-PKCE providers (Slack default v2)", async () => {
-    await connect({ userId: "u", provider: "slack" });
+    await connect({ userId: "u", accountId: "acct-u", provider: "slack" });
     // No PKCE columns persisted on the oauth_states row
     const created = mockOAuthStatesCreate.mock.calls[0]![0] as Record<string, unknown>;
     expect(created.pkceCodeVerifier).toBeUndefined();
@@ -108,7 +108,7 @@ describe("dispatcher.connect — PKCE flow (Slice 2c)", () => {
   });
 
   it("calls provider.generatePkce, persists verifier+method on the state row, embeds challenge in URL", async () => {
-    const { redirectUrl } = await connect({ userId: "user-pkce", provider: "gmail" });
+    const { redirectUrl } = await connect({ userId: "user-pkce", accountId: "acct-pkce", provider: "gmail" });
     const u = new URL(redirectUrl);
     expect(u.origin + u.pathname).toBe("https://accounts.google.com/o/oauth2/v2/auth");
 
@@ -132,8 +132,8 @@ describe("dispatcher.connect — PKCE flow (Slice 2c)", () => {
   });
 
   it("each connect produces a fresh PKCE pair (no verifier reuse)", async () => {
-    const a = await connect({ userId: "u-1", provider: "gmail" });
-    const b = await connect({ userId: "u-2", provider: "gmail" });
+    const a = await connect({ userId: "u-1", accountId: "acct-1", provider: "gmail" });
+    const b = await connect({ userId: "u-2", accountId: "acct-2", provider: "gmail" });
     const aChallenge = new URL(a.redirectUrl).searchParams.get("code_challenge");
     const bChallenge = new URL(b.redirectUrl).searchParams.get("code_challenge");
     expect(aChallenge).toBeTruthy();
@@ -167,6 +167,7 @@ describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
   it("validates AND binds providerHint into the state JWT for per-tenant providers (Shopify)", async () => {
     const { redirectUrl } = await connect({
       userId: "user-shop",
+      accountId: "acct-shop",
       provider: "shopify",
       providerHint: { shop: "mystore.myshopify.com" },
     });
@@ -187,6 +188,7 @@ describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
   it("normalizes a bare subdomain to .myshopify.com before binding (Shopify)", async () => {
     const { redirectUrl } = await connect({
       userId: "u",
+      accountId: "acct-u",
       provider: "shopify",
       providerHint: { shop: "mystore" },
     });
@@ -208,6 +210,7 @@ describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
     await expect(
       connect({
         userId: "u",
+        accountId: "acct-u",
         provider: "shopify",
         providerHint: { shop: "evil.attacker.com" },
       }),
@@ -220,6 +223,7 @@ describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
     await expect(
       connect({
         userId: "u",
+        accountId: "acct-u",
         provider: "slack",
         providerHint: { shop: "anything.myshopify.com" },
       }),
@@ -234,13 +238,14 @@ describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
     // call that didn't supply a shop is a programming error in the
     // route, surfaced as the build-auth-url throw.
     await expect(
-      connect({ userId: "u", provider: "shopify" }),
+      connect({ userId: "u", accountId: "acct-u", provider: "shopify" }),
     ).rejects.toThrow(/providerHint\.shop is required/);
   });
 
   it("does NOT include providerHint on the oauth_states DB row even when set (JWT-only)", async () => {
     await connect({
       userId: "u",
+      accountId: "acct-u",
       provider: "shopify",
       providerHint: { shop: "mystore.myshopify.com" },
     });
@@ -253,7 +258,7 @@ describe("dispatcher.connect — providerHint plumbing (Slice 12)", () => {
   });
 
   it("preserves backward-compat: connect for non-tenant providers without providerHint works unchanged", async () => {
-    const { redirectUrl } = await connect({ userId: "u", provider: "slack" });
+    const { redirectUrl } = await connect({ userId: "u", accountId: "acct-u", provider: "slack" });
     expect(new URL(redirectUrl).origin + new URL(redirectUrl).pathname).toBe(
       "https://slack.com/oauth/v2/authorize",
     );

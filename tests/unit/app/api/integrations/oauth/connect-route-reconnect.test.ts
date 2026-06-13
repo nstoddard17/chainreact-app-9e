@@ -23,6 +23,13 @@ jest.mock("@/services/oauth/dispatcher", () => ({
   connect: (...a: unknown[]) => mockConnect(...a),
 }));
 
+// OAUTH-ACCT-BIND — a plain connect now resolves the user's ACTIVE account at the
+// route. Default to a personal-ish account; the reconnect path never calls it.
+const mockResolveActive = jest.fn();
+jest.mock("@/services/accounts/activeAccount", () => ({
+  resolveActiveAccount: (...a: unknown[]) => mockResolveActive(...a),
+}));
+
 import { POST } from "@/app/api/integrations/oauth/[provider]/connect/route";
 
 const CALLER = "user-1";
@@ -108,9 +115,13 @@ it("on authorize success forwards the resolved bundle to connect() and returns o
     integrationId: "int-77",
     callerUserId: CALLER,
   });
-  // Dispatcher receives the SERVER-resolved bundle (incl. the steering identity).
+  // Reconnect does NOT consult the active-account resolver.
+  expect(mockResolveActive).not.toHaveBeenCalled();
+  // Dispatcher receives the SERVER-resolved bundle (incl. the steering identity)
+  // plus the row's account as accountId (OAUTH-ACCT-BIND — reconnect binds the row).
   expect(mockConnect).toHaveBeenCalledWith({
     userId: CALLER,
+    accountId: "team-acct",
     provider: "gmail",
     reconnect: {
       integrationId: "int-77",
@@ -125,11 +136,17 @@ it("on authorize success forwards the resolved bundle to connect() and returns o
   expect(JSON.stringify(json)).not.toContain("marcus@example.com");
 });
 
-it("a plain connect (no reconnect body) never calls the reconnect resolver", async () => {
+it("a plain connect (no reconnect body) resolves the active account, not the reconnect resolver", async () => {
   signedIn();
+  mockResolveActive.mockResolvedValueOnce({ ok: true, accountId: "active-acct", source: "active" });
   mockConnect.mockResolvedValueOnce({ redirectUrl: "https://slack.com/oauth?x=1" });
   const res = await POST(new Request("http://x", { method: "POST" }), params("slack"));
   expect(res.status).toBe(200);
   expect(mockResolveReconnect).not.toHaveBeenCalled();
-  expect(mockConnect).toHaveBeenCalledWith({ userId: CALLER, provider: "slack" });
+  expect(mockResolveActive).toHaveBeenCalledWith(CALLER);
+  expect(mockConnect).toHaveBeenCalledWith({
+    userId: CALLER,
+    accountId: "active-acct",
+    provider: "slack",
+  });
 });

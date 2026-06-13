@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import type { ProviderHint } from "@/contracts/integration";
 import { connect } from "@/services/oauth/dispatcher";
 import { resolveReconnectTarget } from "@/services/integrations/reconnect";
+import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 
 /**
  * Initiates an OAuth connection for the authenticated user.
@@ -126,9 +127,35 @@ export async function POST(
     };
   }
 
+  // OAUTH-ACCT-BIND fix: resolve the target account at connect-START and bind it
+  // into the signed OAuth state (in the dispatcher). A normal connect targets the
+  // user's ACTIVE account (the account switcher) — so a connect started on a Team
+  // account lands on that Team account, never silently on Personal. A reconnect
+  // already resolved + authorized the intended ROW's account above, so it uses
+  // that. resolveActiveAccount enforces membership + freeze; its personal-account
+  // result only occurs when the user has no active team selected (the correct
+  // default), never as a silent override of an active team.
+  let accountId: string;
+  if (reconnectBundle !== undefined) {
+    accountId = reconnectBundle.accountId;
+  } else {
+    const resolved = await resolveActiveAccount(user.id);
+    if (!resolved.ok) {
+      // Typed, non-leaking mapping: a non-member explicit/stored account → 403;
+      // a frozen target account → 409. No personal fallback, no silent switch.
+      const statusByReason = { not_member: 403, account_frozen: 409 } as const;
+      return NextResponse.json(
+        { error: resolved.reason },
+        { status: statusByReason[resolved.reason] },
+      );
+    }
+    accountId = resolved.accountId;
+  }
+
   try {
     const { redirectUrl } = await connect({
       userId: user.id,
+      accountId,
       provider,
       ...(providerHint !== undefined ? { providerHint } : {}),
       ...(reconnectBundle !== undefined ? { reconnect: reconnectBundle } : {}),

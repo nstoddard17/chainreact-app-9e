@@ -50,6 +50,11 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
   AccountFrozenError: class AccountFrozenError extends Error {},
 }));
 
+// OAUTH-ACCT-BIND — handleCallback re-verifies state-bound-account membership.
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMemberServiceRole: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock("@/repositories/oauthStates", () => ({
   create: (...args: unknown[]) => mockOAuthStatesCreate(...args),
   consumeByNonce: (...args: unknown[]) => mockOAuthStatesConsume(...args),

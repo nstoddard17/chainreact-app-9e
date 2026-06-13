@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   handleCallback,
   ReconnectIdentityMismatchError,
+  StateAccountAccessError,
 } from "@/services/oauth/dispatcher";
 
 /**
@@ -67,6 +68,14 @@ export async function GET(
     if (err instanceof ReconnectIdentityMismatchError) {
       return NextResponse.redirect(
         new URL("/apps?integration_error=reconnect_account_mismatch", base),
+      );
+    }
+    // OAUTH-ACCT-BIND — the initiator lost access to the state-bound account
+    // between connect and callback. Stable, non-leaking code (never the account
+    // or user id); the Apps banner renders friendly copy. Nothing was written.
+    if (err instanceof StateAccountAccessError) {
+      return NextResponse.redirect(
+        new URL("/apps?integration_error=account_access_revoked", base),
       );
     }
     const message = err instanceof Error ? err.message : "callback_failed";

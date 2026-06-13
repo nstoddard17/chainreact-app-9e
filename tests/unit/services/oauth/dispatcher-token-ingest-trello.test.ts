@@ -38,6 +38,16 @@ jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (userId: string) => mockEnsurePersonalAccount(userId),
 }));
 
+// OAUTH-ACCT-BIND — handleTokenIngest now enforces freeze + state-bound-account
+// membership before persisting. Mock both operational/member-true by default.
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  assertAccountOperational: jest.fn().mockResolvedValue(undefined),
+  AccountFrozenError: class AccountFrozenError extends Error {},
+}));
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMemberServiceRole: jest.fn().mockResolvedValue(true),
+}));
+
 import { connect, handleTokenIngest } from "@/services/oauth/dispatcher";
 import { createState, InvalidStateError } from "@/services/oauth/state";
 import { decryptToken } from "@/core/encryption/tokens";
@@ -95,7 +105,7 @@ afterEach(() => {
 
 describe("dispatcher.connect (trello — token_ingest happy path)", () => {
   it("returns a Trello authorize URL with verifiable state in return_url", async () => {
-    const { redirectUrl } = await connect({ userId: "user-1", provider: "trello" });
+    const { redirectUrl } = await connect({ userId: "user-1", accountId: "acct-user-1", provider: "trello" });
     const u = new URL(redirectUrl);
     expect(u.origin + u.pathname).toBe("https://trello.com/1/authorize");
     expect(u.searchParams.get("key")).toBe("test-app-key");

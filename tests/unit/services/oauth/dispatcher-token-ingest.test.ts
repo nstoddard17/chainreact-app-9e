@@ -90,7 +90,7 @@ describe("dispatcher.connect (token_ingest branch)", () => {
     mockGetProvider.mockReturnValue(TOKEN_INGEST_MANIFEST);
     const { connect } = await import("@/services/oauth/dispatcher");
     await expect(
-      connect({ userId: "user-1", provider: "fake-ingest-provider" }),
+      connect({ userId: "user-1", accountId: "acct-1", provider: "fake-ingest-provider" }),
     ).rejects.toThrow(/No token-ingest implementation registered/);
     // Still wrote the state row? No — the registry check runs BEFORE
     // createState. We don't want a half-baked state row left behind.
@@ -103,6 +103,7 @@ describe("dispatcher.connect (token_ingest branch)", () => {
     await expect(
       connect({
         userId: "user-1",
+        accountId: "acct-1",
         provider: "fake-ingest-provider",
         providerHint: { shop: "x" },
       }),
@@ -255,7 +256,7 @@ describe("dispatcher.connect (existing OAuth providers unaffected)", () => {
     // branch, NOT the token-ingest branch (which would have rejected
     // with "No token-ingest implementation registered").
     await expect(
-      connect({ userId: "user-1", provider: "fake-ingest-provider" }),
+      connect({ userId: "user-1", accountId: "acct-1", provider: "fake-ingest-provider" }),
     ).rejects.toThrow(/No OAuth implementation registered/);
   });
 });
