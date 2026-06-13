@@ -50,3 +50,5 @@ export type {
   DeterministicCompletionDecision,
   ResolvedRequiredInputAnswer,
 } from "./deterministicCompletion";
+
+export { canExplainDiagnosis } from "./canExplainDiagnosis";

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import type { RequiredInputAnswer } from "../ai";
+import { canExplainDiagnosis, type RequiredInputAnswer } from "../ai";
 import {
   AssistantBubble,
   PlanResultBody,
@@ -156,6 +156,9 @@ export function BuilderAiPanelMessageList({
 
   // AI-DIAG-2b — only the LATEST diagnosis message shows "Explain with AI" (mirrors
   // latest-plan derivation), so a stale historical check never offers a paid button.
+  // AI-DIAG-2c — AND only when the diagnosis isn't fully clean/ready
+  // (`canExplainDiagnosis`), so a "ready, nothing to fix" check never offers a paid
+  // explanation that would just restate "it's ready".
   let latestDiagnosisMessageId: ChatMessageId | null = null;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
@@ -261,7 +264,10 @@ export function BuilderAiPanelMessageList({
             <AssistantBubble key={message.id}>
               <DiagnosisBody
                 diagnosis={message.diagnosis}
-                canExplain={message.id === latestDiagnosisMessageId}
+                canExplain={
+                  message.id === latestDiagnosisMessageId &&
+                  canExplainDiagnosis(message.diagnosis)
+                }
                 explaining={explaining}
                 alreadyExplained={explainedDiagnosisIds.has(message.id)}
                 onExplain={() => onExplainDiagnosis(message.id)}

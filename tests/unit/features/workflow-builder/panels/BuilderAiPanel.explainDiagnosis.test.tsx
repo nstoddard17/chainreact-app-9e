@@ -67,6 +67,28 @@ const explanationOk = {
   missingInfo: ["Which Gmail account should be used?"],
 };
 
+// AI-DIAG-2c — a fully clean / ready diagnosis: nothing actionable to explain.
+const readyCleanDiagnosis = {
+  workflowId: "wf-1",
+  access: "OK",
+  overallReady: true,
+  findings: [],
+  nextSteps: [],
+  summaryText: "This workflow looks ready to run.\nThe most recent run succeeded.",
+};
+
+// Ready overall, but still carries a non-blocking warning worth explaining.
+const readyWithWarningDiagnosis = {
+  workflowId: "wf-1",
+  access: "OK",
+  overallReady: true,
+  findings: [
+    { source: "connection", code: "TOKEN_EXPIRED", severity: "warning", title: "x", provider: "gmail" },
+  ],
+  nextSteps: [],
+  summaryText: "This workflow looks ready to run.",
+};
+
 beforeEach(() => {
   mockDiagnose.mockReset();
   mockDiagnose.mockResolvedValue(okDiagnosis);
@@ -115,6 +137,23 @@ describe("Explain with AI — affordance visibility", () => {
   it("is hidden on a NOT_FOUND wall", async () => {
     await check({ workflowId: "wf-1", access: "NOT_FOUND" });
     expect(screen.queryByTestId("builder-ai-explain-button")).toBeNull();
+  });
+
+  it("AI-DIAG-2c — is HIDDEN on a clean/ready diagnosis, but the diagnosis card still renders", async () => {
+    await check(readyCleanDiagnosis);
+    // The deterministic card is still shown (we never hide the diagnosis itself).
+    expect(screen.getByTestId("builder-ai-diagnosis")).not.toBeNull();
+    expect(screen.getByTestId("builder-ai-diagnosis-summary").textContent).toContain(
+      "ready to run",
+    );
+    // The paid affordance (and its wrapper) is gone — nothing useful to explain.
+    expect(screen.queryByTestId("builder-ai-explain-button")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-diagnosis-explain")).toBeNull();
+  });
+
+  it("AI-DIAG-2c — is SHOWN on a ready diagnosis that still carries a warning finding", async () => {
+    await check(readyWithWarningDiagnosis);
+    expect(screen.getByTestId("builder-ai-explain-button")).toBeEnabled();
   });
 });
 

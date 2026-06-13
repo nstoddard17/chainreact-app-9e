@@ -25,9 +25,10 @@ export function DiagnosisBody({
 }: {
   readonly diagnosis: AgentWorkflowDiagnosis;
   /**
-   * Slice 4.AI-DIAG-2b — show the "Explain with AI" affordance. True only for the
-   * LATEST OK diagnosis (the list derives this); an access wall never sets it, so
-   * the button is naturally hidden on NOT_FOUND / NO_ACCESS.
+   * Slice 4.AI-DIAG-2b/2c — show the "Explain with AI" affordance. The list sets
+   * this true only for the LATEST OK diagnosis that still has something useful to
+   * explain (`canExplainDiagnosis`); an access wall or a fully clean/ready check
+   * never sets it, so the button is naturally hidden there.
    */
   readonly canExplain?: boolean;
   /** An explanation round-trip is in flight (disables the button). */
