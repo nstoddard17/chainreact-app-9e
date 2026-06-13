@@ -405,6 +405,41 @@ export async function listSharedConnectorUserIdsServiceRole(
 }
 
 /**
+ * Service-role: shared-connector user-id sets for MANY providers in ONE query
+ * (CS-5b list-DTO batching). The single-provider `listSharedConnectorUserIdsServiceRole`
+ * called per provider per workflow would be N×; this is one `provider IN (...)`
+ * read for the whole dashboard. Returns a map provider → Set<connectorUserId>
+ * (every requested provider is present, empty set when unshared). Selects ONLY
+ * `provider` + `connected_by_user_id`; no token/scope/providerAccountId/label/
+ * metadata. Same `shared_with_account` + `disconnected_at IS NULL` filter.
+ */
+export async function listSharedConnectorsByProviderServiceRole(
+  accountId: string,
+  providers: readonly string[],
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  for (const p of providers) out.set(p, new Set<string>());
+  if (providers.length === 0) return out;
+  const supabase = getServiceRoleClient(
+    `integrations: listSharedConnectorsByProvider for account ${accountId} (${providers.length})`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("provider, connected_by_user_id")
+    .eq("account_id", accountId)
+    .in("provider", [...providers])
+    .eq("integration_sharing_scope", "shared_with_account")
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(`integrations.listSharedConnectorsByProviderServiceRole failed: ${error.message}`);
+  }
+  for (const r of (data ?? []) as Array<{ provider: string; connected_by_user_id: string | null }>) {
+    if (r.connected_by_user_id) out.get(r.provider)?.add(r.connected_by_user_id);
+  }
+  return out;
+}
+
+/**
  * Offboarding soft-disconnect (Slice 4.ACCOUNT-MODEL-22C).
  *
  * When a member is removed from a Team, the PERSONAL credentials they connected

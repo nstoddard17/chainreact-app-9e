@@ -1,6 +1,7 @@
 import { isNodeCredentialReassignmentEnabled } from "./flags";
 import {
   listAcceptedByWorkflowServiceRole,
+  listAcceptedByWorkflowsServiceRole,
   getForNodeServiceRole,
 } from "@/repositories/workflowNodeCredentials";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
@@ -44,6 +45,26 @@ export async function loadAcceptedNodeOwners(
   const map = new Map<string, string>();
   for (const r of rows) map.set(r.nodeId, r.credentialOwnerUserId);
   return map;
+}
+
+/**
+ * Batched twin of `loadAcceptedNodeOwners` (CS-5b list-DTO): accepted node owners
+ * for MANY workflows in ONE query. Flag OFF → empty map, NO DB call (byte-for-byte
+ * the pre-CS-2 path for the list). Returns workflowId → (nodeId → ownerUserId);
+ * workflows with no accepted grants are absent (callers read an empty map).
+ */
+export async function loadAcceptedNodeOwnersBatch(
+  workflowIds: readonly string[],
+): Promise<Map<string, AcceptedNodeOwners>> {
+  const out = new Map<string, AcceptedNodeOwners>();
+  if (!isNodeCredentialReassignmentEnabled() || workflowIds.length === 0) return out;
+  const byWorkflow = await listAcceptedByWorkflowsServiceRole(workflowIds);
+  for (const [workflowId, rows] of byWorkflow) {
+    const map = new Map<string, string>();
+    for (const r of rows) map.set(r.nodeId, r.credentialOwnerUserId);
+    out.set(workflowId, map);
+  }
+  return out;
 }
 
 /**

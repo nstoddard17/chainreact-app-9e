@@ -7,7 +7,7 @@ import * as foldersRepo from "@/repositories/workflowFolders";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
-import { toWorkflowListItem } from "@/app/api/workflows/_shared";
+import { computeViewerCanRunEditBatch, toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -65,7 +65,9 @@ export default async function WorkflowsPage() {
         limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
       }),
     ]);
-  const workflows = records.map((r) => toWorkflowListItem(r, runStats, user.id));
+  // CS-5b — accurate per-row run/edit eligibility in bounded queries (flag OFF → conservative, no DB).
+  const viewerCanRunEdit = await computeViewerCanRunEditBatch(records, user.id);
+  const workflows = records.map((r) => toWorkflowListItem(r, runStats, user.id, viewerCanRunEdit));
   const folders = folderRecords.map(toWorkflowFolder);
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   // CS-8: surface pending credential-reassignment requests in the bell (derived,

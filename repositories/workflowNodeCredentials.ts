@@ -112,6 +112,37 @@ export async function listAcceptedByWorkflowServiceRole(
 }
 
 /**
+ * Accepted grants for MANY workflows in ONE query (CS-5b list-DTO batching).
+ * `workflow_id IN (...)` + `status = 'accepted'` — one bounded read for the whole
+ * dashboard instead of N per-workflow calls. Returns a map workflowId → accepted
+ * records (workflows with none are absent). Service-role.
+ */
+export async function listAcceptedByWorkflowsServiceRole(
+  workflowIds: readonly string[],
+): Promise<Map<string, WorkflowNodeCredentialRecord[]>> {
+  const out = new Map<string, WorkflowNodeCredentialRecord[]>();
+  if (workflowIds.length === 0) return out;
+  const supabase = getServiceRoleClient(
+    `workflow_node_credentials: listAcceptedByWorkflows (${workflowIds.length})`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_node_credentials")
+    .select("*")
+    .in("workflow_id", [...workflowIds])
+    .eq("status", "accepted");
+  if (error) {
+    throw new Error(`workflow_node_credentials.listAcceptedByWorkflowsServiceRole failed: ${error.message}`);
+  }
+  for (const row of (data ?? []) as WorkflowNodeCredentialsRow[]) {
+    const rec = rowToRecord(row);
+    const bucket = out.get(rec.workflowId) ?? [];
+    bucket.push(rec);
+    out.set(rec.workflowId, bucket);
+  }
+  return out;
+}
+
+/**
  * The single LIVE (pending|accepted) grant for a node, or null. The partial
  * unique index guarantees at most one. Service-role.
  */

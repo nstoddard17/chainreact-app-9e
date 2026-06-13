@@ -3,6 +3,7 @@ import { CreateWorkflowRequestSchema } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as workflowRunStatsRepo from "@/repositories/workflowRunStats";
 import {
+  computeViewerCanRunEditBatch,
   parseJsonBody,
   requireUserWithAccount,
   toWorkflowListItem,
@@ -49,7 +50,10 @@ export async function GET() {
     // list is scoped to (not user-wide), so refreshed stats match the rows.
     workflowRunStatsRepo.getStatsForAccount(auth.accountId),
   ]);
+  // CS-5b — accurate per-row run/edit eligibility in BOUNDED queries (≤3 reads
+  // total, not 3×N). Flag OFF → conservative WF-RUNPERM, no DB.
+  const viewerCanRunEdit = await computeViewerCanRunEditBatch(records, auth.userId);
   return NextResponse.json({
-    workflows: records.map((r) => toWorkflowListItem(r, runStats, auth.userId)),
+    workflows: records.map((r) => toWorkflowListItem(r, runStats, auth.userId, viewerCanRunEdit)),
   });
 }

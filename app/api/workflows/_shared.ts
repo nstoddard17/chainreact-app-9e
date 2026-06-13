@@ -12,7 +12,10 @@ import {
   viewerMayRunEdit,
 } from "@/core/integrations/workflowCredentialScope";
 import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
-import { buildWorkflowCredentialPlan } from "@/services/integrations/connectionResolution";
+import {
+  buildWorkflowCredentialPlan,
+  buildWorkflowCredentialPlansBatch,
+} from "@/services/integrations/connectionResolution";
 import { emptyRunStats } from "@/repositories/workflowRunStats";
 import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
@@ -298,6 +301,62 @@ export async function computeViewerCanRunEdit(
   return plan.allTeamRunnable;
 }
 
+/**
+ * Batched `viewerCanRunEdit` for a LIST of workflows (CS-5b) — the dashboard
+ * counterpart to `computeViewerCanRunEdit`, producing the SAME decision but in
+ * **bounded queries** instead of one `buildWorkflowCredentialPlan` per row.
+ *
+ * Flag OFF → pure `viewerMayRunEdit` per record, NO DB (byte-for-byte the old
+ * conservative WF-RUNPERM list behavior). Flag ON → creator / no-private records
+ * short-circuit to `true` with no query; the remaining "candidate" records (non-
+ * creator, private-credential) are resolved by `buildWorkflowCredentialPlansBatch`
+ * (≤3 reads total per account), and the row is runnable iff `allTeamRunnable` —
+ * identical to the detail DTO + the run/edit gate, so the list can never over- or
+ * under-permit relative to the chokepoint. Records are grouped by `accountId`
+ * (defensive; the list is single-account today). Display only — the gate is still
+ * the real enforcement.
+ */
+export async function computeViewerCanRunEditBatch(
+  records: readonly WorkflowRecord[],
+  callerUserId: string,
+): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  if (!isConnectionSharingEnabled()) {
+    for (const r of records) {
+      out.set(
+        r.id,
+        viewerMayRunEdit({ createdByUserId: r.createdByUserId, definition: r.draftDefinition }, callerUserId),
+      );
+    }
+    return out;
+  }
+
+  // Flag ON: short-circuit creator / no-private (no DB); batch the rest by account.
+  const candidatesByAccount = new Map<string, WorkflowRecord[]>();
+  for (const r of records) {
+    if (!workflowUsesPrivateCredential(r.draftDefinition) || r.createdByUserId === callerUserId) {
+      out.set(r.id, true);
+      continue;
+    }
+    const bucket = candidatesByAccount.get(r.accountId) ?? [];
+    bucket.push(r);
+    candidatesByAccount.set(r.accountId, bucket);
+  }
+
+  for (const [accountId, candidates] of candidatesByAccount) {
+    const plans = await buildWorkflowCredentialPlansBatch({
+      accountId,
+      records: candidates.map((r) => ({
+        id: r.id,
+        createdByUserId: r.createdByUserId,
+        nodes: r.draftDefinition.nodes,
+      })),
+    });
+    for (const r of candidates) out.set(r.id, plans.get(r.id)?.allTeamRunnable ?? false);
+  }
+  return out;
+}
+
 export async function toWorkflowDetail(
   record: WorkflowRecord,
   callerUserId: string,
@@ -322,18 +381,20 @@ export async function toWorkflowDetail(
  * runs get zeroed stats. Only provider id/label/iconUrl + counts + numeric
  * run stats leave the server — no raw definition, config, or values.
  *
- * `viewerCanRunEdit` here stays the CONSERVATIVE sync `viewerMayRunEdit` (creator-
- * only for private-credential workflows) even with the sharing flag ON: the list
- * renders N rows and a per-row `buildWorkflowCredentialPlan` (3 DB reads each)
- * is too costly. This is SAFE — it never over-permits; a non-creator who CAN run a
- * shared workflow simply sees the conservative chip until they open it (the detail
- * DTO `toWorkflowDetail` is accurate). Batching list resolvability is a CS-5b
- * follow-up. The run/edit GATE is the real enforcement regardless.
+ * `viewerCanRunEdit` is ACCURATE under the sharing flag (CS-5b): the caller passes
+ * `viewerCanRunEditByWorkflow` — the result of `computeViewerCanRunEditBatch` over
+ * all visible rows in BOUNDED queries — so a row reflects the SAME eligibility the
+ * detail DTO + run/edit gate use (a team-runnable shared workflow is no longer shown
+ * as a blocked "private connection"). When the map is omitted (or lacks the id), it
+ * falls back to the CONSERVATIVE sync `viewerMayRunEdit` (creator-only) — safe
+ * (never over-permits) and the exact flag-OFF behavior. The run/edit GATE is the
+ * real enforcement regardless; this is display only.
  */
 export function toWorkflowListItem(
   record: WorkflowRecord,
   runStatsByWorkflow: ReadonlyMap<string, WorkflowRunStats>,
   callerUserId: string,
+  viewerCanRunEditByWorkflow?: ReadonlyMap<string, boolean>,
 ): WorkflowListItem {
   const summary = summarizeDefinition(record.draftDefinition);
   const providers: WorkflowProviderChip[] = summary.providerIds.map((id) => ({
@@ -341,6 +402,12 @@ export function toWorkflowListItem(
     label: getProvider(id)?.displayName ?? id,
     iconUrl: providerIconUrl(id) ?? null,
   }));
+  const viewerCanRunEdit =
+    viewerCanRunEditByWorkflow?.get(record.id) ??
+    viewerMayRunEdit(
+      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
+      callerUserId,
+    );
   return {
     ...toWorkflowSummary(record),
     providers,
@@ -349,10 +416,7 @@ export function toWorkflowListItem(
     runStats: runStatsByWorkflow.get(record.id) ?? emptyRunStats(),
     folderId: record.folderId,
     usesPrivateCredential: workflowUsesPrivateCredential(record.draftDefinition),
-    viewerCanRunEdit: viewerMayRunEdit(
-      { createdByUserId: record.createdByUserId, definition: record.draftDefinition },
-      callerUserId,
-    ),
+    viewerCanRunEdit,
   };
 }
 

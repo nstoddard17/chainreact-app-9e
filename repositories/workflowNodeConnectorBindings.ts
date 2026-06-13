@@ -72,6 +72,37 @@ export async function listByWorkflowServiceRole(
   return (data ?? []).map((r) => rowToRecord(r as WorkflowNodeConnectorBindingsRow));
 }
 
+/**
+ * Bindings for MANY workflows in ONE query (CS-5b list-DTO batching). Keyed by
+ * `workflow_id IN (...)` so the workflows dashboard resolves N workflows' bindings
+ * in a single bounded read instead of N per-workflow calls. Returns a map
+ * workflowId → bindings (workflows with none are simply absent). Service-role.
+ */
+export async function listByWorkflowsServiceRole(
+  workflowIds: readonly string[],
+): Promise<Map<string, WorkflowNodeConnectorBindingRecord[]>> {
+  const out = new Map<string, WorkflowNodeConnectorBindingRecord[]>();
+  if (workflowIds.length === 0) return out;
+  const supabase = getServiceRoleClient(
+    `workflow_node_connector_bindings: listByWorkflows (${workflowIds.length})`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_node_connector_bindings")
+    .select("*")
+    .in("workflow_id", [...workflowIds])
+    .order("created_at", { ascending: true });
+  if (error) {
+    throw new Error(`workflow_node_connector_bindings.listByWorkflowsServiceRole failed: ${error.message}`);
+  }
+  for (const row of (data ?? []) as WorkflowNodeConnectorBindingsRow[]) {
+    const rec = rowToRecord(row);
+    const bucket = out.get(rec.workflowId) ?? [];
+    bucket.push(rec);
+    out.set(rec.workflowId, bucket);
+  }
+  return out;
+}
+
 /** The binding for one node, or null. The unique index guarantees at most one. Service-role. */
 export async function getForNodeServiceRole(
   workflowId: string,
