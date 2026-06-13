@@ -27,21 +27,28 @@ const mockApply = jest.fn();
 // AI-35I — `completePlan` is mocked so the deterministic-vs-correction tests can
 // assert which route a follow-up took (existing free-text tests never reach it).
 const mockComplete = jest.fn();
-jest.mock("@/lib/api/ai", () => ({
-  planWorkflow: (...a: unknown[]) => mockPlan(...a),
-  completePlan: (...a: unknown[]) => mockComplete(...a),
-  applyWorkflowPatch: (...a: unknown[]) => mockApply(...a),
-  AiApiError: class AiApiError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.name = "AiApiError";
-      this.status = status;
-    }
-  },
-}));
+jest.mock("@/lib/api/ai", () => {
+  // Expose the REAL AI_CREDITS_EXHAUSTED_MESSAGE so the hook's friendlyError
+  // returns the actual shipped copy (3b-ii) — assertions import the same value.
+  const actual = jest.requireActual("@/lib/api/ai");
+  return {
+    planWorkflow: (...a: unknown[]) => mockPlan(...a),
+    completePlan: (...a: unknown[]) => mockComplete(...a),
+    applyWorkflowPatch: (...a: unknown[]) => mockApply(...a),
+    AI_CREDITS_EXHAUSTED_MESSAGE: actual.AI_CREDITS_EXHAUSTED_MESSAGE,
+    AiApiError: class AiApiError extends Error {
+      status: number;
+      constructor(message: string, status: number) {
+        super(message);
+        this.name = "AiApiError";
+        this.status = status;
+      }
+    },
+  };
+});
 
 import { useBuilderAi } from "@/features/workflow-builder/hooks/useBuilderAi";
+import { AiApiError, AI_CREDITS_EXHAUSTED_MESSAGE } from "@/lib/api/ai";
 import type { RequiredInputAnswer } from "@/features/workflow-builder/ai";
 
 // Pre-built planner responses
@@ -600,6 +607,76 @@ describe("useBuilderAi — preserve chain on retryable follow-up failures (AI-25
     act(() => result.current.reset());
     expect(result.current.followUpMode).toBe(false);
     expect(result.current.planResult).toBeNull();
+  });
+});
+
+// ─── Slice 4.AI-CREDITS-3b-ii — AI-credit denial messaging ───────────────────
+
+describe("useBuilderAi — AI-credit denial messaging (AI-CREDITS-3b-ii)", () => {
+  const creditDenial = {
+    ok: false as const,
+    code: "AI_CREDITS_EXHAUSTED",
+    message: "You've used all your AI credits for this billing period.",
+    errors: [
+      { stage: "billing", code: "AI_CREDITS_EXHAUSTED", message: "AI credit limit reached." },
+    ],
+  };
+
+  it("plan() maps a thrown 402 to the credit-specific friendlyError message", async () => {
+    mockPlan.mockRejectedValueOnce(new AiApiError("AI request failed (HTTP 402).", 402));
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.plan("build me a flow");
+    });
+    // Transport throw → plan() returns null and sets the credit-specific error.
+    expect(captured).toBeNull();
+    expect(result.current.error).toBe(AI_CREDITS_EXHAUSTED_MESSAGE);
+  });
+
+  it("submitFollowUp returns the AI_CREDITS_EXHAUSTED failure (not null) so the panel renders its specific message", async () => {
+    mockPlan.mockResolvedValueOnce(needsInputResponse); // turn 1 — starts the chain
+    mockPlan.mockResolvedValueOnce(creditDenial); // follow-up — gate denies
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("Send a Slack message when I run.");
+    });
+    expect(result.current.followUpMode).toBe(true);
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.submitFollowUp("Use #general");
+    });
+    // The denial is RETURNED (not null) — the panel appends a plan_result bubble
+    // that renders the credit-specific message (vs the generic "unavailable" copy
+    // it would show on a null return).
+    expect(captured).toEqual(creditDenial);
+    // The prior needs-input plan is preserved (chain not torn down, planResult not
+    // overwritten with the denial) — same preservation contract as AI-25.
+    expect(result.current.followUpMode).toBe(true);
+    if (result.current.planResult?.ok) {
+      expect(result.current.planResult.requiredUserInput.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("other ok:false follow-up failures still return null (stay retryable, unchanged by 3b-ii)", async () => {
+    const rateLimited = {
+      ok: false as const,
+      code: "MODEL_FAILED",
+      message: "rate limited",
+      errors: [{ stage: "model", code: "RATE_LIMITED", message: "x" }],
+    };
+    mockPlan.mockResolvedValueOnce(needsInputResponse);
+    mockPlan.mockResolvedValueOnce(rateLimited);
+    const { result } = renderHook(() => useBuilderAi({ workflowId: "wf-1" }));
+    await act(async () => {
+      await result.current.plan("first");
+    });
+    let captured: unknown = "unset";
+    await act(async () => {
+      captured = await result.current.submitFollowUp("Use #general");
+    });
+    expect(captured).toBeNull();
+    expect(result.current.followUpMode).toBe(true);
   });
 });
 

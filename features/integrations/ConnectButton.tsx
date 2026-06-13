@@ -54,12 +54,10 @@ export function ConnectButton({
     setPending(true);
     setError(null);
     try {
-      // Plain Connect / Connect-another call the one-arg form (unchanged); only a
-      // per-account Reconnect passes the opaque reconnect bundle.
-      const { redirectUrl } =
-        reconnect !== undefined
-          ? await startOAuth(provider, { reconnect })
-          : await startOAuth(provider);
+      const { redirectUrl } = await startOAuth(
+        provider,
+        reconnect !== undefined ? { reconnect } : undefined,
+      );
       window.location.assign(redirectUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start OAuth.");

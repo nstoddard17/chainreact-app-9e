@@ -141,9 +141,19 @@ export interface AiPlanSuccess {
   readonly model: AiModelMeta;
 }
 
+/**
+ * Slice 4.AI-CREDITS-3b-ii — the single user-facing copy for an AI-credit
+ * exhaustion denial (route returns `code: "AI_CREDITS_EXHAUSTED"`, HTTP 402).
+ * Shared by the failure renderer (`PlanFailure`) and the hook's `friendlyError`
+ * so the message can't drift. Plain, safe copy: no account ids, no raw counters,
+ * no plan internals, no upgrade CTA (paywall UI is a later slice).
+ */
+export const AI_CREDITS_EXHAUSTED_MESSAGE =
+  "You've used all AI credits for this billing period. Try again after your credits reset, or upgrade your plan.";
+
 export interface AiPlanFailure {
   readonly ok: false;
-  /** MODEL_FAILED | PARSE_FAILED | PREVIEW_UNAVAILABLE */
+  /** MODEL_FAILED | PARSE_FAILED | PREVIEW_UNAVAILABLE | AI_CREDITS_EXHAUSTED */
   readonly code: string;
   readonly message: string;
   readonly model?: AiModelMeta;
@@ -442,6 +452,98 @@ export async function clearBuilderAgentThread(
   return fetchJson<{ ok: boolean; deletedCount: number }>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/thread`,
     { method: "DELETE" },
+  );
+}
+
+/**
+ * Slice 4.AI-DIAG-1 — read-only "Check this workflow" / "Why won't this workflow
+ * run?" diagnosis for the React Agent.
+ *
+ * `diagnoseWorkflow(workflowId)` POSTs to `/api/workflows/[id]/ai/diagnose` and
+ * returns the agent-safe DTO. These are CLIENT-OWNED views of the (already-
+ * sanitized) route response — the client may not import the `@/services/**` DTO
+ * types. The DTO carries codes / node ids / provider ids+public names / missing-
+ * field NAMES / public scope-gap names / the stored humanized run classification /
+ * safe deterministic text only. Never tokens, raw config, or integration rows.
+ */
+
+export type AgentDiagnosisAccess = "OK" | "NOT_FOUND" | "NO_ACCESS";
+
+export interface AgentDiagnosisFinding {
+  readonly source: "graph" | "field" | "connection" | "run";
+  readonly code: string;
+  readonly severity: "error" | "warning";
+  readonly title: string;
+  readonly nodeIds?: readonly string[];
+  readonly provider?: string;
+  readonly providerName?: string | null;
+  readonly missingFields?: readonly string[];
+  readonly missingScopes?: readonly string[];
+  readonly credentialClass?: "personal" | "account";
+}
+
+export interface AgentLatestRunSummary {
+  readonly runId: string;
+  readonly status: "succeeded" | "failed" | "running";
+  readonly visibility: string;
+  readonly classificationAvailable: boolean;
+  readonly errorClassification?: {
+    readonly title: string;
+    readonly description: string;
+    readonly hint?: string;
+    readonly action?: "reconnect" | "open_node" | "upgrade_plan";
+    readonly severity: "warning" | "error";
+  } | null;
+  readonly firstFailedNodeId?: string | null;
+}
+
+export interface AgentWorkflowDiagnosis {
+  readonly workflowId: string;
+  readonly access: AgentDiagnosisAccess;
+  // Present only when access === "OK".
+  readonly overallReady?: boolean;
+  readonly runnable?: boolean;
+  readonly allRequiredConnected?: boolean;
+  readonly findings?: readonly AgentDiagnosisFinding[];
+  readonly latestRun?: AgentLatestRunSummary;
+  readonly summaryText?: string;
+  readonly nextSteps?: readonly string[];
+}
+
+export async function diagnoseWorkflow(
+  workflowId: string,
+): Promise<AgentWorkflowDiagnosis> {
+  return fetchJson<AgentWorkflowDiagnosis>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: "{}" },
+  );
+}
+
+/**
+ * Slice 4.AI-DIAG-2a — optional LLM explanation of the (already-computed) safe
+ * diagnosis. The server re-derives the diagnosis and sends only an allow-listed
+ * projection to the model. Handled failures (402/403/503) return as a structured
+ * `ok:false` result; transport failures (401/404/500) throw `AiApiError`. No raw
+ * model output / config / secrets are ever returned.
+ */
+export interface AiDiagnosisExplanationSuccess {
+  readonly ok: true;
+  readonly explanation: string;
+  readonly priorities?: readonly string[];
+  readonly missingInfo?: readonly string[];
+}
+export interface AiDiagnosisExplanationFailure {
+  readonly ok: false;
+  /** AI_CREDITS_EXHAUSTED | ACCOUNT_PENDING_DELETION | AI_GATE_ERROR | MODEL_FAILED | PARSE_FAILED */
+  readonly code: string;
+  readonly message: string;
+}
+export type AiDiagnosisExplanation = AiDiagnosisExplanationSuccess | AiDiagnosisExplanationFailure;
+
+export async function explainDiagnosis(workflowId: string): Promise<AiDiagnosisExplanation> {
+  return postStructured<AiDiagnosisExplanation>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose/explain`,
+    {},
   );
 }
 

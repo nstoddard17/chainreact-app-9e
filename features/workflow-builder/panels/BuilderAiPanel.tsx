@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AiApiError,
+  AI_CREDITS_EXHAUSTED_MESSAGE,
   clearBuilderAgentThread,
+  diagnoseWorkflow,
+  explainDiagnosis,
   getBuilderAgentThread,
   type CurrentGraphSnapshot,
 } from "@/lib/api/ai";
@@ -14,6 +18,7 @@ import {
   nextChatMessageId,
   persistedMessageToChat,
   type ChatMessage,
+  type ChatMessageId,
   type UserChatMessage,
 } from "./_BuilderAiPanelChat";
 import {
@@ -82,6 +87,18 @@ export function BuilderAiPanel() {
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  // AI-DIAG-1b — true while a read-only "Check this workflow" diagnosis is in
+  // flight. Independent of the plan/apply state machine (the diagnosis never
+  // mutates graph or hook state); it only gates against starting a SECOND
+  // operation concurrently.
+  const [checking, setChecking] = useState(false);
+  // AI-DIAG-2b — "Explain with AI" state. `explaining` is the in-flight indicator;
+  // `explainedDiagnosisIds` records which diagnosis messages already have an
+  // explanation so a repeat click can't re-charge.
+  const [explaining, setExplaining] = useState(false);
+  const [explainedDiagnosisIds, setExplainedDiagnosisIds] = useState<
+    ReadonlySet<ChatMessageId>
+  >(() => new Set());
   // AI-26 — true when the most recent thread-load attempt for the
   // current workflowId failed. Drives a small non-blocking notice in
   // `_BuilderAiPanelMessageList` so a silent load failure is no longer
@@ -405,6 +422,94 @@ export function BuilderAiPanel() {
     });
   }
 
+  async function handleCheckWorkflow(): Promise<void> {
+    // AI-DIAG-1b — read-only diagnosis. Never starts while a plan/apply or a
+    // prior check is running (the button is also disabled in those states).
+    if (busy || checking) return;
+    // Session-local user-gesture marker (kind "action" → NOT a planner prompt,
+    // NOT persisted). The STALE_PATCH re-run scan only picks `prompt` markers.
+    appendMessage({
+      id: nextChatMessageId(),
+      role: "user",
+      kind: "action",
+      content: "Check this workflow",
+    });
+    setChecking(true);
+    try {
+      const diagnosis = await diagnoseWorkflow(wfId);
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "diagnosis",
+        diagnosis,
+      });
+    } catch (err) {
+      // Safe, status-mapped copy — never surface internals. 401 is the only
+      // status our read-only route returns besides 200 (access walls come back
+      // as a 200 DTO the DiagnosisBody renders safely).
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to check this workflow."
+          : "Couldn’t check this workflow right now. Please try again.";
+      appendMessage({
+        id: nextChatMessageId(),
+        role: "assistant",
+        kind: "error",
+        content,
+      });
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleExplainDiagnosis(diagnosisMessageId: ChatMessageId): Promise<void> {
+    // AI-DIAG-2b — explanation-only, EXPLICIT click. Never auto-called. Guard
+    // against concurrent ops and repeat-charge (already explained / in flight).
+    if (busy || checking || explaining) return;
+    if (explainedDiagnosisIds.has(diagnosisMessageId)) return;
+    setExplaining(true);
+    try {
+      const res = await explainDiagnosis(wfId);
+      if (res.ok) {
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "diagnosis_explanation",
+          explanation: res.explanation,
+          ...(res.priorities ? { priorities: res.priorities } : {}),
+          ...(res.missingInfo ? { missingInfo: res.missingInfo } : {}),
+        });
+        // Mark this diagnosis explained so a repeat click can't re-charge.
+        setExplainedDiagnosisIds((prev) => {
+          const next = new Set(prev);
+          next.add(diagnosisMessageId);
+          return next;
+        });
+      } else {
+        // Handled ok:false (402 credits / 503 model|gate). Safe copy only — never
+        // the raw code/message. Not marked explained, so the user may retry.
+        const content =
+          res.code === "AI_CREDITS_EXHAUSTED"
+            ? AI_CREDITS_EXHAUSTED_MESSAGE
+            : "Couldn’t generate an explanation right now. Please try again.";
+        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+      }
+    } catch (err) {
+      // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to use the AI assistant."
+          : status === 404
+            ? "This workflow couldn’t be found."
+            : "Couldn’t generate an explanation right now. Please try again.";
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setExplaining(false);
+    }
+  }
+
   function handleClear(): void {
     // Clear resets the whole conversation: messages, composer text,
     // risk-ack, the hook chain state, AND the staged required-input
@@ -417,6 +522,9 @@ export function BuilderAiPanel() {
     setMessages([]);
     setPrompt("");
     setStagedAnswers(new Map());
+    // AI-DIAG-2b — also reset the explanation state on a full clear.
+    setExplaining(false);
+    setExplainedDiagnosisIds(new Set());
     ai.reset();
     void clearBuilderAgentThread(wfId).catch((err) => {
       warnPersistenceFailureForDev("Builder Agent thread clear failed", err);
@@ -467,9 +575,13 @@ export function BuilderAiPanel() {
         stagedAnswers={stagedAnswers}
         onStagedAnswerChange={handleStagedAnswerChange}
         historyLoadFailed={historyLoadFailed}
+        checking={checking}
         onSubmitDetails={handleSubmit}
         canSubmitDetails={canSubmitDetails}
         submittingDetails={busy}
+        onExplainDiagnosis={handleExplainDiagnosis}
+        explaining={explaining}
+        explainedDiagnosisIds={explainedDiagnosisIds}
       />
       <BuilderAiPanelComposer
         prompt={prompt}
@@ -481,6 +593,8 @@ export function BuilderAiPanel() {
         busy={busy}
         hasMessages={hasMessages}
         hasStagedAnswers={stagedAnswers.size > 0}
+        onCheckWorkflow={handleCheckWorkflow}
+        checking={checking}
       />
     </section>
   );

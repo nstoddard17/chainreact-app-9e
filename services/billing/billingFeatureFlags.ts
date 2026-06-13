@@ -87,3 +87,21 @@ export const BUSINESS_DOWNGRADE_FLAG = "ENABLE_BUSINESS_DOWNGRADE";
 export function isBusinessDowngradeEnabled(): boolean {
   return process.env[BUSINESS_DOWNGRADE_FLAG] === "true";
 }
+
+/**
+ * Env var gating AI CREDIT ENFORCEMENT (Slice 4.AI-CREDITS-3, deduct-only).
+ *
+ * DEFAULT OFF. When OFF, `aiCreditGate` is a pure no-op (returns
+ * `skipped: enforcement_disabled`, no DB write, no charge) — AI credits stay
+ * recording-only (AI-CREDITS-2). When ON, paid AI features deduct credits via
+ * `deduct_ai_credits_if_available` before the LLM call; 0-credit/deterministic
+ * features still pass for free. Read at call time so tests + rollout can toggle it
+ * without re-importing. This slice ships the gate + flag but does NOT wire the gate
+ * into any live AI route (infra-only).
+ */
+export const AI_CREDIT_ENFORCEMENT_FLAG = "ENABLE_AI_CREDIT_ENFORCEMENT";
+
+/** True only when ENABLE_AI_CREDIT_ENFORCEMENT === "true". Default false. */
+export function isAiCreditEnforcementEnabled(): boolean {
+  return process.env[AI_CREDIT_ENFORCEMENT_FLAG] === "true";
+}

@@ -161,6 +161,22 @@ export class ReconnectIdentityMismatchError extends Error {
 }
 
 /**
+ * Thrown at connect time when a per-tenant provider (Shopify) is being
+ * reconnected but the tenant hint (the shop domain) can't be derived from the
+ * intended row — e.g. a corrupt row whose `provider_account_id` isn't a valid
+ * shop domain (Slice 4.APPS-RECONNECT). The message is SAFE/generic — it never
+ * echoes the stored shop/identity — so the connect route can surface it inline.
+ */
+export class ReconnectHintUnavailableError extends Error {
+  constructor() {
+    super(
+      "This connection can’t be reconnected automatically. Remove it and connect again.",
+    );
+    this.name = "ReconnectHintUnavailableError";
+  }
+}
+
+/**
  * Shared reconnect guard (Slice 4.APPS-RECONNECT) used by both callback paths.
  * When the consumed state carried a reconnect intent, load the intended row
  * (account-scoped, service-role) and require the provider-returned identity to
@@ -263,19 +279,36 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     );
   }
 
-  // Slice 12: per-tenant providerHint validation. Runs BEFORE state
-  // creation so format errors fail at the start of the flow rather
-  // than at the callback (where the user has already authorized on
-  // the provider's UI). A providerHint passed to a provider without a
-  // `validateProviderHint` hook is a programming error — the only
-  // providers expecting hints are the ones that declared the hook.
-  if (input.providerHint !== undefined) {
+  // The per-tenant hint actually used to build the authorize URL + bind into
+  // state. Normal connects validate the CLIENT-supplied hint (Slice 12);
+  // reconnects DERIVE it SERVER-SIDE from the intended row (Slice 4.APPS-RECONNECT)
+  // and ignore any client hint — the client only ever sends the opaque row id.
+  let effectiveProviderHint: ProviderHint | undefined;
+  if (input.reconnect) {
+    // Per-tenant provider (Shopify) reconnect: the authorize URL depends on the
+    // tenant (shop), so reconstruct that hint from the row's identity that the
+    // reconnect service already resolved. Generic providers (no
+    // `validateProviderHint`) need no hint and skip this entirely.
+    if (oauth.validateProviderHint) {
+      const derived =
+        oauth.deriveReconnectHint?.({
+          providerAccountId: input.reconnect.expectedProviderAccountId,
+        }) ?? null;
+      // Underivable (corrupt row) → SAFE typed error; never the raw shop value.
+      if (!derived) throw new ReconnectHintUnavailableError();
+      effectiveProviderHint = derived;
+    }
+  } else if (input.providerHint !== undefined) {
+    // Slice 12: validate the CLIENT-supplied hint BEFORE state creation so format
+    // errors fail at the start of the flow. A hint passed to a provider without a
+    // `validateProviderHint` hook is a programming error.
     if (!oauth.validateProviderHint) {
       throw new Error(
         `Provider '${input.provider}' does not accept providerHint inputs.`,
       );
     }
     oauth.validateProviderHint(input.providerHint);
+    effectiveProviderHint = input.providerHint;
   }
 
   const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
@@ -299,8 +332,8 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
           },
         }
       : {}),
-    ...(input.providerHint !== undefined
-      ? { providerHint: input.providerHint }
+    ...(effectiveProviderHint !== undefined
+      ? { providerHint: effectiveProviderHint }
       : {}),
     ...(input.reconnect !== undefined
       ? { reconnect: { integrationId: input.reconnect.integrationId } }
@@ -319,7 +352,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     pkceGen !== undefined
       ? { codeChallenge: pkceGen.codeChallenge, codeChallengeMethod: pkceGen.codeChallengeMethod }
       : null,
-    input.providerHint ?? null,
+    effectiveProviderHint ?? null,
     steer,
   );
   return { redirectUrl };

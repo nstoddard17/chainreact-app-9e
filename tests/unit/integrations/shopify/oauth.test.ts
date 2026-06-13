@@ -248,6 +248,41 @@ describe("shopifyOAuth.generatePkce", () => {
   });
 });
 
+// ─── deriveReconnectHint (Slice 4.APPS-RECONNECT) ───────────────────────────
+
+describe("shopifyOAuth.deriveReconnectHint", () => {
+  const derive = shopifyOAuth.deriveReconnectHint!;
+
+  it("rebuilds { shop } from the row's provider_account_id (which IS the shop domain)", () => {
+    expect(derive({ providerAccountId: "mystore.myshopify.com" })).toEqual({
+      shop: "mystore.myshopify.com",
+    });
+  });
+
+  it("normalizes a bare-subdomain provider_account_id", () => {
+    expect(derive({ providerAccountId: "mystore" })).toEqual({
+      shop: "mystore.myshopify.com",
+    });
+  });
+
+  it("falls back to accountMetadata.shopDomain when provider_account_id is not a valid shop", () => {
+    expect(
+      derive({
+        providerAccountId: "not-a-shop!!",
+        accountMetadata: { shopDomain: "acme.myshopify.com" },
+      }),
+    ).toEqual({ shop: "acme.myshopify.com" });
+  });
+
+  it("returns null (NOT a throw, so no shop value leaks) when nothing is a valid shop", () => {
+    expect(derive({ providerAccountId: "" })).toBeNull();
+    expect(derive({ providerAccountId: "evil.com" })).toBeNull();
+    expect(
+      derive({ providerAccountId: "evil.com", accountMetadata: { shopDomain: 123 } }),
+    ).toBeNull();
+  });
+});
+
 // ─── buildAuthUrl ───────────────────────────────────────────────────────────
 
 describe("shopifyOAuth.buildAuthUrl", () => {

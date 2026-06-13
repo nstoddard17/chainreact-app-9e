@@ -234,6 +234,33 @@ export const shopifyOAuth: ProviderOAuth = {
     normalizeShopDomain(hint.shop);
   },
 
+  /**
+   * Per-account reconnect hint derivation (Slice 4.APPS-RECONNECT). The Shopify
+   * shop domain IS the row's `provider_account_id` (see `handleCallback` —
+   * `providerAccountId: shop`), with `accountMetadata.shopDomain` as a fallback.
+   * Reconstruct the `{ shop }` hint the authorize URL needs entirely from the
+   * stored row — the client never sends it. Returns `null` (NOT a throw — the
+   * thrown message would echo the shop) when neither value is a valid shop
+   * domain, so the dispatcher surfaces a safe generic error instead.
+   */
+  deriveReconnectHint({ providerAccountId, accountMetadata }) {
+    const candidates = [
+      providerAccountId,
+      typeof accountMetadata?.shopDomain === "string"
+        ? (accountMetadata.shopDomain as string)
+        : undefined,
+    ];
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      try {
+        return { shop: normalizeShopDomain(candidate) };
+      } catch {
+        // Not a valid shop domain — try the next candidate.
+      }
+    }
+    return null;
+  },
+
   buildAuthUrl(state, scopes, _pkce, providerHint) {
     const shop = readShopFromHint(providerHint, "shopifyOAuth.buildAuthUrl");
     const params = new URLSearchParams({

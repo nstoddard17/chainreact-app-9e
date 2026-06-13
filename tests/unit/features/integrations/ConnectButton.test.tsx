@@ -33,7 +33,9 @@ describe("ConnectButton", () => {
     render(<ConnectButton provider="slack" label="Connect Slack" />);
     await user.click(screen.getByRole("button", { name: /connect slack/i }));
     await waitFor(() => {
-      expect(mockStartOAuth).toHaveBeenCalledWith("slack");
+      // Plain Connect passes the optional reconnect arg slot as `undefined`
+      // (APPS-RECONNECT extended startOAuth's signature). Assert the exact call.
+      expect(mockStartOAuth).toHaveBeenCalledWith("slack", undefined);
       expect(assignSpy).toHaveBeenCalledWith("https://slack.com/oauth/v2/authorize?x=1");
     });
   });
@@ -84,8 +86,9 @@ describe("ConnectButton", () => {
     expect(btn.querySelector("svg")).not.toBeNull();
     await user.click(btn);
     await waitFor(() => {
-      // No reconnect bundle → plain one-arg start (unchanged contract).
-      expect(mockStartOAuth).toHaveBeenCalledWith("slack");
+      // The `reconnect` VARIANT is visual only; without the `reconnect` PROP the
+      // OAuth call is identical to plain Connect — provider + undefined arg slot.
+      expect(mockStartOAuth).toHaveBeenCalledWith("slack", undefined);
       expect(assignSpy).toHaveBeenCalledWith(
         "https://slack.com/oauth/v2/authorize?x=2",
       );

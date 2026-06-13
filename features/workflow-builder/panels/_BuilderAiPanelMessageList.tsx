@@ -10,6 +10,7 @@ import {
   type ChatMessage,
   type ChatMessageId,
 } from "./_BuilderAiPanelChat";
+import { DiagnosisBody, DiagnosisExplanationBody } from "./_BuilderAiPanelDiagnosis";
 
 /**
  * Scrolling message list for the React Agent chat (Slice 4.AI-21C).
@@ -75,6 +76,12 @@ interface Props {
    */
   readonly historyLoadFailed: boolean;
   /**
+   * Slice 4.AI-DIAG-1b — true while a read-only "Check this workflow" diagnosis
+   * round-trip is in flight. Renders a transient assistant indicator (mirrors the
+   * planning indicator); does not affect plan/apply state.
+   */
+  readonly checking: boolean;
+  /**
    * Slice 4.REACT-AGENT-CHAT-QOL-1 — submit handler for the inline "Send
    * details" button rendered under the ACTIVE plan_result's required-input
    * controls. Identical to the composer's `onSubmit` (the panel passes the
@@ -87,6 +94,16 @@ interface Props {
   readonly canSubmitDetails: boolean;
   /** True while a plan / apply round-trip is in flight — disables the inline button. */
   readonly submittingDetails: boolean;
+  /**
+   * Slice 4.AI-DIAG-2b — "Explain with AI" wiring. `onExplainDiagnosis` is the
+   * explicit-click handler (it receives the diagnosis message id so the panel can
+   * mark it explained); `explaining` drives the transient indicator + disables the
+   * button; `explainedDiagnosisIds` drives the per-diagnosis "Explained" state so a
+   * repeat click can't re-charge.
+   */
+  readonly onExplainDiagnosis: (diagnosisMessageId: ChatMessageId) => void;
+  readonly explaining: boolean;
+  readonly explainedDiagnosisIds: ReadonlySet<ChatMessageId>;
 }
 
 export function BuilderAiPanelMessageList({
@@ -105,9 +122,13 @@ export function BuilderAiPanelMessageList({
   stagedAnswers,
   onStagedAnswerChange,
   historyLoadFailed,
+  checking,
   onSubmitDetails,
   canSubmitDetails,
   submittingDetails,
+  onExplainDiagnosis,
+  explaining,
+  explainedDiagnosisIds,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -129,6 +150,17 @@ export function BuilderAiPanelMessageList({
     const m = messages[i]!;
     if (m.role === "assistant" && m.kind === "plan_result" && !m.persisted) {
       latestPlanMessageId = m.id;
+      break;
+    }
+  }
+
+  // AI-DIAG-2b — only the LATEST diagnosis message shows "Explain with AI" (mirrors
+  // latest-plan derivation), so a stale historical check never offers a paid button.
+  let latestDiagnosisMessageId: ChatMessageId | null = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role === "assistant" && m.kind === "diagnosis") {
+      latestDiagnosisMessageId = m.id;
       break;
     }
   }
@@ -224,6 +256,30 @@ export function BuilderAiPanelMessageList({
             </AssistantBubble>
           );
         }
+        if (message.kind === "diagnosis") {
+          return (
+            <AssistantBubble key={message.id}>
+              <DiagnosisBody
+                diagnosis={message.diagnosis}
+                canExplain={message.id === latestDiagnosisMessageId}
+                explaining={explaining}
+                alreadyExplained={explainedDiagnosisIds.has(message.id)}
+                onExplain={() => onExplainDiagnosis(message.id)}
+              />
+            </AssistantBubble>
+          );
+        }
+        if (message.kind === "diagnosis_explanation") {
+          return (
+            <AssistantBubble key={message.id}>
+              <DiagnosisExplanationBody
+                explanation={message.explanation}
+                priorities={message.priorities}
+                missingInfo={message.missingInfo}
+              />
+            </AssistantBubble>
+          );
+        }
         if (message.kind === "apply_failure") {
           return (
             <AssistantBubble key={message.id}>
@@ -278,6 +334,30 @@ export function BuilderAiPanelMessageList({
             data-testid="builder-ai-planning"
           >
             Planning your change…
+          </p>
+        </AssistantBubble>
+      )}
+
+      {checking && (
+        <AssistantBubble>
+          <p
+            role="status"
+            className="text-xs text-muted-foreground"
+            data-testid="builder-ai-checking"
+          >
+            Checking workflow…
+          </p>
+        </AssistantBubble>
+      )}
+
+      {explaining && (
+        <AssistantBubble>
+          <p
+            role="status"
+            className="text-xs text-muted-foreground"
+            data-testid="builder-ai-explaining"
+          >
+            Explaining this check…
           </p>
         </AssistantBubble>
       )}

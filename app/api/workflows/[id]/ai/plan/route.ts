@@ -5,8 +5,11 @@ import {
   type PlanWorkflowFailureCode,
 } from "@/services/ai/planner";
 import { recordAiPlanOutcome } from "@/services/ai/events";
-import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
-import { parseJsonBody, requireUser } from "../../../_shared";
+import {
+  aiCreditGate,
+  type AiCreditGateOutcome,
+} from "@/services/billing/aiCreditGate";
+import { loadWorkflowForMember, parseJsonBody, requireUser } from "../../../_shared";
 
 /**
  * POST /api/workflows/[id]/ai/plan — the first app-facing AI route (Slice 4.AI-9A).
@@ -15,13 +18,17 @@ import { parseJsonBody, requireUser } from "../../../_shared";
  * preview via `planWorkflowFromPromptForAI` (model → parse → AI-3 validate → AI-5
  * preview). It NEVER applies a patch, NEVER mutates the workflow / DB, and NEVER
  * persists the prompt or model output. The route stays thin: auth → validate →
- * call the orchestrator → format response.
+ * resolve+authorize the workflow account (4.AI-CREDITS-3b-0) → call the orchestrator
+ * → format response.
  *
  * Safety / status mapping:
  *   - 401 unauthenticated; 400 invalid body.
  *   - 404 when the workflow is not found / not owned (no existence leak).
- *   - 503 when the model is unconfigured / the model call failed (MODEL_FAILED) —
- *     a handled, fail-safe outcome, NEVER a 500.
+ *   - 402 `AI_CREDITS_EXHAUSTED` when the AI-credit gate refuses (flag ON + over
+ *     limit) — the planner is NOT called (4.AI-CREDITS-3b-i).
+ *   - 403 `ACCOUNT_PENDING_DELETION` when the account is frozen — planner NOT called.
+ *   - 503 when the model is unconfigured / the model call failed (MODEL_FAILED), or
+ *     `AI_GATE_ERROR` when the gate itself errors (fail-closed) — handled, NEVER a 500.
  *   - 502 when the model output could not be parsed / previewed.
  *   - 200 for any successful plan (including "needs user input" and
  *     "preview rejected / not apply-ready" — the body's `ok` + `canApplyLater`
@@ -104,6 +111,62 @@ function planFailureStatus(code: PlanWorkflowFailureCode): number {
   }
 }
 
+/**
+ * Slice 4.AI-CREDITS-3b-i — map an AI-credit gate refusal to a no-leak HTTP
+ * response. The body carries an `ok:false` flag (so the typed client treats it as a
+ * handled result, not a transport throw) shaped like a plan failure
+ * (`code` + `message` + `errors`). No tokens / emails / providers / account ids —
+ * only the typed code, fixed copy, and (for the quota case) the member-visible
+ * `used`/`limit` integers.
+ */
+function aiCreditDenialResponse(
+  gate: Extract<AiCreditGateOutcome, { ok: false }>,
+): NextResponse {
+  if (gate.reason === "account_frozen") {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "ACCOUNT_PENDING_DELETION",
+        message: "This account is pending deletion.",
+        errors: [
+          { stage: "billing", code: "ACCOUNT_PENDING_DELETION", message: "Account pending deletion." },
+        ],
+      },
+      { status: 403 },
+    );
+  }
+  if (gate.reason === "gate_error") {
+    // Fail-closed: the gate could not meter the call, so we refuse it (never run a
+    // paid call we couldn't account for). Same "AI temporarily unavailable" family
+    // as MODEL_FAILED → 503.
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "AI_GATE_ERROR",
+        message: "The AI assistant is temporarily unavailable. Please try again in a moment.",
+        errors: [
+          { stage: "billing", code: "AI_GATE_ERROR", message: "AI credit gate error." },
+        ],
+      },
+      { status: 503 },
+    );
+  }
+  // insufficient_ai_credits → 402 Payment Required (quota / upgrade).
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "AI_CREDITS_EXHAUSTED",
+      message: "You've used all your AI credits for this billing period.",
+      used: gate.used,
+      limit: gate.limit,
+      errors: [
+        { stage: "billing", code: "AI_CREDITS_EXHAUSTED", message: "AI credit limit reached." },
+      ],
+    },
+    { status: 402 },
+  );
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -118,6 +181,32 @@ export async function POST(
 
   const body = await parseJsonBody(request, PlanRequestSchema);
   if (!body.ok) return body.response;
+
+  // Slice 4.AI-CREDITS-3b-0 — resolve the WORKFLOW-OWNING account + authorize
+  // membership BEFORE the paid planner call. `loadWorkflowForMember` is the
+  // canonical resolver: RLS-scoped `getById` + `isMember`, collapsing a missing /
+  // deleted / non-member workflow to the standard no-leak 404 (no existence leak,
+  // and — unlike before — no model call is made for an unauthorized id). The
+  // returned `record.accountId` is the cost owner for AI usage (personal → personal,
+  // team → team pool, business → business pool); it is ALWAYS resolved server-side
+  // and NEVER taken from the client.
+  const wf = await loadWorkflowForMember(id, auth.userId);
+  if (!wf.ok) return wf.response;
+  const accountId = wf.record.accountId;
+
+  // Slice 4.AI-CREDITS-3b-i — meter AI credits BEFORE the paid planner call.
+  // Flag OFF (`ENABLE_AI_CREDIT_ENFORCEMENT` ≠ "true", the default) → the gate is a
+  // pure no-op (`skipped:enforcement_disabled`, no DB write, no charge) and the
+  // member happy path is byte-identical. Flag ON → deduct the `workflow_creation`
+  // charge from the WORKFLOW-OWNING account; over-limit (402) / frozen (403) /
+  // gate-error (503, fail-closed) all refuse the LLM call. This is ONE gate per
+  // user-initiated planner call — the classifier sub-call is not separately gated.
+  const gate = await aiCreditGate({
+    accountId,
+    feature: "workflow_creation",
+    plannedTier: body.data.modelTier ?? "fast",
+  });
+  if (!gate.ok) return aiCreditDenialResponse(gate);
 
   let result;
   try {
@@ -143,11 +232,13 @@ export async function POST(
   // its own errors; the extra try/catch is belt-and-suspenders so analytics can
   // never affect the response. No raw prompt/config is recorded.
   try {
-    // 4.ACCOUNT-MODEL-9d: AI cost is owned by the account; userId is the actor.
-    const account = await ensurePersonalAccount(auth.userId);
+    // 4.AI-CREDITS-3b-0: AI cost is owned by the WORKFLOW-OWNING account (resolved
+    // above), never the actor's personal account — so a Team/Business workflow's
+    // usage attributes to the team/business account, not the member's personal pool.
+    // `userId` remains the actor (provenance, not owner).
     await recordAiPlanOutcome(
       {
-        accountId: account.id,
+        accountId,
         userId: auth.userId,
         workflowId: id,
         ...(body.data.interactionKind ? { interactionKind: body.data.interactionKind } : {}),

@@ -28,11 +28,29 @@ jest.mock("@/services/ai/events", () => ({
   recordAiPlanOutcome: (...a: unknown[]) => mockRecordPlan(...a),
 }));
 
-// 4.ACCOUNT-MODEL-9d: the route resolves the caller's account for AI-cost ownership.
-jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
-  ensurePersonalAccount: jest.fn(async () => ({ id: "acct-user-1" })),
+// 4.AI-CREDITS-3b-0: the route resolves the WORKFLOW-OWNING account (+ authorizes
+// membership) via `loadWorkflowForMember` before the planner. Partial-mock `_shared`
+// so `loadWorkflowForMember` is controllable while `requireUser` / `parseJsonBody`
+// stay real (the auth + body-parse contract is still exercised end-to-end).
+const mockLoadWorkflowForMember = jest.fn();
+jest.mock("@/app/api/workflows/_shared", () => {
+  const actual = jest.requireActual("@/app/api/workflows/_shared");
+  return {
+    ...actual,
+    loadWorkflowForMember: (...a: unknown[]) => mockLoadWorkflowForMember(...a),
+  };
+});
+
+// 4.AI-CREDITS-3b-i: the route gates the paid planner call through `aiCreditGate`
+// before invoking it. Mock the gate so the route's gate→deny / gate→proceed wiring is
+// tested in isolation; the gate's own deduct/flag/frozen behavior is covered by
+// tests/unit/services/billing/aiCreditGate.test.ts.
+const mockAiCreditGate = jest.fn();
+jest.mock("@/services/billing/aiCreditGate", () => ({
+  aiCreditGate: (...a: unknown[]) => mockAiCreditGate(...a),
 }));
 
+import { NextResponse } from "next/server";
 import { POST } from "@/app/api/workflows/[id]/ai/plan/route";
 
 function call(id: string, body: unknown) {
@@ -66,6 +84,20 @@ beforeEach(() => {
   mockPlan.mockReset();
   mockRecordPlan.mockReset();
   mockRecordPlan.mockResolvedValue(undefined);
+  mockLoadWorkflowForMember.mockReset();
+  // Default: caller is a member of the workflow's account. `record.accountId` is
+  // the workflow-owning account (acct-wf-1), distinct from the actor's user id.
+  mockLoadWorkflowForMember.mockResolvedValue({
+    ok: true,
+    record: { id: "wf-1", accountId: "acct-wf-1" },
+  });
+  mockAiCreditGate.mockReset();
+  // Default: enforcement flag OFF → the gate is a no-op and the planner proceeds.
+  mockAiCreditGate.mockResolvedValue({
+    ok: true,
+    skipped: true,
+    reason: "enforcement_disabled",
+  });
 });
 
 describe("auth", () => {
@@ -228,11 +260,11 @@ describe("result mapping", () => {
 });
 
 describe("AI-10 observability (fail-open)", () => {
-  it("records a plan event with the user/workflow + result", async () => {
+  it("records a plan event with the workflow-owning account/user/workflow + result", async () => {
     mockPlan.mockResolvedValueOnce(successResult);
     await call("wf-1", { prompt: "x" });
     expect(mockRecordPlan).toHaveBeenCalledWith(
-      { accountId: "acct-user-1", userId: "user-1", workflowId: "wf-1" },
+      { accountId: "acct-wf-1", userId: "user-1", workflowId: "wf-1" },
       expect.objectContaining({ ok: true }),
     );
   });
@@ -242,6 +274,197 @@ describe("AI-10 observability (fail-open)", () => {
     mockRecordPlan.mockRejectedValueOnce(new Error("ledger down"));
     const res = await call("wf-1", { prompt: "x" });
     expect(res.status).toBe(200);
+  });
+});
+
+// ─── Slice 4.AI-CREDITS-3b-0 — workflow-owning-account attribution + authz ────
+describe("AI-CREDITS-3b-0 — workflow-owning account attribution", () => {
+  it("personal workflow → recorder gets the workflow's account id (= record.accountId)", async () => {
+    // A personal workflow is owned by the user's personal account; record.accountId
+    // carries that account id (not the raw user id).
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-1", accountId: "acct-personal-1" },
+    });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", { prompt: "x" });
+    expect(mockRecordPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: "acct-personal-1", userId: "user-1" }),
+      expect.anything(),
+    );
+  });
+
+  it("team workflow → recorder gets the team/workflow account id, NOT the actor's personal id", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-team", accountId: "acct-team-7" },
+    });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-team", { prompt: "x" });
+    const [scope] = mockRecordPlan.mock.calls[0]!;
+    expect((scope as { accountId: string }).accountId).toBe("acct-team-7");
+    // The actor id must never be used as the cost-owner account.
+    expect((scope as { accountId: string }).accountId).not.toBe("user-1");
+  });
+
+  it("the recorder's accountId equals the resolver's record.accountId", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-9", accountId: "acct-resolved-9" },
+    });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-9", { prompt: "x" });
+    const [scope] = mockRecordPlan.mock.calls[0]!;
+    expect((scope as { accountId: string }).accountId).toBe("acct-resolved-9");
+  });
+
+  it("ignores a client-supplied accountId — uses the resolved workflow account", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    // Malicious/incorrect client tries to choose the cost owner.
+    await call("wf-1", { prompt: "x", accountId: "acct-EVIL" });
+    const [scope] = mockRecordPlan.mock.calls[0]!;
+    expect((scope as { accountId: string }).accountId).toBe("acct-wf-1");
+    expect((scope as { accountId: string }).accountId).not.toBe("acct-EVIL");
+    // The planner is never handed a client accountId either.
+    const [planArg] = mockPlan.mock.calls[0]!;
+    expect(planArg).not.toHaveProperty("accountId");
+  });
+
+  it("returns a no-leak 404 BEFORE the planner when the workflow is missing/non-member/deleted", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json(
+        { error: "Workflow not found.", code: "WORKFLOW_NOT_FOUND" },
+        { status: 404 },
+      ),
+    });
+    const res = await call("wf-forbidden", { prompt: "x" });
+    expect(res.status).toBe(404);
+    // No paid model call for an unauthorized id.
+    expect(mockPlan).not.toHaveBeenCalled();
+    // No telemetry attributed for a request that never reached the planner.
+    expect(mockRecordPlan).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_NOT_FOUND");
+    // No existence leak / no internals.
+    expect(JSON.stringify(body)).not.toContain("acct-");
+  });
+});
+
+// ─── Slice 4.AI-CREDITS-3b-i — AI-credit gate before the paid planner call ────
+describe("AI-CREDITS-3b-i — AI-credit gate", () => {
+  it("flag OFF (gate skipped) → planner proceeds with no denial; gate gets the right inputs", async () => {
+    // Default beforeEach gate = enforcement_disabled (flag OFF). No deduction RPC is
+    // exercised here — that no-op is proven in aiCreditGate.test.ts; the route's job is
+    // to call the gate with the workflow-owning account + feature + planned tier.
+    mockPlan.mockResolvedValueOnce(successResult);
+    const res = await call("wf-1", { prompt: "x", modelTier: "strong" });
+    expect(res.status).toBe(200);
+    expect(mockAiCreditGate).toHaveBeenCalledTimes(1);
+    expect(mockAiCreditGate).toHaveBeenCalledWith({
+      accountId: "acct-wf-1",
+      feature: "workflow_creation",
+      plannedTier: "strong",
+    });
+    expect(mockPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults plannedTier to 'fast' when the request omits modelTier", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", { prompt: "x" });
+    expect(mockAiCreditGate).toHaveBeenCalledWith(
+      expect.objectContaining({ plannedTier: "fast" }),
+    );
+  });
+
+  it("flag ON + sufficient credits → exactly one gate call and the planner is called", async () => {
+    mockAiCreditGate.mockResolvedValueOnce({ ok: true, charged: 2, used: 2, limit: 500 });
+    mockPlan.mockResolvedValueOnce(successResult);
+    const res = await call("wf-1", { prompt: "x" });
+    expect(res.status).toBe(200);
+    expect(mockAiCreditGate).toHaveBeenCalledTimes(1); // no double-charge
+    expect(mockPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("flag ON + insufficient credits → 402 AI_CREDITS_EXHAUSTED and the planner is NOT called", async () => {
+    mockAiCreditGate.mockResolvedValueOnce({
+      ok: false,
+      reason: "insufficient_ai_credits",
+      used: 20,
+      limit: 20,
+    });
+    const res = await call("wf-1", { prompt: "x" });
+    expect(res.status).toBe(402);
+    expect(mockPlan).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "AI_CREDITS_EXHAUSTED" });
+    // The member-visible quota integers are allowed; nothing else leaks.
+    expect(body.used).toBe(20);
+    expect(body.limit).toBe(20);
+  });
+
+  it("flag ON + gate error → 503 AI_GATE_ERROR (fail-closed) and the planner is NOT called", async () => {
+    mockAiCreditGate.mockResolvedValueOnce({
+      ok: false,
+      reason: "gate_error",
+      used: 0,
+      limit: 0,
+    });
+    const res = await call("wf-1", { prompt: "x" });
+    expect(res.status).toBe(503);
+    expect(mockPlan).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "AI_GATE_ERROR" });
+  });
+
+  it("flag ON + frozen account → 403 ACCOUNT_PENDING_DELETION and the planner is NOT called", async () => {
+    mockAiCreditGate.mockResolvedValueOnce({
+      ok: false,
+      reason: "account_frozen",
+      used: 0,
+      limit: 0,
+    });
+    const res = await call("wf-1", { prompt: "x" });
+    expect(res.status).toBe(403);
+    expect(mockPlan).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "ACCOUNT_PENDING_DELETION" });
+  });
+
+  it("gate and recorder receive the SAME workflow-owning account id", async () => {
+    mockLoadWorkflowForMember.mockResolvedValueOnce({
+      ok: true,
+      record: { id: "wf-team", accountId: "acct-team-42" },
+    });
+    mockAiCreditGate.mockResolvedValueOnce({ ok: true, charged: 2, used: 2, limit: 2000 });
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-team", { prompt: "x" });
+    const [gateArg] = mockAiCreditGate.mock.calls[0]!;
+    const [recordScope] = mockRecordPlan.mock.calls[0]!;
+    expect((gateArg as { accountId: string }).accountId).toBe("acct-team-42");
+    expect((recordScope as { accountId: string }).accountId).toBe("acct-team-42");
+  });
+
+  it("never trusts a client-supplied accountId for the gate", async () => {
+    mockPlan.mockResolvedValueOnce(successResult);
+    await call("wf-1", { prompt: "x", accountId: "acct-EVIL" });
+    const [gateArg] = mockAiCreditGate.mock.calls[0]!;
+    expect((gateArg as { accountId: string }).accountId).toBe("acct-wf-1");
+    expect((gateArg as { accountId: string }).accountId).not.toBe("acct-EVIL");
+  });
+
+  it("denial response leaks no secrets or account ids", async () => {
+    mockAiCreditGate.mockResolvedValueOnce({
+      ok: false,
+      reason: "insufficient_ai_credits",
+      used: 20,
+      limit: 20,
+    });
+    const res = await call("wf-1", { prompt: "x" });
+    const serialized = JSON.stringify(await res.json());
+    for (const needle of ["acct-", "ANTHROPIC_API_KEY", "accessToken", "Bearer ", "sk-ant-"]) {
+      expect(serialized).not.toContain(needle);
+    }
   });
 });
 

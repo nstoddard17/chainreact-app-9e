@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-12 @ 43b1a370f (deployed to prod `v2-main`; push posture updated)
+> Last curated: 2026-06-12 @ 8e090b2f6 (AI-DIAG-2 arc closeout — safe "Explain with AI", local-only, flags OFF)
 
 ## Current status
 
@@ -21,11 +21,21 @@
   (commit locally, don't push by default), but Marcus's explicit approval of a verified batch
   authorizes a `v2-main` push **which deploys to prod** — that is now the intended ship path
   (no staging env yet). Approval is per-batch; it does not carry over.
-- **Open threads:** MCP internal diagnostic suite — live run/connection layer **built
-  local-only** (Stage 2B: run-failure/visibility, workflow-readiness, integration- +
-  workflow-connections); remaining stages **2B-5 (graph) / 2C (doctors) / 2D (reports)
-  unbuilt** →
-  [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
+- **Open threads:**
+  - MCP internal diagnostic suite — live run/connection layer **built local-only** (Stage 2B:
+    run-failure/visibility, workflow-readiness, integration- + workflow-connections); remaining
+    stages **2B-5 (graph) / 2C (doctors) / 2D (reports) unbuilt** →
+    [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
+  - **AI diagnosis + explanation (local-only, flags OFF).** Deterministic "Check workflow"
+    (AI-DIAG-1) stays 0-credit/ungated/no-model; its telemetry now bills the workflow-owning
+    account (AI-DIAG-2-pre). **"Explain with AI" SHIPPED** (AI-DIAG-2): explicit-click only; the
+    route re-derives the safe DTO server-side and sends only an allow-listed projection to OpenAI
+    fast, gated **before** the model call (`workflow_explanation`=1, workflow-owning account),
+    explanation-only UI. **Credit enforcement WIRED but OFF** (`ENABLE_AI_CREDIT_ENFORCEMENT` =
+    literal `"true"`); OpenAI provider not enabled → explain returns safe 503. **Next:** dev/OpenAI
+    smoke → later Q&A/repair → **only then** Hermes →
+    [`ai-diag-2-llm-explanation-plan.md` §0](./slices/phase-4/ai-diag-2-llm-explanation-plan.md) ·
+    [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
 
 ## Durable decisions
 
@@ -43,6 +53,18 @@
   editable by any member. Non-creators see safe copy + Duplicate. Server (`6a02131ed`) + builder
   UI (`42fe1ce29`); **no migration, no flag**; Disconnect untouched →
   [`workflow-run-edit-permission-closeout.md`](./slices/phase-4/workflow-run-edit-permission-closeout.md).
+- [2026-06-12] **AI credits = a separate billing dimension from workflow tasks.** Meter AI
+  usage in AI credits (own pool, own limits), gate tiers on it. Deterministic checks
+  (`services/diagnostics/*`) free; AI explanation cheap; repair planning costs more; deep
+  multi-step agent loops premium. **Cheap model routing by default**, escalate to strong/premium
+  only on validation-failure/low-confidence/higher-tier. Track AI cost from day one. Future hosted
+  Hermes-style runtime sits behind an **agent-runtime adapter** (OpenAI underneath); ChainReact
+  services stay source of truth; **MCP stays external** (in-app agent never calls MCP). As-built
+  (`AI-CREDITS-3b`, flag-OFF): recording ledger + credit **policy/limits/gating now SHIPPED** — AI
+  usage bills the **workflow-owning account** (personal→personal, team/business→shared pool), gated
+  before the paid planner; deterministic diagnosis stays 0-credit/ungated →
+  [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md) +
+  [`ai-credits-and-agent-runtime-plan.md`](./slices/phase-4/ai-credits-and-agent-runtime-plan.md).
 - [2026-06-10] File output (P-S3) is a durable cross-cutting rule →
   [`docs/rules/file-output-contract.md`](./rules/file-output-contract.md).
 - [2026-06-12] **Push/deploy posture.** Local work is push-gated by default (commit locally,
@@ -68,6 +90,19 @@
 
 ## Recently completed arcs
 
+- **AI diagnosis explanation (AI-DIAG-2) — safe single-call "Explain with AI", local-only (2026-06-12)** —
+  deterministic check stays 0-credit/ungated (telemetry now → workflow-owning account); optional
+  explicit-click explanation re-derives the safe DTO server-side, sends only an allow-listed projection
+  to OpenAI fast (no ids/config/tokens/free-text), gated before the model call (`workflow_explanation`=1,
+  workflow-owning account); explanation-only UI. Flags OFF, OpenAI not enabled → safe 503. Q&A/repair/
+  Hermes deferred → `a66d0d87e`/`baea491b4`/`8e090b2f6` +
+  [`ai-diag-2-llm-explanation-plan.md` §0](./slices/phase-4/ai-diag-2-llm-explanation-plan.md).
+- **AI credit enforcement (AI-CREDITS-3b) — gate WIRED flag-OFF, local-only (2026-06-12)** — paid
+  planner (`workflow_creation`) gated before the model call → 402 `AI_CREDITS_EXHAUSTED` (planner not
+  called) / 403 frozen / 503 fail-closed; bills the workflow-owning account. Migration `20260621000000`
+  on dev; gated dev smoke proved the RPC/gate path. Flag OFF everywhere (literal `"true"`). Full
+  as-built + commits + deferred work →
+  [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
 - **Internal MCP — Stage 2B live diagnostics complete + consolidated (local-only, 2026-06-12)** —
   gated (default-OFF, prod-locked via `applyDiagnosticsGate`) live tools: run-failure,
   run-visibility, workflow-readiness, integration-connection, workflow-connections. CS-2 added
@@ -93,19 +128,6 @@
   prod (builder manual-run finalizes + appears on `/runs`); Slack action manual-run
   finalization validated; Slack channel loading recovered after Slack re-OAuth →
   `dd9e69502` + [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
-- **Slack action smoke** — `tests/smoke/slack-action.smoke.spec.ts` (pick channel by visible
-  name → run → assert finalize), `RUN_EXECUTION`-gated real send → shipped in
-  `62da1088b..9abe08ab6`.
-- **Internal MCP server — Stage 1 + 1.5 HTTP transport SHIPPED to `v2-main`** (in
-  `62da1088b..9abe08ab6`). Streamable HTTP front door (`/mcp`) for a ChatGPT Developer-Mode
-  connector over the same read-only Stage-1 registry. **Stage-2A diagnostics** (smoke artifact
-  + static option-source tools) implemented **locally** (`ccace0e23`, plan `64bfd850a`) — not
-  pushed. Runbooks → [`chatgpt-mcp-developer-mode.md`](./runbooks/chatgpt-mcp-developer-mode.md),
-  [`internal-mcp-server.md`](./runbooks/internal-mcp-server.md).
-- **Secret-scan rewrite** — fake Slack-token fixtures in the MCP test commits reassembled at
-  runtime (no literal Slack-bot-token string in source) so GitHub push protection allowed the
-  `v2-main` push; no bypass used → in `62da1088b..9abe08ab6`.
-- **CLAUDE.md curation** — 132,565 → 13,211 chars (−90%), `c2bbedbff..4cd929c7f`.
 
 ## Owner preferences
 

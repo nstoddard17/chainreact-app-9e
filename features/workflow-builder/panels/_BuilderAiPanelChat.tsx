@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type {
+  AgentWorkflowDiagnosis,
   AiPlanResult,
   BuilderAgentPersistedMessage,
 } from "@/lib/api/ai";
@@ -42,7 +43,13 @@ export type ChatMessageId = string;
 export interface UserChatMessage {
   readonly id: ChatMessageId;
   readonly role: "user";
-  readonly kind: "prompt" | "followup";
+  /**
+   * `action` (Slice 4.AI-DIAG-1b) is a session-local user-gesture marker (e.g.
+   * "Check this workflow") that renders as a user bubble but is NOT a planner
+   * prompt — the STALE_PATCH re-run scan only picks `prompt`, so `action`
+   * markers never become a re-plan source, and they are never persisted.
+   */
+  readonly kind: "prompt" | "followup" | "action";
   readonly content: string;
   readonly persisted?: boolean;
 }
@@ -84,12 +91,44 @@ export interface AssistantErrorChatMessage {
   readonly persisted?: boolean;
 }
 
+/**
+ * Slice 4.AI-DIAG-1b — read-only "Check this workflow" result. Carries the
+ * already-sanitized `AgentWorkflowDiagnosis` DTO verbatim (codes / node ids /
+ * provider ids+public names / missing-field names / public scope-gap names /
+ * stored humanized run classification / safe deterministic text). Session-local
+ * only — never persisted (the persistence kind enum has no `diagnosis`).
+ */
+export interface AssistantDiagnosisChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "diagnosis";
+  readonly diagnosis: AgentWorkflowDiagnosis;
+  readonly persisted?: boolean;
+}
+
+/**
+ * Slice 4.AI-DIAG-2b — the LLM explanation of a prior "Check this workflow"
+ * result. Session-local only (never persisted). Carries only the safe explanation
+ * fields the route returns — no model metadata, ids, codes, or raw DTO.
+ */
+export interface AssistantDiagnosisExplanationChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "diagnosis_explanation";
+  readonly explanation: string;
+  readonly priorities?: readonly string[];
+  readonly missingInfo?: readonly string[];
+  readonly persisted?: boolean;
+}
+
 export type ChatMessage =
   | UserChatMessage
   | AssistantPlanChatMessage
   | AssistantAppliedChatMessage
   | AssistantApplyFailureChatMessage
-  | AssistantErrorChatMessage;
+  | AssistantErrorChatMessage
+  | AssistantDiagnosisChatMessage
+  | AssistantDiagnosisExplanationChatMessage;
 
 let chatMessageIdCounter = 0;
 export function nextChatMessageId(): ChatMessageId {

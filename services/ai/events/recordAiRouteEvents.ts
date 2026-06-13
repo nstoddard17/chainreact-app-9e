@@ -19,6 +19,11 @@
  */
 
 import { getModelById } from "@/core/ai/models";
+import { estimateModelCostMicros } from "@/core/ai/modelPricing";
+import {
+  computeAiCreditCharge,
+  type CreditModelTier,
+} from "@/core/billing/aiCreditPolicy";
 import {
   recordAiCostEvent,
   recordAiModelCallCompleted,
@@ -69,6 +74,45 @@ function providerOf(modelId: string | undefined): string | undefined {
   return modelId ? getModelById(modelId)?.provider : undefined;
 }
 
+function toCreditTier(tier: string | undefined): CreditModelTier {
+  return tier === "strong" ? "strong" : "fast";
+}
+
+/**
+ * Slice 4.AI-CREDITS-2 (recording-only) — derive the cost + credit fields for a
+ * COMPLETED model call: `estimated_cost_micros` (provider USD, null when unpriced)
+ * + `ai_credits_charged` (product unit from `aiCreditPolicy`) + sanitizer-safe
+ * credit metadata markers (policy version, unmapped/escalation flags). Pure; no
+ * enforcement. Returns fields ready to spread onto a `ModelCallInput`.
+ */
+function modelCallBilling(
+  feature: string,
+  modelId: string | undefined,
+  tier: string | undefined,
+  usage: { readonly inputTokens?: number; readonly outputTokens?: number } | undefined,
+): {
+  estimatedCostMicros?: number;
+  aiCreditsCharged: number;
+  creditMeta: Record<string, unknown>;
+} {
+  const charge = computeAiCreditCharge({
+    feature,
+    isLlmCall: true,
+    modelTier: toCreditTier(tier),
+  });
+  const micros = estimateModelCostMicros(modelId, usage);
+  return {
+    ...(micros !== null ? { estimatedCostMicros: micros } : {}),
+    aiCreditsCharged: charge.credits,
+    creditMeta: {
+      creditPolicyVersion: charge.policyVersion,
+      creditEscalated: charge.escalated,
+      // Flag an unmapped PAID feature so it is queryable — never silently free.
+      ...(charge.mapped ? {} : { creditPolicyUnmapped: true }),
+    },
+  };
+}
+
 /** Map a plan result onto the patch-lifecycle outcome shown in the dev cost line. */
 function derivePlanPatchOutcome(result: PlanWorkflowResult): AiCostDebugPatchOutcome {
   if (!result.ok) {
@@ -109,13 +153,21 @@ async function recordClassifierModelCall(
     ...(c.validProviderCount !== undefined ? { validProviderCount: c.validProviderCount } : {}),
   };
   if (c.responded) {
+    const billing = modelCallBilling("provider_discovery", c.modelName, "fast", {
+      inputTokens: c.inputTokens,
+      outputTokens: c.outputTokens,
+    });
     await recordAiModelCallCompleted(scope, {
       modelName: c.modelName,
       modelProvider: c.modelProvider,
       ...(c.inputTokens !== undefined ? { inputTokens: c.inputTokens } : {}),
       ...(c.outputTokens !== undefined ? { outputTokens: c.outputTokens } : {}),
       ...(c.latencyMs !== undefined ? { latencyMs: c.latencyMs } : {}),
-      metadata,
+      ...(billing.estimatedCostMicros !== undefined
+        ? { estimatedCostMicros: billing.estimatedCostMicros }
+        : {}),
+      aiCreditsCharged: billing.aiCreditsCharged,
+      metadata: { ...metadata, ...billing.creditMeta },
     });
   } else {
     await recordAiModelCallFailed(scope, {
@@ -316,18 +368,30 @@ export async function recordAiPlanOutcome(
 
     // Model produced parseable output (ok:true OR PREVIEW_UNAVAILABLE).
     if (model) {
+      // AI-CREDITS-2 (recording-only) — provider cost + product-unit credit charge.
+      const billing = modelCallBilling(
+        "workflow_creation",
+        model.modelId,
+        model.tier,
+        model.usage,
+      );
       await recordAiModelCallCompleted(scope, {
         modelName: model.modelId,
         ...(modelProvider ? { modelProvider } : {}),
         ...(promptVersion ? { promptVersion } : {}),
         ...(model.usage ? { inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens } : {}),
         ...(model.latencyMs !== undefined ? { latencyMs: model.latencyMs } : {}),
+        ...(billing.estimatedCostMicros !== undefined
+          ? { estimatedCostMicros: billing.estimatedCostMicros }
+          : {}),
+        aiCreditsCharged: billing.aiCreditsCharged,
         metadata: {
           tier: model.tier,
           finishReason: model.finishReason ?? "unknown",
           ...(promptVersion ? { packetVersion: promptVersion } : {}),
           ...promptMeta,
           ...interactionMeta,
+          ...billing.creditMeta,
         },
       });
     }
