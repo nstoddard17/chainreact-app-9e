@@ -6,10 +6,12 @@
 **Plan:** [explicit-private-connection-sharing-plan.md](./explicit-private-connection-sharing-plan.md)
 (model locked §0; CS-4 audit §14; CS-4a design §15).
 
-> **STATUS: FLAG-ON — `ENABLE_CONNECTION_SHARING` enabled (local runtime via `.env.local`).**
-> Migrations confirmed applied; full check set re-run green with the flag live. Code stays
-> opt-in (`=== "true"`); production go-live = set the same env var at deploy. See §7. **Not
-> pushed/deployed — awaiting Marcus's deploy approval.**
+> **STATUS: PRODUCTION WORKING (primary path) — `ENABLE_CONNECTION_SHARING` enabled.**
+> Marcus confirmed the deployed feature is working in production (single-sharer shared-run
+> path). Three manual edge-case checks (ambiguous-blocks, bound-connector-executes, manual
+> no-leak surface) remain **pending owner verification** — see §8. Migrations confirmed
+> applied; full check set re-run green with the flag live. Code stays opt-in (`=== "true"`).
+> See §7–§8. **Not pushed to `v2-main` — awaiting Marcus's approval.**
 
 ---
 
@@ -242,3 +244,38 @@ Queried `supabase_migrations.schema_migrations` (Session pooler `aws-1-us-east-1
 - Post-deploy smoke: share a personal connection from Apps; confirm a non-creator teammate can
   run a single-sharer shared workflow; confirm a 2+-sharer workflow blocks until a connector is
   bound; confirm unshare reverts to creator-only. Kill-switch (`=false`) reverts instantly.
+
+---
+
+## 8. Production manual sign-off — 2026-06-13
+
+### 8.1 Context
+Marcus confirmed CONN-SHARE production behavior is **working** in the live environment
+("it's working now"). This section records the manual production sign-off against the
+post-deploy smoke checks (§7.4). Per the project honesty rule, only the flow Marcus actually
+exercised is marked PASSED; edge cases not directly confirmed are kept explicitly **PENDING** —
+they are **not** assumed passed from a general "it's working" statement.
+
+### 8.2 Method
+Owner-reported manual confirmation by the workflow owner (Marcus) in production. No automated
+production test was re-executed by this session; this is an owner-reported result, not a
+re-run check. The code-level audit (§4) and full-suite verification (§3, §7.3) remain as
+recorded and are unchanged.
+
+### 8.3 Manual production sign-off results
+| # | Check | Status | Basis |
+|---|---|---|---|
+| 1 | Single-sharer shared workflow runs for a non-creator teammate | ✅ **PASSED** | Covered by Marcus's "it's working" — this is the primary shared-run path. |
+| 2 | Ambiguous (2+-sharer) shared-provider workflow blocks until a connector is bound | ⏳ **PENDING** | Edge case requiring a 2+-sharer setup; not directly confirmed in the "it's working" report. Owner-specific edge-case verification still required. |
+| 3 | Bound-connector workflow executes as the bound connector | ⏳ **PENDING** | Edge case requiring an explicit node binding; not directly confirmed. Owner-specific edge-case verification still required. |
+| 4 | No-leak: no sensitive ids / emails / tokens / scopes / account metadata / raw provider errors visible during the manual check | ⏳ **PENDING** | Not reported as inspected during the manual check. The code-level no-leak audit (§4.3) remains PASS; the manual-surface confirmation is still pending. |
+
+### 8.4 Final status
+**Production WORKING; closeout mostly verified — remaining manual edge-case verification
+PENDING.** The primary single-sharer shared-run path is confirmed working in production by the
+workflow owner. Three checks (ambiguous-blocks, bound-connector-executes, manual no-leak
+surface) were **not** directly verified in this sign-off and remain pending owner-specific
+edge-case testing. The closeout is therefore **not yet fully production-verified** — it is in
+the "production working / edge-cases pending" state. It is ready to promote to `v2-main` as
+such **once Marcus approves the push** (standing push/deploy policy — not pushed by this
+session).
