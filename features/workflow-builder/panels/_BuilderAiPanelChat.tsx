@@ -6,6 +6,7 @@ import type {
   AgentWorkflowDiagnosis,
   AiPlanResult,
   BuilderAgentPersistedMessage,
+  RepairProposal,
 } from "@/lib/api/ai";
 import { AiBulletList, type RequiredInputAnswer } from "../ai";
 import { PlanFailure, PreviewSection } from "./_BuilderAiPanelPreview";
@@ -121,6 +122,20 @@ export interface AssistantDiagnosisExplanationChatMessage {
   readonly persisted?: boolean;
 }
 
+/**
+ * Slice 4.AI-REPAIR-1c — the LLM REPAIR PROPOSAL for a prior "Check this workflow"
+ * result. Session-local only (never persisted). Carries only the safe, proposal-
+ * only fields the route returns (plain text + advisory enum/booleans + the
+ * server-set notice) — no patch, no ids, no model metadata, no raw DTO.
+ */
+export interface AssistantRepairProposalChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "repair_proposal";
+  readonly proposal: RepairProposal;
+  readonly persisted?: boolean;
+}
+
 export type ChatMessage =
   | UserChatMessage
   | AssistantPlanChatMessage
@@ -128,7 +143,8 @@ export type ChatMessage =
   | AssistantApplyFailureChatMessage
   | AssistantErrorChatMessage
   | AssistantDiagnosisChatMessage
-  | AssistantDiagnosisExplanationChatMessage;
+  | AssistantDiagnosisExplanationChatMessage
+  | AssistantRepairProposalChatMessage;
 
 let chatMessageIdCounter = 0;
 export function nextChatMessageId(): ChatMessageId {

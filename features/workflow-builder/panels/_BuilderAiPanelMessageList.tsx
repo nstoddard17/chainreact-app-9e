@@ -10,7 +10,7 @@ import {
   type ChatMessage,
   type ChatMessageId,
 } from "./_BuilderAiPanelChat";
-import { DiagnosisBody, DiagnosisExplanationBody } from "./_BuilderAiPanelDiagnosis";
+import { DiagnosisBody, DiagnosisExplanationBody, RepairProposalBody } from "./_BuilderAiPanelDiagnosis";
 
 /**
  * Scrolling message list for the React Agent chat (Slice 4.AI-21C).
@@ -104,6 +104,16 @@ interface Props {
   readonly onExplainDiagnosis: (diagnosisMessageId: ChatMessageId) => void;
   readonly explaining: boolean;
   readonly explainedDiagnosisIds: ReadonlySet<ChatMessageId>;
+  /**
+   * Slice 4.AI-REPAIR-1c — "Suggest a fix" wiring (mirrors the Explain props).
+   * `onSuggestFix` is the explicit-click handler (receives the diagnosis message
+   * id); `suggesting` drives the transient indicator + disables the button;
+   * `suggestedDiagnosisIds` drives the per-diagnosis "Suggested" state so a repeat
+   * click can't re-charge.
+   */
+  readonly onSuggestFix: (diagnosisMessageId: ChatMessageId) => void;
+  readonly suggesting: boolean;
+  readonly suggestedDiagnosisIds: ReadonlySet<ChatMessageId>;
 }
 
 export function BuilderAiPanelMessageList({
@@ -129,6 +139,9 @@ export function BuilderAiPanelMessageList({
   onExplainDiagnosis,
   explaining,
   explainedDiagnosisIds,
+  onSuggestFix,
+  suggesting,
+  suggestedDiagnosisIds,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -260,18 +273,32 @@ export function BuilderAiPanelMessageList({
           );
         }
         if (message.kind === "diagnosis") {
+          // AI-DIAG-2c / AI-REPAIR-1c — Explain and Suggest-a-fix share ONE gate:
+          // the latest diagnosis message that still has real issues. Clean/ready
+          // and access walls hide both paid affordances.
+          const showAffordances =
+            message.id === latestDiagnosisMessageId &&
+            canExplainDiagnosis(message.diagnosis);
           return (
             <AssistantBubble key={message.id}>
               <DiagnosisBody
                 diagnosis={message.diagnosis}
-                canExplain={
-                  message.id === latestDiagnosisMessageId &&
-                  canExplainDiagnosis(message.diagnosis)
-                }
+                canExplain={showAffordances}
                 explaining={explaining}
                 alreadyExplained={explainedDiagnosisIds.has(message.id)}
                 onExplain={() => onExplainDiagnosis(message.id)}
+                canSuggestFix={showAffordances}
+                suggesting={suggesting}
+                alreadySuggested={suggestedDiagnosisIds.has(message.id)}
+                onSuggestFix={() => onSuggestFix(message.id)}
               />
+            </AssistantBubble>
+          );
+        }
+        if (message.kind === "repair_proposal") {
+          return (
+            <AssistantBubble key={message.id}>
+              <RepairProposalBody proposal={message.proposal} />
             </AssistantBubble>
           );
         }
@@ -364,6 +391,18 @@ export function BuilderAiPanelMessageList({
             data-testid="builder-ai-explaining"
           >
             Explaining this check…
+          </p>
+        </AssistantBubble>
+      )}
+
+      {suggesting && (
+        <AssistantBubble>
+          <p
+            role="status"
+            className="text-xs text-muted-foreground"
+            data-testid="builder-ai-suggesting"
+          >
+            Suggesting a fix…
           </p>
         </AssistantBubble>
       )}

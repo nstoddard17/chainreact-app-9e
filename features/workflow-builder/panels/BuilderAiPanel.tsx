@@ -8,6 +8,7 @@ import {
   diagnoseWorkflow,
   explainDiagnosis,
   getBuilderAgentThread,
+  planWorkflowRepair,
   type CurrentGraphSnapshot,
 } from "@/lib/api/ai";
 import { getWorkflow } from "@/lib/api/workflows";
@@ -97,6 +98,13 @@ export function BuilderAiPanel() {
   // explanation so a repeat click can't re-charge.
   const [explaining, setExplaining] = useState(false);
   const [explainedDiagnosisIds, setExplainedDiagnosisIds] = useState<
+    ReadonlySet<ChatMessageId>
+  >(() => new Set());
+  // AI-REPAIR-1c — "Suggest a fix" state (mirrors Explain). `suggesting` is the
+  // in-flight indicator; `suggestedDiagnosisIds` records which diagnosis messages
+  // already have a repair proposal so a repeat click can't re-charge.
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestedDiagnosisIds, setSuggestedDiagnosisIds] = useState<
     ReadonlySet<ChatMessageId>
   >(() => new Set());
   // AI-26 — true when the most recent thread-load attempt for the
@@ -510,6 +518,53 @@ export function BuilderAiPanel() {
     }
   }
 
+  async function handleSuggestFix(diagnosisMessageId: ChatMessageId): Promise<void> {
+    // AI-REPAIR-1c — proposal-only, EXPLICIT click. Never auto-called. Mirrors the
+    // Explain guards: no concurrent op, no repeat-charge (already suggested / in
+    // flight). Produces a repair-PROPOSAL message — it never applies/saves/runs.
+    if (busy || checking || explaining || suggesting) return;
+    if (suggestedDiagnosisIds.has(diagnosisMessageId)) return;
+    setSuggesting(true);
+    try {
+      const res = await planWorkflowRepair(wfId);
+      if (res.ok) {
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "repair_proposal",
+          proposal: res.proposal,
+        });
+        // Mark this diagnosis suggested so a repeat click can't re-charge.
+        setSuggestedDiagnosisIds((prev) => {
+          const next = new Set(prev);
+          next.add(diagnosisMessageId);
+          return next;
+        });
+      } else {
+        // Handled ok:false (402 credits / 503 model|gate). The client already
+        // normalized the copy to a safe, code-keyed message — surface it as-is.
+        // Not marked suggested, so the user may retry.
+        const content =
+          res.code === "AI_CREDITS_EXHAUSTED"
+            ? AI_CREDITS_EXHAUSTED_MESSAGE
+            : "Couldn’t suggest a fix right now. Please try again.";
+        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+      }
+    } catch (err) {
+      // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to use the AI assistant."
+          : status === 404
+            ? "This workflow couldn’t be found."
+            : "Couldn’t suggest a fix right now. Please try again.";
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   function handleClear(): void {
     // Clear resets the whole conversation: messages, composer text,
     // risk-ack, the hook chain state, AND the staged required-input
@@ -525,6 +580,9 @@ export function BuilderAiPanel() {
     // AI-DIAG-2b — also reset the explanation state on a full clear.
     setExplaining(false);
     setExplainedDiagnosisIds(new Set());
+    // AI-REPAIR-1c — reset the repair-proposal state on a full clear too.
+    setSuggesting(false);
+    setSuggestedDiagnosisIds(new Set());
     ai.reset();
     void clearBuilderAgentThread(wfId).catch((err) => {
       warnPersistenceFailureForDev("Builder Agent thread clear failed", err);
@@ -582,6 +640,9 @@ export function BuilderAiPanel() {
         onExplainDiagnosis={handleExplainDiagnosis}
         explaining={explaining}
         explainedDiagnosisIds={explainedDiagnosisIds}
+        onSuggestFix={handleSuggestFix}
+        suggesting={suggesting}
+        suggestedDiagnosisIds={suggestedDiagnosisIds}
       />
       <BuilderAiPanelComposer
         prompt={prompt}

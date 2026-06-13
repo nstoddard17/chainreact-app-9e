@@ -1,7 +1,16 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { AgentWorkflowDiagnosis } from "@/lib/api/ai";
+import type { AgentWorkflowDiagnosis, RepairProposal } from "@/lib/api/ai";
+
+/**
+ * Slice 4.AI-REPAIR-1c — immutable, UI-OWNED "nothing changed" notice for a
+ * repair proposal. Rendered as a literal constant (NOT `proposal.notAppliedNotice`
+ * from the server) so the safety guarantee lives in the client and can never be
+ * altered by a model/route response.
+ */
+const REPAIR_NOT_APPLIED_NOTICE_UI =
+  "This is a suggestion only — your workflow wasn't changed, saved, or run.";
 
 /**
  * Read-only "Check this workflow" result body (Slice 4.AI-DIAG-1b).
@@ -22,6 +31,10 @@ export function DiagnosisBody({
   explaining = false,
   alreadyExplained = false,
   onExplain,
+  canSuggestFix = false,
+  suggesting = false,
+  alreadySuggested = false,
+  onSuggestFix,
 }: {
   readonly diagnosis: AgentWorkflowDiagnosis;
   /**
@@ -37,6 +50,18 @@ export function DiagnosisBody({
   readonly alreadyExplained?: boolean;
   /** Explicit-click handler (never auto-called). */
   readonly onExplain?: () => void;
+  /**
+   * Slice 4.AI-REPAIR-1c — show the "Suggest a fix" affordance. SAME gate as
+   * `canExplain` (latest OK diagnosis with real issues); hidden on clean/ready +
+   * access walls.
+   */
+  readonly canSuggestFix?: boolean;
+  /** A repair-proposal round-trip is in flight (disables the button). */
+  readonly suggesting?: boolean;
+  /** This diagnosis already has a repair proposal (disables + relabels — no repeat charge). */
+  readonly alreadySuggested?: boolean;
+  /** Explicit-click handler (never auto-called). */
+  readonly onSuggestFix?: () => void;
 }) {
   if (diagnosis.access !== "OK") {
     const msg =
@@ -110,6 +135,25 @@ export function DiagnosisBody({
           </p>
         </div>
       )}
+      {canSuggestFix && (
+        <div data-testid="builder-ai-diagnosis-suggest-fix" className="flex flex-col gap-1 pt-1">
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onSuggestFix}
+              disabled={suggesting || alreadySuggested}
+              data-testid="builder-ai-suggest-fix-button"
+            >
+              {suggesting ? "Suggesting…" : alreadySuggested ? "Suggested" : "Suggest a fix"}
+            </Button>
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            AI suggests how to fix this. It doesn&rsquo;t change or run your workflow.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -167,6 +211,89 @@ export function DiagnosisExplanationBody({
       )}
       <p className="text-[10px]" style={{ color: "var(--builder-muted)" }}>
         This is an explanation only — your workflow wasn&rsquo;t changed or run.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-REPAIR-1c — renders the LLM REPAIR PROPOSAL bubble: a plain-language
+ * summary, recommended actions, affected steps (safe labels), missing info, the
+ * model's ADVISORY risk estimate, and a `requiresUserAction` hint. Pure
+ * presentational; shows ONLY the safe proposal fields (no patch, no ids, no model
+ * metadata). The "nothing was changed" notice is a UI-OWNED constant
+ * (`REPAIR_NOT_APPLIED_NOTICE_UI`), never the server's `proposal.notAppliedNotice`,
+ * and there is deliberately NO Apply control (executable repair is a later slice).
+ */
+export function RepairProposalBody({
+  proposal,
+}: {
+  readonly proposal: RepairProposal;
+}) {
+  return (
+    <div data-testid="builder-ai-repair-proposal" className="flex flex-col gap-2">
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+        Suggested fix
+      </p>
+      <p
+        data-testid="builder-ai-repair-summary"
+        className="whitespace-pre-wrap text-xs"
+        style={{ color: "var(--builder-text)" }}
+      >
+        {proposal.summary}
+      </p>
+      {proposal.recommendedActions.length > 0 && (
+        <div data-testid="builder-ai-repair-actions" className="flex flex-col gap-1">
+          <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+            Recommended changes
+          </p>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+            {proposal.recommendedActions.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {proposal.affectedNodes.length > 0 && (
+        <div data-testid="builder-ai-repair-affected" className="flex flex-col gap-1">
+          <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+            Steps involved
+          </p>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+            {proposal.affectedNodes.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {proposal.missingInfo.length > 0 && (
+        <div data-testid="builder-ai-repair-missing" className="flex flex-col gap-1">
+          <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+            Information needed
+          </p>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+            {proposal.missingInfo.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p
+        data-testid="builder-ai-repair-risk"
+        className="text-[10.5px]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        AI&rsquo;s risk estimate: <span className="font-medium">{proposal.riskLevel}</span>
+        {proposal.requiresUserAction
+          ? " · You'll need to take an action outside the builder (e.g. reconnect an account)."
+          : ""}
+      </p>
+      <p
+        data-testid="builder-ai-repair-not-applied"
+        className="text-[10px]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        {REPAIR_NOT_APPLIED_NOTICE_UI}
       </p>
     </div>
   );
