@@ -396,6 +396,61 @@ describe("diagnoseWorkflowConnections", () => {
   });
 });
 
+// ─────────────────── diagnoseWorkflowConnections — non-OAuth/system providers ───────────────────
+describe("diagnoseWorkflowConnections — non-OAuth/system providers", () => {
+  it("excludes the native Manual Run trigger — reports only the real Slack action", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflowRecord([
+        node("trigger-1", "native", { kind: "trigger", type: "manual_trigger" }),
+        node("action-1", "slack"),
+      ]),
+    );
+    mockGetProvider.mockImplementation((id: string) => (id === "slack" ? manifest() : undefined));
+    mockGetActive.mockResolvedValue(slackRow());
+    mockCountActive.mockResolvedValue(1);
+
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto.access).toBe("OK");
+    // native is gone entirely — only the real external provider appears.
+    expect(dto.providers!.map((p) => p.provider)).toEqual(["slack"]);
+    expect(dto.allRequiredConnected).toBe(true);
+    // No PROVIDER_UNKNOWN, no "native" anywhere in the serialized DTO.
+    const json = JSON.stringify(dto);
+    expect(json).not.toContain("PROVIDER_UNKNOWN");
+    expect(json).not.toContain("native");
+    // native never reached a manifest lookup or a connection fetch.
+    expect(mockGetProvider).not.toHaveBeenCalledWith("native");
+  });
+
+  it("all-native workflow → empty providers, allRequiredConnected true, no connection fetch", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflowRecord([
+        node("trigger-1", "native", { kind: "trigger", type: "manual_trigger" }),
+        node("action-1", "native", { type: "http_request" }),
+      ]),
+    );
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto).toMatchObject({ access: "OK", allRequiredConnected: true, providers: [] });
+    expect(mockGetActive).not.toHaveBeenCalled();
+    expect(mockGetById).not.toHaveBeenCalled();
+    expect(mockCountActive).not.toHaveBeenCalled();
+  });
+
+  it("unknown EXTERNAL provider still yields PROVIDER_UNKNOWN (the native skip is narrow)", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflowRecord([
+        node("trigger-1", "native", { kind: "trigger", type: "manual_trigger" }),
+        node("action-1", "acme"),
+      ]),
+    );
+    mockGetProvider.mockImplementation((id: string) => (id === "acme" ? undefined : manifest()));
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    expect(dto.providers!.map((p) => p.provider)).toEqual(["acme"]);
+    expect(dto.providers!.find((p) => p.provider === "acme")!.status).toBe("PROVIDER_UNKNOWN");
+    expect(dto.allRequiredConnected).toBe(false);
+  });
+});
+
 // ─────────────────── no-leak ───────────────────
 describe("diagnoseProviderConnection — no-leak", () => {
   it("never serializes token blobs, identity, label, metadata, full scopes, or exact expiry", async () => {

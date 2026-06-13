@@ -141,4 +141,24 @@ describe("buildDiagnosisExplainContext (AI-DIAG-2a)", () => {
     expect(ctx.latestRun).toBeUndefined();
     expect(ctx.overallReady).toBe(true);
   });
+
+  it("a corrected DTO (native excluded upstream) yields no native / PROVIDER_UNKNOWN finding for the LLM", () => {
+    // After the fix, a Manual Run + connected Slack workflow produces a ready DTO
+    // with no connection finding. The projector only forwards what's there, so the
+    // model context never mentions native being broken.
+    const ctx = buildDiagnosisExplainContext({
+      access: "OK",
+      overallReady: true,
+      runnable: true,
+      allRequiredConnected: true,
+      summaryText: "This workflow looks ready to run.\nThe most recent run succeeded.",
+      nextSteps: [],
+      findings: [],
+    } as any);
+    const s = JSON.stringify(ctx);
+    expect(ctx.findings).toEqual([]);
+    expect(s).not.toContain("PROVIDER_UNKNOWN");
+    expect(s).not.toContain("native");
+    expect(s).not.toContain("isn't recognized");
+  });
 });

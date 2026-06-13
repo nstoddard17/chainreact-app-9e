@@ -8,6 +8,7 @@ import {
 import { isMemberServiceRole } from "@/repositories/accountMemberships";
 import { getByIdServiceRole } from "@/repositories/workflows";
 import { credentialSharingForProvider } from "@/core/integrations/credentialSharing";
+import { isNonOauthProvider } from "@/core/integrations/nonOauthProviders";
 import { decideOptionsCredential } from "@/services/options/credentialPolicy";
 import type { WorkflowCreatorContext } from "@/services/options/types";
 import {
@@ -332,7 +333,17 @@ export async function diagnoseWorkflowConnections(input: {
     accountId: workflow.accountId,
   };
 
-  const grouped = [...groupNodeIdsByProvider(workflow.draftDefinition.nodes).entries()];
+  // Non-OAuth/system providers (`native` — manual/scheduled triggers, http_request,
+  // delay, router, etc.) ship without a manifest, OAuth dance, or `integrations`
+  // row, so they NEVER require a connection. Exclude them from the inventory
+  // entirely — mirrors the activation precondition gate + planner availability
+  // (shared source: `@/core/integrations/nonOauthProviders`). Without this skip the
+  // derivation classifies the missing manifest as PROVIDER_UNKNOWN, surfacing a
+  // false "this provider isn't recognized" / "replace the native node" finding for a
+  // valid Manual Run trigger. An unknown EXTERNAL provider is still diagnosed (and
+  // still yields PROVIDER_UNKNOWN), because this set is narrow by design.
+  const grouped = [...groupNodeIdsByProvider(workflow.draftDefinition.nodes).entries()]
+    .filter(([provider]) => !isNonOauthProvider(provider));
 
   // 5. Diagnose each distinct provider (independent reads → parallel, order kept).
   const diagnoses = await Promise.all(

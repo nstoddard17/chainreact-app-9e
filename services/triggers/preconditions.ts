@@ -2,6 +2,7 @@ import type { LifecycleTransition } from "@/core/workflows/lifecycle";
 import type { PreconditionResult } from "@/services/workflows/lifecycleOrchestrator";
 import * as integrationsRepo from "@/repositories/integrations";
 import type { WorkflowRecord } from "@/repositories/workflows";
+import { isNonOauthProvider } from "@/core/integrations/nonOauthProviders";
 
 /**
  * Activation / resume precondition checks.
@@ -27,9 +28,9 @@ import type { WorkflowRecord } from "@/repositories/workflows";
  * ProviderManifest, OAuth dance, or `integrations` row. The activation
  * gate must skip them — otherwise a workflow using ANY native node
  * cannot be activated. The skip mirrors the structure-test exemption
- * at tests/structure/integration-manifests.test.ts.
+ * at tests/structure/integration-manifests.test.ts. The set + helper live in
+ * `@/core/integrations/nonOauthProviders` (shared source of truth).
  */
-const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
 
 export async function checkActivationPreconditions(
   workflow: WorkflowRecord,
@@ -54,7 +55,7 @@ export async function checkActivationPreconditions(
 
   const requiredProviders = new Set<string>();
   for (const node of nodes) {
-    if (NON_OAUTH_PROVIDERS.has(node.provider)) continue;
+    if (isNonOauthProvider(node.provider)) continue;
     requiredProviders.add(node.provider);
   }
 

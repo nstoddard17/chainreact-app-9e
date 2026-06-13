@@ -268,6 +268,69 @@ describe("diagnoseWorkflowForAgent — latest run is best-effort + post-access",
   });
 });
 
+// ───────────────── native/system trigger produces no false blocker ─────────────────
+describe("diagnoseWorkflowForAgent — native/system trigger", () => {
+  it("native Manual Run + connected Slack → ready, no PROVIDER_UNKNOWN / 'native' finding", async () => {
+    // Readiness passes (graph + fields OK). The connection service already
+    // excludes the native pseudo-provider, so its DTO carries ONLY the real
+    // external provider — the agent must reflect that without inventing a
+    // native finding. (The native exclusion itself is unit-tested in
+    // services/diagnostics/integrationConnection.test.ts.)
+    mockReadiness.mockResolvedValue(
+      readinessOk({ runnable: true, readinessError: null, graphIssues: [], fieldGaps: [] }),
+    );
+    mockConnections.mockResolvedValue(
+      connectionsOk({
+        allRequiredConnected: true,
+        providers: [
+          {
+            provider: "slack",
+            name: "Slack",
+            credentialClass: "account",
+            nodeIds: ["action-1"],
+            nodeCount: 1,
+            status: "CONNECTED",
+            ready: true,
+            providerEnabled: true,
+            refreshable: true,
+            tokenExpired: false,
+            scopesSatisfied: true,
+            missingScopeCount: 0,
+          },
+        ],
+      }),
+    );
+    // A recent SUCCESSFUL run must not be contradicted by a false native blocker.
+    mockListRuns.mockResolvedValue([{ id: "run-1", status: "succeeded", accountId: "a" }]);
+    mockRunReport.mockResolvedValue({
+      runId: "run-1",
+      visibility: "SUCCEEDED_VISIBLE",
+      status: "succeeded",
+      classificationAvailable: false,
+      errorClassification: null,
+      firstFailedNodeId: null,
+    });
+
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+
+    expect(dto.overallReady).toBe(true);
+    expect(dto.allRequiredConnected).toBe(true);
+    // No connection finding at all — the only real provider is connected, and
+    // native was never diagnosed.
+    expect(dto.findings!.some((f) => f.source === "connection")).toBe(false);
+    expect(dto.findings!.map((f) => f.code)).not.toContain("PROVIDER_UNKNOWN");
+
+    // The renderer (real, not mocked) must never emit the native-blocker copy,
+    // and nothing in the DTO mentions the native pseudo-provider.
+    const blob = JSON.stringify(dto) + (dto.summaryText ?? "") + (dto.nextSteps ?? []).join(" ");
+    expect(blob).not.toContain("native");
+    expect(blob).not.toContain("isn't recognized");
+    expect(blob).not.toContain("Replace the");
+    expect(dto.summaryText).toContain("ready to run");
+    expect(dto.summaryText).toContain("The most recent run succeeded.");
+  });
+});
+
 // ───────────────── personal-provider non-creator stays safe/coarse ─────────────────
 describe("diagnoseWorkflowForAgent — personal provider non-creator", () => {
   it("surfaces NOT_WORKFLOW_OWNER with no owner credential detail", async () => {

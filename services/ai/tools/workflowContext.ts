@@ -45,6 +45,7 @@ import {
   credentialSharingForProvider,
   type CredentialSharing,
 } from "@/core/integrations/credentialSharing";
+import { isNonOauthProvider } from "@/core/integrations/nonOauthProviders";
 import { loadAcceptedNodeOwners } from "@/services/teamCredentials/nodeCredentialOwners";
 import { redactSecrets } from "./redact";
 import { aiToolErr, aiToolOk, type AiToolResult } from "./types";
@@ -469,9 +470,6 @@ export async function getWorkflowValidationStateForAI(
 // credentials, so the agent never suggests using (or reveals) a co-member's
 // personal credential.
 
-/** Non-OAuth pseudo-providers — no integration row exists; mirrors `preconditions.ts`. */
-const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
-
 export interface WorkflowProviderAvailabilityView {
   readonly provider: string;
   readonly sharing: CredentialSharing;
@@ -543,7 +541,7 @@ export async function getWorkflowIntegrationAvailabilityForAI(
   const ownersByPersonalProvider = new Map<string, Set<string>>();
   for (const node of record.draftDefinition.nodes) {
     const provider = node.provider;
-    if (!provider || NON_OAUTH_PROVIDERS.has(provider)) continue;
+    if (!provider || isNonOauthProvider(provider)) continue;
     requiredProviders.add(provider);
     if (credentialSharingForProvider(provider) === "personal") {
       const owner = acceptedOwners.get(node.id) ?? record.createdByUserId;
