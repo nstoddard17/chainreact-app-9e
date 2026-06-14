@@ -16,9 +16,13 @@ import { humanizeActionError } from "@/core/errors/humanizeActionError";
  * BILLING HOLDS (a different concern). Staleness is measured on `started_at`
  * (NOT NULL, set when execution began).
  *
- * NOT scheduled by this slice — wiring to a cron/route is a future deployment
- * decision. Invoke from the guarded ops script (`scripts/sweep-stale-workflow-
- * runs.mjs`) or a future cron.
+ * SCHEDULED in production: the cron route `/api/cron/sweep-stale-runs` (Slice
+ * 4.COST-15K) runs this every 10 minutes via `vercel.json` crons, cron-secret
+ * guarded. Also invokable on demand via the guarded ops script
+ * (`scripts/sweep-stale-workflow-runs.mjs`) or by curling the route with the
+ * `Authorization: Bearer $CRON_SECRET` header. (The original COST-15F version of
+ * this comment predated the COST-15K wiring and said "not scheduled" — that is no
+ * longer true; the schedule is asserted by the sweep route test.)
  */
 
 /** Default staleness threshold: a run still 'running' 60+ min after start. */

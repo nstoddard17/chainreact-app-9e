@@ -14,6 +14,25 @@
 > health/expiry surfacing). No high-severity security gap found; the recent
 > APPS-PERM + no-leak work holds.
 
+> **CORRECTION (V2-READY-1, 2026-06-14).** Follow-up investigation **disproved two
+> claims below** — recorded here for honesty (the inline §2/§3 rows are superseded
+> by this note):
+> 1. **Orphaned `running` runs is NOT an open risk.** The stale-run sweep IS
+>    auto-scheduled: `app/api/cron/sweep-stale-runs` runs **every 10 min** via
+>    `vercel.json` crons (COST-15K), cron-secret guarded, idempotent, no-leak, and
+>    tested at service/route/repo layers. The "appears NOT auto-scheduled" reading
+>    came from a single **stale code comment** (since corrected). A schedule-guard
+>    test was added so dropping the cron now fails CI. The engine also always
+>    finalizes to a terminal status (succeeded/failed) on every path — proven in
+>    `tests/unit/services/execution/engine.test.ts`.
+> 2. **The execution engine DOES have dedicated unit tests** — the 2,810-line
+>    `engine.test.ts` covers success, handler-throw, missing-variable/handler,
+>    structural fatals, billing-exhaustion, and persist-failure-swallowed terminal
+>    behavior. Treat the §2/§3 "no engine unit tests" notes as superseded.
+>
+> Net: backlog #1 is **closed** (verified + guarded, not a fix); the next live risk
+> is now **#2 connection health/expiry**.
+
 ---
 
 ## 1. Files / surfaces inspected

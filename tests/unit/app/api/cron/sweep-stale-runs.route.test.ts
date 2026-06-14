@@ -15,6 +15,8 @@ jest.mock("@/services/execution/staleWorkflowRunSweep", () => ({
   sweepStaleRunningWorkflowRuns: (...args: unknown[]) => mockSweep(...args),
 }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET, POST } from "@/app/api/cron/sweep-stale-runs/route";
 import { DEFAULT_BATCH_LIMIT } from "@/app/api/cron/sweep-stale-runs/constants";
 
@@ -125,5 +127,45 @@ describe("/api/cron/sweep-stale-runs route", () => {
       ["cutoff", "ok", "olderThanMs", "sweptCount"].sort(),
     );
     expect(JSON.stringify(body)).not.toContain("r1");
+  });
+});
+
+/**
+ * V2-READY-1 — Schedule guard. The whole reliability guarantee (a crashed run
+ * eventually reaches a terminal status) depends on this cron actually being
+ * SCHEDULED, not just callable. Removing the `vercel.json` entry would silently
+ * re-create the orphaned-`running` risk the readiness audit flagged, with every
+ * route/service/repo test still green. This test fails loudly if the schedule
+ * is dropped or slowed below hourly.
+ */
+describe("sweep-stale-runs cron is scheduled in vercel.json", () => {
+  const SWEEP_PATH = "/api/cron/sweep-stale-runs";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the stale-run sweep on a cron schedule", () => {
+    const entry = readCrons().find((c) => c.path === SWEEP_PATH);
+    expect(entry).toBeDefined();
+    // Five-field cron expression.
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("runs at least hourly so stale runs (default 60-min cutoff) are caught promptly", () => {
+    const entry = readCrons().find((c) => c.path === SWEEP_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour] = entry!.schedule.trim().split(/\s+/);
+    // Hour field must be every-hour so the sweep fires within the hour.
+    expect(hour).toBe("*");
+    // Minute field must run at least once an hour: '*' (every minute) or a
+    // '*/N' step with N <= 60. A fixed minute ("30") also runs hourly.
+    const stepMatch = /^\*\/(\d+)$/.exec(minute!);
+    const okMinute =
+      minute === "*" ||
+      /^\d+$/.test(minute!) ||
+      (stepMatch !== null && Number(stepMatch[1]) <= 60);
+    expect(okMinute).toBe(true);
   });
 });
