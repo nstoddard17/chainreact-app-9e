@@ -696,6 +696,83 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     expect(original.message).toBe("raw token=xoxb-keep-in-db");
   });
 
+  // ─── V2-READY-9 — BOTH sanitizers fire on ONE run-detail response ──────────
+  // The serializer redacts sensitive step OUTPUTS (SEC-7) and sanitizes raw step
+  // ERRORS (V2-READY-2) in the same `steps.map` (_shared.ts:517 + :519). The
+  // existing tests above cover each in isolation — output redaction on
+  // succeeded-only records, error sanitization on failed-only records. These pin
+  // the core-loop guarantee that a single run carrying BOTH a sensitive output
+  // AND a leaky error gets both protections together, with no cross-step leak.
+  it("V2-READY-9: redacts a sensitive output AND sanitizes a leaky error in the same response", () => {
+    const record = makeRecord([
+      {
+        nodeId: "cust-node",
+        status: "succeeded",
+        output: { customerId: "cus_1", email: "alice@example.com", name: "Alice" },
+      },
+      {
+        nodeId: "a1",
+        status: "failed",
+        error: {
+          code: "HANDLER_FAILED",
+          message:
+            "Integration action required: refresh_failed (account=acct-secret-99, provider=slack, provider-account=T-LEAK-123, email=bob@corp.com, token=xoxb-9f8a-secret).",
+        },
+      },
+    ]);
+    const nodes = [makeNode("cust-node", "stripe", "create_customer")];
+
+    const detail = toWorkflowRunDetail(record, nodes);
+
+    // Output redaction (SEC-7) on the succeeded step.
+    const out = detail.steps[0]!.output as Record<string, unknown>;
+    expect(out.email).toBe(REDACTED_SENTINEL);
+    expect(out.customerId).toBe("cus_1"); // non-sensitive field preserved
+
+    // Error sanitization (V2-READY-2) on the failed step.
+    const stepErr = detail.steps[1]!.error!;
+    expect(stepErr.code).toBe("HANDLER_FAILED");
+    expect(stepErr.message).toBe("Workflow step failed");
+    expect("details" in stepErr).toBe(false);
+
+    // Combined no-leak: NEITHER step's secrets appear anywhere in the response.
+    const serialized = JSON.stringify(detail);
+    for (const leak of [
+      "alice@example.com",
+      "acct-secret-99",
+      "T-LEAK-123",
+      "bob@corp.com",
+      "xoxb-9f8a-secret",
+      "provider-account=",
+    ]) {
+      expect(serialized).not.toContain(leak);
+    }
+  });
+
+  it("V2-READY-9: a missing-connection HANDLER_FAILED (refreshAndRetry account/email leak) is sanitized to the safe title", () => {
+    // The engine's real missing-connection throw embeds the account id +
+    // provider-account in the message (services/oauth/refreshAndRetry.ts). On the
+    // detail surface it must collapse to the safe generic title — never the ids.
+    const record = makeRecord([
+      {
+        nodeId: "a1",
+        status: "failed",
+        error: {
+          code: "HANDLER_FAILED",
+          message:
+            "refreshAndRetry: no active integration for account acct-leak-42 provider gmail (providerAccountId=svc@acme.com).",
+        },
+      },
+    ]);
+    const stepErr = toWorkflowRunDetail(record).steps[0]!.error!;
+    expect(stepErr.code).toBe("HANDLER_FAILED");
+    expect(stepErr.message).toBe("Workflow step failed");
+    const serialized = JSON.stringify(stepErr);
+    for (const leak of ["acct-leak-42", "svc@acme.com", "providerAccountId"]) {
+      expect(serialized).not.toContain(leak);
+    }
+  });
+
   // ─── Slice 3.POSTSEC-2 — newly-sensitive arrays/objects redact ────────────
   //
   // Cover the four POSTSEC-2 categories from the audit: a Stripe object
