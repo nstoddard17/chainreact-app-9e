@@ -146,10 +146,17 @@ export type PreviewWorkflowRepairResult =
        *       isn't a usable safe fix — that is "no safe automatic fix", NOT an
        *       infrastructure outage, so it must never surface as a 503.
        *
+       * AI-REPAIR-2H — `NO_SAFE_PATCH` is the GENERIC fallback only when the
+       * diagnosis can't name a target. Every no-safe exit (a/b above) first attempts
+       * the deterministic, model-free diagnosis-targeted block: when the diagnosis
+       * carries a missing-required-field node, the result is instead an `ok:true`
+       * BLOCKED preview with go-to-field metadata ("Open <field> field"), NOT this
+       * code. So a missing required field is NEVER surfaced as the generic dead-end.
+       *
        * `MODEL_FAILED` is a genuine provider/transport/config failure (the call itself
        * failed) → 503. `GRAPH_UNAVAILABLE` → 500. `PARSE_FAILED` is retained in the
        * union for back-compat but is NO LONGER PRODUCED — model-output failures now
-       * classify as `NO_SAFE_PATCH` (see the three sites below).
+       * classify as `NO_SAFE_PATCH` (see the sites below).
        */
       code: "MODEL_FAILED" | "PARSE_FAILED" | "GRAPH_UNAVAILABLE" | "NO_SAFE_PATCH";
       message: string;
@@ -252,6 +259,53 @@ async function buildDiagnosisTargetedBlockedPreview(args: {
   // missing). If valid (field now present), the diagnosis was stale → no target.
   if (!res || !res.ok || res.data.ok !== false) return null;
   return res.data;
+}
+
+/**
+ * AI-REPAIR-2H — resolve a "no safe automatic fix" outcome. A model DECLINE
+ * (the most common path — the system prompt tells the model NOT to auto-patch a
+ * user-input-required field like a missing message), unreadable / wrong-shape
+ * output, or a patch that crashed the preview pipeline is only a GENERIC
+ * `NO_SAFE_PATCH` when the diagnosis ALSO can't name a concrete target.
+ *
+ * When the diagnosis DOES carry a missing-required-field node, first build the
+ * deterministic, MODEL-FREE targeted blocked preview (empty-config no-op on the
+ * diagnosed node → the existing engine re-derives MISSING_REQUIRED_FIELD with
+ * resolved node/field LABELS + internal target metadata) so the builder renders
+ * "Open <field> field" instead of the dead-end generic copy. The generic
+ * fallback is the LAST resort — only when no missing-field target exists.
+ *
+ * This is the same deterministic block AI-REPAIR-2G applied for a malformed
+ * model patch; 2H simply runs it BEFORE the generic fallback at EVERY no-safe
+ * exit, not just the "model produced a blocked patch" one.
+ */
+async function noSafePatchOrTargetedBlock(args: {
+  userId: string;
+  workflowId: string;
+  dto: AgentWorkflowDiagnosisDTO;
+  baseRevision: string;
+  draftDefinition?: WorkflowDefinition;
+  /** Safe telemetry sub-reason for the generic fallback (never user-facing). */
+  detail?: string;
+  model: RepairModelMeta;
+}): Promise<PreviewWorkflowRepairResult> {
+  const targeted = await buildDiagnosisTargetedBlockedPreview({
+    userId: args.userId,
+    workflowId: args.workflowId,
+    dto: args.dto,
+    baseRevision: args.baseRevision,
+    ...(args.draftDefinition ? { draftDefinition: args.draftDefinition } : {}),
+  });
+  if (targeted) {
+    return { ok: true, preview: targeted, model: args.model };
+  }
+  return {
+    ok: false,
+    code: "NO_SAFE_PATCH",
+    message: "The AI couldn't build a safe automatic fix.",
+    ...(args.detail ? { detail: args.detail } : {}),
+    model: args.model,
+  };
 }
 
 export interface PreviewWorkflowRepairInput {
@@ -381,7 +435,20 @@ export async function previewWorkflowRepair(
     const declined =
       result.failureCode === "INVALID_RESPONSE" || result.failureCode === "EMPTY_RESPONSE";
     if (declined) {
-      return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", model };
+      // AI-REPAIR-2H — a decline is the EXPECTED path for a user-input-required
+      // field (the system prompt forbids auto-patching it). When the diagnosis
+      // already names a missing-required-field node, emit the deterministic
+      // targeted block ("Open <field> field") instead of the dead-end generic
+      // copy; only fall back to generic NO_SAFE_PATCH when there's no target.
+      return noSafePatchOrTargetedBlock({
+        userId,
+        workflowId,
+        dto: input.dto,
+        baseRevision: graph.updatedAt,
+        ...(draftDefinition ? { draftDefinition } : {}),
+        detail: "model_declined",
+        model,
+      });
     }
     return { ok: false, code: "MODEL_FAILED", message: `The model did not return a repair patch (${result.failureCode}).`, model };
   }
@@ -397,11 +464,30 @@ export async function previewWorkflowRepair(
   try {
     parsedJson = JSON.parse(result.text);
   } catch {
-    return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", detail: "unreadable_model_json", model };
+    // AI-REPAIR-2H — attempt the deterministic targeted block before the generic
+    // fallback (the diagnosis may still name a missing-field target).
+    return noSafePatchOrTargetedBlock({
+      userId,
+      workflowId,
+      dto: input.dto,
+      baseRevision: graph.updatedAt,
+      ...(draftDefinition ? { draftDefinition } : {}),
+      detail: "unreadable_model_json",
+      model,
+    });
   }
   const env = RepairPatchEnvelopeSchema.safeParse(parsedJson);
   if (!env.success) {
-    return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", detail: "envelope_mismatch", model };
+    // AI-REPAIR-2H — targeted block first; generic NO_SAFE_PATCH only with no target.
+    return noSafePatchOrTargetedBlock({
+      userId,
+      workflowId,
+      dto: input.dto,
+      baseRevision: graph.updatedAt,
+      ...(draftDefinition ? { draftDefinition } : {}),
+      detail: "envelope_mismatch",
+      model,
+    });
   }
 
   // 4. Assemble the patch envelope. The model's advisory risk is NOT read here —
@@ -431,7 +517,18 @@ export async function previewWorkflowRepair(
     // AI-REPAIR-2E — a malformed operation crashed normalize/validate before a clean
     // validation verdict. The model produced an unusable patch, not an infra failure:
     // handled `NO_SAFE_PATCH` (friendly 200), never `PARSE_FAILED` → 503.
-    return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", detail: "preview_pipeline_throw", model };
+    // AI-REPAIR-2H — but the diagnosis-derived empty-config block runs through a
+    // SEPARATE preview call, so try it first: a malformed model op doesn't mean we
+    // can't deterministically point the user at the still-missing field.
+    return noSafePatchOrTargetedBlock({
+      userId,
+      workflowId,
+      dto: input.dto,
+      baseRevision: graph.updatedAt,
+      ...(draftDefinition ? { draftDefinition } : {}),
+      detail: "preview_pipeline_throw",
+      model,
+    });
   }
   if (!previewRes.ok) {
     // The graph could not be read for the preview (e.g. NOT_FOUND). Surface safely.

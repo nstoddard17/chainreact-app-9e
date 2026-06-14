@@ -335,6 +335,9 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
 
   // AI-REPAIR-2D — the model DECLINING to emit a patch is an EXPECTED outcome
   // (the remaining issue needs a user-supplied value / reconnect), NOT a 503.
+  // AI-REPAIR-2H — a decline now first attempts the deterministic targeted block;
+  // with the default (VALID) preview mock there's no blocked target, so it still
+  // resolves to the handled NO_SAFE_PATCH (never MODEL_FAILED/503).
   it.each(["INVALID_RESPONSE", "EMPTY_RESPONSE"] as const)(
     "maps a model that declined to patch (%s) to handled NO_SAFE_PATCH, not MODEL_FAILED",
     async (failureCode) => {
@@ -345,7 +348,81 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
       });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.code).toBe("NO_SAFE_PATCH");
+    },
+  );
+
+  // AI-REPAIR-2D + 2H — a decline with NO missing-field target short-circuits the
+  // targeted block (no node to point at) and never touches the preview pipeline.
+  it.each(["INVALID_RESPONSE", "EMPTY_RESPONSE"] as const)(
+    "decline + NO target (%s) → generic NO_SAFE_PATCH, no preview call",
+    async (failureCode) => {
+      const dtoNoField = { ...(dto as Record<string, unknown>), findings: [] } as never;
+      const res = await previewWorkflowRepair({
+        dto: dtoNoField,
+        ...base,
+        modelClient: clientReturning({ ok: false, modelId: "gpt-4.1-mini", feature: "repair", failureCode, message: "declined" }),
+      });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.code).toBe("NO_SAFE_PATCH");
       expect(mockPreview).not.toHaveBeenCalled();
+    },
+  );
+
+  // AI-REPAIR-2H — the CORE regression: the model declines (the expected path for a
+  // user-input-required field), but the diagnosis already names the missing-field
+  // node. The service must build the deterministic targeted block ("Open <field>
+  // field") instead of the dead-end generic NO_SAFE_PATCH copy.
+  it.each(["INVALID_RESPONSE", "EMPTY_RESPONSE"] as const)(
+    "decline + missing-field diagnosis (%s) → deterministic targeted block, not generic NO_SAFE_PATCH",
+    async (failureCode) => {
+      // The ONLY preview call on the decline path is the empty-config targeted block.
+      mockPreview.mockResolvedValueOnce({
+        ok: true,
+        data: {
+          ...validPreviewData,
+          ok: false,
+          canApplyLater: false,
+          validation: {
+            ok: false,
+            errors: [
+              {
+                code: "MISSING_REQUIRED_FIELD",
+                message: "Required field “Message” is missing on “Send Channel Message.”",
+                nodeId: "node-B",
+                path: "text",
+                nodeLabel: "Send Channel Message",
+                fieldLabel: "Message",
+              },
+            ],
+            warnings: [],
+          },
+          blockedReason: "Required field “Message” is missing on “Send Channel Message.”",
+        },
+      });
+      const res = await previewWorkflowRepair({
+        dto,
+        ...base,
+        modelClient: clientReturning({ ok: false, modelId: "gpt-4.1-mini", feature: "repair", failureCode, message: "declined" }),
+      });
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.preview.ok).toBe(false);
+        const missing = res.preview.validation.errors.find((e) => e.code === "MISSING_REQUIRED_FIELD")!;
+        expect(missing).toBeDefined();
+        // Go-to-field metadata: internal nodeId/path target + display labels.
+        expect(missing.nodeId).toBe("node-B");
+        expect(missing.path).toBe("text");
+        expect(missing.nodeLabel).toBe("Send Channel Message");
+        expect(missing.fieldLabel).toBe("Message");
+        // No raw structural model/Zod text leaks into the surfaced preview.
+        const serialized = JSON.stringify(res.preview);
+        expect(serialized).not.toContain("operations.0");
+        expect(serialized).not.toMatch(/Unrecognized key/);
+      }
+      // The targeted block ran the deterministic empty-config no-op on the node.
+      expect(mockPreview.mock.calls[0]![0].patch.operations).toEqual([
+        { op: "updateNodeConfig", nodeId: "node-B", config: {} },
+      ]);
     },
   );
 
@@ -373,14 +450,56 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
 
   // AI-REPAIR-2E — unreadable / wrong-shape model output is a HANDLED NO_SAFE_PATCH
   // (the model responded; its output just isn't a usable patch), never PARSE_FAILED → 503.
-  it("maps non-JSON model text to handled NO_SAFE_PATCH (no preview call)", async () => {
-    const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success("not json {")) });
+  // AI-REPAIR-2H — with NO missing-field target, the targeted block short-circuits
+  // (no node to point at) and the preview pipeline is never touched.
+  it("maps non-JSON model text + NO target to handled NO_SAFE_PATCH (no preview call)", async () => {
+    const dtoNoField = { ...(dto as Record<string, unknown>), findings: [] } as never;
+    const res = await previewWorkflowRepair({ dto: dtoNoField, ...base, modelClient: clientReturning(success("not json {")) });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.code).toBe("NO_SAFE_PATCH");
       expect(res.detail).toBe("unreadable_model_json");
     }
     expect(mockPreview).not.toHaveBeenCalled();
+  });
+
+  // AI-REPAIR-2H — unreadable model output but the diagnosis names a missing-field
+  // target → deterministic targeted block, not the generic dead-end.
+  it("unreadable model output + missing-field diagnosis → deterministic targeted block", async () => {
+    mockPreview.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...validPreviewData,
+        ok: false,
+        canApplyLater: false,
+        validation: {
+          ok: false,
+          errors: [
+            {
+              code: "MISSING_REQUIRED_FIELD",
+              message: "Required field “Message” is missing on “Send Channel Message.”",
+              nodeId: "node-B",
+              path: "text",
+              nodeLabel: "Send Channel Message",
+              fieldLabel: "Message",
+            },
+          ],
+          warnings: [],
+        },
+        blockedReason: "Required field “Message” is missing on “Send Channel Message.”",
+      },
+    });
+    const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success("not json {")) });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.preview.ok).toBe(false);
+      const missing = res.preview.validation.errors.find((e) => e.code === "MISSING_REQUIRED_FIELD")!;
+      expect(missing.fieldLabel).toBe("Message");
+      expect(missing.nodeId).toBe("node-B");
+    }
+    expect(mockPreview.mock.calls[0]![0].patch.operations).toEqual([
+      { op: "updateNodeConfig", nodeId: "node-B", config: {} },
+    ]);
   });
 
   it("maps a missing-operations envelope to handled NO_SAFE_PATCH", async () => {
