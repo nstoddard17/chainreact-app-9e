@@ -27,6 +27,7 @@ export type WorkflowApiErrorCode =
   | "MISSING_PRECONDITIONS"
   | "TRIGGER_REGISTRATION_FAILED"
   | "LIFECYCLE_CONFLICT"
+  | "ACCOUNT_PENDING_DELETION"
   | "CONFIRMATION_REQUIRED"
   | "SERVER_ERROR"
   | "UNKNOWN";
@@ -190,11 +191,16 @@ async function parseError(res: Response): Promise<WorkflowApiError> {
 function pickCode(serverCode: string | undefined, status: number): WorkflowApiErrorCode {
   if (serverCode) {
     switch (serverCode) {
+      // Server-supplied lifecycle + account error codes are preserved verbatim so
+      // callers can branch on them. ACCOUNT_PENDING_DELETION added V2-READY-24:
+      // the server maps AccountFrozenError → 403 with this code (V2-READY-23);
+      // without this it collapsed to UNKNOWN. Safe message + status 403 unchanged.
       case "WORKFLOW_NOT_FOUND":
       case "INVALID_TRANSITION":
       case "MISSING_PRECONDITIONS":
       case "TRIGGER_REGISTRATION_FAILED":
       case "LIFECYCLE_CONFLICT":
+      case "ACCOUNT_PENDING_DELETION":
         return serverCode;
       default:
         return "UNKNOWN";

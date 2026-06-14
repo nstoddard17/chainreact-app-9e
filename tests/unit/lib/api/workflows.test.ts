@@ -331,6 +331,8 @@ describe("WorkflowApiError code mapping (server-supplied)", () => {
     [409, "LIFECYCLE_CONFLICT", "LIFECYCLE_CONFLICT"],
     [422, "MISSING_PRECONDITIONS", "MISSING_PRECONDITIONS"],
     [502, "TRIGGER_REGISTRATION_FAILED", "TRIGGER_REGISTRATION_FAILED"],
+    // V2-READY-24 — frozen-account code is preserved, not collapsed to UNKNOWN.
+    [403, "ACCOUNT_PENDING_DELETION", "ACCOUNT_PENDING_DELETION"],
   ];
   it.each(cases)(
     "status %i + server code %s -> client code %s",
