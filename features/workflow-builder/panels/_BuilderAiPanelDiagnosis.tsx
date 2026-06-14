@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, RepairProposal } from "@/lib/api/ai";
 import {
   DiagnosisFieldActions,
+  DiagnosisSetupActions,
   RepairPreviewGoToTarget,
   RepairProposalActions,
 } from "./_BuilderAiPanelRepairGoTo";
@@ -77,11 +78,13 @@ export function DiagnosisBody({
   /** Explicit-click handler (never auto-called). */
   readonly onSuggestFix?: () => void;
   /**
-   * Slice 4.AI-CONFIG-ASSIST CS-5/CS-8 — render the actionable "Needs your input"
-   * group (one "Open <field> field" action per missing required field, across all
-   * affected nodes). Set true only for the LATEST diagnosis so a stale check never
-   * shows live actions. The group itself renders nothing when there are no missing
-   * required fields. A missing-input issue needs neither Suggest nor Preview.
+   * Slice 4.AI-CONFIG-ASSIST CS-5/CS-8 + CHECK-ACTIONS-1 — render the actionable
+   * live-action groups: "Needs your input" (one "Open <field> field" action per
+   * missing required field, across all affected nodes) and "Needs setup"
+   * (reconnect/setup guidance + an Apps link per setup/auth/connection problem). Set
+   * true only for the LATEST diagnosis so a stale check never shows live actions. Each
+   * group renders nothing when its finding class is absent. Neither group requires
+   * Suggest or Preview.
    */
   readonly showFieldActions?: boolean;
 }) {
@@ -142,6 +145,11 @@ export function DiagnosisBody({
           the check result (no Suggest / Preview required). Renders nothing when there
           are no missing required fields. */}
       {showFieldActions && <DiagnosisFieldActions diagnosis={diagnosis} />}
+      {/* CHECK-ACTIONS-1 — setup/auth/connection problems (Slack disconnected, token
+          expired, reconnect/owner-reconnect needed, missing permissions) get a
+          dedicated "Needs setup" group: friendly guidance + an Apps link when the user
+          can act. Renders nothing when there are no connection findings. */}
+      {showFieldActions && <DiagnosisSetupActions diagnosis={diagnosis} />}
       {canExplain && (
         <div data-testid="builder-ai-diagnosis-explain" className="flex flex-col gap-1 pt-1">
           <div>

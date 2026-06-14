@@ -55,6 +55,9 @@ export { canExplainDiagnosis } from "./canExplainDiagnosis";
 
 export { firstMissingFieldNodeId, missingFieldNodeIds } from "./firstMissingFieldNodeId";
 
+export { setupFindingCards } from "./setupFindings";
+export type { SetupFindingAction, SetupFindingCard } from "./setupFindings";
+
 export {
   isChatFillEligible,
   validateChatFillValue,

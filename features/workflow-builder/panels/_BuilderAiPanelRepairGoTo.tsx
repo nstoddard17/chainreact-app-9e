@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
+import { setupFindingCards } from "../ai/setupFindings";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -250,6 +251,68 @@ export function DiagnosisFieldActions({
       <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
         Opens the step and highlights the field so you can fill it in — then type the
         value in chat. Nothing is changed, saved, or run.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Slice 4.CHECK-ACTIONS-1 — the "Needs setup" actionable group on the "Check
+ * workflow" diagnosis card.
+ *
+ * Product model: Check produces actionable issue cards whose PRIMARY action fits the
+ * problem TYPE. Setup/auth/connection problems (provider disconnected, token expired,
+ * reconnect required, missing permissions, owner-must-reconnect) are NOT missing-field
+ * problems — they can't be filled in chat and there's no automatic patch. So they get
+ * their own group: friendly guidance plus, when the current user can act on it, a link
+ * to the existing Apps page (`/apps`) — the SAME safe destination the builder's
+ * combobox-field "Reconnect … in Apps" guidance already uses.
+ *
+ * Classification + copy live in the pure `setupFindingCards` helper. Guidance-only
+ * findings (owner-must-reconnect, provider disabled/unknown) render text with NO
+ * button — never a broken affordance. This group offers NO open-field action and arms
+ * NO chat-fill (it never calls `revealNode`); chat-fill is exclusively for missing
+ * user-input fields (CS-1/CS-6).
+ *
+ * NAVIGATION ONLY — links out to Apps; never writes config, saves, runs, or mutates
+ * the graph; there is no Apply. Shows only the provider's public display name — never a
+ * raw code, node id, field key, scope name, or provider error string.
+ */
+export function DiagnosisSetupActions({
+  diagnosis,
+}: {
+  readonly diagnosis: AgentWorkflowDiagnosis;
+}) {
+  const cards = setupFindingCards(diagnosis);
+  if (cards.length === 0) return null;
+  return (
+    <div data-testid="builder-ai-diagnosis-setup" className="flex flex-col gap-1 pt-1">
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+        Needs setup
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {cards.map((card) => (
+          <li
+            key={card.key}
+            data-testid="builder-ai-diagnosis-setup-item"
+            className="flex flex-col gap-0.5 text-xs"
+          >
+            <span style={{ color: "var(--builder-text)" }}>{card.message}</span>
+            {card.action && (
+              <a
+                href={card.action.href}
+                data-testid="builder-ai-diagnosis-setup-link"
+                className="font-medium underline underline-offset-2"
+                style={{ color: "var(--builder-text)" }}
+              >
+                {card.action.label}
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        These need attention outside the builder. Nothing here is changed, saved, or run.
       </p>
     </div>
   );
