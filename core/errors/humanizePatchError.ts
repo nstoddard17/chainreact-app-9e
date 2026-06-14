@@ -104,6 +104,13 @@ export function humanizePatchError(
       if (nodeLabel)
         return { message: `A field on “${nodeLabel}” has the wrong type of value.`, devDetail };
       return { message: "A field has the wrong type of value.", devDetail };
+    case "INVALID_PATCH":
+    case "UNSUPPORTED_OPERATION":
+      // AI-REPAIR-2G — these carry raw Zod/structural text (e.g.
+      // `operations.0.nodeId: Required`, `Unrecognized key(s) … 'id'`). Never
+      // render that — collapse to a single safe line; the raw text stays in
+      // `devDetail` only.
+      return { message: "This fix can't be applied as-is.", devDetail };
     default:
       return { message: error.message, devDetail };
   }

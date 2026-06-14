@@ -219,6 +219,96 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     }
   });
 
+  // AI-REPAIR-2G — a malformed model patch yields RAW structural errors
+  // (INVALID_PATCH / UNSUPPORTED_OPERATION → `operations.0.nodeId: Required`,
+  // `Unrecognized key(s) … 'id'`). With a missing-field diagnosis, the service
+  // replaces it with a deterministic, diagnosis-derived TARGETED block (so the
+  // builder shows "Open <field> field") — never the raw model errors.
+  it("AI-REPAIR-2G — malformed model patch + missing-field diagnosis → deterministic targeted block, no raw operations.*", async () => {
+    // #1 model preview: blocked with raw structural Zod errors.
+    mockPreview.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...validPreviewData,
+        ok: false,
+        canApplyLater: false,
+        validation: {
+          ok: false,
+          errors: [
+            { code: "INVALID_PATCH", message: "operations.0.nodeId: Required" },
+            { code: "UNSUPPORTED_OPERATION", message: "operations.0: Unrecognized key(s) in object: 'id'" },
+          ],
+          warnings: [],
+        },
+        blockedReason: "operations.0.nodeId: Required",
+      },
+    });
+    // #2 fallback preview (empty-config updateNodeConfig): the real targeted block.
+    mockPreview.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...validPreviewData,
+        ok: false,
+        canApplyLater: false,
+        validation: {
+          ok: false,
+          errors: [
+            {
+              code: "MISSING_REQUIRED_FIELD",
+              message: "Required field “Message” is missing on “Send Channel Message.”",
+              nodeId: "node-B",
+              path: "to",
+              nodeLabel: "Send Channel Message",
+              fieldLabel: "Message",
+            },
+          ],
+          warnings: [],
+        },
+        blockedReason: "Required field “Message” is missing on “Send Channel Message.”",
+      },
+    });
+
+    const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success(modelPatchText)) });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.preview.ok).toBe(false);
+      const errs = res.preview.validation.errors;
+      expect(errs.some((e) => e.code === "MISSING_REQUIRED_FIELD")).toBe(true);
+      const missing = errs.find((e) => e.code === "MISSING_REQUIRED_FIELD")!;
+      expect(missing.nodeLabel).toBe("Send Channel Message");
+      expect(missing.fieldLabel).toBe("Message");
+      // No raw model/Zod text anywhere in the surfaced preview.
+      const serialized = JSON.stringify(res.preview);
+      expect(serialized).not.toContain("operations.0");
+      expect(serialized).not.toMatch(/Unrecognized key/);
+    }
+    // The fallback ran a deterministic empty-config updateNodeConfig on the node.
+    expect(mockPreview.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(mockPreview.mock.calls[1]![0].patch.operations).toEqual([
+      { op: "updateNodeConfig", nodeId: "node-B", config: {} },
+    ]);
+  });
+
+  it("AI-REPAIR-2G — malformed model patch + NO missing-field target → handled NO_SAFE_PATCH, no raw leak", async () => {
+    const dtoNoField = { ...(dto as Record<string, unknown>), findings: [] } as never;
+    mockPreview.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...validPreviewData,
+        ok: false,
+        canApplyLater: false,
+        validation: { ok: false, errors: [{ code: "INVALID_PATCH", message: "operations.0.nodeId: Required" }], warnings: [] },
+        blockedReason: "operations.0.nodeId: Required",
+      },
+    });
+    const res = await previewWorkflowRepair({ dto: dtoNoField, ...base, modelClient: clientReturning(success(modelPatchText)) });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe("NO_SAFE_PATCH");
+      expect(JSON.stringify(res)).not.toContain("operations.0");
+    }
+  });
+
   // AI-REPAIR-2E — the model RESPONDED but its patch is unusable (a malformed op
   // crashed the validate pipeline). That is "no safe automatic fix", a HANDLED
   // outcome the route returns as a friendly 200 — never a 503 (and never a 500).

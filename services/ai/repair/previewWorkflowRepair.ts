@@ -180,6 +180,80 @@ export function diagnosisHasRepairableIssue(dto: AgentWorkflowDiagnosisDTO): boo
   return false;
 }
 
+/**
+ * AI-REPAIR-2G — block error codes whose humanized copy is SAFE to show directly
+ * (no raw `operations.*` / Zod / id leakage). A blocked model preview is only
+ * surfaced as-is when EVERY error code is in this set; anything else (e.g.
+ * INVALID_PATCH / UNSUPPORTED_OPERATION from a malformed model patch) is replaced
+ * by a deterministic diagnosis-targeted block or a handled NO_SAFE_PATCH.
+ */
+const LEAK_SAFE_BLOCK_CODES: ReadonlySet<string> = new Set([
+  "MISSING_REQUIRED_FIELD",
+  "INVALID_CONFIG",
+  "UNKNOWN_TRIGGER",
+  "UNKNOWN_ACTION",
+  "UNKNOWN_NODE",
+]);
+
+function isLeakSafeBlock(preview: PatchPreviewResult): boolean {
+  const errors = preview.validation.errors;
+  return errors.length > 0 && errors.every((e) => LEAK_SAFE_BLOCK_CODES.has(e.code));
+}
+
+/** First diagnosed missing-required-field node id (internal target), or null. */
+function firstMissingFieldNodeId(dto: AgentWorkflowDiagnosisDTO): string | null {
+  for (const f of dto.findings ?? []) {
+    if (f.code === "MISSING_REQUIRED_FIELD" && f.nodeIds && f.nodeIds.length > 0) {
+      return f.nodeIds[0] ?? null;
+    }
+  }
+  return null;
+}
+
+/**
+ * AI-REPAIR-2G — deterministic, MODEL-FREE targeted blocked preview built from the
+ * diagnosis when the model's patch can't produce a clean targeted block. Applies a
+ * minimal no-op `updateNodeConfig` (empty config) to the diagnosed missing-field
+ * node, then runs the EXISTING preview engine — which re-derives the real
+ * MISSING_REQUIRED_FIELD with resolved node/field LABELS + internal target
+ * metadata, so the builder renders "Open <field> field" with no raw patch errors.
+ * Returns the blocked preview, or null when no missing-field target exists / the
+ * preview isn't blocked.
+ */
+async function buildDiagnosisTargetedBlockedPreview(args: {
+  userId: string;
+  workflowId: string;
+  dto: AgentWorkflowDiagnosisDTO;
+  baseRevision: string;
+  draftDefinition?: WorkflowDefinition;
+}): Promise<PatchPreviewResult | null> {
+  const nodeId = firstMissingFieldNodeId(args.dto);
+  if (!nodeId) return null;
+  const patch: WorkflowPatch = {
+    patchId: `repair-preview-target:${args.workflowId}`,
+    workflowId: args.workflowId,
+    baseRevision: args.baseRevision,
+    operations: [{ op: "updateNodeConfig", nodeId, config: {} }] as PatchOperation[],
+    summary: "Complete the required field",
+    rationale: "Deterministic targeted preview derived from the workflow diagnosis.",
+  };
+  let res;
+  try {
+    res = await previewWorkflowPatchForAI({
+      userId: args.userId,
+      workflowId: args.workflowId,
+      patch,
+      ...(args.draftDefinition ? { draftDefinition: args.draftDefinition } : {}),
+    });
+  } catch {
+    return null;
+  }
+  // Only useful when it actually produced a BLOCKED preview (the field is still
+  // missing). If valid (field now present), the diagnosis was stale → no target.
+  if (!res || !res.ok || res.data.ok !== false) return null;
+  return res.data;
+}
+
 export interface PreviewWorkflowRepairInput {
   /** Re-derived server-side by the route (access==="OK"). Never client-posted. */
   readonly dto: AgentWorkflowDiagnosisDTO;
@@ -364,8 +438,40 @@ export async function previewWorkflowRepair(
     return { ok: false, code: "GRAPH_UNAVAILABLE", message: "Couldn't preview the proposed repair.", model };
   }
 
-  // previewRes.data.ok === false here is a VALIDATION-BLOCKED patch (UNKNOWN_NODE,
-  // MISSING_REQUIRED_FIELD, etc.) — a legitimate, previewable outcome. We return it
-  // as ok:true with preview.ok=false + blockedReason; the route/UI render the block.
-  return { ok: true, preview: previewRes.data, model };
+  const modelPreview = previewRes.data;
+
+  // A VALID model patch (applyable later) is surfaced as-is.
+  if (modelPreview.ok) {
+    return { ok: true, preview: modelPreview, model };
+  }
+
+  // AI-REPAIR-2G — the model patch is BLOCKED. A malformed model patch yields raw
+  // structural errors (INVALID_PATCH / UNSUPPORTED_OPERATION → `operations.0.nodeId:
+  // Required`, `Unrecognized key(s) … 'id'`) AND no usable target. Prefer a
+  // deterministic, diagnosis-derived TARGETED block so the builder shows a safe
+  // label-based reason + "Open <field> field" — never raw patch errors.
+  const targeted = await buildDiagnosisTargetedBlockedPreview({
+    userId,
+    workflowId,
+    dto: input.dto,
+    baseRevision: graph.updatedAt,
+    ...(draftDefinition ? { draftDefinition } : {}),
+  });
+  if (targeted) {
+    return { ok: true, preview: targeted, model };
+  }
+
+  // No diagnosis target. Surface the model's block ONLY if every error is
+  // leak-safe (humanized, no raw structural text); otherwise it's an unusable
+  // malformed patch → handled NO_SAFE_PATCH (never raw `operations.*`).
+  if (isLeakSafeBlock(modelPreview)) {
+    return { ok: true, preview: modelPreview, model };
+  }
+  return {
+    ok: false,
+    code: "NO_SAFE_PATCH",
+    message: "The AI couldn't build a safe automatic fix.",
+    detail: "malformed_model_patch",
+    model,
+  };
 }

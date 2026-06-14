@@ -74,6 +74,18 @@ describe("humanizePatchError", () => {
     expect(message).not.toMatch(/'text'|slack:send_channel_message|textarea/);
   });
 
+  it("AI-REPAIR-2G — INVALID_PATCH / UNSUPPORTED_OPERATION never render raw Zod/structural text", () => {
+    const invalid = { code: "INVALID_PATCH", message: "operations.0.nodeId: Required" };
+    const unsupported = { code: "UNSUPPORTED_OPERATION", message: "operations.0: Unrecognized key(s) in object: 'id'" };
+    for (const e of [invalid, unsupported]) {
+      const { message, devDetail } = humanizePatchError(e);
+      expect(message).toBe("This fix can't be applied as-is.");
+      expect(message).not.toMatch(/operations\.|Unrecognized key|nodeId|Required/);
+      // Raw text retained for dev only.
+      expect(devDetail).toBe(e.message);
+    }
+  });
+
   it("passes genuinely un-humanized codes through unchanged (message === devDetail)", () => {
     const e = { code: "DUPLICATE_EDGE_ID", message: "Two edges share the id 'e1'." };
     const { message, devDetail } = humanizePatchError(e);
