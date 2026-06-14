@@ -562,6 +562,88 @@ describe("WorkflowEngine — failure modes (rule §Engine pre-resolution)", () =
     expect(downstreamHandler).not.toHaveBeenCalled();
     expect(result.steps).toHaveLength(2); // trigger + a1; a2 skipped
   });
+
+  // V2-READY-0D — missing/needs-reconnect connection sad path. When a handler's
+  // provider call can't resolve a usable credential, refreshAndRetry surfaces it
+  // as IntegrationActionRequiredError. The engine must terminal-FAIL (HANDLER_FAILED)
+  // and FINALIZE the run — it must never leave the run stuck 'running'. (This is the
+  // V2-READY-1 terminal-status guarantee exercised on the missing-connection path.)
+  it("handler hitting a missing / needs-reconnect connection → terminal failed (HANDLER_FAILED) + run finalized (never left 'running')", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "send_message")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    // Mirrors the refreshAndRetry contract message for a 401 / disconnected
+    // credential (reason "refresh_failed"). The engine treats any non-Missing-
+    // Variable throw as HANDLER_FAILED, so a representative Error covers the path.
+    mockGetActionHandler.mockReturnValueOnce(async () => {
+      throw new Error(
+        "Integration action required: refresh_failed (account=acct-user-1, provider=slack).",
+      );
+    });
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("failed");
+    const failed = result.steps.find((s) => s.status === "failed");
+    expect(failed?.nodeId).toBe("a1");
+    expect(failed?.error?.code).toBe("HANDLER_FAILED");
+    // Terminal status is PERSISTED via finalize (pre-run row → UPDATE), with a
+    // humanized classification for the user-facing surface — no orphaned 'running'.
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        errorClassification: expect.objectContaining({ title: expect.any(String) }),
+      }),
+    );
+  });
+
+  // V2-READY-0D — handler-layer config validation, DISTINCT from the resolver-layer
+  // MissingVariableError path above. Here resolution SUCCEEDS (resolveStrict does not
+  // throw) and the handler IS invoked, then rejects the resolved-but-invalid input.
+  // It must terminal-FAIL (HANDLER_FAILED), not hang and not be misclassified as a
+  // missing-variable failure.
+  it("handler rejects resolved-but-invalid config → terminal failed (HANDLER_FAILED); resolver did NOT throw and handler WAS called (distinct from MISSING_VARIABLE)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "send_message", { channel: "{{trigger.channel}}" })],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    // Resolution succeeds (identity stub → no MissingVariableError); the handler
+    // validates the resolved config and rejects it (e.g. wrong type / empty).
+    const resolveStrict = jest.fn((v: unknown) => v);
+    const handler = jest.fn(async () => {
+      throw new Error("channel must be a non-empty string");
+    });
+    mockGetActionHandler.mockReturnValueOnce(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("failed");
+    // The distinction from the MissingVariableError test: resolution ran without
+    // throwing AND the handler was actually invoked (handler-layer failure).
+    expect(handler).toHaveBeenCalledTimes(1);
+    const failed = result.steps.find((s) => s.status === "failed");
+    expect(failed?.error?.code).toBe("HANDLER_FAILED");
+    expect(failed?.error?.message).toBe("channel must be a non-empty string");
+    expect(mockFinalizeWorkflowRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
 });
 
 describe("WorkflowEngine — graph traversal", () => {
