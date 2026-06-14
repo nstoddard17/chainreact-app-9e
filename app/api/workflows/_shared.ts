@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
+import { AccountFrozenError } from "@/services/accounts/accountFreeze";
 import { isMember } from "@/repositories/accountMemberships";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import { redactOutput } from "@/core/security/redactOutput";
@@ -105,6 +106,24 @@ export interface AuthWithAccountSuccess {
  *   - `not_member` → 403 `NOT_ACCOUNT_MEMBER` (an explicit account the caller
  *     does not belong to NEVER silently downgrades to the personal account).
  */
+/**
+ * Standardized frozen-account (pending_deletion) response — status 403, stable
+ * code `ACCOUNT_PENDING_DELETION`. Single source so the active-account gate
+ * (`requireUserWithAccount`) and the lifecycle catch (`runLifecycle`, V2-READY-23)
+ * can't drift. NEVER includes the account id: `AccountFrozenError.message` embeds
+ * it ("Account <id> is pending deletion..."), so callers must use this shape
+ * rather than echo the raw message.
+ */
+export function accountPendingDeletionResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: "This account is pending deletion.",
+      code: "ACCOUNT_PENDING_DELETION",
+    },
+    { status: 403 },
+  );
+}
+
 export async function requireUserWithAccount(
   explicitAccountId?: string | null,
 ): Promise<AuthWithAccountSuccess | AuthFailure> {
@@ -114,16 +133,7 @@ export async function requireUserWithAccount(
   const resolved = await resolveActiveAccount(auth.userId, { explicitAccountId });
   if (!resolved.ok) {
     if (resolved.reason === "account_frozen") {
-      return {
-        ok: false,
-        response: NextResponse.json(
-          {
-            error: "This account is pending deletion.",
-            code: "ACCOUNT_PENDING_DELETION",
-          },
-          { status: 403 },
-        ),
-      };
+      return { ok: false, response: accountPendingDeletionResponse() };
     }
     // not_member — explicit account the caller is not a member of.
     return {
@@ -291,6 +301,15 @@ export async function runLifecycle<T>(
   } catch (err) {
     if (err instanceof LifecycleError) {
       return lifecycleErrorResponse(err);
+    }
+    // V2-READY-23 — a frozen (pending_deletion) OWNER account surfaces as a
+    // typed 403, matching the switch-account mapping above. The orchestrator's
+    // activate() throws AccountFrozenError via assertAccountOperational; its
+    // message embeds the account id, so we return the standardized safe shape
+    // and never echo the raw message. (resume/disable/delete don't call the
+    // freeze guard today, but mapping here is guard-placement-agnostic.)
+    if (err instanceof AccountFrozenError) {
+      return accountPendingDeletionResponse();
     }
     // No-leak fallback (V2-READY-22). A non-LifecycleError reaching here is an
     // UNEXPECTED throw from the orchestrator / repository chain whose raw message

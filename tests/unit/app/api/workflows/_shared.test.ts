@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { LifecycleError } from "@/core/workflows/lifecycle";
+import { AccountFrozenError } from "@/services/accounts/accountFreeze";
 
 // Mock supabase BEFORE importing _shared so requireUser sees the mock.
 const mockGetUser = jest.fn();
@@ -342,6 +343,27 @@ describe("runLifecycle", () => {
     expect(res.status).toBe(500);
     expect((await res.json()).error).toBe("Workflow action failed.");
     errorSpy.mockRestore();
+  });
+
+  it("V2-READY-23: AccountFrozenError → typed 403 ACCOUNT_PENDING_DELETION (no account-id leak)", async () => {
+    // activate() throws this via assertAccountOperational; its raw message embeds
+    // the account id. The lifecycle catch must map it to the standardized 403.
+    const FROZEN_ACCOUNT = "acct-9f2c1b00-dead-beef";
+    const res = await runLifecycle(
+      async () => {
+        throw new AccountFrozenError(FROZEN_ACCOUNT);
+      },
+      () => NextResponse.json({}),
+    );
+    expect(res.status).toBe(403);
+    const raw = await res.text();
+    const body = JSON.parse(raw);
+    expect(body.code).toBe("ACCOUNT_PENDING_DELETION");
+    expect(body.error).toBe("This account is pending deletion.");
+    // The raw AccountFrozenError.message ("Account <id> is pending deletion...")
+    // and the account id itself must NOT appear in the client response.
+    expect(raw).not.toContain(FROZEN_ACCOUNT);
+    expect(raw).not.toContain("is frozen");
   });
 });
 
