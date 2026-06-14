@@ -58,6 +58,9 @@ export { firstMissingFieldNodeId, missingFieldNodeIds } from "./firstMissingFiel
 export { setupFindingCards } from "./setupFindings";
 export type { SetupFindingAction, SetupFindingCard } from "./setupFindings";
 
+export { attentionFindingCards } from "./attentionFindings";
+export type { AttentionFindingCard } from "./attentionFindings";
+
 export {
   isChatFillEligible,
   validateChatFillValue,

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
+import { attentionFindingCards } from "../ai/attentionFindings";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -240,8 +241,11 @@ export function DiagnosisFieldActions({
   if (nodeIds.length === 0) return null;
   return (
     <div data-testid="builder-ai-diagnosis-open-field" className="flex flex-col gap-1 pt-1">
-      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
         Needs your input
+      </p>
+      <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        Fill these fields before this workflow can run.
       </p>
       <ul className="flex flex-col gap-1">
         {nodeIds.map((id) => (
@@ -287,8 +291,11 @@ export function DiagnosisSetupActions({
   if (cards.length === 0) return null;
   return (
     <div data-testid="builder-ai-diagnosis-setup" className="flex flex-col gap-1 pt-1">
-      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
         Needs setup
+      </p>
+      <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        Reconnect or update app access.
       </p>
       <ul className="flex flex-col gap-1.5">
         {cards.map((card) => (
@@ -314,6 +321,50 @@ export function DiagnosisSetupActions({
       <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
         These need attention outside the builder. Nothing here is changed, saved, or run.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Slice 4.CHECK-ACTIONS-2 — the "Needs attention" manual-guidance group on the "Check
+ * workflow" diagnosis card.
+ *
+ * Holds the non-targetable issues that aren't a missing field (→ "Needs your input")
+ * or a connection/auth problem (→ "Needs setup"): structural/graph problems and a
+ * failed most-recent run. Each renders deterministic, friendly guidance with NO button
+ * — there's no single safe in-app action for "no trigger" or "the last run failed", so
+ * this group never renders a broken affordance.
+ *
+ * Classification + copy live in the pure `attentionFindingCards` helper. Read-only:
+ * never writes config, saves, runs, or mutates the graph. Shows only guidance text —
+ * never a raw code, node id, field key, provider/type key, or config value.
+ */
+export function DiagnosisAttentionActions({
+  diagnosis,
+}: {
+  readonly diagnosis: AgentWorkflowDiagnosis;
+}) {
+  const cards = attentionFindingCards(diagnosis);
+  if (cards.length === 0) return null;
+  return (
+    <div data-testid="builder-ai-diagnosis-attention" className="flex flex-col gap-1 pt-1">
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
+        Needs attention
+      </p>
+      <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        Review these issues manually.
+      </p>
+      <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+        {cards.map((card) => (
+          <li
+            key={card.key}
+            data-testid="builder-ai-diagnosis-attention-item"
+            style={{ color: "var(--builder-text)" }}
+          >
+            {card.message}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

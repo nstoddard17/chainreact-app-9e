@@ -95,7 +95,7 @@ beforeEach(() => {
 });
 
 describe("Check workflow — happy path", () => {
-  it("calls diagnoseWorkflow(workflowId) and renders summaryText + nextSteps", async () => {
+  it("calls diagnoseWorkflow(workflowId) and renders summaryText + grouped actions", async () => {
     const user = userEvent.setup();
     mockDiagnose.mockResolvedValue(readyDiagnosis);
     render(<BuilderAiPanel />);
@@ -111,9 +111,13 @@ describe("Check workflow — happy path", () => {
     expect(screen.getByTestId("builder-ai-diagnosis-summary").textContent).toContain(
       "can't run yet",
     );
-    expect(screen.getByTestId("builder-ai-diagnosis-next-steps").textContent).toContain(
-      "Reconnect Gmail.",
+    // CHECK-ACTIONS-2 — a connection finding now surfaces in the "Needs setup" group,
+    // and the redundant generic "Next steps" list is suppressed on the live (latest)
+    // grouped panel (its guidance is owned by the type-specific groups).
+    expect(screen.getByTestId("builder-ai-diagnosis-setup").textContent).toContain(
+      "Connect Gmail in Apps",
     );
+    expect(screen.queryByTestId("builder-ai-diagnosis-next-steps")).toBeNull();
     // The user-gesture marker rendered as a user bubble (kind="action").
     const userBubbles = screen.getAllByTestId("builder-ai-message-user");
     expect(userBubbles.some((b) => b.getAttribute("data-kind") === "action")).toBe(true);

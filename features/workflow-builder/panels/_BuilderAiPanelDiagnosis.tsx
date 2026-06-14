@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, RepairProposal } from "@/lib/api/ai";
 import {
+  DiagnosisAttentionActions,
   DiagnosisFieldActions,
   DiagnosisSetupActions,
   RepairPreviewGoToTarget,
@@ -122,7 +123,13 @@ export function DiagnosisBody({
       >
         {diagnosis.summaryText}
       </p>
-      {steps.length > 0 && (
+      {/* CHECK-ACTIONS-2 — the generic deterministic "Next steps" list duplicates the
+          per-type action groups below (input / setup / attention), so it is suppressed
+          for the LIVE grouped panel (`showFieldActions`, the latest diagnosis). It is
+          still rendered for a HISTORICAL diagnosis (no live groups), and for the access
+          walls handled above it never reaches here. The `summaryText` always carries the
+          full descriptive finding list, so suppressing the list hides nothing. */}
+      {!showFieldActions && steps.length > 0 && (
         <div
           data-testid="builder-ai-diagnosis-next-steps"
           className="flex flex-col gap-1"
@@ -150,43 +157,68 @@ export function DiagnosisBody({
           dedicated "Needs setup" group: friendly guidance + an Apps link when the user
           can act. Renders nothing when there are no connection findings. */}
       {showFieldActions && <DiagnosisSetupActions diagnosis={diagnosis} />}
-      {canExplain && (
-        <div data-testid="builder-ai-diagnosis-explain" className="flex flex-col gap-1 pt-1">
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onExplain}
-              disabled={explaining || alreadyExplained}
-              data-testid="builder-ai-explain-button"
-            >
-              {explaining ? "Explaining…" : alreadyExplained ? "Explained" : "Explain with AI"}
-            </Button>
+      {/* CHECK-ACTIONS-2 — non-targetable manual-guidance issues (structural / failed
+          last run) get their own "Needs attention" group: deterministic guidance, no
+          button. Renders nothing when there are no graph/run findings. */}
+      {showFieldActions && <DiagnosisAttentionActions diagnosis={diagnosis} />}
+      {/* CHECK-ACTIONS-2 — AI affordances are grouped + visually separated under
+          "AI can help" so they read as OPTIONAL assistance, distinct from the
+          deterministic (free) actions above. The inner blocks keep their original
+          testids + disabled/charge logic unchanged. */}
+      {(canExplain || canSuggestFix) && (
+        <div
+          data-testid="builder-ai-diagnosis-ai-help"
+          className="mt-1 flex flex-col gap-2 border-t pt-2"
+          style={{ borderColor: "var(--builder-border)" }}
+        >
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
+              AI can help
+            </p>
+            <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+              Optional — let AI explain this check or suggest a fix. It never changes or
+              runs your workflow.
+            </p>
           </div>
-          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
-            AI explains this check in plainer language. It doesn&rsquo;t change or run your
-            workflow.
-          </p>
-        </div>
-      )}
-      {canSuggestFix && (
-        <div data-testid="builder-ai-diagnosis-suggest-fix" className="flex flex-col gap-1 pt-1">
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onSuggestFix}
-              disabled={suggesting || alreadySuggested}
-              data-testid="builder-ai-suggest-fix-button"
-            >
-              {suggesting ? "Suggesting…" : alreadySuggested ? "Suggested" : "Suggest a fix"}
-            </Button>
-          </div>
-          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
-            AI suggests how to fix this. It doesn&rsquo;t change or run your workflow.
-          </p>
+          {canExplain && (
+            <div data-testid="builder-ai-diagnosis-explain" className="flex flex-col gap-1">
+              <div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onExplain}
+                  disabled={explaining || alreadyExplained}
+                  data-testid="builder-ai-explain-button"
+                >
+                  {explaining ? "Explaining…" : alreadyExplained ? "Explained" : "Explain with AI"}
+                </Button>
+              </div>
+              <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+                AI explains this check in plainer language. It doesn&rsquo;t change or run your
+                workflow.
+              </p>
+            </div>
+          )}
+          {canSuggestFix && (
+            <div data-testid="builder-ai-diagnosis-suggest-fix" className="flex flex-col gap-1">
+              <div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onSuggestFix}
+                  disabled={suggesting || alreadySuggested}
+                  data-testid="builder-ai-suggest-fix-button"
+                >
+                  {suggesting ? "Suggesting…" : alreadySuggested ? "Suggested" : "Suggest a fix"}
+                </Button>
+              </div>
+              <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+                AI suggests how to fix this. It doesn&rsquo;t change or run your workflow.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
