@@ -1,3 +1,4 @@
+import { isSecretLikeKey } from "@/core/security/secretKeys";
 import type {
   AgentMessageKind,
   AgentMessageRole,
@@ -100,32 +101,24 @@ const ASSISTANT_KINDS: ReadonlySet<AgentMessageKind> = new Set([
   "system_notice",
 ]);
 
-// ── Secret-shaped key denylist (case-insensitive substring match) ──────────
+// ── Secret-shaped key denylist ─────────────────────────────────────────────
 //
-// Matched against EVERY object key at every depth. If a payload object has a
-// matching key, the entire pair is dropped (not the value redacted) — because
-// any "{ accessToken: 'foo' }" is suspicious by shape regardless of whether
-// the value happens to look like a token. We also strip the V2 snake_case
-// equivalents (`access_token`, `refresh_token`, `webhook_secret`, …).
-
-const SECRET_KEY_SUBSTRINGS: readonly string[] = [
-  "token", // covers accessToken / refreshToken / access_token / refresh_token / bearerToken / apiToken / oauthToken
-  "secret", // covers clientSecret / webhookSecret / apiSecret / signing_secret
-  "apikey", // covers apiKey
-  "api_key",
-  "password",
-  "passwd",
-  "pwd",
-  "authorization",
-  "bearer",
-  "privatekey",
-  "private_key",
-  "credentials",
-];
-
+// Matched against EVERY allowlisted object key at every depth. If a payload
+// object has a matching key, the entire pair is dropped (not the value
+// redacted) — because any "{ accessToken: 'foo' }" is suspicious by shape
+// regardless of whether the value happens to look like a token.
+//
+// CS-11 — delegates to the shared, client-safe classifier
+// `core/security/secretKeys.isSecretLikeKey` (single source of truth across
+// redaction + chat-fill eligibility), removing the inline substring list that
+// had drifted. The classifier normalizes `_`/`-` so V2 snake_case equivalents
+// (`access_token`, `refresh_token`, `private_key`, `api_key`) are covered, and
+// it deliberately excludes the innocuous `oauth` capability key. This is
+// defense-in-depth ON TOP of the payload allowlist below — no allowlisted key
+// is secret-shaped, so this gate's effective behavior is unchanged; the name
+// `isSecretKey` is retained so the call sites + `__testing` export are stable.
 function isSecretKey(key: string): boolean {
-  const lower = key.toLowerCase();
-  return SECRET_KEY_SUBSTRINGS.some((needle) => lower.includes(needle));
+  return isSecretLikeKey(key);
 }
 
 // Hard-deny keys that name raw planner / workflow internals. These are NEVER

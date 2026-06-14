@@ -226,6 +226,29 @@ describe("safe_payload secret-key denylist", () => {
     expect(__testing.isSecretKey("preview")).toBe(false);
     expect(__testing.isSecretKey("requiredUserInput")).toBe(false);
   });
+
+  // CS-11 — parity after delegating to core/security/secretKeys.isSecretLikeKey.
+  it("still treats the required secret-like terms as secret", () => {
+    for (const k of [
+      "token",
+      "accessToken",
+      "refreshToken",
+      "apiKey",
+      "password",
+      "secret",
+      "bearer",
+      "credential",
+      "clientSecret",
+    ]) {
+      expect(__testing.isSecretKey(k)).toBe(true);
+    }
+  });
+
+  it("does NOT falsely redact normal content-field key names", () => {
+    for (const k of ["message", "subject", "body", "description", "oauth"]) {
+      expect(__testing.isSecretKey(k)).toBe(false);
+    }
+  });
 });
 
 describe("safe_payload forbidden-internal-key denylist", () => {
