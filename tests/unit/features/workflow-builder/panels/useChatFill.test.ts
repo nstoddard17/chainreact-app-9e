@@ -108,6 +108,65 @@ describe("useChatFill.propose", () => {
   });
 });
 
+describe("useChatFill.fillNow (CS-9 — direct fill, no confirmation)", () => {
+  it("writes the pending draft IMMEDIATELY + appends a SUMMARY (no proposal/confirm)", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "" }, fieldKey: "text" });
+    const updateNodeConfigSpy = jest.spyOn(useGraphSlice.getState(), "updateNodeConfig");
+    const saveSpy = jest.spyOn(useGraphSlice.getState(), "save");
+
+    const { messages, hook } = setup();
+    act(() => hook.result.current.fillNow(target(), "Hey!!!"));
+
+    // Pending draft filled directly (applyChatFillToDraft) + dirty.
+    const draft = useConfigSlice.getState().drafts.slack1!;
+    expect(draft.values.text).toBe("Hey!!!");
+    expect(draft.isDirty).toBe(true);
+
+    // The user's message is echoed, then an after-fill SUMMARY — never a proposal.
+    expect(messages.some((m) => m.role === "user" && m.kind === "action")).toBe(true);
+    const fill = lastFill(messages);
+    expect(fill.phase).toBe("summary");
+    if (fill.phase === "summary") {
+      expect(fill.proposal.previousValue).toBe("");
+      expect(fill.proposal.newValue).toBe("Hey!!!");
+    }
+    // No proposal bubble was ever created.
+    expect(messages.some((m) => m.role === "assistant" && m.kind === "chat_fill" && m.fill.phase === "proposal")).toBe(false);
+    // No graph commit / persist / run.
+    expect(updateNodeConfigSpy).not.toHaveBeenCalled();
+    expect(saveSpy).not.toHaveBeenCalled();
+
+    updateNodeConfigSpy.mockRestore();
+    saveSpy.mockRestore();
+  });
+
+  it("ambiguous input → safe guidance, NO write, NO summary, NO proposal", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "" }, fieldKey: "text" });
+    const { messages, hook } = setup();
+    act(() => hook.result.current.fillNow(target(), "put hello in the message field"));
+    expect(useConfigSlice.getState().drafts.slack1!.values.text).toBe("");
+    const fill = lastFill(messages);
+    expect(fill.phase).toBe("blocked");
+    expect(messages.some((m) => m.role === "assistant" && m.kind === "chat_fill" && m.fill.phase === "proposal")).toBe(false);
+  });
+
+  it("ineligible (secret) field → blocked guidance, NO write, never echoes the value", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { apiKey: "" }, fieldKey: "apiKey" });
+    const { messages, hook } = setup(() => target({ fieldKey: "apiKey", field: field("apiKey", "text"), fieldLabel: "" }));
+    act(() => hook.result.current.fillNow(target({ fieldKey: "apiKey", field: field("apiKey", "text"), fieldLabel: "" }), "super-secret-token-123"));
+    expect(useConfigSlice.getState().drafts.slack1!.values.apiKey).toBe("");
+    const fill = lastFill(messages);
+    expect(fill.phase).toBe("blocked");
+    if (fill.phase === "blocked") {
+      expect(fill.message).toMatch(/sensitive/i);
+      expect(fill.message).not.toContain("apiKey");
+    }
+    // The blocked path must NOT echo the user's (secret) value anywhere.
+    expect(JSON.stringify(messages)).not.toContain("super-secret-token-123");
+    expect(messages.some((m) => m.role === "user")).toBe(false);
+  });
+});
+
 describe("useChatFill.confirmFill", () => {
   it("writes the value to the pending config draft and appends a summary — no graph mutation/save", () => {
     // Open the rail draft + highlight (so applyChatFillToDraft can write).

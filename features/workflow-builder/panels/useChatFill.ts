@@ -87,7 +87,17 @@ function summaryMessage(proposal: ChatFillProposal): ChatMessage {
 export interface UseChatFillResult {
   /** Proposal ids already confirmed/cancelled (buttons disable). */
   readonly resolvedFillIds: ReadonlySet<ChatMessageId>;
-  /** Turn an explicit chat message into a pending-fill proposal (or safe guidance). */
+  /**
+   * Slice 4.AI-CONFIG-ASSIST CS-9 — DIRECT fill for the active highlighted field.
+   * Writes the pending draft immediately + appends an after-fill SUMMARY (no
+   * Confirm/Cancel proposal). The product path for "field highlighted → type → Send".
+   */
+  readonly fillNow: (target: ChatFillTarget, rawMessage: string) => void;
+  /**
+   * Turn an explicit chat message into a pending-fill PROPOSAL (Confirm/Cancel) or
+   * safe guidance. Retained for a future non-direct / ambiguous path — NOT used by
+   * the current highlighted-field direct-fill path (which uses `fillNow`).
+   */
   readonly propose: (target: ChatFillTarget, rawMessage: string) => void;
   /** Confirm a proposal → write the pending draft + append a summary. Re-validates live. */
   readonly confirmFill: (messageId: ChatMessageId, proposal: ChatFillProposal) => void;
@@ -105,6 +115,51 @@ export function useChatFill({ appendMessage, getCurrentTarget }: UseChatFillInpu
       return next;
     });
   }, []);
+
+  /**
+   * Slice 4.AI-CONFIG-ASSIST CS-9 — DIRECT fill. The composer is already in an
+   * explicit field-fill mode (an eligible field is highlighted + the user pressed
+   * Send), so there's no proposal to confirm: echo the user's message, write the
+   * pending DRAFT immediately via CS-2 `applyChatFillToDraft`, then append an
+   * after-fill SUMMARY ("Filled … · Not saved yet"). Ambiguous input / an
+   * ineligible field / an invalid value still fall back to safe guidance with NO
+   * write — never a Confirm/Cancel proposal. The ONLY side effect on success is the
+   * draft write: no `graphSlice.updateNodeConfig`, no save, no run, no Apply.
+   */
+  const fillNow = useCallback(
+    (target: ChatFillTarget, rawMessage: string) => {
+      const extraction = extractChatFillValue(rawMessage);
+      if (extraction.kind === "ambiguous") {
+        appendMessage(blockedMessage(AMBIGUOUS_COPY));
+        return;
+      }
+      const result = applyChatFillToDraft({
+        nodeId: target.nodeId,
+        fieldKey: target.fieldKey,
+        field: target.field,
+        ...(target.action ? { action: target.action } : {}),
+        value: extraction.value,
+        currentValue: target.currentValue,
+        nodeLabel: target.nodeLabel,
+        fieldLabel: target.fieldLabel,
+        nodeExists: true,
+        highlightedFieldKey: target.fieldKey,
+        requireHighlightMatch: true,
+      });
+      if (!result.ok) {
+        // Ineligible / invalid / stale → safe guidance, NO write, NO echo (so a
+        // blocked secret/recipient value never lands in the chat log).
+        appendMessage(blockedMessage(safeFailureCopy(result)));
+        return;
+      }
+      // Success: the value was placed in the eligible field. Echo the user's sent
+      // message (a non-persisted gesture, not a planner prompt), then the after-fill
+      // summary — chronological order: user message, then "Filled … · Not saved yet".
+      appendMessage({ id: nextChatMessageId(), role: "user", kind: "action", content: rawMessage });
+      appendMessage(summaryMessage(result.proposal));
+    },
+    [appendMessage],
+  );
 
   const propose = useCallback(
     (target: ChatFillTarget, rawMessage: string) => {
@@ -170,5 +225,5 @@ export function useChatFill({ appendMessage, getCurrentTarget }: UseChatFillInpu
     [markResolved],
   );
 
-  return { resolvedFillIds, propose, confirmFill, cancelFill };
+  return { resolvedFillIds, fillNow, propose, confirmFill, cancelFill };
 }

@@ -70,7 +70,10 @@ export function BuilderAiPanel() {
     if (chatFillActive && chatFillTarget) {
       const raw = a.prompt;
       if (raw.trim().length === 0) return;
-      chatFill.propose(chatFillTarget, raw);
+      // CS-9 — DIRECT fill: the field is highlighted and we're in explicit field-fill
+      // mode, so write the pending draft immediately + show an after-fill summary. No
+      // Confirm/Cancel proposal bubble. (Ineligible/ambiguous → safe guidance, no write.)
+      chatFill.fillNow(chatFillTarget, raw);
       a.setPrompt("");
       return;
     }
