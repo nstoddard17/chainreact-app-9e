@@ -1,4 +1,5 @@
 import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
+import { isSecretLikeKey } from "@/core/security/secretKeys";
 
 /**
  * AI-CONFIG-ASSIST CS-1 — pure eligibility + value validation for the future
@@ -12,10 +13,11 @@ import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
  *
  * It does NOT fill anything, mutate builder state, save, run, render UI, call a
  * model, or touch browser state. Pure + deterministic + client-safe: it imports
- * ONLY the `@/contracts/actionMeta` types — never `@/services/**`,
- * `@/repositories/**`, or any server-only module. The secret-shaped-key check is
- * intentionally inlined (rather than reusing `services/ai/tools/redact.isSecretKey`)
- * to keep this helper free of any `services/` import per the client boundary.
+ * ONLY the `@/contracts/actionMeta` types and the shared, client-safe
+ * `@/core/security/secretKeys` classifier — never `@/services/**`,
+ * `@/repositories/**`, or any server-only module. CS-2A: the secret-shaped-key
+ * check is the shared `isSecretLikeKey` (single source of truth with the server
+ * redactor) rather than a local copy.
  *
  * v1 deliberately allows the narrowest safe shape: a non-secret, non-recipient,
  * non-destructive `text`/`textarea` field. Everything else is blocked with a
@@ -58,24 +60,6 @@ const FILLABLE_FIELD_TYPES: ReadonlySet<FieldMeta["type"]> = new Set([
 ]);
 
 /**
- * Secret-shaped key fragments (matched against the separator-stripped, lowercased
- * key). Substring matching here is deliberate — over-blocking a secret is safe.
- */
-const SECRET_KEY_FRAGMENTS: readonly string[] = [
-  "token",
-  "secret",
-  "password",
-  "passwd",
-  "apikey",
-  "bearer",
-  "auth",
-  "credential",
-  "privatekey",
-  "clientsecret",
-  "accesskey",
-];
-
-/**
  * Recipient / destination key WORDS (matched against camelCase/separator-split
  * tokens, so `channelId` → `channel`, `webhookUrl` → `webhook`+`url`). Word-level
  * matching avoids false positives on normal text fields (e.g. `customMessage`
@@ -103,11 +87,6 @@ const RECIPIENT_KEY_WORDS: ReadonlySet<string> = new Set([
   "target",
 ]);
 
-/** Lowercase + strip all non-alphanumerics — for substring (secret) matching. */
-function flattenKey(key: string): string {
-  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 /** Split a key into lowercased words on camelCase + `_ - .` boundaries. */
 function tokenizeKey(key: string): readonly string[] {
   return key
@@ -115,11 +94,6 @@ function tokenizeKey(key: string): readonly string[] {
     .split(/[\s_.-]+/)
     .map((w) => w.toLowerCase())
     .filter(Boolean);
-}
-
-function isSecretShapedKey(key: string): boolean {
-  const flat = flattenKey(key);
-  return SECRET_KEY_FRAGMENTS.some((fragment) => flat.includes(fragment));
 }
 
 function isRecipientOrDestinationKey(key: string): boolean {
@@ -139,7 +113,7 @@ export function isChatFillEligible(
   const { field, action } = input;
 
   if (!field) return { ok: false, reason: "MISSING_FIELD_METADATA" };
-  if (isSecretShapedKey(field.name)) return { ok: false, reason: "SECRET_FIELD" };
+  if (isSecretLikeKey(field.name)) return { ok: false, reason: "SECRET_FIELD" };
   if (isRecipientOrDestinationKey(field.name)) {
     return { ok: false, reason: "RECIPIENT_OR_DESTINATION_FIELD" };
   }

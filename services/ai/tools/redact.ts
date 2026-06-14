@@ -18,44 +18,23 @@
  * concrete values pulled from rows / configs.
  */
 
+import { isSecretLikeKey } from "@/core/security/secretKeys";
+
 /** Sentinel written in place of a redacted value. */
 export const REDACTED = "[REDACTED]";
 
 /**
- * Normalize a key for matching: lowercase and strip separators so
- * `access_token`, `accessToken`, and `access-token` all collapse to
- * `accesstoken`.
- */
-function normalizeKey(key: string): string {
-  return key.toLowerCase().replace(/[_\-\s]/g, "");
-}
-
-/**
- * Substrings (post-normalization) that mark a key as secret-bearing. Chosen
- * to cover the required no-leak cases (accessToken, refreshToken,
- * clientSecret, apiSecret, webhookSecret, botToken, *Encrypted, raw
- * credentials) WITHOUT over-redacting common innocuous keys like
- * `idempotencyKey`, `channelId`, or `publicId` — note there is deliberately
- * no bare `"key"` or `"id"` pattern.
- */
-const SECRET_KEY_PATTERNS: readonly string[] = [
-  "token",
-  "secret",
-  "password",
-  "credential",
-  "authorization",
-  "apikey",
-  "privatekey",
-  "encrypted",
-];
-
-/**
  * True when a property key looks like it holds secret material. Exported so
  * tests and callers can assert the policy directly.
+ *
+ * CS-2A — the key-classification policy now lives in the shared, client-safe
+ * `core/security/secretKeys.isSecretLikeKey` (single source of truth across this
+ * server redactor and the builder chat-fill guard). This wrapper is kept for the
+ * existing call sites + the `isSecretKey` name; redaction behavior below is
+ * unchanged.
  */
 export function isSecretKey(key: string): boolean {
-  const normalized = normalizeKey(key);
-  return SECRET_KEY_PATTERNS.some((pattern) => normalized.includes(pattern));
+  return isSecretLikeKey(key);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
