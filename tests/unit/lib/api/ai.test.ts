@@ -16,6 +16,7 @@ import {
   explainDiagnosis,
   planWorkflow,
   planWorkflowRepair,
+  previewWorkflowRepair,
   requestWorkflowRepair,
 } from "@/lib/api/ai";
 
@@ -300,5 +301,91 @@ describe("AI-DIAG-FIX-1 — diagnosis clients forward the current builder draft"
     mockFetch(fetchMock);
     await planWorkflowRepair("wf-1", draft);
     expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ draftDefinition: draft });
+  });
+});
+
+describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
+  const draft = {
+    nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } }],
+    edges: [],
+  } as never;
+
+  const previewBody = {
+    ok: true,
+    preview: {
+      ok: true,
+      patchSummary: "Set the recipient.",
+      changes: [{ op: "updateNodeConfig", description: 'Updates "Gmail — Send Email"', nodeId: "node-B" }],
+      affectedNodeIds: ["node-B"],
+      affectedEdgeIds: [],
+      riskLevel: "low",
+      requiresConfirmation: false,
+      riskReasons: [],
+      validation: { ok: true, errors: [], warnings: [] },
+      userFacingSummaryText: "x",
+      canApplyLater: true,
+    },
+    notAppliedNotice: "This is a preview only — your workflow wasn't changed, saved, or run.",
+  };
+
+  it("posts to the repair-preview route and returns the preview on 200", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, previewBody));
+    mockFetch(fetchMock);
+    const result = await previewWorkflowRepair("wf 1");
+    expect(result).toEqual(previewBody);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("/api/workflows/wf%201/ai/repair/preview");
+    expect((init as { method?: string }).method).toBe("POST");
+    expect((init as { body: string }).body).toBe("{}");
+  });
+
+  it("sends { draftDefinition } when given a draft", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, previewBody));
+    mockFetch(fetchMock);
+    await previewWorkflowRepair("wf-1", draft);
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ draftDefinition: draft });
+  });
+
+  it("sends { proposalContext } when given steering", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, previewBody));
+    mockFetch(fetchMock);
+    await previewWorkflowRepair("wf-1", undefined, { summary: "reconnect then set recipient" });
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({
+      proposalContext: { summary: "reconnect then set recipient" },
+    });
+  });
+
+  it("maps a 402 AI_CREDITS_EXHAUSTED to the shared safe credit message (no raw server text)", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(402, { ok: false, code: "AI_CREDITS_EXHAUSTED", message: "raw server copy that must not surface" })));
+    const result = await previewWorkflowRepair("wf-1");
+    expect(result).toEqual({ ok: false, code: "AI_CREDITS_EXHAUSTED", message: AI_CREDITS_EXHAUSTED_MESSAGE });
+    if (!result.ok) expect(result.message).not.toContain("raw server copy");
+  });
+
+  it("maps a 503 MODEL_FAILED to a safe generic message (no internals)", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(503, { ok: false, code: "MODEL_FAILED", message: "boom: SECRET-INTERNAL" })));
+    const result = await previewWorkflowRepair("wf-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("MODEL_FAILED");
+      expect(result.message).toBe("Couldn't suggest a fix right now. Please try again.");
+      expect(result.message).not.toContain("SECRET-INTERNAL");
+    }
+  });
+
+  it("maps a 500 GRAPH_UNAVAILABLE structured failure safely", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(500, { ok: false, code: "GRAPH_UNAVAILABLE", message: "x" })));
+    const result = await previewWorkflowRepair("wf-1");
+    expect(result).toEqual({ ok: false, code: "GRAPH_UNAVAILABLE", message: "Couldn't suggest a fix right now. Please try again." });
+  });
+
+  it("throws AiApiError for a transport failure with no ok flag (401)", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(401, { error: "unauthenticated" })));
+    await expect(previewWorkflowRepair("wf-1")).rejects.toBeInstanceOf(AiApiError);
+  });
+
+  it("throws AiApiError for a 404 with no ok flag", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(404, { error: "Workflow not found." })));
+    await expect(previewWorkflowRepair("wf-1")).rejects.toMatchObject({ name: "AiApiError", status: 404 });
   });
 });

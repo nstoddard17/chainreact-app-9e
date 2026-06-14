@@ -183,3 +183,109 @@ export async function planWorkflowRepair(
   // Normalize handled-failure copy to a safe, code-keyed constant — no raw server text reaches the UI.
   return { ok: false, code: result.code, message: safeRepairFailureMessage(result.code) };
 }
+
+/**
+ * Slice 4.AI-REPAIR-2b — optional LLM VALIDATED-PATCH PREVIEW for the
+ * (already-computed) safe diagnosis (POST /api/workflows/[id]/ai/repair/preview).
+ * Preview-ONLY: the model proposes a WorkflowPatch, the server validates it
+ * through the existing deterministic preview engine, and returns a no-leak,
+ * label-based "what would change" view with the AUTHORITATIVE (recomputed) risk —
+ * it NEVER changes, saves, or runs the workflow, and returns NO apply control.
+ * Handled failures (402/403/503/500) return as a structured `ok:false` with a
+ * SAFE, code-keyed message; transport failures (401/404/400) throw `AiApiError`.
+ *
+ * These are CLIENT-OWNED views of the (already-sanitized) route response — the
+ * client may not import the `@/services/**` preview types. Change descriptions are
+ * pre-rendered with node display LABELS; raw node ids appear only in the opaque
+ * `affectedNodeIds` and are NOT rendered as user-facing copy.
+ */
+export type RepairPreviewRiskLevel = "low" | "medium" | "high";
+
+/** One value-free, label-based description of a single proposed patch operation. */
+export interface RepairPreviewChange {
+  readonly op: string;
+  /** Human-readable; uses node labels, never config VALUES or raw ids. */
+  readonly description: string;
+  readonly nodeId?: string;
+  readonly edgeId?: string;
+  /** Non-secret field KEY names touched (config edits). */
+  readonly fields?: readonly string[];
+}
+
+export interface RepairPreviewIssue {
+  readonly code: string;
+  readonly message: string;
+  readonly nodeId?: string;
+  readonly edgeId?: string;
+  readonly path?: string;
+}
+
+export interface RepairPreviewRiskReason {
+  readonly code: string;
+  readonly message: string;
+  readonly nodeId?: string;
+}
+
+/** The subset of the AI-5 `PatchPreviewResult` the Builder renders. Extra fields ignored. */
+export interface RepairPreview {
+  /** True iff the patch validated and could be applied later (a LATER slice). */
+  readonly ok: boolean;
+  readonly patchSummary: string;
+  readonly changes: readonly RepairPreviewChange[];
+  /** Opaque ids — NOT rendered as user-facing copy; the label-bearing `changes` are. */
+  readonly affectedNodeIds: readonly string[];
+  readonly affectedEdgeIds: readonly string[];
+  /** Deterministic, recomputed by the validator — the AUTHORITATIVE risk (not the model's). */
+  readonly riskLevel: RepairPreviewRiskLevel | string;
+  readonly requiresConfirmation: boolean;
+  readonly riskReasons: readonly RepairPreviewRiskReason[];
+  readonly validation: {
+    readonly ok: boolean;
+    readonly errors: readonly RepairPreviewIssue[];
+    readonly warnings: readonly RepairPreviewIssue[];
+  };
+  readonly taskCostEstimate?: { readonly estimatedTasksPerRun: number };
+  readonly userFacingSummaryText: string;
+  readonly candidateSummary?: string;
+  /** Metadata only — does NOT enable any apply control in this slice. */
+  readonly canApplyLater: boolean;
+  /** Set when `ok` is false — the first blocking error message (humanized). */
+  readonly blockedReason?: string;
+}
+
+export interface RepairPreviewSuccess {
+  readonly ok: true;
+  readonly preview: RepairPreview;
+  /** Server-set immutable "nothing was changed/saved/run" line. */
+  readonly notAppliedNotice: string;
+}
+export interface RepairPreviewFailure {
+  readonly ok: false;
+  /** AI_CREDITS_EXHAUSTED | ACCOUNT_PENDING_DELETION | AI_GATE_ERROR | MODEL_FAILED | PARSE_FAILED | GRAPH_UNAVAILABLE */
+  readonly code: string;
+  readonly message: string;
+}
+export type RepairPreviewResult = RepairPreviewSuccess | RepairPreviewFailure;
+
+/** Optional, NON-AUTHORITATIVE steering context (the user's prior repair proposal). */
+export interface RepairPreviewProposalContext {
+  readonly summary?: string;
+  readonly recommendedActions?: readonly string[];
+}
+
+export async function previewWorkflowRepair(
+  workflowId: string,
+  draftDefinition?: WorkflowDraftSnapshot,
+  proposalContext?: RepairPreviewProposalContext,
+): Promise<RepairPreviewResult> {
+  const requestBody: Record<string, unknown> = {};
+  if (draftDefinition) requestBody.draftDefinition = draftDefinition;
+  if (proposalContext) requestBody.proposalContext = proposalContext;
+  const result = await postStructured<RepairPreviewResult>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/preview`,
+    requestBody,
+  );
+  if (result.ok) return result;
+  // Normalize handled-failure copy to a safe, code-keyed constant — no raw server text reaches the UI.
+  return { ok: false, code: result.code, message: safeRepairFailureMessage(result.code) };
+}
