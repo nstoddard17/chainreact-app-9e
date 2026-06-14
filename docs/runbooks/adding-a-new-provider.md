@@ -13,6 +13,9 @@
 > [`docs/rules/token-ingest-auth.md`](../rules/token-ingest-auth.md),
 > [`docs/rules/account-ownership-model.md`](../rules/account-ownership-model.md),
 > [`docs/rules/testing-strategy.md`](../rules/testing-strategy.md).
+> For the **permission model** a new provider inherits (who can connect / reconnect /
+> disconnect / share by role and credential class), see §4.8 and
+> [`docs/slices/phase-4/apps-permissions-matrix-closeout.md`](../slices/phase-4/apps-permissions-matrix-closeout.md).
 
 ---
 
@@ -103,6 +106,43 @@ and Claude must mark each ✅ / ❌ honestly.
 15. ✅ Env vars declared in [`.env.example`](../../.env.example).
 16. ✅ Provider SVG icon at [`public/integrations/<provider-id>.svg`](../../public/integrations/).
 17. ✅ Marcus personal setup checklist (§8) is complete.
+18. ✅ **Permission model wired (§4.8).** Provider classified in [`core/integrations/credentialSharing.ts`](../../core/integrations/credentialSharing.ts) (`personal` vs `account`). For `account`-class providers: Connect / Connect-another / Reconnect / Disconnect render for owner/admin only, and the `restrictedToAdmins` member copy renders (no silent blank state). A permission/DTO test pins the classification (§6.1).
+
+---
+
+## §0.6 — Claude prompt template (copy/paste to start a provider)
+
+Paste this to kick off a new-provider task. It encodes the Mode-A-first rule, the
+approval gates, and the permission step so nothing is skipped:
+
+```
+Add <PROVIDER> to ChainReactV2, following docs/runbooks/adding-a-new-provider.md.
+
+Run Mode A FIRST and stop for my sign-off:
+- Research the provider (§1) and fill the §1.4 research output: auth model
+  (OAuth code_callback / token_ingest; refreshable?), exact scopes with
+  per-scope justification, webhooks vs polling, rate limits, tokenScope,
+  accountIdField, sandbox/test account, app-review needs.
+- Propose the §2.2 plan: manifest fields, launch-scope actions/triggers
+  (defer the rest with reasons), env vars, developer-console setup, blockers.
+- Classify the provider as `personal` or `account` per §4.8.1 and state how
+  that sets connect/reconnect/disconnect/share permissions (§4.8.2). Justify
+  the class (does each teammate sign in as themselves, or as one shared org
+  account?).
+- STOP. Do not write code until I approve scopes, actions, triggers, env vars,
+  the credential classification, and any blockers (§0.2).
+
+After I approve, run Mode B end-to-end (§3–§7):
+- Backend (§3), frontend/builder visibility (§4) INCLUDING the §4.8 permission
+  wiring (classify in credentialSharing.ts; verify owner/admin gating +
+  restrictedToAdmins copy for account-class providers), AI visibility (§5).
+- Tests (§6) with risk-based depth, including a permission/DTO test (§6.1).
+- Run the §0.5 completeness gates and the §7 completion report. Honest ✅/❌.
+
+Constraints: local only, no push/deploy/db:push unless I say so; no AI/MCP/
+billing changes unless in scope; OAuth account-binding + no-leak DTO rules are
+non-negotiable (§2 binding rules, §4.8.3).
+```
 
 ---
 
@@ -934,6 +974,108 @@ See [`docs/rules/token-ingest-auth.md`](../rules/token-ingest-auth.md).
 - Field `placeholder` — sentence case with ellipsis when the field is search‑style ("Search teams…").
 - `riskDescription` — one sentence stating *what* happens and *whether it's recoverable*.
 
+### 4.8 Provider permission model (classification → connect / reconnect / disconnect / share)
+
+**This is the part most new-provider work forgets.** A provider's *credential
+class* decides who on a team account may connect and manage it. Get the
+classification right and the whole permission surface — backend gate, Apps DTO
+booleans, and UI copy — falls out automatically. Get it wrong and a member can
+either be wrongly locked out of their own personal app, or wrongly able to
+overwrite a shared org credential.
+
+Canonical matrix + audit: [`docs/slices/phase-4/apps-permissions-matrix-closeout.md`](../slices/phase-4/apps-permissions-matrix-closeout.md).
+
+#### 4.8.1 Classify the provider (you MUST do this)
+
+Add an entry for your provider id to the `POLICY` map in
+[`core/integrations/credentialSharing.ts`](../../core/integrations/credentialSharing.ts).
+The registry **coverage test fails the build** if a registered provider is
+unclassified, so this is not optional — but choose the *correct* class, not just
+whatever passes:
+
+- **`account`** — the credential is a **shared org resource** the whole team
+  jointly operates (a workspace bot token, a store, a business portal). Examples
+  in-repo: `slack`, `notion`, `stripe`, `shopify`, `hubspot`, `mailchimp`.
+- **`personal`** — the credential **acts as the connecting human** (their mailbox,
+  drive, chat, or calendar identity). Examples: `gmail`, all `google-*` and
+  `microsoft-*` user apps, `dropbox`, `discord`, `github`, `facebook`, `airtable`,
+  `trello`, `monday`. **Unknown providers default to `personal`** (fail-safe — never
+  auto-share a credential we didn't deliberately mark shareable).
+
+> Rule of thumb: if two teammates connecting the same provider would each be
+> signing in *as themselves*, it's `personal`. If they'd both be authorizing *the
+> same shared account*, it's `account`.
+
+#### 4.8.2 What the classification buys you (no per-provider code)
+
+The permission rule is enforced **once**, centrally — you do not write
+per-provider authz. Backend gates: connect at
+[`app/api/integrations/oauth/[provider]/connect/route.ts`](../../app/api/integrations/oauth/[provider]/connect/route.ts)
+(`requireAccountRole` for account providers), reconnect at
+[`services/integrations/reconnect.ts`](../../services/integrations/reconnect.ts),
+disconnect at [`services/integrations/disconnect.ts`](../../services/integrations/disconnect.ts),
+share/unshare at [`services/integrations/connectionSharing.ts`](../../services/integrations/connectionSharing.ts).
+
+| Action | Account/service provider | Personal provider |
+|---|---|---|
+| Connect / Connect another | **owner/admin only** | any member (their own identity) |
+| Reconnect | **owner/admin only** | **connector only** |
+| Disconnect | **owner/admin only** | connector **or** owner/admin (safety) |
+| Share / Unshare | n/a — `account_provider_not_shareable` | Share: connector only · Unshare: connector or owner/admin (audited) |
+| View connected rows | any member | any member |
+
+The one intentional asymmetry: owner/admin may **disconnect** a personal
+connection (safety) but may **not reconnect** it — only the connecting human can
+re-authorize their own identity.
+
+#### 4.8.3 Apps DTO booleans (all server-derived, no-leak)
+
+[`app/apps/_shared.ts`](../../app/apps/_shared.ts) derives these from
+`(provider class, caller role, connector, sharing flag)` and emits **only**
+booleans/enums — never role, provider class, `connected_by_user_id`, tokens,
+scopes, `provider_account_id`, or the raw sharing scope:
+
+- `canConnect` — gates Connect + "Connect another" (account providers require owner/admin).
+- `canReconnect` — per-row reconnect (account ⇒ owner/admin; personal ⇒ connector-only).
+- `canDisconnect` — per-row disconnect (account ⇒ owner/admin; personal ⇒ owner/admin or connector).
+- `canShare` / `canUnshare` — personal only, gated by `ENABLE_CONNECTION_SHARING` (default **OFF**).
+- `restrictedToAdmins` — **true when the provider is `account`-class and the caller is not owner/admin.** Drives the member-facing explanation so the card is never silently blank.
+
+The routes re-authorize authoritatively, so a stale `true` can never bypass anything.
+
+#### 4.8.4 Member-facing copy (don't ship a silent blank state)
+
+When `restrictedToAdmins` is true, [`features/apps/AppCard.tsx`](../../features/apps/AppCard.tsx)
+(testid `app-card-admin-required`) renders the explanation instead of a blank
+action area:
+- Not connected: *"Only an owner or admin can connect this app for the team."*
+- Connected (expanded): *"Only an owner or admin can reconnect or disconnect this team connection."*
+
+This is automatic for any `account`-class provider — but **verify it renders** for
+your provider, and never re-introduce a hidden-action-with-no-explanation state.
+
+#### 4.8.5 Per-role visible states (what each person sees)
+
+- **owner / admin** — full controls for any provider class (Connect / Connect
+  another / Reconnect / Disconnect; Share/Unshare only on personal).
+- **member, account/service provider** — no actionable controls; the
+  `restrictedToAdmins` copy explains why. Can still view connected rows.
+- **member, personal provider** — can Connect their own; Reconnect/Share only on
+  the rows **they** connected (connector); cannot manage another member's row.
+- **non-member / cross-account** — no-leak: `not_found` (404) on
+  reconnect/disconnect/share; connect collapses to `403` (no role/existence oracle).
+- **frozen account** (`pending_deletion`) — every mutating action is blocked safely
+  before any write (`account_frozen`).
+
+#### 4.8.6 What you must add for permissions
+
+1. Classify in `credentialSharing.ts` (§4.8.1).
+2. If `account`-class: confirm Connect/Reconnect/Disconnect show only for
+   owner/admin and that the `restrictedToAdmins` copy renders for members.
+3. Add a permission test row (§6.1) — at minimum a DTO test asserting
+   `canConnect`/`restrictedToAdmins` for member vs owner/admin on your provider's
+   class. The central authz is already covered; you're pinning the classification.
+
 ---
 
 ## §5 — AI / React Agent visibility (Mode B)
@@ -1004,6 +1146,7 @@ risk profile; there is no fixed count target.
 | Webhook route (if webhook trigger) | `tests/unit/app/api/webhooks/<p>.route.test.ts` | Signature verification rejects forged requests; validation handshake echoes correctly; dispatch returns 200 on success and 5xx on enqueue failure. |
 | Trigger activation/deactivation | `tests/unit/integrations/<p>/triggers/<t>/` | `activate` creates subscription/snapshot; `deactivate` cleans up; `normalize` produces correct `TriggerEvent`; `pull`/`renew` for subscription‑watch. |
 | Options resolvers | `tests/unit/integrations/<p>/options/<r>.test.ts` (per resolver) | Returns `{value, label}[]` shape; respects `dependsOn` parent values; handles empty / pagination / 401 correctly. |
+| Permission / Apps DTO (§4.8) | `tests/unit/app/apps/_shared.test.ts` (extend) or a provider-scoped case | For the provider's credential class: `canConnect` / `restrictedToAdmins` correct for member vs owner/admin; `canReconnect` connector-only for personal; no role/identity/token in the DTO (no-leak). Pins the `credentialSharing.ts` classification. |
 
 ### 6.2 Risk‑based depth (add when applicable)
 
@@ -1260,6 +1403,10 @@ Single‑source‑of‑truth file paths the playbook references:
 | TriggerMeta schema | [`contracts/triggerMeta.ts`](../../contracts/triggerMeta.ts) |
 | TriggerEvent schema | [`contracts/triggerEvent.ts`](../../contracts/triggerEvent.ts) |
 | Apps page DTO | [`contracts/apps.ts`](../../contracts/apps.ts) |
+| Provider credential class (permissions, §4.8) | [`core/integrations/credentialSharing.ts`](../../core/integrations/credentialSharing.ts) |
+| Connection sharing service | [`services/integrations/connectionSharing.ts`](../../services/integrations/connectionSharing.ts) |
+| Reconnect authz service | [`services/integrations/reconnect.ts`](../../services/integrations/reconnect.ts) |
+| Disconnect authz service | [`services/integrations/disconnect.ts`](../../services/integrations/disconnect.ts) |
 | Provider registry aggregator | [`integrations/_registry.ts`](../../integrations/_registry.ts) |
 | OAuth dispatcher | [`services/oauth/dispatcher.ts`](../../services/oauth/dispatcher.ts) |
 | OAuth state (HMAC + DB row) | [`services/oauth/state.ts`](../../services/oauth/state.ts) |
