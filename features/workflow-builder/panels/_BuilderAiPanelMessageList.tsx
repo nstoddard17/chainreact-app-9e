@@ -349,9 +349,10 @@ export function BuilderAiPanelMessageList({
                 suggesting={suggesting}
                 alreadySuggested={suggestedDiagnosisIds.has(message.id)}
                 onSuggestFix={() => onSuggestFix(message.id)}
-                // CS-5 — surface the direct "Open <field> field" action on the LATEST
-                // check result so a missing-input issue needs neither Suggest nor Preview.
-                goToNodeId={isLatestDiagnosis ? firstMissingFieldNodeId(message.diagnosis) : null}
+                // CS-5/CS-8 — surface the direct "Open <field> field" actions on the
+                // LATEST check result so missing-input issues need neither Suggest nor
+                // Preview. The group renders one action per missing field across nodes.
+                showFieldActions={isLatestDiagnosis}
               />
             </AssistantBubble>
           );

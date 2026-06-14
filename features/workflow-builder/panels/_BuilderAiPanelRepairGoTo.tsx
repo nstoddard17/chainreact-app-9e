@@ -1,9 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { RepairPreview } from "@/lib/api/ai";
+import type { AgentWorkflowDiagnosis, RepairPreview } from "@/lib/api/ai";
+import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import {
   useRepairFieldTarget,
+  useRepairFieldTargets,
   type RepairFieldTarget,
 } from "../ai/useRepairFieldTarget";
 import { useConfigSlice } from "../state/configSlice";
@@ -170,50 +172,84 @@ export function RepairProposalActions({
 }
 
 /**
- * Slice 4.AI-CONFIG-ASSIST CS-5 — actionable "Needs your input" affordance rendered
- * DIRECTLY on the "Check workflow" diagnosis card for a missing required field.
+ * Slice 4.AI-CONFIG-ASSIST CS-8 — the open-field actions for ONE diagnosed node:
+ * one "Open <field> field" button per still-empty required field on that node. A
+ * node-scoped component so the per-provider metadata hook (`useRepairFieldTargets`)
+ * resolves correctly for an arbitrary node. Renders nothing when nothing required is
+ * empty / the node isn't on the canvas / its metadata isn't loaded (so a stale or
+ * already-filled node shows no button — never a broken one). Labels only.
  *
- * Product model: Check should produce an actionable issue card whose PRIMARY action
- * fits the problem type. For a missing user-input field (e.g. Slack "Send Channel
- * Message" missing Message), that action is "Open <field> field" — the user just
- * needs to fill it, so they should NOT have to run "Suggest a fix" or "Preview fix"
- * first. It resolves the diagnosed node's first still-empty required field client-side
- * (`useRepairFieldTarget`) and reuses the SAME `revealNode` navigation as the blocked-
- * preview / proposal affordances: select node → open config rail → pan/zoom canvas →
- * highlight field. Highlighting the field is what then activates chat-fill (CS-3).
+ * Open-field navigation is offered for EVERY empty required field (including
+ * recipient/destination fields CS-1 blocks from chat-fill) — the button only opens +
+ * highlights; chat-fill is suggested separately (CS-6) and stays eligibility-gated.
+ */
+function NodeFieldActions({ nodeId }: { readonly nodeId: string }) {
+  const targets = useRepairFieldTargets(nodeId);
+  if (targets.length === 0) return null;
+  return (
+    <>
+      {targets.map((target) => (
+        <li
+          key={`${target.nodeId}:${target.fieldKey}`}
+          className="flex flex-wrap items-center gap-x-2 gap-y-0.5"
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            onClick={() => revealFieldTarget(target)}
+            data-testid="builder-ai-diagnosis-open-field-button"
+          >
+            Open {target.fieldLabel} field
+          </Button>
+          <span className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            on {target.nodeLabel}
+          </span>
+        </li>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Slice 4.AI-CONFIG-ASSIST CS-5/CS-8 — the "Needs your input" actionable group on the
+ * "Check workflow" diagnosis card.
+ *
+ * Product model: Check produces actionable issue cards whose PRIMARY action fits the
+ * problem type. For missing user-input fields (e.g. Slack "Send Channel Message"
+ * missing Message), that action is "Open <field> field" — the user just needs to fill
+ * it, so they should NOT have to run "Suggest a fix" or "Preview fix" first. CS-8
+ * generalizes CS-5 from a single target to ALL missing-required-field nodes: one
+ * action per (node, empty required field), across every affected node, de-duplicated.
+ * Each reuses the SAME `revealNode` navigation (select node → open rail → pan/zoom →
+ * highlight field); highlighting a field is what then arms chat-fill (CS-3/CS-6).
+ *
+ * Connection/setup, structural, and run findings are NOT rendered here — they stay in
+ * the deterministic `nextSteps` guidance (never offered an open-field/chat-fill action).
  *
  * NAVIGATION ONLY — never writes a config value, saves, runs, or mutates the graph;
- * there is no Apply. Renders nothing when the node isn't on the canvas, its metadata
- * isn't loaded, or the field is already filled (so a stale/clean card shows no button).
- * Shows only display LABELS — never the raw node id / field key.
+ * there is no Apply. Shows only display LABELS — never the raw node id / field key.
  */
-export function DiagnosisFieldAction({
-  nodeId,
+export function DiagnosisFieldActions({
+  diagnosis,
 }: {
-  /** Internal target node id from the diagnosis (first missing-field finding), or null. */
-  readonly nodeId: string | null;
+  readonly diagnosis: AgentWorkflowDiagnosis;
 }) {
-  const target = useRepairFieldTarget(nodeId);
-  if (!target) return null;
+  const nodeIds = missingFieldNodeIds(diagnosis);
+  if (nodeIds.length === 0) return null;
   return (
     <div data-testid="builder-ai-diagnosis-open-field" className="flex flex-col gap-1 pt-1">
       <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
         Needs your input
       </p>
-      <div>
-        <Button
-          type="button"
-          size="sm"
-          variant="default"
-          onClick={() => revealFieldTarget(target)}
-          data-testid="builder-ai-diagnosis-open-field-button"
-        >
-          Open {target.fieldLabel} field
-        </Button>
-      </div>
+      <ul className="flex flex-col gap-1">
+        {nodeIds.map((id) => (
+          <NodeFieldActions key={id} nodeId={id} />
+        ))}
+      </ul>
       <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
-        Opens &ldquo;{target.nodeLabel}&rdquo; and highlights {target.fieldLabel} so you
-        can fill it in — then type the value in chat. Nothing is changed, saved, or run.
+        Opens the step and highlights the field so you can fill it in — then type the
+        value in chat. Nothing is changed, saved, or run.
       </p>
     </div>
   );

@@ -53,7 +53,7 @@ export type {
 
 export { canExplainDiagnosis } from "./canExplainDiagnosis";
 
-export { firstMissingFieldNodeId } from "./firstMissingFieldNodeId";
+export { firstMissingFieldNodeId, missingFieldNodeIds } from "./firstMissingFieldNodeId";
 
 export {
   isChatFillEligible,

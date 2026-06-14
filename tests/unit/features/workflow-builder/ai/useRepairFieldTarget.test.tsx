@@ -46,7 +46,10 @@ jest.mock("@/features/workflow-builder/hooks/useProviderTriggers", () => ({
 }));
 
 import { renderHook } from "@testing-library/react";
-import { useRepairFieldTarget } from "@/features/workflow-builder/ai/useRepairFieldTarget";
+import {
+  useRepairFieldTarget,
+  useRepairFieldTargets,
+} from "@/features/workflow-builder/ai/useRepairFieldTarget";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
@@ -105,5 +108,33 @@ describe("useRepairFieldTarget", () => {
     useConfigSlice.getState().updateField({ nodeId: "slack1", name: "text", value: "drafted" });
     const { result } = renderHook(() => useRepairFieldTarget("slack1"));
     expect(result.current).toBeNull();
+  });
+});
+
+describe("useRepairFieldTargets (CS-8 — all empty required fields)", () => {
+  it("returns [] when nodeId is null / node absent / nothing empty", () => {
+    expect(renderHook(() => useRepairFieldTargets(null)).result.current).toEqual([]);
+    expect(renderHook(() => useRepairFieldTargets("ghost")).result.current).toEqual([]);
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf1", { nodes: [{ ...SLACK_NODE, config: { channel: "C1", text: "hi" } }], edges: [] }, "rev-1");
+    expect(renderHook(() => useRepairFieldTargets("slack1")).result.current).toEqual([]);
+  });
+
+  it("returns EVERY empty required field, in metadata order, with key + labels", () => {
+    // Both required fields empty → both surface (Channel is recipient/destination —
+    // open-field navigation is still offered; chat-fill eligibility is separate).
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf1", { nodes: [{ ...SLACK_NODE, config: { channel: "", text: "" } }], edges: [] }, "rev-1");
+    const { result } = renderHook(() => useRepairFieldTargets("slack1"));
+    const targets = result.current;
+    expect(targets.map((t) => t.fieldKey)).toEqual(["channel", "text"]);
+    expect(targets.map((t) => t.fieldLabel)).toEqual(["Channel", "Message"]);
+    expect(targets.every((t) => t.nodeId === "slack1" && t.nodeLabel === "Send Channel Message")).toBe(true);
+  });
+
+  it("returns only the still-empty required fields", () => {
+    // channel filled, text empty → only Message.
+    const { result } = renderHook(() => useRepairFieldTargets("slack1"));
+    expect(result.current.map((t) => t.fieldKey)).toEqual(["text"]);
   });
 });
