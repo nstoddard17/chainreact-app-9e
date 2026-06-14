@@ -38,6 +38,7 @@ function mkProvider(over: Partial<{
   isEnabled: boolean;
   isExperimental: boolean;
   capabilities: { oauth: boolean };
+  connectInput: { hintKey: string; label: string; placeholder: string; help?: string };
 }> = {}) {
   return {
     id: "slack",
@@ -210,6 +211,32 @@ describe("toAppCatalogItem — flags + derived fields", () => {
   it("iconUrl uses /integrations/<id>.svg via the registry helper", () => {
     const item = toAppCatalogItem(mkProvider({ id: "slack" }), []);
     expect(item.iconUrl).toBe("/integrations/slack.svg");
+  });
+
+  it("connectInput: omitted for non-tenant providers; mirrored for per-tenant providers", () => {
+    // Non-tenant provider (slack) — the key is absent entirely, so the
+    // plain-Connect DTO shape is unchanged.
+    expect("connectInput" in toAppCatalogItem(mkProvider({ id: "slack" }), [])).toBe(false);
+
+    // Per-tenant provider — the manifest descriptor is carried through verbatim.
+    const shopify = toAppCatalogItem(
+      mkProvider({
+        id: "shopify",
+        connectInput: {
+          hintKey: "shop",
+          label: "Shopify store domain",
+          placeholder: "your-store.myshopify.com",
+          help: "Enter your .myshopify.com domain.",
+        },
+      }),
+      [],
+    );
+    expect(shopify.connectInput).toEqual({
+      hintKey: "shop",
+      label: "Shopify store domain",
+      placeholder: "your-store.myshopify.com",
+      help: "Enter your .myshopify.com domain.",
+    });
   });
 });
 

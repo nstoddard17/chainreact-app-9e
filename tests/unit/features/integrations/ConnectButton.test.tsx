@@ -95,6 +95,79 @@ describe("ConnectButton", () => {
     });
   });
 
+  const shopHint = {
+    hintKey: "shop",
+    label: "Shopify store domain",
+    placeholder: "your-store.myshopify.com",
+    help: "Enter your .myshopify.com domain.",
+  };
+
+  it("per-tenant: clicking Connect reveals a prompt instead of starting OAuth immediately", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConnectButton provider="shopify" label="Connect Shopify" connectInput={shopHint} />,
+    );
+    await user.click(screen.getByRole("button", { name: /connect shopify/i }));
+    // No OAuth yet — we need the shop domain first.
+    expect(mockStartOAuth).not.toHaveBeenCalled();
+    expect(screen.getByTestId("connect-hint-input")).toBeInTheDocument();
+    expect(screen.getByText(shopHint.label)).toBeInTheDocument();
+  });
+
+  it("per-tenant: submitting the shop domain starts OAuth with providerHint and navigates", async () => {
+    mockStartOAuth.mockResolvedValueOnce({
+      redirectUrl: "https://store.myshopify.com/admin/oauth/authorize?x=1",
+    });
+    const user = userEvent.setup();
+    render(
+      <ConnectButton provider="shopify" label="Connect Shopify" connectInput={shopHint} />,
+    );
+    await user.click(screen.getByRole("button", { name: /connect shopify/i }));
+    await user.type(screen.getByTestId("connect-hint-input"), "store.myshopify.com");
+    await user.click(screen.getByTestId("connect-hint-submit"));
+    await waitFor(() => {
+      expect(mockStartOAuth).toHaveBeenCalledWith("shopify", {
+        providerHint: { shop: "store.myshopify.com" },
+      });
+      expect(assignSpy).toHaveBeenCalledWith(
+        "https://store.myshopify.com/admin/oauth/authorize?x=1",
+      );
+    });
+  });
+
+  it("per-tenant: empty shop domain shows an error and does not call startOAuth", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConnectButton provider="shopify" label="Connect Shopify" connectInput={shopHint} />,
+    );
+    await user.click(screen.getByRole("button", { name: /connect shopify/i }));
+    await user.click(screen.getByTestId("connect-hint-submit"));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(mockStartOAuth).not.toHaveBeenCalled();
+  });
+
+  it("per-tenant in RECONNECT mode: no prompt — server rebuilds the hint (immediate OAuth)", async () => {
+    mockStartOAuth.mockResolvedValueOnce({ redirectUrl: "https://store.myshopify.com/x" });
+    const user = userEvent.setup();
+    render(
+      <ConnectButton
+        provider="shopify"
+        label="Reconnect"
+        variant="reconnect"
+        testId="app-card-reconnect"
+        connectInput={shopHint}
+        reconnect={{ integrationId: "int-9", accountId: "acct-1" }}
+      />,
+    );
+    await user.click(screen.getByTestId("app-card-reconnect"));
+    await waitFor(() => {
+      expect(mockStartOAuth).toHaveBeenCalledWith("shopify", {
+        reconnect: { integrationId: "int-9", accountId: "acct-1" },
+      });
+    });
+    expect(screen.queryByTestId("connect-hint-input")).not.toBeInTheDocument();
+  });
+
   it("4.APPS-RECONNECT — forwards the reconnect bundle (opaque ids only) to startOAuth", async () => {
     mockStartOAuth.mockResolvedValueOnce({
       redirectUrl: "https://accounts.google.com/o/oauth2/v2/auth?x=3",

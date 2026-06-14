@@ -126,4 +126,14 @@ export const shopifyManifest: ProviderManifest = ProviderManifestSchema.parse({
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000, // 12h
   refreshable: false,
+  // Per-shop OAuth: the authorize URL is `https://{shop}/admin/oauth/...`,
+  // so the merchant's `*.myshopify.com` domain must be captured before the
+  // redirect and sent as `providerHint.shop`. The Apps UI prompts for this;
+  // shopifyOAuth.validateProviderHint is the authoritative validator.
+  connectInput: {
+    hintKey: "shop",
+    label: "Shopify store domain",
+    placeholder: "your-store.myshopify.com",
+    help: "Enter your store's .myshopify.com domain so we can send you to the right store to authorize.",
+  },
 });

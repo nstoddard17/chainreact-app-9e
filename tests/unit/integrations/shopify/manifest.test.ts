@@ -66,4 +66,16 @@ describe("shopifyManifest", () => {
   it("declares oauthFlows: ['v2']", () => {
     expect(shopifyManifest.oauthFlows).toEqual(["v2"]);
   });
+
+  it("declares a connectInput descriptor for the per-shop domain prompt", () => {
+    // Per-shop OAuth needs the merchant's *.myshopify.com domain BEFORE the
+    // redirect — the Apps UI prompts for it and sends it as providerHint.shop.
+    // hintKey MUST be 'shop' to match shopifyOAuth.readShopFromHint.
+    expect(shopifyManifest.connectInput).toEqual({
+      hintKey: "shop",
+      label: "Shopify store domain",
+      placeholder: "your-store.myshopify.com",
+      help: expect.stringContaining("myshopify.com"),
+    });
+  });
 });

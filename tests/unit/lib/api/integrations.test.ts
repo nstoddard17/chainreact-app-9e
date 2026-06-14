@@ -26,6 +26,33 @@ describe("startOAuth", () => {
     );
   });
 
+  it("sends providerHint in the POST body for per-tenant providers", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ redirectUrl: "https://store.myshopify.com/admin/oauth/authorize" }), { status: 200 }),
+    );
+    await startOAuth("shopify", { providerHint: { shop: "store.myshopify.com" } });
+    const init = fetchSpy.mock.calls[0]![1] as {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+    };
+    expect(init.method).toBe("POST");
+    expect(init.headers).toEqual({ "content-type": "application/json" });
+    expect(JSON.parse(init.body as string)).toEqual({
+      providerHint: { shop: "store.myshopify.com" },
+    });
+  });
+
+  it("sends NO body for a plain connect (legacy zero-arg contract preserved)", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ redirectUrl: "x" }), { status: 200 }),
+    );
+    await startOAuth("slack");
+    const init = fetchSpy.mock.calls[0]![1] as { method?: string; body?: string };
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+  });
+
   it("URL-encodes the provider name", async () => {
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify({ redirectUrl: "x" }), { status: 200 }),

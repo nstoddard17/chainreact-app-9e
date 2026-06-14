@@ -116,6 +116,22 @@ export const AppCatalogItemSchema = z.object({
   accounts: z.array(AppAccountSummarySchema).readonly(),
   /** Earliest createdAt across active accounts. null when not connected. */
   firstConnectedAt: z.string().nullable(),
+  /**
+   * Per-tenant connect-time input descriptor, mirrored from the provider
+   * manifest's `connectInput` (Shopify's `*.myshopify.com` shop domain).
+   * Present ONLY for per-tenant providers — the UI renders a prompt and
+   * sends the entered value as `providerHint[hintKey]` when starting OAuth.
+   * Omitted for every other provider (plain Connect, no prompt). Pure static
+   * UI metadata — carries no identity, token, or account state.
+   */
+  connectInput: z
+    .object({
+      hintKey: z.string(),
+      label: z.string(),
+      placeholder: z.string(),
+      help: z.string().optional(),
+    })
+    .optional(),
 });
 export type AppCatalogItem = z.infer<typeof AppCatalogItemSchema>;
 

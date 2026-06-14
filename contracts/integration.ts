@@ -90,6 +90,29 @@ export const ProviderManifestSchema = z
      * Token-ingest providers (Trello) declare `token_ingest`.
      */
     authFlow: AuthFlowSchema.default("code_callback"),
+    /**
+     * Per-tenant connect-time input descriptor. Present ONLY for providers
+     * whose authorize URL needs a user-supplied value captured BEFORE the
+     * OAuth redirect — the `providerHint` (e.g. Shopify's `*.myshopify.com`
+     * shop subdomain). The Apps UI renders a labelled prompt and sends the
+     * entered value as `providerHint[hintKey]` to the connect route; the
+     * provider's `validateProviderHint` is the authoritative validator, so
+     * this is UI metadata only. Omitted for every non-tenant provider (the
+     * dispatcher rejects a `providerHint` sent to a provider without
+     * `validateProviderHint`, so the UI must only prompt when this is set).
+     */
+    connectInput: z
+      .object({
+        /** Key under which the entered value is sent — `providerHint[hintKey]`. */
+        hintKey: z.string().min(1),
+        /** Field label shown above the input. */
+        label: z.string().min(1),
+        /** Placeholder / example value. */
+        placeholder: z.string().min(1),
+        /** Optional helper line under the input. */
+        help: z.string().optional(),
+      })
+      .optional(),
   })
   .superRefine((m, ctx) => {
     if (m.tokenScope === "workspace" && !m.accountIdField) {

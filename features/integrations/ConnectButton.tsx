@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { startOAuth } from "@/lib/api/integrations";
 
 interface Props {
@@ -28,6 +28,20 @@ interface Props {
    * Omitted for plain Connect / Connect-another.
    */
   reconnect?: { integrationId: string; accountId: string };
+  /**
+   * Per-tenant connect-time input descriptor (from the provider manifest's
+   * `connectInput`, e.g. Shopify's shop domain). When set on a plain Connect /
+   * Connect-another button, clicking reveals an inline prompt; the entered
+   * value is sent as `providerHint[hintKey]` to start OAuth. Ignored in
+   * reconnect mode — the server rebuilds the hint from the stored row, so no
+   * prompt is shown. Undefined for non-tenant providers (immediate redirect).
+   */
+  connectInput?: {
+    hintKey: string;
+    label: string;
+    placeholder: string;
+    help?: string;
+  };
 }
 
 /**
@@ -46,23 +60,107 @@ export function ConnectButton({
   testId,
   title,
   reconnect,
+  connectInput,
 }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per-tenant prompt state. Only used when `connectInput` is set on a
+  // non-reconnect button (the server derives the hint for reconnect).
+  const needsPrompt = connectInput !== undefined && reconnect === undefined;
+  const [prompting, setPrompting] = useState(false);
+  const [hintValue, setHintValue] = useState("");
 
-  async function handleClick() {
+  async function begin(opts?: {
+    reconnect?: { integrationId: string; accountId: string };
+    providerHint?: Record<string, string>;
+  }) {
     setPending(true);
     setError(null);
     try {
-      const { redirectUrl } = await startOAuth(
-        provider,
-        reconnect !== undefined ? { reconnect } : undefined,
-      );
+      const { redirectUrl } = await startOAuth(provider, opts);
       window.location.assign(redirectUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start OAuth.");
       setPending(false);
     }
+  }
+
+  function handleClick() {
+    // Per-tenant providers reveal the inline prompt instead of redirecting
+    // immediately — we need the shop domain before we can build the authorize
+    // URL. Everyone else (and reconnect) starts OAuth straight away.
+    if (needsPrompt) {
+      setError(null);
+      setPrompting(true);
+      return;
+    }
+    void begin(reconnect !== undefined ? { reconnect } : undefined);
+  }
+
+  async function handlePromptSubmit(e: FormEvent) {
+    e.preventDefault();
+    const value = hintValue.trim();
+    if (!value) {
+      setError(`Enter your ${connectInput!.label.toLowerCase()}.`);
+      return;
+    }
+    await begin({ providerHint: { [connectInput!.hintKey]: value } });
+  }
+
+  // Inline prompt form for per-tenant providers (e.g. Shopify shop domain).
+  if (needsPrompt && prompting) {
+    return (
+      <form
+        onSubmit={handlePromptSubmit}
+        className="flex flex-col items-stretch gap-1.5"
+        data-testid="connect-hint-form"
+      >
+        <label className="text-xs font-medium text-foreground">
+          {connectInput!.label}
+          <input
+            type="text"
+            autoFocus
+            value={hintValue}
+            onChange={(e) => setHintValue(e.target.value)}
+            placeholder={connectInput!.placeholder}
+            disabled={pending}
+            data-testid="connect-hint-input"
+            className="mt-1 w-64 rounded border border-border bg-background px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+          />
+        </label>
+        {connectInput!.help && (
+          <span className="text-[11px] text-muted-foreground">
+            {connectInput!.help}
+          </span>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            disabled={pending}
+            data-testid="connect-hint-submit"
+            className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {pending ? "Redirecting…" : "Continue"}
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setPrompting(false);
+              setError(null);
+            }}
+            className="rounded border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-60"
+          >
+            Cancel
+          </button>
+        </div>
+        {error && (
+          <span role="alert" className="text-xs text-destructive">
+            {error}
+          </span>
+        )}
+      </form>
+    );
   }
 
   const className =

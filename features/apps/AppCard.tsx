@@ -112,6 +112,7 @@ export function AppCard({ app, accountId }: Props) {
             <ConnectButton
               provider={app.providerId}
               label={`Connect ${app.name}`}
+              connectInput={app.connectInput}
             />
           )}
           {/* Reconnect is NOT a provider-level action (Slice 4.APPS-RECONNECT).
@@ -169,6 +170,7 @@ export function AppCard({ app, accountId }: Props) {
                 provider={app.providerId}
                 label="Connect another"
                 title="Add another account"
+                connectInput={app.connectInput}
               />
             )}
           </div>

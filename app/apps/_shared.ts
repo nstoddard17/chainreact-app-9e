@@ -32,6 +32,17 @@ interface ProviderShape {
   isEnabled: boolean;
   isExperimental: boolean;
   capabilities: { oauth: boolean };
+  /**
+   * Per-tenant connect-time input descriptor (manifest `connectInput`). Carried
+   * through to the DTO so the Apps UI knows to prompt for e.g. the Shopify shop
+   * domain before starting OAuth. Undefined for non-tenant providers.
+   */
+  connectInput?: {
+    hintKey: string;
+    label: string;
+    placeholder: string;
+    help?: string;
+  };
 }
 
 interface IntegrationShape {
@@ -241,6 +252,9 @@ export function toAppCatalogItem(
     supportsMultipleAccounts: true,
     accounts: sortedAccounts,
     firstConnectedAt: sortedAccounts[0]?.connectedAt ?? null,
+    // Only per-tenant providers (Shopify) carry this; omitting the key for
+    // everyone else keeps the plain-Connect DTO shape unchanged.
+    ...(provider.connectInput ? { connectInput: provider.connectInput } : {}),
   };
 }
 
@@ -303,6 +317,12 @@ export function projectProviderForMapper(p: {
   isEnabled: boolean;
   isExperimental: boolean;
   capabilities: { oauth: boolean };
+  connectInput?: {
+    hintKey: string;
+    label: string;
+    placeholder: string;
+    help?: string;
+  };
 }): ProviderShape {
   return {
     id: p.id,
@@ -310,6 +330,7 @@ export function projectProviderForMapper(p: {
     isEnabled: p.isEnabled,
     isExperimental: p.isExperimental,
     capabilities: { oauth: p.capabilities.oauth },
+    ...(p.connectInput ? { connectInput: p.connectInput } : {}),
   };
 }
 

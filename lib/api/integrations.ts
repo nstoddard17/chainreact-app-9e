@@ -19,16 +19,27 @@ export interface StartOAuthResult {
  */
 export interface StartOAuthOptions {
   reconnect?: { integrationId: string; accountId: string };
+  /**
+   * Per-tenant connect-time hint (e.g. `{ shop: "store.myshopify.com" }` for
+   * Shopify). Sent verbatim as the connect route's `providerHint`. Only set
+   * this for providers whose manifest declares `connectInput` — the server
+   * rejects a `providerHint` sent to a provider without `validateProviderHint`.
+   */
+  providerHint?: Record<string, string>;
 }
 
 export async function startOAuth(
   provider: string,
   opts?: StartOAuthOptions,
 ): Promise<StartOAuthResult> {
+  // Build the POST body from whichever options are present. A plain Connect
+  // (neither reconnect nor providerHint) sends NO body — preserving the
+  // legacy zero-arg connect contract.
+  const payload: Record<string, unknown> = {};
+  if (opts?.reconnect !== undefined) payload.reconnect = opts.reconnect;
+  if (opts?.providerHint !== undefined) payload.providerHint = opts.providerHint;
   const body =
-    opts?.reconnect !== undefined
-      ? JSON.stringify({ reconnect: opts.reconnect })
-      : undefined;
+    Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined;
   const res = await fetch(
     `/api/integrations/oauth/${encodeURIComponent(provider)}/connect`,
     body !== undefined
