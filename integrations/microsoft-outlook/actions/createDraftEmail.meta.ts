@@ -53,6 +53,9 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
         "Draft subject line. Graph accepts empty subjects; the field is required by key but may be left blank.",
       type: "text",
       required: false,
+      // Schema requires the key present (may be empty) — seed "" so the builder
+      // writes the key (see sendEmail.meta.ts rationale).
+      defaultValue: "",
       placeholder: "Re: project update",
     },
     {
@@ -62,6 +65,8 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
         "Draft body. Rendering controlled by 'Is HTML' below. Graph accepts empty bodies; the field is required by key but may be left blank.",
       type: "textarea",
       required: false,
+      // Schema requires the key present (may be empty) — seed "" (see subject).
+      defaultValue: "",
     },
     {
       name: "isHtml",

@@ -51,6 +51,10 @@ export const outlookReplyToEmailMeta: ActionMeta = {
         "Reply text. Graph wraps this as the comment field. May be empty (Graph accepts empty replies); the field is required by key but may be left blank.",
       type: "textarea",
       required: false,
+      // Schema requires the key present (may be empty). Seed "" so the builder
+      // writes the key — otherwise an untouched optional field is omitted and
+      // the node fails at runtime.
+      defaultValue: "",
     },
   ],
   outputs: [

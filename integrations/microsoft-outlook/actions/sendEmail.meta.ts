@@ -78,6 +78,10 @@ export const outlookSendEmailMeta: ActionMeta = {
         "Email subject line. Microsoft Graph accepts empty subjects; the field is required by key but may be left blank.",
       type: "text",
       required: false,
+      // Schema requires the key present (may be empty). Seed "" so the builder
+      // writes the key — otherwise an untouched optional field is omitted and
+      // the node fails at runtime.
+      defaultValue: "",
       placeholder: "Re: project update",
     },
     {
@@ -87,6 +91,8 @@ export const outlookSendEmailMeta: ActionMeta = {
         "Email body. Rendering controlled by 'Is HTML' below. Graph accepts empty bodies; the field is required by key but may be left blank.",
       type: "textarea",
       required: false,
+      // Schema requires the key present (may be empty) — seed "" (see subject).
+      defaultValue: "",
     },
     {
       name: "isHtml",

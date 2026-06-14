@@ -55,6 +55,9 @@ export const createDraftMeta: ActionMeta = {
       description: "Draft subject line. May be empty.",
       type: "text",
       required: false,
+      // Schema requires `subject` present (may be empty). Seed "" so the
+      // builder writes the key — see sendEmail.meta.ts for the rationale.
+      defaultValue: "",
       placeholder: "Re: project update",
     },
     {

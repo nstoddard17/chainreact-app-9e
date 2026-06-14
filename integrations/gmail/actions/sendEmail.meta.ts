@@ -66,6 +66,10 @@ export const sendEmailMeta: ActionMeta = {
       description: "Email subject line. May be empty.",
       type: "text",
       required: false,
+      // The schema requires `subject` to be PRESENT (may be empty, Slice 2d).
+      // Seed "" so the builder's deriveDefaultConfig writes the key — otherwise
+      // an untouched optional field is omitted and the node fails at runtime.
+      defaultValue: "",
       placeholder: "Re: project update",
     },
     {
