@@ -183,6 +183,35 @@ describe("previewWorkflowPatchForAI — invalid patches", () => {
     expect(res.ok && res.data.ok).toBe(false);
   });
 
+  it("AI-REPAIR-2D — blocked missing-Slack-message preview uses field + node display labels, never internal keys", async () => {
+    // Slack send_channel_message with `channel` set but `text` (the message
+    // body) missing → a single MISSING_REQUIRED_FIELD. The user-facing copy
+    // must read the FieldMeta label ("Message") + node display label ("Send
+    // Channel Message"), never the field key `text` or the `provider:type` key.
+    const res = await previewOps([
+      { op: "addNode", node: gnode("a2", "action", "slack", "send_channel_message", { channel: "C12345678" }) },
+    ]);
+    if (!res.ok) throw new Error("expected envelope ok");
+    expect(res.data.ok).toBe(false);
+    expect(res.data.validation.errors.some((e) => e.code === "MISSING_REQUIRED_FIELD")).toBe(true);
+
+    // The error CODE / dev path is still preserved for diagnostics…
+    const missing = res.data.validation.errors.find((e) => e.code === "MISSING_REQUIRED_FIELD")!;
+    expect(missing.message).toBe("Required field “Message” is missing on “Send Channel Message.”");
+
+    // …but the user-facing blockedReason + message use friendly labels only.
+    expect(res.data.blockedReason).toBe("Required field “Message” is missing on “Send Channel Message.”");
+    expect(res.data.blockedReason).toMatch(/Message/);
+    expect(res.data.blockedReason).toMatch(/Send Channel Message/);
+
+    // No internal leakage anywhere in the blocked surface.
+    expect(res.data.blockedReason).not.toMatch(/'text'|slacksend_channel_message|slack:send_channel_message/);
+    expect(missing.message).not.toMatch(/'text'|slacksend_channel_message|slack:send_channel_message/);
+    // The proposed node id (`a2`) must never reach user-facing copy.
+    expect(res.data.blockedReason).not.toMatch(/\ba2\b/);
+    expect(missing.message).not.toMatch(/\ba2\b/);
+  });
+
   it("edge to a missing node → INVALID_EDGE", async () => {
     const res = await previewOps([{ op: "addEdge", edge: { id: "e9", from: "a1", to: "ghost" } }]);
     expect(res.ok && res.data.validation.errors.some((e) => e.code === "INVALID_EDGE")).toBe(true);

@@ -24,6 +24,7 @@ import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import { aiToolOk, type AiToolResult } from "@/services/ai/tools/types";
 import { explainWorkflowDefinition } from "@/services/ai/explain/explainDefinition";
 import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
+import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 import { normalizeAiPatchNodeKeys } from "@/services/ai/patch/normalizeAiPatchNodeKeys";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
@@ -66,6 +67,46 @@ function subjectForError(
     return providerLabel ? `${providerLabel} '${typeLabel}'` : `'${typeLabel}'`;
   }
   return undefined;
+}
+
+/**
+ * Resolve the friendly FieldMeta `label` for one config field of a node, by its
+ * raw field KEY. Returns undefined when the node type or field isn't in the
+ * registry — the humanizer then falls back to generic, key-free copy. NEVER
+ * returns the raw key.
+ */
+function resolveFieldLabel(node: WorkflowNode, fieldName: string): string | undefined {
+  const schema = getNodeSchema(`${node.provider}:${node.type}`);
+  if (!schema.ok) return undefined;
+  return schema.data.fields.find((f) => f.name === fieldName)?.label;
+}
+
+/**
+ * Build friendly field + node labels for a config-family validation error
+ * (MISSING_REQUIRED_FIELD / INVALID_CONFIG) so user-facing copy reads e.g.
+ * `Required field “Message” is missing on “Send Channel Message.”` instead of
+ * leaking the raw field key (`text`) or the `provider:type` key
+ * (`slack:send_channel_message`). Resolves the offending node from the
+ * candidate/current graph (or the patch's add/replace ops) and the field label
+ * from registry FieldMeta. A secret-shaped field key resolves to no fieldLabel
+ * so the humanizer uses generic copy. Returns {} for non-config-family codes.
+ */
+function configErrorLabels(
+  error: PatchValidationError,
+  nodeById: Map<string, WorkflowNode>,
+): { fieldLabel?: string; nodeLabel?: string } {
+  if (error.code !== "MISSING_REQUIRED_FIELD" && error.code !== "INVALID_CONFIG") return {};
+  if (!error.nodeId) return {};
+  const node = nodeById.get(error.nodeId);
+  if (!node) return {};
+  const nodeLabel = resolveNodeDisplayNameFromRegistry(node);
+  const fieldName = error.path;
+  const fieldLabel =
+    fieldName && !isSecretKey(fieldName) ? resolveFieldLabel(node, fieldName) : undefined;
+  return {
+    ...(fieldLabel ? { fieldLabel } : {}),
+    ...(nodeLabel ? { nodeLabel } : {}),
+  };
 }
 
 function describeEdge(
@@ -285,18 +326,41 @@ export async function previewWorkflowPatchForAI(
 
   // Scrub any secret-shaped config KEY name out of surfaced error/warning text.
   const secretKeys = collectSecretConfigKeys(operations);
-  const safeErrors = validation.errors.map((e) => ({
-    ...e,
-    message: scrubMessage(e.message, secretKeys),
-    ...(e.path !== undefined ? { path: isSecretKey(e.path) ? "[sensitive field]" : e.path } : {}),
-  }));
-  // Slice 4.PROVIDER-CATALOG-INTEGRITY-1 — humanize user-facing copy: no raw
-  // provider:type keys, no "registered"/"V2" backend language. The raw message
-  // stays as the error's dev detail; only the displayed `message` is rewritten.
-  const userFacingErrors: PatchValidationError[] = safeErrors.map((e) => {
+
+  // Node lookup for resolving friendly field/node labels in config-family error
+  // copy. Candidate carries the merged (post-patch) node; fall back to the
+  // current graph and the patch's add/replace nodes. Used only to read display
+  // labels — node ids never reach user copy.
+  const nodeById = new Map<string, WorkflowNode>();
+  for (const n of currentDef.nodes) nodeById.set(n.id, n);
+  for (const n of candidate?.nodes ?? []) nodeById.set(n.id, n);
+  for (const op of operations) {
+    if (op.op === "addNode" || op.op === "replaceTrigger") nodeById.set(op.node.id, op.node);
+  }
+
+  // Slice 4.PROVIDER-CATALOG-INTEGRITY-1 + AI-REPAIR-2D — humanize user-facing
+  // copy: no raw provider:type keys, no field KEYS, no node ids, no
+  // "registered"/"V2" backend language. The raw message stays as the error's
+  // dev detail; only the displayed `message` is rewritten. The secret-key scrub
+  // runs FIRST so a code we don't humanize still passes through scrubbed; the
+  // humanizer context is resolved from the ORIGINAL error (real ids/keys), which
+  // never leak — they only drive registry lookups for the friendly labels.
+  const userFacingErrors: PatchValidationError[] = validation.errors.map((e) => {
+    const scrubbedPath =
+      e.path !== undefined ? (isSecretKey(e.path) ? "[sensitive field]" : e.path) : undefined;
+    const scrubbed: PatchValidationError = {
+      ...e,
+      message: scrubMessage(e.message, secretKeys),
+      ...(scrubbedPath !== undefined ? { path: scrubbedPath } : {}),
+    };
     const subject = subjectForError(e, operations);
-    const { message } = humanizePatchError(e, subject ? { subject } : {});
-    return { ...e, message };
+    const { fieldLabel, nodeLabel } = configErrorLabels(e, nodeById);
+    const { message } = humanizePatchError(scrubbed, {
+      ...(subject ? { subject } : {}),
+      ...(fieldLabel ? { fieldLabel } : {}),
+      ...(nodeLabel ? { nodeLabel } : {}),
+    });
+    return { ...scrubbed, message };
   });
   const safeWarnings = validation.warnings.map((w) => ({
     ...w,

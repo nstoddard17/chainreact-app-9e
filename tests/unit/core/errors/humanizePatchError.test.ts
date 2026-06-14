@@ -50,8 +50,32 @@ describe("humanizePatchError", () => {
     expect(message).not.toMatch(/action1/);
   });
 
-  it("passes other codes through unchanged (message === devDetail)", () => {
-    const e = { code: "MISSING_REQUIRED_FIELD", message: "Required field 'channel' is missing on slack:send_channel_message." };
+  it("MISSING_REQUIRED_FIELD with field + node labels → friendly copy, no raw key", () => {
+    const e = { code: "MISSING_REQUIRED_FIELD", message: "Required field 'text' is missing on slack:send_channel_message." };
+    const { message, devDetail } = humanizePatchError(e, { fieldLabel: "Message", nodeLabel: "Send Channel Message" });
+    expect(message).toBe("Required field “Message” is missing on “Send Channel Message.”");
+    // No raw field key / provider:type key in the user-facing copy…
+    expect(message).not.toMatch(/'text'|\btext\b|slack:send_channel_message/);
+    // …but the raw message is retained for dev only.
+    expect(devDetail).toBe(e.message);
+  });
+
+  it("MISSING_REQUIRED_FIELD with no labels → generic safe copy (never the raw key)", () => {
+    const e = { code: "MISSING_REQUIRED_FIELD", message: "Required field 'text' is missing on slack:send_channel_message." };
+    const { message } = humanizePatchError(e);
+    expect(message).toBe("A required field is missing.");
+    expect(message).not.toMatch(/'text'|slack:send_channel_message/);
+  });
+
+  it("INVALID_CONFIG with field + node labels → friendly type copy, no raw key", () => {
+    const e = { code: "INVALID_CONFIG", message: "Field 'text' on slack:send_channel_message expects type 'textarea'." };
+    const { message } = humanizePatchError(e, { fieldLabel: "Message", nodeLabel: "Send Channel Message" });
+    expect(message).toBe("The value for “Message” on “Send Channel Message” isn’t the right type.");
+    expect(message).not.toMatch(/'text'|slack:send_channel_message|textarea/);
+  });
+
+  it("passes genuinely un-humanized codes through unchanged (message === devDetail)", () => {
+    const e = { code: "DUPLICATE_EDGE_ID", message: "Two edges share the id 'e1'." };
     const { message, devDetail } = humanizePatchError(e);
     expect(message).toBe(e.message);
     expect(devDetail).toBe(e.message);
