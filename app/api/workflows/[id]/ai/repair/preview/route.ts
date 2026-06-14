@@ -212,6 +212,9 @@ export async function POST(
     modelClient: client,
     tier: MODEL_TIER,
     proposalContext,
+    // AI-REPAIR-2b — validate the patch against the SAME current-draft snapshot the
+    // diagnosis used (when supplied), so the preview never reflects stale saved state.
+    ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
   });
 
   // Fail-open telemetry, billed to the workflow-owning account.

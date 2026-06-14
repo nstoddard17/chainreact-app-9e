@@ -19,7 +19,7 @@
 import type { WorkflowDefinition, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import { formatTypeKey } from "@/core/workflows/nodeDisplayName";
 import { humanizePatchError } from "@/core/errors/humanizePatchError";
-import { isSecretKey } from "@/services/ai/tools/redact";
+import { isSecretKey, redactSecrets } from "@/services/ai/tools/redact";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import { aiToolOk, type AiToolResult } from "@/services/ai/tools/types";
 import { explainWorkflowDefinition } from "@/services/ai/explain/explainDefinition";
@@ -226,14 +226,15 @@ function scrubMessage(message: string, secretKeys: readonly string[]): string {
 export async function previewWorkflowPatchForAI(
   input: PreviewWorkflowPatchInput,
 ): Promise<AiToolResult<PatchPreviewResult>> {
-  const { userId, workflowId, patch } = input;
+  const { userId, workflowId, patch, draftDefinition } = input;
 
-  // 1. Load current definition (ownership + NOT_FOUND enforced by AI-2; config
-  //    arrives secret-redacted — safe for a read-only preview).
+  // 1. Load the saved record (ownership + NOT_FOUND enforced by AI-2; config
+  //    arrives secret-redacted). Authz, workflow name, and the revision token
+  //    ALWAYS come from the saved load — never from a client-supplied draft.
   const graphRes = await getWorkflowGraphForAI(userId, workflowId);
   if (!graphRes.ok) return graphRes;
 
-  const currentDef: WorkflowDefinition = {
+  const savedDef: WorkflowDefinition = {
     nodes: graphRes.data.nodes.map((n) => ({
       id: n.id,
       kind: n.kind,
@@ -249,6 +250,15 @@ export async function previewWorkflowPatchForAI(
       ...(e.label !== undefined ? { label: e.label } : {}),
     })),
   };
+
+  // AI-REPAIR-2b — when a TRUSTED, already-validated current-draft snapshot is
+  // supplied, the patch is validated/previewed against THAT (the unsaved canvas
+  // the user sees, matching what the diagnosis used) instead of the saved
+  // definition. Secrets are redacted for parity with the saved path; the draft is
+  // used in-memory ONLY — never persisted, never written back. Absent → saved def.
+  const currentDef: WorkflowDefinition = draftDefinition
+    ? redactSecrets(draftDefinition)
+    : savedDef;
   const name = graphRes.data.name;
   const currentRevision = graphRes.data.updatedAt;
 

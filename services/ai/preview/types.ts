@@ -15,6 +15,7 @@
  */
 
 import type { RiskLevel } from "@/contracts/actionMeta";
+import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowCostEstimate } from "@/services/billing/workflowCostEstimator";
 import type {
   PatchErrorCode,
@@ -30,6 +31,15 @@ export interface PreviewWorkflowPatchInput {
   readonly userId: string;
   readonly workflowId: string;
   readonly patch: WorkflowPatch;
+  /**
+   * Slice 4.AI-REPAIR-2b — OPTIONAL trusted, already-validated current-draft
+   * definition (the unsaved builder canvas the user sees). When provided, the
+   * patch is validated/previewed against THIS instead of the saved definition, so
+   * the preview matches what the diagnosis used. Ownership + name + revision still
+   * come from the saved record load. Secrets are redacted before use; the draft is
+   * NEVER persisted. Absent → the saved definition is the validation target.
+   */
+  readonly draftDefinition?: WorkflowDefinition;
 }
 
 /** One deterministic, value-free description of a single patch operation. */

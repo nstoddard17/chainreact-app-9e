@@ -343,3 +343,104 @@ describe("previewWorkflowPatchForAI — registry grounding (no provider hardcodi
     expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_ACTION")).toBe(true);
   });
 });
+
+// ── AI-REPAIR-2b: validate against the unsaved current-draft snapshot ──
+//
+// The saved graph (`baseGraph`) is trigger `t` → action `a1`. A supplied
+// `draftDefinition` becomes the validation target so the preview matches the
+// unsaved canvas the user sees — never stale saved state. Authz + name + revision
+// still come from the saved load. The draft is read-only (redacted, never written).
+describe("previewWorkflowPatchForAI — current-draft override (trust rule)", () => {
+  // Draft = saved + an extra slack action `a2`.
+  const draftWithExtraNode = () => ({
+    nodes: [
+      gnode("t", "trigger", "gmail", "new_email"),
+      gnode("a1", "action", "gmail", "send_email", { to: "x@y.com" }),
+      gnode("a2", "action", "slack", "send_channel_message", { channel: "C1", text: "hi" }),
+    ],
+    edges: [
+      { id: "e1", from: "t", to: "a1" },
+      { id: "e2", from: "a1", to: "a2" },
+    ],
+  });
+  // Draft = saved MINUS `a1` (user deleted it locally without saving).
+  const draftWithoutA1 = () => ({
+    nodes: [gnode("t", "trigger", "gmail", "new_email")],
+    edges: [],
+  });
+
+  it("a patch targeting a node only in the DRAFT (not saved) previews successfully", async () => {
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "moveNode", nodeId: "a2", position: { x: 5, y: 5 } }]),
+      draftDefinition: draftWithExtraNode(),
+    });
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.data.ok).toBe(true);
+    expect(res.data.affectedNodeIds).toContain("a2");
+  });
+
+  it("the SAME patch is rejected without the draft (a2 is not in the saved definition)", async () => {
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "moveNode", nodeId: "a2", position: { x: 5, y: 5 } }]),
+    });
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.data.ok).toBe(false);
+    expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_NODE")).toBe(true);
+  });
+
+  it("a patch targeting a node REMOVED from the draft is rejected, even though it exists in saved state", async () => {
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 5, y: 5 } }]),
+      draftDefinition: draftWithoutA1(),
+    });
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.data.ok).toBe(false);
+    expect(res.data.validation.errors.some((e) => e.code === "UNKNOWN_NODE")).toBe(true);
+  });
+
+  it("falls back to the saved definition when no draft is supplied (a1 exists in saved → valid)", async () => {
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 5, y: 5 } }]),
+    });
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.data.ok).toBe(true);
+  });
+
+  it("authz, name + revision still come from the SAVED load; the draft input is not mutated/persisted", async () => {
+    const draft = draftWithExtraNode();
+    const snapshot = JSON.parse(JSON.stringify(draft));
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "moveNode", nodeId: "a2", position: { x: 5, y: 5 } }]),
+      draftDefinition: draft,
+    });
+    if (!res.ok) throw new Error("expected ok");
+    // Revision token is the SAVED workflow's updatedAt — never the client draft's.
+    expect(res.data.currentRevision).toBe("2026-05-25T00:00:00Z");
+    // The saved graph load (ownership) ran exactly once; nothing was written.
+    expect(mockGetWorkflowGraphForAI).toHaveBeenCalledTimes(1);
+    expect(mockDeductTasks).not.toHaveBeenCalled();
+    // The draft object the caller passed is untouched (redactSecrets clones).
+    expect(draft).toEqual(snapshot);
+  });
+
+  it("redacts secret-shaped config VALUES in the draft — no secret reaches the result", async () => {
+    const draft = {
+      nodes: [
+        gnode("t", "trigger", "gmail", "new_email"),
+        gnode("a1", "action", "gmail", "send_email", { to: "x@y.com", apiKey: "SECRET-DRAFT-VALUE" }),
+      ],
+      edges: [{ id: "e1", from: "t", to: "a1" }],
+    };
+    const res = await previewWorkflowPatchForAI({
+      ...PREVIEW_INPUT,
+      patch: patch([{ op: "moveNode", nodeId: "a1", position: { x: 1, y: 1 } }]),
+      draftDefinition: draft,
+    });
+    expect(JSON.stringify(res)).not.toContain("SECRET-DRAFT-VALUE");
+  });
+});

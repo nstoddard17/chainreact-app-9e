@@ -283,6 +283,33 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     expect(sent).not.toContain("DROP-ME");
   });
 
+  it("validates against + builds the model inventory from the DRAFT when provided", async () => {
+    const draft = {
+      nodes: [{ id: "node-DRAFT", kind: "action", provider: "slack", type: "send_channel_message", config: { channel: "C", secretToken: "DRAFT-LEAK" }, position: { x: 0, y: 0 } }],
+      edges: [],
+    } as never;
+    const cap = capturingClient(modelPatchText);
+    await previewWorkflowRepair({ dto, ...base, modelClient: cap.client, draftDefinition: draft });
+    const sent = JSON.stringify(cap.lastInput().messages);
+    // Inventory came from the DRAFT, not the saved graph (node-A / node-B).
+    expect(sent).toContain("node-DRAFT");
+    expect(sent).not.toContain("node-A");
+    expect(sent).not.toContain("node-B");
+    // Still no config VALUES from the draft in the prompt.
+    expect(sent).not.toContain("DRAFT-LEAK");
+    // The draft is forwarded to the existing preview engine as the validation target.
+    expect(mockPreview.mock.calls[0]![0].draftDefinition).toEqual(draft);
+  });
+
+  it("falls back to the saved inventory and forwards NO draftDefinition when none is supplied", async () => {
+    const cap = capturingClient(modelPatchText);
+    await previewWorkflowRepair({ dto, ...base, modelClient: cap.client });
+    const sent = JSON.stringify(cap.lastInput().messages);
+    expect(sent).toContain("node-A");
+    expect(sent).toContain("node-B");
+    expect(mockPreview.mock.calls[0]![0].draftDefinition).toBeUndefined();
+  });
+
   it("boundary: the service imports no apply/save/run/MCP/Hermes path", () => {
     const src = readFileSync(resolve(process.cwd(), "services/ai/repair/previewWorkflowRepair.ts"), "utf8");
     expect(src).not.toMatch(/scripts\/mcp|@\/scripts\/mcp/);

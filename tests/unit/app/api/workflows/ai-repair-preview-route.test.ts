@@ -306,7 +306,7 @@ describe("ai/repair/preview — current draft override + proposal steering", () 
     edges: [],
   };
 
-  it("forwards a VALID draftDefinition to the server-side re-derivation", async () => {
+  it("forwards a VALID draftDefinition to BOTH the diagnosis re-derivation AND the preview validation target", async () => {
     await callBody("wf-1", { draftDefinition: validDraft });
     expect(mockDiagnose).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -315,6 +315,18 @@ describe("ai/repair/preview — current draft override + proposal steering", () 
         draftOverride: expect.objectContaining({ nodes: expect.arrayContaining([expect.objectContaining({ id: "n1" })]) }),
       }),
     );
+    // The SAME validated draft is threaded into the preview as the validation target.
+    expect(mockPreviewRepair).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftDefinition: expect.objectContaining({ nodes: expect.arrayContaining([expect.objectContaining({ id: "n1" })]) }),
+      }),
+    );
+  });
+
+  it("forwards NO draftDefinition to the preview when none is supplied (saved fallback)", async () => {
+    await call("wf-1");
+    expect(mockPreviewRepair).toHaveBeenCalledTimes(1);
+    expect(mockPreviewRepair.mock.calls[0]![0].draftDefinition).toBeUndefined();
   });
 
   it("forwards optional proposalContext steering to the service", async () => {

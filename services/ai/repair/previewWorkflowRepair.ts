@@ -6,6 +6,7 @@ import type {
   ModelTier,
   ModelTokenUsage,
 } from "@/core/ai/modelTypes";
+import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { AgentWorkflowDiagnosisDTO } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
 import { buildDiagnosisExplainContext } from "@/services/ai/diagnostics/buildDiagnosisExplainContext";
 import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
@@ -151,6 +152,14 @@ export interface PreviewWorkflowRepairInput {
   readonly tier?: ModelTier;
   /** Optional non-authoritative steering (validated + capped here). */
   readonly proposalContext?: unknown;
+  /**
+   * AI-REPAIR-2b — OPTIONAL trusted, already-validated current-draft definition
+   * (the route parsed it via `parseDraftOverride`). When provided it is the
+   * validation target AND the node-inventory source, so the preview matches the
+   * unsaved canvas the user sees (the same snapshot the diagnosis used). The saved
+   * definition is the fallback when absent. Never persisted.
+   */
+  readonly draftDefinition?: WorkflowDefinition;
 }
 
 /** Lenient envelope parse — strict op validation happens downstream in the validator. */
@@ -192,10 +201,12 @@ export async function previewWorkflowRepair(
   input: PreviewWorkflowRepairInput,
 ): Promise<PreviewWorkflowRepairResult> {
   const tier: ModelTier = input.tier ?? "fast";
-  const { userId, workflowId } = input;
+  const { userId, workflowId, draftDefinition } = input;
 
-  // 1. Load the current (saved) graph — the SAME source the preview validates
-  //    against — so the model targets ids that exist in the validation target.
+  // 1. Load the saved graph for authz + the revision token (baseRevision). The
+  //    VALIDATION TARGET + node inventory come from the current draft when the
+  //    route supplied one (so the preview matches the unsaved canvas the user sees,
+  //    consistent with the diagnosis), else from the saved definition.
   //    NO config reaches the model: we project only id / kind / provider / type.
   const graphRes = await getWorkflowGraphForAI(userId, workflowId);
   if (!graphRes.ok) {
@@ -203,13 +214,16 @@ export async function previewWorkflowRepair(
   }
   const graph = graphRes.data;
 
-  const nodeInventory = graph.nodes.map((n) => ({
+  // Inventory source = the draft (when provided) so the model targets ids that
+  // exist in the SAME definition the patch will be validated against.
+  const inventorySource = draftDefinition ?? graph;
+  const nodeInventory = inventorySource.nodes.map((n) => ({
     id: n.id,
     kind: n.kind,
     provider: n.provider,
     type: n.type,
   }));
-  const edgeInventory = graph.edges.map((e) => ({ id: e.id, from: e.from, to: e.to }));
+  const edgeInventory = inventorySource.edges.map((e) => ({ id: e.id, from: e.from, to: e.to }));
 
   const steering = sanitizeSteering(input.proposalContext);
 
@@ -276,7 +290,12 @@ export async function previewWorkflowRepair(
   //    any throw as an unprocessable model patch (PARSE_FAILED), never a 500.
   let previewRes;
   try {
-    previewRes = await previewWorkflowPatchForAI({ userId, workflowId, patch });
+    previewRes = await previewWorkflowPatchForAI({
+      userId,
+      workflowId,
+      patch,
+      ...(draftDefinition ? { draftDefinition } : {}),
+    });
   } catch {
     return { ok: false, code: "PARSE_FAILED", message: "The proposed repair patch could not be processed.", model };
   }
