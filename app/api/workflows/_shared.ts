@@ -218,11 +218,46 @@ export async function authorizeWorkflowLifecycleAccess(
 }
 
 /**
+ * V2-READY-20 — safe, identifier-free client message for a trigger-registration
+ * failure. `TRIGGER_REGISTRATION_FAILED` is the ONE LifecycleError code whose
+ * `message` + `details.cause` wrap a RAW provider / integration error: the
+ * orchestrator builds it as `"...: ${(err as Error).message}"` with
+ * `details: { cause: (err as Error).message }`, and that underlying message can
+ * carry the provider account id (e.g. a Gmail mailbox / email), the internal V2
+ * account id, scopes, or a raw provider error body — see the throw shapes in
+ * services/oauth/refreshAndRetry.ts (`IntegrationActionRequiredError`,
+ * `"...no active integration for account <id> provider <p> provider-account
+ * <pa>."`), services/triggers/lifecycle.ts (`"...no active <p> integration for
+ * account <id>."`), and the per-provider activate hooks (Google Calendar
+ * events.watch/list bodies). None of that may reach the client, so the response
+ * boundary surfaces only the stable `code` + this static message and DROPS
+ * `details`. Mirrors the `toSafeStepError` / `redactStepOutput` boundary below.
+ */
+const TRIGGER_REGISTRATION_FAILED_SAFE_MESSAGE =
+  "Couldn't register this workflow's trigger with the provider. Check the connection and try again.";
+
+/**
  * LifecycleError → HTTP. Code-stable for client UIs that branch on
  * `code`; status carries the user-actionable distinction (404 vs 409 vs 422).
  */
 export function lifecycleErrorResponse(err: LifecycleError): NextResponse {
   const status = LIFECYCLE_HTTP_STATUS[err.code];
+  // No-leak boundary (V2-READY-20): redact the raw provider/integration cause
+  // wrapped by TRIGGER_REGISTRATION_FAILED. Keep the raw error server-side for
+  // diagnostics (structured log), but never echo message/details to the client.
+  if (err.code === "TRIGGER_REGISTRATION_FAILED") {
+    console.error(
+      JSON.stringify({
+        event: "workflow.lifecycle.trigger_registration_failed",
+        message: err.message,
+        details: err.details,
+      }),
+    );
+    return NextResponse.json(
+      { error: TRIGGER_REGISTRATION_FAILED_SAFE_MESSAGE, code: err.code },
+      { status },
+    );
+  }
   return NextResponse.json(
     {
       error: err.message,

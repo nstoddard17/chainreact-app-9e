@@ -160,14 +160,16 @@ describe("requireUser", () => {
 });
 
 describe("lifecycleErrorResponse", () => {
+  // TRIGGER_REGISTRATION_FAILED is intentionally excluded here — it is the one
+  // code whose message/details wrap a raw provider error and is redacted at the
+  // response boundary (covered by the dedicated no-leak block below).
   const cases: ReadonlyArray<[LifecycleError["code"], number]> = [
     ["WORKFLOW_NOT_FOUND", 404],
     ["INVALID_TRANSITION", 409],
     ["LIFECYCLE_CONFLICT", 409],
     ["MISSING_PRECONDITIONS", 422],
-    ["TRIGGER_REGISTRATION_FAILED", 502],
   ];
-  it.each(cases)("%s -> HTTP %i", async (code, expectedStatus) => {
+  it.each(cases)("%s -> HTTP %i (message + details passed through)", async (code, expectedStatus) => {
     const err = new LifecycleError(code, "msg", { hint: "x" });
     const res = lifecycleErrorResponse(err);
     expect(res.status).toBe(expectedStatus);
@@ -177,6 +179,80 @@ describe("lifecycleErrorResponse", () => {
       code,
       details: { hint: "x" },
     });
+  });
+});
+
+describe("lifecycleErrorResponse — TRIGGER_REGISTRATION_FAILED no-leak (V2-READY-20)", () => {
+  // The orchestrator builds this code by wrapping the raw provider/integration
+  // error: message = "Trigger registration failed during 'activate': <raw>",
+  // details = { cause: <raw> }. The raw text can carry the provider account id
+  // (Gmail mailbox/email), the internal V2 account id, scopes, or a raw provider
+  // error body. None of that may reach the client. See the throw shapes in
+  // services/oauth/refreshAndRetry.ts + services/triggers/lifecycle.ts.
+  const LEAKY_MAILBOX = "alice@example.com";
+  const LEAKY_ACCOUNT_ID = "acct-3f2c9a10-dead-beef-0000-000000000001";
+  const RAW =
+    `Integration action required: refresh_failed (account=${LEAKY_ACCOUNT_ID}, provider=gmail, provider-account=${LEAKY_MAILBOX}).`;
+
+  function leakyError(): LifecycleError {
+    return new LifecycleError(
+      "TRIGGER_REGISTRATION_FAILED",
+      `Trigger registration failed during 'activate': ${RAW}`,
+      { cause: RAW },
+    );
+  }
+
+  let errorSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    errorSpy.mockRestore();
+  });
+
+  it("returns 502 + stable code with a safe static message and NO details", async () => {
+    const res = lifecycleErrorResponse(leakyError());
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.code).toBe("TRIGGER_REGISTRATION_FAILED");
+    // Static, identifier-free user message — NOT the raw/wrapped message.
+    expect(body.error).toBe(
+      "Couldn't register this workflow's trigger with the provider. Check the connection and try again.",
+    );
+    expect(body).not.toHaveProperty("details");
+  });
+
+  it("the serialized client body contains NONE of the raw identifiers", async () => {
+    const res = lifecycleErrorResponse(leakyError());
+    const serialized = JSON.stringify(await res.json());
+    expect(serialized).not.toContain(LEAKY_MAILBOX);
+    expect(serialized).not.toContain(LEAKY_ACCOUNT_ID);
+    expect(serialized).not.toContain("provider-account");
+    expect(serialized).not.toContain("refresh_failed");
+    expect(serialized).not.toContain("cause");
+  });
+
+  it("preserves the raw cause server-side only (structured console.error), never to the client", async () => {
+    lifecycleErrorResponse(leakyError());
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const logged = String(errorSpy.mock.calls[0]?.[0] ?? "");
+    // Diagnostics are retained in the SERVER log (not the response).
+    expect(logged).toContain("workflow.lifecycle.trigger_registration_failed");
+    expect(logged).toContain(LEAKY_MAILBOX);
+  });
+
+  it("through runLifecycle: a thrown TRIGGER_REGISTRATION_FAILED is redacted end-to-end", async () => {
+    const res = await runLifecycle(
+      async () => {
+        throw leakyError();
+      },
+      () => NextResponse.json({}),
+    );
+    expect(res.status).toBe(502);
+    const serialized = JSON.stringify(await res.json());
+    expect(serialized).not.toContain(LEAKY_MAILBOX);
+    expect(serialized).not.toContain(LEAKY_ACCOUNT_ID);
+    expect(serialized).toContain("TRIGGER_REGISTRATION_FAILED");
   });
 });
 
