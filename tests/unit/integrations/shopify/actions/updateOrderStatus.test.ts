@@ -229,3 +229,36 @@ describe("updateOrderStatus — schema rejects unknown actions", () => {
     ).rejects.toThrow();
   });
 });
+
+// V2-READY-15: meta/handler output contract. The builder variable picker
+// advertises `shopifyUpdateOrderStatusMeta.outputs` as the references downstream
+// nodes may use; if the meta named an output the handler never emits, the picker
+// would offer a `{{update_order_status.<x>}}` that fails at runtime with
+// MISSING_VARIABLE (the native `delay` drift class). Pin the advertised names to
+// the handler's actual emitted keys so this can't drift.
+describe("updateOrderStatus — meta/handler output contract", () => {
+  it("advertised meta output names match the handler's emitted output keys", async () => {
+    const { shopifyUpdateOrderStatusMeta } = await import(
+      "@/integrations/shopify/actions/updateOrderStatus.meta"
+    );
+    mockOrdersCancel.mockResolvedValueOnce({
+      id: 1,
+      order_number: 1001,
+      updated_at: "2026-05-09T12:00:00Z",
+    });
+    const result = await updateOrderStatus({
+      workflowId: "wf-1",
+      userId: "u-1",
+      accountId: "acct-u-1",
+      runId: "run-1",
+      nodeId: "n-1",
+      config: { action: "cancel", order_id: 1, notify_customer: true },
+      triggerEvent: trigger(),
+    });
+    const handlerKeys = Object.keys(result.output).sort();
+    const metaKeys = shopifyUpdateOrderStatusMeta.outputs
+      .map((o) => o.name)
+      .sort();
+    expect(metaKeys).toEqual(handlerKeys);
+  });
+});

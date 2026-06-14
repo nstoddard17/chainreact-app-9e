@@ -218,3 +218,40 @@ describe("create_page action — schema validation", () => {
     ).rejects.toThrow();
   });
 });
+
+// V2-READY-15: meta/handler output contract. The builder variable picker
+// advertises `notionCreatePageMeta.outputs` as the references downstream nodes
+// may use; if the meta named an output the handler never emits, the picker would
+// offer a `{{create_page.<x>}}` that fails at runtime with MISSING_VARIABLE (the
+// native `delay` drift class). Pin the advertised names to the handler's actual
+// emitted keys so this can't drift.
+describe("create_page — meta/handler output contract", () => {
+  it("advertised meta output names match the handler's emitted output keys", async () => {
+    const { notionCreatePageMeta } = await import(
+      "@/integrations/notion/actions/createPage.meta"
+    );
+    mockCreate.mockResolvedValueOnce({
+      object: "page",
+      id: "p-1",
+      url: "https://www.notion.so/p-1",
+      parent: { database_id: "db-1" },
+      created_time: "2026-05-09T10:00:00Z",
+      last_edited_time: "2026-05-09T10:00:00Z",
+    });
+    const result = await createPage({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        parent: { databaseId: "db-1" },
+        properties: { Name: { type: "title", value: "x" } },
+      },
+      triggerEvent: trigger(),
+    });
+    const handlerKeys = Object.keys(result.output).sort();
+    const metaKeys = notionCreatePageMeta.outputs.map((o) => o.name).sort();
+    expect(metaKeys).toEqual(handlerKeys);
+  });
+});
