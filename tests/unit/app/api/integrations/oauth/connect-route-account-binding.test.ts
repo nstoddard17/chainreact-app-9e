@@ -29,6 +29,13 @@ jest.mock("@/services/oauth/dispatcher", () => ({
   connect: (...a: unknown[]) => mockConnect(...a),
 }));
 
+// APPS-PERM-1 — account/service-provider connect is gated to owner/admin via the
+// account-authz helper. Personal-provider connect never consults it.
+const mockRequireRole = jest.fn();
+jest.mock("@/services/accounts/accountAuthz", () => ({
+  requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
+}));
+
 import { POST } from "@/app/api/integrations/oauth/[provider]/connect/route";
 
 const USER = "user-A";
@@ -55,6 +62,9 @@ function jsonReq(body: unknown, provider = "notion") {
 beforeEach(() => {
   jest.clearAllMocks();
   mockConnect.mockResolvedValue({ redirectUrl: "https://api.notion.com/v1/oauth/authorize?x=1" });
+  // Default: the connecting user is owner/admin (the account-provider gate passes).
+  // Tests that exercise the denial path override this with mockResolvedValueOnce.
+  mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
 });
 
 it("plain connect resolves the ACTIVE account and forwards it (team, not personal)", async () => {
@@ -100,6 +110,44 @@ it("response leaks no account id on failure (typed reason only)", async () => {
   signedIn();
   mockResolveActive.mockResolvedValueOnce({ ok: false, reason: "not_member", accountId: TEAM });
   const res = await POST(plainReq(), params());
+  const json = await res.json();
+  expect(JSON.stringify(json)).not.toContain(TEAM);
+});
+
+it("APPS-PERM-1 — account provider connect by a plain member → 403, OAuth never starts", async () => {
+  signedIn();
+  mockResolveActive.mockResolvedValueOnce({ ok: true, accountId: TEAM, source: "active" });
+  mockRequireRole.mockResolvedValueOnce({ ok: false, reason: "forbidden" });
+  const res = await POST(plainReq("notion"), params("notion"));
+  expect(res.status).toBe(403);
+  expect(mockRequireRole).toHaveBeenCalledWith(USER, TEAM, ["owner", "admin"]);
+  expect(mockConnect).not.toHaveBeenCalled();
+});
+
+it("APPS-PERM-1 — account provider connect by owner/admin → 200", async () => {
+  signedIn();
+  mockResolveActive.mockResolvedValueOnce({ ok: true, accountId: TEAM, source: "active" });
+  mockRequireRole.mockResolvedValueOnce({ ok: true, role: "admin" });
+  const res = await POST(plainReq("notion"), params("notion"));
+  expect(res.status).toBe(200);
+  expect(mockConnect).toHaveBeenCalled();
+});
+
+it("APPS-PERM-1 — personal provider connect by a plain member → 200, role gate NOT consulted", async () => {
+  signedIn();
+  mockResolveActive.mockResolvedValueOnce({ ok: true, accountId: TEAM, source: "active" });
+  const res = await POST(plainReq("gmail"), params("gmail"));
+  expect(res.status).toBe(200);
+  // gmail is a personal provider — the owner/admin gate must NOT apply.
+  expect(mockRequireRole).not.toHaveBeenCalled();
+  expect(mockConnect).toHaveBeenCalled();
+});
+
+it("APPS-PERM-1 — account-provider denial leaks no account id (typed 'forbidden' only)", async () => {
+  signedIn();
+  mockResolveActive.mockResolvedValueOnce({ ok: true, accountId: TEAM, source: "active" });
+  mockRequireRole.mockResolvedValueOnce({ ok: false, reason: "forbidden" });
+  const res = await POST(plainReq("notion"), params("notion"));
   const json = await res.json();
   expect(JSON.stringify(json)).not.toContain(TEAM);
 });

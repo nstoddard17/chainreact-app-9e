@@ -30,13 +30,14 @@ export const AppAccountSummarySchema = z.object({
   canDisconnect: z.boolean(),
   /**
    * Whether the CURRENT caller may reconnect THIS connection (Slice
-   * 4.APPS-RECONNECT). Same server-derived rule as `canDisconnect` (owner/admin
-   * for account-shared providers; owner/admin OR the original connector for
-   * personal providers) — both are per-account credential operations. Drives
-   * whether the per-row Reconnect control renders. The connect route
-   * re-authorizes server-side, so a stale `true` can't bypass anything. NO
-   * identity (`provider_account_id` / email) is emitted — reconnect sends only
-   * the opaque row id.
+   * 4.APPS-RECONNECT; tightened in APPS-PERM-1). Server-derived: owner/admin for
+   * account-shared providers; the original CONNECTOR ONLY for personal providers.
+   * This INTENTIONALLY diverges from `canDisconnect` — owner/admin may disconnect
+   * a member's personal connection for safety but may NOT re-authorize it (only
+   * the identity-holder can). Drives whether the per-row Reconnect control
+   * renders. The connect route re-authorizes server-side, so a stale `true` can't
+   * bypass anything. NO identity (`provider_account_id` / email) is emitted —
+   * reconnect sends only the opaque row id.
    */
   canReconnect: z.boolean(),
   /**
@@ -83,7 +84,15 @@ export const AppCatalogItemSchema = z.object({
   category: z.string(),
   /** Whether the user has at least one active integration row for this provider. */
   isConnected: z.boolean(),
-  /** ProviderManifest.isEnabled && capabilities.oauth — drives whether the Connect button renders. */
+  /**
+   * Whether the CURRENT caller may connect a (new) account for this provider —
+   * drives whether the Connect / Connect-another control renders. Server-derived
+   * (APPS-PERM-1): `ProviderManifest.isEnabled && capabilities.oauth`, AND for
+   * account/service providers (Slack/Stripe/Notion/Shopify/HubSpot/Mailchimp) the
+   * caller must be owner/admin (connecting a shared org credential is account
+   * management). Personal providers stay open to any member. The connect route
+   * re-authorizes server-side, so a stale `true` can't bypass anything.
+   */
   canConnect: z.boolean(),
   /**
    * Whether the provider's tokens are user-scoped (most providers) — multiple

@@ -127,24 +127,69 @@ function computeCanDisconnect(
   return isOwnerAdmin || (connectedByUserId !== null && connectedByUserId === ctx.callerUserId);
 }
 
+/**
+ * Mirror of the reconnect service's authorization rule (APPS-PERM-1), evaluated
+ * for UI gating only (the connect route re-authorizes authoritatively). Account/
+ * service (shared) providers ⇒ owner/admin (same as disconnect + the reconnect
+ * service). Personal-credential providers ⇒ the original CONNECTOR ONLY — an
+ * INTENTIONAL asymmetry with `computeCanDisconnect`: owner/admin may disconnect a
+ * member's personal connection for safety but may NOT re-authorize it (only the
+ * identity-holder can).
+ */
+function computeCanReconnect(
+  provider: string,
+  connectedByUserId: string | null,
+  ctx: DisconnectContext | undefined,
+): boolean {
+  if (!ctx) return false;
+  if (isAccountCredentialProvider(provider)) {
+    return ctx.callerRole === "owner" || ctx.callerRole === "admin";
+  }
+  return connectedByUserId !== null && connectedByUserId === ctx.callerUserId;
+}
+
+/**
+ * Connect authorization for UI gating (APPS-PERM-1), evaluated for the provider
+ * card's Connect / Connect-another controls (the connect route re-authorizes
+ * authoritatively). Personal-credential providers ⇒ any member may connect their
+ * OWN identity. Account/service providers ⇒ owner/admin only (connecting or
+ * overwriting a shared org credential is account management). No ctx ⇒ account
+ * providers gate to `false` (conservative; the control never renders).
+ * `baseConnectable` is the manifest gate (`isEnabled && capabilities.oauth`).
+ */
+function computeCanConnect(
+  provider: string,
+  baseConnectable: boolean,
+  ctx: DisconnectContext | undefined,
+): boolean {
+  if (!baseConnectable) return false;
+  if (!isAccountCredentialProvider(provider)) return true;
+  return ctx ? ctx.callerRole === "owner" || ctx.callerRole === "admin" : false;
+}
+
 function toAppAccountSummary(
   record: IntegrationShape,
   ctx: DisconnectContext | undefined,
 ): AppAccountSummary {
-  // Reconnect uses the SAME per-account credential-operation rule as disconnect
-  // (Slice 4.APPS-RECONNECT) — owner/admin for shared providers; owner/admin OR
-  // the connector for personal. The connect route re-authorizes authoritatively.
-  const canManageCredential = computeCanDisconnect(
-    record.provider,
-    record.connectedByUserId,
-    ctx,
-  );
+  // Disconnect and reconnect now diverge (APPS-PERM-1): disconnect allows
+  // owner/admin OR connector for personal providers, but reconnect is
+  // connector-only for personal (owner/admin can still disconnect for safety).
+  // Account/service providers stay owner/admin for both. The DELETE / connect
+  // routes re-authorize authoritatively.
   return {
     id: record.id,
     displayName: record.displayName,
     connectedAt: record.createdAt,
-    canDisconnect: canManageCredential,
-    canReconnect: canManageCredential,
+    canDisconnect: computeCanDisconnect(
+      record.provider,
+      record.connectedByUserId,
+      ctx,
+    ),
+    canReconnect: computeCanReconnect(
+      record.provider,
+      record.connectedByUserId,
+      ctx,
+    ),
     ...computeSharingFields(
       record.provider,
       record.connectedByUserId,
@@ -169,7 +214,11 @@ export function toAppCatalogItem(
     .map((record) => toAppAccountSummary(record, ctx))
     .sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
   const isConnected = sortedAccounts.length > 0;
-  const canConnect = provider.isEnabled && provider.capabilities.oauth;
+  const canConnect = computeCanConnect(
+    provider.id,
+    provider.isEnabled && provider.capabilities.oauth,
+    ctx,
+  );
   return {
     providerId: provider.id,
     name: provider.displayName,

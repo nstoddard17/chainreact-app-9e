@@ -108,6 +108,27 @@ it("personal provider, the original connector → ok with the row's identity", a
   });
 });
 
+it("APPS-PERM-1 — personal provider, OWNER who is NOT the connector → forbidden (connector-only reconnect)", async () => {
+  mockGetByIdForAccount.mockResolvedValue(row({ connectedByUserId: "user-connector" }));
+  mockGetRole.mockResolvedValue("owner");
+  const r = await resolveReconnectTarget({ ...base, callerUserId: "user-owner" });
+  expect(r).toEqual({ ok: false, reason: "forbidden" });
+});
+
+it("APPS-PERM-1 — personal provider, ADMIN who is NOT the connector → forbidden (connector-only reconnect)", async () => {
+  mockGetByIdForAccount.mockResolvedValue(row({ connectedByUserId: "user-connector" }));
+  mockGetRole.mockResolvedValue("admin");
+  const r = await resolveReconnectTarget({ ...base, callerUserId: "user-admin" });
+  expect(r).toEqual({ ok: false, reason: "forbidden" });
+});
+
+it("account-shared provider, admin → ok (APPS-PERM-1 backfill)", async () => {
+  mockGetByIdForAccount.mockResolvedValue(row({ provider: SHARED, providerAccountId: "T123" }));
+  mockGetRole.mockResolvedValue("admin");
+  const r = await resolveReconnectTarget({ ...base, provider: SHARED });
+  expect(r).toMatchObject({ ok: true, expectedProviderAccountId: "T123" });
+});
+
 it("account-shared provider, owner → ok; plain member → forbidden", async () => {
   mockGetByIdForAccount.mockResolvedValue(row({ provider: SHARED, providerAccountId: "T123" }));
   mockGetRole.mockResolvedValueOnce("owner");

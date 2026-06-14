@@ -143,17 +143,48 @@ describe("toAppCatalogItem — flags + derived fields", () => {
     expect(toAppCatalogItem(mkProvider(), []).isConnected).toBe(false);
   });
 
-  it("canConnect = manifest.isEnabled && capabilities.oauth", () => {
+  it("canConnect: disabled / no-oauth → false regardless of provider class or role", () => {
     expect(
-      toAppCatalogItem(mkProvider({ isEnabled: false }), []).canConnect,
+      toAppCatalogItem(mkProvider({ id: "gmail", isEnabled: false }), []).canConnect,
     ).toBe(false);
     expect(
       toAppCatalogItem(
-        mkProvider({ capabilities: { oauth: false } }),
+        mkProvider({ id: "gmail", capabilities: { oauth: false } }),
         [],
       ).canConnect,
     ).toBe(false);
-    expect(toAppCatalogItem(mkProvider(), []).canConnect).toBe(true);
+  });
+
+  it("APPS-PERM-1 — canConnect: personal providers open to any member; account providers owner/admin only", () => {
+    // Personal provider (gmail): any member — even with NO ctx — may connect.
+    expect(toAppCatalogItem(mkProvider({ id: "gmail" }), []).canConnect).toBe(true);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "gmail" }), [], {
+        callerUserId: "u",
+        callerRole: "member",
+      }).canConnect,
+    ).toBe(true);
+
+    // Account/service provider (slack): owner/admin only; member or no-ctx → false.
+    expect(toAppCatalogItem(mkProvider({ id: "slack" }), []).canConnect).toBe(false);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), [], {
+        callerUserId: "u",
+        callerRole: "member",
+      }).canConnect,
+    ).toBe(false);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), [], {
+        callerUserId: "u",
+        callerRole: "owner",
+      }).canConnect,
+    ).toBe(true);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), [], {
+        callerUserId: "u",
+        callerRole: "admin",
+      }).canConnect,
+    ).toBe(true);
   });
 
   it("accounts sort oldest-first (primary connection first), firstConnectedAt mirrors that", () => {
@@ -223,23 +254,47 @@ describe("toAppCatalogItem — canDisconnect derivation (CD-3)", () => {
     ).toBe(true);
   });
 
-  it("4.APPS-RECONNECT — canReconnect mirrors canDisconnect (same per-account credential rule)", () => {
-    const cases = [
-      { provider: "slack", role: "owner" as const, caller: "user-1", connectedBy: "user-1" },
-      { provider: "slack", role: "member" as const, caller: "user-1", connectedBy: "user-1" },
-      { provider: "gmail", role: "member" as const, caller: "member-7", connectedBy: "member-7" },
-      { provider: "gmail", role: "member" as const, caller: "member-OTHER", connectedBy: "member-7" },
-      { provider: "gmail", role: "owner" as const, caller: "owner-1", connectedBy: "member-7" },
-    ];
-    for (const c of cases) {
-      const acc = toAppCatalogItem(
-        mkProvider({ id: c.provider }),
-        [mkRecord({ provider: c.provider, connectedByUserId: c.connectedBy })],
-        enabled({ callerRole: c.role, callerUserId: c.caller }),
-      ).accounts[0]!;
-      expect(acc.canReconnect).toBe(acc.canDisconnect);
-    }
-    // And with no context, both are false (control never renders).
+  it("APPS-PERM-1 — canReconnect: account providers owner/admin; personal providers CONNECTOR-ONLY (diverges from canDisconnect)", () => {
+    // Account/service provider (slack): owner/admin can; plain member cannot.
+    const slackOwner = toAppCatalogItem(
+      mkProvider({ id: "slack" }),
+      [mkRecord({ provider: "slack", connectedByUserId: "user-1" })],
+      enabled({ callerRole: "owner" }),
+    ).accounts[0]!;
+    expect(slackOwner.canReconnect).toBe(true);
+    const slackMember = toAppCatalogItem(
+      mkProvider({ id: "slack" }),
+      [mkRecord({ provider: "slack", connectedByUserId: "user-1" })],
+      enabled({ callerRole: "member", callerUserId: "user-1" }),
+    ).accounts[0]!;
+    expect(slackMember.canReconnect).toBe(false);
+
+    // Personal provider (gmail): ONLY the connector — even owner/admin cannot.
+    const gmailConnector = toAppCatalogItem(
+      mkProvider({ id: "gmail" }),
+      [mkRecord({ provider: "gmail", connectedByUserId: "member-7" })],
+      enabled({ callerRole: "member", callerUserId: "member-7" }),
+    ).accounts[0]!;
+    expect(gmailConnector.canReconnect).toBe(true);
+
+    // The KEY divergence from disconnect: an owner who is NOT the connector can
+    // DISCONNECT a personal connection (safety) but CANNOT reconnect it.
+    const gmailOwnerNonConnector = toAppCatalogItem(
+      mkProvider({ id: "gmail" }),
+      [mkRecord({ provider: "gmail", connectedByUserId: "member-7" })],
+      enabled({ callerRole: "owner", callerUserId: "owner-1" }),
+    ).accounts[0]!;
+    expect(gmailOwnerNonConnector.canDisconnect).toBe(true);
+    expect(gmailOwnerNonConnector.canReconnect).toBe(false);
+
+    const gmailOtherMember = toAppCatalogItem(
+      mkProvider({ id: "gmail" }),
+      [mkRecord({ provider: "gmail", connectedByUserId: "member-7" })],
+      enabled({ callerRole: "member", callerUserId: "member-OTHER" }),
+    ).accounts[0]!;
+    expect(gmailOtherMember.canReconnect).toBe(false);
+
+    // And with no context, it is false (control never renders).
     const noCtx = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })]).accounts[0]!;
     expect(noCtx.canReconnect).toBe(false);
   });

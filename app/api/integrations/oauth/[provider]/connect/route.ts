@@ -4,6 +4,8 @@ import type { ProviderHint } from "@/contracts/integration";
 import { connect } from "@/services/oauth/dispatcher";
 import { resolveReconnectTarget } from "@/services/integrations/reconnect";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
+import { requireAccountRole } from "@/services/accounts/accountAuthz";
+import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
 
 /**
  * Initiates an OAuth connection for the authenticated user.
@@ -150,6 +152,28 @@ export async function POST(
       );
     }
     accountId = resolved.accountId;
+
+    // APPS-PERM-1: account/service providers (Slack / Stripe / Notion / Shopify /
+    // HubSpot / Mailchimp) are shared org resources — connecting one (or
+    // overwriting the shared credential on re-connect) is an account-management
+    // action, so only an owner/admin may do it. This mirrors the owner/admin gate
+    // disconnect already enforces for these providers; account-provider RECONNECT
+    // is already gated inside the reconnect service. Personal providers stay open
+    // to any member (they connect their OWN identity). Token-ingest connects start
+    // through this same route, so they are covered here too. The callback
+    // re-verifies membership; role is authoritatively gated here at connect-start
+    // (matching the codebase's "gate at route, re-verify membership at callback"
+    // pattern — no per-operation role re-check exists at the callback layer).
+    if (isAccountCredentialProvider(provider)) {
+      const roleCheck = await requireAccountRole(user.id, accountId, [
+        "owner",
+        "admin",
+      ]);
+      if (!roleCheck.ok) {
+        // not_member and forbidden both collapse to 403 — no role/existence oracle.
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+    }
   }
 
   try {

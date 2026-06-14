@@ -30,6 +30,14 @@ jest.mock("@/services/accounts/activeAccount", () => ({
   resolveActiveAccount: (...a: unknown[]) => mockResolveActive(...a),
 }));
 
+// APPS-PERM-1 — the account-provider connect gate. Default to owner/admin OK so
+// the existing plain-connect (slack) case still reaches the dispatcher; the
+// reconnect authz matrix itself lives in the reconnect service test.
+const mockRequireRole = jest.fn();
+jest.mock("@/services/accounts/accountAuthz", () => ({
+  requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
+}));
+
 import { POST } from "@/app/api/integrations/oauth/[provider]/connect/route";
 
 const CALLER = "user-1";
@@ -50,6 +58,7 @@ function reconnectReq(body: unknown, provider = "gmail") {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
 });
 
 it("401 when unauthenticated — neither service nor dispatcher called", async () => {

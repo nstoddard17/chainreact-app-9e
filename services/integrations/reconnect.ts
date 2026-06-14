@@ -13,12 +13,14 @@ import { isAccountCredentialProvider } from "@/core/integrations/credentialShari
  * mode. It answers one question: "may THIS caller reconnect THIS specific
  * integration row, and what identity should the provider sign-in be steered to?"
  *
- * Authorization mirrors the disconnect service's `resolveAndAuthorize` rule
- * (frozen → exact account-scoped row → role/connector gate) so the two
- * per-account credential operations expose EXACTLY the same surface, and every
- * "can't touch it" case collapses to a single `not_found` (no existence /
- * ownership inference for non-members or cross-account ids). Reuses the same
- * repository primitives — no duplicated SQL, no new query.
+ * Authorization shares the disconnect service's frozen → exact account-scoped
+ * row → role/connector shape, so every "can't touch it" case collapses to a
+ * single `not_found` (no existence / ownership inference for non-members or
+ * cross-account ids). Reuses the same repository primitives — no duplicated SQL,
+ * no new query. The one INTENTIONAL difference from disconnect (APPS-PERM-1):
+ * personal-provider reconnect is CONNECTOR-ONLY — owner/admin may disconnect a
+ * member's personal connection for safety but may NOT re-authorize it (only the
+ * identity-holder can). Account/service-provider reconnect stays owner/admin.
  *
  * The dispatcher's callback identity-match is the HARD guarantee that a reconnect
  * only ever refreshes the intended row; this gate is the front-door check that
@@ -91,12 +93,16 @@ export async function resolveReconnectTarget(
     // token ⇒ owner/admin only (mirrors disconnect).
     if (!isOwnerAdmin) return { ok: false, reason: "forbidden" };
   } else {
-    // Personal credential — owner/admin OR the member who connected it. (Only
-    // the connector can actually produce a matching identity at the provider;
-    // the callback match enforces that regardless.)
+    // Personal credential — CONNECTOR ONLY (APPS-PERM-1). Reconnecting re-binds
+    // the connecting human's OWN provider identity; only that person can (and
+    // should) do it. This is an INTENTIONAL asymmetry with disconnect: owner/admin
+    // may DISCONNECT a member's personal connection as a safety action, but they
+    // may NOT reconnect it. (The callback identity-match would block a non-owning
+    // re-auth anyway; authorizing the START for owner/admin would be a misleading
+    // affordance.)
     const isConnector =
       row.connectedByUserId !== null && row.connectedByUserId === input.callerUserId;
-    if (!isOwnerAdmin && !isConnector) return { ok: false, reason: "forbidden" };
+    if (!isConnector) return { ok: false, reason: "forbidden" };
   }
 
   return {
