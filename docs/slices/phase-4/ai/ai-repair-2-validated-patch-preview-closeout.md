@@ -163,3 +163,40 @@ tests and present in the deployed commit).
 **Docs-only. Nothing pushed** from this slice. No source / test / migration / schema / UI
 changed; no `db:push`; no env/flag change; no Hermes; no MCP path; no Apply/save/run. Doc at
 `docs/slices/phase-4/ai/ai-repair-2-validated-patch-preview-closeout.md`.
+
+---
+
+## 11. AI-REPAIR-2D — post-ship hotfix + copy polish (addendum, 2026-06-14)
+
+Two follow-up commits landed on `v2-main` after the §2 arc, both still **preview-only** —
+no Apply, save, run, graph mutation, DB/`db:push`, env, or flag change; no Hermes/MCP.
+
+1. **`54da62a58` — `fix(builder-ai): handle stale/resolved repair preview without a 503`.**
+   **Production smoke (V2-READY-6) surfaced a 503** when "Preview fix" ran against a stale
+   proposal — e.g. the user had already fixed the field the proposal was based on, or the
+   model declined to emit a patch because the remaining issue isn't safely auto-patchable
+   (a user-supplied value or a reconnect). The hotfix turns these into **handled, expected
+   outcomes** instead of a server error: a deterministic `diagnosisHasRepairableIssue(dto)`
+   gate returns a friendly "nothing to preview — run Check again" result with no model call
+   and no charge, and a model decline maps to `NO_SAFE_PATCH` → a friendly **200**. Genuine
+   provider/transport failures (`MODEL_FAILED` / `PARSE_FAILED`) still surface as 503;
+   `GRAPH_UNAVAILABLE` → 500.
+
+2. **`6e0a283bb` — `fix(ai): humanize blocked repair-preview copy`.** Production copy on a
+   **validation-blocked** preview leaked internal identifiers — the raw field KEY (`text`)
+   and the `provider:type` key (`slacksend_channel_message`) — because
+   `MISSING_REQUIRED_FIELD` / `INVALID_CONFIG` fell through `humanizePatchError`'s default
+   passthrough. `previewWorkflowPatchForAI` now resolves the friendly **FieldMeta label** +
+   **node display label** and weaves them in, so the blocked reason reads
+   `Required field "Message" is missing on "Send Channel Message."`. Falls back to generic,
+   key-free copy when a label can't be resolved; secret-shaped field keys never resolve a
+   label; the raw message is retained only as the error `devDetail`. Files:
+   `core/errors/humanizePatchError.ts`, `services/ai/preview/previewWorkflowPatch.ts`
+   (+ tests). Verification: targeted humanizer / preview / repair-preview / route / Builder
+   AI panel suites pass; `npx tsc --noEmit` clean; eslint touched files clean;
+   `npm run lint:structure` green; `npm run lint` 0 errors. Production build NOT run (copy
+   change behind already-shipped surfaces; no push).
+
+**AI-REPAIR-2 remains preview-only** after both follow-ups: no Apply control (not even
+disabled), no save/run/graph mutation, no persistence import. **AI-REPAIR-3 (executable
+apply) stays deferred** pending explicit approval.
