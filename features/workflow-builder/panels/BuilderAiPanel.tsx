@@ -6,7 +6,7 @@ import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
 import { useBuilderAiActions } from "./useBuilderAiActions";
 import { useChatFill } from "./useChatFill";
 import { useChatFillTarget, type ChatFillTarget } from "../ai/useChatFillTarget";
-import { isChatFillEnabled } from "../flags";
+import { shouldRouteChatFill } from "../ai/shouldRouteChatFill";
 
 /**
  * Builder AI assistant panel — React Agent rail chat (Slice 4.AI-21B,
@@ -34,9 +34,9 @@ import { isChatFillEnabled } from "../flags";
 export function BuilderAiPanel() {
   const a = useBuilderAiActions();
 
-  // Slice 4.AI-CONFIG-ASSIST-3 — chat-fill (default OFF via NEXT_PUBLIC flag).
-  // Hooks must run before the early return. When the flag is off (production),
-  // `chatFillActive` is false and the composer behaves exactly as before.
+  // Slice 4.AI-CONFIG-ASSIST-3 / 3B — chat-fill (live, no flag). Hooks must run
+  // before the early return. When no field is highlighted, `chatFillActive` is
+  // false and the composer behaves exactly as before.
   const chatFillTarget = useChatFillTarget();
   // Keep the latest target in a ref so a Confirm click re-validates against the
   // CURRENTLY-highlighted field (a stale proposal can't fill the wrong field).
@@ -46,9 +46,9 @@ export function BuilderAiPanel() {
     appendMessage: a.appendMessage,
     getCurrentTarget: () => targetRef.current,
   });
-  // Route the composer to chat-fill only when: flag on, a field is highlighted,
-  // and we're NOT mid plan-follow-up (a plan awaiting details wins the composer).
-  const chatFillActive = isChatFillEnabled() && chatFillTarget !== null && !a.followUpMode;
+  // Route the composer to chat-fill when a field is highlighted and we're not mid
+  // plan-follow-up. Live by default (no flag).
+  const chatFillActive = shouldRouteChatFill(chatFillTarget, a.followUpMode);
 
   function handleComposerSubmit(): void {
     if (chatFillActive && chatFillTarget) {

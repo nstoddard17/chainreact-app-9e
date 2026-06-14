@@ -137,11 +137,12 @@ interface Props {
   readonly previewing: boolean;
   readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
   /**
-   * Slice 4.AI-CONFIG-ASSIST-3 — chat-fill wiring. `onConfirmFill` writes the
+   * Slice 4.AI-CONFIG-ASSIST-3 / 3B — chat-fill wiring. `onConfirmFill` writes the
    * pending config draft (CS-2) + appends a summary; `onCancelFill` dismisses
    * (no write); both mark the proposal resolved. `resolvedFillIds` disables a
-   * consumed proposal's Confirm/Cancel buttons. Gated by a default-OFF flag at
-   * the panel, so these are no-ops in production until enabled.
+   * consumed proposal's Confirm/Cancel buttons. Only invoked for `chat_fill`
+   * bubbles, which exist only after the user submits a value with a field
+   * highlighted.
    */
   readonly onConfirmFill: (messageId: ChatMessageId, proposal: ChatFillProposal) => void;
   readonly onCancelFill: (messageId: ChatMessageId) => void;
