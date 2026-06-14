@@ -27,7 +27,8 @@ import {
  *     when the refresh response includes a new `refresh_token`, persist
  *     it; otherwise keep the existing one. Same shape as HubSpot.
  *
- * Scopes — exactly the 11 D-MON1 accepted scopes:
+ * Scopes — exactly the 10 D-MON1 accepted scopes (was 11; `assets:write`
+ * dropped because Monday's developer portal exposes no such scope):
  *   - `me:read`        — required for the connect-time `me { id name email }`
  *                        Graph query that resolves `providerAccountId`.
  *   - `boards:read`    — list boards, get board, list groups, list items, get item.
@@ -38,8 +39,10 @@ import {
  *   - `updates:read`   — list_updates (deferred — included so MONDAY-N
  *                        polish doesn't trigger a re-consent flow).
  *   - `updates:write`  — create_update.
- *   - `assets:read`    — file-column reads (deferred — same future-proofing).
- *   - `assets:write`   — file uploads (deferred — same).
+ *   - `assets:read`    — file-column reads + file uploads. Monday has no
+ *                        separate `assets:write` scope (the developer portal
+ *                        doesn't offer one); uploads are authorized by
+ *                        `assets:read` + `boards:write`.
  *   - `webhooks:read`  — required by MONDAY-5's trigger lifecycle (list
  *                        existing webhooks before create_webhook).
  *   - `webhooks:write` — REQUIRED in v1 per D-MON3. MONDAY-5 webhook
@@ -101,7 +104,6 @@ export const mondayManifest: ProviderManifest = ProviderManifestSchema.parse({
       "updates:read",
       "updates:write",
       "assets:read",
-      "assets:write",
       "webhooks:read",
       "webhooks:write",
       "workspaces:read",

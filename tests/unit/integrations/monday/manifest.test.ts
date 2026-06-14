@@ -12,10 +12,12 @@ describe("monday manifest", () => {
     expect(getProvider("monday")).toBe(mondayManifest);
   });
 
-  it("declares exactly the 11 accepted MONDAY-2 scopes", () => {
-    // D-MON1: 11 scopes total. webhooks:write is REQUIRED per D-MON3.
+  it("declares exactly the 10 accepted MONDAY-2 scopes", () => {
+    // D-MON1: 10 scopes total. webhooks:write is REQUIRED per D-MON3.
     // account:read is EXCLUDED — V1's broader choice that nothing in
-    // the planned action / trigger surface needs.
+    // the planned action / trigger surface needs. assets:write is
+    // EXCLUDED — Monday's developer portal exposes no such scope;
+    // uploads are authorized by assets:read + boards:write.
     expect(mondayManifest.scopes.required).toEqual([
       "me:read",
       "boards:read",
@@ -24,7 +26,6 @@ describe("monday manifest", () => {
       "updates:read",
       "updates:write",
       "assets:read",
-      "assets:write",
       "webhooks:read",
       "webhooks:write",
       "workspaces:read",

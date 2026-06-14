@@ -40,7 +40,7 @@ const integration: IntegrationRecord = {
   accessTokenEncrypted: "enc:at",
   refreshTokenEncrypted: "enc:rt",
   accessTokenExpiresAt: null,
-  scopes: ["boards:read", "assets:write"],
+  scopes: ["boards:read", "assets:read"],
   accountMetadata: {},
   disconnectedAt: null,
   createdAt: "2026-05-24T00:00:00Z",
