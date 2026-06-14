@@ -487,3 +487,82 @@ describe("diagnoseWorkflowForAgent — import boundary", () => {
     }
   });
 });
+
+// ─────────────────── CHECK-ACTIONS-3 — persisted reconnect signal + permission ───────────────────
+describe("diagnoseWorkflowForAgent — reconnect health (CHECK-ACTIONS-3)", () => {
+  const cleanReadiness = () =>
+    readinessOk({ runnable: true, readinessError: null, graphIssues: [], fieldGaps: [] });
+
+  it("an otherwise-CONNECTED provider flagged reconnect-needed surfaces a RECONNECT_REQUIRED warning finding", async () => {
+    mockReadiness.mockResolvedValue(cleanReadiness());
+    mockConnections.mockResolvedValue({
+      workflowId: WF,
+      access: "OK",
+      allRequiredConnected: true,
+      providers: [
+        {
+          provider: "slack",
+          name: "Slack",
+          credentialClass: "account",
+          nodeIds: ["n1"],
+          nodeCount: 1,
+          status: "CONNECTED",
+          ready: true,
+          providerEnabled: true,
+          refreshable: true,
+          tokenExpired: false,
+          scopesSatisfied: true,
+          missingScopeCount: 0,
+          reconnectNeeded: true,
+          canReconnect: false,
+        },
+      ],
+    });
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const conn = dto.findings!.find((f) => f.source === "connection")!;
+    expect(conn.code).toBe("RECONNECT_REQUIRED");
+    expect(conn.severity).toBe("warning");
+    expect(conn.reconnectNeeded).toBe(true);
+    expect(conn.canReconnect).toBe(false);
+    // Readiness booleans are NOT changed by the reconnect signal (warning, not blocking).
+    expect(dto.allRequiredConnected).toBe(true);
+  });
+
+  it("a CONNECTED provider with NO reconnect signal still produces no finding", async () => {
+    mockReadiness.mockResolvedValue(cleanReadiness());
+    mockConnections.mockResolvedValue(
+      connectionsOk({ allRequiredConnected: true, providers: [
+        {
+          provider: "slack", name: "Slack", credentialClass: "account", nodeIds: ["n1"], nodeCount: 1,
+          status: "CONNECTED", ready: true, providerEnabled: true, refreshable: true,
+          tokenExpired: false, scopesSatisfied: true, missingScopeCount: 0,
+          reconnectNeeded: false, canReconnect: true,
+        },
+      ] }),
+    );
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.findings!.some((f) => f.source === "connection")).toBe(false);
+  });
+
+  it("a NOT-ready provider threads canReconnect onto its finding", async () => {
+    mockReadiness.mockResolvedValue(cleanReadiness());
+    mockConnections.mockResolvedValue({
+      workflowId: WF,
+      access: "OK",
+      allRequiredConnected: false,
+      providers: [
+        {
+          provider: "slack", name: "Slack", credentialClass: "account", nodeIds: ["n1"], nodeCount: 1,
+          status: "RECONNECT_REQUIRED", ready: false, providerEnabled: true, refreshable: true,
+          tokenExpired: null, scopesSatisfied: true, missingScopeCount: 0,
+          reconnectNeeded: true, canReconnect: false,
+        },
+      ],
+    });
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const conn = dto.findings!.find((f) => f.source === "connection")!;
+    expect(conn.code).toBe("RECONNECT_REQUIRED");
+    expect(conn.canReconnect).toBe(false);
+    expect(conn.reconnectNeeded).toBe(true);
+  });
+});

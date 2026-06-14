@@ -5,7 +5,8 @@ import {
   getByIdForAccountServiceRole,
   type IntegrationRecord,
 } from "@/repositories/integrations";
-import { isMemberServiceRole } from "@/repositories/accountMemberships";
+import { isMemberServiceRole, getRoleServiceRole } from "@/repositories/accountMemberships";
+import type { MembershipRole } from "@/contracts/accounts";
 import { getByIdServiceRole } from "@/repositories/workflows";
 import { credentialSharingForProvider } from "@/core/integrations/credentialSharing";
 import { isNonOauthProvider } from "@/core/integrations/nonOauthProviders";
@@ -63,6 +64,23 @@ export interface IntegrationConnectionDTO {
   readonly missingScopeCount: number;
   /** Only present in the MISSING_SCOPES arm (the gap names, never the full grant). */
   readonly missingScopes?: readonly string[];
+  /**
+   * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal
+   * (`integrations.needs_reconnect_at` IS NOT NULL), surfaced as a BOOLEAN only.
+   * Set when a prior auth-sensitive load classified the credential as
+   * reauth-required. The raw timestamp is never emitted. False when unknown / no row.
+   */
+  readonly reconnectNeeded: boolean;
+  /**
+   * CHECK-ACTIONS-3 — whether THIS subject may (re)connect this credential, derived
+   * deterministically from the V2 credential-sharing rule + the caller's account
+   * role: account/service providers → owner/admin only; personal providers → the
+   * resolved (own/creator-pinned) connector. Boolean only — the role, connector
+   * identity, and provider-account id are never emitted. Lets the UI offer a real
+   * "Reconnect in Apps" action only when it would actually work, and fall back to
+   * guidance-only otherwise (no broken button).
+   */
+  readonly canReconnect: boolean;
 }
 
 /**
@@ -81,6 +99,13 @@ export interface ProviderConnectionInput {
   readonly workflowCreator: WorkflowCreatorContext | null;
   /** Optional: pin a specific integration row (account-scoped). */
   readonly integrationId?: string | null;
+  /**
+   * CHECK-ACTIONS-3 — the caller's account role, pre-resolved by the workflow-wide
+   * composition so the per-provider `canReconnect` for account/service providers
+   * doesn't re-query membership N times. `undefined` → not provided; this function
+   * lazily resolves it (account providers only). `null` → resolved non-member.
+   */
+  readonly callerRole?: MembershipRole | null;
 }
 
 /** Map a `ProviderManifest` → the minimal non-secret facts the derivation needs. */
@@ -107,10 +132,34 @@ function narrowRow(r: IntegrationRecord): ConnectionDiagnosisRow {
   };
 }
 
+/**
+ * CHECK-ACTIONS-3 — deterministic "may this subject (re)connect this credential?"
+ * Reuses the V2 credential-sharing rule + the caller's account role; mirrors the
+ * `resolveReconnectTarget` authorization semantics without a second front-door read.
+ * Boolean only — no role / connector / identity escapes.
+ *   - any precondition (NO_ACCOUNT_ACCESS / NOT_WORKFLOW_OWNER) → false.
+ *   - account/service provider → owner/admin only (shared workspace token).
+ *   - personal provider (no precondition) → true: the row is already resolved to the
+ *     subject's own / creator-pinned connector, and only that human can re-authorize it.
+ */
+function resolveCanReconnect(args: {
+  precondition?: ConnectionPrecondition;
+  sharing: "personal" | "account";
+  callerRole: MembershipRole | null;
+}): boolean {
+  if (args.precondition) return false;
+  if (args.sharing === "account") {
+    return args.callerRole === "owner" || args.callerRole === "admin";
+  }
+  return true;
+}
+
 function buildDto(
   provider: string,
   accountId: string | null,
   d: ReturnType<typeof deriveConnectionDiagnosis>,
+  reconnectNeeded: boolean,
+  canReconnect: boolean,
 ): IntegrationConnectionDTO {
   return {
     ok: d.status === "CONNECTED",
@@ -125,6 +174,8 @@ function buildDto(
     tokenExpired: d.tokenExpired,
     scopesSatisfied: d.scopesSatisfied,
     missingScopeCount: d.missingScopeCount,
+    reconnectNeeded,
+    canReconnect,
     ...(d.status === "MISSING_SCOPES" && { missingScopes: d.missingScopes }),
   };
 }
@@ -140,7 +191,7 @@ export function noAccountAccessDto(
   echoAccountId: string | null,
 ): IntegrationConnectionDTO {
   const d = deriveConnectionDiagnosis(null, null, 0, new Date(), "NO_ACCOUNT_ACCESS");
-  return buildDto(provider, echoAccountId, d);
+  return buildDto(provider, echoAccountId, d, false, false);
 }
 
 /**
@@ -194,6 +245,9 @@ export async function diagnoseProviderConnection(
   // ── Read stored state (service-role) — ONLY when authorized + provider known. ──
   let row: ConnectionDiagnosisRow | null = null;
   let activeConnectionCount = 0;
+  // CHECK-ACTIONS-3 — persisted reconnect-needed signal for the RESOLVED row
+  // (boolean only; the raw `needs_reconnect_at` timestamp never leaves this module).
+  let reconnectNeeded = false;
   if (!precondition && manifest) {
     try {
       if (integrationId) {
@@ -204,6 +258,7 @@ export async function diagnoseProviderConnection(
           row = null;
         } else {
           row = r ? narrowRow(r) : null;
+          reconnectNeeded = r?.needsReconnectAt != null;
         }
         activeConnectionCount = row ? 1 : 0;
       } else {
@@ -214,6 +269,7 @@ export async function diagnoseProviderConnection(
           pinUserId ? { connectedByUserId: pinUserId } : undefined,
         );
         row = r ? narrowRow(r) : null;
+        reconnectNeeded = r?.needsReconnectAt != null;
         if (sharing === "account") {
           // Account-shared: the account-wide active count is meaningful + safe.
           activeConnectionCount = await countActiveByAccountProviderServiceRole(
@@ -240,7 +296,22 @@ export async function diagnoseProviderConnection(
     now,
     precondition,
   );
-  return buildDto(provider, accountId, diagnosis);
+
+  // CHECK-ACTIONS-3 — can THIS subject (re)connect? Account/service providers need
+  // the caller's account role; resolve it lazily only when not pre-supplied and only
+  // when it could matter (account provider, no precondition). Personal providers and
+  // precondition cases never query.
+  let callerRole: MembershipRole | null | undefined = input.callerRole;
+  if (callerRole === undefined && sharing === "account" && !precondition) {
+    callerRole = await getRoleServiceRole(accountId, subjectUserId);
+  }
+  const canReconnect = resolveCanReconnect({
+    precondition,
+    sharing,
+    callerRole: callerRole ?? null,
+  });
+
+  return buildDto(provider, accountId, diagnosis, reconnectNeeded, canReconnect);
 }
 
 // ───────────────────────── workflow-wide composition (2B-4) ─────────────────────────
@@ -267,6 +338,10 @@ export interface WorkflowProviderConnectionEntry {
   readonly missingScopeCount: number;
   /** Only present in the MISSING_SCOPES arm (public required-scope gap names). */
   readonly missingScopes?: readonly string[];
+  /** CHECK-ACTIONS-3 — persisted reconnect-needed health (boolean only; see DTO above). */
+  readonly reconnectNeeded: boolean;
+  /** CHECK-ACTIONS-3 — whether THIS subject may (re)connect this credential (boolean only). */
+  readonly canReconnect: boolean;
 }
 
 export interface WorkflowConnectionsDTO {
@@ -358,6 +433,12 @@ export async function diagnoseWorkflowConnections(input: {
   const grouped = [...groupNodeIdsByProvider(diagnosedNodes).entries()]
     .filter(([provider]) => !isNonOauthProvider(provider));
 
+  // CHECK-ACTIONS-3 — resolve the caller's account role ONCE here and thread it into
+  // every per-provider diagnosis, so `canReconnect` for account/service providers
+  // doesn't re-query membership per provider. The subject is already a confirmed
+  // member (step 3), so a null here would only mean a race; treated as no role.
+  const callerRole = await getRoleServiceRole(workflow.accountId, subjectUserId);
+
   // 5. Diagnose each distinct provider (independent reads → parallel, order kept).
   const diagnoses = await Promise.all(
     grouped.map(([provider]) =>
@@ -366,6 +447,7 @@ export async function diagnoseWorkflowConnections(input: {
         provider,
         accountId: workflow.accountId,
         workflowCreator,
+        callerRole,
       }),
     ),
   );
@@ -385,6 +467,8 @@ export async function diagnoseWorkflowConnections(input: {
       tokenExpired: d.tokenExpired,
       scopesSatisfied: d.scopesSatisfied,
       missingScopeCount: d.missingScopeCount,
+      reconnectNeeded: d.reconnectNeeded,
+      canReconnect: d.canReconnect,
       ...(d.status === "MISSING_SCOPES" && d.missingScopes
         ? { missingScopes: d.missingScopes }
         : {}),

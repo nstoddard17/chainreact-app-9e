@@ -46,6 +46,18 @@ export interface AgentDiagnosisFinding {
   readonly missingFields?: readonly string[];
   readonly missingScopes?: readonly string[];
   readonly credentialClass?: "personal" | "account";
+  /**
+   * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's
+   * credential (boolean only; the server never sends the raw timestamp). Connection
+   * findings only.
+   */
+  readonly reconnectNeeded?: boolean;
+  /**
+   * CHECK-ACTIONS-3 — whether the current user may (re)connect this credential
+   * (boolean only). Connection findings only. `false` → the card shows guidance only,
+   * no button; `true`/absent → the safe Apps action is offered.
+   */
+  readonly canReconnect?: boolean;
 }
 
 export interface AgentLatestRunSummary {

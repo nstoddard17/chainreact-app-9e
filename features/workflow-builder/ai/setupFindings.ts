@@ -97,14 +97,35 @@ export function setupFindingCards(
       (finding.providerName && finding.providerName.length > 0
         ? finding.providerName
         : finding.provider) ?? "This connection";
-    const action: SetupFindingAction | null = RECONNECT_ACTIONABLE_CODES.has(code)
+    const severity: "error" | "warning" = finding.severity === "warning" ? "warning" : "error";
+    const reconnectActionable = RECONNECT_ACTIONABLE_CODES.has(code);
+
+    // CHECK-ACTIONS-3 — when the diagnosis knows the current user CANNOT (re)connect
+    // this credential (`canReconnect === false`: e.g. an account/service provider a
+    // non-owner member can't re-authorize, or someone else's personal connection),
+    // a reconnect-actionable finding becomes guidance-only — no broken Apps button.
+    // When `canReconnect` is true or absent (no signal), behavior is unchanged: the
+    // existing generic Apps action is offered.
+    if (reconnectActionable && finding.canReconnect === false) {
+      out.push({
+        key: `${finding.provider ?? "?"}:${code}`,
+        providerLabel,
+        code,
+        severity,
+        message: `Ask the workflow owner or connection owner to reconnect ${providerLabel}.`,
+        action: null,
+      });
+      continue;
+    }
+
+    const action: SetupFindingAction | null = reconnectActionable
       ? { href: "/apps", label: actionLabel(code, providerLabel) }
       : null;
     out.push({
       key: `${finding.provider ?? "?"}:${code}`,
       providerLabel,
       code,
-      severity: finding.severity === "warning" ? "warning" : "error",
+      severity,
       message: setupMessage(code, providerLabel),
       action,
     });

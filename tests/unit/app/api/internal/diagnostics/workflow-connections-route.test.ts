@@ -20,6 +20,10 @@ jest.mock("@/repositories/workflows", () => ({
 const mockIsMember = jest.fn();
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: (...a: unknown[]) => mockIsMember(...a),
+  // CHECK-ACTIONS-3: the connection diagnosis resolves the caller's role to compute
+  // `canReconnect`. Not asserted here; default to owner so the existing serialization
+  // case is unaffected.
+  getRoleServiceRole: () => Promise.resolve("owner"),
 }));
 
 const mockGetActive = jest.fn();

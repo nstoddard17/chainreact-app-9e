@@ -23,8 +23,10 @@ jest.mock("@/repositories/integrations", () => ({
 }));
 
 const mockIsMember = jest.fn();
+const mockGetRole = jest.fn();
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: (...a: unknown[]) => mockIsMember(...a),
+  getRoleServiceRole: (...a: unknown[]) => mockGetRole(...a),
 }));
 
 const mockGetWorkflow = jest.fn();
@@ -88,6 +90,8 @@ beforeEach(() => {
   mockCountActive.mockResolvedValue(1);
   mockIsMember.mockReset();
   mockIsMember.mockResolvedValue(true);
+  mockGetRole.mockReset();
+  mockGetRole.mockResolvedValue("owner");
   mockGetWorkflow.mockReset();
   mockGetProvider.mockReset();
   mockGetProvider.mockReturnValue(manifest());
@@ -501,5 +505,141 @@ describe("diagnoseProviderConnection — no-leak", () => {
     ]) {
       expect(dto).not.toHaveProperty(key);
     }
+  });
+});
+
+// ─────────────────── CHECK-ACTIONS-3 — reconnect signal + permission ───────────────────
+describe("diagnoseProviderConnection — reconnectNeeded (persisted signal)", () => {
+  it("reconnectNeeded true when the resolved row carries needs_reconnect_at", async () => {
+    mockGetActive.mockResolvedValue(slackRow({ needsReconnectAt: "2026-06-01T00:00:00Z" }));
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    expect(dto.reconnectNeeded).toBe(true);
+    // The raw timestamp is NEVER serialized — boolean only.
+    expect(JSON.stringify(dto)).not.toContain("2026-06-01T00:00:00Z");
+  });
+
+  it("reconnectNeeded false when needs_reconnect_at is null", async () => {
+    mockGetActive.mockResolvedValue(slackRow({ needsReconnectAt: null }));
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    expect(dto.reconnectNeeded).toBe(false);
+  });
+
+  it("reconnectNeeded false on the authz wall (no row read)", async () => {
+    mockIsMember.mockResolvedValue(false);
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    expect(dto.reconnectNeeded).toBe(false);
+  });
+});
+
+describe("diagnoseProviderConnection — canReconnect (permission)", () => {
+  it("account provider + owner role → canReconnect true", async () => {
+    mockGetRole.mockResolvedValue("owner");
+    mockGetActive.mockResolvedValue(slackRow());
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    expect(dto.canReconnect).toBe(true);
+  });
+
+  it("account provider + admin role → canReconnect true", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockGetActive.mockResolvedValue(slackRow());
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    expect(dto.canReconnect).toBe(true);
+  });
+
+  it("account provider + plain member → canReconnect false", async () => {
+    mockGetRole.mockResolvedValue("member");
+    mockGetActive.mockResolvedValue(slackRow());
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    expect(dto.canReconnect).toBe(false);
+  });
+
+  it("personal provider, creator → canReconnect true WITHOUT a role query", async () => {
+    mockGetProvider.mockReturnValue(
+      manifest({ id: "gmail", scopes: { required: [], optional: [], deprecated: [] } }),
+    );
+    mockGetActive.mockResolvedValue(slackRow({ provider: "gmail", connectedByUserId: "u1", scopes: [] }));
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "gmail",
+      accountId: ACCT,
+      workflowCreator: creator({ createdByUserId: "u1" }),
+    });
+    expect(dto.canReconnect).toBe(true);
+    expect(mockGetRole).not.toHaveBeenCalled(); // personal never needs the role
+  });
+
+  it("NOT_WORKFLOW_OWNER → canReconnect false, no role query", async () => {
+    mockGetProvider.mockReturnValue(manifest({ id: "gmail" }));
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "gmail",
+      accountId: ACCT,
+      workflowCreator: creator({ createdByUserId: "creator-42" }),
+    });
+    expect(dto.status).toBe("NOT_WORKFLOW_OWNER");
+    expect(dto.canReconnect).toBe(false);
+    expect(mockGetRole).not.toHaveBeenCalled();
+  });
+
+  it("no-leak — the account role itself never appears in the DTO", async () => {
+    mockGetRole.mockResolvedValue("member");
+    mockGetActive.mockResolvedValue(slackRow());
+    const dto = await diagnoseProviderConnection({
+      subjectUserId: "u1",
+      provider: "slack",
+      accountId: ACCT,
+      workflowCreator: null,
+    });
+    const json = JSON.stringify(dto);
+    expect(json).not.toContain("member");
+    expect(dto).not.toHaveProperty("callerRole");
+  });
+});
+
+describe("diagnoseWorkflowConnections — reconnect signal + permission", () => {
+  it("resolves the caller role ONCE and carries reconnectNeeded + canReconnect per provider", async () => {
+    mockGetRole.mockResolvedValue("member");
+    mockGetWorkflow.mockResolvedValue(workflowRecord([node("n1", "slack")]));
+    mockGetProvider.mockReturnValue(manifest());
+    mockGetActive.mockResolvedValue(slackRow({ needsReconnectAt: "2026-06-01T00:00:00Z" }));
+    const dto = await diagnoseWorkflowConnections({ subjectUserId: "u1", workflowId: "wf-1" });
+    const slack = dto.providers!.find((p) => p.provider === "slack")!;
+    expect(slack.reconnectNeeded).toBe(true);
+    expect(slack.canReconnect).toBe(false); // account provider, plain member
+    // Role fetched once at the workflow level, not per provider.
+    expect(mockGetRole).toHaveBeenCalledTimes(1);
+    expect(mockGetRole).toHaveBeenCalledWith(ACCT, "u1");
+    // Persisted timestamp never leaks.
+    expect(JSON.stringify(dto)).not.toContain("2026-06-01T00:00:00Z");
   });
 });

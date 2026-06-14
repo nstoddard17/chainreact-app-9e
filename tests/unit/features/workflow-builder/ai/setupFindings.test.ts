@@ -113,3 +113,43 @@ describe("setupFindingCards — no-leak + labels", () => {
     expect(setupFindingCards(dx([conn("DISCONNECTED")]))[0]!.severity).toBe("error");
   });
 });
+
+describe("setupFindingCards — CHECK-ACTIONS-3 permission-aware (canReconnect)", () => {
+  it("canReconnect === false on a reconnect-actionable code → guidance only, no action", () => {
+    const [card] = setupFindingCards(dx([conn("RECONNECT_REQUIRED", { canReconnect: false })]));
+    expect(card!.action).toBeNull();
+    expect(card!.message).toBe("Ask the workflow owner or connection owner to reconnect Slack.");
+  });
+
+  it("canReconnect === true → keeps the safe Apps action", () => {
+    const [card] = setupFindingCards(dx([conn("RECONNECT_REQUIRED", { canReconnect: true })]));
+    expect(card!.action).toEqual({ href: "/apps", label: "Reconnect Slack in Apps" });
+  });
+
+  it("canReconnect absent (no signal) → existing generic Apps fallback", () => {
+    const [card] = setupFindingCards(dx([conn("DISCONNECTED")]));
+    expect(card!.action).toEqual({ href: "/apps", label: "Connect Slack in Apps" });
+  });
+
+  it("restricted guidance still uses the provider label, never the raw id/code", () => {
+    const [card] = setupFindingCards(
+      dx([conn("RECONNECT_REQUIRED", { provider: "slack", providerName: "Slack", canReconnect: false })]),
+    );
+    expect(card!.message).toContain("Slack");
+    expect(card!.message).not.toContain("RECONNECT_REQUIRED");
+    expect(card!.message).not.toMatch(/\bs1\b/);
+  });
+
+  it("reconnectNeeded warning that the user CAN act on still offers the Apps action", () => {
+    const [card] = setupFindingCards(
+      dx([conn("RECONNECT_REQUIRED", { severity: "warning", reconnectNeeded: true, canReconnect: true })]),
+    );
+    expect(card!.severity).toBe("warning");
+    expect(card!.action).toEqual({ href: "/apps", label: "Reconnect Slack in Apps" });
+  });
+
+  it("guidance-only codes are unaffected by canReconnect (still no button)", () => {
+    expect(setupFindingCards(dx([conn("NOT_WORKFLOW_OWNER", { canReconnect: false })]))[0]!.action).toBeNull();
+    expect(setupFindingCards(dx([conn("NOT_WORKFLOW_OWNER", { canReconnect: true })]))[0]!.action).toBeNull();
+  });
+});

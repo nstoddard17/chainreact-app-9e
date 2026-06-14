@@ -23,6 +23,10 @@ jest.mock("@/repositories/integrations", () => ({
 const mockIsMember = jest.fn();
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: (...a: unknown[]) => mockIsMember(...a),
+  // CHECK-ACTIONS-3: the connection diagnosis resolves the caller's role to compute
+  // `canReconnect`. Not asserted here; default to owner so the existing status-mapping
+  // and no-leak cases are unaffected.
+  getRoleServiceRole: () => Promise.resolve("owner"),
 }));
 
 const mockGetWorkflowById = jest.fn();

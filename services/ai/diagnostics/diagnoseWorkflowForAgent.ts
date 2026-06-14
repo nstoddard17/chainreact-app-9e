@@ -78,6 +78,18 @@ export interface AgentFinding {
   /** Public required-scope constant names (the gap only). */
   readonly missingScopes?: readonly string[];
   readonly credentialClass?: "personal" | "account";
+  /**
+   * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
+   * provider's resolved credential (boolean only; never the raw timestamp). Present
+   * on connection findings; lets the UI show provider-aware reconnect copy.
+   */
+  readonly reconnectNeeded?: boolean;
+  /**
+   * CHECK-ACTIONS-3 — whether THIS subject may (re)connect the credential (boolean
+   * only). Present on connection findings. `false` → the UI shows guidance only (no
+   * broken button); `true`/absent → the safe Apps action is offered.
+   */
+  readonly canReconnect?: boolean;
 }
 
 /** Stored humanized run classification — the safe, display-ready surface. */
@@ -258,18 +270,28 @@ export async function diagnoseWorkflowForAgent(input: {
     });
   }
   for (const p of connections.providers ?? []) {
-    if (p.ready) continue;
+    // CHECK-ACTIONS-3 — a provider that is otherwise CONNECTED but carries the
+    // persisted reconnect-needed signal is still surfaced (a clock-fresh token can
+    // already be auth-revoked). An unready provider keeps its derived status code; an
+    // otherwise-ready-but-flagged one surfaces as a RECONNECT_REQUIRED warning.
+    const reconnectNeeded = p.reconnectNeeded === true;
+    if (p.ready && !reconnectNeeded) continue;
+    const code = p.ready ? "RECONNECT_REQUIRED" : p.status;
+    const severity: AgentFindingSeverity =
+      code === "TOKEN_EXPIRED" || (p.ready && reconnectNeeded) ? "warning" : "error";
     findings.push({
       source: "connection",
-      code: p.status,
-      severity: p.status === "TOKEN_EXPIRED" ? "warning" : "error",
-      title: connectionTitle(p.status),
+      code,
+      severity,
+      title: connectionTitle(code),
       provider: p.provider,
       providerName: p.name,
       nodeIds: p.nodeIds,
       ...withLabels(p.nodeIds),
       credentialClass: p.credentialClass,
-      ...(p.status === "MISSING_SCOPES" && p.missingScopes
+      ...(reconnectNeeded ? { reconnectNeeded: true } : {}),
+      ...(typeof p.canReconnect === "boolean" ? { canReconnect: p.canReconnect } : {}),
+      ...(code === "MISSING_SCOPES" && p.missingScopes
         ? { missingScopes: p.missingScopes }
         : {}),
     });
