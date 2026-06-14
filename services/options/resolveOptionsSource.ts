@@ -3,6 +3,7 @@ import {
   markNeedsReconnect,
   clearNeedsReconnect,
 } from "@/repositories/integrations";
+import { notifyReconnectNeeded } from "@/services/integrations/reconnectNotification";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { credentialSharingForProvider } from "@/core/integrations/credentialSharing";
 import { resolveEffectiveNodeOwner } from "@/services/teamCredentials/nodeCredentialOwners";
@@ -285,7 +286,17 @@ export async function resolveOptionsSource(
       // PROVIDER_ERROR / 429 / 5xx / network / missing-dependency / disconnected
       // arms. Best-effort; never changes the returned response.
       if (e.code === "PROVIDER_REAUTH_REQUIRED" && integration !== null) {
-        void markNeedsReconnect(integration.id).catch(() => {});
+        // V2-READY-28B: persist the signal, and on a TRUE first-mark transition
+        // (NULL → non-null) send ONE in-app reconnect notification to the
+        // connector. markNeedsReconnect's conditional UPDATE gives the atomic
+        // transition signal, so repeated option failures never re-notify. All
+        // best-effort — never changes the returned response.
+        const failedIntegration = integration;
+        void markNeedsReconnect(failedIntegration.id)
+          .then((firstMark) =>
+            firstMark ? notifyReconnectNeeded(failedIntegration) : undefined,
+          )
+          .catch(() => {});
       }
       return err(source, e.code, e.message, diagnostics);
     }

@@ -28,7 +28,12 @@ export type NotificationType =
   // Slice 4.API-KEYS-AUDIT-1 — API-key create/revoke audit events. Carry only
   // non-secret fields (name + display prefix + ids); never the raw key/hash.
   | "api_key_created"
-  | "api_key_revoked";
+  | "api_key_revoked"
+  // Slice 4.V2-READY-28B — a connection transitioned to "reconnect needed"
+  // (needs_reconnect_at NULL → non-null). Carries only the provider display name
+  // + /apps link; never the provider account id / team id / token / scope / raw
+  // error. See services/integrations/reconnectNotification.ts.
+  | "integration_reconnect_needed";
 export type NotificationSeverity = "warning" | "error";
 
 export interface NotificationRecord {

@@ -221,23 +221,35 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
  * failure and the row id is known (option-source PROVIDER_REAUTH_REQUIRED path).
  * Service-role + keyed by the exact row id (the caller already legitimately
  * resolved that row): a system health write that touches only the failing row,
- * no cross-account exposure. Idempotent re-stamp is fine. Stores ONLY a
- * timestamp — no raw provider error / scope / token. Never throws on caller's
- * behalf is the caller's responsibility (fire-and-forget); this surfaces DB
- * errors so a wrapping `.catch` can swallow them.
+ * no cross-account exposure. Stores ONLY a timestamp — no raw provider error /
+ * scope / token. Never throws on caller's behalf is the caller's responsibility
+ * (fire-and-forget); this surfaces DB errors so a wrapping `.catch` can swallow
+ * them.
+ *
+ * V2-READY-28B — returns whether this call performed a TRUE first-mark
+ * transition (`needs_reconnect_at` was NULL → now non-null). The UPDATE filters
+ * on `needs_reconnect_at IS NULL`, so a row already marked reconnect-needed
+ * matches zero rows and returns `false` — making the op idempotent AND giving
+ * the caller an atomic "did it just transition?" signal to gate the one-shot
+ * reconnect notification (no duplicate notify on repeated option failures). The
+ * row-level lock on the conditional UPDATE serializes concurrent callers, so
+ * exactly one returns `true`.
  */
-export async function markNeedsReconnect(integrationId: string): Promise<void> {
+export async function markNeedsReconnect(integrationId: string): Promise<boolean> {
   const supabase = getServiceRoleClient(
     `integrations: markNeedsReconnect ${integrationId}`,
   );
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("integrations")
     .update({ needs_reconnect_at: new Date().toISOString() })
     .eq("id", integrationId)
-    .is("disconnected_at", null);
+    .is("disconnected_at", null)
+    .is("needs_reconnect_at", null)
+    .select("id");
   if (error) {
     throw new Error(`integrations markNeedsReconnect failed: ${error.message}`);
   }
+  return (data?.length ?? 0) > 0;
 }
 
 /**

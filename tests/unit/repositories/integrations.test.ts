@@ -338,11 +338,14 @@ describe("repositories/integrations — reconnect-needed signal (V2-READY-28)", 
     expect(captured.update).toMatchObject({ needs_reconnect_at: null });
   });
 
-  it("markNeedsReconnect stamps needs_reconnect_at (timestamp) filtered by id + active", async () => {
-    const captured: { update?: Record<string, unknown>; eqArgs: Array<[string, unknown]>; isArgs: Array<[string, unknown]> } = {
-      eqArgs: [],
-      isArgs: [],
-    };
+  // Builds the markNeedsReconnect chain mock: update().eq().is().is().select()
+  // where select() resolves { data, error }. Captures the update payload + filters.
+  function markChainMock(selectResult: { data: unknown; error: unknown }) {
+    const captured: {
+      update?: Record<string, unknown>;
+      eqArgs: Array<[string, unknown]>;
+      isArgs: Array<[string, unknown]>;
+    } = { eqArgs: [], isArgs: [] };
     const fromMock = jest.fn().mockImplementation(() => {
       const b: Record<string, jest.Mock> = {
         update: jest.fn().mockImplementation((row) => {
@@ -355,18 +358,33 @@ describe("repositories/integrations — reconnect-needed signal (V2-READY-28)", 
         }),
         is: jest.fn().mockImplementation((c, v) => {
           captured.isArgs.push([c as string, v]);
-          return Promise.resolve({ error: null });
+          return b;
         }),
+        select: jest.fn().mockResolvedValue(selectResult),
       };
       return b;
     });
+    return { fromMock, captured };
+  }
+
+  it("markNeedsReconnect stamps needs_reconnect_at + filters id/active/IS-NULL and returns TRUE on a first-mark transition", async () => {
+    const { fromMock, captured } = markChainMock({ data: [{ id: "int-1" }], error: null });
     mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
 
-    await markNeedsReconnect("int-1");
+    const result = await markNeedsReconnect("int-1");
 
+    expect(result).toBe(true); // NULL → non-null transition (a row was updated)
     expect(typeof captured.update?.needs_reconnect_at).toBe("string"); // ISO timestamp only
     expect(captured.eqArgs).toContainEqual(["id", "int-1"]);
     expect(captured.isArgs).toContainEqual(["disconnected_at", null]);
+    // Idempotency + transition signal: only updates rows that were NOT already marked.
+    expect(captured.isArgs).toContainEqual(["needs_reconnect_at", null]);
+  });
+
+  it("markNeedsReconnect returns FALSE when the row is already reconnect-needed (idempotent, no duplicate)", async () => {
+    const { fromMock } = markChainMock({ data: [], error: null }); // 0 rows matched IS NULL
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+    await expect(markNeedsReconnect("int-1")).resolves.toBe(false);
   });
 
   it("clearNeedsReconnect sets needs_reconnect_at: null filtered by id", async () => {
@@ -393,14 +411,7 @@ describe("repositories/integrations — reconnect-needed signal (V2-READY-28)", 
   });
 
   it("markNeedsReconnect surfaces a DB error (so the caller's fire-and-forget .catch can swallow it)", async () => {
-    const fromMock = jest.fn().mockImplementation(() => {
-      const b: Record<string, jest.Mock> = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        is: jest.fn().mockResolvedValue({ error: { message: "rls denied" } }),
-      };
-      return b;
-    });
+    const { fromMock } = markChainMock({ data: null, error: { message: "rls denied" } });
     mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
     await expect(markNeedsReconnect("int-1")).rejects.toThrow(/markNeedsReconnect failed/i);
   });

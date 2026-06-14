@@ -22,14 +22,22 @@ jest.mock("@/utils/supabase/server", () => ({
 }));
 
 const mockGetActiveForExecution = jest.fn();
-const mockMarkNeedsReconnect = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockMarkNeedsReconnect = jest.fn((..._args: unknown[]): Promise<boolean> => Promise.resolve(false));
 const mockClearNeedsReconnect = jest.fn((..._args: unknown[]) => Promise.resolve());
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: (...args: unknown[]) =>
     mockGetActiveForExecution(...args),
   // V2-READY-28 — resolveOptionsSource marks/clears the reconnect-needed signal.
+  // markNeedsReconnect returns a boolean (true = first-mark transition, V2-READY-28B).
   markNeedsReconnect: (...args: unknown[]) => mockMarkNeedsReconnect(...args),
   clearNeedsReconnect: (...args: unknown[]) => mockClearNeedsReconnect(...args),
+}));
+
+// V2-READY-28B — resolveOptionsSource fires a one-shot reconnect notification on
+// a true first-mark. Mock the service so the route test doesn't create real rows.
+const mockNotifyReconnectNeeded = jest.fn((..._args: unknown[]) => Promise.resolve());
+jest.mock("@/services/integrations/reconnectNotification", () => ({
+  notifyReconnectNeeded: (...args: unknown[]) => mockNotifyReconnectNeeded(...args),
 }));
 
 // CS-4: the route resolves an ACCEPTED per-node credential owner via
@@ -124,6 +132,10 @@ beforeEach(() => {
   // V2-READY-28 — keep the async default impl, just clear call history.
   mockMarkNeedsReconnect.mockClear();
   mockClearNeedsReconnect.mockClear();
+  // V2-READY-28B — default: not a first-mark transition (no notify) unless a
+  // test opts in with mockResolvedValueOnce(true).
+  mockMarkNeedsReconnect.mockResolvedValue(false);
+  mockNotifyReconnectNeeded.mockClear();
   // Default: delegate to the real registry so the fixture-driven
   // tests don't need to manage the mock.
   mockGetOptionsResolver.mockReset();
@@ -663,6 +675,83 @@ describe("GET /api/options/[source] — reconnect-needed signal (V2-READY-28)", 
     mockGetActiveForExecution.mockResolvedValue(baseRow); // needsReconnectAt: null
     await run();
     expect(mockClearNeedsReconnect).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/options/[source] — reconnect notification (V2-READY-28B)", () => {
+  // Fire-and-forget: the route returns before the mark→notify microtask chain
+  // settles, so flush pending tasks before asserting the notification side-effect.
+  const flush = () => new Promise((r) => setImmediate(r));
+  const row = {
+    id: "int-rc",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
+    provider: "synthetic",
+    providerAccountId: "acct-1",
+    displayName: null,
+    accessTokenEncrypted: "enc",
+    refreshTokenEncrypted: null,
+    accessTokenExpiresAt: null,
+    scopes: [],
+    accountMetadata: {},
+    disconnectedAt: null,
+    needsReconnectAt: null as string | null,
+    createdAt: "2026-05-22T00:00:00Z",
+    updatedAt: "2026-05-22T00:00:00Z",
+  };
+  const reauthResolver: OptionsResolver = {
+    source: "synthetic:integration",
+    provider: "synthetic",
+    requiresIntegration: true,
+    resolve: jest
+      .fn()
+      .mockRejectedValue(new OptionsResolverError("PROVIDER_REAUTH_REQUIRED", "Reconnect needed.")),
+  };
+  function run() {
+    return getOptions(
+      makeReq("http://x/api/options/synthetic:integration"),
+      paramsOf("synthetic:integration"),
+    );
+  }
+
+  it("notifies the connector exactly once on a TRUE first-mark transition", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(reauthResolver);
+    mockGetActiveForExecution.mockResolvedValue(row);
+    mockMarkNeedsReconnect.mockResolvedValueOnce(true); // first-mark transition
+
+    await run();
+    await flush();
+
+    expect(mockNotifyReconnectNeeded).toHaveBeenCalledTimes(1);
+    // The whole integration record is handed to the notifier (it picks the recipient).
+    expect(mockNotifyReconnectNeeded).toHaveBeenCalledWith(row);
+  });
+
+  it("does NOT notify when the row was already reconnect-needed (mark returns false)", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(reauthResolver);
+    mockGetActiveForExecution.mockResolvedValue(row);
+    mockMarkNeedsReconnect.mockResolvedValueOnce(false); // already marked → no duplicate
+
+    await run();
+    await flush();
+
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled();
+  });
+
+  it("does NOT notify on a generic PROVIDER_ERROR (no mark, no notify)", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(
+      { ...reauthResolver, resolve: jest.fn().mockRejectedValue(new OptionsResolverError("PROVIDER_ERROR", "x")) },
+    );
+    mockGetActiveForExecution.mockResolvedValue(row);
+
+    await run();
+    await flush();
+
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled();
   });
 });
 
