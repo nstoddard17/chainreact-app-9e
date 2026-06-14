@@ -270,6 +270,37 @@ describe("Preview fix — blocked + failures render safe copy", () => {
     expect(screen.getByTestId("builder-ai-repair-preview")).not.toBeNull();
   });
 
+  it("NOTHING_TO_PREVIEW (stale proposal — user fixed the field) renders 'run Check again', no 503, button stays retryable", async () => {
+    const user = await suggest();
+    mockPreview.mockResolvedValueOnce({
+      ok: false,
+      code: "NOTHING_TO_PREVIEW",
+      message: "This issue may already be fixed. Run Check workflow again for an up-to-date result.",
+    });
+    await user.click(screen.getByTestId("builder-ai-preview-fix-button"));
+    const msg = await screen.findByTestId("builder-ai-error-message");
+    expect(msg.textContent).toMatch(/already be fixed/i);
+    expect(msg.textContent).toMatch(/run check workflow again/i);
+    // No preview bubble (nothing to preview); button NOT marked "Previewed" → retryable.
+    expect(screen.queryByTestId("builder-ai-repair-preview")).toBeNull();
+    const btn = screen.getByTestId("builder-ai-preview-fix-button");
+    expect(btn).toBeEnabled();
+    expect(btn.textContent).toContain("Preview fix");
+  });
+
+  it("NO_SAFE_PATCH (model declined to auto-patch) renders the safe handled copy, no 503", async () => {
+    const user = await suggest();
+    mockPreview.mockResolvedValueOnce({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message: "The AI couldn't build a safe automatic fix — the remaining issue may need information only you can provide. Run Check workflow again, or fix it manually.",
+    });
+    await user.click(screen.getByTestId("builder-ai-preview-fix-button"));
+    const msg = await screen.findByTestId("builder-ai-error-message");
+    expect(msg.textContent).toMatch(/safe automatic fix/i);
+    expect(screen.getByTestId("builder-ai-preview-fix-button")).toBeEnabled();
+  });
+
   it("AI_CREDITS_EXHAUSTED renders the shared safe credit message (button stays retryable)", async () => {
     const user = await suggest();
     mockPreview.mockResolvedValueOnce({ ok: false, code: "AI_CREDITS_EXHAUSTED", message: "ignored" });

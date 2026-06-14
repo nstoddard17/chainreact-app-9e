@@ -135,10 +135,34 @@ export type PreviewWorkflowRepairResult =
     }
   | {
       ok: false;
-      code: "MODEL_FAILED" | "PARSE_FAILED" | "GRAPH_UNAVAILABLE";
+      /**
+       * AI-REPAIR-2D — `NO_SAFE_PATCH` is a HANDLED, EXPECTED outcome (the model
+       * declined to emit a patch — e.g. the remaining issue needs a user-supplied
+       * value or a reconnect): the route maps it to a friendly 200, NOT a 503.
+       * `MODEL_FAILED` / `PARSE_FAILED` are genuine failures (provider/transport /
+       * unprocessable output) → 503. `GRAPH_UNAVAILABLE` → 500.
+       */
+      code: "MODEL_FAILED" | "PARSE_FAILED" | "GRAPH_UNAVAILABLE" | "NO_SAFE_PATCH";
       message: string;
       model?: RepairModelMeta;
     };
+
+/**
+ * AI-REPAIR-2D — deterministic "is there still something a patch could fix?" gate,
+ * mirroring the UI's `canExplainDiagnosis`. The route re-derives the diagnosis from
+ * the CURRENT draft and calls this BEFORE the model: when it returns false (the
+ * draft is clean/ready — e.g. the user already fixed the field the stale proposal
+ * was based on) there is NOTHING to preview, so the route returns a handled "run
+ * Check again" result with no model call and no charge — never a 503. Decided only
+ * from safe structured DTO fields.
+ */
+export function diagnosisHasRepairableIssue(dto: AgentWorkflowDiagnosisDTO): boolean {
+  if (dto.access !== "OK") return false;
+  if (dto.overallReady === false) return true;
+  if ((dto.findings?.length ?? 0) > 0) return true;
+  if ((dto.nextSteps?.length ?? 0) > 0) return true;
+  return false;
+}
 
 export interface PreviewWorkflowRepairInput {
   /** Re-derived server-side by the route (access==="OK"). Never client-posted. */
@@ -258,6 +282,17 @@ export async function previewWorkflowRepair(
   };
 
   if (!result.ok) {
+    // AI-REPAIR-2D — the model DECLINING to emit the forced tool (no tool call /
+    // empty arguments) is an EXPECTED outcome when the remaining issue isn't safely
+    // auto-patchable (a user-input-required field like a message, or a reconnect).
+    // Surface that as a HANDLED `NO_SAFE_PATCH` (the route returns a friendly 200),
+    // NOT a generic 503. Genuine provider/transport failures (not-configured /
+    // rate-limit / 5xx / timeout / network / bad-input) stay `MODEL_FAILED` → 503.
+    const declined =
+      result.failureCode === "INVALID_RESPONSE" || result.failureCode === "EMPTY_RESPONSE";
+    if (declined) {
+      return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", model };
+    }
     return { ok: false, code: "MODEL_FAILED", message: `The model did not return a repair patch (${result.failureCode}).`, model };
   }
 

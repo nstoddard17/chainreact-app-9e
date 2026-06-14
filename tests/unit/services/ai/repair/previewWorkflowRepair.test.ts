@@ -24,6 +24,7 @@ jest.mock("@/services/ai/preview", () => ({
 }));
 
 import {
+  diagnosisHasRepairableIssue,
   previewWorkflowRepair,
   PROPOSE_WORKFLOW_REPAIR_PATCH_TOOL_NAME,
 } from "@/services/ai/repair/previewWorkflowRepair";
@@ -225,7 +226,7 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     if (!res.ok) expect(res.code).toBe("PARSE_FAILED");
   });
 
-  it("maps a model failure to MODEL_FAILED (never trusts the model)", async () => {
+  it("maps a genuine provider failure (NOT_CONFIGURED) to MODEL_FAILED → route 503 (never trusts the model)", async () => {
     const res = await previewWorkflowRepair({
       dto,
       ...base,
@@ -234,6 +235,44 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.code).toBe("MODEL_FAILED");
     expect(mockPreview).not.toHaveBeenCalled();
+  });
+
+  // AI-REPAIR-2D — the model DECLINING to emit a patch is an EXPECTED outcome
+  // (the remaining issue needs a user-supplied value / reconnect), NOT a 503.
+  it.each(["INVALID_RESPONSE", "EMPTY_RESPONSE"] as const)(
+    "maps a model that declined to patch (%s) to handled NO_SAFE_PATCH, not MODEL_FAILED",
+    async (failureCode) => {
+      const res = await previewWorkflowRepair({
+        dto,
+        ...base,
+        modelClient: clientReturning({ ok: false, modelId: "gpt-4.1-mini", feature: "repair", failureCode, message: "declined" }),
+      });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.code).toBe("NO_SAFE_PATCH");
+      expect(mockPreview).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["RATE_LIMITED", "PROVIDER_ERROR", "TIMEOUT", "NETWORK_ERROR"] as const)(
+    "keeps a genuine provider/transport failure (%s) as MODEL_FAILED",
+    async (failureCode) => {
+      const res = await previewWorkflowRepair({
+        dto,
+        ...base,
+        modelClient: clientReturning({ ok: false, modelId: "gpt-4.1-mini", feature: "repair", failureCode, message: "x" }),
+      });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.code).toBe("MODEL_FAILED");
+    },
+  );
+
+  it("diagnosisHasRepairableIssue: true for an issue diagnosis, false for clean/ready + access walls", () => {
+    expect(diagnosisHasRepairableIssue(dto)).toBe(true); // findings present
+    expect(diagnosisHasRepairableIssue({ workflowId: "w", access: "OK", overallReady: false } as never)).toBe(true);
+    expect(diagnosisHasRepairableIssue({ workflowId: "w", access: "OK", overallReady: true, findings: [], nextSteps: [] } as never)).toBe(false);
+    expect(diagnosisHasRepairableIssue({ workflowId: "w", access: "OK", overallReady: true, findings: [], nextSteps: ["do x"] } as never)).toBe(true);
+    expect(diagnosisHasRepairableIssue({ workflowId: "w", access: "NO_ACCESS" } as never)).toBe(false);
+    expect(diagnosisHasRepairableIssue({ workflowId: "w", access: "NOT_FOUND" } as never)).toBe(false);
   });
 
   it("maps non-JSON model text to PARSE_FAILED (no preview call)", async () => {

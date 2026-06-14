@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { diagnoseWorkflowForAgent } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
 import { parseDraftOverride } from "@/services/ai/diagnostics/draftOverride";
 import {
+  diagnosisHasRepairableIssue,
   previewWorkflowRepair,
   type PreviewWorkflowRepairResult,
   REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
@@ -185,6 +186,19 @@ export async function POST(
     return NextResponse.json(dto);
   }
 
+  // AI-REPAIR-2D — the diagnosis is re-derived from the CURRENT draft. When there's
+  // nothing left to repair (e.g. the user already fixed the field a now-stale
+  // proposal was based on, so the draft is clean/ready), there is NOTHING to
+  // preview. Return a handled "run Check again" result — NO gate, NO model call, NO
+  // charge, and crucially NOT a 503. (Expected state mismatch, not a failure.)
+  if (!diagnosisHasRepairableIssue(dto)) {
+    return NextResponse.json({
+      ok: false,
+      code: "NOTHING_TO_PREVIEW",
+      message: "This issue may already be fixed. Run Check workflow again for an up-to-date result.",
+    });
+  }
+
   // OpenAI must be configured BEFORE we charge — a known-unconfigured state never
   // deducts. Reuse ENABLE_OPENAI_PROVIDER + OPENAI_API_KEY (NOT the planner flag).
   const apiKey = process.env[MODEL_API_KEY_ENV.openai];
@@ -221,7 +235,23 @@ export async function POST(
   await recordPreviewEvent(accountId, auth.userId, id, result);
 
   if (!result.ok) {
+    // AI-REPAIR-2D — `NO_SAFE_PATCH` is a HANDLED, EXPECTED outcome (the model
+    // declined to auto-patch — e.g. the remaining issue needs a value only the user
+    // can supply, or a reconnect). Return a friendly 200, NOT a 503.
+    if (result.code === "NO_SAFE_PATCH") {
+      return NextResponse.json({
+        ok: false,
+        code: "NO_SAFE_PATCH",
+        message:
+          "The AI couldn't build a safe automatic fix — the remaining issue may need information only you can provide. Run Check workflow again, or fix it manually.",
+      });
+    }
+    // GRAPH_UNAVAILABLE → 500; genuine model/parse failure → 503. Log the genuine
+    // failure with a SAFE internal code only (no secrets / model text / config).
     const status = result.code === "GRAPH_UNAVAILABLE" ? 500 : 503;
+    if (status === 503 && typeof console !== "undefined" && typeof console.error === "function") {
+      console.error("[ai/repair/preview] unhandled preview failure", { code: result.code, workflowId: id });
+    }
     return NextResponse.json(
       {
         ok: false,

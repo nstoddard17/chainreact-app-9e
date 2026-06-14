@@ -368,15 +368,39 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("MODEL_FAILED");
-      expect(result.message).toBe("Couldn't suggest a fix right now. Please try again.");
+      expect(result.message).toBe("Couldn't build a repair preview right now. Please try again.");
       expect(result.message).not.toContain("SECRET-INTERNAL");
     }
   });
 
-  it("maps a 500 GRAPH_UNAVAILABLE structured failure safely", async () => {
+  it("maps a 500 GRAPH_UNAVAILABLE structured failure to safe preview copy", async () => {
     mockFetch(jest.fn().mockResolvedValue(jsonResponse(500, { ok: false, code: "GRAPH_UNAVAILABLE", message: "x" })));
     const result = await previewWorkflowRepair("wf-1");
-    expect(result).toEqual({ ok: false, code: "GRAPH_UNAVAILABLE", message: "Couldn't suggest a fix right now. Please try again." });
+    expect(result).toEqual({ ok: false, code: "GRAPH_UNAVAILABLE", message: "Couldn't build a repair preview right now. Please try again." });
+  });
+
+  // AI-REPAIR-2D — the two HANDLED, non-503 states come back as 200 ok:false bodies;
+  // the client maps them to UI-owned, "run Check workflow again" copy (no raw server text).
+  it("maps a 200 NOTHING_TO_PREVIEW to the 'already fixed / run Check again' copy", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(200, { ok: false, code: "NOTHING_TO_PREVIEW", message: "server copy that must not surface" })));
+    const result = await previewWorkflowRepair("wf-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("NOTHING_TO_PREVIEW");
+      expect(result.message).toMatch(/already be fixed/i);
+      expect(result.message).toMatch(/run check workflow again/i);
+      expect(result.message).not.toContain("must not surface");
+    }
+  });
+
+  it("maps a 200 NO_SAFE_PATCH to the 'safe automatic fix / run Check again' copy", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(200, { ok: false, code: "NO_SAFE_PATCH", message: "server copy" })));
+    const result = await previewWorkflowRepair("wf-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("NO_SAFE_PATCH");
+      expect(result.message).toMatch(/safe automatic fix/i);
+    }
   });
 
   it("throws AiApiError for a transport failure with no ok flag (401)", async () => {

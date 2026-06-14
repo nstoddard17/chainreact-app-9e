@@ -273,6 +273,30 @@ export interface RepairPreviewProposalContext {
   readonly recommendedActions?: readonly string[];
 }
 
+/**
+ * Safe, code-keyed, UI-owned copy for a handled repair-PREVIEW failure (never raw
+ * server/model text). AI-REPAIR-2D adds the two HANDLED, non-503 states:
+ *   - `NOTHING_TO_PREVIEW` — the current draft no longer has the issue the (stale)
+ *     proposal was based on; ask the user to re-run Check.
+ *   - `NO_SAFE_PATCH` — the model declined to auto-patch (e.g. a user-input-required
+ *     field or a reconnect); ask the user to re-check or fix manually.
+ */
+function safeRepairPreviewMessage(code: string): string {
+  switch (code) {
+    case "AI_CREDITS_EXHAUSTED":
+      return AI_CREDITS_EXHAUSTED_MESSAGE;
+    case "ACCOUNT_PENDING_DELETION":
+      return "This account is pending deletion.";
+    case "NOTHING_TO_PREVIEW":
+      return "This issue may already be fixed. Run Check workflow again for an up-to-date result.";
+    case "NO_SAFE_PATCH":
+      return "The AI couldn't build a safe automatic fix — the remaining issue may need information only you can provide. Run Check workflow again, or fix it manually.";
+    default:
+      // MODEL_FAILED | PARSE_FAILED | GRAPH_UNAVAILABLE | anything else → one safe line.
+      return "Couldn't build a repair preview right now. Please try again.";
+  }
+}
+
 export async function previewWorkflowRepair(
   workflowId: string,
   draftDefinition?: WorkflowDraftSnapshot,
@@ -287,5 +311,5 @@ export async function previewWorkflowRepair(
   );
   if (result.ok) return result;
   // Normalize handled-failure copy to a safe, code-keyed constant — no raw server text reaches the UI.
-  return { ok: false, code: result.code, message: safeRepairFailureMessage(result.code) };
+  return { ok: false, code: result.code, message: safeRepairPreviewMessage(result.code) };
 }

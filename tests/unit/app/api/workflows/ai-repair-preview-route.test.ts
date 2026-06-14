@@ -24,8 +24,10 @@ jest.mock("@/services/ai/diagnostics/diagnoseWorkflowForAgent", () => ({
 }));
 
 const mockPreviewRepair = jest.fn();
+const mockHasRepairable = jest.fn();
 jest.mock("@/services/ai/repair/previewWorkflowRepair", () => ({
   previewWorkflowRepair: (...a: unknown[]) => mockPreviewRepair(...a),
+  diagnosisHasRepairableIssue: (...a: unknown[]) => mockHasRepairable(...a),
   REPAIR_PREVIEW_NOT_APPLIED_NOTICE: "This is a preview only — your workflow wasn't changed, saved, or run.",
 }));
 
@@ -111,6 +113,8 @@ beforeEach(() => {
   mockDiagnose.mockResolvedValue(okDto);
   mockPreviewRepair.mockReset();
   mockPreviewRepair.mockResolvedValue(previewOk);
+  mockHasRepairable.mockReset();
+  mockHasRepairable.mockReturnValue(true); // default: the re-derived diagnosis still has an issue
   mockGate.mockReset();
   mockGate.mockResolvedValue({ ok: true, skipped: true, reason: "enforcement_disabled" });
   mockRecCompleted.mockReset();
@@ -283,6 +287,37 @@ describe("ai/repair/preview — success + failure + recording", () => {
     expect(res.status).toBe(500);
     expect((await res.json()).code).toBe("GRAPH_UNAVAILABLE");
     expect(mockRecFailed).toHaveBeenCalledTimes(1);
+  });
+
+  // AI-REPAIR-2D — expected stale/resolved/declined states must NOT map to 503.
+  it("NOTHING_TO_PREVIEW: a re-derived diagnosis with nothing to repair → 200 handled, NO gate/model/charge/503", async () => {
+    mockHasRepairable.mockReturnValueOnce(false); // user already fixed the issue the proposal was based on
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "NOTHING_TO_PREVIEW" });
+    expect(body.message).toMatch(/run check workflow again/i);
+    // No charge, no model, no recording — it short-circuits before all of them.
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRecCompleted).not.toHaveBeenCalled();
+    expect(mockRecFailed).not.toHaveBeenCalled();
+  });
+
+  it("NO_SAFE_PATCH (model declined to auto-patch) → 200 handled, NOT a 503", async () => {
+    mockPreviewRepair.mockResolvedValueOnce({ ok: false, code: "NO_SAFE_PATCH", message: "declined", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "NO_SAFE_PATCH" });
+    expect(body.message).toMatch(/safe automatic fix/i);
+  });
+
+  it("a GENUINE MODEL_FAILED still maps to 503 (not collapsed with the handled states)", async () => {
+    mockPreviewRepair.mockResolvedValueOnce({ ok: false, code: "MODEL_FAILED", message: "boom", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
+    const res = await call("wf-1");
+    expect(res.status).toBe(503);
+    expect((await res.json()).code).toBe("MODEL_FAILED");
   });
 
   it("a recording failure NEVER breaks the response (fail-open)", async () => {

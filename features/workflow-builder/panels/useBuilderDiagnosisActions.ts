@@ -246,13 +246,20 @@ export function useBuilderDiagnosisActions({
           return next;
         });
       } else {
-        // Handled ok:false (402 credits / 503 model|gate / 500 graph). The client
-        // already normalized the copy to a safe, code-keyed message — surface it
-        // as-is. Not marked previewed, so the user may retry.
-        const content =
-          res.code === "AI_CREDITS_EXHAUSTED"
-            ? AI_CREDITS_EXHAUSTED_MESSAGE
-            : "Couldn’t build a repair preview right now. Please try again.";
+        // Handled ok:false. AI-REPAIR-2D — NOTHING_TO_PREVIEW / NO_SAFE_PATCH are
+        // EXPECTED, non-503 states (stale/resolved proposal, or the model declined to
+        // auto-patch); surface the client-normalized, UI-owned "run Check again" copy.
+        // For genuine failures (MODEL_FAILED / PARSE_FAILED / unknown) force a generic
+        // line — defense in depth so a raw model/server message can NEVER leak here.
+        // Not marked previewed in any case, so the user can re-Check and retry.
+        let content: string;
+        if (res.code === "AI_CREDITS_EXHAUSTED") {
+          content = AI_CREDITS_EXHAUSTED_MESSAGE;
+        } else if (res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH") {
+          content = res.message;
+        } else {
+          content = "Couldn’t build a repair preview right now. Please try again.";
+        }
         appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
       }
     } catch (err) {
