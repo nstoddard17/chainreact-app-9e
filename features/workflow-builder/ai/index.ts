@@ -65,3 +65,10 @@ export type {
   ChatFillValueResult,
   ChatFillValueReason,
 } from "./chatFillEligibility";
+
+export { prepareChatFill, applyChatFillToDraft } from "./chatFillAction";
+export type {
+  ChatFillInput,
+  ChatFillProposal,
+  ChatFillResult,
+} from "./chatFillAction";
