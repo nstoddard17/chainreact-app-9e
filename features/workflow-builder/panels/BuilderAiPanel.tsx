@@ -1,54 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AiApiError,
-  AI_CREDITS_EXHAUSTED_MESSAGE,
-  clearBuilderAgentThread,
-  diagnoseWorkflow,
-  explainDiagnosis,
-  getBuilderAgentThread,
-  planWorkflowRepair,
-  type CurrentGraphSnapshot,
-  type WorkflowDraftSnapshot,
-} from "@/lib/api/ai";
-import { getWorkflow } from "@/lib/api/workflows";
-import type { RequiredInputAnswer } from "../ai";
-import { useBuilderAi } from "../hooks/useBuilderAi";
-import { useGraphSlice } from "../state/graphSlice";
-import {
-  nextChatMessageId,
-  persistedMessageToChat,
-  type ChatMessage,
-  type ChatMessageId,
-  type UserChatMessage,
-} from "./_BuilderAiPanelChat";
-import {
-  buildApplyFailureSafePayload,
-  buildApplySuccessSafePayload,
-  buildPlanResultSafePayload,
-  persistMessageBestEffort,
-  warnPersistenceFailureForDev,
-} from "./_builderAgentPersistence";
-import {
-  BUILDER_AI_MAX_PROMPT_LENGTH,
-  BuilderAiPanelComposer,
-} from "./_BuilderAiPanelComposer";
+import { BuilderAiPanelComposer } from "./_BuilderAiPanelComposer";
 import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
+import { useBuilderAiActions } from "./useBuilderAiActions";
 
 /**
  * Builder AI assistant panel — React Agent rail chat (Slice 4.AI-21B,
- * component-split in 4.AI-21C).
+ * component-split in 4.AI-21C, orchestration extracted into
+ * `useBuilderAiActions` in 4.AI-REPAIR-CLEANUP-1).
  *
- * Chat layout: messages scroll above a pinned composer footer; user prompts
- * + follow-up answers render as user bubbles, plan results / errors / apply
- * outcomes render as assistant bubbles. The latest assistant plan_result
- * hosts the existing AI-11B / AI-20 assumptions / needs-input / preview /
- * risk-ack / Apply UI verbatim (same testIds — full back-compat); older
- * plan_results collapse to `intentSummary`.
- *
- * AI-21C split the rendering into three siblings to keep this orchestration
- * file under the project's max-lines warning threshold:
+ * This file is now a thin RENDER SHELL: all chat state + the diagnose / explain /
+ * suggest-fix / submit / apply / rerun / clear handlers + the workflow-scoped
+ * thread load effect live in [`useBuilderAiActions`](./useBuilderAiActions.ts).
+ * The panel only wires the hook's returned values into the two presentational
+ * siblings:
  *   - [`_BuilderAiPanelMessageList.tsx`](./_BuilderAiPanelMessageList.tsx) —
  *     scroll container + per-message rendering + auto-scroll.
  *   - [`_BuilderAiPanelComposer.tsx`](./_BuilderAiPanelComposer.tsx) — pinned
@@ -57,569 +22,15 @@ import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
  *     types + bubble wrappers + `PlanResultBody`.
  *
  * Scope guardrail — workflow-builder React Agent only. NOT the general
- * app help assistant.
- *
- * Slice 4.AI-23 — workflow-scoped persistent chat history. On `workflowId`
- * change the panel loads the prior thread from
- * `GET /api/workflows/[id]/ai/thread`, rehydrates each persisted message
- * via `persistedMessageToChat`, and renders them as read-only summaries
- * (historical plan_results never own Apply controls — see
- * `_BuilderAiPanelMessageList.tsx`). New session messages (prompt,
- * follow-up, plan_result, applied, apply_failure, error) are saved via
- * `appendBuilderAgentMessage`; Clear conversation also DELETEs the
- * persisted thread. Persistence is fail-open — an API failure logs at warn
- * but never blocks planning / applying. NO raw proposedPatch / config /
- * secrets are ever persisted (server sanitizer + client allowlist).
- *
- * The follow-up prompt is still sent through `POST /api/workflows/[id]/ai/plan`
- * unchanged. All AI-11B / AI-20 / AI-21 / AI-21B no-leak / apply-readiness /
- * no-auto-apply / strict-schema invariants preserved.
+ * app help assistant. All AI-11B / AI-20 / AI-21 / AI-22 / AI-23 / AI-24 /
+ * AI-25 / AI-26 / AI-DIAG / AI-REPAIR no-leak / apply-readiness / no-auto-apply /
+ * strict-schema invariants are preserved by the hook.
  */
 
 export function BuilderAiPanel() {
-  const workflowId = useGraphSlice((s) => s.workflowId);
-  const hydrate = useGraphSlice((s) => s.hydrate);
-  // AI-24 — the planner needs the CURRENT canvas (pending / unsaved), not
-  // the server-saved `draftDefinition` (which lags after a local delete).
-  // Project the slice's pendingNodes/pendingEdges into a value-free snapshot
-  // and pass it on every plan / follow-up call so the planner never reasons
-  // against stale graph state.
-  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
-  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
-  const [prompt, setPrompt] = useState("");
-  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
-  const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
-  // AI-DIAG-1b — true while a read-only "Check this workflow" diagnosis is in
-  // flight. Independent of the plan/apply state machine (the diagnosis never
-  // mutates graph or hook state); it only gates against starting a SECOND
-  // operation concurrently.
-  const [checking, setChecking] = useState(false);
-  // AI-DIAG-2b — "Explain with AI" state. `explaining` is the in-flight indicator;
-  // `explainedDiagnosisIds` records which diagnosis messages already have an
-  // explanation so a repeat click can't re-charge.
-  const [explaining, setExplaining] = useState(false);
-  const [explainedDiagnosisIds, setExplainedDiagnosisIds] = useState<
-    ReadonlySet<ChatMessageId>
-  >(() => new Set());
-  // AI-REPAIR-1c — "Suggest a fix" state (mirrors Explain). `suggesting` is the
-  // in-flight indicator; `suggestedDiagnosisIds` records which diagnosis messages
-  // already have a repair proposal so a repeat click can't re-charge.
-  const [suggesting, setSuggesting] = useState(false);
-  const [suggestedDiagnosisIds, setSuggestedDiagnosisIds] = useState<
-    ReadonlySet<ChatMessageId>
-  >(() => new Set());
-  // AI-26 — true when the most recent thread-load attempt for the
-  // current workflowId failed. Drives a small non-blocking notice in
-  // `_BuilderAiPanelMessageList` so a silent load failure is no longer
-  // indistinguishable from "no history." Reset on workflowId transition
-  // (the new workflow's load gets a clean slate) and on a successful
-  // subsequent load. Planning / applying / clearing are unaffected.
-  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
-  // AI-24 — value-free projection of the pending canvas for the planner.
-  // provider:type pairs + edges only; NO config, NO position, NO secrets.
-  const currentGraph = useMemo<CurrentGraphSnapshot>(
-    () => ({
-      nodes: pendingNodes.map((n) => ({
-        id: n.id,
-        kind: n.kind,
-        provider: n.provider,
-        type: n.type,
-        // Slice 4.BUILDER-NODE-IDENTITY-1 — the user's custom node name as
-        // read-only context so the planner can refer to nodes by their label.
-        ...(n.displayName !== undefined ? { displayName: n.displayName } : {}),
-      })),
-      edges: pendingEdges.map((e) => ({ id: e.id, from: e.from, to: e.to })),
-    }),
-    [pendingNodes, pendingEdges],
-  );
+  const a = useBuilderAiActions();
 
-  // AI-DIAG-FIX-1 — the FULL current builder draft (nodes WITH config + edges), so
-  // "Check workflow" / Explain / Suggest diagnose what the user SEES on the canvas
-  // (incl. unsaved node edits), not the stale server-saved draftDefinition. The
-  // server strictly validates it and uses it for the deterministic diagnosis only —
-  // it is never persisted, and Check stays 0-credit + no-model.
-  const currentDraft = useMemo<WorkflowDraftSnapshot>(
-    () => ({ nodes: [...pendingNodes], edges: [...pendingEdges] }),
-    [pendingNodes, pendingEdges],
-  );
-
-  // AI-22 — staged required-input answers from the interactive controls.
-  // Keyed by `requiredInputKey(input)` (i.e. `nodeId::field`). Drained
-  // into the structured follow-up on submit; cleared on Clear / Plan-another.
-  const [stagedAnswers, setStagedAnswers] = useState<
-    ReadonlyMap<string, RequiredInputAnswer>
-  >(() => new Map());
-
-  const ai = useBuilderAi({
-    workflowId,
-    onApplied: async () => {
-      if (!workflowId) return;
-      try {
-        const detail = await getWorkflow(workflowId);
-        // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — pass the post-apply revision so
-        // this fresh hydrate wins, and a later stale prop-driven hydrate (older
-        // updatedAt) is ignored by the graphSlice guard.
-        hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
-      } catch {
-        // Best-effort refresh — the apply already succeeded server-side.
-      }
-    },
-  });
-
-  // AI-23 — load persisted thread on workflowId change. Fail-open: a network
-  // / auth failure leaves `messages` empty so the user sees a fresh chat
-  // (with a small non-blocking notice — AI-26).
-  //
-  // AI-26 (fixes AI-AUDIT-1 P0) — the `loadedForWorkflowRef` sentinel is
-  // assigned ONLY after a successful load has committed messages. The
-  // earlier pattern (set-ref-before-await) raced with React Strict Mode's
-  // simulated unmount cleanup: the first effect started a fetch, set the
-  // ref, and was then cancelled by the cleanup; the re-mount effect saw
-  // `ref === workflowId` and early-returned without re-fetching; the
-  // cancelled fetch eventually resolved but skipped `setMessages`. Net
-  // effect in dev: persisted messages silently disappeared on every page
-  // refresh. The fix flips the order so a cancelled or failed load leaves
-  // the ref unchanged, letting the re-mount effect's own fetch be the one
-  // that actually commits.
-  const loadedForWorkflowRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!workflowId) return;
-    if (loadedForWorkflowRef.current === workflowId) return;
-    // Reset stale failure indicator on workflow transition — the previous
-    // workflow's failure shouldn't shadow the new workflow's load.
-    setHistoryLoadFailed(false);
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await getBuilderAgentThread(workflowId);
-        if (cancelled) return;
-        // Late dedup — if a concurrent effect already committed messages
-        // for this workflowId during the await window, don't double-apply.
-        if (loadedForWorkflowRef.current === workflowId) return;
-        const rehydrated = res.messages
-          .map(persistedMessageToChat)
-          .filter((m): m is ChatMessage => m !== null);
-        if (rehydrated.length > 0) setMessages(rehydrated);
-        // Mark loaded only AFTER messages are committed (or confirmed
-        // empty). A cancelled fetch never reaches this line, so the next
-        // effect run is free to re-attempt.
-        loadedForWorkflowRef.current = workflowId;
-      } catch (err) {
-        if (cancelled) return;
-        // Surface a small notice; planning / applying still work. The ref
-        // stays null so a future re-mount can retry without manual code.
-        setHistoryLoadFailed(true);
-        warnPersistenceFailureForDev("Builder Agent thread load failed", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [workflowId]);
-
-  if (!workflowId) return null;
-  // After the guard `workflowId` is known non-null, but TS doesn't propagate
-  // the narrowing into the handler closures below. Capture it into a typed
-  // local so the AI-23 persistence helpers don't need a non-null assertion.
-  const wfId: string = workflowId;
-
-  const trimmed = prompt.trim();
-  const planning = ai.status === "planning";
-  const applying = ai.status === "applying";
-  const busy = planning || applying;
-  const followUpMode = ai.followUpMode;
-  const hasMessages = messages.length > 0;
-
-  // Slice 4.REACT-AGENT-CHAT-QOL-1 — enabled-state for the inline "Send
-  // details" button rendered under the active required-input controls. Mirrors
-  // the composer's own `canSubmit` derivation (staged answers OR composer text,
-  // not too long, not busy) so the inline button and the bottom composer button
-  // agree on when there's something to submit. Both call the SAME `handleSubmit`
-  // path, so there is no second submit route to drift.
-  const tooLong = prompt.length > BUILDER_AI_MAX_PROMPT_LENGTH;
-  const canSubmitDetails =
-    (trimmed.length > 0 || stagedAnswers.size > 0) && !tooLong && !busy;
-
-  function appendMessage(message: ChatMessage): void {
-    setMessages((prev) => [...prev, message]);
-  }
-
-  function handleStagedAnswerChange(
-    key: string,
-    answer: RequiredInputAnswer | undefined,
-  ): void {
-    setStagedAnswers((prev) => {
-      const next = new Map(prev);
-      if (answer === undefined) next.delete(key);
-      else next.set(key, answer);
-      return next;
-    });
-  }
-
-  async function handleSubmit(): Promise<void> {
-    setRiskAcknowledged(false);
-    // AI-22 — gather any staged required-input answers from the interactive
-    // controls. They're cleared synchronously here so the user message bubble
-    // (which renders them as part of its display text) doesn't render twice.
-    // AI-25 — snapshot composer text + staged answers BEFORE clearing so we
-    // can restore both on retryable failure (RATE_LIMITED, PARSE_FAILED,
-    // transport throws — anything where `ai.plan` / `ai.submitFollowUp`
-    // returns null). The user shouldn't lose the structured selections
-    // they just made, or have to retype their answer, to retry.
-    const stagedSnapshot = Array.from(stagedAnswers.values());
-    const hasStagedAnswers = stagedSnapshot.length > 0;
-    const stagedAnswersForRetry = new Map(stagedAnswers);
-    setStagedAnswers(new Map());
-
-    const composerContent = trimmed;
-    // Composer can be empty when the user filled controls only — in that case
-    // a follow-up submission is still valid. A brand-new plan (no chain in
-    // progress) still requires composer text, because there are no controls
-    // to fill yet.
-    if (!composerContent && !(followUpMode && hasStagedAnswers)) return;
-
-    // Build the user-bubble display text. When the user supplied both staged
-    // answers + free-text, both are rendered for transparency. When only
-    // staged answers were supplied, the bubble lists each {label: value}.
-    const userDisplay = buildUserBubbleDisplay(composerContent, stagedSnapshot);
-    const userKind: UserChatMessage["kind"] = followUpMode ? "followup" : "prompt";
-    appendMessage({
-      id: nextChatMessageId(),
-      role: "user",
-      kind: userKind,
-      content: userDisplay,
-    });
-    // AI-25 — snapshot composer text BEFORE the input clears, so a retryable
-    // failure can put it back.
-    const composerForRetry = prompt;
-    setPrompt("");
-    // AI-23 — persist the user message (best effort; never blocks).
-    void persistMessageBestEffort(wfId, {
-      role: "user",
-      kind: userKind,
-      content: userDisplay,
-    });
-
-    const result = followUpMode
-      ? await ai.submitFollowUp(
-          {
-            freeText: composerContent,
-            structuredAnswers: stagedSnapshot,
-          },
-          undefined,
-          { currentGraph },
-        )
-      : await ai.plan(composerContent, undefined, { currentGraph });
-
-    if (result === null) {
-      // AI-25 — retryable failure (RATE_LIMITED / PARSE_FAILED / network /
-      // any ok:false during a follow-up). Restore composer text + staged
-      // required-input answers so the user can click Send again without
-      // re-entering anything. The prior plan_result (with the unanswered
-      // question + controls) remains the latest in chat because the hook
-      // intentionally did NOT overwrite `ai.planResult` with the failure.
-      setPrompt(composerForRetry);
-      if (stagedAnswersForRetry.size > 0) {
-        setStagedAnswers(stagedAnswersForRetry);
-      }
-      const errorContent =
-        "The AI assistant is unavailable right now. Please try again in a moment.";
-      appendMessage({
-        id: nextChatMessageId(),
-        role: "assistant",
-        kind: "error",
-        content: errorContent,
-      });
-      void persistMessageBestEffort(wfId, {
-        role: "assistant",
-        kind: "error",
-        content: errorContent,
-      });
-      return;
-    }
-    appendMessage({
-      id: nextChatMessageId(),
-      role: "assistant",
-      kind: "plan_result",
-      result,
-    });
-    void persistMessageBestEffort(wfId, {
-      role: "assistant",
-      kind: "plan_result",
-      content: result.ok ? result.intentSummary : result.message,
-      safePayload: buildPlanResultSafePayload(result),
-    });
-  }
-
-  async function handleApply(): Promise<void> {
-    const result = await ai.apply();
-    if (result === null) return;
-    if (result.ok) {
-      appendMessage({
-        id: nextChatMessageId(),
-        role: "assistant",
-        kind: "applied",
-        result,
-      });
-      void persistMessageBestEffort(wfId, {
-        role: "assistant",
-        kind: "applied",
-        content: result.summaryText,
-        safePayload: buildApplySuccessSafePayload(result),
-      });
-    } else {
-      appendMessage({
-        id: nextChatMessageId(),
-        role: "assistant",
-        kind: "apply_failure",
-        result,
-      });
-      void persistMessageBestEffort(wfId, {
-        role: "assistant",
-        kind: "apply_failure",
-        content: result.message,
-        safePayload: buildApplyFailureSafePayload(result),
-      });
-    }
-  }
-
-  async function handleRerunPlan(): Promise<void> {
-    // STALE_PATCH recovery — re-plan from the most recent "prompt" user
-    // message in the chat history (not whatever happens to be in the
-    // composer textarea, which has been cleared after submit per the chat
-    // pattern). STALE_PATCH only fires post-apply, after the chain
-    // completed, so the prior user prompt is the right starting point.
-    let originalUserPrompt: string | null = null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i]!;
-      if (m.role === "user" && m.kind === "prompt") {
-        originalUserPrompt = m.content;
-        break;
-      }
-    }
-    if (originalUserPrompt === null) return;
-    setRiskAcknowledged(false);
-    appendMessage({
-      id: nextChatMessageId(),
-      role: "user",
-      kind: "prompt",
-      content: originalUserPrompt,
-    });
-    void persistMessageBestEffort(wfId, {
-      role: "user",
-      kind: "prompt",
-      content: originalUserPrompt,
-    });
-    const result = await ai.plan(originalUserPrompt, undefined, { currentGraph });
-    if (result === null) {
-      const errorContent =
-        "The AI assistant is unavailable right now. Please try again in a moment.";
-      appendMessage({
-        id: nextChatMessageId(),
-        role: "assistant",
-        kind: "error",
-        content: errorContent,
-      });
-      void persistMessageBestEffort(wfId, {
-        role: "assistant",
-        kind: "error",
-        content: errorContent,
-      });
-      return;
-    }
-    appendMessage({
-      id: nextChatMessageId(),
-      role: "assistant",
-      kind: "plan_result",
-      result,
-    });
-    void persistMessageBestEffort(wfId, {
-      role: "assistant",
-      kind: "plan_result",
-      content: result.ok ? result.intentSummary : result.message,
-      safePayload: buildPlanResultSafePayload(result),
-    });
-  }
-
-  async function handleCheckWorkflow(): Promise<void> {
-    // AI-DIAG-1b — read-only diagnosis. Never starts while a plan/apply or a
-    // prior check is running (the button is also disabled in those states).
-    if (busy || checking) return;
-    // Session-local user-gesture marker (kind "action" → NOT a planner prompt,
-    // NOT persisted). The STALE_PATCH re-run scan only picks `prompt` markers.
-    appendMessage({
-      id: nextChatMessageId(),
-      role: "user",
-      kind: "action",
-      content: "Check this workflow",
-    });
-    setChecking(true);
-    try {
-      const diagnosis = await diagnoseWorkflow(wfId, currentDraft);
-      appendMessage({
-        id: nextChatMessageId(),
-        role: "assistant",
-        kind: "diagnosis",
-        diagnosis,
-      });
-    } catch (err) {
-      // Safe, status-mapped copy — never surface internals. 401 is the only
-      // status our read-only route returns besides 200 (access walls come back
-      // as a 200 DTO the DiagnosisBody renders safely).
-      const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to check this workflow."
-          : "Couldn’t check this workflow right now. Please try again.";
-      appendMessage({
-        id: nextChatMessageId(),
-        role: "assistant",
-        kind: "error",
-        content,
-      });
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  async function handleExplainDiagnosis(diagnosisMessageId: ChatMessageId): Promise<void> {
-    // AI-DIAG-2b — explanation-only, EXPLICIT click. Never auto-called. Guard
-    // against concurrent ops and repeat-charge (already explained / in flight).
-    if (busy || checking || explaining) return;
-    if (explainedDiagnosisIds.has(diagnosisMessageId)) return;
-    setExplaining(true);
-    try {
-      const res = await explainDiagnosis(wfId, currentDraft);
-      if (res.ok) {
-        appendMessage({
-          id: nextChatMessageId(),
-          role: "assistant",
-          kind: "diagnosis_explanation",
-          explanation: res.explanation,
-          ...(res.priorities ? { priorities: res.priorities } : {}),
-          ...(res.missingInfo ? { missingInfo: res.missingInfo } : {}),
-        });
-        // Mark this diagnosis explained so a repeat click can't re-charge.
-        setExplainedDiagnosisIds((prev) => {
-          const next = new Set(prev);
-          next.add(diagnosisMessageId);
-          return next;
-        });
-      } else {
-        // Handled ok:false (402 credits / 503 model|gate). Safe copy only — never
-        // the raw code/message. Not marked explained, so the user may retry.
-        const content =
-          res.code === "AI_CREDITS_EXHAUSTED"
-            ? AI_CREDITS_EXHAUSTED_MESSAGE
-            : "Couldn’t generate an explanation right now. Please try again.";
-        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-      }
-    } catch (err) {
-      // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
-      const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t generate an explanation right now. Please try again.";
-      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-    } finally {
-      setExplaining(false);
-    }
-  }
-
-  async function handleSuggestFix(diagnosisMessageId: ChatMessageId): Promise<void> {
-    // AI-REPAIR-1c — proposal-only, EXPLICIT click. Never auto-called. Mirrors the
-    // Explain guards: no concurrent op, no repeat-charge (already suggested / in
-    // flight). Produces a repair-PROPOSAL message — it never applies/saves/runs.
-    if (busy || checking || explaining || suggesting) return;
-    if (suggestedDiagnosisIds.has(diagnosisMessageId)) return;
-    setSuggesting(true);
-    try {
-      const res = await planWorkflowRepair(wfId, currentDraft);
-      if (res.ok) {
-        appendMessage({
-          id: nextChatMessageId(),
-          role: "assistant",
-          kind: "repair_proposal",
-          proposal: res.proposal,
-        });
-        // Mark this diagnosis suggested so a repeat click can't re-charge.
-        setSuggestedDiagnosisIds((prev) => {
-          const next = new Set(prev);
-          next.add(diagnosisMessageId);
-          return next;
-        });
-      } else {
-        // Handled ok:false (402 credits / 503 model|gate). The client already
-        // normalized the copy to a safe, code-keyed message — surface it as-is.
-        // Not marked suggested, so the user may retry.
-        const content =
-          res.code === "AI_CREDITS_EXHAUSTED"
-            ? AI_CREDITS_EXHAUSTED_MESSAGE
-            : "Couldn’t suggest a fix right now. Please try again.";
-        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-      }
-    } catch (err) {
-      // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
-      const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t suggest a fix right now. Please try again.";
-      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-    } finally {
-      setSuggesting(false);
-    }
-  }
-
-  function handleClear(): void {
-    // Clear resets the whole conversation: messages, composer text,
-    // risk-ack, the hook chain state, AND the staged required-input
-    // answers (AI-22). "Plan another change" calls this same handler
-    // post-apply for the same reason.
-    // AI-23 — also DELETE the persisted thread so reopening the
-    // workflow starts fresh. Fail-open: a delete error doesn't block
-    // the local reset.
-    setRiskAcknowledged(false);
-    setMessages([]);
-    setPrompt("");
-    setStagedAnswers(new Map());
-    // AI-DIAG-2b — also reset the explanation state on a full clear.
-    setExplaining(false);
-    setExplainedDiagnosisIds(new Set());
-    // AI-REPAIR-1c — reset the repair-proposal state on a full clear too.
-    setSuggesting(false);
-    setSuggestedDiagnosisIds(new Set());
-    ai.reset();
-    void clearBuilderAgentThread(wfId).catch((err) => {
-      warnPersistenceFailureForDev("Builder Agent thread clear failed", err);
-    });
-  }
-
-  /**
-   * AI-22 — build the user-message bubble's display text from the
-   * composer's free-text + any staged required-input answers. Renders
-   * structured answers as a labeled list under the typed text (or alone
-   * when no free text was provided). Pure presentation — the actual
-   * planner-side prompt is constructed by `composeFollowUpPrompt`.
-   */
-  function buildUserBubbleDisplay(
-    freeText: string,
-    answers: readonly RequiredInputAnswer[],
-  ): string {
-    if (answers.length === 0) return freeText;
-    const lines = answers.map((a) => {
-      const fieldLabel = a.descriptor.fieldLabel ?? a.descriptor.label;
-      return `${fieldLabel}: ${a.display}`;
-    });
-    return freeText.length > 0
-      ? `${freeText}\n\n${lines.join("\n")}`
-      : lines.join("\n");
-  }
+  if (!a.workflowId) return null;
 
   return (
     <section
@@ -629,44 +40,44 @@ export function BuilderAiPanel() {
       style={{ color: "var(--builder-text)" }}
     >
       <BuilderAiPanelMessageList
-        messages={messages}
-        aiError={ai.error}
-        planning={planning}
-        applying={applying}
-        busy={busy}
-        hasMessages={hasMessages}
-        riskAcknowledged={riskAcknowledged}
-        onRiskAcknowledgeChange={setRiskAcknowledged}
-        onApply={handleApply}
-        onRerunPlan={handleRerunPlan}
-        onReset={handleClear}
-        aiStatus={ai.status}
-        stagedAnswers={stagedAnswers}
-        onStagedAnswerChange={handleStagedAnswerChange}
-        historyLoadFailed={historyLoadFailed}
-        checking={checking}
-        onSubmitDetails={handleSubmit}
-        canSubmitDetails={canSubmitDetails}
-        submittingDetails={busy}
-        onExplainDiagnosis={handleExplainDiagnosis}
-        explaining={explaining}
-        explainedDiagnosisIds={explainedDiagnosisIds}
-        onSuggestFix={handleSuggestFix}
-        suggesting={suggesting}
-        suggestedDiagnosisIds={suggestedDiagnosisIds}
+        messages={a.messages}
+        aiError={a.aiError}
+        planning={a.planning}
+        applying={a.applying}
+        busy={a.busy}
+        hasMessages={a.hasMessages}
+        riskAcknowledged={a.riskAcknowledged}
+        onRiskAcknowledgeChange={a.setRiskAcknowledged}
+        onApply={a.handleApply}
+        onRerunPlan={a.handleRerunPlan}
+        onReset={a.handleClear}
+        aiStatus={a.aiStatus}
+        stagedAnswers={a.stagedAnswers}
+        onStagedAnswerChange={a.handleStagedAnswerChange}
+        historyLoadFailed={a.historyLoadFailed}
+        checking={a.checking}
+        onSubmitDetails={a.handleSubmit}
+        canSubmitDetails={a.canSubmitDetails}
+        submittingDetails={a.busy}
+        onExplainDiagnosis={a.handleExplainDiagnosis}
+        explaining={a.explaining}
+        explainedDiagnosisIds={a.explainedDiagnosisIds}
+        onSuggestFix={a.handleSuggestFix}
+        suggesting={a.suggesting}
+        suggestedDiagnosisIds={a.suggestedDiagnosisIds}
       />
       <BuilderAiPanelComposer
-        prompt={prompt}
-        onPromptChange={setPrompt}
-        onSubmit={handleSubmit}
-        onClear={handleClear}
-        followUpMode={followUpMode}
-        planning={planning}
-        busy={busy}
-        hasMessages={hasMessages}
-        hasStagedAnswers={stagedAnswers.size > 0}
-        onCheckWorkflow={handleCheckWorkflow}
-        checking={checking}
+        prompt={a.prompt}
+        onPromptChange={a.setPrompt}
+        onSubmit={a.handleSubmit}
+        onClear={a.handleClear}
+        followUpMode={a.followUpMode}
+        planning={a.planning}
+        busy={a.busy}
+        hasMessages={a.hasMessages}
+        hasStagedAnswers={a.stagedAnswers.size > 0}
+        onCheckWorkflow={a.handleCheckWorkflow}
+        checking={a.checking}
       />
     </section>
   );
