@@ -87,6 +87,7 @@ function mkApp(over: Partial<AppCatalogItem> = {}): AppCatalogItem {
     category: "Communication",
     isConnected: false,
     canConnect: true,
+    restrictedToAdmins: false,
     supportsMultipleAccounts: true,
     accounts: [],
     firstConnectedAt: null,
@@ -419,5 +420,85 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     expect(connectAnother).toHaveLength(1);
     expect(connectAnother[0]).not.toHaveAttribute("data-reconnect-integration-id");
     expect(connectAnother[0]).toHaveAttribute("title", "Add another account");
+  });
+});
+
+describe("AppCard — APPS-PERM-2 admin-required copy", () => {
+  it("member viewing a NOT-connected account provider sees the admin-required copy and NO Connect button", () => {
+    render(
+      <AppCard
+        app={mkApp({ isConnected: false, canConnect: false, restrictedToAdmins: true })}
+        accountId="acc-1"
+      />,
+    );
+    expect(screen.getByTestId("app-card-admin-required")).toHaveTextContent(
+      "Only an owner or admin can connect this app for the team.",
+    );
+    expect(screen.queryByTestId("mock-connect-button")).toBeNull();
+  });
+
+  it("owner/admin viewing the same NOT-connected account provider sees Connect and NO admin copy", () => {
+    render(
+      <AppCard
+        app={mkApp({ isConnected: false, canConnect: true, restrictedToAdmins: false })}
+        accountId="acc-1"
+      />,
+    );
+    expect(screen.queryByTestId("app-card-admin-required")).toBeNull();
+    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute("data-label", "Connect Slack");
+  });
+
+  it("member viewing a CONNECTED account provider sees the manage-restriction copy in the expanded body (no actions)", async () => {
+    const user = userEvent.setup();
+    const app = mkApp({
+      isConnected: true,
+      canConnect: false,
+      restrictedToAdmins: true,
+      accounts: [
+        { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      ],
+      firstConnectedAt: "2026-04-15T12:00:00Z",
+    });
+    render(<AppCard app={app} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    expect(screen.getByTestId("app-card-admin-required")).toHaveTextContent(
+      "Only an owner or admin can reconnect or disconnect this team connection.",
+    );
+    // The action-less state is explained, not silent: no manage buttons render.
+    expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
+    expect(screen.queryByTestId("app-card-disconnect")).toBeNull();
+    const connectAnother = screen
+      .queryAllByTestId("mock-connect-button")
+      .filter((b) => b.getAttribute("data-label") === "Connect another");
+    expect(connectAnother).toHaveLength(0);
+  });
+
+  it("personal provider for a member is NOT restricted — no admin copy, Connect still shows", () => {
+    render(
+      <AppCard
+        app={mkApp({ providerId: "gmail", name: "Gmail", isConnected: false, canConnect: true, restrictedToAdmins: false })}
+        accountId="acc-1"
+      />,
+    );
+    expect(screen.queryByTestId("app-card-admin-required")).toBeNull();
+    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute("data-label", "Connect Gmail");
+  });
+
+  it("NO LEAK: admin-required copy contains no identity / token / scope / provider_account_id", async () => {
+    const user = userEvent.setup();
+    const app = mkApp({
+      isConnected: true,
+      canConnect: false,
+      restrictedToAdmins: true,
+      accounts: [
+        { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      ],
+      firstConnectedAt: "2026-04-15T12:00:00Z",
+    });
+    render(<AppCard app={app} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+    const note = screen.getByTestId("app-card-admin-required").textContent ?? "";
+    expect(note).not.toMatch(/@/); // no email
+    expect(note).not.toMatch(/token|scope|owner_id|provider_account/i);
   });
 });

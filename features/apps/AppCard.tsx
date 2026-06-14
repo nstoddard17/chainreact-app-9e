@@ -140,6 +140,20 @@ export function AppCard({ app, accountId }: Props) {
         </div>
       </div>
 
+      {/* APPS-PERM-2 — when an account/service provider can't be connected by
+          this caller (a non-owner/admin), explain WHY instead of leaving the
+          card blank. Owner/admin and personal providers never see this
+          (restrictedToAdmins is false). Account-provider connect is owner/admin-
+          only per APPS-PERM-1. */}
+      {!app.isConnected && app.restrictedToAdmins && (
+        <p
+          data-testid="app-card-admin-required"
+          className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground"
+        >
+          Only an owner or admin can connect this app for the team.
+        </p>
+      )}
+
       {expanded && canExpand && (
         <div
           id={`app-card-body-${app.providerId}`}
@@ -158,6 +172,20 @@ export function AppCard({ app, accountId }: Props) {
               />
             )}
           </div>
+          {/* APPS-PERM-2 — account/service provider whose connect/reconnect/
+              disconnect controls are all hidden for this caller (a non-owner/
+              admin). Explain the policy so the action-less account list doesn't
+              read as broken. Owner/admin never see this (restrictedToAdmins is
+              false); personal providers are never restricted. */}
+          {app.restrictedToAdmins && (
+            <p
+              data-testid="app-card-admin-required"
+              className="mb-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+            >
+              Only an owner or admin can reconnect or disconnect this team
+              connection.
+            </p>
+          )}
           {disconnectedNotice && (
             <p
               role="status"

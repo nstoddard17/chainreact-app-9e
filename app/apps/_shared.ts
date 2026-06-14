@@ -219,6 +219,12 @@ export function toAppCatalogItem(
     provider.isEnabled && provider.capabilities.oauth,
     ctx,
   );
+  // APPS-PERM-2: an account/service provider that the caller (a non-owner/admin)
+  // can't connect/manage. Drives the explanatory copy so the hidden actions read
+  // as "admin-only", not broken. Boolean only — no role/identity leaves the server.
+  const restrictedToAdmins =
+    isAccountCredentialProvider(provider.id) &&
+    !(ctx?.callerRole === "owner" || ctx?.callerRole === "admin");
   return {
     providerId: provider.id,
     name: provider.displayName,
@@ -227,6 +233,7 @@ export function toAppCatalogItem(
     category: categoryFor(provider.id),
     isConnected,
     canConnect,
+    restrictedToAdmins,
     // Every V2 provider today supports more than one connection (user-scoped
     // tokens for most; multi-workspace OAuth for Slack/Notion/etc.). Kept as
     // a DTO field so we can flip individual providers off without UI churn

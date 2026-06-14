@@ -19,6 +19,7 @@ function mkApp(over: Partial<AppCatalogItem>): AppCatalogItem {
     category: "Communication",
     isConnected: false,
     canConnect: true,
+    restrictedToAdmins: false,
     supportsMultipleAccounts: true,
     accounts: [],
     firstConnectedAt: null,

@@ -82,6 +82,7 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
       "isConnected",
       "name",
       "providerId",
+      "restrictedToAdmins",
       "supportsMultipleAccounts",
     ]);
   });
@@ -297,6 +298,53 @@ describe("toAppCatalogItem — canDisconnect derivation (CD-3)", () => {
     // And with no context, it is false (control never renders).
     const noCtx = toAppCatalogItem(mkProvider({ id: "slack" }), [mkRecord({ provider: "slack" })]).accounts[0]!;
     expect(noCtx.canReconnect).toBe(false);
+  });
+});
+
+describe("APPS-PERM-2 — restrictedToAdmins derivation", () => {
+  const ctx = (role: "owner" | "admin" | "member" | null) => ({
+    callerUserId: "u",
+    callerRole: role,
+  });
+
+  it("account/service provider + member (or no ctx) → true", () => {
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), [], ctx("member")).restrictedToAdmins,
+    ).toBe(true);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "stripe" }), [], ctx("member")).restrictedToAdmins,
+    ).toBe(true);
+    // No ctx → conservative true (account provider, role unknown).
+    expect(toAppCatalogItem(mkProvider({ id: "notion" }), []).restrictedToAdmins).toBe(true);
+  });
+
+  it("account/service provider + owner/admin → false", () => {
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), [], ctx("owner")).restrictedToAdmins,
+    ).toBe(false);
+    expect(
+      toAppCatalogItem(mkProvider({ id: "slack" }), [], ctx("admin")).restrictedToAdmins,
+    ).toBe(false);
+  });
+
+  it("personal provider → always false, even for a plain member", () => {
+    expect(
+      toAppCatalogItem(mkProvider({ id: "gmail" }), [], ctx("member")).restrictedToAdmins,
+    ).toBe(false);
+    expect(toAppCatalogItem(mkProvider({ id: "gmail" }), []).restrictedToAdmins).toBe(false);
+  });
+
+  it("NO LEAK: the flag is a bare boolean — no role / provider class / identity in the item", () => {
+    const item = toAppCatalogItem(
+      mkProvider({ id: "slack" }),
+      [mkRecord({ provider: "slack", connectedByUserId: "member-7" })],
+      ctx("member"),
+    );
+    expect(typeof item.restrictedToAdmins).toBe("boolean");
+    const serialized = JSON.stringify(item);
+    expect(serialized).not.toContain("member-7"); // connector id
+    expect(serialized).not.toContain("callerRole"); // role context key never serialized
+    expect(serialized).not.toContain("callerUserId"); // caller id key never serialized
   });
 });
 

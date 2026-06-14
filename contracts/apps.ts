@@ -95,6 +95,18 @@ export const AppCatalogItemSchema = z.object({
    */
   canConnect: z.boolean(),
   /**
+   * Whether the CURRENT caller is restricted from connecting / managing this app
+   * because it is an account/service provider (Slack/Stripe/Notion/Shopify/
+   * HubSpot/Mailchimp) and they are NOT an owner/admin (APPS-PERM-2). Drives
+   * explanatory UI copy ("Only an owner or admin can connect this app for the
+   * team.") so the page never silently hides the action without a reason. Pure
+   * server-derived UX hint — a single boolean that carries NO role, provider
+   * class, identity, token, scope, or secret. Always `false` for personal
+   * providers and for owner/admin. The connect/reconnect/disconnect routes
+   * re-authorize authoritatively, so this never gates anything by itself.
+   */
+  restrictedToAdmins: z.boolean(),
+  /**
    * Whether the provider's tokens are user-scoped (most providers) — multiple
    * accounts make sense. workspace-scoped providers (Slack, Notion, …) also
    * support multiple workspaces in practice, so this is true for both today.
