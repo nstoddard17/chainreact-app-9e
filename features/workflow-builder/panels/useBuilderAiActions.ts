@@ -448,6 +448,9 @@ export function useBuilderAiActions() {
   return {
     workflowId,
     messages,
+    // AI-CONFIG-ASSIST-3 — exposed so the panel can append chat-fill bubbles
+    // (proposal / summary / blocked) via the same message list.
+    appendMessage,
     aiError: ai.error,
     aiStatus: ai.status,
     planning,

@@ -10,6 +10,7 @@ import type {
   RepairProposal,
 } from "@/lib/api/ai";
 import { AiBulletList, type RequiredInputAnswer } from "../ai";
+import type { ChatFillProposal } from "../ai/chatFillAction";
 import { PlanFailure, PreviewSection } from "./_BuilderAiPanelPreview";
 import { RequiredInputControlsBlock } from "./_BuilderAiPanelRequiredInputs";
 
@@ -152,6 +153,25 @@ export interface AssistantRepairPreviewChatMessage {
   readonly persisted?: boolean;
 }
 
+/**
+ * Slice 4.AI-CONFIG-ASSIST-3 — chat-fill bubble. Session-local only (never
+ * persisted). One discriminated `fill` payload covers the three phases:
+ *   - `proposal` — "Put this in <field> on <node>?" + the exact value + Confirm/Cancel.
+ *   - `summary`  — applied: previous/new value + "Not saved yet" + next step.
+ *   - `blocked`  — safe guidance (ineligible / ambiguous / stale / invalid). Never
+ *     echoes a secret value or a raw key.
+ * NAVIGATION/PENDING-DRAFT ONLY — no save, run, graph mutation, or Apply.
+ */
+export interface AssistantChatFillChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "chat_fill";
+  readonly fill:
+    | { readonly phase: "proposal"; readonly proposal: ChatFillProposal }
+    | { readonly phase: "summary"; readonly proposal: ChatFillProposal }
+    | { readonly phase: "blocked"; readonly message: string };
+}
+
 export type ChatMessage =
   | UserChatMessage
   | AssistantPlanChatMessage
@@ -161,7 +181,8 @@ export type ChatMessage =
   | AssistantDiagnosisChatMessage
   | AssistantDiagnosisExplanationChatMessage
   | AssistantRepairProposalChatMessage
-  | AssistantRepairPreviewChatMessage;
+  | AssistantRepairPreviewChatMessage
+  | AssistantChatFillChatMessage;
 
 let chatMessageIdCounter = 0;
 export function nextChatMessageId(): ChatMessageId {

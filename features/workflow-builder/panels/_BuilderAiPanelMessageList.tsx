@@ -17,6 +17,8 @@ import {
   RepairPreviewBody,
   RepairProposalBody,
 } from "./_BuilderAiPanelDiagnosis";
+import { ChatFillBody } from "./_BuilderAiPanelChatFill";
+import type { ChatFillProposal } from "../ai/chatFillAction";
 
 /**
  * Scrolling message list for the React Agent chat (Slice 4.AI-21C).
@@ -134,6 +136,16 @@ interface Props {
   ) => void;
   readonly previewing: boolean;
   readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
+  /**
+   * Slice 4.AI-CONFIG-ASSIST-3 — chat-fill wiring. `onConfirmFill` writes the
+   * pending config draft (CS-2) + appends a summary; `onCancelFill` dismisses
+   * (no write); both mark the proposal resolved. `resolvedFillIds` disables a
+   * consumed proposal's Confirm/Cancel buttons. Gated by a default-OFF flag at
+   * the panel, so these are no-ops in production until enabled.
+   */
+  readonly onConfirmFill: (messageId: ChatMessageId, proposal: ChatFillProposal) => void;
+  readonly onCancelFill: (messageId: ChatMessageId) => void;
+  readonly resolvedFillIds: ReadonlySet<ChatMessageId>;
 }
 
 export function BuilderAiPanelMessageList({
@@ -165,6 +177,9 @@ export function BuilderAiPanelMessageList({
   onPreviewFix,
   previewing,
   previewedProposalIds,
+  onConfirmFill,
+  onCancelFill,
+  resolvedFillIds,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -353,6 +368,21 @@ export function BuilderAiPanelMessageList({
           return (
             <AssistantBubble key={message.id}>
               <RepairPreviewBody preview={message.preview} />
+            </AssistantBubble>
+          );
+        }
+        if (message.kind === "chat_fill") {
+          const fill = message.fill;
+          return (
+            <AssistantBubble key={message.id}>
+              <ChatFillBody
+                fill={fill}
+                resolved={resolvedFillIds.has(message.id)}
+                onConfirm={() => {
+                  if (fill.phase === "proposal") onConfirmFill(message.id, fill.proposal);
+                }}
+                onCancel={() => onCancelFill(message.id)}
+              />
             </AssistantBubble>
           );
         }

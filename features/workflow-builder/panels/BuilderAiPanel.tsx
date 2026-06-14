@@ -1,8 +1,12 @@
 "use client";
 
+import { useRef } from "react";
 import { BuilderAiPanelComposer } from "./_BuilderAiPanelComposer";
 import { BuilderAiPanelMessageList } from "./_BuilderAiPanelMessageList";
 import { useBuilderAiActions } from "./useBuilderAiActions";
+import { useChatFill } from "./useChatFill";
+import { useChatFillTarget, type ChatFillTarget } from "../ai/useChatFillTarget";
+import { isChatFillEnabled } from "../flags";
 
 /**
  * Builder AI assistant panel — React Agent rail chat (Slice 4.AI-21B,
@@ -29,6 +33,33 @@ import { useBuilderAiActions } from "./useBuilderAiActions";
 
 export function BuilderAiPanel() {
   const a = useBuilderAiActions();
+
+  // Slice 4.AI-CONFIG-ASSIST-3 — chat-fill (default OFF via NEXT_PUBLIC flag).
+  // Hooks must run before the early return. When the flag is off (production),
+  // `chatFillActive` is false and the composer behaves exactly as before.
+  const chatFillTarget = useChatFillTarget();
+  // Keep the latest target in a ref so a Confirm click re-validates against the
+  // CURRENTLY-highlighted field (a stale proposal can't fill the wrong field).
+  const targetRef = useRef<ChatFillTarget | null>(chatFillTarget);
+  targetRef.current = chatFillTarget;
+  const chatFill = useChatFill({
+    appendMessage: a.appendMessage,
+    getCurrentTarget: () => targetRef.current,
+  });
+  // Route the composer to chat-fill only when: flag on, a field is highlighted,
+  // and we're NOT mid plan-follow-up (a plan awaiting details wins the composer).
+  const chatFillActive = isChatFillEnabled() && chatFillTarget !== null && !a.followUpMode;
+
+  function handleComposerSubmit(): void {
+    if (chatFillActive && chatFillTarget) {
+      const raw = a.prompt;
+      if (raw.trim().length === 0) return;
+      chatFill.propose(chatFillTarget, raw);
+      a.setPrompt("");
+      return;
+    }
+    a.handleSubmit();
+  }
 
   if (!a.workflowId) return null;
 
@@ -68,11 +99,14 @@ export function BuilderAiPanel() {
         onPreviewFix={a.handlePreviewFix}
         previewing={a.previewing}
         previewedProposalIds={a.previewedProposalIds}
+        onConfirmFill={chatFill.confirmFill}
+        onCancelFill={chatFill.cancelFill}
+        resolvedFillIds={chatFill.resolvedFillIds}
       />
       <BuilderAiPanelComposer
         prompt={a.prompt}
         onPromptChange={a.setPrompt}
-        onSubmit={a.handleSubmit}
+        onSubmit={handleComposerSubmit}
         onClear={a.handleClear}
         followUpMode={a.followUpMode}
         planning={a.planning}
