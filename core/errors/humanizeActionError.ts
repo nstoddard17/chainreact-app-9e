@@ -39,6 +39,15 @@ export interface ErrorInput {
   details?: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Title used by the generic fallback branch below — the ONLY branch whose
+ * `description` echoes the raw thrown `input.message`. Exported so callers that
+ * sanitize raw text for the client (e.g. run-detail step diagnostics) can detect
+ * this branch and avoid surfacing the raw message. Every other branch's
+ * description is code/details-derived and safe.
+ */
+export const GENERIC_ACTION_ERROR_TITLE = "Workflow step failed";
+
 export function humanizeActionError(input: ErrorInput): HumanizedError {
   const engineHumanized = humanizeEngineCode(input);
   if (engineHumanized) return engineHumanized;
@@ -47,7 +56,7 @@ export function humanizeActionError(input: ErrorInput): HumanizedError {
   if (slackHumanized) return slackHumanized;
 
   return {
-    title: "Workflow step failed",
+    title: GENERIC_ACTION_ERROR_TITLE,
     description: input.message || "An unexpected error occurred.",
     severity: "error",
   };

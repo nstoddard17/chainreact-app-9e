@@ -4,6 +4,10 @@ import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { isMember } from "@/repositories/accountMemberships";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import { redactOutput } from "@/core/security/redactOutput";
+import {
+  humanizeActionError,
+  GENERIC_ACTION_ERROR_TITLE,
+} from "@/core/errors/humanizeActionError";
 import { getActionMeta } from "@/services/discovery/_registry";
 import { getProvider, providerIconUrl } from "@/integrations/_registry";
 import { summarizeDefinition } from "@/core/workflows/definitionSummary";
@@ -512,7 +516,7 @@ export function toWorkflowRunDetail(
       ...(s.output !== undefined
         ? { output: redactStepOutput(s.output, s.nodeId, nodeMetaLookup) }
         : {}),
-      ...(s.error !== undefined ? { error: s.error } : {}),
+      ...(s.error !== undefined ? { error: toSafeStepError(s.error) } : {}),
     })),
     fatalError: record.fatalError,
   };
@@ -536,6 +540,41 @@ function buildNodeMetaLookup(
     out.set(node.id, meta.outputs);
   }
   return out;
+}
+
+/**
+ * V2-READY-2 — sanitize a persisted step error for the CLIENT. The stored step
+ * error message is the RAW thrown text (the engine builds `HANDLER_FAILED` from
+ * `(err as Error).message`), which can carry provider account ids, emails,
+ * tokens, integration ids, account ids, scopes, or raw provider error bodies.
+ * The run-detail endpoint feeds the builder's RunResultsPanel, so we surface only
+ * the stable `code` + a HUMANIZED, identifier-free message — the same humanizer
+ * the run-summary `errorClassification` uses. The raw message stays in the DB
+ * `steps` jsonb for server-side diagnostics and is never returned to the client.
+ * Mirrors the `redactStepOutput` boundary directly below; `details` is dropped
+ * because the only useful detail (MISSING_VARIABLE's `{{path}}`) is already
+ * folded into the humanized description, and details is the other free-form
+ * vector that could carry raw provider data.
+ *
+ * The generic humanizer fallback (`title === GENERIC_ACTION_ERROR_TITLE`) is the
+ * ONE branch whose description echoes the raw message — for it we emit the safe
+ * generic title instead. Every other branch's description is code/details-derived.
+ */
+function toSafeStepError(error: {
+  code: string;
+  message: string;
+  details?: Readonly<Record<string, unknown>>;
+}): { code: string; message: string } {
+  const humanized = humanizeActionError({
+    code: error.code,
+    message: error.message,
+    ...(error.details !== undefined ? { details: error.details } : {}),
+  });
+  const message =
+    humanized.title === GENERIC_ACTION_ERROR_TITLE
+      ? humanized.title
+      : humanized.description;
+  return { code: error.code, message };
 }
 
 function redactStepOutput(

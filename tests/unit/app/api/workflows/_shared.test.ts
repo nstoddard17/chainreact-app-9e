@@ -602,6 +602,100 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     expect(fmtOut.formatted).toBe("ok");
   });
 
+  // ─── V2-READY-2 — step ERROR diagnostics no-leak ──────────────────────────
+  // The stored step error message is the RAW thrown text; the detail endpoint
+  // (builder RunResultsPanel) must surface only a stable code + humanized,
+  // identifier-free message — never providerAccountId / integration id / account
+  // id / token / scope / email / raw provider body.
+  it("V2-READY-2: sanitizes a raw HANDLER_FAILED message — no providerAccountId / account id / email / token leak", () => {
+    const record = makeRecord([
+      {
+        nodeId: "a1",
+        status: "failed",
+        error: {
+          code: "HANDLER_FAILED",
+          message:
+            "Integration action required: refresh_failed (account=acct-secret-99, provider=slack, provider-account=T-LEAK-123, email=bob@corp.com, token=xoxb-9f8a-secret).",
+        },
+      },
+    ]);
+    const detail = toWorkflowRunDetail(record);
+    const stepErr = detail.steps[0]!.error!;
+    expect(stepErr.code).toBe("HANDLER_FAILED");
+    const serialized = JSON.stringify(stepErr);
+    for (const leak of [
+      "acct-secret-99",
+      "T-LEAK-123",
+      "bob@corp.com",
+      "xoxb-9f8a-secret",
+      "provider-account=",
+    ]) {
+      expect(serialized).not.toContain(leak);
+    }
+    // A safe, code-derived message replaces the raw thrown text; details dropped.
+    expect(stepErr.message).toBe("Workflow step failed");
+    expect("details" in stepErr).toBe(false);
+  });
+
+  it("V2-READY-2: humanizes a Slack handler error safely (drops the raw 'chat.postMessage failed' string)", () => {
+    const record = makeRecord([
+      {
+        nodeId: "a1",
+        status: "failed",
+        error: { code: "HANDLER_FAILED", message: "Slack chat.postMessage failed: channel_not_found" },
+      },
+    ]);
+    const stepErr = toWorkflowRunDetail(record).steps[0]!.error!;
+    expect(stepErr.code).toBe("HANDLER_FAILED");
+    expect(stepErr.message).not.toContain("chat.postMessage");
+    expect(stepErr.message.toLowerCase()).toContain("channel");
+  });
+
+  it("V2-READY-2: MISSING_VARIABLE keeps the safe {{path}} in a humanized message and drops raw details", () => {
+    const record = makeRecord([
+      {
+        nodeId: "a1",
+        status: "failed",
+        error: {
+          code: "MISSING_VARIABLE",
+          message: "Missing variable: trigger.unknown",
+          details: { path: "trigger.unknown", reason: "missing_field" },
+        },
+      },
+    ]);
+    const stepErr = toWorkflowRunDetail(record).steps[0]!.error!;
+    expect(stepErr.code).toBe("MISSING_VARIABLE");
+    // The user's own template reference is safe + useful; raw details are dropped.
+    expect(stepErr.message).toContain("trigger.unknown");
+    expect("details" in stepErr).toBe(false);
+  });
+
+  it("V2-READY-2: a raw provider error body (token / email / scope / oauth code) is not surfaced", () => {
+    const record = makeRecord([
+      {
+        nodeId: "a1",
+        status: "failed",
+        error: {
+          code: "HANDLER_FAILED",
+          message:
+            '{"error":"invalid_grant","access_token":"ya29.SECRET","email":"svc@acme.com","scope":"https://www.googleapis.com/auth/gmail.send"}',
+        },
+      },
+    ]);
+    const serialized = JSON.stringify(toWorkflowRunDetail(record).steps[0]!.error);
+    for (const leak of ["ya29.SECRET", "svc@acme.com", "gmail.send", "access_token", "invalid_grant"]) {
+      expect(serialized).not.toContain(leak);
+    }
+  });
+
+  it("V2-READY-2: does NOT mutate the persisted record's step error (raw stays in the DB record)", () => {
+    const original = { code: "HANDLER_FAILED", message: "raw token=xoxb-keep-in-db" };
+    const record = makeRecord([{ nodeId: "a1", status: "failed", error: original }]);
+    toWorkflowRunDetail(record);
+    expect(record.steps[0]!.error).toBe(original);
+    expect(original.message).toBe("raw token=xoxb-keep-in-db");
+  });
+
   // ─── Slice 3.POSTSEC-2 — newly-sensitive arrays/objects redact ────────────
   //
   // Cover the four POSTSEC-2 categories from the audit: a Stripe object
