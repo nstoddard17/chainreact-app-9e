@@ -2,9 +2,27 @@
 
 import { Button } from "@/components/ui/button";
 import type { RepairPreview } from "@/lib/api/ai";
-import { useRepairFieldTarget } from "../ai/useRepairFieldTarget";
+import {
+  useRepairFieldTarget,
+  type RepairFieldTarget,
+} from "../ai/useRepairFieldTarget";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
+
+/**
+ * Slice 4.AI-CONFIG-ASSIST CS-4/CS-5 — the single navigation seam shared by every
+ * "Open <field> field" affordance (diagnosis card + repair proposal). Selects the
+ * node, opens its config rail, pans/zooms the canvas to it (via `useCanvasNodeFocus`),
+ * and highlights the field. NAVIGATION ONLY — never writes a value, saves, runs, or
+ * mutates the graph. After it runs, the highlighted field is what activates chat-fill.
+ */
+function revealFieldTarget(target: RepairFieldTarget): void {
+  useConfigSlice.getState().revealNode({
+    nodeId: target.nodeId,
+    initialValues: target.initialValues,
+    fieldKey: target.fieldKey,
+  });
+}
 
 /**
  * Slice 4.AI-REPAIR-2F — "Go to field" navigation affordance for a blocked
@@ -123,13 +141,7 @@ export function RepairProposalActions({
             type="button"
             size="sm"
             variant="default"
-            onClick={() =>
-              useConfigSlice.getState().revealNode({
-                nodeId: target.nodeId,
-                initialValues: target.initialValues,
-                fieldKey: target.fieldKey,
-              })
-            }
+            onClick={() => revealFieldTarget(target)}
             data-testid="builder-ai-repair-open-field-button"
           >
             Open {target.fieldLabel} field
@@ -152,6 +164,56 @@ export function RepairProposalActions({
       <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
         AI proposes specific changes and shows what would change. Nothing is applied,
         saved, or run.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-CONFIG-ASSIST CS-5 — actionable "Needs your input" affordance rendered
+ * DIRECTLY on the "Check workflow" diagnosis card for a missing required field.
+ *
+ * Product model: Check should produce an actionable issue card whose PRIMARY action
+ * fits the problem type. For a missing user-input field (e.g. Slack "Send Channel
+ * Message" missing Message), that action is "Open <field> field" — the user just
+ * needs to fill it, so they should NOT have to run "Suggest a fix" or "Preview fix"
+ * first. It resolves the diagnosed node's first still-empty required field client-side
+ * (`useRepairFieldTarget`) and reuses the SAME `revealNode` navigation as the blocked-
+ * preview / proposal affordances: select node → open config rail → pan/zoom canvas →
+ * highlight field. Highlighting the field is what then activates chat-fill (CS-3).
+ *
+ * NAVIGATION ONLY — never writes a config value, saves, runs, or mutates the graph;
+ * there is no Apply. Renders nothing when the node isn't on the canvas, its metadata
+ * isn't loaded, or the field is already filled (so a stale/clean card shows no button).
+ * Shows only display LABELS — never the raw node id / field key.
+ */
+export function DiagnosisFieldAction({
+  nodeId,
+}: {
+  /** Internal target node id from the diagnosis (first missing-field finding), or null. */
+  readonly nodeId: string | null;
+}) {
+  const target = useRepairFieldTarget(nodeId);
+  if (!target) return null;
+  return (
+    <div data-testid="builder-ai-diagnosis-open-field" className="flex flex-col gap-1 pt-1">
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+        Needs your input
+      </p>
+      <div>
+        <Button
+          type="button"
+          size="sm"
+          variant="default"
+          onClick={() => revealFieldTarget(target)}
+          data-testid="builder-ai-diagnosis-open-field-button"
+        >
+          Open {target.fieldLabel} field
+        </Button>
+      </div>
+      <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        Opens &ldquo;{target.nodeLabel}&rdquo; and highlights {target.fieldLabel} so you
+        can fill it in — then type the value in chat. Nothing is changed, saved, or run.
       </p>
     </div>
   );

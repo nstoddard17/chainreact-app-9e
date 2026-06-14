@@ -334,9 +334,9 @@ export function BuilderAiPanelMessageList({
           // AI-DIAG-2c / AI-REPAIR-1c — Explain and Suggest-a-fix share ONE gate:
           // the latest diagnosis message that still has real issues. Clean/ready
           // and access walls hide both paid affordances.
+          const isLatestDiagnosis = message.id === latestDiagnosisMessageId;
           const showAffordances =
-            message.id === latestDiagnosisMessageId &&
-            canExplainDiagnosis(message.diagnosis);
+            isLatestDiagnosis && canExplainDiagnosis(message.diagnosis);
           return (
             <AssistantBubble key={message.id}>
               <DiagnosisBody
@@ -349,6 +349,9 @@ export function BuilderAiPanelMessageList({
                 suggesting={suggesting}
                 alreadySuggested={suggestedDiagnosisIds.has(message.id)}
                 onSuggestFix={() => onSuggestFix(message.id)}
+                // CS-5 — surface the direct "Open <field> field" action on the LATEST
+                // check result so a missing-input issue needs neither Suggest nor Preview.
+                goToNodeId={isLatestDiagnosis ? firstMissingFieldNodeId(message.diagnosis) : null}
               />
             </AssistantBubble>
           );

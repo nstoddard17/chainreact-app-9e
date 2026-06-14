@@ -2,7 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, RepairProposal } from "@/lib/api/ai";
-import { RepairPreviewGoToTarget, RepairProposalActions } from "./_BuilderAiPanelRepairGoTo";
+import {
+  DiagnosisFieldAction,
+  RepairPreviewGoToTarget,
+  RepairProposalActions,
+} from "./_BuilderAiPanelRepairGoTo";
 
 /**
  * Slice 4.AI-REPAIR-1c — immutable, UI-OWNED "nothing changed" notice for a
@@ -44,6 +48,7 @@ export function DiagnosisBody({
   suggesting = false,
   alreadySuggested = false,
   onSuggestFix,
+  goToNodeId = null,
 }: {
   readonly diagnosis: AgentWorkflowDiagnosis;
   /**
@@ -71,6 +76,13 @@ export function DiagnosisBody({
   readonly alreadySuggested?: boolean;
   /** Explicit-click handler (never auto-called). */
   readonly onSuggestFix?: () => void;
+  /**
+   * Slice 4.AI-CONFIG-ASSIST CS-5 — internal node id of the FIRST diagnosed missing
+   * required field (set by the list only for the LATEST diagnosis). When present, the
+   * card surfaces a direct "Open <field> field" PRIMARY action so a missing-input
+   * issue needs neither Suggest nor Preview. Null → no field action.
+   */
+  readonly goToNodeId?: string | null;
 }) {
   if (diagnosis.access !== "OK") {
     const msg =
@@ -124,6 +136,10 @@ export function DiagnosisBody({
           </ul>
         </div>
       )}
+      {/* CS-5 — PRIMARY action for a missing user-input field: open + highlight it
+          directly from the check result (no Suggest / Preview required). Renders
+          nothing when the issue isn't a single targetable field. */}
+      <DiagnosisFieldAction nodeId={goToNodeId} />
       {canExplain && (
         <div data-testid="builder-ai-diagnosis-explain" className="flex flex-col gap-1 pt-1">
           <div>
