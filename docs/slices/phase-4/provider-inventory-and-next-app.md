@@ -4,7 +4,7 @@
 **Date:** 2026-06-14
 **Branch:** `v2-main`
 **Companion:** [adding-a-new-provider.md](../../runbooks/adding-a-new-provider.md) (the playbook a build must follow) ·
-[apps-permissions-matrix-closeout.md](./apps-permissions-matrix-closeout.md) (permission model the new provider inherits).
+[apps-permissions-matrix-closeout.md](./providers/apps-permissions-matrix-closeout.md) (permission model the new provider inherits).
 
 > **Headline:** the existing provider catalog is **mature** — all **25** registry
 > providers are enabled, classified, OAuth/token-ingest registered, Apps-page

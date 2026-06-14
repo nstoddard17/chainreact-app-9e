@@ -4,9 +4,9 @@
 **Date:** 2026-06-14
 **Branch:** `v2-main`
 **Arc:** APPS-PERM-1 → APPS-PERM-2 → APPS-PERM-3 (this doc).
-**Related:** [workflow-run-edit-permission-closeout.md](./workflow-run-edit-permission-closeout.md)
+**Related:** [workflow-run-edit-permission-closeout.md](../workflow-run-edit-permission-closeout.md)
 (the run/edit "duplicate to use your own connection" gate) ·
-[explicit-private-connection-sharing-closeout.md](./explicit-private-connection-sharing-closeout.md)
+[explicit-private-connection-sharing-closeout.md](../explicit-private-connection-sharing-closeout.md)
 (CONN-SHARE share/unshare).
 
 > **STATUS: ARC COMPLETE — matrix locked, backend/DTO/UI verified consistent.**
@@ -46,7 +46,7 @@
 ## 3. Final permissions matrix
 
 **Provider classes** — the single source of truth is
-[core/integrations/credentialSharing.ts:47-78](../../../core/integrations/credentialSharing.ts).
+[core/integrations/credentialSharing.ts:47-78](../../../../core/integrations/credentialSharing.ts).
 Unknown providers default to **personal** (fail-safe).
 
 - **Account/service** (shared org resource): `slack`, `notion`, `stripe`, `shopify`,
@@ -89,13 +89,13 @@ Unknown providers default to **personal** (fail-safe).
 
 | Action | Backend (authoritative) | DTO flag | UI surface |
 |---|---|---|---|
-| Connect / Connect-another | [connect/route.ts](../../../app/api/integrations/oauth/[provider]/connect/route.ts) — `requireAccountRole(['owner','admin'])` for account providers in the non-reconnect branch | `canConnect` ([_shared.ts](../../../app/apps/_shared.ts) `computeCanConnect`) | [AppCard.tsx](../../../features/apps/AppCard.tsx) top-level **Connect** + expanded **Connect another**, both keyed on `canConnect`; `restrictedToAdmins` note when hidden |
-| Reconnect | [reconnect.ts:89-100](../../../services/integrations/reconnect.ts) — account ⇒ owner/admin; personal ⇒ connector-only | `canReconnect` (`computeCanReconnect`) | per-row **Reconnect** keyed on `canReconnect` |
-| Disconnect | [disconnect.ts:121-129](../../../services/integrations/disconnect.ts) — account ⇒ owner/admin; personal ⇒ owner/admin OR connector | `canDisconnect` (`computeCanDisconnect`) | per-row **Disconnect** keyed on `canDisconnect` |
-| Share | [connectionSharing.ts:115-117](../../../services/integrations/connectionSharing.ts) — connector only | `canShare` | `app-card-share` |
-| Unshare | [connectionSharing.ts:118-121](../../../services/integrations/connectionSharing.ts) — connector OR owner/admin (distinct `admin_unshared` audit) | `canUnshare` | `app-card-unshare` |
-| View connected rows | account-scoped list ([page.tsx](../../../app/apps/page.tsx) + [_shared.ts](../../../app/apps/_shared.ts)) | safe row fields only | expanded accounts list |
-| Duplicate / use-own-connection | **near workflows, not Apps** — `403 WORKFLOW_USES_PRIVATE_CREDENTIAL` ([app/api/workflows/_shared.ts:434](../../../app/api/workflows/_shared.ts)) | `usesPrivateCredential` / `viewerCanRunEdit` | `PrivateConnectionBadge` / `HeaderRunControls` (closed out separately) |
+| Connect / Connect-another | [connect/route.ts](../../../../app/api/integrations/oauth/[provider]/connect/route.ts) — `requireAccountRole(['owner','admin'])` for account providers in the non-reconnect branch | `canConnect` ([_shared.ts](../../../../app/apps/_shared.ts) `computeCanConnect`) | [AppCard.tsx](../../../../features/apps/AppCard.tsx) top-level **Connect** + expanded **Connect another**, both keyed on `canConnect`; `restrictedToAdmins` note when hidden |
+| Reconnect | [reconnect.ts:89-100](../../../../services/integrations/reconnect.ts) — account ⇒ owner/admin; personal ⇒ connector-only | `canReconnect` (`computeCanReconnect`) | per-row **Reconnect** keyed on `canReconnect` |
+| Disconnect | [disconnect.ts:121-129](../../../../services/integrations/disconnect.ts) — account ⇒ owner/admin; personal ⇒ owner/admin OR connector | `canDisconnect` (`computeCanDisconnect`) | per-row **Disconnect** keyed on `canDisconnect` |
+| Share | [connectionSharing.ts:115-117](../../../../services/integrations/connectionSharing.ts) — connector only | `canShare` | `app-card-share` |
+| Unshare | [connectionSharing.ts:118-121](../../../../services/integrations/connectionSharing.ts) — connector OR owner/admin (distinct `admin_unshared` audit) | `canUnshare` | `app-card-unshare` |
+| View connected rows | account-scoped list ([page.tsx](../../../../app/apps/page.tsx) + [_shared.ts](../../../../app/apps/_shared.ts)) | safe row fields only | expanded accounts list |
+| Duplicate / use-own-connection | **near workflows, not Apps** — `403 WORKFLOW_USES_PRIVATE_CREDENTIAL` ([app/api/workflows/_shared.ts:434](../../../../app/api/workflows/_shared.ts)) | `usesPrivateCredential` / `viewerCanRunEdit` | `PrivateConnectionBadge` / `HeaderRunControls` (closed out separately) |
 
 The DTO mirror functions (`computeCanConnect` / `computeCanReconnect` /
 `computeCanDisconnect` / `computeSharingFields` / `restrictedToAdmins`) re-derive the
@@ -185,12 +185,12 @@ re-authorize authoritatively, so a stale `true` can never bypass anything.
 | Build | `npm run build` | **Not run this session** — docs-only slice, no source/UI/import change. (Last run green in APPS-PERM-2.) |
 
 Coverage map (existing suites that pin the matrix — not duplicated by this slice):
-- Route gate: [connect-route-account-binding.test.ts](../../../tests/unit/app/api/integrations/oauth/connect-route-account-binding.test.ts), [connect-route-reconnect.test.ts](../../../tests/unit/app/api/integrations/oauth/connect-route-reconnect.test.ts).
-- Reconnect authz: [reconnect.test.ts](../../../tests/unit/services/integrations/reconnect.test.ts).
-- Disconnect authz: [disconnect.test.ts](../../../tests/unit/services/integrations/disconnect.test.ts) + integration-disconnect.route.test.ts.
-- Share/unshare: [connectionSharing.test.ts](../../../tests/unit/services/integrations/connectionSharing.test.ts) + integration-sharing.route.test.ts.
-- DTO matrix: [_shared.test.ts](../../../tests/unit/app/apps/_shared.test.ts) (`canConnect`/`canReconnect`/`canDisconnect`/`restrictedToAdmins`/sharing/no-leak/exact key-list).
-- UI: [AppCard.test.tsx](../../../tests/unit/features/apps/AppCard.test.tsx) + AppsDashboard/AppsStatCards.
+- Route gate: [connect-route-account-binding.test.ts](../../../../tests/unit/app/api/integrations/oauth/connect-route-account-binding.test.ts), [connect-route-reconnect.test.ts](../../../../tests/unit/app/api/integrations/oauth/connect-route-reconnect.test.ts).
+- Reconnect authz: [reconnect.test.ts](../../../../tests/unit/services/integrations/reconnect.test.ts).
+- Disconnect authz: [disconnect.test.ts](../../../../tests/unit/services/integrations/disconnect.test.ts) + integration-disconnect.route.test.ts.
+- Share/unshare: [connectionSharing.test.ts](../../../../tests/unit/services/integrations/connectionSharing.test.ts) + integration-sharing.route.test.ts.
+- DTO matrix: [_shared.test.ts](../../../../tests/unit/app/apps/_shared.test.ts) (`canConnect`/`canReconnect`/`canDisconnect`/`restrictedToAdmins`/sharing/no-leak/exact key-list).
+- UI: [AppCard.test.tsx](../../../../tests/unit/features/apps/AppCard.test.tsx) + AppsDashboard/AppsStatCards.
 - Provider classification coverage: every registered provider deliberately classified (credentialSharing coverage test).
 
 No new tests were added — the matrix is already covered cell-by-cell across the suites

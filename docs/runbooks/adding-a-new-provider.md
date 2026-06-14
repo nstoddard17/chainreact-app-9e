@@ -15,7 +15,7 @@
 > [`docs/rules/testing-strategy.md`](../rules/testing-strategy.md).
 > For the **permission model** a new provider inherits (who can connect / reconnect /
 > disconnect / share by role and credential class), see §4.8 and
-> [`docs/slices/phase-4/apps-permissions-matrix-closeout.md`](../slices/phase-4/apps-permissions-matrix-closeout.md).
+> [`docs/slices/phase-4/apps-permissions-matrix-closeout.md`](../slices/phase-4/providers/apps-permissions-matrix-closeout.md).
 
 ---
 
@@ -983,7 +983,7 @@ booleans, and UI copy — falls out automatically. Get it wrong and a member can
 either be wrongly locked out of their own personal app, or wrongly able to
 overwrite a shared org credential.
 
-Canonical matrix + audit: [`docs/slices/phase-4/apps-permissions-matrix-closeout.md`](../slices/phase-4/apps-permissions-matrix-closeout.md).
+Canonical matrix + audit: [`docs/slices/phase-4/apps-permissions-matrix-closeout.md`](../slices/phase-4/providers/apps-permissions-matrix-closeout.md).
 
 #### 4.8.1 Classify the provider (you MUST do this)
 
