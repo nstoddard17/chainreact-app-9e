@@ -251,6 +251,11 @@ describe("slackChannelsResolver — error sanitization", () => {
     "account_inactive",
     "missing_scope",
     "not_authed",
+    // V2-READY-26 — transport-level auth failures (a revoked/expired token Slack
+    // returned as a non-2xx HTTP status, surfaced by slackApiRequest as
+    // `http_<status>`) must ALSO map to reconnect, not the generic retry.
+    "http_401",
+    "http_403",
   ])(
     "maps auth/scope-class SlackApiError '%s' to OptionsResolverError(PROVIDER_REAUTH_REQUIRED) — sanitized, reconnect-oriented",
     async (slackCode) => {
@@ -273,22 +278,33 @@ describe("slackChannelsResolver — error sanitization", () => {
     },
   );
 
-  it("maps a NON-auth SlackApiError (ratelimited) to OptionsResolverError(PROVIDER_ERROR) with the generic retry message", async () => {
-    mockConversationsList.mockRejectedValueOnce(new SlackApiError("ratelimited"));
-    let thrown: unknown;
-    try {
-      await slackChannelsResolver.resolve(ctx());
-    } catch (err) {
-      thrown = err;
-    }
-    expect(thrown).toBeInstanceOf(OptionsResolverError);
-    const optErr = thrown as OptionsResolverError;
-    expect(optErr.code).toBe("PROVIDER_ERROR");
-    // No-leak: raw code + token never surface; copy stays the generic retry.
-    expect(optErr.message).not.toMatch(/ratelimited/i);
-    expect(optErr.message).not.toMatch(/xoxb/i);
-    expect(optErr.message).toMatch(/couldn't load slack channels/i);
-  });
+  it.each([
+    "ratelimited",
+    // V2-READY-26 — transient transport failures stay generic (a retry may clear
+    // them); they must NOT be promoted to reconnect.
+    "http_429",
+    "http_500",
+    "http_503",
+    "internal_error",
+  ])(
+    "maps a NON-auth/transient SlackApiError '%s' to OptionsResolverError(PROVIDER_ERROR) with the generic retry message",
+    async (slackCode) => {
+      mockConversationsList.mockRejectedValueOnce(new SlackApiError(slackCode));
+      let thrown: unknown;
+      try {
+        await slackChannelsResolver.resolve(ctx());
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(OptionsResolverError);
+      const optErr = thrown as OptionsResolverError;
+      expect(optErr.code).toBe("PROVIDER_ERROR");
+      // No-leak: raw code + token never surface; copy stays the generic retry.
+      expect(optErr.message).not.toMatch(new RegExp(slackCode, "i"));
+      expect(optErr.message).not.toMatch(/xoxb/i);
+      expect(optErr.message).toMatch(/couldn't load slack channels/i);
+    },
+  );
 
   it("propagates non-SlackApiError throws so the route maps them to SERVER_ERROR", async () => {
     const networkErr = new TypeError("fetch failed");

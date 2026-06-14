@@ -37,6 +37,27 @@ const SLACK_AUTH_ERROR_CODES: ReadonlySet<string> = new Set([
   "org_login_required",
 ]);
 
+/**
+ * Transport-level auth failures (V2-READY-26). Slack usually reports logical
+ * errors as HTTP 200 `{ ok:false, error:"invalid_auth" }`, but a revoked /
+ * expired / invalid token can also come back as a non-2xx status, which
+ * `slackApiRequest` surfaces as `http_<status>` (see `api/_request.ts`). HTTP
+ * 401 (Unauthorized) and 403 (Forbidden) are auth/permission-class — the user
+ * fixes them by RECONNECTING, not by retrying. Without this, a revoked token
+ * that came back as `http_401` was misclassified as a generic provider error
+ * and the option picker offered "Try again" instead of "Reconnect" (the
+ * production-observed Slack channel-picker failure). Transient transport
+ * failures (`http_429` ratelimited, `http_5xx`) are deliberately EXCLUDED — a
+ * retry may clear those.
+ */
+const SLACK_TRANSPORT_AUTH_ERROR_CODES: ReadonlySet<string> = new Set([
+  "http_401",
+  "http_403",
+]);
+
 export function isSlackAuthError(slackErrorCode: string): boolean {
-  return SLACK_AUTH_ERROR_CODES.has(slackErrorCode);
+  return (
+    SLACK_AUTH_ERROR_CODES.has(slackErrorCode) ||
+    SLACK_TRANSPORT_AUTH_ERROR_CODES.has(slackErrorCode)
+  );
 }
