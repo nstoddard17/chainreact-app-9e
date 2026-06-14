@@ -95,6 +95,31 @@ describe("MembersTable — display identity", () => {
     ]);
     expect(screen.getByTestId("team-remove-u3")).toBeInTheDocument();
   });
+
+  // Action-visibility: a plain member (canManage=false) must see NO destructive
+  // or mutating controls on ANY row — not the owner, not an admin, not a peer
+  // member, not themselves — only read-only role badges. The existing tests cover
+  // the owner-row guard with canManage=true; this pins the whole non-managing view.
+  it("a non-managing member (canManage=false) sees no role selects and no Remove buttons across the roster — only read-only badges", () => {
+    renderTable(
+      [
+        { ...base, userId: "owner", role: "owner", email: "o@x.io", displayName: "Owner", isYou: false },
+        { ...base, userId: "admin", role: "admin", email: "a@x.io", displayName: "Admin", isYou: false },
+        { ...base, userId: "me", role: "member", email: "me@x.io", displayName: "Me", isYou: true },
+        { ...base, userId: "peer", role: "member", email: "p@x.io", displayName: "Peer", isYou: false },
+      ],
+      false, // canManage=false — the viewer is a plain member
+    );
+    // No mutating controls anywhere: no editable role <select>, no Remove button.
+    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+    for (const id of ["owner", "admin", "me", "peer"]) {
+      expect(screen.queryByTestId(`team-remove-${id}`)).toBeNull();
+    }
+    // Roles still render — read-only badges, not editable selects.
+    expect(screen.getByTestId("team-role-badge-owner")).toBeInTheDocument();
+    expect(screen.getByTestId("team-role-badge-admin")).toBeInTheDocument();
+    expect(screen.getAllByTestId("team-role-badge-member")).toHaveLength(2);
+  });
 });
 
 // ─── Slice 4.TEAM-WORKFLOWS-7 (TW-5) — removal warning ──────────────────────

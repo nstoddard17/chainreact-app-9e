@@ -93,6 +93,26 @@ describe("ProfileSection", () => {
     );
   });
 
+  it("preserves the typed value and keeps Save recoverable after a failed save (no wipe)", async () => {
+    mockUpdate.mockRejectedValue(
+      new AccountApiError("Couldn't save right now.", "VALIDATION", 400),
+    );
+    const user = userEvent.setup();
+    renderProfile("Ada");
+    const input = screen.getByTestId("profile-display-name-input");
+    await user.clear(input);
+    await user.type(input, "Grace Hopper");
+    await user.click(screen.getByTestId("profile-display-name-save"));
+
+    // Error surfaces…
+    expect(await screen.findByTestId("profile-display-name-error")).toBeInTheDocument();
+    // …but the typed value is NOT wiped, Save stays recoverable (still dirty/enabled),
+    // and no false "saved" state is shown.
+    expect(input).toHaveValue("Grace Hopper");
+    expect(screen.getByTestId("profile-display-name-save")).toBeEnabled();
+    expect(screen.queryByTestId("profile-display-name-saved")).toBeNull();
+  });
+
   it("caps input length at 80 characters (maxLength)", () => {
     renderProfile("");
     expect(screen.getByTestId("profile-display-name-input")).toHaveAttribute("maxlength", "80");
