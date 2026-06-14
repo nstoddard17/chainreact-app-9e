@@ -48,6 +48,15 @@ interface Props {
    * unaffected.
    */
   readonly hasStagedAnswers?: boolean;
+  /**
+   * Slice 4.AI-CONFIG-ASSIST CS-6 — chat-fill discoverability. Set by the panel
+   * ONLY when a chat-fill-ELIGIBLE field is currently highlighted (the 2F "Open
+   * field" reveal). Drives a contextual helper hint above the input + a
+   * field-specific placeholder so the user knows they can type the missing value
+   * here. Labels only — never the raw field key / node id. Null/undefined → the
+   * composer behaves exactly as before (no hint, default placeholder).
+   */
+  readonly chatFillHint?: { readonly fieldLabel: string; readonly nodeLabel: string } | null;
 }
 
 export function BuilderAiPanelComposer({
@@ -62,6 +71,7 @@ export function BuilderAiPanelComposer({
   hasStagedAnswers,
   onCheckWorkflow,
   checking,
+  chatFillHint,
 }: Props) {
   const trimmed = prompt.trim();
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
@@ -102,6 +112,18 @@ export function BuilderAiPanelComposer({
         ) : null}
       </div>
 
+      {chatFillHint && (
+        <p
+          data-testid="builder-ai-chatfill-hint"
+          role="status"
+          className="px-1 text-[11px] leading-relaxed"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          Type the missing &ldquo;{chatFillHint.fieldLabel}&rdquo; below. I&rsquo;ll ask
+          before filling it, and you&rsquo;ll still save manually.
+        </p>
+      )}
+
       <div
         className="flex flex-col gap-0 rounded-md"
         style={{
@@ -111,15 +133,19 @@ export function BuilderAiPanelComposer({
       >
         <Textarea
           aria-label={
-            followUpMode
-              ? "Reply with the missing details"
-              : "Describe the workflow change"
+            chatFillHint
+              ? `Type the ${chatFillHint.fieldLabel} value`
+              : followUpMode
+                ? "Reply with the missing details"
+                : "Describe the workflow change"
           }
           data-testid="builder-ai-prompt"
           placeholder={
-            followUpMode
-              ? "Reply with the missing details — e.g. ‘Use #general and say Test from ChainReact AI.’"
-              : "Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
+            chatFillHint
+              ? `Type ${chatFillHint.fieldLabel} value…`
+              : followUpMode
+                ? "Reply with the missing details — e.g. ‘Use #general and say Test from ChainReact AI.’"
+                : "Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
           }
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}

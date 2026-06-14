@@ -50,6 +50,14 @@ export function BuilderAiPanel() {
   // plan-follow-up. Live by default (no flag).
   const chatFillActive = shouldRouteChatFill(chatFillTarget, a.followUpMode);
 
+  // Slice 4.AI-CONFIG-ASSIST CS-6 — chat-fill discoverability. Surface the helper
+  // hint + field-specific placeholder ONLY when an ELIGIBLE field is highlighted
+  // (a highlighted-but-ineligible field must not suggest chat-fill). Labels only.
+  const chatFillHint =
+    chatFillActive && chatFillTarget?.eligibility.ok
+      ? { fieldLabel: chatFillTarget.fieldLabel, nodeLabel: chatFillTarget.nodeLabel }
+      : null;
+
   function handleComposerSubmit(): void {
     if (chatFillActive && chatFillTarget) {
       const raw = a.prompt;
@@ -115,6 +123,7 @@ export function BuilderAiPanel() {
         hasStagedAnswers={a.stagedAnswers.size > 0}
         onCheckWorkflow={a.handleCheckWorkflow}
         checking={a.checking}
+        chatFillHint={chatFillHint}
       />
     </section>
   );
