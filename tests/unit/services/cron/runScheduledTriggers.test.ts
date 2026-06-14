@@ -235,6 +235,27 @@ describe("runScheduledTriggers — fire path", () => {
     );
   });
 
+  // V2-READY-16: meta/payload output contract. The schedule.fired meta
+  // payloadShape advertises the references downstream nodes may use; it must
+  // match the payload this orchestrator actually emits. The meta previously
+  // advertised only `firedAt`, hiding the resolvable `scheduledFireAt` +
+  // `cronExpression` — pin them in sync so it can't drift again.
+  it("meta payloadShape names match the emitted fire payload keys (output contract)", async () => {
+    const { scheduledTriggerMeta } = await import(
+      "@/integrations/native/triggers/scheduledTrigger.meta"
+    );
+    mockListForDispatch.mockResolvedValueOnce([row()]);
+    await runScheduledTriggers(NOW_MS);
+    const dispatched = mockDispatchTriggerEvent.mock.calls[0]![0] as {
+      payload: Record<string, unknown>;
+    };
+    const payloadKeys = Object.keys(dispatched.payload).sort();
+    const metaKeys = scheduledTriggerMeta.payloadShape
+      .map((p) => p.name)
+      .sort();
+    expect(metaKeys).toEqual(payloadKeys);
+  });
+
   it("no catch-up (NPD-N13): cursor advances from `now`, not from `scheduledFireAt`", async () => {
     // Simulate a 2-hour outage — nextFireAt was 2h ago, we observe at NOW_MS.
     mockListForDispatch.mockResolvedValueOnce([

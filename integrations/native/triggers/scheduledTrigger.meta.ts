@@ -35,8 +35,27 @@ export const scheduledTriggerMeta: TriggerMeta = {
       placeholder: "0 9 * * 1-5",
     },
   ],
+  // Must match the fire payload built by the cron orchestrator
+  // (services/cron/runScheduledTriggers.ts: { scheduledFireAt, cronExpression,
+  // firedAt }) so the variable picker advertises exactly the references that
+  // resolve at runtime. `scheduledFireAt` is the scheduled instant this run is
+  // for; `firedAt` is when it actually fired (they differ slightly).
   payloadShape: [
-    { name: "firedAt", type: "string", description: "ISO timestamp of the scheduled fire instant." },
+    {
+      name: "scheduledFireAt",
+      type: "string",
+      description: "ISO-8601 timestamp of the scheduled fire instant (the cron tick this run is for).",
+    },
+    {
+      name: "cronExpression",
+      type: "string",
+      description: "The 5-field cron expression that scheduled this run.",
+    },
+    {
+      name: "firedAt",
+      type: "string",
+      description: "ISO-8601 timestamp when the run actually fired.",
+    },
   ],
   displayOrder: 20,
 };

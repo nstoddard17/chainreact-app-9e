@@ -518,6 +518,29 @@ describe("POST /run-now — body parsing", () => {
     };
     expect(enqueueCall.event.payload.inputs).toEqual(inputs);
   });
+
+  // V2-READY-16: meta/payload output contract. The manual.run meta payloadShape
+  // advertises the references downstream nodes may use ({{trigger.inputs.*}});
+  // pin its top-level names to the keys the route actually puts on the emitted
+  // TriggerEvent payload so a future change can't drift them apart.
+  it("meta payloadShape names match the emitted manual TriggerEvent payload keys (output contract)", async () => {
+    const { manualTriggerMeta } = await import(
+      "@/integrations/native/triggers/manualTrigger.meta"
+    );
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ inputs: { a: 1 } }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+    expect(res.status).toBe(202);
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
+      event: { payload: Record<string, unknown> };
+    };
+    const payloadKeys = Object.keys(enqueueCall.event.payload).sort();
+    const metaKeys = manualTriggerMeta.payloadShape.map((p) => p.name).sort();
+    expect(metaKeys).toEqual(payloadKeys);
+  });
 });
 
 // ── trigger node lookup ────────────────────────────────────────────────────
