@@ -202,6 +202,7 @@ identifier in an error surface or the artifact.
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs typecheck + lint +
 `lint:structure` + `lint:migrations` + `npm test` only. It runs **neither** the
 smoke suite **nor** the e2e suite (no test Supabase project; pointing CI at production
-is unsafe). It also currently triggers on `v2-foundation`, while active work is on
-`v2-main` — confirm the trigger gates the working branch. Standing up a test Supabase
-project unblocks a CI smoke/e2e job (secrets enumerated in the ci.yml header).
+is unsafe). It triggers on `v2-main` (retargeted from the stale `v2-foundation` in
+V2-READY-4), so the active working branch is gated by the non-e2e checks. Standing up a
+test Supabase project unblocks a CI smoke/e2e job (secrets enumerated in the ci.yml
+header).

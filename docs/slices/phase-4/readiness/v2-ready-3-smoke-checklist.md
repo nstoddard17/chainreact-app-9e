@@ -27,7 +27,7 @@
 | Smoke reporters | `tests/smoke/` | `smokeReporter.ts`, `mcpSmokeArtifactReporter.ts` → sanitized `artifacts/mcp/smoke-latest.json`. |
 | npm scripts | [`package.json`](../../../../package.json) | `smoke:prod` (prod smoke), `test:e2e` (local mocked e2e), `mcp:smoke` / `mcp:http:smoke` (MCP server smoke). |
 | Local e2e | [`playwright.config.ts`](../../../../playwright.config.ts) + `tests/e2e/` | Local dev server + 11 mocked provider servers; 30+ provider walkthrough specs. Separate purpose from prod smoke. |
-| CI | [`.github/workflows/ci.yml`](../../../../.github/workflows/ci.yml) | typecheck + lint + structure + migrations + `npm test`. **No smoke, no e2e** (no test Supabase project). Triggers on `v2-foundation` (active work is `v2-main`). |
+| CI | [`.github/workflows/ci.yml`](../../../../.github/workflows/ci.yml) | typecheck + lint + structure + migrations + `npm test`. **No smoke, no e2e** (no test Supabase project). Triggered on `v2-foundation` at the time of this slice — **retargeted to `v2-main` in [V2-READY-4](./v2-ready-4-ci-branch-gate.md)**. |
 | Runbooks | [`docs/runbooks/`](../../../runbooks) | Operational runbooks existed (stripe, MCP, adding-a-provider); **no smoke runbook** until this slice. |
 
 **Auth/session pattern:** `auth.setup.ts` signs in once with
@@ -127,8 +127,8 @@ Ordered by (coverage value × confidence) ÷ harness cost.
    boundary — design the fixture first.
 5. **A5 — CI smoke job.** Once a test Supabase project exists (the V2-READY-0C gate),
    add a CI job running `public` (creds-less, always safe) on every `v2-main` push, and
-   the authenticated projects with secrets. Also fix the `v2-foundation`→`v2-main`
-   trigger mismatch.
+   the authenticated projects with secrets. (The `v2-foundation`→`v2-main` trigger
+   mismatch this list flagged was fixed in [V2-READY-4](./v2-ready-4-ci-branch-gate.md).)
 
 > Items A1/A2 need a fixture/infra decision and are **explicitly not built here** —
 > documented per the slice's "if automation requires new auth/session infrastructure,

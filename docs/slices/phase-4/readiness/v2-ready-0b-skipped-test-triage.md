@@ -98,9 +98,10 @@ DB tests must be explicitly opted into), not technical debt.
    These are exactly the suites that guard cross-account isolation + RLS; they're only
    exercised when a developer manually opts in. **This is the highest-value follow-up.**
    (The ci.yml header already names the plan + the secrets a future DB/e2e job needs.)
-2. **[MED] CI branch mismatch.** `ci.yml` triggers on `v2-foundation` (PRs + pushes),
-   but active work is on `v2-main`. Verify CI actually gates `v2-main`; if not, even the
-   non-DB checks may not run on the working branch. (Config observation — not changed here.)
+2. **[MED] CI branch mismatch. — RESOLVED in [V2-READY-4](./v2-ready-4-ci-branch-gate.md).**
+   `ci.yml` triggered on `v2-foundation` (PRs + pushes) while active work was on `v2-main`,
+   so the non-DB checks did not gate the working branch. V2-READY-4 retargeted the trigger
+   to `v2-main` (the stale `v2-foundation` was fully merged into `v2-main`, 0 commits ahead).
 3. **[MED] No e2e for interactive flows + no sad-path e2e** (carried from the parent
    readiness audit): account switch, apps connect-UI, team mgmt, builder authoring loop,
    and failure paths (missing-connection, handler-timeout) have no browser-level test.

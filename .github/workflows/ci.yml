@@ -1,7 +1,14 @@
 name: CI
 
 # Slice 2-OPS: minimal non-e2e CI gate. Runs on every PR targeting
-# v2-foundation and on every push that lands on v2-foundation.
+# v2-main and on every push that lands on v2-main.
+#
+# V2-READY-4 (2026-06-14): retargeted from the original `v2-foundation` to
+# `v2-main`. `v2-foundation` was fully merged into `v2-main` (an ancestor, 0
+# commits ahead) and last moved 2026-05-25 while active work continued on
+# `v2-main` — so the old trigger left the live working branch ungated. The
+# stale branch is replaced rather than kept alongside because it is no longer
+# a push/PR target.
 #
 # Scope (intentionally non-e2e):
 #   - Type-check (npx tsc --noEmit)
@@ -23,10 +30,10 @@ name: CI
 on:
   pull_request:
     branches:
-      - v2-foundation
+      - v2-main
   push:
     branches:
-      - v2-foundation
+      - v2-main
 
 concurrency:
   # One CI run per branch; new pushes cancel in-flight runs to save minutes.
