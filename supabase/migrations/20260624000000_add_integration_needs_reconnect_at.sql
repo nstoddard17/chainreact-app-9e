@@ -1,0 +1,35 @@
+-- ChainReactV2 — persisted "reconnect needed" health signal on integrations
+-- (Slice 4.V2-READY-28).
+--
+-- Additive, null-safe SCHEMA ONLY. A single nullable timestamp — NOT a health
+-- state machine. Approved design (docs/slices/phase-4/readiness/
+-- v2-ready-27-slack-connection-truth-audit.md §5).
+--
+-- Meaning:
+--   - NULL              = no known reconnect-required signal (the default; every
+--                         existing row reads as "no signal" — no backfill).
+--   - non-null timestamp = the app detected a TRUE provider auth/reconnect failure
+--                         for this row (e.g. Slack invalid_auth / token_revoked /
+--                         http_401 surfaced by an option-source load) and the user
+--                         should reconnect.
+--
+-- Writers (V2-READY-28):
+--   - SET on a classified provider AUTH failure where the integration row id is
+--     known (option-source PROVIDER_REAUTH_REQUIRED path). NOT set on generic
+--     provider failure, 429, 5xx, network, malformed response, or missing channel.
+--   - CLEARED on connect/reconnect upsert success (repositories/integrations
+--     upsertActive) and on a subsequent successful auth-sensitive option load.
+--
+-- No raw provider error / scope / token is ever stored here — TIMESTAMP ONLY.
+--
+-- No RLS change — `integrations` already enforces account-membership RLS and this
+-- additive column inherits it (it adds no new row visibility). No new GRANT —
+-- `integrations` is an existing (grandfathered) table. Writes happen via
+-- service-role (same as upsertActive / disconnect), reads via the existing
+-- account-membership select used by the Apps page.
+--
+-- ROLLBACK:
+--   ALTER TABLE public.integrations DROP COLUMN needs_reconnect_at;
+
+ALTER TABLE public.integrations
+  ADD COLUMN needs_reconnect_at timestamptz;

@@ -18,6 +18,7 @@ function mkApp(over: Partial<AppCatalogItem>): AppCatalogItem {
     iconUrl: null,
     category: "Communication",
     isConnected: false,
+    needsReconnect: false,
     canConnect: true,
     restrictedToAdmins: false,
     supportsMultipleAccounts: true,
@@ -32,8 +33,8 @@ describe("AppsStatCards", () => {
     render(
       <AppsStatCards
         items={[
-          mkApp({ providerId: "slack", category: "Communication", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false }, { id: "2", displayName: null, connectedAt: "y", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false }] }),
-          mkApp({ providerId: "stripe", category: "Payments", isConnected: true, accounts: [{ id: "3", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false }] }),
+          mkApp({ providerId: "slack", category: "Communication", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false }, { id: "2", displayName: null, connectedAt: "y", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false }] }),
+          mkApp({ providerId: "stripe", category: "Payments", isConnected: true, accounts: [{ id: "3", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false }] }),
           mkApp({ providerId: "notion", category: "Productivity", isConnected: false }),
         ]}
       />,
@@ -65,7 +66,7 @@ describe("AppsStatCards", () => {
 
   it("does NOT render the design's 'Powering workflows' or 'Need attention' tiles (locked deferrals)", () => {
     render(
-      <AppsStatCards items={[mkApp({ providerId: "slack", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false }] })]} />,
+      <AppsStatCards items={[mkApp({ providerId: "slack", isConnected: true, accounts: [{ id: "1", displayName: null, connectedAt: "x", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false }] })]} />,
     );
     expect(screen.queryByText(/Powering/i)).toBeNull();
     expect(screen.queryByText(/Need attention/i)).toBeNull();

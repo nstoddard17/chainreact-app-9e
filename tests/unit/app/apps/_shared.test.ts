@@ -82,6 +82,7 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
       "iconUrl",
       "isConnected",
       "name",
+      "needsReconnect",
       "providerId",
       "restrictedToAdmins",
       "supportsMultipleAccounts",
@@ -102,6 +103,7 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
         "connectedAt",
         "displayName",
         "id",
+        "needsReconnect",
         "sharedWithAccount",
         "sharingStatus",
       ]);
@@ -514,5 +516,34 @@ describe("buildCategoryList", () => {
     const items = resolveAppCatalog([]);
     const cats = buildCategoryList(items);
     expect(cats[0]).toEqual({ id: "All", label: "All apps", count: 3 });
+  });
+});
+
+describe("toAppCatalogItem — reconnect-needed derivation (V2-READY-28)", () => {
+  it("needsReconnect is false when no row has needs_reconnect_at", () => {
+    const item = toAppCatalogItem(mkProvider(), [mkRecord({ needsReconnectAt: null })]);
+    expect(item.needsReconnect).toBe(false);
+    expect(item.accounts[0]!.needsReconnect).toBe(false);
+  });
+
+  it("derives per-account + provider-level needsReconnect from needs_reconnect_at, WITHOUT emitting the timestamp", () => {
+    const item = toAppCatalogItem(mkProvider(), [
+      mkRecord({ id: "int-1", needsReconnectAt: "2026-06-14T09:30:00Z" }),
+    ]);
+    expect(item.accounts[0]!.needsReconnect).toBe(true);
+    expect(item.needsReconnect).toBe(true);
+    // No-leak: the raw timestamp is never serialized into the DTO.
+    expect(JSON.stringify(item)).not.toContain("2026-06-14T09:30:00Z");
+    expect(JSON.stringify(item)).not.toContain("needsReconnectAt");
+  });
+
+  it("provider-level needsReconnect is the OR across accounts (one healthy + one stale → true)", () => {
+    const item = toAppCatalogItem(mkProvider(), [
+      mkRecord({ id: "int-1", connectedByUserId: "user-1", needsReconnectAt: null, createdAt: "2026-01-01T00:00:00Z" }),
+      mkRecord({ id: "int-2", connectedByUserId: "user-1", needsReconnectAt: "2026-06-14T09:30:00Z", createdAt: "2026-02-01T00:00:00Z" }),
+    ]);
+    expect(item.needsReconnect).toBe(true);
+    const flags = item.accounts.map((a) => a.needsReconnect).sort();
+    expect(flags).toEqual([false, true]);
   });
 });

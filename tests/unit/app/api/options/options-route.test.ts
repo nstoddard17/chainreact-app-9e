@@ -22,9 +22,14 @@ jest.mock("@/utils/supabase/server", () => ({
 }));
 
 const mockGetActiveForExecution = jest.fn();
+const mockMarkNeedsReconnect = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockClearNeedsReconnect = jest.fn((..._args: unknown[]) => Promise.resolve());
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: (...args: unknown[]) =>
     mockGetActiveForExecution(...args),
+  // V2-READY-28 — resolveOptionsSource marks/clears the reconnect-needed signal.
+  markNeedsReconnect: (...args: unknown[]) => mockMarkNeedsReconnect(...args),
+  clearNeedsReconnect: (...args: unknown[]) => mockClearNeedsReconnect(...args),
 }));
 
 // CS-4: the route resolves an ACCEPTED per-node credential owner via
@@ -116,6 +121,9 @@ beforeEach(() => {
   mockGetById.mockReset();
   mockConversationsList.mockReset();
   mockDecryptToken.mockReset();
+  // V2-READY-28 — keep the async default impl, just clear call history.
+  mockMarkNeedsReconnect.mockClear();
+  mockClearNeedsReconnect.mockClear();
   // Default: delegate to the real registry so the fixture-driven
   // tests don't need to manage the mock.
   mockGetOptionsResolver.mockReset();
@@ -561,6 +569,100 @@ describe("GET /api/options/[source] — requiresIntegration branch", () => {
       expect(body.code).toBe("PROVIDER_ERROR");
       expect(body.message).toBe("Provider said no.");
     }
+  });
+});
+
+describe("GET /api/options/[source] — reconnect-needed signal (V2-READY-28)", () => {
+  const baseRow = {
+    id: "int-rc",
+    accountId: "acct-user-1",
+    connectedByUserId: "user-1",
+    provider: "synthetic",
+    providerAccountId: "acct-1",
+    displayName: null,
+    accessTokenEncrypted: "enc",
+    refreshTokenEncrypted: null,
+    accessTokenExpiresAt: null,
+    scopes: [],
+    accountMetadata: {},
+    disconnectedAt: null,
+    needsReconnectAt: null as string | null,
+    createdAt: "2026-05-22T00:00:00Z",
+    updatedAt: "2026-05-22T00:00:00Z",
+  };
+  const resolverThatThrows = (err: unknown): OptionsResolver => ({
+    source: "synthetic:integration",
+    provider: "synthetic",
+    requiresIntegration: true,
+    resolve: jest.fn().mockRejectedValue(err),
+  });
+  const resolverThatSucceeds = (): OptionsResolver => ({
+    source: "synthetic:integration",
+    provider: "synthetic",
+    requiresIntegration: true,
+    resolve: jest.fn().mockResolvedValue({ items: [{ value: "v", label: "L" }], hasMore: false }),
+  });
+  function run() {
+    return getOptions(
+      makeReq("http://x/api/options/synthetic:integration"),
+      paramsOf("synthetic:integration"),
+    );
+  }
+
+  it("MARKS the row needs-reconnect on a PROVIDER_REAUTH_REQUIRED failure (by integration id)", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(
+      resolverThatThrows(new OptionsResolverError("PROVIDER_REAUTH_REQUIRED", "Reconnect needed.")),
+    );
+    mockGetActiveForExecution.mockResolvedValue(baseRow);
+
+    const res = await run();
+    const body = (await res.json()) as OptionsSourceResponse;
+    expect(body.ok).toBe(false);
+    if (!body.ok) expect(body.code).toBe("PROVIDER_REAUTH_REQUIRED");
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledTimes(1);
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledWith("int-rc");
+    expect(mockClearNeedsReconnect).not.toHaveBeenCalled();
+  });
+
+  it("does NOT mark on a generic PROVIDER_ERROR failure", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(
+      resolverThatThrows(new OptionsResolverError("PROVIDER_ERROR", "Try again.")),
+    );
+    mockGetActiveForExecution.mockResolvedValue(baseRow);
+    await run();
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+  });
+
+  it("does NOT mark on an unexpected (SERVER_ERROR) resolver throw", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(resolverThatThrows(new Error("boom")));
+    mockGetActiveForExecution.mockResolvedValue(baseRow);
+    await run();
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+  });
+
+  it("CLEARS the signal on a successful load when the row currently needs reconnect", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(resolverThatSucceeds());
+    mockGetActiveForExecution.mockResolvedValue({
+      ...baseRow,
+      needsReconnectAt: "2026-06-14T00:00:00Z",
+    });
+    const res = await run();
+    expect((await res.json()).ok).toBe(true);
+    expect(mockClearNeedsReconnect).toHaveBeenCalledTimes(1);
+    expect(mockClearNeedsReconnect).toHaveBeenCalledWith("int-rc");
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+  });
+
+  it("does NOT clear on a successful load when the row has no reconnect signal (avoids a needless write)", async () => {
+    authedUser();
+    mockGetOptionsResolver.mockReturnValue(resolverThatSucceeds());
+    mockGetActiveForExecution.mockResolvedValue(baseRow); // needsReconnectAt: null
+    await run();
+    expect(mockClearNeedsReconnect).not.toHaveBeenCalled();
   });
 });
 

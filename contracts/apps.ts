@@ -69,6 +69,17 @@ export const AppAccountSummarySchema = z.object({
    * active personal connection, flag ON. The route re-authorizes server-side.
    */
   canUnshare: z.boolean(),
+  /**
+   * Whether THIS connection has a persisted "reconnect needed" signal (Slice
+   * 4.V2-READY-28). Server-derived boolean from `integrations.needs_reconnect_at`
+   * (`!= null`) — set when a provider operation detected a TRUE auth/reconnect
+   * failure (e.g. a Slack option-source PROVIDER_REAUTH_REQUIRED), cleared on
+   * (re)connect + a later successful auth-sensitive op. The underlying timestamp
+   * is NEVER emitted (no provider error / scope / token / identity); only this
+   * flag. Drives the per-row "Reconnect needed" copy; the Reconnect control is
+   * unchanged (`canReconnect`).
+   */
+  needsReconnect: z.boolean(),
 });
 export type AppAccountSummary = z.infer<typeof AppAccountSummarySchema>;
 
@@ -84,6 +95,14 @@ export const AppCatalogItemSchema = z.object({
   category: z.string(),
   /** Whether the user has at least one active integration row for this provider. */
   isConnected: z.boolean(),
+  /**
+   * Whether ANY active account row for this provider currently has the persisted
+   * reconnect-needed signal (Slice 4.V2-READY-28). Lets the provider-level status
+   * pill distinguish "connected row exists" from "a connection needs reconnecting"
+   * — so green "Connected" no longer implies fully healthy. Pure server-derived
+   * boolean (OR of the per-account `needsReconnect`); no timestamp/identity emitted.
+   */
+  needsReconnect: z.boolean(),
   /**
    * Whether the CURRENT caller may connect a (new) account for this provider —
    * drives whether the Connect / Connect-another control renders. Server-derived

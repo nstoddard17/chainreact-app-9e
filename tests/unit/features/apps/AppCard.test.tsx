@@ -86,6 +86,7 @@ function mkApp(over: Partial<AppCatalogItem> = {}): AppCatalogItem {
     iconUrl: "/integrations/slack.svg",
     category: "Communication",
     isConnected: false,
+    needsReconnect: false,
     canConnect: true,
     restrictedToAdmins: false,
     supportsMultipleAccounts: true,
@@ -126,8 +127,8 @@ describe("AppCard — connected", () => {
   const connected = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
-      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
+      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -188,7 +189,7 @@ describe("AppCard — connected", () => {
     return {
       id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z",
       canDisconnect: false, canReconnect: false,
-      sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false,
+      sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false,
       ...over,
     };
   }
@@ -274,14 +275,14 @@ describe("AppCard — per-account Disconnect (CD-3)", () => {
   const disconnectable = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
   const notDisconnectable = mkApp({
     isConnected: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -340,8 +341,8 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     isConnected: true,
     canConnect: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
-      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
+      { id: "int-2", displayName: "Acme · ops@example.com", connectedAt: "2026-05-01T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -350,7 +351,7 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     canConnect: true,
     supportsMultipleAccounts: false,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -358,7 +359,7 @@ describe("AppCard — per-account Reconnect (4.APPS-RECONNECT)", () => {
     isConnected: true,
     canConnect: true,
     accounts: [
-      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+      { id: "int-1", displayName: "Personal · marcus@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
     ],
     firstConnectedAt: "2026-04-15T12:00:00Z",
   });
@@ -455,7 +456,7 @@ describe("AppCard — APPS-PERM-2 admin-required copy", () => {
       canConnect: false,
       restrictedToAdmins: true,
       accounts: [
-        { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+        { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
       ],
       firstConnectedAt: "2026-04-15T12:00:00Z",
     });
@@ -491,7 +492,7 @@ describe("AppCard — APPS-PERM-2 admin-required copy", () => {
       canConnect: false,
       restrictedToAdmins: true,
       accounts: [
-        { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false },
+        { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
       ],
       firstConnectedAt: "2026-04-15T12:00:00Z",
     });
@@ -500,5 +501,59 @@ describe("AppCard — APPS-PERM-2 admin-required copy", () => {
     const note = screen.getByTestId("app-card-admin-required").textContent ?? "";
     expect(note).not.toMatch(/@/); // no email
     expect(note).not.toMatch(/token|scope|owner_id|provider_account/i);
+  });
+});
+
+describe("AppCard — reconnect-needed signal (V2-READY-28)", () => {
+  const needsReconnectApp = mkApp({
+    isConnected: true,
+    needsReconnect: true,
+    canConnect: true,
+    accounts: [
+      { id: "int-1", displayName: "Acme · ops@example.com", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: true, canReconnect: true, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: true },
+    ],
+    firstConnectedAt: "2026-04-15T12:00:00Z",
+  });
+
+  it("shows the provider-level 'Reconnect needed' status pill", () => {
+    render(<AppCard app={needsReconnectApp} accountId="acc-1" />);
+    const pill = screen.getByTestId("app-status-pill");
+    expect(pill).toHaveAttribute("data-state", "needs-reconnect");
+    expect(pill).toHaveTextContent(/reconnect needed/i);
+  });
+
+  it("shows a per-account reconnect-needed chip + safe copy when expanded", async () => {
+    const user = userEvent.setup();
+    render(<AppCard app={needsReconnectApp} accountId="acc-1" />);
+    await user.click(screen.getByTestId("app-card-expand"));
+
+    const row = screen.getByTestId("app-card-account");
+    expect(within(row).getByTestId("app-card-reconnect-needed")).toHaveTextContent(/reconnect needed/i);
+    expect(within(row).getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
+      /this connection needs to be reconnected/i,
+    );
+    // The existing per-account Reconnect control still renders (canReconnect).
+    expect(within(row).getByTestId("app-card-reconnect")).toBeInTheDocument();
+  });
+
+  it("does NOT leak any provider/account identifier in the reconnect-needed UI", () => {
+    render(<AppCard app={needsReconnectApp} accountId="acc-1" />);
+    const html = document.body.innerHTML;
+    expect(html).not.toMatch(/needs_reconnect_at|needsReconnectAt/);
+    expect(html).not.toMatch(/token|xoxb|scope|provider_account|team_id/i);
+  });
+
+  it("a healthy connected provider shows the normal 'Connected' pill (no reconnect chip)", () => {
+    const healthy = mkApp({
+      isConnected: true,
+      needsReconnect: false,
+      accounts: [
+        { id: "int-1", displayName: "Acme", connectedAt: "2026-04-15T12:00:00Z", canDisconnect: false, canReconnect: false, sharingStatus: "not_applicable", sharedWithAccount: false, canShare: false, canUnshare: false, needsReconnect: false },
+      ],
+      firstConnectedAt: "2026-04-15T12:00:00Z",
+    });
+    render(<AppCard app={healthy} accountId="acc-1" />);
+    expect(screen.getByTestId("app-status-pill")).toHaveAttribute("data-state", "connected");
+    expect(screen.queryByTestId("app-card-reconnect-needed")).toBeNull();
   });
 });

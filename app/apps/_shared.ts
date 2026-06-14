@@ -63,6 +63,13 @@ interface IntegrationShape {
    * `IntegrationRecord`; `undefined` reads as `null` (the helper accepts both).
    */
   integrationSharingScope?: string | null;
+  /**
+   * SERVER-ONLY raw reconnect-needed timestamp (V2-READY-28). Used ONLY to derive
+   * the `needsReconnect` boolean; the raw timestamp is NEVER emitted. Optional —
+   * mirrors the optional column on `IntegrationRecord`; `undefined`/`null` both
+   * read as "no signal".
+   */
+  needsReconnectAt?: string | null;
 }
 
 interface SharingDtoFields {
@@ -201,6 +208,9 @@ function toAppAccountSummary(
       record.connectedByUserId,
       ctx,
     ),
+    // V2-READY-28: persisted reconnect-needed signal → boolean only. The raw
+    // timestamp never leaves the server.
+    needsReconnect: record.needsReconnectAt != null,
     ...computeSharingFields(
       record.provider,
       record.connectedByUserId,
@@ -225,6 +235,8 @@ export function toAppCatalogItem(
     .map((record) => toAppAccountSummary(record, ctx))
     .sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
   const isConnected = sortedAccounts.length > 0;
+  // V2-READY-28: provider-level reconnect-needed = ANY active row needs reconnect.
+  const needsReconnect = sortedAccounts.some((a) => a.needsReconnect);
   const canConnect = computeCanConnect(
     provider.id,
     provider.isEnabled && provider.capabilities.oauth,
@@ -243,6 +255,7 @@ export function toAppCatalogItem(
     iconUrl: providerIconUrl(provider.id) ?? null,
     category: categoryFor(provider.id),
     isConnected,
+    needsReconnect,
     canConnect,
     restrictedToAdmins,
     // Every V2 provider today supports more than one connection (user-scoped
@@ -345,6 +358,7 @@ export function projectIntegrationForMapper(r: IntegrationRecord): IntegrationSh
     // never emitted in the DTO.
     connectedByUserId: r.connectedByUserId,
     integrationSharingScope: r.integrationSharingScope ?? null,
+    needsReconnectAt: r.needsReconnectAt ?? null,
   };
 }
 

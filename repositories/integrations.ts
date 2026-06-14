@@ -50,6 +50,19 @@ export interface IntegrationRecord {
    * like `null` (the helper `effectiveIntegrationSharingScope` accepts both).
    */
   integrationSharingScope?: string | null;
+  /**
+   * Persisted "reconnect needed" health signal (Slice 4.V2-READY-28). `null` =
+   * no known reconnect-required signal; a timestamp = the app detected a TRUE
+   * provider auth/reconnect failure for this row (e.g. an option-source
+   * PROVIDER_REAUTH_REQUIRED). TIMESTAMP ONLY — never a raw provider error. Set
+   * via `markNeedsReconnect`, cleared on connect/reconnect upsert + a later
+   * successful auth-sensitive op (`clearNeedsReconnect`).
+   *
+   * OPTIONAL like `integrationSharingScope`: `rowToRecord` always populates it,
+   * but pre-existing test fixtures that build an `IntegrationRecord` literal must
+   * keep compiling without it. Readers treat `undefined` exactly like `null`.
+   */
+  needsReconnectAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +96,7 @@ interface IntegrationsRow {
   account_metadata: Record<string, unknown>;
   disconnected_at: string | null;
   integration_sharing_scope: string | null;
+  needs_reconnect_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +116,7 @@ function rowToRecord(row: IntegrationsRow): IntegrationRecord {
     accountMetadata: row.account_metadata,
     disconnectedAt: row.disconnected_at,
     integrationSharingScope: row.integration_sharing_scope ?? null,
+    needsReconnectAt: row.needs_reconnect_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -164,6 +179,10 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
         access_token_expires_at: expiresAtIso(input.tokens.accessTokenExpiresAt),
         scopes: [...input.tokens.scopes],
         account_metadata: input.accountMetadata,
+        // V2-READY-28: a successful (re)connect proves the credential is good
+        // again — clear any prior reconnect-needed signal. A fresh INSERT below
+        // defaults to NULL, so only the reconnect/update path needs this.
+        needs_reconnect_at: null,
       })
       .eq("id", existing.id)
       .select()
@@ -194,6 +213,50 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
     throw new Error(`integrations insert failed: ${error?.message ?? "no row returned"}`);
   }
   return rowToRecord(data);
+}
+
+/**
+ * V2-READY-28 — persist the "reconnect needed" signal for ONE integration row.
+ * Called best-effort when a provider operation classifies a TRUE auth/reconnect
+ * failure and the row id is known (option-source PROVIDER_REAUTH_REQUIRED path).
+ * Service-role + keyed by the exact row id (the caller already legitimately
+ * resolved that row): a system health write that touches only the failing row,
+ * no cross-account exposure. Idempotent re-stamp is fine. Stores ONLY a
+ * timestamp — no raw provider error / scope / token. Never throws on caller's
+ * behalf is the caller's responsibility (fire-and-forget); this surfaces DB
+ * errors so a wrapping `.catch` can swallow them.
+ */
+export async function markNeedsReconnect(integrationId: string): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `integrations: markNeedsReconnect ${integrationId}`,
+  );
+  const { error } = await supabase
+    .from("integrations")
+    .update({ needs_reconnect_at: new Date().toISOString() })
+    .eq("id", integrationId)
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(`integrations markNeedsReconnect failed: ${error.message}`);
+  }
+}
+
+/**
+ * V2-READY-28 — clear the "reconnect needed" signal for ONE integration row
+ * after a successful auth-sensitive operation. Service-role + keyed by row id,
+ * same rationale as `markNeedsReconnect`. The `upsertActive` (re)connect path
+ * clears inline; this is the option-load success clear.
+ */
+export async function clearNeedsReconnect(integrationId: string): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `integrations: clearNeedsReconnect ${integrationId}`,
+  );
+  const { error } = await supabase
+    .from("integrations")
+    .update({ needs_reconnect_at: null })
+    .eq("id", integrationId);
+  if (error) {
+    throw new Error(`integrations clearNeedsReconnect failed: ${error.message}`);
+  }
 }
 
 /**

@@ -105,7 +105,10 @@ export function AppCard({ app, accountId }: Props) {
           </p>
         </div>
         <div className="hidden shrink-0 sm:block">
-          <AppStatusPill isConnected={app.isConnected} />
+          <AppStatusPill
+            isConnected={app.isConnected}
+            needsReconnect={app.needsReconnect}
+          />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {!app.isConnected && app.canConnect && (
@@ -229,10 +232,29 @@ export function AppCard({ app, accountId }: Props) {
                           {acc.sharedWithAccount ? "Shared with team" : "Private to you"}
                         </span>
                       )}
+                      {/* V2-READY-28: per-account reconnect-needed chip — set when
+                          this connection failed provider auth. Safe copy only; the
+                          Reconnect control (acc.canReconnect) is unchanged. */}
+                      {acc.needsReconnect && (
+                        <span
+                          data-testid="app-card-reconnect-needed"
+                          className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
+                        >
+                          Reconnect needed
+                        </span>
+                      )}
                     </span>
                     <span className="text-[11px] text-muted-foreground">
                       Connected on {formatConnectedOn(acc.connectedAt)}
                     </span>
+                    {acc.needsReconnect && (
+                      <span
+                        data-testid="app-card-reconnect-needed-copy"
+                        className="text-[11px] text-amber-700 dark:text-amber-400"
+                      >
+                        This connection needs to be reconnected.
+                      </span>
+                    )}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     {/* Share / Stop sharing — per-account, personal connections only.

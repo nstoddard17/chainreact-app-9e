@@ -1,4 +1,8 @@
-import { getActiveForExecution } from "@/repositories/integrations";
+import {
+  getActiveForExecution,
+  markNeedsReconnect,
+  clearNeedsReconnect,
+} from "@/repositories/integrations";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { credentialSharingForProvider } from "@/core/integrations/credentialSharing";
 import { resolveEffectiveNodeOwner } from "@/services/teamCredentials/nodeCredentialOwners";
@@ -257,6 +261,13 @@ export async function resolveOptionsSource(
             dispatch,
           )
         : await dispatch();
+    // V2-READY-28: a successful auth-sensitive load proves the credential works —
+    // clear any stale reconnect-needed signal (only when one is set, to avoid a
+    // write on every successful options load). Best-effort; never affects the
+    // response.
+    if (integration !== null && integration.needsReconnectAt != null) {
+      void clearNeedsReconnect(integration.id).catch(() => {});
+    }
     return {
       response: {
         ok: true,
@@ -268,6 +279,14 @@ export async function resolveOptionsSource(
     };
   } catch (e) {
     if (e instanceof OptionsResolverError) {
+      // V2-READY-28: a TRUE provider auth/reconnect failure (PROVIDER_REAUTH_REQUIRED)
+      // with a known integration row → persist the reconnect-needed signal so the
+      // Apps page stops implying the credential is healthy. NOT set for generic
+      // PROVIDER_ERROR / 429 / 5xx / network / missing-dependency / disconnected
+      // arms. Best-effort; never changes the returned response.
+      if (e.code === "PROVIDER_REAUTH_REQUIRED" && integration !== null) {
+        void markNeedsReconnect(integration.id).catch(() => {});
+      }
       return err(source, e.code, e.message, diagnostics);
     }
     return err(source, "SERVER_ERROR", "Couldn't load options. Try again.", diagnostics);

@@ -86,7 +86,12 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
   getServiceRoleClient: jest.fn(() => mockSupabaseClient.current),
 }));
 
-import { updateTokens, upsertActive } from "@/repositories/integrations";
+import {
+  updateTokens,
+  upsertActive,
+  markNeedsReconnect,
+  clearNeedsReconnect,
+} from "@/repositories/integrations";
 
 describe("repositories/integrations.upsertActive", () => {
   it("INSERTs when no active row exists for (user, provider, account)", async () => {
@@ -291,5 +296,112 @@ describe("repositories/integrations.updateTokens (Slice 2b)", () => {
         },
       }),
     ).rejects.toThrow(/updateTokens failed/i);
+  });
+});
+
+describe("repositories/integrations — reconnect-needed signal (V2-READY-28)", () => {
+  it("upsertActive UPDATE branch clears needs_reconnect_at (a successful reconnect proves the credential is good)", async () => {
+    const captured: { update?: Record<string, unknown> } = {};
+    const fromMock = jest.fn().mockImplementation(() => {
+      const b: Record<string, jest.Mock> = {
+        select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockImplementation((row) => {
+          captured.update = row as Record<string, unknown>;
+          return b;
+        }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockReturnThis(),
+        maybeSingle: jest
+          .fn()
+          .mockResolvedValue({ data: { ...baseRow }, error: null }), // existing active row → UPDATE path
+        single: jest.fn().mockResolvedValue({ data: baseRow, error: null }),
+      };
+      return b;
+    });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+
+    await upsertActive({
+      accountId: "acct-user-1",
+      connectedByUserId: "user-1",
+      provider: "slack",
+      providerAccountId: "T123",
+      displayName: "Acme",
+      tokens: {
+        accessTokenEncrypted: "ENC-REFRESHED",
+        refreshTokenEncrypted: null,
+        accessTokenExpiresAt: null,
+        scopes: ["chat:write"],
+      },
+      accountMetadata: {},
+    });
+
+    expect(captured.update).toMatchObject({ needs_reconnect_at: null });
+  });
+
+  it("markNeedsReconnect stamps needs_reconnect_at (timestamp) filtered by id + active", async () => {
+    const captured: { update?: Record<string, unknown>; eqArgs: Array<[string, unknown]>; isArgs: Array<[string, unknown]> } = {
+      eqArgs: [],
+      isArgs: [],
+    };
+    const fromMock = jest.fn().mockImplementation(() => {
+      const b: Record<string, jest.Mock> = {
+        update: jest.fn().mockImplementation((row) => {
+          captured.update = row as Record<string, unknown>;
+          return b;
+        }),
+        eq: jest.fn().mockImplementation((c, v) => {
+          captured.eqArgs.push([c as string, v]);
+          return b;
+        }),
+        is: jest.fn().mockImplementation((c, v) => {
+          captured.isArgs.push([c as string, v]);
+          return Promise.resolve({ error: null });
+        }),
+      };
+      return b;
+    });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+
+    await markNeedsReconnect("int-1");
+
+    expect(typeof captured.update?.needs_reconnect_at).toBe("string"); // ISO timestamp only
+    expect(captured.eqArgs).toContainEqual(["id", "int-1"]);
+    expect(captured.isArgs).toContainEqual(["disconnected_at", null]);
+  });
+
+  it("clearNeedsReconnect sets needs_reconnect_at: null filtered by id", async () => {
+    const captured: { update?: Record<string, unknown>; eqArgs: Array<[string, unknown]> } = { eqArgs: [] };
+    const fromMock = jest.fn().mockImplementation(() => {
+      const b: Record<string, jest.Mock> = {
+        update: jest.fn().mockImplementation((row) => {
+          captured.update = row as Record<string, unknown>;
+          return b;
+        }),
+        eq: jest.fn().mockImplementation((c, v) => {
+          captured.eqArgs.push([c as string, v]);
+          return Promise.resolve({ error: null });
+        }),
+      };
+      return b;
+    });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+
+    await clearNeedsReconnect("int-1");
+
+    expect(captured.update).toEqual({ needs_reconnect_at: null });
+    expect(captured.eqArgs).toContainEqual(["id", "int-1"]);
+  });
+
+  it("markNeedsReconnect surfaces a DB error (so the caller's fire-and-forget .catch can swallow it)", async () => {
+    const fromMock = jest.fn().mockImplementation(() => {
+      const b: Record<string, jest.Mock> = {
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ error: { message: "rls denied" } }),
+      };
+      return b;
+    });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+    await expect(markNeedsReconnect("int-1")).rejects.toThrow(/markNeedsReconnect failed/i);
   });
 });
