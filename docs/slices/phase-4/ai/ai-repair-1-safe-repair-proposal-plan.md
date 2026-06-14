@@ -6,18 +6,18 @@ changes in this slice. Nothing pushed.**
 **Branch:** `v2-main`
 
 **Source of truth (verified current state — files read for this plan):**
-[app/api/workflows/[id]/ai/diagnose/explain/route.ts](../../../app/api/workflows/[id]/ai/diagnose/explain/route.ts) (the paid/metered LLM route this slice mirrors) ·
-[services/ai/diagnostics/explainWorkflowDiagnosis.ts](../../../services/ai/diagnostics/explainWorkflowDiagnosis.ts) (injected-model-client service pattern) ·
-[services/ai/diagnostics/diagnoseWorkflowForAgent.ts](../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts) (the safe diagnosis DTO) ·
-[services/ai/diagnostics/buildDiagnosisExplainContext.ts](../../../services/ai/diagnostics/buildDiagnosisExplainContext.ts) (the allow-list projector) ·
-[services/ai/diagnostics/renderWorkflowDiagnosis.ts](../../../services/ai/diagnostics/renderWorkflowDiagnosis.ts) (deterministic findings → nextSteps) ·
-[core/billing/aiCreditPolicy.ts](../../../core/billing/aiCreditPolicy.ts) (`workflow_repair: 4` already mapped) ·
-[services/billing/aiCreditGate.ts](../../../services/billing/aiCreditGate.ts) (flag-OFF no-op gate) ·
-[services/billing/billingFeatureFlags.ts](../../../services/billing/billingFeatureFlags.ts) (`ENABLE_AI_CREDIT_ENFORCEMENT`) ·
-[services/workflows/patch/types.ts](../../../services/workflows/patch/types.ts) (the existing `WorkflowPatch` + `validateWorkflowPatch` system AI-REPAIR-2 will build on) ·
-[features/workflow-builder/ai/canExplainDiagnosis.ts](../../../features/workflow-builder/ai/canExplainDiagnosis.ts) (the gating helper to mirror) ·
-[features/workflow-builder/panels/_BuilderAiPanelMessageList.tsx](../../../features/workflow-builder/panels/_BuilderAiPanelMessageList.tsx) + [_BuilderAiPanelDiagnosis.tsx](../../../features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx) (diagnosis bubble + affordance gating) ·
-[lib/api/ai.ts](../../../lib/api/ai.ts) (`AgentWorkflowDiagnosis` client type, `diagnoseWorkflow`/`explainDiagnosis` clients).
+[app/api/workflows/[id]/ai/diagnose/explain/route.ts](../../../../app/api/workflows/[id]/ai/diagnose/explain/route.ts) (the paid/metered LLM route this slice mirrors) ·
+[services/ai/diagnostics/explainWorkflowDiagnosis.ts](../../../../services/ai/diagnostics/explainWorkflowDiagnosis.ts) (injected-model-client service pattern) ·
+[services/ai/diagnostics/diagnoseWorkflowForAgent.ts](../../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts) (the safe diagnosis DTO) ·
+[services/ai/diagnostics/buildDiagnosisExplainContext.ts](../../../../services/ai/diagnostics/buildDiagnosisExplainContext.ts) (the allow-list projector) ·
+[services/ai/diagnostics/renderWorkflowDiagnosis.ts](../../../../services/ai/diagnostics/renderWorkflowDiagnosis.ts) (deterministic findings → nextSteps) ·
+[core/billing/aiCreditPolicy.ts](../../../../core/billing/aiCreditPolicy.ts) (`workflow_repair: 4` already mapped) ·
+[services/billing/aiCreditGate.ts](../../../../services/billing/aiCreditGate.ts) (flag-OFF no-op gate) ·
+[services/billing/billingFeatureFlags.ts](../../../../services/billing/billingFeatureFlags.ts) (`ENABLE_AI_CREDIT_ENFORCEMENT`) ·
+[services/workflows/patch/types.ts](../../../../services/workflows/patch/types.ts) (the existing `WorkflowPatch` + `validateWorkflowPatch` system AI-REPAIR-2 will build on) ·
+[features/workflow-builder/ai/canExplainDiagnosis.ts](../../../../features/workflow-builder/ai/canExplainDiagnosis.ts) (the gating helper to mirror) ·
+[features/workflow-builder/panels/_BuilderAiPanelMessageList.tsx](../../../../features/workflow-builder/panels/_BuilderAiPanelMessageList.tsx) + [_BuilderAiPanelDiagnosis.tsx](../../../../features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx) (diagnosis bubble + affordance gating) ·
+[lib/api/ai.ts](../../../../lib/api/ai.ts) (`AgentWorkflowDiagnosis` client type, `diagnoseWorkflow`/`explainDiagnosis` clients).
 
 ---
 
@@ -41,9 +41,9 @@ This fits the AI arc after the diagnosis pair and **before** an executable
 auto-repair (AI-REPAIR-2), which would emit a validated `WorkflowPatch` against
 the already-built patch engine.
 
-Parent arc docs: [ai-diag-2-llm-explanation-plan.md](./ai-diag-2-llm-explanation-plan.md),
-[ai-credits-and-agent-runtime-plan.md](./ai-credits-and-agent-runtime-plan.md),
-[ai-architecture-react-agent-plan.md](./ai-architecture-react-agent-plan.md) (the WorkflowPatch system, §6).
+Parent arc docs: [ai-diag-2-llm-explanation-plan.md](../ai-diag-2-llm-explanation-plan.md),
+[ai-credits-and-agent-runtime-plan.md](../ai-credits-and-agent-runtime-plan.md),
+[ai-architecture-react-agent-plan.md](../ai-architecture-react-agent-plan.md) (the WorkflowPatch system, §6).
 
 ---
 
@@ -53,7 +53,7 @@ Every claim below traces to a file read for this plan.
 
 **(a) The diagnosis DTO is already safe and re-derivable server-side.**
 `diagnoseWorkflowForAgent({ subjectUserId, workflowId })`
-([diagnoseWorkflowForAgent.ts](../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts))
+([diagnoseWorkflowForAgent.ts](../../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts))
 returns `AgentWorkflowDiagnosisDTO`: `access` (`OK`/`NOT_FOUND`/`NO_ACCESS`),
 `overallReady`, `runnable`, `allRequiredConnected`, `findings[]` (source/code/
 severity/title/nodeIds/provider/providerName/missingFields/missingScopes/
@@ -65,7 +65,7 @@ connectedByUserId.
 
 **(b) There is already a defense-in-depth projector for the LLM.**
 `buildDiagnosisExplainContext(dto)`
-([buildDiagnosisExplainContext.ts](../../../services/ai/diagnostics/buildDiagnosisExplainContext.ts))
+([buildDiagnosisExplainContext.ts](../../../../services/ai/diagnostics/buildDiagnosisExplainContext.ts))
 field-by-field allow-lists the DTO into `DiagnosisExplainContext` (readiness
 booleans, `summaryText`, `nextSteps`, per-finding `source/code/severity/title/
 provider/providerName/missingFields/missingScopes/credentialClass`, and the
@@ -75,7 +75,7 @@ exactly which fields leave.
 
 **(c) The paid LLM route is a clean, proven template.**
 `POST /api/workflows/[id]/ai/diagnose/explain`
-([explain/route.ts](../../../app/api/workflows/[id]/ai/diagnose/explain/route.ts))
+([explain/route.ts](../../../../app/api/workflows/[id]/ai/diagnose/explain/route.ts))
 does, in order: `requireUser()` → `loadWorkflowForMember(id, userId)`
 (workflow-owning account + no-leak 404) → **re-derive the DTO server-side** (never
 trust a client-posted DTO) → access-wall short-circuit (return safe DTO, NO
@@ -88,7 +88,7 @@ account) → typed response. Status map: 401/400/404/402(`AI_CREDITS_EXHAUSTED`)
 
 **(d) The service pattern is injected-client, structured-tool, Zod-revalidated.**
 `explainWorkflowDiagnosis({ dto, modelClient, tier })`
-([explainWorkflowDiagnosis.ts](../../../services/ai/diagnostics/explainWorkflowDiagnosis.ts))
+([explainWorkflowDiagnosis.ts](../../../../services/ai/diagnostics/explainWorkflowDiagnosis.ts))
 projects the DTO via `buildDiagnosisExplainContext`, forces a single structured
 tool call (`explain_workflow_diagnosis` JSON Schema, `maxOutputTokens 800`),
 `JSON.parse` + Zod re-validates, and returns a discriminated result
@@ -97,27 +97,27 @@ the route owns authz + gate + recording. The system prompt explicitly forbids
 claiming anything was fixed/applied/run.
 
 **(e) Credits: `workflow_repair` is already a mapped feature — no migration.**
-`FEATURE_BASE_CREDITS` in [aiCreditPolicy.ts:59](../../../core/billing/aiCreditPolicy.ts#L59)
+`FEATURE_BASE_CREDITS` in [aiCreditPolicy.ts:59](../../../../core/billing/aiCreditPolicy.ts#L59)
 already contains **`workflow_repair: 4`** (comment: "explanation small, repair
 more"). `computeAiCreditCharge({ feature: "workflow_repair", isLlmCall: true,
 modelTier: "fast" })` → 4 credits, `mapped: true`. The gate
-([aiCreditGate.ts:66-69](../../../services/billing/aiCreditGate.ts#L66)) is a pure
+([aiCreditGate.ts:66-69](../../../../services/billing/aiCreditGate.ts#L66)) is a pure
 no-op while `ENABLE_AI_CREDIT_ENFORCEMENT !== "true"` (today's prod state: `""` →
 OFF) — no DB write, no charge. So a repair route reuses the **existing** credit
 infra with zero schema/policy changes.
 
 **(f) The UI affordance-gating helper already exists and is the right pattern.**
 `canExplainDiagnosis(diagnosis)`
-([canExplainDiagnosis.ts](../../../features/workflow-builder/ai/canExplainDiagnosis.ts))
+([canExplainDiagnosis.ts](../../../../features/workflow-builder/ai/canExplainDiagnosis.ts))
 returns `access === "OK" && (overallReady === false || findings.length > 0 ||
 nextSteps.length > 0)`. The message list ANDs it with "latest diagnosis message"
 to gate the Explain button
-([_BuilderAiPanelMessageList.tsx:264](../../../features/workflow-builder/panels/_BuilderAiPanelMessageList.tsx#L264)).
+([_BuilderAiPanelMessageList.tsx:264](../../../../features/workflow-builder/panels/_BuilderAiPanelMessageList.tsx#L264)).
 A repair affordance reuses the **identical** condition (there is nothing to repair
 on a clean/ready diagnosis).
 
 **(g) The executable-patch engine already exists — and is what AI-REPAIR-2 uses.**
-[services/workflows/patch/types.ts](../../../services/workflows/patch/types.ts)
+[services/workflows/patch/types.ts](../../../../services/workflows/patch/types.ts)
 defines `WorkflowPatch` (small diffs: `updateNodeConfig`, `repairVariableReference`,
 `addNode`, `removeNode`, `replaceTrigger`, edge ops…), `validateWorkflowPatch`,
 `applyPatchToDefinition`, deterministic risk reclassification, and a
@@ -128,10 +128,10 @@ This confirms AI-REPAIR-1 should **not** emit patch JSON — that belongs on top
 this validator in AI-REPAIR-2.
 
 **(h) Client + message-bubble surfaces exist.**
-[lib/api/ai.ts](../../../lib/api/ai.ts) has `diagnoseWorkflow(workflowId)` and
+[lib/api/ai.ts](../../../../lib/api/ai.ts) has `diagnoseWorkflow(workflowId)` and
 `explainDiagnosis(workflowId)` (returns `AiDiagnosisExplanation`), `AgentWorkflowDiagnosis`
 client type, and `AI_CREDITS_EXHAUSTED_MESSAGE`. The diagnosis bubble
-([_BuilderAiPanelDiagnosis.tsx](../../../features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx))
+([_BuilderAiPanelDiagnosis.tsx](../../../../features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx))
 renders `summaryText` + `nextSteps` + the gated Explain button + a
 `DiagnosisExplanationBody`. A repair proposal is a new message kind alongside
 `diagnosis` / `diagnosis_explanation`.
@@ -236,7 +236,7 @@ NOT enable any apply path in this slice. `notAppliedNotice` is belt-and-suspende
 **Q7 — Return executable patch JSON?** **No (recommended).** AI-REPAIR-1 returns a
 plain-language plan only. Executable graph patches must go through the existing
 `validateWorkflowPatch` (which recomputes risk, rejects unknown nodes/actions,
-checks variable references, etc. — [patch/types.ts](../../../services/workflows/patch/types.ts));
+checks variable references, etc. — [patch/types.ts](../../../../services/workflows/patch/types.ts));
 designing the model→`WorkflowPatch` contract, the preview UI, and the apply path
 is AI-REPAIR-2. Emitting raw patch JSON now would create an unvalidated,
 apply-tempting artifact with no guardrails — exactly what this slice forbids.

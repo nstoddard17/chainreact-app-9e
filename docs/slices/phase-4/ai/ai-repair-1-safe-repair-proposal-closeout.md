@@ -49,7 +49,7 @@ not this one.)
    (graphSlice `pendingNodes`/`pendingEdges`), so the diagnosis evaluates **what the user
    is looking at**, not the last-saved `draftDefinition`. The snapshot is strictly
    validated against `WorkflowDefinitionSchema`, used for the deterministic re-derivation
-   only, and **never persisted** ([draftOverride.ts](../../../services/ai/diagnostics/draftOverride.ts)).
+   only, and **never persisted** ([draftOverride.ts](../../../../services/ai/diagnostics/draftOverride.ts)).
 2. **Clean / ready** workflows: the diagnosis bubble shows **neither "Explain with AI" nor
    "Suggest a fix"** — there is nothing to explain or repair (`canExplainDiagnosis` gate;
    shipped originally in `8a246ef1f`, reused for the repair affordance).
@@ -71,7 +71,7 @@ not this one.)
 
 - **Server-side DTO re-derivation.** The repair route never trusts a client-posted
   diagnosis — it re-runs `diagnoseWorkflowForAgent` itself
-  ([route.ts:161-175](../../../app/api/workflows/[id]/ai/repair/plan/route.ts#L161)).
+  ([route.ts:161-175](../../../../app/api/workflows/[id]/ai/repair/plan/route.ts#L161)).
 - **Authz wall before any model/gate.** `loadWorkflowForMember(id, userId)` resolves the
   workflow-owning account; non-member / missing / cross-account → no-leak 404 **before**
   the credit gate or model call. Access-wall DTOs (`NOT_FOUND`/`NO_ACCESS`) short-circuit
@@ -84,7 +84,7 @@ not this one.)
 - **No raw node IDs in user/model text.** AI-DIAG-FIX-1 builds a `nodeId → safe display
   label` map and attaches `nodeLabels` to every finding; the render / explain / repair
   layers use labels, node ids stay internal
-  ([diagnoseWorkflowForAgent.ts:224-234](../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts#L224)).
+  ([diagnoseWorkflowForAgent.ts:224-234](../../../../services/ai/diagnostics/diagnoseWorkflowForAgent.ts#L224)).
 - **Draft snapshot is read-only.** Even when the client supplies its current graph, the
   snapshot influences only *which* graph is analyzed, never *who* may analyze it
   (authz still comes from the saved record), and the diagnosis reports field/label NAMES,
@@ -102,7 +102,7 @@ not this one.)
 
 - **No new DB objects. No migration. `db:push` NOT run** — none was needed. Credits reuse
   the already-applied `workflow_repair` feature (4 credits) in
-  [aiCreditPolicy.ts](../../../core/billing/aiCreditPolicy.ts), the existing
+  [aiCreditPolicy.ts](../../../../core/billing/aiCreditPolicy.ts), the existing
   `account_billing` counters + `deduct_ai_credits_if_available` RPC, and the existing
   `ai_cost_events` recorder.
 - **Account-scoped cost owner.** The billed account is always the **workflow-owning
@@ -118,7 +118,7 @@ not this one.)
 
 - **No fake / unsupported controls.** The repair bubble has **no Apply button** (confirmed
   by the explicit "deliberately NO Apply control" guard in
-  [_BuilderAiPanelDiagnosis.tsx:226](../../../features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx#L226)).
+  [_BuilderAiPanelDiagnosis.tsx:226](../../../../features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx#L226)).
   Executable repair is a later slice (AI-REPAIR-2).
 - "Suggest a fix" and "Explain with AI" appear **only** on the latest diagnosis bubble and
   **only** when there are real issues. Clean/ready diagnoses and access walls show neither.
@@ -137,7 +137,7 @@ not this one.)
   a single request → single structured model call → response, identical in shape to "Explain
   with AI". No multi-step agent loop is warranted yet.
 - **AI credit enforcement is OFF** (`ENABLE_AI_CREDIT_ENFORCEMENT` default `false` →
-  `isAiCreditEnforcementEnabled()` false, [billingFeatureFlags.ts:104-107](../../../services/billing/billingFeatureFlags.ts#L104)).
+  `isAiCreditEnforcementEnabled()` false, [billingFeatureFlags.ts:104-107](../../../../services/billing/billingFeatureFlags.ts#L104)).
   The gate is a no-op today (repair runs unmetered), but the recorder still writes the
   4-credit charge to the ledger — consistent with explanation's current behavior.
 - **Follow-up cleanup — file sizes approaching the soft line-count limit.** Both surfaces
