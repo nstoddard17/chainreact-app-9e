@@ -48,11 +48,17 @@ export async function slackApiRequest<TResponse extends SlackOkResponse>(
     body: JSON.stringify(body),
   });
 
-  // Non-2xx is typically a token / scope / rate-limit problem. Distinct
-  // error code shape (http_<status>) lets callers and the humanizer
-  // distinguish it from logical Slack errors.
+  // Non-2xx is typically a token / scope / rate-limit problem. Slack OFTEN
+  // still returns its JSON envelope ({ ok:false, error:"<code>" }) alongside a
+  // 401/403/429 — that logical code is far more TRUTHFUL than the bare HTTP
+  // status, and the option-source classifier (`isSlackAuthError`) needs it to
+  // tell a revoked token (reconnect) apart from a transient/scope failure
+  // (V2-READY-27). Prefer the logical code when the body carries one; fall back
+  // to `http_<status>` only when the body is absent / not JSON / has no error
+  // string (e.g. a 429 with a plain-text "rate limited" body).
   if (!response.ok) {
-    throw new SlackApiError(`http_${response.status}`);
+    const logicalCode = await readSlackLogicalErrorCode(response);
+    throw new SlackApiError(logicalCode ?? `http_${response.status}`);
   }
 
   const data = (await response.json()) as TResponse;
@@ -60,4 +66,26 @@ export async function slackApiRequest<TResponse extends SlackOkResponse>(
     throw new SlackApiError(data.error ?? "unknown_error");
   }
   return data;
+}
+
+/**
+ * Best-effort extraction of Slack's logical error code from a NON-2xx response
+ * body. Slack sometimes returns the JSON envelope `{ ok:false, error:"<code>" }`
+ * alongside a 401/403/429. Returns the code when present + non-empty; null when
+ * the body is missing, not JSON, or carries no error string (the caller then
+ * falls back to `http_<status>`). Never throws — and never surfaces the raw body.
+ */
+async function readSlackLogicalErrorCode(
+  response: Response,
+): Promise<string | null> {
+  try {
+    const text = await response.text();
+    if (!text) return null;
+    const parsed = JSON.parse(text) as { error?: unknown };
+    return typeof parsed.error === "string" && parsed.error.length > 0
+      ? parsed.error
+      : null;
+  } catch {
+    return null;
+  }
 }
