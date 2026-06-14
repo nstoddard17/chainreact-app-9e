@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, RepairProposal } from "@/lib/api/ai";
-import { RepairPreviewGoToTarget } from "./_BuilderAiPanelRepairGoTo";
+import { RepairPreviewGoToTarget, RepairProposalActions } from "./_BuilderAiPanelRepairGoTo";
 
 /**
  * Slice 4.AI-REPAIR-1c — immutable, UI-OWNED "nothing changed" notice for a
@@ -240,6 +240,7 @@ export function RepairProposalBody({
   previewing = false,
   alreadyPreviewed = false,
   onPreviewFix,
+  goToNodeId = null,
 }: {
   readonly proposal: RepairProposal;
   /**
@@ -254,6 +255,13 @@ export function RepairProposalBody({
   readonly alreadyPreviewed?: boolean;
   /** Explicit-click handler (never auto-called). */
   readonly onPreviewFix?: () => void;
+  /**
+   * Slice 4.AI-CONFIG-ASSIST CS-4 — internal node id of the diagnosed missing
+   * required field, when the issue is a single user-input-required field. The
+   * actions area resolves its field client-side and offers a direct "Open <field>
+   * field" affordance so Preview isn't a required step. Null → Preview-fix-only.
+   */
+  readonly goToNodeId?: string | null;
 }) {
   return (
     <div data-testid="builder-ai-repair-proposal" className="flex flex-col gap-2">
@@ -320,26 +328,13 @@ export function RepairProposalBody({
       >
         {REPAIR_NOT_APPLIED_NOTICE_UI}
       </p>
-      {canPreview && (
-        <div data-testid="builder-ai-repair-preview-fix" className="flex flex-col gap-1 pt-1">
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onPreviewFix}
-              disabled={previewing || alreadyPreviewed}
-              data-testid="builder-ai-preview-fix-button"
-            >
-              {previewing ? "Previewing fix…" : alreadyPreviewed ? "Previewed" : "Preview fix"}
-            </Button>
-          </div>
-          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
-            AI proposes specific changes and shows what would change. Nothing is applied,
-            saved, or run.
-          </p>
-        </div>
-      )}
+      <RepairProposalActions
+        goToNodeId={goToNodeId}
+        canPreview={canPreview}
+        previewing={previewing}
+        alreadyPreviewed={alreadyPreviewed}
+        {...(onPreviewFix ? { onPreviewFix } : {})}
+      />
     </div>
   );
 }

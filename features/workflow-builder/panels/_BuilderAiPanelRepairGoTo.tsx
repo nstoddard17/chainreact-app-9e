@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { RepairPreview } from "@/lib/api/ai";
+import { useRepairFieldTarget } from "../ai/useRepairFieldTarget";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 
@@ -55,6 +56,103 @@ export function RepairPreviewGoToTarget({
       >
         {label}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-CONFIG-ASSIST CS-4 — action area for a repair PROPOSAL bubble.
+ *
+ * Product rule: a KNOWN, user-input-required missing field is something only the
+ * user can fill — so don't force them to run a (paid) "Preview fix" of a
+ * non-automatic fix just to open the field. When `goToNodeId` resolves to a node
+ * with a still-empty required field (`useRepairFieldTarget`), the PRIMARY action
+ * becomes "Open <field> field" — the SAME navigation seam (`revealNode`) the
+ * blocked-preview "Go to field" button uses: it selects the node, opens its config
+ * rail, pans/zooms the canvas, and highlights the field. NAVIGATION ONLY — it never
+ * writes a config value, saves, runs, or mutates the graph; there is no Apply.
+ *
+ * "Preview fix" is NOT removed — when a target exists it's demoted to a secondary
+ * control (still available for inspecting an actual patch). When there is NO
+ * targetable field (the issue isn't a single fillable field, or the field is
+ * already filled), the original Preview-fix-only block renders unchanged.
+ *
+ * Labels only ever show field/node DISPLAY labels — never the raw id / field key.
+ */
+export function RepairProposalActions({
+  goToNodeId,
+  canPreview,
+  previewing,
+  alreadyPreviewed,
+  onPreviewFix,
+}: {
+  /** Internal target node id from the diagnosis, or null when none is targetable. */
+  readonly goToNodeId: string | null;
+  /** Whether the (paid) "Preview fix" affordance should be offered at all. */
+  readonly canPreview: boolean;
+  readonly previewing: boolean;
+  readonly alreadyPreviewed: boolean;
+  readonly onPreviewFix?: () => void;
+}) {
+  const target = useRepairFieldTarget(goToNodeId);
+
+  // The "Preview fix" control — identical behavior whether it's the sole action
+  // (no target) or a secondary control beside "Open <field> field" (target present).
+  const previewButton = canPreview ? (
+    <Button
+      type="button"
+      size="sm"
+      variant={target ? "ghost" : "outline"}
+      onClick={onPreviewFix}
+      disabled={previewing || alreadyPreviewed}
+      data-testid="builder-ai-preview-fix-button"
+      {...(target ? { className: "h-7 text-xs" } : {})}
+    >
+      {previewing ? "Previewing fix…" : alreadyPreviewed ? "Previewed" : "Preview fix"}
+    </Button>
+  ) : null;
+
+  if (target) {
+    return (
+      <div
+        data-testid="builder-ai-repair-open-field"
+        className="flex flex-col gap-1 pt-1"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            onClick={() =>
+              useConfigSlice.getState().revealNode({
+                nodeId: target.nodeId,
+                initialValues: target.initialValues,
+                fieldKey: target.fieldKey,
+              })
+            }
+            data-testid="builder-ai-repair-open-field-button"
+          >
+            Open {target.fieldLabel} field
+          </Button>
+          {previewButton}
+        </div>
+        <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+          Opens the step and highlights the field so you can fill it in. Nothing is
+          changed, saved, or run.
+        </p>
+      </div>
+    );
+  }
+
+  // No targetable field → the original Preview-fix-only block (markup unchanged).
+  if (!canPreview) return null;
+  return (
+    <div data-testid="builder-ai-repair-preview-fix" className="flex flex-col gap-1 pt-1">
+      <div>{previewButton}</div>
+      <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        AI proposes specific changes and shows what would change. Nothing is applied,
+        saved, or run.
+      </p>
     </div>
   );
 }

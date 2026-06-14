@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import type { RepairPreviewProposalContext } from "@/lib/api/ai";
-import { canExplainDiagnosis, type RequiredInputAnswer } from "../ai";
+import type { AgentWorkflowDiagnosis, RepairPreviewProposalContext } from "@/lib/api/ai";
+import { canExplainDiagnosis, firstMissingFieldNodeId, type RequiredInputAnswer } from "../ai";
 import {
   AssistantBubble,
   PlanResultBody,
@@ -212,13 +212,20 @@ export function BuilderAiPanelMessageList({
   // (`canExplainDiagnosis`), so a "ready, nothing to fix" check never offers a paid
   // explanation that would just restate "it's ready".
   let latestDiagnosisMessageId: ChatMessageId | null = null;
+  let latestDiagnosis: AgentWorkflowDiagnosis | null = null;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
     if (m.role === "assistant" && m.kind === "diagnosis") {
       latestDiagnosisMessageId = m.id;
+      latestDiagnosis = m.diagnosis;
       break;
     }
   }
+
+  // AI-CONFIG-ASSIST CS-4 — when the latest diagnosis pins a single missing
+  // required field, the latest repair proposal offers a direct "Open <field> field"
+  // action (no Preview step). Null when the issue isn't a single targetable field.
+  const repairGoToNodeId = firstMissingFieldNodeId(latestDiagnosis);
 
   // AI-REPAIR-2c — only the LATEST repair_proposal message offers "Preview fix",
   // mirroring the latest-diagnosis gating, so a stale historical proposal never
@@ -353,6 +360,7 @@ export function BuilderAiPanelMessageList({
               <RepairProposalBody
                 proposal={message.proposal}
                 canPreview={canPreview}
+                goToNodeId={canPreview ? repairGoToNodeId : null}
                 previewing={previewing}
                 alreadyPreviewed={previewedProposalIds.has(message.id)}
                 onPreviewFix={() =>

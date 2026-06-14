@@ -53,6 +53,8 @@ export type {
 
 export { canExplainDiagnosis } from "./canExplainDiagnosis";
 
+export { firstMissingFieldNodeId } from "./firstMissingFieldNodeId";
+
 export {
   isChatFillEligible,
   validateChatFillValue,

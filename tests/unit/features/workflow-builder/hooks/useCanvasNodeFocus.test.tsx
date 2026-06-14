@@ -48,7 +48,11 @@ describe("useCanvasNodeFocus", () => {
     const [cx, cy, opts] = mockSetCenter.mock.calls[0]!;
     expect(cx).toBe(100 + 140);
     expect(cy).toBe(200 + 60);
-    expect(opts).toMatchObject({ zoom: expect.any(Number), duration: expect.any(Number) });
+    // CS-4 — zoom CLOSER than the prior 1.2 so the focused node is easy to inspect,
+    // with a smooth (non-zero) animation. Stays below a disorienting tight zoom.
+    expect(opts.zoom).toBeGreaterThanOrEqual(1.5);
+    expect(opts.zoom).toBeLessThanOrEqual(2);
+    expect(opts.duration).toBeGreaterThan(0);
   });
 
   it("re-pans when the SAME node is revealed again (seq advances)", () => {

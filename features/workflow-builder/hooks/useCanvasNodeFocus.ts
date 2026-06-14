@@ -19,8 +19,12 @@ import { useConfigSlice } from "../state/configSlice";
  * `ReactFlowProvider` (i.e. from `WorkflowCanvasInner`).
  */
 
-const FOCUS_ZOOM = 1.2;
-const FOCUS_DURATION_MS = 400;
+// Slice 4.AI-CONFIG-ASSIST CS-4 — zoom CLOSER on a reveal so the focused node is
+// large and easy to inspect (the 2F default of 1.2 barely changed the view). 1.75
+// fills the viewport with the single node without the disorienting jump a tighter
+// zoom (>2) would cause. The eased `setCenter` animation keeps it smooth.
+const FOCUS_ZOOM = 1.75;
+const FOCUS_DURATION_MS = 450;
 const DEFAULT_NODE_WIDTH = 280;
 const DEFAULT_NODE_HEIGHT = 120;
 
