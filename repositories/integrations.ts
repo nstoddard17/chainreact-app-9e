@@ -338,6 +338,49 @@ export async function getActiveForExecution(
   return data ? rowToRecord(data) : null;
 }
 
+/**
+ * Service-role: list ACTIVE integration rows for ONE provider across ALL
+ * accounts, bounded by `limit` (V2-READY-29 — proactive health check).
+ *
+ * Service-role on purpose: the proactive health-check cron runs with no user
+ * session (Vercel cron / curl with CRON_SECRET) and must sweep every account's
+ * connections for the provider, so RLS-by-membership does not apply. It is the
+ * SAME read shape `getActiveForExecution` already uses (full encrypted record),
+ * widened from one (account, providerAccountId) tuple to "all active rows for
+ * the provider" — the cron needs the encrypted token to probe and the full
+ * record (incl. `connectedByUserId` + `needsReconnectAt`) to drive the existing
+ * mark/clear/notify path. Nothing here is returned to a client; the caller
+ * collapses results to numeric aggregate counts.
+ *
+ * Ordered `created_at ASC` + `limit` so a single tick stays bounded and
+ * deterministic. There is no per-row "last health-checked" cursor (adding one
+ * would need a migration, which V2-READY-29 deliberately avoids) — at launch
+ * scale the bounded batch covers all active rows for the provider each tick. If
+ * a provider ever exceeds the batch size this becomes a partial sweep (the
+ * earliest-connected rows); revisit with a cursor column then.
+ */
+export async function listActiveByProviderServiceRole(
+  provider: string,
+  limit: number,
+): Promise<readonly IntegrationRecord[]> {
+  const supabase = getServiceRoleClient(
+    `health check: listActiveByProvider ${provider} (limit ${limit})`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("provider", provider)
+    .is("disconnected_at", null)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) {
+    throw new Error(
+      `integrations.listActiveByProviderServiceRole failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).map((row) => rowToRecord(row as IntegrationsRow));
+}
+
 export interface UpdateTokensInput {
   /** Integration row id (from getActiveForExecution / upsertActive). */
   id: string;

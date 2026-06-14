@@ -91,6 +91,7 @@ import {
   upsertActive,
   markNeedsReconnect,
   clearNeedsReconnect,
+  listActiveByProviderServiceRole,
 } from "@/repositories/integrations";
 
 describe("repositories/integrations.upsertActive", () => {
@@ -414,5 +415,100 @@ describe("repositories/integrations — reconnect-needed signal (V2-READY-28)", 
     const { fromMock } = markChainMock({ data: null, error: { message: "rls denied" } });
     mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
     await expect(markNeedsReconnect("int-1")).rejects.toThrow(/markNeedsReconnect failed/i);
+  });
+});
+
+describe("repositories/integrations.listActiveByProviderServiceRole (V2-READY-29)", () => {
+  // Chain: from('integrations').select('*').eq('provider', p).is('disconnected_at', null)
+  //          .order('created_at', { ascending: true }).limit(n)  → { data, error }
+  function listChainMock(result: { data: unknown; error: unknown }) {
+    const captured: {
+      selectArg?: unknown;
+      eqArgs: Array<[string, unknown]>;
+      isArgs: Array<[string, unknown]>;
+      orderArgs: Array<[string, unknown]>;
+      limitArg?: number;
+    } = { eqArgs: [], isArgs: [], orderArgs: [] };
+    const fromMock = jest.fn().mockImplementation(() => {
+      const b: Record<string, jest.Mock> = {
+        select: jest.fn().mockImplementation((arg) => {
+          captured.selectArg = arg;
+          return b;
+        }),
+        eq: jest.fn().mockImplementation((c, v) => {
+          captured.eqArgs.push([c as string, v]);
+          return b;
+        }),
+        is: jest.fn().mockImplementation((c, v) => {
+          captured.isArgs.push([c as string, v]);
+          return b;
+        }),
+        order: jest.fn().mockImplementation((c, v) => {
+          captured.orderArgs.push([c as string, v]);
+          return b;
+        }),
+        limit: jest.fn().mockImplementation((n) => {
+          captured.limitArg = n as number;
+          return Promise.resolve(result);
+        }),
+      };
+      return b;
+    });
+    return { fromMock, captured };
+  }
+
+  const activeRow = {
+    id: "int-9",
+    account_id: "acct-9",
+    connected_by_user_id: "user-9",
+    provider: "slack",
+    provider_account_id: "T999",
+    display_name: "Slack",
+    access_token_encrypted: "ENC-9",
+    refresh_token_encrypted: null,
+    access_token_expires_at: null,
+    scopes: ["chat:write"],
+    account_metadata: {},
+    disconnected_at: null,
+    integration_sharing_scope: null,
+    needs_reconnect_at: null,
+    created_at: "2026-06-01T00:00:00Z",
+    updated_at: "2026-06-01T00:00:00Z",
+  };
+
+  it("filters by provider + active, orders created_at ASC, bounds by limit, maps to records", async () => {
+    const { fromMock, captured } = listChainMock({ data: [activeRow], error: null });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+
+    const rows = await listActiveByProviderServiceRole("slack", 250);
+
+    expect(captured.selectArg).toBe("*");
+    expect(captured.eqArgs).toContainEqual(["provider", "slack"]);
+    expect(captured.isArgs).toContainEqual(["disconnected_at", null]);
+    expect(captured.orderArgs).toContainEqual(["created_at", { ascending: true }]);
+    expect(captured.limitArg).toBe(250);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: "int-9",
+      accountId: "acct-9",
+      connectedByUserId: "user-9",
+      provider: "slack",
+      accessTokenEncrypted: "ENC-9",
+      needsReconnectAt: null,
+    });
+  });
+
+  it("returns [] when no active rows match", async () => {
+    const { fromMock } = listChainMock({ data: [], error: null });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+    await expect(listActiveByProviderServiceRole("slack", 10)).resolves.toEqual([]);
+  });
+
+  it("surfaces a DB error", async () => {
+    const { fromMock } = listChainMock({ data: null, error: { message: "boom" } });
+    mockSupabaseClient.current = { from: fromMock } as ReturnType<typeof makeMockClient>;
+    await expect(listActiveByProviderServiceRole("slack", 10)).rejects.toThrow(
+      /listActiveByProviderServiceRole failed/i,
+    );
   });
 });
