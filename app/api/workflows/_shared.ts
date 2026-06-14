@@ -292,10 +292,21 @@ export async function runLifecycle<T>(
     if (err instanceof LifecycleError) {
       return lifecycleErrorResponse(err);
     }
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unexpected error" },
-      { status: 500 },
+    // No-leak fallback (V2-READY-22). A non-LifecycleError reaching here is an
+    // UNEXPECTED throw from the orchestrator / repository chain whose raw message
+    // can carry internal detail: AccountFrozenError embeds the V2 account id
+    // ("Account <id> is pending deletion..."), and Supabase / Postgres errors name
+    // tables / columns / constraints. Collapse to a stable safe message and log
+    // the raw error server-side only. Status 500 + the codeless body shape are
+    // preserved so the client keeps mapping it to SERVER_ERROR (lib/api/workflows.ts
+    // pickCode). Mirrors the lifecycleErrorResponse boundary above.
+    console.error(
+      JSON.stringify({
+        event: "workflow.lifecycle.unexpected_error",
+        message: err instanceof Error ? err.message : String(err),
+      }),
     );
+    return NextResponse.json({ error: "Workflow action failed." }, { status: 500 });
   }
 }
 

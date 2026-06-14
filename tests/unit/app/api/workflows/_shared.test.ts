@@ -277,15 +277,71 @@ describe("runLifecycle", () => {
     expect(await res.json()).toMatchObject({ code: "INVALID_TRANSITION" });
   });
 
-  it("falls back to 500 for unexpected errors", async () => {
+  it("falls back to a SAFE static 500 for unexpected errors (V2-READY-22 — no raw message)", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await runLifecycle(
       async () => {
-        throw new Error("boom");
+        throw new Error("boom: raw internal detail");
       },
       () => NextResponse.json({}),
     );
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "boom" });
+    const body = await res.json();
+    // Stable, identifier-free message — NOT the raw thrown text.
+    expect(body.error).toBe("Workflow action failed.");
+    expect(body).not.toHaveProperty("code"); // codeless → client maps via status (SERVER_ERROR)
+    // Diagnostics retained server-side only.
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("V2-READY-22: a hostile unexpected error leaks NONE of its identifiers to the client", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    // Packs every no-leak class: AccountFrozenError-style account id, Supabase
+    // constraint/table, provider-account email, token, scope, and stack-ish text.
+    const HOSTILE =
+      "Account acct-9f2c1b00-dead-beef is pending deletion and is frozen; " +
+      'duplicate key violates unique constraint "workflows_pkey" ' +
+      "provider-account=dave@example.com token=ya29.SECRET scope=read:all " +
+      "at applyTransition (/srv/app/repositories/workflows.ts:88:11)";
+    const res = await runLifecycle(
+      async () => {
+        throw new Error(HOSTILE);
+      },
+      () => NextResponse.json({}),
+    );
+    expect(res.status).toBe(500);
+    const raw = await res.text();
+    expect(JSON.parse(raw).error).toBe("Workflow action failed.");
+    for (const frag of [
+      "acct-9f2c1b00-dead-beef",
+      "workflows_pkey",
+      "constraint",
+      "dave@example.com",
+      "ya29.SECRET",
+      "read:all",
+      "repositories/workflows.ts",
+    ]) {
+      expect(raw).not.toContain(frag);
+    }
+    // The raw cause is retained in the SERVER log (not the response).
+    const logged = String(errorSpy.mock.calls[0]?.[0] ?? "");
+    expect(logged).toContain("workflow.lifecycle.unexpected_error");
+    expect(logged).toContain("dave@example.com");
+    errorSpy.mockRestore();
+  });
+
+  it("V2-READY-22: a non-Error throw also collapses to the safe 500 message", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await runLifecycle(
+      async () => {
+        throw "raw string boom";
+      },
+      () => NextResponse.json({}),
+    );
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("Workflow action failed.");
+    errorSpy.mockRestore();
   });
 });
 
