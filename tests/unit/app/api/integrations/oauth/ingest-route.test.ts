@@ -137,16 +137,43 @@ describe("POST /api/integrations/oauth/[provider]/ingest — dispatcher error ma
     expect(body.error).toBe("invalid token");
   });
 
-  it("returns 502 on network-shaped errors", async () => {
-    mockHandleTokenIngest.mockRejectedValueOnce(new Error("fetch failed"));
+  it("returns 502 on network-shaped errors (body is the stable code, not the raw message)", async () => {
+    mockHandleTokenIngest.mockRejectedValueOnce(new Error("fetch failed reaching trello.com/api"));
     const res = await POST(makeRequest({ state: "x", token: "y" }), { params });
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(502); // transient-vs-fatal status heuristic preserved
+    const body = await res.json();
+    expect(body.error).toBe("ingest_failed");
   });
 
   it("returns 500 on unexpected errors", async () => {
     mockHandleTokenIngest.mockRejectedValueOnce(new Error("boom"));
     const res = await POST(makeRequest({ state: "x", token: "y" }), { params });
     expect(res.status).toBe(500);
+  });
+
+  it("V2-READY-21: a hostile unexpected error leaks no identifiers — body is the stable code only", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const hostile =
+      'duplicate key violates constraint "integrations_pkey" account=acct-77 ' +
+      "provider-account=bob@example.com token=tok-SECRET scope=read:all";
+    mockHandleTokenIngest.mockRejectedValueOnce(new Error(hostile));
+    const res = await POST(makeRequest({ state: "x", token: "y" }), { params });
+    expect(res.status).toBe(500);
+    const raw = await res.text();
+    expect(JSON.parse(raw).error).toBe("ingest_failed");
+    for (const frag of [
+      "integrations_pkey",
+      "constraint",
+      "acct-77",
+      "bob@example.com",
+      "tok-SECRET",
+      "read:all",
+    ]) {
+      expect(raw).not.toContain(frag);
+    }
+    // Diagnostics retained server-side only.
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it("never echoes the token back in any error response body", async () => {

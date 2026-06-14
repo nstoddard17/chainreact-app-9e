@@ -3,6 +3,7 @@ import { TokenIngestVerificationError } from "@/contracts/integration";
 import { handleTokenIngest } from "@/services/oauth/dispatcher";
 import { InvalidStateError } from "@/services/oauth/state";
 import { createClient } from "@/utils/supabase/server";
+import { redactedOAuthErrorCode } from "../_shared";
 
 /**
  * Token-ingest endpoint (Slice 17+).
@@ -104,12 +105,21 @@ export async function POST(
     if (err instanceof TokenIngestVerificationError) {
       return NextResponse.json({ error: err.reason }, { status: 400 });
     }
-    const message = err instanceof Error ? err.message : "ingest failed";
+    // V2-READY-21 — keep the transient-vs-fatal status heuristic (classified
+    // from the raw message SERVER-SIDE) but never echo the raw message: it can
+    // carry provider verifier output or infra / Supabase errors. Collapse the
+    // body to a stable code; the raw message is logged server-side only.
+    const rawMessage = err instanceof Error ? err.message : "ingest failed";
     const status = /verify failed|fetch failed|network|ETIMEDOUT|ECONNRESET/i.test(
-      message,
+      rawMessage,
     )
       ? 502
       : 500;
-    return NextResponse.json({ error: message }, { status });
+    const code = redactedOAuthErrorCode(
+      err,
+      { event: "oauth.ingest_failed", provider },
+      "ingest_failed",
+    );
+    return NextResponse.json({ error: code }, { status });
   }
 }

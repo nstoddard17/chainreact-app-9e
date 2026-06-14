@@ -6,6 +6,7 @@ import { resolveReconnectTarget } from "@/services/integrations/reconnect";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
+import { redactedOAuthErrorCode } from "../_shared";
 
 /**
  * Initiates an OAuth connection for the authenticated user.
@@ -186,9 +187,14 @@ export async function POST(
     });
     return NextResponse.json({ redirectUrl });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "OAuth start failed" },
-      { status: 400 },
+    // V2-READY-21 — collapse any error to a stable code (the raw message can
+    // carry dispatcher config hints, the client provider-hint value, or infra /
+    // Supabase errors). Status 400 preserved; raw message logged server-side.
+    const code = redactedOAuthErrorCode(
+      err,
+      { event: "oauth.connect_failed", provider },
+      "connect_failed",
     );
+    return NextResponse.json({ error: code }, { status: 400 });
   }
 }

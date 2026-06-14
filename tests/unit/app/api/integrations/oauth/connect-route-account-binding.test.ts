@@ -178,3 +178,31 @@ it("reconnect uses the authorized ROW account, not the active account", async ()
     },
   });
 });
+
+it("V2-READY-21 — a hostile dispatcher error collapses to the stable code (no raw leak)", async () => {
+  const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  signedIn();
+  mockResolveActive.mockResolvedValueOnce({ ok: true, accountId: TEAM, source: "active" });
+  // gmail is a personal provider → skips the owner/admin role gate, so connect() runs.
+  const hostile =
+    'insert into "integrations" violates constraint "integrations_pkey" ' +
+    "account=" + TEAM + " provider-account=carol@example.com token=tok-SECRET scope=read:all";
+  mockConnect.mockRejectedValueOnce(new Error(hostile));
+
+  const res = await POST(plainReq("gmail"), params("gmail"));
+  expect(res.status).toBe(400); // status contract preserved
+  const raw = await res.text();
+  expect(JSON.parse(raw).error).toBe("connect_failed");
+  for (const frag of [
+    "integrations_pkey",
+    "constraint",
+    TEAM,
+    "carol@example.com",
+    "tok-SECRET",
+    "read:all",
+  ]) {
+    expect(raw).not.toContain(frag);
+  }
+  expect(errorSpy).toHaveBeenCalled(); // diagnostics retained server-side
+  errorSpy.mockRestore();
+});

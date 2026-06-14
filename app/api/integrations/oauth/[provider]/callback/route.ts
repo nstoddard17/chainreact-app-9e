@@ -4,6 +4,7 @@ import {
   ReconnectIdentityMismatchError,
   StateAccountAccessError,
 } from "@/services/oauth/dispatcher";
+import { redactedOAuthErrorCode } from "../_shared";
 
 /**
  * OAuth callback handler. The provider redirects the user here after they
@@ -78,9 +79,16 @@ export async function GET(
         new URL("/apps?integration_error=account_access_revoked", base),
       );
     }
-    const message = err instanceof Error ? err.message : "callback_failed";
+    // V2-READY-21 — any UNRECOGNISED error collapses to a stable code; the raw
+    // message (provider OAuth codes, dispatcher config hints, infra / Supabase
+    // errors) is logged server-side only, never echoed into the URL param.
+    const code = redactedOAuthErrorCode(
+      err,
+      { event: "oauth.callback_failed", provider },
+      "callback_failed",
+    );
     return NextResponse.redirect(
-      new URL(`/apps?integration_error=${encodeURIComponent(message)}`, base),
+      new URL(`/apps?integration_error=${encodeURIComponent(code)}`, base),
     );
   }
 }
