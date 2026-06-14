@@ -15,9 +15,25 @@
  */
 
 const mockGetActiveForExecution = jest.fn();
+const mockMarkNeedsReconnect = jest.fn((..._args: unknown[]): Promise<boolean> => Promise.resolve(false));
+const mockClearNeedsReconnect = jest.fn((..._args: unknown[]) => Promise.resolve());
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: (...args: unknown[]) =>
     mockGetActiveForExecution(...args),
+  // V2-READY-28 — resolveOptionsSource marks/clears the reconnect-needed signal on
+  // the PROVIDER_REAUTH_REQUIRED / successful-load arms. markNeedsReconnect returns a
+  // boolean (true = first-mark transition, V2-READY-28B). These were missing from this
+  // diagnostics-route mock (the sibling live-route test already had them), so the real
+  // resolver hit an undefined function and the reauth code surfaced as SERVER_ERROR.
+  markNeedsReconnect: (...args: unknown[]) => mockMarkNeedsReconnect(...args),
+  clearNeedsReconnect: (...args: unknown[]) => mockClearNeedsReconnect(...args),
+}));
+
+// V2-READY-28B — resolveOptionsSource fires a one-shot reconnect notification on a
+// true first-mark. Mock the service so this route test never creates real rows.
+const mockNotifyReconnectNeeded = jest.fn((..._args: unknown[]) => Promise.resolve());
+jest.mock("@/services/integrations/reconnectNotification", () => ({
+  notifyReconnectNeeded: (...args: unknown[]) => mockNotifyReconnectNeeded(...args),
 }));
 
 const mockResolveOwner = jest.fn();
