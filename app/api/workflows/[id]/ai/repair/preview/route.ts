@@ -45,8 +45,11 @@ import { loadWorkflowForMember, requireUser } from "../../../../_shared";
  * credits 4, billed to the workflow-owning account, fail-open) → typed response.
  *
  * Status mapping: 401 unauth · 400 bad id / invalid draft · 404 not-found/non-member
- * · 402 `AI_CREDITS_EXHAUSTED` (flag ON + insufficient) · 403 frozen · 503
- * `MODEL_FAILED`/`PARSE_FAILED`/`AI_GATE_ERROR`/not-configured · 500 unexpected.
+ * · 402 `AI_CREDITS_EXHAUSTED` (flag ON + insufficient) · 403 frozen · 200 handled
+ * `NO_SAFE_PATCH`/`NOTHING_TO_PREVIEW` (incl. AI-REPAIR-2E malformed/unusable model
+ * output — the model responded but produced no safe fix) · 503 `MODEL_FAILED`
+ * (genuine provider/transport/config failure) / `AI_GATE_ERROR` / not-configured ·
+ * 500 `GRAPH_UNAVAILABLE`/unexpected.
  *
  * No-leak: the model sees only `buildDiagnosisExplainContext(dto)` + an opaque-id
  * node inventory (NO config values); the response carries `{ ok, preview,
@@ -132,7 +135,13 @@ async function recordPreviewEvent(
         ...(result.model?.modelId ? { modelName: result.model.modelId } : {}),
         modelProvider: "openai",
         ...(result.model?.latencyMs !== undefined ? { latencyMs: result.model.latencyMs } : {}),
-        metadata: { kind: "workflow_repair_preview", code: result.code },
+        // AI-REPAIR-2E — `detail` keeps the NO_SAFE_PATCH sub-reason (model decline vs
+        // malformed/unparseable output) observable in telemetry; never user-facing.
+        metadata: {
+          kind: "workflow_repair_preview",
+          code: result.code,
+          ...(result.detail ? { detail: result.detail } : {}),
+        },
       });
     }
   } catch {

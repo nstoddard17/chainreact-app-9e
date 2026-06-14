@@ -301,6 +301,25 @@ describe("Preview fix — blocked + failures render safe copy", () => {
     expect(screen.getByTestId("builder-ai-preview-fix-button")).toBeEnabled();
   });
 
+  it("AI-REPAIR-2E — malformed model output (reclassified NO_SAFE_PATCH) renders handled copy, NOT the generic failure line", async () => {
+    // After AI-REPAIR-2E the service maps unusable/malformed model output to a handled
+    // NO_SAFE_PATCH (200), so the client surfaces the friendly handled copy here — the
+    // user must NOT see the generic "Couldn't build a repair preview right now" failure.
+    const user = await suggest();
+    mockPreview.mockResolvedValueOnce({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message: "The AI couldn't build a safe automatic fix — the remaining issue may need information only you can provide. Run Check workflow again, or fix it manually.",
+    });
+    await user.click(screen.getByTestId("builder-ai-preview-fix-button"));
+    const msg = await screen.findByTestId("builder-ai-error-message");
+    expect(msg.textContent).toMatch(/safe automatic fix/i);
+    expect(msg.textContent).not.toContain("Couldn’t build a repair preview");
+    // No internal/code leakage in the handled copy.
+    expect(msg.textContent).not.toMatch(/NO_SAFE_PATCH|PARSE_FAILED|envelope_mismatch/);
+    expect(screen.getByTestId("builder-ai-preview-fix-button")).toBeEnabled();
+  });
+
   it("AI_CREDITS_EXHAUSTED renders the shared safe credit message (button stays retryable)", async () => {
     const user = await suggest();
     mockPreview.mockResolvedValueOnce({ ok: false, code: "AI_CREDITS_EXHAUSTED", message: "ignored" });

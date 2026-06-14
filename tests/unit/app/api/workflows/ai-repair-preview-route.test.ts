@@ -313,6 +313,30 @@ describe("ai/repair/preview — success + failure + recording", () => {
     expect(body.message).toMatch(/safe automatic fix/i);
   });
 
+  it("AI-REPAIR-2E — malformed model output (NO_SAFE_PATCH + detail) → 200 handled, NOT 503, detail recorded in telemetry", async () => {
+    // The model responded but its patch was unusable; the service reclassifies to
+    // NO_SAFE_PATCH (never PARSE_FAILED→503). The route returns the friendly 200 and
+    // records the failed event with the safe sub-reason `detail` for observability.
+    mockPreviewRepair.mockResolvedValueOnce({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message: "The AI couldn't build a safe automatic fix.",
+      detail: "envelope_mismatch",
+      model: { modelId: "gpt-4.1-mini", tier: "fast" },
+    });
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "NO_SAFE_PATCH" });
+    expect(body.message).toMatch(/safe automatic fix/i);
+    // Telemetry retains the sub-reason; the user-facing body never carries `detail`.
+    expect(body.detail).toBeUndefined();
+    expect(mockRecFailed).toHaveBeenCalledTimes(1);
+    const recArg = mockRecFailed.mock.calls[0]![1] as { metadata?: { detail?: string; code?: string } };
+    expect(recArg.metadata?.detail).toBe("envelope_mismatch");
+    expect(recArg.metadata?.code).toBe("NO_SAFE_PATCH");
+  });
+
   it("a GENUINE MODEL_FAILED still maps to 503 (not collapsed with the handled states)", async () => {
     mockPreviewRepair.mockResolvedValueOnce({ ok: false, code: "MODEL_FAILED", message: "boom", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
     const res = await call("wf-1");

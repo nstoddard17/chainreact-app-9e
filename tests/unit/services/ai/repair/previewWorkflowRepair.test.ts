@@ -219,11 +219,17 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     }
   });
 
-  it("a throw from the preview pipeline (malformed ops) → PARSE_FAILED, never a 500", async () => {
+  // AI-REPAIR-2E — the model RESPONDED but its patch is unusable (a malformed op
+  // crashed the validate pipeline). That is "no safe automatic fix", a HANDLED
+  // outcome the route returns as a friendly 200 — never a 503 (and never a 500).
+  it("a throw from the preview pipeline (malformed ops) → handled NO_SAFE_PATCH, never 500/503", async () => {
     mockPreview.mockRejectedValueOnce(new Error("normalize blew up on a malformed op"));
     const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success(modelPatchText)) });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.code).toBe("PARSE_FAILED");
+    if (!res.ok) {
+      expect(res.code).toBe("NO_SAFE_PATCH");
+      expect(res.detail).toBe("preview_pipeline_throw");
+    }
   });
 
   it("maps a genuine provider failure (NOT_CONFIGURED) to MODEL_FAILED → route 503 (never trusts the model)", async () => {
@@ -275,24 +281,41 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     expect(diagnosisHasRepairableIssue({ workflowId: "w", access: "NOT_FOUND" } as never)).toBe(false);
   });
 
-  it("maps non-JSON model text to PARSE_FAILED (no preview call)", async () => {
+  // AI-REPAIR-2E — unreadable / wrong-shape model output is a HANDLED NO_SAFE_PATCH
+  // (the model responded; its output just isn't a usable patch), never PARSE_FAILED → 503.
+  it("maps non-JSON model text to handled NO_SAFE_PATCH (no preview call)", async () => {
     const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success("not json {")) });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.code).toBe("PARSE_FAILED");
+    if (!res.ok) {
+      expect(res.code).toBe("NO_SAFE_PATCH");
+      expect(res.detail).toBe("unreadable_model_json");
+    }
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
-  it("maps a missing-operations envelope to PARSE_FAILED", async () => {
+  it("maps a missing-operations envelope to handled NO_SAFE_PATCH", async () => {
     const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success(okText({ summary: "x" }))) });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.code).toBe("PARSE_FAILED");
+    if (!res.ok) {
+      expect(res.code).toBe("NO_SAFE_PATCH");
+      expect(res.detail).toBe("envelope_mismatch");
+    }
   });
 
-  it("maps an oversized operations list to PARSE_FAILED (bounded envelope)", async () => {
+  it("maps an oversized operations list to handled NO_SAFE_PATCH (bounded envelope)", async () => {
     const operations = Array.from({ length: 60 }, () => ({ op: "removeNode", nodeId: "node-B" }));
     const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success(okText({ operations }))) });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.code).toBe("PARSE_FAILED");
+    if (!res.ok) expect(res.code).toBe("NO_SAFE_PATCH");
+  });
+
+  it("AI-REPAIR-2E — NO_SAFE_PATCH (malformed output) never leaks raw model text to the user-facing message", async () => {
+    const res = await previewWorkflowRepair({ dto, ...base, modelClient: clientReturning(success("not json { secretModelRamble")) });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.message).toBe("The AI couldn't build a safe automatic fix.");
+      expect(res.message).not.toMatch(/secretModelRamble|not json/);
+    }
   });
 
   it("graph load failure → GRAPH_UNAVAILABLE, no model call", async () => {

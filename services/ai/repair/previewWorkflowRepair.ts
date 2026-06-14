@@ -136,14 +136,30 @@ export type PreviewWorkflowRepairResult =
   | {
       ok: false;
       /**
-       * AI-REPAIR-2D — `NO_SAFE_PATCH` is a HANDLED, EXPECTED outcome (the model
-       * declined to emit a patch — e.g. the remaining issue needs a user-supplied
-       * value or a reconnect): the route maps it to a friendly 200, NOT a 503.
-       * `MODEL_FAILED` / `PARSE_FAILED` are genuine failures (provider/transport /
-       * unprocessable output) → 503. `GRAPH_UNAVAILABLE` → 500.
+       * AI-REPAIR-2D / 2E — `NO_SAFE_PATCH` is a HANDLED, EXPECTED outcome the route
+       * maps to a friendly 200 (NOT a 503). It covers BOTH:
+       *   (a) the model DECLINING to emit a patch (no tool call / empty args — the
+       *       remaining issue needs a user-supplied value or a reconnect), and
+       *   (b) AI-REPAIR-2E — the model returning a patch we CAN'T turn into a safe
+       *       preview (unreadable JSON, wrong envelope shape, or a malformed op that
+       *       throws in the validate pipeline). The model responded; its output just
+       *       isn't a usable safe fix — that is "no safe automatic fix", NOT an
+       *       infrastructure outage, so it must never surface as a 503.
+       *
+       * `MODEL_FAILED` is a genuine provider/transport/config failure (the call itself
+       * failed) → 503. `GRAPH_UNAVAILABLE` → 500. `PARSE_FAILED` is retained in the
+       * union for back-compat but is NO LONGER PRODUCED — model-output failures now
+       * classify as `NO_SAFE_PATCH` (see the three sites below).
        */
       code: "MODEL_FAILED" | "PARSE_FAILED" | "GRAPH_UNAVAILABLE" | "NO_SAFE_PATCH";
       message: string;
+      /**
+       * Safe, non-user-facing reason tag for logs/telemetry only (e.g.
+       * `unreadable_model_json`). NEVER shown to the user — the client overrides the
+       * displayed copy by `code`. Lets `ai_cost_events` still distinguish a model
+       * decline from a malformed-output reclassification.
+       */
+      detail?: string;
       model?: RepairModelMeta;
     };
 
@@ -297,15 +313,21 @@ export async function previewWorkflowRepair(
   }
 
   // 3. Lenient envelope parse. Strict per-operation validation is the validator's job.
+  //
+  // AI-REPAIR-2E — the model RESPONDED (ok:true) but its tool output isn't a usable
+  // patch (unreadable JSON / wrong envelope shape). This is "the AI couldn't build a
+  // safe automatic fix", NOT a provider/transport outage — classify as the HANDLED
+  // `NO_SAFE_PATCH` (friendly 200), never `PARSE_FAILED` → 503. `detail` keeps the
+  // sub-reason observable in telemetry without surfacing it to the user.
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(result.text);
   } catch {
-    return { ok: false, code: "PARSE_FAILED", message: "The model response was not valid JSON.", model };
+    return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", detail: "unreadable_model_json", model };
   }
   const env = RepairPatchEnvelopeSchema.safeParse(parsedJson);
   if (!env.success) {
-    return { ok: false, code: "PARSE_FAILED", message: "The model response did not match the expected repair-patch shape.", model };
+    return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", detail: "envelope_mismatch", model };
   }
 
   // 4. Assemble the patch envelope. The model's advisory risk is NOT read here —
@@ -332,7 +354,10 @@ export async function previewWorkflowRepair(
       ...(draftDefinition ? { draftDefinition } : {}),
     });
   } catch {
-    return { ok: false, code: "PARSE_FAILED", message: "The proposed repair patch could not be processed.", model };
+    // AI-REPAIR-2E — a malformed operation crashed normalize/validate before a clean
+    // validation verdict. The model produced an unusable patch, not an infra failure:
+    // handled `NO_SAFE_PATCH` (friendly 200), never `PARSE_FAILED` → 503.
+    return { ok: false, code: "NO_SAFE_PATCH", message: "The AI couldn't build a safe automatic fix.", detail: "preview_pipeline_throw", model };
   }
   if (!previewRes.ok) {
     // The graph could not be read for the preview (e.g. NOT_FOUND). Surface safely.
