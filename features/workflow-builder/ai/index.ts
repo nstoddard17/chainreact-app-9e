@@ -52,3 +52,16 @@ export type {
 } from "./deterministicCompletion";
 
 export { canExplainDiagnosis } from "./canExplainDiagnosis";
+
+export {
+  isChatFillEligible,
+  validateChatFillValue,
+  MAX_CHAT_FILL_VALUE_LENGTH,
+} from "./chatFillEligibility";
+export type {
+  ChatFillEligibility,
+  ChatFillEligibilityInput,
+  ChatFillIneligibleReason,
+  ChatFillValueResult,
+  ChatFillValueReason,
+} from "./chatFillEligibility";
