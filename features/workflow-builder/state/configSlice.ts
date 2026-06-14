@@ -52,6 +52,22 @@ export interface ConfigSliceState {
   drafts: Readonly<Record<string, NodeConfigDraft>>;
   /** Currently-open nodeId in the config rail, if any. */
   activeNodeId: string | null;
+  /**
+   * Slice 4.AI-REPAIR-2F — UX guidance focus. The field KEY (FieldMeta.name) the
+   * config rail should visually highlight, if any. Set by `revealNode` when the
+   * user clicks a "Go to field" affordance (e.g. from a blocked repair preview);
+   * the SchemaForm highlights + scrolls to the matching field. NAVIGATION ONLY —
+   * never changes a config value. Cleared on edit of that field / close / reset.
+   */
+  focusFieldKey: string | null;
+  /**
+   * Slice 4.AI-REPAIR-2F — the node the canvas should pan/zoom to. Read by the
+   * canvas focus consumer (`useCanvasNodeFocus`). Paired with `canvasFocusSeq` so
+   * repeated reveals of the SAME node re-trigger the pan (a bare id wouldn't).
+   */
+  canvasFocusNodeId: string | null;
+  /** Monotonic counter bumped on each `revealNode` so the canvas effect re-fires. */
+  canvasFocusSeq: number;
 }
 
 export interface ConfigSliceActions {
@@ -64,6 +80,20 @@ export interface ConfigSliceActions {
     nodeId: string;
     initialValues: Readonly<Record<string, unknown>>;
   }): void;
+  /**
+   * Slice 4.AI-REPAIR-2F — open a node's config rail AND request UX focus:
+   * highlight `fieldKey` in the rail (when given) and pan/zoom the canvas to the
+   * node. Reuses `openNode`'s draft semantics (existing draft preserved). This is
+   * NAVIGATION ONLY — it never mutates a config value, saves, runs, or changes the
+   * graph. The draft it may create mirrors `initialValues` (isDirty stays false).
+   */
+  revealNode(input: {
+    nodeId: string;
+    initialValues: Readonly<Record<string, unknown>>;
+    fieldKey?: string;
+  }): void;
+  /** Clear the field-highlight focus (e.g. after the user edits that field). */
+  clearFieldFocus(): void;
   /** Close the config rail. In-progress draft is preserved. */
   closeNode(): void;
   /** Patch one field on the active (or specified) node. */
@@ -106,6 +136,9 @@ export type ConfigSlice = ConfigSliceState & ConfigSliceActions;
 const INITIAL_STATE: ConfigSliceState = Object.freeze({
   drafts: {},
   activeNodeId: null,
+  focusFieldKey: null,
+  canvasFocusNodeId: null,
+  canvasFocusSeq: 0,
 });
 
 function shallowEqual(
@@ -151,8 +184,27 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
     });
   },
 
+  revealNode({ nodeId, initialValues, fieldKey }) {
+    const existing = get().drafts[nodeId];
+    const drafts = existing
+      ? get().drafts
+      : { ...get().drafts, [nodeId]: makeDraft(nodeId, initialValues) };
+    set({
+      activeNodeId: nodeId,
+      drafts,
+      focusFieldKey: fieldKey ?? null,
+      canvasFocusNodeId: nodeId,
+      canvasFocusSeq: get().canvasFocusSeq + 1,
+    });
+  },
+
+  clearFieldFocus() {
+    if (get().focusFieldKey === null) return;
+    set({ focusFieldKey: null });
+  },
+
   closeNode() {
-    set({ activeNodeId: null });
+    set({ activeNodeId: null, focusFieldKey: null });
   },
 
   updateField({ nodeId, name, value }) {
@@ -181,6 +233,9 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
           lastUpdatedAt: Date.now(),
         },
       },
+      // AI-REPAIR-2F — once the user edits the highlighted field, the guidance
+      // highlight has served its purpose; clear it so it doesn't linger.
+      ...(get().focusFieldKey === name ? { focusFieldKey: null } : {}),
     });
   },
 
@@ -241,8 +296,9 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
     const drafts = { ...get().drafts };
     if (!(nodeId in drafts)) return;
     delete drafts[nodeId];
-    const activeNodeId = get().activeNodeId === nodeId ? null : get().activeNodeId;
-    set({ drafts, activeNodeId });
+    const wasActive = get().activeNodeId === nodeId;
+    const activeNodeId = wasActive ? null : get().activeNodeId;
+    set({ drafts, activeNodeId, ...(wasActive ? { focusFieldKey: null } : {}) });
   },
 
   reset() {

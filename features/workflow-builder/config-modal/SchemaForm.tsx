@@ -58,6 +58,13 @@ export interface SchemaFormProps {
   /** When true, every renderer is disabled (workflow is in a state that can't be edited). */
   disabled?: boolean;
   className?: string;
+  /**
+   * Slice 4.AI-REPAIR-2F — the field KEY (FieldMeta.name) to visually call out
+   * and scroll into view (e.g. when the user clicked "Open Message field" on a
+   * blocked repair preview). Display/navigation only — it never changes a value.
+   * No match → nothing is highlighted.
+   */
+  highlightFieldName?: string;
 }
 
 /**
@@ -101,11 +108,24 @@ export function SchemaForm({
   onChange,
   disabled,
   className,
+  highlightFieldName,
 }: SchemaFormProps) {
   const childrenByParent = React.useMemo(
     () => buildChildrenByParent(fields),
     [fields],
   );
+
+  // Slice 4.AI-REPAIR-2F — scroll the highlighted field into view when the
+  // target changes (e.g. a "Go to field" click). jsdom lacks scrollIntoView, so
+  // guard it; the visual ring (below) is the always-present affordance.
+  const highlightRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!highlightFieldName) return;
+    const el = highlightRef.current;
+    if (el && typeof el.scrollIntoView === "function") {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightFieldName]);
   const fieldsByName = React.useMemo(() => {
     const map = new Map<string, FieldMeta>();
     for (const f of fields) map.set(f.name, f);
@@ -142,6 +162,27 @@ export function SchemaForm({
         </p>
       ) : null}
       {fields.map((field) => {
+        const isHighlighted = highlightFieldName === field.name;
+        // Wrap every field in a stable, queryable container so a "Go to field"
+        // navigation can highlight + scroll to it. The visual ring is presentation
+        // only — no value is touched.
+        const wrap = (inner: React.ReactNode) => (
+          <div
+            key={field.name}
+            data-field-name={field.name}
+            {...(isHighlighted
+              ? { "data-field-highlighted": "true", ref: highlightRef }
+              : {})}
+            className={
+              isHighlighted
+                ? "rounded-md p-1 ring-2 ring-offset-2 ring-[var(--builder-accent)] transition-shadow"
+                : undefined
+            }
+          >
+            {inner}
+          </div>
+        );
+
         const Renderer = getFieldRenderer(field.type);
         if (!Renderer) {
           // Defense-in-depth: registry covers every FieldType variant
@@ -149,16 +190,15 @@ export function SchemaForm({
           // sneak an unknown type through. Render a visible error
           // rather than throwing so the rest of the form is still
           // usable.
-          return (
+          return wrap(
             <div
-              key={field.name}
               role="alert"
               className="rounded-md border border-destructive bg-destructive/10 p-3 text-xs text-destructive"
             >
               Unknown field type &lsquo;{field.type}&rsquo; for &lsquo;
               {field.name}&rsquo;. Update the field-renderer registry to add
               support.
-            </div>
+            </div>,
           );
         }
         const value = values[field.name];
@@ -195,9 +235,8 @@ export function SchemaForm({
             .join(", ");
         }
 
-        return (
+        return wrap(
           <Renderer
-            key={field.name}
             field={field}
             value={value}
             error={error}
@@ -206,7 +245,7 @@ export function SchemaForm({
             enabled={enabled}
             parentLabel={parentLabel}
             onChange={(next) => handleChange(field.name, next)}
-          />
+          />,
         );
       })}
     </div>

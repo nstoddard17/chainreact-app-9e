@@ -112,6 +112,41 @@ describe("SchemaForm", () => {
   });
 });
 
+// ─── Slice 4.AI-REPAIR-2F — field highlight ("Go to field") ──────────────────
+
+describe("SchemaForm field highlight (AI-REPAIR-2F)", () => {
+  it("marks ONLY the highlighted field, by FieldMeta.name", () => {
+    const { container } = render(
+      <SchemaForm fields={fields} values={{}} onChange={jest.fn()} highlightFieldName="body" />,
+    );
+    const highlighted = container.querySelectorAll('[data-field-highlighted="true"]');
+    expect(highlighted).toHaveLength(1);
+    expect(highlighted[0]).toHaveAttribute("data-field-name", "body");
+    // The field's input is inside the highlighted container.
+    expect(highlighted[0]).toContainElement(screen.getByLabelText("Body"));
+  });
+
+  it("highlights nothing when highlightFieldName is absent or unmatched", () => {
+    const { container, rerender } = render(
+      <SchemaForm fields={fields} values={{}} onChange={jest.fn()} />,
+    );
+    expect(container.querySelectorAll('[data-field-highlighted="true"]')).toHaveLength(0);
+    rerender(
+      <SchemaForm fields={fields} values={{}} onChange={jest.fn()} highlightFieldName="does-not-exist" />,
+    );
+    expect(container.querySelectorAll('[data-field-highlighted="true"]')).toHaveLength(0);
+  });
+
+  it("does not render the raw field key as visible text (only the field label is shown)", () => {
+    render(
+      <SchemaForm fields={fields} values={{}} onChange={jest.fn()} highlightFieldName="body" />,
+    );
+    // The label "Body" is shown; the raw key "body" is only an attribute value.
+    expect(screen.getByLabelText("Body")).toBeInTheDocument();
+    expect(screen.queryByText("body")).not.toBeInTheDocument();
+  });
+});
+
 // ─── Slice 3.33 — dependsOn cascade ──────────────────────────────────────────
 
 describe("SchemaForm dependsOn cascade (Slice 3.33)", () => {

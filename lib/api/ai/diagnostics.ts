@@ -215,9 +215,19 @@ export interface RepairPreviewChange {
 export interface RepairPreviewIssue {
   readonly code: string;
   readonly message: string;
+  /** Opaque focus TARGET — used to select/focus the node, NEVER rendered as text. */
   readonly nodeId?: string;
   readonly edgeId?: string;
+  /** Field KEY focus TARGET (e.g. `text`) — used to highlight the field, NEVER rendered. */
   readonly path?: string;
+  /**
+   * Slice 4.AI-REPAIR-2F — SAFE display labels for the "Go to field" affordance
+   * (e.g. "Send Channel Message" / "Message"). Rendered as text; the raw
+   * `nodeId` / `path` above are the focus targets. Present only when the preview
+   * resolved them (config-family blocked errors).
+   */
+  readonly nodeLabel?: string;
+  readonly fieldLabel?: string;
 }
 
 export interface RepairPreviewRiskReason {

@@ -113,6 +113,16 @@ export interface PatchValidationError {
   operationIndex?: number;
   /** Field / variable path when relevant (a key name, never a value). */
   path?: string;
+  /**
+   * Slice 4.AI-REPAIR-2F — OPTIONAL friendly display labels for UX targeting.
+   * Set ONLY by the preview layer (`previewWorkflowPatchForAI`), never by the
+   * deterministic validator. `nodeLabel` / `fieldLabel` are SAFE display strings
+   * (e.g. "Send Channel Message" / "Message") the builder can render in a
+   * "Go to field" affordance; the raw `nodeId` / `path` are the focus targets,
+   * used to select/focus/highlight but NEVER rendered as text.
+   */
+  nodeLabel?: string;
+  fieldLabel?: string;
 }
 
 export type PatchWarningCode =

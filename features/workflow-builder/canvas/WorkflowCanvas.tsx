@@ -19,6 +19,7 @@ import "@xyflow/react/dist/style.css";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import { useCanvasNodeDeletion } from "../hooks/useCanvasNodeDeletion";
+import { useCanvasNodeFocus } from "../hooks/useCanvasNodeFocus";
 import { DeleteNodeConfirmDialog } from "../panels/DeleteNodeConfirmDialog";
 import {
   WORKFLOW_EDGE_TYPE,
@@ -138,6 +139,10 @@ function WorkflowCanvasInner({
 
   const openNode = useConfigSlice((s) => s.openNode);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
+
+  // Slice 4.AI-REPAIR-2F — pan/zoom the viewport to a node when a "Go to field"
+  // reveal is requested (configSlice canvas-focus signal). Navigation only.
+  useCanvasNodeFocus();
 
   // Slice 4.BUILDER-NODE-DELETE-2 — keyboard-delete state machine. Owns
   // the dialog state + the onBeforeDelete handler that gates ReactFlow's

@@ -1,0 +1,76 @@
+/**
+ * Tests for useCanvasNodeFocus (Slice 4.AI-REPAIR-2F).
+ *
+ * The hook centers the React Flow viewport on the node the configSlice
+ * canvas-focus signal points at, whenever the focus sequence advances. React
+ * Flow's runtime is mocked at the `useReactFlow` boundary so we can assert the
+ * `setCenter` call without standing up a full canvas. Navigation only — the
+ * hook never mutates graph/config state.
+ */
+import { renderHook } from "@testing-library/react";
+
+const mockSetCenter = jest.fn();
+const mockGetNode = jest.fn();
+
+jest.mock("@xyflow/react", () => ({
+  useReactFlow: () => ({ setCenter: mockSetCenter, getNode: mockGetNode }),
+}));
+
+import { useCanvasNodeFocus } from "@/features/workflow-builder/hooks/useCanvasNodeFocus";
+import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
+
+beforeEach(() => {
+  useConfigSlice.getState().reset();
+  mockSetCenter.mockReset();
+  mockGetNode.mockReset();
+});
+
+describe("useCanvasNodeFocus", () => {
+  it("does not pan on mount (seq 0, no target)", () => {
+    renderHook(() => useCanvasNodeFocus());
+    expect(mockSetCenter).not.toHaveBeenCalled();
+  });
+
+  it("pans to the node center when a reveal advances the focus sequence", () => {
+    mockGetNode.mockReturnValue({
+      id: "slack1",
+      position: { x: 100, y: 200 },
+      measured: { width: 280, height: 120 },
+    });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    rerender();
+
+    expect(mockGetNode).toHaveBeenCalledWith("slack1");
+    // Centered on node center: x + w/2, y + h/2.
+    expect(mockSetCenter).toHaveBeenCalledTimes(1);
+    const [cx, cy, opts] = mockSetCenter.mock.calls[0]!;
+    expect(cx).toBe(100 + 140);
+    expect(cy).toBe(200 + 60);
+    expect(opts).toMatchObject({ zoom: expect.any(Number), duration: expect.any(Number) });
+  });
+
+  it("re-pans when the SAME node is revealed again (seq advances)", () => {
+    mockGetNode.mockReturnValue({ id: "slack1", position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    rerender();
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    rerender();
+
+    expect(mockSetCenter).toHaveBeenCalledTimes(2);
+  });
+
+  it("no-ops safely when the target node is not on the canvas (stale)", () => {
+    mockGetNode.mockReturnValue(undefined);
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().revealNode({ nodeId: "ghost", initialValues: {}, fieldKey: "text" });
+    rerender();
+
+    expect(mockGetNode).toHaveBeenCalledWith("ghost");
+    expect(mockSetCenter).not.toHaveBeenCalled();
+  });
+});

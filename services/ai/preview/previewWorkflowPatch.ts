@@ -360,7 +360,16 @@ export async function previewWorkflowPatchForAI(
       ...(fieldLabel ? { fieldLabel } : {}),
       ...(nodeLabel ? { nodeLabel } : {}),
     });
-    return { ...scrubbed, message };
+    // AI-REPAIR-2F — also surface the friendly labels as safe UX-targeting
+    // metadata. The raw nodeId/path stay as focus TARGETS (already on the
+    // error); these labels are what the builder renders in a "Go to field"
+    // affordance. Never include raw keys here.
+    return {
+      ...scrubbed,
+      message,
+      ...(nodeLabel ? { nodeLabel } : {}),
+      ...(fieldLabel ? { fieldLabel } : {}),
+    };
   });
   const safeWarnings = validation.warnings.map((w) => ({
     ...w,

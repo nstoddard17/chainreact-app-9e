@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, RepairProposal } from "@/lib/api/ai";
+import { RepairPreviewGoToTarget } from "./_BuilderAiPanelRepairGoTo";
 
 /**
  * Slice 4.AI-REPAIR-1c — immutable, UI-OWNED "nothing changed" notice for a
@@ -434,6 +435,7 @@ export function RepairPreviewBody({
               ))}
             </ul>
           )}
+          <RepairPreviewGoToTarget preview={preview} />
         </div>
       )}
 

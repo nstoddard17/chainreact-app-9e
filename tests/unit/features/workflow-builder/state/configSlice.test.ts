@@ -53,6 +53,80 @@ describe("configSlice — openNode / closeNode", () => {
   });
 });
 
+describe("configSlice — revealNode / field + canvas focus (AI-REPAIR-2F)", () => {
+  it("revealNode opens the node, sets field highlight, and bumps the canvas focus", () => {
+    useConfigSlice.getState().revealNode({
+      nodeId: "slack1",
+      initialValues: { channel: "C1" },
+      fieldKey: "text",
+    });
+    const s = useConfigSlice.getState();
+    expect(s.activeNodeId).toBe("slack1");
+    expect(s.drafts.slack1).toMatchObject({ values: { channel: "C1" }, isDirty: false });
+    expect(s.focusFieldKey).toBe("text");
+    expect(s.canvasFocusNodeId).toBe("slack1");
+    expect(s.canvasFocusSeq).toBe(1);
+  });
+
+  it("revealNode is navigation-only — the draft mirrors initialValues (no value change, not dirty)", () => {
+    useConfigSlice.getState().revealNode({
+      nodeId: "slack1",
+      initialValues: { channel: "C1", text: "" },
+      fieldKey: "text",
+    });
+    const draft = useConfigSlice.getState().drafts.slack1!;
+    expect(draft.values).toEqual({ channel: "C1", text: "" });
+    expect(draft.initialValues).toEqual({ channel: "C1", text: "" });
+    expect(draft.isDirty).toBe(false);
+  });
+
+  it("revealing the SAME node twice re-bumps canvasFocusSeq so the canvas re-pans", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    expect(useConfigSlice.getState().canvasFocusSeq).toBe(2);
+  });
+
+  it("revealNode preserves an existing draft's in-progress edits", () => {
+    useConfigSlice.getState().openNode({ nodeId: "slack1", initialValues: { text: "" } });
+    useConfigSlice.getState().updateField({ name: "text", value: "wip" });
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "" }, fieldKey: "text" });
+    const draft = useConfigSlice.getState().drafts.slack1!;
+    expect(draft.values).toEqual({ text: "wip" });
+    expect(draft.isDirty).toBe(true);
+  });
+
+  it("editing the highlighted field clears the highlight", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "" }, fieldKey: "text" });
+    expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+    useConfigSlice.getState().updateField({ name: "text", value: "hello" });
+    expect(useConfigSlice.getState().focusFieldKey).toBeNull();
+  });
+
+  it("editing a DIFFERENT field keeps the highlight", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "", channel: "" }, fieldKey: "text" });
+    useConfigSlice.getState().updateField({ name: "channel", value: "C9" });
+    expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+  });
+
+  it("clearFieldFocus + closeNode clear the field highlight", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    useConfigSlice.getState().clearFieldFocus();
+    expect(useConfigSlice.getState().focusFieldKey).toBeNull();
+
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
+    useConfigSlice.getState().closeNode();
+    expect(useConfigSlice.getState().focusFieldKey).toBeNull();
+  });
+
+  it("revealNode without a fieldKey still selects + focuses the node (node-only guidance)", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {} });
+    const s = useConfigSlice.getState();
+    expect(s.activeNodeId).toBe("slack1");
+    expect(s.focusFieldKey).toBeNull();
+    expect(s.canvasFocusNodeId).toBe("slack1");
+  });
+});
+
 describe("configSlice — updateField", () => {
   beforeEach(() => {
     useConfigSlice

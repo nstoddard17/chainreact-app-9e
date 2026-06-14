@@ -210,6 +210,14 @@ describe("previewWorkflowPatchForAI — invalid patches", () => {
     // The proposed node id (`a2`) must never reach user-facing copy.
     expect(res.data.blockedReason).not.toMatch(/\ba2\b/);
     expect(missing.message).not.toMatch(/\ba2\b/);
+
+    // AI-REPAIR-2F — the error also carries SAFE UX-targeting metadata: friendly
+    // labels for display + raw id/key as focus targets (used to select/highlight,
+    // never rendered).
+    expect(missing.nodeLabel).toBe("Send Channel Message");
+    expect(missing.fieldLabel).toBe("Message");
+    expect(missing.nodeId).toBe("a2"); // focus target (opaque; UI never renders it)
+    expect(missing.path).toBe("text"); // field-highlight target (opaque)
   });
 
   it("edge to a missing node → INVALID_EDGE", async () => {

@@ -74,6 +74,9 @@ export function ConfigModalShell() {
   const resetNode = useConfigSlice((s) => s.resetNode);
   const markSaved = useConfigSlice((s) => s.markSaved);
   const closeNode = useConfigSlice((s) => s.closeNode);
+  // Slice 4.AI-REPAIR-2F — field to visually highlight (set by a "Go to field"
+  // reveal). Passed through to SchemaForm; display/navigation only.
+  const focusFieldKey = useConfigSlice((s) => s.focusFieldKey);
 
   // C — confirm-before-discard state for the close (`×` / Cancel) affordances.
   const [pendingClose, setPendingClose] = useState(false);
@@ -332,6 +335,7 @@ export function ConfigModalShell() {
             values={values}
             errors={errors}
             onChange={(name, value) => updateField({ name, value })}
+            {...(focusFieldKey ? { highlightFieldName: focusFieldKey } : {})}
           />
         )}
       </section>
