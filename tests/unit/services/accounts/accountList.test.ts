@@ -101,6 +101,34 @@ describe("listUserAccountSummaries", () => {
     expect(frozen.deletionStatus).toBe("pending_deletion");
   });
 
+  // V2-READY-11: freeze-aware active marker. A stored pointer at a FROZEN account
+  // must NOT be marked active — it resolves to personal, matching the SSR
+  // resolver (resolveActiveAccount), which self-heals a frozen stored pointer
+  // back to personal. Without this, the switcher highlighted a frozen workspace
+  // the app is actually scoped away from. The frozen account stays LISTED
+  // (visible-but-disabled in the switcher), just not active.
+  it("does NOT mark a frozen stored-active pointer as active — resolves to personal, matching SSR", async () => {
+    mockListForUser.mockResolvedValueOnce([
+      acct("personal-1", "personal", "Personal"),
+      acct("team-frozen", "team", "Frozen", "pending_deletion"),
+    ]);
+    mockListByUser.mockResolvedValueOnce([
+      { accountId: "personal-1", role: "owner" },
+      { accountId: "team-frozen", role: "owner" },
+    ]);
+    mockGetActiveAccountId.mockResolvedValueOnce("team-frozen"); // stored at the frozen team
+
+    const r = await listUserAccountSummaries(USER);
+
+    expect(r.activeAccountId).toBe("personal-1");
+    expect(r.accounts.find((a) => a.id === "personal-1")!.isActive).toBe(true);
+    const frozen = r.accounts.find((a) => a.id === "team-frozen")!;
+    expect(frozen.isActive).toBe(false);
+    // Still listed (visible-but-disabled), not filtered out.
+    expect(frozen.deletionStatus).toBe("pending_deletion");
+    expect(r.accounts.filter((a) => a.isActive)).toHaveLength(1);
+  });
+
   it("single personal account: one entry, active = personal", async () => {
     mockListForUser.mockResolvedValueOnce([acct("personal-1", "personal", "Personal")]);
     mockListByUser.mockResolvedValueOnce([{ accountId: "personal-1", role: "owner" }]);
