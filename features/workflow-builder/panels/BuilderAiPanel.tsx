@@ -7,6 +7,7 @@ import { useBuilderAiActions } from "./useBuilderAiActions";
 import { useChatFill } from "./useChatFill";
 import { useChatFillTarget, type ChatFillTarget } from "../ai/useChatFillTarget";
 import { shouldRouteChatFill } from "../ai/shouldRouteChatFill";
+import { useConfigSlice } from "../state/configSlice";
 
 /**
  * Builder AI assistant panel — React Agent rail chat (Slice 4.AI-21B,
@@ -57,6 +58,13 @@ export function BuilderAiPanel() {
     chatFillActive && chatFillTarget?.eligibility.ok
       ? { fieldLabel: chatFillTarget.fieldLabel, nodeLabel: chatFillTarget.nodeLabel }
       : null;
+
+  // CS-7 — exit chat-fill targeting back to normal AI chat (inline action + Escape).
+  // Clears the highlighted-field focus ONLY: keeps the config panel open, never
+  // saves/runs/mutates the graph, and never erases the already-typed config value.
+  function handleExitChatFill(): void {
+    useConfigSlice.getState().clearFieldFocus();
+  }
 
   function handleComposerSubmit(): void {
     if (chatFillActive && chatFillTarget) {
@@ -124,6 +132,7 @@ export function BuilderAiPanel() {
         onCheckWorkflow={a.handleCheckWorkflow}
         checking={a.checking}
         chatFillHint={chatFillHint}
+        onExitChatFill={handleExitChatFill}
       />
     </section>
   );

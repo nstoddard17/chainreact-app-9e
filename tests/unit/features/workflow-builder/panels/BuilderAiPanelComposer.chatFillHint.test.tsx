@@ -8,6 +8,7 @@
  * field key / node id. Absent → the composer behaves exactly as before.
  */
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BuilderAiPanelComposer } from "@/features/workflow-builder/panels/_BuilderAiPanelComposer";
 
 const baseProps = {
@@ -71,5 +72,45 @@ describe("BuilderAiPanelComposer — chat-fill hint (CS-6)", () => {
     render(<BuilderAiPanelComposer {...baseProps} followUpMode chatFillHint={null} />);
     expect(screen.queryByTestId("builder-ai-chatfill-hint")).toBeNull();
     expect(screen.getByTestId("builder-ai-prompt").getAttribute("placeholder")).toMatch(/reply with the missing details/i);
+  });
+});
+
+describe("BuilderAiPanelComposer — exit chat-fill (CS-7)", () => {
+  it("renders an 'Ask something else' action while field-fill mode is active", () => {
+    render(<BuilderAiPanelComposer {...baseProps} chatFillHint={{ fieldLabel: "Message", nodeLabel: "Send Channel Message" }} />);
+    expect(screen.getByTestId("builder-ai-chatfill-exit").textContent).toBe("Ask something else");
+  });
+
+  it("does NOT render the exit action when there is no chat-fill target", () => {
+    render(<BuilderAiPanelComposer {...baseProps} chatFillHint={null} />);
+    expect(screen.queryByTestId("builder-ai-chatfill-exit")).toBeNull();
+  });
+
+  it("clicking 'Ask something else' calls onExitChatFill", async () => {
+    const onExitChatFill = jest.fn();
+    const user = userEvent.setup();
+    render(<BuilderAiPanelComposer {...baseProps} chatFillHint={{ fieldLabel: "Message", nodeLabel: "Send Channel Message" }} onExitChatFill={onExitChatFill} />);
+    await user.click(screen.getByTestId("builder-ai-chatfill-exit"));
+    expect(onExitChatFill).toHaveBeenCalledTimes(1);
+  });
+
+  it("Escape in the composer calls onExitChatFill while field-fill is active (and does not submit)", async () => {
+    const onExitChatFill = jest.fn();
+    const onSubmit = jest.fn();
+    const user = userEvent.setup();
+    render(<BuilderAiPanelComposer {...baseProps} onSubmit={onSubmit} chatFillHint={{ fieldLabel: "Message", nodeLabel: "Send Channel Message" }} onExitChatFill={onExitChatFill} />);
+    await user.click(screen.getByTestId("builder-ai-prompt"));
+    await user.keyboard("{Escape}");
+    expect(onExitChatFill).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("Escape is a no-op (does not call onExitChatFill) when field-fill is NOT active", async () => {
+    const onExitChatFill = jest.fn();
+    const user = userEvent.setup();
+    render(<BuilderAiPanelComposer {...baseProps} chatFillHint={null} onExitChatFill={onExitChatFill} />);
+    await user.click(screen.getByTestId("builder-ai-prompt"));
+    await user.keyboard("{Escape}");
+    expect(onExitChatFill).not.toHaveBeenCalled();
   });
 });

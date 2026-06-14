@@ -57,6 +57,14 @@ interface Props {
    * composer behaves exactly as before (no hint, default placeholder).
    */
   readonly chatFillHint?: { readonly fieldLabel: string; readonly nodeLabel: string } | null;
+  /**
+   * Slice 4.AI-CONFIG-ASSIST CS-7 — exit chat-fill targeting back to normal AI chat.
+   * Invoked by the inline "Ask something else" action and by Escape while the
+   * composer is focused (only when `chatFillHint` is active). Clears the highlighted-
+   * field targeting WITHOUT closing the config panel, saving, running, or touching the
+   * already-typed config value.
+   */
+  readonly onExitChatFill?: () => void;
 }
 
 export function BuilderAiPanelComposer({
@@ -72,6 +80,7 @@ export function BuilderAiPanelComposer({
   onCheckWorkflow,
   checking,
   chatFillHint,
+  onExitChatFill,
 }: Props) {
   const trimmed = prompt.trim();
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
@@ -113,15 +122,27 @@ export function BuilderAiPanelComposer({
       </div>
 
       {chatFillHint && (
-        <p
-          data-testid="builder-ai-chatfill-hint"
-          role="status"
-          className="px-1 text-[11px] leading-relaxed"
-          style={{ color: "var(--builder-muted)" }}
-        >
-          Type the missing &ldquo;{chatFillHint.fieldLabel}&rdquo; below. I&rsquo;ll ask
-          before filling it, and you&rsquo;ll still save manually.
-        </p>
+        <div className="flex items-start justify-between gap-2 px-1">
+          <p
+            data-testid="builder-ai-chatfill-hint"
+            role="status"
+            className="text-[11px] leading-relaxed"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            Type the missing &ldquo;{chatFillHint.fieldLabel}&rdquo; below. I&rsquo;ll ask
+            before filling it, and you&rsquo;ll still save manually.
+          </p>
+          {/* CS-7 — obvious escape back to normal AI chat (also via Escape). */}
+          <button
+            type="button"
+            onClick={onExitChatFill}
+            data-testid="builder-ai-chatfill-exit"
+            className="shrink-0 whitespace-nowrap text-[11px] underline-offset-2 hover:underline"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            Ask something else
+          </button>
+        </div>
       )}
 
       <div
@@ -150,6 +171,15 @@ export function BuilderAiPanelComposer({
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
           onKeyDown={(e) => {
+            // Slice 4.AI-CONFIG-ASSIST CS-7 — Escape exits chat-fill targeting back
+            // to normal AI chat. Only while the field-fill hint is active; otherwise
+            // Escape keeps its default behavior. Clears targeting only — never closes
+            // the config panel, saves, runs, or touches the typed config value.
+            if (e.key === "Escape" && chatFillHint) {
+              e.preventDefault();
+              onExitChatFill?.();
+              return;
+            }
             // Slice 4.REACT-AGENT-CHAT-QOL-1 — Enter submits, Shift+Enter
             // inserts a newline. Skip while an IME composition is active so
             // CJK / diacritic entry isn't cut off (the composing Enter just
