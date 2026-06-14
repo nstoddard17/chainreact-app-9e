@@ -30,10 +30,13 @@ describe("monday download_file meta — Builder shape (FileRef producer)", () =>
     expect(f.dependsOn).toBe("boardId");
   });
 
-  it("fileId picker wires monday:item_files dependsOn columnId (optional)", () => {
+  it("fileId picker wires monday:item_files dependsOn [itemId, columnId] (optional)", () => {
+    // monday:item_files requiredDeps are [itemId, columnId]; the field must
+    // declare BOTH parents or the builder fails the picker closed with
+    // MISSING_DEPENDENCY (V2-READY-17 fix).
     const f = mondayDownloadFileMeta.fields.find((x) => x.name === "fileId")!;
     expect(f.optionsSource).toBe("monday:item_files");
-    expect(f.dependsOn).toBe("columnId");
+    expect(f.dependsOn).toEqual(["itemId", "columnId"]);
     expect(f.required).toBe(false);
   });
 

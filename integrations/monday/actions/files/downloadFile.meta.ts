@@ -53,7 +53,11 @@ export const mondayDownloadFileMeta: ActionMeta = {
       description: "Pick a specific file. Leave empty to take the first file found.",
       type: "combobox",
       optionsSource: "monday:item_files",
-      dependsOn: "columnId",
+      // monday:item_files resolves against BOTH the item and the file column
+      // (requiredDeps: ["itemId", "columnId"]). The builder only forwards the
+      // field's declared dependsOn parents as `deps[*]`, so omitting itemId made
+      // the picker fail closed with MISSING_DEPENDENCY and never load.
+      dependsOn: ["itemId", "columnId"],
       required: false,
       placeholder: "First file when empty",
     },

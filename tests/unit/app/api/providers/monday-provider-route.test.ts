@@ -125,7 +125,8 @@ describe("GET /api/providers/monday/actions", () => {
     const download = byKey.get("monday:download_file")!;
     const fileId = download.fields.find((f) => f.name === "fileId")!;
     expect(fileId.optionsSource).toBe("monday:item_files");
-    expect(fileId.dependsOn).toBe("columnId");
+    // V2-READY-17: monday:item_files needs both parents (requiredDeps).
+    expect(fileId.dependsOn).toEqual(["itemId", "columnId"]);
   });
 
   it("serializes static enum options (create_board boardKind) + textarea JSON fields (create_item columnValues)", async () => {

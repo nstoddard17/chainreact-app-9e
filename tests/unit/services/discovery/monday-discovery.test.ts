@@ -179,14 +179,15 @@ describe("monday discovery — resolver wiring (cascades)", () => {
     expect(f.dependsOn).toBeUndefined();
   });
 
-  it("download_file: fileId→monday:item_files (dep columnId); columnId→monday:file_columns (dep boardId)", () => {
+  it("download_file: fileId→monday:item_files (deps itemId+columnId); columnId→monday:file_columns (dep boardId)", () => {
     const m = getActionMeta("monday:download_file")!;
     const col = m.fields.find((f) => f.name === "columnId")!;
     const fileId = m.fields.find((f) => f.name === "fileId")!;
     expect(col.optionsSource).toBe("monday:file_columns");
     expect(col.dependsOn).toBe("boardId");
     expect(fileId.optionsSource).toBe("monday:item_files");
-    expect(fileId.dependsOn).toBe("columnId");
+    // V2-READY-17: monday:item_files needs both parents (requiredDeps).
+    expect(fileId.dependsOn).toEqual(["itemId", "columnId"]);
   });
 
   it("add_file: file column uses monday:file_columns (sentinel-capable resolver)", () => {
