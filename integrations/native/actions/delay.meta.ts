@@ -27,8 +27,25 @@ export const delayMeta: ActionMeta = {
       numeric: { min: 1, max: 30, integer: true, step: 1 },
     },
   ],
+  // Must match the handler's actual output shape (delay.ts:54-60) so the
+  // variable picker only advertises references that resolve at runtime. The
+  // handler emits seconds + ISO-8601 timestamps, NOT a millisecond `waited`.
   outputs: [
-    { name: "waited", type: "number", description: "Actual wait duration in milliseconds." },
+    {
+      name: "delayedSeconds",
+      type: "number",
+      description: "How many seconds the workflow paused (1–30).",
+    },
+    {
+      name: "startedAt",
+      type: "string",
+      description: "ISO-8601 timestamp when the wait began.",
+    },
+    {
+      name: "completedAt",
+      type: "string",
+      description: "ISO-8601 timestamp when the wait finished.",
+    },
   ],
   producesFileRef: false,
   consumesFileRef: false,

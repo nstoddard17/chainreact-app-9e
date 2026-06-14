@@ -201,6 +201,45 @@ describe("delay handler", () => {
   });
 });
 
+// ── Meta / handler output contract ─────────────────────────────────────────
+// V2-READY-14: the builder variable picker advertises `delayMeta.outputs` as the
+// references downstream nodes may use. If the meta names an output the handler
+// never emits, the picker offers a `{{delay.<x>}}` that fails at runtime with
+// MISSING_VARIABLE — and vice-versa, a real output the picker hides. Pin the two
+// in sync so this drift (the meta previously advertised a non-existent `waited`)
+// can't silently return.
+
+describe("delay — meta/handler output contract", () => {
+  it("every advertised meta output is actually emitted by the handler, and vice-versa", async () => {
+    const { delayMeta } = await import(
+      "@/integrations/native/actions/delay.meta"
+    );
+
+    jest.useFakeTimers();
+    const promise = delay(makeInput({ seconds: 1 }));
+    await jest.advanceTimersByTimeAsync(1000);
+    const result = await promise;
+
+    const handlerKeys = Object.keys(result.output).sort();
+    const metaKeys = delayMeta.outputs.map((o) => o.name).sort();
+
+    expect(metaKeys).toEqual(handlerKeys);
+    // Guard against the specific regression: the stale `waited` output is gone.
+    expect(metaKeys).not.toContain("waited");
+    expect(metaKeys).toEqual(["completedAt", "delayedSeconds", "startedAt"]);
+  });
+
+  it("advertises delayedSeconds as a number and the timestamps as strings", async () => {
+    const { delayMeta } = await import(
+      "@/integrations/native/actions/delay.meta"
+    );
+    const byName = new Map(delayMeta.outputs.map((o) => [o.name, o.type]));
+    expect(byName.get("delayedSeconds")).toBe("number");
+    expect(byName.get("startedAt")).toBe("string");
+    expect(byName.get("completedAt")).toBe("string");
+  });
+});
+
 // ── Registry wiring ────────────────────────────────────────────────────────
 
 describe("delay — registry wiring", () => {
