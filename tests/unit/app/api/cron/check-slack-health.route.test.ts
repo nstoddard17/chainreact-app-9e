@@ -15,6 +15,8 @@ jest.mock("@/services/integrations/slackHealthCheck", () => ({
   runSlackHealthCheck: (...args: unknown[]) => mockRun(...args),
 }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET, POST } from "@/app/api/cron/check-slack-health/route";
 import { DEFAULT_BATCH_LIMIT } from "@/app/api/cron/check-slack-health/constants";
 
@@ -133,5 +135,49 @@ describe("/api/cron/check-slack-health route", () => {
       else expect(typeof v).toBe("number");
     }
     infoSpy.mockRestore();
+  });
+});
+
+/**
+ * V2-READY-29B — Schedule guard. The proactive-detection value of the health
+ * check depends on the cron actually being SCHEDULED, not just callable.
+ * Dropping the `vercel.json` entry (or slowing it past the agreed cadence)
+ * would silently revert detection to reactive-only — with every route/service
+ * test still green. This fails loudly if the schedule is removed or changed.
+ * Mirrors the sweep-stale-runs schedule guard.
+ */
+describe("check-slack-health cron is scheduled in vercel.json", () => {
+  const HEALTH_PATH = "/api/cron/check-slack-health";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the Slack health-check cron on a five-field schedule", () => {
+    const entry = readCrons().find((c) => c.path === HEALTH_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("pins the agreed every-6-hours cadence (Marcus-approved, V2-READY-29B)", () => {
+    const entry = readCrons().find((c) => c.path === HEALTH_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim()).toBe("0 */6 * * *");
+  });
+
+  it("runs at least daily so a revoked token is detected promptly", () => {
+    const entry = readCrons().find((c) => c.path === HEALTH_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour] = entry!.schedule.trim().split(/\s+/);
+    // Minute must be concrete (not '*', which would fire every minute of the hour).
+    expect(/^\d+$/.test(minute!)).toBe(true);
+    // Hour must run at least once a day: '*' (hourly) or a '*/N' step with N <= 24.
+    const stepMatch = /^\*\/(\d+)$/.exec(hour!);
+    const okHour =
+      hour === "*" ||
+      /^\d+$/.test(hour!) ||
+      (stepMatch !== null && Number(stepMatch[1]) <= 24);
+    expect(okHour).toBe(true);
   });
 });

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/release-expired-reservations",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/check-slack-health",
+      "schedule": "0 */6 * * *"
     }
   ]
 }
