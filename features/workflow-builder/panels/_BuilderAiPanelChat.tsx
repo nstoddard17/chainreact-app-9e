@@ -6,6 +6,7 @@ import type {
   AgentWorkflowDiagnosis,
   AiPlanResult,
   BuilderAgentPersistedMessage,
+  RepairPreview,
   RepairProposal,
 } from "@/lib/api/ai";
 import { AiBulletList, type RequiredInputAnswer } from "../ai";
@@ -136,6 +137,21 @@ export interface AssistantRepairProposalChatMessage {
   readonly persisted?: boolean;
 }
 
+/**
+ * Slice 4.AI-REPAIR-2c — the VALIDATED PATCH PREVIEW for a prior repair proposal.
+ * Session-local only (never persisted). Carries only the client-owned, no-leak
+ * `RepairPreview` (label-based change descriptions, the deterministic recomputed
+ * risk, validation errors/warnings, blocked reason) — no raw patch, no node ids in
+ * user-facing copy, no model metadata. There is deliberately NO Apply control.
+ */
+export interface AssistantRepairPreviewChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "repair_preview";
+  readonly preview: RepairPreview;
+  readonly persisted?: boolean;
+}
+
 export type ChatMessage =
   | UserChatMessage
   | AssistantPlanChatMessage
@@ -144,7 +160,8 @@ export type ChatMessage =
   | AssistantErrorChatMessage
   | AssistantDiagnosisChatMessage
   | AssistantDiagnosisExplanationChatMessage
-  | AssistantRepairProposalChatMessage;
+  | AssistantRepairProposalChatMessage
+  | AssistantRepairPreviewChatMessage;
 
 let chatMessageIdCounter = 0;
 export function nextChatMessageId(): ChatMessageId {

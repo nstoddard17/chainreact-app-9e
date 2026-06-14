@@ -65,6 +65,9 @@ export function BuilderAiPanel() {
         onSuggestFix={a.handleSuggestFix}
         suggesting={a.suggesting}
         suggestedDiagnosisIds={a.suggestedDiagnosisIds}
+        onPreviewFix={a.handlePreviewFix}
+        previewing={a.previewing}
+        previewedProposalIds={a.previewedProposalIds}
       />
       <BuilderAiPanelComposer
         prompt={a.prompt}

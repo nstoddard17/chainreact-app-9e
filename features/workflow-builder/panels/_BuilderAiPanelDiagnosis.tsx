@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { AgentWorkflowDiagnosis, RepairProposal } from "@/lib/api/ai";
+import type { AgentWorkflowDiagnosis, RepairPreview, RepairProposal } from "@/lib/api/ai";
 
 /**
  * Slice 4.AI-REPAIR-1c — immutable, UI-OWNED "nothing changed" notice for a
@@ -11,6 +11,14 @@ import type { AgentWorkflowDiagnosis, RepairProposal } from "@/lib/api/ai";
  */
 const REPAIR_NOT_APPLIED_NOTICE_UI =
   "This is a suggestion only — your workflow wasn't changed, saved, or run.";
+
+/**
+ * Slice 4.AI-REPAIR-2c — immutable, UI-OWNED "nothing changed" notice for a
+ * validated patch PREVIEW. UI constant (never the server's `notAppliedNotice`) so
+ * the safety guarantee can't be altered by a model/route response.
+ */
+const REPAIR_PREVIEW_NOT_APPLIED_NOTICE_UI =
+  "This is a preview only — your workflow wasn't changed, saved, or run.";
 
 /**
  * Read-only "Check this workflow" result body (Slice 4.AI-DIAG-1b).
@@ -227,8 +235,24 @@ export function DiagnosisExplanationBody({
  */
 export function RepairProposalBody({
   proposal,
+  canPreview = false,
+  previewing = false,
+  alreadyPreviewed = false,
+  onPreviewFix,
 }: {
   readonly proposal: RepairProposal;
+  /**
+   * Slice 4.AI-REPAIR-2c — show the "Preview fix" affordance. The list sets this
+   * true only for the LATEST repair proposal (so a stale historical proposal never
+   * offers a paid button). Hidden otherwise.
+   */
+  readonly canPreview?: boolean;
+  /** A validated-preview round-trip is in flight (disables the button). */
+  readonly previewing?: boolean;
+  /** This proposal already has a preview (disables + relabels — no repeat charge). */
+  readonly alreadyPreviewed?: boolean;
+  /** Explicit-click handler (never auto-called). */
+  readonly onPreviewFix?: () => void;
 }) {
   return (
     <div data-testid="builder-ai-repair-proposal" className="flex flex-col gap-2">
@@ -294,6 +318,131 @@ export function RepairProposalBody({
         style={{ color: "var(--builder-muted)" }}
       >
         {REPAIR_NOT_APPLIED_NOTICE_UI}
+      </p>
+      {canPreview && (
+        <div data-testid="builder-ai-repair-preview-fix" className="flex flex-col gap-1 pt-1">
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onPreviewFix}
+              disabled={previewing || alreadyPreviewed}
+              data-testid="builder-ai-preview-fix-button"
+            >
+              {previewing ? "Previewing fix…" : alreadyPreviewed ? "Previewed" : "Preview fix"}
+            </Button>
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            AI proposes specific changes and shows what would change. Nothing is applied,
+            saved, or run.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-REPAIR-2c — renders the VALIDATED PATCH PREVIEW bubble: a plain-language
+ * summary, the label-based change list, the DETERMINISTIC (validator-recomputed)
+ * risk, an optional candidate/cost summary, and — when the patch failed validation
+ * — a friendly blocked reason + humanized validation messages. Pure presentational;
+ * shows ONLY the safe, client-owned `RepairPreview` (no raw node ids, no raw JSON,
+ * no model metadata). There is deliberately NO Apply control.
+ */
+export function RepairPreviewBody({
+  preview,
+}: {
+  readonly preview: RepairPreview;
+}) {
+  const blocked = !preview.ok;
+  return (
+    <div data-testid="builder-ai-repair-preview" className="flex flex-col gap-2">
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+        Proposed changes (preview)
+      </p>
+      <p
+        data-testid="builder-ai-repair-preview-summary"
+        className="whitespace-pre-wrap text-xs"
+        style={{ color: "var(--builder-text)" }}
+      >
+        {preview.userFacingSummaryText || preview.patchSummary}
+      </p>
+
+      {!blocked && preview.changes.length > 0 && (
+        <div data-testid="builder-ai-repair-preview-changes" className="flex flex-col gap-1">
+          <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+            What would change
+          </p>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+            {preview.changes.map((c, i) => (
+              <li key={i}>{c.description}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!blocked && (
+        <p
+          data-testid="builder-ai-repair-preview-risk"
+          className="text-[10.5px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          Validated risk: <span className="font-medium">{preview.riskLevel}</span>
+          {preview.requiresConfirmation ? " · would require confirmation" : ""}
+          {preview.taskCostEstimate
+            ? ` · ~${preview.taskCostEstimate.estimatedTasksPerRun} task(s)/run`
+            : ""}
+        </p>
+      )}
+
+      {!blocked && preview.candidateSummary && (
+        <p
+          data-testid="builder-ai-repair-preview-candidate"
+          className="text-[10.5px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          After: {preview.candidateSummary}
+        </p>
+      )}
+
+      {!blocked && preview.validation.warnings.length > 0 && (
+        <div data-testid="builder-ai-repair-preview-warnings" className="flex flex-col gap-1">
+          <p className="text-[11px] font-medium" style={{ color: "var(--builder-warn)" }}>
+            Heads up
+          </p>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs" style={{ color: "var(--builder-warn)" }}>
+            {preview.validation.warnings.map((w, i) => (
+              <li key={i}>{w.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {blocked && (
+        <div data-testid="builder-ai-repair-preview-blocked" className="flex flex-col gap-1">
+          <p role="status" className="text-xs" style={{ color: "var(--builder-warn)" }}>
+            {preview.blockedReason
+              ? `This fix can’t be applied as-is: ${preview.blockedReason}`
+              : "This fix can’t be applied as-is."}
+          </p>
+          {preview.validation.errors.length > 0 && (
+            <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs" style={{ color: "var(--builder-warn)" }}>
+              {preview.validation.errors.map((e, i) => (
+                <li key={i}>{e.message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <p
+        data-testid="builder-ai-repair-preview-not-applied"
+        className="text-[10px]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        {REPAIR_PREVIEW_NOT_APPLIED_NOTICE_UI}
       </p>
     </div>
   );

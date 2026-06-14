@@ -7,6 +7,8 @@ import {
   diagnoseWorkflow,
   explainDiagnosis,
   planWorkflowRepair,
+  previewWorkflowRepair,
+  type RepairPreviewProposalContext,
   type WorkflowDraftSnapshot,
 } from "@/lib/api/ai";
 import {
@@ -17,15 +19,16 @@ import {
 
 /**
  * Builder AI diagnosis-family actions — "Check workflow" (AI-DIAG-1b), "Explain
- * with AI" (AI-DIAG-2b), and "Suggest a fix" (AI-REPAIR-1c). Extracted from
- * `useBuilderAiActions` in Slice 4.AI-REPAIR-CLEANUP-1 (refactor only, no behavior
- * change) so neither orchestration file exceeds the max-lines budget.
+ * with AI" (AI-DIAG-2b), "Suggest a fix" (AI-REPAIR-1c), and "Preview fix"
+ * (AI-REPAIR-2c — validated patch preview). Extracted from `useBuilderAiActions`
+ * in Slice 4.AI-REPAIR-CLEANUP-1 so neither orchestration file exceeds the
+ * max-lines budget.
  *
- * All three are read-only / proposal-only: they NEVER mutate the graph, save, or
- * run. Each handler guards against concurrent ops and (for the metered Explain /
- * Suggest) repeat-charge. The parent hook owns the message list + the plan/apply
- * chain; this hook only owns its own in-flight + already-actioned state and calls
- * the parent's `appendMessage` to render results.
+ * All are read-only / proposal- or preview-only: they NEVER mutate the graph,
+ * save, or run. Each handler guards against concurrent ops and (for the metered
+ * Explain / Suggest / Preview) repeat-charge. The parent hook owns the message
+ * list + the plan/apply chain; this hook only owns its own in-flight +
+ * already-actioned state and calls the parent's `appendMessage` to render results.
  */
 
 export interface BuilderDiagnosisActionsInput {
@@ -62,6 +65,13 @@ export function useBuilderDiagnosisActions({
   // already have a repair proposal so a repeat click can't re-charge.
   const [suggesting, setSuggesting] = useState(false);
   const [suggestedDiagnosisIds, setSuggestedDiagnosisIds] = useState<
+    ReadonlySet<ChatMessageId>
+  >(() => new Set());
+  // AI-REPAIR-2c — "Preview fix" state (mirrors Suggest). `previewing` is the
+  // in-flight indicator; `previewedProposalIds` records which repair-PROPOSAL
+  // messages already have a validated preview so a repeat click can't re-charge.
+  const [previewing, setPreviewing] = useState(false);
+  const [previewedProposalIds, setPreviewedProposalIds] = useState<
     ReadonlySet<ChatMessageId>
   >(() => new Set());
 
@@ -206,17 +216,72 @@ export function useBuilderDiagnosisActions({
     }
   }
 
+  async function handlePreviewFix(
+    proposalMessageId: ChatMessageId,
+    proposalContext?: RepairPreviewProposalContext,
+  ): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    // AI-REPAIR-2c — preview-only, EXPLICIT click. Never auto-called. Mirrors the
+    // Suggest guards: no concurrent op, no repeat-charge (already previewed / in
+    // flight). Produces a repair-PREVIEW message — the server validates a proposed
+    // patch against the current draft and returns what WOULD change. It never
+    // applies/saves/runs, and there is no Apply control anywhere in this flow.
+    if (busy || checking || explaining || suggesting || previewing) return;
+    if (previewedProposalIds.has(proposalMessageId)) return;
+    setPreviewing(true);
+    try {
+      const res = await previewWorkflowRepair(wfId, currentDraft, proposalContext);
+      if (res.ok) {
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "repair_preview",
+          preview: res.preview,
+        });
+        // Mark this proposal previewed so a repeat click can't re-charge.
+        setPreviewedProposalIds((prev) => {
+          const next = new Set(prev);
+          next.add(proposalMessageId);
+          return next;
+        });
+      } else {
+        // Handled ok:false (402 credits / 503 model|gate / 500 graph). The client
+        // already normalized the copy to a safe, code-keyed message — surface it
+        // as-is. Not marked previewed, so the user may retry.
+        const content =
+          res.code === "AI_CREDITS_EXHAUSTED"
+            ? AI_CREDITS_EXHAUSTED_MESSAGE
+            : "Couldn’t build a repair preview right now. Please try again.";
+        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+      }
+    } catch (err) {
+      // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to use the AI assistant."
+          : status === 404
+            ? "This workflow couldn’t be found."
+            : "Couldn’t build a repair preview right now. Please try again.";
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   /**
-   * Reset the metered-action state on a full conversation Clear. Mirrors the
-   * original handler exactly — it resets explain/suggest in-flight + already-
-   * actioned sets, and deliberately does NOT touch `checking` (the read-only
-   * check has no charge / id-set to clear).
+   * Reset the metered-action state on a full conversation Clear. Resets
+   * explain/suggest/preview in-flight + already-actioned sets, and deliberately
+   * does NOT touch `checking` (the read-only check has no charge / id-set to clear).
    */
   function resetDiagnosisActions(): void {
     setExplaining(false);
     setExplainedDiagnosisIds(new Set());
     setSuggesting(false);
     setSuggestedDiagnosisIds(new Set());
+    setPreviewing(false);
+    setPreviewedProposalIds(new Set());
   }
 
   return {
@@ -225,9 +290,12 @@ export function useBuilderDiagnosisActions({
     explainedDiagnosisIds,
     suggesting,
     suggestedDiagnosisIds,
+    previewing,
+    previewedProposalIds,
     handleCheckWorkflow,
     handleExplainDiagnosis,
     handleSuggestFix,
+    handlePreviewFix,
     resetDiagnosisActions,
   };
 }

@@ -464,6 +464,8 @@ export function useBuilderAiActions() {
     explainedDiagnosisIds: diagnosis.explainedDiagnosisIds,
     suggesting: diagnosis.suggesting,
     suggestedDiagnosisIds: diagnosis.suggestedDiagnosisIds,
+    previewing: diagnosis.previewing,
+    previewedProposalIds: diagnosis.previewedProposalIds,
     prompt,
     setPrompt,
     canSubmitDetails,
@@ -475,5 +477,6 @@ export function useBuilderAiActions() {
     handleCheckWorkflow: diagnosis.handleCheckWorkflow,
     handleExplainDiagnosis: diagnosis.handleExplainDiagnosis,
     handleSuggestFix: diagnosis.handleSuggestFix,
+    handlePreviewFix: diagnosis.handlePreviewFix,
   };
 }

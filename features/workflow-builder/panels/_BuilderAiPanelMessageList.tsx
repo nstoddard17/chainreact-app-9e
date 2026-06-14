@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import type { RepairPreviewProposalContext } from "@/lib/api/ai";
 import { canExplainDiagnosis, type RequiredInputAnswer } from "../ai";
 import {
   AssistantBubble,
@@ -10,7 +11,12 @@ import {
   type ChatMessage,
   type ChatMessageId,
 } from "./_BuilderAiPanelChat";
-import { DiagnosisBody, DiagnosisExplanationBody, RepairProposalBody } from "./_BuilderAiPanelDiagnosis";
+import {
+  DiagnosisBody,
+  DiagnosisExplanationBody,
+  RepairPreviewBody,
+  RepairProposalBody,
+} from "./_BuilderAiPanelDiagnosis";
 
 /**
  * Scrolling message list for the React Agent chat (Slice 4.AI-21C).
@@ -114,6 +120,20 @@ interface Props {
   readonly onSuggestFix: (diagnosisMessageId: ChatMessageId) => void;
   readonly suggesting: boolean;
   readonly suggestedDiagnosisIds: ReadonlySet<ChatMessageId>;
+  /**
+   * Slice 4.AI-REPAIR-2c — "Preview fix" wiring (mirrors the Suggest props, but the
+   * button lives on the LATEST repair_proposal bubble). `onPreviewFix` is the
+   * explicit-click handler (receives the proposal message id + the proposal's
+   * summary/actions as non-authoritative steering); `previewing` drives the
+   * transient indicator + disables the button; `previewedProposalIds` drives the
+   * per-proposal "Previewed" state so a repeat click can't re-charge.
+   */
+  readonly onPreviewFix: (
+    proposalMessageId: ChatMessageId,
+    proposalContext?: RepairPreviewProposalContext,
+  ) => void;
+  readonly previewing: boolean;
+  readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
 }
 
 export function BuilderAiPanelMessageList({
@@ -142,6 +162,9 @@ export function BuilderAiPanelMessageList({
   onSuggestFix,
   suggesting,
   suggestedDiagnosisIds,
+  onPreviewFix,
+  previewing,
+  previewedProposalIds,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +200,18 @@ export function BuilderAiPanelMessageList({
     const m = messages[i]!;
     if (m.role === "assistant" && m.kind === "diagnosis") {
       latestDiagnosisMessageId = m.id;
+      break;
+    }
+  }
+
+  // AI-REPAIR-2c — only the LATEST repair_proposal message offers "Preview fix",
+  // mirroring the latest-diagnosis gating, so a stale historical proposal never
+  // offers a paid button.
+  let latestRepairProposalMessageId: ChatMessageId | null = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role === "assistant" && m.kind === "repair_proposal") {
+      latestRepairProposalMessageId = m.id;
       break;
     }
   }
@@ -296,9 +331,28 @@ export function BuilderAiPanelMessageList({
           );
         }
         if (message.kind === "repair_proposal") {
+          const canPreview = message.id === latestRepairProposalMessageId;
           return (
             <AssistantBubble key={message.id}>
-              <RepairProposalBody proposal={message.proposal} />
+              <RepairProposalBody
+                proposal={message.proposal}
+                canPreview={canPreview}
+                previewing={previewing}
+                alreadyPreviewed={previewedProposalIds.has(message.id)}
+                onPreviewFix={() =>
+                  onPreviewFix(message.id, {
+                    summary: message.proposal.summary,
+                    recommendedActions: message.proposal.recommendedActions,
+                  })
+                }
+              />
+            </AssistantBubble>
+          );
+        }
+        if (message.kind === "repair_preview") {
+          return (
+            <AssistantBubble key={message.id}>
+              <RepairPreviewBody preview={message.preview} />
             </AssistantBubble>
           );
         }
@@ -403,6 +457,18 @@ export function BuilderAiPanelMessageList({
             data-testid="builder-ai-suggesting"
           >
             Suggesting a fix…
+          </p>
+        </AssistantBubble>
+      )}
+
+      {previewing && (
+        <AssistantBubble>
+          <p
+            role="status"
+            className="text-xs text-muted-foreground"
+            data-testid="builder-ai-previewing"
+          >
+            Previewing fix…
           </p>
         </AssistantBubble>
       )}
