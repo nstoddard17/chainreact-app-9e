@@ -9,7 +9,10 @@ import {
   buildWorkflowFailurePayload,
   buildPlainTextBody,
 } from "@/services/notifications/buildWorkflowFailurePayload";
-import type { HumanizedError } from "@/core/errors/humanizeActionError";
+import {
+  GENERIC_ACTION_ERROR_TITLE,
+  type HumanizedError,
+} from "@/core/errors/humanizeActionError";
 
 const baseInput = {
   workflowId: "wf-1",
@@ -118,5 +121,36 @@ describe("buildPlainTextBody", () => {
     expect(body).toBe(
       "The workflow was deleted while a webhook event was waiting.",
     );
+  });
+
+  // V2-READY-8: the generic humanizer fallback is the ONE branch whose
+  // description echoes the raw thrown handler message. The body builder must
+  // surface the safe generic title instead — mirroring run-detail's
+  // toSafeStepError — so the notification feed never leaks identifiers the
+  // run-detail endpoint already strips.
+  it("redacts the generic-fallback body: a raw handler message with ids/email/token/scope/JSON surfaces only the safe title", () => {
+    const body = buildPlainTextBody({
+      title: GENERIC_ACTION_ERROR_TITLE,
+      description:
+        "Integration action required: refresh_failed (account=acc-uuid-123, " +
+        "provider=gmail, provider-account=victim@example.com). " +
+        'token=ya29.FAKE scope=gmail.send {"error":"invalid_grant"}',
+      severity: "error",
+    });
+    expect(body).toBe(GENERIC_ACTION_ERROR_TITLE);
+    expect(body).not.toMatch(
+      /acc-uuid-123|victim@example\.com|provider-account|ya29|gmail\.send|invalid_grant/i,
+    );
+  });
+
+  it("does NOT redact typed classifications: a non-generic title keeps its useful description + hint", () => {
+    const body = buildPlainTextBody({
+      title: "Slack needs to be reconnected",
+      description: "Slack rejected the bot token.",
+      hint: "Reconnect Slack in Apps.",
+      severity: "error",
+      action: "reconnect",
+    });
+    expect(body).toBe("Slack rejected the bot token. Reconnect Slack in Apps.");
   });
 });

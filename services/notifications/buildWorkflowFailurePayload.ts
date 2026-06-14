@@ -1,4 +1,7 @@
-import type { HumanizedError } from "@/core/errors/humanizeActionError";
+import {
+  GENERIC_ACTION_ERROR_TITLE,
+  type HumanizedError,
+} from "@/core/errors/humanizeActionError";
 
 /**
  * Pure payload builder for workflow-failure notifications.
@@ -92,6 +95,15 @@ function ctaLabelFor(action: HumanizedError["action"]): string {
  * body, plain-text email).
  */
 export function buildPlainTextBody(err: HumanizedError): string {
+  // V2-READY-8: mirror the run-detail `toSafeStepError` guard. The generic
+  // humanizer fallback (title === GENERIC_ACTION_ERROR_TITLE) is the ONE branch
+  // whose `description` echoes the raw thrown handler message — which can carry
+  // account / provider-account ids, emails, tokens, scopes, or raw provider
+  // bodies. Surface the safe generic title instead of that raw description, so
+  // the notification feed matches the no-leak posture the run-detail endpoint
+  // already enforces. Every typed classification keeps its useful, identifier-
+  // free description (+ hint).
+  if (err.title === GENERIC_ACTION_ERROR_TITLE) return err.title;
   if (err.hint) return `${err.description} ${err.hint}`;
   return err.description;
 }

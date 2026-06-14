@@ -357,21 +357,36 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 
-  it("disconnected state renders the connect-provider hint", async () => {
+  it("disconnected state renders reconnect copy + an Apps link (parity with needs-reconnect) and leaks no raw identifiers", async () => {
     setHookState({
       status: "disconnected",
       items: [],
       hasMore: false,
       provider: "slack",
-      message: "No active slack integration.",
+      // Server message is intentionally NOT echoed by this arm; even a hostile
+      // message must never reach the rendered output.
+      message:
+        "No active slack integration (account=acc-uuid-1, provider-account=victim@example.com).",
     });
     const user = userEvent.setup();
     render(
       <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
     );
     await user.click(screen.getByRole("combobox", { name: "Channel" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Connect slack first/i,
+
+    const block = await screen.findByTestId("combobox-disconnected");
+    expect(block).toHaveTextContent(/this slack connection is disconnected/i);
+    // Reconnect path: a link to the Apps page (not a full-page OAuth nav from
+    // the builder, which would drop unsaved edits) — same as needs-reconnect.
+    const link = screen.getByTestId("combobox-disconnected-link");
+    expect(link).toHaveAttribute("href", "/apps");
+    expect(link).toHaveTextContent(/reconnect slack in apps/i);
+    // Not the generic error arm — no "Try again" retry button.
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+    // No-leak: the arm names only the provider slug — never an account id,
+    // provider-account, or email, even if the server message carried them.
+    expect(block.textContent ?? "").not.toMatch(
+      /acc-uuid-1|victim@example\.com|provider-account|account=/i,
     );
   });
 

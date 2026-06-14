@@ -197,12 +197,29 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
           </div>
         );
       case "disconnected":
+        // V2-READY-8: parity with `needs-reconnect` below. A disconnected /
+        // not-connected provider now gets actionable guidance + a link to Apps
+        // (not a full-page inline OAuth nav from the builder, which would drop
+        // unsaved edits). We name ONLY the provider slug — never an account id,
+        // integration id, provider-account, email, token, scope, or raw provider
+        // error — so this arm carries no identifier leak.
         return (
           <div
             role="alert"
-            className="flex flex-col items-start gap-1 px-2 py-3 text-xs text-muted-foreground"
+            data-testid="combobox-disconnected"
+            className="flex flex-col items-start gap-2 px-2 py-3 text-xs text-muted-foreground"
           >
-            <span>Connect {state.provider} first to load options.</span>
+            <span>
+              This {state.provider} connection is disconnected. Reconnect it from
+              Apps to load options.
+            </span>
+            <a
+              href="/apps"
+              data-testid="combobox-disconnected-link"
+              className="font-medium text-foreground underline underline-offset-2"
+            >
+              Reconnect {state.provider} in Apps
+            </a>
           </div>
         );
       case "needs-reconnect":
