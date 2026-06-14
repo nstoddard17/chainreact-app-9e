@@ -62,7 +62,14 @@ test.describe("Public smoke", () => {
     await assertNoServerError(page);
   });
 
-  for (const route of ["/workflows", "/runs", "/templates", "/apps", "/account"]) {
+  for (const route of [
+    "/workflows",
+    "/runs",
+    "/templates",
+    "/apps",
+    "/account",
+    "/team",
+  ]) {
     test(`protected route ${route} redirects to /auth/sign-in`, async ({
       page,
     }) => {

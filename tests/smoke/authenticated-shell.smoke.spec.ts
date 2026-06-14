@@ -69,4 +69,26 @@ test.describe("Authenticated shell smoke", () => {
     await expect(page.getByRole("heading", { name: "Apps", exact: true })).toBeVisible();
     await assertNoServerError(page);
   });
+
+  test("apps page renders provider cards from the catalog", async ({ page }) => {
+    await gotoOk(page, "/apps");
+    await expect(page.getByTestId("apps-dashboard")).toBeVisible();
+
+    // The catalog renders one card per supported provider regardless of
+    // connection state, so this asserts the catalog actually populated — not
+    // just that the dashboard container mounted. Read-only: never connects,
+    // disconnects, or mutates any integration.
+    const cards = page.getByTestId("app-card");
+    await expect(cards.first()).toBeVisible({ timeout: 20_000 });
+    expect(await cards.count()).toBeGreaterThan(0);
+
+    // Slack is an always-enabled provider, so its card is present whether or
+    // not this smoke account has connected it. We match by stable provider id,
+    // never by humanized label.
+    await expect(
+      page.locator('[data-testid="app-card"][data-provider-id="slack"]'),
+    ).toBeVisible();
+
+    await assertNoServerError(page);
+  });
 });
