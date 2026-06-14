@@ -9,6 +9,7 @@ import {
 } from "../ai/chatFillAction";
 import { extractChatFillValue } from "../ai/extractChatFillValue";
 import type { ChatFillTarget } from "../ai/useChatFillTarget";
+import { commitNodeConfigDraft } from "../state/commitConfigDraft";
 import { nextChatMessageId, type ChatMessage, type ChatMessageId } from "./_BuilderAiPanelChat";
 
 /**
@@ -147,14 +148,20 @@ export function useChatFill({ appendMessage, getCurrentTarget }: UseChatFillInpu
         requireHighlightMatch: true,
       });
       if (!result.ok) {
-        // Ineligible / invalid / stale → safe guidance, NO write, NO echo (so a
-        // blocked secret/recipient value never lands in the chat log).
+        // Ineligible / invalid / stale → safe guidance, NO write, NO commit, NO echo
+        // (so a blocked secret/recipient value never lands in the chat log).
         appendMessage(blockedMessage(safeFailureCopy(result)));
         return;
       }
-      // Success: the value was placed in the eligible field. Echo the user's sent
-      // message (a non-persisted gesture, not a planner prompt), then the after-fill
-      // summary — chronological order: user message, then "Filled … · Not saved yet".
+      // CS-10 — the value is in the field DRAFT; now commit the node config LOCALLY,
+      // exactly as the config rail Save button would (writes the canvas-pending node +
+      // marks the draft saved), so the user need not also click the panel's Save. This
+      // flips the WORKFLOW's dirty flag — the toolbar Save is STILL required — but it
+      // does NOT persist to the server, run, Apply, or change graph structure.
+      commitNodeConfigDraft(result.proposal.nodeId);
+      // Success: echo the user's sent message (a non-persisted gesture, not a planner
+      // prompt), then the after-fill summary — chronological order: user message, then
+      // "Filled … · Workflow not saved yet".
       appendMessage({ id: nextChatMessageId(), role: "user", kind: "action", content: rawMessage });
       appendMessage(summaryMessage(result.proposal));
     },

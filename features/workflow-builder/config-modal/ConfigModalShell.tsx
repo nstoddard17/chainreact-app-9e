@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NodeCredentialOwnerSection } from "./NodeCredentialOwnerSection";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
+import { commitNodeConfigDraft } from "../state/commitConfigDraft";
 import {
   findNativeActionByKey,
   useNativeActions,
@@ -72,7 +73,6 @@ export function ConfigModalShell() {
   const drafts = useConfigSlice((s) => s.drafts);
   const updateField = useConfigSlice((s) => s.updateField);
   const resetNode = useConfigSlice((s) => s.resetNode);
-  const markSaved = useConfigSlice((s) => s.markSaved);
   const closeNode = useConfigSlice((s) => s.closeNode);
   // Slice 4.AI-REPAIR-2F — field to visually highlight (set by a "Go to field"
   // reveal). Passed through to SchemaForm; display/navigation only.
@@ -82,7 +82,6 @@ export function ConfigModalShell() {
   const [pendingClose, setPendingClose] = useState(false);
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
-  const updateNodeConfig = useGraphSlice((s) => s.updateNodeConfig);
   const renameNode = useGraphSlice((s) => s.renameNode);
   // CS-4b: the open workflow's id, for the per-node credential-owner section.
   const workflowId = useGraphSlice((s) => s.workflowId);
@@ -153,8 +152,10 @@ export function ConfigModalShell() {
 
   function handleSave(): void {
     if (!draft) return;
-    updateNodeConfig(activeNodeId!, draft.values as Record<string, unknown>);
-    markSaved();
+    // Shared local-commit path (also used by CS-10 chat-fill direct-fill): writes the
+    // draft into the canvas-pending node + marks the draft saved. LOCAL only — the
+    // workflow stays dirty until the toolbar Save persists it.
+    commitNodeConfigDraft(activeNodeId!);
   }
 
   function handleCancel(): void {

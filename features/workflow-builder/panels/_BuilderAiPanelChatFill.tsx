@@ -11,7 +11,9 @@ import type { AssistantChatFillChatMessage } from "./_BuilderAiPanelChat";
  * "Not saved yet" notice makes that unambiguous.
  */
 
-const NOT_SAVED_NOTICE = "Not saved yet — review and click Save, or run Check workflow again.";
+// CS-10 — the node config is committed LOCALLY on a direct fill, so the notice now
+// refers to the WORKFLOW: the field is in place, but the toolbar Save still persists.
+const NOT_SAVED_NOTICE = "Workflow not saved yet — click Save to keep your changes.";
 
 export function ChatFillBody({
   fill,

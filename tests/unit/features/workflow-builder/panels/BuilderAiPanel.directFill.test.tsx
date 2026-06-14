@@ -91,42 +91,44 @@ async function renderAndReveal() {
   expect(screen.getByTestId("builder-ai-chatfill-hint")).toBeInTheDocument();
 }
 
-describe("CS-9 — direct fill on Send (no confirmation)", () => {
-  it("fills the pending draft immediately + shows a summary; no Confirm/Cancel/proposal", async () => {
+describe("CS-9/CS-10 — direct fill on Send (no confirmation; local commit)", () => {
+  it("fills the field, commits the node config locally, shows a summary; no Confirm/Cancel/proposal; no server save", async () => {
     const user = userEvent.setup();
-    const updateNodeConfigSpy = jest.spyOn(useGraphSlice.getState(), "updateNodeConfig");
     const saveSpy = jest.spyOn(useGraphSlice.getState(), "save");
     await renderAndReveal();
 
     await user.type(screen.getByTestId("builder-ai-prompt"), "Hey!!!");
     await user.click(screen.getByTestId("builder-ai-plan-button"));
 
-    // Pending DRAFT filled immediately + dirty.
+    // CS-10 — node config COMMITTED LOCALLY: the canvas-pending node now holds the
+    // value, and the rail draft is marked saved (clean) — no need to click panel Save.
+    expect(useGraphSlice.getState().pendingNodes[0]!.config).toEqual({ channel: "C1", text: "Hey!!!" });
     const draft = useConfigSlice.getState().drafts.slack1!;
     expect(draft.values.text).toBe("Hey!!!");
-    expect(draft.isDirty).toBe(true);
+    expect(draft.isDirty).toBe(false); // local commit done (markSaved)
+    // The WORKFLOW is now dirty → the toolbar Save is still required.
+    expect(useGraphSlice.getState().isDirty).toBe(true);
 
-    // After-fill summary ("Filled … · Not saved yet"); NO proposal / confirm / cancel.
+    // After-fill summary ("Filled … · Workflow not saved yet"); NO proposal/confirm/cancel.
     const summary = await screen.findByTestId("builder-ai-chat-fill-summary");
     expect(summary.textContent).toMatch(/Filled/i);
     expect(summary.textContent).toMatch(/Message/);
     expect(summary.textContent).toMatch(/Send Channel Message/);
-    expect(summary.textContent).toMatch(/not saved yet/i);
+    expect(summary.textContent).toMatch(/workflow not saved yet/i);
     expect(screen.queryByTestId("builder-ai-chat-fill-proposal")).toBeNull();
     expect(screen.queryByTestId("builder-ai-chat-fill-confirm")).toBeNull();
     expect(screen.queryByTestId("builder-ai-chat-fill-cancel")).toBeNull();
 
-    // No graph commit / persist / run / Apply.
-    expect(updateNodeConfigSpy).not.toHaveBeenCalled();
+    // NO workflow server save / run / Apply, and NO graph STRUCTURE change.
     expect(saveSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("builder-ai-apply-button")).toBeNull();
-    expect(useGraphSlice.getState().pendingNodes[0]!.config).toEqual({ channel: "C1", text: "" });
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().pendingEdges).toHaveLength(0);
 
     // No raw node id / field key in the summary copy.
     expect(summary.textContent).not.toContain("slack1");
     expect(summary.textContent).not.toMatch(/\btext\b/);
 
-    updateNodeConfigSpy.mockRestore();
     saveSpy.mockRestore();
   });
 

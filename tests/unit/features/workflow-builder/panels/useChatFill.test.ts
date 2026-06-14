@@ -108,8 +108,8 @@ describe("useChatFill.propose", () => {
   });
 });
 
-describe("useChatFill.fillNow (CS-9 — direct fill, no confirmation)", () => {
-  it("writes the pending draft IMMEDIATELY + appends a SUMMARY (no proposal/confirm)", () => {
+describe("useChatFill.fillNow (CS-9/CS-10 — direct fill + local commit, no confirmation)", () => {
+  it("fills the draft, COMMITS the node config locally, and appends a SUMMARY (no proposal)", () => {
     useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "" }, fieldKey: "text" });
     const updateNodeConfigSpy = jest.spyOn(useGraphSlice.getState(), "updateNodeConfig");
     const saveSpy = jest.spyOn(useGraphSlice.getState(), "save");
@@ -117,10 +117,14 @@ describe("useChatFill.fillNow (CS-9 — direct fill, no confirmation)", () => {
     const { messages, hook } = setup();
     act(() => hook.result.current.fillNow(target(), "Hey!!!"));
 
-    // Pending draft filled directly (applyChatFillToDraft) + dirty.
+    // CS-10 — node config committed locally (config-rail Save path): the draft holds
+    // the value AND is marked saved (clean), and updateNodeConfig was called.
     const draft = useConfigSlice.getState().drafts.slack1!;
     expect(draft.values.text).toBe("Hey!!!");
-    expect(draft.isDirty).toBe(true);
+    expect(draft.isDirty).toBe(false); // markSaved — local commit done
+    expect(updateNodeConfigSpy).toHaveBeenCalledWith("slack1", expect.objectContaining({ text: "Hey!!!" }));
+    // ...but the WORKFLOW server save is NOT triggered.
+    expect(saveSpy).not.toHaveBeenCalled();
 
     // The user's message is echoed, then an after-fill SUMMARY — never a proposal.
     expect(messages.some((m) => m.role === "user" && m.kind === "action")).toBe(true);
@@ -130,31 +134,32 @@ describe("useChatFill.fillNow (CS-9 — direct fill, no confirmation)", () => {
       expect(fill.proposal.previousValue).toBe("");
       expect(fill.proposal.newValue).toBe("Hey!!!");
     }
-    // No proposal bubble was ever created.
     expect(messages.some((m) => m.role === "assistant" && m.kind === "chat_fill" && m.fill.phase === "proposal")).toBe(false);
-    // No graph commit / persist / run.
-    expect(updateNodeConfigSpy).not.toHaveBeenCalled();
-    expect(saveSpy).not.toHaveBeenCalled();
 
     updateNodeConfigSpy.mockRestore();
     saveSpy.mockRestore();
   });
 
-  it("ambiguous input → safe guidance, NO write, NO summary, NO proposal", () => {
+  it("ambiguous input → safe guidance, NO write, NO commit, NO summary, NO proposal", () => {
     useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { text: "" }, fieldKey: "text" });
+    const updateNodeConfigSpy = jest.spyOn(useGraphSlice.getState(), "updateNodeConfig");
     const { messages, hook } = setup();
     act(() => hook.result.current.fillNow(target(), "put hello in the message field"));
     expect(useConfigSlice.getState().drafts.slack1!.values.text).toBe("");
+    expect(updateNodeConfigSpy).not.toHaveBeenCalled();
     const fill = lastFill(messages);
     expect(fill.phase).toBe("blocked");
     expect(messages.some((m) => m.role === "assistant" && m.kind === "chat_fill" && m.fill.phase === "proposal")).toBe(false);
+    updateNodeConfigSpy.mockRestore();
   });
 
-  it("ineligible (secret) field → blocked guidance, NO write, never echoes the value", () => {
+  it("ineligible (secret) field → blocked guidance, NO write, NO commit, never echoes the value", () => {
     useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: { apiKey: "" }, fieldKey: "apiKey" });
+    const updateNodeConfigSpy = jest.spyOn(useGraphSlice.getState(), "updateNodeConfig");
     const { messages, hook } = setup(() => target({ fieldKey: "apiKey", field: field("apiKey", "text"), fieldLabel: "" }));
     act(() => hook.result.current.fillNow(target({ fieldKey: "apiKey", field: field("apiKey", "text"), fieldLabel: "" }), "super-secret-token-123"));
     expect(useConfigSlice.getState().drafts.slack1!.values.apiKey).toBe("");
+    expect(updateNodeConfigSpy).not.toHaveBeenCalled(); // no commit for a blocked field
     const fill = lastFill(messages);
     expect(fill.phase).toBe("blocked");
     if (fill.phase === "blocked") {
@@ -164,6 +169,17 @@ describe("useChatFill.fillNow (CS-9 — direct fill, no confirmation)", () => {
     // The blocked path must NOT echo the user's (secret) value anywhere.
     expect(JSON.stringify(messages)).not.toContain("super-secret-token-123");
     expect(messages.some((m) => m.role === "user")).toBe(false);
+    updateNodeConfigSpy.mockRestore();
+  });
+
+  it("stale target (no open draft) → blocked, NO write, NO commit", () => {
+    // No revealNode → no rail draft → applyChatFillToDraft returns STALE_NODE_TARGET.
+    const updateNodeConfigSpy = jest.spyOn(useGraphSlice.getState(), "updateNodeConfig");
+    const { messages, hook } = setup();
+    act(() => hook.result.current.fillNow(target(), "Hey!!!"));
+    expect(updateNodeConfigSpy).not.toHaveBeenCalled();
+    expect(lastFill(messages).phase).toBe("blocked");
+    updateNodeConfigSpy.mockRestore();
   });
 });
 
