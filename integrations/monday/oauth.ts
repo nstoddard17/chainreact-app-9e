@@ -1,6 +1,8 @@
 import {
   type EncryptedTokens,
   type ProviderOAuth,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -269,9 +271,11 @@ export const mondayOAuth: ProviderOAuth = {
       body: params.toString(),
     });
     if (!res.ok) {
-      throw new Error(
-        `Monday token refresh failed: ${await readMondayErrorCode(res)}`,
-      );
+      const code = await readMondayErrorCode(res);
+      if (isRefreshAuthRequiredCode(code)) {
+        throw new RefreshAuthRequiredError("monday", code);
+      }
+      throw new Error(`Monday token refresh failed: ${code}`);
     }
     const json = (await res.json()) as MondayTokenSuccess;
     if (!json.access_token) {

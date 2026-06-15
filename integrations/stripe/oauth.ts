@@ -1,6 +1,8 @@
 import {
   type EncryptedTokens,
   type ProviderOAuth,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -257,9 +259,11 @@ export const stripeOAuth: ProviderOAuth = {
       body: params.toString(),
     });
     if (!res.ok) {
-      throw new Error(
-        `Stripe token refresh failed: ${await readStripeErrorCode(res)}`,
-      );
+      const code = await readStripeErrorCode(res);
+      if (isRefreshAuthRequiredCode(code)) {
+        throw new RefreshAuthRequiredError("stripe", code);
+      }
+      throw new Error(`Stripe token refresh failed: ${code}`);
     }
     const json = (await res.json()) as StripeTokenSuccess;
     if (!json.access_token) {

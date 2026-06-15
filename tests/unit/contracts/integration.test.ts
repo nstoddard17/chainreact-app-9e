@@ -1,6 +1,8 @@
 import {
   ProviderManifestSchema,
   TokenIngestVerificationError,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 
 const baseValid = {
@@ -146,5 +148,53 @@ describe("TokenIngestVerificationError", () => {
     const err = new TokenIngestVerificationError("trello", "rejected");
     expect(err instanceof Error).toBe(true);
     expect(err instanceof TokenIngestVerificationError).toBe(true);
+  });
+});
+
+describe("isRefreshAuthRequiredCode (V2-READY-32)", () => {
+  it("classifies invalid_grant as a definite reconnect-required code", () => {
+    expect(isRefreshAuthRequiredCode("invalid_grant")).toBe(true);
+  });
+
+  it.each([
+    // config-class OAuth2 errors — re-auth does NOT fix these
+    "invalid_client",
+    "unauthorized_client",
+    "invalid_request",
+    "invalid_scope",
+    "unsupported_grant_type",
+    // transient transport / server / network
+    "HTTP 429",
+    "HTTP 500",
+    "HTTP 502",
+    "HTTP 503",
+    "temporarily_unavailable",
+    "server_error",
+    // unknown / empty
+    "",
+    "something_else",
+  ])("does NOT classify '%s' as reconnect-required", (code) => {
+    expect(isRefreshAuthRequiredCode(code)).toBe(false);
+  });
+});
+
+describe("RefreshAuthRequiredError (V2-READY-32)", () => {
+  it("carries provider + code and is an Error for instanceof dispatch", () => {
+    const err = new RefreshAuthRequiredError("google", "invalid_grant");
+    expect(err.name).toBe("RefreshAuthRequiredError");
+    expect(err.provider).toBe("google");
+    expect(err.code).toBe("invalid_grant");
+    expect(err instanceof Error).toBe(true);
+    expect(err instanceof RefreshAuthRequiredError).toBe(true);
+  });
+
+  it("no-leak: message exposes only the provider slug + standard code (no body/token/scope/email)", () => {
+    const err = new RefreshAuthRequiredError("airtable", "invalid_grant");
+    const serialized = `${err.message} ${JSON.stringify({ p: err.provider, c: err.code })}`;
+    // Only the safe slug + OAuth2 code appear.
+    expect(err.message).toContain("airtable");
+    expect(err.message).toContain("invalid_grant");
+    // Defensive: nothing token/scope/email/account-shaped leaks.
+    expect(serialized).not.toMatch(/xoxb|Bearer |refresh_token=|@|acct_|scope=/i);
   });
 });

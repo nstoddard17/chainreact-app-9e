@@ -192,9 +192,11 @@ describe("dropboxOAuth.refreshToken", () => {
     mockFetchSequence([
       { ok: false, status: 401, json: { error: "invalid_grant" } },
     ]);
-    await expect(dropboxOAuth.refreshToken("RT-bad")).rejects.toThrow(
-      /Dropbox token refresh failed: invalid_grant/,
-    );
+    // V2-READY-32 — invalid_grant → typed RefreshAuthRequiredError (reconnect).
+    await expect(dropboxOAuth.refreshToken("RT-bad")).rejects.toMatchObject({
+      name: "RefreshAuthRequiredError",
+      code: "invalid_grant",
+    });
   });
 });
 

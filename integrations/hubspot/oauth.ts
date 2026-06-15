@@ -1,6 +1,8 @@
 import {
   type EncryptedTokens,
   type ProviderOAuth,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 import { resolveHubSpotAccount } from "@/integrations/_shared/hubspot/api/me";
@@ -240,9 +242,17 @@ export const hubspotOAuth: ProviderOAuth = {
       body: params.toString(),
     });
     if (!res.ok) {
-      throw new Error(
-        `HubSpot token refresh failed: ${await readHubSpotErrorCode(res)}`,
-      );
+      // V2-READY-32 — NOTE: HubSpot uses a non-standard {message,category}
+      // error shape (readHubSpotErrorCode returns message/errorType), so the
+      // exact-match on the OAuth2 `invalid_grant` code is BEST-EFFORT here and
+      // may not fire on a real HubSpot dead-refresh-token. No false positives —
+      // an unmatched code stays generic. Follow-up: map HubSpot's category to
+      // the typed error once its real dead-token signal is confirmed.
+      const code = await readHubSpotErrorCode(res);
+      if (isRefreshAuthRequiredCode(code)) {
+        throw new RefreshAuthRequiredError("hubspot", code);
+      }
+      throw new Error(`HubSpot token refresh failed: ${code}`);
     }
     const json = (await res.json()) as HubSpotTokenSuccess;
     if (!json.access_token) {

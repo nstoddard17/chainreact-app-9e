@@ -1,8 +1,10 @@
 import {
   type AccountSteer,
+  type EncryptedTokens,
   type ProviderHint,
   type ProviderOAuth,
   type ProviderTokenIngestAuth,
+  RefreshAuthRequiredError,
   TokenIngestVerificationError,
 } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
@@ -38,8 +40,10 @@ import {
   updateTokens,
   upsertActive,
   clearNeedsReconnect,
+  markNeedsReconnect,
   type IntegrationRecord,
 } from "@/repositories/integrations";
+import { notifyReconnectNeeded } from "@/services/integrations/reconnectNotification";
 import { isMemberServiceRole } from "@/repositories/accountMemberships";
 import { assertAccountOperational } from "@/services/accounts/accountFreeze";
 import { refreshLockKey, withRefreshLock } from "./refreshLock";
@@ -672,9 +676,32 @@ export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
     }
     const refreshTokenPlaintext = decryptToken(row.refreshTokenEncrypted);
     // Provider may throw RefreshNotSupportedError or any provider-specific
-    // error. We don't catch — callers (refreshAndRetry) own the
-    // translation to IntegrationActionRequiredError.
-    const newTokens = await oauth.refreshToken(refreshTokenPlaintext);
+    // error. We don't catch GENERIC errors — callers (refreshAndRetry) own the
+    // translation to IntegrationActionRequiredError(refresh_failed).
+    //
+    // V2-READY-32 EXCEPTION — a typed RefreshAuthRequiredError means the refresh
+    // GRANT itself is dead (OAuth2 invalid_grant: revoked / expired / consent
+    // withdrawn), which only user re-authorization can fix. Set
+    // needs_reconnect_at + notify the connector once, then RE-THROW so the run
+    // still fails with the existing refresh_failed semantics. Best-effort: the
+    // signal write runs inside the single-flight lock (concurrent 401s already
+    // collapse to one refresh) and markNeedsReconnect's conditional UPDATE makes
+    // the notify one-shot; a signal-write failure must NEVER mask the refresh
+    // failure. Transient/config errors stay generic here → no reconnect mark.
+    let newTokens: EncryptedTokens;
+    try {
+      newTokens = await oauth.refreshToken(refreshTokenPlaintext);
+    } catch (err) {
+      if (err instanceof RefreshAuthRequiredError) {
+        try {
+          const firstMark = await markNeedsReconnect(row.id);
+          if (firstMark) await notifyReconnectNeeded(row);
+        } catch {
+          // swallow — surfacing the original refresh failure matters more.
+        }
+      }
+      throw err;
+    }
     const integration = await updateTokens({ id: row.id, tokens: newTokens });
 
     // V2-READY-31 — a successful refresh proves the stored credential is still

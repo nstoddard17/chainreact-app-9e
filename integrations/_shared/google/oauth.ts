@@ -32,6 +32,8 @@ import {
   type AccountSteer,
   type EncryptedTokens,
   type PkceGeneration,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -239,6 +241,9 @@ export async function refreshGoogleToken(
       if (parsed.error) errorCode = parsed.error;
     } catch {
       // not JSON
+    }
+    if (isRefreshAuthRequiredCode(errorCode)) {
+      throw new RefreshAuthRequiredError("google", errorCode);
     }
     throw new Error(`Google token refresh failed: ${errorCode}`);
   }

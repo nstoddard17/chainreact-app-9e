@@ -3,6 +3,8 @@ import {
   type EncryptedTokens,
   type PkceGeneration,
   type ProviderOAuth,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -299,9 +301,11 @@ export const airtableOAuth: ProviderOAuth = {
       body: params.toString(),
     });
     if (!res.ok) {
-      throw new Error(
-        `Airtable token refresh failed: ${await readAirtableErrorCode(res)}`,
-      );
+      const code = await readAirtableErrorCode(res);
+      if (isRefreshAuthRequiredCode(code)) {
+        throw new RefreshAuthRequiredError("airtable", code);
+      }
+      throw new Error(`Airtable token refresh failed: ${code}`);
     }
     const json = (await res.json()) as AirtableTokenSuccess;
     if (!json.access_token) {

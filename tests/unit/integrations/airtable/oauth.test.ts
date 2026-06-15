@@ -657,9 +657,12 @@ describe("airtableOAuth.refreshToken — rotation contract", () => {
         json: { error: "invalid_grant" },
       },
     ]);
-    await expect(airtableOAuth.refreshToken("expired-token")).rejects.toThrow(
-      /Airtable token refresh failed: invalid_grant/,
-    );
+    // V2-READY-32 — invalid_grant is a DEFINITE dead-grant; the provider throws
+    // the typed RefreshAuthRequiredError so the dispatcher marks reconnect.
+    await expect(airtableOAuth.refreshToken("expired-token")).rejects.toMatchObject({
+      name: "RefreshAuthRequiredError",
+      code: "invalid_grant",
+    });
   });
 
   it("falls back to HTTP <status> when refresh error response is not JSON", async () => {

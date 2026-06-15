@@ -365,3 +365,47 @@ export class RefreshNotSupportedError extends Error {
     this.name = "RefreshNotSupportedError";
   }
 }
+
+/**
+ * V2-READY-32 — thrown by a refreshable provider's `refreshToken()` when the
+ * OAuth2 token-endpoint response PROVES the refresh grant itself is dead and
+ * only user re-authorization can recover (RFC 6749 §5.2 `invalid_grant`:
+ * refresh token revoked / expired / consent withdrawn / account removed).
+ *
+ * The dispatcher catches this to set `needs_reconnect_at` + notify the
+ * connector once; it then re-throws so the run/action still fails with the
+ * existing `refresh_failed` semantics. Transient failures (HTTP 429/5xx,
+ * network, malformed body) and config-class OAuth2 errors (`invalid_client`,
+ * `invalid_request`, …) MUST NOT throw this — they stay generic so a retry can
+ * clear them and no reconnect signal is raised.
+ *
+ * NO-LEAK: carries ONLY the provider slug + the standard OAuth2 error code
+ * (`invalid_grant`). NEVER the raw response body, token, refresh token, scope,
+ * email, or provider account id.
+ */
+export class RefreshAuthRequiredError extends Error {
+  readonly provider: string;
+  readonly code: string;
+  constructor(provider: string, code: string) {
+    super(`Refresh requires re-authorization (${provider}): ${code}`);
+    this.name = "RefreshAuthRequiredError";
+    this.provider = provider;
+    this.code = code;
+  }
+}
+
+/**
+ * OAuth2 token-endpoint error codes that DEFINITELY require user re-auth. Kept
+ * deliberately MINIMAL: only `invalid_grant`, the RFC 6749 §5.2 code every
+ * standard OAuth2 provider returns for a dead refresh token. Config-class codes
+ * (`invalid_client` / `unauthorized_client` / `invalid_request` /
+ * `invalid_scope`) are deployment/setup problems re-auth does NOT fix, so they
+ * are excluded (stay generic, no reconnect mark). Transport (`HTTP <status>`)
+ * and network failures never match here.
+ */
+const REFRESH_AUTH_REQUIRED_CODES: ReadonlySet<string> = new Set(["invalid_grant"]);
+
+/** True when an extracted OAuth2 refresh error code means "user must reconnect". */
+export function isRefreshAuthRequiredCode(code: string): boolean {
+  return REFRESH_AUTH_REQUIRED_CODES.has(code);
+}

@@ -41,6 +41,8 @@ import {
   type AccountSteer,
   type EncryptedTokens,
   type PkceGeneration,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -244,9 +246,11 @@ export async function refreshMicrosoftToken(
     },
   );
   if (!res.ok) {
-    throw new Error(
-      `Microsoft token refresh failed: ${await readMicrosoftErrorCode(res)}`,
-    );
+    const code = await readMicrosoftErrorCode(res);
+    if (isRefreshAuthRequiredCode(code)) {
+      throw new RefreshAuthRequiredError("microsoft", code);
+    }
+    throw new Error(`Microsoft token refresh failed: ${code}`);
   }
   const json = (await res.json()) as MicrosoftTokenSuccess;
   if (!json.access_token) {

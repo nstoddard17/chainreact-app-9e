@@ -279,9 +279,11 @@ describe("mondayOAuth.refreshToken", () => {
         json: { error: "invalid_grant" },
       },
     ]);
-    await expect(mondayOAuth.refreshToken("RT-bad")).rejects.toThrow(
-      /Monday token refresh failed: invalid_grant/,
-    );
+    // V2-READY-32 — invalid_grant → typed RefreshAuthRequiredError (reconnect).
+    await expect(mondayOAuth.refreshToken("RT-bad")).rejects.toMatchObject({
+      name: "RefreshAuthRequiredError",
+      code: "invalid_grant",
+    });
   });
 
   it("refresh body includes client auth + redirect_uri (V1's sendRedirectUriWithRefresh)", async () => {

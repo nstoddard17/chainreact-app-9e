@@ -606,9 +606,11 @@ describe("stripeOAuth.refreshToken — non-rotation contract", () => {
         json: { error: "invalid_grant" },
       },
     ]);
-    await expect(stripeOAuth.refreshToken("expired-token")).rejects.toThrow(
-      /Stripe token refresh failed: invalid_grant/,
-    );
+    // V2-READY-32 — invalid_grant → typed RefreshAuthRequiredError (reconnect).
+    await expect(stripeOAuth.refreshToken("expired-token")).rejects.toMatchObject({
+      name: "RefreshAuthRequiredError",
+      code: "invalid_grant",
+    });
   });
 
   it("falls back to HTTP <status> when refresh error response is not JSON", async () => {

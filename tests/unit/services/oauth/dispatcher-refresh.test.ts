@@ -9,20 +9,30 @@
  * single-flight refresh lock is exercised concretely (no mock of
  * refreshLock itself).
  */
-import { RefreshNotSupportedError } from "@/contracts/integration";
+import {
+  RefreshNotSupportedError,
+  RefreshAuthRequiredError,
+} from "@/contracts/integration";
 
 const mockGetActiveForExecution = jest.fn();
 const mockUpdateTokens = jest.fn();
 const mockClearNeedsReconnect = jest.fn();
+const mockMarkNeedsReconnect = jest.fn();
+const mockNotifyReconnectNeeded = jest.fn();
 const mockSlackRefreshToken = jest.fn();
 
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: mockGetActiveForExecution,
   updateTokens: mockUpdateTokens,
   clearNeedsReconnect: mockClearNeedsReconnect,
+  markNeedsReconnect: mockMarkNeedsReconnect,
   // upsertActive isn't used by refresh, but the dispatcher imports it
   // statically. Provide a stub so the import resolves.
   upsertActive: jest.fn(),
+}));
+
+jest.mock("@/services/integrations/reconnectNotification", () => ({
+  notifyReconnectNeeded: (...args: unknown[]) => mockNotifyReconnectNeeded(...args),
 }));
 
 // 4.ACCOUNT-MODEL-10b — refresh calls the account freeze guard. Mock it as
@@ -56,6 +66,10 @@ beforeEach(() => {
   mockUpdateTokens.mockReset();
   mockClearNeedsReconnect.mockReset();
   mockClearNeedsReconnect.mockResolvedValue(undefined);
+  mockMarkNeedsReconnect.mockReset();
+  mockMarkNeedsReconnect.mockResolvedValue(true);
+  mockNotifyReconnectNeeded.mockReset();
+  mockNotifyReconnectNeeded.mockResolvedValue(undefined);
   mockSlackRefreshToken.mockReset();
 });
 
@@ -194,6 +208,66 @@ describe("dispatcher.refresh — V2-READY-31 reconnect-signal clear on success",
       /invalid_grant/i,
     );
     expect(mockClearNeedsReconnect).not.toHaveBeenCalled();
+  });
+});
+
+describe("dispatcher.refresh — V2-READY-32 typed refresh-auth-required", () => {
+  it("marks needs_reconnect_at + notifies once, then re-throws the typed error", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow());
+    mockSlackRefreshToken.mockRejectedValueOnce(
+      new RefreshAuthRequiredError("slack", "invalid_grant"),
+    );
+    mockMarkNeedsReconnect.mockResolvedValueOnce(true); // first-mark transition
+
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toBeInstanceOf(
+      RefreshAuthRequiredError,
+    );
+
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledWith("int-1");
+    expect(mockNotifyReconnectNeeded).toHaveBeenCalledTimes(1);
+    // Refresh did NOT succeed → tokens are not persisted.
+    expect(mockUpdateTokens).not.toHaveBeenCalled();
+  });
+
+  it("does NOT re-notify when the row was already marked (mark returns false)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow());
+    mockSlackRefreshToken.mockRejectedValueOnce(
+      new RefreshAuthRequiredError("slack", "invalid_grant"),
+    );
+    mockMarkNeedsReconnect.mockResolvedValueOnce(false); // already marked
+
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toBeInstanceOf(
+      RefreshAuthRequiredError,
+    );
+
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledWith("int-1");
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled();
+  });
+
+  it("does NOT mark/notify on a generic (transient) refresh error — re-throws it", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow());
+    mockSlackRefreshToken.mockRejectedValueOnce(
+      new Error("Slack token refresh failed: HTTP 503"),
+    );
+
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toThrow(
+      /HTTP 503/,
+    );
+
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled();
+  });
+
+  it("a mark/notify failure does NOT mask the original refresh-auth error", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow());
+    mockSlackRefreshToken.mockRejectedValueOnce(
+      new RefreshAuthRequiredError("slack", "invalid_grant"),
+    );
+    mockMarkNeedsReconnect.mockRejectedValueOnce(new Error("db down"));
+
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toBeInstanceOf(
+      RefreshAuthRequiredError,
+    );
   });
 });
 

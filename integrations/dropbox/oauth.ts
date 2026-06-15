@@ -1,6 +1,8 @@
 import {
   type EncryptedTokens,
   type ProviderOAuth,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 import { currentAccountGet } from "@/integrations/_shared/dropbox/api/currentAccountGet";
@@ -195,9 +197,11 @@ export const dropboxOAuth: ProviderOAuth = {
       body: params.toString(),
     });
     if (!res.ok) {
-      throw new Error(
-        `Dropbox token refresh failed: ${await readDropboxErrorCode(res)}`,
-      );
+      const code = await readDropboxErrorCode(res);
+      if (isRefreshAuthRequiredCode(code)) {
+        throw new RefreshAuthRequiredError("dropbox", code);
+      }
+      throw new Error(`Dropbox token refresh failed: ${code}`);
     }
     const json = (await res.json()) as DropboxTokenSuccess;
     if (!json.access_token) {

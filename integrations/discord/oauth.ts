@@ -2,6 +2,8 @@ import {
   type EncryptedTokens,
   type ProviderAccountInfo,
   type ProviderOAuth,
+  RefreshAuthRequiredError,
+  isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -158,7 +160,22 @@ async function refreshAccessToken(refreshToken: string): Promise<DiscordTokenSuc
     body: params.toString(),
   });
   if (!res.ok) {
-    throw new Error(`Discord token refresh failed: HTTP ${res.status}`);
+    // V2-READY-32 — read the OAuth2 error body so a dead refresh grant
+    // (invalid_grant) is classified as reconnect-required; transport-only
+    // failures (no/!JSON body) fall back to `HTTP <status>` (transient).
+    let code = `HTTP ${res.status}`;
+    try {
+      const parsed = (await res.json()) as { error?: unknown };
+      if (typeof parsed.error === "string" && parsed.error.length > 0) {
+        code = parsed.error;
+      }
+    } catch {
+      // not JSON — keep HTTP <status>
+    }
+    if (isRefreshAuthRequiredCode(code)) {
+      throw new RefreshAuthRequiredError("discord", code);
+    }
+    throw new Error(`Discord token refresh failed: ${code}`);
   }
   const json = (await res.json()) as DiscordTokenResponse;
   if (!isTokenSuccess(json)) {

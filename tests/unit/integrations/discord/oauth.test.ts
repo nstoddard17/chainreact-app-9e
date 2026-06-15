@@ -206,6 +206,18 @@ describe("discordOAuth.refreshToken", () => {
       /token refresh failed: HTTP 401/,
     );
   });
+
+  it("V2-READY-32 — invalid_grant body throws typed RefreshAuthRequiredError (reconnect)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "invalid_grant" }),
+    });
+    await expect(discordOAuth.refreshToken("old")).rejects.toMatchObject({
+      name: "RefreshAuthRequiredError",
+      code: "invalid_grant",
+    });
+  });
 });
 
 describe("discordOAuth.revoke", () => {
