@@ -15,6 +15,7 @@ const mockListForDispatch = jest.fn();
 const mockGetStateForDispatch = jest.fn();
 const mockEnqueueRun = jest.fn();
 const mockGetTriggerFilter = jest.fn();
+const mockIsAccountFrozen = jest.fn();
 
 jest.mock("@/repositories/webhookEventDedup", () => ({
   markSeen: (...args: unknown[]) => mockMarkSeen(...args),
@@ -34,6 +35,10 @@ jest.mock("@/services/execution/enqueue", () => ({
 
 jest.mock("@/core/triggers/filterRegistry", () => ({
   getTriggerFilter: (...args: unknown[]) => mockGetTriggerFilter(...args),
+}));
+
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  isAccountFrozen: (...args: unknown[]) => mockIsAccountFrozen(...args),
 }));
 
 import { dispatchTriggerEvent } from "@/services/triggers/dispatch";
@@ -75,6 +80,9 @@ beforeEach(() => {
   // pre-P-S2 match-all behavior so the existing tests below run unchanged.
   mockGetTriggerFilter.mockReset();
   mockGetTriggerFilter.mockReturnValue(null);
+  // Default: account is operational (not frozen) so existing tests are unchanged.
+  mockIsAccountFrozen.mockReset();
+  mockIsAccountFrozen.mockResolvedValue(false);
 });
 
 function makeFilter(overrides: Partial<TriggerFilter> = {}): TriggerFilter {
@@ -181,6 +189,73 @@ describe("dispatchTriggerEvent — state-aware drop (rule §Disabled / paused wo
     const result = await dispatchTriggerEvent(event);
     expect(mockEnqueueRun).not.toHaveBeenCalled();
     expect(result.enqueued).toBe(0);
+  });
+});
+
+describe("dispatchTriggerEvent — frozen-account drop (V2-READY-34)", () => {
+  it("drops without enqueue when the owning account is frozen (active workflow)", async () => {
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+    mockIsAccountFrozen.mockResolvedValueOnce(true);
+
+    const result = await dispatchTriggerEvent(event);
+
+    expect(mockIsAccountFrozen).toHaveBeenCalledWith("acct-1");
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(result.matched).toBe(1);
+    expect(result.enqueued).toBe(0);
+  });
+
+  it("still enqueues for an active workflow on a non-frozen account", async () => {
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+    mockIsAccountFrozen.mockResolvedValueOnce(false);
+    mockEnqueueRun.mockResolvedValueOnce({ runId: null, enqueuedAt: "" });
+
+    const result = await dispatchTriggerEvent(event);
+
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    expect(result.enqueued).toBe(1);
+  });
+
+  it("checks freeze per-resource: enqueues the non-frozen account, drops the frozen one", async () => {
+    const wfActive = { ...baseResource, workflowId: "wf-ok", nodeId: "nok", workflowAccountId: "acct-ok" };
+    const wfFrozen = { ...baseResource, workflowId: "wf-frozen", nodeId: "nfz", workflowAccountId: "acct-frozen" };
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([wfActive, wfFrozen]);
+    mockGetStateForDispatch.mockResolvedValue("active");
+    mockIsAccountFrozen.mockImplementation((id: string) =>
+      Promise.resolve(id === "acct-frozen"),
+    );
+    mockEnqueueRun.mockResolvedValue({ runId: null, enqueuedAt: "" });
+
+    const result = await dispatchTriggerEvent(event);
+
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueRun).toHaveBeenCalledWith({
+      workflowId: "wf-ok",
+      triggerNodeId: "nok",
+      event,
+    });
+    expect(result).toEqual({ matched: 2, enqueued: 1, duplicate: false, dedupOutage: false });
+  });
+
+  it("no-leak: a frozen-account drop never logs the account id or payload", async () => {
+    const debugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockListForDispatch.mockResolvedValueOnce([baseResource]);
+    mockGetStateForDispatch.mockResolvedValueOnce("active");
+    mockIsAccountFrozen.mockResolvedValueOnce(true);
+
+    await dispatchTriggerEvent(event);
+
+    const logged = debugSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("dropped_frozen_account");
+    expect(logged).not.toContain("acct-1"); // account id never logged
+    expect(logged).not.toContain("hi"); // event payload text never logged
+    debugSpy.mockRestore();
   });
 });
 

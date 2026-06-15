@@ -2,6 +2,7 @@ import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import type { TriggerResourceRecord } from "@/repositories/triggerResources";
 import { getDispatchInfo } from "@/repositories/workflows";
 import { findPollingHandler } from "@/services/triggers/pollingRegistry";
+import { isAccountFrozen } from "@/services/accounts/accountFreeze";
 import { DEFAULT_INTERVAL_MS } from "./pollingIntervals";
 
 /**
@@ -95,6 +96,16 @@ export async function runPollingTriggers(): Promise<RunPollingTriggersResult> {
     if (!dispatchInfo || dispatchInfo.state !== "active") {
       // The lifecycle service deletes trigger_resources on disable; this
       // is the in-flight-window guard mirroring the webhook dispatcher.
+      result.skipped += 1;
+      continue;
+    }
+
+    // V2-READY-34 — a frozen / pending-deletion account is non-operational
+    // during the grace window: skip polling so its workflows don't execute.
+    // Gating HERE (before the handler runs) means the handler's cursor/snapshot
+    // is NOT advanced and no dedup rows are written — so polling resumes cleanly
+    // from the existing cursor if the account is un-frozen (no event loss).
+    if (await isAccountFrozen(dispatchInfo.accountId)) {
       result.skipped += 1;
       continue;
     }

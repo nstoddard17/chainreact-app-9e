@@ -4,6 +4,7 @@ import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { getStateForDispatch } from "@/repositories/workflows";
 import * as dedup from "@/repositories/webhookEventDedup";
 import { enqueueRun } from "@/services/execution/enqueue";
+import { isAccountFrozen } from "@/services/accounts/accountFreeze";
 
 /**
  * Provider-agnostic webhook dispatcher.
@@ -102,6 +103,29 @@ export async function dispatchTriggerEvent(
           event: "webhook.dispatch.dropped_inactive",
           workflowId: resource.workflowId,
           state,
+          provider: event.provider,
+          eventType: event.eventType,
+        }),
+      );
+      continue;
+    }
+
+    // V2-READY-34 — drop the event when the owning account is frozen /
+    // pending-deletion (non-operational during the grace window), even though
+    // the workflow row is still active. `workflowAccountId` comes from the
+    // listForDispatch join; null only when the workflow row vanished (already
+    // caught by the state gate above). The event was deduped at step 1, so a
+    // provider redelivery is dropped there — no retry storm; events during the
+    // freeze window are intentionally not replayed on un-freeze. Logged WITHOUT
+    // the account id / provider payload (no leak).
+    if (
+      resource.workflowAccountId &&
+      (await isAccountFrozen(resource.workflowAccountId))
+    ) {
+      console.debug(
+        JSON.stringify({
+          event: "webhook.dispatch.dropped_frozen_account",
+          workflowId: resource.workflowId,
           provider: event.provider,
           eventType: event.eventType,
         }),

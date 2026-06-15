@@ -45,6 +45,13 @@ jest.mock("@/services/execution/enqueue", () => ({
 jest.mock("@/core/triggers/filterRegistry", () => ({
   getTriggerFilter: (...args: unknown[]) => mockGetTriggerFilter(...args),
 }));
+// V2-READY-34 — this harness exercises the real dispatch.ts, which now consults
+// the account-freeze gate. Accounts are operational here (freeze behavior is
+// covered in dispatch.test.ts); stub to non-frozen so the dedup/replay contract
+// under test is unaffected.
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  isAccountFrozen: async () => false,
+}));
 
 import { dispatchTriggerEvent } from "@/services/triggers/dispatch";
 import type { TriggerEvent } from "@/contracts/triggerEvent";

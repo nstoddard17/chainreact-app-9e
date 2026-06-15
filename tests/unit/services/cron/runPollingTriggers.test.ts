@@ -10,8 +10,12 @@
 
 const mockListForPolling = jest.fn();
 const mockGetStateForDispatch = jest.fn();
+const mockIsAccountFrozen = jest.fn();
 jest.mock("@/repositories/triggerResources", () => ({
   listForPolling: (...args: unknown[]) => mockListForPolling(...args),
+}));
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  isAccountFrozen: (...args: unknown[]) => mockIsAccountFrozen(...args),
 }));
 jest.mock("@/repositories/workflows", () => ({
   // The cron scheduler reads `(state, accountId)` in a single round trip
@@ -59,6 +63,8 @@ function makeTrigger(
 beforeEach(() => {
   mockListForPolling.mockReset();
   mockGetStateForDispatch.mockReset();
+  mockIsAccountFrozen.mockReset();
+  mockIsAccountFrozen.mockResolvedValue(false); // operational by default
   __resetPollingRegistryForTests();
 });
 
@@ -129,6 +135,25 @@ describe("runPollingTriggers", () => {
     const result = await runPollingTriggers();
     expect(poll).not.toHaveBeenCalled();
     expect(result).toMatchObject({ skipped: 1 });
+  });
+
+  it("skips triggers whose owning account is frozen (V2-READY-34) — handler never runs", async () => {
+    const poll = jest.fn();
+    registerPollingHandler({
+      id: "gmail",
+      canHandle: () => true,
+      getIntervalMs: () => 1000,
+      poll,
+    });
+    mockListForPolling.mockResolvedValue([makeTrigger()]);
+    mockGetStateForDispatch.mockResolvedValue("active");
+    mockIsAccountFrozen.mockResolvedValue(true);
+
+    const result = await runPollingTriggers();
+
+    expect(mockIsAccountFrozen).toHaveBeenCalledWith("acct-test");
+    expect(poll).not.toHaveBeenCalled(); // cursor/snapshot never advanced
+    expect(result).toMatchObject({ examined: 1, processed: 0, skipped: 1, errors: 0 });
   });
 
   it("counts a thrown handler as an error and continues with the batch", async () => {
