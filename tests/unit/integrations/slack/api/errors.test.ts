@@ -14,15 +14,14 @@ import { isSlackAuthError } from "@/integrations/slack/api/errors";
 
 describe("isSlackAuthError", () => {
   it.each([
-    // logical auth/scope/token codes (HTTP-200 `{ok:false,error:...}` shape)
+    // logical auth/token codes (HTTP-200 `{ok:false,error:...}` shape)
     "invalid_auth",
     "not_authed",
     "account_inactive",
     "token_revoked",
     "token_expired",
+    // V2-READY-27 — reconnect re-grants the current manifest scope set.
     "missing_scope",
-    "ekm_access_denied",
-    "no_permission",
     "org_login_required",
     // V2-READY-26 — transport-level auth failures
     "http_401",
@@ -32,6 +31,11 @@ describe("isSlackAuthError", () => {
   });
 
   it.each([
+    // V2-READY-30B — policy/access denials. NOT a dead grant; re-running OAuth
+    // cannot fix them, so they must NOT mark reconnect-needed (they fall through
+    // to the generic PROVIDER_ERROR path).
+    "no_permission",
+    "ekm_access_denied",
     // transient transport / server / logical — a retry may clear these
     "ratelimited",
     "http_429",

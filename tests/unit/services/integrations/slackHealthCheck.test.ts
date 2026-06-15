@@ -199,9 +199,20 @@ describe("runSlackHealthCheck — confirmed auth failures mark + notify once", (
 });
 
 describe("runSlackHealthCheck — transient / ambiguous failures never mark", () => {
-  const TRANSIENT_CODES = ["ratelimited", "internal_error", "service_unavailable", "http_429", "http_500", "http_503"];
+  const TRANSIENT_CODES = [
+    "ratelimited",
+    "internal_error",
+    "service_unavailable",
+    "http_429",
+    "http_500",
+    "http_503",
+    // V2-READY-30B — policy/access denials are no longer auth-classified, so the
+    // shared classifier makes the health check treat them as non-marking too.
+    "no_permission",
+    "ekm_access_denied",
+  ];
 
-  it.each(TRANSIENT_CODES)("skips on transient Slack failure %s (no mark, no notify)", async (code) => {
+  it.each(TRANSIENT_CODES)("skips on non-auth Slack failure %s (no mark, no notify)", async (code) => {
     mockList.mockResolvedValueOnce([row()]);
     mockAuthTest.mockRejectedValueOnce(new SlackApiError(code));
 

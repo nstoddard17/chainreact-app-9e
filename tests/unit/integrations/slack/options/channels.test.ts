@@ -286,6 +286,10 @@ describe("slackChannelsResolver — error sanitization", () => {
     "http_500",
     "http_503",
     "internal_error",
+    // V2-READY-30B — policy/access denials. NOT reconnect (re-auth can't fix a
+    // permission/EKM block); the picker must NOT mark needs_reconnect_at for them.
+    "no_permission",
+    "ekm_access_denied",
   ])(
     "maps a NON-auth/transient SlackApiError '%s' to OptionsResolverError(PROVIDER_ERROR) with the generic retry message",
     async (slackCode) => {
