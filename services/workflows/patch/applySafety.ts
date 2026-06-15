@@ -188,51 +188,33 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Options for the pure per-operation safety classifier. */
+export interface ClassifyOperationSafetyOptions {
+  /** A trigger swap fails closed unless the workflow is known-inactive (false). */
+  readonly workflowActive?: boolean | "unknown";
+  /** FUTURE: a recipient/destination change explicitly confirmed by the user. */
+  readonly recipientChangeConfirmed?: boolean;
+  /** Current node ids — enables precise whole-graph-replacement detection. */
+  readonly currentNodeIds?: readonly string[];
+}
+
 /**
- * Assess whether a previewed, validated patch is safe to apply RIGHT NOW. Pure +
- * deterministic; collects ALL blocking reasons (never short-circuits) so the caller
- * can surface a complete picture. `applyable` is true iff there are zero blocks.
+ * The OPERATION-level safety gates, independent of any validation/revision metadata.
+ * Shared single source of truth between `assessApplyReadiness` (readiness verdict) and
+ * the AI-REPAIR-3C executor (defense-in-depth before execution). Pure; collects ALL
+ * op blocks. Returns the blocks + the operation kinds present (kinds only — no config).
  */
-export function assessApplyReadiness(input: AssessApplyReadinessInput): ApplyReadiness {
+export function classifyOperationSafety(
+  operations: unknown,
+  opts: ClassifyOperationSafetyOptions = {},
+): { blocks: ApplyBlock[]; operationKinds: string[] } {
   const blocks: ApplyBlock[] = [];
-  const recipientConfirmed = input.recipientChangeConfirmed === true;
+  const recipientConfirmed = opts.recipientChangeConfirmed === true;
 
-  // ── Metadata gates (revalidation + revision) ──
-  if (input.validation === null || input.validation === undefined) {
-    blocks.push({ code: "NO_VALIDATION_METADATA", message: "This change hasn't been validated, so it can't be applied." });
-  } else if (input.validation.ok !== true) {
-    blocks.push({ code: "VALIDATION_FAILED", message: "This change didn't pass validation, so it can't be applied." });
-  }
-
-  const baseRevision = input.baseRevision;
-  if (baseRevision === null || baseRevision === undefined || baseRevision.length === 0) {
-    blocks.push({ code: "MISSING_BASE_REVISION", message: "This change has no base version, so it can't be applied safely." });
-  } else {
-    const previewRevision =
-      input.previewRevision === null || input.previewRevision === undefined
-        ? baseRevision
-        : input.previewRevision;
-    if (baseRevision !== previewRevision) {
-      blocks.push({ code: "STALE_PREVIEW", message: "This preview is out of date. Re-check the workflow and try again." });
-    }
-    if (
-      input.currentRevision !== null &&
-      input.currentRevision !== undefined &&
-      input.currentRevision !== previewRevision
-    ) {
-      blocks.push({
-        code: "GRAPH_CHANGED_SINCE_PREVIEW",
-        message: "The workflow changed since this preview. Re-check the workflow and try again.",
-      });
-    }
-  }
-
-  // ── Operation gates ──
-  if (!Array.isArray(input.operations)) {
+  if (!Array.isArray(operations)) {
     blocks.push({ code: "RAW_MODEL_TEXT", message: "This change isn't a set of typed operations, so it can't be applied." });
-    return finalize(blocks, input.validation, []);
+    return { blocks, operationKinds: [] };
   }
-  const operations = input.operations;
   if (operations.length === 0) {
     blocks.push({ code: "NO_OPERATIONS", message: "This change has no operations to apply." });
   }
@@ -265,7 +247,7 @@ export function assessApplyReadiness(input: AssessApplyReadinessInput): ApplyRea
         return;
       }
       case "replaceTrigger": {
-        const active = input.workflowActive !== false; // true OR "unknown" → fail closed
+        const active = opts.workflowActive !== false; // true OR "unknown" OR omitted → fail closed
         blocks.push(
           active
             ? { code: "TRIGGER_CHANGE_ACTIVE", message: "Changing the trigger on a live workflow can't be applied automatically.", opIndex, opKind: kind }
@@ -300,10 +282,59 @@ export function assessApplyReadiness(input: AssessApplyReadinessInput): ApplyRea
   // Whole-graph replacement: a non-empty graph whose every node is removed is a
   // regenerate, not a repair — surfaced as its own category in addition to the
   // per-node destructive blocks already pushed above.
-  const currentNodeIds = input.currentNodeIds;
+  const currentNodeIds = opts.currentNodeIds;
   if (currentNodeIds && currentNodeIds.length > 0 && currentNodeIds.every((id) => removedNodeIds.has(id))) {
     blocks.push({ code: "WHOLE_GRAPH_REPLACEMENT", message: "This change would rebuild the whole workflow, which can't be applied automatically." });
   }
+
+  return { blocks, operationKinds };
+}
+
+/**
+ * Assess whether a previewed, validated patch is safe to apply RIGHT NOW. Pure +
+ * deterministic; collects ALL blocking reasons (never short-circuits) so the caller
+ * can surface a complete picture. `applyable` is true iff there are zero blocks.
+ */
+export function assessApplyReadiness(input: AssessApplyReadinessInput): ApplyReadiness {
+  const blocks: ApplyBlock[] = [];
+
+  // ── Metadata gates (revalidation + revision) ──
+  if (input.validation === null || input.validation === undefined) {
+    blocks.push({ code: "NO_VALIDATION_METADATA", message: "This change hasn't been validated, so it can't be applied." });
+  } else if (input.validation.ok !== true) {
+    blocks.push({ code: "VALIDATION_FAILED", message: "This change didn't pass validation, so it can't be applied." });
+  }
+
+  const baseRevision = input.baseRevision;
+  if (baseRevision === null || baseRevision === undefined || baseRevision.length === 0) {
+    blocks.push({ code: "MISSING_BASE_REVISION", message: "This change has no base version, so it can't be applied safely." });
+  } else {
+    const previewRevision =
+      input.previewRevision === null || input.previewRevision === undefined
+        ? baseRevision
+        : input.previewRevision;
+    if (baseRevision !== previewRevision) {
+      blocks.push({ code: "STALE_PREVIEW", message: "This preview is out of date. Re-check the workflow and try again." });
+    }
+    if (
+      input.currentRevision !== null &&
+      input.currentRevision !== undefined &&
+      input.currentRevision !== previewRevision
+    ) {
+      blocks.push({
+        code: "GRAPH_CHANGED_SINCE_PREVIEW",
+        message: "The workflow changed since this preview. Re-check the workflow and try again.",
+      });
+    }
+  }
+
+  // ── Operation gates (shared classifier — single source of truth with the executor) ──
+  const { blocks: opBlocks, operationKinds } = classifyOperationSafety(input.operations, {
+    workflowActive: input.workflowActive,
+    ...(input.recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed: input.recipientChangeConfirmed } : {}),
+    ...(input.currentNodeIds !== undefined ? { currentNodeIds: input.currentNodeIds } : {}),
+  });
+  blocks.push(...opBlocks);
 
   return finalize(blocks, input.validation, operationKinds);
 }
