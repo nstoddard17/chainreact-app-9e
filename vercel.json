@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/check-slack-health",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/run-scheduled-triggers",
+      "schedule": "* * * * *"
     }
   ]
 }

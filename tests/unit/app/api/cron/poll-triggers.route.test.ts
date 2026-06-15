@@ -20,6 +20,8 @@ jest.mock("@/services/cron/runPollingTriggers", () => ({
 // `import "@/integrations/_registry"` doesn't pull in real provider modules.
 jest.mock("@/integrations/_registry", () => ({}));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET, POST } from "@/app/api/cron/poll-triggers/route";
 
 const ORIGINAL_SECRET = process.env.CRON_SECRET;
@@ -121,5 +123,32 @@ describe("/api/cron/poll-triggers — fault tolerance", () => {
     expect(body.error).toBe("Polling cron failed.");
     // Internal error message must NOT leak into the response.
     expect(JSON.stringify(body)).not.toContain("db connection lost");
+  });
+});
+
+/**
+ * V2-READY-33 — Schedule guard. Polling triggers only fire if this cron is
+ * actually scheduled; dropping or slowing it silently stops all polling.
+ */
+describe("poll-triggers cron is scheduled in vercel.json", () => {
+  const SCHEDULE_PATH = "/api/cron/poll-triggers";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the polling cron on a five-field schedule", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("runs every minute", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour] = entry!.schedule.trim().split(/\s+/);
+    expect(minute).toBe("*");
+    expect(hour).toBe("*");
   });
 });

@@ -16,6 +16,8 @@ jest.mock("@/services/billing/reserveReconcileBilling", () => ({
   releaseExpiredBillingReservations: (...args: unknown[]) => mockReleaseExpired(...args),
 }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET, POST } from "@/app/api/cron/release-expired-reservations/route";
 
 const SECRET = "cost15k-test-secret";
@@ -121,5 +123,35 @@ describe("/api/cron/release-expired-reservations route", () => {
     expect(Object.keys(body).sort()).toEqual(
       ["ok", "releasedCount", "releasedTasks"].sort(),
     );
+  });
+});
+
+/**
+ * V2-READY-33 — Schedule guard. Orphaned billing reservations only get reclaimed
+ * if this cron is scheduled; dropping it silently strands reserved task balance.
+ */
+describe("release-expired-reservations cron is scheduled in vercel.json", () => {
+  const SCHEDULE_PATH = "/api/cron/release-expired-reservations";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the reservation-release cron on a five-field schedule", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("runs at least hourly", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour] = entry!.schedule.trim().split(/\s+/);
+    expect(hour).toBe("*");
+    const step = /^\*\/(\d+)$/.exec(minute!);
+    const okMinute =
+      minute === "*" || /^\d+$/.test(minute!) || (step !== null && Number(step[1]) <= 60);
+    expect(okMinute).toBe(true);
   });
 });

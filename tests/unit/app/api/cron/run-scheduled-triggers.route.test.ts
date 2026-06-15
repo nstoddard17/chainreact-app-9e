@@ -20,6 +20,8 @@ jest.mock("@/services/cron/runScheduledTriggers", () => ({
 // in all provider modules.
 jest.mock("@/integrations/_registry", () => ({}));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET, POST } from "@/app/api/cron/run-scheduled-triggers/route";
 
 const ORIGINAL_SECRET = process.env.CRON_SECRET;
@@ -111,5 +113,36 @@ describe("/api/cron/run-scheduled-triggers — happy path", () => {
     const body = await res.json();
     expect(body.error).not.toContain("db connection lost");
     expect(body.error).toMatch(/Scheduled-triggers cron failed/);
+  });
+});
+
+/**
+ * V2-READY-33 — Schedule guard. Native scheduled triggers ONLY fire if this
+ * cron is actually scheduled. Before V2-READY-33 the route existed + was tested
+ * but was MISSING from vercel.json, so scheduled workflows never fired in
+ * production (silent execution loss). This test fails loudly if the entry is
+ * dropped or its every-minute cadence is slowed (a schedule set for HH:MM needs
+ * minute granularity to fire on time). Mirrors the sweep-stale-runs guard.
+ */
+describe("run-scheduled-triggers cron is scheduled in vercel.json", () => {
+  const SCHEDULE_PATH = "/api/cron/run-scheduled-triggers";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the scheduled-triggers cron on a five-field schedule", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("runs every minute (minute granularity required for HH:MM schedules)", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour] = entry!.schedule.trim().split(/\s+/);
+    expect(minute).toBe("*");
+    expect(hour).toBe("*");
   });
 });

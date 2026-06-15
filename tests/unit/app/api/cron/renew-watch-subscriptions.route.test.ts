@@ -18,6 +18,8 @@ jest.mock("@/services/triggers/runRenewals", () => ({
 
 jest.mock("@/integrations/_registry", () => ({}));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   GET,
   POST,
@@ -93,5 +95,35 @@ describe("/api/cron/renew-watch-subscriptions route", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "Renewal cron failed." });
     errSpy.mockRestore();
+  });
+});
+
+/**
+ * V2-READY-33 — Schedule guard. Expiring webhook subscriptions only get renewed
+ * if this cron is scheduled; dropping it silently lets subscriptions lapse and
+ * webhook-triggered workflows stop firing.
+ */
+describe("renew-watch-subscriptions cron is scheduled in vercel.json", () => {
+  const SCHEDULE_PATH = "/api/cron/renew-watch-subscriptions";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the renewal cron on a five-field schedule", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("runs at least every 10 minutes (renewal threshold cadence)", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour] = entry!.schedule.trim().split(/\s+/);
+    expect(hour).toBe("*");
+    // minute must be '*' or '*/N' with N <= 10 so renewals run frequently.
+    const step = /^\*\/(\d+)$/.exec(minute!);
+    expect(minute === "*" || (step !== null && Number(step[1]) <= 10)).toBe(true);
   });
 });
