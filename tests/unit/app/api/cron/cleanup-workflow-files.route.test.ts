@@ -18,6 +18,8 @@ jest.mock("@/services/files/cleanupExpiredFiles", () => ({
   cleanupExpiredFiles: (...args: unknown[]) => mockCleanupExpiredFiles(...args),
 }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   GET,
   POST,
@@ -127,5 +129,44 @@ describe("/api/cron/cleanup-workflow-files route", () => {
         "storageDeleted",
       ].sort(),
     );
+  });
+});
+
+/**
+ * V2-READY-37 — Schedule guard. Expired workflow-file artifacts (24h retention)
+ * only get reclaimed if this cron is scheduled; dropping it silently lets
+ * expired storage objects + metadata rows accumulate. The audit found the
+ * cleanup service safe (deletes only expires_at < now, storage-first,
+ * continue-on-failure, counts-only) — this wires the missing schedule and fails
+ * loudly if it is dropped or slowed below daily. Mirrors the sweep-stale-runs /
+ * run-scheduled-triggers guards.
+ */
+describe("cleanup-workflow-files cron is scheduled in vercel.json", () => {
+  const SCHEDULE_PATH = "/api/cron/cleanup-workflow-files";
+
+  function readCrons(): Array<{ path: string; schedule: string }> {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    return (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+  }
+
+  it("registers the file-cleanup cron on a five-field schedule", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    expect(entry!.schedule.trim().split(/\s+/)).toHaveLength(5);
+  });
+
+  it("runs at least daily so expired artifacts are reclaimed promptly", () => {
+    const entry = readCrons().find((c) => c.path === SCHEDULE_PATH);
+    expect(entry).toBeDefined();
+    const [minute, hour, dom, month, dow] = entry!.schedule.trim().split(/\s+/);
+    // Day-of-month / month / day-of-week must be wildcards (fires every day).
+    expect(dom).toBe("*");
+    expect(month).toBe("*");
+    expect(dow).toBe("*");
+    // Concrete minute + hour (a fixed daily time), or an every-N-hours step.
+    expect(/^\d+$/.test(minute!)).toBe(true);
+    const hourStep = /^\*\/(\d+)$/.exec(hour!);
+    const okHour = hour === "*" || /^\d+$/.test(hour!) || (hourStep !== null && Number(hourStep[1]) <= 24);
+    expect(okHour).toBe(true);
   });
 });
