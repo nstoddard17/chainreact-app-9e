@@ -1,5 +1,6 @@
 import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
 import { isSecretLikeKey } from "@/core/security/secretKeys";
+import { isRecipientOrDestinationKey } from "@/core/security/recipientKeys";
 
 /**
  * AI-CONFIG-ASSIST CS-1 — pure eligibility + value validation for the future
@@ -60,45 +61,11 @@ const FILLABLE_FIELD_TYPES: ReadonlySet<FieldMeta["type"]> = new Set([
 ]);
 
 /**
- * Recipient / destination key WORDS (matched against camelCase/separator-split
- * tokens, so `channelId` → `channel`, `webhookUrl` → `webhook`+`url`). Word-level
- * matching avoids false positives on normal text fields (e.g. `customMessage`
- * contains the substring "to" but tokenizes to `custom`/`message`).
+ * AI-REPAIR-3A — the recipient/destination key classifier was hoisted to the shared,
+ * client-safe `@/core/security/recipientKeys` (single source of truth with the server
+ * apply-safety contract), mirroring the `isSecretLikeKey` extraction. Behavior is
+ * unchanged from the original CS-1 word list.
  */
-const RECIPIENT_KEY_WORDS: ReadonlySet<string> = new Set([
-  "to",
-  "cc",
-  "bcc",
-  "recipient",
-  "recipients",
-  "attendee",
-  "attendees",
-  "channel",
-  "webhook",
-  "webhookurl",
-  "url",
-  "uri",
-  "email",
-  "mail",
-  "phone",
-  "address",
-  "destination",
-  "dest",
-  "target",
-]);
-
-/** Split a key into lowercased words on camelCase + `_ - .` boundaries. */
-function tokenizeKey(key: string): readonly string[] {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .split(/[\s_.-]+/)
-    .map((w) => w.toLowerCase())
-    .filter(Boolean);
-}
-
-function isRecipientOrDestinationKey(key: string): boolean {
-  return tokenizeKey(key).some((word) => RECIPIENT_KEY_WORDS.has(word));
-}
 
 /**
  * Decide whether a chat-typed value may be placed into the given field.
