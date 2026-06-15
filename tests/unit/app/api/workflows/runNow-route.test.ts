@@ -34,6 +34,13 @@ jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: (...args: unknown[]) => mockEnqueueRun(...args),
 }));
 
+// V2-READY-35 — up-front account-freeze gate. Default non-frozen so existing
+// tests are unaffected; the frozen test overrides to true.
+const mockIsAccountFrozen = jest.fn();
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  isAccountFrozen: (...args: unknown[]) => mockIsAccountFrozen(...args),
+}));
+
 // Slice 3.POSTSEC-8 — high-risk run-now audit emission. Mocked so
 // route tests can assert "audit event was emitted with the right
 // payload" without hitting the notifications repo.
@@ -132,6 +139,9 @@ beforeEach(() => {
   // Default: caller is a member of the workflow's account.
   mockIsMember.mockReset();
   mockIsMember.mockResolvedValue(true);
+  // Default: account is operational (not frozen).
+  mockIsAccountFrozen.mockReset();
+  mockIsAccountFrozen.mockResolvedValue(false);
 });
 
 // ── auth + ownership ────────────────────────────────────────────────────────
@@ -165,6 +175,36 @@ describe("POST /run-now — auth + ownership", () => {
     });
     expect(res.status).toBe(404);
     expect(mockEnqueueRun).not.toHaveBeenCalled();
+  });
+
+  it("V2-READY-35 — returns 403 account_frozen for a frozen account and never enqueues", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    mockIsAccountFrozen.mockResolvedValueOnce(true);
+
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.code).toBe("account_frozen");
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    // No-leak: the safe message never exposes the account id.
+    expect(JSON.stringify(body)).not.toContain("acct-user-1");
+  });
+
+  it("still enqueues for an active, non-frozen account (regression)", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    mockIsAccountFrozen.mockResolvedValueOnce(false);
+
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+
+    expect(res.status).toBe(202);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
   });
 
   // 4.TEAM-WORKFLOWS-2B — membership authorization (replaces active-account equality).

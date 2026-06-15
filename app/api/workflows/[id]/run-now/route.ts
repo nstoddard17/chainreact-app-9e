@@ -10,6 +10,7 @@ import {
   ManualTriggerPayloadSchema,
 } from "@/integrations/native/triggers/manualTrigger";
 import { notifyHighRiskRun } from "@/services/notifications/notifyHighRiskWorkflowEvent";
+import { isAccountFrozen } from "@/services/accounts/accountFreeze";
 import {
   findConfirmationRequiredActions,
   isValidConfirmationText,
@@ -138,6 +139,20 @@ export async function POST(
         state: workflow.state,
       },
       { status: 409 },
+    );
+  }
+
+  // V2-READY-35 — refuse up-front when the owning account is frozen /
+  // pending-deletion, BEFORE creating a run. The in-engine billing gate
+  // (executionBillingGate) is the authoritative execution chokepoint and also
+  // refuses a frozen account before any node runs or any task is charged — this
+  // route-level guard is defense-in-depth that avoids a phantom blocked-run row
+  // and returns a clear, safe 403, matching the public /api/v1 trigger twin.
+  // Read-only check; touches no billing logic. No account id / payload leaked.
+  if (await isAccountFrozen(workflow.accountId)) {
+    return NextResponse.json(
+      { error: "This account is not available.", code: "account_frozen" },
+      { status: 403 },
     );
   }
 
