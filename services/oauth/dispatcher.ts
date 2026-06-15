@@ -37,6 +37,7 @@ import {
   getByIdForAccountServiceRole,
   updateTokens,
   upsertActive,
+  clearNeedsReconnect,
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { isMemberServiceRole } from "@/repositories/accountMemberships";
@@ -675,6 +676,22 @@ export async function refresh(input: RefreshInput): Promise<RefreshOutput> {
     // translation to IntegrationActionRequiredError.
     const newTokens = await oauth.refreshToken(refreshTokenPlaintext);
     const integration = await updateTokens({ id: row.id, tokens: newTokens });
+
+    // V2-READY-31 — a successful refresh proves the stored credential is still
+    // alive. If this row carried a prior reconnect-needed signal (e.g. an
+    // option-source PROVIDER_REAUTH_REQUIRED marked it before the access token
+    // was refreshed), clear it now. Only writes when a signal exists, and is
+    // best-effort: a clear failure must NEVER fail the refresh (the refresh
+    // itself succeeded; a stale signal self-clears on the next successful
+    // option load / refresh). Mirrors the conditional clears in
+    // resolveOptionsSource + slackHealthCheck + the upsertActive reconnect path.
+    if (row.needsReconnectAt != null) {
+      try {
+        await clearNeedsReconnect(row.id);
+      } catch {
+        // swallow — refresh succeeded; do not surface a clear-side failure.
+      }
+    }
     return { integration };
   });
 }

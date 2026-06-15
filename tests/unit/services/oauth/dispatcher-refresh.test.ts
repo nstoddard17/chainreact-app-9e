@@ -13,11 +13,13 @@ import { RefreshNotSupportedError } from "@/contracts/integration";
 
 const mockGetActiveForExecution = jest.fn();
 const mockUpdateTokens = jest.fn();
+const mockClearNeedsReconnect = jest.fn();
 const mockSlackRefreshToken = jest.fn();
 
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: mockGetActiveForExecution,
   updateTokens: mockUpdateTokens,
+  clearNeedsReconnect: mockClearNeedsReconnect,
   // upsertActive isn't used by refresh, but the dispatcher imports it
   // statically. Provide a stub so the import resolves.
   upsertActive: jest.fn(),
@@ -52,6 +54,8 @@ beforeEach(() => {
   __resetRefreshLockForTests();
   mockGetActiveForExecution.mockReset();
   mockUpdateTokens.mockReset();
+  mockClearNeedsReconnect.mockReset();
+  mockClearNeedsReconnect.mockResolvedValue(undefined);
   mockSlackRefreshToken.mockReset();
 });
 
@@ -132,6 +136,64 @@ describe("dispatcher.refresh — happy path", () => {
     await refresh({ accountId: "user-1", provider: "slack" });
 
     expect(mockGetActiveForExecution).toHaveBeenCalledWith("user-1", "slack", null, undefined);
+  });
+});
+
+describe("dispatcher.refresh — V2-READY-31 reconnect-signal clear on success", () => {
+  function mockSuccessfulRefresh() {
+    mockSlackRefreshToken.mockResolvedValueOnce({
+      accessTokenEncrypted: "ENC-new-access",
+      refreshTokenEncrypted: "ENC-new-refresh",
+      accessTokenExpiresAt: 1_780_000_000,
+      scopes: ["chat:write"],
+    });
+    mockUpdateTokens.mockResolvedValueOnce(
+      makeRow({ accessTokenEncrypted: "ENC-new-access" }),
+    );
+  }
+
+  it("clears needs_reconnect_at when the refreshed row carried a prior signal", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(
+      makeRow({ needsReconnectAt: "2026-06-10T00:00:00.000Z" }),
+    );
+    mockSuccessfulRefresh();
+
+    await refresh({ accountId: "user-1", provider: "slack" });
+
+    expect(mockClearNeedsReconnect).toHaveBeenCalledWith("int-1");
+  });
+
+  it("does NOT clear when the row had no reconnect signal (no needless write)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow({ needsReconnectAt: null }));
+    mockSuccessfulRefresh();
+
+    await refresh({ accountId: "user-1", provider: "slack" });
+
+    expect(mockClearNeedsReconnect).not.toHaveBeenCalled();
+  });
+
+  it("a clear failure does NOT fail the refresh (best-effort)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(
+      makeRow({ needsReconnectAt: "2026-06-10T00:00:00.000Z" }),
+    );
+    mockSuccessfulRefresh();
+    mockClearNeedsReconnect.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await refresh({ accountId: "user-1", provider: "slack" });
+
+    expect(result.integration.accessTokenEncrypted).toBe("ENC-new-access");
+  });
+
+  it("does NOT clear when refresh itself fails (no false 'healthy' signal)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(
+      makeRow({ needsReconnectAt: "2026-06-10T00:00:00.000Z" }),
+    );
+    mockSlackRefreshToken.mockRejectedValueOnce(new Error("Google token refresh failed: invalid_grant"));
+
+    await expect(refresh({ accountId: "user-1", provider: "slack" })).rejects.toThrow(
+      /invalid_grant/i,
+    );
+    expect(mockClearNeedsReconnect).not.toHaveBeenCalled();
   });
 });
 
