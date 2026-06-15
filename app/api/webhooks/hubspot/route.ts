@@ -5,8 +5,9 @@ import {
 } from "@/core/triggers/errors";
 import { receiveHubSpotWebhook } from "@/integrations/hubspot/triggers/webhookReceived/receive";
 import * as dedup from "@/repositories/webhookEventDedup";
-import { getStateForDispatch } from "@/repositories/workflows";
+import { getDispatchInfo } from "@/repositories/workflows";
 import { enqueueRun } from "@/services/execution/enqueue";
+import { isAccountFrozen } from "@/services/accounts/accountFreeze";
 // Side-effect import: forces the HubSpot webhook_received trigger's
 // activation/deactivation registrations at module load. Without it,
 // the receive path's lookup would run but the lifecycle deactivate
@@ -134,21 +135,45 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // For each target ref, state-gate and enqueue.
+      // For each target ref, state-gate + freeze-gate, then enqueue.
       for (const target of delivery.targets) {
-        const state = await getStateForDispatch(target.workflowId);
-        if (state !== "active") {
+        // getDispatchInfo returns (state, accountId) in one round trip — the
+        // account id powers the V2-READY-36 freeze gate below. (Was
+        // getStateForDispatch, state-only.)
+        const info = await getDispatchInfo(target.workflowId);
+        if (!info || info.state !== "active") {
           console.debug(
             JSON.stringify({
               event: "webhook.dispatch.dropped_inactive",
               workflowId: target.workflowId,
-              state,
+              state: info?.state ?? null,
               provider: "hubspot",
               eventType: delivery.event.eventType,
             }),
           );
           continue;
         }
+
+        // V2-READY-36 — drop the event when the owning account is frozen /
+        // pending-deletion (non-operational during the grace window), even though
+        // the workflow is active. Mirrors the V2-READY-34 dispatch gate; the
+        // engine's billing gate is the authoritative execution chokepoint, this
+        // avoids creating a phantom blocked run. The event was deduped above, so a
+        // HubSpot redelivery is dropped at dedup — no retry storm. Returns 200
+        // (skip), never a 5xx, so HubSpot does not retry. Logged WITHOUT the
+        // account id / provider payload (no leak).
+        if (await isAccountFrozen(info.accountId)) {
+          console.debug(
+            JSON.stringify({
+              event: "webhook.dispatch.dropped_frozen_account",
+              workflowId: target.workflowId,
+              provider: "hubspot",
+              eventType: delivery.event.eventType,
+            }),
+          );
+          continue;
+        }
+
         await enqueueRun({
           workflowId: target.workflowId,
           triggerNodeId: target.nodeId,

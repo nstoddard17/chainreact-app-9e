@@ -10,6 +10,7 @@ const mockReceive = jest.fn();
 const mockMarkSeen = jest.fn();
 const mockGetState = jest.fn();
 const mockEnqueue = jest.fn();
+const mockIsAccountFrozen = jest.fn();
 
 jest.mock("@/integrations/hubspot/triggers/webhookReceived/receive", () => ({
   receiveHubSpotWebhook: (...args: unknown[]) => mockReceive(...args),
@@ -19,12 +20,24 @@ jest.mock("@/repositories/webhookEventDedup", () => ({
   markSeen: (...args: unknown[]) => mockMarkSeen(...args),
 }));
 
+// V2-READY-36 — the route now reads (state, accountId) via getDispatchInfo for
+// the freeze gate. Wrap the legacy `mockGetState` jest.fn so existing tests that
+// set a plain state string keep working, returning the getDispatchInfo shape.
 jest.mock("@/repositories/workflows", () => ({
-  getStateForDispatch: (...args: unknown[]) => mockGetState(...args),
+  getDispatchInfo: async (...args: unknown[]) => {
+    const state = await mockGetState(...args);
+    if (state === null || state === undefined) return null;
+    if (typeof state === "object" && "state" in state) return state;
+    return { state, accountId: "acct-test" };
+  },
 }));
 
 jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: (...args: unknown[]) => mockEnqueue(...args),
+}));
+
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  isAccountFrozen: (...args: unknown[]) => mockIsAccountFrozen(...args),
 }));
 
 // Bypass the side-effect import so registry side effects don't run
@@ -42,6 +55,9 @@ beforeEach(() => {
   mockMarkSeen.mockReset();
   mockGetState.mockReset();
   mockEnqueue.mockReset();
+  // Default: account operational (not frozen) so existing tests are unchanged.
+  mockIsAccountFrozen.mockReset();
+  mockIsAccountFrozen.mockResolvedValue(false);
 });
 
 function req(): Request {
@@ -247,6 +263,72 @@ describe("/api/webhooks/hubspot route", () => {
     });
     expect(mockEnqueue).toHaveBeenCalledTimes(1);
     expect(mockEnqueue.mock.calls[0]![0].workflowId).toBe("wf-active");
+  });
+
+  it("V2-READY-36 — drops frozen-account targets but enqueues non-frozen ones (200, no retry)", async () => {
+    mockReceive.mockResolvedValueOnce({
+      kind: "events",
+      deliveries: [
+        {
+          event: makeEvent("evt-frozen"),
+          targets: [
+            { workflowId: "wf-frozen", nodeId: "node-A", userId: "user-A" },
+            { workflowId: "wf-ok", nodeId: "node-B", userId: "user-B" },
+          ],
+          skipReason: null,
+          subscriptionType: "contact.creation",
+          portalId: "9988776",
+        },
+      ],
+    });
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockGetState.mockResolvedValue("active"); // both workflows active
+    // getDispatchInfo wrapper returns accountId "acct-test" for both; resolve
+    // the freeze per-call: first target frozen, second operational.
+    mockIsAccountFrozen
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    mockEnqueue.mockResolvedValue({ runId: "r", enqueuedAt: "t" });
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(200); // never 5xx → HubSpot does not retry
+    expect(await res.json()).toEqual({
+      ok: true,
+      dispatched: 1,
+      skipped: 0,
+      duplicates: 0,
+    });
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue.mock.calls[0]![0].workflowId).toBe("wf-ok");
+  });
+
+  it("V2-READY-36 — frozen-account skip never logs the account id or raw payload", async () => {
+    const debugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+    mockReceive.mockResolvedValueOnce({
+      kind: "events",
+      deliveries: [
+        {
+          event: makeEvent("evt-frozen-2"),
+          targets: [{ workflowId: "wf-frozen", nodeId: "node-A", userId: "user-A" }],
+          skipReason: null,
+          subscriptionType: "contact.creation",
+          portalId: "9988776",
+        },
+      ],
+    });
+    mockMarkSeen.mockResolvedValueOnce({ fresh: true });
+    mockGetState.mockResolvedValue("active");
+    mockIsAccountFrozen.mockResolvedValueOnce(true);
+
+    await POST(req());
+
+    const logged = debugSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("dropped_frozen_account");
+    expect(logged).not.toContain("acct-test"); // account id never logged
+    expect(logged).not.toContain("9988776"); // portal id / provider payload never logged
+    expect(mockEnqueue).not.toHaveBeenCalled();
+    debugSpy.mockRestore();
   });
 
   it("proceeds with dispatch when dedup throws (fail-open)", async () => {
