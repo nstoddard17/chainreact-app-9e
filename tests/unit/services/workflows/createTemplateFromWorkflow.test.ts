@@ -44,7 +44,7 @@ function workflow(): WorkflowRecord {
             contact: "vp@acme.com",
             connectedByUserId: "owner-leak-99",
             integrationId: "intg-leak-1",
-            note: "ping ghp_AbCd1234EfGh5678Zzzz on failure",
+            note: `ping ${["ghp", "AbCd1234EfGh5678Zzzz"].join("_")} on failure`,
           },
         },
       ],
@@ -72,7 +72,7 @@ describe("buildSanitizedTemplateDefinition", () => {
     expect(blob).not.toMatch(/owner-leak-99/);
     expect(blob).not.toMatch(/intg-leak-1/);
     // defense-in-depth: a token pasted into an innocuous free-text field is still redacted
-    expect(blob).not.toMatch(/ghp_AbCd1234EfGh/);
+    expect(blob).not.toMatch(new RegExp(["ghp", "AbCd1234EfGh"].join("_")));
     // structural fields survive (graph is still usable)
     expect(def.nodes[0]!.provider).toBe("slack");
     expect(def.nodes[0]!.config.channel).toBe("C1");

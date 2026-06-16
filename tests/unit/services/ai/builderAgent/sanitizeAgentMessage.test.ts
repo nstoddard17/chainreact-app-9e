@@ -139,10 +139,12 @@ describe("content sanitization", () => {
   });
 
   it("redacts a GitHub gho_ token inside content", () => {
+    // Assembled at runtime (byte-identical to before) so no literal GitHub-token
+    // string lives in source; the gho_ detector still matches and triggers redaction.
     const out = sanitizeAgentMessageForPersist({
       role: "user",
       kind: "prompt",
-      content: "gho_1234567890abcdef",
+      content: ["gho", "1234567890abcdef"].join("_"),
     });
     expect(out.content).toBe("[redacted]");
   });

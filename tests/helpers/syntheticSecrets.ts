@@ -43,3 +43,45 @@ export const fakeSlackAppToken = (label = "fixture"): string =>
  * is obvious to a reader that it is a fixture, not a secret.
  */
 export const SLACK_TOKEN_PLACEHOLDER = "slack_bot_token_test_fixture_redacted";
+
+/**
+ * V2-READY-46 — the same runtime-assembly idea extended to the other
+ * high-confidence provider secret shapes (GitHub tokens, Stripe secret keys,
+ * Google API/OAuth tokens, Stripe webhook secrets). Each returns a value that
+ * MATCHES the corresponding detector regex at runtime, while the SOURCE here
+ * holds no literal `prefix + body` string (the prefix and body are separate
+ * fragments joined at call time), so secret scanners never flag this module.
+ *
+ * Use these wherever a test must prove one of these shapes is DETECTED,
+ * REDACTED, or never-survives-encryption. The `slug(label)` keeps values stable
+ * + unique per call site without ever introducing a literal token in source.
+ */
+const join_ = (...parts: string[]): string => parts.join("_");
+/** Deterministic ≥16-char alnum body — keeps the assembled value detector-matching. */
+const fakeBody = (label: string): string => "FAKE" + slug(label) + "0123456789abcdef";
+
+/** Runtime-assembled GitHub classic PAT shape (`ghp_…`). Matches `ghp_[A-Za-z0-9]{16,}`. */
+export const fakeGitHubPat = (label = "fixture"): string => join_("ghp", fakeBody(label));
+
+/** Runtime-assembled GitHub OAuth user-token shape (`gho_…`). Matches `gho_[A-Za-z0-9]{16,}`. */
+export const fakeGitHubOAuthToken = (label = "fixture"): string => join_("gho", fakeBody(label));
+
+/** Runtime-assembled Stripe LIVE secret-key shape (`sk_live_…`). Matches `sk_(live|test)_[A-Za-z0-9]{16,}`. */
+export const fakeStripeLiveKey = (label = "fixture"): string => join_("sk", "live", fakeBody(label));
+
+/** Runtime-assembled Stripe TEST secret-key shape (`sk_test_…`). */
+export const fakeStripeTestKey = (label = "fixture"): string => join_("sk", "test", fakeBody(label));
+
+/** Runtime-assembled Stripe webhook-signing-secret shape (`whsec_…`). */
+export const fakeStripeWebhookSecret = (label = "fixture"): string => join_("whsec", fakeBody(label));
+
+/** Runtime-assembled Google API key shape (`AIza…`). Matches `AIza[A-Za-z0-9_-]{20,}`. */
+export const fakeGoogleApiKey = (label = "fixture"): string => "AIza" + fakeBody(label) + "ghijkl";
+
+/** Runtime-assembled Google OAuth access-token shape (`ya29.…`). */
+export const fakeGoogleAccessToken = (label = "fixture"): string =>
+  ["ya29", fakeBody(label)].join(".");
+
+/** Runtime-assembled Google OAuth refresh-token shape (`1//…`). */
+export const fakeGoogleRefreshToken = (label = "fixture"): string =>
+  "1" + "//" + fakeBody(label);

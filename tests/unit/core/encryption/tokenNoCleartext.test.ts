@@ -14,6 +14,15 @@
  */
 import { randomBytes } from "node:crypto";
 import { encryptToken, decryptToken } from "@/core/encryption/tokens";
+import {
+  fakeGitHubOAuthToken,
+  fakeGitHubPat,
+  fakeStripeLiveKey,
+  fakeStripeTestKey,
+  fakeStripeWebhookSecret,
+  fakeGoogleAccessToken,
+  fakeGoogleRefreshToken,
+} from "@/tests/helpers/syntheticSecrets";
 
 const TEST_KEY = randomBytes(32).toString("base64");
 
@@ -26,16 +35,23 @@ afterEach(() => {
 
 // Representative provider token SHAPES (all fake). Each pairs a full sample
 // value with the recognizable prefix/substring a scanner would grep for.
+//
+// V2-READY-44/46: NO literal `prefix + body` token string lives in source. The
+// Slack values inline a split-join; the rest come from the runtime-assembled
+// fakeProviderToken helpers in tests/helpers/syntheticSecrets.ts. Both produce a
+// value that still matches the provider's detector at runtime, so this guard's
+// teeth (the encrypt-never-leaks-cleartext proof) are unchanged. The `needle`
+// stays the bare prefix (no body) — a bare prefix is safe in source.
 const SAMPLES: ReadonlyArray<{ label: string; plaintext: string; needle: string }> = [
   { label: "Slack bot (xoxb-)", plaintext: (["xoxb", "FAKE", "111", "222", "abcdefghijklmnop"].join("-")), needle: "xoxb-" },
   { label: "Slack user (xoxp-)", plaintext: (["xoxp", "FAKE", "333", "444", "qrstuvwxyz012345"].join("-")), needle: "xoxp-" },
-  { label: "GitHub OAuth (gho_)", plaintext: "gho_FAKEabcdefghijklmnopqrstuvwxyz0123", needle: "gho_" },
-  { label: "GitHub PAT (ghp_)", plaintext: "ghp_FAKEABCDEFGHIJKLMNOPQRSTUVWXYZ0123", needle: "ghp_" },
-  { label: "Stripe live (sk_live_)", plaintext: "sk_live_FAKE51abcdEFGHijklMNOPqrst", needle: "sk_live_" },
-  { label: "Stripe test (sk_test_)", plaintext: "sk_test_FAKE51abcdEFGHijklMNOPqrst", needle: "sk_test_" },
-  { label: "Stripe webhook (whsec_)", plaintext: "whsec_FAKEabcdefghijklmnopqrstuvwx", needle: "whsec_" },
-  { label: "Google access (ya29.)", plaintext: "ya29.FAKE-a0AfH6SMabcdefghijklmnop", needle: "ya29." },
-  { label: "Google refresh (1//)", plaintext: "1//FAKE0gabcdefghijklmnopqrstuvwxyz", needle: "1//" },
+  { label: "GitHub OAuth (gho_)", plaintext: fakeGitHubOAuthToken("nocleartext"), needle: "gho_" },
+  { label: "GitHub PAT (ghp_)", plaintext: fakeGitHubPat("nocleartext"), needle: "ghp_" },
+  { label: "Stripe live (sk_live_)", plaintext: fakeStripeLiveKey("nocleartext"), needle: "sk_live_" },
+  { label: "Stripe test (sk_test_)", plaintext: fakeStripeTestKey("nocleartext"), needle: "sk_test_" },
+  { label: "Stripe webhook (whsec_)", plaintext: fakeStripeWebhookSecret("nocleartext"), needle: "whsec_" },
+  { label: "Google access (ya29.)", plaintext: fakeGoogleAccessToken("nocleartext"), needle: "ya29." },
+  { label: "Google refresh (1//)", plaintext: fakeGoogleRefreshToken("nocleartext"), needle: "1//" },
 ];
 
 // A needle is "base64-impossible" (so its absence is DETERMINISTIC, never a
