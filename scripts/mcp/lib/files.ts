@@ -87,3 +87,76 @@ export function firstHeading(text: string): string | null {
   const captured = match?.[1];
   return captured !== undefined ? captured.trim() : null;
 }
+
+/**
+ * Recursively list files under a whitelisted root whose extension is in
+ * `extensions`, skipping any blocked directory/filename segment. Returns
+ * repo-relative posix paths, bounded by `maxFiles`. Mirrors `listMarkdownFiles`
+ * but with a configurable extension set and explicit cap — used by the Phase-A
+ * repo-navigation tools. Reads no file contents; returns paths only.
+ */
+export function listFilesUnder(
+  relRoot: string,
+  extensions: readonly string[],
+  maxFiles: number,
+): string[] {
+  let rootAbs: string;
+  try {
+    rootAbs = resolveAllowedPath(relRoot, [relRoot]);
+  } catch {
+    return [];
+  }
+  const lowerExts = extensions.map((e) => e.toLowerCase());
+  const out: string[] = [];
+
+  const walk = (dirAbs: string): void => {
+    if (out.length >= maxFiles) return;
+    let entries: string[];
+    try {
+      entries = readdirSync(dirAbs);
+    } catch {
+      return;
+    }
+    for (const name of entries) {
+      if (isBlockedName(name)) continue;
+      const childAbs = join(dirAbs, name);
+      let s;
+      try {
+        s = statSync(childAbs);
+      } catch {
+        continue;
+      }
+      if (s.isDirectory()) {
+        walk(childAbs);
+        if (out.length >= maxFiles) return;
+      } else if (s.isFile()) {
+        const lower = name.toLowerCase();
+        if (lowerExts.some((ext) => lower.endsWith(ext))) {
+          out.push(relative(REPO_ROOT, childAbs).split("\\").join("/"));
+          if (out.length >= maxFiles) return;
+        }
+      }
+    }
+  };
+
+  walk(rootAbs);
+  return out.sort();
+}
+
+/**
+ * True if `relPath` resolves to an existing file inside the allowed roots and
+ * passes the blocklist. Returns false (never throws) for blocked/missing paths —
+ * convenient for "does this conventional test file exist?" checks.
+ */
+export function existsAllowed(
+  relPath: string,
+  allowedRoots: readonly string[],
+  allowedFiles: readonly string[] = [],
+): boolean {
+  try {
+    const abs = resolveAllowedPath(relPath, allowedRoots, allowedFiles);
+    return statSync(abs).isFile();
+  } catch {
+    return false;
+  }
+}

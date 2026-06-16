@@ -74,7 +74,40 @@ function runNpmScript(scriptKey: string): string {
   return `exit code: ${result.status}\n\n${body}`;
 }
 
+/**
+ * Human-readable, one-line descriptions for the allowlisted checks. Keys MUST
+ * be a subset of `ALLOWED_NPM_SCRIPTS`; `listAvailableNpmChecks` asserts every
+ * allowlisted script is described so the inventory can never silently drift.
+ */
+const NPM_CHECK_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  typecheck: "TypeScript typecheck (tsc --noEmit). Read-only.",
+  lint: "ESLint over the repo (eslint .). Read-only.",
+  "lint:structure": "Leaf-folder file-count cap check. Read-only.",
+};
+
+/** Inventory of the non-mutating checks the MCP server may run. Inventory-only. */
+export function listAvailableNpmChecks(): string {
+  const lines = Object.keys(ALLOWED_NPM_SCRIPTS).map((key) => {
+    const desc = NPM_CHECK_DESCRIPTIONS[key] ?? "(no description)";
+    return `- ${key} (npm run ${ALLOWED_NPM_SCRIPTS[key]}) — ${desc}`;
+  });
+  return [
+    `Available local checks (${lines.length}) — all read-only / non-mutating:`,
+    ...lines,
+    "",
+    "These are the ONLY commands the MCP server can run. There is no db:push,",
+    "migration, deploy, git push, build, or arbitrary-shell wrapper by design.",
+  ].join("\n");
+}
+
 export const commandTools: ToolDefinition[] = [
+  {
+    name: "list_available_npm_checks",
+    description:
+      "List the exact, non-mutating npm checks the MCP server may run (typecheck, lint, lint:structure) with descriptions. Inventory-only — runs nothing.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    handler: listAvailableNpmChecks,
+  },
   {
     name: "run_typecheck",
     description:

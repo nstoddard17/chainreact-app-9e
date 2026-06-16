@@ -12,7 +12,9 @@ import { diagnoseLiveTools } from "./diagnoseLive";
 import { diagnoseWorkflowTools } from "./diagnoseWorkflow";
 import { docsTools } from "./docs";
 import { providerTools } from "./providers";
+import { repoNavTools } from "./repoNav";
 import { smokeTools } from "./smoke";
+import { verifyTools } from "./verify";
 
 /** Build a registry with every internal MCP tool registered. */
 export function buildRegistry(): ToolRegistry {
@@ -30,5 +32,9 @@ export function buildRegistry(): ToolRegistry {
   for (const tool of diagnoseLiveTools) registry.register(tool);
   // Stage 2B-3 CS-1 — live workflow-readiness tool (same `fetch`-client posture).
   for (const tool of diagnoseWorkflowTools) registry.register(tool);
+  // Phase A-1 — read-only developer-orientation helpers (repo navigation +
+  // verification advisory). Static/local; no live data, no mutation.
+  for (const tool of repoNavTools) registry.register(tool);
+  for (const tool of verifyTools) registry.register(tool);
   return registry;
 }

@@ -66,6 +66,45 @@ export const CLAUDE_MD_FILE = "CLAUDE.md";
 /** Provider integration root — only `<provider>/manifest.ts` is read, as text. */
 export const INTEGRATIONS_DIR = "integrations";
 
+/**
+ * Repo-relative source/doc roots the Phase-A repo-navigation tools
+ * (`repo_file_search`, `find_route_handlers`, `find_tests_for_file`,
+ * `get_file_outline`) may walk or read. WHITELIST-FIRST: a path is reachable
+ * only if it sits under one of these AND passes the `security/paths.ts`
+ * blocklist (which already refuses `.env*`, key/pem, secret/token/credential/
+ * service-role-named files, and `node_modules`/`.next`/`dist`/`build`/
+ * `coverage`/`test-results`/`playwright-report` segments). These tools are
+ * READ-ONLY and bounded; none dumps a full file body (outline = structure only).
+ */
+export const ALLOWED_CODE_ROOTS: readonly string[] = [
+  "app",
+  "components",
+  "contracts",
+  "core",
+  "features",
+  "integrations",
+  "lib",
+  "repositories",
+  "services",
+  "stores",
+  "utils",
+  "workflow-engine",
+  "scripts/mcp",
+  "tests",
+  "docs",
+];
+
+/** Extensions the repo-navigation tools treat as searchable source/doc files. */
+export const NAV_FILE_EXTENSIONS: readonly string[] = [
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".md",
+  ".sql",
+];
+
 /** Builder-metadata launch-gap tracker (read as text if present). */
 export const BUILDER_GAP_TRACKER_FILE =
   "docs/slices/phase-4/provider-metadata-launch-gap-tracker.md";
@@ -106,6 +145,16 @@ export const LIMITS = {
   commandTimeoutMs: 180_000,
   /** Max characters of captured command stdout/stderr returned. */
   commandMaxChars: 40_000,
+  /** Max path results returned by a repo-navigation search. */
+  navMaxResults: 200,
+  /** Max files walked across all code roots by a repo-navigation search. */
+  navMaxFiles: 8_000,
+  /** Max route handlers enumerated by find_route_handlers. */
+  navMaxRoutes: 600,
+  /** Max structural items returned by get_file_outline. */
+  outlineMaxItems: 400,
+  /** Wall-clock timeout for the read-only `git diff` used by the verify helper. */
+  gitTimeoutMs: 15_000,
 } as const;
 
 /**

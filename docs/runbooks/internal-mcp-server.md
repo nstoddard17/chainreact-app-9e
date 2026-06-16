@@ -87,9 +87,25 @@ npm script with a timeout and truncated output):
 | `run_typecheck` | `npm run typecheck` (`tsc --noEmit`) |
 | `run_lint` | `npm run lint` (`eslint .`) |
 | `run_structure_lint` | `npm run lint:structure` (leaf-folder counts) |
+| `list_available_npm_checks` | **Inventory-only** — lists the exact non-mutating checks above with descriptions. Runs nothing. *(Phase A-1)* |
 
 Every result is **redacted then size-capped** before it leaves the process (order
 matters — see Security boundaries).
+
+Phase A-1 developer-orientation tools (read-only; repo-static / local; allow-listed
+roots; bounded output; never a full file body):
+
+| Tool | What it returns |
+|---|---|
+| `repo_file_search` | Filename/glob search across allow-listed source + doc roots. **Paths only**, capped. *(Phase A-1)* |
+| `find_route_handlers` | `app/**/route.ts` with detected HTTP methods + auth/gate marker identifiers (heuristic, not an authz proof). *(Phase A-1)* |
+| `find_tests_for_file` | Conventional unit-test path(s) for a source file — which exist + the naming candidates. Paths only. *(Phase A-1)* |
+| `get_file_outline` | **Structural** outline of one allow-listed file (markdown headings / exported symbol names / route methods / test names). Never the full body; byte-capped + redacted. *(Phase A-1)* |
+| `suggest_verification_for_changed_files` | Recommends which local checks to run for the changed files (read-only `git diff` vs HEAD + untracked, or an explicit `paths` list). **Advisory only — executes nothing.** *(Phase A-1)* |
+
+The full live registry today is **27 tools** (`npm run mcp:smoke`) — the context tools
+above, the command wrappers, the Phase A-1 helpers, and the Stage-2A/2B diagnostics
+(below).
 
 ### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
 
