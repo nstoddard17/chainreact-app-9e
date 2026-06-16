@@ -295,6 +295,12 @@ Before pushing, Claude should explicitly report:
 
 **Important:** Documentation updates should be committed locally with the related implementation batch when practical, not left as stale follow-up work.
 
+When a durable decision or repeated workflow emerges and it is unclear *where* it belongs
+(project memory vs. an existing skill vs. a new skill vs. `CLAUDE.md` vs. `docs/`), route that
+decision through the [`chainreactv2-skill-curator`](./.claude/skills/chainreactv2-skill-curator/SKILL.md)
+skill. It is human-controlled (not auto-triggered) and prefers the minimal patch in the most
+specific home.
+
 ---
 
 ## Internal developer tooling

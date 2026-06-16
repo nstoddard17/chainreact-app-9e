@@ -14,6 +14,11 @@ pruned, curated state index that lets a fresh chat get oriented in ~2 minutes. I
 > (`get_project_memory`, rule docs, current slice status) to orient, then verify every line
 > against git/the real docs before writing. MCP is orientation; the repo wins on any conflict.
 
+> **Not sure a project-memory write is the right home?** Route the decision through
+> [`chainreactv2-skill-curator`](../chainreactv2-skill-curator/SKILL.md) first — it classifies
+> whether a durable signal belongs in memory, a skill, `CLAUDE.md`, docs, or nowhere, then
+> hands the `PROJECT_MEMORY` case back to this skill to execute.
+
 ## Hard rules
 
 - **Memory is NOT source of truth.** Repo docs, commits, and code win. Every memory line
