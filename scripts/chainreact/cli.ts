@@ -11,7 +11,13 @@
  * Built to runnable CommonJS via scripts/chainreact/tsconfig.json (→ dist/, gitignored).
  */
 import { parseArgs, wantsHelp } from "./args";
-import { renderValidation, validateProvider } from "./commands/appValidate";
+import { listProviders, renderProviderList } from "./commands/appList";
+import {
+  renderValidation,
+  renderValidationSummary,
+  validateAllProviders,
+  validateProvider,
+} from "./commands/appValidate";
 import { renderMcpSmoke, runMcpSmoke } from "./commands/mcpSmoke";
 import { collectStatus, renderStatus } from "./commands/status";
 import { buildVerifyPlan, executeVerify, renderVerify } from "./commands/verify";
@@ -77,13 +83,27 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
     }
 
     case "app": {
-      if (parsed.subcommand !== "validate") {
-        log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app validate <provider>`);
-        return 2;
+      if (parsed.subcommand === "list") {
+        log(renderProviderList(listProviders(fs)));
+        return 0;
       }
-      const result = validateProvider(parsed.positionals[0] ?? "", fs);
-      log(renderValidation(result));
-      return result.ok ? 0 : 1;
+      if (parsed.subcommand === "validate") {
+        if (parsed.flags.all === true) {
+          const results = validateAllProviders(fs);
+          log(renderValidationSummary(results, { verbose: parsed.flags.verbose === true }));
+          return results.every((r) => r.ok) ? 0 : 1;
+        }
+        const provider = parsed.positionals[0] ?? "";
+        if (!provider) {
+          log("Usage: chainreact app validate <provider> | chainreact app validate --all [--verbose]");
+          return 2;
+        }
+        const result = validateProvider(provider, fs);
+        log(renderValidation(result));
+        return result.ok ? 0 : 1;
+      }
+      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all`);
+      return 2;
     }
 
     default:

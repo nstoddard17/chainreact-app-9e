@@ -9,7 +9,16 @@
  */
 import { parseArgs, wantsHelp } from "@/scripts/chainreact/args";
 import { run } from "@/scripts/chainreact/cli";
-import { renderValidation, validateProvider } from "@/scripts/chainreact/commands/appValidate";
+import { listProviders, renderProviderList } from "@/scripts/chainreact/commands/appList";
+import {
+  renderValidation,
+  renderValidationSummary,
+  summarizeValidation,
+  validateAllProviders,
+  validateProvider,
+  verdictOf,
+} from "@/scripts/chainreact/commands/appValidate";
+import { inventoryAllProviders, listKnownProviders } from "@/scripts/chainreact/providers";
 import { runMcpSmoke } from "@/scripts/chainreact/commands/mcpSmoke";
 import { collectStatus, renderStatus } from "@/scripts/chainreact/commands/status";
 import { buildVerifyPlan, executeVerify } from "@/scripts/chainreact/commands/verify";
@@ -59,6 +68,7 @@ function fakeRunner(byScript: Record<string, number> = {}): CommandRunner & { ca
 }
 
 const SLACK_MANIFEST = 'ProviderManifestSchema.parse({ id: "slack", displayName: "Slack", isEnabled: true });';
+const baseRuntime = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
 
 describe("parseArgs", () => {
   it("parses a flat command with flags and --key=value", () => {
@@ -301,5 +311,144 @@ describe("run() dispatch", () => {
   it("mcp with a bad subcommand → exit 2", () => {
     const code = run(["mcp", "explode"], { fs: baseFs(), runtime: baseRuntime, log: () => {} });
     expect(code).toBe(2);
+  });
+});
+
+// ── provider-wide: app validate --all + app list ────────────────────────────
+// alpha = clean PASS; beta = WARN (handler+schema, no meta); gamma = FAIL
+// (orphan meta); delta = PASS with the hubspot-style meta/ subfolder layout.
+const mf = (id: string, enabled: boolean): string => `parse({ id: "${id}", displayName: "${id[0]?.toUpperCase()}${id.slice(1)}", isEnabled: ${enabled} })`;
+const multiFs = (): FsDeps =>
+  fakeFs({
+    "integrations/alpha/manifest.ts": mf("alpha", true),
+    "integrations/alpha/actions/createThing.ts": "",
+    "integrations/alpha/actions/createThing.meta.ts": "",
+    "integrations/alpha/actions/createThing.schema.ts": "",
+    "integrations/alpha/triggers/onThing/onThing.meta.ts": "",
+    "integrations/beta/manifest.ts": mf("beta", false),
+    "integrations/beta/actions/doBeta.ts": "",
+    "integrations/beta/actions/doBeta.schema.ts": "", // no meta → ACTION_META_GAP (warning)
+    "integrations/gamma/manifest.ts": mf("gamma", true),
+    "integrations/gamma/actions/ghost.meta.ts": "", // orphan meta → ERROR
+    "integrations/delta/manifest.ts": mf("delta", true),
+    "integrations/delta/actions/updateDelta.ts": "",
+    "integrations/delta/actions/updateDelta.schema.ts": "",
+    "integrations/delta/actions/meta/updateDelta.meta.ts": "", // meta in subfolder (hubspot-style)
+  });
+
+describe("provider discovery", () => {
+  it("lists providers deterministically (sorted by id)", () => {
+    expect(listKnownProviders(multiFs())).toEqual(["alpha", "beta", "delta", "gamma"]);
+    expect(validateAllProviders(multiFs()).map((r) => r.provider)).toEqual(["alpha", "beta", "delta", "gamma"]);
+    expect(inventoryAllProviders(multiFs()).map((i) => i.id)).toEqual(["alpha", "beta", "delta", "gamma"]);
+  });
+
+  it("matches meta by basename (handler in actions/, meta in actions/meta/) → PASS", () => {
+    const delta = validateProvider("delta", multiFs());
+    expect(delta.ok).toBe(true);
+    expect(delta.findings).toEqual([]);
+    expect(verdictOf(delta)).toBe("PASS");
+  });
+});
+
+describe("app validate --all", () => {
+  it("summarizes pass/warn/fail and only errors fail the run", () => {
+    const results = validateAllProviders(multiFs());
+    const summary = summarizeValidation(results);
+    expect(summary).toMatchObject({ total: 4, pass: 2, warn: 1, fail: 1, ok: false });
+    expect(verdictOf(results[0]!)).toBe("PASS"); // alpha
+    expect(verdictOf(results[1]!)).toBe("WARN"); // beta (warning only)
+    expect(verdictOf(results[2]!)).toBe("PASS"); // delta
+    expect(verdictOf(results[3]!)).toBe("FAIL"); // gamma
+    // warnings must NOT flip a provider to fail
+    expect(results[1]!.ok).toBe(true);
+  });
+
+  it("all-clean providers → summary ok", () => {
+    const results = validateAllProviders(
+      fakeFs({
+        "integrations/alpha/manifest.ts": mf("alpha", true),
+        "integrations/alpha/actions/createThing.ts": "",
+        "integrations/alpha/actions/createThing.meta.ts": "",
+        "integrations/alpha/actions/createThing.schema.ts": "",
+      }),
+    );
+    expect(summarizeValidation(results).ok).toBe(true);
+  });
+
+  it("renders failures inline; hides warnings unless --verbose", () => {
+    const results = validateAllProviders(multiFs());
+    const concise = renderValidationSummary(results, { verbose: false });
+    expect(concise).toContain("providers: 4  pass: 2  warn: 1  fail: 1");
+    expect(concise).toContain("[FAIL] gamma");
+    expect(concise).toContain("ORPHAN_META"); // failures always shown
+    expect(concise).toContain("re-run with --verbose"); // warnings hidden by default
+    expect(concise).not.toContain("ACTION_META_GAP");
+
+    const verbose = renderValidationSummary(results, { verbose: true });
+    expect(verbose).toContain("ACTION_META_GAP"); // beta's warning now shown
+  });
+
+  it("dispatch: `app validate --all` → exit 1 when any provider has errors", () => {
+    const out: string[] = [];
+    const code = run(["app", "validate", "--all"], { fs: multiFs(), runtime: baseRuntime, log: (l) => out.push(l) });
+    expect(code).toBe(1);
+    expect(out.join("\n")).toContain("FAILED");
+  });
+
+  it("dispatch: `app validate --all` → exit 0 when all pass", () => {
+    const fs = fakeFs({
+      "integrations/alpha/manifest.ts": mf("alpha", true),
+      "integrations/alpha/actions/createThing.ts": "",
+      "integrations/alpha/actions/createThing.meta.ts": "",
+      "integrations/alpha/actions/createThing.schema.ts": "",
+    });
+    const code = run(["app", "validate", "--all"], { fs, runtime: baseRuntime, log: () => {} });
+    expect(code).toBe(0);
+  });
+});
+
+describe("app list", () => {
+  it("inventories providers with safe text-derived fields", () => {
+    const infos = listProviders(multiFs());
+    expect(infos.map((i) => i.id)).toEqual(["alpha", "beta", "delta", "gamma"]);
+    const beta = infos.find((i) => i.id === "beta")!;
+    expect(beta.displayName).toBe("Beta");
+    expect(beta.enabled).toBe(false);
+    const alpha = infos.find((i) => i.id === "alpha")!;
+    expect(alpha.enabled).toBe(true);
+    expect(alpha.counts).toMatchObject({ actionHandlers: 1, actionMetas: 1, actionSchemas: 1, triggerMetas: 1 });
+  });
+
+  it("renders a deterministic table (no secrets)", () => {
+    const out = renderProviderList(listProviders(multiFs()));
+    expect(out).toContain("ChainReact — app list (4 provider(s))");
+    expect(out).toContain("alpha");
+    expect(out).toContain("displayName");
+    expect(out).toMatch(/beta\s+Beta\s+no/); // enabled=false → "no"
+    expect(out).not.toMatch(/token|secret|password/i);
+  });
+
+  it("dispatch: `app list` → exit 0", () => {
+    const out: string[] = [];
+    const code = run(["app", "list"], { fs: multiFs(), runtime: baseRuntime, log: (l) => out.push(l) });
+    expect(code).toBe(0);
+    expect(out.join("\n")).toContain("app list");
+  });
+});
+
+describe("app subcommand usage", () => {
+  it("`app validate` with neither provider nor --all → usage, exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "validate"], { fs: multiFs(), runtime: baseRuntime, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/Usage:.*app validate/);
+  });
+
+  it("unknown `app` subcommand → exit 2 and suggests list/validate", () => {
+    const out: string[] = [];
+    const code = run(["app", "bogus"], { fs: multiFs(), runtime: baseRuntime, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/app list|app validate/);
   });
 });
