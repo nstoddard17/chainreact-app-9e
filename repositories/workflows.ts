@@ -363,6 +363,35 @@ export async function setActiveRevision(
   return rowToRecord(data);
 }
 
+/**
+ * Execution-path read: fetch an immutable revision by id with no user session.
+ * Uses the service-role client (RLS bypass) because live execution runs from
+ * cron / webhook / queue contexts with no authenticated user — mirrors
+ * `getByIdServiceRole`. Returns `null` when the revision row is absent (the
+ * caller falls back to the draft definition; see
+ * `services/workflows/activeRevision.ts`). The `active_revision_id` FK is
+ * `ON DELETE SET NULL`, so a dangling pointer is not expected, but the null
+ * return keeps the reader fail-safe.
+ */
+export async function getRevisionByIdServiceRole(
+  revisionId: string,
+): Promise<WorkflowRevisionRecord | null> {
+  const supabase = getServiceRoleClient(
+    `workflow execution: getRevisionByIdServiceRole ${revisionId}`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_revisions")
+    .select("*")
+    .eq("id", revisionId)
+    .maybeSingle<WorkflowRevisionsRow>();
+  if (error) {
+    throw new Error(
+      `workflows.getRevisionByIdServiceRole failed: ${error.message}`,
+    );
+  }
+  return data ? revisionRowToRecord(data) : null;
+}
+
 // ── Lifecycle transitions ──────────────────────────────────────────────────
 //
 // applyTransition is the only writer for workflows.state. The orchestrator

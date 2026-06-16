@@ -53,6 +53,16 @@ export interface LifecycleSideEffects {
    */
   unregisterTrigger?(workflow: WorkflowRecord): Promise<void>;
   /**
+   * Wired in V2-READY-41B. Called AFTER a successful activate / resume-from-
+   * eligible_to_resume persist to snapshot the current draft into an immutable
+   * active revision and repoint `active_revision_id`. Best-effort — thrown
+   * errors are swallowed (the workflow stays active with
+   * `active_revision_id = null`, which the execution reader treats as the safe
+   * draft fallback). Deliberately NOT called on failed activations, so a failed
+   * activation never creates a revision.
+   */
+  snapshotRevision?(workflow: WorkflowRecord): Promise<void>;
+  /**
    * Validate transition-specific preconditions (integration health, required
    * config). Failure aborts the transition with MISSING_PRECONDITIONS before
    * any side effect runs.
@@ -131,6 +141,11 @@ export class LifecycleOrchestrator {
       throw err;
     }
 
+    // V2-READY-41B — snapshot the draft into an immutable active revision AFTER
+    // the transition persisted. Best-effort: a failure here leaves the workflow
+    // active with active_revision_id = null (safe draft fallback). Because this
+    // runs only on the success path, a failed activation never creates a revision.
+    await safeSnapshotRevision(this.hooks, next);
     await safeNotify(this.hooks, next, "activate", { toState });
     return next;
   }
@@ -168,6 +183,11 @@ export class LifecycleOrchestrator {
       throw err;
     }
 
+    // V2-READY-41B — only resume-from-eligible_to_resume re-registers triggers,
+    // so only it needs a fresh revision snapshot (resume-from-paused retains its
+    // existing registration AND active revision — paused-drift handling is a
+    // later slice). Best-effort, same fallback semantics as activate.
+    if (needsRegister) await safeSnapshotRevision(this.hooks, next);
     await safeNotify(this.hooks, next, "resume", { toState });
     return next;
   }
@@ -350,6 +370,27 @@ async function safeUnregister(
   } catch {
     // Best-effort. Webhook dispatcher independently drops events for
     // disabled / deleted workflows.
+  }
+}
+
+async function safeSnapshotRevision(
+  hooks: LifecycleSideEffects,
+  wf: WorkflowRecord,
+): Promise<void> {
+  if (!hooks.snapshotRevision) return;
+  try {
+    await hooks.snapshotRevision(wf);
+  } catch (err) {
+    // Best-effort. The workflow is already active; active_revision_id stays null
+    // and getActiveDefinition falls back to the draft — no state impact. Log
+    // workflow id + error message only (no graph / account / token detail).
+    console.warn(
+      JSON.stringify({
+        event: "workflow.active_revision.snapshot_failed",
+        workflowId: wf.id,
+        error: (err as Error).message,
+      }),
+    );
   }
 }
 

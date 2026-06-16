@@ -31,6 +31,7 @@ import {
 } from "@/services/integrations/connectionResolution";
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
+import { getDefinitionForExecution } from "@/services/workflows/activeRevision";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
 import {
@@ -149,7 +150,10 @@ export class WorkflowEngine {
       };
     }
 
-    const def = workflow.draftDefinition;
+    // V2-READY-41B — flag-gated definition source: active revision when ON,
+    // mutable draft when OFF (default, byte-identical to pre-41B). The flag +
+    // draft fallback live in services/workflows/activeRevision.ts.
+    const def = (await getDefinitionForExecution(workflow)).definition;
     const triggerNode = def.nodes.find((n) => n.id === input.triggerNodeId);
     if (!triggerNode) {
       const finishedAt = new Date().toISOString();

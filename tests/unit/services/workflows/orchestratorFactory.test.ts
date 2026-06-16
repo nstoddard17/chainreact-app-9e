@@ -26,9 +26,16 @@ jest.mock("@/services/triggers/lifecycle", () => ({
 
 const mockGetById = jest.fn();
 const mockApplyTransition = jest.fn();
+// V2-READY-41B — the factory now wires snapshotRevision → snapshotActiveRevision,
+// which calls createRevision + setActiveRevision on this repo. Mock them so the
+// best-effort snapshot succeeds and the wiring can be asserted.
+const mockCreateRevision = jest.fn();
+const mockSetActiveRevision = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
   applyTransition: (...args: unknown[]) => mockApplyTransition(...args),
+  createRevision: (...args: unknown[]) => mockCreateRevision(...args),
+  setActiveRevision: (...args: unknown[]) => mockSetActiveRevision(...args),
 }));
 
 // 4.ACCOUNT-MODEL-10b — activate now calls the account freeze guard. Mock it as
@@ -62,6 +69,15 @@ beforeEach(() => {
   mockUnregister.mockReset();
   mockGetById.mockReset();
   mockApplyTransition.mockReset();
+  mockCreateRevision.mockReset();
+  mockCreateRevision.mockResolvedValue({
+    id: "rev-1",
+    workflowId: "wf-1",
+    definition: { nodes: [], edges: [] },
+    createdAt: "2026-06-15T00:00:00Z",
+  });
+  mockSetActiveRevision.mockReset();
+  mockSetActiveRevision.mockResolvedValue({ ...baseWorkflow, activeRevisionId: "rev-1" });
 });
 
 describe("createLifecycleOrchestrator wiring", () => {
@@ -77,6 +93,23 @@ describe("createLifecycleOrchestrator wiring", () => {
     expect(mockCheckPreconditions).toHaveBeenCalledWith(baseWorkflow, "activate");
     expect(mockRegister).toHaveBeenCalledWith(baseWorkflow);
     expect(mockApplyTransition).toHaveBeenCalled();
+  });
+
+  it("activate snapshots the draft into an active revision and repoints it (V2-READY-41B wiring)", async () => {
+    const next = { ...baseWorkflow, state: "active" as const };
+    mockGetById.mockResolvedValueOnce(baseWorkflow);
+    mockCheckPreconditions.mockResolvedValueOnce({ ok: true });
+    mockRegister.mockResolvedValueOnce(undefined);
+    mockApplyTransition.mockResolvedValueOnce(next);
+
+    const orch = createLifecycleOrchestrator();
+    await orch.activate("wf-1");
+
+    expect(mockCreateRevision).toHaveBeenCalledWith({
+      workflowId: "wf-1",
+      definition: next.draftDefinition,
+    });
+    expect(mockSetActiveRevision).toHaveBeenCalledWith("wf-1", "rev-1");
   });
 
   it("activate aborts when preconditions return ok:false (orchestrator wraps with MISSING_PRECONDITIONS)", async () => {

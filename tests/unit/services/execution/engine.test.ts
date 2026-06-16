@@ -44,6 +44,17 @@ jest.mock("@/services/notifications/notifyWorkflowFailure", () => ({
   notifyWorkflowFailure: (...args: unknown[]) => mockNotifyWorkflowFailure(...args),
 }));
 
+// V2-READY-41B — the engine resolves its definition through
+// getDefinitionForExecution (flag + draft-fallback live inside it). The default
+// impl (set in beforeEach) returns the seeded draft, so every existing test runs
+// unchanged; the dedicated tests override it. The flag's own ON/OFF behavior is
+// unit-tested in tests/unit/services/workflows/activeRevision.test.ts.
+const mockGetDefinitionForExecution = jest.fn();
+jest.mock("@/services/workflows/activeRevision", () => ({
+  getDefinitionForExecution: (...args: unknown[]) =>
+    mockGetDefinitionForExecution(...args),
+}));
+
 // Slice 3.SEC-2 — the engine's test-mode gate consults `getActionMeta` from
 // the discovery registry. Mock it so the SEC-2 engine tests can use
 // synthetic action types ("slack:step_one" etc.) without depending on
@@ -225,6 +236,14 @@ beforeEach(() => {
   mockBillingGate.mockResolvedValue({ ok: true, used: 1, limit: 100 });
   mockNotifyWorkflowFailure.mockReset();
   mockNotifyWorkflowFailure.mockResolvedValue({ claimed: true, results: [] });
+  // V2-READY-41B — default: resolve to the workflow's own draft, so every
+  // existing engine test executes exactly what it seeded via getByIdServiceRole.
+  mockGetDefinitionForExecution.mockReset();
+  mockGetDefinitionForExecution.mockImplementation(async (wf: { draftDefinition: unknown }) => ({
+    definition: wf.draftDefinition,
+    source: "draft",
+    revisionId: null,
+  }));
   // SEC-2: default the meta lookup to "not registered" so the gate fails
   // closed unless a test explicitly registers a meta for its action type.
   // Test-mode tests must seed their own meta resolutions; non-test-mode
@@ -340,6 +359,55 @@ describe("WorkflowEngine — fatal errors", () => {
       triggerEvent,
     });
     expect(result.fatalError?.code).toBe("TRIGGER_NODE_NOT_FOUND");
+  });
+
+  // V2-READY-41B — the engine executes whatever getDefinitionForExecution
+  // resolves (the active revision when the flag is ON, the draft when OFF — that
+  // ON/OFF logic is unit-tested in activeRevision.test.ts). These prove the
+  // engine USES the resolver's output, not workflow.draftDefinition directly.
+  describe("definition source via getDefinitionForExecution (V2-READY-41B)", () => {
+    it("executes the resolved definition — a revision missing the trigger node fails TRIGGER_NODE_NOT_FOUND", async () => {
+      const wf = {
+        ...baseWorkflow,
+        activeRevisionId: "rev-1",
+        draftDefinition: { nodes: [trigger("t1")], edges: [] }, // draft HAS t1
+      };
+      mockGetByIdServiceRole.mockResolvedValueOnce(wf);
+      // Resolver returns the active revision, which does NOT contain t1.
+      mockGetDefinitionForExecution.mockResolvedValueOnce({
+        definition: { nodes: [trigger("t2")], edges: [] },
+        source: "active_revision",
+        revisionId: "rev-1",
+      });
+      const engine = new WorkflowEngine({ resolveStrict: (v) => v });
+
+      const result = await engine.runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(mockGetDefinitionForExecution).toHaveBeenCalledWith(wf);
+      expect(result.fatalError?.code).toBe("TRIGGER_NODE_NOT_FOUND");
+    });
+
+    it("executes the draft when the resolver returns it (default OFF path) — trigger present, no TRIGGER_NODE_NOT_FOUND", async () => {
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        draftDefinition: { nodes: [trigger("t1")], edges: [] },
+      });
+      // default resolver impl returns the draft (with t1).
+      const engine = new WorkflowEngine({ resolveStrict: (v) => v });
+
+      const result = await engine.runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(mockGetDefinitionForExecution).toHaveBeenCalled();
+      expect(result.fatalError?.code).not.toBe("TRIGGER_NODE_NOT_FOUND");
+    });
   });
 
   // B — engine pre-dispatch readiness backstop (the universal choke point that

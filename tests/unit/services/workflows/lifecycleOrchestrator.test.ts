@@ -176,6 +176,117 @@ describe("LifecycleOrchestrator.activate", () => {
   });
 });
 
+describe("LifecycleOrchestrator — active revision snapshot (V2-READY-41B)", () => {
+  it("activate snapshots the revision AFTER persisting (register -> apply -> snapshot)", async () => {
+    const wf = makeWorkflow("draft");
+    const next = makeWorkflow("active");
+    const order: string[] = [];
+    mockGetById.mockResolvedValueOnce(wf);
+    mockApplyTransition.mockImplementationOnce(async () => {
+      order.push("apply");
+      return next;
+    });
+    const snapshotRevision = jest.fn(async () => {
+      order.push("snapshot");
+    });
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: async () => {
+        order.push("register");
+      },
+      snapshotRevision,
+    });
+
+    await orch.activate("wf-1");
+
+    expect(order).toEqual(["register", "apply", "snapshot"]);
+    expect(snapshotRevision).toHaveBeenCalledWith(next);
+  });
+
+  it("does NOT snapshot when registration fails (no bogus revision on failed activation)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
+    const snapshotRevision = jest.fn();
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: async () => {
+        throw new Error("Slack API 500");
+      },
+      snapshotRevision,
+    });
+
+    await expect(orch.activate("wf-1")).rejects.toMatchObject({
+      code: "TRIGGER_REGISTRATION_FAILED",
+    });
+    expect(snapshotRevision).not.toHaveBeenCalled();
+  });
+
+  it("does NOT snapshot when the persist conflicts (LIFECYCLE_CONFLICT)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
+    mockApplyTransition.mockResolvedValueOnce(null);
+    const snapshotRevision = jest.fn();
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: async () => {},
+      unregisterTrigger: async () => {},
+      snapshotRevision,
+    });
+
+    await expect(orch.activate("wf-1")).rejects.toMatchObject({
+      code: "LIFECYCLE_CONFLICT",
+    });
+    expect(snapshotRevision).not.toHaveBeenCalled();
+  });
+
+  it("swallows a snapshot failure — activation still succeeds (safe draft fallback)", async () => {
+    const next = makeWorkflow("active");
+    mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
+    mockApplyTransition.mockResolvedValueOnce(next);
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: async () => {},
+      snapshotRevision: async () => {
+        throw new Error("revisions insert failed");
+      },
+    });
+
+    const result = await orch.activate("wf-1");
+
+    expect(result).toBe(next);
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("workflow.active_revision.snapshot_failed");
+    warnSpy.mockRestore();
+  });
+
+  it("resume from eligible_to_resume snapshots a fresh revision", async () => {
+    const wf = makeWorkflow("eligible_to_resume", {
+      disabledReason: "integration_revoked",
+    });
+    const next = makeWorkflow("active");
+    mockGetById.mockResolvedValueOnce(wf);
+    mockApplyTransition.mockResolvedValueOnce(next);
+    const snapshotRevision = jest.fn(async () => {});
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: async () => {},
+      snapshotRevision,
+    });
+
+    await orch.resume("wf-1");
+
+    expect(snapshotRevision).toHaveBeenCalledWith(next);
+  });
+
+  it("resume from paused does NOT snapshot (registration + revision retained)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("paused"));
+    mockApplyTransition.mockResolvedValueOnce(makeWorkflow("active"));
+    const snapshotRevision = jest.fn();
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: jest.fn(),
+      snapshotRevision,
+    });
+
+    await orch.resume("wf-1");
+
+    expect(snapshotRevision).not.toHaveBeenCalled();
+  });
+});
+
 describe("LifecycleOrchestrator.pause", () => {
   it("transitions active -> paused without touching the trigger registration (rule §pause retains registration)", async () => {
     mockGetById.mockResolvedValueOnce(makeWorkflow("active"));
