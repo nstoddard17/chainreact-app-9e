@@ -119,6 +119,7 @@ export function BuilderAiPanel() {
         previewing={a.previewing}
         previewedProposalIds={a.previewedProposalIds}
         onPreviewSelectedFix={a.handlePreviewSelectedFix}
+        onPreviewDanglingEdgeFix={a.handlePreviewDanglingEdgeFix}
         onApplyRepair={a.handleApplyRepair}
         applyingId={a.applyingId}
         appliedPreviewIds={a.appliedPreviewIds}

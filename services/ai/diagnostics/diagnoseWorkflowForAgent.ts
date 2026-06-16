@@ -115,6 +115,18 @@ export interface AgentFinding {
     }[];
   }[];
   /**
+   * AI-REPAIR-4A — dangling/broken edges for a `STALE_EDGE` finding. Each edge's `from`
+   * or `to` node no longer exists; the safe deterministic repair is to remove it
+   * (`removeEdge`). Carries SAFE display labels only — `fromLabel` / `toLabel` resolve to
+   * the endpoint's display name when it exists, else "a step that no longer exists". The
+   * raw edge id / node ids stay server-side (the deterministic preview re-derives them);
+   * never rendered, never sent to the model.
+   */
+  readonly danglingEdges?: readonly {
+    readonly fromLabel: string;
+    readonly toLabel: string;
+  }[];
+  /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
    * provider's resolved credential (boolean only; never the raw timestamp). Present
    * on connection findings; lets the UI show provider-aware reconnect copy.
@@ -174,6 +186,9 @@ function graphTitle(code: string): string {
       return "A node can't be reached from the trigger.";
     case "empty_workflow":
       return "The workflow is empty.";
+    case "stale_edge":
+    case "STALE_EDGE":
+      return "This workflow has a connection to a step that no longer exists.";
     case "INVALID_VARIABLE_REFERENCE":
       return "A step references a deleted or missing step.";
     default:
@@ -288,12 +303,35 @@ export async function diagnoseWorkflowForAgent(input: {
   const findings: AgentFinding[] = [];
 
   for (const g of readiness.graphIssues ?? []) {
+    // AI-REPAIR-4A — `stale_edge` (dangling edge) is actionable; it's aggregated into a
+    // single deterministic-repairable STALE_EDGE finding below, NOT a generic no-button
+    // graph card (mirrors how INVALID_VARIABLE_REFERENCE is handled separately).
+    if (g.code === "stale_edge") continue;
     findings.push({
       source: "graph",
       code: g.code,
       severity: "error",
       title: graphTitle(g.code),
       ...(g.nodeId ? { nodeIds: [g.nodeId], ...withLabels([g.nodeId]) } : {}),
+    });
+  }
+  // AI-REPAIR-4A — one actionable STALE_EDGE finding carrying SAFE from/to labels per
+  // dangling edge. An existing endpoint resolves to its display label; a missing one to
+  // "a step that no longer exists" (the raw edge id / node ids stay server-side — the
+  // deterministic edge-repair preview re-derives them via `buildEdgeRepairOutcome`).
+  const staleEdges = (readiness.graphIssues ?? []).filter((g) => g.code === "stale_edge");
+  if (staleEdges.length > 0) {
+    const labelOrMissing = (nodeId: string | undefined): string =>
+      (nodeId ? labelMap.get(nodeId) : undefined) ?? "a step that no longer exists";
+    findings.push({
+      source: "graph",
+      code: "STALE_EDGE",
+      severity: "error",
+      title: graphTitle("STALE_EDGE"),
+      danglingEdges: staleEdges.map((g) => ({
+        fromLabel: labelOrMissing(g.from),
+        toLabel: labelOrMissing(g.to),
+      })),
     });
   }
   for (const f of readiness.fieldGaps ?? []) {

@@ -74,6 +74,16 @@ export interface AgentDiagnosisFinding {
     }[];
   }[];
   /**
+   * AI-REPAIR-4A — dangling/broken edges for a `STALE_EDGE` finding (an edge whose `from`
+   * or `to` step no longer exists). Safe labels only (`fromLabel` / `toLabel`); the raw
+   * edge id / node ids stay server-side. The deterministic edge-repair preview removes
+   * them (`removeEdge`) — the client requests it with `previewWorkflowRepair(..., true)`.
+   */
+  readonly danglingEdges?: readonly {
+    readonly fromLabel: string;
+    readonly toLabel: string;
+  }[];
+  /**
    * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's
    * credential (boolean only; the server never sends the raw timestamp). Connection
    * findings only.
@@ -378,6 +388,7 @@ export async function previewWorkflowRepair(
   draftDefinition?: WorkflowDraftSnapshot,
   proposalContext?: RepairPreviewProposalContext,
   selectedRepair?: SelectedRepair,
+  danglingEdgeRepair?: boolean,
 ): Promise<RepairPreviewResult> {
   const requestBody: Record<string, unknown> = {};
   if (draftDefinition) requestBody.draftDefinition = draftDefinition;
@@ -385,6 +396,9 @@ export async function previewWorkflowRepair(
   // AI-REPAIR-3L — when present, the route runs the deterministic SELECTED-replacement
   // preview and never reaches the model path.
   if (selectedRepair) requestBody.selectedRepair = selectedRepair;
+  // AI-REPAIR-4A — when true, the route runs the deterministic dangling-edge cleanup
+  // (removeEdge) preview and never reaches the model path.
+  if (danglingEdgeRepair) requestBody.repairDanglingEdges = true;
   const result = await postStructured<RepairPreviewResult>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/preview`,
     requestBody,

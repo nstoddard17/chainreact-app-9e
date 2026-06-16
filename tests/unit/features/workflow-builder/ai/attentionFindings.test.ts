@@ -6,7 +6,7 @@
  * (field/connection are owned by the input/setup groups); each maps to friendly
  * guidance with NO raw code/id; finding order + severity are preserved.
  */
-import { attentionFindingCards, invalidReferenceCards } from "@/features/workflow-builder/ai/attentionFindings";
+import { attentionFindingCards, danglingEdgeCards, invalidReferenceCards } from "@/features/workflow-builder/ai/attentionFindings";
 import type { AgentWorkflowDiagnosis } from "@/lib/api/ai";
 
 const f = (source: string, code: string, severity = "error") => ({ source, code, severity, title: "x" });
@@ -153,5 +153,29 @@ describe("invalidReferenceCards — actionable invalid-reference cards (AI-REPAI
 
   it("returns [] when there are no invalid-reference findings", () => {
     expect(invalidReferenceCards(dx([f("graph", "no_trigger")]))).toEqual([]);
+  });
+});
+
+describe("danglingEdgeCards — actionable dangling-edge cards (AI-REPAIR-4A)", () => {
+  const staleEdgeFinding = (danglingEdges: unknown[]) =>
+    dx([{ source: "graph", code: "STALE_EDGE", severity: "error", title: "x", danglingEdges }]);
+
+  it("STALE_EDGE finding → one card with the copy + safe connection descriptors", () => {
+    const cards = danglingEdgeCards(
+      staleEdgeFinding([{ fromLabel: "Send Email", toLabel: "a step that no longer exists" }]),
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.message).toBe("This workflow has a connection to a step that no longer exists.");
+    expect(cards[0]!.connections).toEqual([{ fromLabel: "Send Email", toLabel: "a step that no longer exists" }]);
+  });
+
+  it("STALE_EDGE is NOT also returned by attentionFindingCards (it's actionable)", () => {
+    const d = staleEdgeFinding([{ fromLabel: "A", toLabel: "B" }]);
+    expect(attentionFindingCards(d)).toEqual([]);
+  });
+
+  it("returns [] when there are no STALE_EDGE findings or no dangling edges", () => {
+    expect(danglingEdgeCards(dx([f("graph", "no_trigger")]))).toEqual([]);
+    expect(danglingEdgeCards(staleEdgeFinding([]))).toEqual([]);
   });
 });

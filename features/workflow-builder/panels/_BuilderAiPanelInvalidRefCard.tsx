@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { SelectedRepair } from "@/lib/api/ai";
-import type { InvalidReferenceCard } from "../ai/attentionFindings";
+import type { DanglingEdgeCard, InvalidReferenceCard } from "../ai/attentionFindings";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 
@@ -79,6 +79,59 @@ export function InvalidReferenceCardView({
           ) : (
             <InvalidReferenceGoToField nodeId={card.nodeId} fieldKey={card.fieldKey} fieldLabel={card.fieldLabel} />
           )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-REPAIR-4A — a "Needs attention" card for dangling/broken edges (a connection
+ * whose source or target step no longer exists). The PRIMARY action is "Preview fix" — it
+ * runs the deterministic `removeEdge` cleanup preview; Apply lives only on the resulting
+ * preview card (never on this Check card). No node is deleted and no endpoint is guessed.
+ *
+ * No-leak: shows only the server-built safe labels (a missing endpoint reads "a step that
+ * no longer exists"); never a raw edge / node id. There's no field to "Open" for a broken
+ * edge, so this card has no secondary Open-field affordance.
+ */
+export function DanglingEdgeCardView({
+  card,
+  onPreviewFix,
+  previewing = false,
+}: {
+  readonly card: DanglingEdgeCard;
+  readonly onPreviewFix?: () => void;
+  readonly previewing?: boolean;
+}) {
+  return (
+    <div data-testid="builder-ai-diagnosis-dangling-edge" className="flex flex-col gap-1">
+      <p className="text-xs" style={{ color: "var(--builder-text)" }}>
+        {card.message}
+      </p>
+      <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[11px]" style={{ color: "var(--builder-muted)" }}>
+        {card.connections.map((c, i) => (
+          <li key={i}>{`From “${c.fromLabel}” to “${c.toLabel}”.`}</li>
+        ))}
+      </ul>
+      {onPreviewFix && (
+        <>
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={onPreviewFix}
+              disabled={previewing}
+              data-testid="builder-ai-dangling-edge-preview-fix-button"
+            >
+              {previewing ? "Previewing fix…" : "Preview fix"}
+            </Button>
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            Preview shows exactly which broken connection will be removed. Nothing is
+            changed, saved, or run until you choose to apply it.
+          </p>
         </>
       )}
     </div>

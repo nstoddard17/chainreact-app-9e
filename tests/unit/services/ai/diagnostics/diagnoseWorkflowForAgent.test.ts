@@ -436,6 +436,46 @@ describe("diagnoseWorkflowForAgent — invalid variable references", () => {
   });
 });
 
+// ───────────────── AI-REPAIR-4A: dangling/broken edges ─────────────────
+describe("diagnoseWorkflowForAgent — dangling/broken edges (STALE_EDGE)", () => {
+  function readinessStaleEdge() {
+    return readinessOk({
+      runnable: false,
+      readinessError: "INVALID_WORKFLOW_GRAPH",
+      fieldGaps: [],
+      nodeLabels: [{ nodeId: "gmail-1", label: "Gmail — Send Email" }],
+      graphIssues: [{ code: "stale_edge", edgeId: "e9", from: "gmail-1", to: "ghost-node" }],
+    });
+  }
+
+  it("a dangling edge makes the workflow NOT ready", async () => {
+    mockReadiness.mockResolvedValue(readinessStaleEdge());
+    mockConnections.mockResolvedValue(connectionsOk());
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.runnable).toBe(false);
+    expect(dto.overallReady).toBe(false);
+  });
+
+  it("surfaces ONE actionable STALE_EDGE finding with SAFE from/to labels (no raw edge/node id)", async () => {
+    mockReadiness.mockResolvedValue(readinessStaleEdge());
+    mockConnections.mockResolvedValue(connectionsOk());
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const finding = dto.findings!.find((f) => f.code === "STALE_EDGE");
+    expect(finding).toBeDefined();
+    expect(finding!.source).toBe("graph");
+    expect(finding!.title).toBe("This workflow has a connection to a step that no longer exists.");
+    expect(finding!.danglingEdges).toEqual([
+      { fromLabel: "Gmail — Send Email", toLabel: "a step that no longer exists" },
+    ]);
+    // It is NOT also emitted as a generic no-button graph finding.
+    expect(dto.findings!.filter((f) => f.code === "stale_edge")).toHaveLength(0);
+    // No raw edge id / missing node id leaks into the model-visible summary or finding.
+    const serialized = JSON.stringify({ summary: dto.summaryText, finding });
+    expect(serialized).not.toContain("e9");
+    expect(serialized).not.toContain("ghost-node");
+  });
+});
+
 // ───────────────── latest-run: only after access OK, best-effort ─────────────────
 describe("diagnoseWorkflowForAgent — latest run is best-effort + post-access", () => {
   it("looks up the run ONLY after access OK", async () => {

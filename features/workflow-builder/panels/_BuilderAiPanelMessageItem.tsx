@@ -71,6 +71,8 @@ interface MessageItemProps {
   readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
   // AI-REPAIR-3L — explicit user-selected replacement preview (multiple-candidate case).
   readonly onPreviewSelectedFix: (selection: SelectedRepair) => void;
+  // AI-REPAIR-4A — deterministic dangling/broken-edge cleanup preview.
+  readonly onPreviewDanglingEdgeFix: () => void;
   // Repair-preview Apply wiring.
   readonly onApplyRepair: (
     previewMessageId: ChatMessageId,
@@ -114,6 +116,7 @@ export function MessageItem({
   previewing,
   previewedProposalIds,
   onPreviewSelectedFix,
+  onPreviewDanglingEdgeFix,
   onApplyRepair,
   applyingId,
   appliedPreviewIds,
@@ -206,6 +209,9 @@ export function MessageItem({
           // replacement picker; the chosen candidate is previewed deterministically
           // (re-validated server-side). The app never auto-picks.
           onPreviewSelectedInvalidRef={onPreviewSelectedFix}
+          // AI-REPAIR-4A — a dangling/broken edge gets a "Preview fix" that runs the
+          // deterministic removeEdge cleanup preview (no LLM/credits/telemetry).
+          onPreviewDanglingEdge={onPreviewDanglingEdgeFix}
           previewing={previewing}
           alreadyPreviewedInvalidRef={previewedProposalIds.has(message.id)}
         />

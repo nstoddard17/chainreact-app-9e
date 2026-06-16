@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, SelectedRepair } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
-import { attentionFindingCards, invalidReferenceCards } from "../ai/attentionFindings";
-import { InvalidReferenceCardView } from "./_BuilderAiPanelInvalidRefCard";
+import { attentionFindingCards, danglingEdgeCards, invalidReferenceCards } from "../ai/attentionFindings";
+import { DanglingEdgeCardView, InvalidReferenceCardView } from "./_BuilderAiPanelInvalidRefCard";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -344,6 +344,7 @@ export function DiagnosisAttentionActions({
   diagnosis,
   onPreviewInvalidRef,
   onPreviewSelectedInvalidRef,
+  onPreviewDanglingEdge,
   previewing = false,
   alreadyPreviewedInvalidRef = false,
 }: {
@@ -364,6 +365,12 @@ export function DiagnosisAttentionActions({
    * telemetry). The app never auto-picks. Absent â†’ no picker is offered.
    */
   readonly onPreviewSelectedInvalidRef?: (selection: SelectedRepair) => void;
+  /**
+   * AI-REPAIR-4A — explicit-click handler for the dangling/broken-edge "Preview fix".
+   * Runs the deterministic `removeEdge` cleanup preview (no LLM / no credits / no
+   * telemetry). Absent → no Preview-fix button on the dangling-edge card.
+   */
+  readonly onPreviewDanglingEdge?: () => void;
   /** A preview round-trip is in flight (disables the Preview-fix button). */
   readonly previewing?: boolean;
   /** This diagnosis already triggered a preview (disables + relabels â€” no repeat). */
@@ -373,7 +380,9 @@ export function DiagnosisAttentionActions({
   // AI-REPAIR-3I â€” actionable broken-variable-reference cards (each with an
   // "Open <field> field" button) render in the SAME "Needs attention" group.
   const refCards = invalidReferenceCards(diagnosis);
-  if (cards.length === 0 && refCards.length === 0) return null;
+  // AI-REPAIR-4A — actionable dangling/broken-edge cards (each with a "Preview fix").
+  const edgeCards = danglingEdgeCards(diagnosis);
+  if (cards.length === 0 && refCards.length === 0 && edgeCards.length === 0) return null;
   return (
     <div data-testid="builder-ai-diagnosis-attention" className="flex flex-col gap-1 pt-1">
       <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
@@ -405,6 +414,14 @@ export function DiagnosisAttentionActions({
           {...(onPreviewSelectedInvalidRef ? { onPreviewSelected: onPreviewSelectedInvalidRef } : {})}
           previewing={previewing}
           alreadyPreviewed={alreadyPreviewedInvalidRef}
+        />
+      ))}
+      {edgeCards.map((card) => (
+        <DanglingEdgeCardView
+          key={card.key}
+          card={card}
+          {...(onPreviewDanglingEdge ? { onPreviewFix: onPreviewDanglingEdge } : {})}
+          previewing={previewing}
         />
       ))}
     </div>

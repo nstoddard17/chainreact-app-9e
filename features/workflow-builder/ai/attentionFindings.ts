@@ -57,7 +57,13 @@ export function attentionFindingCards(
   for (const finding of diagnosis?.findings ?? []) {
     const severity: "error" | "warning" =
       finding.severity === "warning" ? "warning" : "error";
-    if (finding.source === "graph" && finding.code !== "INVALID_VARIABLE_REFERENCE") {
+    if (
+      finding.source === "graph" &&
+      finding.code !== "INVALID_VARIABLE_REFERENCE" &&
+      // AI-REPAIR-4A — STALE_EDGE is actionable (deterministic removeEdge repair); it
+      // renders via `danglingEdgeCards`, not as a generic no-button structure card.
+      finding.code !== "STALE_EDGE"
+    ) {
       out.push({ key: `graph:${finding.code}:${i}`, severity, message: graphGuidance(finding.code) });
     } else if (finding.source === "run") {
       out.push({
@@ -134,6 +140,43 @@ function invalidReferenceMessage(
  * per broken ref). Empty when there are none. Skips any ref missing its safe display
  * label or navigation key (e.g. a rehydrated historical diagnosis that predates 3I).
  */
+/**
+ * AI-REPAIR-4A — an actionable "Needs attention" card for dangling/broken edges (a
+ * connection whose source or target step no longer exists). The safe deterministic
+ * repair is to remove the edge(s) (`removeEdge`); the card offers a "Preview fix"
+ * (Apply lives only on the resulting preview). Labels only — `fromLabel`/`toLabel` are
+ * the server-built safe display strings (a missing endpoint reads "a step that no
+ * longer exists"); raw edge / node ids are never present here.
+ */
+export interface DanglingEdgeCard {
+  readonly key: string;
+  readonly severity: "error" | "warning";
+  readonly message: string;
+  /** Safe per-connection descriptors for the card body. */
+  readonly connections: readonly { readonly fromLabel: string; readonly toLabel: string }[];
+}
+
+/** One actionable dangling-edge card per STALE_EDGE finding. Empty when there are none. */
+export function danglingEdgeCards(
+  diagnosis: AgentWorkflowDiagnosis | null | undefined,
+): DanglingEdgeCard[] {
+  const out: DanglingEdgeCard[] = [];
+  let i = 0;
+  for (const finding of diagnosis?.findings ?? []) {
+    if (finding.code !== "STALE_EDGE") continue;
+    const edges = finding.danglingEdges ?? [];
+    if (edges.length === 0) continue;
+    out.push({
+      key: `stale-edge:${i}`,
+      severity: finding.severity === "warning" ? "warning" : "error",
+      message: "This workflow has a connection to a step that no longer exists.",
+      connections: edges.map((e) => ({ fromLabel: e.fromLabel, toLabel: e.toLabel })),
+    });
+    i += 1;
+  }
+  return out;
+}
+
 export function invalidReferenceCards(
   diagnosis: AgentWorkflowDiagnosis | null | undefined,
 ): InvalidReferenceCard[] {

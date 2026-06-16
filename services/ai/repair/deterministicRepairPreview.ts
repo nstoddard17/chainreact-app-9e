@@ -7,7 +7,7 @@ import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
 import { previewWorkflowPatchForAI } from "@/services/ai/preview";
 import type { PatchPreviewResult } from "@/services/ai/preview/types";
 import type { PatchOperation, WorkflowPatch } from "@/services/workflows/patch/types";
-import { buildVariableRepairOutcome } from "./repairStrategies";
+import { buildVariableRepairOutcome, buildEdgeRepairOutcome } from "./repairStrategies";
 
 /**
  * Deterministic, MODEL-FREE repair preview (Slice 4.AI-REPAIR-3G/3H/3L).
@@ -49,20 +49,23 @@ function firstInvalidVariableRefNodeId(dto: AgentWorkflowDiagnosisDTO): string |
  * there exactly as for any other op. Returns the applyable `PatchPreviewResult`
  * (`preview.ok === true`) or null (blocked / failed → caller's fallback).
  */
-async function previewRepairOp(args: {
+async function previewRepairOps(args: {
   userId: string;
   workflowId: string;
   graph: WorkflowGraphView;
-  op: PatchOperation;
+  operations: readonly PatchOperation[];
+  summary: string;
   rationale: string;
+  patchIdPrefix: string;
   draftDefinition?: WorkflowDefinition;
 }): Promise<PatchPreviewResult | null> {
+  if (args.operations.length === 0) return null;
   const patch: WorkflowPatch = {
-    patchId: `repair-preview-var:${args.workflowId}`,
+    patchId: `${args.patchIdPrefix}:${args.workflowId}`,
     workflowId: args.workflowId,
     baseRevision: args.graph.updatedAt,
-    operations: [args.op],
-    summary: "Re-point the broken variable reference",
+    operations: [...args.operations],
+    summary: args.summary,
     rationale: args.rationale,
   };
 
@@ -98,12 +101,14 @@ async function previewDeterministicVariableRepair(args: {
 }): Promise<PatchPreviewResult | null> {
   const outcome = await buildVariableRepairOutcome(args.userId, args.workflowId, args.graph, args.targetNodeId);
   if (outcome.repairability !== "repairable" || outcome.operations.length === 0) return null;
-  return previewRepairOp({
+  return previewRepairOps({
     userId: args.userId,
     workflowId: args.workflowId,
     graph: args.graph,
-    op: outcome.operations[0] as PatchOperation,
+    operations: [outcome.operations[0] as PatchOperation],
+    summary: "Re-point the broken variable reference",
     rationale: outcome.recommendations[0] ?? "Deterministic variable-reference repair.",
+    patchIdPrefix: "repair-preview-var",
     ...(args.draftDefinition ? { draftDefinition: args.draftDefinition } : {}),
   });
 }
@@ -221,12 +226,69 @@ export async function runSelectedVariableRepairPreview(
   );
   if (!isAllowedCandidate) return null;
 
-  const preview = await previewRepairOp({
+  const preview = await previewRepairOps({
     userId,
     workflowId,
     graph,
-    op: { op: "repairVariableReference", nodeId: selection.nodeId, fieldPath: b.fieldKey, newReference: selection.newReference },
+    operations: [{ op: "repairVariableReference", nodeId: selection.nodeId, fieldPath: b.fieldKey, newReference: selection.newReference }],
+    summary: "Re-point the broken variable reference",
     rationale: "Deterministic variable-reference repair (user-selected replacement).",
+    patchIdPrefix: "repair-preview-var",
+    ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),
+  });
+  return preview ? { ok: true, preview } : null;
+}
+
+// ─── AI-REPAIR-4A — deterministic dangling/broken-edge cleanup ────────────────
+
+/** True when the diagnosis carries at least one dangling/stale-edge finding. */
+function hasDanglingEdgeFinding(dto: AgentWorkflowDiagnosisDTO): boolean {
+  return (dto.findings ?? []).some(
+    (f) => f.code === "STALE_EDGE" && f.danglingEdges && f.danglingEdges.length > 0,
+  );
+}
+
+export interface DanglingEdgeRepairPreviewInput {
+  readonly dto: AgentWorkflowDiagnosisDTO;
+  readonly userId: string;
+  readonly workflowId: string;
+  readonly draftDefinition?: WorkflowDefinition;
+}
+
+/**
+ * Route-callable, MODEL-FREE deterministic preview for dangling/broken-edge cleanup
+ * (AI-REPAIR-4A). A dangling edge is one whose `from` or `to` node id no longer exists
+ * in the workflow. The repair is the narrow, safe `removeEdge` op (no node deletion, no
+ * new endpoints, no branch-label/trigger changes) sourced from the EXISTING
+ * `buildEdgeRepairOutcome`, then run through the SAME validate + apply-safety engine.
+ *
+ * Because the patch validator rejects a candidate that STILL contains a dangling edge,
+ * this removes ALL dangling edges in one preview — so the candidate validates clean
+ * (the "remove only the broken edge(s); everything else preserved" contract). If
+ * removing them leaves an otherwise-invalid structure, validation blocks → null
+ * (fail-closed). NEVER calls the model, the gate, or telemetry. Short-circuits with no
+ * graph read when the diagnosis has no dangling-edge finding.
+ */
+export async function runDanglingEdgeRepairPreview(
+  input: DanglingEdgeRepairPreviewInput,
+): Promise<{ ok: true; preview: PatchPreviewResult } | null> {
+  if (!hasDanglingEdgeFinding(input.dto)) return null;
+
+  const graphRes = await getWorkflowGraphForAI(input.userId, input.workflowId);
+  if (!graphRes.ok) return null;
+  const graph = graphRes.data;
+
+  const outcome = buildEdgeRepairOutcome(graph);
+  if (!outcome || outcome.repairability !== "repairable" || outcome.operations.length === 0) return null;
+
+  const preview = await previewRepairOps({
+    userId: input.userId,
+    workflowId: input.workflowId,
+    graph,
+    operations: outcome.operations as PatchOperation[],
+    summary: "Remove broken connection to a missing step",
+    rationale: outcome.recommendations[0] ?? "Deterministic dangling-edge cleanup.",
+    patchIdPrefix: "repair-preview-edge",
     ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),
   });
   return preview ? { ok: true, preview } : null;

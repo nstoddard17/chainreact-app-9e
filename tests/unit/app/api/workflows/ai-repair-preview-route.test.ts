@@ -36,10 +36,12 @@ jest.mock("@/services/ai/repair/previewWorkflowRepair", () => ({
 const mockRunDeterministic = jest.fn();
 const mockRunSelected = jest.fn();
 const mockParseSelected = jest.fn();
+const mockRunDanglingEdge = jest.fn();
 jest.mock("@/services/ai/repair/deterministicRepairPreview", () => ({
   runDeterministicRepairPreview: (...a: unknown[]) => mockRunDeterministic(...a),
   runSelectedVariableRepairPreview: (...a: unknown[]) => mockRunSelected(...a),
   parseSelectedRepairSelection: (...a: unknown[]) => mockParseSelected(...a),
+  runDanglingEdgeRepairPreview: (...a: unknown[]) => mockRunDanglingEdge(...a),
 }));
 
 const mockGate = jest.fn();
@@ -132,6 +134,8 @@ beforeEach(() => {
   mockRunSelected.mockResolvedValue(null);
   mockParseSelected.mockReset();
   mockParseSelected.mockReturnValue(undefined); // default: no selectedRepair in the body → normal flow
+  mockRunDanglingEdge.mockReset();
+  mockRunDanglingEdge.mockResolvedValue(null);
   mockGate.mockReset();
   mockGate.mockResolvedValue({ ok: true, skipped: true, reason: "enforcement_disabled" });
   mockRecCompleted.mockReset();
@@ -587,5 +591,61 @@ describe("ai/repair/preview — explicit user-selected replacement is FREE + nev
     expect(res.status).toBe(200);
     expect(mockRunSelected).not.toHaveBeenCalled();
     expect(mockPreviewRepair).toHaveBeenCalledTimes(1); // fell through to the model path as before
+  });
+});
+
+describe("ai/repair/preview — dangling-edge cleanup is FREE + never reaches the model (AI-REPAIR-4A)", () => {
+  const edgeResult = {
+    ok: true,
+    preview: {
+      ok: true,
+      patchSummary: "Remove broken connection to a missing step",
+      changes: [{ op: "removeEdge", description: 'Removes "Send Email" → "a node that\'s no longer in this workflow".', edgeId: "e-dangling" }],
+      affectedNodeIds: [],
+      affectedEdgeIds: ["e-dangling"],
+      riskLevel: "low",
+      requiresConfirmation: false,
+      riskReasons: [],
+      validation: { ok: true, errors: [], warnings: [] },
+      userFacingSummaryText: "Remove broken connection to a missing step — 1 change(s). Risk: low.",
+      canApplyLater: true,
+      apply: { applyable: true, operations: [{ op: "removeEdge", edgeId: "e-dangling" }], baseRevision: "rev-1" },
+    },
+  };
+
+  it("repairDanglingEdges + service returns a preview → 200; NO gate/model/telemetry, NO variable-ref path", async () => {
+    mockRunDanglingEdge.mockResolvedValueOnce(edgeResult);
+    const res = await callBody("wf-1", { repairDanglingEdges: true });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.preview).toEqual(edgeResult.preview);
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRecCompleted).not.toHaveBeenCalled();
+    expect(mockRecFailed).not.toHaveBeenCalled();
+    expect(mockRunDeterministic).not.toHaveBeenCalled();
+    expect(mockRunDanglingEdge).toHaveBeenCalledWith(
+      expect.objectContaining({ dto: okDto, userId: "user-1", workflowId: "wf-1" }),
+    );
+  });
+
+  it("repairDanglingEdges but the service rejects it → 200 NO_SAFE_PATCH; NEVER the gate/model path", async () => {
+    mockRunDanglingEdge.mockResolvedValueOnce(null);
+    const res = await callBody("wf-1", { repairDanglingEdges: true });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("NO_SAFE_PATCH");
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRunDeterministic).not.toHaveBeenCalled();
+  });
+
+  it("no repairDanglingEdges flag → the dangling-edge path is never invoked", async () => {
+    mockRunDeterministic.mockResolvedValueOnce(null);
+    await call("wf-1");
+    expect(mockRunDanglingEdge).not.toHaveBeenCalled();
   });
 });

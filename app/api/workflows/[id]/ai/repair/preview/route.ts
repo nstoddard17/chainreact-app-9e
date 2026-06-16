@@ -9,6 +9,7 @@ import {
 } from "@/services/ai/repair/previewWorkflowRepair";
 import {
   parseSelectedRepairSelection,
+  runDanglingEdgeRepairPreview,
   runDeterministicRepairPreview,
   runSelectedVariableRepairPreview,
 } from "@/services/ai/repair/deterministicRepairPreview";
@@ -242,6 +243,32 @@ export async function POST(
       code: "NO_SAFE_PATCH",
       message:
         "That replacement can't be applied automatically. Run Check workflow again, or open the field and fix it manually.",
+    });
+  }
+
+  // AI-REPAIR-4A — explicit dangling/broken-edge cleanup. When the body sets
+  // `repairDanglingEdges`, run ONLY the deterministic `removeEdge` preview (no node
+  // deletion, no new endpoints) and NEVER fall through to the model path. Free: no
+  // OpenAI-config requirement, no credit gate, no telemetry — same ordering as 3H.
+  if ((body as { repairDanglingEdges?: unknown })?.repairDanglingEdges === true) {
+    const edgePreview = await runDanglingEdgeRepairPreview({
+      dto,
+      userId: auth.userId,
+      workflowId: id,
+      ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+    });
+    if (edgePreview) {
+      return NextResponse.json({
+        ok: true,
+        preview: edgePreview.preview,
+        notAppliedNotice: REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
+      });
+    }
+    return NextResponse.json({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message:
+        "That broken connection can't be removed automatically. Run Check workflow again, or fix the connection manually.",
     });
   }
 
