@@ -5,6 +5,20 @@
 ChainReactV2 is the primary ChainReact app/codebase — build all new work here.
 V1 (`chainreact-app-9e`) is archived reference only.
 
+### Active-repo guardrail (read before running anything)
+
+- **ChainReactV2 is the ONLY active repo.** All editing, running, testing,
+  committing, migrations, and verification happen here:
+  `c:\Users\marcu\source\repos\ChainReactV2`.
+- **V1 (`chainreact-app-9e`) is archived / reference-only.** You may *read* it to
+  consult proven provider behavior (see Project Purpose), but do **NOT** edit, run
+  tasks/tests/scripts, commit, stash, `db:push`, or deploy in V1 — unless Marcus
+  **explicitly** asks for V1 work.
+- **Verify the repo before shell commands.** A shell can start in the V1 repo by
+  accident (the V1 path is the machine's default working directory). Before any
+  `git` / `npm` / `db` command, confirm the working tree is ChainReactV2 — e.g.
+  `git rev-parse --show-toplevel` should end in `ChainReactV2`.
+
 **V2 is live in production** at `https://chainreact.app`, deploying from the
 `v2-main` branch. Authoritative status, including current verification state:
 [`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md).
