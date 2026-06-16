@@ -101,6 +101,43 @@ describe("registerWorkflowTriggers", () => {
     });
   });
 
+  it("registers from a SUPPLIED definition param, not workflow.draftDefinition (V2-READY-41C)", async () => {
+    mockUpsert.mockResolvedValue({ id: "tr-1" });
+    // Draft has one trigger; the supplied (published) definition has a different
+    // one. Registration must use the supplied definition.
+    const wf = makeWorkflow([
+      {
+        id: "draft-node",
+        kind: "trigger",
+        provider: "slack",
+        type: "message_received",
+        config: { channelId: "C-DRAFT" },
+        position: { x: 0, y: 0 },
+      },
+    ]);
+    const publishedDefinition = {
+      nodes: [
+        {
+          id: "rev-node",
+          kind: "trigger" as const,
+          provider: "slack",
+          type: "message_received",
+          config: { channelId: "C-REV" },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    };
+
+    await registerWorkflowTriggers(wf, publishedDefinition);
+
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockUpsert.mock.calls[0]![0]).toMatchObject({
+      nodeId: "rev-node",
+      config: { channelId: "C-REV" },
+    });
+  });
+
   it("ignores action nodes — only trigger nodes register", async () => {
     await registerWorkflowTriggers(
       makeWorkflow([

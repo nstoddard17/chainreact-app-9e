@@ -176,33 +176,38 @@ describe("LifecycleOrchestrator.activate", () => {
   });
 });
 
-describe("LifecycleOrchestrator — active revision snapshot (V2-READY-41B)", () => {
-  it("activate snapshots the revision AFTER persisting (register -> apply -> snapshot)", async () => {
+describe("LifecycleOrchestrator — active revision wiring (V2-READY-41C)", () => {
+  it("activate registers + snapshots from the published def, then persists with active_revision_id (order: register -> snapshot -> apply)", async () => {
     const wf = makeWorkflow("draft");
-    const next = makeWorkflow("active");
+    const next = makeWorkflow("active", { activeRevisionId: "rev-1" });
     const order: string[] = [];
     mockGetById.mockResolvedValueOnce(wf);
     mockApplyTransition.mockImplementationOnce(async () => {
       order.push("apply");
       return next;
     });
+    const registerTrigger = jest.fn(async () => {
+      order.push("register");
+    });
     const snapshotRevision = jest.fn(async () => {
       order.push("snapshot");
+      return "rev-1";
     });
-    const orch = new LifecycleOrchestrator({
-      registerTrigger: async () => {
-        order.push("register");
-      },
-      snapshotRevision,
-    });
+    const orch = new LifecycleOrchestrator({ registerTrigger, snapshotRevision });
 
     await orch.activate("wf-1");
 
-    expect(order).toEqual(["register", "apply", "snapshot"]);
-    expect(snapshotRevision).toHaveBeenCalledWith(next);
+    expect(order).toEqual(["register", "snapshot", "apply"]);
+    // Both register + snapshot get the SAME published definition (the draft).
+    expect(registerTrigger).toHaveBeenCalledWith(wf, wf.draftDefinition);
+    expect(snapshotRevision).toHaveBeenCalledWith(wf, wf.draftDefinition);
+    // The pointer is set atomically in the state transition.
+    expect(mockApplyTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ toState: "active", activeRevisionId: "rev-1" }),
+    );
   });
 
-  it("does NOT snapshot when registration fails (no bogus revision on failed activation)", async () => {
+  it("does NOT create a revision when registration fails (no orphan on failed activation)", async () => {
     mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
     const snapshotRevision = jest.fn();
     const orch = new LifecycleOrchestrator({
@@ -216,25 +221,10 @@ describe("LifecycleOrchestrator — active revision snapshot (V2-READY-41B)", ()
       code: "TRIGGER_REGISTRATION_FAILED",
     });
     expect(snapshotRevision).not.toHaveBeenCalled();
+    expect(mockApplyTransition).not.toHaveBeenCalled();
   });
 
-  it("does NOT snapshot when the persist conflicts (LIFECYCLE_CONFLICT)", async () => {
-    mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
-    mockApplyTransition.mockResolvedValueOnce(null);
-    const snapshotRevision = jest.fn();
-    const orch = new LifecycleOrchestrator({
-      registerTrigger: async () => {},
-      unregisterTrigger: async () => {},
-      snapshotRevision,
-    });
-
-    await expect(orch.activate("wf-1")).rejects.toMatchObject({
-      code: "LIFECYCLE_CONFLICT",
-    });
-    expect(snapshotRevision).not.toHaveBeenCalled();
-  });
-
-  it("swallows a snapshot failure — activation still succeeds (safe draft fallback)", async () => {
+  it("swallows a snapshot failure — activation succeeds and persists WITHOUT a revision pointer (safe draft fallback)", async () => {
     const next = makeWorkflow("active");
     mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
     mockApplyTransition.mockResolvedValueOnce(next);
@@ -249,19 +239,37 @@ describe("LifecycleOrchestrator — active revision snapshot (V2-READY-41B)", ()
     const result = await orch.activate("wf-1");
 
     expect(result).toBe(next);
+    // Persisted with no active_revision_id — getActiveDefinition falls back to draft.
+    expect(mockApplyTransition.mock.calls[0]![0].activeRevisionId).toBeUndefined();
     const logged = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(logged).toContain("workflow.active_revision.snapshot_failed");
     warnSpy.mockRestore();
   });
 
-  it("resume from eligible_to_resume snapshots a fresh revision", async () => {
+  it("rolls back registration when the persist conflicts (LIFECYCLE_CONFLICT)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("draft"));
+    mockApplyTransition.mockResolvedValueOnce(null);
+    const unregisterTrigger = jest.fn(async () => {});
+    const orch = new LifecycleOrchestrator({
+      registerTrigger: async () => {},
+      unregisterTrigger,
+      snapshotRevision: async () => "rev-1",
+    });
+
+    await expect(orch.activate("wf-1")).rejects.toMatchObject({
+      code: "LIFECYCLE_CONFLICT",
+    });
+    expect(unregisterTrigger).toHaveBeenCalled();
+  });
+
+  it("resume from eligible_to_resume snapshots and persists with active_revision_id", async () => {
     const wf = makeWorkflow("eligible_to_resume", {
       disabledReason: "integration_revoked",
     });
-    const next = makeWorkflow("active");
+    const next = makeWorkflow("active", { activeRevisionId: "rev-9" });
     mockGetById.mockResolvedValueOnce(wf);
     mockApplyTransition.mockResolvedValueOnce(next);
-    const snapshotRevision = jest.fn(async () => {});
+    const snapshotRevision = jest.fn(async () => "rev-9");
     const orch = new LifecycleOrchestrator({
       registerTrigger: async () => {},
       snapshotRevision,
@@ -269,10 +277,13 @@ describe("LifecycleOrchestrator — active revision snapshot (V2-READY-41B)", ()
 
     await orch.resume("wf-1");
 
-    expect(snapshotRevision).toHaveBeenCalledWith(next);
+    expect(snapshotRevision).toHaveBeenCalledWith(wf, wf.draftDefinition);
+    expect(mockApplyTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ toState: "active", activeRevisionId: "rev-9" }),
+    );
   });
 
-  it("resume from paused does NOT snapshot (registration + revision retained)", async () => {
+  it("resume from paused does NOT snapshot and persists without active_revision_id", async () => {
     mockGetById.mockResolvedValueOnce(makeWorkflow("paused"));
     mockApplyTransition.mockResolvedValueOnce(makeWorkflow("active"));
     const snapshotRevision = jest.fn();
@@ -284,6 +295,7 @@ describe("LifecycleOrchestrator — active revision snapshot (V2-READY-41B)", ()
     await orch.resume("wf-1");
 
     expect(snapshotRevision).not.toHaveBeenCalled();
+    expect(mockApplyTransition.mock.calls[0]![0].activeRevisionId).toBeUndefined();
   });
 });
 

@@ -100,28 +100,28 @@ export async function getDefinitionForExecution(
 }
 
 /**
- * Snapshot the workflow's CURRENT draft into a new immutable revision and point
- * `active_revision_id` at it. Called at activation time (and resume from
- * `eligible_to_resume`) by the lifecycle orchestrator.
+ * Create an immutable revision row from a supplied definition and return its id.
+ * Called at activation / resume-from-eligible by the lifecycle orchestrator,
+ * which passes the SAME definition it registered triggers from (V2-READY-41C) so
+ * the revision and the registered trigger_resources are provably consistent.
  *
- * Ordering note (the orchestrator owns this): this runs only AFTER the state
- * transition to `active` has persisted, and is best-effort there — so a FAILED
- * activation (precondition / trigger-registration / persist failure) never
- * reaches this and therefore never creates a revision ("no bogus revision on
- * failed activation"). If this itself fails, the workflow stays active with
- * `active_revision_id = null`, which `getActiveDefinition` handles as the safe
- * draft fallback.
+ * Does NOT set `active_revision_id` — the orchestrator does that atomically with
+ * the state transition (`applyTransition({ activeRevisionId })`) so the workflow
+ * never sits `active` without its revision pointer. Ordering / best-effort
+ * semantics are the orchestrator's responsibility: it calls this only AFTER
+ * trigger registration succeeds, and treats a throw here as "leave
+ * active_revision_id null" (safe draft fallback) rather than failing activation.
  *
- * Uses the RLS auth client (createRevision / setActiveRevision) — activation
- * runs inside the authenticated API request, so account-membership RLS gates
- * the writes correctly.
+ * Uses the RLS auth client (createRevision) — activation runs inside the
+ * authenticated API request, so account-membership RLS gates the INSERT.
  */
-export async function snapshotActiveRevision(
+export async function createRevisionSnapshot(
   workflow: WorkflowRecord,
-): Promise<WorkflowRecord> {
+  definition: WorkflowDefinition,
+): Promise<string> {
   const revision = await workflowsRepo.createRevision({
     workflowId: workflow.id,
-    definition: workflow.draftDefinition,
+    definition,
   });
-  return workflowsRepo.setActiveRevision(workflow.id, revision.id);
+  return revision.id;
 }

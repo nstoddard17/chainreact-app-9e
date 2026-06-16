@@ -91,12 +91,13 @@ describe("createLifecycleOrchestrator wiring", () => {
     await orch.activate("wf-1");
 
     expect(mockCheckPreconditions).toHaveBeenCalledWith(baseWorkflow, "activate");
-    expect(mockRegister).toHaveBeenCalledWith(baseWorkflow);
+    // V2-READY-41C — register receives the published definition (the draft).
+    expect(mockRegister).toHaveBeenCalledWith(baseWorkflow, baseWorkflow.draftDefinition);
     expect(mockApplyTransition).toHaveBeenCalled();
   });
 
-  it("activate snapshots the draft into an active revision and repoints it (V2-READY-41B wiring)", async () => {
-    const next = { ...baseWorkflow, state: "active" as const };
+  it("activate creates a revision from the published def and sets active_revision_id via the persist (V2-READY-41C wiring)", async () => {
+    const next = { ...baseWorkflow, state: "active" as const, active_revision_id: "rev-1" };
     mockGetById.mockResolvedValueOnce(baseWorkflow);
     mockCheckPreconditions.mockResolvedValueOnce({ ok: true });
     mockRegister.mockResolvedValueOnce(undefined);
@@ -105,11 +106,16 @@ describe("createLifecycleOrchestrator wiring", () => {
     const orch = createLifecycleOrchestrator();
     await orch.activate("wf-1");
 
+    // Revision created from the SAME published definition register saw.
     expect(mockCreateRevision).toHaveBeenCalledWith({
       workflowId: "wf-1",
-      definition: next.draftDefinition,
+      definition: baseWorkflow.draftDefinition,
     });
-    expect(mockSetActiveRevision).toHaveBeenCalledWith("wf-1", "rev-1");
+    // 41C: pointer is set atomically in the transition, NOT via setActiveRevision.
+    expect(mockSetActiveRevision).not.toHaveBeenCalled();
+    expect(mockApplyTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ toState: "active", activeRevisionId: "rev-1" }),
+    );
   });
 
   it("activate aborts when preconditions return ok:false (orchestrator wraps with MISSING_PRECONDITIONS)", async () => {

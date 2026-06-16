@@ -7,7 +7,7 @@ import {
   registerWorkflowTriggers,
   unregisterWorkflowTriggers,
 } from "@/services/triggers/lifecycle";
-import { snapshotActiveRevision } from "@/services/workflows/activeRevision";
+import { createRevisionSnapshot } from "@/services/workflows/activeRevision";
 
 /**
  * Single construction point for the LifecycleOrchestrator with the real
@@ -29,13 +29,11 @@ export function createLifecycleOrchestrator(): LifecycleOrchestrator {
     checkPreconditions: checkActivationPreconditions,
     registerTrigger: registerWorkflowTriggers,
     unregisterTrigger: unregisterWorkflowTriggers,
-    // V2-READY-41B — snapshot draft → immutable active revision on successful
-    // activate / resume-from-eligible. Wrapped to a void-returning hook
-    // (snapshotActiveRevision returns the updated record, which the orchestrator
-    // does not need).
-    snapshotRevision: async (workflow) => {
-      await snapshotActiveRevision(workflow);
-    },
+    // V2-READY-41C — create the immutable revision from the SAME published
+    // definition the triggers registered from, returning its id so the
+    // orchestrator sets active_revision_id atomically with the state transition.
+    snapshotRevision: (workflow, definition) =>
+      createRevisionSnapshot(workflow, definition),
   };
   return new LifecycleOrchestrator(hooks);
 }

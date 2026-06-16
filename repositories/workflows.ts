@@ -425,6 +425,13 @@ export interface ApplyTransitionInput {
   deleteOperationId?: string | null;
   /** Relocation on restore. `undefined` = leave untouched; `null` = uncategorize. */
   folderId?: string | null;
+  /**
+   * V2-READY-41C — set `active_revision_id` atomically with the state transition
+   * so an activating workflow flips to `active` AND points at its immutable
+   * revision in one UPDATE (never active-without-its-revision). `undefined` =
+   * leave untouched; `null` = clear.
+   */
+  activeRevisionId?: string | null;
 }
 
 /**
@@ -532,6 +539,7 @@ export async function applyTransition(
   if (input.deletedFromFolderId !== undefined) update.deleted_from_folder_id = input.deletedFromFolderId;
   if (input.deleteOperationId !== undefined) update.delete_operation_id = input.deleteOperationId;
   if (input.folderId !== undefined) update.folder_id = input.folderId;
+  if (input.activeRevisionId !== undefined) update.active_revision_id = input.activeRevisionId;
   const { data, error } = await supabase
     .from("workflows")
     .update(update)

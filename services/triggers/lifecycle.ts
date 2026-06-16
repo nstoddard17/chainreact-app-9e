@@ -1,7 +1,7 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import type { WorkflowRecord } from "@/repositories/workflows";
-import type { WorkflowNode } from "@/contracts/workflow";
+import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflow";
 import { getTriggerMeta } from "@/services/discovery/_registry";
 import {
   findActivation,
@@ -65,8 +65,15 @@ function isActivatableTrigger(node: WorkflowNode): boolean {
 
 export async function registerWorkflowTriggers(
   workflow: WorkflowRecord,
+  definition?: WorkflowDefinition,
 ): Promise<void> {
-  const triggers = workflow.draftDefinition.nodes.filter(
+  // V2-READY-41C — register from the published-revision definition when the
+  // caller supplies one (activation snapshots the draft, then registers from the
+  // SAME snapshot so trigger_resources represent the revision, not a draft that
+  // may drift afterwards). Falls back to the draft for legacy/direct callers —
+  // backward compatible.
+  const source = definition ?? workflow.draftDefinition;
+  const triggers = source.nodes.filter(
     (n) => n.kind === "trigger" && isActivatableTrigger(n),
   );
   if (triggers.length === 0) return; // manual-only / action-only workflow

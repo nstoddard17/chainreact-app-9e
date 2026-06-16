@@ -25,9 +25,9 @@ jest.mock("@/repositories/workflows", () => ({
 }));
 
 import {
+  createRevisionSnapshot,
   getActiveDefinition,
   getDefinitionForExecution,
-  snapshotActiveRevision,
 } from "@/services/workflows/activeRevision";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowDefinition } from "@/contracts/workflow";
@@ -195,32 +195,33 @@ describe("getDefinitionForExecution (flag gate)", () => {
   });
 });
 
-describe("snapshotActiveRevision", () => {
-  it("creates a revision from the current draft, then repoints active_revision_id", async () => {
+describe("createRevisionSnapshot", () => {
+  it("creates a revision from the SUPPLIED definition and returns its id (does NOT set the pointer)", async () => {
     const wf = makeWorkflow({ draftDefinition: draftDef });
     mockCreateRevision.mockResolvedValueOnce({
       id: "rev-new",
       workflowId: "wf-1",
-      definition: draftDef,
+      definition: revisionDef,
       createdAt: "2026-06-15T00:00:00Z",
     });
-    const updated = makeWorkflow({ activeRevisionId: "rev-new" });
-    mockSetActiveRevision.mockResolvedValueOnce(updated);
 
-    const result = await snapshotActiveRevision(wf);
+    // Pass a definition distinct from the draft to prove it uses the SUPPLIED one.
+    const id = await createRevisionSnapshot(wf, revisionDef);
 
     expect(mockCreateRevision).toHaveBeenCalledWith({
       workflowId: "wf-1",
-      definition: draftDef,
+      definition: revisionDef,
     });
-    expect(mockSetActiveRevision).toHaveBeenCalledWith("wf-1", "rev-new");
-    expect(result).toBe(updated);
+    // 41C: the orchestrator sets active_revision_id atomically via applyTransition,
+    // so this helper must NOT call setActiveRevision.
+    expect(mockSetActiveRevision).not.toHaveBeenCalled();
+    expect(id).toBe("rev-new");
   });
 
-  it("does NOT repoint the pointer when revision creation fails (no dangling active_revision_id)", async () => {
+  it("propagates a revision-creation error (the orchestrator treats it best-effort)", async () => {
     const wf = makeWorkflow();
     mockCreateRevision.mockRejectedValueOnce(new Error("insert denied"));
-    await expect(snapshotActiveRevision(wf)).rejects.toThrow(/insert denied/);
+    await expect(createRevisionSnapshot(wf, draftDef)).rejects.toThrow(/insert denied/);
     expect(mockSetActiveRevision).not.toHaveBeenCalled();
   });
 });

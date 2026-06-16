@@ -3,7 +3,7 @@ import {
   LifecycleError,
   assertAllowedTransition,
 } from "@/core/workflows/lifecycle";
-import type { WorkflowDisabledReason } from "@/contracts/workflow";
+import type { WorkflowDefinition, WorkflowDisabledReason } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import { assertAccountOperational } from "@/services/accounts/accountFreeze";
@@ -44,8 +44,16 @@ export interface LifecycleSideEffects {
   /**
    * Wired in Slice 1J. Activation and resume-from-eligible_to_resume call
    * this BEFORE persisting state; a thrown error aborts the transition.
+   * V2-READY-41C — receives the published definition the workflow is activating
+   * with (the same one snapshotted into the revision), so registration and the
+   * revision are derived from one consistent source rather than a draft that may
+   * drift later. Implementations fall back to `workflow.draftDefinition` when
+   * `definition` is omitted.
    */
-  registerTrigger?(workflow: WorkflowRecord): Promise<void>;
+  registerTrigger?(
+    workflow: WorkflowRecord,
+    definition?: WorkflowDefinition,
+  ): Promise<void>;
   /**
    * Wired in Slice 1J. disable / delete call this AFTER persisting state;
    * thrown errors are swallowed (best-effort — webhook dispatcher guards).
@@ -53,15 +61,20 @@ export interface LifecycleSideEffects {
    */
   unregisterTrigger?(workflow: WorkflowRecord): Promise<void>;
   /**
-   * Wired in V2-READY-41B. Called AFTER a successful activate / resume-from-
-   * eligible_to_resume persist to snapshot the current draft into an immutable
-   * active revision and repoint `active_revision_id`. Best-effort — thrown
-   * errors are swallowed (the workflow stays active with
-   * `active_revision_id = null`, which the execution reader treats as the safe
-   * draft fallback). Deliberately NOT called on failed activations, so a failed
-   * activation never creates a revision.
+   * Wired in V2-READY-41B, reworked in 41C. Creates an immutable revision from
+   * the supplied (published) definition and returns its id. Called AFTER trigger
+   * registration succeeds but BEFORE the state persist, so the orchestrator can
+   * set `active_revision_id` atomically with the transition. Does NOT set the
+   * pointer itself. Best-effort at the call site: a throw is swallowed and the
+   * workflow persists with `active_revision_id = null` (safe draft fallback) —
+   * activation does not fail because the snapshot DB write hiccuped. Never
+   * reached on a failed activation (registration failure aborts first), so a
+   * failed activation never creates a revision.
    */
-  snapshotRevision?(workflow: WorkflowRecord): Promise<void>;
+  snapshotRevision?(
+    workflow: WorkflowRecord,
+    definition: WorkflowDefinition,
+  ): Promise<string>;
   /**
    * Validate transition-specific preconditions (integration health, required
    * config). Failure aborts the transition with MISSING_PRECONDITIONS before
@@ -99,6 +112,8 @@ interface ApplyOptions {
   deletedFromFolderId?: string | null;
   deleteOperationId?: string | null;
   folderId?: string | null;
+  /** V2-READY-41C — set active_revision_id atomically with the transition. */
+  activeRevisionId?: string;
 }
 
 /**
@@ -126,7 +141,22 @@ export class LifecycleOrchestrator {
     const toState = assertAllowedTransition(wf.state, "activate");
     await this.runPreconditions(wf, "activate");
 
-    const triggerRegistered = await this.tryRegisterTrigger(wf, "activate");
+    // V2-READY-41C — one published definition drives this activation: register
+    // triggers from it, snapshot it into an immutable revision, and set
+    // active_revision_id atomically with the state flip. Registration runs first
+    // so the common failure (missing integration) aborts BEFORE any revision is
+    // created — no orphan revision on failed activation.
+    const publishedDefinition = wf.draftDefinition;
+    const triggerRegistered = await this.tryRegisterTrigger(
+      wf,
+      publishedDefinition,
+      "activate",
+    );
+    const revisionId = await safeSnapshotRevision(
+      this.hooks,
+      wf,
+      publishedDefinition,
+    );
 
     let next: WorkflowRecord;
     try {
@@ -135,17 +165,13 @@ export class LifecycleOrchestrator {
         // Clear any historical disable context from a prior cycle.
         disabledReason: null,
         disabledContext: null,
+        ...(revisionId ? { activeRevisionId: revisionId } : {}),
       });
     } catch (err) {
       if (triggerRegistered) await safeUnregister(this.hooks, wf);
       throw err;
     }
 
-    // V2-READY-41B — snapshot the draft into an immutable active revision AFTER
-    // the transition persisted. Best-effort: a failure here leaves the workflow
-    // active with active_revision_id = null (safe draft fallback). Because this
-    // runs only on the success path, a failed activation never creates a revision.
-    await safeSnapshotRevision(this.hooks, next);
     await safeNotify(this.hooks, next, "activate", { toState });
     return next;
   }
@@ -165,11 +191,18 @@ export class LifecycleOrchestrator {
     await this.runPreconditions(wf, "resume");
 
     // Re-register only when resuming from eligible_to_resume (paused retained
-    // its registration). Capture the source state for rollback decisions.
+    // its registration AND its active revision — paused-drift handling is a
+    // later slice). Capture the source state for rollback decisions.
     const needsRegister = wf.state === "eligible_to_resume";
+    const publishedDefinition = wf.draftDefinition;
     const triggerRegistered = needsRegister
-      ? await this.tryRegisterTrigger(wf, "resume")
+      ? await this.tryRegisterTrigger(wf, publishedDefinition, "resume")
       : false;
+    // V2-READY-41C — snapshot the same definition we registered from, so the
+    // resumed workflow points at a revision that matches its trigger_resources.
+    const revisionId = needsRegister
+      ? await safeSnapshotRevision(this.hooks, wf, publishedDefinition)
+      : null;
 
     let next: WorkflowRecord;
     try {
@@ -177,17 +210,13 @@ export class LifecycleOrchestrator {
         toState,
         disabledReason: null,
         disabledContext: null,
+        ...(revisionId ? { activeRevisionId: revisionId } : {}),
       });
     } catch (err) {
       if (triggerRegistered) await safeUnregister(this.hooks, wf);
       throw err;
     }
 
-    // V2-READY-41B — only resume-from-eligible_to_resume re-registers triggers,
-    // so only it needs a fresh revision snapshot (resume-from-paused retains its
-    // existing registration AND active revision — paused-drift handling is a
-    // later slice). Best-effort, same fallback semantics as activate.
-    if (needsRegister) await safeSnapshotRevision(this.hooks, next);
     await safeNotify(this.hooks, next, "resume", { toState });
     return next;
   }
@@ -301,11 +330,12 @@ export class LifecycleOrchestrator {
 
   private async tryRegisterTrigger(
     wf: WorkflowRecord,
+    definition: WorkflowDefinition,
     transition: LifecycleTransition,
   ): Promise<boolean> {
     if (!this.hooks.registerTrigger) return false;
     try {
-      await this.hooks.registerTrigger(wf);
+      await this.hooks.registerTrigger(wf, definition);
       return true;
     } catch (err) {
       throw new LifecycleError(
@@ -344,6 +374,9 @@ export class LifecycleOrchestrator {
         ? { deleteOperationId: options.deleteOperationId }
         : {}),
       ...(options.folderId !== undefined ? { folderId: options.folderId } : {}),
+      ...(options.activeRevisionId !== undefined
+        ? { activeRevisionId: options.activeRevisionId }
+        : {}),
     });
     if (next === null) {
       throw new LifecycleError(
@@ -376,14 +409,19 @@ async function safeUnregister(
 async function safeSnapshotRevision(
   hooks: LifecycleSideEffects,
   wf: WorkflowRecord,
-): Promise<void> {
-  if (!hooks.snapshotRevision) return;
+  definition: WorkflowDefinition,
+): Promise<string | null> {
+  if (!hooks.snapshotRevision) return null;
   try {
-    await hooks.snapshotRevision(wf);
+    return await hooks.snapshotRevision(wf, definition);
   } catch (err) {
-    // Best-effort. The workflow is already active; active_revision_id stays null
-    // and getActiveDefinition falls back to the draft — no state impact. Log
-    // workflow id + error message only (no graph / account / token detail).
+    // Best-effort. Returning null means the transition persists with
+    // active_revision_id = null, which getActiveDefinition treats as the safe
+    // draft fallback — activation does not fail because the snapshot DB write
+    // hiccuped. Log workflow id + error message only (no graph / account / token
+    // detail). A revision INSERT that throws leaves no row, so no orphan here;
+    // an orphan is only possible if the snapshot succeeds and the later persist
+    // conflicts (rare) — harmless, immutable, cascade-cleaned with the workflow.
     console.warn(
       JSON.stringify({
         event: "workflow.active_revision.snapshot_failed",
@@ -391,6 +429,7 @@ async function safeSnapshotRevision(
         error: (err as Error).message,
       }),
     );
+    return null;
   }
 }
 
