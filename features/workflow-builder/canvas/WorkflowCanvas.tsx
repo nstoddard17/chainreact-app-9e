@@ -92,6 +92,14 @@ interface Props {
    */
   canAddAction?: boolean;
   /**
+   * Slice 4.BUILDER-CANVAS-LAYOUT-1 — fires when the user clicks the
+   * "Arrange" CTA in the canvas action bar. WorkflowBuilder wires this to
+   * `graphSlice.autoLayout`, which re-lays the whole graph into a clean,
+   * non-overlapping top-down layout. When undefined the button is hidden
+   * (preserves test-isolation rendering).
+   */
+  onArrange?: () => void;
+  /**
    * Optional trigger-tag chip text (e.g. "trigger: slack.message"). The
    * canvas action bar renders it next to the env tag. Omitted when no
    * trigger is configured.
@@ -128,6 +136,7 @@ function WorkflowCanvasInner({
   onEdgePlusClick,
   onAddAction,
   canAddAction,
+  onArrange,
   triggerTagText,
   requiredFieldsByType,
 }: Props) {
@@ -232,6 +241,8 @@ function WorkflowCanvasInner({
         triggerTagText={triggerTagText}
         onAddAction={onAddAction}
         canAddAction={canAddAction}
+        onArrange={onArrange}
+        canArrange={!isEmpty}
       />
       <div
         aria-label="Workflow canvas"
@@ -310,11 +321,15 @@ function CanvasActionBar({
   triggerTagText,
   onAddAction,
   canAddAction,
+  onArrange,
+  canArrange,
 }: {
   nodeCountText: string;
   triggerTagText?: string;
   onAddAction?: () => void;
   canAddAction?: boolean;
+  onArrange?: () => void;
+  canArrange?: boolean;
 }) {
   return (
     <div
@@ -344,6 +359,23 @@ function CanvasActionBar({
           {triggerTagText ? <Tag text={triggerTagText} /> : null}
           <Tag text={nodeCountText} />
         </div>
+        {onArrange ? (
+          <button
+            type="button"
+            onClick={onArrange}
+            disabled={canArrange === false}
+            data-testid="canvas-arrange-button"
+            title="Arrange the workflow into a clean, non-overlapping layout"
+            className="inline-flex h-6 items-center gap-1.5 rounded-[4px] px-2 text-[11.5px] font-medium disabled:opacity-50"
+            style={{
+              background: "var(--builder-panel-2)",
+              border: "1px solid var(--builder-border)",
+              color: "var(--builder-text)",
+            }}
+          >
+            Arrange
+          </button>
+        ) : null}
         {onAddAction ? (
           <button
             type="button"

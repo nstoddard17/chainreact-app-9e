@@ -162,6 +162,23 @@ describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () 
     fireEvent.click(screen.getByTestId("canvas-add-action-button"));
     expect(onAddAction).toHaveBeenCalledTimes(1);
   });
+
+  it("Arrange button fires onArrange when the canvas has nodes (BUILDER-CANVAS-LAYOUT-1)", () => {
+    const onArrange = jest.fn();
+    render(<WorkflowCanvas providerLabels={providerLabels} onArrange={onArrange} />);
+    const btn = screen.getByTestId("canvas-arrange-button");
+    // baseDef has nodes → enabled.
+    expect(btn).toBeEnabled();
+    fireEvent.click(btn);
+    expect(onArrange).toHaveBeenCalledTimes(1);
+  });
+
+  it("Arrange button is disabled when the canvas is empty", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    render(<WorkflowCanvas providerLabels={providerLabels} onArrange={jest.fn()} />);
+    expect(screen.getByTestId("canvas-arrange-button")).toBeDisabled();
+  });
 });
 
 // ─── Slice 4.BUILDER-TRIGGER-RECOVERY-1 — no-trigger recovery banner ────────

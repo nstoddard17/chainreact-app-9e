@@ -202,6 +202,11 @@ export function WorkflowBuilder({
   const openActionPicker = useCallback(() => {
     setAddPanelMode({ kind: "action" });
   }, []);
+  // Slice 4.BUILDER-CANVAS-LAYOUT-1 — re-arrange the whole graph into a clean,
+  // non-overlapping layout. Pure position-only edit through the graph slice.
+  const handleArrange = useCallback(() => {
+    useGraphSlice.getState().autoLayout();
+  }, []);
   const closeAddPanel = useCallback(() => {
     setAddPanelMode(null);
   }, []);
@@ -329,6 +334,7 @@ export function WorkflowBuilder({
           onEdgePlusClick={memoizedEdgePlusClick}
           onAddAction={openActionPicker}
           canAddAction={hasTrigger}
+          onArrange={handleArrange}
           triggerTagText={triggerTagText}
           requiredFieldsByType={requiredFieldsByType}
         />

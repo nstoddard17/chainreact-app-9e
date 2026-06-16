@@ -285,6 +285,102 @@ describe("graphSlice.addAction", () => {
   });
 });
 
+// ─── Slice 4.BUILDER-CANVAS-LAYOUT-1 — append at end of chain, no overlap ───
+describe("graphSlice.addAction — chain-tail anchor + non-overlap (BUILDER-CANVAS-LAYOUT-1)", () => {
+  it("places a freshly-built linear chain in the same even column as before", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const a1 = useGraphSlice.getState().addAction({ provider: "slack" });
+    const a2 = useGraphSlice.getState().addAction({ provider: "gmail" });
+    const nodes = useGraphSlice.getState().pendingNodes;
+    expect(nodes.find((n) => n.id === a1.id)!.position).toEqual({ x: 0, y: 120 });
+    expect(nodes.find((n) => n.id === a2.id)!.position).toEqual({ x: 0, y: 240 });
+  });
+
+  it("anchors on the CHAIN tail (sole leaf), not the array tail", () => {
+    // Array order puts the chain tail (a2) in the MIDDLE of the array.
+    const def: WorkflowDefinition = {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 0, y: 0 } },
+        { id: "a2", kind: "action", provider: "gmail", type: "x", config: {}, position: { x: 0, y: 240 } },
+        { id: "a1", kind: "action", provider: "slack", type: "x", config: {}, position: { x: 0, y: 120 } },
+      ],
+      edges: [
+        { id: "e1", from: "t1", to: "a1" },
+        { id: "e2", from: "a1", to: "a2" },
+      ],
+    };
+    useGraphSlice.getState().hydrate("wf-1", def);
+    const added = useGraphSlice.getState().addAction({ provider: "http" });
+    const edge = useGraphSlice.getState().pendingEdges.find((e) => e.to === added.id)!;
+    // Edge stitched from the real chain tail a2 (array tail is a1).
+    expect(edge.from).toBe("a2");
+  });
+
+  it("never overlaps an existing node after a delete shrinks the array (the old bug)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack" }); // a1 @ y120
+    useGraphSlice.getState().addAction({ provider: "gmail" }); // a2 @ y240
+    const a3 = useGraphSlice.getState().addAction({ provider: "http" }); // a3 @ y360
+    // Delete the middle node a2; a1 → a3 rewires. Array now has 3 nodes again.
+    const a2 = useGraphSlice.getState().pendingNodes.find((n) => n.position.y === 240)!;
+    useGraphSlice.getState().deleteNodeAndRewire(a2.id);
+    // Append again. Old heuristic (length*120 = 360) would collide with a3 @ y360.
+    const a4 = useGraphSlice.getState().addAction({ provider: "notion" });
+    const nodes = useGraphSlice.getState().pendingNodes;
+    const a4Pos = nodes.find((n) => n.id === a4.id)!.position;
+    const a3Pos = nodes.find((n) => n.id === a3.id)!.position;
+    expect(a4Pos).not.toEqual(a3Pos);
+    // a4 sits a clean row below the chain tail a3.
+    expect(a4Pos).toEqual({ x: 0, y: 480 });
+    // Edge stitched from the chain tail a3.
+    expect(useGraphSlice.getState().pendingEdges.find((e) => e.to === a4.id)!.from).toBe(a3.id);
+  });
+});
+
+describe("graphSlice.autoLayout (BUILDER-CANVAS-LAYOUT-1)", () => {
+  it("re-lays a messy linear chain into a clean column and flips dirty", () => {
+    const def: WorkflowDefinition = {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 50, y: 50 } },
+        { id: "a1", kind: "action", provider: "gmail", type: "x", config: {}, position: { x: 50, y: 60 } },
+        { id: "a2", kind: "action", provider: "http", type: "x", config: {}, position: { x: 50, y: 55 } },
+      ],
+      edges: [
+        { id: "e1", from: "t1", to: "a1" },
+        { id: "e2", from: "a1", to: "a2" },
+      ],
+    };
+    useGraphSlice.getState().hydrate("wf-1", def);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+    useGraphSlice.getState().autoLayout();
+    const nodes = useGraphSlice.getState().pendingNodes;
+    expect(nodes.find((n) => n.id === "t1")!.position).toEqual({ x: 0, y: 0 });
+    expect(nodes.find((n) => n.id === "a1")!.position).toEqual({ x: 0, y: 120 });
+    expect(nodes.find((n) => n.id === "a2")!.position).toEqual({ x: 0, y: 240 });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("is a no-op (no dirty flip) when the layout is already tidy", () => {
+    const def: WorkflowDefinition = {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 0, y: 0 } },
+        { id: "a1", kind: "action", provider: "gmail", type: "x", config: {}, position: { x: 0, y: 120 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    };
+    useGraphSlice.getState().hydrate("wf-1", def);
+    useGraphSlice.getState().autoLayout();
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("is a no-op on an empty graph", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().autoLayout();
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  });
+});
+
 describe("graphSlice.removeNode", () => {
   it("removes the node and its connected edges; dirty flips on", () => {
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);

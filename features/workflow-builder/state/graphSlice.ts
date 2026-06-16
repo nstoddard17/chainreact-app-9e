@@ -12,6 +12,11 @@ import {
   type DeleteNodeBlockedReason,
   type DeleteNodeWarning,
 } from "../utils/deleteNodeFromGraph";
+import {
+  computeNonOverlappingPosition,
+  findChainTailId,
+  layoutWorkflowGraph,
+} from "../utils/workflowLayout";
 
 /**
  * Builder graph slice.
@@ -134,6 +139,16 @@ export interface GraphSliceActions {
    * selected edge). No-op on unknown edgeId.
    */
   removeEdge(edgeId: string): void;
+  /**
+   * Slice 4.BUILDER-CANVAS-LAYOUT-1 — re-arrange every node into a clean,
+   * deterministic, non-overlapping top-down layout (delegates to the pure
+   * `layoutWorkflowGraph`). A linear chain becomes a single column; branches
+   * fan into columns; disconnected pieces stack. Pure layout only — never
+   * touches node ids, edges, config, or execution. Marks the graph dirty only
+   * when at least one position actually changed; a no-op (already tidy / empty)
+   * leaves `isDirty` untouched.
+   */
+  autoLayout(): void;
   /**
    * Slice 4.BUILDER-NODE-DELETE-1 — safe delete with edge-rewire. Delegates
    * to the pure `deleteNodeFromGraph` helper:
@@ -371,18 +386,29 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     if (pendingNodes.length === 0) {
       throw new Error("Add a trigger before adding actions.");
     }
-    const lastNode = pendingNodes[pendingNodes.length - 1]!;
+    // Slice 4.BUILDER-CANVAS-LAYOUT-1 — append at the END OF THE CHAIN, not the
+    // end of the array. The chain tail is the sole leaf (an action with no
+    // outgoing edge); after a mid-chain insert / reorder the array tail is NOT
+    // the chain tail, so anchoring on it branched off the middle. When the tail
+    // is ambiguous (zero or ≥2 leaves — a branch / disconnected graph) we keep
+    // the prior array-tail behavior. Position is computed to NEVER overlap an
+    // existing node (the old `length * 120` heuristic collided after a delete
+    // shrank the array). For a freshly-built linear chain this yields the exact
+    // same positions as before.
+    const tailId = findChainTailId(pendingNodes, pendingEdges);
+    const anchor = (tailId ? pendingNodes.find((n) => n.id === tailId) : undefined)
+      ?? pendingNodes[pendingNodes.length - 1]!;
     const node: WorkflowNode = {
       id: newNodeId(),
       kind: "action",
       provider: input.provider,
       type: input.type ?? "",
       config: input.config ?? {},
-      position: { x: 0, y: (pendingNodes.length) * 120 },
+      position: computeNonOverlappingPosition(anchor.position, pendingNodes),
     };
     const newEdge: WorkflowEdge = {
       id: newEdgeId(),
-      from: lastNode.id,
+      from: anchor.id,
       to: node.id,
     };
     set({
@@ -564,6 +590,21 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     if (remaining.length === pendingEdges.length) return;
     set({
       pendingEdges: remaining,
+      isDirty: true,
+      saveError: null,
+    });
+  },
+
+  autoLayout() {
+    const { pendingNodes, pendingEdges } = get();
+    if (pendingNodes.length === 0) return;
+    const laidOut = layoutWorkflowGraph(pendingNodes, pendingEdges);
+    // layoutWorkflowGraph returns unchanged nodes BY REFERENCE, so a per-node
+    // identity check tells us whether anything actually moved.
+    const changed = laidOut.some((n, i) => n !== pendingNodes[i]);
+    if (!changed) return;
+    set({
+      pendingNodes: laidOut,
       isDirty: true,
       saveError: null,
     });
