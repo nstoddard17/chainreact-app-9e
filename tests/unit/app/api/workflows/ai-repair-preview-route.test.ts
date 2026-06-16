@@ -32,9 +32,14 @@ jest.mock("@/services/ai/repair/previewWorkflowRepair", () => ({
 }));
 
 // AI-REPAIR-3H — the deterministic (free, model-free) preview lives in its own module.
+// AI-REPAIR-3L adds the explicit user-selected-replacement preview + the body parser.
 const mockRunDeterministic = jest.fn();
+const mockRunSelected = jest.fn();
+const mockParseSelected = jest.fn();
 jest.mock("@/services/ai/repair/deterministicRepairPreview", () => ({
   runDeterministicRepairPreview: (...a: unknown[]) => mockRunDeterministic(...a),
+  runSelectedVariableRepairPreview: (...a: unknown[]) => mockRunSelected(...a),
+  parseSelectedRepairSelection: (...a: unknown[]) => mockParseSelected(...a),
 }));
 
 const mockGate = jest.fn();
@@ -123,6 +128,10 @@ beforeEach(() => {
   mockHasRepairable.mockReturnValue(true); // default: the re-derived diagnosis still has an issue
   mockRunDeterministic.mockReset();
   mockRunDeterministic.mockResolvedValue(null); // default: no deterministic repair → model path
+  mockRunSelected.mockReset();
+  mockRunSelected.mockResolvedValue(null);
+  mockParseSelected.mockReset();
+  mockParseSelected.mockReturnValue(undefined); // default: no selectedRepair in the body → normal flow
   mockGate.mockReset();
   mockGate.mockResolvedValue({ ok: true, skipped: true, reason: "enforcement_disabled" });
   mockRecCompleted.mockReset();
@@ -503,5 +512,80 @@ describe("ai/repair/preview — deterministic preview is FREE (AI-REPAIR-3H)", (
     expect(mockGate).toHaveBeenCalledTimes(1);
     expect(mockPreviewRepair).toHaveBeenCalledTimes(1);
     expect(mockRecCompleted).toHaveBeenCalledTimes(1); // normal model telemetry still recorded
+  });
+});
+
+describe("ai/repair/preview — explicit user-selected replacement is FREE + never reaches the model (AI-REPAIR-3L)", () => {
+  const selection = { nodeId: "slack-1", fieldKey: "text", newReference: "{{gmail-1.subject}}" };
+  const selectedResult = {
+    ok: true,
+    preview: {
+      ok: true,
+      patchSummary: "Re-point the broken variable reference",
+      changes: [{ op: "repairVariableReference", description: "Re-points a variable reference.", nodeId: "slack-1", fields: ["text"] }],
+      affectedNodeIds: ["slack-1"],
+      affectedEdgeIds: [],
+      riskLevel: "medium",
+      requiresConfirmation: false,
+      riskReasons: [],
+      validation: { ok: true, errors: [], warnings: [] },
+      userFacingSummaryText: "Re-point the broken variable reference — 1 change(s). Risk: medium.",
+      canApplyLater: true,
+      apply: { applyable: true, operations: [{ op: "repairVariableReference", nodeId: "slack-1", fieldPath: "text", newReference: "{{gmail-1.subject}}" }], baseRevision: "rev-1" },
+    },
+  };
+
+  it("selectedRepair present + service returns a preview → 200; NO gate, NO model client, NO model preview, NO telemetry, NO auto one-candidate path", async () => {
+    mockParseSelected.mockReturnValue(selection);
+    mockRunSelected.mockResolvedValueOnce(selectedResult);
+    const res = await callBody("wf-1", { selectedRepair: selection });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.preview).toEqual(selectedResult.preview);
+    // Deterministic + free: never the gate / model / telemetry / the auto one-candidate path.
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRecCompleted).not.toHaveBeenCalled();
+    expect(mockRecFailed).not.toHaveBeenCalled();
+    expect(mockRunDeterministic).not.toHaveBeenCalled();
+    // The service got the VALIDATED selection (the route re-validates it server-side).
+    expect(mockRunSelected).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", workflowId: "wf-1", selection }),
+    );
+  });
+
+  it("selectedRepair present but the service rejects it (invalid/unsafe) → 200 NO_SAFE_PATCH; NEVER the gate/model path", async () => {
+    mockParseSelected.mockReturnValue(selection);
+    mockRunSelected.mockResolvedValueOnce(null);
+    const res = await callBody("wf-1", { selectedRepair: selection });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("NO_SAFE_PATCH");
+    // The model path is never reached for a present selection.
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRunDeterministic).not.toHaveBeenCalled();
+  });
+
+  it("a malformed selectedRepair (parser returns null) → 200 NO_SAFE_PATCH, no service call, no model path", async () => {
+    mockParseSelected.mockReturnValue(null); // present but malformed
+    const res = await callBody("wf-1", { selectedRepair: { bogus: true } });
+    expect(res.status).toBe(200);
+    expect((await res.json()).code).toBe("NO_SAFE_PATCH");
+    expect(mockRunSelected).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+  });
+
+  it("no selectedRepair (parser returns undefined) → the normal flow is unchanged", async () => {
+    mockParseSelected.mockReturnValue(undefined);
+    mockRunDeterministic.mockResolvedValueOnce(null);
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect(mockRunSelected).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).toHaveBeenCalledTimes(1); // fell through to the model path as before
   });
 });

@@ -113,6 +113,32 @@ describe("invalidReferenceCards — actionable invalid-reference cards (AI-REPAI
     expect(cards[0]!.message).not.toContain("ghost");
   });
 
+  it("multiple candidates with options → carries the candidate list through (AI-REPAIR-3L)", () => {
+    const cards = invalidReferenceCards(
+      refFinding([
+        {
+          fieldLabel: "Message",
+          token: "{{ghost.to}}",
+          fieldKey: "text",
+          replacementReason: "multiple",
+          candidates: [
+            { reference: "{{a.to}}", label: "to — from Step A" },
+            { reference: "{{b.to}}", label: "to — from Step B" },
+          ],
+        },
+      ]),
+    );
+    expect(cards[0]!.candidates).toHaveLength(2);
+    expect(cards[0]!.candidates![0]).toEqual({ reference: "{{a.to}}", label: "to — from Step A" });
+  });
+
+  it("multiple candidates WITHOUT options (sensitive field) → no candidates key", () => {
+    const cards = invalidReferenceCards(
+      refFinding([{ fieldLabel: "To", token: "{{ghost.to}}", fieldKey: "to", replacementReason: "multiple" }]),
+    );
+    expect(cards[0]!.candidates).toBeUndefined();
+  });
+
   it("missing reason → safe generic guidance", () => {
     const cards = invalidReferenceCards(
       refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message" }]),

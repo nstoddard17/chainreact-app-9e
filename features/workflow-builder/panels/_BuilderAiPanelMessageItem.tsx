@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { canExplainDiagnosis, type RequiredInputAnswer } from "../ai";
-import type { RepairPreviewProposalContext } from "@/lib/api/ai";
+import type { RepairPreviewProposalContext, SelectedRepair } from "@/lib/api/ai";
 import type { ChatFillProposal } from "../ai/chatFillAction";
 import {
   AssistantBubble,
@@ -69,6 +69,8 @@ interface MessageItemProps {
   ) => void;
   readonly previewing: boolean;
   readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
+  // AI-REPAIR-3L — explicit user-selected replacement preview (multiple-candidate case).
+  readonly onPreviewSelectedFix: (selection: SelectedRepair) => void;
   // Repair-preview Apply wiring.
   readonly onApplyRepair: (
     previewMessageId: ChatMessageId,
@@ -111,6 +113,7 @@ export function MessageItem({
   onPreviewFix,
   previewing,
   previewedProposalIds,
+  onPreviewSelectedFix,
   onApplyRepair,
   applyingId,
   appliedPreviewIds,
@@ -199,6 +202,10 @@ export function MessageItem({
           // diagnosis and runs the model-free preview first, AI-REPAIR-3H). Keyed on
           // the diagnosis message id for in-flight + repeat-guard, mirroring Suggest.
           onPreviewInvalidRef={() => onPreviewFix(message.id)}
+          // AI-REPAIR-3L — a multiple-candidate invalid reference gets an explicit
+          // replacement picker; the chosen candidate is previewed deterministically
+          // (re-validated server-side). The app never auto-picks.
+          onPreviewSelectedInvalidRef={onPreviewSelectedFix}
           previewing={previewing}
           alreadyPreviewedInvalidRef={previewedProposalIds.has(message.id)}
         />

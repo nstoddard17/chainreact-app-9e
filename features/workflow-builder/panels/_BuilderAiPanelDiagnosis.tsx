@@ -44,6 +44,7 @@ export function DiagnosisBody({
   onSuggestFix,
   showFieldActions = false,
   onPreviewInvalidRef,
+  onPreviewSelectedInvalidRef,
   previewing = false,
   alreadyPreviewedInvalidRef = false,
 }: {
@@ -91,6 +92,12 @@ export function DiagnosisBody({
    * `DiagnosisAttentionActions`; only wired for the LATEST diagnosis (`showFieldActions`).
    */
   readonly onPreviewInvalidRef?: () => void;
+  /**
+   * Slice 4.AI-REPAIR-3L — explicit-choice handler for the MULTIPLE-candidate invalid-
+   * reference picker. Forwarded to `DiagnosisAttentionActions`; only wired for the LATEST
+   * diagnosis. Runs the deterministic selected-replacement preview (no LLM/credits/telemetry).
+   */
+  readonly onPreviewSelectedInvalidRef?: (selection: import("@/lib/api/ai").SelectedRepair) => void;
   /** A preview round-trip is in flight (disables the Preview-fix button). */
   readonly previewing?: boolean;
   /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
@@ -171,6 +178,7 @@ export function DiagnosisBody({
         <DiagnosisAttentionActions
           diagnosis={diagnosis}
           {...(onPreviewInvalidRef ? { onPreviewInvalidRef } : {})}
+          {...(onPreviewSelectedInvalidRef ? { onPreviewSelectedInvalidRef } : {})}
           previewing={previewing}
           alreadyPreviewedInvalidRef={alreadyPreviewedInvalidRef}
         />

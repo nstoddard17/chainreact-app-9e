@@ -10,6 +10,7 @@ import {
   planWorkflowRepair,
   previewWorkflowRepair,
   type RepairPreviewProposalContext,
+  type SelectedRepair,
   type WorkflowDraftSnapshot,
 } from "@/lib/api/ai";
 import {
@@ -309,6 +310,50 @@ export function useBuilderDiagnosisActions({
     }
   }
 
+  async function handlePreviewSelectedFix(selection: SelectedRepair): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    // AI-REPAIR-3L — deterministic preview of a USER-CHOSEN replacement (multiple-
+    // candidate case). EXPLICIT click only. The route runs the deterministic
+    // selected-replacement preview (re-validated server-side) BEFORE the gate/model, so
+    // it's FREE — no model call, no credits, no telemetry. Because it's free there's no
+    // repeat-charge guard; only the shared in-flight guard prevents concurrent ops (the
+    // user may preview a DIFFERENT candidate afterward). Produces a repair_preview
+    // message — Apply stays a separate click on that preview; never applies/saves/runs.
+    if (busy || checking || explaining || suggesting || previewing) return;
+    setPreviewing(true);
+    try {
+      const res = await previewWorkflowRepair(wfId, currentDraft, undefined, selection);
+      if (res.ok) {
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "repair_preview",
+          preview: res.preview,
+        });
+      } else {
+        const content =
+          res.code === "AI_CREDITS_EXHAUSTED"
+            ? AI_CREDITS_EXHAUSTED_MESSAGE
+            : res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH"
+              ? res.message
+              : "Couldn’t build a repair preview right now. Please try again.";
+        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+      }
+    } catch (err) {
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to use the AI assistant."
+          : status === 404
+            ? "This workflow couldn’t be found."
+            : "Couldn’t build a repair preview right now. Please try again.";
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function handleApplyRepair(
     previewMessageId: ChatMessageId,
     applyMeta: { operations: readonly unknown[]; baseRevision: string },
@@ -397,6 +442,7 @@ export function useBuilderDiagnosisActions({
     handleExplainDiagnosis,
     handleSuggestFix,
     handlePreviewFix,
+    handlePreviewSelectedFix,
     handleApplyRepair,
     resetDiagnosisActions,
   };

@@ -103,7 +103,10 @@ const SLACK_NODE = {
   position: { x: 0, y: 0 },
 };
 
-function invalidRefDiagnosis(replacementReason: "none" | "one" | "multiple" | undefined) {
+function invalidRefDiagnosis(
+  replacementReason: "none" | "one" | "multiple" | undefined,
+  candidates?: { reference: string; label: string }[],
+) {
   return {
     workflowId: "wf-1",
     access: "OK",
@@ -124,12 +127,19 @@ function invalidRefDiagnosis(replacementReason: "none" | "one" | "multiple" | un
             token: BROKEN_TOKEN,
             fieldKey: "text",
             ...(replacementReason ? { replacementReason } : {}),
+            ...(candidates ? { candidates } : {}),
           },
         ],
       },
     ],
   };
 }
+
+/** AI-REPAIR-3L — two safe replacement options (raw node ids live only in `reference`). */
+const MULTI_CANDIDATES = [
+  { reference: "{{a1b2c3d4-1111-2222-3333-444455556666.subject}}", label: "subject — from Send Email" },
+  { reference: "{{f9e8d7c6-9999-8888-7777-666655554444.subject}}", label: "subject — from Create Draft" },
+];
 
 /**
  * AI-REPAIR-3K — an applyable deterministic preview the one-candidate "Preview fix"
@@ -320,4 +330,82 @@ describe("Check workflow → one-candidate direct 'Preview fix' (AI-REPAIR-3K)",
       expect(screen.queryByTestId("builder-ai-repair-apply-button")).toBeNull();
     },
   );
+});
+
+describe("Check workflow → multiple-candidate explicit replacement picker (AI-REPAIR-3L)", () => {
+  it("renders a picker with SAFE option labels + 'Preview selected fix' (disabled until a choice); 'Open Message field' preserved", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("multiple", MULTI_CANDIDATES));
+    await check();
+    const card = await screen.findByTestId("builder-ai-diagnosis-invalid-ref");
+    expect(card.textContent).toContain("choose the correct variable");
+    const select = screen.getByTestId("builder-ai-invalid-ref-candidate-select") as HTMLSelectElement;
+    // Safe option labels are present.
+    expect(card.textContent).toContain("subject — from Send Email");
+    expect(card.textContent).toContain("subject — from Create Draft");
+    // The app did NOT auto-pick — the picker starts unselected and Preview is disabled.
+    expect(select.value).toBe("-1");
+    expect(screen.getByTestId("builder-ai-invalid-ref-preview-selected-button")).toBeDisabled();
+    // Open-field manual affordance preserved; no model call yet; no Apply on the Check card.
+    expect(screen.getByTestId("builder-ai-invalid-ref-open-field-button").textContent).toBe("Open Message field");
+    expect(mockPreview).not.toHaveBeenCalled();
+    expect(mockRepair).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("builder-ai-repair-apply-button")).toBeNull();
+  });
+
+  it("renders no raw node id / token uuid (option labels only) — the reference is never in the visible card", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("multiple", MULTI_CANDIDATES));
+    await check();
+    const t = (await screen.findByTestId("builder-ai-diagnosis-invalid-ref")).textContent ?? "";
+    expect(t).not.toContain("a1b2c3d4"); // candidate reference uuid
+    expect(t).not.toContain("f9e8d7c6");
+    expect(t).not.toContain("slack1");
+    expect(t).not.toContain("e25b1c45"); // broken-token uuid
+  });
+
+  it("choosing a candidate enables Preview, which previews THAT exact selection → applyable preview with Apply", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("multiple", MULTI_CANDIDATES));
+    mockPreview.mockResolvedValue(previewApplyable);
+    const user = await check();
+    await user.selectOptions(screen.getByTestId("builder-ai-invalid-ref-candidate-select"), "1");
+    const previewBtn = screen.getByTestId("builder-ai-invalid-ref-preview-selected-button");
+    expect(previewBtn).toBeEnabled();
+    await user.click(previewBtn);
+    await screen.findByTestId("builder-ai-repair-preview");
+    // The deterministic selected-replacement path was used — chosen reference sent as selectedRepair.
+    expect(mockPreview).toHaveBeenCalledTimes(1);
+    expect(mockPreview).toHaveBeenCalledWith("wf-1", expect.anything(), undefined, {
+      nodeId: "slack1",
+      fieldKey: "text",
+      newReference: MULTI_CANDIDATES[1]!.reference,
+    });
+    // The model "Suggest a fix" plan was never triggered.
+    expect(mockRepair).not.toHaveBeenCalled();
+    // Apply appears on the resulting preview (separate click), never on the Check card.
+    expect(screen.getByTestId("builder-ai-repair-apply-button").textContent).toBe("Apply fix");
+  });
+
+  it("Apply on the selected preview persists the chosen replacement + refetches/hydrates; workflow not run", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("multiple", MULTI_CANDIDATES));
+    mockPreview.mockResolvedValue(previewApplyable);
+    mockGetWorkflow.mockResolvedValue({ id: "wf-1", draftDefinition: { nodes: [], edges: [] }, updatedAt: "rev-2" });
+    const user = await check();
+    await user.selectOptions(screen.getByTestId("builder-ai-invalid-ref-candidate-select"), "0");
+    await user.click(screen.getByTestId("builder-ai-invalid-ref-preview-selected-button"));
+    await screen.findByTestId("builder-ai-repair-preview");
+    await user.click(screen.getByTestId("builder-ai-repair-apply-button"));
+    const ok = await screen.findByTestId("builder-ai-repair-apply-success");
+    expect(ok.textContent).toContain("Applied fix. Workflow not run.");
+    expect(mockApply).toHaveBeenCalledWith("wf-1", { operations: APPLY_OPS, baseRevision: "rev-1" });
+    await waitFor(() => expect(mockGetWorkflow).toHaveBeenCalledWith("wf-1"));
+  });
+
+  it("multiple candidates WITHOUT options (sensitive field → none sent) → no picker, Open-field only, no Apply", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("multiple")); // no candidates
+    await check();
+    await screen.findByTestId("builder-ai-diagnosis-invalid-ref");
+    expect(screen.queryByTestId("builder-ai-invalid-ref-candidate-select")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-invalid-ref-preview-selected-button")).toBeNull();
+    expect(screen.getByTestId("builder-ai-invalid-ref-open-field-button")).toBeEnabled();
+    expect(screen.queryByTestId("builder-ai-repair-apply-button")).toBeNull();
+  });
 });

@@ -345,6 +345,78 @@ describe("diagnoseWorkflowForAgent — invalid variable references", () => {
     expect(ref.fieldKey).toBe("message"); // nav target still present
   });
 
+  // ── AI-REPAIR-3L — explicit replacement OPTIONS for the multiple-candidate case ──
+  it("multiple candidates on an apply-safe field → safe candidate options (label + reference)", async () => {
+    mockReadiness.mockResolvedValue(
+      readinessOk({
+        runnable: true,
+        readinessError: null,
+        graphIssues: [],
+        fieldGaps: [],
+        nodeLabels: [
+          { nodeId: "slack-1", label: "Slack — Send Channel Message" },
+          { nodeId: "up-0", label: "Gmail — Send Email" },
+          { nodeId: "up-1", label: "HubSpot — Create Contact" },
+        ],
+        // Target field "message" is apply-safe (not a recipient/secret/credential key).
+        invalidVariableRefs: [
+          { nodeId: "slack-1", fieldLabel: "Message", token: BROKEN_TOKEN, fieldKey: "message", refPath: "to" },
+        ],
+      }),
+    );
+    mockConnections.mockResolvedValue(connectionsAllReady());
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(2)); // up-0, up-1 both expose `to`
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const ref = dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!;
+    expect(ref.replacementReason).toBe("multiple");
+    expect(ref.candidates).toHaveLength(2);
+    // Labels are built from the output path + the SOURCE step's display label (never a raw id).
+    expect(ref.candidates![0]!.label).toBe("to — from Gmail — Send Email");
+    expect(ref.candidates![1]!.label).toBe("to — from HubSpot — Create Contact");
+    // The reference is a SELECTION value (carries a node id); it must never reach the model-visible summary.
+    expect(ref.candidates![0]!.reference).toBe("{{up-0.to}}");
+    expect(dto.summaryText).not.toContain("up-0");
+  });
+
+  it("multiple candidates on a RECIPIENT/destination field → NO candidate options (the apply path would block it)", async () => {
+    mockReadiness.mockResolvedValue(
+      readinessOk({
+        runnable: true,
+        readinessError: null,
+        graphIssues: [],
+        fieldGaps: [],
+        nodeLabels: [{ nodeId: "slack-1", label: "Email — Send" }, { nodeId: "up-0", label: "A" }, { nodeId: "up-1", label: "B" }],
+        // Target field "to" is a recipient/destination key → not apply-safe → no options.
+        invalidVariableRefs: [
+          { nodeId: "slack-1", fieldLabel: "To", token: BROKEN_TOKEN, fieldKey: "to", refPath: "to" },
+        ],
+      }),
+    );
+    mockConnections.mockResolvedValue(connectionsAllReady());
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(3));
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const ref = dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!;
+    expect(ref.replacementReason).toBe("multiple");
+    expect(ref.candidates).toBeUndefined();
+  });
+
+  it("one / none candidates → NO options (one is handled by the auto Preview fix; none has nothing to offer)", async () => {
+    mockReadiness.mockResolvedValue(readinessBrokenRef()); // apply-safe field "message"
+    mockConnections.mockResolvedValue(connectionsAllReady());
+
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(1));
+    let dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    let ref = dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!;
+    expect(ref.replacementReason).toBe("one");
+    expect(ref.candidates).toBeUndefined();
+
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(0));
+    dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    ref = dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!;
+    expect(ref.replacementReason).toBe("none");
+    expect(ref.candidates).toBeUndefined();
+  });
+
   it("does NOT leak the raw token (node uuid) into the model-visible summaryText", async () => {
     mockReadiness.mockResolvedValue(readinessBrokenRef());
     mockConnections.mockResolvedValue(connectionsAllReady());

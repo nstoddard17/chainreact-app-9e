@@ -7,7 +7,11 @@ import {
   type PreviewWorkflowRepairResult,
   REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
 } from "@/services/ai/repair/previewWorkflowRepair";
-import { runDeterministicRepairPreview } from "@/services/ai/repair/deterministicRepairPreview";
+import {
+  parseSelectedRepairSelection,
+  runDeterministicRepairPreview,
+  runSelectedVariableRepairPreview,
+} from "@/services/ai/repair/deterministicRepairPreview";
 import {
   aiCreditGate,
   type AiCreditGateOutcome,
@@ -206,6 +210,38 @@ export async function POST(
       ok: false,
       code: "NOTHING_TO_PREVIEW",
       message: "This issue may already be fixed. Run Check workflow again for an up-to-date result.",
+    });
+  }
+
+  // AI-REPAIR-3L — an EXPLICIT user-selected replacement (multiple-candidate case).
+  // When the body carries `selectedRepair`, we run ONLY the deterministic
+  // selected-replacement preview and NEVER fall through to the model path (so the
+  // model never sees the user's chosen operation text). The selection is re-validated
+  // server-side against the recomputed candidate set; an invalid/unsafe choice is a
+  // handled NO_SAFE_PATCH (no gate, no model, no charge). This runs before the auto
+  // one-candidate path + the gate/model, mirroring the AI-REPAIR-3H free-path ordering.
+  const selectedRepair = parseSelectedRepairSelection(body);
+  if (selectedRepair !== undefined) {
+    const selectedPreview = selectedRepair
+      ? await runSelectedVariableRepairPreview({
+          userId: auth.userId,
+          workflowId: id,
+          selection: selectedRepair,
+          ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+        })
+      : null;
+    if (selectedPreview) {
+      return NextResponse.json({
+        ok: true,
+        preview: selectedPreview.preview,
+        notAppliedNotice: REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
+      });
+    }
+    return NextResponse.json({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message:
+        "That replacement can't be applied automatically. Run Check workflow again, or open the field and fix it manually.",
     });
   }
 

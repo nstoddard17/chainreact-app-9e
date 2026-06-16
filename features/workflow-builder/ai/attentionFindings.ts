@@ -100,6 +100,13 @@ export interface InvalidReferenceCard {
    * `"multiple"` / undefined stay manual-only (Open-field guidance, no Preview/Apply).
    */
   readonly replacementReason?: "none" | "one" | "multiple";
+  /**
+   * AI-REPAIR-3L — explicit replacement options for the multiple-candidate case (present
+   * only when the target field is apply-safe). Each `reference` is a SELECTION VALUE
+   * (carries a raw source node id) — NEVER rendered; the UI shows only `label` and sends
+   * the chosen `reference` back for a server-revalidated deterministic preview.
+   */
+  readonly candidates?: readonly { readonly reference: string; readonly label: string }[];
   /** Deterministic guidance for why Apply isn't offered + what to do instead. */
   readonly message: string;
 }
@@ -145,6 +152,7 @@ export function invalidReferenceCards(
         fieldKey: ref.fieldKey,
         fieldLabel: ref.fieldLabel,
         ...(ref.replacementReason ? { replacementReason: ref.replacementReason } : {}),
+        ...(ref.candidates && ref.candidates.length > 0 ? { candidates: ref.candidates } : {}),
         message: invalidReferenceMessage(ref.fieldLabel, ref.replacementReason),
       });
       i += 1;

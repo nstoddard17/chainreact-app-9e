@@ -60,6 +60,18 @@ export interface AgentDiagnosisFinding {
     readonly token: string;
     readonly fieldKey: string;
     readonly replacementReason?: "none" | "one" | "multiple";
+    /**
+     * AI-REPAIR-3L — explicit replacement options for the `multiple`-candidate case
+     * (present only when the target field is apply-safe). The user picks one; the app
+     * never auto-chooses. `reference` is a SELECTION VALUE (it carries a raw source
+     * node id) — NEVER render it; show only `label`. On selection the client sends the
+     * chosen `reference` back as `selectedRepair.newReference`, which the server
+     * re-validates against the same candidate set before previewing.
+     */
+    readonly candidates?: readonly {
+      readonly reference: string;
+      readonly label: string;
+    }[];
   }[];
   /**
    * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's
@@ -324,6 +336,20 @@ export interface RepairPreviewProposalContext {
 }
 
 /**
+ * AI-REPAIR-3L — an EXPLICIT user-selected replacement for a broken variable reference
+ * (the multiple-candidate case). `newReference` is the chosen candidate's `{{...}}`
+ * token. The server re-validates it against the candidate set it recomputes for the
+ * `(nodeId, fieldKey)` broken ref, then runs the DETERMINISTIC preview (no LLM / no
+ * credits / no model telemetry — like the auto one-candidate path). A present selection
+ * NEVER reaches the model path, whatever the outcome.
+ */
+export interface SelectedRepair {
+  readonly nodeId: string;
+  readonly fieldKey: string;
+  readonly newReference: string;
+}
+
+/**
  * Safe, code-keyed, UI-owned copy for a handled repair-PREVIEW failure (never raw
  * server/model text). AI-REPAIR-2D adds the two HANDLED, non-503 states:
  *   - `NOTHING_TO_PREVIEW` — the current draft no longer has the issue the (stale)
@@ -351,10 +377,14 @@ export async function previewWorkflowRepair(
   workflowId: string,
   draftDefinition?: WorkflowDraftSnapshot,
   proposalContext?: RepairPreviewProposalContext,
+  selectedRepair?: SelectedRepair,
 ): Promise<RepairPreviewResult> {
   const requestBody: Record<string, unknown> = {};
   if (draftDefinition) requestBody.draftDefinition = draftDefinition;
   if (proposalContext) requestBody.proposalContext = proposalContext;
+  // AI-REPAIR-3L — when present, the route runs the deterministic SELECTED-replacement
+  // preview and never reaches the model path.
+  if (selectedRepair) requestBody.selectedRepair = selectedRepair;
   const result = await postStructured<RepairPreviewResult>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/preview`,
     requestBody,

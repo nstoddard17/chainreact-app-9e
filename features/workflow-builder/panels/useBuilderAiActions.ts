@@ -495,6 +495,7 @@ export function useBuilderAiActions() {
     handleExplainDiagnosis: diagnosis.handleExplainDiagnosis,
     handleSuggestFix: diagnosis.handleSuggestFix,
     handlePreviewFix: diagnosis.handlePreviewFix,
+    handlePreviewSelectedFix: diagnosis.handlePreviewSelectedFix,
     handleApplyRepair: diagnosis.handleApplyRepair,
   };
 }

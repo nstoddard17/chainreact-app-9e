@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { AgentWorkflowDiagnosis, RepairPreviewProposalContext } from "@/lib/api/ai";
+import type { AgentWorkflowDiagnosis, RepairPreviewProposalContext, SelectedRepair } from "@/lib/api/ai";
 import { firstMissingFieldNodeId, type RequiredInputAnswer } from "../ai";
 import type { ChatMessage, ChatMessageId } from "./_BuilderAiPanelChat";
 import { MessageItem, TransientIndicators } from "./_BuilderAiPanelMessageItem";
@@ -124,6 +124,11 @@ interface Props {
   readonly previewing: boolean;
   readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
   /**
+   * Slice 4.AI-REPAIR-3L — explicit user-selected replacement preview for a multiple-
+   * candidate invalid reference (deterministic; re-validated server-side).
+   */
+  readonly onPreviewSelectedFix: (selection: SelectedRepair) => void;
+  /**
    * Slice 4.AI-REPAIR-3E — Apply wiring for the LATEST validated repair preview.
    * `onApplyRepair` forwards the preview's opaque operations + baseRevision to the
    * apply route; `applyingId` is the in-flight preview (disables its button);
@@ -179,6 +184,7 @@ export function BuilderAiPanelMessageList({
   onPreviewFix,
   previewing,
   previewedProposalIds,
+  onPreviewSelectedFix,
   onApplyRepair,
   applyingId,
   appliedPreviewIds,
@@ -318,6 +324,7 @@ export function BuilderAiPanelMessageList({
           onPreviewFix={onPreviewFix}
           previewing={previewing}
           previewedProposalIds={previewedProposalIds}
+          onPreviewSelectedFix={onPreviewSelectedFix}
           onApplyRepair={onApplyRepair}
           applyingId={applyingId}
           appliedPreviewIds={appliedPreviewIds}

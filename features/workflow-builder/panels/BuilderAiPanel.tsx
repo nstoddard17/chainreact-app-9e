@@ -118,6 +118,7 @@ export function BuilderAiPanel() {
         onPreviewFix={a.handlePreviewFix}
         previewing={a.previewing}
         previewedProposalIds={a.previewedProposalIds}
+        onPreviewSelectedFix={a.handlePreviewSelectedFix}
         onApplyRepair={a.handleApplyRepair}
         applyingId={a.applyingId}
         appliedPreviewIds={a.appliedPreviewIds}

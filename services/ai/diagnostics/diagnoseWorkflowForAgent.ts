@@ -7,6 +7,7 @@ import {
 import { diagnoseRunReport } from "@/services/diagnostics/runReport";
 import { listByWorkflow } from "@/repositories/workflowRuns";
 import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
+import { classifyOperationSafety } from "@/services/workflows/patch/applySafety";
 import { renderWorkflowDiagnosis } from "./renderWorkflowDiagnosis";
 
 /**
@@ -98,6 +99,20 @@ export interface AgentFinding {
     readonly token: string;
     readonly fieldKey: string;
     readonly replacementReason?: "none" | "one" | "multiple";
+    /**
+     * AI-REPAIR-3L — explicit replacement options for the `multiple`-candidate case,
+     * present ONLY when the target field is itself apply-safe (a secret / credential /
+     * recipient / destination field gets NO options — the apply path would block it).
+     * The user must pick one (the app never auto-chooses among multiple). Each option's
+     * `reference` is the `{{nodeId.path}}` token needed to build the deterministic
+     * `repairVariableReference` op — it carries a raw source node id and is therefore a
+     * SELECTION VALUE, NEVER rendered (the UI shows only `label`). The server re-validates
+     * the chosen reference against this exact candidate set before previewing.
+     */
+    readonly candidates?: readonly {
+      readonly reference: string;
+      readonly label: string;
+    }[];
   }[];
   /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
@@ -314,17 +329,48 @@ export async function diagnoseWorkflowForAgent(input: {
     // `one`/`none`/`multiple` reason exactly predicts whether an applyable Apply
     // preview exists (3G/3H). Read-only + best-effort: a failure leaves the reason
     // absent (UI falls back to generic guidance), never breaks the diagnosis.
-    let replacementPaths: string[] | null = null;
+    let availableVars: readonly {
+      readonly nodeId: string;
+      readonly path: string;
+      readonly reference: string;
+    }[] | null = null;
     try {
       const vars = await getAvailableVariablesForAI(subjectUserId, workflowId, nodeId);
-      replacementPaths = vars.ok ? vars.data.variables.map((v) => v.path) : null;
+      availableVars = vars.ok ? vars.data.variables : null;
     } catch {
-      replacementPaths = null;
+      availableVars = null;
     }
     const reasonFor = (refPath: string): "none" | "one" | "multiple" | undefined => {
-      if (!replacementPaths) return undefined;
-      const n = replacementPaths.filter((p) => p === refPath).length;
+      if (!availableVars) return undefined;
+      const n = availableVars.filter((v) => v.path === refPath).length;
       return n === 0 ? "none" : n === 1 ? "one" : "multiple";
+    };
+    // AI-REPAIR-3L — explicit replacement OPTIONS for the multiple-candidate case,
+    // ONLY when the target field is itself apply-safe (the apply path would block a
+    // secret/credential/recipient/destination field, so we offer no options there —
+    // the user keeps the manual "Open <field> field" affordance). Each option carries
+    // the `{{nodeId.path}}` reference (a SELECTION VALUE, never rendered) + a safe
+    // display label built from the output path and the SOURCE step's display label
+    // (never the raw source node id). The app NEVER auto-picks — the user chooses.
+    const fieldApplySafe = (fieldKey: string): boolean =>
+      classifyOperationSafety([
+        { op: "repairVariableReference", nodeId, fieldPath: fieldKey, newReference: "{{x.y}}" },
+      ]).blocks.length === 0;
+    const candidatesFor = (
+      fieldKey: string,
+      refPath: string,
+      reason: "none" | "one" | "multiple" | undefined,
+    ): { reference: string; label: string }[] | undefined => {
+      if (reason !== "multiple" || !availableVars || !fieldApplySafe(fieldKey)) return undefined;
+      const matches = availableVars.filter((v) => v.path === refPath);
+      if (matches.length < 2) return undefined;
+      return matches.map((v) => {
+        const sourceLabel = labelMap.get(v.nodeId);
+        return {
+          reference: v.reference,
+          label: sourceLabel ? `${v.path} — from ${sourceLabel}` : v.path,
+        };
+      });
     };
     findings.push({
       source: "graph",
@@ -335,11 +381,13 @@ export async function diagnoseWorkflowForAgent(input: {
       ...withLabels([nodeId]),
       invalidReferences: refs.map((r) => {
         const reason = reasonFor(r.refPath);
+        const candidates = candidatesFor(r.fieldKey, r.refPath, reason);
         return {
           fieldLabel: r.fieldLabel,
           token: r.token,
           fieldKey: r.fieldKey,
           ...(reason ? { replacementReason: reason } : {}),
+          ...(candidates ? { candidates } : {}),
         };
       }),
     });
