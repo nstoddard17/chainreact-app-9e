@@ -27,20 +27,18 @@ import {
   collectActionUnits,
   countUnits,
   EMPTY_COUNTS,
+  type Finding,
+  type FindingLevel,
   hasField,
   listKnownProviders,
   type ProviderCounts,
   scanField,
 } from "../providers";
 import type { FsDeps } from "../repo";
+import { checkManifestContent, checkMetaContent } from "./metaChecks";
 
-export type FindingLevel = "error" | "warning";
-
-export interface Finding {
-  readonly level: FindingLevel;
-  readonly code: string;
-  readonly message: string;
-}
+// Re-export the shared finding types so existing import sites keep working.
+export type { Finding, FindingLevel };
 
 /** Per-provider file counts (re-exported from the shared discovery module). */
 export type ValidationCounts = ProviderCounts;
@@ -99,6 +97,8 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     if (!hasField(text, "isEnabled")) {
       findings.push({ level: "warning", code: "MANIFEST_NO_ISENABLED", message: `${manifestPath} has no \`isEnabled\` flag — set it explicitly (true/false).` });
     }
+    // Deeper manifest completeness (tokenScope / scopes / capabilities / health).
+    findings.push(...checkManifestContent(text, id));
   }
 
   // Actions follow the established `<name>.ts` + `.meta.ts` + `.schema.ts` triad,
@@ -119,6 +119,18 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     // covered providers by tests/structure/discovery-meta-coverage.test.ts.
     if (u.handler && u.schema && !u.meta) {
       findings.push({ level: "warning", code: "ACTION_META_GAP", message: `Action '${base}.ts' has a schema but no '${base}.meta.ts'. Covered providers require a meta (discovery-meta-coverage).` });
+    }
+    // Deep ActionMeta completeness + provider/key consistency (text-only).
+    if (u.meta && u.metaPath) {
+      findings.push(...checkMetaContent(fs.readText(u.metaPath), "action", id, base));
+    }
+  }
+
+  // Trigger metas use a different (folder-based) layout, but the META FILE
+  // contract is identical and statically checkable — deep-check each one.
+  for (const [base, u] of triggers) {
+    if (u.meta && u.metaPath) {
+      findings.push(...checkMetaContent(fs.readText(u.metaPath), "trigger", id, base));
     }
   }
 

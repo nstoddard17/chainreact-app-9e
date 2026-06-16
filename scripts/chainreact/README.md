@@ -68,26 +68,49 @@ warnings never fail the command. `app list` is read-only and always exits `0`.
 
 ## How future provider/app work should use `app validate`
 
-`app validate` is a **foundation**. Today it checks the obvious, already-established
-structure:
+`app validate` checks the already-established metadata contracts
+(`contracts/actionMeta.ts`, `contracts/triggerMeta.ts`, `contracts/integration.ts`)
+using **text/regex inspection only — it never imports provider code**.
 
-- provider folder + `manifest.ts` exist;
-- manifest declares an `id` that matches the folder, plus `displayName` / `isEnabled`;
-- no orphan **action** meta (`*.meta.ts` without its `*.ts` handler — mirrors the
-  `discovery-meta-coverage` "no orphan meta" rule);
-- action units (handler + `*.schema.ts`) that are missing a `*.meta.ts`.
+**Structure (ERROR / WARNING):**
+- provider folder + `manifest.ts` exist (ERROR if missing);
+- manifest declares an `id` that matches the folder (ERROR on mismatch), plus
+  `displayName` / `isEnabled` (WARNING if absent);
+- no orphan **action** meta — a `*.meta.ts` without its `*.ts` handler (ERROR;
+  mirrors the `discovery-meta-coverage` "no orphan meta" rule);
+- action units (handler + `*.schema.ts`) missing a `*.meta.ts` (WARNING).
 
-It intentionally does **not** assume a trigger handler layout (triggers use a
-different shape — e.g. `<name>.meta.ts` + `filter.ts`), and it reports trigger
-metas only as a count.
+**Action / trigger meta completeness (ERROR):** every existing `*.meta.ts` is
+checked for the contract-required top-level keys (`provider`, `displayName`,
+`category`, `requiresIntegration`, `fields` — plus `activation` for triggers) and
+for **provider/key consistency** (the meta's `provider:` must equal its folder, and
+its `key:` must be `"<provider>:<type>"`). These are ERROR because a violation fails
+the discovery-registry Zod parse at build time **and** means the action/trigger is
+invisible or broken in the builder + AI catalog (the "backend exists but the builder
+can't see it" drift this tool exists to catch). A meta file that isn't a static
+literal (no `: ActionMeta` / `: TriggerMeta`) is reported as a WARNING and skipped —
+never a false error.
+
+**Manifest completeness (ERROR):** the manifest is checked for the other
+contract-required fields beyond id/displayName — `tokenScope`, `scopes`,
+`capabilities`, `healthCheckIntervalMs`.
+
+It intentionally does **not** assume a trigger *handler* layout (triggers use a
+different shape — e.g. `<name>.meta.ts` + `filter.ts`); it checks the trigger meta
+**file** content and reports trigger metas as a count. All scope/field/AI-visibility
+*value* checks are deliberately deferred (see below) — only high-confidence,
+broadly-applicable, text-safe checks are included so `app validate --all` stays
+green across every current provider with zero false positives.
 
 Provider **discovery + manifest text-parsing** is shared in
 [`providers.ts`](./providers.ts) (`listKnownProviders`, `collectActionUnits`,
 `scanField`/`scanBoolField`, `inventoryProvider`, `providerCounts`). Action triad
 matching is by **basename** across the `actions/` tree, so both layouts work: metas
 next to handlers (slack) and metas in a dedicated `actions/meta/` subfolder
-(hubspot). `app validate`, `app validate --all`, and `app list` all build on this
-one module — so do future `app audit` / `app scaffold` commands.
+(hubspot). The deeper meta/manifest content checks live in pure functions in
+[`commands/metaChecks.ts`](./commands/metaChecks.ts). `app validate`,
+`app validate --all`, and `app list` all build on these — so do future `app audit` /
+`app scaffold` commands.
 
 **When to run these:**
 - `app list` — quick inventory while planning provider work or checking enabled state.
@@ -97,16 +120,20 @@ one module — so do future `app audit` / `app scaffold` commands.
 
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the
-result shape, `--all` summary, and renderer already support it. Natural next checks:
-OAuth scope declarations, field/schema definitions, AI metadata, builder visibility,
-icons, categories, and deeper trigger/action validation. Keep the no-import /
+result shape, `--all` summary, and renderer already support it (append a `Finding`).
+Deferred, higher-confidence-required next checks (each needs structural parsing, not
+text scan, to stay false-positive-free): OAuth required-scope **values**,
+field-definition shape, AI/builder-visibility **value** completeness, icons,
+category-value validity, and per-field trigger validation. Keep the no-import /
 text-scan posture (do not pull app code into the CLI) and keep findings actionable.
 
 ## Tests
 
 `tests/unit/chainreact/cli.test.ts` — arg parsing, help, status (in-memory fs),
-`app validate` failure + structural findings, verify planning/execution (fake
-runner), mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
+`app validate` structural + **deep meta/manifest completeness** findings (error vs
+warning, provider/key consistency, non-analyzable-meta safety, manifest fields),
+`app validate --all` summary, `app list`, verify planning/execution (fake runner),
+mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
 
 ## Adding a command (deliberately)
 

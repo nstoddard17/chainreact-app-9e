@@ -19,6 +19,7 @@ import {
   verdictOf,
 } from "@/scripts/chainreact/commands/appValidate";
 import { inventoryAllProviders, listKnownProviders } from "@/scripts/chainreact/providers";
+import { checkManifestContent, checkMetaContent, hasTopLevelKey } from "@/scripts/chainreact/commands/metaChecks";
 import { runMcpSmoke } from "@/scripts/chainreact/commands/mcpSmoke";
 import { collectStatus, renderStatus } from "@/scripts/chainreact/commands/status";
 import { buildVerifyPlan, executeVerify } from "@/scripts/chainreact/commands/verify";
@@ -67,7 +68,15 @@ function fakeRunner(byScript: Record<string, number> = {}): CommandRunner & { ca
   return fn;
 }
 
-const SLACK_MANIFEST = 'ProviderManifestSchema.parse({ id: "slack", displayName: "Slack", isEnabled: true });';
+// Complete provider manifest text (all contract-required keys present).
+const manifestSrc = (id: string, enabled = true): string =>
+  `ProviderManifestSchema.parse({ id: "${id}", displayName: "${id[0]?.toUpperCase()}${id.slice(1)}", isEnabled: ${enabled}, tokenScope: "user", scopes: { required: ["x"] }, capabilities: { oauth: true }, healthCheckIntervalMs: 1000, refreshable: true });`;
+// Complete action/trigger meta literal text (all required top-level keys present).
+const actionMetaSrc = (provider: string, type: string): string =>
+  `import type { ActionMeta } from "@/contracts/actionMeta";\nexport const m: ActionMeta = { key: "${provider}:${type}", provider: "${provider}", type: "${type}", displayName: "X", description: "x", category: "messaging", requiresIntegration: true, fields: [] };`;
+const triggerMetaSrc = (provider: string, type: string): string =>
+  `import type { TriggerMeta } from "@/contracts/triggerMeta";\nexport const t: TriggerMeta = { key: "${provider}:${type}", provider: "${provider}", type: "${type}", displayName: "X", description: "x", category: "messaging", activation: "webhook", requiresIntegration: true, fields: [] };`;
+const SLACK_MANIFEST = manifestSrc("slack");
 const baseRuntime = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
 
 describe("parseArgs", () => {
@@ -192,7 +201,7 @@ describe("app validate", () => {
     const fs = fakeFs({
       "integrations/slack/manifest.ts": SLACK_MANIFEST,
       "integrations/slack/actions/sendMessage.ts": "",
-      "integrations/slack/actions/sendMessage.meta.ts": "",
+      "integrations/slack/actions/sendMessage.meta.ts": actionMetaSrc("slack", "send_message"),
       "integrations/slack/actions/sendMessage.schema.ts": "",
       "integrations/slack/actions/_helper.ts": "", // helper: no schema/meta → not flagged
     });
@@ -317,23 +326,23 @@ describe("run() dispatch", () => {
 // ── provider-wide: app validate --all + app list ────────────────────────────
 // alpha = clean PASS; beta = WARN (handler+schema, no meta); gamma = FAIL
 // (orphan meta); delta = PASS with the hubspot-style meta/ subfolder layout.
-const mf = (id: string, enabled: boolean): string => `parse({ id: "${id}", displayName: "${id[0]?.toUpperCase()}${id.slice(1)}", isEnabled: ${enabled} })`;
+const mf = (id: string, enabled: boolean): string => manifestSrc(id, enabled);
 const multiFs = (): FsDeps =>
   fakeFs({
     "integrations/alpha/manifest.ts": mf("alpha", true),
     "integrations/alpha/actions/createThing.ts": "",
-    "integrations/alpha/actions/createThing.meta.ts": "",
+    "integrations/alpha/actions/createThing.meta.ts": actionMetaSrc("alpha", "create_thing"),
     "integrations/alpha/actions/createThing.schema.ts": "",
-    "integrations/alpha/triggers/onThing/onThing.meta.ts": "",
+    "integrations/alpha/triggers/onThing/onThing.meta.ts": triggerMetaSrc("alpha", "on_thing"),
     "integrations/beta/manifest.ts": mf("beta", false),
     "integrations/beta/actions/doBeta.ts": "",
     "integrations/beta/actions/doBeta.schema.ts": "", // no meta → ACTION_META_GAP (warning)
     "integrations/gamma/manifest.ts": mf("gamma", true),
-    "integrations/gamma/actions/ghost.meta.ts": "", // orphan meta → ERROR
+    "integrations/gamma/actions/ghost.meta.ts": actionMetaSrc("gamma", "ghost"), // orphan meta → ERROR
     "integrations/delta/manifest.ts": mf("delta", true),
     "integrations/delta/actions/updateDelta.ts": "",
     "integrations/delta/actions/updateDelta.schema.ts": "",
-    "integrations/delta/actions/meta/updateDelta.meta.ts": "", // meta in subfolder (hubspot-style)
+    "integrations/delta/actions/meta/updateDelta.meta.ts": actionMetaSrc("delta", "update_delta"), // meta in subfolder (hubspot-style)
   });
 
 describe("provider discovery", () => {
@@ -369,7 +378,7 @@ describe("app validate --all", () => {
       fakeFs({
         "integrations/alpha/manifest.ts": mf("alpha", true),
         "integrations/alpha/actions/createThing.ts": "",
-        "integrations/alpha/actions/createThing.meta.ts": "",
+        "integrations/alpha/actions/createThing.meta.ts": actionMetaSrc("alpha", "create_thing"),
         "integrations/alpha/actions/createThing.schema.ts": "",
       }),
     );
@@ -450,5 +459,121 @@ describe("app subcommand usage", () => {
     const code = run(["app", "bogus"], { fs: multiFs(), runtime: baseRuntime, log: (l) => out.push(l) });
     expect(code).toBe(2);
     expect(out.join("\n")).toMatch(/app list|app validate/);
+  });
+});
+
+// ── deeper read-only metadata checks (action/trigger meta + manifest) ────────
+// Single-provider fixture: complete manifest + one action triad, with an
+// optional override for the action meta content + an optional trigger meta.
+const deepFs = (
+  actionMeta: string,
+  opts: { manifest?: string; triggerMeta?: string } = {},
+): FsDeps =>
+  fakeFs({
+    "integrations/acme/manifest.ts": opts.manifest ?? manifestSrc("acme"),
+    "integrations/acme/actions/doIt.ts": "",
+    "integrations/acme/actions/doIt.schema.ts": "",
+    "integrations/acme/actions/doIt.meta.ts": actionMeta,
+    ...(opts.triggerMeta ? { "integrations/acme/triggers/onIt/onIt.meta.ts": opts.triggerMeta } : {}),
+  });
+
+describe("app validate — action meta completeness", () => {
+  it("ERROR when a required top-level key is missing (category)", () => {
+    const meta = `import type { ActionMeta } from "@/contracts/actionMeta";\nexport const m: ActionMeta = { key: "acme:do_it", provider: "acme", type: "do_it", displayName: "X", description: "x", requiresIntegration: true, fields: [] };`;
+    const r = validateProvider("acme", deepFs(meta));
+    expect(r.ok).toBe(false);
+    expect(r.findings.some((f) => f.code === "ACTION_META_INCOMPLETE")).toBe(true);
+  });
+
+  it("ERROR when the meta declares a provider different from its folder", () => {
+    const r = validateProvider("acme", deepFs(actionMetaSrc("wrong", "do_it")));
+    expect(r.ok).toBe(false);
+    expect(r.findings.some((f) => f.code === "ACTION_META_PROVIDER_MISMATCH")).toBe(true);
+  });
+
+  it("ERROR when the meta key is not prefixed with the provider", () => {
+    const meta = actionMetaSrc("acme", "do_it").replace('"acme:do_it"', '"other:do_it"');
+    const r = validateProvider("acme", deepFs(meta));
+    expect(r.findings.some((f) => f.code === "ACTION_META_KEY_MISMATCH")).toBe(true);
+  });
+
+  it("WARNING (not error) + no crash for a non-analyzable / dynamic meta", () => {
+    const r = validateProvider("acme", deepFs("export const m = buildMeta();"));
+    expect(r.ok).toBe(true); // warning only — does not fail
+    expect(r.findings.some((f) => f.code === "ACTION_META_NOT_ANALYZABLE")).toBe(true);
+  });
+
+  it("PASS for a complete, consistent action meta", () => {
+    const r = validateProvider("acme", deepFs(actionMetaSrc("acme", "do_it")));
+    expect(r.ok).toBe(true);
+    expect(r.findings).toEqual([]);
+  });
+});
+
+describe("app validate — trigger meta completeness", () => {
+  it("ERROR when a trigger meta is missing 'activation'", () => {
+    const trig = `import type { TriggerMeta } from "@/contracts/triggerMeta";\nexport const t: TriggerMeta = { key: "acme:on_it", provider: "acme", type: "on_it", displayName: "X", description: "x", category: "messaging", requiresIntegration: true, fields: [] };`;
+    const r = validateProvider("acme", deepFs(actionMetaSrc("acme", "do_it"), { triggerMeta: trig }));
+    expect(r.ok).toBe(false);
+    expect(r.findings.some((f) => f.code === "TRIGGER_META_INCOMPLETE")).toBe(true);
+  });
+
+  it("ERROR when a trigger meta declares a mismatched provider", () => {
+    const r = validateProvider("acme", deepFs(actionMetaSrc("acme", "do_it"), { triggerMeta: triggerMetaSrc("wrong", "on_it") }));
+    expect(r.findings.some((f) => f.code === "TRIGGER_META_PROVIDER_MISMATCH")).toBe(true);
+  });
+
+  it("PASS for a complete, consistent trigger meta", () => {
+    const r = validateProvider("acme", deepFs(actionMetaSrc("acme", "do_it"), { triggerMeta: triggerMetaSrc("acme", "on_it") }));
+    expect(r.ok).toBe(true);
+    expect(r.findings).toEqual([]);
+  });
+});
+
+describe("app validate — manifest completeness", () => {
+  it("ERROR when the manifest omits required fields (tokenScope/scopes/...)", () => {
+    const bare = 'ProviderManifestSchema.parse({ id: "acme", displayName: "Acme", isEnabled: true });';
+    const r = validateProvider("acme", deepFs(actionMetaSrc("acme", "do_it"), { manifest: bare }));
+    expect(r.ok).toBe(false);
+    expect(r.findings.some((f) => f.code === "MANIFEST_FIELD_MISSING")).toBe(true);
+  });
+});
+
+describe("validate --all stays clean with deep checks; one drifted provider fails", () => {
+  it("a provider with an incomplete meta flips the summary to fail", () => {
+    const fs = fakeFs({
+      "integrations/alpha/manifest.ts": manifestSrc("alpha"),
+      "integrations/alpha/actions/createThing.ts": "",
+      "integrations/alpha/actions/createThing.schema.ts": "",
+      "integrations/alpha/actions/createThing.meta.ts": actionMetaSrc("alpha", "create_thing"),
+      "integrations/zeta/manifest.ts": manifestSrc("zeta"),
+      "integrations/zeta/actions/doZeta.ts": "",
+      "integrations/zeta/actions/doZeta.schema.ts": "",
+      // drifted: meta declares the wrong provider
+      "integrations/zeta/actions/doZeta.meta.ts": actionMetaSrc("nope", "do_zeta"),
+    });
+    const results = validateAllProviders(fs);
+    const summary = summarizeValidation(results);
+    expect(summary.total).toBe(2);
+    expect(summary.ok).toBe(false); // zeta has an ERROR
+    expect(verdictOf(results[0]!)).toBe("PASS"); // alpha
+    expect(verdictOf(results[1]!)).toBe("FAIL"); // zeta
+  });
+});
+
+describe("metaChecks (pure)", () => {
+  it("hasTopLevelKey matches a real key, not a substring like keyValueMaxRows", () => {
+    expect(hasTopLevelKey("category: 'x'", "category")).toBe(true);
+    expect(hasTopLevelKey("keyValueMaxRows: 4", "key")).toBe(false);
+    expect(hasTopLevelKey("foo: 1", "category")).toBe(false);
+  });
+
+  it("checkMetaContent returns [] for a complete action meta", () => {
+    expect(checkMetaContent(actionMetaSrc("acme", "do_it"), "action", "acme", "doIt")).toEqual([]);
+  });
+
+  it("checkManifestContent flags every missing required field", () => {
+    const findings = checkManifestContent('ProviderManifestSchema.parse({ id: "acme" });', "acme");
+    expect(findings.map((f) => f.code)).toEqual(["MANIFEST_FIELD_MISSING", "MANIFEST_FIELD_MISSING", "MANIFEST_FIELD_MISSING", "MANIFEST_FIELD_MISSING"]);
   });
 });

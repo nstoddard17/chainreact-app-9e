@@ -9,11 +9,22 @@
  */
 import type { FsDeps } from "./repo";
 
+/** Severity of a validation finding. Shared so check modules avoid a cycle. */
+export type FindingLevel = "error" | "warning";
+
+export interface Finding {
+  readonly level: FindingLevel;
+  readonly code: string;
+  readonly message: string;
+}
+
 /** Which of the action triad files exist for one action basename. */
 export interface ActionUnit {
   handler: boolean;
   meta: boolean;
   schema: boolean;
+  /** Repo-relative path of the `*.meta.ts` file (when `meta` is true). */
+  metaPath?: string;
 }
 
 const isHelperBase = (base: string): boolean => base.startsWith("_") || base === "index";
@@ -34,16 +45,11 @@ export function collectActionUnits(fs: FsDeps, dir: string): Map<string, ActionU
   const out = new Map<string, ActionUnit>();
   if (!fs.isDirectory(dir)) return out;
 
-  const mark = (base: string, key: keyof ActionUnit): void => {
-    if (isHelperBase(base)) return;
+  const ensure = (base: string): ActionUnit | null => {
+    if (isHelperBase(base)) return null;
     const cur = out.get(base) ?? { handler: false, meta: false, schema: false };
-    cur[key] = true;
     out.set(base, cur);
-  };
-
-  const baseName = (name: string): string => {
-    const last = name.split("/").pop() ?? name;
-    return last;
+    return cur;
   };
 
   const walk = (d: string): void => {
@@ -54,10 +60,20 @@ export function collectActionUnits(fs: FsDeps, dir: string): Map<string, ActionU
         continue;
       }
       if (!name.endsWith(".ts") || name.endsWith(".d.ts")) continue;
-      const leaf = baseName(name);
-      if (leaf.endsWith(".meta.ts")) mark(leaf.slice(0, -".meta.ts".length), "meta");
-      else if (leaf.endsWith(".schema.ts")) mark(leaf.slice(0, -".schema.ts".length), "schema");
-      else mark(leaf.slice(0, -".ts".length), "handler");
+      const leaf = name.split("/").pop() ?? name;
+      if (leaf.endsWith(".meta.ts")) {
+        const u = ensure(leaf.slice(0, -".meta.ts".length));
+        if (u) {
+          u.meta = true;
+          u.metaPath = rel; // keep the path so deeper checks can read the file
+        }
+      } else if (leaf.endsWith(".schema.ts")) {
+        const u = ensure(leaf.slice(0, -".schema.ts".length));
+        if (u) u.schema = true;
+      } else {
+        const u = ensure(leaf.slice(0, -".ts".length));
+        if (u) u.handler = true;
+      }
     }
   };
   walk(dir);
