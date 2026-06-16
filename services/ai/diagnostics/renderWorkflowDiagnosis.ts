@@ -20,6 +20,11 @@ export interface RenderWorkflowDiagnosisInput {
   readonly runnable: boolean;
   readonly allRequiredConnected: boolean;
   readonly findings: readonly AgentFinding[];
+  /**
+   * AI-REPAIR-3G — at least one node config holds a broken variable reference. Adds
+   * a specific "can't run yet" reason (the engine's `runnable` can still be true).
+   */
+  readonly hasInvalidReferences?: boolean;
   readonly latestRun?: AgentLatestRunSummary;
 }
 
@@ -40,6 +45,8 @@ function nextStepFor(f: AgentFinding): string | null {
       return "Fill in the required fields on the flagged nodes.";
     case "graph":
       if (f.code === "no_trigger") return "Add a trigger to start the workflow.";
+      if (f.code === "INVALID_VARIABLE_REFERENCE")
+        return "Re-point or remove the broken variable reference(s) on the flagged steps.";
       return "Fix the workflow structure before running.";
     case "connection":
       switch (f.code) {
@@ -71,7 +78,7 @@ function nextStepFor(f: AgentFinding): string | null {
 export function renderWorkflowDiagnosis(
   input: RenderWorkflowDiagnosisInput,
 ): RenderedWorkflowDiagnosis {
-  const { overallReady, runnable, allRequiredConnected, findings, latestRun } = input;
+  const { overallReady, runnable, allRequiredConnected, findings, hasInvalidReferences, latestRun } = input;
 
   // ── summaryText ──
   const lines: string[] = [];
@@ -81,6 +88,9 @@ export function renderWorkflowDiagnosis(
     const reasons: string[] = [];
     if (!runnable) reasons.push("its configuration is incomplete");
     if (!allRequiredConnected) reasons.push("one or more providers aren't connected");
+    // AI-REPAIR-3G — a broken variable reference blocks readiness on its own, even
+    // when the engine's graph/required-field verdict is clean.
+    if (hasInvalidReferences) reasons.push("one or more steps reference a deleted or missing step");
     lines.push(
       reasons.length > 0
         ? `This workflow can't run yet because ${reasons.join(" and ")}.`
@@ -105,6 +115,15 @@ export function renderWorkflowDiagnosis(
     }
     if (f.missingScopes && f.missingScopes.length > 0) {
       detail.push(`scopes: ${f.missingScopes.join(", ")}`);
+    }
+    // AI-REPAIR-3G — render the affected field LABELS (safe) for a broken-reference
+    // finding. The raw `{{...}}` token is deliberately NOT placed in summaryText:
+    // summaryText is forwarded to the model (`buildDiagnosisExplainContext`), and the
+    // token embeds an internal node id. The token is shown to the USER via the
+    // "Needs attention" card (client-side), never in this model-visible string.
+    if (f.invalidReferences && f.invalidReferences.length > 0) {
+      const fieldLabels = [...new Set(f.invalidReferences.map((r) => r.fieldLabel))];
+      detail.push(`field${fieldLabels.length === 1 ? "" : "s"}: ${fieldLabels.join(", ")}`);
     }
     // AI-DIAG-FIX-1 — render human node LABELS, never raw node ids. Raw `nodeIds`
     // stay internal on the finding (repair/apply use them later); they must never

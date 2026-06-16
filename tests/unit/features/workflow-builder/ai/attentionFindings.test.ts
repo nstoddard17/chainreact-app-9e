@@ -62,3 +62,29 @@ describe("attentionFindingCards — copy + no-leak", () => {
     expect(attentionFindingCards(dx([f("graph", "no_trigger")]))[0]!.severity).toBe("error");
   });
 });
+
+describe("attentionFindingCards — invalid variable references (AI-REPAIR-3G)", () => {
+  it("renders a broken-reference card with the field label + user-typed token", () => {
+    const cards = attentionFindingCards(
+      dx([
+        {
+          source: "graph",
+          code: "INVALID_VARIABLE_REFERENCE",
+          severity: "error",
+          title: "x",
+          invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.to}}" }],
+        },
+      ]),
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.message).toContain("Message");
+    expect(cards[0]!.message).toContain("{{ghost.to}}");
+    expect(cards[0]!.message).toContain("Re-point");
+  });
+
+  it("falls back to generic guidance when display metadata is absent", () => {
+    const cards = attentionFindingCards(dx([f("graph", "INVALID_VARIABLE_REFERENCE")]));
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.message).toContain("deleted or missing step");
+  });
+});

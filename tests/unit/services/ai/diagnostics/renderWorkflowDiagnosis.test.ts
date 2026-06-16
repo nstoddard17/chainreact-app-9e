@@ -173,3 +173,39 @@ describe("renderWorkflowDiagnosis — latest run + no raw interpolation", () => 
     expect(blob).not.toContain("SECRET_CONFIG_VALUE");
   });
 });
+
+describe("renderWorkflowDiagnosis — invalid variable references (AI-REPAIR-3G)", () => {
+  const finding: AgentFinding = {
+    source: "graph",
+    code: "INVALID_VARIABLE_REFERENCE",
+    severity: "error",
+    title: "A step references a deleted or missing step.",
+    nodeIds: ["slack-1"],
+    nodeLabels: ["Slack — Send Channel Message"],
+    invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.to}}" }],
+  };
+
+  it("cites the broken-reference reason even when runnable + connected", () => {
+    const out = renderWorkflowDiagnosis({
+      ...base,
+      runnable: true,
+      allRequiredConnected: true,
+      hasInvalidReferences: true,
+      findings: [finding],
+    });
+    expect(out.summaryText).not.toContain("ready to run");
+    expect(out.summaryText).toContain("deleted or missing step");
+  });
+
+  it("renders the field LABEL but NEVER the raw token in the (model-visible) summary", () => {
+    const out = renderWorkflowDiagnosis({ ...base, hasInvalidReferences: true, findings: [finding] });
+    expect(out.summaryText).toContain("Message");
+    expect(out.summaryText).not.toContain("ghost");
+    expect(out.summaryText).not.toContain("{{");
+  });
+
+  it("contributes a deterministic next step", () => {
+    const out = renderWorkflowDiagnosis({ ...base, hasInvalidReferences: true, findings: [finding] });
+    expect(out.nextSteps.some((s) => /Re-point or remove/.test(s))).toBe(true);
+  });
+});

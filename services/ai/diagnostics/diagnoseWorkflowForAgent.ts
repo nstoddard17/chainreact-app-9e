@@ -79,6 +79,14 @@ export interface AgentFinding {
   readonly missingScopes?: readonly string[];
   readonly credentialClass?: "personal" | "account";
   /**
+   * AI-REPAIR-3G — broken variable references for an `INVALID_VARIABLE_REFERENCE`
+   * finding. Each carries the SAFE field LABEL + the user-AUTHORED `{{...}}` token
+   * (the only place a token-embedded node id is allowed in user-facing text). NEVER
+   * forwarded to the model (`buildDiagnosisExplainContext` does not project it), so
+   * the raw id stays out of the prompt; the summary describes the issue by label.
+   */
+  readonly invalidReferences?: readonly { readonly fieldLabel: string; readonly token: string }[];
+  /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
    * provider's resolved credential (boolean only; never the raw timestamp). Present
    * on connection findings; lets the UI show provider-aware reconnect copy.
@@ -138,6 +146,8 @@ function graphTitle(code: string): string {
       return "A node can't be reached from the trigger.";
     case "empty_workflow":
       return "The workflow is empty.";
+    case "INVALID_VARIABLE_REFERENCE":
+      return "A step references a deleted or missing step.";
     default:
       return `Workflow structure issue (${code}).`;
   }
@@ -269,6 +279,30 @@ export async function diagnoseWorkflowForAgent(input: {
       missingFields: f.missingFields,
     });
   }
+  // AI-REPAIR-3G — broken (deleted-/unknown-node) variable references. Grouped by
+  // the node that holds them so the UI renders one "A step references a deleted or
+  // missing step" card per affected node. `source: "graph"` routes it to the
+  // deterministic "Needs attention" group (no missing-field "Open field" action,
+  // no connection/reconnect action — it isn't either of those). Each carries the
+  // safe field LABEL + user-authored token for display.
+  const invalidRefs = readiness.invalidVariableRefs ?? [];
+  const invalidRefsByNode = new Map<string, { fieldLabel: string; token: string }[]>();
+  for (const ref of invalidRefs) {
+    const list = invalidRefsByNode.get(ref.nodeId) ?? [];
+    list.push({ fieldLabel: ref.fieldLabel, token: ref.token });
+    invalidRefsByNode.set(ref.nodeId, list);
+  }
+  for (const [nodeId, refs] of invalidRefsByNode) {
+    findings.push({
+      source: "graph",
+      code: "INVALID_VARIABLE_REFERENCE",
+      severity: "error",
+      title: graphTitle("INVALID_VARIABLE_REFERENCE"),
+      nodeIds: [nodeId],
+      ...withLabels([nodeId]),
+      invalidReferences: refs,
+    });
+  }
   for (const p of connections.providers ?? []) {
     // CHECK-ACTIONS-3 — a provider that is otherwise CONNECTED but carries the
     // persisted reconnect-needed signal is still surfaced (a clock-fresh token can
@@ -313,13 +347,19 @@ export async function diagnoseWorkflowForAgent(input: {
 
   const runnable = readiness.runnable ?? false;
   const allRequiredConnected = connections.allRequiredConnected ?? false;
-  const overallReady = runnable && allRequiredConnected;
+  // AI-REPAIR-3G — a workflow with a broken variable reference is NOT ready, even
+  // when the engine's graph/required-field verdict (`runnable`) is clean: the run
+  // would fail at resolution time. Gate the Check-level verdict here WITHOUT
+  // changing the engine's `runnable` (that gates live execution and is out of scope).
+  const hasInvalidRefs = invalidRefs.length > 0;
+  const overallReady = runnable && allRequiredConnected && !hasInvalidRefs;
 
   const { summaryText, nextSteps } = renderWorkflowDiagnosis({
     overallReady,
     runnable,
     allRequiredConnected,
     findings,
+    hasInvalidReferences: hasInvalidRefs,
     ...(latestRun ? { latestRun } : {}),
   });
 

@@ -2,8 +2,10 @@ import { getByIdServiceRole } from "@/repositories/workflows";
 import { isMemberServiceRole } from "@/repositories/accountMemberships";
 import { getProvider } from "@/integrations/_registry";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
-import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
+import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefinition";
 import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
+import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
+import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 
 /**
  * Workflow-readiness diagnostic capability (Slice 4.MCP-STAGE-2B-3 extraction).
@@ -19,11 +21,17 @@ import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
  *   - This service OWNS the per-account MEMBERSHIP authz (`isMemberServiceRole`),
  *     so every consumer (route or agent) inherits the same wall.
  *
- * No-leak: the raw `WorkflowRecord` is NEVER spread. Node `config` (opaque,
- * secret-bearing) is NEVER read — only the readiness verdict (graph issue codes,
- * node ids, node display names, missing-field LABELS) and a STATIC provider
- * inventory (id / name / manifest-enabled). No config values, tokens, provider
- * bodies, workflow name, or `createdByUserId` ever reach the DTO.
+ * No-leak: the raw `WorkflowRecord` is NEVER spread. Node `config` values are NOT
+ * surfaced — only the readiness verdict (graph issue codes, node ids, node display
+ * names, missing-field LABELS) and a STATIC provider inventory (id / name /
+ * manifest-enabled). No config values, tokens, provider bodies, workflow name, or
+ * `createdByUserId` ever reach the DTO.
+ *
+ * AI-REPAIR-3G EXCEPTION: config strings ARE scanned for broken `{{...}}` variable
+ * tokens (`findInvalidVariableReferences`). Only the user-AUTHORED token text + the
+ * field LABEL leave the service — never a resolved config value, secret, or any
+ * non-token config content. A variable token the user typed is safe to echo back
+ * (the design-time field validator already shows it inline).
  *
  * CS-1 scope: readiness verdict + provider inventory only. Live per-provider
  * connection state (with credential/provenance rules) is a separate capability.
@@ -61,6 +69,18 @@ export interface NodeLabelDTO {
   readonly label: string;
 }
 
+/**
+ * AI-REPAIR-3G — one broken (deleted-/unknown-node) variable reference found in a
+ * node's config. Carries SAFE display fields only: the containing node id (internal
+ * targeting handle, like every other finding's `nodeId`), the field LABEL, and the
+ * user-AUTHORED `{{...}}` token. No resolved value, no secret, no non-token config.
+ */
+export interface InvalidVariableRefDTO {
+  readonly nodeId: string;
+  readonly fieldLabel: string;
+  readonly token: string;
+}
+
 export interface WorkflowReadinessDTO {
   readonly workflowId: string;
   readonly access: "OK" | "NOT_FOUND" | "NO_ACCOUNT_ACCESS";
@@ -72,6 +92,41 @@ export interface WorkflowReadinessDTO {
   readonly providers?: readonly ProviderInventoryDTO[];
   /** nodeId → safe display label for every node in the diagnosed graph. */
   readonly nodeLabels?: readonly NodeLabelDTO[];
+  /**
+   * AI-REPAIR-3G — broken (deleted-/unknown-node) variable references in node
+   * configs. Non-empty means at least one field points at a step that no longer
+   * exists, so the workflow is NOT actually ready even when the engine's
+   * `checkWorkflowReadiness` graph/field verdict is clean. Empty/absent → none.
+   */
+  readonly invalidVariableRefs?: readonly InvalidVariableRefDTO[];
+}
+
+/**
+ * Resolve a SAFE field label for a config key from the node's registry schema.
+ * Falls back to the raw key (itself a non-secret field NAME, never a value) when
+ * the schema or field can't be resolved.
+ */
+function resolveFieldLabel(node: WorkflowNode, fieldKey: string): string {
+  if (!node.type) return fieldKey;
+  const schema = getNodeSchema(`${node.provider}:${node.type}`);
+  if (!schema.ok) return fieldKey;
+  const field = schema.data.fields.find((f) => f.name === fieldKey);
+  return field?.label ?? fieldKey;
+}
+
+/** Scan node configs for broken variable tokens → safe display DTOs (no values). */
+function buildInvalidVariableRefs(
+  nodes: readonly WorkflowNode[],
+): InvalidVariableRefDTO[] {
+  const nodesById = new Map(nodes.map((n) => [n.id, n]));
+  return findInvalidVariableReferences(nodes).map((ref) => {
+    const node = nodesById.get(ref.nodeId);
+    return {
+      nodeId: ref.nodeId,
+      fieldLabel: node ? resolveFieldLabel(node, ref.fieldKey) : ref.fieldKey,
+      token: ref.token,
+    };
+  });
 }
 
 /** Build the nodeId → safe display-label inventory for the diagnosed graph. */
@@ -181,6 +236,8 @@ export async function diagnoseWorkflowReadiness(input: {
         }))
       : [];
 
+  const invalidVariableRefs = buildInvalidVariableRefs(def.nodes);
+
   return {
     workflowId,
     access: "OK",
@@ -190,5 +247,6 @@ export async function diagnoseWorkflowReadiness(input: {
     fieldGaps,
     providers,
     nodeLabels,
+    invalidVariableRefs,
   };
 }

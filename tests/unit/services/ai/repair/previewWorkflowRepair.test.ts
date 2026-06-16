@@ -23,6 +23,13 @@ jest.mock("@/services/ai/preview", () => ({
   previewWorkflowPatchForAI: (...a: unknown[]) => mockPreview(...a),
 }));
 
+// AI-REPAIR-3G — the deterministic variable-repair fast-path calls
+// `buildVariableRepairOutcome`, which reads upstream variables for the target node.
+const mockGetVars = jest.fn();
+jest.mock("@/services/ai/tools/variables", () => ({
+  getAvailableVariablesForAI: (...a: unknown[]) => mockGetVars(...a),
+}));
+
 import {
   diagnosisHasRepairableIssue,
   previewWorkflowRepair,
@@ -138,6 +145,10 @@ beforeEach(() => {
   mockGetGraph.mockResolvedValue({ ok: true, data: graph });
   mockPreview.mockReset();
   mockPreview.mockResolvedValue({ ok: true, data: validPreviewData });
+  mockGetVars.mockReset();
+  // Default: no upstream variables (deterministic fast-path finds no candidate and
+  // falls through). Tests that exercise the fast-path override this.
+  mockGetVars.mockResolvedValue({ ok: true, data: { variables: [] } });
 });
 
 const base = { userId: "user-1", workflowId: "wf-OPAQUE" } as const;
@@ -588,5 +599,119 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
     expect(src).not.toMatch(/applyWorkflowPatchForAI|applyPatchToDefinition/);
     expect(src).not.toMatch(/saveWorkflow|executeWorkflow|runWorkflow|updateDraftDefinition/);
     expect(src).not.toMatch(/hermes/i);
+  });
+});
+
+// ───────────────── AI-REPAIR-3G: deterministic variable-reference repair ─────────────────
+describe("previewWorkflowRepair — deterministic variable-reference fast-path (AI-REPAIR-3G)", () => {
+  const base = { userId: "user-1", workflowId: "wf-OPAQUE" } as const;
+
+  /** Diagnosis whose only repairable issue is a broken ref on the Slack message field. */
+  const brokenRefDto = {
+    workflowId: "wf-OPAQUE",
+    access: "OK",
+    overallReady: false,
+    summaryText: "A step references a deleted or missing step.",
+    findings: [
+      {
+        source: "graph",
+        code: "INVALID_VARIABLE_REFERENCE",
+        severity: "error",
+        title: "A step references a deleted or missing step.",
+        nodeIds: ["slack-1"],
+        invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.text}}" }],
+      },
+    ],
+  } as never;
+
+  /** Saved graph: the Slack Message field still holds a deleted-node reference. */
+  const brokenGraph = {
+    workflowId: "wf-OPAQUE",
+    name: "n",
+    state: "active",
+    activeRevisionId: null,
+    updatedAt: "rev-token-1",
+    nodes: [
+      { id: "trigger-1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } },
+      { id: "slack-1", kind: "action", provider: "slack", type: "send_message", config: { message: "{{ghost.text}}" }, position: { x: 0, y: 1 } },
+    ],
+    edges: [{ id: "e1", from: "trigger-1", to: "slack-1" }],
+  };
+
+  const oneCandidate = {
+    ok: true,
+    data: { variables: [{ nodeId: "trigger-1", nodeType: "native:manual_trigger", nodeKind: "trigger", path: "text", reference: "{{trigger.text}}", type: "string", sensitive: false }] },
+  };
+
+  function spyClient() {
+    const spy = jest.fn(async () => success(modelPatchText));
+    return { client: { generateStructuredJson: spy } as ModelClient, spy };
+  }
+
+  beforeEach(() => {
+    mockGetGraph.mockResolvedValue({ ok: true, data: brokenGraph });
+  });
+
+  it("exactly one broken ref + exactly one candidate → repairVariableReference op, NO model call", async () => {
+    mockGetVars.mockResolvedValue(oneCandidate);
+    const { client, spy } = spyClient();
+
+    const res = await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
+
+    // The model was NEVER called — the preview is fully deterministic.
+    expect(spy).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+
+    // The patch handed to the existing preview engine is a typed repairVariableReference.
+    expect(mockPreview).toHaveBeenCalledTimes(1);
+    const patch = mockPreview.mock.calls[0]![0].patch;
+    expect(patch.operations).toEqual([
+      { op: "repairVariableReference", nodeId: "slack-1", fieldPath: "message", newReference: "{{trigger.text}}" },
+    ]);
+    expect(patch.baseRevision).toBe("rev-token-1");
+  });
+
+  it("surfaces the deterministic preview (applyable) without an advisory model risk", async () => {
+    mockGetVars.mockResolvedValue(oneCandidate);
+    const { client } = spyClient();
+    const res = await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      // The same validated (applyable) preview the existing engine returned is surfaced.
+      expect(res.preview.ok).toBe(true);
+      expect(res.model.modelId).toBe("deterministic:variable-reference");
+    }
+  });
+
+  it("ZERO matching candidates → falls through to the model path (no deterministic op)", async () => {
+    mockGetVars.mockResolvedValue({ ok: true, data: { variables: [] } });
+    const { client, spy } = spyClient();
+    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
+    expect(spy).toHaveBeenCalledTimes(1); // model path ran
+  });
+
+  it("MULTIPLE matching candidates → ambiguous → falls through to the model path", async () => {
+    mockGetVars.mockResolvedValue({
+      ok: true,
+      data: {
+        variables: [
+          { nodeId: "trigger-1", nodeType: "native:manual_trigger", nodeKind: "trigger", path: "text", reference: "{{trigger.text}}", type: "string", sensitive: false },
+          { nodeId: "n9", nodeType: "x:y", nodeKind: "action", path: "text", reference: "{{n9.text}}", type: "string", sensitive: false },
+        ],
+      },
+    });
+    const { client, spy } = spyClient();
+    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("a safety-BLOCKED deterministic preview (e.g. recipient field) falls through to the model path", async () => {
+    mockGetVars.mockResolvedValue(oneCandidate);
+    // The deterministic patch validates as BLOCKED (apply-safety rejected the field) →
+    // the fast-path returns null and the model path takes over.
+    mockPreview.mockResolvedValue({ ok: true, data: { ...validPreviewData, ok: false, blockedReason: "Recipient field change requires confirmation." } });
+    const { client, spy } = spyClient();
+    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

@@ -40,6 +40,27 @@ function graphGuidance(code: string): string {
 }
 
 /**
+ * AI-REPAIR-3G — friendly "Needs attention" line for a broken variable reference.
+ * Names the affected field(s) and echoes the user-AUTHORED `{{...}}` token(s) — the
+ * one place a token-embedded node id is allowed in user-facing text (the user typed
+ * it; the design-time field validator shows it too). Falls back to generic guidance
+ * when the safe display metadata is absent (e.g. a rehydrated historical diagnosis).
+ */
+function invalidReferenceGuidance(
+  refs: readonly { readonly fieldLabel: string; readonly token: string }[] | undefined,
+): string {
+  if (!refs || refs.length === 0) {
+    return "A step references a deleted or missing step. Re-point it to an available step, or remove the reference.";
+  }
+  const parts = refs.map((r) => `${r.fieldLabel} (${r.token})`).join(", ");
+  const lead =
+    refs.length === 1
+      ? `The ${parts} field references a step that's no longer in this workflow.`
+      : `These fields reference steps that are no longer in this workflow: ${parts}.`;
+  return `${lead} Re-point it to an available step, or remove the reference.`;
+}
+
+/**
  * Map a diagnosis to its ordered "Needs attention" cards (graph + run findings, in
  * finding order). Returns an empty array when there are none, so the caller renders
  * nothing.
@@ -53,7 +74,11 @@ export function attentionFindingCards(
     const severity: "error" | "warning" =
       finding.severity === "warning" ? "warning" : "error";
     if (finding.source === "graph") {
-      out.push({ key: `graph:${finding.code}:${i}`, severity, message: graphGuidance(finding.code) });
+      const message =
+        finding.code === "INVALID_VARIABLE_REFERENCE"
+          ? invalidReferenceGuidance(finding.invalidReferences)
+          : graphGuidance(finding.code);
+      out.push({ key: `graph:${finding.code}:${i}`, severity, message });
     } else if (finding.source === "run") {
       out.push({
         key: `run:${finding.code}:${i}`,

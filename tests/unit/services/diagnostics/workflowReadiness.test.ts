@@ -188,3 +188,34 @@ describe("diagnoseWorkflowReadiness — no-leak on the authorized path", () => {
     expect(json).toContain("gmail");
   });
 });
+
+describe("diagnoseWorkflowReadiness — invalid variable references (AI-REPAIR-3G)", () => {
+  const BROKEN = "{{e25b1c45-af99-4913-9947-f726012329a5.email}}";
+
+  it("flags a deleted-node reference in a config field — token + nodeId only, no value", async () => {
+    const gmailBrokenRef = {
+      id: "gmail-1",
+      kind: "action",
+      provider: "gmail",
+      type: "send_email",
+      displayName: "Send Email",
+      config: { to: BROKEN, subject: "Static subject" },
+    };
+    mockGetWorkflow.mockResolvedValue(
+      workflow([triggerNode, gmailBrokenRef], [{ id: "e1", from: "trigger-1", to: "gmail-1" }]),
+    );
+    const result = await call();
+    expect(result.access).toBe("OK");
+    expect(result.invalidVariableRefs).toEqual([
+      { nodeId: "gmail-1", fieldLabel: expect.any(String), token: BROKEN },
+    ]);
+  });
+
+  it("is empty when every reference resolves (trigger alias / existing node)", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflow([triggerNode, gmailAction], [{ id: "e1", from: "trigger-1", to: "action-1" }]),
+    );
+    const result = await call();
+    expect(result.invalidVariableRefs).toEqual([]);
+  });
+});

@@ -222,6 +222,87 @@ describe("diagnoseWorkflowForAgent — composes services/diagnostics directly", 
   });
 });
 
+// ───────────────── AI-REPAIR-3G: broken variable references ─────────────────
+describe("diagnoseWorkflowForAgent — invalid variable references", () => {
+  const BROKEN_TOKEN = "{{e25b1c45-af99-4913-9947-f726012329a5.to}}";
+
+  /** Runnable + connected EXCEPT the Slack Message field holds a deleted-node ref. */
+  function readinessBrokenRef() {
+    return readinessOk({
+      runnable: true,
+      readinessError: null,
+      graphIssues: [],
+      fieldGaps: [],
+      nodeLabels: [{ nodeId: "slack-1", label: "Slack — Send Channel Message" }],
+      invalidVariableRefs: [{ nodeId: "slack-1", fieldLabel: "Message", token: BROKEN_TOKEN }],
+    });
+  }
+  function connectionsAllReady() {
+    return connectionsOk({
+      allRequiredConnected: true,
+      providers: [
+        {
+          provider: "slack",
+          name: "Slack",
+          credentialClass: "account",
+          nodeIds: ["slack-1"],
+          nodeCount: 1,
+          status: "CONNECTED",
+          ready: true,
+          providerEnabled: true,
+          refreshable: true,
+          tokenExpired: false,
+          scopesSatisfied: true,
+          missingScopeCount: 0,
+        },
+      ],
+    });
+  }
+
+  it("a broken reference makes the workflow NOT ready even when runnable + connected", async () => {
+    mockReadiness.mockResolvedValue(readinessBrokenRef());
+    mockConnections.mockResolvedValue(connectionsAllReady());
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.runnable).toBe(true);
+    expect(dto.allRequiredConnected).toBe(true);
+    expect(dto.overallReady).toBe(false);
+    expect(dto.summaryText).not.toContain("ready to run");
+    expect(dto.summaryText).toContain("deleted or missing step");
+  });
+
+  it("surfaces a deterministic INVALID_VARIABLE_REFERENCE finding (graph source → Needs attention)", async () => {
+    mockReadiness.mockResolvedValue(readinessBrokenRef());
+    mockConnections.mockResolvedValue(connectionsAllReady());
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const finding = dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE");
+    expect(finding).toBeDefined();
+    expect(finding!.source).toBe("graph");
+    expect(finding!.severity).toBe("error");
+    expect(finding!.nodeIds).toEqual(["slack-1"]);
+    expect(finding!.invalidReferences).toEqual([{ fieldLabel: "Message", token: BROKEN_TOKEN }]);
+    // It is NOT a missing-required-field finding (no "Open field" / Apply-on-field card).
+    expect(dto.findings!.some((f) => f.code === "MISSING_REQUIRED_FIELD")).toBe(false);
+  });
+
+  it("does NOT leak the raw token (node uuid) into the model-visible summaryText", async () => {
+    mockReadiness.mockResolvedValue(readinessBrokenRef());
+    mockConnections.mockResolvedValue(connectionsAllReady());
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.summaryText).toContain("Message"); // field label is safe
+    expect(dto.summaryText).not.toContain("e25b1c45"); // raw token/uuid stays off the summary
+  });
+
+  it("Check stays deterministic — the service imports no model client / AI credit gate", () => {
+    const src = readFileSync(
+      resolve(process.cwd(), "services/ai/diagnostics/diagnoseWorkflowForAgent.ts"),
+      "utf8",
+    );
+    expect(src).not.toMatch(/aiCreditGate/);
+    expect(src).not.toMatch(/modelClient|generateStructuredJson/);
+    expect(src).not.toMatch(/openai/i);
+  });
+});
+
 // ───────────────── latest-run: only after access OK, best-effort ─────────────────
 describe("diagnoseWorkflowForAgent — latest run is best-effort + post-access", () => {
   it("looks up the run ONLY after access OK", async () => {

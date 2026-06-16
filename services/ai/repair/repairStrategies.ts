@@ -8,7 +8,7 @@
  * only (never a patch). All grounded in the live registry via `getNodeSchema`.
  */
 
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
 import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
 import type {
@@ -193,17 +193,15 @@ function needsUserInputForVariable(reason: string): StrategyOutcome {
   };
 }
 
-function configStrings(value: unknown): string[] {
-  if (typeof value === "string") return [value];
-  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
-  return [];
-}
-
 /**
  * Invalid variable reference. Proposes `repairVariableReference` ONLY when there
  * is exactly one broken reference in the failed node AND exactly one upstream
  * variable whose path matches it — an unambiguous, deterministic replacement.
  * Anything ambiguous → `needsUserInput`.
+ *
+ * Broken-reference detection is delegated to the shared
+ * `findInvalidVariableReferences` (Slice 4.AI-REPAIR-3G) so this repair path and
+ * "Check workflow" diagnostics flag the exact same references.
  */
 export async function buildVariableRepairOutcome(
   userId: string,
@@ -211,7 +209,6 @@ export async function buildVariableRepairOutcome(
   graph: WorkflowGraphView,
   failedNodeId: string | null,
 ): Promise<StrategyOutcome> {
-  const nodeIds = new Set(graph.nodes.map((n) => n.id));
   const node: WorkflowGraphNodeView | undefined = failedNodeId
     ? graph.nodes.find((n) => n.id === failedNodeId)
     : undefined;
@@ -219,16 +216,9 @@ export async function buildVariableRepairOutcome(
     return needsUserInputForVariable("Couldn't locate the node with the broken variable reference.");
   }
 
-  const broken: Array<{ configKey: string; refPath: string }> = [];
-  for (const [key, value] of Object.entries(node.config)) {
-    for (const str of configStrings(value)) {
-      for (const ref of parseReferences(str)) {
-        if (ref.nodeId !== "trigger" && !nodeIds.has(ref.nodeId)) {
-          broken.push({ configKey: key, refPath: ref.path });
-        }
-      }
-    }
-  }
+  const broken = findInvalidVariableReferences(graph.nodes).filter(
+    (r) => r.nodeId === node.id,
+  );
 
   if (broken.length !== 1) {
     return needsUserInputForVariable(
@@ -256,10 +246,10 @@ export async function buildVariableRepairOutcome(
     repairability: "repairable",
     reasonCode: "INVALID_VARIABLE_REFERENCE",
     operations: [
-      { op: "repairVariableReference", nodeId: node.id, fieldPath: b.configKey, newReference: candidates[0]!.reference },
+      { op: "repairVariableReference", nodeId: node.id, fieldPath: b.fieldKey, newReference: candidates[0]!.reference },
     ],
     requiredUserInput: [],
-    recommendations: [`Re-point the broken reference in "${b.configKey}" to an available upstream value.`],
+    recommendations: [`Re-point the broken reference in "${b.fieldKey}" to an available upstream value.`],
     confidence: "medium",
     safetyNotes: [],
   };
