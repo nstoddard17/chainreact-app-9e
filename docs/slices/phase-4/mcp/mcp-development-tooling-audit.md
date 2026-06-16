@@ -30,9 +30,14 @@ Nothing pushed.
 > egress redactor; never echoes raw values). **Phase C-2 SHIPPED** — composite doctors
 > `doctor_workflow` / `doctor_provider` / `doctor_account_integration` (compose existing gated
 > routes + the static `providerStatics` brain; no new route/brain/DB; account-wide enumeration
-> deferred). Registry now **41 tools**. Remaining Phase C reports
-> (`generate_diagnostic_report` / `generate_deploy_readiness_report`) stay queued; smoke runners +
-> any mutating/deploy tools remain Phase D / do-not-build.
+> deferred). **Phase 2D SHIPPED** — report generators `generate_diagnostic_report` (composes the
+> doctors via their shared `compute*` functions → Markdown + structured metadata) and
+> `generate_deploy_readiness_report` (composes the existing safe local checks; `advisory` runs
+> nothing, `runSafeChecks` runs only allow-listed read-only checks; never pushes/deploys/db/migrates;
+> `includeMcpSmoke` is recommend-only). They add **no route, no brain, no DB access, no mutation**.
+> Registry now **43 tools**. With 2D shipped, the MCP internal diagnostic + reporting roadmap
+> (`mcp-internal-diagnostic-suite-roadmap.md` stages 2A→2D) is **complete**; smoke runners + any
+> mutating/deploy tools remain Phase D / do-not-build.
 
 **Source of truth (every file below was read for this audit):**
 [scripts/mcp/tools/index.ts](../../../../scripts/mcp/tools/index.ts) (the explicit registry) ·

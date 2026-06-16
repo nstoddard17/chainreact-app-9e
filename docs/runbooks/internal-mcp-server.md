@@ -150,10 +150,33 @@ composes readiness + graph + connections (+ optional run-failure / visibility);
 to the MCP boundary). Output is enums/counts/ids/field-names only — never tokens, raw
 scopes, credential identity, or private account data. *(Phase C-2.)*
 
-The full live registry today is **41 tools** (`npm run mcp:smoke`) — the context tools
+Phase 2D — report generators (`generate_diagnostic_report`,
+`generate_deploy_readiness_report`): pure **composition + formatting** tools. They add
+**no route, no brain, no DB access, and no mutation**.
+
+- `generate_diagnostic_report` composes an existing doctor (`doctor_workflow` /
+  `doctor_provider` / `doctor_account_integration`) by calling the SAME `compute*`
+  functions those doctor tools use, then renders a copyable Markdown report (Summary,
+  Sections, Findings by severity, Prioritized next steps, Sources used,
+  Unavailable/deferred checks, Safety note) plus a structured-metadata JSON block. Every
+  value is already-sanitized (enums/counts/node-ids/field-names) — never tokens, raw
+  config, provider bodies, or raw errors. Optional `includeSections` / `includeUnavailable`
+  / `maxFindings`.
+- `generate_deploy_readiness_report` composes the existing safe local check tools into a
+  pre-push/pre-deploy readiness verdict (`ready`/`blocked`/`review_needed`/`unknown`).
+  `mode:"advisory"` (default) recommends checks and runs **nothing**; `mode:"runSafeChecks"`
+  runs **only** the allow-listed read-only tools (`run_typecheck`, `run_structure_lint`,
+  `run_migration_lint`, `run_route_structure_tests`, `run_provider_metadata_tests`,
+  `summarize_last_test_failure`; `run_lint` only with `includeBroadLint:true`). It **never**
+  pushes, deploys, applies a migration, runs `db:push`, or triggers a prod smoke
+  (`includeMcpSmoke` is a recommendation only — MCP does not run it). Output reports
+  checksRun vs checksRecommended, blockers, warnings, and explicit no-push / no-deploy /
+  no-db statements. *(Phase 2D.)*
+
+The full live registry today is **43 tools** (`npm run mcp:smoke`) — the context tools
 above, the command wrappers, the Phase A-1 helpers, the Phase A-2 provider tools, the
-Phase B verification helpers, the Phase C-1 `no_leak_scanner`, the Phase C-2 doctors,
-and the Stage-2A/2B diagnostics (below).
+Phase B verification helpers, the Phase C-1 `no_leak_scanner`, the Phase C-2 doctors, the
+Phase 2D report generators, and the Stage-2A/2B diagnostics (below).
 
 ### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
 
@@ -408,7 +431,8 @@ this tool by design.
 
 ## Tests
 
-`tests/unit/mcp/` (186 tests). The Plane-B routes + capability services also carry
+`tests/unit/mcp/` (25 suites / 310 tests, including `reports.test.ts` for the Phase 2D
+report generators). The Plane-B routes + capability services also carry
 their own tests under `tests/unit/app/api/internal/diagnostics/` and
 `tests/unit/services/diagnostics/` (gate, authz walls, per-status mapping, no-leak):
 

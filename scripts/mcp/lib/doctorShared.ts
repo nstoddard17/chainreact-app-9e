@@ -23,6 +23,17 @@ export interface DoctorResult {
   readonly unavailable: ReadonlyArray<{ section: string; reason: string }>;
 }
 
+/**
+ * The outcome of a doctor's *computation* — split from rendering so the same
+ * computed answer feeds both the doctor tool (which renders text) and the Phase
+ * 2D report tools (which render Markdown + structured metadata). A `false` ok is
+ * a safe validation error (e.g. a missing required input); `true` carries the
+ * already-sanitized `DoctorResult` + the doctor's title.
+ */
+export type DoctorOutcome =
+  | { readonly ok: false; readonly message: string }
+  | { readonly ok: true; readonly title: string; readonly result: DoctorResult };
+
 /** Worst-wins overall status across the available section statuses (pure). */
 export function aggregateOverall(statuses: readonly SectionStatus[]): DoctorStatus {
   if (statuses.includes("blocked")) return "blocked";

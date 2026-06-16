@@ -110,8 +110,20 @@ logic.** Repositories stay database-only; pure helpers stay pure.
   `doctor_account_integration` (`scripts/mcp/tools/doctors.ts` + `doctorsProviders.ts`). They
   **compose** the existing gated routes (via `postDiagnostic`) + the static `providerStatics` brain
   — **no new route, no new brain, no DB access**. `doctor_account_integration` is provider-scoped;
-  account-wide enumeration is deferred (would need a new gated route). Stage **2D (reports) remains
-  unbuilt** — design only; each must follow the §2 pattern.
+  account-wide enumeration is deferred (would need a new gated route).
+- **Roadmap stage 2D (reports) SHIPPED** (Phase 2D) — `generate_diagnostic_report` /
+  `generate_deploy_readiness_report` (`scripts/mcp/tools/reports.ts` + `lib/reportShared.ts`).
+  `generate_diagnostic_report` **composes** the doctors by calling their shared `compute*`
+  functions (extracted into `DoctorOutcome`-returning helpers so the report reuses the exact
+  diagnosis instead of re-deriving it) and renders Markdown + a structured-metadata JSON block.
+  `generate_deploy_readiness_report` **composes** the existing safe local check tools
+  (typecheck / structure-lint / migration-lint / route- & provider-structure tests /
+  smoke-artifact summary; broad lint opt-in) — `advisory` runs nothing, `runSafeChecks` runs only
+  the allow-listed read-only tools, and it **never** pushes/deploys/applies-migrations/runs
+  db:push/triggers prod smoke. Both add **no new route, no new brain, and no DB access**. Output is
+  enums/counts/ids/field-names + already-redacted check tails only. With 2D shipped the
+  **MCP internal diagnostic + reporting roadmap (stages 2A→2D) is complete**; smoke runners and any
+  mutating/deploy tools remain Phase D / do-not-build.
 
 ---
 

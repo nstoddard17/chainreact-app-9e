@@ -15,6 +15,7 @@ import { doctorTools } from "./doctors";
 import { noLeakScannerTools } from "./noLeakScanner";
 import { providerTools } from "./providers";
 import { repoNavTools } from "./repoNav";
+import { reportTools } from "./reports";
 import { smokeTools } from "./smoke";
 import { testRunnerTools } from "./testRunners";
 import { verifyTools } from "./verify";
@@ -49,5 +50,9 @@ export function buildRegistry(): ToolRegistry {
   // postDiagnostic) + the static providerStatics brain; no new route, no new
   // brain, no DB access in scripts/mcp.
   for (const tool of doctorTools) registry.register(tool);
+  // Phase 2D — report generators. They COMPOSE the doctors (diagnostic report)
+  // and the existing safe local check tools (deploy-readiness report). No new
+  // route, no new brain, no DB; never push/deploy/db/mutate.
+  for (const tool of reportTools) registry.register(tool);
   return registry;
 }

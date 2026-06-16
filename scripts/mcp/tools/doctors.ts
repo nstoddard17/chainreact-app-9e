@@ -30,6 +30,7 @@ import {
   type ConnectionsDTO,
   dedup,
   describeGraphFinding,
+  type DoctorOutcome,
   type DoctorStatus,
   type GraphDTO,
   graphNextSteps,
@@ -47,11 +48,20 @@ const RUN_FAILURE_PATH = "/api/internal/diagnostics/run-failure";
 
 // ─────────────────────────────── doctor_workflow ───────────────────────────────
 
-async function doctorWorkflow(args: Record<string, unknown>): Promise<string> {
+/**
+ * Compute the composite workflow doctor answer (no rendering). Shared by the
+ * `doctor_workflow` tool and the Phase 2D `generate_diagnostic_report` tool so the
+ * report COMPOSES the same diagnosis rather than re-deriving it.
+ */
+export async function computeDoctorWorkflow(args: Record<string, unknown>): Promise<DoctorOutcome> {
   const workflowId = typeof args.workflowId === "string" ? args.workflowId.trim() : "";
   const userId = typeof args.userId === "string" ? args.userId.trim() : "";
-  if (!workflowId) return "Error: 'workflowId' is required.";
-  if (!userId) return "Error: 'userId' is required — the subject to diagnose under (member of the workflow's account).";
+  if (!workflowId) return { ok: false, message: "Error: 'workflowId' is required." };
+  if (!userId)
+    return {
+      ok: false,
+      message: "Error: 'userId' is required — the subject to diagnose under (member of the workflow's account).",
+    };
   const runId = typeof args.runId === "string" ? args.runId.trim() : "";
   const includeRunVisibility = args.includeRunVisibility === true;
 
@@ -66,23 +76,31 @@ async function doctorWorkflow(args: Record<string, unknown>): Promise<string> {
   const readiness = await postDiagnostic<ReadinessDTO>(READINESS_PATH, { workflowId, userId });
   if (!readiness.ok) {
     // Gate off / unreachable → the whole live API is unavailable.
-    return renderDoctor("doctor_workflow", {
-      overall: "unknown",
-      sections: [],
-      nextSteps: [],
-      sourceTools,
-      unavailable: [{ section: "readiness/graph/connections", reason: readiness.message }],
-    });
+    return {
+      ok: true,
+      title: "doctor_workflow",
+      result: {
+        overall: "unknown",
+        sections: [],
+        nextSteps: [],
+        sourceTools,
+        unavailable: [{ section: "readiness/graph/connections", reason: readiness.message }],
+      },
+    };
   }
   if (readiness.dto.access !== "OK") {
     const wall = ACCESS_WALL[readiness.dto.access] ?? { status: "unknown" as DoctorStatus, reason: readiness.dto.access };
-    return renderDoctor("doctor_workflow", {
-      overall: wall.status,
-      sections: [{ name: "access", status: wall.status === "blocked" ? "blocked" : "unavailable", summary: `${readiness.dto.access} — ${wall.reason}` }],
-      nextSteps: [],
-      sourceTools,
-      unavailable: [],
-    });
+    return {
+      ok: true,
+      title: "doctor_workflow",
+      result: {
+        overall: wall.status,
+        sections: [{ name: "access", status: wall.status === "blocked" ? "blocked" : "unavailable", summary: `${readiness.dto.access} — ${wall.reason}` }],
+        nextSteps: [],
+        sourceTools,
+        unavailable: [],
+      },
+    };
   }
   {
     const runnable = readiness.dto.runnable === true;
@@ -174,13 +192,24 @@ async function doctorWorkflow(args: Record<string, unknown>): Promise<string> {
   }
 
   const overall = aggregateOverall(sections.map((s) => s.status));
-  return renderDoctor("doctor_workflow", {
-    overall,
-    sections,
-    nextSteps: dedup(nextSteps).slice(0, 10),
-    sourceTools,
-    unavailable,
-  });
+  return {
+    ok: true,
+    title: "doctor_workflow",
+    result: {
+      overall,
+      sections,
+      nextSteps: dedup(nextSteps).slice(0, 10),
+      sourceTools,
+      unavailable,
+    },
+  };
+}
+
+/** `doctor_workflow` tool handler — renders the computed outcome to text. */
+async function doctorWorkflow(args: Record<string, unknown>): Promise<string> {
+  const outcome = await computeDoctorWorkflow(args);
+  if (!outcome.ok) return outcome.message;
+  return renderDoctor(outcome.title, outcome.result);
 }
 
 export const doctorTools: ToolDefinition[] = [

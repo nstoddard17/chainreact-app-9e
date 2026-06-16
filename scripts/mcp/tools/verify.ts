@@ -93,8 +93,12 @@ export function recommendChecksForPaths(
   return recs;
 }
 
-/** Read changed files via two fixed, read-only git invocations (no shell). */
-function gitChangedFiles(): { files: string[]; note: string | null } {
+/**
+ * Read changed files via two fixed, read-only git invocations (no shell).
+ * Exported so the Phase 2D deploy-readiness report can reuse the SAME read-only
+ * git read instead of re-implementing it.
+ */
+export function gitChangedFiles(): { files: string[]; note: string | null } {
   const run = (gitArgs: string[]): string[] => {
     const r = spawnSync("git", gitArgs, {
       cwd: REPO_ROOT,

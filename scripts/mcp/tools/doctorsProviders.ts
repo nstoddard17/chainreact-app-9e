@@ -22,6 +22,7 @@ import {
   aggregateOverall,
   CONNECTED,
   dedup,
+  type DoctorOutcome,
   type IntegrationConnectionDTO,
   renderDoctor,
   type Section,
@@ -29,12 +30,17 @@ import {
 
 const INTEGRATION_CONNECTION_PATH = "/api/internal/diagnostics/integration-connection";
 
-export async function doctorProvider(args: Record<string, unknown>): Promise<string> {
+/**
+ * Compute the composite provider doctor answer (no rendering). Shared by the
+ * `doctor_provider` tool and `generate_diagnostic_report` so the report composes
+ * the same diagnosis.
+ */
+export async function computeDoctorProvider(args: Record<string, unknown>): Promise<DoctorOutcome> {
   const provider = typeof args.provider === "string" ? args.provider.trim() : "";
-  if (!provider) return "Error: 'provider' is required (e.g. 'slack').";
-  if (!isValidProviderId(provider)) return `Error: invalid provider id '${provider}'.`;
+  if (!provider) return { ok: false, message: "Error: 'provider' is required (e.g. 'slack')." };
+  if (!isValidProviderId(provider)) return { ok: false, message: `Error: invalid provider id '${provider}'.` };
   if (!listProviderIds().includes(provider)) {
-    return `Error: no manifest found for provider '${provider}'. Use list_provider_manifests.`;
+    return { ok: false, message: `Error: no manifest found for provider '${provider}'. Use list_provider_manifests.` };
   }
 
   const sections: Section[] = [];
@@ -142,20 +148,36 @@ export async function doctorProvider(args: Record<string, unknown>): Promise<str
   }
 
   const overall = aggregateOverall(sections.map((s) => s.status));
-  return renderDoctor(`doctor_provider: ${provider}`, {
-    overall,
-    sections,
-    nextSteps: dedup(nextSteps).slice(0, 10),
-    sourceTools,
-    unavailable,
-  });
+  return {
+    ok: true,
+    title: `doctor_provider: ${provider}`,
+    result: {
+      overall,
+      sections,
+      nextSteps: dedup(nextSteps).slice(0, 10),
+      sourceTools,
+      unavailable,
+    },
+  };
 }
 
-export async function doctorAccountIntegration(args: Record<string, unknown>): Promise<string> {
+/** `doctor_provider` tool handler — renders the computed outcome to text. */
+export async function doctorProvider(args: Record<string, unknown>): Promise<string> {
+  const outcome = await computeDoctorProvider(args);
+  if (!outcome.ok) return outcome.message;
+  return renderDoctor(outcome.title, outcome.result);
+}
+
+/**
+ * Compute the composite account-integration doctor answer (no rendering). Shared
+ * by the `doctor_account_integration` tool and `generate_diagnostic_report`.
+ */
+export async function computeDoctorAccountIntegration(args: Record<string, unknown>): Promise<DoctorOutcome> {
   const accountId = typeof args.accountId === "string" ? args.accountId.trim() : "";
   const userId = typeof args.userId === "string" ? args.userId.trim() : "";
-  if (!accountId) return "Error: 'accountId' is required.";
-  if (!userId) return "Error: 'userId' is required — the subject to diagnose under (member of the account).";
+  if (!accountId) return { ok: false, message: "Error: 'accountId' is required." };
+  if (!userId)
+    return { ok: false, message: "Error: 'userId' is required — the subject to diagnose under (member of the account)." };
   const provider = typeof args.provider === "string" ? args.provider.trim() : "";
 
   const sections: Section[] = [];
@@ -167,27 +189,35 @@ export async function doctorAccountIntegration(args: Record<string, unknown>): P
     // Account-wide enumeration needs a list of the account's integration rows,
     // which would require new service-role DB access in the MCP boundary — out of
     // scope by design. Provider-scoped only for now.
-    return renderDoctor("doctor_account_integration", {
-      overall: "unknown",
-      sections: [],
-      nextSteps: ["Pass a 'provider' to check one integration; account-wide enumeration is deferred."],
-      sourceTools: [],
-      unavailable: [
-        {
-          section: "accountWideEnumeration",
-          reason:
-            "DEFERRED — listing all of an account's integrations needs a new gated route (no new service-role DB access is added to the MCP boundary). Provide a 'provider' for a scoped check.",
-        },
-      ],
-    });
+    return {
+      ok: true,
+      title: "doctor_account_integration",
+      result: {
+        overall: "unknown",
+        sections: [],
+        nextSteps: ["Pass a 'provider' to check one integration; account-wide enumeration is deferred."],
+        sourceTools: [],
+        unavailable: [
+          {
+            section: "accountWideEnumeration",
+            reason:
+              "DEFERRED — listing all of an account's integrations needs a new gated route (no new service-role DB access is added to the MCP boundary). Provide a 'provider' for a scoped check.",
+          },
+        ],
+      },
+    };
   }
 
-  if (!isValidProviderId(provider)) return `Error: invalid provider id '${provider}'.`;
+  if (!isValidProviderId(provider)) return { ok: false, message: `Error: invalid provider id '${provider}'.` };
   sourceTools.push("diagnose_integration_connection");
   const live = await postDiagnostic<IntegrationConnectionDTO>(INTEGRATION_CONNECTION_PATH, { provider, accountId, userId });
   if (!live.ok) {
     unavailable.push({ section: provider, reason: live.message });
-    return renderDoctor("doctor_account_integration", { overall: "unknown", sections, nextSteps, sourceTools, unavailable });
+    return {
+      ok: true,
+      title: "doctor_account_integration",
+      result: { overall: "unknown", sections, nextSteps, sourceTools, unavailable },
+    };
   }
   const d = live.dto;
   const ready = d.status === CONNECTED;
@@ -200,11 +230,22 @@ export async function doctorAccountIntegration(args: Record<string, unknown>): P
   if (!ready) nextSteps.push(`Resolve '${provider}' for this account (status ${d.status}).`);
 
   const overall = aggregateOverall(sections.map((s) => s.status));
-  return renderDoctor("doctor_account_integration", {
-    overall,
-    sections: [...sections, { name: "counts", status: "ok", summary: `connected=${counts.connected} needsAttention=${counts.needsAttention} (provider-scoped)` }],
-    nextSteps,
-    sourceTools,
-    unavailable,
-  });
+  return {
+    ok: true,
+    title: "doctor_account_integration",
+    result: {
+      overall,
+      sections: [...sections, { name: "counts", status: "ok", summary: `connected=${counts.connected} needsAttention=${counts.needsAttention} (provider-scoped)` }],
+      nextSteps,
+      sourceTools,
+      unavailable,
+    },
+  };
+}
+
+/** `doctor_account_integration` tool handler — renders the computed outcome. */
+export async function doctorAccountIntegration(args: Record<string, unknown>): Promise<string> {
+  const outcome = await computeDoctorAccountIntegration(args);
+  if (!outcome.ok) return outcome.message;
+  return renderDoctor(outcome.title, outcome.result);
 }
