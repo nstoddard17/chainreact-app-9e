@@ -1,23 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreviewProposalContext } from "@/lib/api/ai";
-import { canExplainDiagnosis, firstMissingFieldNodeId, type RequiredInputAnswer } from "../ai";
-import {
-  AssistantBubble,
-  PlanResultBody,
-  UserBubble,
-  type ChatMessage,
-  type ChatMessageId,
-} from "./_BuilderAiPanelChat";
-import {
-  DiagnosisBody,
-  DiagnosisExplanationBody,
-  RepairPreviewBody,
-  RepairProposalBody,
-} from "./_BuilderAiPanelDiagnosis";
-import { ChatFillBody } from "./_BuilderAiPanelChatFill";
+import { firstMissingFieldNodeId, type RequiredInputAnswer } from "../ai";
+import type { ChatMessage, ChatMessageId } from "./_BuilderAiPanelChat";
+import { MessageItem, TransientIndicators } from "./_BuilderAiPanelMessageItem";
 import type { ChatFillProposal } from "../ai/chatFillAction";
 
 /**
@@ -28,11 +15,11 @@ import type { ChatFillProposal } from "../ai/chatFillAction";
  * client imports, no state of its own beyond a `listEndRef` for auto-scroll.
  *
  * Owns: the `role="log"` / `aria-live="polite"` scroll container, the intro
- * hint (only when no messages and not busy), per-message rendering via the
- * `_BuilderAiPanelChat` subcomponents, the "Planning your change…"
- * indicator (rendered as an assistant bubble while `planning` is true), the
- * top-level `ai.error` inline copy (401 / 404 nuance — back-compat with
- * AI-11B), and a bottom anchor + auto-scroll effect.
+ * hint (only when no messages and not busy), the top-level `ai.error` inline
+ * copy (401 / 404 nuance — back-compat with AI-11B), a bottom anchor +
+ * auto-scroll effect, and the LATEST-message derivation that gates live/paid
+ * affordances. Per-message rendering is delegated to `MessageItem` and the
+ * in-flight indicators to `TransientIndicators` (Slice 4.AI-REPAIR-3F split).
  *
  * The `latestPlanMessageId` derivation lives here too — only the latest
  * plan_result message renders the full breakdown (full `builder-ai-…`
@@ -301,273 +288,53 @@ export function BuilderAiPanelMessageList({
         </p>
       )}
 
-      {messages.map((message) => {
-        if (message.role === "user") {
-          return (
-            <UserBubble
-              key={message.id}
-              kind={message.kind}
-              content={message.content}
-            />
-          );
-        }
-        if (message.kind === "plan_result") {
-          const isLatest = message.id === latestPlanMessageId;
-          return (
-            <AssistantBubble key={message.id}>
-              <PlanResultBody
-                result={message.result}
-                isLatest={isLatest}
-                applying={applying}
-                riskAcknowledged={riskAcknowledged}
-                onRiskAcknowledgeChange={onRiskAcknowledgeChange}
-                onApply={onApply}
-                stagedAnswers={stagedAnswers}
-                onStagedAnswerChange={onStagedAnswerChange}
-                onSubmitDetails={onSubmitDetails}
-                canSubmitDetails={canSubmitDetails}
-                submittingDetails={submittingDetails}
-              />
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "applied") {
-          return (
-            <AssistantBubble key={message.id}>
-              <div
-                className="flex flex-col gap-2"
-                data-testid="builder-ai-apply-success"
-              >
-                <p
-                  role="status"
-                  className="text-xs text-emerald-700 dark:text-emerald-400"
-                >
-                  ✓ {message.result.summaryText}
-                </p>
-                <div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onReset}
-                    data-testid="builder-ai-plan-another-button"
-                  >
-                    Plan another change
-                  </Button>
-                </div>
-              </div>
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "diagnosis") {
-          // AI-DIAG-2c / AI-REPAIR-1c — Explain and Suggest-a-fix share ONE gate:
-          // the latest diagnosis message that still has real issues. Clean/ready
-          // and access walls hide both paid affordances.
-          const isLatestDiagnosis = message.id === latestDiagnosisMessageId;
-          const showAffordances =
-            isLatestDiagnosis && canExplainDiagnosis(message.diagnosis);
-          return (
-            <AssistantBubble key={message.id}>
-              <DiagnosisBody
-                diagnosis={message.diagnosis}
-                canExplain={showAffordances}
-                explaining={explaining}
-                alreadyExplained={explainedDiagnosisIds.has(message.id)}
-                onExplain={() => onExplainDiagnosis(message.id)}
-                canSuggestFix={showAffordances}
-                suggesting={suggesting}
-                alreadySuggested={suggestedDiagnosisIds.has(message.id)}
-                onSuggestFix={() => onSuggestFix(message.id)}
-                // CS-5/CS-8 — surface the direct "Open <field> field" actions on the
-                // LATEST check result so missing-input issues need neither Suggest nor
-                // Preview. The group renders one action per missing field across nodes.
-                showFieldActions={isLatestDiagnosis}
-              />
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "repair_proposal") {
-          const canPreview = message.id === latestRepairProposalMessageId;
-          return (
-            <AssistantBubble key={message.id}>
-              <RepairProposalBody
-                proposal={message.proposal}
-                canPreview={canPreview}
-                goToNodeId={canPreview ? repairGoToNodeId : null}
-                previewing={previewing}
-                alreadyPreviewed={previewedProposalIds.has(message.id)}
-                onPreviewFix={() =>
-                  onPreviewFix(message.id, {
-                    summary: message.proposal.summary,
-                    recommendedActions: message.proposal.recommendedActions,
-                  })
-                }
-              />
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "repair_preview") {
-          // AI-REPAIR-3E — the Apply button shows ONLY when this is the latest preview
-          // AND the server marked it applyable with the opaque operations + baseRevision
-          // to forward. A blocked / metadata-less / historical preview → no button.
-          const apply = message.preview.apply;
-          const canApply =
-            message.id === latestRepairPreviewMessageId &&
-            apply?.applyable === true &&
-            Array.isArray(apply.operations) &&
-            typeof apply.baseRevision === "string";
-          return (
-            <AssistantBubble key={message.id}>
-              <RepairPreviewBody
-                preview={message.preview}
-                canApply={canApply}
-                applying={applyingId === message.id}
-                applied={appliedPreviewIds.has(message.id)}
-                applyError={applyErrorByPreviewId.get(message.id) ?? null}
-                {...(canApply && apply?.operations && apply.baseRevision
-                  ? {
-                      onApply: () =>
-                        onApplyRepair(message.id, {
-                          operations: apply.operations as readonly unknown[],
-                          baseRevision: apply.baseRevision as string,
-                        }),
-                    }
-                  : {})}
-              />
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "chat_fill") {
-          const fill = message.fill;
-          return (
-            <AssistantBubble key={message.id}>
-              <ChatFillBody
-                fill={fill}
-                resolved={resolvedFillIds.has(message.id)}
-                onConfirm={() => {
-                  if (fill.phase === "proposal") onConfirmFill(message.id, fill.proposal);
-                }}
-                onCancel={() => onCancelFill(message.id)}
-              />
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "diagnosis_explanation") {
-          return (
-            <AssistantBubble key={message.id}>
-              <DiagnosisExplanationBody
-                explanation={message.explanation}
-                priorities={message.priorities}
-                missingInfo={message.missingInfo}
-              />
-            </AssistantBubble>
-          );
-        }
-        if (message.kind === "apply_failure") {
-          return (
-            <AssistantBubble key={message.id}>
-              <div
-                data-testid="builder-ai-apply-failure"
-                className="flex flex-col gap-2"
-              >
-                <p role="alert" className="text-xs text-destructive">
-                  {message.result.code === "STALE_PATCH"
-                    ? "This workflow changed after the plan was created, so it wasn’t applied. Re-run the plan to work from the latest version."
-                    : message.result.code === "CONFIRMATION_REQUIRED"
-                      ? "This change needs your explicit confirmation before it can be applied."
-                      : message.result.message}
-                </p>
-                {message.result.code === "STALE_PATCH" && (
-                  <div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={onRerunPlan}
-                      disabled={busy}
-                      data-testid="builder-ai-rerun-button"
-                    >
-                      Re-run plan
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </AssistantBubble>
-          );
-        }
-        // error
-        return (
-          <AssistantBubble key={message.id}>
-            <p
-              role="alert"
-              className="text-xs text-destructive"
-              data-testid="builder-ai-error-message"
-            >
-              {message.content}
-            </p>
-          </AssistantBubble>
-        );
-      })}
+      {messages.map((message) => (
+        <MessageItem
+          key={message.id}
+          message={message}
+          latestPlanMessageId={latestPlanMessageId}
+          latestDiagnosisMessageId={latestDiagnosisMessageId}
+          latestRepairProposalMessageId={latestRepairProposalMessageId}
+          latestRepairPreviewMessageId={latestRepairPreviewMessageId}
+          repairGoToNodeId={repairGoToNodeId}
+          applying={applying}
+          busy={busy}
+          riskAcknowledged={riskAcknowledged}
+          onRiskAcknowledgeChange={onRiskAcknowledgeChange}
+          onApply={onApply}
+          onRerunPlan={onRerunPlan}
+          onReset={onReset}
+          stagedAnswers={stagedAnswers}
+          onStagedAnswerChange={onStagedAnswerChange}
+          onSubmitDetails={onSubmitDetails}
+          canSubmitDetails={canSubmitDetails}
+          submittingDetails={submittingDetails}
+          onExplainDiagnosis={onExplainDiagnosis}
+          explaining={explaining}
+          explainedDiagnosisIds={explainedDiagnosisIds}
+          onSuggestFix={onSuggestFix}
+          suggesting={suggesting}
+          suggestedDiagnosisIds={suggestedDiagnosisIds}
+          onPreviewFix={onPreviewFix}
+          previewing={previewing}
+          previewedProposalIds={previewedProposalIds}
+          onApplyRepair={onApplyRepair}
+          applyingId={applyingId}
+          appliedPreviewIds={appliedPreviewIds}
+          applyErrorByPreviewId={applyErrorByPreviewId}
+          onConfirmFill={onConfirmFill}
+          onCancelFill={onCancelFill}
+          resolvedFillIds={resolvedFillIds}
+        />
+      ))}
 
-      {planning && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-planning"
-          >
-            Planning your change…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {checking && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-checking"
-          >
-            Checking workflow…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {explaining && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-explaining"
-          >
-            Explaining this check…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {suggesting && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-suggesting"
-          >
-            Suggesting a fix…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {previewing && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-previewing"
-          >
-            Previewing fix…
-          </p>
-        </AssistantBubble>
-      )}
+      <TransientIndicators
+        planning={planning}
+        checking={checking}
+        explaining={explaining}
+        suggesting={suggesting}
+        previewing={previewing}
+      />
 
       {/* Top-level transport error (e.g. 401/404) — back-compat with the
           AI-11B inline error rendering. The assistant error bubble (above)
