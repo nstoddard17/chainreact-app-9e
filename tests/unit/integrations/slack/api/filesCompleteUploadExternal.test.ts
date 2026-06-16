@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/filesCompleteUploadExternal (Slack 2.4 Commit 2).
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { filesCompleteUploadExternal } from "@/integrations/slack/api/filesCompleteUploadExternal";
 
 beforeEach(() => {
@@ -37,7 +38,7 @@ describe("filesCompleteUploadExternal — request shape", () => {
     );
 
     await filesCompleteUploadExternal({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       files: [{ id: "F0001", title: "Q1 Report" }],
       channelId: "C1",
     });
@@ -48,7 +49,7 @@ describe("filesCompleteUploadExternal — request shape", () => {
     );
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer xoxb-test");
+    expect(headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse((init as { body: string }).body)).toEqual({
       files: [{ id: "F0001", title: "Q1 Report" }],
       channel_id: "C1",

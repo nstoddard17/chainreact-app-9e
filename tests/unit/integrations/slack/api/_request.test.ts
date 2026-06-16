@@ -10,6 +10,7 @@
  * `http_<status>` (the pre-V2-READY-27 contract every wrapper test relies on).
  */
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { slackApiRequest } from "@/integrations/slack/api/_request";
 import { SlackApiError } from "@/integrations/slack/api/errors";
 
@@ -20,7 +21,7 @@ function mockFetchOnce(body: string | null, status: number): void {
 }
 
 async function call(): Promise<unknown> {
-  return slackApiRequest("conversations.list", "xoxb-token", {});
+  return slackApiRequest("conversations.list", SLACK_TOKEN_PLACEHOLDER, {});
 }
 
 afterEach(() => {

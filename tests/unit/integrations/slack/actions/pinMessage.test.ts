@@ -18,6 +18,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { pinMessage } from "@/integrations/slack/actions/pinMessage";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -69,13 +70,13 @@ beforeEach(() => {
 describe("pinMessage — happy path", () => {
   it("decrypts the bot token, calls pins.add, and returns the channel + ts confirmation", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockPinsAdd.mockResolvedValueOnce(undefined);
 
     const result = await pinMessage(makeInput({ channel: "C1", ts: "1.0" }));
 
     expect(mockPinsAdd).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       timestamp: "1.0",
     });

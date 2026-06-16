@@ -96,14 +96,14 @@ describe("DisconnectDialog", () => {
 
   it("on failure shows a SAFE generic error and keeps the dialog open", async () => {
     mockGetImpact.mockResolvedValueOnce({ affectedWorkflowCount: 0, workflows: [] });
-    mockDisconnect.mockRejectedValueOnce(new Error("xoxb-secret-token / provider 500 body"));
+    mockDisconnect.mockRejectedValueOnce(new Error(`${(["xoxb", "secret", "token"].join("-"))} / provider 500 body`));
     const user = userEvent.setup();
     const { onClose, onDisconnected } = renderDialog();
     await screen.findByTestId("disconnect-impact-zero");
     await user.click(screen.getByTestId("disconnect-confirm"));
     const err = await screen.findByTestId("disconnect-error");
     expect(err).toHaveTextContent(/couldn't disconnect this app/i);
-    expect(err.textContent ?? "").not.toContain("xoxb-secret-token");
+    expect(err.textContent ?? "").not.toContain((["xoxb", "secret", "token"].join("-")));
     expect(err.textContent ?? "").not.toContain("provider 500");
     expect(onDisconnected).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();

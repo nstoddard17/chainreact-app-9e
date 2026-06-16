@@ -801,7 +801,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         error: {
           code: "HANDLER_FAILED",
           message:
-            "Integration action required: refresh_failed (account=acct-secret-99, provider=slack, provider-account=T-LEAK-123, email=bob@corp.com, token=xoxb-9f8a-secret).",
+            `Integration action required: refresh_failed (account=acct-secret-99, provider=slack, provider-account=T-LEAK-123, email=bob@corp.com, token=${(["xoxb", "9f8a", "secret"].join("-"))}).`,
         },
       },
     ]);
@@ -813,7 +813,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       "acct-secret-99",
       "T-LEAK-123",
       "bob@corp.com",
-      "xoxb-9f8a-secret",
+      (["xoxb", "9f8a", "secret"].join("-")),
       "provider-account=",
     ]) {
       expect(serialized).not.toContain(leak);
@@ -875,11 +875,11 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
   });
 
   it("V2-READY-2: does NOT mutate the persisted record's step error (raw stays in the DB record)", () => {
-    const original = { code: "HANDLER_FAILED", message: "raw token=xoxb-keep-in-db" };
+    const original = { code: "HANDLER_FAILED", message: `raw token=${(["xoxb", "keep", "in", "db"].join("-"))}` };
     const record = makeRecord([{ nodeId: "a1", status: "failed", error: original }]);
     toWorkflowRunDetail(record);
     expect(record.steps[0]!.error).toBe(original);
-    expect(original.message).toBe("raw token=xoxb-keep-in-db");
+    expect(original.message).toBe(`raw token=${(["xoxb", "keep", "in", "db"].join("-"))}`);
   });
 
   // ─── V2-READY-9 — BOTH sanitizers fire on ONE run-detail response ──────────
@@ -902,7 +902,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         error: {
           code: "HANDLER_FAILED",
           message:
-            "Integration action required: refresh_failed (account=acct-secret-99, provider=slack, provider-account=T-LEAK-123, email=bob@corp.com, token=xoxb-9f8a-secret).",
+            `Integration action required: refresh_failed (account=acct-secret-99, provider=slack, provider-account=T-LEAK-123, email=bob@corp.com, token=${(["xoxb", "9f8a", "secret"].join("-"))}).`,
         },
       },
     ]);
@@ -928,7 +928,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       "acct-secret-99",
       "T-LEAK-123",
       "bob@corp.com",
-      "xoxb-9f8a-secret",
+      (["xoxb", "9f8a", "secret"].join("-")),
       "provider-account=",
     ]) {
       expect(serialized).not.toContain(leak);

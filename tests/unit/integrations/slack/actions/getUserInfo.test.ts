@@ -20,6 +20,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { getUserInfo } from "@/integrations/slack/actions/users/getUserInfo";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -71,7 +72,7 @@ beforeEach(() => {
 describe("getUserInfo — happy path", () => {
   it("decrypts the bot token, calls users.info, projects flat fields + preserves raw user object", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockUsersInfo.mockResolvedValueOnce({
       user: {
         id: "U1",
@@ -93,7 +94,7 @@ describe("getUserInfo — happy path", () => {
     const result = await getUserInfo(makeInput({ user: "U1" }));
 
     expect(mockUsersInfo).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       user: "U1",
     });
     expect(result.output).toEqual({

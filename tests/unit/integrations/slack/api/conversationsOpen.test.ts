@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/conversationsOpen.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { conversationsOpen } from "@/integrations/slack/api/conversationsOpen";
 import { SlackApiError } from "@/integrations/slack/api/errors";
 
@@ -24,7 +25,7 @@ describe("conversationsOpen", () => {
     );
 
     const result = await conversationsOpen({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       users: "U1",
     });
 
@@ -33,7 +34,7 @@ describe("conversationsOpen", () => {
     expect(url).toBe("https://slack.com/api/conversations.open");
     const reqInit = init as { method: string; headers: Record<string, string>; body: string };
     expect(reqInit.method).toBe("POST");
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({ users: "U1" });
   });
 

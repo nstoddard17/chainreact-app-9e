@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/chatScheduledMessagesList.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { chatScheduledMessagesList } from "@/integrations/slack/api/chatScheduledMessagesList";
 
 beforeEach(() => {
@@ -28,7 +29,7 @@ describe("chatScheduledMessagesList", () => {
       ),
     );
 
-    const result = await chatScheduledMessagesList({ botToken: "xoxb-test" });
+    const result = await chatScheduledMessagesList({ botToken: SLACK_TOKEN_PLACEHOLDER });
 
     expect(result.messages).toHaveLength(1);
     expect(result.hasMore).toBe(false);

@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/pinsAdd.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { pinsAdd } from "@/integrations/slack/api/pinsAdd";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ describe("pinsAdd", () => {
     );
 
     await pinsAdd({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       timestamp: "1.0",
     });

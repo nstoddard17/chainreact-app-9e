@@ -28,6 +28,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { sendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -83,7 +84,7 @@ beforeEach(() => {
 describe("sendChannelMessage — happy path", () => {
   it("looks up integration by (userId, 'slack', triggerEvent.accountId), decrypts, posts, returns shaped output", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real-token");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockChatPostMessage.mockResolvedValueOnce({
       ts: "1730000000.000123",
       channel: "C123",
@@ -97,7 +98,7 @@ describe("sendChannelMessage — happy path", () => {
     expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-user-1", "slack", "T0001");
     expect(mockDecryptToken).toHaveBeenCalledWith("ENCRYPTED_TOKEN");
     expect(mockChatPostMessage).toHaveBeenCalledWith({
-      botToken: "xoxb-real-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C123",
       text: "hello",
       threadTs: undefined,
@@ -111,7 +112,7 @@ describe("sendChannelMessage — happy path", () => {
 
   it("forwards thread_ts through to chatPostMessage when supplied (Slack 2.1 expansion)", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockChatPostMessage.mockResolvedValueOnce({
       ts: "2.0",
       channel: "C1",
@@ -123,7 +124,7 @@ describe("sendChannelMessage — happy path", () => {
     );
 
     expect(mockChatPostMessage).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       text: "reply",
       threadTs: "1.0",
@@ -137,7 +138,7 @@ describe("sendChannelMessage — happy path", () => {
       providerAccountId: "gmail-account",
     };
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real-token");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockChatPostMessage.mockResolvedValueOnce({
       ts: "1.0",
       channel: "C1",

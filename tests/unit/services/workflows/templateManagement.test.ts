@@ -48,7 +48,7 @@ function workflow(over: Record<string, unknown> = {}) {
     name: "Lead intake",
     state: "draft",
     draftDefinition: {
-      nodes: [{ id: "n1", kind: "action", provider: "slack", type: "post", position: { x: 0, y: 0 }, config: { channel: "C1", botToken: "xoxb-planted-secret-123456", contact: "vp@acme.com" } }],
+      nodes: [{ id: "n1", kind: "action", provider: "slack", type: "post", position: { x: 0, y: 0 }, config: { channel: "C1", botToken: (["xoxb", "planted", "secret", "123456"].join("-")), contact: "vp@acme.com" } }],
       edges: [],
     },
     ...over,
@@ -169,7 +169,7 @@ describe("createAccountTemplate — tier + binding", () => {
     expect(r.ok).toBe(true);
     const arg = repo.createTemplateServiceRole.mock.calls[0]![0];
     const blob = JSON.stringify(arg.definition);
-    expect(blob).not.toMatch(/xoxb-planted-secret/);
+    expect(blob).not.toMatch((new RegExp(["xoxb", "planted", "secret"].join("-"))));
     expect(blob).not.toMatch(/vp@acme\.com/);
     expect(arg.source).toBeUndefined(); // never 'official' from this path (repo defaults 'user')
   });

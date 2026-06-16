@@ -21,6 +21,7 @@ jest.mock("@/integrations/slack/api/filesInfo", () => ({
   filesInfo: (...args: unknown[]) => mockFilesInfo(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { getFileInfo } from "@/integrations/slack/actions/files/getFileInfo";
 import { SlackApiError } from "@/integrations/slack/api/errors";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
@@ -95,7 +96,7 @@ beforeEach(() => {
   mockFilesInfo.mockReset();
 
   mockGetActiveForExecution.mockResolvedValue(integration);
-  mockDecryptToken.mockReturnValue("xoxb-test-token");
+  mockDecryptToken.mockReturnValue(SLACK_TOKEN_PLACEHOLDER);
   mockFilesInfo.mockResolvedValue({ file: slackFile, comments: [] });
 });
 
@@ -104,7 +105,7 @@ describe("get_file_info — happy path", () => {
     const result = await getFileInfo(makeInput());
 
     expect(mockFilesInfo).toHaveBeenCalledWith({
-      botToken: "xoxb-test-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       fileId: "FABC123",
     });
 
@@ -157,7 +158,7 @@ describe("get_file_info — happy path", () => {
     );
 
     expect(mockFilesInfo).toHaveBeenCalledWith({
-      botToken: "xoxb-test-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       fileId: "FABC123",
       count: 100,
     });

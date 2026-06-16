@@ -18,6 +18,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { postInteractiveBlocks } from "@/integrations/slack/actions/postInteractiveBlocks";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -82,7 +83,7 @@ beforeEach(() => {
 describe("postInteractiveBlocks — happy path", () => {
   it("decrypts the bot token, calls chat.postMessage with blocks, returns shaped output", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockChatPostMessage.mockResolvedValueOnce({
       channel: "C1",
       ts: "1730000000.000123",
@@ -94,7 +95,7 @@ describe("postInteractiveBlocks — happy path", () => {
     );
 
     expect(mockChatPostMessage).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       blocks: simpleBlocks,
       text: undefined,

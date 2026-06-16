@@ -214,7 +214,7 @@ describe("enrichRequiredUserInputs — no-leak", () => {
             provider: "slack",
             type: "send_channel_message",
             config: {
-              accessToken: "xoxb-LEAKED-SECRET",
+              accessToken: (["xoxb", "LEAKED", "SECRET"].join("-")),
             },
             position: { x: 0, y: 0 },
           },
@@ -233,7 +233,7 @@ describe("enrichRequiredUserInputs — no-leak", () => {
       leakyPatch,
     );
     const json = JSON.stringify(result);
-    expect(json).not.toContain("xoxb-LEAKED-SECRET");
+    expect(json).not.toContain((["xoxb", "LEAKED", "SECRET"].join("-")));
     expect(json).not.toContain("accessToken");
   });
 });

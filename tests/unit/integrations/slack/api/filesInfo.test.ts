@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/filesInfo (Slack 2.4 Commit 2).
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { filesInfo } from "@/integrations/slack/api/filesInfo";
 
 beforeEach(() => {
@@ -40,13 +41,13 @@ describe("filesInfo — request shape", () => {
       ),
     );
 
-    await filesInfo({ botToken: "xoxb-test", fileId: "F0001" });
+    await filesInfo({ botToken: SLACK_TOKEN_PLACEHOLDER, fileId: "F0001" });
 
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(String(url)).toBe("https://slack.com/api/files.info");
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer xoxb-test");
+    expect(headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse((init as { body: string }).body)).toEqual({
       file: "F0001",
     });

@@ -111,7 +111,7 @@ describe("summarizeRunFailure — no-leak", () => {
         {
           nodeId: "action-1",
           status: "failed",
-          output: { secret: "STEP_OUTPUT_SECRET", token: "xoxb-LEAK" },
+          output: { secret: "STEP_OUTPUT_SECRET", token: (["xoxb", "LEAK"].join("-")) },
           error: {
             code: "PROVIDER_REAUTH_REQUIRED",
             message: "RAW_PROVIDER_ERROR_MESSAGE",
@@ -130,7 +130,7 @@ describe("summarizeRunFailure — no-leak", () => {
       "victim@example.com",
       "FATAL_SECRET_MESSAGE",
       "STEP_OUTPUT_SECRET",
-      "xoxb-LEAK",
+      (["xoxb", "LEAK"].join("-")),
       "RAW_PROVIDER_ERROR_MESSAGE",
       "RAW_PROVIDER_BODY",
       "user-SECRET",

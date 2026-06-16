@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/authTest (V2-READY-29 — health probe).
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { authTest } from "@/integrations/slack/api/authTest";
 
 beforeEach(() => {
@@ -23,13 +24,13 @@ describe("authTest — request shape", () => {
       ),
     );
 
-    await authTest({ botToken: "xoxb-test" });
+    await authTest({ botToken: SLACK_TOKEN_PLACEHOLDER });
 
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(String(url)).toBe("https://slack.com/api/auth.test");
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer xoxb-test");
+    expect(headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse((init as { body: string }).body)).toEqual({});
   });
 

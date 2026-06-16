@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/conversationsList (Slack 2.3 Commit 2).
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { conversationsList } from "@/integrations/slack/api/conversationsList";
 
 beforeEach(() => {
@@ -20,13 +21,13 @@ describe("conversationsList — request shape", () => {
       new Response(JSON.stringify({ ok: true, channels: [] }), { status: 200 }),
     );
 
-    await conversationsList({ botToken: "xoxb-test" });
+    await conversationsList({ botToken: SLACK_TOKEN_PLACEHOLDER });
 
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(String(url)).toBe("https://slack.com/api/conversations.list");
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer xoxb-test");
+    expect(headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(headers["content-type"]).toMatch(/application\/json/);
     expect(JSON.parse((init as { body: string }).body)).toEqual({});
   });

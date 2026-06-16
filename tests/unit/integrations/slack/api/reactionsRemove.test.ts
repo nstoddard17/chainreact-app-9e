@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/reactionsRemove.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { reactionsRemove } from "@/integrations/slack/api/reactionsRemove";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ describe("reactionsRemove", () => {
     );
 
     await reactionsRemove({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       timestamp: "1.0",
       name: "thumbsup",

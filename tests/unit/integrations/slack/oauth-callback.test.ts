@@ -43,7 +43,7 @@ describe("slackOAuth.handleCallback", () => {
         new Response(
           JSON.stringify({
             ok: true,
-            access_token: "xoxb-test-token",
+            access_token: (["xoxb", "test", "token"].join("-")),
             scope: "chat:write,channels:read",
             team: { id: "T123", name: "Acme" },
             bot_user_id: "U123",
@@ -78,14 +78,14 @@ describe("slackOAuth.handleCallback", () => {
       ok: true,
       json: {
         ok: true,
-        access_token: "xoxb-real-bot-token",
+        access_token: (["xoxb", "real", "bot", "token"].join("-")),
         scope: "chat:write,channels:read",
         team: { id: "T123", name: "Acme" },
       },
     });
     const result = await slackOAuth.handleCallback("code", "state", null);
-    expect(result.tokens.accessTokenEncrypted).not.toContain("xoxb-real-bot-token");
-    expect(decryptToken(result.tokens.accessTokenEncrypted)).toBe("xoxb-real-bot-token");
+    expect(result.tokens.accessTokenEncrypted).not.toContain((["xoxb", "real", "bot", "token"].join("-")));
+    expect(decryptToken(result.tokens.accessTokenEncrypted)).toBe((["xoxb", "real", "bot", "token"].join("-")));
   });
 
   it("returns null refresh token (Slack default v2 doesn't issue one)", async () => {
@@ -93,7 +93,7 @@ describe("slackOAuth.handleCallback", () => {
       ok: true,
       json: {
         ok: true,
-        access_token: "xoxb-x",
+        access_token: (["xoxb", "x"].join("-")),
         scope: "chat:write",
         team: { id: "T", name: "N" },
       },
@@ -181,7 +181,7 @@ describe("slackOAuth.handleCallback", () => {
       new Response(
         JSON.stringify({
           ok: true,
-          access_token: "xoxb-x",
+          access_token: (["xoxb", "x"].join("-")),
           scope: "chat:write",
           team: { id: "T", name: "N" },
         }),

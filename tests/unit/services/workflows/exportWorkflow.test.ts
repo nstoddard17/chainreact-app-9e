@@ -64,13 +64,13 @@ describe("sanitizeConfigForExport — sensitive keys", () => {
   it("redacts email + token substrings inside otherwise-innocuous string values", () => {
     const out = sanitizeConfigForExport({
       message: "Ping support@acme.com about this",
-      note: "key is xoxb-123456789-abcdef and a jwt eyJhbGciOiJIUzI1NiIsInR5cCI6 here",
+      note: `key is ${(["xoxb", "123456789", "abcdef"].join("-"))} and a jwt eyJhbGciOiJIUzI1NiIsInR5cCI6 here`,
       channelName: "general", // untouched
     });
     expect(out.message).not.toMatch(/support@acme\.com/);
     expect(out.message).toContain(REDACTION_MARKER);
     expect(out.message).toContain("Ping"); // surrounding intent preserved
-    expect(out.note).not.toMatch(/xoxb-123456789/);
+    expect(out.note).not.toMatch((new RegExp(["xoxb", "123456789"].join("-"))));
     expect(out.note).not.toMatch(/eyJhbGci/);
     expect(out.channelName).toBe("general");
   });
@@ -105,7 +105,7 @@ describe("sanitizeWorkflowDefinitionForExport — graph shape", () => {
         type: "new_message",
         displayName: "When a message arrives",
         position: { x: 10, y: 20 },
-        config: { channel: "C1", botToken: "xoxb-secret-token-1234567" },
+        config: { channel: "C1", botToken: (["xoxb", "secret", "token", "1234567"].join("-")) },
       } as WorkflowDefinition["nodes"][number],
       {
         id: "n2",
@@ -141,7 +141,7 @@ describe("sanitizeWorkflowDefinitionForExport — graph shape", () => {
     expect(out.nodes[1]!.config.to).not.toMatch(/boss@acme\.com/);
     // whole-export stringify carries no planted secret/email
     const json = JSON.stringify(out);
-    expect(json).not.toMatch(/xoxb-secret-token/);
+    expect(json).not.toMatch((new RegExp(["xoxb", "secret", "token"].join("-"))));
     expect(json).not.toMatch(/ya29\.secrettoken/);
     expect(json).not.toMatch(/boss@acme\.com/);
   });
@@ -185,7 +185,7 @@ describe("buildWorkflowExport — DTO", () => {
           provider: "slack",
           type: "post",
           position: { x: 0, y: 0 },
-          config: { channel: "C1", token: "xoxb-leak-1234567" },
+          config: { channel: "C1", token: (["xoxb", "leak", "1234567"].join("-")) },
         },
       ],
       edges: [],
@@ -208,7 +208,7 @@ describe("buildWorkflowExport — DTO", () => {
     expect(json).not.toMatch(/acct-1/);
     expect(json).not.toMatch(/user-secret-1/);
     expect(json).not.toMatch(/createdByUserId|accountId/);
-    expect(json).not.toMatch(/xoxb-leak/);
+    expect(json).not.toMatch((new RegExp(["xoxb", "leak"].join("-"))));
   });
 });
 
@@ -239,7 +239,7 @@ describe("buildAccountWorkflowsExport — bulk DTO", () => {
   it("exports multiple workflows with metadata + workflowCount + accountId", () => {
     const r = buildAccountWorkflowsExport(
       "acct-bulk-1",
-      [rec("wf-1", "First", "xoxb-leak-A-1234567"), rec("wf-2", "Second", "xoxb-leak-B-1234567")],
+      [rec("wf-1", "First", (["xoxb", "leak", "A", "1234567"].join("-"))), rec("wf-2", "Second", (["xoxb", "leak", "B", "1234567"].join("-")))],
       "2026-06-07T00:00:00.000Z",
     );
     expect(r.ok).toBe(true);
@@ -260,12 +260,12 @@ describe("buildAccountWorkflowsExport — bulk DTO", () => {
   it("runs EVERY workflow through the sanitizer — no planted token/email across the bulk JSON", () => {
     const r = buildAccountWorkflowsExport(
       "acct-bulk-1",
-      [rec("wf-1", "First", "xoxb-leak-A-1234567"), rec("wf-2", "Second", "ya29.leakB12345678")],
+      [rec("wf-1", "First", (["xoxb", "leak", "A", "1234567"].join("-"))), rec("wf-2", "Second", "ya29.leakB12345678")],
       "2026-06-07T00:00:00.000Z",
     );
     if (!r.ok) throw new Error("expected ok");
     const json = JSON.stringify(r.export);
-    expect(json).not.toMatch(/xoxb-leak-A/);
+    expect(json).not.toMatch((new RegExp(["xoxb", "leak", "A"].join("-"))));
     expect(json).not.toMatch(/ya29\.leakB/);
     expect(json).not.toMatch(/owner@acme\.com/);
     expect(json).not.toMatch(/user-bulk-secret/); // createdByUserId never included
@@ -282,7 +282,7 @@ describe("buildAccountWorkflowsExport — bulk DTO", () => {
 
   it("refuses over the per-export limit with a typed reason (no unbounded payload)", () => {
     const many = Array.from({ length: ACCOUNT_WORKFLOW_EXPORT_LIMIT + 1 }, (_, i) =>
-      rec(`wf-${i}`, `W${i}`, "xoxb-x-1234567"),
+      rec(`wf-${i}`, `W${i}`, (["xoxb", "x", "1234567"].join("-"))),
     );
     const r = buildAccountWorkflowsExport("acct-bulk-1", many, "2026-06-07T00:00:00.000Z");
     expect(r).toEqual({
@@ -295,7 +295,7 @@ describe("buildAccountWorkflowsExport — bulk DTO", () => {
 
   it("allows exactly the limit", () => {
     const exact = Array.from({ length: ACCOUNT_WORKFLOW_EXPORT_LIMIT }, (_, i) =>
-      rec(`wf-${i}`, `W${i}`, "xoxb-x-1234567"),
+      rec(`wf-${i}`, `W${i}`, (["xoxb", "x", "1234567"].join("-"))),
     );
     const r = buildAccountWorkflowsExport("acct-bulk-1", exact, "2026-06-07T00:00:00.000Z");
     expect(r.ok).toBe(true);

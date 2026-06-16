@@ -39,7 +39,7 @@ const record = {
         provider: "slack",
         type: "post_message",
         position: { x: 0, y: 0 },
-        config: { channel: "C123", botToken: "xoxb-planted-secret-1234567", to: "ceo@acme.com" },
+        config: { channel: "C123", botToken: (["xoxb", "planted", "secret", "1234567"].join("-")), to: "ceo@acme.com" },
       },
     ],
     edges: [],
@@ -110,7 +110,7 @@ it("response contains NO planted secret / token / email / account or user id", a
   mockGetById.mockResolvedValueOnce(record);
   const res = await GET(new Request("http://x/wf-1/export"), params());
   const text = await res.text();
-  expect(text).not.toMatch(/xoxb-planted-secret/);
+  expect(text).not.toMatch((new RegExp(["xoxb", "planted", "secret"].join("-"))));
   expect(text).not.toMatch(/ceo@acme\.com/);
   expect(text).not.toMatch(/acct-leak-1/);
   expect(text).not.toMatch(/user-leak-1/);

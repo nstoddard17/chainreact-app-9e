@@ -18,6 +18,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { cancelScheduledMessage } from "@/integrations/slack/actions/cancelScheduledMessage";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -69,7 +70,7 @@ beforeEach(() => {
 describe("cancelScheduledMessage — happy path", () => {
   it("decrypts the bot token, calls chat.deleteScheduledMessage, returns cancelled=true", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockChatDeleteScheduledMessage.mockResolvedValueOnce(undefined);
 
     const result = await cancelScheduledMessage(
@@ -77,7 +78,7 @@ describe("cancelScheduledMessage — happy path", () => {
     );
 
     expect(mockChatDeleteScheduledMessage).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       scheduledMessageId: "Q1234ABCD",
     });

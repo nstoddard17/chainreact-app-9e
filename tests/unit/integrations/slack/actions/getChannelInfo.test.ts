@@ -19,6 +19,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { getChannelInfo } from "@/integrations/slack/actions/channels/getChannelInfo";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -70,7 +71,7 @@ beforeEach(() => {
 describe("getChannelInfo — happy path", () => {
   it("decrypts the bot token, calls conversations.info, projects flat fields + preserves raw channel object", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsInfo.mockResolvedValueOnce({
       channel: {
         id: "C1",
@@ -88,7 +89,7 @@ describe("getChannelInfo — happy path", () => {
     const result = await getChannelInfo(makeInput({ channel: "C1" }));
 
     expect(mockConversationsInfo).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
     });
     expect(result.output).toEqual({

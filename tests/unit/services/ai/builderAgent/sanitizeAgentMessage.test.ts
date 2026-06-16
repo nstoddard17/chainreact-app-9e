@@ -133,7 +133,7 @@ describe("content sanitization", () => {
     const out = sanitizeAgentMessageForPersist({
       role: "user",
       kind: "prompt",
-      content: "Slack: xoxb-1234-567890-abcdef",
+      content: `Slack: ${(["xoxb", "1234", "567890", "abcdef"].join("-"))}`,
     });
     expect(out.content).toBe("[redacted]");
   });

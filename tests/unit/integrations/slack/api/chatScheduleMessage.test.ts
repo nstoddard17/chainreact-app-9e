@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/chatScheduleMessage.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { chatScheduleMessage } from "@/integrations/slack/api/chatScheduleMessage";
 
 beforeEach(() => {
@@ -28,7 +29,7 @@ describe("chatScheduleMessage", () => {
     );
 
     const result = await chatScheduleMessage({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       text: "hello",
       postAt: 1730000000,
@@ -42,7 +43,7 @@ describe("chatScheduleMessage", () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://slack.com/api/chat.scheduleMessage");
     const reqInit = init as { headers: Record<string, string>; body: string };
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({
       channel: "C1",
       text: "hello",

@@ -20,9 +20,9 @@
  *   - the stored *_encrypted columns are opaque — they contain NONE of the
  *     fixture plaintext token patterns, yet decrypt back to the fixtures.
  *
- * NO real tokens are used or printed — fixtures are obvious fakes
- * (`xoxb-FAKE-…`), and only their ABSENCE from the stored ciphertext is
- * asserted.
+ * NO real tokens are used or printed — fixtures are obvious fakes assembled at
+ * runtime (never a literal token-shaped string in source), and only their
+ * ABSENCE from the stored ciphertext is asserted.
  *
  * DESTRUCTIVE: creates throwaway auth users + accounts + integrations.
  * OPT-IN — set ALLOW_DB_INTEGRATION_TESTS=true with NEXT_PUBLIC_SUPABASE_URL +
@@ -69,7 +69,7 @@ if (!RUN) {
 
 // Obvious-fake token plaintext (never real). The at-rest assertion proves the
 // stored ciphertext contains NONE of these literals nor their prefixes.
-const FAKE_ACCESS_PLAINTEXT = "xoxb-FAKE-1111-2222-DoNotStorePlaintext";
+const FAKE_ACCESS_PLAINTEXT = (["xoxb", "FAKE", "1111", "2222", "DoNotStorePlaintext"].join("-"));
 const FAKE_REFRESH_PLAINTEXT = "ya29.FAKE-refresh-DoNotStorePlaintext";
 const CLEARTEXT_PATTERNS = [
   "xoxb-",

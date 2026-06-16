@@ -1,3 +1,4 @@
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { createHmac } from "node:crypto";
 import {
@@ -113,7 +114,7 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
     expect(integration.provider_account_id).toBe("T-MOCK-TEAM");
     expect(integration.access_token_encrypted).toBeTruthy();
     expect(integration.access_token_encrypted).not.toBe(
-      "xoxb-mock-bot-token-e2e",
+      SLACK_TOKEN_PLACEHOLDER,
     );
 
     // Mock recorded exactly one token exchange.
@@ -219,7 +220,7 @@ test.describe("Slice 1 — full Slack walkthrough", () => {
     });
     // Authorization header carries the (decrypted) bot token.
     expect(callsAfterRun.chatPostMessage[0]!.authorization).toBe(
-      "Bearer xoxb-mock-bot-token-e2e",
+      `Bearer ${SLACK_TOKEN_PLACEHOLDER}`,
     );
 
     // ── 9. UI: Run history shows the succeeded run ──

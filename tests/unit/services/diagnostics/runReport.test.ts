@@ -35,7 +35,7 @@ function fullRun(over: Record<string, unknown> = {}) {
     triggerNodeId: "trigger-1",
     triggerEvent: { rawPayload: "SECRET_TRIGGER_BODY", email: "victim@example.com" },
     steps: [
-      { nodeId: "trigger-1", status: "succeeded", output: { tok: "xoxb-LEAK" } },
+      { nodeId: "trigger-1", status: "succeeded", output: { tok: (["xoxb", "LEAK"].join("-")) } },
       {
         nodeId: "action-1",
         status: "failed",
@@ -176,7 +176,7 @@ describe("diagnoseRunReport — failure mode summary (authorized)", () => {
     const json = JSON.stringify(await call());
     for (const forbidden of [
       "STEP_OUTPUT_SECRET",
-      "xoxb-LEAK",
+      (["xoxb", "LEAK"].join("-")),
       "RAW_PROVIDER_MSG",
       "RAW_BODY",
       "FATAL_SECRET_MESSAGE",

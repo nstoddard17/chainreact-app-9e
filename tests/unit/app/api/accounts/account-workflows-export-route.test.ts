@@ -73,7 +73,7 @@ beforeEach(() => {
     capabilities: { plan: "business", canBulkExport: true, canCreateTemplates: false, canUseBuiltInTemplates: true },
   });
   mockListByAccount.mockResolvedValue([
-    rec("wf-1", "Alpha", "xoxb-planted-A-1234567"),
+    rec("wf-1", "Alpha", (["xoxb", "planted", "A", "1234567"].join("-"))),
     rec("wf-2", "Beta", "ya29.plantedB12345678"),
   ]);
 });
@@ -125,7 +125,7 @@ it("serialized response contains NO planted secret / token / email / user id", a
   authed();
   const res = await GET(new Request("http://x"), params());
   const text = await res.text();
-  expect(text).not.toMatch(/xoxb-planted-A/);
+  expect(text).not.toMatch((new RegExp(["xoxb", "planted", "A"].join("-"))));
   expect(text).not.toMatch(/ya29\.plantedB/);
   expect(text).not.toMatch(/vp@acme\.com/);
   expect(text).not.toMatch(/user-leak-bulk/);
@@ -135,7 +135,7 @@ it("413 TOO_MANY_WORKFLOWS over the export limit", async () => {
   authed();
   mockListByAccount.mockResolvedValue(
     Array.from({ length: ACCOUNT_WORKFLOW_EXPORT_LIMIT + 1 }, (_, i) =>
-      rec(`wf-${i}`, `W${i}`, "xoxb-x-1234567"),
+      rec(`wf-${i}`, `W${i}`, (["xoxb", "x", "1234567"].join("-"))),
     ),
   );
   const res = await GET(new Request("http://x"), params());

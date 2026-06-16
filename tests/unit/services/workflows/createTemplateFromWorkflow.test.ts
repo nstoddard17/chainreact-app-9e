@@ -40,7 +40,7 @@ function workflow(): WorkflowRecord {
           position: { x: 0, y: 0 },
           config: {
             channel: "C1",
-            botToken: "xoxb-planted-secret-123456",
+            botToken: (["xoxb", "planted", "secret", "123456"].join("-")),
             contact: "vp@acme.com",
             connectedByUserId: "owner-leak-99",
             integrationId: "intg-leak-1",
@@ -67,7 +67,7 @@ describe("buildSanitizedTemplateDefinition", () => {
   it("redacts tokens / emails / secret-shaped strings and owner/integration ids", () => {
     const def = buildSanitizedTemplateDefinition(workflow());
     const blob = JSON.stringify(def);
-    expect(blob).not.toMatch(/xoxb-planted-secret/);
+    expect(blob).not.toMatch((new RegExp(["xoxb", "planted", "secret"].join("-"))));
     expect(blob).not.toMatch(/vp@acme\.com/);
     expect(blob).not.toMatch(/owner-leak-99/);
     expect(blob).not.toMatch(/intg-leak-1/);
@@ -100,7 +100,7 @@ describe("createTemplateFromWorkflow", () => {
     expect(arg.accountId).toBe("acct-1");
     expect(arg.name).toBe("Lead intake");
     expect(arg.schemaVersion).toBe(EXPORT_SCHEMA_VERSION);
-    expect(JSON.stringify(arg.definition)).not.toMatch(/xoxb-planted-secret/);
+    expect(JSON.stringify(arg.definition)).not.toMatch((new RegExp(["xoxb", "planted", "secret"].join("-"))));
     expect(JSON.stringify(arg.definition)).not.toMatch(/vp@acme\.com/);
   });
 

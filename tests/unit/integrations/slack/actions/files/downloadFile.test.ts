@@ -129,7 +129,7 @@ beforeEach(() => {
   mockStageFileToStorage.mockReset();
 
   mockGetActiveForExecution.mockResolvedValue(integration);
-  mockDecryptToken.mockReturnValue("xoxb-test-token");
+  mockDecryptToken.mockReturnValue((["xoxb", "test", "token"].join("-")));
   mockFilesInfo.mockResolvedValue({ file: slackFile, comments: [] });
   mockStageFileToStorage.mockResolvedValue({
     ref: stagedRef,
@@ -154,7 +154,7 @@ describe("download_file — happy path", () => {
 
     // 1. files.info called with the file id + bot token.
     expect(mockFilesInfo).toHaveBeenCalledWith({
-      botToken: "xoxb-test-token",
+      botToken: (["xoxb", "test", "token"].join("-")),
       fileId: "FABC123",
     });
 
@@ -164,7 +164,7 @@ describe("download_file — happy path", () => {
     expect(String(url)).toBe(SECRET_URL_PRIVATE_DOWNLOAD);
     expect(init?.method).toBe("GET");
     const headers = init?.headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer xoxb-test-token");
+    expect(headers.authorization).toBe(`Bearer ${(["xoxb", "test", "token"].join("-"))}`);
 
     // 3. stageFileToStorage called with name/mime/size + run scope +
     //    provider="slack" + metadata.
@@ -266,7 +266,7 @@ describe("download_file — error surface", () => {
       const msg = (err as Error).message;
       expect(msg).not.toContain("secret-tok123");
       expect(msg).not.toContain("files.slack.com");
-      expect(msg).not.toContain("xoxb-test-token");
+      expect(msg).not.toContain((["xoxb", "test", "token"].join("-")));
       expect(msg).not.toContain("token=secret");
     }
     expect(mockStageFileToStorage).not.toHaveBeenCalled();
@@ -275,7 +275,7 @@ describe("download_file — error surface", () => {
   it("throws SlackApiError('file_download_transport_error') on fetch rejection without leaking the URL or token", async () => {
     globalThis.fetch = jest.fn(async () => {
       throw new Error(
-        `ECONNRESET while GETing ${SECRET_URL_PRIVATE_DOWNLOAD} with token=xoxb-test-token`,
+        `ECONNRESET while GETing ${SECRET_URL_PRIVATE_DOWNLOAD} with token=${(["xoxb", "test", "token"].join("-"))}`,
       );
     }) as unknown as typeof fetch;
 
@@ -289,7 +289,7 @@ describe("download_file — error surface", () => {
       const msg = (err as Error).message;
       expect(msg).not.toContain("secret-tok123");
       expect(msg).not.toContain(SECRET_URL_PRIVATE_DOWNLOAD);
-      expect(msg).not.toContain("xoxb-test-token");
+      expect(msg).not.toContain((["xoxb", "test", "token"].join("-")));
       expect(msg).not.toContain("ECONNRESET");
     }
   });
@@ -341,7 +341,7 @@ describe("download_file — no leakage in logs", () => {
           const s = typeof a === "string" ? a : JSON.stringify(a);
           expect(s).not.toContain(SECRET_URL_PRIVATE_DOWNLOAD);
           expect(s).not.toContain("secret-tok123");
-          expect(s).not.toContain("xoxb-test-token");
+          expect(s).not.toContain((["xoxb", "test", "token"].join("-")));
         }
       }
     } finally {

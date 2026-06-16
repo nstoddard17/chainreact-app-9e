@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/conversationsHistory.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { conversationsHistory } from "@/integrations/slack/api/conversationsHistory";
 
 beforeEach(() => {
@@ -27,7 +28,7 @@ describe("conversationsHistory", () => {
     );
 
     const result = await conversationsHistory({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
     });
 

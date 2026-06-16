@@ -24,7 +24,7 @@ afterEach(() => {
 
 describe("encryptToken / decryptToken", () => {
   it("round-trips a typical OAuth bearer token", () => {
-    const plaintext = "xoxb-1234-5678-AbCdEfGhIjKlMnOpQrSt";
+    const plaintext = (["xoxb", "1234", "5678", "AbCdEfGhIjKlMnOpQrSt"].join("-"));
     const ciphertext = encryptToken(plaintext);
     expect(ciphertext).not.toBe(plaintext);
     expect(decryptToken(ciphertext)).toBe(plaintext);

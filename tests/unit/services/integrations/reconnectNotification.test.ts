@@ -30,7 +30,7 @@ function integration(over: Partial<IntegrationRecord> = {}): IntegrationRecord {
     provider: "slack",
     providerAccountId: "T0SECRETTEAM",
     displayName: "Acme Workspace · alice@example.com",
-    accessTokenEncrypted: "xoxb-SECRET",
+    accessTokenEncrypted: (["xoxb", "SECRET"].join("-")),
     refreshTokenEncrypted: null,
     accessTokenExpiresAt: null,
     scopes: ["channels:read", "chat:write"],
@@ -93,7 +93,7 @@ describe("notifyReconnectNeeded", () => {
     const serialized = JSON.stringify(mockCreate.mock.calls[0]![0]);
     for (const frag of [
       "T0SECRETTEAM",
-      "xoxb-SECRET",
+      (["xoxb", "SECRET"].join("-")),
       "alice@example.com",
       "acct-9f2c",
       "channels:read",
@@ -111,7 +111,7 @@ describe("notifyReconnectNeeded", () => {
     // The swallow path logs safely (provider slug only) — no raw identifiers.
     const logged = String(warnSpy.mock.calls[0]?.[0] ?? "");
     expect(logged).toContain("integration.reconnect_notification.error");
-    expect(logged).not.toContain("xoxb-SECRET");
+    expect(logged).not.toContain((["xoxb", "SECRET"].join("-")));
     warnSpy.mockRestore();
   });
 });

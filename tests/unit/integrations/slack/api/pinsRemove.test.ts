@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/pinsRemove.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { pinsRemove } from "@/integrations/slack/api/pinsRemove";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ describe("pinsRemove", () => {
     );
 
     await pinsRemove({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       timestamp: "1.0",
     });

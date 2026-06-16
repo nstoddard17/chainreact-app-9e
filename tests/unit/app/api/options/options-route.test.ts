@@ -106,6 +106,7 @@ jest.mock("@/services/options/_registry", () => {
   };
 });
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { GET as getOptions } from "@/app/api/options/[source]/route";
 import {
   OptionsResolverError,
@@ -776,7 +777,7 @@ describe("GET /api/options/slack:channels — end-to-end through the real resolv
   it("returns ok:true + mapped channels when an active integration is connected", async () => {
     authedUser();
     mockGetActiveForExecution.mockResolvedValue(slackIntegrationRow);
-    mockDecryptToken.mockReturnValue("xoxb-decrypted");
+    mockDecryptToken.mockReturnValue(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsList.mockResolvedValue({
       channels: [
         { id: "C1", name: "general", purpose: { value: "Announcements" } },
@@ -833,7 +834,7 @@ describe("GET /api/options/slack:channels — end-to-end through the real resolv
   it("forwards `q` as the resolver's client-side filter", async () => {
     authedUser();
     mockGetActiveForExecution.mockResolvedValue(slackIntegrationRow);
-    mockDecryptToken.mockReturnValue("xoxb-decrypted");
+    mockDecryptToken.mockReturnValue(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsList.mockResolvedValue({
       channels: [
         { id: "C1", name: "general" },

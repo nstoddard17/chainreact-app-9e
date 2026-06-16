@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/reactionsAdd.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { reactionsAdd } from "@/integrations/slack/api/reactionsAdd";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ describe("reactionsAdd", () => {
     );
 
     await reactionsAdd({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       timestamp: "1.0",
       name: "thumbsup",
@@ -29,7 +30,7 @@ describe("reactionsAdd", () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://slack.com/api/reactions.add");
     const reqInit = init as { headers: Record<string, string>; body: string };
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({
       channel: "C1",
       timestamp: "1.0",

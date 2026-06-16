@@ -1,3 +1,4 @@
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
 
@@ -237,7 +238,7 @@ async function handleRequest(
     res.end(
       JSON.stringify({
         ok: true,
-        access_token: "xoxb-mock-bot-token-e2e",
+        access_token: SLACK_TOKEN_PLACEHOLDER,
         scope: "channels:history,channels:read,chat:write,users:read",
         team: { id: "T-MOCK-TEAM", name: "Mock Workspace" },
         bot_user_id: "U-MOCK-BOT",

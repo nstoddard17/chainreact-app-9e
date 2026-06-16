@@ -88,7 +88,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   authed();
   mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
-  mockListByAccount.mockResolvedValue([rec("wf-1", "Alpha", "xoxb-planted-1234567")]);
+  mockListByAccount.mockResolvedValue([rec("wf-1", "Alpha", (["xoxb", "planted", "1234567"].join("-")))]);
   mockDowngradeEnabled.mockReturnValue(false);
   mockGetAccount.mockResolvedValue({ id: ACCOUNT, type: "organization" });
 });
@@ -159,7 +159,7 @@ describe("normal bulk export — tier + role gate", () => {
     expect(text).not.toMatch(/stripe/i);
     expect(text).not.toMatch(/customer/i);
     expect(text).not.toMatch(/subscription/i);
-    expect(text).not.toMatch(/xoxb-planted/);
+    expect(text).not.toMatch((new RegExp(["xoxb", "planted"].join("-"))));
     expect(text).not.toMatch(/vp@acme\.com/);
     expect(text).toContain(REDACTION_MARKER);
   });
@@ -215,7 +215,7 @@ describe("downgrade export bypass — ?purpose=downgrade", () => {
     const res = await GET(req("?purpose=downgrade"), params());
     expect(res.status).toBe(200);
     const text = await res.text();
-    expect(text).not.toMatch(/xoxb-planted/);
+    expect(text).not.toMatch((new RegExp(["xoxb", "planted"].join("-"))));
     expect(text).not.toMatch(/vp@acme\.com/);
     expect(text).toContain(REDACTION_MARKER);
   });

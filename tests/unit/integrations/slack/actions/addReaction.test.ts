@@ -18,6 +18,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { addReaction } from "@/integrations/slack/actions/addReaction";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -69,7 +70,7 @@ beforeEach(() => {
 describe("addReaction — happy path", () => {
   it("decrypts token, calls reactions.add with normalized name, echoes config in output", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockReactionsAdd.mockResolvedValueOnce(undefined);
 
     const result = await addReaction(
@@ -77,7 +78,7 @@ describe("addReaction — happy path", () => {
     );
 
     expect(mockReactionsAdd).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       timestamp: "1.0",
       name: "thumbsup",

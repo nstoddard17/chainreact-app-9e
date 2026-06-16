@@ -18,6 +18,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { listScheduledMessages } from "@/integrations/slack/actions/listScheduledMessages";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -69,7 +70,7 @@ beforeEach(() => {
 describe("listScheduledMessages — happy path", () => {
   it("calls chat.scheduledMessages.list with no params and returns the count + pagination metadata", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockChatScheduledMessagesList.mockResolvedValueOnce({
       messages: [
         { id: "Q1", channel_id: "C1", post_at: 1730000000, date_created: 1729000000, text: "a" },
@@ -82,7 +83,7 @@ describe("listScheduledMessages — happy path", () => {
     const result = await listScheduledMessages(makeInput());
 
     expect(mockChatScheduledMessagesList).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: undefined,
       limit: undefined,
       oldest: undefined,

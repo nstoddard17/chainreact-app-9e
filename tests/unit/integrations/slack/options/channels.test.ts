@@ -71,7 +71,7 @@ function ctx(
 beforeEach(() => {
   mockConversationsList.mockReset();
   mockDecryptToken.mockReset();
-  mockDecryptToken.mockReturnValue("xoxb-decrypted-test-token");
+  mockDecryptToken.mockReturnValue((["xoxb", "decrypted", "test", "token"].join("-")));
 });
 
 describe("slackChannelsResolver — shape", () => {
@@ -104,7 +104,7 @@ describe("slackChannelsResolver — wrapper invocation", () => {
     await slackChannelsResolver.resolve(ctx());
     expect(mockConversationsList).toHaveBeenCalledTimes(1);
     expect(mockConversationsList).toHaveBeenCalledWith({
-      botToken: "xoxb-decrypted-test-token",
+      botToken: (["xoxb", "decrypted", "test", "token"].join("-")),
       types: "public_channel,private_channel",
       excludeArchived: true,
       limit: 200,

@@ -18,6 +18,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { getMessages } from "@/integrations/slack/actions/getMessages";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -69,7 +70,7 @@ beforeEach(() => {
 describe("getMessages — happy path", () => {
   it("decrypts the bot token, calls conversations.history, returns messages + pagination metadata", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsHistory.mockResolvedValueOnce({
       messages: [
         { ts: "1.0", text: "hello" },
@@ -82,7 +83,7 @@ describe("getMessages — happy path", () => {
     const result = await getMessages(makeInput({ channel: "C1", limit: 50 }));
 
     expect(mockConversationsHistory).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       limit: 50,
       oldest: undefined,

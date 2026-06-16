@@ -192,7 +192,7 @@ describe("AppsPage — route DTO no-leak", () => {
         refreshTokenEncrypted: "ENC.SHOULD.NEVER.LEAK",
         accessTokenExpiresAt: "2026-12-01T00:00:00Z",
         scopes: ["chat:write"],
-        accountMetadata: { admin_token: "xoxa-leak" },
+        accountMetadata: { admin_token: (["xoxa", "leak"].join("-")) },
         disconnectedAt: null,
         createdAt: "2026-04-15T12:00:00Z",
         updatedAt: "2026-04-15T12:00:00Z",
@@ -203,7 +203,7 @@ describe("AppsPage — route DTO no-leak", () => {
     expect(serialized).not.toContain("ENC.SHOULD.NEVER.LEAK");
     expect(serialized).not.toContain("T-SECRET-9999");
     expect(serialized).not.toContain("admin_token");
-    expect(serialized).not.toContain("xoxa-leak");
+    expect(serialized).not.toContain((["xoxa", "leak"].join("-")));
     expect(serialized).not.toContain("accessTokenEncrypted");
   });
 

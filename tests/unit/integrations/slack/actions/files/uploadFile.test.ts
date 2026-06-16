@@ -55,6 +55,7 @@ jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
   getServiceRoleClient: jest.fn(() => mockSupabaseClient),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { SlackApiError } from "@/integrations/slack/api/errors";
 import {
   SlackUploadConfigError,
@@ -125,7 +126,7 @@ beforeEach(() => {
   mockSupabaseClient.storage.from.mockClear();
 
   mockGetActiveForExecution.mockResolvedValue(integration);
-  mockDecryptToken.mockReturnValue("xoxb-test-token");
+  mockDecryptToken.mockReturnValue(SLACK_TOKEN_PLACEHOLDER);
   mockFilesGetUploadURLExternal.mockResolvedValue({
     uploadUrl: "https://files.slack.com/upload/v1/secret-abc",
     fileId: "F-NEW",
@@ -204,7 +205,7 @@ describe("upload_file — v2_storage happy path", () => {
 
     // 2. Slack URL request — bot token + filename + actual byte length.
     expect(mockFilesGetUploadURLExternal).toHaveBeenCalledWith({
-      botToken: "xoxb-test-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       filename: "report.pdf",
       length: 4,
     });
@@ -222,7 +223,7 @@ describe("upload_file — v2_storage happy path", () => {
 
     // 4. Complete upload — channel + title + comment + thread_ts.
     expect(mockFilesCompleteUploadExternal).toHaveBeenCalledWith({
-      botToken: "xoxb-test-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       files: [{ id: "F-NEW", title: "Q1 Report" }],
       channelId: "C12345",
       initialComment: "Here's the report",
@@ -316,7 +317,7 @@ describe("upload_file — signed_url happy path", () => {
     expect(mockSupabaseClient.storage.from).not.toHaveBeenCalled();
 
     expect(mockFilesGetUploadURLExternal).toHaveBeenCalledWith({
-      botToken: "xoxb-test-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       filename: "snapshot.bin",
       length: 3,
     });

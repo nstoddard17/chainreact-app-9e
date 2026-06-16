@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/chatDeleteScheduledMessage.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { chatDeleteScheduledMessage } from "@/integrations/slack/api/chatDeleteScheduledMessage";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ describe("chatDeleteScheduledMessage", () => {
     );
 
     await chatDeleteScheduledMessage({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       scheduledMessageId: "Q1234ABCD",
     });
@@ -28,7 +29,7 @@ describe("chatDeleteScheduledMessage", () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://slack.com/api/chat.deleteScheduledMessage");
     const reqInit = init as { headers: Record<string, string>; body: string };
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({
       channel: "C1",
       scheduled_message_id: "Q1234ABCD",

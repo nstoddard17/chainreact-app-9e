@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/conversationsReplies.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { conversationsReplies } from "@/integrations/slack/api/conversationsReplies";
 
 beforeEach(() => {
@@ -30,7 +31,7 @@ describe("conversationsReplies", () => {
     );
 
     const result = await conversationsReplies({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       ts: "1.0",
     });

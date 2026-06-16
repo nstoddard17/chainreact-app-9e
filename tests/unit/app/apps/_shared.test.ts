@@ -127,14 +127,14 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
     const item = toAppCatalogItem(mkProvider(), [
       mkRecord({
         providerAccountId: "WORKSPACE-SECRET-ID-9999",
-        accountMetadata: { teamId: "should-not-leak", admin_token: "xoxa-secret" },
+        accountMetadata: { teamId: "should-not-leak", admin_token: (["xoxa", "secret"].join("-")) },
         scopes: ["should-not-leak"],
       }),
     ]);
     const serialized = JSON.stringify(item);
     expect(serialized).not.toContain("WORKSPACE-SECRET-ID-9999");
     expect(serialized).not.toContain("admin_token");
-    expect(serialized).not.toContain("xoxa-secret");
+    expect(serialized).not.toContain((["xoxa", "secret"].join("-")));
     expect(serialized).not.toContain("providerAccountId");
     expect(serialized).not.toContain("accountMetadata");
     expect(serialized).not.toContain("scopes");

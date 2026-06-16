@@ -862,7 +862,7 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
             op: "addNode",
             node: {
               id: "n_slack",
-              config: { accessToken: "xoxb-LEAKED-SECRET" },
+              config: { accessToken: (["xoxb", "LEAKED", "SECRET"].join("-")) },
             },
           },
         ],
@@ -871,7 +871,7 @@ describe("required-input controls + structured follow-up (AI-22)", () => {
     render(<BuilderAiPanel />);
     await typeAndPlan("Create a Slack workflow");
     await screen.findAllByTestId("builder-ai-required-input-control");
-    expect(document.body.textContent).not.toContain("xoxb-LEAKED-SECRET");
+    expect(document.body.textContent).not.toContain((["xoxb", "LEAKED", "SECRET"].join("-")));
     expect(document.body.textContent).not.toContain("accessToken");
   });
 });

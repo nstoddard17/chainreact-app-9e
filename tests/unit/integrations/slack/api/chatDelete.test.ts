@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/chatDelete.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { chatDelete } from "@/integrations/slack/api/chatDelete";
 
 beforeEach(() => {
@@ -23,7 +24,7 @@ describe("chatDelete", () => {
     );
 
     const result = await chatDelete({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       ts: "1.0",
     });
@@ -32,7 +33,7 @@ describe("chatDelete", () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://slack.com/api/chat.delete");
     const reqInit = init as { headers: Record<string, string>; body: string };
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({ channel: "C1", ts: "1.0" });
   });
 

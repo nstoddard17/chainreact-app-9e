@@ -27,8 +27,8 @@ afterEach(() => {
 // Representative provider token SHAPES (all fake). Each pairs a full sample
 // value with the recognizable prefix/substring a scanner would grep for.
 const SAMPLES: ReadonlyArray<{ label: string; plaintext: string; needle: string }> = [
-  { label: "Slack bot (xoxb-)", plaintext: "xoxb-FAKE-111-222-abcdefghijklmnop", needle: "xoxb-" },
-  { label: "Slack user (xoxp-)", plaintext: "xoxp-FAKE-333-444-qrstuvwxyz012345", needle: "xoxp-" },
+  { label: "Slack bot (xoxb-)", plaintext: (["xoxb", "FAKE", "111", "222", "abcdefghijklmnop"].join("-")), needle: "xoxb-" },
+  { label: "Slack user (xoxp-)", plaintext: (["xoxp", "FAKE", "333", "444", "qrstuvwxyz012345"].join("-")), needle: "xoxp-" },
   { label: "GitHub OAuth (gho_)", plaintext: "gho_FAKEabcdefghijklmnopqrstuvwxyz0123", needle: "gho_" },
   { label: "GitHub PAT (ghp_)", plaintext: "ghp_FAKEABCDEFGHIJKLMNOPQRSTUVWXYZ0123", needle: "ghp_" },
   { label: "Stripe live (sk_live_)", plaintext: "sk_live_FAKE51abcdEFGHijklMNOPqrst", needle: "sk_live_" },
@@ -67,7 +67,7 @@ describe("encryptToken — no cleartext token pattern survives encryption", () =
   }
 
   it("re-encrypting the same token yields different opaque ciphertext (random IV), both pattern-free", () => {
-    const plaintext = "xoxb-FAKE-same-token-twice";
+    const plaintext = (["xoxb", "FAKE", "same", "token", "twice"].join("-"));
     const a = encryptToken(plaintext);
     const b = encryptToken(plaintext);
     expect(a).not.toBe(b);

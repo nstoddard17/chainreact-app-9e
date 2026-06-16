@@ -19,6 +19,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { listChannels } from "@/integrations/slack/actions/channels/listChannels";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -70,7 +71,7 @@ beforeEach(() => {
 describe("listChannels — happy path", () => {
   it("decrypts the bot token and calls conversations.list with both public + private + excludeArchived=true by default", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-real");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsList.mockResolvedValueOnce({
       channels: [
         { id: "C1", name: "general" },
@@ -83,7 +84,7 @@ describe("listChannels — happy path", () => {
     const result = await listChannels(makeInput({}));
 
     expect(mockConversationsList).toHaveBeenCalledWith({
-      botToken: "xoxb-real",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       types: "public_channel,private_channel",
       excludeArchived: true,
       limit: undefined,

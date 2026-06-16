@@ -3,6 +3,7 @@
  *
  * Tests for integrations/slack/api/chatUpdate.
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { chatUpdate } from "@/integrations/slack/api/chatUpdate";
 
 beforeEach(() => {
@@ -23,7 +24,7 @@ describe("chatUpdate", () => {
     );
 
     const result = await chatUpdate({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C1",
       ts: "1.0",
       text: "edited",
@@ -33,7 +34,7 @@ describe("chatUpdate", () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://slack.com/api/chat.update");
     const reqInit = init as { headers: Record<string, string>; body: string };
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({ channel: "C1", ts: "1.0", text: "edited" });
   });
 

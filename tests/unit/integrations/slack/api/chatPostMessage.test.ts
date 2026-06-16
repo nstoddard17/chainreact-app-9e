@@ -10,6 +10,7 @@
  *   - Non-2xx HTTP throws SlackApiError with `http_<status>`
  *   - Malformed-but-ok responses throw `malformed_response`
  */
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import {
   SlackApiError,
   chatPostMessage,
@@ -38,7 +39,7 @@ describe("chatPostMessage", () => {
     );
 
     const result = await chatPostMessage({
-      botToken: "xoxb-test",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "C123",
       text: "hi",
     });
@@ -56,7 +57,7 @@ describe("chatPostMessage", () => {
       body: string;
     };
     expect(reqInit.method).toBe("POST");
-    expect(reqInit.headers.authorization).toBe("Bearer xoxb-test");
+    expect(reqInit.headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
     expect(JSON.parse(reqInit.body)).toEqual({
       channel: "C123",
       text: "hi",

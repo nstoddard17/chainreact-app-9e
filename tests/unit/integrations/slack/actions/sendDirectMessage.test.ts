@@ -23,6 +23,7 @@ jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: (...args: unknown[]) => mockDecryptToken(...args),
 }));
 
+import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
 import { sendDirectMessage } from "@/integrations/slack/actions/sendDirectMessage";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
@@ -79,7 +80,7 @@ beforeEach(() => {
 describe("sendDirectMessage — happy path", () => {
   it("opens DM via conversations.open, posts via chat.postMessage, returns shaped output", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-token");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsOpen.mockResolvedValueOnce({ channelId: "D-DM-1" });
     mockChatPostMessage.mockResolvedValueOnce({
       channel: "D-DM-1",
@@ -94,11 +95,11 @@ describe("sendDirectMessage — happy path", () => {
     expect(mockGetActiveForExecution).toHaveBeenCalledWith("acct-user-1", "slack", "T0001");
     expect(mockDecryptToken).toHaveBeenCalledWith("ENCRYPTED_TOKEN");
     expect(mockConversationsOpen).toHaveBeenCalledWith({
-      botToken: "xoxb-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       users: "U1RECIPIENT",
     });
     expect(mockChatPostMessage).toHaveBeenCalledWith({
-      botToken: "xoxb-token",
+      botToken: SLACK_TOKEN_PLACEHOLDER,
       channel: "D-DM-1",
       text: "hi there",
       threadTs: undefined,
@@ -113,7 +114,7 @@ describe("sendDirectMessage — happy path", () => {
 
   it("passes thread_ts through when provided (thread reply within DM)", async () => {
     mockGetActiveForExecution.mockResolvedValueOnce(baseIntegration);
-    mockDecryptToken.mockReturnValueOnce("xoxb-token");
+    mockDecryptToken.mockReturnValueOnce(SLACK_TOKEN_PLACEHOLDER);
     mockConversationsOpen.mockResolvedValueOnce({ channelId: "D1" });
     mockChatPostMessage.mockResolvedValueOnce({
       channel: "D1",
