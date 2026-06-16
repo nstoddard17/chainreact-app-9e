@@ -23,6 +23,8 @@
     "mcp:smoke": "npm run mcp:build && node scripts/mcp/smoke.mjs",
     "mcp:http": "node scripts/mcp/dist/httpServer.js",
     "mcp:http:smoke": "npm run mcp:build && node scripts/mcp/http-smoke.mjs",
+    "chainreact:build": "tsc -p scripts/chainreact/tsconfig.json",
+    "chainreact": "npm run chainreact:build && node scripts/chainreact/dist/cli.js",
     "test:e2e": "playwright test",
     "smoke:prod": "playwright test --config=playwright.smoke.config.ts",
     "typecheck": "tsc --noEmit"
