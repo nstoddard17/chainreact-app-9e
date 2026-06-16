@@ -268,7 +268,11 @@ export function WorkflowBuilder({
             onToggle: leftRail.toggle,
           }}
           validation={{ onOpen: handleOpenValidation }}
-          lifecycle={{ workflowId: workflow.id, state: workflow.state }}
+          lifecycle={{
+            workflowId: workflow.id,
+            state: workflow.state,
+            unpublishedChanges: workflow.unpublishedChanges,
+          }}
           requiredFieldsByType={requiredFieldsByType}
           // WF-RUNPERM follow-up — disable the header Test/Run controls for a
           // non-creator viewing a private-credential workflow (server-derived).

@@ -18,6 +18,14 @@ jest.mock("@/utils/supabase/server", () => ({
   })),
 }));
 
+// V2-READY-41G — control the drift signal toWorkflowDetail consults. The real
+// hasDraftDrift is unit-tested in activeRevision.test; here we only assert the
+// flag/state gating around it. (Only called when the active-revision flag is ON.)
+const mockHasDraftDrift = jest.fn();
+jest.mock("@/services/workflows/activeRevision", () => ({
+  hasDraftDrift: (...args: unknown[]) => mockHasDraftDrift(...args),
+}));
+
 import {
   assertWorkflowRunEditAllowed,
   lifecycleErrorResponse,
@@ -500,6 +508,44 @@ describe("toWorkflowDetail", () => {
     expect(detail.draftDefinition.nodes[0]?.id).toBe("n1");
     expect(detail.draftDefinition.edges).toEqual([]);
     expect(detail).not.toHaveProperty("userId");
+  });
+});
+
+describe("toWorkflowDetail — unpublishedChanges (V2-READY-41G)", () => {
+  const FLAG = "ENABLE_ACTIVE_REVISION_EXECUTION";
+  beforeEach(() => {
+    mockHasDraftDrift.mockReset();
+    delete process.env[FLAG];
+  });
+  afterEach(() => {
+    delete process.env[FLAG];
+  });
+
+  it("flag OFF: unpublishedChanges is false and drift is never computed (draft is live)", async () => {
+    const detail = await toWorkflowDetail(recordWith({ state: "active" }), "creator-1");
+    expect(detail.unpublishedChanges).toBe(false);
+    expect(mockHasDraftDrift).not.toHaveBeenCalled();
+  });
+
+  it("flag ON + active + drift: unpublishedChanges true", async () => {
+    process.env[FLAG] = "true";
+    mockHasDraftDrift.mockResolvedValueOnce(true);
+    const detail = await toWorkflowDetail(recordWith({ state: "active" }), "creator-1");
+    expect(detail.unpublishedChanges).toBe(true);
+  });
+
+  it("flag ON + active + no drift: unpublishedChanges false", async () => {
+    process.env[FLAG] = "true";
+    mockHasDraftDrift.mockResolvedValueOnce(false);
+    const detail = await toWorkflowDetail(recordWith({ state: "active" }), "creator-1");
+    expect(detail.unpublishedChanges).toBe(false);
+  });
+
+  it("flag ON + NON-active workflow: false, drift not computed (only active workflows publish)", async () => {
+    process.env[FLAG] = "true";
+    const detail = await toWorkflowDetail(recordWith({ state: "paused" }), "creator-1");
+    expect(detail.unpublishedChanges).toBe(false);
+    expect(mockHasDraftDrift).not.toHaveBeenCalled();
   });
 });
 

@@ -46,6 +46,8 @@ interface Props {
   lifecycle?: {
     workflowId: string;
     state: WorkflowState;
+    /** V2-READY-41G — active workflow has draft changes not yet published live. */
+    unpublishedChanges?: boolean;
   };
   /**
    * BUILDER-READINESS — required-field metadata per `provider:type` (from the
@@ -320,7 +322,12 @@ function HeaderRight({
   onOpenTemplates: () => void;
   validation?: { onOpen: () => void };
   validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
-  lifecycle?: { workflowId: string; state: WorkflowState };
+  lifecycle?: {
+    workflowId: string;
+    state: WorkflowState;
+    /** V2-READY-41G — active workflow has draft changes not yet published live. */
+    unpublishedChanges?: boolean;
+  };
   runEditBlocked?: boolean;
 }) {
   // BUILDER-READINESS — any validation error (missing required field, no
@@ -398,6 +405,7 @@ function HeaderRight({
           workflowId={lifecycle.workflowId}
           state={lifecycle.state}
           blockingIssueCount={blockingIssueCount}
+          unpublishedChanges={lifecycle.unpublishedChanges}
         />
       ) : null}
     </div>

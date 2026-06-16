@@ -99,6 +99,15 @@ export const WorkflowDetailSchema = WorkflowSummarySchema.extend({
    * back-compat only.
    */
   viewerCanRunEdit: z.boolean().optional(),
+  /**
+   * V2-READY-41G — true when this ACTIVE workflow's draft has changes not yet in
+   * its live (published) active revision, so live execution still runs the old
+   * revision until the user Publishes. Server-computed (no raw graph leaked) and
+   * only ever true when active-revision execution is actually the runtime
+   * behavior — otherwise the draft IS live, so there's nothing "unpublished".
+   * `.optional()` for fixture/consumer back-compat; the server mapper populates it.
+   */
+  unpublishedChanges: z.boolean().optional(),
 });
 export type WorkflowDetail = z.infer<typeof WorkflowDetailSchema>;
 

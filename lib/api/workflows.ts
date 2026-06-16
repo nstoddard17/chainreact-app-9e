@@ -408,6 +408,18 @@ export async function reactivateWorkflow(id: string): Promise<WorkflowSummary> {
   );
 }
 
+/**
+ * V2-READY-41G — Publish the current draft of an ACTIVE workflow: snapshots it
+ * into a new active revision so live execution uses it. The workflow stays
+ * active. Idempotent (no-op when the draft already matches the active revision).
+ */
+export async function publishWorkflow(id: string): Promise<WorkflowSummary> {
+  return postJson<WorkflowSummary>(
+    `/api/workflows/${encodeURIComponent(id)}/publish`,
+    undefined,
+  );
+}
+
 export interface RunNowRequest {
   /** Key/value bag delivered to the workflow as `{{trigger.inputs.*}}`. */
   inputs?: Record<string, unknown>;

@@ -17,6 +17,8 @@ import {
   viewerMayRunEdit,
 } from "@/core/integrations/workflowCredentialScope";
 import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
+import { isActiveRevisionExecutionEnabled } from "@/services/workflows/flags";
+import { hasDraftDrift } from "@/services/workflows/activeRevision";
 import {
   buildWorkflowCredentialPlan,
   buildWorkflowCredentialPlansBatch,
@@ -437,7 +439,22 @@ export async function toWorkflowDetail(
     usesPrivateCredential: workflowUsesPrivateCredential(record.draftDefinition),
     // Accurate under the flag — shares the gate's exact computation.
     viewerCanRunEdit: await computeViewerCanRunEdit(record, callerUserId),
+    unpublishedChanges: await computeUnpublishedChanges(record),
   };
+}
+
+/**
+ * V2-READY-41G — does this ACTIVE workflow have draft changes not yet in its live
+ * (published) active revision? Only meaningful when live execution actually reads
+ * the active revision: with ENABLE_ACTIVE_REVISION_EXECUTION OFF the draft IS
+ * live, so there is nothing "unpublished" — return false (no banner, no extra DB
+ * read). Server-side value comparison (hasDraftDrift) — returns a boolean only,
+ * never raw graph internals.
+ */
+async function computeUnpublishedChanges(record: WorkflowRecord): Promise<boolean> {
+  if (!isActiveRevisionExecutionEnabled()) return false;
+  if (record.state !== "active") return false;
+  return hasDraftDrift(record);
 }
 
 /**

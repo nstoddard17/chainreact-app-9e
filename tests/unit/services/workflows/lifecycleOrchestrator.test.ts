@@ -22,10 +22,14 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 
 const mockGetById = jest.fn();
 const mockApplyTransition = jest.fn();
+// V2-READY-41G — publish() repoints active_revision_id directly (not a state
+// transition), so the orchestrator calls setActiveRevision on the repo.
+const mockSetActiveRevision = jest.fn();
 
 jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
   applyTransition: (...args: unknown[]) => mockApplyTransition(...args),
+  setActiveRevision: (...args: unknown[]) => mockSetActiveRevision(...args),
 }));
 
 // 4.ACCOUNT-MODEL-10b — activate calls the account freeze guard. Mock it as
@@ -64,6 +68,7 @@ function makeWorkflow(
 beforeEach(() => {
   mockGetById.mockReset();
   mockApplyTransition.mockReset();
+  mockSetActiveRevision.mockReset();
 });
 
 describe("LifecycleOrchestrator.activate", () => {
@@ -506,6 +511,71 @@ describe("LifecycleOrchestrator.resume — paused drift (V2-READY-41F)", () => {
     expect(hasDraftDrift).not.toHaveBeenCalled(); // drift check is paused-only
     expect(unregisterTrigger).not.toHaveBeenCalled();
     expect(snapshotRevision).toHaveBeenCalledWith(wf, wf.draftDefinition);
+  });
+});
+
+describe("LifecycleOrchestrator.publish (V2-READY-41G)", () => {
+  it("active + drift: snapshots the draft and repoints active_revision_id (state stays active, no transition)", async () => {
+    const wf = makeWorkflow("active");
+    const published = makeWorkflow("active", { activeRevisionId: "rev-new" });
+    mockGetById.mockResolvedValueOnce(wf);
+    mockSetActiveRevision.mockResolvedValueOnce(published);
+    const snapshotRevision = jest.fn(async () => "rev-new");
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => true,
+      snapshotRevision,
+    });
+
+    const result = await orch.publish("wf-1");
+
+    expect(snapshotRevision).toHaveBeenCalledWith(wf, wf.draftDefinition);
+    expect(mockSetActiveRevision).toHaveBeenCalledWith("wf-1", "rev-new");
+    expect(mockApplyTransition).not.toHaveBeenCalled(); // not a state transition
+    expect(result).toBe(published);
+  });
+
+  it("active + NO drift: no-op (no new revision, no repoint)", async () => {
+    const wf = makeWorkflow("active");
+    mockGetById.mockResolvedValueOnce(wf);
+    const snapshotRevision = jest.fn();
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => false,
+      snapshotRevision,
+    });
+
+    const result = await orch.publish("wf-1");
+
+    expect(snapshotRevision).not.toHaveBeenCalled();
+    expect(mockSetActiveRevision).not.toHaveBeenCalled();
+    expect(result).toBe(wf);
+  });
+
+  it("rejects publish on a non-active workflow (INVALID_TRANSITION)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("paused"));
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => true,
+      snapshotRevision: jest.fn(),
+    });
+
+    await expect(orch.publish("wf-1")).rejects.toMatchObject({
+      code: "INVALID_TRANSITION",
+    });
+    expect(mockSetActiveRevision).not.toHaveBeenCalled();
+  });
+
+  it("snapshot failure → typed error, active_revision_id NOT repointed", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("active"));
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => true,
+      snapshotRevision: async () => {
+        throw new Error("revisions insert failed");
+      },
+    });
+
+    await expect(orch.publish("wf-1")).rejects.toMatchObject({
+      code: "TRIGGER_REGISTRATION_FAILED",
+    });
+    expect(mockSetActiveRevision).not.toHaveBeenCalled();
   });
 });
 

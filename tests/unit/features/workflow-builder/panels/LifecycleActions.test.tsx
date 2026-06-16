@@ -11,6 +11,7 @@ const mockActivate = jest.fn();
 const mockPause = jest.fn();
 const mockResume = jest.fn();
 const mockReactivate = jest.fn();
+const mockPublish = jest.fn();
 const mockRefresh = jest.fn();
 
 jest.mock("@/lib/api/workflows", () => {
@@ -21,6 +22,7 @@ jest.mock("@/lib/api/workflows", () => {
     pauseWorkflow: (...args: unknown[]) => mockPause(...args),
     resumeWorkflow: (...args: unknown[]) => mockResume(...args),
     reactivateWorkflow: (...args: unknown[]) => mockReactivate(...args),
+    publishWorkflow: (...args: unknown[]) => mockPublish(...args),
   };
 });
 
@@ -40,9 +42,51 @@ beforeEach(() => {
   mockPause.mockReset();
   mockResume.mockReset();
   mockReactivate.mockReset();
+  mockPublish.mockReset();
   mockRefresh.mockReset();
   useGraphSlice.getState().reset();
   useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+});
+
+describe("LifecycleActions — Publish / unpublished changes (V2-READY-41G)", () => {
+  it("shows the 'Unpublished changes' chip + 'Publish changes' button for an active workflow with drift", () => {
+    render(
+      <LifecycleActions workflowId="wf-1" state="active" unpublishedChanges />,
+    );
+    expect(screen.getByTestId("unpublished-changes-chip")).toBeInTheDocument();
+    expect(screen.getByTestId("publish-changes-button")).toBeInTheDocument();
+  });
+
+  it("does NOT show the chip/button when there is no drift", () => {
+    render(<LifecycleActions workflowId="wf-1" state="active" />);
+    expect(screen.queryByTestId("unpublished-changes-chip")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("publish-changes-button")).not.toBeInTheDocument();
+  });
+
+  it("does NOT show the chip/button on a non-active workflow even if drift is passed", () => {
+    render(
+      <LifecycleActions workflowId="wf-1" state="paused" unpublishedChanges />,
+    );
+    expect(screen.queryByTestId("publish-changes-button")).not.toBeInTheDocument();
+  });
+
+  it("clicking Publish calls publishWorkflow and refreshes", async () => {
+    mockPublish.mockResolvedValueOnce({ id: "wf-1", state: "active" });
+    render(
+      <LifecycleActions workflowId="wf-1" state="active" unpublishedChanges />,
+    );
+    await userEvent.click(screen.getByTestId("publish-changes-button"));
+    await waitFor(() => expect(mockPublish).toHaveBeenCalledWith("wf-1"));
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it("Publish is disabled while there are unsaved (in-memory) changes", () => {
+    useGraphSlice.getState().addTrigger({ provider: "slack" }); // flips isDirty
+    render(
+      <LifecycleActions workflowId="wf-1" state="active" unpublishedChanges />,
+    );
+    expect(screen.getByTestId("publish-changes-button")).toBeDisabled();
+  });
 });
 
 describe("LifecycleActions — per-state action set", () => {

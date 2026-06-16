@@ -8,6 +8,7 @@ import {
   activateWorkflow,
   isConfirmationRequiredError,
   pauseWorkflow,
+  publishWorkflow,
   reactivateWorkflow,
   resumeWorkflow,
   type WorkflowConfirmationRequiredDetail,
@@ -25,9 +26,17 @@ interface Props {
    * workflow can't be put into production. Pause / Reactivate are unaffected.
    */
   blockingIssueCount?: number;
+  /**
+   * V2-READY-41G — true when this ACTIVE workflow has draft changes not yet in
+   * its live (published) active revision. Server-computed; only ever true when
+   * active-revision execution is the real runtime behavior (otherwise the draft
+   * is already live, so there's nothing to publish). Drives the "Unpublished
+   * changes" chip + "Publish changes" button.
+   */
+  unpublishedChanges?: boolean;
 }
 
-type ActionKind = "activate" | "pause" | "resume" | "reactivate";
+type ActionKind = "activate" | "pause" | "resume" | "reactivate" | "publish";
 
 interface Action {
   kind: ActionKind;
@@ -70,7 +79,12 @@ function actionsForState(state: WorkflowState): readonly Action[] {
  * SEC-4B (the route's risk check fires only on activate / run-now), so
  * they go straight through to the typed client without the modal.
  */
-export function LifecycleActions({ workflowId, state, blockingIssueCount = 0 }: Props) {
+export function LifecycleActions({
+  workflowId,
+  state,
+  blockingIssueCount = 0,
+  unpublishedChanges = false,
+}: Props) {
   const router = useRouter();
   const [pending, setPending] = useState<ActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +114,10 @@ export function LifecycleActions({ workflowId, state, blockingIssueCount = 0 }: 
     }
     if (kind === "reactivate") {
       await reactivateWorkflow(workflowId);
+      return;
+    }
+    if (kind === "publish") {
+      await publishWorkflow(workflowId);
       return;
     }
     await resumeWorkflow(workflowId);
@@ -167,8 +185,38 @@ export function LifecycleActions({ workflowId, state, blockingIssueCount = 0 }: 
     setConfirmationDetail(null);
   }
 
+  // V2-READY-41G — Publish is blocked by the same conditions as the other
+  // lifecycle actions; additionally it requires saved changes because it
+  // snapshots the PERSISTED draft (unsaved in-memory edits aren't on the server).
+  const publishDisabled =
+    pending !== null || hasUnsavedChanges || confirmationDetail !== null;
+
   return (
     <div className="flex flex-col items-end gap-1" aria-label="Lifecycle actions">
+      {state === "active" && unpublishedChanges ? (
+        <div className="flex items-center gap-2">
+          <span
+            data-testid="unpublished-changes-chip"
+            className="rounded border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/20 dark:text-amber-300"
+          >
+            Unpublished changes
+          </span>
+          <button
+            type="button"
+            data-testid="publish-changes-button"
+            onClick={() => run("publish")}
+            disabled={publishDisabled}
+            title={
+              hasUnsavedChanges
+                ? "Save your changes before publishing."
+                : "Make the current draft the live version."
+            }
+            className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {pending === "publish" ? "Publishing…" : "Publish changes"}
+          </button>
+        </div>
+      ) : null}
       <div className="flex gap-2">
         {actions.map((action) => {
           // BUILDER-READINESS — block go-live transitions while the workflow has

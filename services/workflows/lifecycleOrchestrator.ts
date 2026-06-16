@@ -246,6 +246,34 @@ export class LifecycleOrchestrator {
     return next;
   }
 
+  /**
+   * V2-READY-41G — Publish the current draft of an ACTIVE workflow: snapshot it
+   * into a new immutable revision and repoint `active_revision_id` so live
+   * execution + trigger registration use it. NOT a state transition — the
+   * workflow stays `active`.
+   *
+   * Safe + minimal because an active workflow can never hold an *activatable
+   * trigger* drift: trigger edits on an active workflow auto-deactivate at save
+   * time (saveDraftDefinition), so by the time we get here the drift is
+   * action/non-trigger only and the existing trigger_resources are already
+   * correct. Publish therefore just re-snapshots + repoints — no unregister, no
+   * re-register, no firing downtime. Idempotent: a no-drift workflow is a no-op.
+   */
+  async publish(workflowId: string): Promise<WorkflowRecord> {
+    const wf = await this.loadOrThrow(workflowId);
+    if (wf.state !== "active") {
+      throw new LifecycleError(
+        "INVALID_TRANSITION",
+        "Only an active workflow can publish draft changes.",
+        { state: wf.state },
+      );
+    }
+    // Already published (draft == active revision) → no-op, no new revision.
+    if (!(await this.checkDraftDrift(wf))) return wf;
+    const revisionId = await this.snapshotForPublish(wf);
+    return workflowsRepo.setActiveRevision(workflowId, revisionId);
+  }
+
   async disable(input: DisableInput): Promise<WorkflowRecord> {
     const wf = await this.loadOrThrow(input.workflowId);
     const toState = assertAllowedTransition(wf.state, "disable");
@@ -360,6 +388,32 @@ export class LifecycleOrchestrator {
   private async checkDraftDrift(wf: WorkflowRecord): Promise<boolean> {
     if (!this.hooks.hasDraftDrift) return false;
     return this.hooks.hasDraftDrift(wf);
+  }
+
+  /**
+   * V2-READY-41G — snapshot the draft for publish. Unlike the activate/resume
+   * snapshot (best-effort → null), publish REQUIRES the revision: if it can't be
+   * created, publish fails (nothing repointed) so the user retries. Wrapped as a
+   * typed LifecycleError so the route surfaces a safe, generic message (no raw
+   * DB/provider detail).
+   */
+  private async snapshotForPublish(wf: WorkflowRecord): Promise<string> {
+    if (!this.hooks.snapshotRevision) {
+      throw new LifecycleError(
+        "TRIGGER_REGISTRATION_FAILED",
+        "Publish is unavailable in this context.",
+        {},
+      );
+    }
+    try {
+      return await this.hooks.snapshotRevision(wf, wf.draftDefinition);
+    } catch (err) {
+      throw new LifecycleError(
+        "TRIGGER_REGISTRATION_FAILED",
+        `Publish failed: ${(err as Error).message}`,
+        { cause: (err as Error).message },
+      );
+    }
   }
 
   private async tryRegisterTrigger(
