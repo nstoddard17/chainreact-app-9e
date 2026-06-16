@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-15 @ 589036fb0 (AI-REPAIR-3 Apply arc LIVE in prod — deterministic variable-reference repair + guarded Apply)
+> Last curated: 2026-06-16 @ 3a146901f (AI-REPAIR-4 dangling-edge cleanup repair — local/unpushed; extends the AI-REPAIR-3 deterministic-repair Apply arc)
 
 ## Current status
 
@@ -95,6 +95,15 @@
 
 ## Recently completed arcs
 
+- **AI repair dangling-edge cleanup (AI-REPAIR-4A/4B) — 2nd deterministic repair category, LOCAL/UNPUSHED (2026-06-16)** —
+  removes a **dangling edge** (a connection whose `from`/`to` step no longer exists). Check surfaces an
+  actionable `STALE_EDGE` card (safe labels only; 4B adds per-endpoint "which side vanished" flags →
+  honest singular/plural copy + one descriptor per broken connection). Deterministic Preview + Apply are
+  **no-LLM / no-credit / no-model-telemetry**; **`removeEdge` is the only op** (one per dangling edge,
+  batch-removed in one validated preview — per-edge deferred since the validator rejects a still-dangling
+  intermediate). Apply is **validated-preview-only + draft-only** (never runs/activates/registers triggers,
+  never mutates creds/integrations). **No migration, no flag.** Not pushed / not prod-smoked →
+  [`ai-repair-4-dangling-edge-closeout.md`](./slices/phase-4/ai/ai-repair-4-dangling-edge-closeout.md).
 - **AI repair Apply arc (AI-REPAIR-3A→3L) — deterministic variable-reference repair + guarded Apply, LIVE in prod (2026-06-15)** —
   Check deterministically flags deleted-/unknown-node variable references (**no LLM / no AI credits / no
   model-call telemetry**). For an apply-safe field: **zero** candidates → manual "Open field", no Apply;
