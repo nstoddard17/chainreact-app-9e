@@ -17,7 +17,6 @@ import {
   viewerMayRunEdit,
 } from "@/core/integrations/workflowCredentialScope";
 import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
-import { isActiveRevisionExecutionEnabled } from "@/services/workflows/flags";
 import { hasDraftDrift } from "@/services/workflows/activeRevision";
 import {
   buildWorkflowCredentialPlan,
@@ -445,14 +444,14 @@ export async function toWorkflowDetail(
 
 /**
  * V2-READY-41G — does this ACTIVE workflow have draft changes not yet in its live
- * (published) active revision? Only meaningful when live execution actually reads
- * the active revision: with ENABLE_ACTIVE_REVISION_EXECUTION OFF the draft IS
- * live, so there is nothing "unpublished" — return false (no banner, no extra DB
- * read). Server-side value comparison (hasDraftDrift) — returns a boolean only,
+ * (published) active revision? Live execution always reads the active revision
+ * (V2-READY-41H), so a drifted draft really is "unpublished" — drive the banner.
+ * Only meaningful for ACTIVE workflows (a draft/paused workflow has nothing live
+ * to diverge from) — short-circuit to false otherwise, skipping the extra DB
+ * read. Server-side value comparison (hasDraftDrift) — returns a boolean only,
  * never raw graph internals.
  */
 async function computeUnpublishedChanges(record: WorkflowRecord): Promise<boolean> {
-  if (!isActiveRevisionExecutionEnabled()) return false;
   if (record.state !== "active") return false;
   return hasDraftDrift(record);
 }

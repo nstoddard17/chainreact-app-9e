@@ -155,22 +155,8 @@ describe("getActiveDefinition", () => {
   });
 });
 
-describe("getDefinitionForExecution (flag gate)", () => {
-  const FLAG = "ENABLE_ACTIVE_REVISION_EXECUTION";
-  afterEach(() => {
-    delete process.env[FLAG];
-  });
-
-  it("flag OFF (default): returns the draft WITHOUT reading a revision, even if active_revision_id is set", async () => {
-    delete process.env[FLAG];
-    const wf = makeWorkflow({ activeRevisionId: "rev-1" });
-    const result = await getDefinitionForExecution(wf);
-    expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
-    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
-  });
-
-  it("flag ON: delegates to getActiveDefinition and reads the active revision", async () => {
-    process.env[FLAG] = "true";
+describe("getDefinitionForExecution (mode resolution, V2-READY-41H — flag removed)", () => {
+  it("live mode (default): delegates to getActiveDefinition and reads the active revision", async () => {
     const wf = makeWorkflow({ activeRevisionId: "rev-1" });
     mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
       id: "rev-1",
@@ -187,16 +173,7 @@ describe("getDefinitionForExecution (flag gate)", () => {
     });
   });
 
-  it("draft mode ALWAYS returns the draft, even with the flag ON (V2-READY-41E test/preview)", async () => {
-    process.env[FLAG] = "true";
-    const wf = makeWorkflow({ activeRevisionId: "rev-1" });
-    const result = await getDefinitionForExecution(wf, "draft");
-    expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
-    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
-  });
-
-  it("live mode + flag ON reads the active revision (V2-READY-41E)", async () => {
-    process.env[FLAG] = "true";
+  it("live mode (explicit) reads the active revision (V2-READY-41E)", async () => {
     const wf = makeWorkflow({ activeRevisionId: "rev-1" });
     mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
       id: "rev-1",
@@ -209,17 +186,22 @@ describe("getDefinitionForExecution (flag gate)", () => {
     expect(result.definition).toBe(revisionDef);
   });
 
-  it("flag ON + null active_revision_id: safe draft fallback", async () => {
-    process.env[FLAG] = "true";
+  it("draft mode ALWAYS returns the draft (V2-READY-41E test/preview), never reads a revision", async () => {
+    const wf = makeWorkflow({ activeRevisionId: "rev-1" });
+    const result = await getDefinitionForExecution(wf, "draft");
+    expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
+    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
+  });
+
+  it("live mode + null active_revision_id: safe draft fallback (legacy / pre-41C workflows)", async () => {
     const wf = makeWorkflow({ activeRevisionId: null });
     const result = await getDefinitionForExecution(wf);
     expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
     expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
   });
 
-  it("flag ON + dangling active_revision_id: safe draft fallback + warns without leaking (V2-READY-41D)", async () => {
+  it("live mode + dangling active_revision_id: safe draft fallback + warns without leaking (V2-READY-41D)", async () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    process.env[FLAG] = "true";
     const wf = makeWorkflow({ activeRevisionId: "rev-gone" });
     mockGetRevisionByIdServiceRole.mockResolvedValueOnce(null);
 
@@ -233,27 +215,6 @@ describe("getDefinitionForExecution (flag gate)", () => {
     expect(logged).not.toContain("C-DRAFT-SECRET");
     expect(logged).not.toContain("C-REVISION");
     warnSpy.mockRestore();
-  });
-
-  it("parity: when the revision equals the draft, OFF and ON resolve to value-equal definitions (V2-READY-41D)", async () => {
-    const wf = makeWorkflow({ activeRevisionId: "rev-1", draftDefinition: draftDef });
-
-    delete process.env[FLAG];
-    const off = await getDefinitionForExecution(wf);
-
-    process.env[FLAG] = "true";
-    // Revision row holds a definition equal BY VALUE to the draft (distinct object).
-    mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
-      id: "rev-1",
-      workflowId: "wf-1",
-      definition: JSON.parse(JSON.stringify(draftDef)),
-      createdAt: "2026-06-15T00:00:00Z",
-    });
-    const on = await getDefinitionForExecution(wf);
-
-    expect(off.source).toBe("draft");
-    expect(on.source).toBe("active_revision");
-    expect(on.definition).toEqual(off.definition); // equivalent execution input
   });
 });
 

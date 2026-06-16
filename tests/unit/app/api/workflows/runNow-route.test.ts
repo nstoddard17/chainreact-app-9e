@@ -149,11 +149,6 @@ beforeEach(() => {
   mockIsAccountFrozen.mockReset();
   mockIsAccountFrozen.mockResolvedValue(false);
   mockGetRevisionByIdServiceRole.mockReset();
-  delete process.env.ENABLE_ACTIVE_REVISION_EXECUTION;
-});
-
-afterEach(() => {
-  delete process.env.ENABLE_ACTIVE_REVISION_EXECUTION;
 });
 
 // ── auth + ownership ────────────────────────────────────────────────────────
@@ -1293,8 +1288,7 @@ describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
     edges: [{ id: "e1", from: "rev-trigger", to: "action-node" }],
   };
 
-  it("real run + flag ON: executes the ACTIVE REVISION (trigger from revision, mode 'live')", async () => {
-    process.env.ENABLE_ACTIVE_REVISION_EXECUTION = "true";
+  it("real run: executes the ACTIVE REVISION (trigger from revision, mode 'live') — V2-READY-41H", async () => {
     signedInAs("user-1");
     mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: "rev-1" });
     mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
@@ -1318,8 +1312,7 @@ describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
     expect(call.executionDefinitionMode).toBe("live");
   });
 
-  it("test run + flag ON: executes the DRAFT (mode 'draft', no revision read)", async () => {
-    process.env.ENABLE_ACTIVE_REVISION_EXECUTION = "true";
+  it("test run: executes the DRAFT (mode 'draft', no revision read)", async () => {
     signedInAs("user-1");
     mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: "rev-1" });
 
@@ -1340,16 +1333,17 @@ describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
     expect(call.testMode).toBe(true);
   });
 
-  it("flag OFF: a real run uses the draft and forwards mode 'live' (no revision read)", async () => {
+  it("real run + legacy null active_revision_id: safe draft fallback, mode 'live' (no revision read)", async () => {
     signedInAs("user-1");
-    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: "rev-1" });
+    // baseWorkflow has activeRevisionId: null — a legacy / pre-41C active workflow.
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: null });
 
     const res = await POST(buildRequest({ body: "{}" }), {
       params: Promise.resolve({ id: "wf-1" }),
     });
 
     expect(res.status).toBe(202);
-    // flag OFF → live mode resolves to the draft without touching the revision.
+    // Null pointer → getActiveDefinition returns the draft without touching a revision.
     expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
     const call = mockEnqueueRun.mock.calls[0]![0] as {
       triggerNodeId: string;

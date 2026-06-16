@@ -218,9 +218,9 @@ export async function POST(
   // V2-READY-41E — resolve the SAME definition the engine will execute, so the
   // pre-flight trigger lookup + readiness + risk gate validate against it:
   //   - test preview → the mutable draft (no publish required);
-  //   - real manual run → the active revision when ENABLE_ACTIVE_REVISION_EXECUTION
-  //     is ON (matching scheduled/webhook/poll), else the draft.
-  // Flag OFF → always the draft, byte-identical to pre-41E behavior.
+  //   - real manual run → the active revision (V2-READY-41H, matching
+  //     scheduled/webhook/poll), with the safe draft fallback for a workflow with
+  //     no active_revision_id (legacy / pre-41C activations).
   const executionDefinitionMode: ExecutionDefinitionMode = testMode ? "draft" : "live";
   const executionDef = (
     await getDefinitionForExecution(workflow, executionDefinitionMode)

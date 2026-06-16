@@ -150,10 +150,11 @@ export class WorkflowEngine {
       };
     }
 
-    // V2-READY-41B/41E — flag-gated definition source. Mode: explicit when set,
-    // else derived from testMode (test/preview → draft; real → live). Live +
-    // flag ON → active revision; draft OR flag OFF → draft (byte-identical to
-    // pre-41B). Flag + fallback live in services/workflows/activeRevision.ts.
+    // V2-READY-41B/41E/41H — definition source. Mode: explicit when set, else
+    // derived from testMode (test/preview → draft; real → live). Live → active
+    // revision (with the safe draft fallback for null / dangling pointers);
+    // draft → the mutable draft. Resolution lives in
+    // services/workflows/activeRevision.ts.
     const mode = input.executionDefinitionMode ?? (isTest ? "draft" : "live");
     const def = (await getDefinitionForExecution(workflow, mode)).definition;
     const triggerNode = def.nodes.find((n) => n.id === input.triggerNodeId);
