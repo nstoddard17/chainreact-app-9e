@@ -388,6 +388,127 @@ describe("LifecycleOrchestrator.resume", () => {
   });
 });
 
+describe("LifecycleOrchestrator.resume — paused drift (V2-READY-41F)", () => {
+  it("paused + drift: unregister stale -> register from draft -> snapshot -> persist with new pointer", async () => {
+    const wf = makeWorkflow("paused");
+    const next = makeWorkflow("active", { activeRevisionId: "rev-new" });
+    const order: string[] = [];
+    mockGetById.mockResolvedValueOnce(wf);
+    mockApplyTransition.mockImplementationOnce(async () => {
+      order.push("apply");
+      return next;
+    });
+    const unregisterTrigger = jest.fn(async () => {
+      order.push("unregister");
+    });
+    const registerTrigger = jest.fn(async () => {
+      order.push("register");
+    });
+    const snapshotRevision = jest.fn(async () => {
+      order.push("snapshot");
+      return "rev-new";
+    });
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => true,
+      unregisterTrigger,
+      registerTrigger,
+      snapshotRevision,
+    });
+
+    await orch.resume("wf-1");
+
+    expect(order).toEqual(["unregister", "register", "snapshot", "apply"]);
+    expect(registerTrigger).toHaveBeenCalledWith(wf, wf.draftDefinition);
+    expect(snapshotRevision).toHaveBeenCalledWith(wf, wf.draftDefinition);
+    expect(mockApplyTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ toState: "active", activeRevisionId: "rev-new" }),
+    );
+  });
+
+  it("paused + NO drift: no unregister / register / snapshot, persists without a pointer", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("paused"));
+    mockApplyTransition.mockResolvedValueOnce(makeWorkflow("active"));
+    const unregisterTrigger = jest.fn();
+    const registerTrigger = jest.fn();
+    const snapshotRevision = jest.fn();
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => false,
+      unregisterTrigger,
+      registerTrigger,
+      snapshotRevision,
+    });
+
+    await orch.resume("wf-1");
+
+    expect(unregisterTrigger).not.toHaveBeenCalled();
+    expect(registerTrigger).not.toHaveBeenCalled();
+    expect(snapshotRevision).not.toHaveBeenCalled();
+    expect(mockApplyTransition.mock.calls[0]![0].activeRevisionId).toBeUndefined();
+  });
+
+  it("paused + drift + registration fails: stays paused (no persist); stale resources cleared first", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("paused"));
+    const unregisterTrigger = jest.fn(async () => {});
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => true,
+      unregisterTrigger,
+      registerTrigger: async () => {
+        throw new Error("Slack API 500");
+      },
+      snapshotRevision: jest.fn(),
+    });
+
+    await expect(orch.resume("wf-1")).rejects.toMatchObject({
+      code: "TRIGGER_REGISTRATION_FAILED",
+    });
+    expect(unregisterTrigger).toHaveBeenCalledTimes(1); // stale cleared, nothing new left
+    expect(mockApplyTransition).not.toHaveBeenCalled();
+  });
+
+  it("paused + drift + persist conflict: rolls back the new registration (LIFECYCLE_CONFLICT)", async () => {
+    mockGetById.mockResolvedValueOnce(makeWorkflow("paused"));
+    mockApplyTransition.mockResolvedValueOnce(null);
+    const unregisterTrigger = jest.fn(async () => {});
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift: async () => true,
+      unregisterTrigger,
+      registerTrigger: async () => {},
+      snapshotRevision: async () => "rev-new",
+    });
+
+    await expect(orch.resume("wf-1")).rejects.toMatchObject({
+      code: "LIFECYCLE_CONFLICT",
+    });
+    // once to clear stale, once to roll back the new register on persist failure.
+    expect(unregisterTrigger).toHaveBeenCalledTimes(2);
+  });
+
+  it("eligible_to_resume does NOT consult drift and does NOT unregister (resources cleared at disable)", async () => {
+    const wf = makeWorkflow("eligible_to_resume", {
+      disabledReason: "integration_revoked",
+    });
+    mockGetById.mockResolvedValueOnce(wf);
+    mockApplyTransition.mockResolvedValueOnce(
+      makeWorkflow("active", { activeRevisionId: "rev-9" }),
+    );
+    const hasDraftDrift = jest.fn(async () => true);
+    const unregisterTrigger = jest.fn();
+    const snapshotRevision = jest.fn(async () => "rev-9");
+    const orch = new LifecycleOrchestrator({
+      hasDraftDrift,
+      unregisterTrigger,
+      registerTrigger: async () => {},
+      snapshotRevision,
+    });
+
+    await orch.resume("wf-1");
+
+    expect(hasDraftDrift).not.toHaveBeenCalled(); // drift check is paused-only
+    expect(unregisterTrigger).not.toHaveBeenCalled();
+    expect(snapshotRevision).toHaveBeenCalledWith(wf, wf.draftDefinition);
+  });
+});
+
 describe("LifecycleOrchestrator.disable", () => {
   it("persists FIRST then unregisters trigger best-effort (rule §V2 intended behavior)", async () => {
     const next = makeWorkflow("disabled", {

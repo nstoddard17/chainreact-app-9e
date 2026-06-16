@@ -2,6 +2,7 @@ import type { WorkflowDefinition } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import { isActiveRevisionExecutionEnabled } from "@/services/workflows/flags";
+import { definitionsEqual } from "@/core/workflows/triggerChange";
 
 /**
  * Active-revision read/write foundation (V2-READY-41B).
@@ -139,4 +140,26 @@ export async function createRevisionSnapshot(
     definition,
   });
   return revision.id;
+}
+
+/**
+ * V2-READY-41F — has the workflow's draft drifted from its active revision?
+ *
+ * Returns true when:
+ *   - there is no usable active revision (active_revision_id null, or it points at
+ *     a missing row → getActiveDefinition falls back to "draft"); OR
+ *   - the draft differs by value from the active revision's definition.
+ *
+ * Drives resume-from-paused: on drift, resume republishes (re-registers triggers
+ * from the current draft + snapshots a new revision) instead of reusing stale
+ * trigger_resources. Value comparison (definitionsEqual), not updated_at, so a
+ * save that rewrote the row without changing content does not force a republish.
+ *
+ * Reads the revision via the service-role path inside getActiveDefinition — safe
+ * here because resume runs server-side in the authenticated lifecycle request.
+ */
+export async function hasDraftDrift(workflow: WorkflowRecord): Promise<boolean> {
+  const active = await getActiveDefinition(workflow);
+  if (active.source !== "active_revision") return true;
+  return !definitionsEqual(workflow.draftDefinition, active.definition);
 }

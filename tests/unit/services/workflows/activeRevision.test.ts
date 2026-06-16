@@ -28,6 +28,7 @@ import {
   createRevisionSnapshot,
   getActiveDefinition,
   getDefinitionForExecution,
+  hasDraftDrift,
 } from "@/services/workflows/activeRevision";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowDefinition } from "@/contracts/workflow";
@@ -253,6 +254,44 @@ describe("getDefinitionForExecution (flag gate)", () => {
     expect(off.source).toBe("draft");
     expect(on.source).toBe("active_revision");
     expect(on.definition).toEqual(off.definition); // equivalent execution input
+  });
+});
+
+describe("hasDraftDrift (V2-READY-41F)", () => {
+  it("returns true when active_revision_id is null (no published revision yet)", async () => {
+    const wf = makeWorkflow({ activeRevisionId: null });
+    expect(await hasDraftDrift(wf)).toBe(true);
+    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
+  });
+
+  it("returns true when the active revision row is missing (dangling pointer)", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const wf = makeWorkflow({ activeRevisionId: "rev-gone" });
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce(null);
+    expect(await hasDraftDrift(wf)).toBe(true);
+    warnSpy.mockRestore();
+  });
+
+  it("returns false when the draft equals the active revision (no drift)", async () => {
+    const wf = makeWorkflow({ activeRevisionId: "rev-1", draftDefinition: draftDef });
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
+      id: "rev-1",
+      workflowId: "wf-1",
+      definition: JSON.parse(JSON.stringify(draftDef)), // equal by value, distinct object
+      createdAt: "2026-06-15T00:00:00Z",
+    });
+    expect(await hasDraftDrift(wf)).toBe(false);
+  });
+
+  it("returns true when the draft differs from the active revision (drift)", async () => {
+    const wf = makeWorkflow({ activeRevisionId: "rev-1", draftDefinition: draftDef });
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
+      id: "rev-1",
+      workflowId: "wf-1",
+      definition: revisionDef, // C-REVISION vs draft's C-DRAFT-SECRET
+      createdAt: "2026-06-15T00:00:00Z",
+    });
+    expect(await hasDraftDrift(wf)).toBe(true);
   });
 });
 

@@ -76,6 +76,15 @@ export interface LifecycleSideEffects {
     definition: WorkflowDefinition,
   ): Promise<string>;
   /**
+   * V2-READY-41F — resume-from-paused drift check. Returns true when the draft
+   * has drifted from the active revision (or there is no usable active revision),
+   * so resume must republish (re-register triggers from the current draft +
+   * snapshot a new revision) instead of reusing stale trigger_resources. Default
+   * (no hook) → false, preserving the pre-41F "paused keeps its registration"
+   * behavior for callers/tests that don't wire it.
+   */
+  hasDraftDrift?(workflow: WorkflowRecord): Promise<boolean>;
+  /**
    * Validate transition-specific preconditions (integration health, required
    * config). Failure aborts the transition with MISSING_PRECONDITIONS before
    * any side effect runs.
@@ -190,11 +199,27 @@ export class LifecycleOrchestrator {
     const toState = assertAllowedTransition(wf.state, "resume");
     await this.runPreconditions(wf, "resume");
 
-    // Re-register only when resuming from eligible_to_resume (paused retained
-    // its registration AND its active revision — paused-drift handling is a
-    // later slice). Capture the source state for rollback decisions.
-    const needsRegister = wf.state === "eligible_to_resume";
+    // When to (re)register triggers + snapshot a revision:
+    //   - eligible_to_resume: ALWAYS — its trigger_resources were cleared at
+    //     disable time, so it registers fresh.
+    //   - paused: ONLY when the draft drifted from the active revision
+    //     (V2-READY-41F). No drift → keep the existing registration + revision
+    //     (no duplicate resources, no new revision). Drift → republish, clearing
+    //     the stale resources first so an old trigger node id / config can't
+    //     survive the re-register.
     const publishedDefinition = wf.draftDefinition;
+    let needsRegister = wf.state === "eligible_to_resume";
+    let unregisterStale = false;
+    if (wf.state === "paused" && (await this.checkDraftDrift(wf))) {
+      needsRegister = true;
+      unregisterStale = true;
+    }
+
+    // Clear stale resources BEFORE re-registering. Safe: the workflow is still
+    // paused (dispatch drops non-active workflows), so this never widens a firing
+    // window — it only prevents the OLD config from being reused on resume.
+    if (unregisterStale) await safeUnregister(this.hooks, wf);
+
     const triggerRegistered = needsRegister
       ? await this.tryRegisterTrigger(wf, publishedDefinition, "resume")
       : false;
@@ -326,6 +351,15 @@ export class LifecycleOrchestrator {
         { failures: result.failures ?? [] },
       );
     }
+  }
+
+  /**
+   * V2-READY-41F — delegate to the drift hook (default false when unwired so the
+   * pre-41F paused-keeps-registration behavior is preserved in tests).
+   */
+  private async checkDraftDrift(wf: WorkflowRecord): Promise<boolean> {
+    if (!this.hooks.hasDraftDrift) return false;
+    return this.hooks.hasDraftDrift(wf);
   }
 
   private async tryRegisterTrigger(

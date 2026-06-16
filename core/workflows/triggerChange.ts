@@ -52,6 +52,21 @@ function triggerSignature(node: WorkflowNode): string {
   return JSON.stringify([node.id, node.provider, node.type, stableValue(node.config)]);
 }
 
+/**
+ * V2-READY-41F — value-equality of two whole workflow definitions (nodes +
+ * edges), key-order-insensitive (objects) and array-order-sensitive. Used to
+ * detect whether a paused workflow's draft has drifted from its active revision,
+ * so resume can republish instead of reusing stale trigger_resources. Reuses the
+ * same `stableValue` canonicalization as the trigger-signature compare — no
+ * separate hash needed; the snapshot is small per-workflow JSON.
+ */
+export function definitionsEqual(
+  a: WorkflowDefinition,
+  b: WorkflowDefinition,
+): boolean {
+  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
+}
+
 /** Recursively key-sort objects so `{a,b}` and `{b,a}` compare equal; arrays keep order. */
 function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableValue);

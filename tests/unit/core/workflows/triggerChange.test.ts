@@ -5,7 +5,7 @@
  * definitions (drives disable-on-active-trigger-edit). Trigger add/remove/id/provider/type/
  * config → changed; action / label / layout / edge edits + config key reordering → unchanged.
  */
-import { triggerChanged } from "@/core/workflows/triggerChange";
+import { triggerChanged, definitionsEqual } from "@/core/workflows/triggerChange";
 
 const trigger = (over: Record<string, unknown> = {}) => ({
   id: "t1", kind: "trigger", provider: "slack", type: "message_received",
@@ -64,5 +64,43 @@ describe("triggerChanged — IS a trigger change (requires deactivation)", () =>
   });
   it("trigger config changed (resource / filter selection)", () => {
     expect(triggerChanged(def([trigger({ config: { channel: "C1" } })]), def([trigger({ config: { channel: "C2" } })]))).toBe(true);
+  });
+});
+
+// V2-READY-41F — full-definition value equality, drives resume-from-paused drift.
+describe("definitionsEqual — whole-definition value comparison", () => {
+  it("identical definitions are equal", () => {
+    expect(
+      definitionsEqual(def([trigger(), action()]), def([trigger(), action()])),
+    ).toBe(true);
+  });
+  it("config key reordering is still equal (key-order-insensitive)", () => {
+    const a = def([trigger({ config: { channel: "C1", filter: "x" } })]);
+    const b = def([trigger({ config: { filter: "x", channel: "C1" } })]);
+    expect(definitionsEqual(a, b)).toBe(true);
+  });
+  it("ACTION config edit is NOT equal (unlike triggerChanged, full def counts)", () => {
+    expect(
+      definitionsEqual(
+        def([trigger(), action()]),
+        def([trigger(), action({ config: { text: "bye" } })]),
+      ),
+    ).toBe(false);
+  });
+  it("trigger config edit is not equal", () => {
+    expect(
+      definitionsEqual(
+        def([trigger({ config: { channel: "C1" } })]),
+        def([trigger({ config: { channel: "C2" } })]),
+      ),
+    ).toBe(false);
+  });
+  it("node added is not equal", () => {
+    expect(definitionsEqual(def([trigger()]), def([trigger(), action()]))).toBe(false);
+  });
+  it("edge change is not equal", () => {
+    const a = def([trigger(), action()], []);
+    const b = def([trigger(), action()], [{ id: "e1", from: "t1", to: "a1" }]);
+    expect(definitionsEqual(a, b)).toBe(false);
   });
 });

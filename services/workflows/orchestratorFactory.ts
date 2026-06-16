@@ -7,7 +7,10 @@ import {
   registerWorkflowTriggers,
   unregisterWorkflowTriggers,
 } from "@/services/triggers/lifecycle";
-import { createRevisionSnapshot } from "@/services/workflows/activeRevision";
+import {
+  createRevisionSnapshot,
+  hasDraftDrift,
+} from "@/services/workflows/activeRevision";
 
 /**
  * Single construction point for the LifecycleOrchestrator with the real
@@ -34,6 +37,9 @@ export function createLifecycleOrchestrator(): LifecycleOrchestrator {
     // orchestrator sets active_revision_id atomically with the state transition.
     snapshotRevision: (workflow, definition) =>
       createRevisionSnapshot(workflow, definition),
+    // V2-READY-41F — resume-from-paused republishes only when the draft drifted
+    // from the active revision (else it keeps its existing registration/revision).
+    hasDraftDrift: (workflow) => hasDraftDrift(workflow),
   };
   return new LifecycleOrchestrator(hooks);
 }
