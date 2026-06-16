@@ -193,6 +193,45 @@ describe("getDefinitionForExecution (flag gate)", () => {
     expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
     expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
   });
+
+  it("flag ON + dangling active_revision_id: safe draft fallback + warns without leaking (V2-READY-41D)", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    process.env[FLAG] = "true";
+    const wf = makeWorkflow({ activeRevisionId: "rev-gone" });
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce(null);
+
+    const result = await getDefinitionForExecution(wf);
+
+    expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("workflow.active_revision.missing");
+    expect(logged).not.toContain("acct-SECRET");
+    expect(logged).not.toContain("user-SECRET");
+    expect(logged).not.toContain("C-DRAFT-SECRET");
+    expect(logged).not.toContain("C-REVISION");
+    warnSpy.mockRestore();
+  });
+
+  it("parity: when the revision equals the draft, OFF and ON resolve to value-equal definitions (V2-READY-41D)", async () => {
+    const wf = makeWorkflow({ activeRevisionId: "rev-1", draftDefinition: draftDef });
+
+    delete process.env[FLAG];
+    const off = await getDefinitionForExecution(wf);
+
+    process.env[FLAG] = "true";
+    // Revision row holds a definition equal BY VALUE to the draft (distinct object).
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
+      id: "rev-1",
+      workflowId: "wf-1",
+      definition: JSON.parse(JSON.stringify(draftDef)),
+      createdAt: "2026-06-15T00:00:00Z",
+    });
+    const on = await getDefinitionForExecution(wf);
+
+    expect(off.source).toBe("draft");
+    expect(on.source).toBe("active_revision");
+    expect(on.definition).toEqual(off.definition); // equivalent execution input
+  });
 });
 
 describe("createRevisionSnapshot", () => {

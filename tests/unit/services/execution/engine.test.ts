@@ -408,6 +408,85 @@ describe("WorkflowEngine — fatal errors", () => {
       expect(mockGetDefinitionForExecution).toHaveBeenCalled();
       expect(result.fatalError?.code).not.toBe("TRIGGER_NODE_NOT_FOUND");
     });
+
+    // V2-READY-41D — active revision execution: parity + drift.
+    it("executes the active revision graph, NOT the drifted draft (draft action edits are ignored)", async () => {
+      // Draft drifted to 'draft_action'; the active revision still has 'rev_action'.
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        activeRevisionId: "rev-1",
+        draftDefinition: {
+          nodes: [trigger("t1"), action("a-draft", "draft_action")],
+          edges: [edge("e", "t1", "a-draft")],
+        },
+      });
+      mockGetDefinitionForExecution.mockResolvedValueOnce({
+        definition: {
+          nodes: [trigger("t1"), action("a-rev", "rev_action")],
+          edges: [edge("e", "t1", "a-rev")],
+        },
+        source: "active_revision",
+        revisionId: "rev-1",
+      });
+      const revHandler = jest.fn(async () => ({ output: { ok: true } }));
+      const draftHandler = jest.fn(async () => ({ output: { bad: true } }));
+      mockGetActionHandler.mockImplementation((_p: string, t: string) => {
+        if (t === "rev_action") return revHandler;
+        if (t === "draft_action") return draftHandler;
+        return undefined;
+      });
+
+      const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(result.status).toBe("succeeded");
+      expect(result.steps.map((s) => s.nodeId)).toEqual(["t1", "a-rev"]);
+      expect(revHandler).toHaveBeenCalledTimes(1);
+      expect(draftHandler).not.toHaveBeenCalled();
+    });
+
+    it("parity: an equal draft and revision produce identical step results (OFF-draft vs ON-revision)", async () => {
+      const def = () => ({
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e", "t1", "a1")],
+      });
+      mockGetActionHandler.mockImplementation((_p: string, t: string) =>
+        t === "step_one" ? async () => ({ output: { ok: true } }) : undefined,
+      );
+
+      // OFF path: default resolver returns the workflow's draft.
+      mockGetByIdServiceRole.mockResolvedValueOnce({ ...baseWorkflow, draftDefinition: def() });
+      const off = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      // ON path: resolver returns an EQUAL revision definition.
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        activeRevisionId: "rev-1",
+        draftDefinition: def(),
+      });
+      mockGetDefinitionForExecution.mockResolvedValueOnce({
+        definition: def(),
+        source: "active_revision",
+        revisionId: "rev-1",
+      });
+      const on = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(off.status).toBe("succeeded");
+      expect(on.status).toBe("succeeded");
+      expect(on.steps.map((s) => s.nodeId)).toEqual(off.steps.map((s) => s.nodeId));
+      expect(on.steps.map((s) => s.status)).toEqual(off.steps.map((s) => s.status));
+    });
   });
 
   // B — engine pre-dispatch readiness backstop (the universal choke point that
