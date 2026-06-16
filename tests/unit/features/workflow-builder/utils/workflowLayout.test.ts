@@ -8,6 +8,7 @@ import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import {
   LAYOUT_BRANCH_GAP_X,
   LAYOUT_ROW_GAP_Y,
+  collectDownstreamIds,
   computeNonOverlappingPosition,
   findChainTailId,
   layoutWorkflowGraph,
@@ -55,6 +56,25 @@ describe("findChainTailId", () => {
     const nodes = [node("a", "action", 0, 0), node("b", "action", 0, 120)];
     const edges = [edge("e1", "a", "b"), edge("e2", "b", "a")];
     expect(findChainTailId(nodes, edges)).toBeNull();
+  });
+});
+
+describe("collectDownstreamIds", () => {
+  it("collects a node and all of its descendants (depth-first, inclusive)", () => {
+    const edges = [edge("e1", "a", "b"), edge("e2", "b", "c")];
+    expect(new Set(collectDownstreamIds(edges, "a"))).toEqual(new Set(["a", "b", "c"]));
+    expect(new Set(collectDownstreamIds(edges, "b"))).toEqual(new Set(["b", "c"]));
+  });
+
+  it("is cycle-safe (visits each node once)", () => {
+    const edges = [edge("e1", "x", "y"), edge("e2", "y", "z"), edge("e3", "z", "x")];
+    expect(new Set(collectDownstreamIds(edges, "x"))).toEqual(new Set(["x", "y", "z"]));
+  });
+
+  it("never traverses or includes the excluded id (the inserted node)", () => {
+    // n → b → n cycle; collecting from b excluding n must stop at the n boundary.
+    const edges = [edge("e1", "n", "b"), edge("e2", "b", "n")];
+    expect(collectDownstreamIds(edges, "b", "n")).toEqual(["b"]);
   });
 });
 

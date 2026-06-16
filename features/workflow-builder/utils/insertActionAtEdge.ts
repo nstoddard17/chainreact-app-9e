@@ -1,5 +1,10 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
 import { useGraphSlice } from "../state/graphSlice";
+import {
+  LAYOUT_ROW_GAP_Y,
+  collectDownstreamIds,
+  computeNonOverlappingPosition,
+} from "./workflowLayout";
 
 /**
  * Mid-chain action insertion (Slice 4.BUILDER-ADD-FLOW-1).
@@ -16,7 +21,9 @@ import { useGraphSlice } from "../state/graphSlice";
  *      and remove it.
  *   3. Remove the user-clicked A → B edge.
  *   4. Connect A → N and N → B so the chain becomes A → N → B.
- *   5. Position N at the midpoint of A and B for nicer UX.
+ *   5. Place N on a clean, non-overlapping row below A, pushing the
+ *      downstream chain (B and everything after it) down only when
+ *      needed to open room (Slice 4.BUILDER-CANVAS-LAYOUT-2).
  *
  * Why a separate helper:
  *   - Keeps WorkflowBuilder focused on layout + state machine wiring.
@@ -47,6 +54,8 @@ export function insertActionAtEdge(
   if (!targetEdge) return;
   const fromNodeId = targetEdge.from;
   const toNodeId = targetEdge.to;
+  // A's original position is the placement anchor; A is upstream of the insert
+  // so it never moves, captured here before any mutation.
   const fromNode = slice.pendingNodes.find((n) => n.id === fromNodeId);
   const toNode = slice.pendingNodes.find((n) => n.id === toNodeId);
 
@@ -79,12 +88,40 @@ export function insertActionAtEdge(
     // endpoints. Swallow rather than half-mutate.
   }
 
-  // Step 6: position the new node midway between A and B.
+  // Step 6: place N on a clean, non-overlapping row (BUILDER-CANVAS-LAYOUT-2).
+  // The old midpoint placement collided with both endpoints when A and B were a
+  // single row apart (the normal append-built chain). Instead: open a row below
+  // A by pushing B and its whole downstream subtree DOWN — but only by the
+  // amount actually needed, so endpoints already far enough apart don't move.
+  // Then place N in the freed slot via the shared non-overlap helper, which
+  // guarantees it never overlaps any node (stepping further down if a stray
+  // node sits in the slot).
   if (fromNode && toNode) {
-    const midX = Math.round((fromNode.position.x + toNode.position.x) / 2);
-    const midY = Math.round((fromNode.position.y + toNode.position.y) / 2);
-    useGraphSlice
+    // Desired clearance: B (and its subtree) should sit at least two rows below
+    // A so the row directly under A is free for N. Push down only the shortfall.
+    const desiredBY = fromNode.position.y + 2 * LAYOUT_ROW_GAP_Y;
+    const shift = Math.max(0, desiredBY - toNode.position.y);
+    if (shift > 0) {
+      // Exclude N from the subtree (N → B means a cycle could otherwise loop
+      // back to the node we're about to position independently).
+      const downstream = collectDownstreamIds(
+        useGraphSlice.getState().pendingEdges,
+        toNodeId,
+        newNode.id,
+      );
+      for (const id of downstream) {
+        const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === id);
+        if (!node) continue;
+        useGraphSlice.getState().updateNodePosition(id, {
+          x: node.position.x,
+          y: node.position.y + shift,
+        });
+      }
+    }
+    const others = useGraphSlice
       .getState()
-      .updateNodePosition(newNode.id, { x: midX, y: midY });
+      .pendingNodes.filter((n) => n.id !== newNode.id);
+    const pos = computeNonOverlappingPosition(fromNode.position, others);
+    useGraphSlice.getState().updateNodePosition(newNode.id, pos);
   }
 }

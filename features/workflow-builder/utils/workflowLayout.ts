@@ -80,6 +80,43 @@ export function computeNonOverlappingPosition(
   return candidate;
 }
 
+/**
+ * Collect a node and every node reachable from it along outgoing edges (its
+ * downstream subtree), in stable depth-first order. Cycle-safe (each node is
+ * visited once) and pure. `excludeId` is never collected nor traversed — used by
+ * mid-chain insertion to keep the freshly-inserted node out of the subtree that
+ * gets shifted (the inserted node points INTO the subtree, so a cycle could
+ * otherwise loop back to it).
+ *
+ * Slice 4.BUILDER-CANVAS-LAYOUT-2 — used to push a chain's tail down to open a
+ * clean, non-overlapping row for a node inserted mid-chain.
+ */
+export function collectDownstreamIds(
+  edges: readonly WorkflowEdge[],
+  startId: string,
+  excludeId?: string,
+): string[] {
+  const childrenOf = new Map<string, string[]>();
+  for (const e of edges) {
+    const arr = childrenOf.get(e.from);
+    if (arr) arr.push(e.to);
+    else childrenOf.set(e.from, [e.to]);
+  }
+  const visited = new Set<string>();
+  const result: string[] = [];
+  const stack = [startId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (id === excludeId || visited.has(id)) continue;
+    visited.add(id);
+    result.push(id);
+    for (const c of childrenOf.get(id) ?? []) {
+      if (!visited.has(c)) stack.push(c);
+    }
+  }
+  return result;
+}
+
 /** Sort key for choosing/ordering roots: triggers first, then authoring order. */
 function rootRank(node: WorkflowNode, index: number): number {
   return (node.kind === "trigger" ? 0 : 1) * 1_000_000 + index;
