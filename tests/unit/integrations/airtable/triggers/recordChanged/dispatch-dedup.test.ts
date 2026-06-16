@@ -25,6 +25,14 @@ jest.mock("@/repositories/workflows", () => ({
   getStateForDispatch: jest.fn(async () => "active"),
 }));
 
+// V2-READY-34 added an `isAccountFrozen` gate to `dispatchTriggerEvent` (which
+// reaches the service-role client). This dedup test only exercises the
+// non-frozen path, so stub it to a non-frozen account — mirrors the mock used
+// by the dispatch service tests.
+jest.mock("@/services/accounts/accountFreeze", () => ({
+  isAccountFrozen: async () => false,
+}));
+
 jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: jest.fn(),
 }));
