@@ -93,6 +93,13 @@ export interface InvalidReferenceCard {
   readonly fieldKey: string;
   /** Display label for the button + copy. */
   readonly fieldLabel: string;
+  /**
+   * Replacement-candidate count classification from the diagnosis (AI-REPAIR-3I).
+   * `"one"` is the ONLY case that gets a direct "Preview fix" action (AI-REPAIR-3K) —
+   * it maps 1:1 to an applyable deterministic preview (AI-REPAIR-3H/3J). `"none"` /
+   * `"multiple"` / undefined stay manual-only (Open-field guidance, no Preview/Apply).
+   */
+  readonly replacementReason?: "none" | "one" | "multiple";
   /** Deterministic guidance for why Apply isn't offered + what to do instead. */
   readonly message: string;
 }
@@ -106,7 +113,8 @@ function invalidReferenceMessage(
     case "multiple":
       return `This ${fieldLabel} field references a missing step. More than one replacement may fit, so open the field and choose the correct variable manually.`;
     case "one":
-      return `This ${fieldLabel} field references a step that's no longer in this workflow. Open the field to fix it, or use “Suggest a fix” for an automatic repair.`;
+      // AI-REPAIR-3K — exactly one safe replacement → offer a direct "Preview fix".
+      return `This ${fieldLabel} field references a missing step, but ChainReact found one safe replacement.`;
     case "none":
     default:
       // Zero candidates (or unknown) — the safe, always-valid guidance.
@@ -136,6 +144,7 @@ export function invalidReferenceCards(
         nodeId,
         fieldKey: ref.fieldKey,
         fieldLabel: ref.fieldLabel,
+        ...(ref.replacementReason ? { replacementReason: ref.replacementReason } : {}),
         message: invalidReferenceMessage(ref.fieldLabel, ref.replacementReason),
       });
       i += 1;

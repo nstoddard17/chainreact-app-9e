@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
-import { attentionFindingCards, invalidReferenceCards } from "../ai/attentionFindings";
+import {
+  attentionFindingCards,
+  invalidReferenceCards,
+  type InvalidReferenceCard,
+} from "../ai/attentionFindings";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -341,8 +345,24 @@ export function DiagnosisSetupActions({
  */
 export function DiagnosisAttentionActions({
   diagnosis,
+  onPreviewInvalidRef,
+  previewing = false,
+  alreadyPreviewedInvalidRef = false,
 }: {
   readonly diagnosis: AgentWorkflowDiagnosis;
+  /**
+   * AI-REPAIR-3K — explicit-click handler for the one-candidate "Preview fix" action.
+   * Runs the SAME deterministic repair-preview round-trip the repair-proposal "Preview
+   * fix" uses (no LLM / no credits / no model telemetry — the route runs the
+   * deterministic path BEFORE the gate, AI-REPAIR-3H). Absent → no Preview-fix button
+   * is offered (Open-field manual guidance only), so a historical/non-latest diagnosis
+   * never shows it.
+   */
+  readonly onPreviewInvalidRef?: () => void;
+  /** A preview round-trip is in flight (disables the Preview-fix button). */
+  readonly previewing?: boolean;
+  /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
+  readonly alreadyPreviewedInvalidRef?: boolean;
 }) {
   const cards = attentionFindingCards(diagnosis);
   // AI-REPAIR-3I — actionable broken-variable-reference cards (each with an
@@ -371,21 +391,84 @@ export function DiagnosisAttentionActions({
         </ul>
       )}
       {refCards.map((card) => (
-        <div
+        <InvalidReferenceCardView
           key={card.key}
-          data-testid="builder-ai-diagnosis-invalid-ref"
-          className="flex flex-col gap-1"
-        >
-          <p className="text-xs" style={{ color: "var(--builder-text)" }}>
-            {card.message}
-          </p>
-          <InvalidReferenceGoToField
-            nodeId={card.nodeId}
-            fieldKey={card.fieldKey}
-            fieldLabel={card.fieldLabel}
-          />
-        </div>
+          card={card}
+          {...(card.replacementReason === "one" && onPreviewInvalidRef
+            ? { onPreviewFix: onPreviewInvalidRef }
+            : {})}
+          previewing={previewing}
+          alreadyPreviewed={alreadyPreviewedInvalidRef}
+        />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-REPAIR-3K — one "Needs attention" invalid-reference card.
+ *
+ * For the EXACTLY-ONE-safe-replacement case (`replacementReason === "one"` AND a
+ * preview handler supplied), the PRIMARY action is "Preview fix" — it runs the
+ * deterministic repair preview (AI-REPAIR-3H/3J) and the resulting preview card is
+ * where Apply lives. The SECONDARY action stays "Open <field> field" for manual
+ * inspection. Apply is NEVER placed on this Check card — Preview is the only
+ * forward action, and applying stays a separate click on the preview.
+ *
+ * For zero / multiple / unknown candidates (no preview handler), it renders the
+ * AI-REPAIR-3I manual guidance with the single "Open <field> field" affordance —
+ * no Preview, no Apply. Labels only (never the raw node id / field key / token).
+ */
+function InvalidReferenceCardView({
+  card,
+  onPreviewFix,
+  previewing = false,
+  alreadyPreviewed = false,
+}: {
+  readonly card: InvalidReferenceCard;
+  readonly onPreviewFix?: () => void;
+  readonly previewing?: boolean;
+  readonly alreadyPreviewed?: boolean;
+}) {
+  return (
+    <div
+      data-testid="builder-ai-diagnosis-invalid-ref"
+      className="flex flex-col gap-1"
+    >
+      <p className="text-xs" style={{ color: "var(--builder-text)" }}>
+        {card.message}
+      </p>
+      {onPreviewFix ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={onPreviewFix}
+              disabled={previewing || alreadyPreviewed}
+              data-testid="builder-ai-invalid-ref-preview-fix-button"
+            >
+              {previewing ? "Previewing fix…" : alreadyPreviewed ? "Previewed" : "Preview fix"}
+            </Button>
+            <InvalidReferenceGoToField
+              nodeId={card.nodeId}
+              fieldKey={card.fieldKey}
+              fieldLabel={card.fieldLabel}
+            />
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            Preview shows the exact replacement first. Nothing is changed, saved, or run
+            until you choose to apply it.
+          </p>
+        </>
+      ) : (
+        <InvalidReferenceGoToField
+          nodeId={card.nodeId}
+          fieldKey={card.fieldKey}
+          fieldLabel={card.fieldLabel}
+        />
+      )}
     </div>
   );
 }

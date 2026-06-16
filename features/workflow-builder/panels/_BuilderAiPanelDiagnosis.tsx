@@ -43,6 +43,9 @@ export function DiagnosisBody({
   alreadySuggested = false,
   onSuggestFix,
   showFieldActions = false,
+  onPreviewInvalidRef,
+  previewing = false,
+  alreadyPreviewedInvalidRef = false,
 }: {
   readonly diagnosis: AgentWorkflowDiagnosis;
   /**
@@ -80,6 +83,18 @@ export function DiagnosisBody({
    * Suggest or Preview.
    */
   readonly showFieldActions?: boolean;
+  /**
+   * Slice 4.AI-REPAIR-3K — explicit-click handler for the one-candidate invalid-
+   * reference "Preview fix" action in the "Needs attention" group. Runs the
+   * deterministic repair-preview round-trip (no LLM / no credits / no model telemetry);
+   * the resulting preview card is where Apply lives. Forwarded to
+   * `DiagnosisAttentionActions`; only wired for the LATEST diagnosis (`showFieldActions`).
+   */
+  readonly onPreviewInvalidRef?: () => void;
+  /** A preview round-trip is in flight (disables the Preview-fix button). */
+  readonly previewing?: boolean;
+  /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
+  readonly alreadyPreviewedInvalidRef?: boolean;
 }) {
   if (diagnosis.access !== "OK") {
     const msg =
@@ -152,7 +167,14 @@ export function DiagnosisBody({
       {/* CHECK-ACTIONS-2 — non-targetable manual-guidance issues (structural / failed
           last run) get their own "Needs attention" group: deterministic guidance, no
           button. Renders nothing when there are no graph/run findings. */}
-      {showFieldActions && <DiagnosisAttentionActions diagnosis={diagnosis} />}
+      {showFieldActions && (
+        <DiagnosisAttentionActions
+          diagnosis={diagnosis}
+          {...(onPreviewInvalidRef ? { onPreviewInvalidRef } : {})}
+          previewing={previewing}
+          alreadyPreviewedInvalidRef={alreadyPreviewedInvalidRef}
+        />
+      )}
       {/* CHECK-ACTIONS-2 — AI affordances are grouped + visually separated under
           "AI can help" so they read as OPTIONAL assistance, distinct from the
           deterministic (free) actions above. The inner blocks keep their original

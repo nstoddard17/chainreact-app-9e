@@ -193,6 +193,14 @@ export function MessageItem({
           // LATEST check result so missing-input issues need neither Suggest nor
           // Preview. The group renders one action per missing field across nodes.
           showFieldActions={isLatestDiagnosis}
+          // AI-REPAIR-3K — a one-candidate invalid reference gets a direct "Preview
+          // fix" action in "Needs attention". It reuses the SAME deterministic
+          // repair-preview round-trip (no proposalContext → server re-derives the
+          // diagnosis and runs the model-free preview first, AI-REPAIR-3H). Keyed on
+          // the diagnosis message id for in-flight + repeat-guard, mirroring Suggest.
+          onPreviewInvalidRef={() => onPreviewFix(message.id)}
+          previewing={previewing}
+          alreadyPreviewedInvalidRef={previewedProposalIds.has(message.id)}
         />
       </AssistantBubble>
     );

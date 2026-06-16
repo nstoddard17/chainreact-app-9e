@@ -101,11 +101,16 @@ describe("invalidReferenceCards — actionable invalid-reference cards (AI-REPAI
     expect(cards[0]!.message).toContain("choose the correct variable manually");
   });
 
-  it("one candidate → points to the automatic 'Suggest a fix' repair as well", () => {
+  it("one candidate → 'found one safe replacement' copy + carries replacementReason 'one' (AI-REPAIR-3K)", () => {
     const cards = invalidReferenceCards(
       refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message", replacementReason: "one" }]),
     );
-    expect(cards[0]!.message).toContain("Suggest a fix");
+    expect(cards[0]!.message).toContain("found one safe replacement");
+    // The reason rides on the card so the UI can offer a direct "Preview fix".
+    expect(cards[0]!.replacementReason).toBe("one");
+    // No-leak: still field LABEL only — never the raw key / node id / token.
+    expect(cards[0]!.message).not.toContain("message");
+    expect(cards[0]!.message).not.toContain("ghost");
   });
 
   it("missing reason → safe generic guidance", () => {

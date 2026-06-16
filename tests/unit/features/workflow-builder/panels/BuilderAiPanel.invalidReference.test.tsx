@@ -10,7 +10,7 @@
  * (no network) and the discovery-metadata hooks mocked so the diagnosed node resolves
  * client-side. Proves: card copy by reason, Open-field reveal, no Apply, no leak.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ActionMeta } from "@/contracts/actionMeta";
 
@@ -18,6 +18,7 @@ const mockDiagnose = jest.fn();
 const mockRepair = jest.fn();
 const mockPreview = jest.fn();
 const mockExplain = jest.fn();
+const mockApply = jest.fn();
 const mockGetThread = jest.fn();
 const mockAppendThreadMessage = jest.fn();
 const mockClearThread = jest.fn();
@@ -30,6 +31,7 @@ jest.mock("@/lib/api/ai", () => {
     explainDiagnosis: (...a: unknown[]) => mockExplain(...a),
     planWorkflowRepair: (...a: unknown[]) => mockRepair(...a),
     previewWorkflowRepair: (...a: unknown[]) => mockPreview(...a),
+    applyWorkflowRepair: (...a: unknown[]) => mockApply(...a),
     getBuilderAgentThread: (...a: unknown[]) => mockGetThread(...a),
     appendBuilderAgentMessage: (...a: unknown[]) => mockAppendThreadMessage(...a),
     clearBuilderAgentThread: (...a: unknown[]) => mockClearThread(...a),
@@ -129,12 +131,42 @@ function invalidRefDiagnosis(replacementReason: "none" | "one" | "multiple" | un
   };
 }
 
+/**
+ * AI-REPAIR-3K — an applyable deterministic preview the one-candidate "Preview fix"
+ * yields (mirrors the route's `{ ok, preview }` shape; the preview comes from the
+ * model-free deterministic path so no model/credit/telemetry is involved server-side).
+ */
+const APPLY_OPS = [
+  { op: "repairVariableReference", nodeId: "slack1", fieldPath: "text", newReference: "{{gmail-1.subject}}" },
+];
+const previewApplyable = {
+  ok: true,
+  preview: {
+    ok: true,
+    patchSummary: "Re-point the broken variable reference",
+    changes: [{ op: "repairVariableReference", description: 'Repairs variable reference in field "text".', nodeId: "slack1", fields: ["text"] }],
+    affectedNodeIds: ["slack1"],
+    affectedEdgeIds: [],
+    riskLevel: "medium",
+    requiresConfirmation: false,
+    riskReasons: [],
+    validation: { ok: true, errors: [], warnings: [] },
+    userFacingSummaryText: "Re-point the broken variable reference — 1 change(s). Risk: medium.",
+    candidateSummary: "3 node(s)",
+    canApplyLater: true,
+    apply: { applyable: true, operations: APPLY_OPS, baseRevision: "rev-1" },
+  },
+  notAppliedNotice: "x",
+};
+
 beforeEach(() => {
   mockDiagnose.mockReset();
   mockDiagnose.mockResolvedValue(invalidRefDiagnosis("none"));
   mockRepair.mockReset();
   mockPreview.mockReset();
   mockExplain.mockReset();
+  mockApply.mockReset();
+  mockApply.mockResolvedValue({ ok: true, applied: true, currentRevision: "rev-2", appliedOperations: [] });
   mockGetThread.mockReset();
   mockGetThread.mockResolvedValue({ thread: { id: "t", workflowId: "wf-1", createdAt: "now", updatedAt: "now" }, messages: [] });
   mockAppendThreadMessage.mockReset();
@@ -205,4 +237,87 @@ describe("Check workflow → actionable invalid-reference card (AI-REPAIR-3I)", 
     expect(screen.getByTestId("builder-ai-invalid-ref-open-field-button")).toBeEnabled();
     expect(screen.queryByTestId("builder-ai-repair-apply-button")).toBeNull();
   });
+});
+
+describe("Check workflow → one-candidate direct 'Preview fix' (AI-REPAIR-3K)", () => {
+  it("renders 'Preview fix' (primary) + 'Open Message field' (secondary); NO Apply on the Check card", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("one"));
+    await check();
+    const card = await screen.findByTestId("builder-ai-diagnosis-invalid-ref");
+    expect(card.textContent).toContain("found one safe replacement");
+    expect(screen.getByTestId("builder-ai-invalid-ref-preview-fix-button").textContent).toBe("Preview fix");
+    // Open-field manual affordance is preserved as the secondary action.
+    expect(screen.getByTestId("builder-ai-invalid-ref-open-field-button").textContent).toBe("Open Message field");
+    // Apply is NEVER placed on a Check card — and the model preview hasn't run yet.
+    expect(screen.queryByTestId("builder-ai-repair-apply-button")).toBeNull();
+    expect(mockPreview).not.toHaveBeenCalled();
+    expect(mockRepair).not.toHaveBeenCalled();
+  });
+
+  it("renders no raw node id / field key / token uuid in the one-candidate card copy", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("one"));
+    await check();
+    const card = await screen.findByTestId("builder-ai-diagnosis-invalid-ref");
+    const t = card.textContent ?? "";
+    expect(t).not.toContain("slack1");
+    expect(t).not.toContain("e25b1c45");
+    expect(t).not.toContain("text"); // raw field key (label "Message" is shown instead)
+    expect(t).toContain("Message");
+  });
+
+  it("clicking 'Preview fix' runs the deterministic preview path (no Suggest/plan) → applyable preview with 'Apply fix'", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("one"));
+    mockPreview.mockResolvedValue(previewApplyable);
+    const user = await check();
+    await user.click(screen.getByTestId("builder-ai-invalid-ref-preview-fix-button"));
+    await screen.findByTestId("builder-ai-repair-preview");
+    // SAME deterministic preview client path (the route runs the model-free preview
+    // FIRST, AI-REPAIR-3H); no proposalContext is sent from the Check card.
+    expect(mockPreview).toHaveBeenCalledTimes(1);
+    expect(mockPreview).toHaveBeenCalledWith("wf-1", expect.anything(), undefined);
+    // The Check-card action is Preview, never the LLM "Suggest a fix" plan.
+    expect(mockRepair).not.toHaveBeenCalled();
+    // Apply appears ON THE PREVIEW (a separate click), not on the Check card.
+    expect(screen.getByTestId("builder-ai-repair-apply-button").textContent).toBe("Apply fix");
+  });
+
+  it("Apply on that preview persists the corrected draft + refetches/hydrates; workflow not run", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("one"));
+    mockPreview.mockResolvedValue(previewApplyable);
+    mockGetWorkflow.mockResolvedValue({ id: "wf-1", draftDefinition: { nodes: [], edges: [] }, updatedAt: "rev-2" });
+    const user = await check();
+    await user.click(screen.getByTestId("builder-ai-invalid-ref-preview-fix-button"));
+    await screen.findByTestId("builder-ai-repair-preview");
+    await user.click(screen.getByTestId("builder-ai-repair-apply-button"));
+    const ok = await screen.findByTestId("builder-ai-repair-apply-success");
+    expect(ok.textContent).toContain("Applied fix. Workflow not run.");
+    // The 3D apply route got the opaque operations + baseRevision (no model call).
+    expect(mockApply).toHaveBeenCalledWith("wf-1", { operations: APPLY_OPS, baseRevision: "rev-1" });
+    await waitFor(() => expect(mockGetWorkflow).toHaveBeenCalledWith("wf-1"));
+  });
+
+  it("'Preview fix' disables + relabels after one click (no repeat round-trip)", async () => {
+    mockDiagnose.mockResolvedValue(invalidRefDiagnosis("one"));
+    mockPreview.mockResolvedValue(previewApplyable);
+    const user = await check();
+    await user.click(screen.getByTestId("builder-ai-invalid-ref-preview-fix-button"));
+    await screen.findByTestId("builder-ai-repair-preview");
+    const btn = screen.getByTestId("builder-ai-invalid-ref-preview-fix-button");
+    expect(btn).toBeDisabled();
+    expect(btn.textContent).toBe("Previewed");
+    await user.click(btn); // disabled → no-op
+    expect(mockPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["none", "multiple"] as const)(
+    "%s candidates → NO 'Preview fix' action (Open-field manual guidance remains, no Apply)",
+    async (reason) => {
+      mockDiagnose.mockResolvedValue(invalidRefDiagnosis(reason));
+      await check();
+      await screen.findByTestId("builder-ai-diagnosis-invalid-ref");
+      expect(screen.queryByTestId("builder-ai-invalid-ref-preview-fix-button")).toBeNull();
+      expect(screen.getByTestId("builder-ai-invalid-ref-open-field-button")).toBeEnabled();
+      expect(screen.queryByTestId("builder-ai-repair-apply-button")).toBeNull();
+    },
+  );
 });
