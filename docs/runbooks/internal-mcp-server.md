@@ -137,10 +137,23 @@ matched via the same `redactSecrets` used at egress; only the `[REDACTED:label]`
 category leaves). *(Phase C-1.)* The live `diagnose_workflow_graph` ships in Stage 2B
 below.
 
-The full live registry today is **38 tools** (`npm run mcp:smoke`) — the context tools
+Phase C-2 — composite **doctors** (`doctor_workflow`, `doctor_provider`,
+`doctor_account_integration`): each **composes** existing diagnostics into one
+consolidated answer + overall status (healthy/warning/blocked/unknown) + merged
+`nextSteps` + the source tool names used + any unavailable sections. They add **no
+new route and no new brain** — live sections reuse the gated `postDiagnostic`
+transport, static sections reuse the local `providerStatics` brain. `doctor_workflow`
+composes readiness + graph + connections (+ optional run-failure / visibility);
+`doctor_provider` composes the static provider tools (+ optional live connection);
+`doctor_account_integration` is **provider-scoped** (account-wide enumeration is
+**deferred** — it would need a new gated route; no new service-role DB access is added
+to the MCP boundary). Output is enums/counts/ids/field-names only — never tokens, raw
+scopes, credential identity, or private account data. *(Phase C-2.)*
+
+The full live registry today is **41 tools** (`npm run mcp:smoke`) — the context tools
 above, the command wrappers, the Phase A-1 helpers, the Phase A-2 provider tools, the
-Phase B verification helpers, the Phase C-1 `no_leak_scanner`, and the Stage-2A/2B
-diagnostics (below).
+Phase B verification helpers, the Phase C-1 `no_leak_scanner`, the Phase C-2 doctors,
+and the Stage-2A/2B diagnostics (below).
 
 ### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
 

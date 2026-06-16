@@ -11,6 +11,7 @@ import { diagnosisTools } from "./diagnose";
 import { diagnoseLiveTools } from "./diagnoseLive";
 import { diagnoseWorkflowTools } from "./diagnoseWorkflow";
 import { docsTools } from "./docs";
+import { doctorTools } from "./doctors";
 import { noLeakScannerTools } from "./noLeakScanner";
 import { providerTools } from "./providers";
 import { repoNavTools } from "./repoNav";
@@ -44,5 +45,9 @@ export function buildRegistry(): ToolRegistry {
   // Phase C-1 — no-leak scanner (pure local dev aid; not a runtime gate). The
   // live diagnose_workflow_graph tool registers via diagnoseWorkflowTools above.
   for (const tool of noLeakScannerTools) registry.register(tool);
+  // Phase C-2 — composite doctors. They COMPOSE the gated routes (via
+  // postDiagnostic) + the static providerStatics brain; no new route, no new
+  // brain, no DB access in scripts/mcp.
+  for (const tool of doctorTools) registry.register(tool);
   return registry;
 }

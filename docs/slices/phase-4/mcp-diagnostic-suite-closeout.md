@@ -105,8 +105,13 @@ logic.** Repositories stay database-only; pure helpers stay pure.
   rerun/reconnect/refresh/edit.
 - **Roadmap stage 2B-5 (graph) SHIPPED** (Phase C-1) — `diagnose_workflow_graph` via the gated
   `/api/internal/diagnostics/workflow-graph` route + `services/diagnostics/workflowGraph.ts` brain,
-  following the §2 three-layer pattern (structural findings only; no config values). Stages **2C
-  (doctors) / 2D (reports) remain unbuilt** — design only; each must follow the §2 pattern.
+  following the §2 three-layer pattern (structural findings only; no config values).
+- **Roadmap stage 2C (doctors) SHIPPED** (Phase C-2) — `doctor_workflow` / `doctor_provider` /
+  `doctor_account_integration` (`scripts/mcp/tools/doctors.ts` + `doctorsProviders.ts`). They
+  **compose** the existing gated routes (via `postDiagnostic`) + the static `providerStatics` brain
+  — **no new route, no new brain, no DB access**. `doctor_account_integration` is provider-scoped;
+  account-wide enumeration is deferred (would need a new gated route). Stage **2D (reports) remains
+  unbuilt** — design only; each must follow the §2 pattern.
 
 ---
 

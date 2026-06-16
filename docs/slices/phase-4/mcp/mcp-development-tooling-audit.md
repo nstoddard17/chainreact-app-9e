@@ -27,9 +27,11 @@ Nothing pushed.
 > Registry now **36 tools**. **Phase C-1 SHIPPED** — `diagnose_workflow_graph` (live, gated route
 > `/api/internal/diagnostics/workflow-graph` + `services/diagnostics/workflowGraph.ts` brain;
 > structural findings only, no config values) and `no_leak_scanner` (pure local dev aid; reuses the
-> egress redactor; never echoes raw values). Registry now **38 tools**. Remaining Phase C (doctors:
-> `doctor_workflow` / `doctor_provider` / `doctor_account_integration`; reports:
-> `generate_diagnostic_report` / `generate_deploy_readiness_report`) stays queued; smoke runners +
+> egress redactor; never echoes raw values). **Phase C-2 SHIPPED** — composite doctors
+> `doctor_workflow` / `doctor_provider` / `doctor_account_integration` (compose existing gated
+> routes + the static `providerStatics` brain; no new route/brain/DB; account-wide enumeration
+> deferred). Registry now **41 tools**. Remaining Phase C reports
+> (`generate_diagnostic_report` / `generate_deploy_readiness_report`) stay queued; smoke runners +
 > any mutating/deploy tools remain Phase D / do-not-build.
 
 **Source of truth (every file below was read for this audit):**
