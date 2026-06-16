@@ -20,6 +20,7 @@ import type { ToolDefinition } from "../registry";
 
 const WORKFLOW_READINESS_PATH = "/api/internal/diagnostics/workflow-readiness";
 const WORKFLOW_CONNECTIONS_PATH = "/api/internal/diagnostics/workflow-connections";
+const WORKFLOW_GRAPH_PATH = "/api/internal/diagnostics/workflow-graph";
 
 /** The sanitized DTO shape the workflow-readiness route returns (mirror — no app import). */
 interface WorkflowReadinessDTO {
@@ -174,7 +175,107 @@ async function diagnoseWorkflowConnections(args: Record<string, unknown>): Promi
   return result.ok ? renderWorkflowConnectionsDto(result.dto) : result.message;
 }
 
+// ─────────────────────────── diagnose_workflow_graph ───────────────────────────
+
+/** The sanitized DTO shape the workflow-graph route returns (mirror — no app import). */
+interface GraphFindingDTO {
+  kind: string;
+  severity: string;
+  nodeId?: string;
+  displayName?: string;
+  edgeId?: string;
+  from?: string;
+  to?: string;
+  provider?: string;
+  nodeType?: string;
+  missingFields?: string[];
+  token?: string;
+  fieldLabel?: string;
+  refPath?: string;
+  reason?: string;
+}
+interface WorkflowGraphDTO {
+  workflowId: string;
+  access: string;
+  // Present ONLY when access === "OK".
+  structurallyValid?: boolean;
+  nodeCount?: number;
+  edgeCount?: number;
+  findings?: GraphFindingDTO[];
+}
+
+/** Render one structural finding's safe location target (ids / endpoints / names only). */
+function renderFindingTarget(f: GraphFindingDTO): string {
+  if (f.edgeId) return `edge ${f.edgeId}${f.from && f.to ? ` (${f.from}→${f.to})` : ""}`;
+  if (f.nodeId) {
+    const label = f.displayName ? ` (${f.displayName})` : "";
+    const t = f.provider && f.nodeType ? ` [${f.provider}:${f.nodeType}]` : f.provider ? ` [${f.provider}]` : "";
+    return `node ${f.nodeId}${label}${t}`;
+  }
+  return "(workflow-level)";
+}
+
+function renderWorkflowGraphDto(dto: WorkflowGraphDTO): string {
+  const lines: string[] = [
+    "diagnose_workflow_graph",
+    `workflowId: ${dto.workflowId}`,
+    `access: ${dto.access}`,
+  ];
+  const accessNote = ACCESS_NOTES[dto.access];
+  if (accessNote) lines.push(`meaning: ${accessNote}`);
+  if (dto.access !== "OK") return lines.join("\n");
+
+  lines.push(`structurallyValid: ${dto.structurallyValid}`);
+  lines.push(`nodes: ${dto.nodeCount}  edges: ${dto.edgeCount}`);
+
+  const findings = Array.isArray(dto.findings) ? dto.findings : [];
+  if (findings.length === 0) {
+    lines.push("findings: (none — no structural problems detected)");
+    return lines.join("\n");
+  }
+  lines.push(`findings (${findings.length}):`);
+  for (const f of findings) {
+    lines.push(`  - [${f.severity.toUpperCase()}] ${f.kind}: ${renderFindingTarget(f)}`);
+    if (f.missingFields && f.missingFields.length) {
+      lines.push(`      missing fields: ${f.missingFields.join(", ")}`);
+    }
+    if (f.token) lines.push(`      broken reference: ${f.token}${f.fieldLabel ? ` (field: ${f.fieldLabel})` : ""}`);
+    if (f.reason) lines.push(`      why: ${f.reason}`);
+  }
+  return lines.join("\n");
+}
+
+async function diagnoseWorkflowGraph(args: Record<string, unknown>): Promise<string> {
+  const workflowId = typeof args.workflowId === "string" ? args.workflowId.trim() : "";
+  if (!workflowId) return "Error: 'workflowId' is required (the workflow to check).";
+  const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+  if (!userId) {
+    return "Error: 'userId' is required — the subject to check authorization under (must be a member of the workflow's account).";
+  }
+
+  const result = await postDiagnostic<WorkflowGraphDTO>(WORKFLOW_GRAPH_PATH, { workflowId, userId });
+  return result.ok ? renderWorkflowGraphDto(result.dto) : result.message;
+}
+
 export const diagnoseWorkflowTools: ToolDefinition[] = [
+  {
+    name: "diagnose_workflow_graph",
+    description:
+      "LIVE STRUCTURAL diagnosis of a workflow's graph for a specific user: reports structural findings — missing/extra trigger, stale edges (endpoint node gone), unreachable/disconnected nodes, unsupported provider:type (no builder metadata — warning), incomplete (type-less) nodes, missing required-field LABELS, and broken {{...}} reference LOCATIONS. Returns ONLY structure: node ids, edge ids/endpoints, provider + dispatch type ids, field NAMES, dotted reference PATHS, and the user-authored {{...}} token — NEVER config values, trigger payloads, provider bodies, or raw errors. A workflow in another account reads as NO_ACCOUNT_ACCESS with nothing else. Requires the diagnostics API to be enabled on the app (dev-only by default).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workflowId: { type: "string", description: "The workflow id to check." },
+        userId: {
+          type: "string",
+          description: "The subject to check authorization under (must be a member of the workflow's account).",
+        },
+      },
+      required: ["workflowId", "userId"],
+      additionalProperties: false,
+    },
+    handler: diagnoseWorkflowGraph,
+  },
   {
     name: "diagnose_workflow_readiness",
     description:

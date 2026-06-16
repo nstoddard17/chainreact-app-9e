@@ -128,9 +128,19 @@ argv with `shell:false`; bounded + redacted output; wall-clock timeout):
 (`run_migration_lint` is listed with the command wrappers above.) Phase B deliberately
 ships **no** smoke runner and **no** mutating/deploy/db/git tool.
 
-The full live registry today is **36 tools** (`npm run mcp:smoke`) — the context tools
+Phase C-1 — `no_leak_scanner` (pure LOCAL dev aid; **not** a runtime gate): scans a
+diagnostic DTO or sample JSON for forbidden leak shapes — credential keys/values,
+raw config/output, trigger/event payloads, stack traces, raw DB errors, connection
+strings — and returns `passed` + `violations[]` (`category` / `path` / `reason` /
+`severity`). It **never echoes a sensitive-looking value back** (credential values are
+matched via the same `redactSecrets` used at egress; only the `[REDACTED:label]`
+category leaves). *(Phase C-1.)* The live `diagnose_workflow_graph` ships in Stage 2B
+below.
+
+The full live registry today is **38 tools** (`npm run mcp:smoke`) — the context tools
 above, the command wrappers, the Phase A-1 helpers, the Phase A-2 provider tools, the
-Phase B verification helpers, and the Stage-2A/2B diagnostics (below).
+Phase B verification helpers, the Phase C-1 `no_leak_scanner`, and the Stage-2A/2B
+diagnostics (below).
 
 ### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
 
@@ -182,6 +192,16 @@ sanitization happen inside the route's capability service. Closeout:
 | `explain_run_visibility` | `…/run-failure` (`mode:"visibility"`) | `services/diagnostics/runReport.ts` |
 | `diagnose_workflow_readiness` | `…/workflow-readiness` | `services/diagnostics/workflowReadiness.ts` |
 | `diagnose_workflow_connections` | `…/workflow-connections` | `services/diagnostics/integrationConnection.ts` |
+| `diagnose_workflow_graph` *(C-1)* | `…/workflow-graph` | `services/diagnostics/workflowGraph.ts` |
+
+`diagnose_workflow_graph` (Phase C-1 / 2B-5) reports **structural** findings only —
+missing/extra trigger, stale edges, unreachable nodes, unsupported `provider:type`
+(warning; discovery-meta check), incomplete (type-less) nodes, missing required-field
+**names**, and broken `{{...}}` reference **locations** (node ids / edge endpoints /
+field names / dotted paths / the user-authored token — **never** config values, trigger
+payloads, provider bodies, or raw errors). It reuses the pure `core/workflows`
+validators (`findGraphIssues` / `findFieldGaps` / `findInvalidVariableReferences`) plus
+the discovery registry; it adds **one** new gated route and **no** new repository code.
 
 **Gate (every route):** `DIAGNOSTICS_API_ENABLED` default-OFF → 404; in production
 also requires `DIAGNOSTICS_API_ALLOW_PROD` → else 404; `DIAGNOSTICS_API_TOKEN`

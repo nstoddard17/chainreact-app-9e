@@ -11,6 +11,7 @@ import { diagnosisTools } from "./diagnose";
 import { diagnoseLiveTools } from "./diagnoseLive";
 import { diagnoseWorkflowTools } from "./diagnoseWorkflow";
 import { docsTools } from "./docs";
+import { noLeakScannerTools } from "./noLeakScanner";
 import { providerTools } from "./providers";
 import { repoNavTools } from "./repoNav";
 import { smokeTools } from "./smoke";
@@ -40,5 +41,8 @@ export function buildRegistry(): ToolRegistry {
   // Phase B — bounded local jest runners (run_jest_for_path + fixed structure
   // wrappers). Local/read-only; validated argv; no shell passthrough.
   for (const tool of testRunnerTools) registry.register(tool);
+  // Phase C-1 — no-leak scanner (pure local dev aid; not a runtime gate). The
+  // live diagnose_workflow_graph tool registers via diagnoseWorkflowTools above.
+  for (const tool of noLeakScannerTools) registry.register(tool);
   return registry;
 }

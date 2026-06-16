@@ -103,8 +103,10 @@ logic.** Repositories stay database-only; pure helpers stay pure.
 - **No public UI wiring** for diagnostics yet.
 - **No mutation / apply-patch tools** — the suite is read-only end to end; no
   rerun/reconnect/refresh/edit.
-- **Roadmap stages 2B-5 (graph) / 2C (doctors) / 2D (reports) are unbuilt** — design
-  only in the roadmap; each must follow the §2 pattern.
+- **Roadmap stage 2B-5 (graph) SHIPPED** (Phase C-1) — `diagnose_workflow_graph` via the gated
+  `/api/internal/diagnostics/workflow-graph` route + `services/diagnostics/workflowGraph.ts` brain,
+  following the §2 three-layer pattern (structural findings only; no config values). Stages **2C
+  (doctors) / 2D (reports) remain unbuilt** — design only; each must follow the §2 pattern.
 
 ---
 

@@ -24,7 +24,12 @@ Nothing pushed.
 > execution). **Phase B SHIPPED** — `run_jest_for_path` (validated, `tests/`-only),
 > `run_route_structure_tests` + `run_provider_metadata_tests` (fixed targets), `run_migration_lint`
 > (static RLS lint — never applies migrations), `summarize_last_test_failure` (sanitized artifact).
-> Registry now **36 tools**. Phase C (diagnostics doctors/reports) remains queued; smoke runners +
+> Registry now **36 tools**. **Phase C-1 SHIPPED** — `diagnose_workflow_graph` (live, gated route
+> `/api/internal/diagnostics/workflow-graph` + `services/diagnostics/workflowGraph.ts` brain;
+> structural findings only, no config values) and `no_leak_scanner` (pure local dev aid; reuses the
+> egress redactor; never echoes raw values). Registry now **38 tools**. Remaining Phase C (doctors:
+> `doctor_workflow` / `doctor_provider` / `doctor_account_integration`; reports:
+> `generate_diagnostic_report` / `generate_deploy_readiness_report`) stays queued; smoke runners +
 > any mutating/deploy tools remain Phase D / do-not-build.
 
 **Source of truth (every file below was read for this audit):**
