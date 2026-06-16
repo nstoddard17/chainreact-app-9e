@@ -6,6 +6,11 @@
 > Build new work in ChainReactV2. Treat this repo as read-only reference — do not
 > add features here. See [LEGACY.md](./LEGACY.md). _(Local-only switch, 2026-06-09;
 > the GitHub `main` promotion is a separate, later push-gated step.)_
+>
+> **Archived V1 — reference only. Do not modify, run tasks/tests/scripts, commit,
+> `db:push`, or deploy in this repo, and do not use it for active ChainReactV2
+> work, unless Marcus explicitly asks.** Active work lives in
+> `c:\Users\marcu\source\repos\ChainReactV2`.
 
 **Update CLAUDE.md before every git commit**
 
