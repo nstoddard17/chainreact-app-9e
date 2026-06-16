@@ -7,6 +7,7 @@
  * no app graph, schema, or secret is touched (mirrors the MCP server's text-parse
  * safety). Pure over the injected `FsDeps` → deterministic + unit-testable.
  */
+import { detectRegistration, REGISTRY_PATH, type RegistrationStatus } from "./registry";
 import type { FsDeps } from "./repo";
 
 /** Severity of a validation finding. Shared so check modules avoid a cycle. */
@@ -154,22 +155,33 @@ export interface ProviderInfo {
   readonly id: string;
   readonly displayName: string | null;
   readonly enabled: boolean | null;
+  /** Whether the manifest is wired into integrations/_registry.ts (text-derived). */
+  readonly registered: RegistrationStatus;
   readonly counts: ProviderCounts;
 }
 
-/** Build a ProviderInfo for one provider id (text/file inspection only). */
-export function inventoryProvider(id: string, fs: FsDeps): ProviderInfo {
+/**
+ * Build a ProviderInfo for one provider id (text/file inspection only).
+ *
+ * `registryText` may be passed in so a batch caller reads the registry once; when
+ * omitted it is read here. Either way the value is text-derived — no import.
+ */
+export function inventoryProvider(id: string, fs: FsDeps, registryText?: string): ProviderInfo {
   const manifestPath = `integrations/${id}/manifest.ts`;
   const text = fs.exists(manifestPath) ? fs.readText(manifestPath) : "";
+  const registry = registryText ?? fs.readText(REGISTRY_PATH);
   return {
     id,
     displayName: scanField(text, "displayName"),
     enabled: scanBoolField(text, "isEnabled"),
+    registered: detectRegistration(registry, id),
     counts: providerCounts(fs, `integrations/${id}`),
   };
 }
 
 /** Inventory every discovered provider, sorted by id (deterministic). */
 export function inventoryAllProviders(fs: FsDeps): ProviderInfo[] {
-  return listKnownProviders(fs).map((id) => inventoryProvider(id, fs));
+  // Read the registry once for the whole batch (deterministic, text-only).
+  const registryText = fs.readText(REGISTRY_PATH);
+  return listKnownProviders(fs).map((id) => inventoryProvider(id, fs, registryText));
 }

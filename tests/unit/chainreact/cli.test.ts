@@ -10,7 +10,16 @@
 import { parseArgs, wantsHelp } from "@/scripts/chainreact/args";
 import { run } from "@/scripts/chainreact/cli";
 import { listProviders, renderProviderList } from "@/scripts/chainreact/commands/appList";
+import { runAppRegister } from "@/scripts/chainreact/commands/appRegister";
 import { buildScaffoldPlan, camelCaseId, humanizeId, normalizeProviderId, overlayFs, runAppScaffold } from "@/scripts/chainreact/commands/appScaffold";
+import {
+  buildRegistryPatch,
+  detectRegistration,
+  readManifestExportName,
+  REGISTRY_PATH,
+  registrationStatus,
+  registryExportName,
+} from "@/scripts/chainreact/registry";
 import {
   renderValidation,
   renderValidationSummary,
@@ -801,5 +810,306 @@ describe("app scaffold — dispatch via run()", () => {
     const out: string[] = [];
     run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
     expect(out.join("\n")).toMatch(/scaffold/);
+  });
+});
+
+// ── registry awareness ───────────────────────────────────────────────────────
+// A realistic registry: two manifest imports (one with id-divergent export
+// casing — microsoft-onedrive → microsoftOneDriveManifest), a side-effect import
+// block, and the ALL_MANIFESTS array. `gamma` is imported but NOT in the array.
+const REGISTRY_SRC = [
+  'import { alphaManifest } from "./alpha/manifest";',
+  'import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";',
+  'import { gammaManifest } from "./gamma/manifest";',
+  "",
+  'import "./alpha/triggers/onThing";',
+  "",
+  "const ALL_MANIFESTS: readonly ProviderManifest[] = [",
+  "  alphaManifest,",
+  "  microsoftOneDriveManifest,",
+  "];",
+  "",
+].join("\n");
+
+describe("registry detection (pure)", () => {
+  it("registered when imported AND in ALL_MANIFESTS", () => {
+    expect(detectRegistration(REGISTRY_SRC, "alpha")).toBe("registered");
+  });
+  it("anchors on the import PATH, not id-derived export casing", () => {
+    // microsoft-onedrive exports microsoftOneDriveManifest (capital D); a
+    // dash-split derivation (microsoftOnedriveManifest) would falsely miss it.
+    expect(registryExportName("microsoft-onedrive")).toBe("microsoftOnedriveManifest");
+    expect(detectRegistration(REGISTRY_SRC, "microsoft-onedrive")).toBe("registered");
+  });
+  it("unregistered when absent entirely", () => {
+    expect(detectRegistration(REGISTRY_SRC, "beta")).toBe("unregistered");
+  });
+  it("unregistered when imported but NOT in the array (only 1 occurrence)", () => {
+    expect(detectRegistration(REGISTRY_SRC, "gamma")).toBe("unregistered");
+  });
+  it("unknown when the registry can't be read (empty text)", () => {
+    expect(detectRegistration("", "alpha")).toBe("unknown");
+  });
+  it("registrationStatus reads the registry via fs", () => {
+    const fs = fakeFs({ [REGISTRY_PATH]: REGISTRY_SRC });
+    expect(registrationStatus(fs, "alpha")).toBe("registered");
+    expect(registrationStatus(fs, "beta")).toBe("unregistered");
+    expect(registrationStatus(fakeFs({}), "alpha")).toBe("unknown"); // no registry file
+  });
+  it("readManifestExportName extracts the real exported symbol (both forms)", () => {
+    expect(readManifestExportName('export const fooManifest: ProviderManifest = ProviderManifestSchema.parse({})')).toBe("fooManifest");
+    expect(readManifestExportName('export const microsoftOneDriveManifest = ProviderManifestSchema.parse({})')).toBe("microsoftOneDriveManifest");
+    expect(readManifestExportName("// nothing here")).toBeNull();
+  });
+});
+
+describe("registry patch (pure)", () => {
+  it("appends one import + one ALL_MANIFESTS entry, deterministically", () => {
+    const a = buildRegistryPatch(REGISTRY_SRC, "beta", "betaManifest");
+    const b = buildRegistryPatch(REGISTRY_SRC, "beta", "betaManifest");
+    expect(a).toEqual(b); // deterministic
+    if (!a.ok) throw new Error("expected ok");
+    expect(a.alreadyRegistered).toBe(false);
+    expect(a.importLine).toBe('import { betaManifest } from "./beta/manifest";');
+    expect(a.arrayEntry).toBe("betaManifest,");
+    // import inserted AFTER the last manifest import, BEFORE the side-effect block
+    expect(a.newText).toMatch(/from "\.\/gamma\/manifest";\nimport \{ betaManifest \} from "\.\/beta\/manifest";\n\nimport "\.\/alpha\/triggers/);
+    // array entry inserted as the LAST element before `];`
+    expect(a.newText).toMatch(/microsoftOneDriveManifest,\n {2}betaManifest,\n\];/);
+    // the patched text now detects as registered
+    expect(detectRegistration(a.newText, "beta")).toBe("registered");
+  });
+
+  it("uses the SUPPLIED export name (not id-derived) so divergent casing wires correctly", () => {
+    const p = buildRegistryPatch(REGISTRY_SRC, "microsoft-onenote", "microsoftOneNoteManifest");
+    if (!p.ok) throw new Error("expected ok");
+    expect(p.importLine).toBe('import { microsoftOneNoteManifest } from "./microsoft-onenote/manifest";');
+  });
+
+  it("no-op (alreadyRegistered) for a provider already wired in", () => {
+    const p = buildRegistryPatch(REGISTRY_SRC, "alpha", "alphaManifest");
+    if (!p.ok) throw new Error("expected ok");
+    expect(p.alreadyRegistered).toBe(true);
+    expect(p.newText).toBe(REGISTRY_SRC); // unchanged
+  });
+
+  it("sequential patches append in order (no sorting)", () => {
+    const first = buildRegistryPatch(REGISTRY_SRC, "delta", "deltaManifest");
+    if (!first.ok) throw new Error("expected ok");
+    const second = buildRegistryPatch(first.newText, "beta", "betaManifest");
+    if (!second.ok) throw new Error("expected ok");
+    // delta was appended first, beta second — insertion order preserved.
+    expect(second.newText.indexOf("deltaManifest,")).toBeLessThan(second.newText.indexOf("betaManifest,"));
+  });
+
+  it("refuses an empty/unreadable registry", () => {
+    expect(buildRegistryPatch("", "beta", "betaManifest").ok).toBe(false);
+  });
+  it("refuses when ALL_MANIFESTS array is absent", () => {
+    const r = buildRegistryPatch('import { alphaManifest } from "./alpha/manifest";', "beta", "betaManifest");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.reason).toMatch(/ALL_MANIFESTS/);
+  });
+  it("refuses when there is no manifest-import anchor", () => {
+    const r = buildRegistryPatch("const ALL_MANIFESTS: readonly ProviderManifest[] = [\n];\n", "beta", "betaManifest");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.reason).toMatch(/import/);
+  });
+});
+
+describe("app validate — registry warning", () => {
+  const withRegistry = (registry: string): FsDeps =>
+    fakeFs({ "integrations/alpha/manifest.ts": manifestSrc("alpha"), [REGISTRY_PATH]: registry });
+
+  it("registered provider → no MANIFEST_NOT_REGISTERED warning", () => {
+    const r = validateProvider("alpha", withRegistry(REGISTRY_SRC));
+    expect(r.findings.some((f) => f.code === "MANIFEST_NOT_REGISTERED")).toBe(false);
+  });
+
+  it("unregistered provider → WARNING (not error; provider still ok)", () => {
+    // beta exists but is not in REGISTRY_SRC.
+    const fs = fakeFs({ "integrations/beta/manifest.ts": manifestSrc("beta"), [REGISTRY_PATH]: REGISTRY_SRC });
+    const r = validateProvider("beta", fs);
+    const warn = r.findings.find((f) => f.code === "MANIFEST_NOT_REGISTERED");
+    expect(warn?.level).toBe("warning");
+    expect(r.ok).toBe(true); // warnings never fail
+    expect(verdictOf(r)).toBe("WARN");
+  });
+
+  it("registry absent (unknown) → no warning (don't assert what we can't read)", () => {
+    const r = validateProvider("alpha", fakeFs({ "integrations/alpha/manifest.ts": manifestSrc("alpha") }));
+    expect(r.findings.some((f) => f.code === "MANIFEST_NOT_REGISTERED")).toBe(false);
+  });
+});
+
+describe("app list — registered column", () => {
+  const fs = fakeFs({
+    "integrations/alpha/manifest.ts": manifestSrc("alpha"),
+    "integrations/beta/manifest.ts": manifestSrc("beta"),
+    [REGISTRY_PATH]: REGISTRY_SRC, // registers alpha only
+  });
+
+  it("inventories a registered field per provider", () => {
+    const infos = listProviders(fs);
+    expect(infos.find((i) => i.id === "alpha")!.registered).toBe("registered");
+    expect(infos.find((i) => i.id === "beta")!.registered).toBe("unregistered");
+    // no registry file → unknown
+    expect(listProviders(fakeFs({ "integrations/alpha/manifest.ts": manifestSrc("alpha") }))[0]!.registered).toBe("unknown");
+  });
+
+  it("renders a deterministic registered column (yes/no)", () => {
+    const out = renderProviderList(listProviders(fs));
+    expect(out).toContain("registered");
+    expect(out).toMatch(/alpha\s+Alpha\s+yes\s+yes/); // enabled yes, registered yes
+    expect(out).toMatch(/beta\s+Beta\s+yes\s+no/); // enabled yes, registered no
+  });
+});
+
+describe("app scaffold --register", () => {
+  const registryFs = (): FsDeps => fakeFs({ [REGISTRY_PATH]: REGISTRY_SRC });
+
+  it("dry-run --register writes nothing and reports the planned registry patch", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("linear", { dryRun: true, register: true }, registryFs(), w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(w.dirs.length).toBe(0);
+    expect(r.output).toContain("Registry patch");
+    expect(r.output).toContain('import { linearManifest } from "./linear/manifest";');
+    expect(r.output).toContain("would write: integrations/_registry.ts");
+    // overlay includes the patched registry → no not-registered warning
+    expect(r.output).not.toContain("MANIFEST_NOT_REGISTERED");
+  });
+
+  it("real --register creates the manifest AND patches the registry", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("linear", { dryRun: false, register: true }, registryFs(), w);
+    expect(r.code).toBe(0);
+    expect([...w.files.keys()].sort()).toEqual(["integrations/_registry.ts", "integrations/linear/manifest.ts"]);
+    const patched = w.files.get(REGISTRY_PATH)!;
+    expect(patched).toContain('import { linearManifest } from "./linear/manifest";');
+    expect(detectRegistration(patched, "linear")).toBe("registered");
+  });
+
+  it("plain scaffold (no --register) does NOT write the registry", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("linear", { dryRun: false }, registryFs(), w);
+    expect([...w.files.keys()]).toEqual(["integrations/linear/manifest.ts"]);
+    expect(r.output).not.toContain("Registry patch");
+  });
+
+  it("--register refuses (exit 2, no writes) when the registry can't be patched safely", () => {
+    const w = fakeWriter();
+    const badFs = fakeFs({ [REGISTRY_PATH]: 'import { x } from "./x/other";\n// no ALL_MANIFESTS here' });
+    const r = runAppScaffold("linear", { dryRun: false, register: true }, badFs, w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/cannot patch the registry safely/);
+    expect(r.output).toMatch(/by hand/);
+  });
+});
+
+describe("app register", () => {
+  const baseFs = (registry: string): FsDeps =>
+    fakeFs({ "integrations/beta/manifest.ts": manifestSrc("beta"), [REGISTRY_PATH]: registry });
+
+  it("dry-run prints the patch and writes nothing", () => {
+    const w = fakeWriter();
+    const r = runAppRegister("beta", { dryRun: true }, baseFs(REGISTRY_SRC), w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toContain('+ import { betaManifest } from "./beta/manifest";');
+    expect(r.output).toContain("would be applied");
+  });
+
+  it("real run patches ONLY the registry file", () => {
+    const w = fakeWriter();
+    const r = runAppRegister("beta", { dryRun: false }, baseFs(REGISTRY_SRC), w);
+    expect(r.code).toBe(0);
+    expect([...w.files.keys()]).toEqual([REGISTRY_PATH]);
+    expect(detectRegistration(w.files.get(REGISTRY_PATH)!, "beta")).toBe("registered");
+  });
+
+  it("no-op (exit 0, no writes) when already registered", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({ "integrations/alpha/manifest.ts": manifestSrc("alpha"), [REGISTRY_PATH]: REGISTRY_SRC });
+    const r = runAppRegister("alpha", { dryRun: false }, fs, w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/Already registered/);
+  });
+
+  it("refuses an unknown provider (no manifest) → exit 2, no writes", () => {
+    const w = fakeWriter();
+    const r = runAppRegister("ghost", { dryRun: false }, baseFs(REGISTRY_SRC), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/does not exist/);
+  });
+
+  it("refuses an unsafe registry format → exit 2, no writes, manual instructions", () => {
+    const w = fakeWriter();
+    const r = runAppRegister("beta", { dryRun: false }, baseFs("// not a registry"), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/cannot patch the registry safely/);
+  });
+
+  it("uses the manifest's REAL export name (divergent casing)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/microsoft-onenote/manifest.ts":
+        "export const microsoftOneNoteManifest: ProviderManifest = ProviderManifestSchema.parse({ id: \"microsoft-onenote\" });",
+      [REGISTRY_PATH]: REGISTRY_SRC,
+    });
+    const r = runAppRegister("microsoft-onenote", { dryRun: true }, fs, w);
+    expect(r.output).toContain('import { microsoftOneNoteManifest } from "./microsoft-onenote/manifest";');
+  });
+});
+
+describe("registry dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+
+  it("`app scaffold <id> --register --dry-run` → exit 0, no writes", () => {
+    const w = fakeWriter();
+    const out: string[] = [];
+    const code = run(["app", "scaffold", "linear", "--register", "--dry-run"], {
+      fs: fakeFs({ [REGISTRY_PATH]: REGISTRY_SRC }),
+      writer: w,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(out.join("\n")).toContain("Registry patch");
+  });
+
+  it("`app register <id> --dry-run` → exit 0, no writes", () => {
+    const w = fakeWriter();
+    const out: string[] = [];
+    const code = run(["app", "register", "beta", "--dry-run"], {
+      fs: fakeFs({ "integrations/beta/manifest.ts": manifestSrc("beta"), [REGISTRY_PATH]: REGISTRY_SRC }),
+      writer: w,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(out.join("\n")).toMatch(/app register: beta/);
+  });
+
+  it("`app register` with no id → usage, exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "register"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/Usage:.*app register/);
+  });
+
+  it("unknown `app` subcommand mentions register", () => {
+    const out: string[] = [];
+    run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(out.join("\n")).toMatch(/register/);
   });
 });

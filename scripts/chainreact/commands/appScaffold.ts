@@ -19,8 +19,12 @@
  * The validation result is computed from an in-memory OVERLAY (plan + real repo) so
  * `--dry-run` predicts the exact same verdict a real run produces. Pure + testable.
  */
-import { renderValidation, validateProvider } from "./appValidate";
+import { buildRegistryPatch, camelCaseId, REGISTRY_PATH, registryExportName } from "../registry";
 import type { FsDeps, FsWriter } from "../repo";
+import { renderValidation, validateProvider } from "./appValidate";
+
+// Re-export so existing import sites (and tests) keep resolving camelCaseId here.
+export { camelCaseId };
 
 /** Provider ids: lowercase, start with a letter, `[a-z0-9_-]` (ProviderIdSchema). */
 const PROVIDER_ID = /^[a-z][a-z0-9_-]*$/;
@@ -45,14 +49,6 @@ export function normalizeProviderId(raw: string): NormalizedId {
   return { ok: true, id };
 }
 
-/** `google-analytics` → `googleAnalytics` (manifest export const naming). */
-export function camelCaseId(id: string): string {
-  return id
-    .split(/[-_]/)
-    .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
-    .join("");
-}
-
 /** `google-analytics` → `Google Analytics` (humanized displayName default). */
 export function humanizeId(id: string): string {
   return id
@@ -73,7 +69,7 @@ export interface ScaffoldPlan {
 
 /** The generated manifest skeleton — contract-valid, capabilities off, TODO-marked. */
 export function buildManifestContent(id: string): string {
-  const exportName = `${camelCaseId(id)}Manifest`;
+  const exportName = registryExportName(id);
   const displayName = humanizeId(id);
   return `import {
   ProviderManifestSchema,
@@ -170,6 +166,8 @@ export function overlayFs(base: FsDeps, files: readonly ScaffoldFile[]): FsDeps 
 
 export interface ScaffoldOptions {
   readonly dryRun: boolean;
+  /** Also wire the new manifest into integrations/_registry.ts (default off → inert). */
+  readonly register?: boolean;
 }
 
 export interface ScaffoldOutcome {
@@ -184,7 +182,7 @@ const NEXT_STEPS = (id: string): string[] => [
 ];
 
 const MANUAL_TODOS = (id: string): string[] => [
-  `Register the manifest in integrations/_registry.ts (explicit import of ${camelCaseId(id)}Manifest).`,
+  `Register the manifest in integrations/_registry.ts (explicit import of ${registryExportName(id)}).`,
   "Implement OAuth/client setup (oauth.ts or auth.ts) and set capabilities.oauth + authFlow.",
   "Add the provider's real required scopes.",
   "Add real actions (handler + schema + meta) and register the handlers.",
@@ -201,30 +199,74 @@ export function runAppScaffold(rawId: string, opts: ScaffoldOptions, fs: FsDeps,
   const norm = normalizeProviderId(rawId);
   if (!norm.ok) return { code: 2, output: `Error: ${norm.error}` };
   const id = norm.id;
+  const register = opts.register === true;
 
   const dir = `integrations/${id}`;
   if (fs.isDirectory(dir)) {
     return {
       code: 2,
-      output: `Error: integrations/${id}/ already exists — refusing to overwrite (no --force in this command). Pick a new id or remove the existing provider yourself.`,
+      output: `Error: integrations/${id}/ already exists — refusing to overwrite (no --force in this command). To wire an EXISTING provider into the registry use \`chainreact app register ${id}\`.`,
     };
   }
 
   const plan = buildScaffoldPlan(id);
+  // Files written/overlaid this run (manifest always; registry only with --register).
+  const files: ScaffoldFile[] = [...plan.files];
+
+  // Registry patch (computed up-front so --register can refuse before any write).
+  let registryPatchErr: string | null = null;
+  if (register) {
+    // The just-generated manifest exports `registryExportName(id)`, so wire THAT.
+    const patch = buildRegistryPatch(fs.readText(REGISTRY_PATH), id, registryExportName(id));
+    if (!patch.ok) {
+      registryPatchErr = patch.reason;
+    } else {
+      // A brand-new scaffold is never already-registered, but stay correct.
+      files.push({ path: REGISTRY_PATH, content: patch.newText });
+    }
+  }
+
+  // Refuse the whole run if --register can't be applied safely — don't half-write.
+  if (registryPatchErr) {
+    return {
+      code: 2,
+      output: [
+        `ChainReact — app scaffold: ${id} (--register)`,
+        "",
+        `Error: cannot patch the registry safely — ${registryPatchErr}`,
+        "Nothing was written. Scaffold WITHOUT --register, then add the registry import + ALL_MANIFESTS entry by hand:",
+        `  import { ${registryExportName(id)} } from "./${id}/manifest";`,
+        `  // ...then add \`${registryExportName(id)},\` to the ALL_MANIFESTS array.`,
+      ].join("\n"),
+    };
+  }
+
   // Predict the validation verdict from an overlay (plan + real repo) — identical
-  // for dry-run and a real write.
-  const predicted = validateProvider(id, overlayFs(fs, plan.files));
+  // for dry-run and a real write. With --register the overlay includes the patched
+  // registry, so the registry-wiring warning is correctly absent.
+  const predicted = validateProvider(id, overlayFs(fs, files));
 
   const lines: string[] = [];
-  lines.push(`ChainReact — app scaffold: ${id}${opts.dryRun ? " (dry-run)" : ""}`);
+  lines.push(`ChainReact — app scaffold: ${id}${register ? " (--register)" : ""}${opts.dryRun ? " (dry-run)" : ""}`);
   lines.push("");
-  lines.push(`Files ${opts.dryRun ? "that would be created" : "created"} (${plan.files.length}):`);
-  for (const f of plan.files) lines.push(`  ${opts.dryRun ? "would write" : "wrote"}: ${f.path}`);
+  lines.push(`Files ${opts.dryRun ? "that would be created/edited" : "created/edited"} (${files.length}):`);
+  for (const f of files) {
+    const verb = opts.dryRun ? "would write" : "wrote";
+    const note = f.path === REGISTRY_PATH ? " (registry patch: 1 import + 1 ALL_MANIFESTS entry)" : "";
+    lines.push(`  ${verb}: ${f.path}${note}`);
+  }
   lines.push("");
+
+  if (register) {
+    lines.push("Registry patch (deterministic, appended — preserves existing order):");
+    lines.push(`  + import { ${registryExportName(id)} } from "./${id}/manifest";`);
+    lines.push(`  + ${registryExportName(id)},   // into ALL_MANIFESTS`);
+    lines.push("");
+  }
 
   if (!opts.dryRun) {
     writer.ensureDir(dir);
-    for (const f of plan.files) writer.writeFile(f.path, f.content);
+    for (const f of files) writer.writeFile(f.path, f.content);
   }
 
   // Validation result (predicted from the plan).
@@ -233,14 +275,20 @@ export function runAppScaffold(rawId: string, opts: ScaffoldOptions, fs: FsDeps,
   lines.push("");
 
   lines.push("Manual TODOs (the scaffold invents nothing):");
-  for (const t of MANUAL_TODOS(id)) lines.push(`  - ${t}`);
+  for (const t of MANUAL_TODOS(id)) {
+    // The registry-wiring TODO is satisfied when --register did the wiring.
+    if (register && t.startsWith("Register the manifest")) continue;
+    lines.push(`  - ${t}`);
+  }
   lines.push("");
   lines.push("Next commands:");
   for (const c of NEXT_STEPS(id)) lines.push(`  ${c}`);
   lines.push("");
   lines.push(
     predicted.ok
-      ? `The skeleton PASSES \`app validate ${id}\` now (complete manifest, no actions/triggers yet). It is NOT yet wired into the app — see the Manual TODOs. It will not appear in the running app until registered in integrations/_registry.ts.`
+      ? register
+        ? `The skeleton PASSES \`app validate ${id}\` and is WIRED into integrations/_registry.ts. It stays INERT in practice — isEnabled is false and it has no actions/triggers. Registration does NOT enable the app or make it production-ready; implement the TODOs and flip isEnabled when ready.`
+        : `The skeleton PASSES \`app validate ${id}\` now (complete manifest, no actions/triggers yet). It is NOT yet wired into the app — see the Manual TODOs. It will not appear in the running app until registered in integrations/_registry.ts (\`app scaffold ${id} --register\` or \`app register ${id}\`).`
       : `NOTE: the generated skeleton does not pass validation — see the validation block above.`,
   );
 

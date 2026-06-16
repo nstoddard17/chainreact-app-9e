@@ -34,6 +34,7 @@ import {
   type ProviderCounts,
   scanField,
 } from "../providers";
+import { registrationStatus } from "../registry";
 import type { FsDeps } from "../repo";
 import { checkManifestContent, checkMetaContent, loadContractAllowlists } from "./metaChecks";
 
@@ -103,6 +104,18 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     // Deeper manifest completeness + safe value checks (value enums parsed from
     // the contract files — no import, skipped if a contract can't be read).
     findings.push(...checkManifestContent(text, id, { allowedTokenScopes: allow.tokenScopes }));
+  }
+
+  // Registry wiring (text-derived). A scaffolded manifest is intentionally inert
+  // until wired into integrations/_registry.ts, so "not registered" is a WARNING
+  // (a valid intermediate state), never an error. When the registry can't be read
+  // (status "unknown") we don't assert anything. Registered providers stay clean.
+  if (registrationStatus(fs, id) === "unregistered") {
+    findings.push({
+      level: "warning",
+      code: "MANIFEST_NOT_REGISTERED",
+      message: `${dir}/manifest.ts is not registered in integrations/_registry.ts — the provider is inert (won't load in the app) until wired. Run \`chainreact app register ${id}\` (or \`app scaffold ${id} --register\` for a new one).`,
+    });
   }
 
   // Actions follow the established `<name>.ts` + `.meta.ts` + `.schema.ts` triad,

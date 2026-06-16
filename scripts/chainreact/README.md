@@ -32,10 +32,11 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact status` | Concise local repo/tooling snapshot: repo root, Node/platform, package manager, key file/doc presence, provider-manifest + rule-doc counts. No network, no secrets. |
 | `chainreact verify [--run] [--with-tests]` | Prints the pre-push/deploy verification batch. **Default: dry-run** (prints, runs nothing). `--run` executes the safe subset (`lint:structure`, `typecheck`, `lint`); `--run --with-tests` also runs the full `test` suite (heavy, opt-in). Fail-fast. |
 | `chainreact mcp smoke [--dry-run]` | Thin wrapper over the existing `npm run mcp:smoke`. `--dry-run` prints the command. Fails gracefully if the script is absent. Adds no MCP tools/permissions. |
-| `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
-| `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. |
+| `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, **registered** (`yes`/`no`/`?`), action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
+| `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts` (never an error). |
 | `chainreact app validate --all [--verbose]` | Runs the validator across **every** discovered provider; prints a summary (total / pass / warn / fail + per-provider status). Failures list their errors inline; `--verbose` also lists warnings. |
-| `chainreact app scaffold <id> [--dry-run]` | Creates a minimal, contract-valid provider skeleton under `integrations/<id>/` (a single `manifest.ts`, capabilities off, TODOs for the rest). Refuses to overwrite an existing provider; never edits the registry. `--dry-run` prints the plan + predicted validation and writes nothing. |
+| `chainreact app scaffold <id> [--dry-run] [--register]` | Creates a minimal, contract-valid provider skeleton under `integrations/<id>/` (a single `manifest.ts`, capabilities off, TODOs for the rest). Refuses to overwrite an existing provider. **Default: does not edit the registry** (provider stays inert). `--register` additionally wires the new manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). `--dry-run` prints the plan (+ the registry patch when `--register`) and writes nothing. |
+| `chainreact app register <id>` | Wires an **existing** provider's manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). Requires `integrations/<id>/manifest.ts` to exist; refuses unknown dirs; no-ops cleanly if already registered; refuses (writes nothing) if the registry format can't be patched safely. `--dry-run` prints the patch and writes nothing. |
 | `chainreact --help` / `-h` | Usage. |
 
 ## Usage
@@ -52,6 +53,10 @@ npm run chainreact -- app validate --all
 npm run chainreact -- app validate --all --verbose
 npm run chainreact -- app scaffold linear --dry-run
 npm run chainreact -- app scaffold linear
+npm run chainreact -- app scaffold linear --register --dry-run
+npm run chainreact -- app scaffold linear --register
+npm run chainreact -- app register linear --dry-run
+npm run chainreact -- app register linear
 ```
 
 `npm run chainreact` builds first (`chainreact:build`) then runs — so it always
@@ -157,11 +162,13 @@ triggers, fields, tests, icon/category). It **invents nothing** — no scopes, n
 endpoints, no fake actions/triggers, no network calls.
 
 Design choices (grounded in repo conventions): manifests register by **explicit
-import** in `integrations/_registry.ts`, so scaffold does **not** edit the registry
-(documented manual TODO) — the generated provider is inert until wired. No provider
-ships a README/TODO file, so TODOs live as manifest comments + printed guidance, not
-a new file. Empty `actions/`/`triggers/` dirs aren't git-tracked and generating
-placeholder actions would invent behavior, so the skeleton is manifest-only.
+import** in `integrations/_registry.ts`. By default scaffold does **not** edit the
+registry — the generated provider is inert until wired (a valid intermediate
+state). Pass **`--register`** to wire it in the same run (see *Registry awareness*
+below). No provider ships a README/TODO file, so TODOs live as manifest comments +
+printed guidance, not a new file. Empty `actions/`/`triggers/` dirs aren't
+git-tracked and generating placeholder actions would invent behavior, so the
+skeleton is manifest-only.
 
 **It refuses to overwrite** an existing `integrations/<id>/` (no `--force` in this
 slice). `--dry-run` prints the file plan + predicted validation and writes nothing.
@@ -173,6 +180,36 @@ scaffold (complete manifest, no actions/triggers). It also satisfies the repo's
 `integration-manifests` structure test (the folder has a `manifest.ts`). It will
 **not** appear in the running app until a developer registers it in
 `integrations/_registry.ts` and implements the TODOs.
+
+## Registry awareness (`--register` / `app register`)
+
+The CLI reads `integrations/_registry.ts` as **text only** (it never imports the
+registry or any provider code) to know whether a manifest is wired in. See
+[`registry.ts`](./registry.ts).
+
+- **Detection** is anchored on the **import path** (`from "./<id>/manifest"`), which
+  is exactly the provider id — so it is independent of export-symbol casing (e.g.
+  `microsoft-onedrive` exports `microsoftOneDriveManifest`, not the dash-derived
+  `microsoftOnedriveManifest`). A provider is *registered* when it is imported **and**
+  its symbol also appears in `ALL_MANIFESTS`. An unreadable registry → `?` (unknown),
+  never asserted as a fact.
+- **`app validate`** surfaces an unregistered manifest as a **`MANIFEST_NOT_REGISTERED`
+  warning** — never an error — because a freshly-scaffolded, inert provider is a valid
+  intermediate state. So `app validate --all` stays green for it.
+- **Patching** (`scaffold --register`, `app register`) is a **narrow, deterministic,
+  two-point text patch**: one import appended after the last existing manifest import,
+  one `ALL_MANIFESTS` entry appended before the array's `];`. It **appends** (does not
+  re-sort) because the real file groups entries by slice with comments and is not
+  strictly id-sorted — appending preserves local convention and keeps the edit to two
+  lines (never a full rewrite). `app register` reads the manifest's **real** exported
+  symbol so divergent casing wires correctly.
+- If the registry's expected anchors (a manifest import, the `ALL_MANIFESTS` array)
+  are absent, patching is **refused** (nothing written) and manual wiring instructions
+  are printed — we decline rather than risk a malformed edit.
+
+`scaffold` (new provider) and `register` (existing provider) are deliberately
+separate: `scaffold` never touches an existing `integrations/<id>/`, and `register`
+never creates a manifest.
 
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the
@@ -189,9 +226,12 @@ not pull app code into the CLI) and keep findings actionable.
 `app validate` structural + **deep meta/manifest completeness** + **value checks**
 (category/tokenScope enum validity parsed from seeded contracts, comment-stripping
 robustness, requiresIntegration/fields/scopes shape warnings, error-vs-warning),
-`app validate --all` summary (incl. a value-level failure), `app list`, verify
-planning/execution (fake runner), mcp-smoke wrapping, and `run()` dispatch. No disk,
-no spawned processes.
+`app validate --all` summary (incl. a value-level failure), `app list` (incl. the
+**registered** column), **registry awareness** (detection by import-path with
+divergent export casing, `MANIFEST_NOT_REGISTERED` warning, narrow patch
+construction + refusal on unsafe formats, `scaffold --register`, `app register`),
+verify planning/execution (fake runner), mcp-smoke wrapping, and `run()` dispatch.
+No disk, no spawned processes.
 
 ## Adding a command (deliberately)
 

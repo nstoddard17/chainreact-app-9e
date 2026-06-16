@@ -12,6 +12,7 @@
  */
 import { parseArgs, wantsHelp } from "./args";
 import { listProviders, renderProviderList } from "./commands/appList";
+import { runAppRegister } from "./commands/appRegister";
 import { runAppScaffold } from "./commands/appScaffold";
 import {
   renderValidation,
@@ -93,10 +94,25 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
       if (parsed.subcommand === "scaffold") {
         const provider = parsed.positionals[0] ?? "";
         if (!provider) {
-          log("Usage: chainreact app scaffold <provider> [--dry-run]");
+          log("Usage: chainreact app scaffold <provider> [--dry-run] [--register]");
           return 2;
         }
-        const outcome = runAppScaffold(provider, { dryRun: parsed.flags["dry-run"] === true }, fs, writer);
+        const outcome = runAppScaffold(
+          provider,
+          { dryRun: parsed.flags["dry-run"] === true, register: parsed.flags.register === true },
+          fs,
+          writer,
+        );
+        log(outcome.output);
+        return outcome.code;
+      }
+      if (parsed.subcommand === "register") {
+        const provider = parsed.positionals[0] ?? "";
+        if (!provider) {
+          log("Usage: chainreact app register <provider> [--dry-run]");
+          return 2;
+        }
+        const outcome = runAppRegister(provider, { dryRun: parsed.flags["dry-run"] === true }, fs, writer);
         log(outcome.output);
         return outcome.code;
       }
@@ -115,7 +131,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(renderValidation(result));
         return result.ok ? 0 : 1;
       }
-      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider>`);
+      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider>`);
       return 2;
     }
 
