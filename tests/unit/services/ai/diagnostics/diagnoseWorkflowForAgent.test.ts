@@ -465,7 +465,7 @@ describe("diagnoseWorkflowForAgent — dangling/broken edges (STALE_EDGE)", () =
     expect(finding!.source).toBe("graph");
     expect(finding!.title).toBe("This workflow has a connection to a step that no longer exists.");
     expect(finding!.danglingEdges).toEqual([
-      { fromLabel: "Gmail — Send Email", toLabel: "a step that no longer exists" },
+      { fromLabel: "Gmail — Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: true },
     ]);
     // It is NOT also emitted as a generic no-button graph finding.
     expect(dto.findings!.filter((f) => f.code === "stale_edge")).toHaveLength(0);
@@ -473,6 +473,34 @@ describe("diagnoseWorkflowForAgent — dangling/broken edges (STALE_EDGE)", () =
     const serialized = JSON.stringify({ summary: dto.summaryText, finding });
     expect(serialized).not.toContain("e9");
     expect(serialized).not.toContain("ghost-node");
+  });
+
+  it("MULTIPLE dangling edges → per-edge missing flags identify WHICH endpoint vanished (4B)", async () => {
+    mockReadiness.mockResolvedValue(
+      readinessOk({
+        runnable: false,
+        readinessError: "INVALID_WORKFLOW_GRAPH",
+        fieldGaps: [],
+        nodeLabels: [
+          { nodeId: "gmail-1", label: "Gmail — Send Email" },
+          { nodeId: "slack-1", label: "Slack — Send Channel Message" },
+        ],
+        graphIssues: [
+          { code: "stale_edge", edgeId: "e9", from: "gmail-1", to: "ghost-a" },
+          { code: "stale_edge", edgeId: "e10", from: "ghost-b", to: "slack-1" },
+        ],
+      }),
+    );
+    mockConnections.mockResolvedValue(connectionsOk());
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const finding = dto.findings!.find((f) => f.code === "STALE_EDGE");
+    expect(finding!.danglingEdges).toEqual([
+      { fromLabel: "Gmail — Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: true },
+      { fromLabel: "a step that no longer exists", toLabel: "Slack — Send Channel Message", fromMissing: true, toMissing: false },
+    ]);
+    // Still no raw edge / missing node id anywhere in the model-visible payload.
+    const serialized = JSON.stringify({ summary: dto.summaryText, finding });
+    for (const raw of ["e9", "e10", "ghost-a", "ghost-b"]) expect(serialized).not.toContain(raw);
   });
 });
 

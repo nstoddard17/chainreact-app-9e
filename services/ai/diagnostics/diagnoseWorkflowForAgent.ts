@@ -115,16 +115,20 @@ export interface AgentFinding {
     }[];
   }[];
   /**
-   * AI-REPAIR-4A — dangling/broken edges for a `STALE_EDGE` finding. Each edge's `from`
-   * or `to` node no longer exists; the safe deterministic repair is to remove it
+   * AI-REPAIR-4A / 4B — dangling/broken edges for a `STALE_EDGE` finding. Each edge's
+   * `from` or `to` node no longer exists; the safe deterministic repair is to remove it
    * (`removeEdge`). Carries SAFE display labels only — `fromLabel` / `toLabel` resolve to
    * the endpoint's display name when it exists, else "a step that no longer exists". The
-   * raw edge id / node ids stay server-side (the deterministic preview re-derives them);
-   * never rendered, never sent to the model.
+   * `fromMissing` / `toMissing` flags say WHICH endpoint vanished, so the UI can render an
+   * honest per-connection descriptor (quote the surviving step, leave the missing one
+   * plain). The raw edge id / node ids stay server-side (the deterministic preview
+   * re-derives them); never rendered, never sent to the model.
    */
   readonly danglingEdges?: readonly {
     readonly fromLabel: string;
     readonly toLabel: string;
+    readonly fromMissing: boolean;
+    readonly toMissing: boolean;
   }[];
   /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
@@ -321,17 +325,23 @@ export async function diagnoseWorkflowForAgent(input: {
   // deterministic edge-repair preview re-derives them via `buildEdgeRepairOutcome`).
   const staleEdges = (readiness.graphIssues ?? []).filter((g) => g.code === "stale_edge");
   if (staleEdges.length > 0) {
-    const labelOrMissing = (nodeId: string | undefined): string =>
-      (nodeId ? labelMap.get(nodeId) : undefined) ?? "a step that no longer exists";
+    // `labelMap` covers EVERY node in the diagnosed graph, so a node id that resolves to
+    // no label is precisely an endpoint that no longer exists. `missing` therefore drives
+    // both the safe placeholder label and the UI's honest per-connection descriptor.
+    const resolveEndpoint = (nodeId: string | undefined): { label: string; missing: boolean } => {
+      const label = nodeId ? labelMap.get(nodeId) : undefined;
+      return label ? { label, missing: false } : { label: "a step that no longer exists", missing: true };
+    };
     findings.push({
       source: "graph",
       code: "STALE_EDGE",
       severity: "error",
       title: graphTitle("STALE_EDGE"),
-      danglingEdges: staleEdges.map((g) => ({
-        fromLabel: labelOrMissing(g.from),
-        toLabel: labelOrMissing(g.to),
-      })),
+      danglingEdges: staleEdges.map((g) => {
+        const from = resolveEndpoint(g.from);
+        const to = resolveEndpoint(g.to);
+        return { fromLabel: from.label, toLabel: to.label, fromMissing: from.missing, toMissing: to.missing };
+      }),
     });
   }
   for (const f of readiness.fieldGaps ?? []) {

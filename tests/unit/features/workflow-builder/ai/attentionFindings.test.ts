@@ -156,21 +156,50 @@ describe("invalidReferenceCards — actionable invalid-reference cards (AI-REPAI
   });
 });
 
-describe("danglingEdgeCards — actionable dangling-edge cards (AI-REPAIR-4A)", () => {
+describe("danglingEdgeCards — actionable dangling-edge cards (AI-REPAIR-4A/4B)", () => {
   const staleEdgeFinding = (danglingEdges: unknown[]) =>
     dx([{ source: "graph", code: "STALE_EDGE", severity: "error", title: "x", danglingEdges }]);
 
-  it("STALE_EDGE finding → one card with the copy + safe connection descriptors", () => {
+  it("ONE dangling edge → singular copy + normalized connection descriptor", () => {
     const cards = danglingEdgeCards(
-      staleEdgeFinding([{ fromLabel: "Send Email", toLabel: "a step that no longer exists" }]),
+      staleEdgeFinding([
+        { fromLabel: "Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: true },
+      ]),
     );
     expect(cards).toHaveLength(1);
     expect(cards[0]!.message).toBe("This workflow has a connection to a step that no longer exists.");
-    expect(cards[0]!.connections).toEqual([{ fromLabel: "Send Email", toLabel: "a step that no longer exists" }]);
+    expect(cards[0]!.connections).toEqual([
+      { fromLabel: "Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: true },
+    ]);
+  });
+
+  it("MULTIPLE dangling edges → plural copy with the count (AI-REPAIR-4B)", () => {
+    const cards = danglingEdgeCards(
+      staleEdgeFinding([
+        { fromLabel: "Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: true },
+        { fromLabel: "a step that no longer exists", toLabel: "Send Slack Message", fromMissing: true, toMissing: false },
+      ]),
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.message).toBe("This workflow has 2 connections to steps that no longer exist.");
+    // Each broken connection is carried with its own missing-endpoint flags.
+    expect(cards[0]!.connections).toEqual([
+      { fromLabel: "Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: true },
+      { fromLabel: "a step that no longer exists", toLabel: "Send Slack Message", fromMissing: true, toMissing: false },
+    ]);
+  });
+
+  it("a rehydrated pre-4B finding without missing-flags normalizes them to false", () => {
+    const cards = danglingEdgeCards(
+      staleEdgeFinding([{ fromLabel: "Send Email", toLabel: "a step that no longer exists" }]),
+    );
+    expect(cards[0]!.connections).toEqual([
+      { fromLabel: "Send Email", toLabel: "a step that no longer exists", fromMissing: false, toMissing: false },
+    ]);
   });
 
   it("STALE_EDGE is NOT also returned by attentionFindingCards (it's actionable)", () => {
-    const d = staleEdgeFinding([{ fromLabel: "A", toLabel: "B" }]);
+    const d = staleEdgeFinding([{ fromLabel: "A", toLabel: "B", fromMissing: false, toMissing: true }]);
     expect(attentionFindingCards(d)).toEqual([]);
   });
 

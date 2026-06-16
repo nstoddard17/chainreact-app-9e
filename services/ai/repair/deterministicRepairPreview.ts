@@ -281,12 +281,21 @@ export async function runDanglingEdgeRepairPreview(
   const outcome = buildEdgeRepairOutcome(graph);
   if (!outcome || outcome.repairability !== "repairable" || outcome.operations.length === 0) return null;
 
+  // AI-REPAIR-4B — count-aware summary so the preview copy is honest about batch removal:
+  // every dangling edge is removed in this one preview (the validator rejects a candidate
+  // that still holds one), so multiple broken connections must read as plural, not singular.
+  const removeCount = outcome.operations.length;
+  const summary =
+    removeCount === 1
+      ? "Remove the broken connection to a missing step"
+      : `Remove all ${removeCount} broken connections to missing steps`;
+
   const preview = await previewRepairOps({
     userId: input.userId,
     workflowId: input.workflowId,
     graph,
     operations: outcome.operations as PatchOperation[],
-    summary: "Remove broken connection to a missing step",
+    summary,
     rationale: outcome.recommendations[0] ?? "Deterministic dangling-edge cleanup.",
     patchIdPrefix: "repair-preview-edge",
     ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),

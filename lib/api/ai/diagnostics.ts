@@ -74,14 +74,19 @@ export interface AgentDiagnosisFinding {
     }[];
   }[];
   /**
-   * AI-REPAIR-4A — dangling/broken edges for a `STALE_EDGE` finding (an edge whose `from`
-   * or `to` step no longer exists). Safe labels only (`fromLabel` / `toLabel`); the raw
-   * edge id / node ids stay server-side. The deterministic edge-repair preview removes
-   * them (`removeEdge`) — the client requests it with `previewWorkflowRepair(..., true)`.
+   * AI-REPAIR-4A / 4B — dangling/broken edges for a `STALE_EDGE` finding (an edge whose
+   * `from` or `to` step no longer exists). Safe labels only (`fromLabel` / `toLabel`); the
+   * raw edge id / node ids stay server-side. `fromMissing` / `toMissing` say WHICH endpoint
+   * vanished so the UI can render an honest descriptor. Optional for backward-compat with
+   * a rehydrated pre-4B diagnosis (the UI treats absence as not-missing). The deterministic
+   * edge-repair preview removes them (`removeEdge`) — requested via
+   * `previewWorkflowRepair(..., true)`.
    */
   readonly danglingEdges?: readonly {
     readonly fromLabel: string;
     readonly toLabel: string;
+    readonly fromMissing?: boolean;
+    readonly toMissing?: boolean;
   }[];
   /**
    * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's

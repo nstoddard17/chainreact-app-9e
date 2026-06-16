@@ -122,6 +122,9 @@ describe("runDanglingEdgeRepairPreview (AI-REPAIR-4A)", () => {
     const change = res!.preview.changes.find((c) => c.op === "removeEdge");
     expect(change?.description).toContain("Send Email");
     expect(change?.description).toContain("a node that's no longer in this workflow");
+    // AI-REPAIR-4B — singular summary copy for exactly one broken connection.
+    expect(res!.preview.patchSummary).toBe("Remove the broken connection to a missing step");
+    expect(res!.preview.userFacingSummaryText).toContain("Remove the broken connection to a missing step");
   });
 
   it("removes ALL dangling edges in one preview (so the candidate validates clean)", async () => {
@@ -137,6 +140,13 @@ describe("runDanglingEdgeRepairPreview (AI-REPAIR-4A)", () => {
     const ops = res!.preview.apply.operations as { op: string; edgeId: string }[];
     expect(ops.every((o) => o.op === "removeEdge")).toBe(true);
     expect(new Set(ops.map((o) => o.edgeId))).toEqual(new Set(["e-d1", "e-d2"]));
+    // AI-REPAIR-4B — one removeEdge op per dangling edge, and the copy is honestly plural
+    // about removing all of them in this single batch preview.
+    expect(ops).toHaveLength(2);
+    expect(res!.preview.patchSummary).toBe("Remove all 2 broken connections to missing steps");
+    expect(res!.preview.userFacingSummaryText).toContain("Remove all 2 broken connections to missing steps");
+    // The change list also enumerates one entry per removed connection.
+    expect(res!.preview.changes.filter((c) => c.op === "removeEdge")).toHaveLength(2);
   });
 
   it("no STALE_EDGE finding → null WITHOUT reading the graph", async () => {

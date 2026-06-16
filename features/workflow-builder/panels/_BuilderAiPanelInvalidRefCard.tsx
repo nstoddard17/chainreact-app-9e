@@ -86,10 +86,17 @@ export function InvalidReferenceCardView({
 }
 
 /**
- * Slice 4.AI-REPAIR-4A — a "Needs attention" card for dangling/broken edges (a connection
- * whose source or target step no longer exists). The PRIMARY action is "Preview fix" — it
- * runs the deterministic `removeEdge` cleanup preview; Apply lives only on the resulting
- * preview card (never on this Check card). No node is deleted and no endpoint is guessed.
+ * Slice 4.AI-REPAIR-4A/4B — a "Needs attention" card for dangling/broken edges (a
+ * connection whose source or target step no longer exists). The PRIMARY action is "Preview
+ * fix" — it runs the deterministic `removeEdge` cleanup preview; Apply lives only on the
+ * resulting preview card (never on this Check card). No node is deleted and no endpoint is
+ * guessed.
+ *
+ * AI-REPAIR-4B — when several connections are broken the headline is plural and the helper
+ * copy reads "connections", matching the batch-remove behavior (one preview clears ALL
+ * dangling edges) so the UI never understates how many will be removed. Each connection is
+ * shown as an honest descriptor: the surviving step is quoted, the vanished endpoint reads
+ * "a step that no longer exists" plainly.
  *
  * No-leak: shows only the server-built safe labels (a missing endpoint reads "a step that
  * no longer exists"); never a raw edge / node id. There's no field to "Open" for a broken
@@ -104,6 +111,7 @@ export function DanglingEdgeCardView({
   readonly onPreviewFix?: () => void;
   readonly previewing?: boolean;
 }) {
+  const many = card.connections.length > 1;
   return (
     <div data-testid="builder-ai-diagnosis-dangling-edge" className="flex flex-col gap-1">
       <p className="text-xs" style={{ color: "var(--builder-text)" }}>
@@ -111,7 +119,7 @@ export function DanglingEdgeCardView({
       </p>
       <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[11px]" style={{ color: "var(--builder-muted)" }}>
         {card.connections.map((c, i) => (
-          <li key={i}>{`From “${c.fromLabel}” to “${c.toLabel}”.`}</li>
+          <li key={i}>{describeBrokenConnection(c)}</li>
         ))}
       </ul>
       {onPreviewFix && (
@@ -129,13 +137,30 @@ export function DanglingEdgeCardView({
             </Button>
           </div>
           <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
-            Preview shows exactly which broken connection will be removed. Nothing is
-            changed, saved, or run until you choose to apply it.
+            {many
+              ? "Preview shows exactly which broken connections will be removed. Nothing is changed, saved, or run until you choose to apply it."
+              : "Preview shows exactly which broken connection will be removed. Nothing is changed, saved, or run until you choose to apply it."}
           </p>
         </>
       )}
     </div>
   );
+}
+
+/**
+ * AI-REPAIR-4B — render ONE broken connection as an honest, leak-free descriptor: the
+ * surviving step is quoted; the endpoint that no longer exists is shown plainly (its label
+ * is already the safe "a step that no longer exists" placeholder, so quoting it would read
+ * wrong). Labels only — never a raw edge / node id.
+ */
+function describeBrokenConnection(c: {
+  readonly fromLabel: string;
+  readonly toLabel: string;
+  readonly fromMissing: boolean;
+  readonly toMissing: boolean;
+}): string {
+  const endpoint = (label: string, missing: boolean) => (missing ? label : `“${label}”`);
+  return `From ${endpoint(c.fromLabel, c.fromMissing)} to ${endpoint(c.toLabel, c.toMissing)}.`;
 }
 
 /**

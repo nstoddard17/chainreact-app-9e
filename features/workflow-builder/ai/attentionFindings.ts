@@ -151,12 +151,33 @@ function invalidReferenceMessage(
 export interface DanglingEdgeCard {
   readonly key: string;
   readonly severity: "error" | "warning";
+  /**
+   * Count-aware headline (AI-REPAIR-4B): singular for one broken connection, plural (with
+   * the count) for many — so the copy never reads as a lone broken connection when several
+   * will be removed together.
+   */
   readonly message: string;
-  /** Safe per-connection descriptors for the card body. */
-  readonly connections: readonly { readonly fromLabel: string; readonly toLabel: string }[];
+  /**
+   * Safe per-connection descriptors for the card body. `fromMissing` / `toMissing` tell the
+   * view which endpoint vanished so it can quote the surviving step and leave the missing
+   * one plain. Normalized to booleans here (a rehydrated pre-4B finding lacks them → false).
+   */
+  readonly connections: readonly {
+    readonly fromLabel: string;
+    readonly toLabel: string;
+    readonly fromMissing: boolean;
+    readonly toMissing: boolean;
+  }[];
 }
 
-/** One actionable dangling-edge card per STALE_EDGE finding. Empty when there are none. */
+/**
+ * One actionable dangling-edge card per STALE_EDGE finding. Empty when there are none.
+ *
+ * AI-REPAIR-4B — the headline is count-aware (the finding aggregates ALL dangling edges, so
+ * `connections.length` is the number of broken connections that the single deterministic
+ * `removeEdge` preview will clear). One broken connection → singular; many → plural with
+ * the count, matching the batch-remove behavior so the copy stays honest.
+ */
 export function danglingEdgeCards(
   diagnosis: AgentWorkflowDiagnosis | null | undefined,
 ): DanglingEdgeCard[] {
@@ -166,11 +187,20 @@ export function danglingEdgeCards(
     if (finding.code !== "STALE_EDGE") continue;
     const edges = finding.danglingEdges ?? [];
     if (edges.length === 0) continue;
+    const message =
+      edges.length === 1
+        ? "This workflow has a connection to a step that no longer exists."
+        : `This workflow has ${edges.length} connections to steps that no longer exist.`;
     out.push({
       key: `stale-edge:${i}`,
       severity: finding.severity === "warning" ? "warning" : "error",
-      message: "This workflow has a connection to a step that no longer exists.",
-      connections: edges.map((e) => ({ fromLabel: e.fromLabel, toLabel: e.toLabel })),
+      message,
+      connections: edges.map((e) => ({
+        fromLabel: e.fromLabel,
+        toLabel: e.toLabel,
+        fromMissing: e.fromMissing ?? false,
+        toMissing: e.toMissing ?? false,
+      })),
     });
     i += 1;
   }

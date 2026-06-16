@@ -15,10 +15,10 @@ import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 
 /**
- * Slice 4.AI-CONFIG-ASSIST CS-4/CS-5 â€” the single navigation seam shared by every
+ * Slice 4.AI-CONFIG-ASSIST CS-4/CS-5 — the single navigation seam shared by every
  * "Open <field> field" affordance (diagnosis card + repair proposal). Selects the
  * node, opens its config rail, pans/zooms the canvas to it (via `useCanvasNodeFocus`),
- * and highlights the field. NAVIGATION ONLY â€” never writes a value, saves, runs, or
+ * and highlights the field. NAVIGATION ONLY — never writes a value, saves, runs, or
  * mutates the graph. After it runs, the highlighted field is what activates chat-fill.
  */
 function revealFieldTarget(target: RepairFieldTarget): void {
@@ -30,13 +30,13 @@ function revealFieldTarget(target: RepairFieldTarget): void {
 }
 
 /**
- * Slice 4.AI-REPAIR-2F â€” "Go to field" navigation affordance for a blocked
+ * Slice 4.AI-REPAIR-2F — "Go to field" navigation affordance for a blocked
  * repair preview. NAVIGATION ONLY: selects the affected node, opens its config
  * rail, pans the canvas to it, and highlights the field. NEVER writes a config
- * value, saves, runs, or mutates the graph â€” and there is NO Apply control.
+ * value, saves, runs, or mutates the graph — and there is NO Apply control.
  * Renders nothing unless the preview carries a `nodeId` focus target plus a
  * display LABEL; labels are the only thing shown (raw id/key are targets only).
- * Absent metadata (e.g. rehydrated history) â†’ safe guidance with no button.
+ * Absent metadata (e.g. rehydrated history) → safe guidance with no button.
  */
 export function RepairPreviewGoToTarget({
   preview,
@@ -50,12 +50,12 @@ export function RepairPreviewGoToTarget({
   if (!target || !target.nodeId) return null;
 
   const { nodeId, path: fieldKey, fieldLabel, nodeLabel } = target;
-  // Labels only â€” never the raw nodeId / field key.
+  // Labels only — never the raw nodeId / field key.
   const label = fieldLabel ? `Open ${fieldLabel} field` : `Go to ${nodeLabel}`;
 
   function handleClick() {
     // Resolve the node's CURRENT config from the live graph for the rail draft.
-    // If the node isn't on the canvas (stale preview), no-op â€” never throw.
+    // If the node isn't on the canvas (stale preview), no-op — never throw.
     const node = useGraphSlice
       .getState()
       .pendingNodes.find((n) => n.id === nodeId);
@@ -84,23 +84,23 @@ export function RepairPreviewGoToTarget({
 }
 
 /**
- * Slice 4.AI-CONFIG-ASSIST CS-4 â€” action area for a repair PROPOSAL bubble.
+ * Slice 4.AI-CONFIG-ASSIST CS-4 — action area for a repair PROPOSAL bubble.
  *
  * Product rule: a KNOWN, user-input-required missing field is something only the
- * user can fill â€” so don't force them to run a (paid) "Preview fix" of a
+ * user can fill — so don't force them to run a (paid) "Preview fix" of a
  * non-automatic fix just to open the field. When `goToNodeId` resolves to a node
  * with a still-empty required field (`useRepairFieldTarget`), the PRIMARY action
- * becomes "Open <field> field" â€” the SAME navigation seam (`revealNode`) the
+ * becomes "Open <field> field" — the SAME navigation seam (`revealNode`) the
  * blocked-preview "Go to field" button uses: it selects the node, opens its config
- * rail, pans/zooms the canvas, and highlights the field. NAVIGATION ONLY â€” it never
+ * rail, pans/zooms the canvas, and highlights the field. NAVIGATION ONLY — it never
  * writes a config value, saves, runs, or mutates the graph; there is no Apply.
  *
- * "Preview fix" is NOT removed â€” when a target exists it's demoted to a secondary
+ * "Preview fix" is NOT removed — when a target exists it's demoted to a secondary
  * control (still available for inspecting an actual patch). When there is NO
  * targetable field (the issue isn't a single fillable field, or the field is
  * already filled), the original Preview-fix-only block renders unchanged.
  *
- * Labels only ever show field/node DISPLAY labels â€” never the raw id / field key.
+ * Labels only ever show field/node DISPLAY labels — never the raw id / field key.
  */
 export function RepairProposalActions({
   goToNodeId,
@@ -119,7 +119,7 @@ export function RepairProposalActions({
 }) {
   const target = useRepairFieldTarget(goToNodeId);
 
-  // The "Preview fix" control â€” identical behavior whether it's the sole action
+  // The "Preview fix" control — identical behavior whether it's the sole action
   // (no target) or a secondary control beside "Open <field> field" (target present).
   const previewButton = canPreview ? (
     <Button
@@ -131,7 +131,7 @@ export function RepairProposalActions({
       data-testid="builder-ai-preview-fix-button"
       {...(target ? { className: "h-7 text-xs" } : {})}
     >
-      {previewing ? "Previewing fixâ€¦" : alreadyPreviewed ? "Previewed" : "Preview fix"}
+      {previewing ? "Previewing fix…" : alreadyPreviewed ? "Previewed" : "Preview fix"}
     </Button>
   ) : null;
 
@@ -161,7 +161,7 @@ export function RepairProposalActions({
     );
   }
 
-  // No targetable field â†’ the original Preview-fix-only block (markup unchanged).
+  // No targetable field → the original Preview-fix-only block (markup unchanged).
   if (!canPreview) return null;
   return (
     <div data-testid="builder-ai-repair-preview-fix" className="flex flex-col gap-1 pt-1">
@@ -175,15 +175,15 @@ export function RepairProposalActions({
 }
 
 /**
- * Slice 4.AI-CONFIG-ASSIST CS-8 â€” the open-field actions for ONE diagnosed node:
+ * Slice 4.AI-CONFIG-ASSIST CS-8 — the open-field actions for ONE diagnosed node:
  * one "Open <field> field" button per still-empty required field on that node. A
  * node-scoped component so the per-provider metadata hook (`useRepairFieldTargets`)
  * resolves correctly for an arbitrary node. Renders nothing when nothing required is
  * empty / the node isn't on the canvas / its metadata isn't loaded (so a stale or
- * already-filled node shows no button â€” never a broken one). Labels only.
+ * already-filled node shows no button — never a broken one). Labels only.
  *
  * Open-field navigation is offered for EVERY empty required field (including
- * recipient/destination fields CS-1 blocks from chat-fill) â€” the button only opens +
+ * recipient/destination fields CS-1 blocks from chat-fill) — the button only opens +
  * highlights; chat-fill is suggested separately (CS-6) and stays eligibility-gated.
  */
 function NodeFieldActions({ nodeId }: { readonly nodeId: string }) {
@@ -215,23 +215,23 @@ function NodeFieldActions({ nodeId }: { readonly nodeId: string }) {
 }
 
 /**
- * Slice 4.AI-CONFIG-ASSIST CS-5/CS-8 â€” the "Needs your input" actionable group on the
+ * Slice 4.AI-CONFIG-ASSIST CS-5/CS-8 — the "Needs your input" actionable group on the
  * "Check workflow" diagnosis card.
  *
  * Product model: Check produces actionable issue cards whose PRIMARY action fits the
  * problem type. For missing user-input fields (e.g. Slack "Send Channel Message"
- * missing Message), that action is "Open <field> field" â€” the user just needs to fill
+ * missing Message), that action is "Open <field> field" — the user just needs to fill
  * it, so they should NOT have to run "Suggest a fix" or "Preview fix" first. CS-8
  * generalizes CS-5 from a single target to ALL missing-required-field nodes: one
  * action per (node, empty required field), across every affected node, de-duplicated.
- * Each reuses the SAME `revealNode` navigation (select node â†’ open rail â†’ pan/zoom â†’
+ * Each reuses the SAME `revealNode` navigation (select node → open rail → pan/zoom →
  * highlight field); highlighting a field is what then arms chat-fill (CS-3/CS-6).
  *
- * Connection/setup, structural, and run findings are NOT rendered here â€” they stay in
+ * Connection/setup, structural, and run findings are NOT rendered here — they stay in
  * the deterministic `nextSteps` guidance (never offered an open-field/chat-fill action).
  *
- * NAVIGATION ONLY â€” never writes a config value, saves, runs, or mutates the graph;
- * there is no Apply. Shows only display LABELS â€” never the raw node id / field key.
+ * NAVIGATION ONLY — never writes a config value, saves, runs, or mutates the graph;
+ * there is no Apply. Shows only display LABELS — never the raw node id / field key.
  */
 export function DiagnosisFieldActions({
   diagnosis,
@@ -254,7 +254,7 @@ export function DiagnosisFieldActions({
         ))}
       </ul>
       <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
-        Opens the step and highlights the field so you can fill it in â€” then type the
+        Opens the step and highlights the field so you can fill it in — then type the
         value in chat. Nothing is changed, saved, or run.
       </p>
     </div>
@@ -262,25 +262,25 @@ export function DiagnosisFieldActions({
 }
 
 /**
- * Slice 4.CHECK-ACTIONS-1 â€” the "Needs setup" actionable group on the "Check
+ * Slice 4.CHECK-ACTIONS-1 — the "Needs setup" actionable group on the "Check
  * workflow" diagnosis card.
  *
  * Product model: Check produces actionable issue cards whose PRIMARY action fits the
  * problem TYPE. Setup/auth/connection problems (provider disconnected, token expired,
  * reconnect required, missing permissions, owner-must-reconnect) are NOT missing-field
- * problems â€” they can't be filled in chat and there's no automatic patch. So they get
+ * problems — they can't be filled in chat and there's no automatic patch. So they get
  * their own group: friendly guidance plus, when the current user can act on it, a link
- * to the existing Apps page (`/apps`) â€” the SAME safe destination the builder's
- * combobox-field "Reconnect â€¦ in Apps" guidance already uses.
+ * to the existing Apps page (`/apps`) — the SAME safe destination the builder's
+ * combobox-field "Reconnect … in Apps" guidance already uses.
  *
  * Classification + copy live in the pure `setupFindingCards` helper. Guidance-only
  * findings (owner-must-reconnect, provider disabled/unknown) render text with NO
- * button â€” never a broken affordance. This group offers NO open-field action and arms
+ * button — never a broken affordance. This group offers NO open-field action and arms
  * NO chat-fill (it never calls `revealNode`); chat-fill is exclusively for missing
  * user-input fields (CS-1/CS-6).
  *
- * NAVIGATION ONLY â€” links out to Apps; never writes config, saves, runs, or mutates
- * the graph; there is no Apply. Shows only the provider's public display name â€” never a
+ * NAVIGATION ONLY — links out to Apps; never writes config, saves, runs, or mutates
+ * the graph; there is no Apply. Shows only the provider's public display name — never a
  * raw code, node id, field key, scope name, or provider error string.
  */
 export function DiagnosisSetupActions({
@@ -327,17 +327,17 @@ export function DiagnosisSetupActions({
 }
 
 /**
- * Slice 4.CHECK-ACTIONS-2 â€” the "Needs attention" manual-guidance group on the "Check
+ * Slice 4.CHECK-ACTIONS-2 — the "Needs attention" manual-guidance group on the "Check
  * workflow" diagnosis card.
  *
- * Holds the non-targetable issues that aren't a missing field (â†’ "Needs your input")
- * or a connection/auth problem (â†’ "Needs setup"): structural/graph problems and a
+ * Holds the non-targetable issues that aren't a missing field (→ "Needs your input")
+ * or a connection/auth problem (→ "Needs setup"): structural/graph problems and a
  * failed most-recent run. Each renders deterministic, friendly guidance with NO button
- * â€” there's no single safe in-app action for "no trigger" or "the last run failed", so
+ * — there's no single safe in-app action for "no trigger" or "the last run failed", so
  * this group never renders a broken affordance.
  *
  * Classification + copy live in the pure `attentionFindingCards` helper. Read-only:
- * never writes config, saves, runs, or mutates the graph. Shows only guidance text â€”
+ * never writes config, saves, runs, or mutates the graph. Shows only guidance text —
  * never a raw code, node id, field key, provider/type key, or config value.
  */
 export function DiagnosisAttentionActions({
@@ -350,19 +350,19 @@ export function DiagnosisAttentionActions({
 }: {
   readonly diagnosis: AgentWorkflowDiagnosis;
   /**
-   * AI-REPAIR-3K â€” explicit-click handler for the one-candidate "Preview fix" action.
+   * AI-REPAIR-3K — explicit-click handler for the one-candidate "Preview fix" action.
    * Runs the SAME deterministic repair-preview round-trip the repair-proposal "Preview
-   * fix" uses (no LLM / no credits / no model telemetry â€” the route runs the
-   * deterministic path BEFORE the gate, AI-REPAIR-3H). Absent â†’ no Preview-fix button
+   * fix" uses (no LLM / no credits / no model telemetry — the route runs the
+   * deterministic path BEFORE the gate, AI-REPAIR-3H). Absent → no Preview-fix button
    * is offered (Open-field manual guidance only), so a historical/non-latest diagnosis
    * never shows it.
    */
   readonly onPreviewInvalidRef?: () => void;
   /**
-   * AI-REPAIR-3L â€” explicit-choice handler for the MULTIPLE-candidate case. The user
+   * AI-REPAIR-3L — explicit-choice handler for the MULTIPLE-candidate case. The user
    * picks a replacement from the safe candidate list, then this previews THAT exact
    * choice deterministically (re-validated server-side; no LLM / no credits / no
-   * telemetry). The app never auto-picks. Absent â†’ no picker is offered.
+   * telemetry). The app never auto-picks. Absent → no picker is offered.
    */
   readonly onPreviewSelectedInvalidRef?: (selection: SelectedRepair) => void;
   /**
@@ -373,11 +373,11 @@ export function DiagnosisAttentionActions({
   readonly onPreviewDanglingEdge?: () => void;
   /** A preview round-trip is in flight (disables the Preview-fix button). */
   readonly previewing?: boolean;
-  /** This diagnosis already triggered a preview (disables + relabels â€” no repeat). */
+  /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
   readonly alreadyPreviewedInvalidRef?: boolean;
 }) {
   const cards = attentionFindingCards(diagnosis);
-  // AI-REPAIR-3I â€” actionable broken-variable-reference cards (each with an
+  // AI-REPAIR-3I — actionable broken-variable-reference cards (each with an
   // "Open <field> field" button) render in the SAME "Needs attention" group.
   const refCards = invalidReferenceCards(diagnosis);
   // AI-REPAIR-4A — actionable dangling/broken-edge cards (each with a "Preview fix").
