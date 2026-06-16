@@ -70,6 +70,15 @@
   rollout + taking payments → CLAUDE.md push-posture banner.
 - [2026-06-09] V2 promoted live in production. "Don't push the working branch by default" does
   not mean "V2 isn't live" — both are true at once → CLAUDE.md banner @`4cd929c7f`.
+- [2026-06-15] **Active-revision model is the real product behavior (LOCAL/UNPUSHED, no flag).**
+  Draft edits aren't live; active workflows run the immutable active revision; test/preview runs
+  the draft; Publish snapshots the draft → new revision + repoints `active_revision_id`; trigger
+  resources are always registered from the same definition that's snapshotted; `workflow_runs.revision_id`
+  records the executed revision (NULL for draft/test/legacy/fallback, never exposed by an API).
+  Arc 41A–41J; flag `ENABLE_ACTIVE_REVISION_EXECUTION` **removed** (41H). Migration
+  `20260626000000_workflow_runs_revision_id.sql` applied to **dev DB only** — **not pushed, not in
+  prod**; deploy must apply it →
+  [`active-revision-model-closeout.md`](./slices/phase-4/readiness/active-revision-model-closeout.md).
 
 ## Open risks & follow-ups
 
