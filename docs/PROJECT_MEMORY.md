@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-12 @ 8e090b2f6 (AI-DIAG-2 arc closeout — safe "Explain with AI", local-only, flags OFF)
+> Last curated: 2026-06-15 @ 69e3792d8 (MCP internal diagnostic + reporting suite COMPLETE — stages 2A–2D, 43 tools, local-only)
 
 ## Current status
 
@@ -22,10 +22,6 @@
   authorizes a `v2-main` push **which deploys to prod** — that is now the intended ship path
   (no staging env yet). Approval is per-batch; it does not carry over.
 - **Open threads:**
-  - MCP internal diagnostic suite — live run/connection layer **built local-only** (Stage 2B:
-    run-failure/visibility, workflow-readiness, integration- + workflow-connections); remaining
-    stages **2B-5 (graph) / 2C (doctors) / 2D (reports) unbuilt** →
-    [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
   - **AI diagnosis + explanation (local-only, flags OFF).** Deterministic "Check workflow"
     (AI-DIAG-1) stays 0-credit/ungated/no-model; its telemetry now bills the workflow-owning
     account (AI-DIAG-2-pre). **"Explain with AI" SHIPPED** (AI-DIAG-2): explicit-click only; the
@@ -103,14 +99,16 @@
   on dev; gated dev smoke proved the RPC/gate path. Flag OFF everywhere (literal `"true"`). Full
   as-built + commits + deferred work →
   [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
-- **Internal MCP — Stage 2B live diagnostics complete + consolidated (local-only, 2026-06-12)** —
-  gated (default-OFF, prod-locked via `applyDiagnosticsGate`) live tools: run-failure,
-  run-visibility, workflow-readiness, integration-connection, workflow-connections. CS-2 added
-  the connection/provenance layer and extracted the integration-connection brain so no live route
-  holds diagnostic logic (route=gate/validate/serialize · `services/diagnostics/*`=brain ·
-  MCP=adapter/render). No token/identity/scope/config leak; sessionless account+provenance walls;
-  OQ-C logged (RLS dependency in the single-provider workflow path) → commits `aaccd237e`/`e5573fc6a`
-  (CS-2) + [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md).
+- **Internal MCP diagnostic + reporting suite COMPLETE — stages 2A–2D, 43 tools (local-only, 2026-06-15)** —
+  repo navigation, provider readiness, targeted verification, gated live diagnostics
+  (run-failure/visibility, workflow-readiness, integration-/workflow-connections), workflow-graph
+  diagnostics, no-leak scanner, composite doctors, and diagnostic/deploy-readiness reports
+  (Phase 2D `69e3792d8`). Reports **compose** existing doctors/checks — no new route/brain/DB/mutation;
+  output stays enums/counts/ids/field-names only (route=gate/validate/serialize ·
+  `services/diagnostics/*`=brain · MCP=adapter/render). Deferred / do-not-build: smoke runners + any
+  mutating/deploy/db/prod-data tools →
+  [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md) +
+  [`mcp/mcp-development-tooling-audit.md`](./slices/phase-4/mcp/mcp-development-tooling-audit.md).
 - **Connected-app recovery + disconnect (local-only, 2026-06-12)** — **Reconnect UX-complete**
   on connected app cards (provider-level recovery, always visible on collapsed cards;
   filled-secondary + refresh glyph + "Refresh this connection" tooltip). **"Connect another"
